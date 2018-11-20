@@ -273,14 +273,12 @@ func newpostgres(db *DB) *postgresDB {
 
 func (obj *postgresDB) Schema() string {
 	return `CREATE TABLE irreparabledbs (
-	segmentkey bytea NOT NULL,
-	segmentval bytea NOT NULL,
+	segmentpath bytea NOT NULL,
+	segmentdetail bytea NOT NULL,
 	pieces_lost_count bigint NOT NULL,
 	seg_damaged_unix_sec bigint NOT NULL,
 	repair_attempt_count bigint NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( segmentkey )
+	PRIMARY KEY ( segmentpath )
 );`
 }
 
@@ -346,14 +344,12 @@ func newsqlite3(db *DB) *sqlite3DB {
 
 func (obj *sqlite3DB) Schema() string {
 	return `CREATE TABLE irreparabledbs (
-	segmentkey BLOB NOT NULL,
-	segmentval BLOB NOT NULL,
+	segmentpath BLOB NOT NULL,
+	segmentdetail BLOB NOT NULL,
 	pieces_lost_count INTEGER NOT NULL,
 	seg_damaged_unix_sec INTEGER NOT NULL,
 	repair_attempt_count INTEGER NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	updated_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( segmentkey )
+	PRIMARY KEY ( segmentpath )
 );`
 }
 
@@ -418,58 +414,57 @@ nextval:
 }
 
 type Irreparabledb struct {
-	Segmentkey         []byte
-	Segmentval         []byte
+	Segmentpath        []byte
+	Segmentdetail      []byte
 	PiecesLostCount    int64
 	SegDamagedUnixSec  int64
 	RepairAttemptCount int64
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
 }
 
 func (Irreparabledb) _Table() string { return "irreparabledbs" }
 
 type Irreparabledb_Update_Fields struct {
+	Segmentdetail      Irreparabledb_Segmentdetail_Field
 	PiecesLostCount    Irreparabledb_PiecesLostCount_Field
 	SegDamagedUnixSec  Irreparabledb_SegDamagedUnixSec_Field
 	RepairAttemptCount Irreparabledb_RepairAttemptCount_Field
 }
 
-type Irreparabledb_Segmentkey_Field struct {
+type Irreparabledb_Segmentpath_Field struct {
 	_set   bool
 	_value []byte
 }
 
-func Irreparabledb_Segmentkey(v []byte) Irreparabledb_Segmentkey_Field {
-	return Irreparabledb_Segmentkey_Field{_set: true, _value: v}
+func Irreparabledb_Segmentpath(v []byte) Irreparabledb_Segmentpath_Field {
+	return Irreparabledb_Segmentpath_Field{_set: true, _value: v}
 }
 
-func (f Irreparabledb_Segmentkey_Field) value() interface{} {
+func (f Irreparabledb_Segmentpath_Field) value() interface{} {
 	if !f._set {
 		return nil
 	}
 	return f._value
 }
 
-func (Irreparabledb_Segmentkey_Field) _Column() string { return "segmentkey" }
+func (Irreparabledb_Segmentpath_Field) _Column() string { return "segmentpath" }
 
-type Irreparabledb_Segmentval_Field struct {
+type Irreparabledb_Segmentdetail_Field struct {
 	_set   bool
 	_value []byte
 }
 
-func Irreparabledb_Segmentval(v []byte) Irreparabledb_Segmentval_Field {
-	return Irreparabledb_Segmentval_Field{_set: true, _value: v}
+func Irreparabledb_Segmentdetail(v []byte) Irreparabledb_Segmentdetail_Field {
+	return Irreparabledb_Segmentdetail_Field{_set: true, _value: v}
 }
 
-func (f Irreparabledb_Segmentval_Field) value() interface{} {
+func (f Irreparabledb_Segmentdetail_Field) value() interface{} {
 	if !f._set {
 		return nil
 	}
 	return f._value
 }
 
-func (Irreparabledb_Segmentval_Field) _Column() string { return "segmentval" }
+func (Irreparabledb_Segmentdetail_Field) _Column() string { return "segmentdetail" }
 
 type Irreparabledb_PiecesLostCount_Field struct {
 	_set   bool
@@ -524,42 +519,6 @@ func (f Irreparabledb_RepairAttemptCount_Field) value() interface{} {
 }
 
 func (Irreparabledb_RepairAttemptCount_Field) _Column() string { return "repair_attempt_count" }
-
-type Irreparabledb_CreatedAt_Field struct {
-	_set   bool
-	_value time.Time
-}
-
-func Irreparabledb_CreatedAt(v time.Time) Irreparabledb_CreatedAt_Field {
-	return Irreparabledb_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f Irreparabledb_CreatedAt_Field) value() interface{} {
-	if !f._set {
-		return nil
-	}
-	return f._value
-}
-
-func (Irreparabledb_CreatedAt_Field) _Column() string { return "created_at" }
-
-type Irreparabledb_UpdatedAt_Field struct {
-	_set   bool
-	_value time.Time
-}
-
-func Irreparabledb_UpdatedAt(v time.Time) Irreparabledb_UpdatedAt_Field {
-	return Irreparabledb_UpdatedAt_Field{_set: true, _value: v}
-}
-
-func (f Irreparabledb_UpdatedAt_Field) value() interface{} {
-	if !f._set {
-		return nil
-	}
-	return f._value
-}
-
-func (Irreparabledb_UpdatedAt_Field) _Column() string { return "updated_at" }
 
 func toUTC(t time.Time) time.Time {
 	return t.UTC()
@@ -730,29 +689,25 @@ func (h *__sqlbundle_Hole) Render() string { return h.SQL.Render() }
 //
 
 func (obj *postgresImpl) Create_Irreparabledb(ctx context.Context,
-	irreparabledb_segmentkey Irreparabledb_Segmentkey_Field,
-	irreparabledb_segmentval Irreparabledb_Segmentval_Field,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
+	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
 	irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
 	irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
 	irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
 	irreparabledb *Irreparabledb, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__segmentkey_val := irreparabledb_segmentkey.value()
-	__segmentval_val := irreparabledb_segmentval.value()
+	__segmentpath_val := irreparabledb_segmentpath.value()
+	__segmentdetail_val := irreparabledb_segmentdetail.value()
 	__pieces_lost_count_val := irreparabledb_pieces_lost_count.value()
 	__seg_damaged_unix_sec_val := irreparabledb_seg_damaged_unix_sec.value()
 	__repair_attempt_count_val := irreparabledb_repair_attempt_count.value()
-	__created_at_val := __now
-	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO irreparabledbs ( segmentkey, segmentval, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING irreparabledbs.segmentkey, irreparabledbs.segmentval, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count, irreparabledbs.created_at, irreparabledbs.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO irreparabledbs ( segmentpath, segmentdetail, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count ) VALUES ( ?, ?, ?, ?, ? ) RETURNING irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __segmentkey_val, __segmentval_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val, __created_at_val, __updated_at_val)
+	obj.logStmt(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
 
 	irreparabledb = &Irreparabledb{}
-	err = obj.driver.QueryRow(__stmt, __segmentkey_val, __segmentval_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val, __created_at_val, __updated_at_val).Scan(&irreparabledb.Segmentkey, &irreparabledb.Segmentval, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount, &irreparabledb.CreatedAt, &irreparabledb.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -760,20 +715,20 @@ func (obj *postgresImpl) Create_Irreparabledb(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Get_Irreparabledb_By_Segmentkey(ctx context.Context,
-	irreparabledb_segmentkey Irreparabledb_Segmentkey_Field) (
+func (obj *postgresImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	irreparabledb *Irreparabledb, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentkey, irreparabledbs.segmentval, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count, irreparabledbs.created_at, irreparabledbs.updated_at FROM irreparabledbs WHERE irreparabledbs.segmentkey = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
 
 	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentkey.value())
+	__values = append(__values, irreparabledb_segmentpath.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	irreparabledb = &Irreparabledb{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&irreparabledb.Segmentkey, &irreparabledb.Segmentval, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount, &irreparabledb.CreatedAt, &irreparabledb.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -781,84 +736,22 @@ func (obj *postgresImpl) Get_Irreparabledb_By_Segmentkey(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Limited_Irreparabledb(ctx context.Context,
-	limit int, offset int64) (
-	rows []*Irreparabledb, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentkey, irreparabledbs.segmentval, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count, irreparabledbs.created_at, irreparabledbs.updated_at FROM irreparabledbs LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		irreparabledb := &Irreparabledb{}
-		err = __rows.Scan(&irreparabledb.Segmentkey, &irreparabledb.Segmentval, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount, &irreparabledb.CreatedAt, &irreparabledb.UpdatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, irreparabledb)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *postgresImpl) All_Irreparabledb(ctx context.Context) (
-	rows []*Irreparabledb, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentkey, irreparabledbs.segmentval, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count, irreparabledbs.created_at, irreparabledbs.updated_at FROM irreparabledbs")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		irreparabledb := &Irreparabledb{}
-		err = __rows.Scan(&irreparabledb.Segmentkey, &irreparabledb.Segmentval, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount, &irreparabledb.CreatedAt, &irreparabledb.UpdatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, irreparabledb)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *postgresImpl) Update_Irreparabledb_By_Segmentkey(ctx context.Context,
-	irreparabledb_segmentkey Irreparabledb_Segmentkey_Field,
+func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
 	irreparabledb *Irreparabledb, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE irreparabledbs SET "), __sets, __sqlbundle_Literal(" WHERE irreparabledbs.segmentkey = ? RETURNING irreparabledbs.segmentkey, irreparabledbs.segmentval, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count, irreparabledbs.created_at, irreparabledbs.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE irreparabledbs SET "), __sets, __sqlbundle_Literal(" WHERE irreparabledbs.segmentpath = ? RETURNING irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
 	var __args []interface{}
+
+	if update.Segmentdetail._set {
+		__values = append(__values, update.Segmentdetail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("segmentdetail = ?"))
+	}
 
 	if update.PiecesLostCount._set {
 		__values = append(__values, update.PiecesLostCount.value())
@@ -875,12 +768,11 @@ func (obj *postgresImpl) Update_Irreparabledb_By_Segmentkey(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("repair_attempt_count = ?"))
 	}
 
-	__now := obj.db.Hooks.Now().UTC()
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
 
-	__values = append(__values, __now)
-	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
-
-	__args = append(__args, irreparabledb_segmentkey.value())
+	__args = append(__args, irreparabledb_segmentpath.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -889,7 +781,7 @@ func (obj *postgresImpl) Update_Irreparabledb_By_Segmentkey(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	irreparabledb = &Irreparabledb{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&irreparabledb.Segmentkey, &irreparabledb.Segmentval, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount, &irreparabledb.CreatedAt, &irreparabledb.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -899,14 +791,14 @@ func (obj *postgresImpl) Update_Irreparabledb_By_Segmentkey(ctx context.Context,
 	return irreparabledb, nil
 }
 
-func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentkey(ctx context.Context,
-	irreparabledb_segmentkey Irreparabledb_Segmentkey_Field) (
+func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM irreparabledbs WHERE irreparabledbs.segmentkey = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
 
 	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentkey.value())
+	__values = append(__values, irreparabledb_segmentpath.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -954,28 +846,24 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 }
 
 func (obj *sqlite3Impl) Create_Irreparabledb(ctx context.Context,
-	irreparabledb_segmentkey Irreparabledb_Segmentkey_Field,
-	irreparabledb_segmentval Irreparabledb_Segmentval_Field,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
+	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
 	irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
 	irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
 	irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
 	irreparabledb *Irreparabledb, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__segmentkey_val := irreparabledb_segmentkey.value()
-	__segmentval_val := irreparabledb_segmentval.value()
+	__segmentpath_val := irreparabledb_segmentpath.value()
+	__segmentdetail_val := irreparabledb_segmentdetail.value()
 	__pieces_lost_count_val := irreparabledb_pieces_lost_count.value()
 	__seg_damaged_unix_sec_val := irreparabledb_seg_damaged_unix_sec.value()
 	__repair_attempt_count_val := irreparabledb_repair_attempt_count.value()
-	__created_at_val := __now
-	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO irreparabledbs ( segmentkey, segmentval, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO irreparabledbs ( segmentpath, segmentdetail, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count ) VALUES ( ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __segmentkey_val, __segmentval_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val, __created_at_val, __updated_at_val)
+	obj.logStmt(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
 
-	__res, err := obj.driver.Exec(__stmt, __segmentkey_val, __segmentval_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val, __created_at_val, __updated_at_val)
+	__res, err := obj.driver.Exec(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -987,20 +875,20 @@ func (obj *sqlite3Impl) Create_Irreparabledb(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Get_Irreparabledb_By_Segmentkey(ctx context.Context,
-	irreparabledb_segmentkey Irreparabledb_Segmentkey_Field) (
+func (obj *sqlite3Impl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	irreparabledb *Irreparabledb, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentkey, irreparabledbs.segmentval, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count, irreparabledbs.created_at, irreparabledbs.updated_at FROM irreparabledbs WHERE irreparabledbs.segmentkey = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
 
 	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentkey.value())
+	__values = append(__values, irreparabledb_segmentpath.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	irreparabledb = &Irreparabledb{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&irreparabledb.Segmentkey, &irreparabledb.Segmentval, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount, &irreparabledb.CreatedAt, &irreparabledb.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1008,84 +896,22 @@ func (obj *sqlite3Impl) Get_Irreparabledb_By_Segmentkey(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Limited_Irreparabledb(ctx context.Context,
-	limit int, offset int64) (
-	rows []*Irreparabledb, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentkey, irreparabledbs.segmentval, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count, irreparabledbs.created_at, irreparabledbs.updated_at FROM irreparabledbs LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		irreparabledb := &Irreparabledb{}
-		err = __rows.Scan(&irreparabledb.Segmentkey, &irreparabledb.Segmentval, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount, &irreparabledb.CreatedAt, &irreparabledb.UpdatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, irreparabledb)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) All_Irreparabledb(ctx context.Context) (
-	rows []*Irreparabledb, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentkey, irreparabledbs.segmentval, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count, irreparabledbs.created_at, irreparabledbs.updated_at FROM irreparabledbs")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		irreparabledb := &Irreparabledb{}
-		err = __rows.Scan(&irreparabledb.Segmentkey, &irreparabledb.Segmentval, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount, &irreparabledb.CreatedAt, &irreparabledb.UpdatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, irreparabledb)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentkey(ctx context.Context,
-	irreparabledb_segmentkey Irreparabledb_Segmentkey_Field,
+func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
 	irreparabledb *Irreparabledb, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE irreparabledbs SET "), __sets, __sqlbundle_Literal(" WHERE irreparabledbs.segmentkey = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE irreparabledbs SET "), __sets, __sqlbundle_Literal(" WHERE irreparabledbs.segmentpath = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
 	var __args []interface{}
+
+	if update.Segmentdetail._set {
+		__values = append(__values, update.Segmentdetail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("segmentdetail = ?"))
+	}
 
 	if update.PiecesLostCount._set {
 		__values = append(__values, update.PiecesLostCount.value())
@@ -1102,12 +928,11 @@ func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentkey(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("repair_attempt_count = ?"))
 	}
 
-	__now := obj.db.Hooks.Now().UTC()
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
 
-	__values = append(__values, __now)
-	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
-
-	__args = append(__args, irreparabledb_segmentkey.value())
+	__args = append(__args, irreparabledb_segmentpath.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -1121,12 +946,12 @@ func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentkey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT irreparabledbs.segmentkey, irreparabledbs.segmentval, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count, irreparabledbs.created_at, irreparabledbs.updated_at FROM irreparabledbs WHERE irreparabledbs.segmentkey = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&irreparabledb.Segmentkey, &irreparabledb.Segmentval, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount, &irreparabledb.CreatedAt, &irreparabledb.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -1136,14 +961,14 @@ func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentkey(ctx context.Context,
 	return irreparabledb, nil
 }
 
-func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentkey(ctx context.Context,
-	irreparabledb_segmentkey Irreparabledb_Segmentkey_Field) (
+func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM irreparabledbs WHERE irreparabledbs.segmentkey = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
 
 	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentkey.value())
+	__values = append(__values, irreparabledb_segmentpath.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -1166,13 +991,13 @@ func (obj *sqlite3Impl) getLastIrreparabledb(ctx context.Context,
 	pk int64) (
 	irreparabledb *Irreparabledb, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentkey, irreparabledbs.segmentval, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count, irreparabledbs.created_at, irreparabledbs.updated_at FROM irreparabledbs WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	irreparabledb = &Irreparabledb{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&irreparabledb.Segmentkey, &irreparabledb.Segmentval, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount, &irreparabledb.CreatedAt, &irreparabledb.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1255,18 +1080,9 @@ func (rx *Rx) Rollback() (err error) {
 	return err
 }
 
-func (rx *Rx) All_Irreparabledb(ctx context.Context) (
-	rows []*Irreparabledb, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_Irreparabledb(ctx)
-}
-
 func (rx *Rx) Create_Irreparabledb(ctx context.Context,
-	irreparabledb_segmentkey Irreparabledb_Segmentkey_Field,
-	irreparabledb_segmentval Irreparabledb_Segmentval_Field,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
+	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
 	irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
 	irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
 	irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
@@ -1275,77 +1091,60 @@ func (rx *Rx) Create_Irreparabledb(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Irreparabledb(ctx, irreparabledb_segmentkey, irreparabledb_segmentval, irreparabledb_pieces_lost_count, irreparabledb_seg_damaged_unix_sec, irreparabledb_repair_attempt_count)
+	return tx.Create_Irreparabledb(ctx, irreparabledb_segmentpath, irreparabledb_segmentdetail, irreparabledb_pieces_lost_count, irreparabledb_seg_damaged_unix_sec, irreparabledb_repair_attempt_count)
 
 }
 
-func (rx *Rx) Delete_Irreparabledb_By_Segmentkey(ctx context.Context,
-	irreparabledb_segmentkey Irreparabledb_Segmentkey_Field) (
+func (rx *Rx) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Delete_Irreparabledb_By_Segmentkey(ctx, irreparabledb_segmentkey)
+	return tx.Delete_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath)
 }
 
-func (rx *Rx) Get_Irreparabledb_By_Segmentkey(ctx context.Context,
-	irreparabledb_segmentkey Irreparabledb_Segmentkey_Field) (
+func (rx *Rx) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	irreparabledb *Irreparabledb, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_Irreparabledb_By_Segmentkey(ctx, irreparabledb_segmentkey)
+	return tx.Get_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath)
 }
 
-func (rx *Rx) Limited_Irreparabledb(ctx context.Context,
-	limit int, offset int64) (
-	rows []*Irreparabledb, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Limited_Irreparabledb(ctx, limit, offset)
-}
-
-func (rx *Rx) Update_Irreparabledb_By_Segmentkey(ctx context.Context,
-	irreparabledb_segmentkey Irreparabledb_Segmentkey_Field,
+func (rx *Rx) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
 	irreparabledb *Irreparabledb, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Update_Irreparabledb_By_Segmentkey(ctx, irreparabledb_segmentkey, update)
+	return tx.Update_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath, update)
 }
 
 type Methods interface {
-	All_Irreparabledb(ctx context.Context) (
-		rows []*Irreparabledb, err error)
-
 	Create_Irreparabledb(ctx context.Context,
-		irreparabledb_segmentkey Irreparabledb_Segmentkey_Field,
-		irreparabledb_segmentval Irreparabledb_Segmentval_Field,
+		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
+		irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
 		irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
 		irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
 		irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
 		irreparabledb *Irreparabledb, err error)
 
-	Delete_Irreparabledb_By_Segmentkey(ctx context.Context,
-		irreparabledb_segmentkey Irreparabledb_Segmentkey_Field) (
+	Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
+		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 		deleted bool, err error)
 
-	Get_Irreparabledb_By_Segmentkey(ctx context.Context,
-		irreparabledb_segmentkey Irreparabledb_Segmentkey_Field) (
+	Get_Irreparabledb_By_Segmentpath(ctx context.Context,
+		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 		irreparabledb *Irreparabledb, err error)
 
-	Limited_Irreparabledb(ctx context.Context,
-		limit int, offset int64) (
-		rows []*Irreparabledb, err error)
-
-	Update_Irreparabledb_By_Segmentkey(ctx context.Context,
-		irreparabledb_segmentkey Irreparabledb_Segmentkey_Field,
+	Update_Irreparabledb_By_Segmentpath(ctx context.Context,
+		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 		update Irreparabledb_Update_Fields) (
 		irreparabledb *Irreparabledb, err error)
 }

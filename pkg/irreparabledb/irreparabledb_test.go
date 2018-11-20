@@ -5,197 +5,86 @@ package irreparabledb
 
 import (
 	"context"
-	"fmt"
-	"math/rand"
+	"flag"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
+	"storj.io/storj/internal/testcontext"
+)
 
-	dbx "storj.io/storj/pkg/irreparabledb/dbx"
-	pb "storj.io/storj/pkg/irreparabledb/proto"
+const (
+	// this connstring is expected to work under the storj-test docker-compose instance
+	defaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
 )
 
 var (
-	ctx = context.Background()
+	testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
 )
 
-func TestCreateDoesNotExist(t *testing.T) {
-	dbPath := getDBPath()
-	irrdb, _, err := getServerAndDB(dbPath)
-	assert.NoError(t, err)
-
-	apiKey := []byte("")
-	rmtsegkey := []byte("irreparableremotesegkey")
-	rmtsegval := []byte("irreparableremotesegval")
-	rmtseginfo := &pb.RmtSegInfo{
-		RmtSegKey: rmtsegkey,
-		RmtSegVal: rmtsegval,
-	}
-	createReq := &pb.CreateRequest{
-		Rmtseginfo: rmtseginfo,
-		APIKey:     apiKey,
-	}
-	resp, err := irrdb.Create(ctx, createReq)
-	assert.NoError(t, err)
-	status := resp.Status
-	assert.EqualValues(t, 1, status)
-}
-
-func TestCreateExists(t *testing.T) {
-	dbPath := getDBPath()
-	irrdb, db, err := getServerAndDB(dbPath)
-	assert.NoError(t, err)
-
-	apiKey := []byte("")
-	rmtsegkey := []byte("irreparableremotesegkey")
-	rmtsegval := []byte("irreparableremotesegval")
-	piecesLost := int64(10)
-	damagedsegUnixSec := time.Now().Unix()
-	repairAttemptCount := int64(10)
-
-	err = createRmtSegInfo(ctx, db, rmtsegkey, rmtsegval, piecesLost, damagedsegUnixSec, repairAttemptCount)
-	assert.NoError(t, err)
-
-	rmtseginfo := &pb.RmtSegInfo{
-		RmtSegKey:                rmtsegkey,
-		RmtSegVal:                rmtsegval,
-		RmtSegLostPiecesCount:    piecesLost,
-		RmtSegRepairUnixSec:      damagedsegUnixSec,
-		RmtSegRepairAttemptCount: repairAttemptCount,
-	}
-	createReq := &pb.CreateRequest{
-		Rmtseginfo: rmtseginfo,
-		APIKey:     apiKey,
+func TestPostgres(t *testing.T) {
+	if *testPostgres == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
 	}
 
-	_, err = irrdb.Create(ctx, createReq)
-	assert.Error(t, err)
-}
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-func TestCreateWithRmtSegInfo(t *testing.T) {
-	dbPath := getDBPath()
-	irrdb, db, err := getServerAndDB(dbPath)
-	assert.NoError(t, err)
-
-	apiKey := []byte("")
-	rmtsegkey := []byte("irreparableremotesegkey")
-	rmtsegval := []byte("irreparableremotesegval")
-	piecesLost := int64(10)
-	damagedsegUnixSec := time.Now().Unix()
-	repairAttemptCount := int64(10)
-
-	rmtseginfo := &pb.RmtSegInfo{
-		RmtSegKey:                rmtsegkey,
-		RmtSegVal:                rmtsegval,
-		RmtSegLostPiecesCount:    piecesLost,
-		RmtSegRepairUnixSec:      damagedsegUnixSec,
-		RmtSegRepairAttemptCount: repairAttemptCount,
-	}
-	createReq := &pb.CreateRequest{
-		Rmtseginfo: rmtseginfo,
-		APIKey:     apiKey,
-	}
-
-	resp, err := irrdb.Create(ctx, createReq)
-	assert.NoError(t, err)
-	status := resp.Status
-	assert.EqualValues(t, 1, status)
-
-	dbrmtsegInfo, err := db.Get_Irreparabledb_By_Segmentkey(ctx, dbx.Irreparabledb_Segmentkey(rmtsegkey))
-	assert.NoError(t, err)
-
-	assert.EqualValues(t, rmtsegkey, dbrmtsegInfo.Segmentkey, rmtsegkey)
-	assert.EqualValues(t, rmtsegval, dbrmtsegInfo.Segmentval, rmtsegval)
-	assert.EqualValues(t, piecesLost, dbrmtsegInfo.PiecesLostCount, piecesLost)
-	assert.EqualValues(t, damagedsegUnixSec, dbrmtsegInfo.SegDamagedUnixSec, damagedsegUnixSec)
-	assert.EqualValues(t, repairAttemptCount, dbrmtsegInfo.RepairAttemptCount, repairAttemptCount)
-}
-
-func TestGetExists(t *testing.T) {
-	dbPath := getDBPath()
-	irrdb, db, err := getServerAndDB(dbPath)
-	assert.NoError(t, err)
-
-	apiKey := []byte("")
-	rmtsegkey := []byte("irreparableremotesegkey")
-	rmtsegval := []byte("irreparableremotesegval")
-	piecesLost := int64(10)
-	damagedsegUnixSec := time.Now().Unix()
-	repairAttemptCount := int64(10)
-
-	err = createRmtSegInfo(ctx, db, rmtsegkey, rmtsegval, piecesLost, damagedsegUnixSec, repairAttemptCount)
-	assert.NoError(t, err)
-
-	getReq := &pb.GetRequest{
-		RmtSegKey: rmtsegkey,
-		APIKey:    apiKey,
-	}
-	resp, err := irrdb.Get(ctx, getReq)
-	assert.NoError(t, err)
-
-	dbrmtsegInfo := resp.GetRmtseginfo()
-
-	assert.EqualValues(t, rmtsegkey, dbrmtsegInfo.RmtSegKey, rmtsegkey)
-	assert.EqualValues(t, rmtsegval, dbrmtsegInfo.RmtSegVal, rmtsegval)
-	assert.EqualValues(t, piecesLost, dbrmtsegInfo.RmtSegLostPiecesCount, piecesLost)
-	assert.EqualValues(t, damagedsegUnixSec, dbrmtsegInfo.RmtSegRepairUnixSec, damagedsegUnixSec)
-	assert.EqualValues(t, repairAttemptCount, dbrmtsegInfo.RmtSegRepairAttemptCount, repairAttemptCount)
-}
-
-func TestDeleteExists(t *testing.T) {
-	dbPath := getDBPath()
-	irrdb, db, err := getServerAndDB(dbPath)
-	assert.NoError(t, err)
-
-	apiKey := []byte("")
-	rmtsegkey := []byte("irreparableremotesegkey")
-	rmtsegval := []byte("irreparableremotesegval")
-	piecesLost := int64(10)
-	damagedsegUnixSec := time.Now().Unix()
-	repairAttemptCount := int64(10)
-
-	err = createRmtSegInfo(ctx, db, rmtsegkey, rmtsegval, piecesLost, damagedsegUnixSec, repairAttemptCount)
-	assert.NoError(t, err)
-
-	delReq := &pb.DeleteRequest{
-		RmtSegKey: rmtsegkey,
-		APIKey:    apiKey,
-	}
-	resp, err := irrdb.Delete(ctx, delReq)
-	assert.NoError(t, err)
-
-	status := resp.GetStatus()
-	assert.EqualValues(t, pb.DeleteResponse_OK, status)
-}
-
-func getDBPath() string {
-	return fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63())
-}
-
-func getServerAndDB(path string) (irreparabledb *Server, db *dbx.DB, err error) {
-	irreparabledb, err = NewServer("sqlite3", path, zap.NewNop())
+	// creating in-memory db and opening connection
+	irrdb, err := New(*testPostgres)
 	if err != nil {
-		return &Server{}, &dbx.DB{}, err
+		t.Fatal(err)
 	}
-	db, err = dbx.Open("sqlite3", path)
-	if err != nil {
-		return &Server{}, &dbx.DB{}, err
-	}
-	return irreparabledb, db, err
+	defer ctx.Check(irrdb.db.Close)
+
+	testDatabase(ctx, t, irrdb)
 }
 
-func createRmtSegInfo(ctx context.Context, db *dbx.DB, rmtsegkey []byte, rmtsegval []byte,
-	piecesLost int64, damagedsegUnixSec int64, repairAttemptCount int64) error {
-	_, err := db.Create_Irreparabledb(
-		ctx,
-		dbx.Irreparabledb_Segmentkey(rmtsegkey),
-		dbx.Irreparabledb_Segmentval(rmtsegval),
-		dbx.Irreparabledb_PiecesLostCount(piecesLost),
-		dbx.Irreparabledb_SegDamagedUnixSec(damagedsegUnixSec),
-		dbx.Irreparabledb_RepairAttemptCount(repairAttemptCount),
-	)
+func TestSqlite3(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	return err
+	// creating in-memory db and opening connection
+	irrdb, err := New("sqlite3://file::memory:?mode=memory&cache=shared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(irrdb.db.Close)
+
+	testDatabase(ctx, t, irrdb)
+}
+
+func testDatabase(ctx context.Context, t *testing.T, irrdb *Database) {
+	//testing variables
+	segmentInfo := &RemoteSegmentInfo{
+		EncryptedSegmentPath:   []byte("IamSegmentkeyinfo"),
+		EncryptedSegmentDetail: []byte("IamSegmentdetailinfo"),
+		LostPiecesCount:        int64(10),
+		RepairUnixSec:          time.Now().Unix(),
+		RepairAttemptCount:     int64(10),
+	}
+
+	{ // New entry
+		err := irrdb.IncrementRepairAttempts(ctx, segmentInfo)
+		assert.NoError(t, err)
+	}
+
+	{ //Increment the already existing entry
+		err := irrdb.IncrementRepairAttempts(ctx, segmentInfo)
+		assert.NoError(t, err)
+		segmentInfo.RepairAttemptCount++
+
+		dbxInfo, err := irrdb.Get(ctx, segmentInfo.EncryptedSegmentPath)
+		assert.NoError(t, err)
+		assert.Equal(t, segmentInfo, dbxInfo)
+	}
+
+	{ //Delete existing entry
+		err := irrdb.Delete(ctx, segmentInfo.EncryptedSegmentPath)
+		assert.NoError(t, err)
+
+		_, err = irrdb.Get(ctx, segmentInfo.EncryptedSegmentPath)
+		assert.Error(t, err)
+	}
 }
