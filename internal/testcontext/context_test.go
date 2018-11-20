@@ -22,3 +22,22 @@ func TestBasic(t *testing.T) {
 	t.Log(ctx.Dir("a", "b", "c"))
 	t.Log(ctx.File("a", "w", "c.txt"))
 }
+
+func TestTimeout(realTest *testing.T) {
+	ok := testing.RunTests(nil, []testing.InternalTest{{
+		Name: "TimeoutFailure",
+		F: func(t *testing.T) {
+			ctx := testcontext.NewWithTimeout(t, 50*time.Millisecond)
+			defer ctx.Cleanup()
+
+			ctx.Go(func() error {
+				time.Sleep(time.Second)
+				return nil
+			})
+		},
+	}})
+
+	if ok {
+		realTest.Error("test should have failed")
+	}
+}
