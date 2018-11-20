@@ -6,9 +6,11 @@ package node
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -68,17 +70,14 @@ func (pool *ConnectionPool) Disconnect(key string) error {
 	defer pool.mu.Unlock()
 
 	i, ok := pool.items[key]
-	if !ok {
+	if !ok || i.grpc == nil {
 		return nil
 	}
 
 	delete(pool.items, key)
 
-	if i.grpc != nil {
-		return i.grpc.Close()
-	}
+	return i.grpc.Close()
 
-	return nil
 }
 
 // Dial connects to the node with the given ID and Address returning a gRPC Node Client
@@ -93,9 +92,19 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 	pool.mu.Unlock()
 
 	conn.dial.Do(func() {
-		conn.grpc, conn.err = pool.tc.DialNode(ctx, n, grpc.WithBlock())
+		ticker := time.NewTicker(50 * time.Millisecond)
+		defer ticker.Stop()
+
+		conn.grpc, conn.err = pool.tc.DialNode(ctx, n)
 		if conn.err != nil {
 			return
+		}
+		// TODO(coyle): determin best way to configure or store values as consts
+		retry := 0
+		threshold := 10
+		for conn.grpc.GetState() != connectivity.Ready && retry < threshold {
+			retry++
+			<-ticker.C
 		}
 
 		conn.client = pb.NewNodesClient(conn.grpc)

@@ -28,7 +28,7 @@ func TestServer(t *testing.T) {
 
 	planet.Start(ctx)
 	// we wait a second for all the nodes to complete bootstrapping off the satellite
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	satellite := planet.Satellites[0]
 	server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay, satellite.Kademlia)
