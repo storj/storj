@@ -20,14 +20,14 @@ func TestProjectMembersRepository(t *testing.T) {
 	// creating in-memory db and opening connection
 	db, err := New("sqlite3", "file::memory:?mode=memory&cache=shared")
 	if err != nil {
-		assert.NoError(t, err)
+		t.Fatal(err)
 	}
 	defer ctx.Check(db.Close)
 
 	// creating tables
 	err = db.CreateTables()
 	if err != nil {
-		assert.NoError(t, err)
+		t.Fatal(err)
 	}
 
 	// repositories
@@ -35,7 +35,7 @@ func TestProjectMembersRepository(t *testing.T) {
 	projects := db.Projects()
 	projectMembers := db.ProjectMembers()
 
-	createdUsers, createdProjects := prepareUsersAndProjects(ctx, users, projects)
+	createdUsers, createdProjects := prepareUsersAndProjects(ctx, t, users, projects)
 
 	t.Run("Can't insert projectMember without memberID", func(t *testing.T) {
 		unexistingUserID, err := uuid.New()
@@ -186,45 +186,54 @@ func TestProjectMembersRepository(t *testing.T) {
 	})
 }
 
-func prepareUsersAndProjects(ctx context.Context, users stlt.Users, projects stlt.Projects) ([]stlt.User, []stlt.Project) {
-	user1 := &stlt.User{
+func prepareUsersAndProjects(ctx context.Context, t *testing.T, users stlt.Users, projects stlt.Projects) ([]stlt.User, []stlt.Project) {
+	usersList := []*stlt.User{{
 		Email:        "email1@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
 		LastName:     "LastName",
 		FirstName:    "FirstName",
-	}
-	user2 := &stlt.User{
+	}, {
 		Email:        "email2@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
 		LastName:     "LastName",
 		FirstName:    "FirstName",
-	}
-	user3 := &stlt.User{
+	}, {
 		Email:        "email3@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
 		LastName:     "LastName",
 		FirstName:    "FirstName",
+	},
 	}
 
-	user1, _ = users.Insert(ctx, user1)
-	user2, _ = users.Insert(ctx, user2)
-	user3, _ = users.Insert(ctx, user3)
-
-	project1 := &stlt.Project{
-		Name:          "projName1",
-		TermsAccepted: 1,
-		Description:   "Test project 1",
-		OwnerID:       &user1.ID,
-	}
-	project2 := &stlt.Project{
-		Name:          "projName2",
-		TermsAccepted: 1,
-		Description:   "Test project 1",
-		OwnerID:       &user2.ID,
+	var err error
+	for i, user := range usersList {
+		usersList[i], err = users.Insert(ctx, user)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	project1, _ = projects.Insert(ctx, project1)
-	project2, _ = projects.Insert(ctx, project2)
+	projectList := []*stlt.Project{
+		{
+			Name:          "projName1",
+			TermsAccepted: 1,
+			Description:   "Test project 1",
+			OwnerID:       &usersList[0].ID,
+		},
+		{
+			Name:          "projName2",
+			TermsAccepted: 1,
+			Description:   "Test project 1",
+			OwnerID:       &usersList[1].ID,
+		},
+	}
 
-	return []stlt.User{*user1, *user2, *user3}, []stlt.Project{*project1, *project2}
+	for i, project := range projectList {
+		projectList[i], err = projects.Insert(ctx, project)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	return []stlt.User{*usersList[0], *usersList[1], *usersList[2]}, []stlt.Project{*projectList[0], *projectList[1]}
 }

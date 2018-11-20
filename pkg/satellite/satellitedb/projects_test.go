@@ -39,14 +39,14 @@ func TestProjectsRepository(t *testing.T) {
 	// to test with real db3 file use this connection string - "../db/accountdb.db3"
 	db, err := New("sqlite3", "file::memory:?mode=memory&cache=shared")
 	if err != nil {
-		assert.NoError(t, err)
+		t.Fatal(err)
 	}
 	defer ctx.Check(db.Close)
 
 	// creating tables
 	err = db.CreateTables()
 	if err != nil {
-		assert.NoError(t, err)
+		t.Fatal(err)
 	}
 
 	// repositories
