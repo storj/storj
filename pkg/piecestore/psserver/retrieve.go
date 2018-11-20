@@ -68,11 +68,11 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 	}
 
 	// Read the size specified
-	totalToRead := pd.GetSize()
+	totalToRead := pd.GetPieceSize()
 	fileSize := fileInfo.Size()
 
 	// Read the entire file if specified -1 but make sure we do it from the correct offset
-	if pd.GetSize() <= -1 || totalToRead+pd.GetOffset() > fileSize {
+	if pd.GetPieceSize() <= -1 || totalToRead+pd.GetOffset() > fileSize {
 		totalToRead = fileSize - pd.GetOffset()
 	}
 
