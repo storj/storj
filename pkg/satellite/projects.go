@@ -34,8 +34,8 @@ type Project struct {
 
 	Name        string
 	Description string
-	// Indicates if user accepted terms and conditions during project creation.
-	IsAgreedWithTerms bool
+	// stores last accepted version of terms of use.
+	TermsAccepted int
 
 	CreatedAt time.Time
 }

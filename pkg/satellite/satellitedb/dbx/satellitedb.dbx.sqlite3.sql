@@ -27,7 +27,14 @@ CREATE TABLE projects (
 	owner_id BLOB REFERENCES users( id ) ON DELETE SET NULL,
 	name TEXT NOT NULL,
 	description TEXT NOT NULL,
-	is_agreed_with_terms INTEGER NOT NULL,
+	terms_accepted INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE project_members (
+	id BLOB NOT NULL,
+	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
