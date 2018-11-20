@@ -68,7 +68,7 @@ func (pool *ConnectionPool) Disconnect(key string) error {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
-	return disconnect(key)
+	return pool.disconnect(key)
 
 }
 
