@@ -162,21 +162,23 @@ func (sf *storjFS) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 func (sf *storjFS) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntry, code fuse.Status) {
 	zap.S().Debug("OpenDir: ", name)
 
-	objects, err := sf.listObjects(sf.ctx, name, false)
-	if err != nil {
-		return nil, fuse.EIO
-	}
-
 	var entries []fuse.DirEntry
-	for _, object := range objects {
-		path := object.Path
+	err := sf.listObjects(sf.ctx, name, false, func(items []objects.ListItem) error {
+		for _, item := range items {
+			path := item.Path
 
-		mode := fuse.S_IFREG
-		if object.IsPrefix {
-			path = strings.TrimSuffix(path, "/")
-			mode = fuse.S_IFDIR
+			mode := fuse.S_IFREG
+			if item.IsPrefix {
+				path = strings.TrimSuffix(path, "/")
+				mode = fuse.S_IFDIR
+			}
+			entries = append(entries, fuse.DirEntry{Name: path, Mode: uint32(mode)})
 		}
-		entries = append(entries, fuse.DirEntry{Name: path, Mode: uint32(mode)})
+		return nil
+	})
+	if err != nil {
+		zap.S().Errorf("error during opening directory: %v", err)
+		return nil, fuse.EIO
 	}
 
 	return entries, fuse.OK
@@ -200,18 +202,18 @@ func (sf *storjFS) Mkdir(name string, mode uint32, context *fuse.Context) fuse.S
 func (sf *storjFS) Rmdir(name string, context *fuse.Context) (code fuse.Status) {
 	zap.S().Debug("Rmdir: ", name)
 
-	objects, err := sf.listObjects(sf.ctx, name, true)
-	if err != nil {
-		zap.S().Errorf("error during listing: %v", err)
-		return fuse.EIO
-	}
-
-	for _, object := range objects {
-		err := sf.store.Delete(sf.ctx, name+"/"+object.Path)
-		if err != nil {
-			zap.S().Errorf("error during deleting: %v", err)
-			return fuse.EIO
+	err := sf.listObjects(sf.ctx, name, true, func(items []objects.ListItem) error {
+		for _, item := range items {
+			err := sf.store.Delete(sf.ctx, name+"/"+item.Path)
+			if err != nil {
+				return err
+			}
 		}
+		return nil
+	})
+	if err != nil {
+		zap.S().Errorf("error during removing directory: %v", err)
+		return fuse.EIO
 	}
 
 	return fuse.OK
@@ -237,18 +239,19 @@ func (sf *storjFS) removeCreatedFile(name string) {
 	delete(sf.createdFiles, name)
 }
 
-func (sf *storjFS) listObjects(ctx context.Context, name string, recursive bool) (c []objects.ListItem, err error) {
-	var entries []objects.ListItem
-
+func (sf *storjFS) listObjects(ctx context.Context, name string, recursive bool, handler func([]objects.ListItem) error) (err error) {
 	startAfter := ""
 
 	for {
 		items, more, err := sf.store.List(sf.ctx, name, startAfter, "", recursive, 0, meta.None)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		entries = append(entries, items...)
+		err = handler(items)
+		if err != nil {
+			return err
+		}
 
 		if !more {
 			break
@@ -257,7 +260,7 @@ func (sf *storjFS) listObjects(ctx context.Context, name string, recursive bool)
 		startAfter = items[len(items)-1].Path
 	}
 
-	return entries, nil
+	return nil
 }
 
 func (sf *storjFS) Unlink(name string, context *fuse.Context) (code fuse.Status) {
