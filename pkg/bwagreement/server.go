@@ -9,7 +9,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gtank/cryptopasta"
 	"go.uber.org/zap"
 
