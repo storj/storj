@@ -33,7 +33,7 @@ type Config struct {
 	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
 }
 
-// CtxKey used for assigning cache
+// CtxKey used for assigning cache and server
 type CtxKey int
 
 const (

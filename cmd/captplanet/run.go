@@ -99,18 +99,16 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		if runCfg.Satellite.Web.SatelliteAddr == "" {
 			runCfg.Satellite.Web.SatelliteAddr = runCfg.Satellite.Identity.Address
 		}
-
 		// Run satellite
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			grpcauth.NewAPIKeyInterceptor(),
-			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Kademlia,
 			runCfg.Satellite.Audit,
 			runCfg.Satellite.StatDB,
 			runCfg.Satellite.Overlay,
-			// TODO(coyle): re-enable the checker after we determine why it is erroring
-			// runCfg.Satellite.Checker,
-			// runCfg.Satellite.Repairer,
+			runCfg.Satellite.PointerDB,
+			runCfg.Satellite.Checker,
+			runCfg.Satellite.Repairer,
 			runCfg.Satellite.BwAgreement,
 			runCfg.Satellite.Web,
 		)
