@@ -4,7 +4,7 @@
 package queue
 
 import (
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"

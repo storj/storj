@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage/redis"
