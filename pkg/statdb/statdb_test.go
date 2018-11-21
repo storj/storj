@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package statdb
+package statdb_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/statdb"
 	dbx "storj.io/storj/pkg/statdb/dbx"
 	pb "storj.io/storj/pkg/statdb/proto"
 )
@@ -430,16 +431,16 @@ func getDBPath() string {
 	return fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63())
 }
 
-func getServerAndDB(path string) (statdb *Server, db *dbx.DB, err error) {
-	statdb, err = NewServer("sqlite3", path, string(apiKey), zap.NewNop())
+func getServerAndDB(path string) (sdb *statdb.Server, db *dbx.DB, err error) {
+	sdb, err = statdb.NewServer("sqlite3", path, string(apiKey), zap.NewNop())
 	if err != nil {
-		return &Server{}, &dbx.DB{}, err
+		return &statdb.Server{}, &dbx.DB{}, err
 	}
 	db, err = dbx.Open("sqlite3", path)
 	if err != nil {
-		return &Server{}, &dbx.DB{}, err
+		return &statdb.Server{}, &dbx.DB{}, err
 	}
-	return statdb, db, err
+	return sdb, db, err
 }
 
 func createNode(ctx context.Context, db *dbx.DB, nodeID []byte,
