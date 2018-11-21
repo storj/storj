@@ -5,6 +5,7 @@ package statdb
 
 import (
 	"context"
+	"crypto/subtle"
 	"database/sql"
 	"strings"
 
