@@ -17,9 +17,11 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/sha3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/utils"
@@ -352,6 +354,16 @@ func (fi *FullIdentity) DialOption(id string) (grpc.DialOption, error) {
 	}
 
 	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), nil
+}
+
+func NodeIDFromKey(k crypto.PublicKey) (storj.NodeID, error) {
+	kb, err := x509.MarshalPKIXPublicKey(k)
+	if err != nil {
+		return storj.NodeID{}, storj.ErrNodeID.Wrap(err)
+	}
+	hash := make([]byte, len(storj.NodeID{}))
+	sha3.ShakeSum256(hash, kb)
+	return storj.NodeIDFromBytes(hash)
 }
 
 type nodeID string
