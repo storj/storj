@@ -24,7 +24,7 @@ func rootQuery(service *satellite.Service, types Types) *graphql.Object {
 		Name: Query,
 		Fields: graphql.Fields{
 			userQuery: &graphql.Field{
-				Type: types.UserType(),
+				Type: types.User(),
 				Args: graphql.FieldConfigArgument{
 					fieldID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -60,7 +60,7 @@ func rootQuery(service *satellite.Service, types Types) *graphql.Object {
 					email, _ := p.Args[fieldEmail].(string)
 					pass, _ := p.Args[fieldPassword].(string)
 
-					token, err := service.Login(p.Context, email, pass)
+					token, err := service.Token(p.Context, email, pass)
 					if err != nil {
 						return nil, err
 					}
