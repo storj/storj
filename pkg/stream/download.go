@@ -9,16 +9,16 @@ import (
 
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 )
 
-// Download implements ReadCloser, Seeker and ReaderAt for reading from stream.
+// Download implements Reader, Seeker and Closer for reading from stream.
 type Download struct {
 	ctx     context.Context
 	stream  storj.ReadOnlyStream
 	streams streams.Store
 	reader  io.ReadCloser
 	offset  int64
+	closed  bool
 }
 
 // NewDownload creates new stream download.
@@ -37,6 +37,10 @@ func NewDownload(ctx context.Context, stream storj.ReadOnlyStream, streams strea
 //
 // See io.Reader for more details.
 func (download *Download) Read(data []byte) (n int, err error) {
+	if download.closed {
+		Error.New("already closed")
+	}
+
 	if download.reader == nil {
 		err = download.resetReader(0)
 		if err != nil {
@@ -51,23 +55,14 @@ func (download *Download) Read(data []byte) (n int, err error) {
 	return n, err
 }
 
-// ReadAt reads len(data) bytes into data starting at offset in the underlying input source.
-//
-// See io.ReaderAt for more details.
-func (download *Download) ReadAt(data []byte, offset int64) (n int, err error) {
-	reader, err := download.newReader(offset)
-	if err != nil {
-		return 0, err
-	}
-	defer utils.LogClose(reader)
-
-	return io.ReadFull(reader, data)
-}
-
 // Seek changes the offset for the next Read call.
 //
 // See io.Seeker for more details.
 func (download *Download) Seek(offset int64, whence int) (int64, error) {
+	if download.closed {
+		Error.New("already closed")
+	}
+
 	var off int64
 	switch whence {
 	case io.SeekStart:
@@ -86,28 +81,37 @@ func (download *Download) Seek(offset int64, whence int) (int64, error) {
 	return download.offset, nil
 }
 
-// Close closes the underlying reader and resets the offset to the beginning of the stream.
-//
-// The next Read call will start from the beginning of the stream.
+// Close closes the stream and releases the underlying resources.
 func (download *Download) Close() error {
+	if download.closed {
+		Error.New("already closed")
+	}
+
+	download.closed = true
+
 	if download.reader == nil {
 		return nil
 	}
-
-	defer func() {
-		download.reader = nil
-	}()
 
 	return download.reader.Close()
 }
 
 func (download *Download) resetReader(offset int64) error {
-	err := download.Close()
+	if download.reader != nil {
+		err := download.reader.Close()
+		if err != nil {
+			return err
+		}
+	}
+
+	obj := download.stream.Info()
+
+	rr, _, err := download.streams.Get(download.ctx, storj.JoinPaths(obj.Bucket, obj.Path), obj.Cipher)
 	if err != nil {
 		return err
 	}
 
-	download.reader, err = download.newReader(offset)
+	download.reader, err = rr.Range(download.ctx, offset, obj.Size-offset)
 	if err != nil {
 		return err
 	}
@@ -115,15 +119,4 @@ func (download *Download) resetReader(offset int64) error {
 	download.offset = offset
 
 	return nil
-}
-
-func (download *Download) newReader(offset int64) (io.ReadCloser, error) {
-	obj := download.stream.Info()
-
-	rr, _, err := download.streams.Get(download.ctx, storj.JoinPaths(obj.Bucket, obj.Path), obj.Cipher)
-	if err != nil {
-		return nil, err
-	}
-
-	return rr.Range(download.ctx, offset, obj.Size-offset)
 }
