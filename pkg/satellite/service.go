@@ -9,6 +9,8 @@ import (
 	"crypto/subtle"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
@@ -21,10 +23,11 @@ type Service struct {
 	Signer
 
 	store DB
+	log   *zap.Logger
 }
 
 // NewService returns new instance of Service
-func NewService(signer Signer, store DB) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -33,24 +36,65 @@ func NewService(signer Signer, store DB) (*Service, error) {
 		return nil, errs.New("store can't be nil")
 	}
 
-	return &Service{Signer: signer, store: store}, nil
+	if log == nil {
+		return nil, errs.New("log can't be nil")
+	}
+
+	return &Service{Signer: signer, store: store, log: log}, nil
 }
 
-// Register gets password hash value and creates new user
-func (s *Service) Register(ctx context.Context, user *User) (*User, error) {
-	passwordHash := sha256.Sum256(user.PasswordHash)
-	user.PasswordHash = passwordHash[:]
+// CreateUser gets password hash value and creates new user
+func (s *Service) CreateUser(ctx context.Context, userInfo UserInfo, companyInfo CompanyInfo) (*User, error) {
+	passwordHash := sha256.Sum256([]byte(userInfo.Password))
 
-	newUser, err := s.store.Users().Insert(ctx, user)
+	user, err := s.store.Users().Insert(ctx, &User{
+		Email:        userInfo.Email,
+		FirstName:    userInfo.FirstName,
+		LastName:     userInfo.LastName,
+		PasswordHash: passwordHash[:],
+	})
+
 	if err != nil {
 		return nil, err
 	}
 
-	return newUser, nil
+	_, err = s.store.Companies().Insert(ctx, &Company{
+		UserID:     user.ID,
+		Name:       companyInfo.Name,
+		Address:    companyInfo.Address,
+		Country:    companyInfo.Country,
+		City:       companyInfo.City,
+		State:      companyInfo.State,
+		PostalCode: companyInfo.PostalCode,
+	})
+
+	if err != nil {
+		s.log.Error(err.Error())
+	}
+
+	return user, nil
 }
 
-// Login authenticates user by credentials and returns auth token
-func (s *Service) Login(ctx context.Context, email, password string) (string, error) {
+// CreateCompany creates Company for authorized User
+func (s *Service) CreateCompany(ctx context.Context, info CompanyInfo) (*Company, error) {
+	user, err := s.Authorize(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.store.Companies().Insert(ctx, &Company{
+		UserID:     user.ID,
+		Name:       info.Name,
+		Address:    info.Address,
+		Country:    info.Country,
+		City:       info.City,
+		State:      info.State,
+		PostalCode: info.PostalCode,
+	})
+}
+
+// Token authenticates user by credentials and returns auth token
+func (s *Service) Token(ctx context.Context, email, password string) (string, error) {
 	passwordHash := sha256.Sum256([]byte(password))
 
 	user, err := s.store.Users().GetByCredentials(ctx, passwordHash[:], email)
@@ -74,27 +118,22 @@ func (s *Service) Login(ctx context.Context, email, password string) (string, er
 
 // GetUser returns user by id
 func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*User, error) {
-	token, ok := auth.GetAPIKey(ctx)
-	if !ok {
-		return nil, errs.New("no api key was provided")
-	}
-
-	claims, err := s.authenticate(string(token))
+	_, err := s.Authorize(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	err = s.authorize(ctx, claims)
+	return s.store.Users().Get(ctx, id)
+}
+
+// GetCompany returns company by userID
+func (s *Service) GetCompany(ctx context.Context, userID uuid.UUID) (*Company, error) {
+	_, err := s.Authorize(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	user, err := s.store.Users().Get(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	return user, nil
+	return s.store.Companies().GetByUserID(ctx, userID)
 }
 
 func (s *Service) createToken(claims *satelliteauth.Claims) (string, error) {
@@ -112,6 +151,22 @@ func (s *Service) createToken(claims *satelliteauth.Claims) (string, error) {
 	return token.String(), nil
 }
 
+// Authorize validates token from context and returns authenticated and authorized User
+func (s *Service) Authorize(ctx context.Context) (*User, error) {
+	token, ok := auth.GetAPIKey(ctx)
+	if !ok {
+		return nil, errs.New("no api key was provided")
+	}
+
+	claims, err := s.authenticate(string(token))
+	if err != nil {
+		return nil, err
+	}
+
+	return s.authorize(ctx, claims)
+}
+
+// authenticate validates toke signature and returns authenticated *satelliteauth.Claims
 func (s *Service) authenticate(tokenS string) (*satelliteauth.Claims, error) {
 	token, err := satelliteauth.FromBase64URLString(tokenS)
 	if err != nil {
@@ -137,15 +192,16 @@ func (s *Service) authenticate(tokenS string) (*satelliteauth.Claims, error) {
 	return claims, nil
 }
 
-func (s *Service) authorize(ctx context.Context, claims *satelliteauth.Claims) error {
+// authorize checks claims and returns authorized User
+func (s *Service) authorize(ctx context.Context, claims *satelliteauth.Claims) (*User, error) {
 	if !claims.Expiration.IsZero() && claims.Expiration.Before(time.Now()) {
-		return errs.New("token is outdated")
+		return nil, errs.New("token is outdated")
 	}
 
-	_, err := s.store.Users().Get(ctx, claims.ID)
+	user, err := s.store.Users().Get(ctx, claims.ID)
 	if err != nil {
-		return errs.New("authorization failed. no user with id: %s", claims.ID.String())
+		return nil, errs.New("authorization failed. no user with id: %s", claims.ID.String())
 	}
 
-	return nil
+	return user, nil
 }

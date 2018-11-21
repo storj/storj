@@ -21,7 +21,7 @@ type GatewayConfig struct {
 type gateway struct {
 	schema graphql.Schema
 	config GatewayConfig
-	logger *zap.SugaredLogger
+	log    *zap.Logger
 }
 
 func (gw *gateway) run() {
@@ -36,7 +36,7 @@ func (gw *gateway) run() {
 	}
 
 	err := http.ListenAndServe(gw.config.Address, mux)
-	gw.logger.Errorf("unexpected exit of satellite gateway server: ", err)
+	gw.log.Error("unexpected exit of satellite gateway server: ", zap.Error(err))
 }
 
 func (gw *gateway) appHandler(w http.ResponseWriter, req *http.Request) {
