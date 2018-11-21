@@ -72,9 +72,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		Wallet: c.Farmer.Wallet,
 	}
 
-	// TODO(jt): kademlia should register on server.GRPC() instead of listening
-	// itself
-	in.Id = "foo"
 	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, server.Addr().String(), metadata, server.Identity(), c.DBPath, c.Alpha)
 	if err != nil {
 		return err
