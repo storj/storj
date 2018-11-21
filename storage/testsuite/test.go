@@ -22,6 +22,8 @@ func RunTests(t *testing.T, store storage.KeyValueStore) {
 
 	t.Run("List", func(t *testing.T) { testList(t, store) })
 	t.Run("ListV2", func(t *testing.T) { testListV2(t, store) })
+
+	t.Run("Parallel", func(t *testing.T) { testParallel(t, store) })
 }
 
 func testConstraints(t *testing.T, store storage.KeyValueStore) {

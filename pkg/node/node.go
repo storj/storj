@@ -36,7 +36,6 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 
 	if err := rt.ConnectionSuccess(&to); err != nil {
 		return nil, NodeClientErr.Wrap(err)
-
 	}
 
 	return resp.Response, nil

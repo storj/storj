@@ -24,10 +24,20 @@ var ServerError = errs.Class("Server Error")
 
 // Server implements our overlay RPC service
 type Server struct {
+	logger  *zap.Logger
 	dht     dht.DHT
 	cache   *Cache
-	logger  *zap.Logger
 	metrics *monkit.Registry
+}
+
+// NewServer creates a new Overlay Server
+func NewServer(log *zap.Logger, cache *Cache, dht dht.DHT) *Server {
+	return &Server{
+		dht:     dht,
+		cache:   cache,
+		logger:  log,
+		metrics: monkit.Default,
+	}
 }
 
 // Lookup finds the address of a node in our overlay network
@@ -44,10 +54,9 @@ func (o *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (*pb.LookupR
 	}, nil
 }
 
-//BulkLookup finds the addresses of nodes in our overlay network
+// BulkLookup finds the addresses of nodes in our overlay network
 func (o *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (*pb.LookupResponses, error) {
 	ns, err := o.cache.GetAll(ctx, lookupRequestsToNodeIDs(reqs))
-
 	if err != nil {
 		return nil, ServerError.New("could not get nodes requested %s\n", err)
 	}

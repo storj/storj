@@ -29,6 +29,13 @@ func NewOverlay(nodes []*pb.Node) *Overlay {
 
 }
 
+//CtxKey Used as kademlia key
+type CtxKey int
+
+const (
+	ctxKeyMockOverlay CtxKey = iota
+)
+
 // FindStorageNodes is the mock implementation
 func (mo *Overlay) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
 	nodes := make([]*pb.Node, 0, len(mo.nodes))
@@ -82,7 +89,16 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 				Address:   addr,
 			}})
 	}
-
-	pb.RegisterOverlayServer(server.GRPC(), NewOverlay(nodes))
+	srv := NewOverlay(nodes)
+	pb.RegisterOverlayServer(server.GRPC(), srv)
+	ctx = context.WithValue(ctx, ctxKeyMockOverlay, srv)
 	return server.Run(ctx)
+}
+
+// LoadServerFromContext gives access to the overlay server from the context, or returns nil
+func LoadServerFromContext(ctx context.Context) *Overlay {
+	if v, ok := ctx.Value(ctxKeyMockOverlay).(*Overlay); ok {
+		return v
+	}
+	return nil
 }

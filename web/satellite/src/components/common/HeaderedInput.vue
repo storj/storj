@@ -1,12 +1,12 @@
 <template>
-    <div class="inputContainer">
-		<div v-if="!isOptional" class="labelContainer">
+    <div class="input-container">
+		<div v-if="!isOptional" class="label-container">
 			<img v-if="error" src="../../../static/images/register/ErrorInfo.svg"/>
 			<h3 v-if="!error">{{label}}</h3>
-			<h3 class="hiAddLabel">{{additionalLabel}}</h3>
-			<h3 class="error" v-if="error">{{error}}</h3>
+			<h3 class="label-container__add-label">{{additionalLabel}}</h3>
+			<h3 class="label-container__error" v-if="error">{{error}}</h3>
 		</div>
-		<div v-if="isOptional" class="optionalLabelContainer">
+		<div v-if="isOptional" class="optional-label-container">
 			<h3>{{label}}</h3>
 			<h4>Optional</h4>
 		</div>
@@ -90,18 +90,31 @@ export default class HeaderedInput extends Vue { }
 </script>
 
 <style scoped lang="scss">
-.inputContainer {
+.input-container {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
 	margin-top: 10px;
 }
-.labelContainer {
+.label-container {
 	display: flex;
 	justify-content: flex-start;
 	flex-direction: row;
+
+	&__add-label {
+		margin-left: 5px;
+		font-family: 'montserrat_regular';
+		font-size: 16px;
+		line-height: 21px;
+		color: rgba(56, 75, 101, 0.4);
+	}
+
+	&__error {
+		color: #FF5560;
+		margin-left: 10px;
+	}
 }
-.optionalLabelContainer {
+.optional-label-container {
 	display: flex;
 	flex-direction: row;
 	justify-content: space-between;
@@ -129,21 +142,10 @@ textarea {
 textarea {
 	padding-top: 20px;
 }
-.hiAddLabel {
-		margin-left: 5px;
-		font-family: 'montserrat_regular';
-		font-size: 16px;
-		line-height: 21px;
-		color: rgba(56, 75, 101, 0.4);
-}
 h3 {
 	font-family: 'montserrat_regular';
 	font-size: 16px;
 	line-height: 21px;
 	color: #354049;
-}
-.error {
-	color: #FF5560;
-	margin-left: 10px;
 }
 </style>

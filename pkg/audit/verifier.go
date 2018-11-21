@@ -138,7 +138,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 
 	// this downloads shares from nodes at the given stripe index
 	for i, node := range nodes {
-		paddedSize := calcPadded(pointer.GetSize(), shareSize)
+		paddedSize := calcPadded(pointer.GetSegmentSize(), shareSize)
 		pieceSize := paddedSize / int64(pointer.Remote.Redundancy.GetMinReq())
 
 		s, err := d.getShare(ctx, stripeIndex, shareSize, int(pieces[i].PieceNum), pieceID, pieceSize, node, authorization)
