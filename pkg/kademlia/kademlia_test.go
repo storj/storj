@@ -11,9 +11,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync/atomic"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
@@ -393,7 +394,7 @@ func mktempdir(t *testing.T, dir string) (string, func()) {
 	return rootdir, cleanup
 }
 
-func startTestNodeServer() (*grpc.Server, *mockNodeServer, *provider.FullIdentity, string) {
+func startTestNodeServer() (*grpc.Server, *mockNodesServer, *provider.FullIdentity, string) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, nil, nil, ""
@@ -412,7 +413,7 @@ func startTestNodeServer() (*grpc.Server, *mockNodeServer, *provider.FullIdentit
 		return nil, nil, nil, ""
 	}
 	grpcServer := grpc.NewServer(identOpt)
-	mn := &mockNodeServer{queryCalled: 0}
+	mn := &mockNodesServer{queryCalled: 0}
 
 	pb.RegisterNodesServer(grpcServer, mn)
 	go func() {
@@ -422,4 +423,41 @@ func startTestNodeServer() (*grpc.Server, *mockNodeServer, *provider.FullIdentit
 	}()
 
 	return grpcServer, mn, identity, lis.Addr().String()
+}
+
+func newTestServer(nn []*pb.Node) (*grpc.Server, *mockNodesServer) {
+	ca, err := provider.NewTestCA(context.Background())
+	if err != nil {
+		return nil, nil
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		return nil, nil
+	}
+	identOpt, err := identity.ServerOption()
+	if err != nil {
+		return nil, nil
+	}
+	grpcServer := grpc.NewServer(identOpt)
+	mn := &mockNodesServer{queryCalled: 0}
+
+	pb.RegisterNodesServer(grpcServer, mn)
+
+	return grpcServer, mn
+}
+
+type mockNodesServer struct {
+	queryCalled int32
+	pingCalled  int32
+	returnValue []*pb.Node
+}
+
+func (mn *mockNodesServer) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
+	atomic.AddInt32(&mn.queryCalled, 1)
+	return &pb.QueryResponse{Response: mn.returnValue}, nil
+}
+
+func (mn *mockNodesServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
+	atomic.AddInt32(&mn.pingCalled, 1)
+	return &pb.PingResponse{}, nil
 }

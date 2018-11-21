@@ -8,6 +8,7 @@ import (
 	"flag"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/node"
@@ -44,9 +45,7 @@ const (
 type Config struct {
 	BootstrapAddr string `help:"the kademlia node to bootstrap against" default:"bootstrap-dev.storj.io:8080"`
 	DBPath        string `help:"the path for our db services to be created on" default:"$CONFDIR/kademlia"`
-	// TODO(jt): remove this! kademlia should just use the grpc server
-	TODOListenAddr string `help:"the host/port for kademlia to listen on. TODO(jt): this should be removed!" default:"127.0.0.1:7776"`
-	Alpha          int    `help:"alpha is a system wide concurrency parameter." default:"5"`
+	Alpha         int    `help:"alpha is a system wide concurrency parameter." default:"5"`
 }
 
 // Run implements provider.Responsibility
@@ -61,23 +60,19 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return err
 	}
 
-	// TODO(jt): kademlia should register on server.GRPC() instead of listening
-	// itself
-	in.Id = "foo"
-	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, c.TODOListenAddr, server.Identity(), c.DBPath, c.Alpha)
+	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, server.Addr().String(), server.Identity(), c.DBPath, c.Alpha)
 	if err != nil {
 		return err
 	}
 	defer func() { err = utils.CombineErrors(err, kad.Disconnect()) }()
 
-	mn := node.NewServer(kad)
-	pb.RegisterNodesServer(server.GRPC(), mn)
+	pb.RegisterNodesServer(server.GRPC(), node.NewServer(kad))
 
-	// TODO(jt): Bootstrap should probably be blocking and we should kick it off
-	// in a goroutine here
-	if err = kad.Bootstrap(ctx); err != nil {
-		return err
-	}
+	go func() {
+		if err = kad.Bootstrap(ctx); err != nil {
+			zap.L().Error("Failed to bootstrap Kademlia", zap.String("ID", server.Identity().ID.String()))
+		}
+	}()
 
 	return server.Run(context.WithValue(ctx, ctxKeyKad, kad))
 }

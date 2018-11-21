@@ -96,7 +96,7 @@ func companyFromDBX(company *dbx.Company) (*satellite.Company, error) {
 		return nil, err
 	}
 
-	comp := &satellite.Company{
+	return &satellite.Company{
 		ID:         id,
 		UserID:     userID,
 		Name:       company.Name,
@@ -106,9 +106,7 @@ func companyFromDBX(company *dbx.Company) (*satellite.Company, error) {
 		State:      company.State,
 		PostalCode: company.PostalCode,
 		CreatedAt:  company.CreatedAt,
-	}
-
-	return comp, nil
+	}, nil
 }
 
 // getCompanyUpdateFields is used to generate company update fields
