@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/datarepair/queue"

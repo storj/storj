@@ -33,7 +33,7 @@ func PieceRanger(ctx context.Context, c *PieceStore, stream pb.PieceStoreRoutes_
 	if err != nil {
 		return nil, err
 	}
-	return &pieceRanger{c: c, id: id, size: piece.Size, stream: stream, pba: pba, authorization: authorization}, nil
+	return &pieceRanger{c: c, id: id, size: piece.PieceSize, stream: stream, pba: pba, authorization: authorization}, nil
 }
 
 // PieceRangerSize creates a PieceRanger with known size.
@@ -64,7 +64,7 @@ func (r *pieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadC
 	}
 
 	// send piece data
-	if err := r.stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: r.id.String(), Size: length, Offset: offset}, Authorization: r.authorization}); err != nil {
+	if err := r.stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: r.id.String(), PieceSize: length, Offset: offset}, Authorization: r.authorization}); err != nil {
 		return nil, err
 	}
 

@@ -11,7 +11,7 @@ import (
 	"sort"
 	"text/tabwriter"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"

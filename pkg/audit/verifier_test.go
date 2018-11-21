@@ -240,7 +240,7 @@ func makePointer(nodeAmt int) *pb.Pointer {
 			PieceId:      "testId",
 			RemotePieces: rps,
 		},
-		Size: int64(1),
+		SegmentSize: int64(1),
 	}
 	return pr
 }

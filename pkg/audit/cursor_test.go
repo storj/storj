@@ -254,7 +254,7 @@ func makePutRequest(path storj.Path) pb.PutRequest {
 				PieceId:      "testId",
 				RemotePieces: rps,
 			},
-			Size: int64(10),
+			SegmentSize: int64(10),
 		},
 	}
 	return pr

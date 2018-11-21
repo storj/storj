@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -61,7 +61,7 @@ func (s *Server) validateAuth(ctx context.Context) error {
 func (s *Server) validateSegment(req *pb.PutRequest) error {
 	min := s.config.MinRemoteSegmentSize
 	remote := req.GetPointer().Remote
-	remoteSize := req.GetPointer().GetSize()
+	remoteSize := req.GetPointer().GetSegmentSize()
 
 	if remote != nil && remoteSize < int64(min) {
 		return segmentError.New("remote segment size %d less than minimum allowed %d", remoteSize, min)
@@ -256,7 +256,7 @@ func (s *Server) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags 
 		item.Pointer.ExpirationDate = pr.GetExpirationDate()
 	}
 	if metaFlags&meta.Size != 0 {
-		item.Pointer.Size = pr.GetSize()
+		item.Pointer.SegmentSize = pr.GetSegmentSize()
 	}
 	if metaFlags&meta.UserDefined != 0 {
 		item.Pointer.Metadata = pr.GetMetadata()

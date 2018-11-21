@@ -24,6 +24,7 @@ type DHT interface {
 	Ping(ctx context.Context, node pb.Node) (pb.Node, error)
 	FindNode(ctx context.Context, ID NodeID) (pb.Node, error)
 	Disconnect() error
+	Seen() []*pb.Node
 }
 
 // RoutingTable contains information on nodes we have locally

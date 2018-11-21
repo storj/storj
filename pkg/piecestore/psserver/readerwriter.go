@@ -24,7 +24,7 @@ func NewStreamWriter(s *Server, stream pb.PieceStoreRoutes_RetrieveServer) *Stre
 // Write -- Write method for piece upload to stream for Server.Retrieve
 func (s *StreamWriter) Write(b []byte) (int, error) {
 	// Write the buffer to the stream we opened earlier
-	if err := s.stream.Send(&pb.PieceRetrievalStream{Size: int64(len(b)), Content: b}); err != nil {
+	if err := s.stream.Send(&pb.PieceRetrievalStream{PieceSize: int64(len(b)), Content: b}); err != nil {
 		return 0, err
 	}
 
