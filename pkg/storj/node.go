@@ -4,37 +4,30 @@
 package storj
 
 import (
-	"crypto"
-	"crypto/x509"
 	"encoding/base64"
-	"fmt"
 	"math/bits"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
-	"golang.org/x/crypto/sha3"
+
 	"storj.io/storj/pkg/utils"
 )
 
-// IdentityLength is the number of bytes required to represent a node id
-const IdentityLength = 32
+const IDVersion = 0
 
 var (
-	ErrNotImplemented = errs.Class("not implemented error")
 	// ErrNodeID is used when something goes wrong with a node id
-	ErrNodeID   = errs.Class("node ID error")
-	// EmptyNodeID is the zero-value for a NodeID
-	EmptyNodeID = NodeID([IdentityLength]byte{})
+	ErrNodeID = errs.Class("node ID error")
 )
 
 // NodeID is a unique node identifier
-type NodeID [IdentityLength]byte
+type NodeID [32]byte
 type NodeIDList []NodeID
 
 func NodeIDFromString(s string) (NodeID, error) {
-	idBytes, err := base64.URLEncoding.DecodeString(s)
+	idBytes, _, err := base58.CheckDecode(s)
 	if err != nil {
-		return EmptyNodeID, ErrNodeID.Wrap(err)
+		return NodeID{}, ErrNodeID.Wrap(err)
 	}
 	return NodeIDFromBytes(idBytes)
 }
@@ -59,34 +52,24 @@ func NodeIDsFromBytes(b [][]byte) (ids NodeIDList, err error) {
 
 func NodeIDFromBytes(b []byte) (NodeID, error) {
 	bLen := len(b)
-	if bLen < IdentityLength {
-		return NodeID{}, ErrNodeID.New("not enough bytes to make a node id; have %d, need %d", bLen, IdentityLength)
+	if bLen != len(NodeID{}) {
+		return NodeID{}, ErrNodeID.New("not enough bytes to make a node id; have %d, need %d", bLen, len(NodeID{}))
 	}
 
 	var id NodeID
-	copy(id[:], b[:IdentityLength])
+	copy(id[:], b[:])
 	return NodeID(id), nil
-}
-
-func NodeIDFromKey(k crypto.PublicKey) (NodeID, error) {
-	kb, err := x509.MarshalPKIXPublicKey(k)
-	if err != nil {
-		return NodeID{}, ErrNodeID.Wrap(err)
-	}
-	hash := make([]byte, IdentityLength)
-	sha3.ShakeSum256(hash, kb)
-	return NodeIDFromBytes(hash)
 }
 
 // String returns NodeID as hex encoded string
 func (id NodeID) String() string {
-	return base64.URLEncoding.EncodeToString(id[:])
+	return base58.CheckEncode(id[:], IDVersion)
 }
 
 // Bytes returns raw bytes of the id
 func (id NodeID) Bytes() []byte { return id[:] }
 
-func (id NodeID) Difficulty() uint16 {
+func (id NodeID) Difficulty() (uint16, error) {
 	idLen := len(id)
 	for i := 1; i < idLen; i++ {
 		b := id[idLen-i]
@@ -97,14 +80,11 @@ func (id NodeID) Difficulty() uint16 {
 				zeroBits = 0
 			}
 
-			return uint16((i-1)*8 + zeroBits)
+			return uint16((i-1)*8 + zeroBits), nil
 		}
 	}
 
-	// NB: this should never happen
-	reason := fmt.Sprintf("difficulty matches id hash length: %d; hash (hex): % x", idLen, id)
-	zap.S().Error(reason)
-	panic(reason)
+	return 0, ErrNodeID.New("difficulty matches id hash length: %d; hash (hex): % x", idLen, id)
 }
 
 func (n NodeIDList) Bytes() (idsBytes [][]byte) {
@@ -123,15 +103,11 @@ func (n NodeIDList) Swap(i, j int) {
 }
 
 func (n NodeIDList) Less(i, j int) bool {
-	if n[i] == EmptyNodeID || n[j] == EmptyNodeID {
-		return n[i] == EmptyNodeID
-	}
-
-	bytesI := n[i].Bytes()
-	bytesJ := n[j].Bytes()
-	for k, v := range bytesI {
-		if v != bytesJ[k] {
-			return v < bytesJ[k]
+	for k, v := range n[i] {
+		if v < n[j][k] {
+			return true
+		} else if v > n[j][k] {
+			return false
 		}
 		// compare next index
 	}
@@ -160,12 +136,17 @@ func (id *NodeID) Size() int {
 
 // TODO(bryanchriswhite): what should this look like?
 func (id NodeID) MarshalJSON() ([]byte, error) {
-	return nil, ErrNotImplemented.New("MarshalJSON")
+	return []byte(`"` + id.String() + `"`), nil
 }
 
 // TODO(bryanchriswhite): what should this look like?
 func (id *NodeID) UnmarshalJSON(data []byte) error {
-	return ErrNotImplemented.New("MarshalJSON")
+	var err error
+	*id, err = NodeIDFromString(string(data))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // // only required if the compare option is set
