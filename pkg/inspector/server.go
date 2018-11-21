@@ -99,12 +99,6 @@ func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.G
 		AuditCount: res.Stats.AuditCount,
 	}, nil
 }
-// GetCSVStats returns the stats for a set of node IDs from a CSV
-func (srv *Server) GetCSVStats(ctx context.Context, req *pb.GetCSVStatsRequest) (*pb.GetCSVStatsResponse, error) {
-	return &pb.GetCSVStatsResponse{
-
-	}, nil
-}
 
 // CreateStats creates a node with specified stats
 func (srv *Server) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) (*pb.CreateStatsResponse, error) {
@@ -126,11 +120,4 @@ func (srv *Server) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) 
 
 
 	return &pb.CreateStatsResponse{}, err
-}
-
-// CreateCSVStats creates stats for a set of nodes based on a CSV
-func (srv *Server) CreateCSVStats(ctx context.Context, req *pb.CreateCSVStatsRequest) (*pb.CreateCSVStatsResponse, error) {
-	return &pb.CreateCSVStatsResponse{
-
-	}, nil
 }

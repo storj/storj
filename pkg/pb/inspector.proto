@@ -20,12 +20,8 @@ service Inspector {
   // StatDB commands:
   // GetStats returns the stats for a particular node ID
   rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
-  // GetCSVStats returns the stats for a set of node IDs from a CSV
-  rpc GetCSVStats(GetCSVStatsRequest) returns (GetCSVStatsResponse);
   // CreateStats creates a node with specified stats
   rpc CreateStats(CreateStatsRequest) returns (CreateStatsResponse);
-  // CreateCSVStats creates stats for a set of nodes based on a CSV
-  rpc CreateCSVStats(CreateCSVStatsRequest) returns (CreateCSVStatsResponse);
 }
 
 // GetStats
@@ -39,17 +35,6 @@ message GetStatsResponse {
   double audit_ratio = 3;
 }
 
-// GetCSVStats
-message GetCSVStatsRequest {
-  repeated string node_id = 1;
-}
-
-message GetCSVStatsResponse {
-  repeated int64 audit_count = 1;
-  repeated double uptime_ratio = 2;
-  repeated double audit_ratio = 3;
-}
-
 // CreateStats
 message CreateStatsRequest {
   string node_id = 1;
@@ -60,18 +45,6 @@ message CreateStatsRequest {
 }
 
 message CreateStatsResponse {
-}
-
-// CreateCSVStats
-message CreateCSVStatsRequest {
-  repeated string node_id = 1;
-  repeated int64 audit_count = 2;
-  repeated int64 audit_success_count = 3;
-  repeated int64 uptime_count = 4;
-  repeated int64 uptime_success_count = 5;
-}
-
-message CreateCSVStatsResponse {
 }
 
 // CountNodes

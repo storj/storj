@@ -33,7 +33,7 @@ func (m *GetStatsRequest) Reset()         { *m = GetStatsRequest{} }
 func (m *GetStatsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetStatsRequest) ProtoMessage()    {}
 func (*GetStatsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_11760029345291ba, []int{0}
+	return fileDescriptor_inspector_ed07bb9d3058e441, []int{0}
 }
 func (m *GetStatsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetStatsRequest.Unmarshal(m, b)
@@ -73,7 +73,7 @@ func (m *GetStatsResponse) Reset()         { *m = GetStatsResponse{} }
 func (m *GetStatsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetStatsResponse) ProtoMessage()    {}
 func (*GetStatsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_11760029345291ba, []int{1}
+	return fileDescriptor_inspector_ed07bb9d3058e441, []int{1}
 }
 func (m *GetStatsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetStatsResponse.Unmarshal(m, b)
@@ -114,99 +114,6 @@ func (m *GetStatsResponse) GetAuditRatio() float64 {
 	return 0
 }
 
-// GetCSVStats
-type GetCSVStatsRequest struct {
-	NodeId               []string `protobuf:"bytes,1,rep,name=node_id,json=nodeId" json:"node_id,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *GetCSVStatsRequest) Reset()         { *m = GetCSVStatsRequest{} }
-func (m *GetCSVStatsRequest) String() string { return proto.CompactTextString(m) }
-func (*GetCSVStatsRequest) ProtoMessage()    {}
-func (*GetCSVStatsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_11760029345291ba, []int{2}
-}
-func (m *GetCSVStatsRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetCSVStatsRequest.Unmarshal(m, b)
-}
-func (m *GetCSVStatsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetCSVStatsRequest.Marshal(b, m, deterministic)
-}
-func (dst *GetCSVStatsRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetCSVStatsRequest.Merge(dst, src)
-}
-func (m *GetCSVStatsRequest) XXX_Size() int {
-	return xxx_messageInfo_GetCSVStatsRequest.Size(m)
-}
-func (m *GetCSVStatsRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetCSVStatsRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetCSVStatsRequest proto.InternalMessageInfo
-
-func (m *GetCSVStatsRequest) GetNodeId() []string {
-	if m != nil {
-		return m.NodeId
-	}
-	return nil
-}
-
-type GetCSVStatsResponse struct {
-	AuditCount           []int64   `protobuf:"varint,1,rep,packed,name=audit_count,json=auditCount" json:"audit_count,omitempty"`
-	UptimeRatio          []float64 `protobuf:"fixed64,2,rep,packed,name=uptime_ratio,json=uptimeRatio" json:"uptime_ratio,omitempty"`
-	AuditRatio           []float64 `protobuf:"fixed64,3,rep,packed,name=audit_ratio,json=auditRatio" json:"audit_ratio,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
-	XXX_unrecognized     []byte    `json:"-"`
-	XXX_sizecache        int32     `json:"-"`
-}
-
-func (m *GetCSVStatsResponse) Reset()         { *m = GetCSVStatsResponse{} }
-func (m *GetCSVStatsResponse) String() string { return proto.CompactTextString(m) }
-func (*GetCSVStatsResponse) ProtoMessage()    {}
-func (*GetCSVStatsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_11760029345291ba, []int{3}
-}
-func (m *GetCSVStatsResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetCSVStatsResponse.Unmarshal(m, b)
-}
-func (m *GetCSVStatsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetCSVStatsResponse.Marshal(b, m, deterministic)
-}
-func (dst *GetCSVStatsResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetCSVStatsResponse.Merge(dst, src)
-}
-func (m *GetCSVStatsResponse) XXX_Size() int {
-	return xxx_messageInfo_GetCSVStatsResponse.Size(m)
-}
-func (m *GetCSVStatsResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetCSVStatsResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetCSVStatsResponse proto.InternalMessageInfo
-
-func (m *GetCSVStatsResponse) GetAuditCount() []int64 {
-	if m != nil {
-		return m.AuditCount
-	}
-	return nil
-}
-
-func (m *GetCSVStatsResponse) GetUptimeRatio() []float64 {
-	if m != nil {
-		return m.UptimeRatio
-	}
-	return nil
-}
-
-func (m *GetCSVStatsResponse) GetAuditRatio() []float64 {
-	if m != nil {
-		return m.AuditRatio
-	}
-	return nil
-}
-
 // CreateStats
 type CreateStatsRequest struct {
 	NodeId               string   `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
@@ -223,7 +130,7 @@ func (m *CreateStatsRequest) Reset()         { *m = CreateStatsRequest{} }
 func (m *CreateStatsRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateStatsRequest) ProtoMessage()    {}
 func (*CreateStatsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_11760029345291ba, []int{4}
+	return fileDescriptor_inspector_ed07bb9d3058e441, []int{2}
 }
 func (m *CreateStatsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateStatsRequest.Unmarshal(m, b)
@@ -288,7 +195,7 @@ func (m *CreateStatsResponse) Reset()         { *m = CreateStatsResponse{} }
 func (m *CreateStatsResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateStatsResponse) ProtoMessage()    {}
 func (*CreateStatsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_11760029345291ba, []int{5}
+	return fileDescriptor_inspector_ed07bb9d3058e441, []int{3}
 }
 func (m *CreateStatsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateStatsResponse.Unmarshal(m, b)
@@ -308,107 +215,6 @@ func (m *CreateStatsResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_CreateStatsResponse proto.InternalMessageInfo
 
-// CreateCSVStats
-type CreateCSVStatsRequest struct {
-	NodeId               []string `protobuf:"bytes,1,rep,name=node_id,json=nodeId" json:"node_id,omitempty"`
-	AuditCount           []int64  `protobuf:"varint,2,rep,packed,name=audit_count,json=auditCount" json:"audit_count,omitempty"`
-	AuditSuccessCount    []int64  `protobuf:"varint,3,rep,packed,name=audit_success_count,json=auditSuccessCount" json:"audit_success_count,omitempty"`
-	UptimeCount          []int64  `protobuf:"varint,4,rep,packed,name=uptime_count,json=uptimeCount" json:"uptime_count,omitempty"`
-	UptimeSuccessCount   []int64  `protobuf:"varint,5,rep,packed,name=uptime_success_count,json=uptimeSuccessCount" json:"uptime_success_count,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *CreateCSVStatsRequest) Reset()         { *m = CreateCSVStatsRequest{} }
-func (m *CreateCSVStatsRequest) String() string { return proto.CompactTextString(m) }
-func (*CreateCSVStatsRequest) ProtoMessage()    {}
-func (*CreateCSVStatsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_11760029345291ba, []int{6}
-}
-func (m *CreateCSVStatsRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_CreateCSVStatsRequest.Unmarshal(m, b)
-}
-func (m *CreateCSVStatsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_CreateCSVStatsRequest.Marshal(b, m, deterministic)
-}
-func (dst *CreateCSVStatsRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CreateCSVStatsRequest.Merge(dst, src)
-}
-func (m *CreateCSVStatsRequest) XXX_Size() int {
-	return xxx_messageInfo_CreateCSVStatsRequest.Size(m)
-}
-func (m *CreateCSVStatsRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_CreateCSVStatsRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_CreateCSVStatsRequest proto.InternalMessageInfo
-
-func (m *CreateCSVStatsRequest) GetNodeId() []string {
-	if m != nil {
-		return m.NodeId
-	}
-	return nil
-}
-
-func (m *CreateCSVStatsRequest) GetAuditCount() []int64 {
-	if m != nil {
-		return m.AuditCount
-	}
-	return nil
-}
-
-func (m *CreateCSVStatsRequest) GetAuditSuccessCount() []int64 {
-	if m != nil {
-		return m.AuditSuccessCount
-	}
-	return nil
-}
-
-func (m *CreateCSVStatsRequest) GetUptimeCount() []int64 {
-	if m != nil {
-		return m.UptimeCount
-	}
-	return nil
-}
-
-func (m *CreateCSVStatsRequest) GetUptimeSuccessCount() []int64 {
-	if m != nil {
-		return m.UptimeSuccessCount
-	}
-	return nil
-}
-
-type CreateCSVStatsResponse struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *CreateCSVStatsResponse) Reset()         { *m = CreateCSVStatsResponse{} }
-func (m *CreateCSVStatsResponse) String() string { return proto.CompactTextString(m) }
-func (*CreateCSVStatsResponse) ProtoMessage()    {}
-func (*CreateCSVStatsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_11760029345291ba, []int{7}
-}
-func (m *CreateCSVStatsResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_CreateCSVStatsResponse.Unmarshal(m, b)
-}
-func (m *CreateCSVStatsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_CreateCSVStatsResponse.Marshal(b, m, deterministic)
-}
-func (dst *CreateCSVStatsResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CreateCSVStatsResponse.Merge(dst, src)
-}
-func (m *CreateCSVStatsResponse) XXX_Size() int {
-	return xxx_messageInfo_CreateCSVStatsResponse.Size(m)
-}
-func (m *CreateCSVStatsResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_CreateCSVStatsResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_CreateCSVStatsResponse proto.InternalMessageInfo
-
 // CountNodes
 type CountNodesResponse struct {
 	Kademlia             int64    `protobuf:"varint,1,opt,name=kademlia,proto3" json:"kademlia,omitempty"`
@@ -422,7 +228,7 @@ func (m *CountNodesResponse) Reset()         { *m = CountNodesResponse{} }
 func (m *CountNodesResponse) String() string { return proto.CompactTextString(m) }
 func (*CountNodesResponse) ProtoMessage()    {}
 func (*CountNodesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_11760029345291ba, []int{8}
+	return fileDescriptor_inspector_ed07bb9d3058e441, []int{4}
 }
 func (m *CountNodesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CountNodesResponse.Unmarshal(m, b)
@@ -466,7 +272,7 @@ func (m *CountNodesRequest) Reset()         { *m = CountNodesRequest{} }
 func (m *CountNodesRequest) String() string { return proto.CompactTextString(m) }
 func (*CountNodesRequest) ProtoMessage()    {}
 func (*CountNodesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_11760029345291ba, []int{9}
+	return fileDescriptor_inspector_ed07bb9d3058e441, []int{5}
 }
 func (m *CountNodesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CountNodesRequest.Unmarshal(m, b)
@@ -497,7 +303,7 @@ func (m *GetBucketsRequest) Reset()         { *m = GetBucketsRequest{} }
 func (m *GetBucketsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetBucketsRequest) ProtoMessage()    {}
 func (*GetBucketsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_11760029345291ba, []int{10}
+	return fileDescriptor_inspector_ed07bb9d3058e441, []int{6}
 }
 func (m *GetBucketsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetBucketsRequest.Unmarshal(m, b)
@@ -529,7 +335,7 @@ func (m *GetBucketsResponse) Reset()         { *m = GetBucketsResponse{} }
 func (m *GetBucketsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetBucketsResponse) ProtoMessage()    {}
 func (*GetBucketsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_11760029345291ba, []int{11}
+	return fileDescriptor_inspector_ed07bb9d3058e441, []int{7}
 }
 func (m *GetBucketsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetBucketsResponse.Unmarshal(m, b)
@@ -575,7 +381,7 @@ func (m *GetBucketRequest) Reset()         { *m = GetBucketRequest{} }
 func (m *GetBucketRequest) String() string { return proto.CompactTextString(m) }
 func (*GetBucketRequest) ProtoMessage()    {}
 func (*GetBucketRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_11760029345291ba, []int{12}
+	return fileDescriptor_inspector_ed07bb9d3058e441, []int{8}
 }
 func (m *GetBucketRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetBucketRequest.Unmarshal(m, b)
@@ -614,7 +420,7 @@ func (m *GetBucketResponse) Reset()         { *m = GetBucketResponse{} }
 func (m *GetBucketResponse) String() string { return proto.CompactTextString(m) }
 func (*GetBucketResponse) ProtoMessage()    {}
 func (*GetBucketResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_11760029345291ba, []int{13}
+	return fileDescriptor_inspector_ed07bb9d3058e441, []int{9}
 }
 func (m *GetBucketResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetBucketResponse.Unmarshal(m, b)
@@ -659,7 +465,7 @@ func (m *Bucket) Reset()         { *m = Bucket{} }
 func (m *Bucket) String() string { return proto.CompactTextString(m) }
 func (*Bucket) ProtoMessage()    {}
 func (*Bucket) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_11760029345291ba, []int{14}
+	return fileDescriptor_inspector_ed07bb9d3058e441, []int{10}
 }
 func (m *Bucket) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Bucket.Unmarshal(m, b)
@@ -697,7 +503,7 @@ func (m *BucketList) Reset()         { *m = BucketList{} }
 func (m *BucketList) String() string { return proto.CompactTextString(m) }
 func (*BucketList) ProtoMessage()    {}
 func (*BucketList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_11760029345291ba, []int{15}
+	return fileDescriptor_inspector_ed07bb9d3058e441, []int{11}
 }
 func (m *BucketList) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BucketList.Unmarshal(m, b)
@@ -727,12 +533,8 @@ func (m *BucketList) GetNodes() []*Node {
 func init() {
 	proto.RegisterType((*GetStatsRequest)(nil), "inspector.GetStatsRequest")
 	proto.RegisterType((*GetStatsResponse)(nil), "inspector.GetStatsResponse")
-	proto.RegisterType((*GetCSVStatsRequest)(nil), "inspector.GetCSVStatsRequest")
-	proto.RegisterType((*GetCSVStatsResponse)(nil), "inspector.GetCSVStatsResponse")
 	proto.RegisterType((*CreateStatsRequest)(nil), "inspector.CreateStatsRequest")
 	proto.RegisterType((*CreateStatsResponse)(nil), "inspector.CreateStatsResponse")
-	proto.RegisterType((*CreateCSVStatsRequest)(nil), "inspector.CreateCSVStatsRequest")
-	proto.RegisterType((*CreateCSVStatsResponse)(nil), "inspector.CreateCSVStatsResponse")
 	proto.RegisterType((*CountNodesResponse)(nil), "inspector.CountNodesResponse")
 	proto.RegisterType((*CountNodesRequest)(nil), "inspector.CountNodesRequest")
 	proto.RegisterType((*GetBucketsRequest)(nil), "inspector.GetBucketsRequest")
@@ -764,12 +566,8 @@ type InspectorClient interface {
 	// StatDB commands:
 	// GetStats returns the stats for a particular node ID
 	GetStats(ctx context.Context, in *GetStatsRequest, opts ...grpc.CallOption) (*GetStatsResponse, error)
-	// GetCSVStats returns the stats for a set of node IDs from a CSV
-	GetCSVStats(ctx context.Context, in *GetCSVStatsRequest, opts ...grpc.CallOption) (*GetCSVStatsResponse, error)
 	// CreateStats creates a node with specified stats
 	CreateStats(ctx context.Context, in *CreateStatsRequest, opts ...grpc.CallOption) (*CreateStatsResponse, error)
-	// CreateCSVStats creates stats for a set of nodes based on a CSV
-	CreateCSVStats(ctx context.Context, in *CreateCSVStatsRequest, opts ...grpc.CallOption) (*CreateCSVStatsResponse, error)
 }
 
 type inspectorClient struct {
@@ -816,27 +614,9 @@ func (c *inspectorClient) GetStats(ctx context.Context, in *GetStatsRequest, opt
 	return out, nil
 }
 
-func (c *inspectorClient) GetCSVStats(ctx context.Context, in *GetCSVStatsRequest, opts ...grpc.CallOption) (*GetCSVStatsResponse, error) {
-	out := new(GetCSVStatsResponse)
-	err := c.cc.Invoke(ctx, "/inspector.Inspector/GetCSVStats", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *inspectorClient) CreateStats(ctx context.Context, in *CreateStatsRequest, opts ...grpc.CallOption) (*CreateStatsResponse, error) {
 	out := new(CreateStatsResponse)
 	err := c.cc.Invoke(ctx, "/inspector.Inspector/CreateStats", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *inspectorClient) CreateCSVStats(ctx context.Context, in *CreateCSVStatsRequest, opts ...grpc.CallOption) (*CreateCSVStatsResponse, error) {
-	out := new(CreateCSVStatsResponse)
-	err := c.cc.Invoke(ctx, "/inspector.Inspector/CreateCSVStats", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -856,12 +636,8 @@ type InspectorServer interface {
 	// StatDB commands:
 	// GetStats returns the stats for a particular node ID
 	GetStats(context.Context, *GetStatsRequest) (*GetStatsResponse, error)
-	// GetCSVStats returns the stats for a set of node IDs from a CSV
-	GetCSVStats(context.Context, *GetCSVStatsRequest) (*GetCSVStatsResponse, error)
 	// CreateStats creates a node with specified stats
 	CreateStats(context.Context, *CreateStatsRequest) (*CreateStatsResponse, error)
-	// CreateCSVStats creates stats for a set of nodes based on a CSV
-	CreateCSVStats(context.Context, *CreateCSVStatsRequest) (*CreateCSVStatsResponse, error)
 }
 
 func RegisterInspectorServer(s *grpc.Server, srv InspectorServer) {
@@ -940,24 +716,6 @@ func _Inspector_GetStats_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Inspector_GetCSVStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetCSVStatsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(InspectorServer).GetCSVStats(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/inspector.Inspector/GetCSVStats",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(InspectorServer).GetCSVStats(ctx, req.(*GetCSVStatsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Inspector_CreateStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateStatsRequest)
 	if err := dec(in); err != nil {
@@ -972,24 +730,6 @@ func _Inspector_CreateStats_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InspectorServer).CreateStats(ctx, req.(*CreateStatsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Inspector_CreateCSVStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateCSVStatsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(InspectorServer).CreateCSVStats(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/inspector.Inspector/CreateCSVStats",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(InspectorServer).CreateCSVStats(ctx, req.(*CreateCSVStatsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1015,60 +755,47 @@ var _Inspector_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Inspector_GetStats_Handler,
 		},
 		{
-			MethodName: "GetCSVStats",
-			Handler:    _Inspector_GetCSVStats_Handler,
-		},
-		{
 			MethodName: "CreateStats",
 			Handler:    _Inspector_CreateStats_Handler,
-		},
-		{
-			MethodName: "CreateCSVStats",
-			Handler:    _Inspector_CreateCSVStats_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "inspector.proto",
 }
 
-func init() { proto.RegisterFile("inspector.proto", fileDescriptor_inspector_11760029345291ba) }
+func init() { proto.RegisterFile("inspector.proto", fileDescriptor_inspector_ed07bb9d3058e441) }
 
-var fileDescriptor_inspector_11760029345291ba = []byte{
-	// 573 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x55, 0x4d, 0x6f, 0xd3, 0x40,
-	0x10, 0x95, 0xbd, 0x49, 0xda, 0x4c, 0xfa, 0xb9, 0x69, 0x21, 0x72, 0x0b, 0xa4, 0xcb, 0xa5, 0x42,
-	0x6a, 0x04, 0xe5, 0xca, 0xa9, 0x91, 0x08, 0x41, 0x15, 0x07, 0x47, 0x70, 0xe0, 0x12, 0xb9, 0xf6,
-	0x1e, 0xac, 0xa6, 0x59, 0xe3, 0x5d, 0x83, 0xe0, 0xdf, 0xf0, 0x9b, 0x90, 0xf8, 0x3d, 0xc8, 0xbb,
-	0xeb, 0x8f, 0xf5, 0x07, 0xf5, 0x2d, 0x3b, 0xf3, 0xf6, 0xed, 0xbc, 0x37, 0x9e, 0x09, 0x1c, 0x86,
-	0x5b, 0x1e, 0x51, 0x5f, 0xb0, 0x78, 0x16, 0xc5, 0x4c, 0x30, 0x3c, 0xcc, 0x03, 0xce, 0x3e, 0xfb,
-	0x4e, 0xe3, 0x8d, 0xf7, 0x53, 0x65, 0xc8, 0x2b, 0x38, 0x5c, 0x50, 0xb1, 0x12, 0x9e, 0xe0, 0x2e,
-	0xfd, 0x96, 0x50, 0x2e, 0xf0, 0x53, 0xd8, 0xd9, 0xb2, 0x80, 0xae, 0xc3, 0x60, 0x62, 0x4d, 0xad,
-	0xcb, 0xa1, 0x3b, 0x48, 0x8f, 0xcb, 0x80, 0xfc, 0x80, 0xa3, 0x02, 0xcb, 0x23, 0xb6, 0xe5, 0x14,
-	0xbf, 0x80, 0x91, 0x97, 0x04, 0xa1, 0x58, 0xfb, 0x2c, 0xd9, 0x0a, 0x79, 0x01, 0xb9, 0x20, 0x43,
-	0xf3, 0x34, 0x82, 0x2f, 0x60, 0x2f, 0x89, 0x44, 0xf8, 0x40, 0xd7, 0xb1, 0x27, 0x42, 0x36, 0xb1,
-	0xa7, 0xd6, 0xa5, 0xe5, 0x8e, 0x54, 0xcc, 0x4d, 0x43, 0x05, 0x87, 0x42, 0x20, 0x89, 0x50, 0x1c,
-	0x12, 0x40, 0xae, 0x00, 0x2f, 0xa8, 0x98, 0xaf, 0xbe, 0xb4, 0xd7, 0x89, 0x4a, 0x75, 0xfe, 0x82,
-	0xb1, 0x01, 0x6f, 0x2b, 0x15, 0x3d, 0x5a, 0x2a, 0x7a, 0xb4, 0x54, 0x54, 0x29, 0xf5, 0x8f, 0x05,
-	0x78, 0x1e, 0x53, 0x4f, 0xd0, 0x4e, 0x9e, 0x56, 0x8b, 0xb2, 0x6b, 0xfe, 0xcd, 0x60, 0xac, 0x00,
-	0x3c, 0xf1, 0x7d, 0xca, 0xb9, 0x06, 0x22, 0x09, 0x3c, 0x96, 0xa9, 0x95, 0xca, 0x54, 0x45, 0x28,
-	0x60, 0x4f, 0x02, 0xb5, 0x08, 0x05, 0x79, 0x0d, 0x27, 0x1a, 0x62, 0x72, 0xf6, 0x25, 0x14, 0xab,
-	0x5c, 0x99, 0x94, 0x9c, 0xc2, 0xd8, 0x10, 0xa5, 0x1c, 0x25, 0x7f, 0x2d, 0x38, 0x55, 0xf1, 0xae,
-	0xbd, 0xa9, 0xeb, 0x45, 0x5d, 0xf5, 0xa2, 0xae, 0x7a, 0x51, 0x77, 0xbd, 0xa8, 0x45, 0xef, 0x04,
-	0x9e, 0x54, 0x75, 0x69, 0xc9, 0x1f, 0x01, 0x4b, 0xc8, 0x27, 0x16, 0xd0, 0xe2, 0xd3, 0x72, 0x60,
-	0xf7, 0xde, 0x0b, 0xe8, 0xc3, 0x26, 0xf4, 0xf4, 0x08, 0xe4, 0x67, 0x3c, 0x81, 0x1d, 0x3d, 0x72,
-	0xba, 0xbb, 0xd9, 0x91, 0x8c, 0xe1, 0xb8, 0xcc, 0x25, 0x9d, 0x4b, 0x83, 0x0b, 0x2a, 0x6e, 0x12,
-	0xff, 0x9e, 0xe6, 0x76, 0x92, 0x77, 0x72, 0x00, 0xf2, 0xa0, 0x7e, 0xf5, 0x04, 0xfa, 0x82, 0x09,
-	0x6f, 0xa3, 0x9f, 0x54, 0x07, 0x7c, 0x04, 0x28, 0x0c, 0xb8, 0x74, 0x76, 0xcf, 0x4d, 0x7f, 0x12,
-	0x22, 0xe7, 0x56, 0xdd, 0xce, 0x1a, 0x74, 0x00, 0x76, 0xfe, 0x2d, 0xda, 0x61, 0x40, 0x3e, 0x94,
-	0x9e, 0xcd, 0x1f, 0xa8, 0x80, 0xf0, 0x4b, 0xe8, 0xa7, 0x6d, 0x54, 0xe4, 0xa3, 0xeb, 0xfd, 0x59,
-	0xb6, 0x4b, 0x52, 0x05, 0xae, 0xca, 0x91, 0x2b, 0x18, 0x28, 0x9a, 0x6e, 0xf0, 0x37, 0x00, 0x0a,
-	0x7e, 0x1b, 0xf2, 0xd2, 0x15, 0xab, 0xfd, 0xca, 0xf5, 0xef, 0x1e, 0x0c, 0x97, 0xd9, 0x42, 0xc3,
-	0x4b, 0x80, 0xc2, 0x45, 0x7c, 0x3e, 0x2b, 0x76, 0x5f, 0xcd, 0x5c, 0xe7, 0x59, 0x4b, 0x56, 0xeb,
-	0x5d, 0x02, 0x14, 0x36, 0x1b, 0x54, 0xb5, 0x96, 0x18, 0x54, 0x0d, 0xbd, 0x79, 0x0f, 0xc3, 0x3c,
-	0x8a, 0xcf, 0x9a, 0xb0, 0x19, 0xd1, 0x79, 0x73, 0x52, 0xf3, 0xcc, 0x61, 0x37, 0xdb, 0xb9, 0xd8,
-	0x31, 0x91, 0xe5, 0x81, 0x73, 0xce, 0x1a, 0x73, 0x9a, 0xe4, 0x16, 0x46, 0xa5, 0x85, 0x88, 0x2b,
-	0xa5, 0x57, 0x66, 0xd7, 0x79, 0xde, 0x96, 0x2e, 0xd8, 0x4a, 0xcb, 0xc0, 0x60, 0xab, 0x6f, 0x3e,
-	0x83, 0xad, 0x61, 0x87, 0xe0, 0xcf, 0x70, 0x60, 0x8e, 0x1a, 0x9e, 0xd6, 0x6e, 0x54, 0x2b, 0xbc,
-	0xf8, 0x0f, 0x42, 0xd1, 0xde, 0xf4, 0xbe, 0xda, 0xd1, 0xdd, 0xdd, 0x40, 0xfe, 0xc9, 0xbd, 0xfd,
-	0x17, 0x00, 0x00, 0xff, 0xff, 0x79, 0x40, 0x64, 0x17, 0x11, 0x07, 0x00, 0x00,
+var fileDescriptor_inspector_ed07bb9d3058e441 = []byte{
+	// 485 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x94, 0xcf, 0x6f, 0xd3, 0x30,
+	0x14, 0xc7, 0x95, 0x64, 0xed, 0xd6, 0xd7, 0x8d, 0x6d, 0xaf, 0x43, 0x54, 0xd9, 0x80, 0x62, 0x2e,
+	0x15, 0x12, 0x15, 0x8c, 0x2b, 0xa7, 0x55, 0x62, 0x14, 0x4d, 0x1c, 0xb2, 0x1b, 0x97, 0x2a, 0x8b,
+	0x7d, 0xb0, 0xd6, 0xd5, 0x21, 0x76, 0x40, 0xfc, 0x9d, 0xfc, 0x3b, 0x1c, 0x50, 0xfc, 0x9c, 0x5f,
+	0x6d, 0x2a, 0xf5, 0x16, 0xbf, 0xef, 0xc7, 0x5f, 0xfb, 0xbd, 0xe7, 0x17, 0x38, 0x95, 0x6b, 0x9d,
+	0x8a, 0xc4, 0xa8, 0x6c, 0x96, 0x66, 0xca, 0x28, 0x1c, 0x54, 0x81, 0xf0, 0x44, 0xfd, 0x12, 0xd9,
+	0x2a, 0xfe, 0x43, 0x0a, 0x7b, 0x07, 0xa7, 0xb7, 0xc2, 0xdc, 0x9b, 0xd8, 0xe8, 0x48, 0xfc, 0xcc,
+	0x85, 0x36, 0xf8, 0x02, 0x0e, 0xd7, 0x8a, 0x8b, 0xa5, 0xe4, 0x63, 0x6f, 0xe2, 0x4d, 0x07, 0x51,
+	0xbf, 0x58, 0x2e, 0x38, 0xfb, 0x0d, 0x67, 0x35, 0xab, 0x53, 0xb5, 0xd6, 0x02, 0x5f, 0xc3, 0x30,
+	0xce, 0xb9, 0x34, 0xcb, 0x44, 0xe5, 0x6b, 0x63, 0x37, 0x04, 0x11, 0xd8, 0xd0, 0xbc, 0x88, 0xe0,
+	0x1b, 0x38, 0xce, 0x53, 0x23, 0x9f, 0xc4, 0x32, 0x8b, 0x8d, 0x54, 0x63, 0x7f, 0xe2, 0x4d, 0xbd,
+	0x68, 0x48, 0xb1, 0xa8, 0x08, 0xd5, 0x1e, 0x44, 0x04, 0x96, 0x20, 0x0f, 0x0b, 0xb0, 0xbf, 0x1e,
+	0xe0, 0x3c, 0x13, 0xb1, 0x11, 0x7b, 0x5d, 0x74, 0xf3, 0x52, 0xfe, 0xd6, 0xa5, 0x66, 0x30, 0x22,
+	0x40, 0xe7, 0x49, 0x22, 0xb4, 0x76, 0x60, 0x60, 0xc1, 0x73, 0x2b, 0xdd, 0x93, 0xb2, 0x99, 0x04,
+	0x81, 0x07, 0x16, 0x74, 0x49, 0x10, 0xf2, 0x01, 0x2e, 0x1c, 0xd2, 0xf6, 0xec, 0x59, 0x14, 0x49,
+	0x6b, 0x9a, 0xb2, 0xe7, 0x30, 0x6a, 0x25, 0x45, 0x15, 0x65, 0xdf, 0x00, 0xad, 0xfe, 0x5d, 0x71,
+	0x51, 0xd7, 0x39, 0x84, 0xa3, 0xc7, 0x98, 0x8b, 0xa7, 0x95, 0x8c, 0x5d, 0x91, 0xab, 0x35, 0x8e,
+	0xe1, 0xd0, 0x35, 0xd5, 0xa5, 0x5a, 0x2e, 0xd9, 0x08, 0xce, 0x9b, 0x5e, 0xb6, 0x6c, 0x45, 0xf0,
+	0x56, 0x98, 0x9b, 0x3c, 0x79, 0x14, 0x55, 0x2d, 0xd9, 0x67, 0xc0, 0x66, 0xd0, 0x9d, 0x7a, 0x01,
+	0x3d, 0xa3, 0x4c, 0xbc, 0x72, 0x47, 0xd2, 0x02, 0xcf, 0x20, 0x90, 0x5c, 0x8f, 0xfd, 0x49, 0x30,
+	0x3d, 0x8e, 0x8a, 0x4f, 0xc6, 0xec, 0xcb, 0xa0, 0xdd, 0x65, 0x77, 0x9e, 0x81, 0x5f, 0x35, 0xc6,
+	0x97, 0x9c, 0x7d, 0x6d, 0x1c, 0x5b, 0x1d, 0xb0, 0x01, 0xe1, 0x5b, 0xe8, 0x15, 0x3d, 0x24, 0xf3,
+	0xe1, 0xf5, 0xc9, 0xac, 0x7c, 0xad, 0x45, 0x06, 0x11, 0x69, 0xec, 0x3d, 0xf4, 0xc9, 0x66, 0x3f,
+	0xfc, 0x23, 0x00, 0xe1, 0x77, 0x52, 0x37, 0xb6, 0x78, 0xbb, 0xb7, 0x5c, 0xff, 0xf3, 0x61, 0xb0,
+	0x28, 0x47, 0x06, 0x17, 0x00, 0x75, 0x15, 0xf1, 0x6a, 0x56, 0x4f, 0xd7, 0x56, 0x71, 0xc3, 0x97,
+	0x3b, 0x54, 0x97, 0xef, 0x02, 0xa0, 0x2e, 0x73, 0xcb, 0x6a, 0xab, 0x25, 0x2d, 0xab, 0x8e, 0xde,
+	0x7c, 0x81, 0x41, 0x15, 0xc5, 0xcb, 0x2e, 0xb6, 0x34, 0xba, 0xea, 0x16, 0x9d, 0xcf, 0x1c, 0x8e,
+	0xca, 0xa9, 0xc6, 0xb0, 0x4d, 0x36, 0xa7, 0x2d, 0xbc, 0xec, 0xd4, 0x9c, 0xc9, 0x1d, 0x0c, 0x1b,
+	0x6f, 0x19, 0x5b, 0x55, 0xd8, 0x1a, 0xdc, 0xf0, 0xd5, 0x2e, 0x99, 0xdc, 0x6e, 0x0e, 0x7e, 0xf8,
+	0xe9, 0xc3, 0x43, 0xdf, 0xfe, 0xa1, 0x3e, 0xfd, 0x0f, 0x00, 0x00, 0xff, 0xff, 0xae, 0x83, 0xd2,
+	0x18, 0xce, 0x04, 0x00, 0x00,
 }

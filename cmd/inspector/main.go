@@ -7,7 +7,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"bufio"
 	"strconv"
+	"io"
+	"os"
+	"encoding/csv"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -69,11 +73,23 @@ var (
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  GetStats,
 	}
+	getCSVStatsCmd = &cobra.Command{
+		Use:   "getcsvstats",
+		Short: "Get node stats from csv",
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  GetCSVStats,
+	}
 	createStatsCmd = &cobra.Command{
 		Use:   "createstats",
 		Short: "Create node with stats",
 		Args:  cobra.MinimumNArgs(5), // id, auditct, auditsuccessct, uptimect, uptimesuccessct
 		RunE:  CreateStats,
+	}
+	createCSVStatsCmd = &cobra.Command{
+		Use:   "createcsvstats",
+		Short: "Create node stats from csv",
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  CreateCSVStats,
 	}
 )
 
@@ -187,6 +203,40 @@ func GetStats(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+// GetCSVStats gets node stats from statdb based on a csv
+func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector(*Addr)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	// get csv
+	csvPath := args[0]
+	csvFile, _ := os.Open(csvPath)
+	reader := csv.NewReader(bufio.NewReader(csvFile))
+	for {
+		line, err := reader.Read()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return ErrArgs.Wrap(err)
+		}
+
+		idStr := line[0]
+		res, err := i.client.GetStats(context.Background(), &pb.GetStatsRequest{
+			NodeId: idStr,
+		})
+		if err != nil {
+			return ErrRequest.Wrap(err)
+		}
+
+		fmt.Printf("Stats for ID %s:\n", idStr)
+		fmt.Printf("AuditSuccessRatio: %f, UptimeRatio: %f, AuditCount: %d\n",
+			res.AuditRatio, res.UptimeRatio, res.AuditCount)
+	}
+	return nil
+}
+
 // CreateStats creates a node with stats in statdb
 func CreateStats(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr)
@@ -227,6 +277,59 @@ func CreateStats(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+// CreateCSVStats creates node with stats in statdb based on a CSV
+func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector(*Addr)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+	
+	// get csv
+	csvPath := args[0]
+	csvFile, _ := os.Open(csvPath)
+	reader := csv.NewReader(bufio.NewReader(csvFile))
+	for {
+		line, err := reader.Read()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return ErrArgs.Wrap(err)
+		}
+
+		idStr := line[0]
+		auditCount, err := strconv.ParseInt(line[1], 10, 64)
+		if err != nil {
+			return ErrArgs.New("audit count must be an int")
+		}
+		auditSuccessCount, err := strconv.ParseInt(line[2], 10, 64)
+		if err != nil {
+			return ErrArgs.New("audit success count must be an int")
+		}
+		uptimeCount, err := strconv.ParseInt(line[3], 10, 64)
+		if err != nil {
+			return ErrArgs.New("uptime count must be an int")
+		}
+		uptimeSuccessCount, err := strconv.ParseInt(line[4], 10, 64)
+		if err != nil {
+			return ErrArgs.New("uptime success count must be an int")
+		}
+
+		_, err = i.client.CreateStats(context.Background(), &pb.CreateStatsRequest{
+			NodeId:             idStr,
+			AuditCount:         auditCount,
+			AuditSuccessCount:  auditSuccessCount,
+			UptimeCount:        uptimeCount,
+			UptimeSuccessCount: uptimeSuccessCount,
+		})
+		if err != nil {
+			return ErrRequest.Wrap(err)
+		}
+
+		fmt.Printf("Created statdb entry for ID %s\n", idStr)
+	}
+	return nil
+}
+
 func init() {
 	rootCmd.AddCommand(kadCmd)
 	rootCmd.AddCommand(statsCmd)
@@ -236,7 +339,9 @@ func init() {
 	kadCmd.AddCommand(getBucketCmd)
 
 	statsCmd.AddCommand(getStatsCmd)
+	statsCmd.AddCommand(getCSVStatsCmd)
 	statsCmd.AddCommand(createStatsCmd)
+	statsCmd.AddCommand(createCSVStatsCmd)
 
 	flag.Parse()
 }
