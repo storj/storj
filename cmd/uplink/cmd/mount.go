@@ -140,7 +140,7 @@ func (sf *storjFS) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 	// file not found so maybe it's a prefix/directory
 	if err != nil {
 		items, _, err := sf.store.List(sf.ctx, name, "", "", false, 1, meta.None)
-		if err != nil && !storage.ErrKeyNotFound.Has(err) {
+		if err != nil {
 			return nil, fuse.EIO
 		}
 
