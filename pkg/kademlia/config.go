@@ -40,12 +40,19 @@ const (
 	ctxKeyKad CtxKey = iota
 )
 
+// FarmerConfig defines properties related to farmer metadata
+type FarmerConfig struct {
+	Email  string `help:"Farmer email address" default:""`
+	Wallet string `help:"Farmer wallet adress" default:""`
+}
+
 // Config defines all of the things that are needed to start up Kademlia
 // server endpoints (and not necessarily client code).
 type Config struct {
 	BootstrapAddr string `help:"the kademlia node to bootstrap against" default:"bootstrap-dev.storj.io:8080"`
 	DBPath        string `help:"the path for our db services to be created on" default:"$CONFDIR/kademlia"`
 	Alpha         int    `help:"alpha is a system wide concurrency parameter." default:"5"`
+	Farmer        FarmerConfig
 }
 
 // Run implements provider.Responsibility
@@ -60,7 +67,12 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return err
 	}
 
-	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, server.Addr().String(), server.Identity(), c.DBPath, c.Alpha)
+	metadata := &pb.NodeMetadata{
+		Email:  c.Farmer.Email,
+		Wallet: c.Farmer.Wallet,
+	}
+
+	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, server.Addr().String(), metadata, server.Identity(), c.DBPath, c.Alpha)
 	if err != nil {
 		return err
 	}
