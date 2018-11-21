@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
@@ -85,7 +86,7 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 			}
 		}
 	}()
-
+	
 	server.Serve()
 	return nil
 }
@@ -204,7 +205,7 @@ func (sf *storjFS) Rmdir(name string, context *fuse.Context) (code fuse.Status) 
 
 	err := sf.listObjects(sf.ctx, name, true, func(items []objects.ListItem) error {
 		for _, item := range items {
-			err := sf.store.Delete(sf.ctx, name+"/"+item.Path)
+			err := sf.store.Delete(sf.ctx, storj.JoinPaths(name, item.Path))
 			if err != nil {
 				return err
 			}
