@@ -5,9 +5,9 @@ package statdb
 
 import (
 	"context"
+	"crypto/subtle"
 	"database/sql"
 	"strings"
-	"crypto/subtle"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -238,7 +238,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 	node := updateReq.GetNode()
 
 	createIfReq := &pb.CreateEntryIfNotExistsRequest{
-		Node:   updateReq.GetNode(),
+		Node: updateReq.GetNode(),
 	}
 
 	_, err = s.CreateEntryIfNotExists(ctx, createIfReq)
@@ -303,7 +303,6 @@ func (s *Server) UpdateUptime(ctx context.Context, updateReq *pb.UpdateUptimeReq
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb UpdateUptime")
 
-
 	err = s.validateAuth(ctx)
 	if err != nil {
 		return nil, err
@@ -341,7 +340,7 @@ func (s *Server) UpdateUptime(ctx context.Context, updateReq *pb.UpdateUptimeReq
 		NodeId:            dbNode.Id,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
 		UptimeRatio:       dbNode.UptimeRatio,
-		AuditSuccessCount: dbNode.AuditSuccessCount,
+		AuditCount:        dbNode.TotalAuditCount,
 	}
 	return &pb.UpdateUptimeResponse{
 		Stats: nodeStats,
@@ -392,7 +391,7 @@ func (s *Server) UpdateAuditSuccess(ctx context.Context, updateReq *pb.UpdateAud
 		NodeId:            dbNode.Id,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
 		UptimeRatio:       dbNode.UptimeRatio,
-		AuditSuccessCount: dbNode.AuditSuccessCount,
+		AuditCount:        dbNode.TotalAuditCount,
 	}
 	return &pb.UpdateAuditSuccessResponse{
 		Stats: nodeStats,
@@ -408,7 +407,7 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 	var failedNodes []*pb.Node
 	for _, node := range updateBatchReq.NodeList {
 		updateReq := &pb.UpdateRequest{
-			Node:   node,
+			Node: node,
 		}
 
 		updateRes, err := s.Update(ctx, updateReq)
@@ -439,7 +438,7 @@ func (s *Server) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.Cre
 	// TODO: figure out better way to confirm error is type dbx.ErrorCode_NoRows
 	if err != nil && strings.Contains(err.Error(), "no rows in result set") {
 		createReq := &pb.CreateRequest{
-			Node:   createIfReq.Node,
+			Node: createIfReq.Node,
 		}
 		res, err := s.Create(ctx, createReq)
 		if err != nil {
