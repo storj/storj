@@ -13,6 +13,9 @@ import (
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	statsproto "storj.io/storj/pkg/statdb/proto"
+	"storj.io/storj/pkg/statdb"
+	"storj.io/storj/pkg/node"
 )
 
 var (
@@ -24,9 +27,14 @@ var (
 type Server struct {
 	dht     dht.DHT
 	cache   *overlay.Cache
+	statdb  *statdb.Server
 	logger  *zap.Logger
 	metrics *monkit.Registry
 }
+
+// ---------------------
+// Kad/Overlay commands:
+// ---------------------
 
 // CountNodes returns the number of nodes in the cache and in kademlia
 func (srv *Server) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*pb.CountNodesResponse, error) {
@@ -67,5 +75,51 @@ func (srv *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb
 	return &pb.GetBucketResponse{
 		Id:    req.Id,
 		Nodes: bucket.Nodes(),
+	}, nil
+}
+
+// ---------------------
+// StatDB commands:
+// ---------------------
+
+// GetStats returns the stats for a particular node ID
+func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.GetStatsResponse, error) {
+	return &pb.GetStatsResponse{
+
+	}, nil
+}
+// GetCSVStats returns the stats for a set of node IDs from a CSV
+func (srv *Server) GetCSVStats(ctx context.Context, req *pb.GetCSVStatsRequest) (*pb.GetCSVStatsResponse, error) {
+	return &pb.GetCSVStatsResponse{
+
+	}, nil
+}
+
+// CreateStats creates a node with specified stats
+func (srv *Server) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) (*pb.CreateStatsResponse, error) {
+	nodeID := node.IDFromString(req.NodeId)
+	node := &statsproto.Node{
+		NodeId: nodeID.Bytes(),
+	}
+	stats := &statsproto.NodeStats{
+		AuditCount:         req.AuditCount,
+		AuditSuccessCount:  req.AuditSuccessCount,
+		UptimeCount:        req.UptimeCount,
+		UptimeSuccessCount: req.UptimeSuccessCount,
+	}
+	createReq := &statsproto.CreateRequest{
+		Node:   node,
+		Stats:  stats,
+	}
+	_, err := srv.statdb.Create(ctx, createReq)
+
+
+	return &pb.CreateStatsResponse{}, err
+}
+
+// CreateCSVStats creates stats for a set of nodes based on a CSV
+func (srv *Server) CreateCSVStats(ctx context.Context, req *pb.CreateCSVStatsRequest) (*pb.CreateCSVStatsResponse, error) {
+	return &pb.CreateCSVStatsResponse{
+
 	}, nil
 }

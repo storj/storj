@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -31,10 +32,21 @@ var (
 	// ErrIdentity is for errors during identity creation for this CLI
 	ErrIdentity = errs.Class("error creating identity:")
 
+	// ErrArgs throws when there are errors with CLI args
+	ErrArgs = errs.Class("error with CLI args:")
+
 	// Commander CLI
 	rootCmd = &cobra.Command{
 		Use:   "inspector",
 		Short: "CLI for interacting with Storj Kademlia network",
+	}
+	kadCmd = &cobra.Command{
+		Use: "kad",
+		Short: "commands for kademlia/overlay cache",
+	}
+	statsCmd = &cobra.Command{
+		Use: "statdb",
+		Short: "commands for statdb",
 	}
 	countNodeCmd = &cobra.Command{
 		Use:   "count",
@@ -50,6 +62,12 @@ var (
 		Use:   "ls <bucket_id>",
 		Short: "get all nodes in bucket",
 		RunE:  GetBucket,
+	}
+	createStatsCmd = &cobra.Command{
+		Use: "createstats",
+		Short: "Create node with stats",
+		Args:  cobra.MinimumNArgs(5), // id, auditct, auditsuccessct, uptimect, uptimesuccessct
+		RunE: CreateStats,
 	}
 )
 
@@ -141,10 +159,56 @@ func GetBucket(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+// CreateStats creates a node with stats in statdb
+func CreateStats(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector(*Addr)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	idStr := args[0]
+	auditCount, err := strconv.ParseInt(args[1], 10, 64)
+	if err != nil {
+		return ErrArgs.New("audit count must be an int")
+	}
+	auditSuccessCount, err := strconv.ParseInt(args[2], 10, 64)
+	if err != nil {
+		return ErrArgs.New("audit success count must be an int")
+	}
+	uptimeCount, err := strconv.ParseInt(args[3], 10, 64)
+	if err != nil {
+		return ErrArgs.New("uptime count must be an int")
+	}
+	uptimeSuccessCount, err := strconv.ParseInt(args[4], 10, 64)
+	if err != nil {
+		return ErrArgs.New("uptime success count must be an int")
+	}
+
+	_, err = i.client.CreateStats(context.Background(), &pb.CreateStatsRequest{
+		NodeId: idStr,
+		AuditCount: auditCount,
+		AuditSuccessCount: auditSuccessCount,
+		UptimeCount: uptimeCount,
+		UptimeSuccessCount: uptimeSuccessCount,
+	})
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	fmt.Printf("Created statdb entry for ID %s\n", idStr)
+	return nil
+}
+
 func init() {
-	rootCmd.AddCommand(countNodeCmd)
-	rootCmd.AddCommand(getBucketsCmd)
-	rootCmd.AddCommand(getBucketCmd)
+	rootCmd.AddCommand(kadCmd)
+	rootCmd.AddCommand(statsCmd)
+
+	kadCmd.AddCommand(countNodeCmd)
+	kadCmd.AddCommand(getBucketsCmd)
+	kadCmd.AddCommand(getBucketCmd)
+
+	statsCmd.AddCommand(createStatsCmd)
+
 	flag.Parse()
 }
 
