@@ -31,7 +31,7 @@ var (
 type Server struct {
 	DB     *dbx.DB
 	logger *zap.Logger
-	apiKey string
+	apiKey []byte
 }
 
 // NewServer creates instance of Server
@@ -50,7 +50,7 @@ func NewServer(driver, source, apiKey string, logger *zap.Logger) (*Server, erro
 	return &Server{
 		DB:     db,
 		logger: logger,
-		apiKey: apiKey,
+		apiKey: []byte(apiKey),
 	}, nil
 }
 
@@ -61,9 +61,8 @@ func (s *Server) validateAuth(ctx context.Context) error {
 		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 
-	expected := []byte(s.apiKey)
-	actual := []byte(apiKey)
-	matches := (1 == subtle.ConstantTimeCompare(expected, actual))
+	expectedAPIKey := s.apiKey
+	matches := (1 == subtle.ConstantTimeCompare(expectedAPIKey, apiKey))
 	if !matches {
 		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
 		return status.Errorf(codes.Unauthenticated, "Invalid API credential")

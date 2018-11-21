@@ -156,8 +156,8 @@ func (sdb *StatDB) UpdateUptime(ctx context.Context, nodeID []byte,
 	defer mon.Task()(&ctx)(&err)
 
 	node := pb.Node{
-		NodeId:             nodeID,
-		IsUp:               isUp,
+		NodeId: nodeID,
+		IsUp:   isUp,
 	}
 	updateReq := &pb.UpdateUptimeRequest{
 		Node: &node,
@@ -174,8 +174,8 @@ func (sdb *StatDB) UpdateAuditSuccess(ctx context.Context, nodeID []byte,
 	defer mon.Task()(&ctx)(&err)
 
 	node := pb.Node{
-		NodeId:             nodeID,
-		AuditSuccess:       passed,
+		NodeId:       nodeID,
+		AuditSuccess: passed,
 	}
 	updateReq := &pb.UpdateAuditSuccessRequest{
 		Node: &node,
