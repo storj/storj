@@ -9,14 +9,42 @@ import "overlay.proto";
 package inspector;
 
 service Inspector {
+  // Kad/Overlay commands:
   // CountNodes returns the number of nodes in the cache and in the routing table
   rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
-
   // GetBuckets returns the k buckets from a Kademlia instance
   rpc GetBuckets(GetBucketsRequest) returns (GetBucketsResponse);
-
   // GetBucket returns the details of a single k bucket from the kademlia instance
   rpc GetBucket(GetBucketRequest) returns (GetBucketResponse);
+
+  // StatDB commands:
+  // GetStats returns the stats for a particular node ID
+  rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
+  // CreateStats creates a node with specified stats
+  rpc CreateStats(CreateStatsRequest) returns (CreateStatsResponse);
+}
+
+// GetStats
+message GetStatsRequest {
+  string node_id = 1;
+}
+
+message GetStatsResponse {
+  int64 audit_count = 1;
+  double uptime_ratio = 2;
+  double audit_ratio = 3;
+}
+
+// CreateStats
+message CreateStatsRequest {
+  string node_id = 1;
+  int64 audit_count = 2;
+  int64 audit_success_count = 3;
+  int64 uptime_count = 4;
+  int64 uptime_success_count = 5;
+}
+
+message CreateStatsResponse {
 }
 
 // CountNodes

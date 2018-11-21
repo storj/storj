@@ -11,8 +11,11 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/statdb"
+	statsproto "storj.io/storj/pkg/statdb/proto"
 )
 
 var (
@@ -24,9 +27,14 @@ var (
 type Server struct {
 	dht     dht.DHT
 	cache   *overlay.Cache
+	statdb  *statdb.Server
 	logger  *zap.Logger
 	metrics *monkit.Registry
 }
+
+// ---------------------
+// Kad/Overlay commands:
+// ---------------------
 
 // CountNodes returns the number of nodes in the cache and in kademlia
 func (srv *Server) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*pb.CountNodesResponse, error) {
@@ -68,4 +76,47 @@ func (srv *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb
 		Id:    req.Id,
 		Nodes: bucket.Nodes(),
 	}, nil
+}
+
+// ---------------------
+// StatDB commands:
+// ---------------------
+
+// GetStats returns the stats for a particular node ID
+func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.GetStatsResponse, error) {
+	nodeID := node.IDFromString(req.NodeId)
+	getReq := &statsproto.GetRequest{
+		NodeId: nodeID.Bytes(),
+	}
+	res, err := srv.statdb.Get(ctx, getReq)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetStatsResponse{
+		AuditRatio:  res.Stats.AuditSuccessRatio,
+		UptimeRatio: res.Stats.UptimeRatio,
+		AuditCount:  res.Stats.AuditCount,
+	}, nil
+}
+
+// CreateStats creates a node with specified stats
+func (srv *Server) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) (*pb.CreateStatsResponse, error) {
+	nodeID := node.IDFromString(req.NodeId)
+	node := &statsproto.Node{
+		NodeId: nodeID.Bytes(),
+	}
+	stats := &statsproto.NodeStats{
+		AuditCount:         req.AuditCount,
+		AuditSuccessCount:  req.AuditSuccessCount,
+		UptimeCount:        req.UptimeCount,
+		UptimeSuccessCount: req.UptimeSuccessCount,
+	}
+	createReq := &statsproto.CreateRequest{
+		Node:  node,
+		Stats: stats,
+	}
+	_, err := srv.statdb.Create(ctx, createReq)
+
+	return &pb.CreateStatsResponse{}, err
 }
