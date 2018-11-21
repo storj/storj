@@ -147,7 +147,10 @@ func assertStream(ctx context.Context, t *testing.T, readOnly storj.ReadOnlyStre
 	}
 
 	download := stream.NewDownload(ctx, readOnly, streams)
-	defer download.Close()
+	defer func() {
+		err = download.Close()
+		assert.NoError(t, err)
+	}()
 
 	data := make([]byte, len(content))
 	n, err := io.ReadFull(download, data)
