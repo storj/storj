@@ -158,15 +158,12 @@ func (sdb *StatDB) UpdateUptime(ctx context.Context, nodeID []byte,
 	node := pb.Node{
 		NodeId:             nodeID,
 		IsUp:               isUp,
-		UpdateAuditSuccess: false,
-		UpdateUptime:       true,
-		UpdateLatency:      false,
 	}
-	updateReq := &pb.UpdateRequest{
+	updateReq := &pb.UpdateUptimeRequest{
 		Node: &node,
 	}
 
-	res, err := sdb.client.Update(ctx, updateReq)
+	res, err := sdb.client.UpdateUptime(ctx, updateReq)
 
 	return res.Stats, err
 }
@@ -179,15 +176,12 @@ func (sdb *StatDB) UpdateAuditSuccess(ctx context.Context, nodeID []byte,
 	node := pb.Node{
 		NodeId:             nodeID,
 		AuditSuccess:       passed,
-		UpdateAuditSuccess: true,
-		UpdateUptime:       false,
-		UpdateLatency:      false,
 	}
-	updateReq := &pb.UpdateRequest{
+	updateReq := &pb.UpdateAuditSuccessRequest{
 		Node: &node,
 	}
 
-	res, err := sdb.client.Update(ctx, updateReq)
+	res, err := sdb.client.UpdateAuditSuccess(ctx, updateReq)
 
 	return res.Stats, err
 }
