@@ -41,11 +41,11 @@ var (
 		Short: "CLI for interacting with Storj Kademlia network",
 	}
 	kadCmd = &cobra.Command{
-		Use: "kad",
+		Use:   "kad",
 		Short: "commands for kademlia/overlay cache",
 	}
 	statsCmd = &cobra.Command{
-		Use: "statdb",
+		Use:   "statdb",
 		Short: "commands for statdb",
 	}
 	countNodeCmd = &cobra.Command{
@@ -63,11 +63,17 @@ var (
 		Short: "get all nodes in bucket",
 		RunE:  GetBucket,
 	}
+	getStatsCmd = &cobra.Command{
+		Use:   "getstats",
+		Short: "Get node stats",
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  GetStats,
+	}
 	createStatsCmd = &cobra.Command{
-		Use: "createstats",
+		Use:   "createstats",
 		Short: "Create node with stats",
 		Args:  cobra.MinimumNArgs(5), // id, auditct, auditsuccessct, uptimect, uptimesuccessct
-		RunE: CreateStats,
+		RunE:  CreateStats,
 	}
 )
 
@@ -159,6 +165,28 @@ func GetBucket(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+// GetStats gets a node's stats from statdb
+func GetStats(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector(*Addr)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	idStr := args[0]
+
+	res, err := i.client.GetStats(context.Background(), &pb.GetStatsRequest{
+		NodeId: idStr,
+	})
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	fmt.Printf("Stats for ID %s:\n", idStr)
+	fmt.Printf("AuditSuccessRatio: %f, UptimeRatio: %f, AuditCount: %d\n",
+		res.AuditRatio, res.UptimeRatio, res.AuditCount)
+	return nil
+}
+
 // CreateStats creates a node with stats in statdb
 func CreateStats(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr)
@@ -185,10 +213,10 @@ func CreateStats(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	_, err = i.client.CreateStats(context.Background(), &pb.CreateStatsRequest{
-		NodeId: idStr,
-		AuditCount: auditCount,
-		AuditSuccessCount: auditSuccessCount,
-		UptimeCount: uptimeCount,
+		NodeId:             idStr,
+		AuditCount:         auditCount,
+		AuditSuccessCount:  auditSuccessCount,
+		UptimeCount:        uptimeCount,
 		UptimeSuccessCount: uptimeSuccessCount,
 	})
 	if err != nil {
@@ -207,6 +235,7 @@ func init() {
 	kadCmd.AddCommand(getBucketsCmd)
 	kadCmd.AddCommand(getBucketCmd)
 
+	statsCmd.AddCommand(getStatsCmd)
 	statsCmd.AddCommand(createStatsCmd)
 
 	flag.Parse()

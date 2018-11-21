@@ -84,8 +84,19 @@ func (srv *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb
 
 // GetStats returns the stats for a particular node ID
 func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.GetStatsResponse, error) {
-	return &pb.GetStatsResponse{
+	nodeID := node.IDFromString(req.NodeId)
+	getReq := &statsproto.GetRequest{
+		NodeId:   nodeID.Bytes(),
+	}
+	res, err := srv.statdb.Get(ctx, getReq)
+	if err != nil {
+		return nil, err
+	}
 
+	return &pb.GetStatsResponse{
+		AuditRatio: res.Stats.AuditSuccessRatio,
+		UptimeRatio: res.Stats.UptimeRatio,
+		AuditCount: res.Stats.AuditCount,
 	}, nil
 }
 // GetCSVStats returns the stats for a set of node IDs from a CSV
