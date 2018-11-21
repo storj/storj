@@ -12,12 +12,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/auth"
 	dbx "storj.io/storj/pkg/statdb/dbx"
 	pb "storj.io/storj/pkg/statdb/proto"
 )
 
 var (
-	ctx = context.Background()
+	apiKey = []byte("")
+	ctx    = auth.WithAPIKey(context.Background(), apiKey)
 )
 
 func TestCreateDoesNotExist(t *testing.T) {
@@ -25,12 +27,10 @@ func TestCreateDoesNotExist(t *testing.T) {
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
 	nodeID := []byte("testnodeid")
 	node := &pb.Node{NodeId: nodeID}
 	createReq := &pb.CreateRequest{
-		Node:   node,
-		APIKey: apiKey,
+		Node: node,
 	}
 	resp, err := statdb.Create(ctx, createReq)
 	assert.NoError(t, err)
@@ -51,7 +51,6 @@ func TestCreateExists(t *testing.T) {
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
 	nodeID := []byte("testnodeid")
 
 	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
@@ -62,8 +61,7 @@ func TestCreateExists(t *testing.T) {
 
 	node := &pb.Node{NodeId: nodeID}
 	createReq := &pb.CreateRequest{
-		Node:   node,
-		APIKey: apiKey,
+		Node: node,
 	}
 	_, err = statdb.Create(ctx, createReq)
 	assert.Error(t, err)
@@ -75,7 +73,6 @@ func TestCreateWithStats(t *testing.T) {
 
 	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
 	uptimeSuccessCount, totalUptimeCount, uptimeRatio := getRatio(8, 25)
-	apiKey := []byte("")
 	nodeID := []byte("testnodeid")
 	node := &pb.Node{NodeId: nodeID}
 	stats := &pb.NodeStats{
@@ -85,9 +82,8 @@ func TestCreateWithStats(t *testing.T) {
 		UptimeSuccessCount: uptimeSuccessCount,
 	}
 	createReq := &pb.CreateRequest{
-		Node:   node,
-		Stats:  stats,
-		APIKey: apiKey,
+		Node:  node,
+		Stats: stats,
 	}
 	resp, err := statdb.Create(ctx, createReq)
 	assert.NoError(t, err)
@@ -108,7 +104,6 @@ func TestGetExists(t *testing.T) {
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
 	nodeID := []byte("testnodeid")
 
 	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
@@ -120,7 +115,6 @@ func TestGetExists(t *testing.T) {
 
 	getReq := &pb.GetRequest{
 		NodeId: nodeID,
-		APIKey: apiKey,
 	}
 	resp, err := statdb.Get(ctx, getReq)
 	assert.NoError(t, err)
@@ -135,12 +129,10 @@ func TestGetDoesNotExist(t *testing.T) {
 	statdb, _, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
 	nodeID := []byte("testnodeid")
 
 	getReq := &pb.GetRequest{
 		NodeId: nodeID,
-		APIKey: apiKey,
 	}
 	_, err = statdb.Get(ctx, getReq)
 	assert.Error(t, err)
@@ -150,8 +142,6 @@ func TestFindValidNodes(t *testing.T) {
 	dbPath := getDBPath()
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
-
-	apiKey := []byte("")
 
 	for _, tt := range []struct {
 		nodeID             []byte
@@ -186,7 +176,6 @@ func TestFindValidNodes(t *testing.T) {
 			UptimeRatio:       0.95,
 			AuditCount:        15,
 		},
-		APIKey: apiKey,
 	}
 
 	resp, err := statdb.FindValidNodes(ctx, findValidNodesReq)
@@ -204,7 +193,6 @@ func TestUpdateExists(t *testing.T) {
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
 	nodeID := []byte("testnodeid")
 
 	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
@@ -221,8 +209,7 @@ func TestUpdateExists(t *testing.T) {
 		IsUp:               false,
 	}
 	updateReq := &pb.UpdateRequest{
-		Node:   node,
-		APIKey: apiKey,
+		Node: node,
 	}
 	resp, err := statdb.Update(ctx, updateReq)
 	assert.NoError(t, err)
@@ -239,7 +226,6 @@ func TestUpdateBatchExists(t *testing.T) {
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
 	nodeID1 := []byte("testnodeid1")
 	nodeID2 := []byte("testnodeid2")
 
@@ -269,7 +255,6 @@ func TestUpdateBatchExists(t *testing.T) {
 	}
 	updateBatchReq := &pb.UpdateBatchRequest{
 		NodeList: []*pb.Node{node1, node2},
-		APIKey:   apiKey,
 	}
 	resp, err := statdb.UpdateBatch(ctx, updateBatchReq)
 	assert.NoError(t, err)
@@ -290,7 +275,6 @@ func TestUpdateBatchDoesNotExist(t *testing.T) {
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
 	nodeID1 := []byte("testnodeid1")
 	nodeID2 := []byte("testnodeid2")
 
@@ -315,7 +299,6 @@ func TestUpdateBatchDoesNotExist(t *testing.T) {
 	}
 	updateBatchReq := &pb.UpdateBatchRequest{
 		NodeList: []*pb.Node{node1, node2},
-		APIKey:   apiKey,
 	}
 	_, err = statdb.UpdateBatch(ctx, updateBatchReq)
 	assert.NoError(t, err)
@@ -326,7 +309,6 @@ func TestUpdateBatchEmpty(t *testing.T) {
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
 	nodeID1 := []byte("testnodeid1")
 
 	auditSuccessCount1, totalAuditCount1, auditRatio1 := getRatio(4, 10)
@@ -337,7 +319,6 @@ func TestUpdateBatchEmpty(t *testing.T) {
 
 	updateBatchReq := &pb.UpdateBatchRequest{
 		NodeList: []*pb.Node{},
-		APIKey:   apiKey,
 	}
 	resp, err := statdb.UpdateBatch(ctx, updateBatchReq)
 	assert.NoError(t, err)
@@ -349,7 +330,6 @@ func TestCreateEntryIfNotExists(t *testing.T) {
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
 	nodeID1 := []byte("testnodeid1")
 	nodeID2 := []byte("testnodeid2")
 
@@ -361,8 +341,7 @@ func TestCreateEntryIfNotExists(t *testing.T) {
 
 	node1 := &pb.Node{NodeId: nodeID1}
 	createIfNotExistsReq1 := &pb.CreateEntryIfNotExistsRequest{
-		Node:   node1,
-		APIKey: apiKey,
+		Node: node1,
 	}
 	_, err = statdb.CreateEntryIfNotExists(ctx, createIfNotExistsReq1)
 	assert.NoError(t, err)
@@ -375,8 +354,7 @@ func TestCreateEntryIfNotExists(t *testing.T) {
 
 	node2 := &pb.Node{NodeId: nodeID2}
 	createIfNotExistsReq2 := &pb.CreateEntryIfNotExistsRequest{
-		Node:   node2,
-		APIKey: apiKey,
+		Node: node2,
 	}
 	_, err = statdb.CreateEntryIfNotExists(ctx, createIfNotExistsReq2)
 	assert.NoError(t, err)
@@ -393,7 +371,7 @@ func getDBPath() string {
 }
 
 func getServerAndDB(path string) (statdb *Server, db *dbx.DB, err error) {
-	statdb, err = NewServer("sqlite3", path, zap.NewNop())
+	statdb, err = NewServer("sqlite3", path, string(apiKey), zap.NewNop())
 	if err != nil {
 		return &Server{}, &dbx.DB{}, err
 	}
