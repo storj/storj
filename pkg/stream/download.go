@@ -38,7 +38,10 @@ func NewDownload(ctx context.Context, stream storj.ReadOnlyStream, streams strea
 // See io.Reader for more details.
 func (download *Download) Read(data []byte) (n int, err error) {
 	if download.reader == nil {
-		download.resetReader(0)
+		err = download.resetReader(0)
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	n, err = download.reader.Read(data)
@@ -117,7 +120,7 @@ func (download *Download) resetReader(offset int64) error {
 func (download *Download) newReader(offset int64) (io.ReadCloser, error) {
 	obj := download.stream.Info()
 
-	rr, _, err := download.streams.Get(download.ctx, obj.Path, obj.Cipher)
+	rr, _, err := download.streams.Get(download.ctx, storj.JoinPaths(obj.Bucket, obj.Path), obj.Cipher)
 	if err != nil {
 		return nil, err
 	}
