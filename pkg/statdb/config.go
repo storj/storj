@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/pkg/statdb/proto"
 )
@@ -21,7 +22,12 @@ type Config struct {
 
 // Run implements the provider.Responsibility interface
 func (c Config) Run(ctx context.Context, server *provider.Provider) error {
-	ns, err := NewServer(c.DatabaseDriver, c.DatabaseURL, zap.L())
+	apiKey, ok := auth.GetAPIKey(ctx)
+	if !ok {
+		return Error.New("API key not set")
+	}
+
+	ns, err := NewServer(c.DatabaseDriver, c.DatabaseURL, string(apiKey), zap.L())
 	if err != nil {
 		return err
 	}
