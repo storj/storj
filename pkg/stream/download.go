@@ -38,7 +38,7 @@ func NewDownload(ctx context.Context, stream storj.ReadOnlyStream, streams strea
 // See io.Reader for more details.
 func (download *Download) Read(data []byte) (n int, err error) {
 	if download.closed {
-		Error.New("already closed")
+		return 0, Error.New("already closed")
 	}
 
 	if download.reader == nil {
@@ -60,7 +60,7 @@ func (download *Download) Read(data []byte) (n int, err error) {
 // See io.Seeker for more details.
 func (download *Download) Seek(offset int64, whence int) (int64, error) {
 	if download.closed {
-		Error.New("already closed")
+		return 0, Error.New("already closed")
 	}
 
 	var off int64
@@ -84,7 +84,7 @@ func (download *Download) Seek(offset int64, whence int) (int64, error) {
 // Close closes the stream and releases the underlying resources.
 func (download *Download) Close() error {
 	if download.closed {
-		Error.New("already closed")
+		return Error.New("already closed")
 	}
 
 	download.closed = true
