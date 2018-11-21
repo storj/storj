@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -19,10 +20,19 @@ import (
 
 var (
 	// Addr is the address of Capt Planet from command flags
-	Addr string
+	Addr = flag.String("address", "[::1]:7778", "address of captplanet to inspect")
+
 	// ErrInspectorDial throws when there are errors dialing the inspector server
 	ErrInspectorDial = errs.Class("error dialing inspector server:")
-	rootCmd          = &cobra.Command{
+
+	// ErrRequest is for gRPC request errors after dialing
+	ErrRequest = errs.Class("error processing request:")
+
+	// ErrIdentity is for errors during identity creation for this CLI
+	ErrIdentity = errs.Class("error creating identity:")
+
+	// Commander CLI
+	rootCmd = &cobra.Command{
 		Use:   "inspector",
 		Short: "CLI for interacting with Storj Kademlia network",
 	}
@@ -55,13 +65,13 @@ func NewInspector(address string) (*Inspector, error) {
 	ctx := context.Background()
 	identity, err := node.NewFullIdentity(ctx, 12, 4)
 	if err != nil {
-		return &Inspector{}, err
+		return &Inspector{}, ErrIdentity.Wrap(err)
 	}
 
 	tc := transport.NewClient(identity)
-	conn, err := tc.DialAddress(ctx, Addr)
+	conn, err := tc.DialAddress(ctx, address)
 	if err != nil {
-		return &Inspector{}, err
+		return &Inspector{}, ErrInspectorDial.Wrap(err)
 	}
 
 	c := pb.NewInspectorClient(conn)
@@ -74,14 +84,14 @@ func NewInspector(address string) (*Inspector, error) {
 
 // CountNodes returns the number of nodes in the cache and kademlia
 func CountNodes(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(Addr)
+	i, err := NewInspector(*Addr)
 	if err != nil {
-		return ErrInspectorDial.New("")
+		return ErrInspectorDial.Wrap(err)
 	}
 
 	count, err := i.client.CountNodes(context.Background(), &pb.CountNodesRequest{})
 	if err != nil {
-		return errs.New("Could not retrieve node count:")
+		return ErrRequest.Wrap(err)
 	}
 
 	fmt.Printf("---------- \n - Kademlia: %+v\n - Overlay: %+v\n", count.Kademlia, count.Overlay)
@@ -90,14 +100,14 @@ func CountNodes(cmd *cobra.Command, args []string) (err error) {
 
 // GetBuckets returns all buckets in the overlay cache's routing table
 func GetBuckets(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(Addr)
+	i, err := NewInspector(*Addr)
 	if err != nil {
-		return ErrInspectorDial.New("")
+		return ErrInspectorDial.Wrap(err)
 	}
 
 	buckets, err := i.client.GetBuckets(context.Background(), &pb.GetBucketsRequest{})
 	if err != nil {
-		return errs.New("could not retrieve buckets")
+		return ErrRequest.Wrap(err)
 	}
 
 	fmt.Printf("Buckets ------------- \n %+v\n", buckets)
@@ -110,9 +120,9 @@ func GetBucket(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Must provide at least one bucket ID")
 	}
 
-	i, err := NewInspector(Addr)
+	i, err := NewInspector(*Addr)
 	if err != nil {
-		return ErrInspectorDial.New("")
+		return ErrInspectorDial.Wrap(err)
 	}
 
 	bucket, err := i.client.GetBucket(context.Background(), &pb.GetBucketRequest{
@@ -120,7 +130,7 @@ func GetBucket(cmd *cobra.Command, args []string) (err error) {
 	})
 
 	if err != nil {
-		return errs.New("could not get bucket")
+		return ErrRequest.Wrap(err)
 	}
 
 	fmt.Printf("Bucket ----------- \n %+v\n", bucket)
@@ -128,10 +138,10 @@ func GetBucket(cmd *cobra.Command, args []string) (err error) {
 }
 
 func init() {
-	rootCmd.Flags().StringVar(&Addr, "address", "a", "Address of Capt Planet to point inspector at.")
 	rootCmd.AddCommand(countNodeCmd)
 	rootCmd.AddCommand(getBucketsCmd)
 	rootCmd.AddCommand(getBucketCmd)
+	flag.Parse()
 }
 
 func main() {
