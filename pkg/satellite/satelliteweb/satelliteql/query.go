@@ -47,7 +47,7 @@ func rootQuery(service *satellite.Service, types Types) *graphql.Object {
 				},
 			},
 			tokenQuery: &graphql.Field{
-				Type: graphql.String,
+				Type: types.Token(),
 				Args: graphql.FieldConfigArgument{
 					fieldEmail: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -65,7 +65,7 @@ func rootQuery(service *satellite.Service, types Types) *graphql.Object {
 						return nil, err
 					}
 
-					return token, nil
+					return tokenWrapper{Token: token}, nil
 				},
 			},
 		},

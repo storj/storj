@@ -4,6 +4,8 @@
 package satelliteql
 
 import (
+	"context"
+
 	"github.com/graphql-go/graphql"
 
 	"storj.io/storj/pkg/satellite"
@@ -44,7 +46,17 @@ func graphqlUser(service *satellite.Service, types Types) *graphql.Object {
 			companyType: &graphql.Field{
 				Type: types.Company(),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					user, _ := p.Source.(satellite.User)
+					user, _ := p.Source.(*satellite.User)
+
+					// if root value contains context used instead one from params
+					// as RootValue seems like the only way to pass additional from parent resolver
+					rootValue := p.Info.RootValue.(map[string]interface{})
+
+					ctx := rootValue["context"]
+					if ctx != nil {
+						return service.GetCompany(ctx.(context.Context), user.ID)
+					}
+
 					return service.GetCompany(p.Context, user.ID)
 				},
 			},
