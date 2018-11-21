@@ -110,7 +110,11 @@ func GetBuckets(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	fmt.Printf("Buckets ------------- \n %+v\n", buckets)
+	fmt.Printf("Buckets ---------------- \n Total Buckets: %+v\n", buckets.Total)
+
+	for index, b := range buckets.Ids {
+		fmt.Printf("%+v %+v\n", index, b)
+	}
 	return nil
 }
 
