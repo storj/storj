@@ -86,7 +86,7 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 			}
 		}
 	}()
-	
+
 	server.Serve()
 	return nil
 }
