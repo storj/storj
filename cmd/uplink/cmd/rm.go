@@ -16,11 +16,11 @@ func init() {
 	addCmd(&cobra.Command{
 		Use:   "rm",
 		Short: "Delete an object",
-		RunE:  delete,
+		RunE:  deleteObject,
 	}, CLICmd)
 }
 
-func delete(cmd *cobra.Command, args []string) error {
+func deleteObject(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
 	if len(args) == 0 {

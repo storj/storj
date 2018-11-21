@@ -6,12 +6,14 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
 	"strings"
+	"time"
 
 	"github.com/hanwen/go-fuse/fuse"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
@@ -23,6 +25,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
@@ -63,7 +66,7 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	nfs := pathfs.NewPathNodeFs(&storjFs{FileSystem: pathfs.NewDefaultFileSystem(), ctx: ctx, store: store}, nil)
+	nfs := pathfs.NewPathNodeFs(newStorjFS(ctx, store), nil)
 	conn := nodefs.NewFileSystemConnector(nfs.Root(), nil)
 
 	// workaround to avoid async (unordered) reading
@@ -88,16 +91,44 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-type storjFs struct {
-	ctx   context.Context
-	store objects.Store
+type storjFS struct {
+	ctx          context.Context
+	store        objects.Store
+	createdFiles map[string]*storjFile
+	nodeFS       *pathfs.PathNodeFs
 	pathfs.FileSystem
 }
 
-func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse.Status) {
-	zap.S().Infof("GetAttr: %v", name)
+func newStorjFS(ctx context.Context, store objects.Store) *storjFS {
+	return &storjFS{
+		ctx:          ctx,
+		store:        store,
+		createdFiles: make(map[string]*storjFile),
+		FileSystem:   pathfs.NewDefaultFileSystem(),
+	}
+}
+
+func (sf *storjFS) OnMount(nodeFS *pathfs.PathNodeFs) {
+	sf.nodeFS = nodeFS
+}
+
+func (sf *storjFS) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse.Status) {
+	zap.S().Debug("GetAttr: ", name)
 
 	if name == "" {
+		return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
+	}
+
+	// special case for just created files e.g. while coping into directory
+	createdFile, ok := sf.createdFiles[name]
+	if ok {
+		attr := &fuse.Attr{}
+		status := createdFile.GetAttr(attr)
+		return attr, status
+	}
+
+	node := sf.nodeFS.Node(name)
+	if node != nil && node.IsDir() {
 		return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
 	}
 
@@ -109,7 +140,7 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 	// file not found so maybe it's a prefix/directory
 	if err != nil {
 		items, _, err := sf.store.List(sf.ctx, name, "", "", false, 1, meta.None)
-		if err != nil && !storage.ErrKeyNotFound.Has(err) {
+		if err != nil {
 			return nil, fuse.EIO
 		}
 
@@ -129,46 +160,98 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 	}, fuse.OK
 }
 
-func (sf *storjFs) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntry, code fuse.Status) {
-	zap.S().Infof("OpenDir: %v", name)
+func (sf *storjFS) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntry, code fuse.Status) {
+	zap.S().Debug("OpenDir: ", name)
 
-	entries, err := sf.listFiles(sf.ctx, name, sf.store)
+	var entries []fuse.DirEntry
+	err := sf.listObjects(sf.ctx, name, false, func(items []objects.ListItem) error {
+		for _, item := range items {
+			path := item.Path
+
+			mode := fuse.S_IFREG
+			if item.IsPrefix {
+				path = strings.TrimSuffix(path, "/")
+				mode = fuse.S_IFDIR
+			}
+			entries = append(entries, fuse.DirEntry{Name: path, Mode: uint32(mode)})
+		}
+		return nil
+	})
 	if err != nil {
+		zap.S().Errorf("error during opening directory: %v", err)
 		return nil, fuse.EIO
 	}
 
 	return entries, fuse.OK
 }
 
-func (sf *storjFs) Open(name string, flags uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
-	return &storjFile{
-		name:  name,
-		ctx:   sf.ctx,
-		store: sf.store,
-		File:  nodefs.NewDefaultFile(),
-	}, fuse.OK
+func (sf *storjFS) Mkdir(name string, mode uint32, context *fuse.Context) fuse.Status {
+	zap.S().Debug("Mkdir: ", name)
+
+	reader := bytes.NewReader([]byte{})
+	meta := objects.SerializableMeta{ContentType: "application/directory"}
+	expTime := time.Time{}
+
+	_, err := sf.store.Put(sf.ctx, name+"/", reader, meta, expTime)
+	if err != nil {
+		return fuse.EIO
+	}
+
+	return fuse.OK
 }
 
-func (sf *storjFs) listFiles(ctx context.Context, name string, store objects.Store) (c []fuse.DirEntry, err error) {
-	var entries []fuse.DirEntry
+func (sf *storjFS) Rmdir(name string, context *fuse.Context) (code fuse.Status) {
+	zap.S().Debug("Rmdir: ", name)
 
+	err := sf.listObjects(sf.ctx, name, true, func(items []objects.ListItem) error {
+		for _, item := range items {
+			err := sf.store.Delete(sf.ctx, storj.JoinPaths(name, item.Path))
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		zap.S().Errorf("error during removing directory: %v", err)
+		return fuse.EIO
+	}
+
+	return fuse.OK
+}
+
+func (sf *storjFS) Open(name string, flags uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
+	zap.S().Debug("Open: ", name)
+	return newStorjFile(sf.ctx, name, sf.store, false, sf), fuse.OK
+}
+
+func (sf *storjFS) Create(name string, flags uint32, mode uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
+	zap.S().Debug("Create: ", name)
+
+	return sf.addCreatedFile(name, newStorjFile(sf.ctx, name, sf.store, true, sf)), fuse.OK
+}
+
+func (sf *storjFS) addCreatedFile(name string, file *storjFile) *storjFile {
+	sf.createdFiles[name] = file
+	return file
+}
+
+func (sf *storjFS) removeCreatedFile(name string) {
+	delete(sf.createdFiles, name)
+}
+
+func (sf *storjFS) listObjects(ctx context.Context, name string, recursive bool, handler func([]objects.ListItem) error) (err error) {
 	startAfter := ""
 
 	for {
-		items, more, err := store.List(ctx, name, startAfter, "", false, 0, meta.None)
+		items, more, err := sf.store.List(sf.ctx, name, startAfter, "", recursive, 0, meta.None)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		for _, object := range items {
-			path := object.Path
-
-			mode := fuse.S_IFREG
-			if object.IsPrefix {
-				path = strings.TrimSuffix(path, "/")
-				mode = fuse.S_IFDIR
-			}
-			entries = append(entries, fuse.DirEntry{Name: path, Mode: uint32(mode)})
+		err = handler(items)
+		if err != nil {
+			return err
 		}
 
 		if !more {
@@ -178,10 +261,12 @@ func (sf *storjFs) listFiles(ctx context.Context, name string, store objects.Sto
 		startAfter = items[len(items)-1].Path
 	}
 
-	return entries, nil
+	return nil
 }
 
-func (sf *storjFs) Unlink(name string, context *fuse.Context) (code fuse.Status) {
+func (sf *storjFS) Unlink(name string, context *fuse.Context) (code fuse.Status) {
+	zap.S().Debug("Unlink: ", name)
+
 	err := sf.store.Delete(sf.ctx, name)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
@@ -194,18 +279,50 @@ func (sf *storjFs) Unlink(name string, context *fuse.Context) (code fuse.Status)
 }
 
 type storjFile struct {
-	name            string
 	ctx             context.Context
 	store           objects.Store
+	created         bool
+	name            string
+	size            uint64
+	mtime           uint64
 	reader          io.ReadCloser
+	writer          *io.PipeWriter
 	predictedOffset int64
+	FS              *storjFS
+
 	nodefs.File
+}
+
+func newStorjFile(ctx context.Context, name string, store objects.Store, created bool, FS *storjFS) *storjFile {
+	return &storjFile{
+		name:    name,
+		ctx:     ctx,
+		store:   store,
+		mtime:   uint64(time.Now().Unix()),
+		created: created,
+		FS:      FS,
+		File:    nodefs.NewDefaultFile(),
+	}
+}
+
+func (f *storjFile) GetAttr(attr *fuse.Attr) fuse.Status {
+	zap.S().Debug("GetAttr file: ", f.name)
+
+	if f.created {
+		attr.Mode = fuse.S_IFREG | 0644
+		if f.size != 0 {
+			attr.Size = f.size
+		}
+		attr.Mtime = f.mtime
+		return fuse.OK
+	}
+	return fuse.ENOSYS
 }
 
 func (f *storjFile) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.Status) {
 	// Detect if offset was moved manually (e.g. stream rev/fwd)
 	if off != f.predictedOffset {
-		f.close()
+		f.closeReader()
 	}
 
 	reader, err := f.getReader(off)
@@ -226,6 +343,21 @@ func (f *storjFile) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.
 	return fuse.ReadResultData(buf[:n]), fuse.OK
 }
 
+func (f *storjFile) Write(data []byte, off int64) (uint32, fuse.Status) {
+	writer, err := f.getWriter(off)
+	if err != nil {
+		return 0, fuse.EIO
+	}
+
+	written, err := writer.Write(data)
+	if err != nil {
+		return 0, fuse.EIO
+	}
+
+	f.size += uint64(written)
+	return uint32(written), fuse.OK
+}
+
 func (f *storjFile) getReader(off int64) (io.ReadCloser, error) {
 	if f.reader == nil {
 		ranger, _, err := f.store.Get(f.ctx, f.name)
@@ -241,14 +373,57 @@ func (f *storjFile) getReader(off int64) (io.ReadCloser, error) {
 	return f.reader, nil
 }
 
+func (f *storjFile) getWriter(off int64) (*io.PipeWriter, error) {
+	if off == 0 {
+		f.size = 0
+		f.closeWriter()
+
+		var reader *io.PipeReader
+		reader, f.writer = io.Pipe()
+		go func() {
+			zap.S().Debug("Starts writting: ", f.name)
+
+			defer func() {
+				utils.LogClose(reader)
+				if f.created {
+					f.FS.removeCreatedFile(f.name)
+				}
+			}()
+
+			meta := objects.SerializableMeta{}
+			expTime := time.Time{}
+
+			m, err := f.store.Put(f.ctx, f.name, reader, meta, expTime)
+			if err != nil {
+				zap.S().Errorf("error during writting: %v", err)
+			}
+
+			f.size = uint64(m.Size)
+
+			zap.S().Debug("Stops writting: ", f.name)
+		}()
+	}
+	return f.writer, nil
+}
+
 func (f *storjFile) Flush() fuse.Status {
-	f.close()
+	zap.S().Debug("Flush: ", f.name)
+
+	f.closeReader()
+	f.closeWriter()
 	return fuse.OK
 }
 
-func (f *storjFile) close() {
+func (f *storjFile) closeReader() {
 	if f.reader != nil {
 		utils.LogClose(f.reader)
 		f.reader = nil
+	}
+}
+
+func (f *storjFile) closeWriter() {
+	if f.writer != nil {
+		utils.LogClose(f.writer)
+		f.writer = nil
 	}
 }
