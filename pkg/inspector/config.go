@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/statdb"
 )
 
 var (
@@ -41,9 +42,15 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return Error.New("programmer error: overlay responsibility unstarted")
 	}
 
+	sdb := statdb.LoadFromContext(ctx)
+	if sdb == nil {
+		return Error.New("programmer error: statdb responsibility unstarted")
+	}
+
 	srv := &Server{
 		dht:     kad,
 		cache:   ol,
+		statdb:  sdb,
 		logger:  zap.L(),
 		metrics: monkit.Default,
 	}
