@@ -20,6 +20,12 @@ const (
 	OverlayBucket = "overlay"
 )
 
+// ErrNodeNotFound error standardization
+var ErrNodeNotFound = errs.New("Node not found")
+
+// ErrBucketNotFound returns if a bucket is unable to be found in the routing table
+var ErrBucketNotFound = errs.New("Bucket not found")
+
 // OverlayError creates class of errors for stack traces
 var OverlayError = errs.Class("Overlay Error")
 

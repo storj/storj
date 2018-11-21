@@ -1,0 +1,56 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+import "overlay.proto";
+
+package inspector;
+
+service Inspector {
+  // CountNodes returns the number of nodes in the cache and in the routing table
+  rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
+
+  // GetBuckets returns the k buckets from a Kademlia instance
+  rpc GetBuckets(GetBucketsRequest) returns (GetBucketsResponse);
+
+  // GetBucket returns the details of a single k bucket from the kademlia instance
+  rpc GetBucket(GetBucketRequest) returns (GetBucketResponse);
+}
+
+// CountNodes
+message CountNodesResponse {
+  int64 kademlia = 1;
+  int64 overlay = 2;
+}
+
+message CountNodesRequest {
+}
+
+// GetBuckets
+message GetBucketsRequest {
+}
+
+message GetBucketsResponse {
+  int64 total = 1;
+  repeated bytes ids = 2;
+}
+
+// GetBucket
+message GetBucketRequest {
+  string id = 1;
+}
+
+message GetBucketResponse {
+  string id = 1;
+  repeated overlay.Node nodes = 2;
+}
+
+message Bucket {
+  repeated overlay.Node nodes = 2; 
+}
+
+message BucketList {
+  repeated overlay.Node nodes = 1;
+}
