@@ -41,6 +41,7 @@ func NewServer(driver, source, apiKey string, logger *zap.Logger) (*Server, erro
 		return nil, err
 	}
 
+	// TODO(moby) move db creation to "setup" stage. NewServer should only try to open an existing db
 	err = migrate.Create("statdb", db)
 	if err != nil {
 		return nil, err
@@ -164,6 +165,8 @@ func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRe
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb FindValidNodes")
 
+	// TODO(moby) determine whether we need this functionality here. We are not currently using this
+
 	passedIds := [][]byte{}
 
 	nodeIds := getReq.NodeIds
@@ -219,6 +222,13 @@ func (s *Server) findValidNodesQuery(nodeIds [][]byte, auditCount int64, auditSu
 func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp *pb.UpdateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Update")
+
+	// TODO(moby) this function contains a lot of unnecessary cluttering functionality that we *might* not need:
+	//     1. If Update is called and the node does not exist, the node is created. Maybe we just want to return an error and not create the node
+	//     2. We allow the caller to configure whether each field is updated. We can make these decisions on our own by making assumptions:
+	//          a) If called with isUp = true, update all fields
+	//          b) If called with isUp = false, update uptime, but not latency or audit success
+	//          c) In other words, assume that if a user ONLY wants to update uptime/auditsuccess/latency, they will call the functions dedicated to those operations
 
 	err = s.validateAuth(ctx)
 	if err != nil {
