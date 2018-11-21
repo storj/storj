@@ -95,7 +95,7 @@ message UpdateUptimeRequest {
   Node node = 1;
 }
 
-// UpdateUptimeRequest is a response message for the UpdateUptime rpc call
+// UpdateUptimeResponse is a response message for the UpdateUptime rpc call
 message UpdateUptimeResponse {
   NodeStats stats = 1;
 }
@@ -105,7 +105,7 @@ message UpdateAuditSuccessRequest {
   Node node = 1;
 }
 
-// UpdateAuditSuccessRequest is a response message for the UpdateAuditSuccess rpc call
+// UpdateAuditSuccessResponse is a response message for the UpdateAuditSuccess rpc call
 message UpdateAuditSuccessResponse {
   NodeStats stats = 1;
 }
