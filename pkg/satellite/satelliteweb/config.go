@@ -28,7 +28,7 @@ type Config struct {
 
 // Run implements Responsibility interface
 func (c Config) Run(ctx context.Context, server *provider.Provider) error {
-	sugar := zap.NewExample().Sugar()
+	log := zap.NewExample()
 
 	// Create satellite DB
 	dbURL, err := utils.ParseURL(c.DatabaseURL)
@@ -42,9 +42,12 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	}
 
 	err = db.CreateTables()
-	sugar.Error(err)
+	if err != nil {
+		log.Error(err.Error())
+	}
 
 	service, err := satellite.NewService(
+		log,
 		&satelliteauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 		db,
 	)
@@ -71,7 +74,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	go (&gateway{
 		schema: schema,
 		config: c.GatewayConfig,
-		logger: sugar,
+		log:    log,
 	}).run()
 
 	return server.Run(ctx)

@@ -73,7 +73,7 @@ func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FP
 
 	o, err := bs.GetObjectStore(ctx, dst.Bucket())
 	if err != nil {
-		return err
+		return convertError(err, dst)
 	}
 
 	r := io.Reader(f)
@@ -113,12 +113,12 @@ func download(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.
 
 	o, err := bs.GetObjectStore(ctx, src.Bucket())
 	if err != nil {
-		return err
+		return convertError(err, src)
 	}
 
 	rr, _, err := o.Get(ctx, src.Path())
 	if err != nil {
-		return err
+		return convertError(err, src)
 	}
 
 	r, err := rr.Range(ctx, 0, rr.Size())
@@ -177,12 +177,12 @@ func copy(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPat
 
 	o, err := bs.GetObjectStore(ctx, src.Bucket())
 	if err != nil {
-		return err
+		return convertError(err, src)
 	}
 
 	rr, _, err := o.Get(ctx, src.Path())
 	if err != nil {
-		return err
+		return convertError(err, src)
 	}
 
 	r, err := rr.Range(ctx, 0, rr.Size())
@@ -201,7 +201,7 @@ func copy(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPat
 	if dst.Bucket() != src.Bucket() {
 		o, err = bs.GetObjectStore(ctx, dst.Bucket())
 		if err != nil {
-			return err
+			return convertError(err, dst)
 		}
 	}
 

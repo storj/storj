@@ -24,6 +24,14 @@ type Users interface {
 	Update(ctx context.Context, user *User) error
 }
 
+// UserInfo holds data needed to create/update User
+type UserInfo struct {
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+}
+
 // User is a database object that describes User entity
 type User struct {
 	ID uuid.UUID `json:"id"`

@@ -98,12 +98,18 @@ message Node {
     NodeAddress address = 2;
     NodeType type = 3;
     NodeRestrictions restrictions = 4;
+    NodeMetadata metadata = 5;
 }
 
 // NodeType is an enum of possible node types
 enum NodeType {
     ADMIN = 0;
     STORAGE = 1;
+}
+
+message NodeMetadata {
+    string email = 1;
+    string wallet = 2;
 }
 
 message QueryRequest {
