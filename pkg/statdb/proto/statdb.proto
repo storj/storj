@@ -12,8 +12,12 @@ service StatDB {
   rpc Get(GetRequest) returns (GetResponse);
   // FindValidNodes gets a subset of storagenodes that fit minimum reputation args
   rpc FindValidNodes(FindValidNodesRequest) returns (FindValidNodesResponse);
-  // Update updates storagenode stats for a single storagenode
+  // Update updates all stats for a single storagenode
   rpc Update(UpdateRequest) returns (UpdateResponse);
+  // UpdateUptime updates uptime stats for a single storagenode
+  rpc UpdateUptime(UpdateUptimeRequest) returns (UpdateUptimeResponse);
+  // UpdateAuditSuccess updates audit success stats for a single storagenode
+  rpc UpdateAuditSuccess(UpdateAuditSuccessRequest) returns (UpdateAuditSuccessResponse);
   // UpdateBatch updates storagenode stats for multiple farmers at a time
   rpc UpdateBatch(UpdateBatchRequest) returns (UpdateBatchResponse);
   // CreateEntryIfNotExists creates a db entry if it didn't exist
@@ -47,7 +51,6 @@ message NodeStats {
 message CreateRequest {
   Node node = 1;
   NodeStats stats = 2;
-  bytes APIKey = 3;
 }
 
 // CreateResponse is a response message for the Create rpc call
@@ -58,7 +61,6 @@ message CreateResponse {
 // GetRequest is a request message for the Get rpc call
 message GetRequest {
   bytes node_id = 1;
-  bytes APIKey = 2;
 }
 
 // GetResponse is a response message for the Get rpc call
@@ -70,7 +72,6 @@ message GetResponse {
 message FindValidNodesRequest {
   repeated bytes node_ids = 1;
   NodeStats min_stats = 2;
-  bytes APIKey = 3;
 }
 
 // FindValidNodesResponse is a response message for the FindValidNodes rpc call
@@ -82,7 +83,6 @@ message FindValidNodesResponse {
 // UpdateRequest is a request message for the Update rpc call
 message UpdateRequest {
   Node node = 1;
-  bytes APIKey = 2;
 }
 
 // UpdateRequest is a response message for the Update rpc call
@@ -90,10 +90,29 @@ message UpdateResponse {
   NodeStats stats = 1;
 }
 
+// UpdateUptimeRequest is a request message for the UpdateUptime rpc call
+message UpdateUptimeRequest {
+  Node node = 1;
+}
+
+// UpdateUptimeRequest is a response message for the UpdateUptime rpc call
+message UpdateUptimeResponse {
+  NodeStats stats = 1;
+}
+
+// UpdateAuditSuccessRequest is a request message for the UpdateAuditSuccess rpc call
+message UpdateAuditSuccessRequest {
+  Node node = 1;
+}
+
+// UpdateAuditSuccessRequest is a response message for the UpdateAuditSuccess rpc call
+message UpdateAuditSuccessResponse {
+  NodeStats stats = 1;
+}
+
 // UpdateBatchRequest is a request message for the UpdateBatch rpc call
 message UpdateBatchRequest {
   repeated Node node_list = 1;
-  bytes APIKey = 2;
 }
 
 // UpdateBatchResponse is a response message for the UpdateBatch rpc call
@@ -105,7 +124,6 @@ message UpdateBatchResponse {
 // CreateEntryIfNotExistsRequest is a request message for the CreateEntryIfNotExists rpc call
 message CreateEntryIfNotExistsRequest {
   Node node = 1;
-  bytes APIKey = 2;
 }
 
 // CreateEntryIfNotExistsResponse is a response message for the CreateEntryIfNotExists rpc call
