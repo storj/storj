@@ -42,11 +42,10 @@ func TestGetObject(t *testing.T) {
 		assert.True(t, storage.ErrEmptyKey.Has(err))
 
 		_, err = db.GetObject(ctx, "non-existing-bucket", "test-file")
-		// TODO: Should return storj.ErrBucketNotFound
-		assert.True(t, storage.ErrKeyNotFound.Has(err))
+		assert.True(t, storj.ErrBucketNotFound.Has(err))
 
 		_, err = db.GetObject(ctx, bucket.Name, "non-existing-file")
-		assert.True(t, storage.ErrKeyNotFound.Has(err))
+		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
 		object, err := db.GetObject(ctx, bucket.Name, "test-file")
 		if assert.NoError(t, err) {
@@ -85,11 +84,10 @@ func TestGetObjectStream(t *testing.T) {
 		assert.True(t, storage.ErrEmptyKey.Has(err))
 
 		_, err = db.GetObjectStream(ctx, "non-existing-bucket", "test-file")
-		// TODO: Should return storj.ErrBucketNotFound
-		assert.True(t, storage.ErrKeyNotFound.Has(err))
+		assert.True(t, storj.ErrBucketNotFound.Has(err))
 
 		_, err = db.GetObject(ctx, bucket.Name, "non-existing-file")
-		assert.True(t, storage.ErrKeyNotFound.Has(err))
+		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
 		stream, err := db.GetObjectStream(ctx, bucket.Name, "empty-file")
 		if assert.NoError(t, err) {
@@ -146,14 +144,13 @@ func TestDeleteObject(t *testing.T) {
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
 		err = db.DeleteObject(ctx, bucket.Name, "")
-		assert.True(t, storage.ErrEmptyKey.Has(err))
+		assert.True(t, storj.ErrNoPath.Has(err))
 
-		_ = db.DeleteObject(ctx, "non-existing-bucket", "test-file")
-		// TODO: Currently returns minio.BucketNotFound, should return storj.ErrBucketNotFound
-		// assert.True(t, storj.ErrBucketNotFound.Has(err))
+		err = db.DeleteObject(ctx, "non-existing-bucket", "test-file")
+		assert.True(t, storj.ErrBucketNotFound.Has(err))
 
 		err = db.DeleteObject(ctx, bucket.Name, "non-existing-file")
-		assert.True(t, storage.ErrKeyNotFound.Has(err))
+		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
 		err = db.DeleteObject(ctx, bucket.Name, "test-file")
 		assert.NoError(t, err)

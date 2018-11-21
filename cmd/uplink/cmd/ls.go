@@ -47,7 +47,9 @@ func list(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("No bucket specified, use format sj://bucket/")
 		}
 
-		return listFiles(ctx, bs, src, false)
+		err = listFiles(ctx, bs, src, false)
+
+		return convertError(err, src)
 	}
 
 	startAfter := ""

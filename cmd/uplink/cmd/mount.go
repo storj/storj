@@ -27,7 +27,6 @@ import (
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
-	"storj.io/storj/storage"
 )
 
 func init() {
@@ -63,7 +62,7 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 
 	store, err := bs.GetObjectStore(ctx, src.Bucket())
 	if err != nil {
-		return err
+		return convertError(err, src)
 	}
 
 	nfs := pathfs.NewPathNodeFs(newStorjFS(ctx, store), nil)
@@ -133,7 +132,7 @@ func (sf *storjFS) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 	}
 
 	metadata, err := sf.store.Meta(sf.ctx, name)
-	if err != nil && !storage.ErrKeyNotFound.Has(err) {
+	if err != nil && !storj.ErrObjectNotFound.Has(err) {
 		return nil, fuse.EIO
 	}
 
@@ -144,7 +143,7 @@ func (sf *storjFS) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 			return nil, fuse.EIO
 		}
 
-		// when at least one element has this prefix then it's directory
+		// if exactly one element has this prefix then it's directory
 		if len(items) == 1 {
 			return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
 		}
@@ -269,7 +268,7 @@ func (sf *storjFS) Unlink(name string, context *fuse.Context) (code fuse.Status)
 
 	err := sf.store.Delete(sf.ctx, name)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return fuse.ENOENT
 		}
 		return fuse.EIO
@@ -327,7 +326,7 @@ func (f *storjFile) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.
 
 	reader, err := f.getReader(off)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return nil, fuse.ENOENT
 		}
 		return nil, fuse.EIO

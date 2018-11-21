@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	minio "github.com/minio/minio/cmd"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/encryption"
@@ -65,7 +64,7 @@ func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (object
 	m, err := b.Get(ctx, bucket)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
-			return nil, minio.BucketNotFound{Bucket: bucket}
+			err = storj.ErrBucketNotFound.Wrap(err)
 		}
 		return nil, err
 	}
@@ -86,8 +85,12 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 
 	objMeta, err := b.store.Meta(ctx, bucket)
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			err = storj.ErrBucketNotFound.Wrap(err)
+		}
 		return Meta{}, err
 	}
+
 	return convertMeta(objMeta)
 }
 
@@ -123,7 +126,13 @@ func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 		return storj.ErrNoBucket.New("")
 	}
 
-	return b.store.Delete(ctx, bucket)
+	err = b.store.Delete(ctx, bucket)
+
+	if storage.ErrKeyNotFound.Has(err) {
+		err = storj.ErrBucketNotFound.Wrap(err)
+	}
+
+	return err
 }
 
 // List calls objects store List

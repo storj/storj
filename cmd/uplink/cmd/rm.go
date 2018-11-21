@@ -43,12 +43,12 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 
 	o, err := bs.GetObjectStore(ctx, dst.Bucket())
 	if err != nil {
-		return err
+		return convertError(err, dst)
 	}
 
 	err = o.Delete(ctx, dst.Path())
 	if err != nil {
-		return err
+		return convertError(err, dst)
 	}
 
 	fmt.Printf("Deleted %s\n", dst)
