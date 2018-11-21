@@ -4,14 +4,14 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"encoding/csv"
 	"flag"
 	"fmt"
-	"bufio"
-	"strconv"
 	"io"
 	"os"
-	"encoding/csv"
+	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -283,7 +283,7 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
-	
+
 	// get csv
 	csvPath := args[0]
 	csvFile, _ := os.Open(csvPath)

@@ -11,11 +11,11 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	statsproto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/statdb"
-	"storj.io/storj/pkg/node"
+	statsproto "storj.io/storj/pkg/statdb/proto"
 )
 
 var (
@@ -86,7 +86,7 @@ func (srv *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb
 func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.GetStatsResponse, error) {
 	nodeID := node.IDFromString(req.NodeId)
 	getReq := &statsproto.GetRequest{
-		NodeId:   nodeID.Bytes(),
+		NodeId: nodeID.Bytes(),
 	}
 	res, err := srv.statdb.Get(ctx, getReq)
 	if err != nil {
@@ -94,9 +94,9 @@ func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.G
 	}
 
 	return &pb.GetStatsResponse{
-		AuditRatio: res.Stats.AuditSuccessRatio,
+		AuditRatio:  res.Stats.AuditSuccessRatio,
 		UptimeRatio: res.Stats.UptimeRatio,
-		AuditCount: res.Stats.AuditCount,
+		AuditCount:  res.Stats.AuditCount,
 	}, nil
 }
 
@@ -113,11 +113,10 @@ func (srv *Server) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) 
 		UptimeSuccessCount: req.UptimeSuccessCount,
 	}
 	createReq := &statsproto.CreateRequest{
-		Node:   node,
-		Stats:  stats,
+		Node:  node,
+		Stats: stats,
 	}
 	_, err := srv.statdb.Create(ctx, createReq)
-
 
 	return &pb.CreateStatsResponse{}, err
 }

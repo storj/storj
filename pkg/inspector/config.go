@@ -13,8 +13,8 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/statdb"
 )
 
 var (
@@ -50,7 +50,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	srv := &Server{
 		dht:     kad,
 		cache:   ol,
-		statdb: sdb,
+		statdb:  sdb,
 		logger:  zap.L(),
 		metrics: monkit.Default,
 	}
