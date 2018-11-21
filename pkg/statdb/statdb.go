@@ -298,6 +298,107 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 	}, nil
 }
 
+// UpdateUptime updates a single storagenode's uptime stats in the db
+func (s *Server) UpdateUptime(ctx context.Context, updateReq *pb.UpdateUptimeRequest) (resp *pb.UpdateUptimeResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	s.logger.Debug("entering statdb UpdateUptime")
+
+
+	err = s.validateAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	node := updateReq.GetNode()
+
+	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(node.NodeId))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	uptimeSuccessCount := dbNode.UptimeSuccessCount
+	totalUptimeCount := dbNode.TotalUptimeCount
+	var uptimeRatio float64
+
+	updateFields := dbx.Node_Update_Fields{}
+
+	uptimeSuccessCount, totalUptimeCount, uptimeRatio = updateRatioVars(
+		node.IsUp,
+		uptimeSuccessCount,
+		totalUptimeCount,
+	)
+
+	updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(uptimeSuccessCount)
+	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
+	updateFields.UptimeRatio = dbx.Node_UptimeRatio(uptimeRatio)
+
+	dbNode, err = s.DB.Update_Node_By_Id(ctx, dbx.Node_Id(node.NodeId), updateFields)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	nodeStats := &pb.NodeStats{
+		NodeId:            dbNode.Id,
+		AuditSuccessRatio: dbNode.AuditSuccessRatio,
+		UptimeRatio:       dbNode.UptimeRatio,
+		AuditSuccessCount: dbNode.AuditSuccessCount,
+	}
+	return &pb.UpdateUptimeResponse{
+		Stats: nodeStats,
+	}, nil
+}
+
+// UpdateAuditSuccess updates a single storagenode's uptime stats in the db
+func (s *Server) UpdateAuditSuccess(ctx context.Context, updateReq *pb.UpdateAuditSuccessRequest) (resp *pb.UpdateAuditSuccessResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	s.logger.Debug("entering statdb UpdateAuditSuccess")
+
+	// TODO(moby) will we ever want to update audit success and not also update uptime?
+
+	err = s.validateAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	node := updateReq.GetNode()
+
+	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(node.NodeId))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	auditSuccessCount := dbNode.AuditSuccessCount
+	totalAuditCount := dbNode.TotalAuditCount
+	var auditRatio float64
+
+	updateFields := dbx.Node_Update_Fields{}
+
+	auditSuccessCount, totalAuditCount, auditRatio = updateRatioVars(
+		node.AuditSuccess,
+		auditSuccessCount,
+		totalAuditCount,
+	)
+
+	updateFields.AuditSuccessCount = dbx.Node_AuditSuccessCount(auditSuccessCount)
+	updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(totalAuditCount)
+	updateFields.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(auditRatio)
+
+	dbNode, err = s.DB.Update_Node_By_Id(ctx, dbx.Node_Id(node.NodeId), updateFields)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	nodeStats := &pb.NodeStats{
+		NodeId:            dbNode.Id,
+		AuditSuccessRatio: dbNode.AuditSuccessRatio,
+		UptimeRatio:       dbNode.UptimeRatio,
+		AuditSuccessCount: dbNode.AuditSuccessCount,
+	}
+	return &pb.UpdateAuditSuccessResponse{
+		Stats: nodeStats,
+	}, nil
+}
+
 // UpdateBatch for updating multiple farmers' stats in the db
 func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (resp *pb.UpdateBatchResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
