@@ -20,7 +20,7 @@ import (
 
 var (
 	port   string
-	apiKey = []byte("")
+	apiKey = ""
 	ctx    = context.Background()
 )
 

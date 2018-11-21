@@ -221,6 +221,66 @@ func TestUpdateExists(t *testing.T) {
 	assert.EqualValues(t, newUptimeRatio, stats.UptimeRatio)
 }
 
+func TestUpdateUptimeExists(t *testing.T) {
+	dbPath := getDBPath()
+	statdb, db, err := getServerAndDB(dbPath)
+	assert.NoError(t, err)
+
+	nodeID := []byte("testnodeid")
+
+	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
+	uptimeSuccessCount, totalUptimeCount, uptimeRatio := getRatio(8, 25)
+	err = createNode(ctx, db, nodeID, auditSuccessCount, totalAuditCount, auditRatio,
+		uptimeSuccessCount, totalUptimeCount, uptimeRatio)
+	assert.NoError(t, err)
+
+	node := &pb.Node{
+		NodeId: nodeID,
+		IsUp:   false,
+	}
+	updateReq := &pb.UpdateUptimeRequest{
+		Node: node,
+	}
+	resp, err := statdb.UpdateUptime(ctx, updateReq)
+	assert.NoError(t, err)
+
+	_, _, newUptimeRatio := getRatio(int(uptimeSuccessCount), int(totalUptimeCount+1))
+	stats := resp.Stats
+	assert.EqualValues(t, auditRatio, stats.AuditSuccessRatio)
+	assert.EqualValues(t, totalAuditCount, stats.AuditCount)
+	assert.EqualValues(t, newUptimeRatio, stats.UptimeRatio)
+}
+
+func TestUpdateAuditSuccessExists(t *testing.T) {
+	dbPath := getDBPath()
+	statdb, db, err := getServerAndDB(dbPath)
+	assert.NoError(t, err)
+
+	nodeID := []byte("testnodeid")
+
+	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
+	uptimeSuccessCount, totalUptimeCount, uptimeRatio := getRatio(8, 25)
+	err = createNode(ctx, db, nodeID, auditSuccessCount, totalAuditCount, auditRatio,
+		uptimeSuccessCount, totalUptimeCount, uptimeRatio)
+	assert.NoError(t, err)
+
+	node := &pb.Node{
+		NodeId:       nodeID,
+		AuditSuccess: false,
+	}
+	updateReq := &pb.UpdateAuditSuccessRequest{
+		Node: node,
+	}
+	resp, err := statdb.UpdateAuditSuccess(ctx, updateReq)
+	assert.NoError(t, err)
+
+	_, _, newAuditRatio := getRatio(int(auditSuccessCount), int(totalAuditCount+1))
+	stats := resp.Stats
+	assert.EqualValues(t, newAuditRatio, stats.AuditSuccessRatio)
+	assert.EqualValues(t, totalAuditCount+1, stats.AuditCount)
+	assert.EqualValues(t, uptimeRatio, stats.UptimeRatio)
+}
+
 func TestUpdateBatchExists(t *testing.T) {
 	dbPath := getDBPath()
 	statdb, db, err := getServerAndDB(dbPath)
