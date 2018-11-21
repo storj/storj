@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"strings"
+	"crypto/subtle"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -15,7 +16,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/migrate"
-	"storj.io/storj/pkg/pointerdb/auth"
+	"storj.io/storj/pkg/auth"
 	dbx "storj.io/storj/pkg/statdb/dbx"
 	pb "storj.io/storj/pkg/statdb/proto"
 )
@@ -30,10 +31,11 @@ var (
 type Server struct {
 	DB     *dbx.DB
 	logger *zap.Logger
+	apiKey string
 }
 
 // NewServer creates instance of Server
-func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
+func NewServer(driver, source, apiKey string, logger *zap.Logger) (*Server, error) {
 	db, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, err
@@ -47,11 +49,21 @@ func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
 	return &Server{
 		DB:     db,
 		logger: logger,
+		apiKey: apiKey,
 	}, nil
 }
 
-func (s *Server) validateAuth(APIKeyBytes []byte) error {
-	if !auth.ValidateAPIKey(string(APIKeyBytes)) {
+func (s *Server) validateAuth(ctx context.Context) error {
+	apiKey, ok := auth.GetAPIKey(ctx)
+	if !ok {
+		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
+		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
+	}
+
+	expected := []byte(s.apiKey)
+	actual := []byte(apiKey)
+	matches := (1 == subtle.ConstantTimeCompare(expected, actual))
+	if !matches {
 		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
 		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
@@ -63,8 +75,7 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Create")
 
-	APIKeyBytes := createReq.APIKey
-	if err := s.validateAuth(APIKeyBytes); err != nil {
+	if err := s.validateAuth(ctx); err != nil {
 		return nil, err
 	}
 
@@ -127,8 +138,7 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Get")
 
-	APIKeyBytes := getReq.APIKey
-	err = s.validateAuth(APIKeyBytes)
+	err = s.validateAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -210,8 +220,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Update")
 
-	APIKeyBytes := updateReq.APIKey
-	err = s.validateAuth(APIKeyBytes)
+	err = s.validateAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +229,6 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 
 	createIfReq := &pb.CreateEntryIfNotExistsRequest{
 		Node:   updateReq.GetNode(),
-		APIKey: APIKeyBytes,
 	}
 
 	_, err = s.CreateEntryIfNotExists(ctx, createIfReq)
@@ -285,13 +293,11 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb UpdateBatch")
 
-	APIKeyBytes := updateBatchReq.APIKey
 	var nodeStatsList []*pb.NodeStats
 	var failedNodes []*pb.Node
 	for _, node := range updateBatchReq.NodeList {
 		updateReq := &pb.UpdateRequest{
 			Node:   node,
-			APIKey: APIKeyBytes,
 		}
 
 		updateRes, err := s.Update(ctx, updateReq)
@@ -312,18 +318,17 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 
 // CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist
 func (s *Server) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.CreateEntryIfNotExistsRequest) (resp *pb.CreateEntryIfNotExistsResponse, err error) {
-	APIKeyBytes := createIfReq.APIKey
+	defer mon.Task()(&ctx)(&err)
+	s.logger.Debug("entering statdb CreateEntryIfNotExists")
 
 	getReq := &pb.GetRequest{
 		NodeId: createIfReq.Node.NodeId,
-		APIKey: APIKeyBytes,
 	}
 	getRes, err := s.Get(ctx, getReq)
 	// TODO: figure out better way to confirm error is type dbx.ErrorCode_NoRows
 	if err != nil && strings.Contains(err.Error(), "no rows in result set") {
 		createReq := &pb.CreateRequest{
 			Node:   createIfReq.Node,
-			APIKey: APIKeyBytes,
 		}
 		res, err := s.Create(ctx, createReq)
 		if err != nil {
