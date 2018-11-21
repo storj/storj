@@ -93,8 +93,16 @@ func TestPeerDiscovery(t *testing.T) {
 	defer targetServer.Stop()
 
 	bootstrapNodes := []pb.Node{pb.Node{Id: bootID.ID.String(), Address: &pb.NodeAddress{Address: bootAddress}}}
-	k, err := NewKademlia(dht.NodeID(testID.ID), bootstrapNodes, testAddress, nil, testID, dir, defaultAlpha)
+	metadata := &pb.NodeMetadata{
+		Email:  "foo@bar.com",
+		Wallet: "FarmerWallet",
+	}
+	k, err := NewKademlia(dht.NodeID(testID.ID), bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
 	assert.NoError(t, err)
+	rt, err := k.GetRoutingTable(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, rt.Local().Metadata.Email, "foo@bar.com")
+	assert.Equal(t, rt.Local().Metadata.Wallet, "FarmerWallet")
 
 	defer func() {
 		assert.NoError(t, k.Disconnect())
