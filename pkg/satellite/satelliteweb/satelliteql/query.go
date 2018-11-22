@@ -14,10 +14,10 @@ const (
 	// Query is immutable graphql request
 	Query = "query"
 
-	userQuery  = "user"
-	projectQuery = "project"
+	userQuery       = "user"
+	projectQuery    = "project"
 	myProjectsQuery = "myProjects"
-	tokenQuery = "token"
+	tokenQuery      = "token"
 )
 
 // rootQuery creates query for graphql populated by AccountsClient

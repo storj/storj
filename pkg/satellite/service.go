@@ -147,7 +147,7 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (*Project
 	return s.store.Projects().Get(ctx, projectID)
 }
 
-// GetAllProjects is a method for querying all projects
+// GetUsersProjects is a method for querying all projects
 func (s *Service) GetUsersProjects(ctx context.Context) ([]Project, error) {
 	// TODO: auth will be moved in future
 	_, err := s.Authorize(ctx)
@@ -168,9 +168,9 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 	}
 
 	project := &Project{
-		OwnerID: &user.ID,
-		Description: projectInfo.Description,
-		Name: projectInfo.Name,
+		OwnerID:       &user.ID,
+		Description:   projectInfo.Description,
+		Name:          projectInfo.Name,
 		TermsAccepted: 1, //TODO: get lat version of Term of Use
 	}
 
@@ -189,7 +189,7 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) error 
 }
 
 // UpdateProject is a method for updating project by id
-func (s *Service) UpdateProject(ctx context.Context, projectInfo ProjectInfo) (*Project, error){
+func (s *Service) UpdateProject(ctx context.Context, projectInfo ProjectInfo) (*Project, error) {
 	// TODO: auth will be moved in future
 	_, err := s.Authorize(ctx)
 	if err != nil {
