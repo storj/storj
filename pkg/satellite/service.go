@@ -136,6 +136,86 @@ func (s *Service) GetCompany(ctx context.Context, userID uuid.UUID) (*Company, e
 	return s.store.Companies().GetByUserID(ctx, userID)
 }
 
+// GetProject is a method for querying project by id
+func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (*Project, error) {
+	// TODO: auth will be moved in future
+	_, err := s.Authorize(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.store.Projects().Get(ctx, projectID)
+}
+
+// GetAllProjects is a method for querying all projects
+func (s *Service) GetUsersProjects(ctx context.Context) ([]Project, error) {
+	// TODO: auth will be moved in future
+	_, err := s.Authorize(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: should return only users projects, not all
+	return s.store.Projects().GetAll(ctx)
+}
+
+// CreateProject is a method for querying all projects
+func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*Project, error) {
+	// TODO: auth will be moved in future
+	user, err := s.Authorize(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	project := &Project{
+		OwnerID: &user.ID,
+		Description: projectInfo.Description,
+		Name: projectInfo.Name,
+		TermsAccepted: 1, //TODO: get lat version of Term of Use
+	}
+
+	return s.store.Projects().Insert(ctx, project)
+}
+
+// DeleteProject is a method for deleting project by id
+func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) error {
+	// TODO: auth will be moved in future
+	_, err := s.Authorize(ctx)
+	if err != nil {
+		return err
+	}
+
+	return s.store.Projects().Delete(ctx, projectID)
+}
+
+// UpdateProject is a method for updating project by id
+func (s *Service) UpdateProject(ctx context.Context, projectInfo ProjectInfo) (*Project, error){
+	// TODO: auth will be moved in future
+	_, err := s.Authorize(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if projectInfo.ID == nil {
+		return nil, errs.New("Id is required!")
+	}
+
+	project, err := s.store.Projects().Get(ctx, *projectInfo.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	project.Description = projectInfo.Description
+	project.Name = projectInfo.Name
+
+	err = s.store.Projects().Update(ctx, project)
+	if err != nil {
+		return nil, err
+	}
+
+	return project, nil
+}
+
 // Authorize validates token from context and returns authenticated and authorized User
 func (s *Service) Authorize(ctx context.Context) (*User, error) {
 	token, ok := auth.GetAPIKey(ctx)
