@@ -32,7 +32,6 @@ func NewReporter(ctx context.Context, statDBPort string, maxRetries int, apiKey 
 		return nil, err
 	}
 
-	// TODO(moby) use statdb server instead of sdbclient in audit package
 	client, err := sdbclient.NewClient(identity, statDBPort, apiKey)
 	if err != nil {
 		return nil, err
