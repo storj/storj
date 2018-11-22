@@ -30,7 +30,7 @@ func (userInfo *UserInfo) IsValid() bool {
 func validateEmail(email string) bool {
 	localPartRegexp := regexp.MustCompile("^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~.-]+$")
 	noDotsRegexp := regexp.MustCompile("(^[.]{1})|([.]{1}$)|([.]{2,})")
-	hostRegexp := regexp.MustCompile("^[^\\s]+\\.[^\\s]+$")
+	hostRegexp := regexp.MustCompile(string("^[^\\s]+\\.[^\\s]+$"))
 
 	length := len(email)
 
@@ -53,9 +53,5 @@ func validateEmail(email string) bool {
 	}
 
 	hostPart := email[delimiter+1:]
-	if !hostRegexp.MatchString(hostPart) {
-		return false
-	}
-
-	return true
+	return hostRegexp.MatchString(hostPart)
 }

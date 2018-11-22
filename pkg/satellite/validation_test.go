@@ -6,7 +6,7 @@ package satellite
 import (
 	"testing"
 
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestValidationUserInfo(t *testing.T) {
