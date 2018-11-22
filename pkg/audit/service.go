@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/distributor"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
@@ -38,12 +39,16 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	if err != nil {
 		return err
 	}
+	distributor, err := distributor.NewDistributorClient(identity, c.SatelliteAddr, c.APIKey)
+	if err != nil {
+		return err
+	}
 	overlay, err := overlay.NewOverlayClient(identity, c.SatelliteAddr)
 	if err != nil {
 		return err
 	}
 	transport := transport.NewClient(identity)
-	service, err := NewService(ctx, c.SatelliteAddr, c.Interval, c.MaxRetriesStatDB, pointers, transport, overlay, *identity, c.APIKey)
+	service, err := NewService(ctx, c.SatelliteAddr, c.Interval, c.MaxRetriesStatDB, pointers, distributor, transport, overlay, *identity, c.APIKey)
 	if err != nil {
 		return err
 	}
@@ -55,9 +60,9 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(ctx context.Context, statDBPort string, interval time.Duration, maxRetries int, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
+func NewService(ctx context.Context, statDBPort string, interval time.Duration, maxRetries int, pointers pdbclient.Client, distributor *distributor.DistributorClient, transport transport.Client, overlay overlay.Client,
 	identity provider.FullIdentity, apiKey string) (service *Service, err error) {
-	cursor := NewCursor(pointers)
+	cursor := NewCursor(pointers, distributor)
 	verifier := NewVerifier(transport, overlay, identity)
 	reporter, err := NewReporter(ctx, statDBPort, maxRetries, apiKey)
 	if err != nil {
@@ -101,8 +106,7 @@ func (service *Service) process(ctx context.Context) error {
 		return nil
 	}
 
-	authorization := service.Cursor.pointers.SignedMessage()
-	verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
+	verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, stripe.Authorization)
 	if err != nil {
 		return err
 	}

@@ -26,8 +26,6 @@ var (
 // PointerDB creates a grpcClient
 type PointerDB struct {
 	client        pb.PointerDBClient
-	authorization *pb.SignedMessage
-	pba           *pb.PayerBandwidthAllocation
 }
 
 // New Used as a public function
@@ -51,9 +49,6 @@ type Client interface {
 	Get(ctx context.Context, path storj.Path) (*pb.Pointer, []*pb.Node, error)
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 	Delete(ctx context.Context, path storj.Path) error
-
-	SignedMessage() *pb.SignedMessage
-	PayerBandwidthAllocation() *pb.PayerBandwidthAllocation
 
 	// Disconnect() error // TODO: implement
 }
@@ -98,9 +93,6 @@ func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Poi
 		return nil, nil, Error.Wrap(err)
 	}
 
-	pdb.pba = res.GetPba()
-	pdb.authorization = res.GetAuthorization()
-
 	return res.GetPointer(), res.GetNodes(), nil
 }
 
@@ -140,14 +132,4 @@ func (pdb *PointerDB) Delete(ctx context.Context, path storj.Path) (err error) {
 	_, err = pdb.client.Delete(ctx, &pb.DeleteRequest{Path: path})
 
 	return err
-}
-
-// SignedMessage gets signed message from last request
-func (pdb *PointerDB) SignedMessage() *pb.SignedMessage {
-	return pdb.authorization
-}
-
-// PayerBandwidthAllocation gets payer bandwidth allocation message from last get request
-func (pdb *PointerDB) PayerBandwidthAllocation() *pb.PayerBandwidthAllocation {
-	return pdb.pba
 }

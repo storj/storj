@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/distributor"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	segment "storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/storage/redis"
@@ -73,6 +74,11 @@ func (c Config) getSegmentStore(ctx context.Context, identity *provider.FullIden
 		return nil, err
 	}
 
+	distributor, err := distributor.NewDistributorClient(identity, c.PointerDBAddr, c.APIKey)
+	if err != nil {
+		return nil, err
+	}
+
 	ec := ecclient.NewClient(identity, c.MaxBufferMem)
 	fc, err := infectious.NewFEC(c.MinThreshold, c.MaxThreshold)
 	if err != nil {
@@ -83,5 +89,5 @@ func (c Config) getSegmentStore(ctx context.Context, identity *provider.FullIden
 		return nil, err
 	}
 
-	return segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize), nil
+	return segment.NewSegmentStore(oc, ec, pdb, distributor, rs, c.MaxInlineSize), nil
 }

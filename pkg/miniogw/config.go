@@ -14,10 +14,11 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/miniogw/logging"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/ec"
+	"storj.io/storj/pkg/distributor"
+	"storj.io/storj/pkg/pointerdb/pdbclient"
 	segment "storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
@@ -136,6 +137,11 @@ func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdent
 		return nil, err
 	}
 
+	distributor, err := distributor.NewDistributorClient(identity, c.PointerDBAddr, c.APIKey)
+	if err != nil {
+		return nil, err
+	}
+
 	ec := ecclient.NewClient(identity, c.MaxBufferMem)
 	fc, err := infectious.NewFEC(c.MinThreshold, c.MaxThreshold)
 	if err != nil {
@@ -146,7 +152,7 @@ func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdent
 		return nil, err
 	}
 
-	segments := segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize)
+	segments := segment.NewSegmentStore(oc, ec, pdb, distributor, rs, c.MaxInlineSize)
 
 	if c.ErasureShareSize*c.MinThreshold%c.EncBlockSize != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")

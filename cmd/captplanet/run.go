@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/satellite/satelliteweb"
 	"storj.io/storj/pkg/statdb"
+	"storj.io/storj/pkg/distributor"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -38,6 +39,7 @@ type Satellite struct {
 	Identity    provider.IdentityConfig
 	Kademlia    kademlia.Config
 	PointerDB   pointerdb.Config
+	Distributor distributor.Config
 	Overlay     overlay.Config
 	Inspector   inspector.Config
 	Checker     checker.Config
@@ -109,6 +111,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.StatDB,
 			runCfg.Satellite.Overlay,
 			runCfg.Satellite.PointerDB,
+			runCfg.Satellite.Distributor,
 			runCfg.Satellite.Checker,
 			runCfg.Satellite.Repairer,
 			runCfg.Satellite.BwAgreement,

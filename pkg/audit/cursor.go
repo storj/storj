@@ -11,6 +11,7 @@ import (
 
 	"github.com/vivint/infectious"
 
+	"storj.io/storj/pkg/distributor"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
@@ -27,14 +28,15 @@ type Stripe struct {
 
 // Cursor keeps track of audit location in pointer db
 type Cursor struct {
-	pointers pdbclient.Client
-	lastPath storj.Path
-	mutex    sync.Mutex
+	pointers    pdbclient.Client
+	distributor *distributor.DistributorClient
+	lastPath    storj.Path
+	mutex       sync.Mutex
 }
 
 // NewCursor creates a Cursor which iterates over pointer db
-func NewCursor(pointers pdbclient.Client) *Cursor {
-	return &Cursor{pointers: pointers}
+func NewCursor(pointers pdbclient.Client, distributor *distributor.DistributorClient) *Cursor {
+	return &Cursor{pointers: pointers, distributor: distributor}
 }
 
 // NextStripe returns a random stripe to be audited
@@ -74,10 +76,11 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	}
 
 	// get pointer info
-	pointer, _, err := cursor.pointers.Get(ctx, path)
+	response, err := cursor.distributor.GetInfo(ctx, path)
 	if err != nil {
 		return nil, err
 	}
+	pointer := response.GetPointer()
 
 	if pointer.GetType() != pb.Pointer_REMOTE {
 		return nil, nil
@@ -98,9 +101,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
-	authorization := cursor.pointers.SignedMessage()
-
-	return &Stripe{Index: index, Segment: pointer, Authorization: authorization}, nil
+	return &Stripe{Index: index, Segment: pointer, Authorization: response.GetAuthorization()}, nil
 }
 
 func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) {

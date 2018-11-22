@@ -1,0 +1,40 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package distributor;
+
+import "overlay.proto";
+import "pointerdb.proto";
+import "piecestore.proto";
+
+service Distributor {
+  rpc PutInfo(PutInfoRequest) returns (PutInfoResponse);
+
+  rpc GetInfo(GetInfoRequest) returns (GetInfoResponse);
+}
+
+message PutInfoRequest {
+	int32 amount = 1;
+	int64 space = 2;
+	repeated string excluded = 3;
+}
+
+message PutInfoResponse {
+  repeated overlay.Node nodes = 2;
+  piecestoreroutes.PayerBandwidthAllocation pba = 3;
+  piecestoreroutes.SignedMessage authorization = 4;
+}
+
+message GetInfoRequest {
+  string path = 1;
+}
+
+message GetInfoResponse {
+  pointerdb.Pointer pointer = 1;
+  repeated overlay.Node nodes = 2;
+  piecestoreroutes.PayerBandwidthAllocation pba = 3;
+  piecestoreroutes.SignedMessage authorization = 4;
+}
