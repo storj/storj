@@ -48,8 +48,8 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer) *StreamR
 			return nil, err
 		}
 
-		pd := recv.GetPiecedata()
-		ba := recv.GetBandwidthallocation()
+		pd := recv.GetPieceData()
+		ba := recv.GetBandwidthAllocation()
 
 		if ba != nil {
 			if err = s.verifySignature(stream.Context(), ba); err != nil {

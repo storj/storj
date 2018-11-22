@@ -99,7 +99,7 @@ func (o *Overlay) Lookup(ctx context.Context, nodeID dht.NodeID) (*pb.Node, erro
 func (o *Overlay) BulkLookup(ctx context.Context, nodeIDs []dht.NodeID) ([]*pb.Node, error) {
 	var reqs pb.LookupRequests
 	for _, v := range nodeIDs {
-		reqs.Lookuprequest = append(reqs.Lookuprequest, &pb.LookupRequest{NodeID: v.String()})
+		reqs.LookupRequest = append(reqs.LookupRequest, &pb.LookupRequest{NodeID: v.String()})
 	}
 	resp, err := o.client.BulkLookup(ctx, &reqs)
 
@@ -108,7 +108,7 @@ func (o *Overlay) BulkLookup(ctx context.Context, nodeIDs []dht.NodeID) ([]*pb.N
 	}
 
 	var nodes []*pb.Node
-	for _, v := range resp.Lookupresponse {
+	for _, v := range resp.LookupResponse {
 		nodes = append(nodes, v.Node)
 	}
 	return nodes, nil

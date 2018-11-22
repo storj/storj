@@ -279,9 +279,9 @@ func Restrict(r pb.Restriction, n []*pb.Node) []*pb.Node {
 	results := []*pb.Node{}
 	for _, v := range n {
 		switch oper {
-		case pb.Restriction_freeBandwidth:
+		case pb.Restriction_FREE_BANDWIDTH:
 			comp = v.GetRestrictions().GetFreeBandwidth()
-		case pb.Restriction_freeDisk:
+		case pb.Restriction_FREE_DISK:
 			comp = v.GetRestrictions().GetFreeDisk()
 		}
 
@@ -326,9 +326,9 @@ func meetsRestrictions(rs []pb.Restriction, n pb.Node) bool {
 		val := r.GetValue()
 		var comp int64
 		switch oper {
-		case pb.Restriction_freeBandwidth:
+		case pb.Restriction_FREE_BANDWIDTH:
 			comp = n.GetRestrictions().GetFreeBandwidth()
-		case pb.Restriction_freeDisk:
+		case pb.Restriction_FREE_DISK:
 			comp = n.GetRestrictions().GetFreeDisk()
 		}
 		switch op {
