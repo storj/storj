@@ -136,21 +136,6 @@ func (s *Service) GetCompany(ctx context.Context, userID uuid.UUID) (*Company, e
 	return s.store.Companies().GetByUserID(ctx, userID)
 }
 
-func (s *Service) createToken(claims *satelliteauth.Claims) (string, error) {
-	json, err := claims.JSON()
-	if err != nil {
-		return "", err
-	}
-
-	token := satelliteauth.Token{Payload: json}
-	err = signToken(&token, s.Signer)
-	if err != nil {
-		return "", err
-	}
-
-	return token.String(), nil
-}
-
 // Authorize validates token from context and returns authenticated and authorized User
 func (s *Service) Authorize(ctx context.Context) (*User, error) {
 	token, ok := auth.GetAPIKey(ctx)
@@ -166,7 +151,22 @@ func (s *Service) Authorize(ctx context.Context) (*User, error) {
 	return s.authorize(ctx, claims)
 }
 
-// authenticate validates toke signature and returns authenticated *satelliteauth.Claims
+func (s *Service) createToken(claims *satelliteauth.Claims) (string, error) {
+	json, err := claims.JSON()
+	if err != nil {
+		return "", err
+	}
+
+	token := satelliteauth.Token{Payload: json}
+	err = signToken(&token, s.Signer)
+	if err != nil {
+		return "", err
+	}
+
+	return token.String(), nil
+}
+
+// authenticate validates token signature and returns authenticated *satelliteauth.Claims
 func (s *Service) authenticate(tokenS string) (*satelliteauth.Claims, error) {
 	token, err := satelliteauth.FromBase64URLString(tokenS)
 	if err != nil {

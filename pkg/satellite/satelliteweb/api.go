@@ -51,6 +51,7 @@ func (gw *gateway) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 		RequestString:  query.Query,
 		VariableValues: query.Variables,
 		OperationName:  query.OperationName,
+		RootObject:     make(map[string]interface{}),
 	})
 
 	err = json.NewEncoder(w).Encode(result)
