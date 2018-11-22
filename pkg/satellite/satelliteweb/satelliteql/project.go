@@ -5,8 +5,6 @@ package satelliteql
 
 import (
 	"github.com/graphql-go/graphql"
-	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/satellite"
 )
 
@@ -73,20 +71,7 @@ func graphqlProjectInput() *graphql.InputObject {
 }
 
 // fromMapProjectInfo creates satellite.ProjectInfo from input args
-func fromMapProjectInfo(args map[string]interface{}) (project *satellite.ProjectInfo, err error) {
-	project = &satellite.ProjectInfo{}
-
-	inputProjectID, isExists := args[fieldID].(string)
-
-	if isExists {
-		id, err := uuid.Parse(inputProjectID)
-		if err != nil {
-			return nil, errs.New("Id is not valid")
-		}
-
-		project.ID = id
-	}
-
+func fromMapProjectInfo(args map[string]interface{}) (project satellite.ProjectInfo) {
 	project.Name, _ = args[fieldName].(string)
 	project.Description, _ = args[fieldDescription].(string)
 	project.IsTermsAccepted, _ = args[fieldIsTermsAccepted].(bool)

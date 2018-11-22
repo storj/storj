@@ -167,6 +167,10 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 		return nil, err
 	}
 
+	if !projectInfo.IsTermsAccepted {
+		return nil, errs.New("Terms of use should be accepted!")
+	}
+
 	project := &Project{
 		OwnerID:       &user.ID,
 		Description:   projectInfo.Description,
@@ -189,20 +193,16 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) error 
 }
 
 // UpdateProject is a method for updating project by id
-func (s *Service) UpdateProject(ctx context.Context, projectInfo ProjectInfo) (*Project, error) {
+func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projectInfo ProjectInfo) (*Project, error) {
 	// TODO: auth will be moved in future
 	_, err := s.Authorize(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if projectInfo.ID == nil {
-		return nil, errs.New("Id is required!")
-	}
-
-	project, err := s.store.Projects().Get(ctx, *projectInfo.ID)
+	project, err := s.store.Projects().Get(ctx, projectID)
 	if err != nil {
-		return nil, err
+		return nil, errs.New("Project doesn't exist!")
 	}
 
 	project.Description = projectInfo.Description

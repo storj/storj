@@ -60,12 +60,9 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					var projectInput, err = fromMapProjectInfo(p.Args[input].(map[string]interface{}))
-					if err != nil {
-						return nil, err
-					}
+					var projectInput = fromMapProjectInfo(p.Args[input].(map[string]interface{}))
 
-					return service.CreateProject(p.Context, *projectInput)
+					return service.CreateProject(p.Context, projectInput)
 				},
 			},
 			// deletes project by id, taken from input params
@@ -90,17 +87,23 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 			updateProjectMutation: &graphql.Field{
 				Type: graphql.String,
 				Args: graphql.FieldConfigArgument{
+					fieldID: &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
 					input: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(types.ProjectInput()),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					var projectInput, err = fromMapProjectInfo(p.Args[input].(map[string]interface{}))
+					var projectInput = fromMapProjectInfo(p.Args[input].(map[string]interface{}))
+
+					inputID := p.Args[fieldID].(string)
+					projectID, err := uuid.Parse(inputID)
 					if err != nil {
 						return nil, err
 					}
 
-					return service.UpdateProject(p.Context, *projectInput)
+					return service.UpdateProject(p.Context, *projectID, projectInput)
 				},
 			},
 		},
