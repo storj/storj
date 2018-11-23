@@ -11,7 +11,7 @@
 					<h1>Sign Up</h1>
 				</div>
 				<div class="register-area__scrollable__form-area">
-					<HeaderedInput 
+					<HeaderedInput
 						class="full-input"
 						label="First name" 
 						placeholder ="Enter First Name" 
@@ -22,10 +22,10 @@
 						class="full-input"
 						label="Last Name" 
 						placeholder ="Enter Last Name"
-						:error="lastNameError" 
+						:error="lastNameError"
 						@setData="setLastName">
 					</HeaderedInput>
-					<HeaderedInput 
+					<HeaderedInput
 						class="full-input"
 						label="Email" 
 						placeholder ="Enter Email" 
@@ -36,11 +36,11 @@
 						class="full-input"
 						label="Password" 
 						placeholder ="Enter Password"
-						:error="passwordError" 
+						:error="passwordError"
 						@setData="setPassword"
 						isPassword>
 					</HeaderedInput>
-					<HeaderedInput 
+					<HeaderedInput
 						class="full-input"
 						label="Repeat Password" 
 						placeholder ="Repeat Password" 
@@ -60,7 +60,7 @@
 						</div>
 					</div>
 					<HeaderedInput
-						class="full-input" 
+						class="full-input"
 						label="Company Name" 
 						placeholder ="Enter Company Name" 
 						@setData="setCompanyName"
@@ -69,7 +69,7 @@
 					<!-- start of optional area -->
 						<transition name="fade">
 							<div id="optional-area" v-bind:class="[optionalAreaShown ? 'optional-area--active' : 'optional-area']">
-								<HeaderedInput 
+								<HeaderedInput
 									class="full-input"
 									label="Company Address" 
 									placeholder ="Enter Company Address" 
@@ -82,10 +82,10 @@
 									class="full-input"
 									label="Country" 
 									placeholder ="Enter Country"
-									@setData="setCountry" 
+									@setData="setCountry"
 									isOptional>
 								</HeaderedInput>
-								<HeaderedInput 
+								<HeaderedInput
 									class="full-input"
 									label="City" 
 									placeholder ="Enter City" 
@@ -96,10 +96,10 @@
 									class="full-input"
 									label="State" 
 									placeholder ="Enter State"
-									@setData="setState" 
+									@setData="setState"
 									isOptional>
 								</HeaderedInput>
-								<HeaderedInput 
+								<HeaderedInput
 									class="full-input"
 									label="Postal Code" 
 									placeholder ="Enter Postal Code" 
@@ -110,15 +110,18 @@
 						</transition>
 					<!-- end of optional area -->
 					<div class="register-area__scrollable__form-area__terms-area">
-						<Checkbox class="register-area__scrollable__form-area__terms-area__checkbox" @setData="setTermsAccepted"/>
+						<Checkbox
+                                class="register-area__scrollable__form-area__terms-area__checkbox"
+                                  @setData="setTermsAccepted"
+                                  :isCheckboxError="isTermsAcceptedError"/>
 						<h2>I agree to the Storj Bridge Hosting <a>Terms & Conditions</a></h2>
 					</div>
-					<Button class="register-area__scrollable__form-area__create-button" label="Create Account" width="100%" height="48px" :onPress="onCreate"/>
+					<Button class="register-area__scrollable__form-area__create-button" label="Create Account" width="100%" height="48px" :onPress="onCreateClick"/>
 				</div>
 			</div>
-			
+
 		</div>
-		
+
 		<img class="layout-image" src ="../../static/images/register/RegisterImage.svg"/>
 	</div>
 </template>
@@ -129,6 +132,7 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
 import Button from '@/components/common/Button.vue';
 import { validateEmail } from "@/utils/validation"
+import gql from "graphql-tag";
 
 @Component (
 {
@@ -173,6 +177,7 @@ import { validateEmail } from "@/utils/validation"
 		},
 		setTermsAccepted: function(value : boolean) {
 			this.$data.isTermsAccepted = value;
+			this.$data.isTermsAcceptedError = false;
 		},
 		showOptional: function() {
 			let scrollableDiv = document.querySelector(".register-area__scrollable");
@@ -187,13 +192,13 @@ import { validateEmail } from "@/utils/validation"
 
 			this.$data.optionalAreaShown = !this.$data.optionalAreaShown;
 		},
-		onCreate: function() {
+		onCreateClick: function() {
 			let hasError = false;
 
 			if(!this.$data.firstName) {
 				this.$data.firstNameError = "Invalid First Name";
 				hasError = true;
-			} 
+			}
 
 			if(!this.$data.lastName) {
 				this.$data.lastNameError = "Invalid Last Name";
@@ -215,7 +220,46 @@ import { validateEmail } from "@/utils/validation"
 				hasError = true;
 			}
 
+			if(!this.$data.isTermsAccepted){
+                this.$data.isTermsAcceptedError = true;
+                hasError = true;
+			}
+
 			if (hasError) return;
+
+            this.$apollo.mutate({
+                   mutation: gql(`
+                   mutation {
+                    createUser(
+                        input:{
+                            email: "${this.$data.email}",
+                            password: "${this.$data.password}",
+                            firstName: "${this.$data.firstName}",
+                            lastName: "${this.$data.lastName}",
+                            company: {
+                                name: "${this.$data.companyName}",
+                                address: "${this.$data.companyAddress}",
+                                country: "${this.$data.country}",
+                                city: "${this.$data.city}",
+                                state: "${this.$data.state}",
+                                postalCode: "${this.$data.postalCode}"
+                            }
+                        }
+                    )
+                   }
+                   `),
+                   fetchPolicy: "no-cache",
+            }).then((result: any) => {
+                if (!result) {
+                    console.log("error");
+
+                    return;
+                }
+
+                this.$router.push("/")
+            }).catch((error) => {
+                console.log(error)
+            });
 		}
 	},
 	data: function() : RegisterData {
@@ -238,6 +282,7 @@ import { validateEmail } from "@/utils/validation"
 			state: '',
 			postalCode: '',
 			isTermsAccepted: false,
+            isTermsAcceptedError: false,
 			optionalAreaShown: false
 		}
 	},
@@ -250,6 +295,7 @@ import { validateEmail } from "@/utils/validation"
 		Button
 	}
 })
+
 export default class Register extends Vue {}
 </script>
 

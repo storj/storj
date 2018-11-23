@@ -8,16 +8,14 @@
 			<HeaderlessInput  
 				class="login-area__email-input"
 				placeholder ="Email" 
-				:error="emailError"
 				@setData="setEmail"
 				width="100%">
 			</HeaderlessInput>
 			<HeaderlessInput  
 				class="login-area__password-input"
 				placeholder ="Password" 
-				:error="emailError"
-				@setData="setEmail"
 				width="100%"
+				@setData="setPassword"
 				isPassword>
 			</HeaderlessInput>
 			<Button class="login-area__login-button" label="Login"  height="48px" :onPress="onLogin"/>
@@ -32,31 +30,83 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+    import {Component, Vue} from 'vue-property-decorator';
 
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-import Button from '@/components/common/Button.vue';
+    import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+    import Button from '@/components/common/Button.vue';
+    import gql from "graphql-tag";
+    import {setToken} from "../utils/tokenManager";
 
-@Component({
-	data: function() {
+    @Component({
+        data: function () {
 
-		return {
-			email: '',
-			emailError: '',
-		}
-	},
-	methods: {
-		setEmail: function(value : string) {
+            return {
+                email: '',
+                password: '',
+                token: ''
+            }
+        },
+        methods: {
+            setEmail: function (value: string) {
+                this.$data.email = value;
+            },
+            setPassword: function (value: string) {
+                this.$data.password = value;
+            },
+            onLogin: function () {
+                this.$apollo.query({
+                    query: gql(`
+                        query {
+                            token(email: "${this.$data.email}",
+                            password: "${this.$data.password}") {
+                                token,
+                                user{
+                                    id,
+                                    firstName,
+                                    lastName,
+                                    email,
+                                    company{
+                                        name,
+                                        address,
+                                        country,
+                                        city,
+                                        state,
+                                        postalCode
+                                    }
+                                }
+                            }
+                        }`),
+                    fetchPolicy: "no-cache",
+                })
+                    .then((result: any) => {
+                        if (!result.data) {
+                            console.error("No token received");
 
-		}
-	},
-	components: {
-		HeaderlessInput,
-		Button
-	}
-})
+                            return;
+                        }
 
-export default class Home extends Vue {}
+                        setToken(result.data.token.token);
+                        this.$store.dispatch("setUserInfo", result.data.token.user)
+                            .then(() => {
+                                this.$router.push("/dashboard");
+                            }).catch((error) => {
+                                console.log(error);
+                            });
+                    }).catch((error) => {
+                    console.error("query: ", error)
+                });
+            }
+
+        },
+        computed: {},
+        components: {
+            HeaderlessInput,
+            Button
+        }
+    })
+
+	export default class Home extends Vue {
+    }
 </script>
 
 <style scoped lang="scss">
