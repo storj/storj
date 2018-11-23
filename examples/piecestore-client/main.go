@@ -168,7 +168,7 @@ func main() {
 				Data: serializedAllocation,
 			}
 
-			rr, err := psClient.Get(ctx, psclient.PieceID(id), pieceInfo.Size, pba, nil)
+			rr, err := psClient.Get(ctx, psclient.PieceID(id), pieceInfo.PieceSize, pba, nil)
 			if err != nil {
 				fmt.Printf("Failed to retrieve file of id: %s\n", id)
 				errRemove := os.Remove(outputDir)
@@ -178,7 +178,7 @@ func main() {
 				return err
 			}
 
-			reader, err := rr.Range(ctx, 0, pieceInfo.Size)
+			reader, err := rr.Range(ctx, 0, pieceInfo.PieceSize)
 			if err != nil {
 				fmt.Printf("Failed to retrieve file of id: %s\n", id)
 				errRemove := os.Remove(outputDir)

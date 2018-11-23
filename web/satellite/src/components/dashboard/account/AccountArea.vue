@@ -245,7 +245,6 @@ export default class AccountArea extends Vue {}
             .checkbox {
                 align-self: center;
             };
-
             h2 {
                 font-family: 'montserrat_regular';
                 font-size: 14px;

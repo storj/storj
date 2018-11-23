@@ -8,7 +8,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"go.uber.org/zap"
@@ -80,12 +80,7 @@ func (db *DB) DeleteObject(ctx context.Context, bucket string, path storj.Path) 
 		return err
 	}
 
-	err = store.Delete(ctx, path)
-	if objects.NoPathError.Has(err) {
-		return storage.ErrEmptyKey.Wrap(err)
-	}
-
-	return err
+	return store.Delete(ctx, path)
 }
 
 // ModifyPendingObject creates an interface for updating a partially uploaded object
@@ -180,6 +175,9 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 
 	pointer, _, err := db.pointers.Get(ctx, prefix+encryptedPath)
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			err = storj.ErrObjectNotFound.Wrap(err)
+		}
 		return object{}, storj.Object{}, err
 	}
 
@@ -201,7 +199,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 	lastSegmentMeta := segments.Meta{
 		Modified:   convertTime(pointer.GetCreationDate()),
 		Expiration: convertTime(pointer.GetExpirationDate()),
-		Size:       pointer.GetSize(),
+		Size:       pointer.GetSegmentSize(),
 		Data:       pointer.GetMetadata(),
 	}
 

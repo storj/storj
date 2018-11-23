@@ -98,8 +98,8 @@ input {
 	margin-left: 10px;
 }
 .input-wrap {
-    position: relative;
-	width: 100%;
+  position: relative;
+  width: 100%;
 
 	svg {
 		position: absolute;

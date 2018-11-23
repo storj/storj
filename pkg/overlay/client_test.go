@@ -8,17 +8,17 @@ import (
 	"net"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
-	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/redis/redisserver"
+	"storj.io/storj/storage/teststore"
 )
 
 type mockNodeID struct {
@@ -33,6 +33,9 @@ func (m mockNodeID) Bytes() []byte {
 }
 
 func TestNewOverlayClient(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	cases := []struct {
 		address string
 	}{
@@ -59,6 +62,9 @@ func TestNewOverlayClient(t *testing.T) {
 }
 
 func TestChoose(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	cases := []struct {
 		limit    int
 		space    int64
@@ -136,6 +142,9 @@ func TestChoose(t *testing.T) {
 }
 
 func TestLookup(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	cases := []struct {
 		nodeID        dht.NodeID
 		expectedCalls int
@@ -174,7 +183,11 @@ func TestLookup(t *testing.T) {
 	}
 
 }
+
 func TestBulkLookup(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	cases := []struct {
 		nodeIDs       []dht.NodeID
 		expectedCalls int
@@ -211,17 +224,15 @@ func TestBulkLookup(t *testing.T) {
 		assert.Equal(t, mock.bulkLookupCalled, v.expectedCalls)
 	}
 }
+
 func TestBulkLookupV2(t *testing.T) {
-	redisAddr, cleanup, err := redisserver.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cleanup()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 
-	srv, s, err := newServer(ctx, redisAddr)
+	srv, s, err := newServer(ctx)
 
 	assert.NoError(t, err)
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
@@ -247,60 +258,37 @@ func TestBulkLookupV2(t *testing.T) {
 		assert.NoError(t, s.cache.Put(n.Id, *n))
 	}
 
-	cases := []struct {
-		testID    string
-		nodeIDs   []dht.NodeID
-		responses []*pb.Node
-		errors    *errs.Class
-	}{
-		{testID: "empty id",
-			nodeIDs:   []dht.NodeID{},
-			responses: nil,
-			errors:    &ClientError,
-		},
-		{testID: "valid ids",
-			nodeIDs: func() []dht.NodeID {
-				id1 := node.IDFromString("n1")
-				id2 := node.IDFromString("n2")
-				id3 := node.IDFromString("n3")
-				return []dht.NodeID{id1, id2, id3}
-			}(),
-			responses: nodes,
-			errors:    nil,
-		},
-		{testID: "missing ids",
-			nodeIDs: func() []dht.NodeID {
-				id1 := node.IDFromString("n4")
-				id2 := node.IDFromString("n5")
-				return []dht.NodeID{id1, id2}
-			}(),
-			responses: []*pb.Node{nil, nil},
-			errors:    nil,
-		},
-		{testID: "random order and nil",
-			nodeIDs: func() []dht.NodeID {
-				id1 := node.IDFromString("n1")
-				id2 := node.IDFromString("n2")
-				id3 := node.IDFromString("n3")
-				id4 := node.IDFromString("n4")
-				return []dht.NodeID{id2, id1, id3, id4}
-			}(),
-			responses: func() []*pb.Node {
-				return []*pb.Node{nodes[1], nodes[0], nodes[2], nil}
-			}(),
-			errors: nil,
-		},
+	nid1 := node.IDFromString("n1")
+	nid2 := node.IDFromString("n2")
+	nid3 := node.IDFromString("n3")
+	nid4 := node.IDFromString("n4")
+	nid5 := node.IDFromString("n5")
+
+	{ // empty id
+		_, err := oc.BulkLookup(ctx, []dht.NodeID{})
+		assert.Error(t, err)
 	}
-	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			ns, err := oc.BulkLookup(ctx, c.nodeIDs)
-			assertErrClass(t, c.errors, err)
-			assert.Equal(t, c.responses, ns)
-		})
+
+	{ // valid ids
+		ns, err := oc.BulkLookup(ctx, []dht.NodeID{nid1, nid2, nid3})
+		assert.NoError(t, err)
+		assert.Equal(t, nodes, ns)
+	}
+
+	{ // missing ids
+		ns, err := oc.BulkLookup(ctx, []dht.NodeID{nid4, nid5})
+		assert.NoError(t, err)
+		assert.Equal(t, []*pb.Node{nil, nil}, ns)
+	}
+
+	{ // different order and missing
+		ns, err := oc.BulkLookup(ctx, []dht.NodeID{nid3, nid4, nid1, nid2, nid5})
+		assert.NoError(t, err)
+		assert.Equal(t, []*pb.Node{n3, nil, n1, n2, nil}, ns)
 	}
 }
 
-func newServer(ctx context.Context, redisAddr string) (*grpc.Server, *Server, error) {
+func newServer(ctx context.Context) (*grpc.Server, *Server, error) {
 	ca, err := provider.NewTestCA(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -315,11 +303,7 @@ func newServer(ctx context.Context, redisAddr string) (*grpc.Server, *Server, er
 	}
 
 	grpcServer := grpc.NewServer(identOpt)
-	cache, err := NewRedisOverlayCache(redisAddr, "", 1, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	s := &Server{cache: cache}
+	s := &Server{cache: NewOverlayCache(teststore.New(), nil)}
 
 	pb.RegisterOverlayServer(grpcServer, s)
 

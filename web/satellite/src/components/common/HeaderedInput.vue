@@ -90,7 +90,6 @@ export default class HeaderedInput extends Vue { }
 </script>
 
 <style scoped lang="scss">
-
 .input-container {
 	display: flex;
 	flex-direction: column;

@@ -95,14 +95,12 @@ func userFromDBX(user *dbx.User) (*satellite.User, error) {
 		return nil, err
 	}
 
-	u := &satellite.User{
+	return &satellite.User{
 		ID:           id,
 		FirstName:    user.FirstName,
 		LastName:     user.LastName,
 		Email:        user.Email,
 		PasswordHash: user.PasswordHash,
 		CreatedAt:    user.CreatedAt,
-	}
-
-	return u, nil
+	}, nil
 }

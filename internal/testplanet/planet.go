@@ -6,24 +6,26 @@ package testplanet
 
 import (
 	"context"
+	"errors"
 	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	pieceserver "storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage/teststore"
 )
@@ -32,6 +34,7 @@ import (
 type Planet struct {
 	log       *zap.Logger
 	directory string // TODO: ensure that everything is in-memory to speed things up
+	started   bool
 
 	nodeInfos []pb.Node
 	nodeLinks []string
@@ -86,9 +89,15 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 		}
 	}
 
+	for _, n := range planet.nodes {
+		server := node.NewServer(n.Kademlia)
+		pb.RegisterNodesServer(n.Provider.GRPC(), server)
+		// TODO: shutdown
+	}
+
 	// init Satellites
 	for _, node := range planet.Satellites {
-		server := pointerdb.NewServer(
+		pointerServer := pointerdb.NewServer(
 			teststore.New(), node.Overlay,
 			node.Log.Named("pdb"),
 			pointerdb.Config{
@@ -97,13 +106,33 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 				Overlay:              true,
 			},
 			node.Identity)
-		pb.RegisterPointerDBServer(node.Provider.GRPC(), server)
+		pb.RegisterPointerDBServer(node.Provider.GRPC(), pointerServer)
+		// bootstrap satellite kademlia node
+		go func(n *Node) {
+			if err := n.Kademlia.Bootstrap(context.Background()); err != nil {
+				log.Error(err.Error())
+			}
+		}(node)
+
+		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, node.Kademlia)
+		pb.RegisterOverlayServer(node.Provider.GRPC(), overlayServer)
 
 		node.Dependencies = append(node.Dependencies,
 			closerFunc(func() error {
 				// TODO: implement
 				return nil
 			}))
+
+		go func(n *Node) {
+			// refresh the interval every 500ms
+			t := time.NewTicker(500 * time.Millisecond).C
+			for {
+				<-t
+				if err := n.Overlay.Refresh(context.Background()); err != nil {
+					log.Error(err.Error())
+				}
+			}
+		}(node)
 	}
 
 	// init storage nodes
@@ -127,6 +156,12 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 			closerFunc(func() error {
 				return server.Stop(context.Background())
 			}))
+		// bootstrap all the kademlia nodes
+		go func(n *Node) {
+			if err := n.Kademlia.Bootstrap(context.Background()); err != nil {
+				log.Error(err.Error())
+			}
+		}(node)
 	}
 
 	// init Uplinks
@@ -152,11 +187,16 @@ func (planet *Planet) Start(ctx context.Context) {
 			}
 		}(node)
 	}
+	planet.started = true
 }
 
 // Shutdown shuts down all the nodes and deletes temporary directories.
 func (planet *Planet) Shutdown() error {
 	var errs []error
+	if !planet.started {
+		errs = append(errs, errors.New("Start was never called"))
+	}
+
 	// shutdown in reverse order
 	for i := len(planet.nodes) - 1; i >= 0; i-- {
 		node := planet.nodes[i]
@@ -164,46 +204,6 @@ func (planet *Planet) Shutdown() error {
 	}
 	errs = append(errs, os.RemoveAll(planet.directory))
 	return utils.CombineErrors(errs...)
-}
-
-// newNode creates a new node.
-func (planet *Planet) newNode(name string) (*Node, error) {
-	identity, err := planet.newIdentity()
-	if err != nil {
-		return nil, err
-	}
-
-	listener, err := planet.newListener()
-	if err != nil {
-		return nil, err
-	}
-
-	node := &Node{
-		Log:      planet.log.Named(name),
-		Identity: identity,
-		Listener: listener,
-	}
-
-	node.Transport = transport.NewClient(identity)
-
-	node.Provider, err = provider.NewProvider(node.Identity, node.Listener, grpcauth.NewAPIKeyInterceptor())
-	if err != nil {
-		return nil, utils.CombineErrors(err, listener.Close())
-	}
-
-	node.Info = pb.Node{
-		Id: node.Identity.ID.String(),
-		Address: &pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
-			Address:   node.Listener.Addr().String(),
-		},
-	}
-
-	planet.nodes = append(planet.nodes, node)
-	planet.nodeInfos = append(planet.nodeInfos, node.Info)
-	planet.nodeLinks = append(planet.nodeLinks, node.Info.Id+":"+node.Listener.Addr().String())
-
-	return node, nil
 }
 
 // newNodes creates initializes multiple nodes

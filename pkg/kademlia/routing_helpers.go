@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
@@ -188,6 +188,7 @@ func (rt *RoutingTable) getKBucketID(nodeID storage.Key) (storage.Key, error) {
 			return keys[i+1], nil
 		}
 	}
+
 	//shouldn't happen BUT return error if no matching kbucket...
 	return nil, RoutingErr.New("could not find k bucket")
 }

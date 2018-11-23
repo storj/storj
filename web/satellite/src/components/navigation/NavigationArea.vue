@@ -51,7 +51,6 @@ export default class NavigationArea extends Vue {}
             display: flex;
             justify-content: flex-start;
             align-items: center;
-
             &.router-link-active,
             &.router-link-exact-active,
             &:hover {

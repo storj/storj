@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/storage"
 )
 
 // NodeID is the unique identifier used for Nodes in the DHT
@@ -24,6 +25,7 @@ type DHT interface {
 	Ping(ctx context.Context, node pb.Node) (pb.Node, error)
 	FindNode(ctx context.Context, ID NodeID) (pb.Node, error)
 	Disconnect() error
+	Seen() []*pb.Node
 }
 
 // RoutingTable contains information on nodes we have locally
@@ -33,8 +35,10 @@ type RoutingTable interface {
 	K() int
 	CacheSize() int
 
+	// Bucket methods
 	GetBucket(id string) (bucket Bucket, ok bool)
 	GetBuckets() ([]Bucket, error)
+	GetBucketIds() (storage.Keys, error)
 
 	FindNear(id NodeID, limit int) ([]*pb.Node, error)
 

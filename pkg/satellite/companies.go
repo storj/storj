@@ -24,6 +24,16 @@ type Companies interface {
 	Update(ctx context.Context, company *Company) error
 }
 
+// CompanyInfo holds data needed to create/update Company
+type CompanyInfo struct {
+	Name       string
+	Address    string
+	Country    string
+	City       string
+	State      string
+	PostalCode string
+}
+
 // Company is a database object that describes Company entity
 type Company struct {
 	ID     uuid.UUID

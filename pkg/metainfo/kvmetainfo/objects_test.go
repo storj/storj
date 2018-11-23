@@ -6,12 +6,14 @@ package kvmetainfo
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -42,11 +44,10 @@ func TestGetObject(t *testing.T) {
 		assert.True(t, storage.ErrEmptyKey.Has(err))
 
 		_, err = db.GetObject(ctx, "non-existing-bucket", "test-file")
-		// TODO: Should return storj.ErrBucketNotFound
-		assert.True(t, storage.ErrKeyNotFound.Has(err))
+		assert.True(t, storj.ErrBucketNotFound.Has(err))
 
 		_, err = db.GetObject(ctx, bucket.Name, "non-existing-file")
-		assert.True(t, storage.ErrKeyNotFound.Has(err))
+		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
 		object, err := db.GetObject(ctx, bucket.Name, "test-file")
 		if assert.NoError(t, err) {
@@ -57,6 +58,9 @@ func TestGetObject(t *testing.T) {
 
 func TestGetObjectStream(t *testing.T) {
 	runTest(t, func(ctx context.Context, db *DB) {
+		// we wait a second for all the nodes to complete bootstrapping off the satellite
+		time.Sleep(2 * time.Second)
+
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if !assert.NoError(t, err) {
 			return
@@ -73,7 +77,18 @@ func TestGetObjectStream(t *testing.T) {
 			return
 		}
 
-		_, err = store.Put(ctx, "test-file", bytes.NewReader([]byte("test")), objects.SerializableMeta{}, exp)
+		_, err = store.Put(ctx, "small-file", bytes.NewReader([]byte("test")), objects.SerializableMeta{}, exp)
+		if !assert.NoError(t, err) {
+			return
+		}
+
+		data := make([]byte, 32*memory.KB)
+		_, err = rand.Read(data)
+		if !assert.NoError(t, err) {
+			return
+		}
+
+		_, err = store.Put(ctx, "large-file", bytes.NewReader(data), objects.SerializableMeta{}, exp)
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -84,45 +99,77 @@ func TestGetObjectStream(t *testing.T) {
 		_, err = db.GetObjectStream(ctx, bucket.Name, "")
 		assert.True(t, storage.ErrEmptyKey.Has(err))
 
-		_, err = db.GetObjectStream(ctx, "non-existing-bucket", "test-file")
-		// TODO: Should return storj.ErrBucketNotFound
-		assert.True(t, storage.ErrKeyNotFound.Has(err))
+		_, err = db.GetObjectStream(ctx, "non-existing-bucket", "small-file")
+		assert.True(t, storj.ErrBucketNotFound.Has(err))
 
 		_, err = db.GetObject(ctx, bucket.Name, "non-existing-file")
-		assert.True(t, storage.ErrKeyNotFound.Has(err))
+		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
 		stream, err := db.GetObjectStream(ctx, bucket.Name, "empty-file")
 		if assert.NoError(t, err) {
-			assertStream(ctx, t, stream, "empty-file", []byte(nil))
+			assertStream(ctx, t, stream, "empty-file", 0, []byte{})
 		}
 
-		stream, err = db.GetObjectStream(ctx, bucket.Name, "test-file")
+		stream, err = db.GetObjectStream(ctx, bucket.Name, "small-file")
 		if assert.NoError(t, err) {
-			assertStream(ctx, t, stream, "test-file", []byte("test"))
+			assertStream(ctx, t, stream, "small-file", 4, []byte("test"))
+		}
+
+		stream, err = db.GetObjectStream(ctx, bucket.Name, "large-file")
+		if assert.NoError(t, err) {
+			assertStream(ctx, t, stream, "large-file", int64(32*memory.KB), data)
 		}
 	})
 }
 
-func assertStream(ctx context.Context, t *testing.T, stream storj.ReadOnlyStream, path storj.Path, content []byte) bool {
+func assertStream(ctx context.Context, t *testing.T, stream storj.ReadOnlyStream, path storj.Path, size int64, content []byte) {
 	assert.Equal(t, path, stream.Info().Path)
 
 	segments, more, err := stream.Segments(ctx, 0, 0)
 	if !assert.NoError(t, err) {
-		return false
+		return
 	}
 
 	assert.False(t, more)
 	if !assert.Equal(t, 1, len(segments)) {
-		return false
-
+		return
 	}
+
 	assert.EqualValues(t, 0, segments[0].Index)
 	assert.EqualValues(t, len(content), segments[0].Size)
+	if segments[0].Size > int64(4*memory.KB) {
+		assertRemoteSegment(t, segments[0])
+	} else {
+		assertInlineSegment(t, segments[0], content)
+	}
+}
 
-	// TODO: Currently Inline is always empty
-	// assert.Equal(t, content, segments[0].Inline)
+func assertInlineSegment(t *testing.T, segment storj.Segment, content []byte) {
+	assert.Equal(t, content, segment.Inline)
+	assert.Nil(t, segment.PieceID)
+	assert.Equal(t, 0, len(segment.Pieces))
+}
 
-	return true
+func assertRemoteSegment(t *testing.T, segment storj.Segment) {
+	assert.Nil(t, segment.Inline)
+	assert.NotNil(t, segment.PieceID)
+	assert.NotEqual(t, 0, len(segment.Pieces))
+
+	// check that piece numbers and nodes are unique
+	nums := make(map[byte]struct{})
+	nodes := make(map[string]struct{})
+	for _, piece := range segment.Pieces {
+		if _, ok := nums[piece.Number]; ok {
+			t.Fatalf("piece number %d is not unique", piece.Number)
+		}
+		nums[piece.Number] = struct{}{}
+
+		id := piece.Location.HexString()
+		if _, ok := nodes[id]; ok {
+			t.Fatalf("node id %s is not unique", id)
+		}
+		nodes[id] = struct{}{}
+	}
 }
 
 func TestDeleteObject(t *testing.T) {
@@ -147,14 +194,13 @@ func TestDeleteObject(t *testing.T) {
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
 		err = db.DeleteObject(ctx, bucket.Name, "")
-		assert.True(t, storage.ErrEmptyKey.Has(err))
+		assert.True(t, storj.ErrNoPath.Has(err))
 
-		_ = db.DeleteObject(ctx, "non-existing-bucket", "test-file")
-		// TODO: Currently returns minio.BucketNotFound, should return storj.ErrBucketNotFound
-		// assert.True(t, storj.ErrBucketNotFound.Has(err))
+		err = db.DeleteObject(ctx, "non-existing-bucket", "test-file")
+		assert.True(t, storj.ErrBucketNotFound.Has(err))
 
 		err = db.DeleteObject(ctx, bucket.Name, "non-existing-file")
-		assert.True(t, storage.ErrKeyNotFound.Has(err))
+		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
 		err = db.DeleteObject(ctx, bucket.Name, "test-file")
 		assert.NoError(t, err)

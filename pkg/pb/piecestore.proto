@@ -71,14 +71,14 @@ message PieceId {
 
 message PieceSummary {
   string id = 1;
-  int64 size = 2;
+  int64 piece_size = 2;
   int64 expiration_unix_sec = 3;
 }
 
 message PieceRetrieval {
   message PieceData {
     string id = 1;
-    int64 size = 2;
+    int64 piece_size = 2;
     int64 offset = 3;
   }
 
@@ -88,7 +88,7 @@ message PieceRetrieval {
 }
 
 message PieceRetrievalStream {
-  int64 size = 1;
+  int64 piece_size = 1;
   bytes content = 2;
 }
 

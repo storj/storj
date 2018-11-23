@@ -386,6 +386,7 @@ export default class Register extends Vue {}
 			}
 		}
 	}
+  
 	.input-container.full-input {
         width: 100%;
     }
