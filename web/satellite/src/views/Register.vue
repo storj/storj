@@ -176,7 +176,6 @@ import { validateEmail } from "@/utils/validation"
 		},
 		showOptional: function() {
 			let scrollableDiv = document.querySelector(".register-area__scrollable");
-			console.log(window.outerHeight);
 			
 			if (this.$data.optionalAreaShown == false) {
 				setTimeout(() => {
