@@ -18,7 +18,7 @@
 			:placeholder="this.$props.placeholder"
 			v-model="value" 
 			v-bind:type="[isPassword ? passwordType : textType]"
-			:style="style"/>
+			:style="style" />
     </div>
 </template>
 
@@ -90,11 +90,13 @@ export default class HeaderedInput extends Vue { }
 </script>
 
 <style scoped lang="scss">
+
 .input-container {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
 	margin-top: 10px;
+	width: 48%;
 }
 .label-container {
 	display: flex;

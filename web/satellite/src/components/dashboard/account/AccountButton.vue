@@ -7,7 +7,7 @@
                 <!-- img if avatar was set -->
                 <h1>{{avatarLetter}}</h1>
             </div>
-            <h1>{{userName}}</h1>
+            <h1 class="account-button-toggle-container__user-name">{{userName}}</h1>
             <div class="account-button-toggle-container__expander-area">
                 <img v-if="!isChoiceShown" src="../../../../static/images/register/BlueExpand.svg" />
                 <img v-if="isChoiceShown" src="../../../../static/images/register/BlueHide.svg" />
@@ -65,24 +65,29 @@ export default class AccountButton extends Vue {}
         padding-right: 10px;
         background-color: #FFFFFF;
         cursor: pointer;
-        h1 {
+    }
+    
+    .account-button-toggle-container {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        width: 100%;
+        max-width: 190px;
+        height: 50px;
+
+        &__user-name {
+            margin-left: 12px;
+            width: 100px;
             font-family: 'montserrat_medium';
             font-size: 16px;
             line-height: 23px;
             color: #354049;
         }
-    }
-    .account-button-toggle-container {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: space-between;
-        width: 12.5vw;
-        height: 5vh;
 
         &__avatar {
-            width: 2.8vw;
-            height: 100%;
+            width: 40px;
+            height: 40px;
             border-radius: 6px;
             display: flex;
             align-items: center;
@@ -96,11 +101,21 @@ export default class AccountButton extends Vue {}
         }
 
         &__expander-area {
+            margin-left: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             width: 28px;
             height: 28px;
+        }
+    }
+
+    @media screen and (max-width: 720px) {
+
+        .account-button-toggle-container {
+            &__user-name {
+                display: none;
+            }
         }
     }
 </style>

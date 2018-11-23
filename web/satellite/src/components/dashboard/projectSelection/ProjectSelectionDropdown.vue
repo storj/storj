@@ -59,7 +59,7 @@ export default class ProjectSelectionDropdown extends Vue {}
     .project-selection-choice-container {
         position: absolute;
         top: 9vh;
-        left: 0px;
+        left: -5px;
         border-radius: 4px;
         padding: 10px 0px 10px 0px;
         box-shadow: 0px 4px rgba(231, 232, 238, 0.6);
@@ -68,10 +68,10 @@ export default class ProjectSelectionDropdown extends Vue {}
     }
     .project-selection-overflow-container {
         position: relative;
-        width: 17vw;
+        width: 226px;
         overflow-y: auto;
         overflow-x: hidden;
-        height: 25vh;
+        height: 240px;
         background-color: #FFFFFF;
 
         &__project-choice {

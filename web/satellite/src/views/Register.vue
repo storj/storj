@@ -12,24 +12,28 @@
 				</div>
 				<div class="register-area__scrollable__form-area">
 					<HeaderedInput 
+						class="full-input"
 						label="First name" 
 						placeholder ="Enter First Name" 
 						:error="firstNameError"
 						@setData="setFirstName">
 					</HeaderedInput>
-					<HeaderedInput 
+					<HeaderedInput
+						class="full-input"
 						label="Last Name" 
 						placeholder ="Enter Last Name"
 						:error="lastNameError" 
 						@setData="setLastName">
 					</HeaderedInput>
 					<HeaderedInput 
+						class="full-input"
 						label="Email" 
 						placeholder ="Enter Email" 
 						:error="emailError"
 						@setData="setEmail">
 					</HeaderedInput>
 					<HeaderedInput 
+						class="full-input"
 						label="Password" 
 						placeholder ="Enter Password"
 						:error="passwordError" 
@@ -37,6 +41,7 @@
 						isPassword>
 					</HeaderedInput>
 					<HeaderedInput 
+						class="full-input"
 						label="Repeat Password" 
 						placeholder ="Repeat Password" 
 						:error="repeatedPasswordError"
@@ -54,7 +59,8 @@
 							</div>
 						</div>
 					</div>
-					<HeaderedInput 
+					<HeaderedInput
+						class="full-input" 
 						label="Company Name" 
 						placeholder ="Enter Company Name" 
 						@setData="setCompanyName"
@@ -64,6 +70,7 @@
 						<transition name="fade">
 							<div id="optional-area" v-bind:class="[optionalAreaShown ? 'optional-area--active' : 'optional-area']">
 								<HeaderedInput 
+									class="full-input"
 									label="Company Address" 
 									placeholder ="Enter Company Address" 
 									isOptional 
@@ -72,24 +79,28 @@
 									height="100px">
 								</HeaderedInput>
 								<HeaderedInput 
+									class="full-input"
 									label="Country" 
 									placeholder ="Enter Country"
 									@setData="setCountry" 
 									isOptional>
 								</HeaderedInput>
 								<HeaderedInput 
+									class="full-input"
 									label="City" 
 									placeholder ="Enter City" 
 									@setData="setCity"
 									isOptional >
 								</HeaderedInput>
 								<HeaderedInput 
+									class="full-input"
 									label="State" 
 									placeholder ="Enter State"
 									@setData="setState" 
 									isOptional>
 								</HeaderedInput>
 								<HeaderedInput 
+									class="full-input"
 									label="Postal Code" 
 									placeholder ="Enter Postal Code" 
 									@setData="setPostalCode"
@@ -164,6 +175,17 @@ import { validateEmail } from "@/utils/validation"
 			this.$data.isTermsAccepted = value;
 		},
 		showOptional: function() {
+			let scrollableDiv = document.querySelector(".register-area__scrollable");
+			console.log(window.outerHeight);
+			
+			if (this.$data.optionalAreaShown == false) {
+				setTimeout(() => {
+					if(scrollableDiv) {
+						scrollableDiv.scroll(0, window.innerHeight - 200);
+					}
+				}, 10) 
+			}
+
 			this.$data.optionalAreaShown = !this.$data.optionalAreaShown;
 		},
 		onCreate: function() {
@@ -239,18 +261,19 @@ export default class Register extends Vue {}
 		margin: 0 !important;
 	}
 	.register {
-		position: relative;
+		position: fixed;
 		background-color: #fff;
 		display: flex;
 		flex-direction: row;
-		justify-content: flex-start;
+		justify-content: space-between;
 		align-items: center;
-		max-height: 100vh;
+		height: 100vh;
+		width: 100%;
 		overflow: hidden;
 	}
 	.register-area {
 		background-color: white;
-		width: 59vw;
+		width: 100%;
 		max-height: 100vh;
 
 		&__scrollable {
@@ -349,6 +372,10 @@ export default class Register extends Vue {}
 					a {
 						color: #2683FF;
 						font-family: 'montserrat_bold';
+
+						&:hover {
+							text-decoration: underline;
+						}
 					}
 				}
 
@@ -359,10 +386,12 @@ export default class Register extends Vue {}
 			}
 		}
 	}
+	.input-container.full-input {
+        width: 100%;
+    }
 	.layout-image {
 		background-color: #2683FF;
 		display: block;
-		width: auto;
 		height: 100vh;
 	}
 	a {
@@ -405,6 +434,37 @@ export default class Register extends Vue {}
 			height: 0px;
 			visibility: hidden;
 			opacity: 0;
+		}
+	}
+	@media screen and (max-width: 720px) {
+		.register {
+			flex-direction: column;
+		}
+		.layout-image {
+		position: absolute;
+		display: block;
+		bottom: 0;
+		left: 0;
+		width: 100%;
+		height: 200px;
+		}
+		.register-area {
+			width: 100vw;
+			margin-bottom: 200px;
+
+			&__scrollable {
+
+				&__form-area {
+
+					&__create-button {
+						margin-bottom: 250px;
+					}
+				}
+
+				&__form-area {
+					width: 75vw;
+				}
+			}
 		}
 	}
 </style>

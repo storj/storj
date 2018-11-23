@@ -99,6 +99,7 @@ input {
 }
 .input-wrap {
     position: relative;
+	width: 100%;
 
 	svg {
 		position: absolute;

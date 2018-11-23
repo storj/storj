@@ -60,7 +60,7 @@ import { Component, Vue } from 'vue-property-decorator';
                 this.$emit("onClose");
             },
             onAccountSettingsClick: function() : void {
-                this.$router.push("/dashboard/account");
+                this.$router.push("/account-settings");
                 this.$emit("onClose");
             }
         },
@@ -83,7 +83,7 @@ export default class ProjectSelectionDropdown extends Vue {}
     }
     .account-dropdown-overflow-container {
         position: relative;
-        width: 12.5vw;
+        width: 210px;
         height: auto;
         background-color: #FFFFFF;
     }
@@ -92,6 +92,7 @@ export default class ProjectSelectionDropdown extends Vue {}
         flex-direction: row;
         align-items: center;
         justify-content: flex-start;
+        min-width: 210px;
         padding-left: 20px;
         padding-right: 20px;
 
