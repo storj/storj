@@ -10,17 +10,17 @@
 				placeholder ="Email" 
 				:error="emailError"
 				@setData="setEmail"
-				width="440px">
+				width="100%">
 			</HeaderlessInput>
 			<HeaderlessInput  
 				class="login-area__password-input"
 				placeholder ="Password" 
 				:error="emailError"
 				@setData="setEmail"
-				width="440px"
+				width="100%"
 				isPassword>
 			</HeaderlessInput>
-			<Button class="login-area__login-button" label="Login" width="440px" height="48px" :onPress="onLogin"/>
+			<Button class="login-area__login-button" label="Login"  height="48px" :onPress="onLogin"/>
 			<!-- start of navigation area -->
 				<div class="login-area__navigation-area">
 					<router-link to="/register" class="login-area__navigation-area__nav-link bold" exact><h3>Create account</h3></router-link>
@@ -85,16 +85,16 @@ export default class Home extends Vue {}
 	.login-area {
 		background-color: #fff;
 		margin-top: 50px;
-		width: 52.5vw;
-		height: 60vh;
+		max-width: 440px;
+		width: 100%;
+		padding: 120px;
 		border-radius: 6px;
 		display: flex;
 		justify-content: center;
 		flex-direction: column;
-		align-items: center;
+		align-items: flex-start;
 
 		&__title-container {
-			width: 440px;
 			height: 48px;
 			display: flex;
 			justify-content: flex-start;
@@ -120,9 +120,14 @@ export default class Home extends Vue {}
 			align-self: center;
 		}
 
+		&__login-button.container {
+			display: block;
+			text-align: center;
+		}
+
 		&__navigation-area {
 			margin-top: 24px;
-			width: 440px;
+			width: 100%;
 			height: 48px;
 			display: flex;
 			justify-content: center;
@@ -139,11 +144,26 @@ export default class Home extends Vue {}
 				text-justify: center;
 				padding-left: 15px;
 				padding-right: 15px;
+				min-width: 140px;
+
+				&:hover {
+					text-decoration: underline;
+				}
 
 				.bold {
 					font-family: 'montserrat_medium';
 				}
 			}
+		}
+	}
+	@media screen and (max-width: 800px) {
+		.login-container  {
+			padding: 0;
+			justify-content: center;
+			padding: 0 50px;
+		}
+		.login-area {
+			max-width: 300px;
 		}
 	}
 </style>

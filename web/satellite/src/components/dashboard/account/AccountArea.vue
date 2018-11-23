@@ -10,21 +10,22 @@
                 <HeaderedInput 
                     label="First name" 
                     placeholder ="Enter First Name" 
-                    width="33vw"
+                    width="100%"
                     :error="inputError"
                     @setData="setInputValue" />
                 <HeaderedInput 
                     label="Last Name" 
-                    width="33vw"
+                    width="100%"
                     placeholder ="Enter Last Name" 
                     :error="inputError"
                     @setData="setInputValue" />
             </div>
             <div class="account-area-row-container">
-                <HeaderedInput 
-                    label="Email" 
+                <HeaderedInput
+                    class="full-input"
+                    label="Email"
                     placeholder ="Enter Email" 
-                    width="70vw"
+                    width="100%"
                     :error="inputError"
                     @setData="setInputValue" />
             </div>
@@ -34,9 +35,11 @@
                     <Checkbox class="checkbox" @setData="setTermsAccepted"/>
                     <h2>I agree to the Storj Bridge Hosting <a>Terms & Conditions</a></h2>
                 </div>
-                <!-- v-if we are editing this area -->
-                <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="10vw" height="5vh" :onPress="onCancel" isWhite/>
-                <Button label="Save" width="10vw" height="5vh" :onPress="onSave" isDisabled/> 
+                <!-- v-if are editing this area -->
+                <div class="account-area-save-button-area__btn">
+                    <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="140px"  height="50px" :onPress="onCancel" isWhite/>
+                    <Button class="account-area-save-button-area__save-button" label="Save" width="140px"  height="50px" :onPress="onSave" isDisabled/>     
+                </div>
             </div>
         </div>
         <!--end of Account settings area -->
@@ -45,18 +48,20 @@
             <h1>Company</h1>
             <h2>Optional</h2>
             <div class="account-area-row-container">
-                <HeaderedInput 
+                <HeaderedInput
+                    class="full-input"
                     label="Company Name" 
                     placeholder ="Enter Company Name" 
-                    width="70vw"
+                    width="100%"
                     :error="inputError"
                     @setData="setInputValue" />
             </div>
             <div class="account-area-row-container">
-                <HeaderedInput 
+                <HeaderedInput
+                    class="full-input"
                     label="Company Address" 
                     placeholder ="Enter Company Address" 
-                    width="70vw"
+                    width="100%"
                     :error="inputError"
                     @setData="setInputValue" />
             </div>
@@ -64,13 +69,13 @@
                 <HeaderedInput 
                     label="Country" 
                     placeholder ="Enter Country" 
-                    width="33vw"
+                    width="100%"
                     :error="inputError"
                     @setData="setInputValue" />
                 <HeaderedInput 
                     label="City" 
                     placeholder ="Enter City" 
-                    width="33vw"
+                    width="100%"
                     :error="inputError"
                     @setData="setInputValue" />
             </div>
@@ -78,20 +83,20 @@
                 <HeaderedInput 
                     label="State" 
                     placeholder ="Enter State" 
-                    width="33vw"
+                    width="100%"
                     :error="inputError"
                     @setData="setInputValue" />
                 <HeaderedInput 
                     label="Postal Code" 
                     placeholder ="Enter Postal Code" 
-                    width="33vw"
+                    width="100%"
                     :error="inputError"
                     @setData="setInputValue" />
             </div>
-            <div class="account-area-save-button-area">
+            <div class="account-area-save-button-area__btn">
                 <!-- v-if we are editing this area -->
-                <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="10vw" height="5vh" :onPress="onCancel" isWhite/>
-                <Button label="Save" width="10vw" height="5vh" :onPress="onSave" isWhite isDisabled/> 
+                <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="140px" height="50px" :onPress="onCancel" isWhite/>
+                <Button label="Save" width="140px" height="50px" :onPress="onSave" isWhite isDisabled/> 
             </div>
         </div>
         <!--end of Company area -->
@@ -103,36 +108,37 @@
                 <HeaderedInput 
                     label="Old Password" 
                     placeholder ="Enter Old Password" 
-                    width="33vw"
+                    width="100%"
                     isPassword
                     :error="inputError"
                     @setData="setInputValue" />
                 <HeaderedInput 
                     label="New Password" 
                     placeholder ="Enter New Password" 
-                    width="33vw"
+                    width="100%"
                     isPassword
                     :error="inputError"
                     @setData="setInputValue" />
             </div>
             <div class="account-area-row-container">
                 <HeaderedInput 
+                    class="full-input"
                     label="Confirm password" 
                     placeholder ="Confirm password" 
-                    width="70vw"
+                    width="100%"
                     isPassword
                     :error="inputError"
                     @setData="setInputValue" />
             </div>
-            <div class="account-area-save-button-area">
+            <div class="account-area-save-button-area__btn">
                 <!-- v-if we are editing this area -->
-                <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="10vw" height="5vh" :onPress="onCancel" isWhite/>
-                <Button label="Save" width="10vw" height="5vh" :onPress="onSave" isWhite isDisabled/> 
+                <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="140px" height="50px" :onPress="onCancel" isWhite/>
+                <Button label="Save" width="140px" height="50px" :onPress="onSave" isWhite isDisabled/> 
             </div>
         </div>
         <!--end of Password area -->
         <div class="account-area-button-area">
-            <Button label="Delete account" width="10vw" height="5vh" :onPress="onDeleteAccountClick" isWhite/> 
+            <Button label="Delete account" width="140px" height="50px" :onPress="onDeleteAccountClick" isWhite/> 
         </div>
     </div>
 </template>
@@ -188,12 +194,12 @@ export default class AccountArea extends Vue {}
         flex-direction: column;
         justify-content: center;
         align-items: flex-start;
-        padding: 3vh 3vh 3vh 3vh;
+        padding: 32px;
         background-color: #fff;
     }
     .account-area-company-container {
         @extend .account-area-settings-container;
-        margin-top: 5vh;
+        margin-top: 40px;
         height: 75vh;
     }
     .account-area-password-container {
@@ -201,20 +207,21 @@ export default class AccountArea extends Vue {}
         height: 50vh;
     }
     .account-area-button-area {
-        margin-top: 5vh;
-        height: 13vh;
+        margin-top: 40px;
+        height: 130px;
     }
     .account-area-row-container {
         width: 100%;
         display: flex;
         flex-direction: row;
-        align-content: flex-end;
+        align-content: center;
         justify-content: space-between;
     }
     .account-area-save-button-area {
-        margin-top: 5vh;
+        margin-top: 40px;
         width: 100%;
         align-self: flex-end;
+        align-items: center;
         display: flex;
 		flex-direction: row;
 		justify-content: flex-end;
@@ -223,13 +230,18 @@ export default class AccountArea extends Vue {}
             align-self: center;
         }
 
+        &__btn {
+            display: flex;
+            align-items: center;
+        }
+
         &__terms-area {
             display: flex;
             flex-direction: row;
-            justify-content: center;
+            justify-content: flex-start;
             align-items: center;
-            margin-top: -1vh;
-            margin-right: 22vw;
+            width: 100%;
+
             .checkbox {
                 align-self: center;
             };
@@ -238,16 +250,43 @@ export default class AccountArea extends Vue {}
                 font-size: 14px;
                 line-height: 20px;
                 margin-left: 10px;
-                margin-top: 3vh;
+                margin-top: 30px;
             };
+
             a {
                 color: #2683FF;
                 font-family: 'montserrat_bold';
+
+                &:hover {
+                    text-decoration: underline;
+                }
             }
         }
 
         &__cancel-button {
-            margin-right: 2vw;
+            margin-right: 20px;
+        }
+    }
+
+    .input-container.full-input {
+        width: 100%;
+    }
+
+    @media screen and (max-width: 1020px) {
+        .account-area-save-button-area {
+            flex-direction: column;
+            align-items: center;
+
+            &__btn{
+                width: 100%;
+                justify-content: center;
+                margin-top: 40px;
+            }
+
+            &__terms-area{
+                justify-content: center;
+                margin-bottom: 20px;
+            }
         }
     }
 </style>

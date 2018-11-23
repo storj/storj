@@ -66,13 +66,15 @@ export default class Button extends Vue {}
         background-color: #2683FF;
         border-radius: 6px;
         cursor: pointer;
+
         .label {
             font-family: 'montserrat_medium';
 			font-size: 16px;
 			line-height: 23px;
             color: #fff;
         }
-        .label.white{
+
+        .label.white {
             color: #354049;
         }
     }
