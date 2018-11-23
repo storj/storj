@@ -133,6 +133,7 @@ import Checkbox from '@/components/common/Checkbox.vue';
 import Button from '@/components/common/Button.vue';
 import { validateEmail } from "@/utils/validation"
 import gql from "graphql-tag";
+import ROUTES from "../utils/constants/routerConstants";
 
 @Component (
 {
@@ -256,7 +257,7 @@ import gql from "graphql-tag";
                     return;
                 }
 
-                this.$router.push("/")
+                this.$router.push(ROUTES.LOGIN.path);
             }).catch((error) => {
                 console.log(error)
             });

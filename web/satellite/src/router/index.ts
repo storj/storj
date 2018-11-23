@@ -13,8 +13,8 @@ export default new Router({
 	mode: 'history',
 	routes: [
 		{
-			path: ROUTES.DEFAULT.path,
-			name: ROUTES.DEFAULT.name,
+			path: ROUTES.LOGIN.path,
+			name: ROUTES.LOGIN.name,
 			component: Login
 		},
 		{
