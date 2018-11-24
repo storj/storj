@@ -18,16 +18,6 @@ type companies struct {
 	db *dbx.DB
 }
 
-// Get is a method for querying company from the database by id
-func (companies *companies) Get(ctx context.Context, id uuid.UUID) (*satellite.Company, error) {
-	company, err := companies.db.Get_Company_By_Id(ctx, dbx.Company_Id(id[:]))
-	if err != nil {
-		return nil, err
-	}
-
-	return companyFromDBX(company)
-}
-
 // Get is a method for querying company from the database by user id
 func (companies *companies) GetByUserID(ctx context.Context, userID uuid.UUID) (*satellite.Company, error) {
 	company, err := companies.db.Get_Company_By_UserId(ctx, dbx.Company_UserId(userID[:]))
@@ -40,14 +30,8 @@ func (companies *companies) GetByUserID(ctx context.Context, userID uuid.UUID) (
 
 // Insert is a method for inserting company into the database
 func (companies *companies) Insert(ctx context.Context, company *satellite.Company) (*satellite.Company, error) {
-	companyID, err := uuid.New()
-	if err != nil {
-		return nil, err
-	}
-
 	createdCompany, err := companies.db.Create_Company(
 		ctx,
-		dbx.Company_Id(companyID[:]),
 		dbx.Company_UserId(company.UserID[:]),
 		dbx.Company_Name(company.Name),
 		dbx.Company_Address(company.Address),
@@ -64,17 +48,17 @@ func (companies *companies) Insert(ctx context.Context, company *satellite.Compa
 }
 
 // Delete is a method for deleting company by Id from the database.
-func (companies *companies) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := companies.db.Delete_Company_By_Id(ctx, dbx.Company_Id(id[:]))
+func (companies *companies) Delete(ctx context.Context, userID uuid.UUID) error {
+	_, err := companies.db.Delete_Company_By_UserId(ctx, dbx.Company_UserId(userID[:]))
 
 	return err
 }
 
 // Update is a method for updating company entity
 func (companies *companies) Update(ctx context.Context, company *satellite.Company) error {
-	_, err := companies.db.Update_Company_By_Id(
+	_, err := companies.db.Update_Company_By_UserId(
 		ctx,
-		dbx.Company_Id(company.ID[:]),
+		dbx.Company_UserId(company.UserID[:]),
 		*getCompanyUpdateFields(company))
 
 	return err
@@ -86,18 +70,12 @@ func companyFromDBX(company *dbx.Company) (*satellite.Company, error) {
 		return nil, errs.New("company parameter is nil")
 	}
 
-	id, err := bytesToUUID(company.Id)
-	if err != nil {
-		return nil, err
-	}
-
 	userID, err := bytesToUUID(company.UserId)
 	if err != nil {
 		return nil, err
 	}
 
 	return &satellite.Company{
-		ID:         id,
 		UserID:     userID,
 		Name:       company.Name,
 		Address:    company.Address,

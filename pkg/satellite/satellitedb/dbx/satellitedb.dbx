@@ -12,7 +12,6 @@ model user (
 
     field created_at    timestamp ( autoinsert )
 )
-
 read one (
     select user
     where user.email = ?
@@ -28,9 +27,8 @@ delete user ( where user.id = ? )
 
 
 model company (
-    key id
+    key user_id
 
-    field id          blob
     field user_id     user.id   cascade
 
     field name        text      ( updatable )
@@ -42,18 +40,14 @@ model company (
 
     field created_at  timestamp ( autoinsert )
 )
-
 read one (
     select company
     where company.user_id = ?
 )
-read one (
-    select company
-    where company.id = ?
-)
 create company ( )
-update company ( where company.id = ? )
-delete company ( where company.id = ? )
+update company ( where company.user_id = ? )
+delete company ( where company.user_id = ? )
+
 
 model project (
     key id
@@ -68,7 +62,6 @@ model project (
 
     field created_at     timestamp ( autoinsert )
 )
-
 read all ( select project)
 read one (
     select project
@@ -81,6 +74,7 @@ read all (
 create project ( )
 update project ( where project.id = ? )
 delete project ( where project.id = ? )
+
 
 model project_member (
     key id
