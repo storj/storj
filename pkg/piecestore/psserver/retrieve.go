@@ -121,7 +121,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 				return
 			}
 
-			alloc := recv.GetBandwidthallocation()
+			alloc := recv.GetBandwidthAllocation()
 			allocData := &pb.RenterBandwidthAllocation_Data{}
 			if err = proto.Unmarshal(alloc.GetData(), allocData); err != nil {
 				allocationTracking.Fail(err)
