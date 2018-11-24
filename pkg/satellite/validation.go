@@ -8,26 +8,45 @@ import (
 	"strings"
 )
 
-// IsValid is a method for validating UserInfo entity
-func (userInfo *UserInfo) IsValid() bool {
-	if userInfo.FirstName == "" {
-		return false
-	}
-	if userInfo.LastName == "" {
-		return false
-	}
-	if !validateEmail(userInfo.Email) {
-		return false
-	}
-	if len(userInfo.Password) < 6 {
-		return false
-	}
+// ErrMissingField is used to indicate that field of entity is missing
+type ErrMissingField string
 
-	return true
+// ErrInvalidField is used to indicate that field of entity has invalid value
+type ErrInvalidField string
+
+// Error is a method for generating error an error for missing field
+func (e ErrMissingField) Error() string {
+	return string(e) + " is required"
 }
 
-// validateEmail is a function for email validation
-func validateEmail(email string) bool {
+// Error is a method for generating error an error for invalid field value
+func (e ErrInvalidField) Error() string {
+	return string(e) + " is invalid"
+}
+
+// IsValid is a method for validating UserInfo entity
+func (userInfo *UserInfo) IsValid() error {
+	if userInfo.FirstName == "" {
+		return ErrMissingField("first name")
+	}
+	if userInfo.Email == "" {
+		return ErrMissingField("email")
+	}
+	if !checkEmailAddressSyntax(userInfo.Email) {
+		return ErrInvalidField("email")
+	}
+	if userInfo.Password == "" {
+		return ErrMissingField("password")
+	}
+	if len(userInfo.Password) < 6 {
+		return ErrInvalidField("password")
+	}
+
+	return nil
+}
+
+// checkEmailAddressSyntax is a function for email validation
+func checkEmailAddressSyntax(email string) bool {
 	localPartRegexp := regexp.MustCompile("^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~.-]+$")
 	noDotsRegexp := regexp.MustCompile("(^[.]{1})|([.]{1}$)|([.]{2,})")
 	hostRegexp := regexp.MustCompile(string("^[^\\s]+\\.[^\\s]+$"))
