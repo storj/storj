@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/storage"
 )
 
 // NodeID is the unique identifier used for Nodes in the DHT
@@ -34,8 +35,10 @@ type RoutingTable interface {
 	K() int
 	CacheSize() int
 
+	// Bucket methods
 	GetBucket(id string) (bucket Bucket, ok bool)
 	GetBuckets() ([]Bucket, error)
+	GetBucketIds() (storage.Keys, error)
 
 	FindNear(id NodeID, limit int) ([]*pb.Node, error)
 

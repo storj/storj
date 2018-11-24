@@ -13,7 +13,9 @@ const (
 	// Mutation is graphql request that modifies data
 	Mutation = "mutation"
 
-	registerMutation = "register"
+	createUserMutation = "createUser"
+
+	input = "input"
 )
 
 // rootMutation creates mutation for graphql populated by AccountsClient
@@ -21,43 +23,28 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: Mutation,
 		Fields: graphql.Fields{
-			registerMutation: &graphql.Field{
-				Type: types.UserType(),
+			createUserMutation: &graphql.Field{
+				Type: graphql.String,
 				Args: graphql.FieldConfigArgument{
-					fieldEmail: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
-					},
-					fieldPassword: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
-					},
-					fieldFirstName: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
-					},
-					fieldLastName: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+					input: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.UserInput()),
 					},
 				},
+				// creates user and company from input params and returns userID if succeed
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					email, _ := p.Args[fieldEmail].(string)
-					password, _ := p.Args[fieldPassword].(string)
-					firstName, _ := p.Args[fieldFirstName].(string)
-					lastName, _ := p.Args[fieldLastName].(string)
+					var userInput = fromMapUserInfo(p.Args[input].(map[string]interface{}))
 
-					user, err := service.Register(
+					user, err := service.CreateUser(
 						p.Context,
-						&satellite.User{
-							Email:        email,
-							FirstName:    firstName,
-							LastName:     lastName,
-							PasswordHash: []byte(password),
-						},
+						userInput.User,
+						userInput.Company,
 					)
 
 					if err != nil {
-						return nil, err
+						return "", err
 					}
 
-					return user, nil
+					return user.ID.String(), nil
 				},
 			},
 		},

@@ -70,7 +70,7 @@ func TestNewKademlia(t *testing.T) {
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
 
-		kad, err := NewKademlia(v.id, v.bn, v.addr, identity, dir, defaultAlpha)
+		kad, err := NewKademlia(v.id, v.bn, v.addr, nil, identity, dir, defaultAlpha)
 		assert.NoError(t, err)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
@@ -93,8 +93,16 @@ func TestPeerDiscovery(t *testing.T) {
 	defer targetServer.Stop()
 
 	bootstrapNodes := []pb.Node{pb.Node{Id: bootID.ID.String(), Address: &pb.NodeAddress{Address: bootAddress}}}
-	k, err := NewKademlia(dht.NodeID(testID.ID), bootstrapNodes, testAddress, testID, dir, defaultAlpha)
+	metadata := &pb.NodeMetadata{
+		Email:  "foo@bar.com",
+		Wallet: "FarmerWallet",
+	}
+	k, err := NewKademlia(dht.NodeID(testID.ID), bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
 	assert.NoError(t, err)
+	rt, err := k.GetRoutingTable(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, rt.Local().Metadata.Email, "foo@bar.com")
+	assert.Equal(t, rt.Local().Metadata.Wallet, "FarmerWallet")
 
 	defer func() {
 		assert.NoError(t, k.Disconnect())
@@ -169,7 +177,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	// new kademlia
 	dir, cleanup := mktempdir(t, "kademlia")
 
-	k, err := NewKademlia(id, bn, lis.Addr().String(), fid, dir, defaultAlpha)
+	k, err := NewKademlia(id, bn, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
 	s := node.NewServer(k)
 	// new ident opts
@@ -212,7 +220,7 @@ func TestGetNodes(t *testing.T) {
 
 	dir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()
-	k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, dir, defaultAlpha)
+	k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
 	defer func() {
 		assert.NoError(t, k.Disconnect())
@@ -249,7 +257,7 @@ func TestGetNodes(t *testing.T) {
 			restrictions: []pb.Restriction{
 				pb.Restriction{
 					Operator: pb.Restriction_GT,
-					Operand:  pb.Restriction_freeBandwidth,
+					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(2),
 				},
 			},
@@ -261,12 +269,12 @@ func TestGetNodes(t *testing.T) {
 			restrictions: []pb.Restriction{
 				pb.Restriction{
 					Operator: pb.Restriction_GT,
-					Operand:  pb.Restriction_freeBandwidth,
+					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(2),
 				},
 				pb.Restriction{
 					Operator: pb.Restriction_LT,
-					Operand:  pb.Restriction_freeDisk,
+					Operand:  pb.Restriction_FREE_DISK,
 					Value:    int64(2),
 				},
 			},
@@ -302,7 +310,7 @@ func TestMeetsRestrictions(t *testing.T) {
 			r: []pb.Restriction{
 				pb.Restriction{
 					Operator: pb.Restriction_EQ,
-					Operand:  pb.Restriction_freeBandwidth,
+					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(1),
 				},
 			},
@@ -317,12 +325,12 @@ func TestMeetsRestrictions(t *testing.T) {
 			r: []pb.Restriction{
 				pb.Restriction{
 					Operator: pb.Restriction_LTE,
-					Operand:  pb.Restriction_freeBandwidth,
+					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(2),
 				},
 				pb.Restriction{
 					Operator: pb.Restriction_GTE,
-					Operand:  pb.Restriction_freeDisk,
+					Operand:  pb.Restriction_FREE_DISK,
 					Value:    int64(2),
 				},
 			},
@@ -338,12 +346,12 @@ func TestMeetsRestrictions(t *testing.T) {
 			r: []pb.Restriction{
 				pb.Restriction{
 					Operator: pb.Restriction_LT,
-					Operand:  pb.Restriction_freeBandwidth,
+					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(2),
 				},
 				pb.Restriction{
 					Operator: pb.Restriction_GT,
-					Operand:  pb.Restriction_freeDisk,
+					Operand:  pb.Restriction_FREE_DISK,
 					Value:    int64(2),
 				},
 			},
@@ -359,12 +367,12 @@ func TestMeetsRestrictions(t *testing.T) {
 			r: []pb.Restriction{
 				pb.Restriction{
 					Operator: pb.Restriction_LT,
-					Operand:  pb.Restriction_freeBandwidth,
+					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(2),
 				},
 				pb.Restriction{
 					Operator: pb.Restriction_GT,
-					Operand:  pb.Restriction_freeDisk,
+					Operand:  pb.Restriction_FREE_DISK,
 					Value:    int64(2),
 				},
 			},

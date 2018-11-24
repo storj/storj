@@ -8,4 +8,4 @@ import "storj.io/storj/pkg/storj"
 // Path represents a object path
 type Path = storj.Path
 
-//go:generate protoc -I. --gogo_out=plugins=grpc:. meta.proto overlay.proto pointerdb.proto piecestore.proto bandwidth.proto kadcli.proto datarepair.proto
+//go:generate protoc -I. --gogo_out=plugins=grpc:. meta.proto overlay.proto pointerdb.proto piecestore.proto bandwidth.proto inspector.proto datarepair.proto

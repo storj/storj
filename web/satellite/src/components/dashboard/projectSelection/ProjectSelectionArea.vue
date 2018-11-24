@@ -56,11 +56,12 @@ export default class ProjectSelectionArea extends Vue {}
         display: flex;
         flex-direction: row;
         align-items: center;
-        justify-content: space-between;
-        width: 12.5vw;
-        height: 5vh;
+        justify-content: flex-start;
+        width: 100%;
+        height: 50px;
 
         &__expander-area {
+            margin-left: 12px;
             display: flex;
             align-items: center;
             justify-content: center;

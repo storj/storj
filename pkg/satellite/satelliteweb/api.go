@@ -51,15 +51,17 @@ func (gw *gateway) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 		RequestString:  query.Query,
 		VariableValues: query.Variables,
 		OperationName:  query.OperationName,
+		RootObject:     make(map[string]interface{}),
 	})
 
 	err = json.NewEncoder(w).Encode(result)
 	if err != nil {
-		gw.logger.Error(err)
+		gw.log.Error(err.Error())
 		return
 	}
 
-	gw.logger.Debug(result)
+	sugar := gw.log.Sugar()
+	sugar.Debug(result)
 }
 
 // getToken retrieves token from request

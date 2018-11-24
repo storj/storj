@@ -1,16 +1,19 @@
 <template>
     <div class="navigation-area">
-        <div class="navigation-area__item-container" v-for="navItem in navigation" v-bind:key="navItem.label" >
-            <router-link class="navigation-area__item-container__link-container" :to="navItem.path">
+        <router-link class="navigation-area__item-container" v-for="navItem in navigation" v-bind:key="navItem.label" :to="navItem.path">
+            <div class="navigation-area__item-container__link-container" >
                 <div v-html="navItem.svg"></div>
                 <h1>{{navItem.label}}</h1>
                 <div class="navigation-area__item-container__link-container__add-button" v-if="navItem.label == 'Team'">
                     <router-link to="/team/add_new">
-                        <img src="../../../static/images/dashboard/Add.png" />
+                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="40" height="40" rx="20" fill="#2683FF"/>
+                            <path d="M25 18.977V21.046H20.9722V25H19.0046V21.046H15V18.977H19.0046V15H20.9722V18.977H25Z" fill="white"/>
+                        </svg>
                     </router-link>
                 </div>
-            </router-link>
-        </div>
+            </div>
+        </router-link>
     </div>
 </template>
 
@@ -34,7 +37,7 @@ export default class NavigationArea extends Vue {}
 <style lang="scss">
     .navigation-area {
         position: fixed;
-        width: 20vw;
+        width: 280px;
 		height: 100%;
 		left: 0;
 		top: 10vh;
@@ -42,16 +45,17 @@ export default class NavigationArea extends Vue {}
         padding-top: 3.5vh;
 
         &__item-container {
-            height: 7.5vh;
-            padding-left: 4vw;
+            height: 70px;
+            padding-left: 60px;
             border-left: 3px solid transparent;
             display: flex;
             justify-content: flex-start;
             align-items: center;
-
+            &.router-link-active,
+            &.router-link-exact-active,
             &:hover {
                 border-left: 3px solid #2683FF;
-                svg path {
+                .svg path:not(.white) {
                     fill: #2683FF !important;
                 }    
             }
@@ -74,7 +78,7 @@ export default class NavigationArea extends Vue {}
                     background-color: transparent;
 
                     &:hover {
-                         img {
+                        svg {
                             border-radius: 50px;
                             box-shadow: 0px 4px 20px rgba(35, 121, 236, 0.4);
                         }
@@ -83,7 +87,29 @@ export default class NavigationArea extends Vue {}
             }
         }
     }
+    
     a {
         text-decoration: none;
+        outline: none;
+    }
+
+    @media screen and (max-width: 720px) {
+        .navigation-area {
+            width: 50px;
+
+        &__item-container {
+            padding-left: 12px;
+
+            &__link-container {
+                h1 {
+                    display: none;
+                }
+
+                &__add-button {
+                    display: none;
+                }
+            }
+        }
+        }
     }
 </style>

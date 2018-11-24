@@ -11,7 +11,6 @@ import (
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
 )
 
 func init() {
@@ -51,7 +50,7 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 	if err == nil {
 		return fmt.Errorf("Bucket already exists")
 	}
-	if !storage.ErrKeyNotFound.Has(err) {
+	if !storj.ErrBucketNotFound.Has(err) {
 		return err
 	}
 	_, err = bs.Put(ctx, dst.Bucket(), storj.Cipher(cfg.PathEncType))

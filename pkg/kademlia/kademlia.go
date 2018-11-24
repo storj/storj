@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
@@ -53,8 +54,12 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
-	self := pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: address}}
+func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
+	self := pb.Node{
+		Id:       id.String(),
+		Address:  &pb.NodeAddress{Address: address},
+		Metadata: metadata,
+	}
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		if err := os.MkdirAll(path, 0777); err != nil {
@@ -274,9 +279,9 @@ func Restrict(r pb.Restriction, n []*pb.Node) []*pb.Node {
 	results := []*pb.Node{}
 	for _, v := range n {
 		switch oper {
-		case pb.Restriction_freeBandwidth:
+		case pb.Restriction_FREE_BANDWIDTH:
 			comp = v.GetRestrictions().GetFreeBandwidth()
-		case pb.Restriction_freeDisk:
+		case pb.Restriction_FREE_DISK:
 			comp = v.GetRestrictions().GetFreeDisk()
 		}
 
@@ -321,9 +326,9 @@ func meetsRestrictions(rs []pb.Restriction, n pb.Node) bool {
 		val := r.GetValue()
 		var comp int64
 		switch oper {
-		case pb.Restriction_freeBandwidth:
+		case pb.Restriction_FREE_BANDWIDTH:
 			comp = n.GetRestrictions().GetFreeBandwidth()
-		case pb.Restriction_freeDisk:
+		case pb.Restriction_FREE_DISK:
 			comp = n.GetRestrictions().GetFreeDisk()
 		}
 		switch op {
