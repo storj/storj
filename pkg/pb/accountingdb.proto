@@ -1,0 +1,21 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package accounting;
+
+// AccountingDB defines the interface for ...
+service AccountingDB {
+    rpc UpdateBatch(UpdateBatchRequest) returns (UpdateBatchResponse);
+}
+
+// UpdateBatchRequest is a request message for the UpdateBatch rpc call
+message UpdateBatchRequest {
+}
+
+// UpdateBatchResponse is a response message for the UpdateBatch rpc call
+message UpdateBatchResponse {
+}
+  

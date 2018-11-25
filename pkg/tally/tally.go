@@ -11,8 +11,10 @@ import (
 	"go.uber.org/zap"
 	"storj.io/storj/pkg/accounting"
 	dbx "storj.io/storj/pkg/accounting/dbx"
-	dbManager "storj.io/storj/pkg/bwagreement/database-manager"
 	bwDbx "storj.io/storj/pkg/bwagreement/database-manager/dbx"
+
+	adbclient "storj.io/storj/pkg/accounting/adbclient"
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
@@ -28,15 +30,15 @@ type Tally interface {
 }
 
 type tally struct {
-	pointerdb  *pointerdb.Server
-	overlay    pb.OverlayServer
-	kademlia   *kademlia.Kademlia
-	limit      int
-	logger     *zap.Logger
-	ticker     *time.Ticker
-	nodes      map[string]int64
-	nodeClient node.Client
-	// DB         *dbx.DB
+	pointerdb    *pointerdb.Server
+	overlay      pb.OverlayServer
+	kademlia     *kademlia.Kademlia
+	limit        int
+	logger       *zap.Logger
+	ticker       *time.Ticker
+	nodes        map[string]int64
+	nodeClient   node.Client
+	accountingDB adbclient.Client
 }
 
 func newTally(ctx context.Context, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, logger *zap.Logger, interval time.Duration) *tally {
@@ -117,7 +119,7 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 			return nil
 		},
 	)
-	return t.updateRawTable()
+	return t.updateRawTable(ctx)
 }
 
 func (t *tally) categorize(ctx context.Context, nodeIDs []dht.NodeID) (online []*pb.Node, err error) {
@@ -162,10 +164,8 @@ func (t *tally) tallyAtRestStorage(ctx context.Context, pointer *pb.Pointer, nod
 	return nil
 }
 
-func (t *tally) updateRawTable() error {
-	//TODO
-	//takes in-memory map of ok nodes
-	//adds all and sets all other nodes to 0
+func (t *tally) updateRawTable(ctx context.Context) error {
+	//accountingDB.UpdateBatch(ctx, "raw", t.nodes)
 	return nil
 }
 

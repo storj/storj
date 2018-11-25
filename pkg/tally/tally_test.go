@@ -11,9 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/provider"
+
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-	"storj.io/storj/internal/identity"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/accounting"
 	dbManager "storj.io/storj/pkg/bwagreement/database-manager"
@@ -54,7 +56,10 @@ func TestCategorize(t *testing.T) {
 		}
 	}
 	overlayServer := mocks.NewOverlay(nodes)
-	kad := &kademlia.NewKademlia()
+	rootdir, cleanup := mktempdir(t, "kademlia")
+	defer cleanup()
+	kad, err := kademlia.NewKademlia(node.IDFromString("foo"), []pb.Node{}, "127.0.0.1:8080", nil, &provider.FullIdentity{}, rootdir, 1)
+	assert.NoError(t, err)
 	limit := 0
 	interval := time.Second
 
