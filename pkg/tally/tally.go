@@ -19,8 +19,8 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -41,17 +41,18 @@ type tally struct {
 	accountingDB adbclient.Client
 }
 
-func newTally(ctx context.Context, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, logger *zap.Logger, interval time.Duration) *tally {
+func newTally(ctx context.Context, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, logger *zap.Logger, interval time.Duration) (*tally, error) {
 	rt, err := kademlia.GetRoutingTable(ctx)
 	if err != nil {
-		// return Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 	self := rt.Local()
-	identity := &provider.FullIdentity{} //do i need anything in here?
+	identity, err := node.NewFullIdentity(ctx, 12, 4) //TODO: what values go here?
 	client, err := node.NewNodeClient(identity, self, kademlia)
 	if err != nil {
-		// return Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
+	//create connection to adb.Client
 	return &tally{
 		pointerdb:  pointerdb,
 		overlay:    overlay,
@@ -61,8 +62,8 @@ func newTally(ctx context.Context, pointerdb *pointerdb.Server, overlay pb.Overl
 		ticker:     time.NewTicker(interval),
 		nodes:      make(map[string]int64),
 		nodeClient: client,
-		//TODO: DB
-	}
+		//TODO: accountingDB
+	}, nil
 }
 
 // Run the tally loop
