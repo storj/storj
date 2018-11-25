@@ -76,11 +76,7 @@ func TestTallyAtRestStorage(t *testing.T) {
 
 }
 
-func TestNeedToContact(t *testing.T) {
-
-}
-
-func TestUpdateGranularTable(t *testing.T) {
+func TestUpdateRawTable(t *testing.T) {
 
 }
 

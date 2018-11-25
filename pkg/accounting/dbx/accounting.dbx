@@ -14,39 +14,42 @@ read scalar (
   where  timestamps.name = ?
 )
 
-model aggregate (
+
+model rollup (
 	key node_id
 
   field node_id    text
   field start_time timestamp ( updatable )
   field interval   int64  ( updatable )
+  field data_type  int
   field created_at timestamp ( autoinsert )
 	field updated_at timestamp ( autoinsert, autoupdate )
 )
 
-create aggregate ( )
-update aggregate ( where aggregate.node_id = ? )
-delete aggregate ( where aggregate.node_id = ? )
+create rollup ( )
+update rollup ( where rollup.node_id = ? )
+delete rollup ( where rollup.node_id = ? )
 read one (
-  select aggregate
-  where  aggregate.node_id = ?
+  select rollup
+  where  rollup.node_id = ?
 )
 
-model granular (
+model raw (
   key node_id
 
   field node_id    text
   field start_time timestamp ( updatable )
   field end_time   timestamp ( updatable )
   field data_total int64     ( updatable )
+  field data_type  int
   field created_at timestamp ( autoinsert )
   field updated_at timestamp ( autoinsert, autoupdate )
 )
 
-create granular ( )
-update granular ( where granular.node_id = ? )
-delete granular ( where granular.node_id = ? )
+create raw ( )
+update raw ( where raw.node_id = ? )
+delete raw ( where raw.node_id = ? )
 read one (
-  select granular
-  where  granular.node_id = ?
+  select raw
+  where  raw.node_id = ?
 )
