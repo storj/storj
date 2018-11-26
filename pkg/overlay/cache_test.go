@@ -13,7 +13,6 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/statdb/sdbclient"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -22,7 +21,7 @@ import (
 )
 
 func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore) {
-	cache := overlay.Cache{DB: store, StatDB: sdbclient.NewMockClient()}
+	cache := overlay.Cache{DB: store}
 
 	{ // Put
 		err := cache.Put("valid1", pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9001"}})
