@@ -28,4 +28,13 @@ describe('Checkbox.vue', () => {
 		
 		expect(wrapper.emitted("setData")[0][0]).toEqual(true);
 	});
+
+    it('renders correctly with error', () => {
+
+        const wrapper = shallowMount(Checkbox, {
+            propsData: { isCheckboxError: true }
+        });
+
+        expect(wrapper).toMatchSnapshot();
+    });
 });

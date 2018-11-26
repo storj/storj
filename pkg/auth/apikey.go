@@ -3,7 +3,10 @@
 
 package auth
 
-import "context"
+import (
+	"context"
+	"crypto/subtle"
+)
 
 // The key type is unexported to prevent collisions with context keys defined in
 // other packages.
@@ -21,4 +24,18 @@ func WithAPIKey(ctx context.Context, key []byte) context.Context {
 func GetAPIKey(ctx context.Context) ([]byte, bool) {
 	key, ok := ctx.Value(apiKey).([]byte)
 	return key, ok
+}
+
+// ValidateAPIKey compares the context api key with the key passed in as an argument
+func ValidateAPIKey(ctx context.Context, actualKey []byte) error {
+	expectedKey, ok := GetAPIKey(ctx)
+	if !ok {
+		return Error.New("Could not get api key from context")
+	}
+
+	matches := (1 == subtle.ConstantTimeCompare(actualKey, expectedKey))
+	if !matches {
+		return Error.New("Invalid API credential")
+	}
+	return nil
 }
