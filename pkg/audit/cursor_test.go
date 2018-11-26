@@ -58,6 +58,10 @@ func (pbd *pointerDBWrapper) Delete(ctx context.Context, in *pb.DeleteRequest, o
 	return pbd.s.Delete(ctx, in)
 }
 
+func (pbd *pointerDBWrapper) PayerBandwidthAllocation(ctx context.Context, in *pb.PayerBandwidthAllocationRequest, opts ...grpc.CallOption) (*pb.PayerBandwidthAllocationResponse, error) {
+	return pbd.s.PayerBandwidthAllocation(ctx, in)
+}
+
 func TestAuditSegment(t *testing.T) {
 	type pathCount struct {
 		path  storj.Path
