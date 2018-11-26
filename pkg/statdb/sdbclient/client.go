@@ -6,8 +6,10 @@ package sdbclient
 import (
 	"context"
 
+	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/transport"
@@ -38,17 +40,19 @@ type Client interface {
 }
 
 // NewClient initializes a new statdb client
-func NewClient(identity *provider.FullIdentity, address string, APIKey []byte) (Client, error) {
+func NewClient(identity *provider.FullIdentity, address string, APIKey string) (Client, error) {
+	apiKeyInjector := grpcauth.NewAPIKeyInjector(APIKey)
 	tc := transport.NewClient(identity)
-	conn, err := tc.DialAddress(context.Background(), address)
+	conn, err := tc.DialAddress(
+		context.Background(),
+		address,
+		grpc.WithUnaryInterceptor(apiKeyInjector),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	return &StatDB{
-		client: pb.NewStatDBClient(conn),
-		APIKey: APIKey,
-	}, nil
+	return &StatDB{client: pb.NewStatDBClient(conn)}, nil
 }
 
 // a compiler trick to make sure *StatDB implements Client
@@ -62,8 +66,7 @@ func (sdb *StatDB) Create(ctx context.Context, nodeID []byte) (err error) {
 		NodeId: nodeID,
 	}
 	createReq := &pb.CreateRequest{
-		Node:   &node,
-		APIKey: sdb.APIKey,
+		Node: &node,
 	}
 	_, err = sdb.client.Create(ctx, createReq)
 
@@ -79,9 +82,8 @@ func (sdb *StatDB) CreateWithStats(ctx context.Context, nodeID []byte, stats *pb
 		NodeId: nodeID,
 	}
 	createReq := &pb.CreateRequest{
-		Node:   node,
-		Stats:  stats,
-		APIKey: sdb.APIKey,
+		Node:  node,
+		Stats: stats,
 	}
 	_, err = sdb.client.Create(ctx, createReq)
 
@@ -94,14 +96,13 @@ func (sdb *StatDB) Get(ctx context.Context, nodeID []byte) (stats *pb.NodeStats,
 
 	getReq := &pb.GetRequest{
 		NodeId: nodeID,
-		APIKey: sdb.APIKey,
 	}
 	res, err := sdb.client.Get(ctx, getReq)
 	if err != nil {
 		return nil, err
 	}
 
-	return res.Stats, err
+	return res.Stats, nil
 }
 
 // FindValidNodes is used for retrieving a subset of nodes that meet a minimum reputation requirement
@@ -113,7 +114,6 @@ func (sdb *StatDB) FindValidNodes(ctx context.Context, nodeIDs [][]byte,
 	findValidNodesReq := &pb.FindValidNodesRequest{
 		NodeIds:  nodeIDs,
 		MinStats: minStats,
-		APIKey:   sdb.APIKey,
 	}
 
 	res, err := sdb.client.FindValidNodes(ctx, findValidNodesReq)
@@ -139,8 +139,7 @@ func (sdb *StatDB) Update(ctx context.Context, nodeID []byte,
 		UpdateLatency:      true,
 	}
 	updateReq := &pb.UpdateRequest{
-		Node:   &node,
-		APIKey: sdb.APIKey,
+		Node: &node,
 	}
 
 	res, err := sdb.client.Update(ctx, updateReq)
@@ -148,7 +147,7 @@ func (sdb *StatDB) Update(ctx context.Context, nodeID []byte,
 		return nil, err
 	}
 
-	return res.Stats, err
+	return res.Stats, nil
 }
 
 // UpdateUptime is used for updating a node's uptime in statdb
@@ -157,20 +156,19 @@ func (sdb *StatDB) UpdateUptime(ctx context.Context, nodeID []byte,
 	defer mon.Task()(&ctx)(&err)
 
 	node := pb.Node{
-		NodeId:             nodeID,
-		IsUp:               isUp,
-		UpdateAuditSuccess: false,
-		UpdateUptime:       true,
-		UpdateLatency:      false,
+		NodeId: nodeID,
+		IsUp:   isUp,
 	}
-	updateReq := &pb.UpdateRequest{
-		Node:   &node,
-		APIKey: sdb.APIKey,
+	updateReq := &pb.UpdateUptimeRequest{
+		Node: &node,
 	}
 
-	res, err := sdb.client.Update(ctx, updateReq)
+	res, err := sdb.client.UpdateUptime(ctx, updateReq)
+	if err != nil {
+		return nil, err
+	}
 
-	return res.Stats, err
+	return res.Stats, nil
 }
 
 // UpdateAuditSuccess is used for updating a node's audit success in statdb
@@ -179,20 +177,19 @@ func (sdb *StatDB) UpdateAuditSuccess(ctx context.Context, nodeID []byte,
 	defer mon.Task()(&ctx)(&err)
 
 	node := pb.Node{
-		NodeId:             nodeID,
-		AuditSuccess:       passed,
-		UpdateAuditSuccess: true,
-		UpdateUptime:       false,
-		UpdateLatency:      false,
+		NodeId:       nodeID,
+		AuditSuccess: passed,
 	}
-	updateReq := &pb.UpdateRequest{
-		Node:   &node,
-		APIKey: sdb.APIKey,
+	updateReq := &pb.UpdateAuditSuccessRequest{
+		Node: &node,
 	}
 
-	res, err := sdb.client.Update(ctx, updateReq)
+	res, err := sdb.client.UpdateAuditSuccess(ctx, updateReq)
+	if err != nil {
+		return nil, err
+	}
 
-	return res.Stats, err
+	return res.Stats, nil
 }
 
 // UpdateBatch is used for updating multiple nodes' stats in the stats db
@@ -201,7 +198,6 @@ func (sdb *StatDB) UpdateBatch(ctx context.Context, nodes []*pb.Node) (statsList
 
 	updateBatchReq := &pb.UpdateBatchRequest{
 		NodeList: nodes,
-		APIKey:   sdb.APIKey,
 	}
 
 	res, err := sdb.client.UpdateBatch(ctx, updateBatchReq)
@@ -209,7 +205,7 @@ func (sdb *StatDB) UpdateBatch(ctx context.Context, nodes []*pb.Node) (statsList
 		return nil, nil, err
 	}
 
-	return res.StatsList, res.FailedNodes, err
+	return res.StatsList, res.FailedNodes, nil
 }
 
 // CreateEntryIfNotExists creates a db entry for a node if entry doesn't already exist
@@ -218,8 +214,7 @@ func (sdb *StatDB) CreateEntryIfNotExists(ctx context.Context, nodeID []byte) (s
 
 	node := &pb.Node{NodeId: nodeID}
 	createReq := &pb.CreateEntryIfNotExistsRequest{
-		Node:   node,
-		APIKey: sdb.APIKey,
+		Node: node,
 	}
 
 	res, err := sdb.client.CreateEntryIfNotExists(ctx, createReq)
@@ -227,5 +222,5 @@ func (sdb *StatDB) CreateEntryIfNotExists(ctx context.Context, nodeID []byte) (s
 		return nil, err
 	}
 
-	return res.Stats, err
+	return res.Stats, nil
 }
