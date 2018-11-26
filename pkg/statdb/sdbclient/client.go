@@ -102,7 +102,7 @@ func (sdb *StatDB) Get(ctx context.Context, nodeID []byte) (stats *pb.NodeStats,
 		return nil, err
 	}
 
-	return res.Stats, err
+	return res.Stats, nil
 }
 
 // FindValidNodes is used for retrieving a subset of nodes that meet a minimum reputation requirement
@@ -147,7 +147,7 @@ func (sdb *StatDB) Update(ctx context.Context, nodeID []byte,
 		return nil, err
 	}
 
-	return res.Stats, err
+	return res.Stats, nil
 }
 
 // UpdateUptime is used for updating a node's uptime in statdb
@@ -164,8 +164,11 @@ func (sdb *StatDB) UpdateUptime(ctx context.Context, nodeID []byte,
 	}
 
 	res, err := sdb.client.UpdateUptime(ctx, updateReq)
+	if err != nil {
+		return nil, err
+	}
 
-	return res.Stats, err
+	return res.Stats, nil
 }
 
 // UpdateAuditSuccess is used for updating a node's audit success in statdb
@@ -182,8 +185,11 @@ func (sdb *StatDB) UpdateAuditSuccess(ctx context.Context, nodeID []byte,
 	}
 
 	res, err := sdb.client.UpdateAuditSuccess(ctx, updateReq)
+	if err != nil {
+		return nil, err
+	}
 
-	return res.Stats, err
+	return res.Stats, nil
 }
 
 // UpdateBatch is used for updating multiple nodes' stats in the stats db
@@ -199,7 +205,7 @@ func (sdb *StatDB) UpdateBatch(ctx context.Context, nodes []*pb.Node) (statsList
 		return nil, nil, err
 	}
 
-	return res.StatsList, res.FailedNodes, err
+	return res.StatsList, res.FailedNodes, nil
 }
 
 // CreateEntryIfNotExists creates a db entry for a node if entry doesn't already exist
@@ -216,5 +222,5 @@ func (sdb *StatDB) CreateEntryIfNotExists(ctx context.Context, nodeID []byte) (s
 		return nil, err
 	}
 
-	return res.Stats, err
+	return res.Stats, nil
 }
