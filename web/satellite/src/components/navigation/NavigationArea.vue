@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="navigation-area">
         <router-link class="navigation-area__item-container" v-for="navItem in navigation" v-bind:key="navItem.label" :to="navItem.path">
