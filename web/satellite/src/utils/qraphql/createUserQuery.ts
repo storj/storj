@@ -29,7 +29,7 @@ export async function createUser(user: User, password: string): Promise<any> {
                         }
                     )
                 }
-       `),
+           `),
             fetchPolicy: "no-cache",
         }
     );
