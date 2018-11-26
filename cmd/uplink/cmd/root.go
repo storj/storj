@@ -5,12 +5,18 @@ package cmd
 
 import (
 	"context"
+<<<<<<< HEAD
 	"fmt"
+=======
+	"os"
+>>>>>>> replaces makeUplinkPath with applicationDir func
 	"path/filepath"
+	"runtime"
+	"strings"
 
-	homedir "github.com/mitchellh/go-homedir"
+	// homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
+	// "go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
@@ -38,19 +44,48 @@ var GWCmd = &cobra.Command{
 	Short: "The Storj client-side S3 gateway",
 }
 
-func makeUplinkPath() (defaultConfDir string) {
-	base, err := homedir.Dir()
-	if err != nil {
-		zap.S().Errorf("error setting up uplink directory path: %s", err)
-		return ""
+func applicationDir(subdir ...string) string {
+	for i := range subdir {
+		if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+			subdir[i] = strings.Title(subdir[i])
+		} else {
+			subdir[i] = strings.ToLower(subdir[i])
+		}
 	}
-	return filepath.Join(base, ".storj", "uplink")
+	appdir := os.Getenv("HOME")
+
+	switch runtime.GOOS {
+	case "windows":
+		for _, env := range []string{"AppData", "AppDataLocal", "UserProfile", "Home"} {
+			val := os.Getenv(env)
+			if val != "" {
+				appdir = val
+				break
+			}
+		}
+	case "darwin":
+		// TODO(nat): make sure it's /Library/Application Support and not Library/Application Support
+		appdir = filepath.Join("Library", "Application Support")
+	case "linux":
+		fallthrough
+	default:
+		if os.Getenv("XDG_DATA_HOME") == "" {
+			appdir = os.Getenv("HOME")
+		} else {
+			appdir = os.Getenv("XDG_DATA_HOME")
+		}
+	}
+	var appendedSubdir string
+	for _, dir := range subdir {
+		appendedSubdir = filepath.Join(appendedSubdir, dir)
+	}
+	return filepath.Join(appdir, appendedSubdir)
 }
 
 func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 	root.AddCommand(cmd)
 
-	defaultConfDir := makeUplinkPath()
+	defaultConfDir := applicationDir("storj", "uplink")
 	cfgstruct.Bind(cmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir))
 	cmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	return cmd
