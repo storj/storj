@@ -4,14 +4,11 @@
 package main
 
 import (
-	"context"
 	"net/url"
 
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/statdb/sdbclient"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -26,16 +23,6 @@ type cacheConfig struct {
 }
 
 func (c cacheConfig) open() (*overlay.Cache, error) {
-	// TODO(moby) what identity to use for statdb client?
-	identity, err := getNewIdentity()
-	if err != nil {
-		return nil, err
-	}
-	statdb, err := sdbclient.NewClient(identity, c.StatDBPort, []byte(c.StatDBKey))
-	if err != nil {
-		return nil, err
-	}
-
 	dburl, err := url.Parse(c.DatabaseURL)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -63,19 +50,5 @@ func (c cacheConfig) open() (*overlay.Cache, error) {
 	// add logger
 	db = storelogger.New(zap.L(), db)
 
-	return overlay.NewOverlayCache(db, nil, statdb), nil
-}
-
-// TODO(moby) this is a temporary function
-func getNewIdentity() (*provider.FullIdentity, error) {
-	ca, err := provider.NewTestCA(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		return nil, err
-	}
-
-	return identity, nil
+	return overlay.NewOverlayCache(db, nil, nil), nil
 }
