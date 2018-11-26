@@ -9,7 +9,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
-	"storj.io/storj/internal/migrate"
 	dbx "storj.io/storj/pkg/accounting/dbx"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
@@ -36,15 +35,7 @@ type tally struct {
 	db        *dbx.DB
 }
 
-func newTally(driver, source string, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, logger *zap.Logger, interval time.Duration) (*tally, error) {
-	db, err := dbx.Open(driver, source)
-	if err != nil {
-		return nil, err
-	}
-	err = migrate.Create("accounting", db)
-	if err != nil {
-		return nil, err
-	}
+func newTally(logger *zap.Logger, db *dbx.DB, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, interval time.Duration) (*tally, error) {
 	return &tally{
 		pointerdb: pointerdb,
 		overlay:   overlay,

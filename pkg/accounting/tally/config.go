@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
@@ -26,7 +27,11 @@ func (c Config) initialize(ctx context.Context) (Tally, error) {
 	pointerdb := pointerdb.LoadFromContext(ctx)
 	overlay := overlay.LoadServerFromContext(ctx)
 	kademlia := kademlia.LoadFromContext(ctx)
-	return newTally(c.DatabaseDriver, c.DatabaseURL, pointerdb, overlay, kademlia, 0, zap.L(), c.Interval)
+	db, err := accounting.NewDb(c.DatabaseDriver, c.DatabaseURL)
+	if err != nil {
+		return nil, err
+	}
+	return newTally(zap.L(), db, pointerdb, overlay, kademlia, 0, c.Interval)
 }
 
 // Run runs the tally with configured values

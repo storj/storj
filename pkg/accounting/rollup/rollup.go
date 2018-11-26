@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"storj.io/storj/internal/migrate"
 	dbx "storj.io/storj/pkg/accounting/dbx"
 )
 
@@ -23,16 +22,7 @@ type rollup struct {
 	db     *dbx.DB
 }
 
-func newRollup(driver, source string, logger *zap.Logger, interval time.Duration) (*rollup, error) {
-	db, err := dbx.Open(driver, source)
-	if err != nil {
-		return nil, err
-	}
-	err = migrate.Create("accounting", db)
-	if err != nil {
-		return nil, err
-	}
-
+func newRollup(logger *zap.Logger, db *dbx.DB, interval time.Duration) (*rollup, error) {
 	return &rollup{
 		logger: logger,
 		ticker: time.NewTicker(interval),
