@@ -1,7 +1,7 @@
 import {
     SET_USER_INFO,
     REVERT_TO_DEFAULT_USER_INFO,
-} from "../../utils/constants/mutationConstants";
+} from "../mutationConstants";
 
 export const authModule = {
     state: {
@@ -51,7 +51,7 @@ export const authModule = {
 
     getters: {
         userName: (state: any) => {
-            return state.firstName + " " + state.lastName;
+            return `${state.firstName} ${state.lastName}`
         }
     },
 
