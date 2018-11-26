@@ -4,7 +4,6 @@
 package storj
 
 import (
-	"encoding/base64"
 	"math/bits"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -61,6 +60,19 @@ func NodeIDFromBytes(b []byte) (NodeID, error) {
 	return NodeID(id), nil
 }
 
+func (id NodeID) Less(compID NodeID) bool {
+	for k, v := range id {
+		if v < compID[k] {
+			return true
+		} else if v > compID[k] {
+			return false
+		}
+		// compare next index
+	}
+	// identical nodeIDs
+	return false
+}
+
 // String returns NodeID as hex encoded string
 func (id NodeID) String() string {
 	return base58.CheckEncode(id[:], IDVersion)
@@ -86,6 +98,45 @@ func (id NodeID) Difficulty() (uint16, error) {
 
 	return 0, ErrNodeID.New("difficulty matches id hash length: %d; hash (hex): % x", idLen, id)
 }
+
+func (id NodeID) Marshal() ([]byte, error) {
+	return id.Bytes(), nil
+}
+
+func (id *NodeID) MarshalTo(data []byte) (n int, err error) {
+	n = copy(data, id.Bytes())
+	return n, nil
+}
+
+func (id *NodeID) Unmarshal(data []byte) error {
+	var err error
+	*id, err = NodeIDFromBytes(data)
+	return err
+}
+
+func (id *NodeID) Size() int {
+	return len(id)
+}
+
+func (id NodeID) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + id.String() + `"`), nil
+}
+
+func (id *NodeID) UnmarshalJSON(data []byte) error {
+	var err error
+	*id, err = NodeIDFromString(string(data))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// // only required if the compare option is set
+// func (id NodeID) Compare(other NodeID) int {}
+// // only required if the equal option is set
+// func (id NodeID) Equal(other NodeID) bool {}
+// // only required if populate option is set
+// func NewPopulatedNodeID(r randyNodeIDhetest) *NodeID {}
 
 func (n NodeIDList) Bytes() (idsBytes [][]byte) {
 	for _, nid := range n {
@@ -114,44 +165,3 @@ func (n NodeIDList) Less(i, j int) bool {
 	// identical nodeIDs
 	return false
 }
-
-func (id NodeID) Marshal() ([]byte, error) {
-	return id.Bytes(), nil
-}
-
-func (id *NodeID) MarshalTo(data []byte) (n int, err error) {
-	n = copy(data, id.Bytes())
-	return n, nil
-}
-
-func (id *NodeID) Unmarshal(data []byte) error {
-	var err error
-	*id, err = NodeIDFromBytes(data)
-	return err
-}
-
-func (id *NodeID) Size() int {
-	return len(id)
-}
-
-// TODO(bryanchriswhite): what should this look like?
-func (id NodeID) MarshalJSON() ([]byte, error) {
-	return []byte(`"` + id.String() + `"`), nil
-}
-
-// TODO(bryanchriswhite): what should this look like?
-func (id *NodeID) UnmarshalJSON(data []byte) error {
-	var err error
-	*id, err = NodeIDFromString(string(data))
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// // only required if the compare option is set
-// func (id NodeID) Compare(other NodeID) int {}
-// // only required if the equal option is set
-// func (id NodeID) Equal(other NodeID) bool {}
-// // only required if populate option is set
-// func NewPopulatedNodeID(r randyNodeIDhetest) *NodeID {}
