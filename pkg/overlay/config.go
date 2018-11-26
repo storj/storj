@@ -32,7 +32,6 @@ var (
 type Config struct {
 	DatabaseURL     string        `help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
 	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
-	StatDBPort      string        `help:"port to contact statDB client" default:":7778"`
 }
 
 // CtxKey used for assigning cache and server

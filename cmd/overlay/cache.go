@@ -18,8 +18,6 @@ import (
 type cacheConfig struct {
 	NodesPath   string `help:"the path to a JSON file containing an object with IP keys and nodeID values"`
 	DatabaseURL string `help:"the database connection string to use"`
-	StatDBPort  string `help:"the statdb connection port to use" default:":7778"`
-	StatDBKey   string `help:"the statdb api key to use"`
 }
 
 func (c cacheConfig) open() (*overlay.Cache, error) {
