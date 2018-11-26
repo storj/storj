@@ -25,8 +25,7 @@ import AccountDropdown from "./AccountDropdown.vue";
     { 
         data: function() {
             return {
-                // this.$store.userName
-                userName: "User Name",
+                userName: this.$store.getters.userName,
                 isChoiceShown: false
             }
         },

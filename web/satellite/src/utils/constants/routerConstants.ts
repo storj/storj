@@ -1,5 +1,5 @@
 const ROUTES = {
-    DEFAULT: {
+    LOGIN: {
         path: '/login',
         name: 'Login'
     },
