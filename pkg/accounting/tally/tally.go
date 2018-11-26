@@ -60,7 +60,7 @@ func (t *tally) Run(ctx context.Context) (err error) {
 		select {
 		case <-t.ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the tally is canceled via context
-			t.db.Close()
+			_ = t.db.Close()
 			return ctx.Err()
 		}
 	}
