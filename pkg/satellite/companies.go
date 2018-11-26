@@ -12,7 +12,7 @@ import (
 
 // Companies exposes methods to manage Company table in database.
 type Companies interface {
-	// Get is a method for querying company from the database by userID
+	// GetByUserID is a method for querying company from the database by userID
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*Company, error)
 	// Insert is a method for inserting company into the database
 	Insert(ctx context.Context, company *Company) (*Company, error)
