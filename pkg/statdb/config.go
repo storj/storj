@@ -21,7 +21,7 @@ const (
 )
 
 var (
-	apiKey = flag.String("stat-db.auth.api-key", "", "api key")
+	apiKey = flag.String("stat-db.auth.api-key", "", "statdb api key")
 )
 
 // Config is a configuration struct that is everything you need to start a
