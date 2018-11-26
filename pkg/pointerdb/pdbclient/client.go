@@ -10,12 +10,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/spacemonkeygo/monkit.v2"
-	"storj.io/storj/pkg/transport"
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 )
 
@@ -27,7 +27,6 @@ var (
 type PointerDB struct {
 	client        pb.PointerDBClient
 	authorization *pb.SignedMessage
-	pba           *pb.PayerBandwidthAllocation
 }
 
 // New Used as a public function
@@ -48,12 +47,12 @@ type ListItem struct {
 // Client services offerred for the interface
 type Client interface {
 	Put(ctx context.Context, path storj.Path, pointer *pb.Pointer) error
-	Get(ctx context.Context, path storj.Path) (*pb.Pointer, []*pb.Node, error)
+	Get(ctx context.Context, path storj.Path) (*pb.Pointer, []*pb.Node, *pb.PayerBandwidthAllocation, error)
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 	Delete(ctx context.Context, path storj.Path) error
 
 	SignedMessage() *pb.SignedMessage
-	PayerBandwidthAllocation() *pb.PayerBandwidthAllocation
+	PayerBandwidthAllocation(context.Context, pb.PayerBandwidthAllocation_Action) (*pb.PayerBandwidthAllocation, error)
 
 	// Disconnect() error // TODO: implement
 }
@@ -87,21 +86,20 @@ func (pdb *PointerDB) Put(ctx context.Context, path storj.Path, pointer *pb.Poin
 }
 
 // Get is the interface to make a GET request, needs PATH and APIKey
-func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Pointer, nodes []*pb.Node, err error) {
+func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Pointer, nodes []*pb.Node, pba *pb.PayerBandwidthAllocation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	res, err := pdb.client.Get(ctx, &pb.GetRequest{Path: path})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return nil, nil, storage.ErrKeyNotFound.Wrap(err)
+			return nil, nil, nil, storage.ErrKeyNotFound.Wrap(err)
 		}
-		return nil, nil, Error.Wrap(err)
+		return nil, nil, nil, Error.Wrap(err)
 	}
 
-	pdb.pba = res.GetPba()
 	pdb.authorization = res.GetAuthorization()
 
-	return res.GetPointer(), res.GetNodes(), nil
+	return res.GetPointer(), res.GetNodes(), res.GetPba(), nil
 }
 
 // List is the interface to make a LIST request, needs StartingPathKey, Limit, and APIKey
@@ -142,12 +140,18 @@ func (pdb *PointerDB) Delete(ctx context.Context, path storj.Path) (err error) {
 	return err
 }
 
+// PayerBandwidthAllocation gets payer bandwidth allocation message
+func (pdb *PointerDB) PayerBandwidthAllocation(ctx context.Context, action pb.PayerBandwidthAllocation_Action) (resp *pb.PayerBandwidthAllocation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := pdb.client.PayerBandwidthAllocation(ctx, &pb.PayerBandwidthAllocationRequest{Action: action})
+	if err != nil {
+		return nil, err
+	}
+	return response.GetPba(), nil
+}
+
 // SignedMessage gets signed message from last request
 func (pdb *PointerDB) SignedMessage() *pb.SignedMessage {
 	return pdb.authorization
-}
-
-// PayerBandwidthAllocation gets payer bandwidth allocation message from last get request
-func (pdb *PointerDB) PayerBandwidthAllocation() *pb.PayerBandwidthAllocation {
-	return pdb.pba
 }

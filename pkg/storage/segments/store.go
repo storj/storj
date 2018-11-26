@@ -72,7 +72,7 @@ func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client
 func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, _, err := s.pdb.Get(ctx, path)
+	pr, _, _, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
@@ -121,7 +121,10 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		sizedReader := SizeReader(peekReader)
 
 		authorization := s.pdb.SignedMessage()
-		pba := s.pdb.PayerBandwidthAllocation()
+		pba, err := s.pdb.PayerBandwidthAllocation(ctx, pb.PayerBandwidthAllocation_PUT)
+		if err != nil {
+			return Meta{}, Error.Wrap(err)
+		}
 		// puts file to ecclient
 		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba, authorization)
 		if err != nil {
@@ -192,7 +195,7 @@ func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID psclient.Piec
 func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, nodes, err := s.pdb.Get(ctx, path)
+	pr, nodes, pba, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return nil, Meta{}, Error.Wrap(err)
 	}
@@ -229,7 +232,6 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 		}
 
 		authorization := s.pdb.SignedMessage()
-		pba := s.pdb.PayerBandwidthAllocation()
 		rr, err = s.ec.Get(ctx, nodes, es, pid, pr.GetSegmentSize(), pba, authorization)
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
@@ -254,7 +256,7 @@ func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) 
 func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, nodes, err := s.pdb.Get(ctx, path)
+	pr, nodes, _, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -288,7 +290,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	defer mon.Task()(&ctx)(&err)
 
 	//Read the segment's pointer's info from the PointerDB
-	pr, originalNodes, err := s.pdb.Get(ctx, path)
+	pr, originalNodes, pba, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -374,7 +376,6 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	}
 
 	signedMessage := s.pdb.SignedMessage()
-	pba := s.pdb.PayerBandwidthAllocation()
 
 	// download the segment using the nodes just with healthy nodes
 	rr, err := s.ec.Get(ctx, healthyNodes, es, pid, pr.GetSegmentSize(), pba, signedMessage)

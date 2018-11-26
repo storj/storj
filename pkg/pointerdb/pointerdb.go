@@ -136,7 +136,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		return nil, err
 	}
 
-	pba, err := s.getPayerBandwidthAllocation(ctx)
+	pba, err := s.PayerBandwidthAllocation(ctx, &pb.PayerBandwidthAllocationRequest{Action: pb.PayerBandwidthAllocation_GET})
 	if err != nil {
 		s.logger.Error("err getting payer bandwidth allocation", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -153,7 +153,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 	var r = &pb.GetResponse{
 		Pointer:       pointer,
 		Nodes:         nil,
-		Pba:           pba,
+		Pba:           pba.GetPba(),
 		Authorization: authorization,
 	}
 
@@ -172,7 +172,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 	r = &pb.GetResponse{
 		Pointer:       pointer,
 		Nodes:         nodes,
-		Pba:           pba,
+		Pba:           pba.GetPba(),
 		Authorization: authorization,
 	}
 
@@ -294,7 +294,7 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 	return s.DB.Iterate(opts, f)
 }
 
-func (s *Server) getPayerBandwidthAllocation(ctx context.Context) (*pb.PayerBandwidthAllocation, error) {
+func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBandwidthAllocationRequest) (*pb.PayerBandwidthAllocationResponse, error) {
 	payer := s.identity.ID.Bytes()
 
 	// TODO(michal) should be replaced with renter id when available
@@ -306,7 +306,7 @@ func (s *Server) getPayerBandwidthAllocation(ctx context.Context) (*pb.PayerBand
 		SatelliteId:    payer,
 		UplinkId:       peerIdentity.ID.Bytes(),
 		CreatedUnixSec: time.Now().Unix(),
-		// TODO: Action: pb.PayerBandwidthAllocation_GET, // Action should be a GET or a PUT
+		Action:         req.GetAction(),
 	}
 
 	data, err := proto.Marshal(pbad)
@@ -317,7 +317,7 @@ func (s *Server) getPayerBandwidthAllocation(ctx context.Context) (*pb.PayerBand
 	if err != nil {
 		return nil, err
 	}
-	return &pb.PayerBandwidthAllocation{Signature: signature, Data: data}, nil
+	return &pb.PayerBandwidthAllocationResponse{Pba: &pb.PayerBandwidthAllocation{Signature: signature, Data: data}}, nil
 }
 
 func (s *Server) getSignedMessage() (*pb.SignedMessage, error) {

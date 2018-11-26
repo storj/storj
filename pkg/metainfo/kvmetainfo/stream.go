@@ -81,7 +81,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		return segment, err
 	}
 
-	pointer, _, err := stream.db.pointers.Get(ctx, segmentPath)
+	pointer, _, _, err := stream.db.pointers.Get(ctx, segmentPath)
 	if err != nil {
 		return segment, err
 	}
