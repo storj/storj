@@ -17,9 +17,8 @@ import (
 
 // Config contains configurable values for tally
 type Config struct {
-	Interval       time.Duration `help:"how frequently tally should run" default:"30s"`
-	DatabaseURL    string        `help:"the database connection string to use" default:"$CONFDIR/stats.db"`
-	DatabaseDriver string        `help:"the database driver to use" default:"sqlite3"`
+	Interval    time.Duration `help:"how frequently tally should run" default:"30s"`
+	DatabaseURL string        `help:"the database connection string to use" default:"sqlite3://$CONFDIR/stats.db"`
 }
 
 // Initialize a tally struct
@@ -27,7 +26,7 @@ func (c Config) initialize(ctx context.Context) (Tally, error) {
 	pointerdb := pointerdb.LoadFromContext(ctx)
 	overlay := overlay.LoadServerFromContext(ctx)
 	kademlia := kademlia.LoadFromContext(ctx)
-	db, err := accounting.NewDb(c.DatabaseDriver, c.DatabaseURL)
+	db, err := accounting.NewDb(c.DatabaseURL)
 	if err != nil {
 		return nil, err
 	}

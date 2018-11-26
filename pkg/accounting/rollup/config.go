@@ -14,14 +14,13 @@ import (
 
 // Config contains configurable values for rollup
 type Config struct {
-	Interval       time.Duration `help:"how frequently rollup should run" default:"30s"`
-	DatabaseURL    string        `help:"the database connection string to use" default:"$CONFDIR/stats.db"`
-	DatabaseDriver string        `help:"the database driver to use" default:"sqlite3"`
+	Interval    time.Duration `help:"how frequently rollup should run" default:"30s"`
+	DatabaseURL string        `help:"the database connection string to use" default:"sqlite3://$CONFDIR/stats.db"`
 }
 
 // Initialize a rollup struct
 func (c Config) initialize(ctx context.Context) (Rollup, error) {
-	db, err := accounting.NewDb(c.DatabaseDriver, c.DatabaseURL)
+	db, err := accounting.NewDb(c.DatabaseURL)
 	if err != nil {
 		return nil, err
 	}

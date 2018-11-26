@@ -6,23 +6,23 @@ package accounting
 import (
 	"storj.io/storj/internal/migrate"
 	dbx "storj.io/storj/pkg/accounting/dbx"
+	"storj.io/storj/pkg/utils"
 )
 
 // NewDb - constructor for DB
-func NewDb(driver, source string) (*dbx.DB, error) {
-	db, err := dbx.Open(driver, source)
+func NewDb(databaseURL string) (*dbx.DB, error) {
+	dbURL, err := utils.ParseURL(databaseURL)
 	if err != nil {
 		return nil, err
 	}
-	err = EnsureTables(db)
+	db, err := dbx.Open(dbURL.Scheme, dbURL.Path)
+	if err != nil {
+		return nil, err
+	}
+	err = migrate.Create("accounting", db)
 	if err != nil {
 		db.Close()
 		return nil, err
 	}
 	return db, nil
-}
-
-// EnsureTables is a method for creating all tables
-func EnsureTables(db *dbx.DB) error {
-	return migrate.Create("accounting", db)
 }
