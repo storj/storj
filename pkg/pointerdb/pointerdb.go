@@ -294,7 +294,7 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 	return s.DB.Iterate(opts, f)
 }
 
-// PayerBandwidthAllocation returns PayerBandwidthAllocation struct, signed and with given action type 
+// PayerBandwidthAllocation returns PayerBandwidthAllocation struct, signed and with given action type
 func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBandwidthAllocationRequest) (*pb.PayerBandwidthAllocationResponse, error) {
 	payer := s.identity.ID.Bytes()
 
