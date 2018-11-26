@@ -54,17 +54,9 @@ func NewServer(driver, source, apiKey string, logger *zap.Logger) (*Server, erro
 }
 
 func (s *Server) validateAuth(ctx context.Context) error {
-	apiKey, ok := auth.GetAPIKey(ctx)
-	if !ok {
-		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
-	}
-
-	expectedAPIKey := s.apiKey
-	matches := (1 == subtle.ConstantTimeCompare(expectedAPIKey, apiKey))
-	if !matches {
-		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
+	err := auth.ValidateAPIKey(ctx, s.apiKey)
+	if err != nil {
+		return err
 	}
 	return nil
 }
