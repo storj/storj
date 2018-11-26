@@ -1,0 +1,39 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`HeaderedInput.vue renders correctly with default props 1`] = `
+<div class="input-container">
+  <div class="label-container">
+    <!---->
+    <h3></h3>
+    <h3 class="label-container__add-label"></h3>
+    <!---->
+  </div>
+  <!---->
+  <!----> <input id="" placeholder="default" type="text" style="width: 100%; height: 48px;">
+</div>
+`;
+
+exports[`HeaderedInput.vue renders correctly with input error 1`] = `
+<div class="input-container">
+  <div class="label-container"><img src="../../../static/images/register/ErrorInfo.svg">
+    <!---->
+    <h3 class="label-container__add-label"></h3>
+    <h3 class="label-container__error">testError</h3>
+  </div>
+  <!---->
+  <!----> <input id="" placeholder="default" type="text" style="width: 100%; height: 48px;">
+</div>
+`;
+
+exports[`HeaderedInput.vue renders correctly with isMultiline props 1`] = `
+<div class="input-container">
+  <div class="label-container">
+    <!---->
+    <h3></h3>
+    <h3 class="label-container__add-label"></h3>
+    <!---->
+  </div>
+  <!----> <textarea id="" placeholder="default" rows="5" cols="40" wrap="hard" style="width: 100%; height: 48px;"></textarea>
+  <!---->
+</div>
+`;

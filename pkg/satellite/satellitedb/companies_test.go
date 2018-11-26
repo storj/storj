@@ -6,7 +6,6 @@ package satellitedb
 import (
 	"testing"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/satellite"
@@ -122,12 +121,11 @@ func TestCompanyRepository(t *testing.T) {
 		assert.Equal(t, companyByUserID.State, state)
 		assert.Equal(t, companyByUserID.PostalCode, postalCode)
 
-		companyByID, err := companies.Get(ctx, companyByUserID.ID)
+		companyByID, err := companies.GetByUserID(ctx, companyByUserID.UserID)
 
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 
-		assert.Equal(t, companyByID.ID, companyByUserID.ID)
 		assert.Equal(t, companyByID.UserID, user.ID)
 		assert.Equal(t, companyByID.Name, companyName)
 		assert.Equal(t, companyByID.Address, address)
@@ -145,7 +143,6 @@ func TestCompanyRepository(t *testing.T) {
 
 		// creating new company with updated values
 		newCompany := &satellite.Company{
-			ID:         oldCompany.ID,
 			UserID:     user.ID,
 			Name:       newCompanyName,
 			Address:    newAddress,
@@ -161,11 +158,10 @@ func TestCompanyRepository(t *testing.T) {
 		assert.NoError(t, err)
 
 		// fetching updated company from db
-		newCompany, err = companies.Get(ctx, oldCompany.ID)
+		newCompany, err = companies.GetByUserID(ctx, oldCompany.UserID)
 
 		assert.NoError(t, err)
 
-		assert.Equal(t, newCompany.ID, oldCompany.ID)
 		assert.Equal(t, newCompany.UserID, user.ID)
 		assert.Equal(t, newCompany.Name, newCompanyName)
 		assert.Equal(t, newCompany.Address, newAddress)
@@ -181,12 +177,12 @@ func TestCompanyRepository(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, oldCompany)
 
-		err = companies.Delete(ctx, oldCompany.ID)
+		err = companies.Delete(ctx, oldCompany.UserID)
 
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 
-		_, err = companies.Get(ctx, oldCompany.ID)
+		_, err = companies.GetByUserID(ctx, oldCompany.UserID)
 
 		assert.NotNil(t, err)
 		assert.Error(t, err)
@@ -202,26 +198,8 @@ func TestCompanyFromDbx(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("can't create dbo from dbx model with invalid ID", func(t *testing.T) {
-		dbxCompany := dbx.Company{
-			Id: []byte("qweqwe"),
-		}
-
-		company, err := companyFromDBX(&dbxCompany)
-
-		assert.Nil(t, company)
-		assert.NotNil(t, err)
-		assert.Error(t, err)
-	})
-
 	t.Run("can't create dbo from dbx model with invalid UserID", func(t *testing.T) {
-
-		companyID, err := uuid.New()
-		assert.NoError(t, err)
-		assert.Nil(t, err)
-
 		dbxCompany := dbx.Company{
-			Id:     companyID[:],
 			UserId: []byte("qweqwe"),
 		}
 

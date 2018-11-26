@@ -58,8 +58,8 @@ message PieceStore {
     bytes content = 3;
   }
 
-  RenterBandwidthAllocation bandwidthallocation = 1;
-  PieceData piecedata = 2;
+  RenterBandwidthAllocation bandwidth_allocation = 1;
+  PieceData piece_data = 2;
   SignedMessage authorization = 3;
 }
 
@@ -82,8 +82,8 @@ message PieceRetrieval {
     int64 offset = 3;
   }
 
-  RenterBandwidthAllocation bandwidthallocation = 1;
-  PieceData pieceData = 2;
+  RenterBandwidthAllocation bandwidth_allocation = 1;
+  PieceData piece_data = 2;
   SignedMessage authorization = 3;
 }
 
@@ -103,20 +103,20 @@ message PieceDeleteSummary {
 
 message PieceStoreSummary {
   string message = 1;
-  int64 totalReceived = 2;
+  int64 total_received = 2;
 }
 
 message StatsReq {}
 
 message StatSummary {
-  int64 usedSpace = 1;
-  int64 availableSpace = 2;
-  int64 usedBandwidth = 3;
-  int64 availableBandwidth = 4;
+  int64 used_space = 1;
+  int64 available_space = 2;
+  int64 used_bandwidth = 3;
+  int64 available_bandwidth = 4;
 }
 
 message SignedMessage {
   bytes data = 1;
   bytes signature = 2;
-  bytes publicKey = 3;
+  bytes public_key = 3;
 }
