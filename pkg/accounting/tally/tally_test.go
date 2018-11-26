@@ -54,7 +54,7 @@ func TestOnlineNodes(t *testing.T) {
 	limit := 0
 	interval := time.Second
 
-	accountingDb, err := accounting.NewDb("sqlite3", "file::memory:?mode=memory&cache=shared")
+	accountingDb, err := accounting.NewDb("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
 	defer accountingDb.Close()
 	tally, err := newTally(logger, accountingDb, pointerdb, overlayServer, kad, limit, interval)

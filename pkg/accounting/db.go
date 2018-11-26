@@ -21,7 +21,7 @@ func NewDb(databaseURL string) (*dbx.DB, error) {
 	}
 	err = migrate.Create("accounting", db)
 	if err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 	return db, nil

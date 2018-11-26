@@ -43,7 +43,7 @@ func (r *rollup) Run(ctx context.Context) (err error) {
 		select {
 		case <-r.ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the rollup is canceled via context
-			r.db.Close()
+			_ = r.db.Close()
 			return ctx.Err()
 		}
 	}
