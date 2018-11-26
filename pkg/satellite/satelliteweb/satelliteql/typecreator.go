@@ -18,9 +18,11 @@ type Types interface {
 
 	User() *graphql.Object
 	Company() *graphql.Object
+	Project() *graphql.Object
 
 	UserInput() *graphql.InputObject
 	CompanyInput() *graphql.InputObject
+	ProjectInput() *graphql.InputObject
 }
 
 // TypeCreator handles graphql type creation and error checking
@@ -32,9 +34,11 @@ type TypeCreator struct {
 
 	user    *graphql.Object
 	company *graphql.Object
+	project *graphql.Object
 
 	userInput    *graphql.InputObject
 	companyInput *graphql.InputObject
+	projectInput *graphql.InputObject
 }
 
 // Create create types and check for error
@@ -46,6 +50,16 @@ func (c *TypeCreator) Create(service *satellite.Service) error {
 
 	c.companyInput = graphqlCompanyInput()
 	if err := c.companyInput.Error(); err != nil {
+		return err
+	}
+
+	c.project = graphqlProject()
+	if err := c.project.Error(); err != nil {
+		return err
+	}
+
+	c.projectInput = graphqlProjectInput()
+	if err := c.projectInput.Error(); err != nil {
 		return err
 	}
 
@@ -102,6 +116,11 @@ func (c *TypeCreator) Company() *graphql.Object {
 	return c.company
 }
 
+// Project returns instance of satellite.Project *graphql.Object
+func (c *TypeCreator) Project() *graphql.Object {
+	return c.project
+}
+
 // UserInput returns instance of UserInput *graphql.Object
 func (c *TypeCreator) UserInput() *graphql.InputObject {
 	return c.userInput
@@ -110,4 +129,9 @@ func (c *TypeCreator) UserInput() *graphql.InputObject {
 // CompanyInput returns instance of CompanyInfo *graphql.Object
 func (c *TypeCreator) CompanyInput() *graphql.InputObject {
 	return c.companyInput
+}
+
+// ProjectInput returns instance of ProjectInfo *graphql.Object
+func (c *TypeCreator) ProjectInput() *graphql.InputObject {
+	return c.projectInput
 }
