@@ -39,7 +39,7 @@ import NewProjectArea from "./newProject/NewProjectArea.vue";
 import AccountButton from "./account/AccountButton.vue"
 
 @Component(
-    { 
+    {
 		components: {
             ProjectSelectionArea,
             NewProjectArea,

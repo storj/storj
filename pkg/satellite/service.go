@@ -159,7 +159,7 @@ func (s *Service) GetUsersProjects(ctx context.Context) ([]Project, error) {
 	return s.store.Projects().GetAll(ctx)
 }
 
-// CreateProject is a method for querying all projects
+// CreateProject is a method for creating new project
 func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*Project, error) {
 	// TODO: auth will be moved in future
 	user, err := s.Authorize(ctx)

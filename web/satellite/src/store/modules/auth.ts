@@ -2,8 +2,7 @@
 // See LICENSE for copying information.
 
 import {
-    SET_USER_INFO,
-    REVERT_TO_DEFAULT_USER_INFO,
+    AUTH_MUTATIONS,
 } from "../mutationConstants";
 
 export const authModule = {
@@ -21,7 +20,7 @@ export const authModule = {
     },
 
     mutations: {
-        [SET_USER_INFO](state: any, user: User): void {
+        [AUTH_MUTATIONS.SET_USER_INFO](state: any, user: User): void {
             state.firstName = user.firstName;
             state.lastName = user.lastName;
             state.email = user.email;
@@ -34,7 +33,7 @@ export const authModule = {
             state.companyPostalCode = user.company.postalCode;
         },
 
-        [REVERT_TO_DEFAULT_USER_INFO](state: any): void {
+        [AUTH_MUTATIONS.REVERT_TO_DEFAULT_USER_INFO](state: any): void {
             state.firstName = "";
             state.lastName = "";
             state.email = "";
@@ -58,5 +57,5 @@ export const authModule = {
 };
 
 function setUserInfo({commit}: any, userInfo: User): void {
-    commit(SET_USER_INFO, userInfo)
+    commit(AUTH_MUTATIONS.SET_USER_INFO, userInfo)
 }
