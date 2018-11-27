@@ -9,7 +9,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
-
+	dbx "storj.io/storj/pkg/accounting/dbx"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
@@ -32,11 +32,10 @@ type tally struct {
 	limit     int
 	logger    *zap.Logger
 	ticker    *time.Ticker
-	//TODO:
-	//accountingDBServer
+	db        *dbx.DB
 }
 
-func newTally(pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, logger *zap.Logger, interval time.Duration) *tally {
+func newTally(logger *zap.Logger, db *dbx.DB, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, interval time.Duration) (*tally, error) {
 	return &tally{
 		pointerdb: pointerdb,
 		overlay:   overlay,
@@ -44,9 +43,8 @@ func newTally(pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *k
 		limit:     limit,
 		logger:    logger,
 		ticker:    time.NewTicker(interval),
-		//TODO:
-		//accountingDBServer
-	}
+		db:        db,
+	}, nil
 }
 
 // Run the tally loop
@@ -62,6 +60,7 @@ func (t *tally) Run(ctx context.Context) (err error) {
 		select {
 		case <-t.ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the tally is canceled via context
+			_ = t.db.Close()
 			return ctx.Err()
 		}
 	}

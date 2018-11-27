@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <!-- To close popup we need to use method onCloseClick -->
     <div class="project-selection-choice-container" >

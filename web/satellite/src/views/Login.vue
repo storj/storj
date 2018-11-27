@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="login-container">
         <img class="login-container__logo" src="../../static/images/login/Logo.svg" alt="logo">
