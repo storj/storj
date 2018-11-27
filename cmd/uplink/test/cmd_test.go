@@ -125,8 +125,13 @@ func TestCP(t *testing.T) {
 		tmpDir, err := ioutil.TempDir("", "test")
 		assert.NoError(t, err)
 
-		defer os.RemoveAll(tmpDir)
-
+		defer func() {
+			err = os.RemoveAll(tmpDir)
+			if err != nil {
+				t.Log(err)
+			}
+		}()
+		
 		fpath := filepath.Join(tmpDir, "testfile")
 
 		err = ioutil.WriteFile(fpath, content, 0666)
