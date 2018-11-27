@@ -7,10 +7,8 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -43,7 +41,7 @@ func (x AgreementsSummary_Status) String() string {
 	return proto.EnumName(AgreementsSummary_Status_name, int32(x))
 }
 func (AgreementsSummary_Status) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_bandwidth_acc7ad1b0a6a13c6, []int{0, 0}
+	return fileDescriptor_bandwidth_01db992f91c47bae, []int{0, 0}
 }
 
 type AgreementsSummary struct {
@@ -57,7 +55,7 @@ func (m *AgreementsSummary) Reset()         { *m = AgreementsSummary{} }
 func (m *AgreementsSummary) String() string { return proto.CompactTextString(m) }
 func (*AgreementsSummary) ProtoMessage()    {}
 func (*AgreementsSummary) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bandwidth_acc7ad1b0a6a13c6, []int{0}
+	return fileDescriptor_bandwidth_01db992f91c47bae, []int{0}
 }
 func (m *AgreementsSummary) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AgreementsSummary.Unmarshal(m, b)
@@ -97,9 +95,8 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// BandwidthClient is the client API for Bandwidth service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+// Client API for Bandwidth service
+
 type BandwidthClient interface {
 	BandwidthAgreements(ctx context.Context, in *RenterBandwidthAllocation, opts ...grpc.CallOption) (*AgreementsSummary, error)
 }
@@ -121,7 +118,8 @@ func (c *bandwidthClient) BandwidthAgreements(ctx context.Context, in *RenterBan
 	return out, nil
 }
 
-// BandwidthServer is the server API for Bandwidth service.
+// Server API for Bandwidth service
+
 type BandwidthServer interface {
 	BandwidthAgreements(context.Context, *RenterBandwidthAllocation) (*AgreementsSummary, error)
 }
@@ -161,9 +159,9 @@ var _Bandwidth_serviceDesc = grpc.ServiceDesc{
 	Metadata: "bandwidth.proto",
 }
 
-func init() { proto.RegisterFile("bandwidth.proto", fileDescriptor_bandwidth_acc7ad1b0a6a13c6) }
+func init() { proto.RegisterFile("bandwidth.proto", fileDescriptor_bandwidth_01db992f91c47bae) }
 
-var fileDescriptor_bandwidth_acc7ad1b0a6a13c6 = []byte{
+var fileDescriptor_bandwidth_01db992f91c47bae = []byte{
 	// 196 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x4f, 0x4a, 0xcc, 0x4b,
 	0x29, 0xcf, 0x4c, 0x29, 0xc9, 0xd0, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x84, 0x0b, 0x48,
