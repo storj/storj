@@ -23,13 +23,17 @@ import ProjectSelectionDropdown from "./ProjectSelectionDropdown.vue"
         data: function() {
             return {
                 isChoiceShown: false,
-                // this.$store.selectedProject
-                name: "Choose Project"
             }
         },
         methods: {
             toggleSelection: function () {
                 this.$data.isChoiceShown = !this.$data.isChoiceShown;
+                this.$store.dispatch("fetchProjects");
+            }
+        },
+        computed: {
+            name: function(): string {
+                return this.$store.getters.selectedProject.name;
             }
         },
         components: {
