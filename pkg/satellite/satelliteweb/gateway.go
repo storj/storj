@@ -10,6 +10,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/graphql-go/graphql"
+
+	"storj.io/storj/pkg/satellite"
 )
 
 // GatewayConfig contains configuration for gateway
@@ -18,12 +20,17 @@ type GatewayConfig struct {
 	StaticPath string `help:"path to static resources" default:""`
 }
 
+// gateway hosts api endpoints and web app
 type gateway struct {
+	log *zap.Logger
+
+	service *satellite.Service
+
 	schema graphql.Schema
 	config GatewayConfig
-	log    *zap.Logger
 }
 
+// run starts http server
 func (gw *gateway) run() {
 	mux := http.NewServeMux()
 	//gw.config.StaticPath = "./web/satellite"
@@ -40,6 +47,7 @@ func (gw *gateway) run() {
 	gw.log.Error("unexpected exit of satellite gateway server: ", zap.Error(err))
 }
 
+// appHandler is web app http handler function
 func (gw *gateway) appHandler(w http.ResponseWriter, req *http.Request) {
 	http.ServeFile(w, req, filepath.Join(gw.config.StaticPath, "dist", "public", "index.html"))
 }

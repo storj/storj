@@ -28,11 +28,17 @@ func graphqlToken(service *satellite.Service, types Types) *graphql.Object {
 					wrapper, _ := p.Source.(tokenWrapper)
 
 					ctx := auth.WithAPIKey(p.Context, []byte(wrapper.Token))
-					// pass context to root value so child resolvers could get auth token
-					rootValue := p.Info.RootValue.(map[string]interface{})
-					rootValue["context"] = ctx
 
-					return service.Authorize(ctx)
+					auth, err := service.Authorize(ctx)
+					if err != nil {
+						return nil, err
+					}
+
+					// pass context to root value so child resolvers could get auth auth
+					rootValue := p.Info.RootValue.(map[string]interface{})
+					rootValue["context"] = satellite.WithAuth(ctx, auth)
+
+					return &auth.User, nil
 				},
 			},
 		},
