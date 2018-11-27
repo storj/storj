@@ -35,29 +35,24 @@ type RoutingTable struct {
 	nodeBucketDB     storage.KeyValueStore
 	transport        *pb.NodeTransport
 	mutex            *sync.Mutex
-	seen             map[string]*pb.Node
 	replacementCache map[string][]*pb.Node
 	idLength         int // kbucket and node id bit length (SHA256) = 256
 	bucketSize       int // max number of nodes stored in a kbucket = 20 (k)
 	rcBucketSize     int // replacementCache bucket max length
-
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
 func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
 	rt := &RoutingTable{
-		self:         localNode,
-		kadBucketDB:  kdb,
-		nodeBucketDB: ndb,
-		transport:    &defaultTransport,
-
+		self:             localNode,
+		kadBucketDB:      kdb,
+		nodeBucketDB:     ndb,
+		transport:        &defaultTransport,
 		mutex:            &sync.Mutex{},
-		seen:             make(map[string]*pb.Node),
 		replacementCache: make(map[string][]*pb.Node),
-
-		idLength:     len(storj.NodeID{}) * 8, // NodeID length in bits
-		bucketSize:   *flagBucketSize,
-		rcBucketSize: *flagReplacementCacheSize,
+		idLength:         len(storj.NodeID{}) * 8, // NodeID length in bits
+		bucketSize:       *flagBucketSize,
+		rcBucketSize:     *flagReplacementCacheSize,
 	}
 	ok, err := rt.addNode(&localNode)
 	if !ok || err != nil {
@@ -127,15 +122,6 @@ func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 	return bs, nil
 }
 
-// GetBucketIds returns a storage.Keys type of bucket ID's in the Kademlia instance
-func (rt *RoutingTable) GetBucketIds() (storage.Keys, error) {
-	kbuckets, err := rt.kadBucketDB.List(nil, 0)
-	if err != nil {
-		return nil, err
-	}
-	return kbuckets, nil
-}
-
 // FindNear returns the node corresponding to the provided nodeID
 // returns all Nodes closest via XOR to the provided nodeID up to the provided limit
 // always returns limit + self
@@ -166,14 +152,6 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*pb.Node, error) {
 // ConnectionSuccess updates or adds a node to the routing table when
 // a successful connection is made to the node on the network
 func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
-	// valid to connect to node without ID but don't store connection
-	if node.GetId() == "" {
-		return nil
-	}
-
-	rt.mutex.Lock()
-	rt.seen[node.GetId()] = node
-	rt.mutex.Unlock()
 	v, err := rt.nodeBucketDB.Get(storage.Key(node.Id))
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return RoutingErr.New("could not get node %s", err)
@@ -184,7 +162,6 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 		if err != nil {
 			return RoutingErr.New("could not update node %s", err)
 		}
-
 		return nil
 	}
 
@@ -192,7 +169,6 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 	if err != nil {
 		return RoutingErr.New("could not add node %s", err)
 	}
-
 	return nil
 }
 

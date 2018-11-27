@@ -16,11 +16,13 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storage"
 )
 
 const (
@@ -65,7 +67,7 @@ func TestBucketsBasic(t *testing.T) {
 
 		// Check that the bucket cannot be get explicitly
 		bucket, err = db.GetBucket(ctx, TestBucket)
-		assert.True(t, storj.ErrBucketNotFound.Has(err))
+		assert.True(t, storage.ErrKeyNotFound.Has(err))
 	})
 }
 
@@ -103,7 +105,7 @@ func TestBucketsReadNewWayWriteOldWay(t *testing.T) {
 
 		// (New API) Check that the bucket cannot be get explicitly
 		bucket, err = db.GetBucket(ctx, TestBucket)
-		assert.True(t, storj.ErrBucketNotFound.Has(err))
+		assert.True(t, storage.ErrKeyNotFound.Has(err))
 	})
 }
 
@@ -142,7 +144,7 @@ func TestBucketsReadOldWayWriteNewWay(t *testing.T) {
 
 		// (Old API) Check that the bucket cannot be get explicitly
 		_, err = db.buckets.Get(ctx, TestBucket)
-		assert.True(t, storj.ErrBucketNotFound.Has(err))
+		assert.True(t, storage.ErrKeyNotFound.Has(err))
 	})
 }
 
@@ -311,7 +313,7 @@ func runTest(t *testing.T, test func(context.Context, *DB)) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 4, 1)
+	planet, err := testplanet.New(1, 4, 1)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -335,7 +337,7 @@ func newDB(planet *testplanet.Planet) (*DB, error) {
 		return nil, err
 	}
 
-	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+	oc, err := overlay.NewOverlayClient(planet.Uplinks[0].Identity, planet.Uplinks[0].Addr())
 	if err != nil {
 		return nil, err
 	}

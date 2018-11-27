@@ -1,11 +1,7 @@
-// Copyright (C) 2018 Storj Labs, Inc.
-// See LICENSE for copying information.
-
 package satelliteql
 
 import (
 	"github.com/graphql-go/graphql"
-	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/pkg/satellite"
 )
@@ -14,12 +10,7 @@ const (
 	// Mutation is graphql request that modifies data
 	Mutation = "mutation"
 
-	createUserMutation    = "createUser"
-	createProjectMutation = "createProject"
-	deleteProjectMutation = "deleteProject"
-	updateProjectMutation = "updateProject"
-
-	input = "input"
+	registerMutation = "register"
 )
 
 // rootMutation creates mutation for graphql populated by AccountsClient
@@ -27,83 +18,43 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: Mutation,
 		Fields: graphql.Fields{
-			createUserMutation: &graphql.Field{
-				Type: graphql.String,
+			registerMutation: &graphql.Field{
+				Type: types.UserType(),
 				Args: graphql.FieldConfigArgument{
-					input: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(types.UserInput()),
+					fieldEmail: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					fieldPassword: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					fieldFirstName: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					fieldLastName: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
-				// creates user and company from input params and returns userID if succeed
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					var userInput = fromMapUserInfo(p.Args[input].(map[string]interface{}))
+					email, _ := p.Args[fieldEmail].(string)
+					password, _ := p.Args[fieldPassword].(string)
+					firstName, _ := p.Args[fieldFirstName].(string)
+					lastName, _ := p.Args[fieldLastName].(string)
 
-					user, err := service.CreateUser(
+					user, err := service.Register(
 						p.Context,
-						userInput.User,
-						userInput.Company,
+						&satellite.User{
+							Email:        email,
+							FirstName:    firstName,
+							LastName:     lastName,
+							PasswordHash: []byte(password),
+						},
 					)
 
 					if err != nil {
-						return "", err
-					}
-
-					return user.ID.String(), nil
-				},
-			},
-			// creates project from input params
-			createProjectMutation: &graphql.Field{
-				Type: graphql.String,
-				Args: graphql.FieldConfigArgument{
-					input: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(types.ProjectInput()),
-					},
-				},
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					var projectInput = fromMapProjectInfo(p.Args[input].(map[string]interface{}))
-
-					return service.CreateProject(p.Context, projectInput)
-				},
-			},
-			// deletes project by id, taken from input params
-			deleteProjectMutation: &graphql.Field{
-				Type: graphql.String,
-				Args: graphql.FieldConfigArgument{
-					fieldID: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-				},
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					inputID := p.Args[fieldID].(string)
-					projectID, err := uuid.Parse(inputID)
-					if err != nil {
 						return nil, err
 					}
 
-					return nil, service.DeleteProject(p.Context, *projectID)
-				},
-			},
-			// updates project
-			updateProjectMutation: &graphql.Field{
-				Type: graphql.String,
-				Args: graphql.FieldConfigArgument{
-					fieldID: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-					input: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(types.ProjectInput()),
-					},
-				},
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					var projectInput = fromMapProjectInfo(p.Args[input].(map[string]interface{}))
-
-					inputID := p.Args[fieldID].(string)
-					projectID, err := uuid.Parse(inputID)
-					if err != nil {
-						return nil, err
-					}
-
-					return service.UpdateProject(p.Context, *projectID, projectInput)
+					return user, nil
 				},
 			},
 		},

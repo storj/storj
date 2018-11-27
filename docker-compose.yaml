@@ -6,14 +6,14 @@ services:
       dockerfile: test/Dockerfile
     network_mode: service:test-redis
     depends_on:
-    - test-postgres
+    - test-postgres-pointerdb
   test-redis:
     image: redis
-  test-postgres:
+  test-postgres-pointerdb:
     image: postgres
     environment:
-    - POSTGRES_USER=storj
-    - POSTGRES_PASSWORD=storj-pass
+    - POSTGRES_USER=pointerdb
+    - POSTGRES_PASSWORD=pg-secret-pass
 
   storagenode:
     image: storjlabs/storagenode:${VERSION}

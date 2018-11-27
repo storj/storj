@@ -117,13 +117,13 @@ func NodeIDsToLookupRequests(nodeIDs []dht.NodeID) *pb.LookupRequests {
 		r := &pb.LookupRequest{NodeID: v.String()}
 		rq = append(rq, r)
 	}
-	return &pb.LookupRequests{LookupRequest: rq}
+	return &pb.LookupRequests{Lookuprequest: rq}
 }
 
 // LookupResponsesToNodes ...
 func LookupResponsesToNodes(responses *pb.LookupResponses) []*pb.Node {
 	var nodes []*pb.Node
-	for _, v := range responses.LookupResponse {
+	for _, v := range responses.Lookupresponse {
 		n := v.Node
 		nodes = append(nodes, n)
 	}

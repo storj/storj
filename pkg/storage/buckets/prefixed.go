@@ -22,7 +22,7 @@ func (o *prefixedObjStore) Meta(ctx context.Context, path storj.Path) (meta obje
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {
-		return objects.Meta{}, storj.ErrNoPath.New("")
+		return objects.Meta{}, objects.NoPathError.New("")
 	}
 
 	return o.store.Meta(ctx, storj.JoinPaths(o.prefix, path))
@@ -32,7 +32,7 @@ func (o *prefixedObjStore) Get(ctx context.Context, path storj.Path) (rr ranger.
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {
-		return nil, objects.Meta{}, storj.ErrNoPath.New("")
+		return nil, objects.Meta{}, objects.NoPathError.New("")
 	}
 
 	return o.store.Get(ctx, storj.JoinPaths(o.prefix, path))
@@ -42,7 +42,7 @@ func (o *prefixedObjStore) Put(ctx context.Context, path storj.Path, data io.Rea
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {
-		return objects.Meta{}, storj.ErrNoPath.New("")
+		return objects.Meta{}, objects.NoPathError.New("")
 	}
 
 	return o.store.Put(ctx, storj.JoinPaths(o.prefix, path), data, metadata, expiration)
@@ -52,7 +52,7 @@ func (o *prefixedObjStore) Delete(ctx context.Context, path storj.Path) (err err
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {
-		return storj.ErrNoPath.New("")
+		return objects.NoPathError.New("")
 	}
 
 	return o.store.Delete(ctx, storj.JoinPaths(o.prefix, path))

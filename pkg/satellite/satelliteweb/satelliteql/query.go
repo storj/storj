@@ -1,6 +1,3 @@
-// Copyright (C) 2018 Storj Labs, Inc.
-// See LICENSE for copying information.
-
 package satelliteql
 
 import (
@@ -14,10 +11,8 @@ const (
 	// Query is immutable graphql request
 	Query = "query"
 
-	userQuery       = "user"
-	projectQuery    = "project"
-	myProjectsQuery = "myProjects"
-	tokenQuery      = "token"
+	userQuery  = "user"
+	tokenQuery = "token"
 )
 
 // rootQuery creates query for graphql populated by AccountsClient
@@ -26,7 +21,7 @@ func rootQuery(service *satellite.Service, types Types) *graphql.Object {
 		Name: Query,
 		Fields: graphql.Fields{
 			userQuery: &graphql.Field{
-				Type: types.User(),
+				Type: types.UserType(),
 				Args: graphql.FieldConfigArgument{
 					fieldID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -40,43 +35,16 @@ func rootQuery(service *satellite.Service, types Types) *graphql.Object {
 						return nil, err
 					}
 
-					return service.GetUser(p.Context, *idBytes)
-				},
-			},
-			projectQuery: &graphql.Field{
-				Type: types.Project(),
-				Args: graphql.FieldConfigArgument{
-					fieldID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
-					},
-				},
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					inputID, _ := p.Args[fieldID].(string)
-
-					id, err := uuid.Parse(inputID)
+					user, err := service.GetUser(p.Context, *idBytes)
 					if err != nil {
 						return nil, err
 					}
 
-					return service.GetProject(p.Context, *id)
-				},
-			},
-			myProjectsQuery: &graphql.Field{
-				Type: graphql.NewList(types.Project()),
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					// TODO: parse id and query only users projects, not all
-					//inputID, _ := p.Args[fieldID].(string)
-					//
-					//id, err := uuid.Parse(inputID)
-					//if err != nil {
-					//	return nil, err
-					//}
-
-					return service.GetUsersProjects(p.Context)
+					return user, nil
 				},
 			},
 			tokenQuery: &graphql.Field{
-				Type: types.Token(),
+				Type: graphql.String,
 				Args: graphql.FieldConfigArgument{
 					fieldEmail: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -89,12 +57,12 @@ func rootQuery(service *satellite.Service, types Types) *graphql.Object {
 					email, _ := p.Args[fieldEmail].(string)
 					pass, _ := p.Args[fieldPassword].(string)
 
-					token, err := service.Token(p.Context, email, pass)
+					token, err := service.Login(p.Context, email, pass)
 					if err != nil {
 						return nil, err
 					}
 
-					return tokenWrapper{Token: token}, nil
+					return token, nil
 				},
 			},
 		},

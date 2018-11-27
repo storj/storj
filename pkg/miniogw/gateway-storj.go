@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/storage"
 )
 
 var (
@@ -64,46 +65,50 @@ type storjObjects struct {
 
 func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
+	_, err = s.storj.bs.Get(ctx, bucket)
+	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return minio.BucketNotFound{Bucket: bucket}
+		}
+		return err
+	}
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
-		return convertBucketNotFoundError(err, bucket)
+		return err
 	}
-
 	items, _, err := o.List(ctx, "", "", "", true, 1, meta.None)
 	if err != nil {
 		return err
 	}
-
 	if len(items) > 0 {
 		return minio.BucketNotEmpty{Bucket: bucket}
 	}
-
-	err = s.storj.bs.Delete(ctx, bucket)
-
-	return convertBucketNotFoundError(err, bucket)
+	return s.storj.bs.Delete(ctx, bucket)
 }
 
 func (s *storjObjects) DeleteObject(ctx context.Context, bucket, object string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
-		return convertBucketNotFoundError(err, bucket)
+		return err
 	}
-
 	err = o.Delete(ctx, object)
-
-	return convertObjectNotFoundError(err, bucket, object)
+	if storage.ErrKeyNotFound.Has(err) {
+		err = minio.ObjectNotFound{Bucket: bucket, Object: object}
+	}
+	return err
 }
 
-func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (bucketInfo minio.BucketInfo, err error) {
+func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
+	bucketInfo minio.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	meta, err := s.storj.bs.Get(ctx, bucket)
 
 	if err != nil {
-		return minio.BucketInfo{}, convertBucketNotFoundError(err, bucket)
+		if storage.ErrKeyNotFound.Has(err) {
+			return bucketInfo, minio.BucketNotFound{Bucket: bucket}
+		}
+		return bucketInfo, err
 	}
 
 	return minio.BucketInfo{Name: bucket, Created: meta.Created}, nil
@@ -111,18 +116,18 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (bucket
 
 func (s *storjObjects) getObject(ctx context.Context, bucket, object string) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
-		return nil, convertBucketNotFoundError(err, bucket)
+		return nil, err
 	}
 
 	rr, _, err = o.Get(ctx, object)
 
-	return rr, convertObjectNotFoundError(err, bucket, object)
+	return rr, err
 }
 
-func (s *storjObjects) GetObject(ctx context.Context, bucket, object string, startOffset int64, length int64, writer io.Writer, etag string) (err error) {
+func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
+	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rr, err := s.getObject(ctx, bucket, object)
@@ -145,19 +150,24 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string, sta
 	return err
 }
 
-func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket, object string) (objInfo minio.ObjectInfo, err error) {
+func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
+	object string) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
-		return minio.ObjectInfo{}, convertBucketNotFoundError(err, bucket)
+		return minio.ObjectInfo{}, err
 	}
-
 	m, err := o.Meta(ctx, object)
 	if err != nil {
-		return objInfo, convertObjectNotFoundError(err, bucket, object)
-	}
+		if storage.ErrKeyNotFound.Has(err) {
+			return objInfo, minio.ObjectNotFound{
+				Bucket: bucket,
+				Object: object,
+			}
+		}
 
+		return objInfo, err
+	}
 	return minio.ObjectInfo{
 		Name:        object,
 		Bucket:      bucket,
@@ -169,12 +179,11 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket, object string)
 	}, err
 }
 
-func (s *storjObjects) ListBuckets(ctx context.Context) (bucketItems []minio.BucketInfo, err error) {
+func (s *storjObjects) ListBuckets(ctx context.Context) (
+	bucketItems []minio.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	startAfter := ""
 	var items []buckets.ListItem
-
 	for {
 		moreItems, more, err := s.storj.bs.List(ctx, startAfter, "", 0)
 		if err != nil {
@@ -186,13 +195,11 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (bucketItems []minio.Buc
 		}
 		startAfter = moreItems[len(moreItems)-1].Bucket
 	}
-
 	bucketItems = make([]minio.BucketInfo, len(items))
 	for i, item := range items {
 		bucketItems[i].Name = item.Bucket
 		bucketItems[i].Created = item.Meta.Created
 	}
-
 	return bucketItems, err
 }
 
@@ -210,7 +217,7 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker, 
 	var prefixes []string
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
-		return minio.ListObjectsInfo{}, convertBucketNotFoundError(err, bucket)
+		return minio.ListObjectsInfo{}, err
 	}
 	items, more, err := o.List(ctx, prefix, startAfter, "", recursive, maxKeys, meta.All)
 	if err != nil {
@@ -275,7 +282,7 @@ func (s *storjObjects) ListObjectsV2(ctx context.Context, bucket, prefix, contin
 	var prefixes []string
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
-		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, convertBucketNotFoundError(err, bucket)
+		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, err
 	}
 	items, more, err := o.List(ctx, prefix, startAfterPath, "", recursive, maxKeys, meta.All)
 	if err != nil {
@@ -333,14 +340,15 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context, bucket string
 	if err == nil {
 		return minio.BucketAlreadyExists{Bucket: bucket}
 	}
-	if !storj.ErrBucketNotFound.Has(err) {
+	if !storage.ErrKeyNotFound.Has(err) {
 		return err
 	}
 	_, err = s.storj.bs.Put(ctx, bucket, s.storj.pathCipher)
 	return err
 }
 
-func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, srcInfo minio.ObjectInfo) (objInfo minio.ObjectInfo, err error) {
+func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, destBucket,
+	destObject string, srcInfo minio.ObjectInfo) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rr, err := s.getObject(ctx, srcBucket, srcObject)
@@ -363,14 +371,15 @@ func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, des
 	return s.putObject(ctx, destBucket, destObject, r, serMetaInfo)
 }
 
-func (s *storjObjects) putObject(ctx context.Context, bucket, object string, r io.Reader, meta objects.SerializableMeta) (objInfo minio.ObjectInfo, err error) {
+func (s *storjObjects) putObject(ctx context.Context, bucket, object string, r io.Reader,
+	meta objects.SerializableMeta) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// setting zero value means the object never expires
 	expTime := time.Time{}
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
-		return minio.ObjectInfo{}, convertBucketNotFoundError(err, bucket)
+		return minio.ObjectInfo{}, err
 	}
 	m, err := o.Put(ctx, object, r, meta, expTime)
 	return minio.ObjectInfo{
@@ -384,7 +393,9 @@ func (s *storjObjects) putObject(ctx context.Context, bucket, object string, r i
 	}, err
 }
 
-func (s *storjObjects) PutObject(ctx context.Context, bucket, object string, data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo, err error) {
+func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
+	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
+	err error) {
 
 	defer mon.Task()(&ctx)(&err)
 	tempContType := metadata["content-type"]
@@ -405,18 +416,4 @@ func (s *storjObjects) Shutdown(ctx context.Context) (err error) {
 
 func (s *storjObjects) StorageInfo(context.Context) minio.StorageInfo {
 	return minio.StorageInfo{}
-}
-
-func convertBucketNotFoundError(err error, bucket string) error {
-	if storj.ErrBucketNotFound.Has(err) {
-		return minio.BucketNotFound{Bucket: bucket}
-	}
-	return err
-}
-
-func convertObjectNotFoundError(err error, bucket, object string) error {
-	if storj.ErrObjectNotFound.Has(err) {
-		return minio.ObjectNotFound{Bucket: bucket, Object: object}
-	}
-	return err
 }

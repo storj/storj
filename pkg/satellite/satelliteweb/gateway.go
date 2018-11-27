@@ -1,6 +1,3 @@
-// Copyright (C) 2018 Storj Labs, Inc.
-// See LICENSE for copying information.
-
 package satelliteweb
 
 import (
@@ -21,7 +18,7 @@ type GatewayConfig struct {
 type gateway struct {
 	schema graphql.Schema
 	config GatewayConfig
-	log    *zap.Logger
+	logger *zap.SugaredLogger
 }
 
 func (gw *gateway) run() {
@@ -36,7 +33,7 @@ func (gw *gateway) run() {
 	}
 
 	err := http.ListenAndServe(gw.config.Address, mux)
-	gw.log.Error("unexpected exit of satellite gateway server: ", zap.Error(err))
+	gw.logger.Errorf("unexpected exit of satellite gateway server: ", err)
 }
 
 func (gw *gateway) appHandler(w http.ResponseWriter, req *http.Request) {

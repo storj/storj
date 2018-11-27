@@ -77,7 +77,6 @@ func TestDisconnect(t *testing.T) {
 }
 
 func TestDial(t *testing.T) {
-	t.Skip()
 	cases := []struct {
 		pool          *ConnectionPool
 		node          *pb.Node

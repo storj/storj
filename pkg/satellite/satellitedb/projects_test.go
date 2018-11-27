@@ -39,14 +39,14 @@ func TestProjectsRepository(t *testing.T) {
 	// to test with real db3 file use this connection string - "../db/accountdb.db3"
 	db, err := New("sqlite3", "file::memory:?mode=memory&cache=shared")
 	if err != nil {
-		t.Fatal(err)
+		assert.NoError(t, err)
 	}
 	defer ctx.Check(db.Close)
 
 	// creating tables
 	err = db.CreateTables()
 	if err != nil {
-		t.Fatal(err)
+		assert.NoError(t, err)
 	}
 
 	// repositories
@@ -57,10 +57,10 @@ func TestProjectsRepository(t *testing.T) {
 
 	t.Run("Can insert project without owner", func(t *testing.T) {
 		project := &satellite.Project{
-			OwnerID:       nil,
-			Name:          name,
-			Description:   description,
-			TermsAccepted: 1,
+			OwnerID:           nil,
+			Name:              name,
+			Description:       description,
+			IsAgreedWithTerms: false,
 		}
 
 		createdProject, err := projects.Insert(ctx, project)
@@ -84,9 +84,9 @@ func TestProjectsRepository(t *testing.T) {
 		project := &satellite.Project{
 			OwnerID: &owner.ID,
 
-			Name:          name,
-			Description:   description,
-			TermsAccepted: 1,
+			Name:              name,
+			Description:       description,
+			IsAgreedWithTerms: false,
 		}
 
 		createdProject, err := projects.Insert(ctx, project)
@@ -106,7 +106,7 @@ func TestProjectsRepository(t *testing.T) {
 		assert.Equal(t, projectsByOwnerID[0].OwnerID, &owner.ID)
 		assert.Equal(t, projectsByOwnerID[0].Name, name)
 		assert.Equal(t, projectsByOwnerID[0].Description, description)
-		assert.Equal(t, projectsByOwnerID[0].TermsAccepted, 1)
+		assert.Equal(t, projectsByOwnerID[0].IsAgreedWithTerms, false)
 
 		projectByID, err := projects.Get(ctx, projectsByOwnerID[0].ID)
 
@@ -117,7 +117,7 @@ func TestProjectsRepository(t *testing.T) {
 		assert.Equal(t, projectByID.OwnerID, &owner.ID)
 		assert.Equal(t, projectByID.Name, name)
 		assert.Equal(t, projectByID.Description, description)
-		assert.Equal(t, projectByID.TermsAccepted, 1)
+		assert.Equal(t, projectByID.IsAgreedWithTerms, false)
 	})
 
 	t.Run("Update project success", func(t *testing.T) {
@@ -129,11 +129,11 @@ func TestProjectsRepository(t *testing.T) {
 
 		// creating new project with updated values
 		newProject := &satellite.Project{
-			ID:            oldProjects[0].ID,
-			OwnerID:       &owner.ID,
-			Name:          newName,
-			Description:   newDescription,
-			TermsAccepted: 1,
+			ID:                oldProjects[0].ID,
+			OwnerID:           &owner.ID,
+			Name:              newName,
+			Description:       newDescription,
+			IsAgreedWithTerms: true,
 		}
 
 		err = projects.Update(ctx, newProject)
@@ -150,7 +150,7 @@ func TestProjectsRepository(t *testing.T) {
 		assert.Equal(t, newProject.OwnerID, &owner.ID)
 		assert.Equal(t, newProject.Name, newName)
 		assert.Equal(t, newProject.Description, newDescription)
-		assert.Equal(t, newProject.TermsAccepted, 1)
+		assert.Equal(t, newProject.IsAgreedWithTerms, true)
 	})
 
 	t.Run("Delete project success", func(t *testing.T) {
@@ -178,10 +178,10 @@ func TestProjectsRepository(t *testing.T) {
 		assert.Equal(t, len(allProjects), 1)
 
 		newProject := &satellite.Project{
-			OwnerID:       &owner.ID,
-			Description:   description,
-			Name:          name,
-			TermsAccepted: 1,
+			OwnerID:           &owner.ID,
+			Description:       description,
+			Name:              name,
+			IsAgreedWithTerms: true,
 		}
 
 		_, err = projects.Insert(ctx, newProject)
@@ -196,10 +196,10 @@ func TestProjectsRepository(t *testing.T) {
 		assert.Equal(t, len(allProjects), 2)
 
 		newProject2 := &satellite.Project{
-			OwnerID:       &owner.ID,
-			Description:   description,
-			Name:          name,
-			TermsAccepted: 1,
+			OwnerID:           &owner.ID,
+			Description:       description,
+			Name:              name,
+			IsAgreedWithTerms: true,
 		}
 
 		_, err = projects.Insert(ctx, newProject2)

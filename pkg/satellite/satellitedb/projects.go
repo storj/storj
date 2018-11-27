@@ -67,7 +67,7 @@ func (projects *projects) Insert(ctx context.Context, project *satellite.Project
 		dbx.Project_Id(projectID[:]),
 		dbx.Project_Name(project.Name),
 		dbx.Project_Description(project.Description),
-		dbx.Project_TermsAccepted(project.TermsAccepted),
+		dbx.Project_IsAgreedWithTerms(project.IsAgreedWithTerms),
 		dbx.Project_Create_Fields{
 			OwnerId: ownerID,
 		})
@@ -91,9 +91,9 @@ func (projects *projects) Update(ctx context.Context, project *satellite.Project
 	_, err := projects.db.Update_Project_By_Id(ctx,
 		dbx.Project_Id(project.ID[:]),
 		dbx.Project_Update_Fields{
-			Name:          dbx.Project_Name(project.Name),
-			Description:   dbx.Project_Description(project.Description),
-			TermsAccepted: dbx.Project_TermsAccepted(project.TermsAccepted),
+			Name:              dbx.Project_Name(project.Name),
+			Description:       dbx.Project_Description(project.Description),
+			IsAgreedWithTerms: dbx.Project_IsAgreedWithTerms(project.IsAgreedWithTerms),
 		})
 
 	return err
@@ -111,11 +111,11 @@ func projectFromDBX(project *dbx.Project) (*satellite.Project, error) {
 	}
 
 	u := &satellite.Project{
-		ID:            id,
-		Name:          project.Name,
-		Description:   project.Description,
-		TermsAccepted: project.TermsAccepted,
-		CreatedAt:     project.CreatedAt,
+		ID:                id,
+		Name:              project.Name,
+		Description:       project.Description,
+		IsAgreedWithTerms: project.IsAgreedWithTerms,
+		CreatedAt:         project.CreatedAt,
 	}
 
 	if project.OwnerId == nil {

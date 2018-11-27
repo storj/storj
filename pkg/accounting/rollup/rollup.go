@@ -19,7 +19,8 @@ type rollup struct {
 	logger *zap.Logger
 	ticker *time.Ticker
 	//TODO:
-	//accountingDBServer
+	//rollupDB
+	//rawDB
 }
 
 func newRollup(logger *zap.Logger, interval time.Duration) *rollup {
@@ -27,7 +28,8 @@ func newRollup(logger *zap.Logger, interval time.Duration) *rollup {
 		logger: logger,
 		ticker: time.NewTicker(interval),
 		//TODO:
-		//accountingDBServer
+		//rollupDB
+		//rawDB
 	}
 }
 

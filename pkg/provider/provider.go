@@ -101,9 +101,6 @@ func SetupIdentity(ctx context.Context, c CASetupConfig, i IdentitySetupConfig) 
 // Identity returns the provider's identity
 func (p *Provider) Identity() *FullIdentity { return p.identity }
 
-// Addr returns the providers listener address
-func (p *Provider) Addr() net.Addr { return p.lis.Addr() }
-
 // GRPC returns the provider's gRPC server for registration purposes
 func (p *Provider) GRPC() *grpc.Server { return p.grpc }
 

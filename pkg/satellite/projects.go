@@ -28,22 +28,14 @@ type Projects interface {
 
 // Project is a database object that describes Project entity
 type Project struct {
-	ID uuid.UUID `json:"id"`
+	ID uuid.UUID
 	// FK on Users table. ID of project creator.
-	OwnerID *uuid.UUID `json:"ownerId"`
+	OwnerID *uuid.UUID
 
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	// stores last accepted version of terms of use.
-	TermsAccepted int `json:"termsAccepted"`
+	Name        string
+	Description string
+	// Indicates if user accepted terms and conditions during project creation.
+	IsAgreedWithTerms bool
 
-	CreatedAt time.Time `json:"createdAt"`
-}
-
-// ProjectInfo holds data needed to create/update Project
-type ProjectInfo struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	// Indicates if user accepted Terms & Conditions during project creation on UI
-	IsTermsAccepted bool `json:"isTermsAccepted"`
+	CreatedAt time.Time
 }

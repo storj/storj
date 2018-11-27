@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"

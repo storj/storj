@@ -1,6 +1,6 @@
 const ROUTES = {
     DEFAULT: {
-        path: '/login',
+        path: '/',
         name: 'Login'
     },
     REGISTER: {
@@ -8,7 +8,7 @@ const ROUTES = {
         name: 'Register'
     },
     DASHBOARD: {
-        path: '/',
+        path: '/dashboard',
         name: 'Dashboard'
     }
 };

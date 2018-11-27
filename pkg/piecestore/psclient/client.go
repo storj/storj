@@ -119,7 +119,7 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	}
 
 	msg := &pb.PieceStore{
-		PieceData:     &pb.PieceStore_PieceData{Id: id.String(), ExpirationUnixSec: ttl.Unix()},
+		Piecedata:     &pb.PieceStore_PieceData{Id: id.String(), ExpirationUnixSec: ttl.Unix()},
 		Authorization: authorization,
 	}
 	if err = stream.Send(msg); err != nil {

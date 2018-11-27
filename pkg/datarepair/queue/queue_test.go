@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage/redis"
@@ -53,11 +53,6 @@ func TestSequential(t *testing.T) {
 		err := q.Enqueue(seg)
 		assert.NoError(t, err)
 		addSegs = append(addSegs, seg)
-	}
-	list, err := q.Peekqueue(100)
-	assert.NoError(t, err)
-	for i := 0; i < N; i++ {
-		assert.True(t, proto.Equal(addSegs[i], &list[i]))
 	}
 	for i := 0; i < N; i++ {
 		dqSeg, err := q.Dequeue()

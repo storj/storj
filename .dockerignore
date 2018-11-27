@@ -1,2 +1,4 @@
 /*.swp
-/release
+/satellite_*
+/storagenode_*
+/uplink_*

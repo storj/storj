@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/zeebo/errs"
-
 	"storj.io/storj/pkg/transport"
 
 	"storj.io/storj/pkg/dht"
@@ -58,9 +57,6 @@ func NewOverlayClient(identity *provider.FullIdentity, address string) (Client, 
 	}, nil
 }
 
-// NewClientFrom returns a new overlay.Client from a connection
-func NewClientFrom(conn pb.OverlayClient) Client { return &Overlay{conn} }
-
 // a compiler trick to make sure *Overlay implements Client
 var _ Client = (*Overlay)(nil)
 
@@ -99,7 +95,7 @@ func (o *Overlay) Lookup(ctx context.Context, nodeID dht.NodeID) (*pb.Node, erro
 func (o *Overlay) BulkLookup(ctx context.Context, nodeIDs []dht.NodeID) ([]*pb.Node, error) {
 	var reqs pb.LookupRequests
 	for _, v := range nodeIDs {
-		reqs.LookupRequest = append(reqs.LookupRequest, &pb.LookupRequest{NodeID: v.String()})
+		reqs.Lookuprequest = append(reqs.Lookuprequest, &pb.LookupRequest{NodeID: v.String()})
 	}
 	resp, err := o.client.BulkLookup(ctx, &reqs)
 
@@ -108,7 +104,7 @@ func (o *Overlay) BulkLookup(ctx context.Context, nodeIDs []dht.NodeID) ([]*pb.N
 	}
 
 	var nodes []*pb.Node
-	for _, v := range resp.LookupResponse {
+	for _, v := range resp.Lookupresponse {
 		nodes = append(nodes, v.Node)
 	}
 	return nodes, nil

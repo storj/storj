@@ -73,7 +73,7 @@ export default class Checkbox extends Vue {
     }
 
     .checkmark:after {
-        content: "";
+    content: "";
         position: absolute;
         display: none;
     }

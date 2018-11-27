@@ -13,7 +13,6 @@ import (
 
 	dht "storj.io/storj/pkg/dht"
 	pb "storj.io/storj/pkg/pb"
-	"storj.io/storj/storage"
 )
 
 // MockDHT is a mock of DHT interface
@@ -120,18 +119,6 @@ func (mr *MockDHTMockRecorder) Ping(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockDHT)(nil).Ping), arg0, arg1)
 }
 
-// Seen mocks base method
-func (m *MockDHT) Seen() []*pb.Node {
-	ret := m.ctrl.Call(m, "Seen")
-	ret0, _ := ret[0].([]*pb.Node)
-	return ret0
-}
-
-// Seen indicates an expected call of Seen
-func (mr *MockDHTMockRecorder) Seen() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seen", reflect.TypeOf((*MockDHT)(nil).Seen))
-}
-
 // MockRoutingTable is a mock of RoutingTable interface
 type MockRoutingTable struct {
 	ctrl     *gomock.Controller
@@ -236,10 +223,6 @@ func (m *MockRoutingTable) GetBuckets() ([]dht.Bucket, error) {
 	ret0, _ := ret[0].([]dht.Bucket)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
-}
-
-func (m *MockRoutingTable) GetBucketIds() (storage.Keys, error) {
-	return nil, nil
 }
 
 // GetBuckets indicates an expected call of GetBuckets

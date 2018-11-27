@@ -9,14 +9,9 @@ package bandwidth;
 import "piecestore.proto";
 
 service Bandwidth {
-  rpc BandwidthAgreements(piecestoreroutes.RenterBandwidthAllocation) returns (AgreementsSummary) {}
+  rpc BandwidthAgreements(stream piecestoreroutes.RenterBandwidthAllocation) returns (AgreementsSummary) {}
 }
 
-message AgreementsSummary {
-  enum Status {
-    FAIL = 0;
-    OK = 1;
-  }
 
-  Status status = 1;
+message AgreementsSummary {
 }

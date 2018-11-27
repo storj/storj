@@ -5,7 +5,6 @@ import Login from '@/views/Login.vue';
 import Register from '@/views/Register.vue';
 import Dashboard from '@/views/Dashboard.vue';
 import AccountArea from '@/components/dashboard/account/AccountArea.vue';
-import ProjectDetails from '@/components/projectDetails/ProjectDetailsArea.vue';
 
 Vue.use(Router);
 
@@ -28,14 +27,9 @@ export default new Router({
 			component: Dashboard,
 			children: [
 				{
-					path: '/account-settings',
-					name: 'AccountSettings',
+					path: 'account',
+					name: 'Account',
 					component: AccountArea
-				},
-				{
-					path: '/project-details',
-					name: 'ProjectDetails',
-					component: ProjectDetails
 				}
 			]
 		}

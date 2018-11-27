@@ -29,13 +29,6 @@ func NewOverlay(nodes []*pb.Node) *Overlay {
 
 }
 
-//CtxKey Used as kademlia key
-type CtxKey int
-
-const (
-	ctxKeyMockOverlay CtxKey = iota
-)
-
 // FindStorageNodes is the mock implementation
 func (mo *Overlay) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
 	nodes := make([]*pb.Node, 0, len(mo.nodes))
@@ -59,13 +52,13 @@ func (mo *Overlay) Lookup(ctx context.Context, req *pb.LookupRequest) (
 func (mo *Overlay) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
 	*pb.LookupResponses, error) {
 	var responses []*pb.LookupResponse
-	for _, r := range reqs.LookupRequest {
+	for _, r := range reqs.Lookuprequest {
 		// NOTE (Dylan): tests did not catch missing node case, need updating
 		n := mo.nodes[r.NodeID]
 		resp := &pb.LookupResponse{Node: n}
 		responses = append(responses, resp)
 	}
-	return &pb.LookupResponses{LookupResponse: responses}, nil
+	return &pb.LookupResponses{Lookupresponse: responses}, nil
 }
 
 // Config specifies static nodes for mock overlay
@@ -89,16 +82,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 				Address:   addr,
 			}})
 	}
-	srv := NewOverlay(nodes)
-	pb.RegisterOverlayServer(server.GRPC(), srv)
-	ctx = context.WithValue(ctx, ctxKeyMockOverlay, srv)
-	return server.Run(ctx)
-}
 
-// LoadServerFromContext gives access to the overlay server from the context, or returns nil
-func LoadServerFromContext(ctx context.Context) *Overlay {
-	if v, ok := ctx.Value(ctxKeyMockOverlay).(*Overlay); ok {
-		return v
-	}
-	return nil
+	pb.RegisterOverlayServer(server.GRPC(), NewOverlay(nodes))
+	return server.Run(ctx)
 }

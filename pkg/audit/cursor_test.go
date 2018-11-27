@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storage/redis/redisserver"
 	"storj.io/storj/storage/teststore"
 )
 
@@ -124,7 +125,17 @@ func TestAuditSegment(t *testing.T) {
 	db := teststore.New()
 	c := pointerdb.Config{MaxInlineSegmentSize: 8000}
 
-	cache := overlay.NewOverlayCache(teststore.New(), nil)
+	redisAddr, cleanup, err := redisserver.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer cleanup()
+
+	cache, err := overlay.NewRedisOverlayCache(redisAddr, "", 1, nil)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, cache)
 
 	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c, identity))
 	pointers := pdbclient.New(pdbw)
@@ -254,7 +265,7 @@ func makePutRequest(path storj.Path) pb.PutRequest {
 				PieceId:      "testId",
 				RemotePieces: rps,
 			},
-			SegmentSize: int64(10),
+			Size: int64(10),
 		},
 	}
 	return pr

@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"strings"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -21,9 +20,7 @@ import (
 )
 
 var (
-	mon             = monkit.Package()
-	errAuditSuccess = errs.Class("statdb audit success error")
-	errUptime       = errs.Class("statdb uptime error")
+	mon = monkit.Package()
 )
 
 // Server implements the statdb RPC service
@@ -68,33 +65,10 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 		return nil, err
 	}
 
-	var (
-		totalAuditCount    int64
-		auditSuccessCount  int64
-		auditSuccessRatio  float64
-		totalUptimeCount   int64
-		uptimeSuccessCount int64
-		uptimeRatio        float64
-	)
-
-	stats := createReq.Stats
-	if stats != nil {
-		totalAuditCount = stats.AuditCount
-		auditSuccessCount = stats.AuditSuccessCount
-		auditSuccessRatio, err = checkRatioVars(auditSuccessCount, totalAuditCount)
-		if err != nil {
-			return nil, errAuditSuccess.Wrap(err)
-		}
-
-		totalUptimeCount = stats.UptimeCount
-		uptimeSuccessCount = stats.UptimeSuccessCount
-		uptimeRatio, err = checkRatioVars(uptimeSuccessCount, totalUptimeCount)
-		if err != nil {
-			return nil, errUptime.Wrap(err)
-		}
-	}
-
 	node := createReq.Node
+
+	auditSuccessCount, totalAuditCount, auditSuccessRatio := initRatioVars(node.UpdateAuditSuccess, node.AuditSuccess)
+	uptimeSuccessCount, totalUptimeCount, uptimeRatio := initRatioVars(node.UpdateUptime, node.IsUp)
 
 	dbNode, err := s.DB.Create_Node(
 		ctx,
@@ -113,7 +87,6 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 
 	nodeStats := &pb.NodeStats{
 		NodeId:            dbNode.Id,
-		AuditCount:        dbNode.TotalAuditCount,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
 		UptimeRatio:       dbNode.UptimeRatio,
 	}
@@ -140,7 +113,6 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 
 	nodeStats := &pb.NodeStats{
 		NodeId:            dbNode.Id,
-		AuditCount:        dbNode.TotalAuditCount,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
 		UptimeRatio:       dbNode.UptimeRatio,
 	}
@@ -313,34 +285,47 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 // CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist
 func (s *Server) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.CreateEntryIfNotExistsRequest) (resp *pb.CreateEntryIfNotExistsResponse, err error) {
 	APIKeyBytes := createIfReq.APIKey
-
 	getReq := &pb.GetRequest{
 		NodeId: createIfReq.Node.NodeId,
 		APIKey: APIKeyBytes,
 	}
 	getRes, err := s.Get(ctx, getReq)
-	// TODO: figure out better way to confirm error is type dbx.ErrorCode_NoRows
-	if err != nil && strings.Contains(err.Error(), "no rows in result set") {
-		createReq := &pb.CreateRequest{
-			Node:   createIfReq.Node,
-			APIKey: APIKeyBytes,
-		}
-		res, err := s.Create(ctx, createReq)
-		if err != nil {
-			return nil, err
-		}
-		createEntryIfNotExistsRes := &pb.CreateEntryIfNotExistsResponse{
-			Stats: res.Stats,
-		}
-		return createEntryIfNotExistsRes, nil
-	}
 	if err != nil {
+		// TODO: figure out how to confirm error is type dbx.ErrorCode_NoRows
+		if strings.Contains(err.Error(), "no rows in result set") {
+			createReq := &pb.CreateRequest{
+				Node:   createIfReq.Node,
+				APIKey: APIKeyBytes,
+			}
+			res, err := s.Create(ctx, createReq)
+			if err != nil {
+				return nil, err
+			}
+			createEntryIfNotExistsRes := &pb.CreateEntryIfNotExistsResponse{
+				Stats: res.Stats,
+			}
+			return createEntryIfNotExistsRes, nil
+		}
 		return nil, err
 	}
 	createEntryIfNotExistsRes := &pb.CreateEntryIfNotExistsResponse{
 		Stats: getRes.Stats,
 	}
 	return createEntryIfNotExistsRes, nil
+}
+
+func initRatioVars(shouldUpdate, status bool) (int64, int64, float64) {
+	var (
+		successCount int64
+		totalCount   int64
+		ratio        float64
+	)
+
+	if shouldUpdate {
+		return updateRatioVars(status, successCount, totalCount)
+	}
+
+	return successCount, totalCount, ratio
 }
 
 func updateRatioVars(newStatus bool, successCount, totalCount int64) (int64, int64, float64) {
@@ -350,19 +335,4 @@ func updateRatioVars(newStatus bool, successCount, totalCount int64) (int64, int
 	}
 	newRatio := float64(successCount) / float64(totalCount)
 	return successCount, totalCount, newRatio
-}
-
-func checkRatioVars(successCount, totalCount int64) (ratio float64, err error) {
-	if successCount < 0 {
-		return 0, errs.New("success count less than 0")
-	}
-	if totalCount < 0 {
-		return 0, errs.New("total count less than 0")
-	}
-	if successCount > totalCount {
-		return 0, errs.New("success count greater than total count")
-	}
-
-	ratio = float64(successCount) / float64(totalCount)
-	return ratio, nil
 }

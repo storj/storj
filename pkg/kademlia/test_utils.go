@@ -55,8 +55,3 @@ func (k *MockKademlia) FindNode(ctx context.Context, ID dht.NodeID) (pb.Node, er
 func (k *MockKademlia) Disconnect() error {
 	return nil
 }
-
-//Seen __
-func (k *MockKademlia) Seen() []*pb.Node {
-	return nil
-}

@@ -5,7 +5,6 @@ package transport
 
 import (
 	"context"
-	"time"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
@@ -19,8 +18,6 @@ var (
 	mon = monkit.Package()
 	//Error is the errs class of standard Transport Client errors
 	Error = errs.Class("transport error")
-	// default time to wait for a connection to be established
-	timeout = 20 * time.Second
 )
 
 // Client defines the interface to an transport client.
@@ -41,7 +38,7 @@ func NewClient(identity *provider.FullIdentity) Client {
 }
 
 // DialNode returns a grpc connection with tls to a node
-func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
+func (o *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if node.Address == nil || node.Address.Address == "" {
@@ -49,34 +46,27 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 	}
 
 	// add ID of node we are wanting to connect to
-	dialOpt, err := transport.identity.DialOption(node.GetId())
+	dialOpt, err := o.identity.DialOption(node.GetId())
 	if err != nil {
 		return nil, err
 	}
-
-	options := append([]grpc.DialOption{dialOpt}, opts...)
-
-	ctx, cf := context.WithTimeout(ctx, timeout)
-	defer cf()
-	return grpc.DialContext(ctx, node.GetAddress().Address, options...)
+	return grpc.Dial(node.GetAddress().Address, append([]grpc.DialOption{dialOpt}, opts...)...)
 }
 
 // DialAddress returns a grpc connection with tls to an IP address
-func (transport *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
+func (o *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dialOpt, err := transport.identity.DialOption("")
+	dialOpt, err := o.identity.DialOption("")
 	if err != nil {
 		return nil, err
 	}
-
-	options := append([]grpc.DialOption{dialOpt}, opts...)
-	return grpc.Dial(address, options...)
+	return grpc.Dial(address, append([]grpc.DialOption{dialOpt}, opts...)...)
 }
 
 // Identity is a getter for the transport's identity
-func (transport *Transport) Identity() *provider.FullIdentity {
-	return transport.identity
+func (o *Transport) Identity() *provider.FullIdentity {
+	return o.identity
 }
 
 // Close implements io.closer, closing the transport connection(s)

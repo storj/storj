@@ -36,7 +36,7 @@ func init() {
 }
 
 // upload transfers src from local machine to s3 compatible object dst
-func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPath, showProgress bool) error {
+func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPath) error {
 	if !src.IsLocal() {
 		return fmt.Errorf("source must be local path: %s", src)
 	}
@@ -73,12 +73,12 @@ func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FP
 
 	o, err := bs.GetObjectStore(ctx, dst.Bucket())
 	if err != nil {
-		return convertError(err, dst)
+		return err
 	}
 
 	r := io.Reader(f)
 	var bar *pb.ProgressBar
-	if showProgress {
+	if *progress {
 		bar = pb.New(int(fi.Size())).SetUnits(pb.U_BYTES)
 		bar.Start()
 		r = bar.NewProxyReader(r)
@@ -102,7 +102,7 @@ func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FP
 }
 
 // download transfers s3 compatible object src to dst on local machine
-func download(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPath, showProgress bool) error {
+func download(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPath) error {
 	if src.IsLocal() {
 		return fmt.Errorf("source must be Storj URL: %s", src)
 	}
@@ -113,12 +113,12 @@ func download(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.
 
 	o, err := bs.GetObjectStore(ctx, src.Bucket())
 	if err != nil {
-		return convertError(err, src)
+		return err
 	}
 
 	rr, _, err := o.Get(ctx, src.Path())
 	if err != nil {
-		return convertError(err, src)
+		return err
 	}
 
 	r, err := rr.Range(ctx, 0, rr.Size())
@@ -128,7 +128,7 @@ func download(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.
 	defer utils.LogClose(r)
 
 	var bar *pb.ProgressBar
-	if showProgress {
+	if *progress {
 		bar = pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
 		bar.Start()
 		r = bar.NewProxyReader(r)
@@ -177,12 +177,12 @@ func copy(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPat
 
 	o, err := bs.GetObjectStore(ctx, src.Bucket())
 	if err != nil {
-		return convertError(err, src)
+		return err
 	}
 
 	rr, _, err := o.Get(ctx, src.Path())
 	if err != nil {
-		return convertError(err, src)
+		return err
 	}
 
 	r, err := rr.Range(ctx, 0, rr.Size())
@@ -201,7 +201,7 @@ func copy(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPat
 	if dst.Bucket() != src.Bucket() {
 		o, err = bs.GetObjectStore(ctx, dst.Bucket())
 		if err != nil {
-			return convertError(err, dst)
+			return err
 		}
 	}
 
@@ -259,12 +259,12 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 
 	// if uploading
 	if src.IsLocal() {
-		return upload(ctx, bs, src, dst, *progress)
+		return upload(ctx, bs, src, dst)
 	}
 
 	// if downloading
 	if dst.IsLocal() {
-		return download(ctx, bs, src, dst, *progress)
+		return download(ctx, bs, src, dst)
 	}
 
 	// if copying from one remote location to another

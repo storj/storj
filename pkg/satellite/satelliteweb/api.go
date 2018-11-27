@@ -1,6 +1,3 @@
-// Copyright (C) 2018 Storj Labs, Inc.
-// See LICENSE for copying information.
-
 package satelliteweb
 
 import (
@@ -28,13 +25,6 @@ const (
 	applicationGraphql = "application/graphql"
 )
 
-// JSON request from graphql clients
-type graphqlJSON struct {
-	Query         string
-	OperationName string
-	Variables     map[string]interface{}
-}
-
 func (gw *gateway) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
 
@@ -46,22 +36,18 @@ func (gw *gateway) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	result := graphql.Do(graphql.Params{
-		Schema:         gw.schema,
-		Context:        auth.WithAPIKey(context.Background(), []byte(token)),
-		RequestString:  query.Query,
-		VariableValues: query.Variables,
-		OperationName:  query.OperationName,
-		RootObject:     make(map[string]interface{}),
+		Schema:        gw.schema,
+		Context:       auth.WithAPIKey(context.Background(), []byte(token)),
+		RequestString: query,
 	})
 
 	err = json.NewEncoder(w).Encode(result)
 	if err != nil {
-		gw.log.Error(err.Error())
+		gw.logger.Error(err)
 		return
 	}
 
-	sugar := gw.log.Sugar()
-	sugar.Debug(result)
+	gw.logger.Debug(result)
 }
 
 // getToken retrieves token from request
@@ -79,29 +65,32 @@ func getToken(req *http.Request) string {
 }
 
 // getQuery retrieves graphql query from request
-func getQuery(req *http.Request) (query graphqlJSON, err error) {
+func getQuery(req *http.Request) (query string, err error) {
 	switch req.Method {
 	case http.MethodGet:
-		query.Query = req.URL.Query().Get(satelliteql.Query)
-		return query, nil
+		return req.URL.Query().Get(satelliteql.Query), nil
 	case http.MethodPost:
 		return queryPOST(req)
 	default:
-		return query, errs.New("wrong http request type")
+		return "", errs.New("wrong http request type")
 	}
 }
 
-// queryPOST retrieves graphql query from POST request
-func queryPOST(req *http.Request) (query graphqlJSON, err error) {
+// queryPOST retrieves query from POST request
+func queryPOST(req *http.Request) (query string, err error) {
 	switch typ := req.Header.Get(contentType); typ {
 	case applicationGraphql:
 		body, err := ioutil.ReadAll(req.Body)
-		query.Query = string(body)
-		return query, utils.CombineErrors(err, req.Body.Close())
+		return string(body), utils.CombineErrors(err, req.Body.Close())
+	//TODO(yar): test more precisely
 	case applicationJSON:
+		var query struct {
+			Query string
+		}
+
 		err := json.NewDecoder(req.Body).Decode(&query)
-		return query, utils.CombineErrors(err, req.Body.Close())
+		return query.Query, utils.CombineErrors(err, req.Body.Close())
 	default:
-		return query, errs.New("can't parse request body of type %s", typ)
+		return "", errs.New("can't parse request body of type %s", typ)
 	}
 }

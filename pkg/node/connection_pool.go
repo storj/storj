@@ -67,13 +67,8 @@ func (pool *ConnectionPool) Disconnect(key string) error {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
-	return pool.disconnect(key)
-
-}
-
-func (pool *ConnectionPool) disconnect(key string) error {
 	i, ok := pool.items[key]
-	if !ok || i.grpc == nil {
+	if !ok {
 		return nil
 	}
 
@@ -94,7 +89,7 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 	pool.mu.Unlock()
 
 	conn.dial.Do(func() {
-		conn.grpc, conn.err = pool.tc.DialNode(ctx, n, grpc.WithBlock())
+		conn.grpc, conn.err = pool.tc.DialNode(ctx, n)
 		if conn.err != nil {
 			return
 		}
@@ -111,13 +106,11 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 
 // DisconnectAll closes all connections nodes and removes them from the connection pool
 func (pool *ConnectionPool) DisconnectAll() error {
-	pool.mu.Lock()
-	defer pool.mu.Unlock()
-
 	errs := []error{}
 	for k := range pool.items {
-		if err := pool.disconnect(k); err != nil {
+		if err := pool.Disconnect(k); err != nil {
 			errs = append(errs, Error.Wrap(err))
+			continue
 		}
 	}
 
@@ -126,7 +119,5 @@ func (pool *ConnectionPool) DisconnectAll() error {
 
 // Init initializes the cache
 func (pool *ConnectionPool) Init() {
-	pool.mu.Lock()
 	pool.items = make(map[string]*Conn)
-	pool.mu.Unlock()
 }

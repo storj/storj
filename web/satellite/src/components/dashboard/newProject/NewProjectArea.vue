@@ -1,6 +1,6 @@
 <template>
-    <div class="new-project-container">
-        <div class="new-project-button-container" v-on:click="toggleSelection">
+    <div class="npContainer">
+        <div class="npButtonContainer" v-on:click="toggleSelection">
             <h1>New Project +</h1>
         </div>
         <NewProjectPopup v-if="isPopupShown" @onClose="toggleSelection"/>
@@ -34,40 +34,25 @@ export default class NewProjectArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
-    .new-project-container {
+    .npContainer {
         padding-left: 10px;
         padding-right: 10px;
         background-color: #FFFFFF;
-        cursor: pointer;
     }
-    .new-project-button-container {
-        margin-right: 50px;
+    .npButtonContainer {
         display: flex;
         flex-direction: row;
         align-items: center;
         justify-content: center;
-        width: 170px;
-        height: 50px;
+        width: 12.5vw;
+        height: 5vh;
         border-radius: 6px;
         border: 1px solid #AFB7C1;
-        background-color: white;
-        
-        
         h1 {
             font-family: 'montserrat_medium';
             font-size: 16px;
             line-height: 23px;
             color: #354049;
-        }
-
-        &:hover {
-            background-color: #2683FF;
-            border: 1px solid #2683FF;
-            box-shadow: 0px 4px 20px rgba(35, 121, 236, 0.4);
-
-            h1 {
-                color: white;
-            }
         }
     }
 </style>

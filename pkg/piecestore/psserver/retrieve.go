@@ -68,11 +68,11 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 	}
 
 	// Read the size specified
-	totalToRead := pd.GetPieceSize()
+	totalToRead := pd.GetSize()
 	fileSize := fileInfo.Size()
 
 	// Read the entire file if specified -1 but make sure we do it from the correct offset
-	if pd.GetPieceSize() <= -1 || totalToRead+pd.GetOffset() > fileSize {
+	if pd.GetSize() <= -1 || totalToRead+pd.GetOffset() > fileSize {
 		totalToRead = fileSize - pd.GetOffset()
 	}
 
@@ -121,7 +121,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 				return
 			}
 
-			alloc := recv.GetBandwidthAllocation()
+			alloc := recv.GetBandwidthallocation()
 			allocData := &pb.RenterBandwidthAllocation_Data{}
 			if err = proto.Unmarshal(alloc.GetData(), allocData); err != nil {
 				allocationTracking.Fail(err)

@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
@@ -97,7 +97,7 @@ func TestServiceGet(t *testing.T) {
 
 		path := "a/b/c"
 
-		pr := &pb.Pointer{SegmentSize: 123}
+		pr := &pb.Pointer{Size: 123}
 		prBytes, err := proto.Marshal(pr)
 		assert.NoError(t, err, errTag)
 

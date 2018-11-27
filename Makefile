@@ -49,7 +49,7 @@ lint: check-copyrights ## Analyze and find programs in source code
 .PHONY: check-copyrights
 check-copyrights: ## Check source files for copyright headers
 	@echo "Running ${@}"
-	@go run ./scripts/check-copyright.go
+	@./scripts/check-for-header.sh
 
 .PHONY: goimports-fix
 goimports-fix: ## Applies goimports to every go file (excluding vendored files)
@@ -111,14 +111,14 @@ binary:
 	mkdir -p release/${TAG}
 	rm -f cmd/${COMPONENT}/resource.syso
 	if [ "${GOARCH}" = "amd64" ]; then sixtyfour="-64"; fi; \
-	[ "${GOARCH}" = "amd64" ] && goversioninfo $$sixtyfour -o cmd/${COMPONENT}/resource.syso \
+	goversioninfo $$sixtyfour -o cmd/${COMPONENT}/resource.syso \
 	-original-name ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT} \
 	-description "${COMPONENT} program for Storj" \
 	-product-ver-build 2 -ver-build 2 \
 	-product-version "alpha2" \
 	resources/versioninfo.json || echo "goversioninfo is not installed, metadata will not be created"
 	tar -c . | docker run --rm -i -e TAR=1 -e GO111MODULE=on \
-	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e GOARM=6 -e CGO_ENABLED=1 \
+	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e CGO_ENABLED=1 \
 	-w /go/src/storj.io/storj -e GOPROXY storjlabs/golang \
 	-o app storj.io/storj/cmd/${COMPONENT} \
 	| tar -O -x ./app > release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
@@ -142,7 +142,7 @@ uplink_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=uplink $(MAKE) binary
 
 COMPONENTLIST := gateway satellite storagenode uplink
-OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm windows_amd64
+OSARCHLIST    := linux_amd64 windows_amd64 darwin_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
 binaries: ${BINARIES} ## Build gateway, satellite, storagenode, and uplink binaries (jenkins)

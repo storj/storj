@@ -16,11 +16,11 @@ func init() {
 	addCmd(&cobra.Command{
 		Use:   "rm",
 		Short: "Delete an object",
-		RunE:  deleteObject,
+		RunE:  delete,
 	}, CLICmd)
 }
 
-func deleteObject(cmd *cobra.Command, args []string) error {
+func delete(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
 	if len(args) == 0 {
@@ -43,12 +43,12 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 
 	o, err := bs.GetObjectStore(ctx, dst.Bucket())
 	if err != nil {
-		return convertError(err, dst)
+		return err
 	}
 
 	err = o.Delete(ctx, dst.Path())
 	if err != nil {
-		return convertError(err, dst)
+		return err
 	}
 
 	fmt.Printf("Deleted %s\n", dst)

@@ -1,6 +1,3 @@
-// Copyright (C) 2018 Storj Labs, Inc.
-// See LICENSE for copying information.
-
 package satelliteweb
 
 import (
@@ -28,7 +25,7 @@ type Config struct {
 
 // Run implements Responsibility interface
 func (c Config) Run(ctx context.Context, server *provider.Provider) error {
-	log := zap.NewExample()
+	sugar := zap.NewExample().Sugar()
 
 	// Create satellite DB
 	dbURL, err := utils.ParseURL(c.DatabaseURL)
@@ -42,12 +39,9 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	}
 
 	err = db.CreateTables()
-	if err != nil {
-		log.Error(err.Error())
-	}
+	sugar.Error(err)
 
 	service, err := satellite.NewService(
-		log,
 		&satelliteauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 		db,
 	)
@@ -74,7 +68,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	go (&gateway{
 		schema: schema,
 		config: c.GatewayConfig,
-		log:    log,
+		logger: sugar,
 	}).run()
 
 	return server.Run(ctx)

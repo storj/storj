@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/mock/gomock"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 
@@ -68,7 +68,7 @@ func makePointer(path storj.Path) pb.PutRequest {
 				PieceId:      "testId",
 				RemotePieces: rps,
 			},
-			SegmentSize: int64(1),
+			Size: int64(1),
 		},
 	}
 	return pr
@@ -198,7 +198,7 @@ func TestList(t *testing.T) {
 		{"prefix", "after", "before", false, 1, meta.All, "some key",
 			[]*pb.ListResponse_Item{
 				{Path: "a/b/c", Pointer: &pb.Pointer{
-					SegmentSize:    1234,
+					Size:           1234,
 					CreationDate:   ptypes.TimestampNow(),
 					ExpirationDate: ptypes.TimestampNow(),
 				}},
@@ -206,8 +206,8 @@ func TestList(t *testing.T) {
 			true, nil, ""},
 		{"some/prefix", "start/after", "end/before", true, 123, meta.Size, "some key",
 			[]*pb.ListResponse_Item{
-				{Path: "a/b/c", Pointer: &pb.Pointer{SegmentSize: 1234}},
-				{Path: "x/y", Pointer: &pb.Pointer{SegmentSize: 789}},
+				{Path: "a/b/c", Pointer: &pb.Pointer{Size: 1234}},
+				{Path: "x/y", Pointer: &pb.Pointer{Size: 789}},
 			},
 			true, nil, ""},
 	} {
@@ -246,7 +246,7 @@ func TestList(t *testing.T) {
 
 			for i := 0; i < len(items); i++ {
 				assert.Equal(t, tt.items[i].GetPath(), items[i].Path)
-				assert.Equal(t, tt.items[i].GetPointer().GetSegmentSize(), items[i].Pointer.GetSegmentSize())
+				assert.Equal(t, tt.items[i].GetPointer().GetSize(), items[i].Pointer.GetSize())
 				assert.Equal(t, tt.items[i].GetPointer().GetCreationDate(), items[i].Pointer.GetCreationDate())
 				assert.Equal(t, tt.items[i].GetPointer().GetExpirationDate(), items[i].Pointer.GetExpirationDate())
 			}

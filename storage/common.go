@@ -17,10 +17,7 @@ const Delimiter = '/'
 var ErrKeyNotFound = errs.Class("key not found")
 
 // ErrEmptyKey is returned when an empty key is used in Put
-var ErrEmptyKey = errs.Class("empty key")
-
-// ErrEmptyQueue is returned when attempting to Dequeue from an empty queue
-var ErrEmptyQueue = errors.New("empty queue")
+var ErrEmptyKey = errors.New("empty key")
 
 // ErrLimitExceeded is returned when request limit is exceeded
 var ErrLimitExceeded = errors.New("limit exceeded")
@@ -74,10 +71,8 @@ type KeyValueStore interface {
 type Queue interface {
 	//Enqueue add a FIFO element
 	Enqueue(Value) error
-	//Dequeue removes a FIFO element, returning ErrEmptyQueue if empty
+	//Dequeue removes a FIFO element
 	Dequeue() (Value, error)
-	//Peekqueue returns 'limit' elements from the queue
-	Peekqueue(limit int) ([]Value, error)
 	//Close closes the store
 	Close() error
 }

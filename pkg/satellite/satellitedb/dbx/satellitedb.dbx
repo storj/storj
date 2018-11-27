@@ -58,15 +58,14 @@ delete company ( where company.id = ? )
 model project (
     key id
 
-    field id             blob
-    field owner_id       user.id   setnull ( nullable, updatable )
+    field id                   blob
+    field owner_id             user.id   setnull ( nullable, updatable )
 
-    field name           text      ( updatable )
-    field description    text      ( updatable )
-    // stores last accepted version of terms of use
-    field terms_accepted int       ( updatable )
+    field name                 text      ( updatable )
+    field description          text      ( updatable )
+    field is_agreed_with_terms bool      ( updatable )
 
-    field created_at     timestamp ( autoinsert )
+    field created_at           timestamp ( autoinsert )
 )
 
 read all ( select project)
@@ -81,30 +80,3 @@ read all (
 create project ( )
 update project ( where project.id = ? )
 delete project ( where project.id = ? )
-
-model project_member (
-    key id
-
-    field id                   blob
-    field member_id            user.id      cascade
-    field project_id           project.id   cascade ( updatable )
-
-    field created_at           timestamp ( autoinsert )
-)
-
-read all ( select project_member)
-read all (
-    select project_member
-    where project_member.project_id = ?
-)
-read one (
-    select project_member
-    where project_member.member_id = ?
-)
-read one (
-    select project_member
-    where project_member.id = ?
-)
-create project_member ( )
-update project_member ( where project_member.id = ? )
-delete project_member ( where project_member.id = ? )

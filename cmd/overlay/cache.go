@@ -5,14 +5,11 @@ package main
 
 import (
 	"net/url"
+	"strconv"
 
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
-	"storj.io/storj/storage/redis"
-	"storj.io/storj/storage/storelogger"
 )
 
 type cacheConfig struct {
@@ -26,27 +23,27 @@ func (c cacheConfig) open() (*overlay.Cache, error) {
 		return nil, Error.Wrap(err)
 	}
 
-	var db storage.KeyValueStore
-
+	var cache *overlay.Cache
 	switch dburl.Scheme {
 	case "bolt":
-		db, err = boltdb.New(dburl.Path, overlay.OverlayBucket)
+		cache, err = overlay.NewBoltOverlayCache(dburl.Path, nil)
 		if err != nil {
-			return nil, Error.New("invalid overlay cache database: %s", err)
+			return nil, err
 		}
 		zap.S().Info("Starting overlay cache with BoltDB")
 	case "redis":
-		db, err = redis.NewClientFrom(c.DatabaseURL)
+		db, err := strconv.Atoi(dburl.Query().Get("db"))
 		if err != nil {
-			return nil, Error.New("invalid overlay cache database: %s", err)
+			return nil, Error.New("invalid db: %s", err)
+		}
+		cache, err = overlay.NewRedisOverlayCache(dburl.Host, overlay.GetUserPassword(dburl), db, nil)
+		if err != nil {
+			return nil, err
 		}
 		zap.S().Info("Starting overlay cache with Redis")
 	default:
 		return nil, Error.New("database scheme not supported: %s", dburl.Scheme)
 	}
 
-	// add logger
-	db = storelogger.New(zap.L(), db)
-
-	return overlay.NewOverlayCache(db, nil), nil
+	return cache, nil
 }

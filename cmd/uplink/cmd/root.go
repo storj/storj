@@ -5,16 +5,13 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/storage/buckets"
-	"storj.io/storj/pkg/storj"
 )
 
 const defaultConfDir = "$HOME/.storj/uplink"
@@ -53,16 +50,4 @@ func (c *Config) BucketStore(ctx context.Context) (buckets.Store, error) {
 	}
 
 	return c.GetBucketStore(ctx, identity)
-}
-
-func convertError(err error, path fpath.FPath) error {
-	if storj.ErrBucketNotFound.Has(err) {
-		return fmt.Errorf("Bucket not found: %s", path.Bucket())
-	}
-
-	if storj.ErrObjectNotFound.Has(err) {
-		return fmt.Errorf("Object not found: %s", path.String())
-	}
-
-	return err
 }

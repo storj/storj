@@ -22,7 +22,7 @@ import (
 	mock_buckets "storj.io/storj/pkg/storage/buckets/mocks"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
-	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storage"
 )
 
 var (
@@ -421,6 +421,7 @@ func TestDeleteBucket(t *testing.T) {
 	itemsInBucket := make([]objects.ListItem, 1)
 	itemsInBucket[0] = objects.ListItem{Path: "path1", Meta: objects.Meta{}}
 
+	exp := time.Unix(0, 0).UTC()
 	var noItemsInBucket []objects.ListItem
 
 	for i, example := range []struct {
@@ -431,12 +432,13 @@ func TestDeleteBucket(t *testing.T) {
 		errString    string
 	}{
 		{"mybucket", noItemsInBucket, nil, nil, ""},
-		{"mybucket", noItemsInBucket, storj.ErrBucketNotFound.New("mybucket"), nil, "Bucket not found: mybucket"},
+		{"mybucket", noItemsInBucket, storage.ErrKeyNotFound.New("mybucket"), nil, "Bucket not found: mybucket"},
 		{"mybucket", itemsInBucket, nil, minio.BucketNotEmpty{Bucket: "mybucket"}, "Bucket not empty: mybucket"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
-		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, example.bucketStatus)
-		if !storj.ErrBucketNotFound.Has(example.bucketStatus) {
+		mockBS.EXPECT().Get(gomock.Any(), gomock.Any()).Return(buckets.Meta{Created: exp}, example.bucketStatus)
+		if !storage.ErrKeyNotFound.Has(example.bucketStatus) {
+			mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil)
 			mockOS.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 				gomock.Any(), gomock.Any(), gomock.Any()).Return(example.items, false, example.err)
 			if len(example.items) == 0 {
@@ -500,11 +502,11 @@ func TestMakeBucketWithLocation(t *testing.T) {
 		bucketStatus error
 	}{
 		{"mybucket", exp, minio.BucketAlreadyExists{Bucket: "mybucket"}, nil},
-		{"mybucket", exp, nil, storj.ErrBucketNotFound.New("mybucket")},
+		{"mybucket", exp, nil, storage.ErrKeyNotFound.New("mybucket")},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 		mockBS.EXPECT().Get(gomock.Any(), gomock.Any()).Return(buckets.Meta{Created: exp}, example.bucketStatus)
-		if storj.ErrBucketNotFound.Has(example.bucketStatus) {
+		if storage.ErrKeyNotFound.Has(example.bucketStatus) {
 			mockBS.EXPECT().Put(gomock.Any(), example.bucket, gomock.Any()).Return(buckets.Meta{Created: example.meta}, nil)
 		}
 

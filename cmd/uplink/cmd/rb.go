@@ -11,6 +11,7 @@ import (
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/storage"
 )
 
 func init() {
@@ -46,9 +47,17 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	_, err = bs.Get(ctx, dst.Bucket())
+	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return fmt.Errorf("Bucket not found: %s", dst.Bucket())
+		}
+		return err
+	}
+
 	o, err := bs.GetObjectStore(ctx, dst.Bucket())
 	if err != nil {
-		return convertError(err, dst)
+		return err
 	}
 
 	items, _, err := o.List(ctx, "", "", "", true, 1, meta.None)
@@ -62,7 +71,7 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 
 	err = bs.Delete(ctx, dst.Bucket())
 	if err != nil {
-		return convertError(err, dst)
+		return err
 	}
 
 	fmt.Printf("Bucket %s deleted\n", dst.Bucket())

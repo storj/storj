@@ -47,5 +47,5 @@ func putMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return upload(ctx, bs, src, dst, false)
+	return upload(ctx, bs, src, dst)
 }

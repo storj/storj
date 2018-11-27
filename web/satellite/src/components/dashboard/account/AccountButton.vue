@@ -1,37 +1,38 @@
 <template>
-    <div class="account-button-container" >
-        <div class="account-button-toggle-container" v-on:click="toggleSelection" >
-            <!-- background of this div generated and stores in store -->
-            <div class="account-button-toggle-container__avatar" :style="style">
-                <!-- First digit of firstName after Registration -->
-                <!-- img if avatar was set -->
-                <h1>{{avatarLetter}}</h1>
-            </div>
-            <h1 class="account-button-toggle-container__user-name">{{userName}}</h1>
-            <div class="account-button-toggle-container__expander-area">
-                <img v-if="!isChoiceShown" src="../../../../static/images/register/BlueExpand.svg" />
-                <img v-if="isChoiceShown" src="../../../../static/images/register/BlueHide.svg" />
+    <router-link to="/dashboard/account" exact>
+        <div class="abContainer">
+            <div class="abToggleContainer">
+                <!-- background of this div generated and stores in store -->
+                <div class="abAvatar" :style="style">
+                    <!-- First digit of firstName after Registration -->
+                    <!-- img if avatar was set -->
+                    <h1>{{avatarLetter}}</h1>
+                </div>
+                <h1>{{userName}}</h1>
+                <div class="abExpanderArea">
+                    <img v-if="!isMatchesWithPath" src="../../../../static/images/register/BlueExpand.svg" />
+                    <img v-if="isMatchesWithPath" src="../../../../static/images/register/BlueHide.svg" />
+                </div>
             </div>
         </div>
-        <AccountDropdown v-if="isChoiceShown" @onClose="toggleSelection" />
-    </div>
+    </router-link>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import AccountDropdown from "./AccountDropdown.vue";
 
 @Component(
     { 
         data: function() {
             return {
+                // check if this.$router.history.current mathes with path 
+                isMatchesWithPath: false,
                 // this.$store.userName
-                userName: "User Name",
-                isChoiceShown: false
+                userName: "User Name"
             }
         },
         computed: {
-            style: function() : object {
+            style: function() {
                 //color from $store
 				return { background: "#95D486" }
             },
@@ -39,14 +40,6 @@ import AccountDropdown from "./AccountDropdown.vue";
             avatarLetter: function() : string {
                 return this.$data.userName.slice(0,1).toUpperCase();
             }
-        },
-        methods: {
-            toggleSelection: function() : void {
-                this.$data.isChoiceShown = !this.$data.isChoiceShown;
-            }
-        },
-        components: {
-            AccountDropdown
         }
     }
 )
@@ -59,63 +52,44 @@ export default class AccountButton extends Vue {}
         text-decoration: none;
         outline: none;
     }
-    .account-button-container {
-        position: relative;
+    .abContainer {
         padding-left: 10px;
         padding-right: 10px;
         background-color: #FFFFFF;
-        cursor: pointer;
-    }
-    
-    .account-button-toggle-container {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: flex-start;
-        width: 100%;
-        max-width: 190px;
-        height: 50px;
-
-        &__user-name {
-            margin-left: 12px;
-            width: 100px;
+        h1 {
             font-family: 'montserrat_medium';
             font-size: 16px;
             line-height: 23px;
             color: #354049;
         }
-
-        &__avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            h1 {
-                font-family: 'montserrat_medium';
-                font-size: 16px;
-                line-height: 23px;
-                color: #354049;
-            }
-        }
-
-        &__expander-area {
-            margin-left: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 28px;
-            height: 28px;
+    }
+    .abToggleContainer {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        width: 12.5vw;
+        height: 5vh;
+    }
+    .abAvatar {
+        width: 2.8vw;
+        height: 100%;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        h1 {
+            font-family: 'montserrat_medium';
+		    font-size: 16px;
+		    line-height: 23px;
+            color: #354049;
         }
     }
-
-    @media screen and (max-width: 720px) {
-
-        .account-button-toggle-container {
-            &__user-name {
-                display: none;
-            }
-        }
+    .abExpanderArea {
+        display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
     }
 </style>

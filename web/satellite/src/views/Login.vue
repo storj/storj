@@ -1,41 +1,41 @@
 <template>
-	<div class="login-container">
-		<img class="login-container__logo" src="../../static/images/login/Logo.svg" alt="logo" >
-		<div class="login-area">
-			<div class="login-area__title-container">
-				<h1>Welcome to Storj</h1>
-			</div>
-			<HeaderlessInput  
-				class="login-area__email-input"
-				placeholder ="Email" 
-				:error="emailError"
-				@setData="setEmail"
-				width="100%">
-			</HeaderlessInput>
-			<HeaderlessInput  
-				class="login-area__password-input"
-				placeholder ="Password" 
-				:error="emailError"
-				@setData="setEmail"
-				width="100%"
-				isPassword>
-			</HeaderlessInput>
-			<Button class="login-area__login-button" label="Login"  height="48px" :onPress="onLogin"/>
-			<!-- start of navigation area -->
-				<div class="login-area__navigation-area">
-					<router-link to="/register" class="login-area__navigation-area__nav-link bold" exact><h3>Create account</h3></router-link>
-					<router-link to="" class="login-area__navigation-area__nav-link" exact><h3><strong>Forgot password</strong></h3></router-link>
-				</div>
-			<!-- end of navigation area -->
+  <div class="loginContainer">
+	<img class="logo" src="../../static/images/login/Logo.svg" alt="logo" >
+	<div class="loginArea">
+		<div class="titleContainer">
+			<h1>Welcome to Storj</h1>
 		</div>
+		<HeaderlessInput  
+			class="emailInput"
+			placeholder ="Email" 
+			:error="emailError"
+			@setData="setEmail"
+			width="440px">
+		</HeaderlessInput>
+		<HeaderlessInput  
+			class="passwordInput"
+			placeholder ="Password" 
+			:error="emailError"
+			@setData="setEmail"
+			width="440px"
+			isPassword>
+		</HeaderlessInput>
+		<Button class="loginButton" label="Login" width="440px" height="48px" :onPress="onLogin"/>
+		<!-- start of navigation area -->
+			<div class="navigationArea">
+				<router-link to="/register" class="navLink bold" exact><h3>Create account</h3></router-link>
+				<router-link to="" class="navLink" exact><h3><strong>Forgot password</strong></h3></router-link>
+			</div>
+		<!-- end of navigation area -->
 	</div>
+  </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-import Button from '@/components/common/Button.vue';
+import HeaderlessInput from '@/components/HeaderlessInput.vue';
+import Button from '@/components/Button.vue';
 
 @Component({
 	data: function() {
@@ -60,7 +60,7 @@ export default class Home extends Vue {}
 </script>
 
 <style scoped lang="scss">
-	.login-container {
+	.loginContainer {
 		position: fixed;
 		width: 100%;
 		height: 100%;
@@ -76,95 +76,67 @@ export default class Home extends Vue {}
 		flex-direction: column;
 		align-items: flex-start;
 		padding: 60px 0px 190px 104px;
-
-		&__logo {
-			width: 139px;
-			height: 62px;
-		}
 	}
-	.login-area {
+	.titleContainer {
+		width: 440px;
+		height: 48px;
+		display: flex;
+		justify-content: flex-start;
+		align-items: flex-start;
+		margin-bottom: 32px;
+	}
+	h1{
+		font-family: 'montserrat_bold';
+		font-size: 32px;
+		color: #384B65;
+		line-height: 39px;
+		margin-block-start: 0;
+    	margin-block-end: 0;
+	}
+	.logo {
+		width: 139px;
+		height: 62px;
+	}
+	.loginArea {
 		background-color: #fff;
 		margin-top: 50px;
-		max-width: 440px;
-		width: 100%;
-		padding: 120px;
+		width: 52.5vw;
+		height: 60vh;
 		border-radius: 6px;
 		display: flex;
 		justify-content: center;
 		flex-direction: column;
-		align-items: flex-start;
-
-		&__title-container {
-			height: 48px;
-			display: flex;
-			justify-content: flex-start;
-			align-items: flex-start;
-			margin-bottom: 32px;
-
-			h1 {
-				font-family: 'montserrat_bold';
-				font-size: 32px;
-				color: #384B65;
-				line-height: 39px;
-				margin-block-start: 0;
-				margin-block-end: 0;
-			}
-		}
-
-		&__password-input {
-			margin-top: 22px;
-		}
-
-		&__login-button {
-			margin-top: 22px;
-			align-self: center;
-		}
-
-		&__login-button.container {
-			display: block;
-			text-align: center;
-		}
-
-		&__navigation-area {
-			margin-top: 24px;
-			width: 100%;
-			height: 48px;
-			display: flex;
-			justify-content: center;
-			flex-direction: row;
-			align-items: center;
-
-			&__nav-link {
-				font-family: 'montserrat_regular';
-				font-size: 14px;
-				line-height: 20px;
-				color: #2683FF;
-				height: 48px;
-				text-align: center;
-				text-justify: center;
-				padding-left: 15px;
-				padding-right: 15px;
-				min-width: 140px;
-
-				&:hover {
-					text-decoration: underline;
-				}
-
-				.bold {
-					font-family: 'montserrat_medium';
-				}
-			}
-		}
+		align-items: center;
 	}
-	@media screen and (max-width: 800px) {
-		.login-container  {
-			padding: 0;
-			justify-content: center;
-			padding: 0 50px;
-		}
-		.login-area {
-			max-width: 300px;
-		}
+	.passwordInput {
+		margin-top: 22px;
+	}
+	.loginButton {
+		margin-top: 22px;
+		align-self: center;
+	}
+	.navigationArea {
+		margin-top: 24px;
+		width: 440px;
+		height: 48px;
+		display: flex;
+		justify-content: center;
+		flex-direction: row;
+		align-items: center;
+	}
+	.navLink {
+		font-family: 'montserrat_regular';
+		font-size: 14px;
+		line-height: 20px;
+		color: #2683FF;
+		height: 48px;
+		text-align: center;
+		text-justify: center;
+		padding-left: 15px;
+		padding-right: 15px;
+	}
+	.navLink.bold {
+		font-family: 'montserrat_medium';
 	}
 </style>
 

@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/datarepair/queue"
@@ -82,16 +82,7 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 				if err != nil {
 					return Error.New("error unmarshalling pointer %s", err)
 				}
-				remote := pointer.GetRemote()
-				if remote == nil {
-					c.logger.Debug("no remote segment on pointer")
-					continue
-				}
-				pieces := remote.GetRemotePieces()
-				if pieces == nil {
-					c.logger.Debug("no pieces on remote segment")
-					continue
-				}
+				pieces := pointer.Remote.RemotePieces
 				var nodeIDs []dht.NodeID
 				for _, p := range pieces {
 					nodeIDs = append(nodeIDs, node.IDFromString(p.NodeId))

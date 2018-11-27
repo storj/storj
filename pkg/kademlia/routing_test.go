@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/node"

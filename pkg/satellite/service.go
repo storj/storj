@@ -1,6 +1,3 @@
-// Copyright (C) 2018 Storj Labs, Inc.
-// See LICENSE for copying information.
-
 package satellite
 
 import (
@@ -8,8 +5,6 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -23,11 +18,10 @@ type Service struct {
 	Signer
 
 	store DB
-	log   *zap.Logger
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, signer Signer, store DB) (*Service, error) {
+func NewService(signer Signer, store DB) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -36,65 +30,24 @@ func NewService(log *zap.Logger, signer Signer, store DB) (*Service, error) {
 		return nil, errs.New("store can't be nil")
 	}
 
-	if log == nil {
-		return nil, errs.New("log can't be nil")
-	}
-
-	return &Service{Signer: signer, store: store, log: log}, nil
+	return &Service{Signer: signer, store: store}, nil
 }
 
-// CreateUser gets password hash value and creates new user
-func (s *Service) CreateUser(ctx context.Context, userInfo UserInfo, companyInfo CompanyInfo) (*User, error) {
-	passwordHash := sha256.Sum256([]byte(userInfo.Password))
+// Register gets password hash value and creates new user
+func (s *Service) Register(ctx context.Context, user *User) (*User, error) {
+	passwordHash := sha256.Sum256(user.PasswordHash)
+	user.PasswordHash = passwordHash[:]
 
-	user, err := s.store.Users().Insert(ctx, &User{
-		Email:        userInfo.Email,
-		FirstName:    userInfo.FirstName,
-		LastName:     userInfo.LastName,
-		PasswordHash: passwordHash[:],
-	})
-
+	newUser, err := s.store.Users().Insert(ctx, user)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = s.store.Companies().Insert(ctx, &Company{
-		UserID:     user.ID,
-		Name:       companyInfo.Name,
-		Address:    companyInfo.Address,
-		Country:    companyInfo.Country,
-		City:       companyInfo.City,
-		State:      companyInfo.State,
-		PostalCode: companyInfo.PostalCode,
-	})
-
-	if err != nil {
-		s.log.Error(err.Error())
-	}
-
-	return user, nil
+	return newUser, nil
 }
 
-// CreateCompany creates Company for authorized User
-func (s *Service) CreateCompany(ctx context.Context, info CompanyInfo) (*Company, error) {
-	user, err := s.Authorize(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.store.Companies().Insert(ctx, &Company{
-		UserID:     user.ID,
-		Name:       info.Name,
-		Address:    info.Address,
-		Country:    info.Country,
-		City:       info.City,
-		State:      info.State,
-		PostalCode: info.PostalCode,
-	})
-}
-
-// Token authenticates user by credentials and returns auth token
-func (s *Service) Token(ctx context.Context, email, password string) (string, error) {
+// Login authenticates user by credentials and returns auth token
+func (s *Service) Login(ctx context.Context, email, password string) (string, error) {
 	passwordHash := sha256.Sum256([]byte(password))
 
 	user, err := s.store.Users().GetByCredentials(ctx, passwordHash[:], email)
@@ -118,106 +71,6 @@ func (s *Service) Token(ctx context.Context, email, password string) (string, er
 
 // GetUser returns user by id
 func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*User, error) {
-	_, err := s.Authorize(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.store.Users().Get(ctx, id)
-}
-
-// GetCompany returns company by userID
-func (s *Service) GetCompany(ctx context.Context, userID uuid.UUID) (*Company, error) {
-	_, err := s.Authorize(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.store.Companies().GetByUserID(ctx, userID)
-}
-
-// GetProject is a method for querying project by id
-func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (*Project, error) {
-	// TODO: auth will be moved in future
-	_, err := s.Authorize(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.store.Projects().Get(ctx, projectID)
-}
-
-// GetUsersProjects is a method for querying all projects
-func (s *Service) GetUsersProjects(ctx context.Context) ([]Project, error) {
-	// TODO: auth will be moved in future
-	_, err := s.Authorize(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: should return only users projects, not all
-	return s.store.Projects().GetAll(ctx)
-}
-
-// CreateProject is a method for querying all projects
-func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*Project, error) {
-	// TODO: auth will be moved in future
-	user, err := s.Authorize(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if !projectInfo.IsTermsAccepted {
-		return nil, errs.New("Terms of use should be accepted!")
-	}
-
-	project := &Project{
-		OwnerID:       &user.ID,
-		Description:   projectInfo.Description,
-		Name:          projectInfo.Name,
-		TermsAccepted: 1, //TODO: get lat version of Term of Use
-	}
-
-	return s.store.Projects().Insert(ctx, project)
-}
-
-// DeleteProject is a method for deleting project by id
-func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) error {
-	// TODO: auth will be moved in future
-	_, err := s.Authorize(ctx)
-	if err != nil {
-		return err
-	}
-
-	return s.store.Projects().Delete(ctx, projectID)
-}
-
-// UpdateProject is a method for updating project by id
-func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projectInfo ProjectInfo) (*Project, error) {
-	// TODO: auth will be moved in future
-	_, err := s.Authorize(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	project, err := s.store.Projects().Get(ctx, projectID)
-	if err != nil {
-		return nil, errs.New("Project doesn't exist!")
-	}
-
-	project.Description = projectInfo.Description
-	project.Name = projectInfo.Name
-
-	err = s.store.Projects().Update(ctx, project)
-	if err != nil {
-		return nil, err
-	}
-
-	return project, nil
-}
-
-// Authorize validates token from context and returns authenticated and authorized User
-func (s *Service) Authorize(ctx context.Context) (*User, error) {
 	token, ok := auth.GetAPIKey(ctx)
 	if !ok {
 		return nil, errs.New("no api key was provided")
@@ -228,7 +81,17 @@ func (s *Service) Authorize(ctx context.Context) (*User, error) {
 		return nil, err
 	}
 
-	return s.authorize(ctx, claims)
+	err = s.authorize(ctx, claims)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := s.store.Users().Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
 
 func (s *Service) createToken(claims *satelliteauth.Claims) (string, error) {
@@ -246,7 +109,6 @@ func (s *Service) createToken(claims *satelliteauth.Claims) (string, error) {
 	return token.String(), nil
 }
 
-// authenticate validates token signature and returns authenticated *satelliteauth.Claims
 func (s *Service) authenticate(tokenS string) (*satelliteauth.Claims, error) {
 	token, err := satelliteauth.FromBase64URLString(tokenS)
 	if err != nil {
@@ -272,16 +134,15 @@ func (s *Service) authenticate(tokenS string) (*satelliteauth.Claims, error) {
 	return claims, nil
 }
 
-// authorize checks claims and returns authorized User
-func (s *Service) authorize(ctx context.Context, claims *satelliteauth.Claims) (*User, error) {
+func (s *Service) authorize(ctx context.Context, claims *satelliteauth.Claims) error {
 	if !claims.Expiration.IsZero() && claims.Expiration.Before(time.Now()) {
-		return nil, errs.New("token is outdated")
+		return errs.New("token is outdated")
 	}
 
-	user, err := s.store.Users().Get(ctx, claims.ID)
+	_, err := s.store.Users().Get(ctx, claims.ID)
 	if err != nil {
-		return nil, errs.New("authorization failed. no user with id: %s", claims.ID.String())
+		return errs.New("authorization failed. no user with id: %s", claims.ID.String())
 	}
 
-	return user, nil
+	return nil
 }

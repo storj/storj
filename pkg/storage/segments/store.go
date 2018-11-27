@@ -107,7 +107,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		pointer = &pb.Pointer{
 			Type:           pb.Pointer_INLINE,
 			InlineSegment:  peekReader.thresholdBuf,
-			SegmentSize:    int64(len(peekReader.thresholdBuf)),
+			Size:           int64(len(peekReader.thresholdBuf)),
 			ExpirationDate: exp,
 			Metadata:       metadata,
 		}
@@ -181,7 +181,7 @@ func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID psclient.Piec
 			PieceId:      string(pieceID),
 			RemotePieces: remotePieces,
 		},
-		SegmentSize:    readerSize,
+		Size:           readerSize,
 		ExpirationDate: exp,
 		Metadata:       metadata,
 	}
@@ -230,7 +230,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 
 		authorization := s.pdb.SignedMessage()
 		pba := s.pdb.PayerBandwidthAllocation()
-		rr, err = s.ec.Get(ctx, nodes, es, pid, pr.GetSegmentSize(), pba, authorization)
+		rr, err = s.ec.Get(ctx, nodes, es, pid, pr.GetSize(), pba, authorization)
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
@@ -377,7 +377,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	pba := s.pdb.PayerBandwidthAllocation()
 
 	// download the segment using the nodes just with healthy nodes
-	rr, err := s.ec.Get(ctx, healthyNodes, es, pid, pr.GetSegmentSize(), pba, signedMessage)
+	rr, err := s.ec.Get(ctx, healthyNodes, es, pid, pr.GetSize(), pba, signedMessage)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -472,7 +472,7 @@ func convertMeta(pr *pb.Pointer) Meta {
 	return Meta{
 		Modified:   convertTime(pr.GetCreationDate()),
 		Expiration: convertTime(pr.GetExpirationDate()),
-		Size:       pr.GetSegmentSize(),
+		Size:       pr.GetSize(),
 		Data:       pr.GetMetadata(),
 	}
 }

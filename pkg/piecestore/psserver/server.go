@@ -235,7 +235,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 	}
 
 	zap.S().Infof("Successfully retrieved meta for %s.", in.GetId())
-	return &pb.PieceSummary{Id: in.GetId(), PieceSize: fileInfo.Size(), ExpirationUnixSec: ttl}, nil
+	return &pb.PieceSummary{Id: in.GetId(), Size: fileInfo.Size(), ExpirationUnixSec: ttl}, nil
 }
 
 // Stats will return statistics about the Server

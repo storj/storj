@@ -277,6 +277,7 @@ func (ic IdentityConfig) Run(ctx context.Context, interceptor grpc.UnaryServerIn
 	}
 	defer func() { _ = s.Close() }()
 	zap.S().Infof("Node %s started", s.Identity().ID)
+
 	return s.Run(ctx)
 }
 
