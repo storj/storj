@@ -43,10 +43,11 @@ func NewService(log *zap.Logger, signer Signer, store DB) (*Service, error) {
 	return &Service{Signer: signer, store: store, log: log}, nil
 }
 
-// CreateUser gets password hash value and creates new user
+// CreateUser gets password hash value and creates new User
 func (s *Service) CreateUser(ctx context.Context, userInfo UserInfo, companyInfo CompanyInfo) (*User, error) {
 	passwordHash := sha256.Sum256([]byte(userInfo.Password))
 
+	//TODO(yar): separate creation of user and company
 	user, err := s.store.Users().Insert(ctx, &User{
 		Email:        userInfo.Email,
 		FirstName:    userInfo.FirstName,
@@ -93,7 +94,7 @@ func (s *Service) CreateCompany(ctx context.Context, info CompanyInfo) (*Company
 	})
 }
 
-// Token authenticates user by credentials and returns auth token
+// Token authenticates User by credentials and returns auth token
 func (s *Service) Token(ctx context.Context, email, password string) (string, error) {
 	passwordHash := sha256.Sum256([]byte(password))
 
@@ -116,7 +117,7 @@ func (s *Service) Token(ctx context.Context, email, password string) (string, er
 	return token, nil
 }
 
-// GetUser returns user by id
+// GetUser returns User by id
 func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*User, error) {
 	_, err := GetAuth(ctx)
 	if err != nil {
@@ -124,6 +125,29 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*User, error) {
 	}
 
 	return s.store.Users().Get(ctx, id)
+}
+
+// UpdateUser updates User with given id
+func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) error {
+	_, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	//TODO(yar): remove when validation is added
+	var passwordHash []byte
+	if info.Password != "" {
+		hash := sha256.Sum256([]byte(info.Password))
+		passwordHash = hash[:]
+	}
+
+	return s.store.Users().Update(ctx, &User{
+		ID:           id,
+		FirstName:    info.FirstName,
+		LastName:     info.LastName,
+		Email:        info.Email,
+		PasswordHash: passwordHash,
+	})
 }
 
 // DeleteUser deletes user by ID

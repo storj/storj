@@ -15,6 +15,7 @@ const (
 	Mutation = "mutation"
 
 	createUserMutation = "createUser"
+	updateUserMutation = "updateUser"
 	deleteUserMutation = "deleteUser"
 
 	createProjectMutation = "createProject"
@@ -38,7 +39,8 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 				},
 				// creates user and company from input params and returns userID if succeed
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					var userInput = fromMapUserInfo(p.Args[input].(map[string]interface{}))
+					//TODO(yar): separate creation of user and company
+					userInput := fromMapUserInfo(p.Args[input].(map[string]interface{}))
 
 					user, err := service.CreateUser(
 						p.Context,
@@ -51,6 +53,40 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					}
 
 					return user.ID.String(), nil
+				},
+			},
+			updateUserMutation: &graphql.Field{
+				Type: types.User(),
+				Args: graphql.FieldConfigArgument{
+					fieldID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					input: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.UserInput()),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					id, _ := p.Args[fieldID].(string)
+
+					idBytes, err := uuid.Parse(id)
+					if err != nil {
+						return nil, err
+					}
+
+					user, err := service.GetUser(p.Context, *idBytes)
+					if err != nil {
+						return nil, err
+					}
+
+					updatedUser := *user
+					info := fillUserInfo(&updatedUser, p.Args[input].(map[string]interface{}))
+
+					errUpdate := service.UpdateUser(p.Context, *idBytes, info)
+					if errUpdate != nil {
+						return user, errUpdate
+					}
+
+					return &updatedUser, nil
 				},
 			},
 			deleteUserMutation: &graphql.Field{

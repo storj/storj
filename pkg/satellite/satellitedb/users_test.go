@@ -26,7 +26,7 @@ func TestUserRepository(t *testing.T) {
 		newName     = "newName"
 		newLastName = "newLastName"
 		newEmail    = "newEmail@ukr.net"
-		newPass     = "newPass"
+		newPass     = "newPass1234567890123456789012345"
 	)
 
 	ctx := testcontext.New(t)
