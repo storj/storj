@@ -21,6 +21,7 @@ import (
 
 const (
 	apiKey = "apiKey"
+	encKey = "encKey"
 )
 
 var ctx = context.Background()
@@ -73,9 +74,9 @@ func TestCP(t *testing.T) {
 	}{
 		{
 			bucket: "sj://bucket",
-			k:      25,
-			m:      29,
-			o:      35,
+			k:      20,
+			m:      26,
+			o:      32,
 			n:      40,
 		},
 	}
@@ -103,6 +104,7 @@ func TestCP(t *testing.T) {
 		uplink.Client.OverlayAddr = planet.Satellites[0].Addr()
 		uplink.Client.PointerDBAddr = planet.Satellites[0].Addr()
 		uplink.Client.APIKey = apiKey
+		uplink.Client.EncKey = encKey
 
 		uplink.Client.MinThreshold = tt.k
 		uplink.Client.RepairThreshold = tt.m
@@ -131,7 +133,7 @@ func TestCP(t *testing.T) {
 				t.Log(err)
 			}
 		}()
-		
+
 		fpath := filepath.Join(tmpDir, "testfile")
 
 		err = ioutil.WriteFile(fpath, content, 0666)
@@ -152,7 +154,7 @@ func TestCP(t *testing.T) {
 
 		// buf := make([]byte, len(content))
 		// _, err = f.Read(buf)
-		// assert.NoError(t, err)
+		// assert.Equal(t, err, io.EOF)
 
 		//assert.Equal(t, content, buf)
 	}
