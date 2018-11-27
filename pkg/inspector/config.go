@@ -11,6 +11,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -47,12 +48,18 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return Error.New("programmer error: statdb responsibility unstarted")
 	}
 
+	id, err := node.NewFullIdentity(ctx, 12, 4)
+	if err != nil {
+		return Error.New("error creating inspector identity:")
+	}
+
 	srv := &Server{
-		dht:     kad,
-		cache:   ol,
-		statdb:  sdb,
-		logger:  zap.L(),
-		metrics: monkit.Default,
+		dht:      kad,
+		identity: id,
+		cache:    ol,
+		statdb:   sdb,
+		logger:   zap.L(),
+		metrics:  monkit.Default,
 	}
 
 	pb.RegisterInspectorServer(server.GRPC(), srv)

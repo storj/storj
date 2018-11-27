@@ -5,6 +5,7 @@ package inspector
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -14,6 +15,7 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
 	statsproto "storj.io/storj/pkg/statdb/proto"
 )
@@ -25,11 +27,12 @@ var (
 
 // Server holds references to cache and kad
 type Server struct {
-	dht     dht.DHT
-	cache   *overlay.Cache
-	statdb  *statdb.Server
-	logger  *zap.Logger
-	metrics *monkit.Registry
+	dht      dht.DHT
+	cache    *overlay.Cache
+	statdb   *statdb.Server
+	logger   *zap.Logger
+	metrics  *monkit.Registry
+	identity *provider.FullIdentity
 }
 
 // ---------------------
@@ -76,6 +79,36 @@ func (srv *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb
 		Id:    req.Id,
 		Nodes: bucket.Nodes(),
 	}, nil
+}
+
+// PingNode sends a PING RPC to the provided node ID in the Kad network.
+func (srv *Server) PingNode(ctx context.Context, req *pb.PingNodeRequest) (*pb.PingNodeResponse, error) {
+	rt, err := srv.dht.GetRoutingTable(ctx)
+	if err != nil {
+		return &pb.PingNodeResponse{}, ServerError.Wrap(err)
+	}
+
+	self := rt.Local()
+
+	nc, err := node.NewNodeClient(srv.identity, self, srv.dht)
+	if err != nil {
+		return &pb.PingNodeResponse{}, ServerError.Wrap(err)
+	}
+
+	p, err := nc.Ping(ctx, pb.Node{
+		Id: req.Id,
+		Address: &pb.NodeAddress{
+			Address: req.Address,
+		},
+	})
+
+	if err != nil {
+		return &pb.PingNodeResponse{}, ServerError.Wrap(err)
+	}
+
+	fmt.Printf("---- Pinged Node: %+v\n", p)
+
+	return &pb.PingNodeResponse{}, nil
 }
 
 // ---------------------
