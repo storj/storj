@@ -14,9 +14,7 @@ import (
 	"runtime"
 	"strings"
 
-	// homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
-	// "go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
@@ -52,7 +50,8 @@ func applicationDir(subdir ...string) string {
 			subdir[i] = strings.ToLower(subdir[i])
 		}
 	}
-	appdir := os.Getenv("HOME")
+	home := os.Getenv("HOME")
+	appdir := filepath.Join(home, "Library", "Application Support")
 
 	switch runtime.GOOS {
 	case "windows":
@@ -64,22 +63,18 @@ func applicationDir(subdir ...string) string {
 			}
 		}
 	case "darwin":
-		// TODO(nat): make sure it's /Library/Application Support and not Library/Application Support
-		appdir = filepath.Join("Library", "Application Support")
+		// Mac standards: https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/MacOSXDirectories/MacOSXDirectories.html
+		appdir = filepath.Join(home, "Library", "Application Support")
 	case "linux":
 		fallthrough
 	default:
-		if os.Getenv("XDG_DATA_HOME") == "" {
-			appdir = os.Getenv("HOME")
-		} else {
-			appdir = os.Getenv("XDG_DATA_HOME")
+		// XDG standards: https://specifications.freedesktop.org/basedir-spec/latest/ar01s03.html
+		appdir = os.Getenv("XDG_DATA_HOME")
+		if appdir == "" {
+			appdir = home
 		}
 	}
-	var appendedSubdir string
-	for _, dir := range subdir {
-		appendedSubdir = filepath.Join(appendedSubdir, dir)
-	}
-	return filepath.Join(appdir, appendedSubdir)
+	return filepath.Join(append([]string{appdir}, subdir...)...)
 }
 
 func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
