@@ -9,38 +9,54 @@ import Register from '@/views/Register.vue';
 import Dashboard from '@/views/Dashboard.vue';
 import AccountArea from '@/components/dashboard/account/AccountArea.vue';
 import ProjectDetails from '@/components/projectDetails/ProjectDetailsArea.vue';
+import {getToken} from "@/utils/tokenManager";
 
 Vue.use(Router);
 
-export default new Router({
-	mode: 'history',
-	routes: [
-		{
-			path: ROUTES.LOGIN.path,
-			name: ROUTES.LOGIN.name,
-			component: Login
-		},
-		{
-			path: ROUTES.REGISTER.path,
-			name: ROUTES.REGISTER.name,
-			component: Register
-		},
-		{
-			path: ROUTES.DASHBOARD.path,
-			name: ROUTES.DASHBOARD.name,
-			component: Dashboard,
-			children: [
-				{
-					path: '/account-settings',
-					name: 'AccountSettings',
-					component: AccountArea
-				},
-				{
-					path: '/project-details',
-					name: 'ProjectDetails',
-					component: ProjectDetails
-				}
-			]
-		}
-  	]
+const router = new Router({
+    mode: 'history',
+    routes: [
+        {
+            path: ROUTES.LOGIN.path,
+            name: ROUTES.LOGIN.name,
+            component: Login
+        },
+        {
+            path: ROUTES.REGISTER.path,
+            name: ROUTES.REGISTER.name,
+            component: Register
+        },
+        {
+            path: ROUTES.DASHBOARD.path,
+            name: ROUTES.DASHBOARD.name,
+            component: Dashboard,
+            children: [
+                {
+                    path: '/account-settings',
+                    name: 'AccountSettings',
+                    component: AccountArea
+                },
+                {
+                    path: '/project-details',
+                    name: 'ProjectDetails',
+                    component: ProjectDetails
+                }
+            ]
+        }
+    ],
 });
+
+// Makes check that Token exist at session storage before any route except Login and Register
+router.beforeEach((to, from, next) => {
+    let isAuthRequiredRoute = to.path !== ROUTES.LOGIN.path && to.path !== ROUTES.REGISTER.path;
+
+    if (isAuthRequiredRoute && !getToken()) {
+        next(ROUTES.LOGIN);
+        return;
+    }
+
+    next();
+});
+
+export default router;
+
