@@ -288,6 +288,11 @@ CREATE TABLE granulars (
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
+);
+CREATE TABLE timestamps (
+	pk integer NOT NULL,
+	last_bw_tallied timestamp with time zone NOT NULL,
+	PRIMARY KEY ( pk )
 );`
 }
 
@@ -368,6 +373,11 @@ CREATE TABLE granulars (
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( node_id )
+);
+CREATE TABLE timestamps (
+	pk INTEGER NOT NULL,
+	last_bw_tallied TIMESTAMP NOT NULL,
+	PRIMARY KEY ( pk )
 );`
 }
 
@@ -660,6 +670,53 @@ func (f Granular_UpdatedAt_Field) value() interface{} {
 }
 
 func (Granular_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type Timestamps struct {
+	Pk            uint
+	LastBwTallied time.Time
+}
+
+func (Timestamps) _Table() string { return "timestamps" }
+
+type Timestamps_Update_Fields struct {
+	LastBwTallied Timestamps_LastBwTallied_Field
+}
+
+type Timestamps_Pk_Field struct {
+	_set   bool
+	_value uint
+}
+
+func Timestamps_Pk(v uint) Timestamps_Pk_Field {
+	return Timestamps_Pk_Field{_set: true, _value: v}
+}
+
+func (f Timestamps_Pk_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Timestamps_Pk_Field) _Column() string { return "pk" }
+
+type Timestamps_LastBwTallied_Field struct {
+	_set   bool
+	_value time.Time
+}
+
+func Timestamps_LastBwTallied(v time.Time) Timestamps_LastBwTallied_Field {
+	return Timestamps_LastBwTallied_Field{_set: true, _value: v}
+}
+
+func (f Timestamps_LastBwTallied_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Timestamps_LastBwTallied_Field) _Column() string { return "last_bw_tallied" }
 
 func toUTC(t time.Time) time.Time {
 	return t.UTC()
@@ -1089,6 +1146,16 @@ func (impl postgresImpl) isConstraintError(err error) (
 func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
+	__res, err = obj.driver.Exec("DELETE FROM timestamps;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM granulars;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -1441,6 +1508,16 @@ func (impl sqlite3Impl) isConstraintError(err error) (
 func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
+	__res, err = obj.driver.Exec("DELETE FROM timestamps;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM granulars;")
 	if err != nil {
 		return 0, obj.makeErr(err)

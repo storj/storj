@@ -17,3 +17,8 @@ CREATE TABLE granulars (
 	updated_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( node_id )
 );
+CREATE TABLE timestamps (
+	pk INTEGER NOT NULL,
+	last_bw_tallied TIMESTAMP NOT NULL,
+	PRIMARY KEY ( pk )
+);

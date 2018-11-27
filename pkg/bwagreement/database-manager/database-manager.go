@@ -6,15 +6,15 @@ package dbmanager
 import (
 	"context"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-
 	"storj.io/storj/internal/migrate"
 	dbx "storj.io/storj/pkg/bwagreement/database-manager/dbx"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -28,8 +28,13 @@ type DBManager struct {
 }
 
 // NewDBManager creates a new instance of a DatabaseManager
-func NewDBManager(driver, source string) (*DBManager, error) {
-	db, err := dbx.Open(driver, source)
+func NewDBManager(databaseURL string) (*DBManager, error) {
+	dbURL, err := utils.ParseURL(databaseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := dbx.Open(dbURL.Scheme, dbURL.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -73,5 +78,13 @@ func (dbm *DBManager) GetBandwidthAllocations(ctx context.Context) (rows []*dbx.
 	defer mon.Task()(&ctx)(&err)
 	defer dbm.locked()()
 	rows, err = dbm.DB.All_Bwagreement(ctx)
+	return rows, err
+}
+
+// GetBandwidthAllocationsSince all bandwidth agreements created since a time
+func (dbm *DBManager) GetBandwidthAllocationsSince(ctx context.Context, since time.Time) (rows []*dbx.Bwagreement, err error) {
+	defer mon.Task()(&ctx)(&err)
+	defer dbm.locked()()
+	rows, err = dbm.DB.All_Bwagreement_By_CreatedAt_Greater(ctx, dbx.Bwagreement_CreatedAt(since))
 	return rows, err
 }

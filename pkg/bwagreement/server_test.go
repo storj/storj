@@ -19,10 +19,8 @@ import (
 	"github.com/gtank/cryptopasta"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
-
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-
 	"storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -103,7 +101,7 @@ func newTestServerStruct(t *testing.T, k crypto.PrivateKey) *Server {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
 	}
 
-	dbm, err := dbmanager.NewDBManager("postgres", *testPostgres)
+	dbm, err := dbmanager.NewDBManager(*testPostgres)
 	if err != nil {
 		t.Fatalf("Failed to initialize dbmanager when creating test server: %+v", err)
 	}

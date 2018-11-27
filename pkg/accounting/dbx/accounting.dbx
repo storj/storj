@@ -1,5 +1,13 @@
 // dbx.v1 golang accounting.dbx .
 
+// timestamps just allows us to save the last time/thing that happened
+model timestamps (
+  key pk // key is required, can't be updatable.  boo hiss!
+
+  field pk              uint ( autoinsert )
+  field last_bw_tallied timestamp ( updatable )
+)
+
 model aggregate (
 	key node_id
 

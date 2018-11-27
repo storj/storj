@@ -1,11 +1,8 @@
 // dbx.v1 golang bwagreement.dbx .
 model bwagreement (
 	key signature 
-
 	field signature blob 
-
 	field data blob
-	
 	field created_at timestamp ( autoinsert )
 )
 
@@ -20,4 +17,8 @@ read limitoffset (
 )
 read all (
 	select bwagreement
+)
+read all (
+	select bwagreement
+	where  bwagreement.created_at > ?
 )

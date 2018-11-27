@@ -10,6 +10,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
 	dbx "storj.io/storj/pkg/accounting/dbx"
+	dbManager "storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
@@ -32,10 +33,11 @@ type tally struct {
 	limit     int
 	logger    *zap.Logger
 	ticker    *time.Ticker
-	db        *dbx.DB
+	db        *dbx.DB              // accounting db
+	dbm       *dbManager.DBManager // bwagreements database
 }
 
-func newTally(logger *zap.Logger, db *dbx.DB, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, interval time.Duration) (*tally, error) {
+func newTally(logger *zap.Logger, db *dbx.DB, dbm *dbManager.DBManager, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, interval time.Duration) *tally {
 	return &tally{
 		pointerdb: pointerdb,
 		overlay:   overlay,
@@ -43,8 +45,9 @@ func newTally(logger *zap.Logger, db *dbx.DB, pointerdb *pointerdb.Server, overl
 		limit:     limit,
 		logger:    logger,
 		ticker:    time.NewTicker(interval),
+		dbm:       dbm,
 		db:        db,
-	}, nil
+	}
 }
 
 // Run the tally loop
@@ -54,7 +57,7 @@ func (t *tally) Run(ctx context.Context) (err error) {
 	for {
 		err = t.identifyActiveNodes(ctx)
 		if err != nil {
-			zap.L().Error("Tally failed", zap.Error(err))
+			t.logger.Error("Tally failed", zap.Error(err))
 		}
 
 		select {
@@ -130,7 +133,7 @@ func (t *tally) tallyAtRestStorage(ctx context.Context, pointer *pb.Pointer, nod
 	segmentSize := pointer.GetSegmentSize()
 	minReq := pointer.Remote.Redundancy.GetMinReq()
 	if minReq <= 0 {
-		zap.L().Error("minReq must be an int greater than 0")
+		t.logger.Error("minReq must be an int greater than 0")
 		return
 	}
 	pieceSize := segmentSize / int64(minReq)
@@ -141,14 +144,14 @@ func (t *tally) tallyAtRestStorage(ctx context.Context, pointer *pb.Pointer, nod
 		if ok {
 			nodeAvail, err = client.Ping(ctx, *n)
 			if err != nil {
-				zap.L().Error("ping failed")
+				t.logger.Error("ping failed")
 				continue
 			}
 		}
 		if nodeAvail {
 			err := t.updateGranularTable(n.Id, pieceSize)
 			if err != nil {
-				zap.L().Error("update failed")
+				t.logger.Error("update failed")
 			}
 		}
 	}
@@ -160,7 +163,18 @@ func (t *tally) needToContact(nodeID string) bool {
 	return true
 }
 
+// updateGranularTable : If reachable, update the granular data table to include the amount stored for this piece.
 func (t *tally) updateGranularTable(nodeID string, pieceSize int64) error {
 	//TODO
+	return nil
+}
+
+// Query bandwidth allocation database, selecting all new contracts since the last collection run time.
+// Grouping by storage node ID and adding total of bandwidth to granular data table.
+func (t *tally) query(ctx context.Context) error {
+	//Query bandwidth allocation database, selecting all new contracts since the last collection run time.
+	t.dbm.GetBandwidthAllocationsSince(ctx, time.Now())
+	//This info can be found in pkg/bwagreement/server.go
+	//Group by storage node ID and adding total of bandwidth to raw data table.
 	return nil
 }
