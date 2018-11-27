@@ -30,6 +30,9 @@ const router = new Router({
             path: ROUTES.DASHBOARD.path,
             name: ROUTES.DASHBOARD.name,
             component: Dashboard,
+            meta: {
+                requiresAuth: true
+            },
             children: [
                 {
                     path: '/account-settings',
@@ -48,11 +51,13 @@ const router = new Router({
 
 // Makes check that Token exist at session storage before any route except Login and Register
 router.beforeEach((to, from, next) => {
-    let isAuthRequiredRoute = to.path !== ROUTES.LOGIN.path && to.path !== ROUTES.REGISTER.path;
 
-    if (isAuthRequiredRoute && !getToken()) {
-        next(ROUTES.LOGIN);
-        return;
+    if(to.matched.some(record => record.meta.requiresAuth)) {
+        if (!getToken()) {
+
+            next(ROUTES.LOGIN)
+            return;
+        }
     }
 
     next();
