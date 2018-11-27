@@ -47,7 +47,6 @@ func applicationDir(subdir ...string) string {
 			subdir[i] = strings.ToLower(subdir[i])
 		}
 	}
-	home := os.Getenv("HOME")
 	var appdir string
 
 	switch runtime.GOOS {
@@ -62,16 +61,18 @@ func applicationDir(subdir ...string) string {
 		}
 	case "darwin":
 		// Mac standards: https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/MacOSXDirectories/MacOSXDirectories.html
+		home := os.Getenv("HOME")
 		appdir = filepath.Join(home, "Library", "Application Support")
 	case "linux":
 		fallthrough
 	default:
 		// XDG standards: https://specifications.freedesktop.org/basedir-spec/latest/ar01s03.html
 		for _, env := range []string{"XDG_DATA_HOME", "HOME"} {
-			appdir = os.Getenv(env)
-		}
-		if appdir == "" {
-			appdir = home
+			val := os.Getenv(env)
+			if val != "" {
+				appdir = val
+				break
+			}
 		}
 	}
 	return filepath.Join(append([]string{appdir}, subdir...)...)
