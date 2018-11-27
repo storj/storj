@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/statdb"
 	dbx "storj.io/storj/pkg/statdb/dbx"

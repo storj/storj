@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="register">
         <div class="register-area">
@@ -142,7 +145,6 @@
     import Checkbox from '@/components/common/Checkbox.vue';
     import Button from '@/components/common/Button.vue';
     import {validateEmail} from "@/utils/validation"
-    import gql from "graphql-tag";
     import ROUTES from "../utils/constants/routerConstants";
     import {createUser} from "../utils/qraphql/createUserQuery";
 
@@ -240,7 +242,7 @@
                     if (hasError) return;
 
                     let user = {
-                        id:"",
+                        id: "",
                         email: this.$data.email,
                         firstName: this.$data.firstName,
                         lastName: this.$data.lastName,

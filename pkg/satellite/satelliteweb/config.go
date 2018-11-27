@@ -72,9 +72,10 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	}
 
 	go (&gateway{
-		schema: schema,
-		config: c.GatewayConfig,
-		log:    log,
+		log:     log,
+		schema:  schema,
+		service: service,
+		config:  c.GatewayConfig,
 	}).run()
 
 	return server.Run(ctx)

@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import Vue from 'vue';
 import Router from 'vue-router';
 import ROUTES from '@/utils/constants/routerConstants';

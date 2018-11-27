@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
 	segment "storj.io/storj/pkg/storage/segments"
+	"storj.io/storj/storage"
 )
 
 // Repairer is the interface for the data repairer
@@ -64,7 +65,9 @@ func (r *repairer) Run(ctx context.Context) (err error) {
 func (r *repairer) process(ctx context.Context) error {
 	seg, err := r.queue.Dequeue()
 	if err != nil {
-		// TODO: only log when err != ErrQueueEmpty
+		if err == storage.ErrEmptyQueue {
+			return nil
+		}
 		return err
 	}
 

@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+
+	"storj.io/storj/internal/memory"
 )
 
 const defaultTimeout = 3 * time.Minute
@@ -179,7 +181,13 @@ func (ctx *Context) reportRunning() {
 			fmt.Fprintf(&message, "\n%s:%d: %s", caller.file, caller.line, fnname)
 		}
 	}
+
 	ctx.test.Error(message.String())
+
+	stack := make([]byte, 1*memory.MB.Int())
+	n := runtime.Stack(stack, true)
+	stack = stack[:n]
+	ctx.test.Error("Full Stack Trace:\n", string(stack))
 }
 
 // deleteTemporary tries to delete temporary directory

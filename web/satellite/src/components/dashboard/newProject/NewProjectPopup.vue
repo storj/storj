@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="new-project-popup-container">
         <div class="new-project-popup">
@@ -11,13 +14,14 @@
                     additionalLabel="Up To 20 Characters"
                     placeholder="Enter Project Name" 
                     width="30vw"
+                    :error="nameError"
                     @setData="setProjectName">
                 </HeaderedInput>
                 <HeaderedInput 
                     label="Company Name" 
                     placeholder="Enter Company Name" 
                     width="30vw"
-                    @setData="setCompanyName">
+                    @setData="">
                 </HeaderedInput>
                 <HeaderedInput 
                     label="Description" 
@@ -25,15 +29,17 @@
                     isMultiline
                     height="10vh"
                     width="30vw"
-                    @setData="setDescription">
+                    @setData="setProjectDescription">
                 </HeaderedInput>
                 <div class="new-project-popup__form-container__terms-area">
-                    <Checkbox class="new-project-popup__form-container__terms-area__checkbox" @setData="setTermsAccepted"/>
+                    <Checkbox class="new-project-popup__form-container__terms-area__checkbox"
+                              @setData="setTermsAccepted"
+                              :isCheckboxError="termsAcceptedError"/>
                     <h2>I agree to the Storj Bridge Hosting <a>Terms & Conditions</a></h2>
                 </div>
                 <div class="new-project-popup__form-container__button-container">
                     <Button label="Cancel" width="14vw" height="48px" :onPress="onCloseClick" isWhite/>
-                    <Button label="Create Project" width="14vw" height="48px" :onPress="onCreate"/>
+                    <Button label="Create Project" width="14vw" height="48px" :onPress="createProject"/>
                 </div>
             </div>
             <div class="new-project-popup__close-cross-container">
@@ -61,9 +67,53 @@ import Button from "@/components/common/Button.vue";
                 type: Function
             }
         },
+        data: function() {
+            return {
+                name: "",
+                description: "",
+                isTermsAccepted: false,
+                termsAcceptedError: false,
+                nameError: "",
+            }
+        },
         methods: {
-            onCloseClick: function () : void {
+            setProjectName: function(value: string) : void {
+                this.$data.name = value;
+                this.$data.nameError = "";
+            },
+            setProjectDescription: function(value: string) : void {
+                this.$data.description = value;
+            },
+            setTermsAccepted: function(value: boolean) : void {
+                this.$data.isTermsAccepted = value;
+                this.$data.termsAcceptedError = false;
+            },
+            onCloseClick: function() : void {
+                // TODO: save popup states in store
                 this.$emit("onClose");
+            },
+            createProject: function() : void {
+                if (!this.$data.isTermsAccepted) {
+                    this.$data.termsAcceptedError = true;
+                }
+
+                if (!this.$data.name) {
+                    this.$data.nameError = "Name is required!";
+                }
+
+                if (this.$data.name.length > 20) {
+                    this.$data.nameError = "Name should be less than 21 character!";
+                }
+
+                if (this.$data.nameError || this.$data.isTermsAcceptedError) {
+                    return;
+                }
+
+                this.$store.dispatch("createProject", {
+                    name: this.$data.name,
+                    description: this.$data.description,
+                    isTermsAccepted: this.$data.isTermsAccepted,
+                })
             }
         },
         components: {

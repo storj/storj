@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="header-container">
         <div class="header-container__left-area">
@@ -36,7 +39,7 @@ import NewProjectArea from "./newProject/NewProjectArea.vue";
 import AccountButton from "./account/AccountButton.vue"
 
 @Component(
-    { 
+    {
 		components: {
             ProjectSelectionArea,
             NewProjectArea,

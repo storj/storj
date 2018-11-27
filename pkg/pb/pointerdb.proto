@@ -20,6 +20,8 @@ service PointerDB {
   rpc List(ListRequest) returns (ListResponse);
   // Delete formats and hands off a file path to delete from boltdb
   rpc Delete(DeleteRequest) returns (DeleteResponse);
+  // PayerBandwidthAllocation returns signed payer bandwidth allocation struct
+  rpc PayerBandwidthAllocation(PayerBandwidthAllocationRequest) returns (PayerBandwidthAllocationResponse);
 }
 
 message RedundancyScheme {
@@ -127,4 +129,12 @@ message IterateRequest {
   string first = 2;
   bool recurse = 3;
   bool reverse = 4;
+}
+
+message PayerBandwidthAllocationRequest {
+  piecestoreroutes.PayerBandwidthAllocation.Action action = 1;
+}
+
+message PayerBandwidthAllocationResponse {
+  piecestoreroutes.PayerBandwidthAllocation pba = 1;
 }

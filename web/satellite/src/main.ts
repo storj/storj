@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import Vue from 'vue';
 import App from './App.vue';
 import router from './router';

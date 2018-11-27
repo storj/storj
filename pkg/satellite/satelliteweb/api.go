@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/pkg/satellite/satelliteweb/satelliteql"
 	"storj.io/storj/pkg/utils"
 )
@@ -35,6 +36,7 @@ type graphqlJSON struct {
 	Variables     map[string]interface{}
 }
 
+// grapqlHandler is graphql endpoint http handler function
 func (gw *gateway) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
 
@@ -45,9 +47,17 @@ func (gw *gateway) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	ctx := auth.WithAPIKey(context.Background(), []byte(token))
+	auth, err := gw.service.Authorize(ctx)
+	if err != nil {
+		ctx = satellite.WithAuthFailure(ctx, err)
+	} else {
+		ctx = satellite.WithAuth(ctx, auth)
+	}
+
 	result := graphql.Do(graphql.Params{
 		Schema:         gw.schema,
-		Context:        auth.WithAPIKey(context.Background(), []byte(token)),
+		Context:        ctx,
 		RequestString:  query.Query,
 		VariableValues: query.Variables,
 		OperationName:  query.OperationName,
