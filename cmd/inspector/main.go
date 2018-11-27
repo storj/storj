@@ -208,6 +208,26 @@ func PingNode(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+// LookupNode will try to find a node in the Kademlia network by ID
+// func LookupNode(cmd *cobra.Command, args[]string) (err error) {
+// 	i, err := NewInspector(*Addr)
+// 	if err != nil {
+// 		return ErrInspectorDial.Wrap(err)
+// 	}
+//
+// 	found, err := i.client.LookupNode(context.Background(), &pb.LookupNodeRequest{
+// 		Id: args[0]
+// 	})
+//
+// 	if err != nil {
+// 		return ErrRequest.Wrap(err)
+// 	}
+//
+// 	fmt.Printf("Found Node: %+v\n", found)
+//
+// 	return nil
+// }
+
 // GetStats gets a node's stats from statdb
 func GetStats(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr)

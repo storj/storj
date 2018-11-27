@@ -16,9 +16,10 @@ service Inspector {
   rpc GetBuckets(GetBucketsRequest) returns (GetBucketsResponse);
   // GetBucket returns the details of a single k bucket from the kademlia instance
   rpc GetBucket(GetBucketRequest) returns (GetBucketResponse);
-  // PingNodes sends a PING RPC to a node and returns it's availability
+  // PingNode sends a PING RPC to a node and returns it's availability
   rpc PingNode(PingNodeRequest) returns (PingNodeResponse);
-
+  // LookupNode does a lookup in the Kademlia network and returns what the network finds
+  rpc LookupNode(LookupNodeRequest) returns (LookupNodeResponse);
   // StatDB commands:
   // GetStats returns the stats for a particular node ID
   rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
@@ -92,4 +93,16 @@ message PingNodeRequest {
 
 message PingNodeResponse {
   bool ok = 1;
+}
+
+//Lookup Node
+message LookupNodeRequest{
+  string id = 1;
+  string address = 2;
+}
+
+message LookupNodeResponse {
+  bool ok = 1;
+  string id = 2;
+  string address = 3; 
 }
