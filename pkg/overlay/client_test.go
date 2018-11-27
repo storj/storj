@@ -57,14 +57,22 @@ func TestChoose(t *testing.T) {
 	defer ctx.Cleanup()
 
 	cases := []struct {
-		limit    int
-		space    int64
-		allNodes []*pb.Node
-		excluded storj.NodeIDList
+		limit        int
+		space        int64
+		uptime       float64
+		uptimeCount int64
+		auditSuccess float64
+		auditCount   int64
+		allNodes     []*pb.Node
+		excluded     storj.NodeIDList
 	}{
 		{
-			limit: 4,
-			space: 0,
+			limit:        4,
+			space:        0,
+			uptime:       1,
+			uptimeCount: 10,
+			auditSuccess: 1,
+			auditCount:   10,
 			allNodes: func() []*pb.Node {
 				n1 := teststorj.MockNode("n1")
 				n2 := teststorj.MockNode("n2")
@@ -126,7 +134,15 @@ func TestChoose(t *testing.T) {
 		assert.True(t, ok)
 		assert.NotEmpty(t, overlay.client)
 
-		newNodes, err := oc.Choose(ctx, Options{Amount: v.limit, Space: v.space, Excluded: v.excluded})
+		newNodes, err := oc.Choose(ctx, Options{
+			Amount:       v.limit,
+			Space:        v.space,
+			Uptime:       v.uptime,
+			UptimeCount: v.uptimeCount,
+			AuditSuccess: v.auditSuccess,
+			AuditCount:   v.auditCount,
+			Excluded:     v.excluded,
+		})
 		assert.NoError(t, err)
 		for _, new := range newNodes {
 			for _, ex := range v.excluded {

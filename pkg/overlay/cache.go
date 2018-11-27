@@ -11,7 +11,6 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/statdb"
 	statproto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/storj"
@@ -108,10 +107,11 @@ func (o *Cache) Put(nodeID storj.NodeID, value pb.Node) error {
 		return err
 	}
 	stats := res.Stats
-	value.Reputation = &statproto.NodeStats{
+	value.Reputation = &pb.NodeStats{
 		AuditSuccessRatio: stats.AuditSuccessRatio,
-		UptimeRatio:       stats.UptimeRatio,
 		AuditCount:        stats.AuditCount,
+		UptimeRatio:       stats.UptimeRatio,
+		UptimeCount:       stats.UptimeCount,
 	}
 
 	data, err := proto.Marshal(&value)
