@@ -26,25 +26,6 @@ func TestBasic(t *testing.T) {
 	t.Log(ctx.File("a", "w", "c.txt"))
 }
 
-func TestTimeout(t *testing.T) {
-	ok := testing.RunTests(nil, []testing.InternalTest{{
-		Name: "TimeoutFailure",
-		F: func(t *testing.T) {
-			ctx := testcontext.NewWithTimeout(t, 50*time.Millisecond)
-			defer ctx.Cleanup()
-
-			ctx.Go(func() error {
-				time.Sleep(time.Second)
-				return nil
-			})
-		},
-	}})
-
-	if ok {
-		t.Error("test should have failed")
-	}
-}
-
 func TestMessage(t *testing.T) {
 	var subtest test
 
@@ -57,6 +38,8 @@ func TestMessage(t *testing.T) {
 
 	assert.Contains(t, subtest.errors[0], "Test exceeded timeout")
 	assert.Contains(t, subtest.errors[0], "some goroutines are still running")
+
+	assert.Contains(t, subtest.errors[1], "TestMessage")
 }
 
 type test struct {
