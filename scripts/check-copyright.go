@@ -13,6 +13,13 @@ import (
 	"path/filepath"
 )
 
+var checkFiles = map[string]bool{
+	".go":  true,
+	".ts":  true,
+	".js":  true,
+	".vue": true,
+}
+
 func main() {
 	var failed int
 
@@ -24,7 +31,7 @@ func main() {
 		if info.IsDir() && info.Name() == ".git" {
 			return filepath.SkipDir
 		}
-		if filepath.Ext(path) != ".go" {
+		if !checkFiles[filepath.Ext(path)] {
 			return nil
 		}
 
