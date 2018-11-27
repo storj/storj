@@ -6,9 +6,9 @@ package testuplink_test
 import (
 	"context"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"testing"
+	"time"
 	"os"
 	"path/filepath"
 
@@ -36,7 +36,7 @@ func TestMB(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Log("New")
-		planet, err := testplanet.New(1, 0, 1)
+		planet, err := testplanet.New(t, 1, 0, 1)
 		assert.NoError(t, err)
 
 		defer func() {
@@ -69,15 +69,20 @@ func TestMB(t *testing.T) {
 func TestCP(t *testing.T) {
 	tests := []struct {
 		bucket string
+		k, m, o, n int
 	}{
 		{
 			bucket: "sj://bucket",
+			k: 25,
+			m: 29,
+			o: 35,
+			n: 40,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Log("New")
-		planet, err := testplanet.New(1, 40, 1)
+		planet, err := testplanet.New(t, 1, 60, 1)
 		assert.NoError(t, err)
 
 		defer func() {
@@ -99,55 +104,51 @@ func TestCP(t *testing.T) {
 		uplink.Client.PointerDBAddr = planet.Satellites[0].Addr()
 		uplink.Client.APIKey = apiKey
 
+		uplink.Client.MinThreshold = tt.k
+		uplink.Client.RepairThreshold = tt.m
+		uplink.Client.SuccessThreshold = tt.o
+		uplink.Client.MaxThreshold = tt.n
+
 		t.Log("Start")
 		planet.Start(ctx)
+
+		time.Sleep(5 * time.Second)
 
 		err = testuplink.MB(ctx, uplink, tt.bucket)
 		assert.NoError(t, err)
 		
-		//content := []byte("temporary file's content")
+		content := []byte{}
+		for i := 0; i < 5000; i++ {
+			content = append(content, 'a')
+		}
+
 		tmpDir, err := ioutil.TempDir("", "test")
 		assert.NoError(t, err)
 
 		defer os.RemoveAll(tmpDir)
 
 		fpath := filepath.Join(tmpDir, "testfile")
-		// err = ioutil.WriteFile(fpath, content, 0666)
-		// assert.NoError(t, err)
-		f1, err := os.Create(fpath)
-		assert.NoError(t, err)
-
-		err = f1.Truncate(1e7)
+		
+		err = ioutil.WriteFile(fpath, content, 0666)
 		assert.NoError(t, err)
 
 		err = testuplink.CP(ctx, uplink, []string{fpath, tt.bucket})
 		assert.NoError(t, err)
+
+		// download file and verify data is the same
 
 		// dwnld := filepath.Join(tmpDir, "testdownload")
 		
 		// err = testuplink.CP(ctx, uplink, []string{"sj://bucket/testfile", dwnld})
 		// assert.NoError(t, err)
 		
-		// f2, err := os.Open(dwnld)
+		// f, err := os.Open(dwnld)
 		// assert.NoError(t, err)
-
-
-		fmt.Println("HI")
 
 		// buf := make([]byte, len(content))
-		// n, err := f.Read(buf)
+		// _, err = f.Read(buf)
 		// assert.NoError(t, err)
-
-		// fmt.Printf("%d bytes: %s\n", n, string(buf))
-
-
-
-		// srcInfo, err := f1.Stat()
-		// assert.NoError(t, err)
-
-		// dstInfo, err := f2.Stat()
-		// assert.NoError(t, err)
-
-		// fmt.Printf("src size: %d, dst size %d", srcInfo.Size(), dstInfo.Size())
+		
+		//assert.Equal(t, content, buf)
 	}
 }
