@@ -67,7 +67,9 @@ func applicationDir(subdir ...string) string {
 		fallthrough
 	default:
 		// XDG standards: https://specifications.freedesktop.org/basedir-spec/latest/ar01s03.html
-		appdir = os.Getenv("XDG_DATA_HOME")
+		for _, env := range []string{"XDG_DATA_HOME", "HOME"} {
+			appdir = os.Getenv(env)
+		}
 		if appdir == "" {
 			appdir = home
 		}
