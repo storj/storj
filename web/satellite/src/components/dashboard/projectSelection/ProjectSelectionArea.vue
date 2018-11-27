@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="project-selection-container">
         <div class="project-selection-toggle-container" v-on:click="toggleSelection">

@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="account-area-container">
         <!-- TODO: Get info for this area placeholders from store -->

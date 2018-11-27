@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import {
     SET_USER_INFO,
     REVERT_TO_DEFAULT_USER_INFO,
@@ -50,11 +53,8 @@ export const authModule = {
     },
 
     getters: {
-        userName: (state: any) => {
-            return `${state.firstName} ${state.lastName}`
-        }
+        userName: (state: any) => `${state.firstName} ${state.lastName}`
     },
-
 };
 
 function setUserInfo({commit}: any, userInfo: User): void {
