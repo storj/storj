@@ -77,13 +77,13 @@ func (s *Service) CreateUser(ctx context.Context, userInfo UserInfo, companyInfo
 
 // CreateCompany creates Company for authorized User
 func (s *Service) CreateCompany(ctx context.Context, info CompanyInfo) (*Company, error) {
-	user, err := s.Authorize(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	return s.store.Companies().Insert(ctx, &Company{
-		UserID:     user.ID,
+		UserID:     auth.User.ID,
 		Name:       info.Name,
 		Address:    info.Address,
 		Country:    info.Country,
@@ -118,7 +118,7 @@ func (s *Service) Token(ctx context.Context, email, password string) (string, er
 
 // GetUser returns user by id
 func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*User, error) {
-	_, err := s.Authorize(ctx)
+	_, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*User, error) {
 
 // GetCompany returns company by userID
 func (s *Service) GetCompany(ctx context.Context, userID uuid.UUID) (*Company, error) {
-	_, err := s.Authorize(ctx)
+	_, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -138,8 +138,7 @@ func (s *Service) GetCompany(ctx context.Context, userID uuid.UUID) (*Company, e
 
 // GetProject is a method for querying project by id
 func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (*Project, error) {
-	// TODO: auth will be moved in future
-	_, err := s.Authorize(ctx)
+	_, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -149,8 +148,7 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (*Project
 
 // GetUsersProjects is a method for querying all projects
 func (s *Service) GetUsersProjects(ctx context.Context) ([]Project, error) {
-	// TODO: auth will be moved in future
-	_, err := s.Authorize(ctx)
+	_, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -161,8 +159,7 @@ func (s *Service) GetUsersProjects(ctx context.Context) ([]Project, error) {
 
 // CreateProject is a method for querying all projects
 func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*Project, error) {
-	// TODO: auth will be moved in future
-	user, err := s.Authorize(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +169,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 	}
 
 	project := &Project{
-		OwnerID:       &user.ID,
+		OwnerID:       &auth.User.ID,
 		Description:   projectInfo.Description,
 		Name:          projectInfo.Name,
 		TermsAccepted: 1, //TODO: get lat version of Term of Use
@@ -183,8 +180,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 
 // DeleteProject is a method for deleting project by id
 func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) error {
-	// TODO: auth will be moved in future
-	_, err := s.Authorize(ctx)
+	_, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
@@ -194,8 +190,7 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) error 
 
 // UpdateProject is a method for updating project by id
 func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projectInfo ProjectInfo) (*Project, error) {
-	// TODO: auth will be moved in future
-	_, err := s.Authorize(ctx)
+	_, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -216,21 +211,35 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 	return project, nil
 }
 
-// Authorize validates token from context and returns authenticated and authorized User
-func (s *Service) Authorize(ctx context.Context) (*User, error) {
-	token, ok := auth.GetAPIKey(ctx)
+// Authorize validates token from context and returns authorized Authorization
+func (s *Service) Authorize(ctx context.Context) (Authorization, error) {
+	tokenS, ok := auth.GetAPIKey(ctx)
 	if !ok {
-		return nil, errs.New("no api key was provided")
+		return Authorization{}, errs.New("no api key was provided")
 	}
 
-	claims, err := s.authenticate(string(token))
+	token, err := satelliteauth.FromBase64URLString(string(tokenS))
 	if err != nil {
-		return nil, err
+		return Authorization{}, err
 	}
 
-	return s.authorize(ctx, claims)
+	claims, err := s.authenticate(token)
+	if err != nil {
+		return Authorization{}, err
+	}
+
+	user, err := s.authorize(ctx, claims)
+	if err != nil {
+		return Authorization{}, err
+	}
+
+	return Authorization{
+		User:   *user,
+		Claims: *claims,
+	}, nil
 }
 
+// createToken creates string representation
 func (s *Service) createToken(claims *satelliteauth.Claims) (string, error) {
 	json, err := claims.JSON()
 	if err != nil {
@@ -246,16 +255,11 @@ func (s *Service) createToken(claims *satelliteauth.Claims) (string, error) {
 	return token.String(), nil
 }
 
-// authenticate validates token signature and returns authenticated *satelliteauth.Claims
-func (s *Service) authenticate(tokenS string) (*satelliteauth.Claims, error) {
-	token, err := satelliteauth.FromBase64URLString(tokenS)
-	if err != nil {
-		return nil, err
-	}
-
+// authenticate validates token signature and returns authenticated *satelliteauth.Authorization
+func (s *Service) authenticate(token satelliteauth.Token) (*satelliteauth.Claims, error) {
 	signature := token.Signature
 
-	err = signToken(&token, s.Signer)
+	err := signToken(&token, s.Signer)
 	if err != nil {
 		return nil, err
 	}
