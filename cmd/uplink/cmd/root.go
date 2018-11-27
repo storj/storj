@@ -5,11 +5,8 @@ package cmd
 
 import (
 	"context"
-<<<<<<< HEAD
 	"fmt"
-=======
 	"os"
->>>>>>> replaces makeUplinkPath with applicationDir func
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -51,10 +48,11 @@ func applicationDir(subdir ...string) string {
 		}
 	}
 	home := os.Getenv("HOME")
-	appdir := filepath.Join(home, "Library", "Application Support")
+	var appdir string
 
 	switch runtime.GOOS {
 	case "windows":
+		// Windows standards: https://msdn.microsoft.com/en-us/library/windows/apps/hh465094.aspx?f=255&MSPPError=-2147217396
 		for _, env := range []string{"AppData", "AppDataLocal", "UserProfile", "Home"} {
 			val := os.Getenv(env)
 			if val != "" {
