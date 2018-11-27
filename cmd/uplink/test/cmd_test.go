@@ -7,13 +7,13 @@ import (
 	"context"
 	"flag"
 	"io/ioutil"
-	"testing"
-	"time"
 	"os"
 	"path/filepath"
+	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
-	
+
 	"storj.io/storj/cmd/uplink/test/cmd"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/cfgstruct"
@@ -23,7 +23,7 @@ const (
 	apiKey = "apiKey"
 )
 
-var ctx = context.Background() 
+var ctx = context.Background()
 
 func TestMB(t *testing.T) {
 	tests := []struct {
@@ -46,14 +46,14 @@ func TestMB(t *testing.T) {
 				t.Fatal(err)
 			}
 		}()
-		
+
 		err = flag.Set("pointer-db.auth.api-key", apiKey)
 		assert.NoError(t, err)
 
 		cfgstruct.Bind(&flag.FlagSet{}, &planet.Uplinks[0].Client)
 
 		uplink := planet.Uplinks[0]
-		
+
 		uplink.Client.OverlayAddr = planet.Satellites[0].Addr()
 		uplink.Client.PointerDBAddr = planet.Satellites[0].Addr()
 		uplink.Client.APIKey = apiKey
@@ -68,15 +68,15 @@ func TestMB(t *testing.T) {
 
 func TestCP(t *testing.T) {
 	tests := []struct {
-		bucket string
+		bucket     string
 		k, m, o, n int
 	}{
 		{
 			bucket: "sj://bucket",
-			k: 25,
-			m: 29,
-			o: 35,
-			n: 40,
+			k:      25,
+			m:      29,
+			o:      35,
+			n:      40,
 		},
 	}
 
@@ -92,14 +92,14 @@ func TestCP(t *testing.T) {
 				t.Fatal(err)
 			}
 		}()
-		
+
 		err = flag.Set("pointer-db.auth.api-key", apiKey)
 		assert.NoError(t, err)
 
 		cfgstruct.Bind(&flag.FlagSet{}, &planet.Uplinks[0].Client)
 
 		uplink := planet.Uplinks[0]
-		
+
 		uplink.Client.OverlayAddr = planet.Satellites[0].Addr()
 		uplink.Client.PointerDBAddr = planet.Satellites[0].Addr()
 		uplink.Client.APIKey = apiKey
@@ -116,7 +116,7 @@ func TestCP(t *testing.T) {
 
 		err = testuplink.MB(ctx, uplink, tt.bucket)
 		assert.NoError(t, err)
-		
+
 		content := []byte{}
 		for i := 0; i < 5000; i++ {
 			content = append(content, 'a')
@@ -128,7 +128,7 @@ func TestCP(t *testing.T) {
 		defer os.RemoveAll(tmpDir)
 
 		fpath := filepath.Join(tmpDir, "testfile")
-		
+
 		err = ioutil.WriteFile(fpath, content, 0666)
 		assert.NoError(t, err)
 
@@ -138,17 +138,17 @@ func TestCP(t *testing.T) {
 		// download file and verify data is the same
 
 		// dwnld := filepath.Join(tmpDir, "testdownload")
-		
+
 		// err = testuplink.CP(ctx, uplink, []string{"sj://bucket/testfile", dwnld})
 		// assert.NoError(t, err)
-		
+
 		// f, err := os.Open(dwnld)
 		// assert.NoError(t, err)
 
 		// buf := make([]byte, len(content))
 		// _, err = f.Read(buf)
 		// assert.NoError(t, err)
-		
+
 		//assert.Equal(t, content, buf)
 	}
 }

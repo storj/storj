@@ -38,7 +38,7 @@ type Node struct {
 	Kademlia  *kademlia.Kademlia
 	StatDB    *statdb.StatDB
 	Overlay   *overlay.Cache
-	Client   miniogw.Config
+	Client    miniogw.Config
 
 	Dependencies []io.Closer
 }
