@@ -5,7 +5,9 @@ package testplanet
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"math/rand"
 	"net"
 
 	"go.uber.org/zap"
@@ -17,6 +19,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage/teststore"
@@ -31,6 +34,7 @@ type Node struct {
 	Listener  net.Listener
 	Provider  *provider.Provider
 	Kademlia  *kademlia.Kademlia
+	StatDB    *statdb.Server
 	Overlay   *overlay.Cache
 
 	Dependencies []io.Closer
@@ -145,8 +149,20 @@ func (node *Node) initOverlay(planet *Planet) error {
 	}
 
 	node.Kademlia = kad
-	node.Overlay = overlay.NewOverlayCache(teststore.New(), node.Kademlia)
 
+	node.Overlay = overlay.NewOverlayCache(teststore.New(), node.Kademlia, node.StatDB)
+
+	return nil
+}
+
+// initStatDB creates statdb for a given planet
+func (node *Node) initStatDB() error {
+	dbPath := fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63())
+	sdb, err := statdb.NewServer("sqlite3", dbPath, "", zap.NewNop())
+	if err != nil {
+		return err
+	}
+	node.StatDB = sdb
 	return nil
 }
 

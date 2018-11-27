@@ -48,5 +48,5 @@ func (c cacheConfig) open() (*overlay.Cache, error) {
 	// add logger
 	db = storelogger.New(zap.L(), db)
 
-	return overlay.NewOverlayCache(db, nil), nil
+	return overlay.NewOverlayCache(db, nil, nil), nil
 }
