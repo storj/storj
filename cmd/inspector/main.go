@@ -67,6 +67,11 @@ var (
 		Short: "get all nodes in bucket",
 		RunE:  GetBucket,
 	}
+	pingNodeCmd = &cobra.Command{
+		Use:   "ping <node_id>",
+		Short: "ping node at provided ID",
+		RunE:  PingNode,
+	}
 	getStatsCmd = &cobra.Command{
 		Use:   "getstats",
 		Short: "Get node stats",
@@ -178,6 +183,28 @@ func GetBucket(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	fmt.Printf("Bucket ----------- \n %+v\n", bucket)
+	return nil
+}
+
+// PingNode sends a PING RPC across the Kad network to check node availability
+func PingNode(cmd *cobra.Command, args []string) (err error) {
+	if len(args) < 2 {
+		return errs.New("Must provide a node ID and address to ping")
+	}
+
+	i, err := NewInspector(*Addr)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	fmt.Printf("Pinging node %s at %s", args[0], args[1])
+
+	p, err := i.client.PingNode(context.Background(), &pb.PingNodeRequest{
+		Id:      args[0],
+		Address: args[1],
+	})
+
+	fmt.Printf("\n -- Ping response: %+v\n, -- Error: %+v\n", p, err)
 	return nil
 }
 
@@ -337,6 +364,7 @@ func init() {
 	kadCmd.AddCommand(countNodeCmd)
 	kadCmd.AddCommand(getBucketsCmd)
 	kadCmd.AddCommand(getBucketCmd)
+	kadCmd.AddCommand(pingNodeCmd)
 
 	statsCmd.AddCommand(getStatsCmd)
 	statsCmd.AddCommand(getCSVStatsCmd)

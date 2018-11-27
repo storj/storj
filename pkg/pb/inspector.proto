@@ -16,6 +16,8 @@ service Inspector {
   rpc GetBuckets(GetBucketsRequest) returns (GetBucketsResponse);
   // GetBucket returns the details of a single k bucket from the kademlia instance
   rpc GetBucket(GetBucketRequest) returns (GetBucketResponse);
+  // PingNodes sends a PING RPC to a node and returns it's availability
+  rpc PingNode(PingNodeRequest) returns (PingNodeResponse);
 
   // StatDB commands:
   // GetStats returns the stats for a particular node ID
@@ -81,4 +83,13 @@ message Bucket {
 
 message BucketList {
   repeated overlay.Node nodes = 1;
+}
+// PingNode 
+message PingNodeRequest {
+  string id = 1;
+  string address = 2;
+}
+
+message PingNodeResponse {
+  bool ok = 1;
 }
