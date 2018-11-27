@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/pkg/satellite"
 )
 
-// GatewayConfig contaclaimsins configuration for gateway
+// GatewayConfig contains configuration for gateway
 type GatewayConfig struct {
 	Address    string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
 	StaticPath string `help:"path to static resources" default:""`

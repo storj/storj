@@ -14,7 +14,9 @@ const (
 	// Mutation is graphql request that modifies data
 	Mutation = "mutation"
 
-	createUserMutation    = "createUser"
+	createUserMutation = "createUser"
+	deleteUserMutation = "deleteUser"
+
 	createProjectMutation = "createProject"
 	deleteProjectMutation = "deleteProject"
 	updateProjectMutation = "updateProject"
@@ -49,6 +51,30 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					}
 
 					return user.ID.String(), nil
+				},
+			},
+			deleteUserMutation: &graphql.Field{
+				Type: types.User(),
+				Args: graphql.FieldConfigArgument{
+					fieldID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					id, _ := p.Args[fieldID].(string)
+
+					idBytes, err := uuid.Parse(id)
+					if err != nil {
+						return nil, err
+					}
+
+					user, err := service.GetUser(p.Context, *idBytes)
+					if err != nil {
+						return nil, err
+					}
+
+					err = service.DeleteUser(p.Context, *idBytes)
+					return user, err
 				},
 			},
 			// creates project from input params

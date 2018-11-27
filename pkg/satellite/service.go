@@ -126,6 +126,16 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*User, error) {
 	return s.store.Users().Get(ctx, id)
 }
 
+// DeleteUser deletes user by ID
+func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	_, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return s.store.Users().Delete(ctx, id)
+}
+
 // GetCompany returns company by userID
 func (s *Service) GetCompany(ctx context.Context, userID uuid.UUID) (*Company, error) {
 	_, err := GetAuth(ctx)
