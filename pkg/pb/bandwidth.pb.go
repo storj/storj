@@ -7,10 +7,8 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -97,9 +95,8 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// BandwidthClient is the client API for Bandwidth service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+// Client API for Bandwidth service
+
 type BandwidthClient interface {
 	BandwidthAgreements(ctx context.Context, in *RenterBandwidthAllocation, opts ...grpc.CallOption) (*AgreementsSummary, error)
 }
@@ -121,7 +118,8 @@ func (c *bandwidthClient) BandwidthAgreements(ctx context.Context, in *RenterBan
 	return out, nil
 }
 
-// BandwidthServer is the server API for Bandwidth service.
+// Server API for Bandwidth service
+
 type BandwidthServer interface {
 	BandwidthAgreements(context.Context, *RenterBandwidthAllocation) (*AgreementsSummary, error)
 }

@@ -63,7 +63,7 @@ func (mr *MockDHTMockRecorder) Disconnect() *gomock.Call {
 }
 
 // FindNode mocks base method
-func (m *MockDHT) FindNode(arg0 context.Context, arg1 dht.NodeID) (pb.Node, error) {
+func (m *MockDHT) FindNode(arg0 context.Context, arg1 storj.NodeID) (pb.Node, error) {
 	ret := m.ctrl.Call(m, "FindNode", arg0, arg1)
 	ret0, _ := ret[0].(pb.Node)
 	ret1, _ := ret[1].(error)
@@ -191,7 +191,7 @@ func (mr *MockRoutingTableMockRecorder) ConnectionSuccess(arg0 interface{}) *gom
 }
 
 // FindNear mocks base method
-func (m *MockRoutingTable) FindNear(arg0 dht.NodeID, arg1 int) ([]*pb.Node, error) {
+func (m *MockRoutingTable) FindNear(arg0 storj.NodeID, arg1 int) ([]*pb.Node, error) {
 	ret := m.ctrl.Call(m, "FindNear", arg0, arg1)
 	ret0, _ := ret[0].([]*pb.Node)
 	ret1, _ := ret[1].(error)

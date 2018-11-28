@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
-	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/transport"
@@ -52,7 +52,7 @@ type PieceStore struct {
 	client           pb.PieceStoreRoutesClient // PieceStore for interacting with Storage Node
 	prikey           crypto.PrivateKey         // Uplink private key
 	bandwidthMsgSize int                       // max bandwidth message size in bytes
-	nodeID           *node.ID                  // Storage node being connected to
+	nodeID           storj.NodeID                  // Storage node being connected to
 }
 
 // NewPSClient initilizes a piecestore client
@@ -75,7 +75,7 @@ func NewPSClient(ctx context.Context, tc transport.Client, n *pb.Node, bandwidth
 		client:           pb.NewPieceStoreRoutesClient(conn),
 		bandwidthMsgSize: bandwidthMsgSize,
 		prikey:           tc.Identity().Key,
-		nodeID:           node.IDFromString(n.GetId()),
+		nodeID:           n.Id,
 	}, nil
 }
 
@@ -93,7 +93,7 @@ func NewCustomRoute(client pb.PieceStoreRoutesClient, target *pb.Node, bandwidth
 		client:           client,
 		bandwidthMsgSize: bandwidthMsgSize,
 		prikey:           prikey,
-		nodeID:           node.IDFromString(target.GetId()),
+		nodeID:           target.Id,
 	}, nil
 }
 

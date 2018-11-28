@@ -8,9 +8,9 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 )
@@ -35,8 +35,8 @@ func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT) *Cache {
 }
 
 // Get looks up the provided nodeID from the overlay cache
-func (o *Cache) Get(ctx context.Context, key string) (*pb.Node, error) {
-	b, err := o.DB.Get([]byte(key))
+func (o *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
+	b, err := o.DB.Get(nodeID.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -52,13 +52,13 @@ func (o *Cache) Get(ctx context.Context, key string) (*pb.Node, error) {
 }
 
 // GetAll looks up the provided nodeIDs from the overlay cache
-func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*pb.Node, error) {
-	if len(keys) == 0 {
-		return nil, OverlayError.New("no keys provided")
+func (o *Cache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error) {
+	if len(nodeIDs) == 0 {
+		return nil, OverlayError.New("no nodeIDs provided")
 	}
 	var ks storage.Keys
-	for _, v := range keys {
-		ks = append(ks, storage.Key(v))
+	for _, v := range nodeIDs {
+		ks = append(ks, v.Bytes())
 	}
 	vs, err := o.DB.GetAll(ks)
 	if err != nil {
@@ -81,10 +81,10 @@ func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*pb.Node, error) {
 }
 
 // Put adds a nodeID to the redis cache with a binary representation of proto defined Node
-func (o *Cache) Put(nodeID string, value pb.Node) error {
+func (o *Cache) Put(nodeID storj.NodeID, value pb.Node) error {
 	// If we get a Node without an ID (i.e. bootstrap node)
 	// we don't want to add to the routing tbale
-	if nodeID == "" {
+	if nodeID == (storj.NodeID{}) {
 		return nil
 	}
 
@@ -93,7 +93,7 @@ func (o *Cache) Put(nodeID string, value pb.Node) error {
 		return err
 	}
 
-	return o.DB.Put(node.IDFromString(nodeID).Bytes(), data)
+	return o.DB.Put(nodeID.Bytes(), data)
 }
 
 // Bootstrap walks the initialized network and populates the cache
@@ -115,7 +115,7 @@ func (o *Cache) Refresh(ctx context.Context) error {
 	nodes := o.DHT.Seen()
 
 	for _, v := range nodes {
-		if err := o.Put(v.GetId(), *v); err != nil {
+		if err := o.Put(v.Id, *v); err != nil {
 			return err
 		}
 	}

@@ -19,13 +19,14 @@ import (
 	"github.com/gtank/cryptopasta"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
-
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/storj"
 	"storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -73,7 +74,7 @@ func NewTestServer(t *testing.T) *TestServer {
 	check(err)
 	fiC, err := caC.NewIdentity()
 	check(err)
-	co, err := fiC.DialOption("")
+	co, err := fiC.DialOption(storj.NodeID{})
 	check(err)
 
 	s := newTestServerStruct(t, fiC.Key)
@@ -151,8 +152,8 @@ func generatePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action,
 	// Generate PayerBandwidthAllocation_Data
 	data, _ := proto.Marshal(
 		&pb.PayerBandwidthAllocation_Data{
-			SatelliteId:       []byte("SatelliteID"),
-			UplinkId:          []byte("UplinkID"),
+			SatelliteId:       teststorj.NodeIDFromString("SatelliteID"),
+			UplinkId:          teststorj.NodeIDFromString("UplinkID"),
 			ExpirationUnixSec: time.Now().Add(time.Hour * 24 * 10).Unix(),
 			SerialNumber:      "SerialNumber",
 			Action:            action,
@@ -190,7 +191,7 @@ func generateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, uplinkK
 		&pb.RenterBandwidthAllocation_Data{
 			PayerAllocation: pba,
 			PubKey:          pubbytes, // TODO: Take this out. It will be kept in a database on the satellite
-			StorageNodeId:   []byte("StorageNodeID"),
+			StorageNodeId:   teststorj.NodeIDFromString("StorageNodeID"),
 			Total:           int64(666),
 		},
 	)

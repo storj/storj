@@ -11,6 +11,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/dht"
@@ -69,7 +70,7 @@ func TestChoose(t *testing.T) {
 		limit    int
 		space    int64
 		allNodes []*pb.Node
-		excluded []dht.NodeID
+		excluded storj.NodeIDList
 	}{
 		{
 			limit: 4,
@@ -85,12 +86,12 @@ func TestChoose(t *testing.T) {
 				n8 := &pb.Node{Id: "n8"}
 				return []*pb.Node{n1, n2, n3, n4, n5, n6, n7, n8}
 			}(),
-			excluded: func() []dht.NodeID {
+			excluded: func() storj.NodeIDList {
 				id1 := node.IDFromString("n1")
 				id2 := node.IDFromString("n2")
 				id3 := node.IDFromString("n3")
 				id4 := node.IDFromString("n4")
-				return []dht.NodeID{id1, id2, id3, id4}
+				return storj.NodeIDList{id1, id2, id3, id4}
 			}(),
 		},
 	}
@@ -146,7 +147,7 @@ func TestLookup(t *testing.T) {
 	defer ctx.Cleanup()
 
 	cases := []struct {
-		nodeID        dht.NodeID
+		nodeID        storj.NodeID
 		expectedCalls int
 	}{
 		{
@@ -189,11 +190,11 @@ func TestBulkLookup(t *testing.T) {
 	defer ctx.Cleanup()
 
 	cases := []struct {
-		nodeIDs       []dht.NodeID
+		nodeIDs       storj.NodeIDList
 		expectedCalls int
 	}{
 		{
-			nodeIDs:       []dht.NodeID{mockNodeID{}, mockNodeID{}, mockNodeID{}},
+			nodeIDs:       storj.NodeIDList{mockNodeID{}, mockNodeID{}, mockNodeID{}},
 			expectedCalls: 1,
 		},
 	}
@@ -265,24 +266,24 @@ func TestBulkLookupV2(t *testing.T) {
 	nid5 := node.IDFromString("n5")
 
 	{ // empty id
-		_, err := oc.BulkLookup(ctx, []dht.NodeID{})
+		_, err := oc.BulkLookup(ctx, storj.NodeIDList{})
 		assert.Error(t, err)
 	}
 
 	{ // valid ids
-		ns, err := oc.BulkLookup(ctx, []dht.NodeID{nid1, nid2, nid3})
+		ns, err := oc.BulkLookup(ctx, storj.NodeIDList{nid1, nid2, nid3})
 		assert.NoError(t, err)
 		assert.Equal(t, nodes, ns)
 	}
 
 	{ // missing ids
-		ns, err := oc.BulkLookup(ctx, []dht.NodeID{nid4, nid5})
+		ns, err := oc.BulkLookup(ctx, storj.NodeIDList{nid4, nid5})
 		assert.NoError(t, err)
 		assert.Equal(t, []*pb.Node{nil, nil}, ns)
 	}
 
 	{ // different order and missing
-		ns, err := oc.BulkLookup(ctx, []dht.NodeID{nid3, nid4, nid1, nid2, nid5})
+		ns, err := oc.BulkLookup(ctx, storj.NodeIDList{nid3, nid4, nid1, nid2, nid5})
 		assert.NoError(t, err)
 		assert.Equal(t, []*pb.Node{n3, nil, n1, n2, nil}, ns)
 	}

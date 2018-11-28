@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"storj.io/storj/internal/storj"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -26,7 +27,7 @@ func TestDialNode(t *testing.T) {
 
 	// node.Address.Address == "" condition test
 	node := pb.Node{
-		Id: "DUMMYID1",
+		Id: teststorj.NodeIDFromString("DUMMYID1"),
 		Address: &pb.NodeAddress{
 			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 			Address:   "",
@@ -38,7 +39,7 @@ func TestDialNode(t *testing.T) {
 
 	// node.Address == nil condition test
 	node = pb.Node{
-		Id:      "DUMMYID2",
+		Id:      teststorj.NodeIDFromString("DUMMYID2"),
 		Address: nil,
 	}
 	conn, err = oc.DialNode(ctx, &node)
@@ -47,7 +48,7 @@ func TestDialNode(t *testing.T) {
 
 	// node is valid argument condition test
 	node = pb.Node{
-		Id: "DUMMYID3",
+		Id: teststorj.NodeIDFromString("DUMMYID3"),
 		Address: &pb.NodeAddress{
 			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 			Address:   "127.0.0.0:9000",

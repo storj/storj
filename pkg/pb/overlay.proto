@@ -5,13 +5,10 @@ syntax = "proto3";
 option go_package = "pb";
 
 import "google/protobuf/duration.proto";
+import "gogo.proto";
+import "node.proto";
 
 package overlay;
-
-// NodeTransport is an enum of possible transports for the overlay network
-enum NodeTransport {
-    TCP_TLS_GRPC = 0;
-}
 
 // Overlay defines the interface for communication with the overlay network
 service Overlay {
@@ -30,99 +27,66 @@ service Nodes {
 
 // LookupRequest is is request message for the lookup rpc call
 message LookupRequest {
-    string nodeID = 1;
+    bytes node_id = 1[(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 // LookupResponse is is response message for the lookup rpc call
 message LookupResponse {
-    Node node = 1;
+    node.Node node = 1;
 }
 
 //LookupRequests is a list of LookupRequest
 message LookupRequests {
+    // TODO: `lookup_request`
     repeated LookupRequest lookuprequest = 1;
 }
 
 //LookupResponse is a list of LookupResponse
 message LookupResponses {
+    // TODO: `lookup_response`
     repeated LookupResponse lookupresponse = 1;
 }
 
 
 // FindStorageNodesResponse is is response message for the FindStorageNodes rpc call
 message FindStorageNodesResponse {
-    repeated Node nodes = 1;
+    repeated node.Node nodes = 1;
 }
 
 // FindStorageNodesRequest is is request message for the FindStorageNodes rpc call
 message FindStorageNodesRequest {
+    // TODO: `object_size`
     int64 objectSize = 1;
+    // TODO: `contract_length`
     google.protobuf.Duration contractLength = 2;
     OverlayOptions opts = 3;
     bytes start = 4;
+    // TODO: `max_nodes`
     int64 maxNodes = 5;
-}
-
-// NodeAddress contains the information needed to communicate with a node on the network
-message NodeAddress {
-    NodeTransport transport = 1;
-    string address = 2;
 }
 
 // OverlayOptions is a set of criteria that a node must meet to be considered for a storage opportunity
 message OverlayOptions {
     google.protobuf.Duration maxLatency = 1;
-    NodeRep minReputation = 2;
+    // TODO: `min_reputation`
+    node.NodeRep minReputation = 2;
+    // TODO: `min_speed_kbps`
     int64 minSpeedKbps = 3;
     int64 amount = 4;
-    NodeRestrictions restrictions = 5;
-    repeated string excluded_nodes = 6;
-}
-
-// NodeRep is the reputation characteristics of a node
-message NodeRep {
-    float minUptime = 1;
-    float minAuditSuccess = 2;
-    int64 minAuditCount = 3;
-}
-
-//  NodeRestrictions contains all relevant data about a nodes ability to store data
-message NodeRestrictions {
-    int64 freeBandwidth = 1;
-    int64 freeDisk = 2;
-}
-
-// Node represents a node in the overlay network
-message Node {
-    string id = 1;
-    NodeAddress address = 2;
-    NodeType type = 3;
-    NodeRestrictions restrictions = 4;
-    NodeMetadata metadata = 5;
-}
-
-// NodeType is an enum of possible node types
-enum NodeType {
-    ADMIN = 0;
-    STORAGE = 1;
-}
-
-message NodeMetadata {
-    string email = 1;
-    string wallet = 2;
+    node.NodeRestrictions restrictions = 5;
+    bytes excluded_nodes = 6 [(gogoproto.customtype) = "NodeIDList"];
 }
 
 message QueryRequest {
-    overlay.Node sender = 1;
-    overlay.Node target = 2;
+    node.Node sender = 1;
+    node.Node target = 2;
     int64 limit = 3;
     bool pingback = 4;
 }
 
 message QueryResponse {
-    overlay.Node sender = 1;
-
-    repeated overlay.Node response = 2;
+    node.Node sender = 1;
+    repeated node.Node response = 2;
 }
 
 message PingRequest {};
@@ -137,7 +101,9 @@ message Restriction {
         GTE = 4;
     }
     enum Operand {
+        // TODO: `free_bandwidth`
         freeBandwidth = 0;
+        // TODO: `free_disk`
         freeDisk = 1;
     }
 

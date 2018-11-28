@@ -60,22 +60,24 @@ func NodeIDFromBytes(b []byte) (NodeID, error) {
 	return NodeID(id), nil
 }
 
-func (id NodeID) Less(compID NodeID) bool {
-	for k, v := range id {
-		if v < compID[k] {
-			return true
-		} else if v > compID[k] {
-			return false
-		}
-		// compare next index
-	}
-	// identical nodeIDs
-	return false
-}
-
 // String returns NodeID as hex encoded string
 func (id NodeID) String() string {
 	return base58.CheckEncode(id[:], IDVersion)
+}
+
+func (id NodeID) Len() int {
+	return len(id)
+}
+
+func (id NodeID) Swap(i, j int) {
+	id[i], id[j] = id[j], id[i]
+}
+
+func (id NodeID) Less(i, j int) bool {
+	if id[i] < id[j] {
+		return true
+	}
+	return false
 }
 
 // Bytes returns raw bytes of the id
@@ -131,10 +133,14 @@ func (id *NodeID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// // only required if the compare option is set
-// func (id NodeID) Compare(other NodeID) int {}
-// // only required if the equal option is set
-// func (id NodeID) Equal(other NodeID) bool {}
+// func (id NodeID) Compare(other NodeID) int {
+// 	return bytes.Compare(id.Bytes(), other.Bytes())
+// }
+//
+// func (id NodeID) Equal(other NodeID) bool {
+// 	return bytes.Equal(id.Bytes(), other.Bytes())
+// }
+
 // // only required if populate option is set
 // func NewPopulatedNodeID(r randyNodeIDhetest) *NodeID {}
 

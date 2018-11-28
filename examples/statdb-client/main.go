@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
 	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/statdb/sdbclient"
@@ -44,17 +43,16 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer printError(logger.Sync)
 
-	ca, err := provider.NewTestCA(ctx)
-	if err != nil {
-		logger.Error("Failed to create certificate authority: ", zap.Error(err))
-		os.Exit(1)
+	idents := make([]*provider.FullIdentity, 3)
+	for i := range idents {
+		var err error
+		idents[i], err = provider.NewFullIdentity(ctx, 12, 4)
+		if err != nil {
+			logger.Error("Failed to create certificate authority: ", zap.Error(err))
+			os.Exit(1)
+		}
 	}
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		logger.Error("Failed to create full identity: ", zap.Error(err))
-		os.Exit(1)
-	}
-	client, err := sdbclient.NewClient(identity, port, apiKey)
+	client, err := sdbclient.NewClient(idents[0], port, apiKey)
 	if err != nil {
 		logger.Error("Failed to create sdbclient: ", zap.Error(err))
 	}
@@ -63,25 +61,25 @@ func main() {
 
 	// Test farmers
 	farmer1 := proto.Node{
-		NodeId:             []byte("nodeid1"),
+		Id:             idents[1].ID,
 		UpdateAuditSuccess: false,
 		UpdateUptime:       false,
 	}
 	farmer2 := proto.Node{
-		NodeId:             []byte("nodeid2"),
+		Id:             idents[2].ID,
 		UpdateAuditSuccess: false,
 		UpdateUptime:       false,
 	}
 
 	// Example Creates
-	err = client.Create(ctx, farmer1.NodeId)
+	err = client.Create(ctx, farmer1.Id)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to create", zap.Error(err))
 		os.Exit(1)
 	}
 	logger.Info("Farmer 1 created successfully")
 
-	err = client.Create(ctx, farmer2.NodeId)
+	err = client.Create(ctx, farmer2.Id)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to create", zap.Error(err))
 		os.Exit(1)
@@ -94,7 +92,7 @@ func main() {
 	farmer1.UpdateAuditSuccess = true
 	farmer1.UpdateUptime = true
 
-	nodeStats, err := client.Update(ctx, farmer1.NodeId, farmer1.AuditSuccess, farmer1.IsUp, nil)
+	nodeStats, err := client.Update(ctx, farmer1.Id, farmer1.AuditSuccess, farmer1.IsUp, nil)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update", zap.Error(err))
 		os.Exit(1)
@@ -124,7 +122,7 @@ func main() {
 	}
 
 	// Example Get
-	nodeStats, err = client.Get(ctx, farmer1.NodeId)
+	nodeStats, err = client.Get(ctx, farmer1.Id)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update", zap.Error(err))
 		os.Exit(1)
@@ -132,7 +130,7 @@ func main() {
 	logger.Info("Farmer 1 after Get 1")
 	printNodeStats(*nodeStats, *logger)
 
-	nodeStats, err = client.Get(ctx, farmer2.NodeId)
+	nodeStats, err = client.Get(ctx, farmer2.Id)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update", zap.Error(err))
 		os.Exit(1)

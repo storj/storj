@@ -6,6 +6,8 @@ option go_package = "pb";
 
 package piecestoreroutes;
 
+import "gogo.proto";
+
 service PieceStoreRoutes {
   rpc Piece(PieceId) returns (PieceSummary) {}
 
@@ -26,8 +28,8 @@ message PayerBandwidthAllocation { // Payer refers to satellite
   }
 
   message Data {
-    bytes satellite_id = 1;        // Satellite Identity
-    bytes uplink_id = 2;           // Uplink Identity
+    bytes satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];        // Satellite Identity
+    bytes uplink_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Uplink Identity
     int64 max_size = 3;            // Max amount of data the satellite will pay for in bytes
     int64 expiration_unix_sec = 4; // Unix timestamp for when data is no longer being paid for
     string serial_number = 5;      // Unique serial number
@@ -43,7 +45,7 @@ message RenterBandwidthAllocation { // Renter refers to uplink
   message Data {
     PayerBandwidthAllocation payer_allocation = 1; // Bandwidth Allocation from Satellite
     int64 total = 2;                               // Total Bytes Stored
-    bytes storage_node_id = 3;                     // Storage Node Identity
+    bytes storage_node_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Storage Node Identity
     bytes pub_key = 4;                             // Renter Public Key // TODO: Take this out. It will be kept in a database on the satellite
   }
 
@@ -53,17 +55,21 @@ message RenterBandwidthAllocation { // Renter refers to uplink
 
 message PieceStore {
   message PieceData {
+    // TODO: may want to use customtype and fixed-length byte slice
     string id = 1;
     int64 expiration_unix_sec = 2;
     bytes content = 3;
   }
 
+  // TODO: `bandwidth_allocation`
   RenterBandwidthAllocation bandwidthallocation = 1;
+  // TODO: `piece_data`
   PieceData piecedata = 2;
   SignedMessage authorization = 3;
 }
 
 message PieceId {
+  // TODO: may want to use customtype and fixed-length byte slice
   string id = 1;
 
   SignedMessage authorization = 2;
@@ -77,12 +83,15 @@ message PieceSummary {
 
 message PieceRetrieval {
   message PieceData {
+    // TODO: may want to use customtype and fixed-length byte slice
     string id = 1;
     int64 piece_size = 2;
     int64 offset = 3;
   }
 
+  // TODO: `bandwidth_allocation`
   RenterBandwidthAllocation bandwidthallocation = 1;
+  // TODO: `piece_data`
   PieceData pieceData = 2;
   SignedMessage authorization = 3;
 }
@@ -93,6 +102,7 @@ message PieceRetrievalStream {
 }
 
 message PieceDelete {
+  // TODO: may want to use customtype and fixed-length byte slice
   string id = 1;
   SignedMessage authorization = 3;
 }
@@ -103,20 +113,26 @@ message PieceDeleteSummary {
 
 message PieceStoreSummary {
   string message = 1;
+  // TODO: `total_received`
   int64 totalReceived = 2;
 }
 
 message StatsReq {}
 
 message StatSummary {
+  // TODO: `used_space`
   int64 usedSpace = 1;
+  // TODO: `available_space`
   int64 availableSpace = 2;
+  // TODO: `used_bandwidth`
   int64 usedBandwidth = 3;
+  // TODO: `available_bandwidth`
   int64 availableBandwidth = 4;
 }
 
 message SignedMessage {
   bytes data = 1;
   bytes signature = 2;
+  // TODO: `public_key`
   bytes publicKey = 3;
 }

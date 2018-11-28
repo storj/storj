@@ -7,10 +7,8 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -112,9 +110,8 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// KadCliClient is the client API for KadCli service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+// Client API for KadCli service
+
 type KadCliClient interface {
 	// CountNodes returns the number of nodes in the cache and in the routing table
 	CountNodes(ctx context.Context, in *CountNodesRequest, opts ...grpc.CallOption) (*CountNodesResponse, error)
@@ -137,7 +134,8 @@ func (c *kadCliClient) CountNodes(ctx context.Context, in *CountNodesRequest, op
 	return out, nil
 }
 
-// KadCliServer is the server API for KadCli service.
+// Server API for KadCli service
+
 type KadCliServer interface {
 	// CountNodes returns the number of nodes in the cache and in the routing table
 	CountNodes(context.Context, *CountNodesRequest) (*CountNodesResponse, error)

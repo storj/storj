@@ -42,7 +42,7 @@ func TestLookup(t *testing.T) {
 		lis, err := net.Listen("tcp", "127.0.0.1:0")
 		assert.NoError(t, err)
 
-		id := newTestIdentity(t)
+		id := testidentity.NewTestIdentity(t)
 		v.to = pb.Node{Id: id.ID.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}
 
 		srv, mock, err := newTestServer(ctx, &mockNodeServer{queryCalled: 0}, id)
@@ -86,7 +86,7 @@ func TestPing(t *testing.T) {
 		{
 			self:        pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":7070"}},
 			toID:        "",
-			toIdentity:  newTestIdentity(t),
+			toIdentity:  testidentity.NewTestIdentity(t),
 			expectedErr: nil,
 		},
 	}

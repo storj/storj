@@ -15,6 +15,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"storj.io/storj/internal/storj"
 
 	"storj.io/storj/pkg/pb"
 )
@@ -80,7 +81,7 @@ func TestPieceRanger(t *testing.T) {
 				Address:   "",
 				Transport: 0,
 			},
-			Id: "test-node-id-1234567",
+			Id: teststorj.NodeIDFromString("test-node-id-1234567"),
 		}
 		c, err := NewCustomRoute(route, target, 32*1024, priv)
 		assert.NoError(t, err)
@@ -158,7 +159,7 @@ func TestPieceRangerSize(t *testing.T) {
 				Address:   "",
 				Transport: 0,
 			},
-			Id: "test-node-id-1234567",
+			Id: teststorj.NodeIDFromString("test-node-id-1234567"),
 		}
 		c, err := NewCustomRoute(route, target, 32*1024, priv)
 		assert.NoError(t, err)

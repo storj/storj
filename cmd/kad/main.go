@@ -8,11 +8,12 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	"storj.io/storj/pkg/node"
+	"go.uber.org/zap"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -30,6 +31,10 @@ var (
 		Short: "get all nodes in cache",
 		RunE:  ListNodes,
 	}
+
+	lookupCfg struct {
+		overlay.LookupConfig
+	}
 )
 
 // Inspector gives access to kademlia and overlay cache
@@ -40,7 +45,7 @@ type Inspector struct {
 
 // NewInspector returns an Inspector client
 func NewInspector(address string) (*Inspector, error) {
-	id, err := node.NewFullIdentity(context.Background(), 12, 4)
+	id, err := provider.NewFullIdentity(context.Background(), 12, 4)
 	if err != nil {
 		return &Inspector{}, nil
 	}
@@ -63,13 +68,36 @@ func GetNode(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	n := node.IDFromString("testnode")
-	found, err := i.overlay.Lookup(context.Background(), n)
+
+	ids, err := lookupCfg.ParseIDs()
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("### FOUND: %+v\n", found)
+	var (
+		nodes []*pb.Node
+		lookupErrs []error
+	)
+	for _, id := range ids {
+		node, err := i.overlay.Lookup(process.Ctx(cmd), id)
+		if err != nil {
+			lookupErrs = append(lookupErrs, err)
+			continue
+		}
+		nodes = append(nodes, node)
+	}
+	p := func() {
+		for _, n := range nodes {
+			fmt.Printf("### FOUND: %+v\n", n)
+		}
+	}
+	if err := utils.CombineErrors(lookupErrs...); err != nil {
+		zap.S().Errorf("lookup error(s):", err)
+		p()
+		return err
+	}
+
+	p()
 	return nil
 }
 
@@ -93,3 +121,4 @@ func init() {
 func main() {
 	process.Exec(rootCmd)
 }
+

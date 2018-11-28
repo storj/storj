@@ -4,15 +4,12 @@
 package psclient
 
 import (
-	"context"
 	"testing"
 
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
-
-	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/node"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/internal/identity"
+	"storj.io/storj/pkg/storj"
 )
 
 func TestNewPieceID(t *testing.T) {
@@ -30,9 +27,9 @@ func TestNewPieceID(t *testing.T) {
 
 func TestDerivePieceID(t *testing.T) {
 	pid := NewPieceID()
-	fid, err := newTestIdentity()
+	fid, err := testidentity.NewTestIdentity()
 	assert.NoError(t, err)
-	nid := dht.NodeID(fid.ID)
+	nid := storj.NodeID(fid.ID)
 
 	did, err := pid.Derive(nid.Bytes())
 	assert.NoError(t, err)
@@ -44,12 +41,4 @@ func TestDerivePieceID(t *testing.T) {
 
 	_, err = base58.Decode(did.String())
 	assert.NoError(t, err)
-}
-
-// helper function to generate new node identities with
-// correct difficulty and concurrency
-func newTestIdentity() (*provider.FullIdentity, error) {
-	ctx := context.Background()
-	fid, err := node.NewFullIdentity(ctx, 12, 4)
-	return fid, err
 }

@@ -11,13 +11,12 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
-	"encoding/base64"
 	"encoding/pem"
 	"os"
 	"path/filepath"
 
 	"github.com/zeebo/errs"
-	"golang.org/x/crypto/sha3"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/peertls"
 )
@@ -62,7 +61,7 @@ func decodePEM(PEMBytes []byte) ([][]byte, error) {
 func newCAWorker(ctx context.Context, difficulty uint16, parentCert *x509.Certificate, parentKey crypto.PrivateKey, caC chan FullCertificateAuthority, eC chan error) {
 	var (
 		k   crypto.PrivateKey
-		i   nodeID
+		i   storj.NodeID
 		err error
 	)
 	for {
@@ -77,7 +76,7 @@ func newCAWorker(ctx context.Context, difficulty uint16, parentCert *x509.Certif
 			}
 			switch kE := k.(type) {
 			case *ecdsa.PrivateKey:
-				i, err = idFromKey(&kE.PublicKey)
+				i, err = NodeIDFromKey(&kE.PublicKey)
 				if err != nil {
 					eC <- err
 					return
@@ -88,7 +87,12 @@ func newCAWorker(ctx context.Context, difficulty uint16, parentCert *x509.Certif
 			}
 		}
 
-		if i.Difficulty() >= difficulty {
+		d, err := i.Difficulty()
+		if err != nil {
+			eC <- err
+			continue
+		}
+		if d >= difficulty {
 			break
 		}
 	}
@@ -161,16 +165,6 @@ func newCACert(key, parentKey crypto.PrivateKey, template, parentCert *x509.Cert
 		})
 	}
 	return cert, nil
-}
-
-func idFromKey(k crypto.PublicKey) (nodeID, error) {
-	kb, err := x509.MarshalPKIXPublicKey(k)
-	if err != nil {
-		return "", errs.Wrap(err)
-	}
-	hash := make([]byte, IdentityLength)
-	sha3.ShakeSum256(hash, kb)
-	return nodeID(base64.URLEncoding.EncodeToString(hash)), nil
 }
 
 func openCert(path string, flag int) (*os.File, error) {

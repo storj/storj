@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"google.golang.org/grpc"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/provider"
@@ -31,7 +32,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	dialOption, err := identity.DialOption("")
+	dialOption, err := identity.DialOption(storj.NodeID{})
 	if err != nil {
 		panic(err)
 	}

@@ -4,6 +4,9 @@
 syntax = "proto3";
 package statdb;
 
+import "gogo.proto";
+import "node.proto";
+
 // StatDB defines the interface for retrieving and updating storagenode stats
 service StatDB {
   // Create a db entry for the provided storagenode ID
@@ -20,95 +23,73 @@ service StatDB {
   rpc CreateEntryIfNotExists(CreateEntryIfNotExistsRequest) returns (CreateEntryIfNotExistsResponse);
 }
 
-// Node is info for a updating a single storagenode, used in the Update rpc calls
-message Node {
-  bytes node_id = 1;
-  repeated int64 latency_list = 2;
-  bool audit_success = 3;
-  bool is_up = 4;
-  bool update_latency = 5;
-  bool update_audit_success = 6;
-  bool update_uptime = 7;
-}
-
-// NodeStats is info about a single storagenode stored in the stats db
-message NodeStats {
-  bytes node_id = 1;
-  int64 latency_90 = 2; // 90th percentile measure of storagenode latency
-  double audit_success_ratio = 3; // (auditSuccessCount / totalAuditCount)
-  double uptime_ratio = 4; // (uptimeCount / totalUptimeCheckCount)
-  int64 audit_count = 5;
-  int64 audit_success_count = 6;
-  int64 uptime_count = 7;
-  int64 uptime_success_count = 8;
-}
 
 // CreateRequest is a request message for the Create rpc call
 message CreateRequest {
-  Node node = 1;
-  NodeStats stats = 2;
+  node.Node node = 1;
+  node.NodeStats stats = 2;
   bytes APIKey = 3;
 }
 
 // CreateResponse is a response message for the Create rpc call
 message CreateResponse {
-  NodeStats stats = 1;
+  node.NodeStats stats = 1;
 }
 
 // GetRequest is a request message for the Get rpc call
 message GetRequest {
-  bytes node_id = 1;
+  bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
   bytes APIKey = 2;
 }
 
 // GetResponse is a response message for the Get rpc call
 message GetResponse {
-  NodeStats stats = 1;
+  node.NodeStats stats = 1;
 }
 
 // FindValidNodesRequest is a request message for the FindValidNodes rpc call
 message FindValidNodesRequest {
-  repeated bytes node_ids = 1;
-  NodeStats min_stats = 2;
+  bytes node_ids = 1 [(gogoproto.casttype) = "NodeIDList"];
+  node.NodeStats min_stats = 2;
   bytes APIKey = 3;
 }
 
 // FindValidNodesResponse is a response message for the FindValidNodes rpc call
 message FindValidNodesResponse {
-  repeated bytes passed_ids = 1;
-  repeated bytes failed_ids = 2;
+  bytes passed_ids = 1 [(gogoproto.casttype) = "NodeIDList"];
+  bytes failed_ids = 2 [(gogoproto.casttype) = "NodeIDList"];
 }
 
 // UpdateRequest is a request message for the Update rpc call
 message UpdateRequest {
-  Node node = 1;
+  node.Node node = 1;
   bytes APIKey = 2;
 }
 
 // UpdateRequest is a response message for the Update rpc call
 message UpdateResponse {
-  NodeStats stats = 1;
+  node.NodeStats stats = 1;
 }
 
 // UpdateBatchRequest is a request message for the UpdateBatch rpc call
 message UpdateBatchRequest {
-  repeated Node node_list = 1;
+  repeated node.Node node_list = 1;
   bytes APIKey = 2;
 }
 
 // UpdateBatchResponse is a response message for the UpdateBatch rpc call
 message UpdateBatchResponse {
-  repeated NodeStats stats_list = 1;
-  repeated Node failed_nodes = 2;
+  repeated node.NodeStats stats_list = 1;
+  repeated node.Node failed_nodes = 2;
 }
 
 // CreateEntryIfNotExistsRequest is a request message for the CreateEntryIfNotExists rpc call
 message CreateEntryIfNotExistsRequest {
-  Node node = 1;
+  node.Node node = 1;
   bytes APIKey = 2;
 }
 
 // CreateEntryIfNotExistsResponse is a response message for the CreateEntryIfNotExists rpc call
 message CreateEntryIfNotExistsResponse  {
-  NodeStats stats = 1;
+  node.NodeStats stats = 1;
 }

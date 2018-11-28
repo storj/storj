@@ -11,11 +11,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/utils"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils/lookup"
 	"storj.io/storj/storage"
 )
 
@@ -92,9 +91,9 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 					c.logger.Debug("no pieces on remote segment")
 					continue
 				}
-				var nodeIDs []dht.NodeID
+				var nodeIDs storj.NodeIDList
 				for _, p := range pieces {
-					nodeIDs = append(nodeIDs, node.IDFromString(p.NodeId))
+					nodeIDs = append(nodeIDs, p.NodeId)
 				}
 				missingPieces, err := c.offlineNodes(ctx, nodeIDs)
 				if err != nil {
@@ -118,12 +117,12 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 }
 
 // returns the indices of offline nodes
-func (c *checker) offlineNodes(ctx context.Context, nodeIDs []dht.NodeID) (offline []int32, err error) {
-	responses, err := c.overlay.BulkLookup(ctx, utils.NodeIDsToLookupRequests(nodeIDs))
+func (c *checker) offlineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (offline []int32, err error) {
+	responses, err := c.overlay.BulkLookup(ctx, lookup.NodeIDsToLookupRequests(nodeIDs))
 	if err != nil {
 		return []int32{}, err
 	}
-	nodes := utils.LookupResponsesToNodes(responses)
+	nodes := lookup.LookupResponsesToNodes(responses)
 	for i, n := range nodes {
 		if n == nil {
 			offline = append(offline, int32(i))

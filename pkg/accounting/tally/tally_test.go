@@ -12,14 +12,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	"storj.io/storj/internal/storj"
 
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/teststore"
 )
 
@@ -35,18 +35,17 @@ func TestOnlineNodes(t *testing.T) {
 
 	const N = 50
 	nodes := []*pb.Node{}
-	nodeIDs := []dht.NodeID{}
+	nodeIDs := storj.NodeIDList{}
 	expectedOnline := []*pb.Node{}
 	for i := 0; i < N; i++ {
-		str := strconv.Itoa(i)
-		n := &pb.Node{Id: str, Address: &pb.NodeAddress{Address: str}}
+		nodeID := teststorj.NodeIDFromString(strconv.Itoa(i))
+		n := &pb.Node{Id: nodeID, Address: &pb.NodeAddress{Address: ""}}
 		nodes = append(nodes, n)
 		if i%(rand.Intn(5)+2) == 0 {
-			id := node.IDFromString("id" + str)
+			id := teststorj.NodeIDFromString("id" + nodeID.String())
 			nodeIDs = append(nodeIDs, id)
 		} else {
-			id := node.IDFromString(str)
-			nodeIDs = append(nodeIDs, id)
+			nodeIDs = append(nodeIDs, nodeID)
 			expectedOnline = append(expectedOnline, n)
 		}
 	}

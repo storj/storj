@@ -11,10 +11,9 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/vivint/infectious"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
@@ -69,8 +68,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 		return s, err
 	}
 
-	nodeID := node.IDFromString(fromNode.GetId())
-	derivedPieceID, err := id.Derive(nodeID.Bytes())
+	derivedPieceID, err := id.Derive(fromNode.Id.Bytes())
 	if err != nil {
 		return s, err
 	}
@@ -120,11 +118,11 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
 	stripeIndex int, authorization *pb.SignedMessage) (shares []share, nodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
-	var nodeIds []dht.NodeID
+	var nodeIds storj.NodeIDList
 	pieces := pointer.Remote.GetRemotePieces()
 
 	for _, p := range pieces {
-		nodeIds = append(nodeIds, node.IDFromString(p.GetNodeId()))
+		nodeIds = append(nodeIds, p.NodeId)
 	}
 
 	// TODO(moby) nodes will not include offline nodes, so overlay should update uptime for these nodes
@@ -212,10 +210,10 @@ func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *
 		return nil, err
 	}
 
-	var offlineNodes []string
+	var offlineNodes storj.NodeIDList
 	for i := range shares {
 		if shares[i].Error != nil {
-			offlineNodes = append(offlineNodes, nodes[i].GetId())
+			offlineNodes = append(offlineNodes, nodes[i].Id)
 		}
 	}
 
@@ -226,9 +224,9 @@ func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *
 		return nil, err
 	}
 
-	var failedNodes []string
+	var failedNodes storj.NodeIDList
 	for _, pieceNum := range pieceNums {
-		failedNodes = append(failedNodes, nodes[pieceNum].GetId())
+		failedNodes = append(failedNodes, nodes[pieceNum].Id)
 	}
 
 	successNodes := getSuccessNodes(ctx, nodes, failedNodes, offlineNodes)
@@ -238,8 +236,8 @@ func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *
 }
 
 // getSuccessNodes uses the failed nodes and offline nodes arrays to determine which nodes passed the audit
-func getSuccessNodes(ctx context.Context, nodes []*pb.Node, failedNodes, offlineNodes []string) (successNodes []string) {
-	fails := make(map[string]bool)
+func getSuccessNodes(ctx context.Context, nodes []*pb.Node, failedNodes, offlineNodes storj.NodeIDList) (successNodes storj.NodeIDList) {
+	fails := make(map[storj.NodeID]bool)
 	for _, fail := range failedNodes {
 		fails[fail] = true
 	}
@@ -248,15 +246,15 @@ func getSuccessNodes(ctx context.Context, nodes []*pb.Node, failedNodes, offline
 	}
 
 	for _, node := range nodes {
-		if !fails[node.GetId()] {
-			successNodes = append(successNodes, node.GetId())
+		if !fails[node.Id] {
+			successNodes = append(successNodes, node.Id)
 		}
 	}
 	return successNodes
 }
 
 // setVerifiedNodes creates a combined array of offline nodes, failed audit nodes, and success nodes with their stats set to the statdb proto Node type
-func setVerifiedNodes(ctx context.Context, nodes []*pb.Node, offlineNodes, failedNodes, successNodes []string) (verifiedNodes []*sdbproto.Node) {
+func setVerifiedNodes(ctx context.Context, nodes []*pb.Node, offlineNodes, failedNodes, successNodes storj.NodeIDList) (verifiedNodes []*sdbproto.Node) {
 	offlineStatusNodes := setOfflineStatus(ctx, offlineNodes)
 	failStatusNodes := setAuditFailStatus(ctx, failedNodes)
 	successStatusNodes := setSuccessStatus(ctx, successNodes)

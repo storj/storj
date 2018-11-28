@@ -22,7 +22,7 @@ func TestGet(t *testing.T) {
 	}{
 		{
 			pool: func() *ConnectionPool {
-				p := NewConnectionPool(newTestIdentity(t))
+				p := NewConnectionPool(testidentity.NewTestIdentity(t))
 				p.Init()
 				p.items["foo"] = &Conn{addr: "foo"}
 				return p
@@ -85,7 +85,7 @@ func TestDial(t *testing.T) {
 		expected      *Conn
 	}{
 		{
-			pool:          NewConnectionPool(newTestIdentity(t)),
+			pool:          NewConnectionPool(testidentity.NewTestIdentity(t)),
 			node:          &pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: "127.0.0.1:0"}},
 			expected:      nil,
 			expectedError: nil,

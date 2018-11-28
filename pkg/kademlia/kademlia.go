@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -54,9 +55,9 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
+func NewKademlia(id storj.NodeID, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
 	self := pb.Node{
-		Id:       id.String(),
+		Id:       id,
 		Address:  &pb.NodeAddress{Address: address},
 		Metadata: metadata,
 	}
@@ -114,15 +115,21 @@ func (k *Kademlia) Disconnect() error {
 
 // GetNodes returns all nodes from a starting node up to a maximum limit
 // stored in the local routing table limiting the result by the specified restrictions
-func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
+func (k *Kademlia) GetNodes(ctx context.Context, start storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
 	nodes := []*pb.Node{}
 	iteratorMethod := func(it storage.Iterator) error {
 		var item storage.ListItem
 		maxLimit := storage.LookupLimit
 		for ; maxLimit > 0 && it.Next(&item); maxLimit-- {
-			id := string(item.Key)
-			node := &pb.Node{}
-			err := proto.Unmarshal(item.Value, node)
+			var (
+				id storj.NodeID
+				node = &pb.Node{}
+			)
+			err := id.Unmarshal(item.Key)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			err = proto.Unmarshal(item.Value, node)
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -138,7 +145,7 @@ func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restri
 	}
 	err := k.routingTable.iterate(
 		storage.IterateOptions{
-			First:   storage.Key(start),
+			First:   storage.Key(start.Bytes()),
 			Recurse: true,
 		},
 		iteratorMethod,
@@ -164,12 +171,12 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return BootstrapErr.New("no bootstrap nodes provided")
 	}
 
-	return k.lookup(ctx, node.IDFromString(k.routingTable.self.GetId()), discoveryOptions{
+	return k.lookup(ctx, k.routingTable.self.Id, discoveryOptions{
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: true, bootstrapNodes: k.bootstrapNodes,
 	})
 }
 
-func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts discoveryOptions) error {
+func (k *Kademlia) lookup(ctx context.Context, target storj.NodeID, opts discoveryOptions) error {
 	kb := k.routingTable.K()
 	// look in routing table for targetID
 	nodes, err := k.routingTable.FindNear(target, kb)
@@ -208,16 +215,16 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
-func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (pb.Node, error) {
+func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error) {
 	// TODO(coyle): actually Find Node not just perform a lookup
-	err := k.lookup(ctx, node.IDFromString(k.routingTable.self.GetId()), discoveryOptions{
+	err := k.lookup(ctx, k.routingTable.self.Id, discoveryOptions{
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: false,
 	})
 	if err != nil {
 		return pb.Node{}, err
 	}
 
-	// k.routingTable.getNodesFromIDs()
+	// k.routingTable.getNodesFromIDsBytes()
 	return pb.Node{}, nil
 }
 

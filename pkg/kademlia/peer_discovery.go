@@ -9,14 +9,14 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 type peerDiscovery struct {
 	client node.Client
-	target dht.NodeID
+	target storj.NodeID
 	opts   discoveryOptions
 
 	cond  sync.Cond
@@ -26,7 +26,7 @@ type peerDiscovery struct {
 // ErrMaxRetries is used when a lookup has been retried the max number of times
 var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 
-func newPeerDiscovery(nodes []*pb.Node, client node.Client, target dht.NodeID, opts discoveryOptions) *peerDiscovery {
+func newPeerDiscovery(nodes []*pb.Node, client node.Client, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
 	queue := NewXorQueue(opts.concurrency)
 	queue.Insert(target, nodes)
 
@@ -65,7 +65,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 					}
 
 					next, _ = lookup.queue.Closest()
-					if !lookup.opts.bootstrap && next.GetId() == lookup.target.String() {
+					if !lookup.opts.bootstrap && next.Id == lookup.target {
 						allDone = true
 						break // closest node is the target and is already in routing table (i.e. no lookup required)
 					}
@@ -80,14 +80,14 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 				}
 				lookup.cond.L.Unlock()
 
-				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target.String()})
+				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target})
 				if err != nil {
 					ok := lookup.queue.Reinsert(lookup.target, next, lookup.opts.retries)
 					if !ok {
 						zap.S().Errorf(
 							"Error occurred during lookup of %s :: %s :: error = %s",
 							lookup.target.String(),
-							ErrMaxRetries.New("%s", next.GetId()),
+							ErrMaxRetries.New("%s", next.Id),
 							err.Error(),
 						)
 					}

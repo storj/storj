@@ -15,6 +15,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+	"storj.io/storj/internal/storj"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
@@ -43,7 +44,7 @@ func main() {
 			Address:   ":7777",
 			Transport: 0,
 		},
-		Id: "test-node-id-1234567",
+		Id: teststorj.NodeIDFromString("test-node-id-1234567"),
 	}
 	tc := transport.NewClient(identity)
 	psClient, err := psclient.NewPSClient(ctx, tc, n, 0)
@@ -81,6 +82,11 @@ func main() {
 				return argError.New(fmt.Sprintf("path (%s) is a directory, not a file", inputfile))
 			}
 
+			satelliteIdent, err := provider.NewFullIdentity(ctx, 12, 4)
+			if err != nil {
+				return err
+			}
+
 			var length = fileInfo.Size()
 			var ttl = time.Now().Add(24 * time.Hour)
 
@@ -90,7 +96,7 @@ func main() {
 			id := psclient.NewPieceID()
 
 			allocationData := &pb.PayerBandwidthAllocation_Data{
-        SatelliteId:    []byte("OhHeyThisIsAnUnrealFakeSatellite"),
+        SatelliteId:    satelliteIdent.ID,
 				Action:         pb.PayerBandwidthAllocation_PUT,
 				CreatedUnixSec: time.Now().Unix(),
 			}
@@ -153,8 +159,13 @@ func main() {
 				return err
 			}
 
+			satelliteIdent, err := provider.NewFullIdentity(ctx, 12, 4)
+			if err != nil {
+				return err
+			}
+
 			allocationData := &pb.PayerBandwidthAllocation_Data{
-        SatelliteId:    []byte("OhHeyThisIsAnUnrealFakeSatellite"),
+        SatelliteId:    satelliteIdent.ID,
 				Action:         pb.PayerBandwidthAllocation_GET,
 				CreatedUnixSec: time.Now().Unix(),
 			}

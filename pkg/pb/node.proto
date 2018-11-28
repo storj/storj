@@ -1,0 +1,77 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package node;
+
+import "gogo.proto";
+
+//  NodeRestrictions contains all relevant data about a nodes ability to store data
+message NodeRestrictions {
+    int64 freeBandwidth = 1;
+    int64 freeDisk = 2;
+}
+
+// Node represents a node in the overlay network
+// Node is info for a updating a single storagenode, used in the Update rpc calls
+message Node {
+    bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    NodeAddress address = 2;
+    NodeType type = 3;
+    NodeRestrictions restrictions = 4;
+    NodeMetadata metadata = 5;
+    repeated int64 latency_list = 6;
+    bool audit_success = 7;
+    bool is_up = 8;
+    bool update_latency = 9;
+    bool update_audit_success = 10;
+    bool update_uptime = 11;
+}
+
+// NodeType is an enum of possible node types
+enum NodeType {
+    ADMIN = 0;
+    STORAGE = 1;
+}
+
+// NodeAddress contains the information needed to communicate with a node on the network
+message NodeAddress {
+    NodeTransport transport = 1;
+    string address = 2;
+}
+
+// NodeTransport is an enum of possible transports for the overlay network
+enum NodeTransport {
+    TCP_TLS_GRPC = 0;
+}
+// NodeStats is info about a single storagenode stored in the stats db
+message NodeStats {
+    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    int64 latency_90 = 2; // 90th percentile measure of storagenode latency
+    double audit_success_ratio = 3; // (auditSuccessCount / totalAuditCount)
+    double uptime_ratio = 4; // (uptimeCount / totalUptimeCheckCount)
+    int64 audit_count = 5;
+    int64 audit_success_count = 6;
+    int64 uptime_count = 7;
+    int64 uptime_success_count = 8;
+}
+
+// TODO: combine with `NodeStats`
+// NodeRep is the reputation characteristics of a node
+message NodeRep {
+    // TODO: `min_uptime`
+    float minUptime = 1;
+    // TODO: `min_audit_success`
+    float minAuditSuccess = 2;
+    // TODO: `min_audit_count`
+    int64 minAuditCount = 3;
+}
+
+message NodeMetadata {
+    string email = 1;
+    string wallet = 2;
+}
+
+

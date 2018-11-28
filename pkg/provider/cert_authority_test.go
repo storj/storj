@@ -20,7 +20,8 @@ func TestNewCA(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, ca)
 
-	actualDifficulty := ca.ID.Difficulty()
+	actualDifficulty, err := ca.ID.Difficulty()
+	assert.NoError(t, err)
 	assert.True(t, actualDifficulty >= expectedDifficulty)
 }
 

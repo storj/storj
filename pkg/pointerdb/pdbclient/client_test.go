@@ -15,6 +15,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
+	"storj.io/storj/internal/storj"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
@@ -51,7 +52,7 @@ func makePointer(path storj.Path) pb.PutRequest {
 	var rps []*pb.RemotePiece
 	rps = append(rps, &pb.RemotePiece{
 		PieceNum: 1,
-		NodeId:   "testId",
+		NodeId:   teststorj.NodeIDFromString("testId"),
 	})
 	pr := pb.PutRequest{
 		Path: path,
