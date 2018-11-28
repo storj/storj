@@ -6,14 +6,11 @@ package satelliteweb
 import (
 	"context"
 
+	"github.com/graphql-go/graphql"
+	"go.uber.org/zap"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/pkg/satellite/satelliteauth"
-
-	"go.uber.org/zap"
-
-	"github.com/graphql-go/graphql"
-
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/satellite/satellitedb"
 	"storj.io/storj/pkg/satellite/satelliteweb/satelliteql"
 	"storj.io/storj/pkg/utils"
@@ -31,12 +28,12 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	log := zap.NewExample()
 
 	// Create satellite DB
-	dbURL, err := utils.ParseURL(c.DatabaseURL)
+	driver, source, err := utils.ParseURL(c.DatabaseURL)
 	if err != nil {
 		return err
 	}
 
-	db, err := satellitedb.New(dbURL.Scheme, dbURL.Path)
+	db, err := satellitedb.New(driver, source)
 	if err != nil {
 		return err
 	}

@@ -6,7 +6,7 @@ package utils
 import (
 	"bytes"
 	"encoding/gob"
-	"net/url"
+	"fmt"
 	"strings"
 	"time"
 
@@ -26,18 +26,12 @@ func GetBytes(key interface{}) ([]byte, error) {
 }
 
 // ParseURL extracts database parameters from a string as a URL
-//   bolt://storj.db
-//   bolt://C:\storj.db
-//   redis://hostname
-func ParseURL(s string) (*url.URL, error) {
-	if strings.HasPrefix(s, "bolt://") {
-		return &url.URL{
-			Scheme: "bolt",
-			Path:   strings.TrimPrefix(s, "bolt://"),
-		}, nil
+func ParseURL(s string) (string, string, error) {
+	parts := strings.SplitAfterN(s, "://", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("Could not parse DB URL %s", s)
 	}
-
-	return url.Parse(s)
+	return parts[0], parts[1], nil
 }
 
 // CombineErrors combines multiple errors to a single error

@@ -7,7 +7,6 @@ import (
 	"net/url"
 
 	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"

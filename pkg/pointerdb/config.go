@@ -5,13 +5,12 @@ package pointerdb
 
 import (
 	"context"
+	"net/url"
 
 	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/postgreskv"
@@ -37,7 +36,7 @@ type Config struct {
 }
 
 func newKeyValueStore(dbURLString string) (db storage.KeyValueStore, err error) {
-	dburl, err := utils.ParseURL(dbURLString)
+	dburl, err := url.Parse(dbURLString)
 	if err != nil {
 		return nil, err
 	}

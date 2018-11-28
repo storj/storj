@@ -5,7 +5,6 @@ package dbmanager
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -30,14 +29,13 @@ type DBManager struct {
 
 // NewDBManager creates a new instance of a DatabaseManager
 func NewDBManager(databaseURL string) (*DBManager, error) {
-	dbURL, err := utils.ParseURL(databaseURL)
+	driver, source, err := utils.ParseURL(databaseURL)
 	if err != nil {
-		return nil, fmt.Errorf(databaseURL)
+		return nil, err
 	}
-
-	db, err := dbx.Open(dbURL.Scheme, dbURL.Path)
+	db, err := dbx.Open(driver, source)
 	if err != nil {
-		return nil, fmt.Errorf(databaseURL)
+		return nil, err
 	}
 
 	err = migrate.Create("bwagreement", db)

@@ -5,16 +5,15 @@ package overlay
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -52,7 +51,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return Error.New("programmer error: kademlia responsibility unstarted")
 	}
 
-	dburl, err := utils.ParseURL(c.DatabaseURL)
+	dburl, err := url.Parse(c.DatabaseURL)
 	if err != nil {
 		return Error.Wrap(err)
 	}
