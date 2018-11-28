@@ -7,7 +7,7 @@
         <div class="project-details-info-container">
             <div class="project-details-info-container__name-container">
                 <h2>Project Name</h2>
-                <h3>Name Project</h3>
+                <h3>{{name}}</h3>
             </div>
             <div class="project-details-info-container__name-container">
                 <h2>Company / Organization</h2>
@@ -18,7 +18,7 @@
             <div class="project-details-info-container__description-container" v-if="!isEditing">
                 <div class="project-details-info-container__description-container__text">
                     <h2>Description</h2>
-                    <h3>Project to store raw music files and downloads for the Physical Graffiti album Project to store raw music files and downloads for the Physical Graffiti album</h3>
+                    <h3>{{description}}</h3>
                 </div>
                 <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" v-on:click="toggleEditing">
                     <rect width="40" height="40" rx="4" fill="#E2ECF7"/>
@@ -32,11 +32,10 @@
                     width="70vw"
                     height="10vh"
                     isMultiline
-                    :error="inputError"
-                    @setData="setInputValue" />
+                    @setData="setNewDescription" />
                 <div class="project-details-info-container__description-container__buttons-area">
                     <Button label="Cancel" width="10vw" height="5vh" :onPress="toggleEditing" isWhite/> 
-                    <Button label="Save" width="10vw" height="5vh" :onPress="onSaveClick"/> 
+                    <Button label="Save" width="10vw" height="5vh" :onPress="onSaveButtonClick"/>
                 </div>
             </div>
         </div>
@@ -57,10 +56,10 @@
         </div>
         <div class="project-details__terms-area">
             <Checkbox class="project-details__terms-area__checkbox" />
-            <h2>Project Approval 5/24/2018 by Jimmy Page</h2>
+            <h2>{{projectApproval}}</h2>
         </div>
         <div class="project-details__button-area">
-            <Button label="Delete project" width="10vw" height="5vh" :onPress="onDeleteAccountClick" isWhite/> 
+            <Button label="Delete project" width="10vw" height="5vh" :onPress="onDeleteButtonClick" isWhite/>
         </div>
     </div>
 </template>
@@ -75,13 +74,65 @@ import Checkbox from '@/components/common/Checkbox.vue';
     { 
         data: function() {
             return {
-                isEditing: false
+                isEditing: false,
+                newDescription: "",
             }
         },
         methods: {
             toggleEditing: function() : void {
                 this.$data.isEditing = !this.$data.isEditing;
+                // TODO: cache this value in future
+                this.$data.newDescription = "";
+            },
+            setNewDescription: function(value: string): void {
+                this.$data.newDescription = value;
+            },
+            onSaveButtonClick: async function(): Promise<any> {
+                let isUpdateSuccess = await this.$store.dispatch(
+                    "updateProjectDescription", {
+                        id: this.$store.getters.selectedProject.id,
+                        description: this.$data.newDescription,
+                    }
+                );
+
+                isUpdateSuccess
+                    // TODO: call toggleEditing method instead of this IIF
+                    ? (()=>{
+                        this.$data.isEditing = !this.$data.isEditing;
+                        this.$data.newDescription = "";
+                    })()
+                    //TODO: popup error here
+                    : console.log("error during project updating!");
+            },
+            onDeleteButtonClick: async function(): Promise<any> {
+                let isDeleteSuccess = await this.$store.dispatch(
+                    "deleteProject",
+                    this.$store.getters.selectedProject.id,
+                );
+
+                if (!isDeleteSuccess) {
+                    //TODO: popup error here
+                    console.log("error during project deletion!");
+                }
             }
+        },
+        computed: {
+            name: function(): string {
+                return this.$store.getters.selectedProject.name;
+            },
+            description: function(): string {
+                return this.$store.getters.selectedProject.description;
+            },
+            projectApproval: function(): string {
+                let date = new Date(this.$store.getters.selectedProject.createdAt);
+
+                return `Project Approval ${date.toLocaleDateString()} by ${this.$store.getters.selectedProject.ownerName}`;
+            },
+            // this computed is used to indicate if project is selected.
+            // if false - we should change UI
+            isProjectSelected: function(): boolean {
+                return this.$store.getters.selectedProject.id !== ""
+            },
         },
         components: {
             Button,

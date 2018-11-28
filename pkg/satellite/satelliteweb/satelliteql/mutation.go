@@ -20,9 +20,10 @@ const (
 
 	updateCompanyMutation = "updateCompany"
 
-	createProjectMutation = "createProject"
-	deleteProjectMutation = "deleteProject"
-	updateProjectMutation = "updateProject"
+
+	createProjectMutation            = "createProject"
+	deleteProjectMutation            = "deleteProject"
+	updateProjectDescriptionMutation = "updateProjectDescription"
 
 	input = "input"
 )
@@ -170,7 +171,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 				Type: graphql.String,
 				Args: graphql.FieldConfigArgument{
 					fieldID: &graphql.ArgumentConfig{
-						Type: graphql.String,
+						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
@@ -183,19 +184,19 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					return nil, service.DeleteProject(p.Context, *projectID)
 				},
 			},
-			// updates project
-			updateProjectMutation: &graphql.Field{
+			// updates project description
+			updateProjectDescriptionMutation: &graphql.Field{
 				Type: graphql.String,
 				Args: graphql.FieldConfigArgument{
 					fieldID: &graphql.ArgumentConfig{
-						Type: graphql.String,
+						Type: graphql.NewNonNull(graphql.String),
 					},
-					input: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(types.ProjectInput()),
+					fieldDescription: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					var projectInput = fromMapProjectInfo(p.Args[input].(map[string]interface{}))
+					description := p.Args[fieldDescription].(string)
 
 					inputID := p.Args[fieldID].(string)
 					projectID, err := uuid.Parse(inputID)
@@ -203,7 +204,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						return nil, err
 					}
 
-					return service.UpdateProject(p.Context, *projectID, projectInput)
+					return service.UpdateProject(p.Context, *projectID, description)
 				},
 			},
 		},

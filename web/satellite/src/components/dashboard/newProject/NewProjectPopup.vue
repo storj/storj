@@ -92,7 +92,7 @@ import Button from "@/components/common/Button.vue";
                 // TODO: save popup states in store
                 this.$emit("onClose");
             },
-            createProject: function() : void {
+            createProject: async function() : Promise<any> {
                 if (!this.$data.isTermsAccepted) {
                     this.$data.termsAcceptedError = true;
                 }
@@ -105,15 +105,21 @@ import Button from "@/components/common/Button.vue";
                     this.$data.nameError = "Name should be less than 21 character!";
                 }
 
-                if (this.$data.nameError || this.$data.isTermsAcceptedError) {
+                if (this.$data.nameError || this.$data.termsAcceptedError) {
                     return;
                 }
 
-                this.$store.dispatch("createProject", {
+                let isSuccess = this.$store.dispatch("createProject", {
                     name: this.$data.name,
                     description: this.$data.description,
                     isTermsAccepted: this.$data.isTermsAccepted,
                 });
+
+                if (!isSuccess) {
+                    // TODO: show popup here
+                    console.log("error during project creation!");
+                    return;
+                }
 
                 this.$emit("onClose");
             }

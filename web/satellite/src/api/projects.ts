@@ -43,7 +43,10 @@ export async function fetchProjects(): Promise<any> {
                     myProjects{
                         name
                         id
-                        description                       
+                        description
+                        createdAt            
+                        ownerName           
+                        isTermsAccepted
                     }
                 }`
             ),
@@ -55,6 +58,56 @@ export async function fetchProjects(): Promise<any> {
         // TODO: replace with popup in future
         console.log("cannot fetch projects");
 
+        return null;
+    }
+
+    return response;
+}
+
+// Performs graqhQL request for updating selected project description
+export async function updateProject(projectID: string, description: string): Promise<any> {
+    let response = await apollo.mutate(
+        {
+            mutation: gql(`
+                mutation {
+                    updateProjectDescription(
+                        id: "${projectID}",
+                        description: "${description}"
+                    )
+                }`
+            ),
+            fetchPolicy: "no-cache",
+        }
+    );
+
+    if(!response){
+        // TODO: replace with popup in future
+        console.log("cannot update project");
+
+        return null;
+    }
+
+    return response;
+}
+
+// Performs graqhQL request for deleting selected project
+export async function deleteProject(projectID: string): Promise<any> {
+    let response = await apollo.mutate(
+        {
+            mutation: gql(`
+                mutation {
+                    deleteProject(
+                        id: "${projectID}"
+                    )
+                }`
+            ),
+            fetchPolicy: "no-cache",
+        }
+    );
+
+    if(!response){
+        // TODO: replace with popup in future
+        console.log("cannot delete project");
         return null;
     }
 
