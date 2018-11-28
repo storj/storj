@@ -102,8 +102,8 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 
 	if info.EncryptionScheme == (storj.EncryptionScheme{}) {
 		info.EncryptionScheme = storj.EncryptionScheme{
-			Cipher: storj.AESGCM,
-			BlockSize: int32(info.RedundancyScheme.ShareSize),
+			Cipher:    storj.AESGCM,
+			BlockSize: info.RedundancyScheme.ShareSize,
 		}
 	}
 
