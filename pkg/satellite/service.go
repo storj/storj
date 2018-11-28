@@ -201,9 +201,10 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (*Project
 	return s.store.Projects().Get(ctx, projectID)
 }
 
-// TODO: parse id and query only users projects, not all
 // GetUsersProjects is a method for querying all projects
 func (s *Service) GetUsersProjects(ctx context.Context) ([]ProjectInfo, error) {
+	// TODO: parse id and query only users projects, not all
+
 	_, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err

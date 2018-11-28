@@ -187,11 +187,16 @@ export default class ProjectDetailsArea extends Vue {}
             display: flex;
             flex-direction: row;
             justify-content: flex-start;
+            align-items: center;
             margin-top: 20px;
+
+            img {
+                margin-top: 20px;
+            }
 
             &__checkbox {
                 align-self: center;
-            };
+            }
             
             h2 {
                 font-family: 'montserrat_regular';

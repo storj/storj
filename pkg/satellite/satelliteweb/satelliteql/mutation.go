@@ -20,7 +20,6 @@ const (
 
 	updateCompanyMutation = "updateCompany"
 
-
 	createProjectMutation            = "createProject"
 	deleteProjectMutation            = "deleteProject"
 	updateProjectDescriptionMutation = "updateProjectDescription"
