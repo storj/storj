@@ -18,6 +18,8 @@ const (
 	updateUserMutation = "updateUser"
 	deleteUserMutation = "deleteUser"
 
+	updateCompanyMutation = "updateCompany"
+
 	createProjectMutation = "createProject"
 	deleteProjectMutation = "deleteProject"
 	updateProjectMutation = "updateProject"
@@ -67,6 +69,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					id, _ := p.Args[fieldID].(string)
+					input, _ := p.Args[input].(map[string]interface{})
 
 					idBytes, err := uuid.Parse(id)
 					if err != nil {
@@ -79,11 +82,11 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					}
 
 					updatedUser := *user
-					info := fillUserInfo(&updatedUser, p.Args[input].(map[string]interface{}))
+					info := fillUserInfo(&updatedUser, input)
 
-					errUpdate := service.UpdateUser(p.Context, *idBytes, info)
-					if errUpdate != nil {
-						return user, errUpdate
+					err = service.UpdateUser(p.Context, *idBytes, info)
+					if err != nil {
+						return user, err
 					}
 
 					return &updatedUser, nil
@@ -111,6 +114,41 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 
 					err = service.DeleteUser(p.Context, *idBytes)
 					return user, err
+				},
+			},
+			updateCompanyMutation: &graphql.Field{
+				Type: types.Company(),
+				Args: graphql.FieldConfigArgument{
+					fieldUserID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					input: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.CompanyInput()),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					id, _ := p.Args[fieldUserID].(string)
+					input, _ := p.Args[input].(map[string]interface{})
+
+					idBytes, err := uuid.Parse(id)
+					if err != nil {
+						return nil, err
+					}
+
+					company, err := service.GetCompany(p.Context, *idBytes)
+					if err != nil {
+						return nil, err
+					}
+
+					updatedCompany := *company
+					info := fillCompanyInfo(&updatedCompany, input)
+
+					err = service.UpdateCompany(p.Context, *idBytes, info)
+					if err != nil {
+						return company, err
+					}
+
+					return &updatedCompany, nil
 				},
 			},
 			// creates project from input params

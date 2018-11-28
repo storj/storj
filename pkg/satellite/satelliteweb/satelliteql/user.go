@@ -119,6 +119,7 @@ func fromMapUserInfo(args map[string]interface{}) (input UserInput) {
 	return
 }
 
+// fillUserInfo fills satellite.UserInfo from satellite.User and input args
 func fillUserInfo(user *satellite.User, args map[string]interface{}) satellite.UserInfo {
 	info := satellite.UserInfo{
 		Email:     user.Email,
