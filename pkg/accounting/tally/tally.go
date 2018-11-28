@@ -238,10 +238,10 @@ func (t *tally) query(ctx context.Context) error {
 	}
 
 	//todo:  move this into txn when we have masterdb?
-	update := dbx.Timestamps_Update_Fields{dbx.Timestamps_Value(latestBwa)}
+	update := dbx.Timestamps_Update_Fields{Value: dbx.Timestamps_Value(latestBwa)}
 	_, err = t.db.Update_Timestamps_By_Name(ctx, accounting.LastBandwidthTally, update)
 	if err != nil {
 		t.logger.DPanic("Failed to update bandwith timestamp in tally query")
-	
+	}
 	return err
 }
