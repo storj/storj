@@ -5,6 +5,7 @@ package dbmanager
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -31,7 +32,7 @@ type DBManager struct {
 func NewDBManager(databaseURL string) (*DBManager, error) {
 	dbURL, err := utils.ParseURL(databaseURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(databaseURL)
 	}
 
 	db, err := dbx.Open(dbURL.Scheme, dbURL.Path)
