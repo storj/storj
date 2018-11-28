@@ -13,6 +13,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
@@ -85,16 +86,25 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 		info.EncryptionScheme = createInfo.EncryptionScheme
 	}
 
-	if info.ContentType == "" {
-		// TODO: autodetect content type from the path extension
-	}
+	// TODO: autodetect content type from the path extension
+	// if info.ContentType == "" {}
 
 	if info.RedundancyScheme == (storj.RedundancyScheme{}) {
-		// TODO: set default redundancy scheme from config
+		info.RedundancyScheme = storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 20,
+			RepairShares:   30,
+			OptimalShares:  40,
+			TotalShares:    50,
+			ShareSize:      1 * memory.KB.Int32(),
+		}
 	}
 
 	if info.EncryptionScheme == (storj.EncryptionScheme{}) {
-		// TODO: set default encryption scheme from config
+		info.EncryptionScheme = storj.EncryptionScheme{
+			Cipher: storj.AESGCM,
+			BlockSize: int32(info.RedundancyScheme.ShareSize),
+		}
 	}
 
 	return &mutableObject{
@@ -315,7 +325,7 @@ func objectStreamFromMeta(bucket string, path storj.Path, lastSegment segments.M
 
 			RedundancyScheme: storj.RedundancyScheme{
 				Algorithm:      storj.ReedSolomon,
-				ShareSize:      int64(redundancyScheme.GetErasureShareSize()),
+				ShareSize:      redundancyScheme.GetErasureShareSize(),
 				RequiredShares: int16(redundancyScheme.GetMinReq()),
 				RepairShares:   int16(redundancyScheme.GetRepairThreshold()),
 				OptimalShares:  int16(redundancyScheme.GetSuccessThreshold()),

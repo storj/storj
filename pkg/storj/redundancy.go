@@ -7,7 +7,7 @@ package storj
 type RedundancyScheme struct {
 	Algorithm RedundancyAlgorithm
 
-	ShareSize int64
+	ShareSize int32
 
 	RequiredShares int16
 	RepairShares   int16
