@@ -62,7 +62,45 @@ func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Pat
 // CreateObject creates an uploading object and returns an interface for uploading Object information
 func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, createInfo *storj.CreateObject) (object storj.MutableObject, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return nil, errors.New("not implemented")
+
+	_, err = db.GetBucket(ctx, bucket)
+	if err != nil {
+		return nil, err
+	}
+
+	if path == "" {
+		return nil, storj.ErrNoPath.New("")
+	}
+
+	info := storj.Object{
+		Bucket: bucket,
+		Path: path,
+	}
+
+	if createInfo != nil {
+		info.Metadata = createInfo.Metadata
+		info.ContentType = createInfo.ContentType
+		info.Expires = createInfo.Expires
+		info.RedundancyScheme = createInfo.RedundancyScheme
+		info.EncryptionScheme = createInfo.EncryptionScheme
+	}
+
+	if info.ContentType == "" {
+		// TODO: autodetect content type from the path extension
+	}
+	
+	if info.RedundancyScheme == (storj.RedundancyScheme{}) {
+		// TODO: set default redundancy scheme from config
+	}
+
+	if info.EncryptionScheme == (storj.EncryptionScheme{}) {
+		// TODO: set default encryption scheme from config
+	}
+
+	return &mutableObject{
+		db: db,
+		info: info,
+	}, nil
 }
 
 // ModifyObject modifies a committed object
@@ -163,7 +201,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 	}
 
 	if path == "" {
-		return object{}, storj.Object{}, storage.ErrEmptyKey.New("")
+		return object{}, storj.Object{}, storj.ErrNoPath.New("")
 	}
 
 	fullpath := bucket + "/" + path
@@ -306,4 +344,33 @@ func convertTime(ts *timestamp.Timestamp) time.Time {
 		zap.S().Warnf("Failed converting timestamp %v: %v", ts, err)
 	}
 	return t
+}
+
+type mutableObject struct {
+	db   *DB
+	info storj.Object
+}
+
+func (object *mutableObject) Info(ctx context.Context) (storj.Object, error) {
+	return object.info, nil
+}
+
+func (object *mutableObject) CreateStream(ctx context.Context) (storj.MutableStream, error) {
+	return &mutableStream{
+		db: object.db,
+		info: object.info,
+	}, nil
+}
+
+func (object *mutableObject) ContinueStream(ctx context.Context) (storj.MutableStream, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (object *mutableObject) DeleteStream(ctx context.Context) error {
+	return errors.New("not implemented")
+}
+
+func (object *mutableObject) Commit(ctx context.Context) error {
+	// Do nothing for now
+	return nil
 }

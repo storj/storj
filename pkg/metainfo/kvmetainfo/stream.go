@@ -127,3 +127,18 @@ func (stream *readonlyStream) Segments(ctx context.Context, index int64, limit i
 	more = index < stream.info.SegmentCount
 	return infos, more, nil
 }
+
+type mutableStream struct {
+	db   *DB
+	info storj.Object
+}
+
+func (stream *mutableStream) Info() storj.Object { return stream.info }
+
+func (stream *mutableStream) AddSegments(ctx context.Context, segments ...storj.Segment) error {
+	return errors.New("not implemented")
+}
+
+func (stream *mutableStream) UpdateSegments(ctx context.Context, segments ...storj.Segment) error {
+	return errors.New("not implemented")
+}

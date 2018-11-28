@@ -214,6 +214,7 @@ type MutableObject interface {
 type MutableStream interface {
 	// TODO: methods for finding partially uploaded segments
 
+	Info() Object
 	// AddSegments adds segments to the stream.
 	AddSegments(ctx context.Context, segments ...Segment) error
 	// UpdateSegments updates information about segments.

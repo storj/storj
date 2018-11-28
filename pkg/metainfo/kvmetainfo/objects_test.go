@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
-	"storj.io/storj/storage"
 )
 
 func TestGetObject(t *testing.T) {
@@ -44,7 +43,7 @@ func TestGetObject(t *testing.T) {
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
 		_, err = db.GetObject(ctx, bucket.Name, "")
-		assert.True(t, storage.ErrEmptyKey.Has(err))
+		assert.True(t, storj.ErrNoPath.Has(err))
 
 		_, err = db.GetObject(ctx, "non-existing-bucket", "test-file")
 		assert.True(t, storj.ErrBucketNotFound.Has(err))
@@ -100,7 +99,7 @@ func TestGetObjectStream(t *testing.T) {
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
 		_, err = db.GetObjectStream(ctx, bucket.Name, "")
-		assert.True(t, storage.ErrEmptyKey.Has(err))
+		assert.True(t, storj.ErrNoPath.Has(err))
 
 		_, err = db.GetObjectStream(ctx, "non-existing-bucket", "small-file")
 		assert.True(t, storj.ErrBucketNotFound.Has(err))
