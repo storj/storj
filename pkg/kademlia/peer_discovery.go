@@ -5,6 +5,7 @@ package kademlia
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/zeebo/errs"
@@ -71,9 +72,12 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 					}
 
 					next, _ = lookup.queue.Closest()
+					fmt.Printf("#### NEXT: %+v\n", next)
+					fmt.Printf("#### Found Node????  %+v\n", next.GetId() == lookup.target.String())
 					if !lookup.opts.bootstrap && next.GetId() == lookup.target.String() {
 						allDone = true
-						lookup.foundOne <- next
+						fmt.Printf("Found Node: %+v\n", next)
+						// lookup.foundOne <- next
 						break // closest node is the target and is already in routing table (i.e. no lookup required)
 					}
 
@@ -88,7 +92,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 				lookup.cond.L.Unlock()
 
 				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target.String()})
-				lookup.foundAll <- neighbors
+				// lookup.foundAll <- neighbors
 
 				if err != nil {
 					ok := lookup.queue.Reinsert(lookup.target, next, lookup.opts.retries)
