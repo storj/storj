@@ -38,7 +38,7 @@ type tally struct {
 	ticker       *time.Ticker
 	nodes        map[string]int64
 	nodeClient   node.Client
-	accountingDB adbclient.Client
+	accountingDB *accountingdb.Database
 }
 
 func newTally(ctx context.Context, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, logger *zap.Logger, interval time.Duration) (*tally, error) {
@@ -52,7 +52,10 @@ func newTally(ctx context.Context, pointerdb *pointerdb.Server, overlay pb.Overl
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	//create connection to adb.Client
+	db, err := accountingdb.New("", "") //TODO: what values go here?
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 	return &tally{
 		pointerdb:  pointerdb,
 		overlay:    overlay,
@@ -62,7 +65,7 @@ func newTally(ctx context.Context, pointerdb *pointerdb.Server, overlay pb.Overl
 		ticker:     time.NewTicker(interval),
 		nodes:      make(map[string]int64),
 		nodeClient: client,
-		//TODO: accountingDB
+		accountingDB: db,
 	}, nil
 }
 
@@ -166,7 +169,7 @@ func (t *tally) tallyAtRestStorage(ctx context.Context, pointer *pb.Pointer, nod
 }
 
 func (t *tally) updateRawTable(ctx context.Context) error {
-	//accountingDB.UpdateBatch(ctx, "raw", t.nodes)
+	//TODO
 	return nil
 }
 
