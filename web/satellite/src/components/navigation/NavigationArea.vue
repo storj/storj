@@ -41,44 +41,44 @@ export default class NavigationArea extends Vue {}
     .navigation-area {
         position: fixed;
         width: 280px;
-		height: 100%;
-		left: 0;
-		top: 10vh;
+        height: 100%;
+        left: 0;
+        top: 100px;
         background-color: #fff;
         padding-top: 3.5vh;
 
         &__item-container {
-            height: 70px;
-            padding-left: 60px;
-            border-left: 3px solid transparent;
-            display: flex;
-            justify-content: flex-start;
-            align-items: center;
+             height: 70px;
+             padding-left: 60px;
+             border-left: 3px solid transparent;
+             display: flex;
+             justify-content: flex-start;
+             align-items: center;
             &.router-link-active,
             &.router-link-exact-active,
             &:hover {
-                border-left: 3px solid #2683FF;
+                 border-left: 3px solid #2683FF;
                 .svg path:not(.white) {
                     fill: #2683FF !important;
-                }    
+                }
             }
 
             &__link-container {
-                display: flex;
-                flex-direction: row;
-                justify-content: flex-start;
-                align-items: center;
+                 display: flex;
+                 flex-direction: row;
+                 justify-content: flex-start;
+                 align-items: center;
                 h1 {
                     font-family: 'montserrat_medium';
                     font-size: 16px;
                     line-height: 23px;
                     color: #354049;
-                    margin-left: 15px;; 
+                    margin-left: 15px;;
                 }
 
                 &__add-button {
-                    margin-left: 4vw;
-                    background-color: transparent;
+                     margin-left: 40px;
+                     background-color: transparent;
 
                     &:hover {
                         svg {
@@ -90,7 +90,7 @@ export default class NavigationArea extends Vue {}
             }
         }
     }
-    
+
     a {
         text-decoration: none;
         outline: none;
@@ -100,19 +100,97 @@ export default class NavigationArea extends Vue {}
         .navigation-area {
             width: 50px;
 
-        &__item-container {
-            padding-left: 12px;
+            &__item-container {
+                 padding-left: 12px;
 
-            &__link-container {
-                h1 {
-                    display: none;
-                }
+                &__link-container {
+                    h1 {
+                        display: none;
+                    }
 
-                &__add-button {
-                    display: none;
+                    &__add-button {
+                         display: none;
+                    }
                 }
             }
         }
+    }
+    .navigation-area {
+        position: fixed;
+        width: 280px;
+        height: 100%;
+        left: 0;
+        top: 100px;
+        background-color: #fff;
+        padding-top: 3.5vh;
+
+        &__item-container {
+             height: 70px;
+             padding-left: 60px;
+             border-left: 3px solid transparent;
+             display: flex;
+             justify-content: flex-start;
+             align-items: center;
+                &.router-link-active,
+                &.router-link-exact-active,
+                &:hover {
+                     border-left: 3px solid #2683FF;
+                .svg path:not(.white) {
+                    fill: #2683FF !important;
+                }
+                }
+
+            &__link-container {
+                 display: flex;
+                 flex-direction: row;
+                 justify-content: flex-start;
+                 align-items: center;
+                h1 {
+                    font-family: 'montserrat_medium';
+                    font-size: 16px;
+                    line-height: 23px;
+                    color: #354049;
+                    margin-left: 15px;;
+                }
+
+                &__add-button {
+                     margin-left: 40px;
+                     background-color: transparent;
+
+                    &:hover {
+                        svg {
+                            border-radius: 50px;
+                            box-shadow: 0px 4px 20px rgba(35, 121, 236, 0.4);
+                        }
+                    }
+                }
+            }
         }
     }
+
+    a {
+        text-decoration: none;
+        outline: none;
+    }
+
+    @media screen and (max-width: 720px) {
+        .navigation-area {
+            width: 50px;
+
+            &__item-container {
+                padding-left: 12px;
+
+                &__link-container {
+                    h1 {
+                        display: none;
+                    }
+
+                    &__add-button {
+                         display: none;
+                    }
+                }
+            }
+        }
+    }
+
 </style>

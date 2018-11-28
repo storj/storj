@@ -496,6 +496,18 @@
         }
     }
 
+    @media screen and (max-width: 1440px) {
+        .register-area {
+            background-color: white;
+            width: 100%;
+            max-height: 100vh;
+
+            &__scrollable {
+                 width: 60vw;
+            }
+        }
+    }
+
     @media screen and (max-width: 720px) {
         .register {
             flex-direction: column;
@@ -513,18 +525,20 @@
             margin-bottom: 200px;
 
             &__scrollable {
+                 width: auto;
 
                 &__form-area {
 
                     &__create-button {
-                        margin-bottom: 250px;
+                         margin-bottom: 250px;
                     }
                 }
 
                 &__form-area {
-                    width: 75vw;
+                     width: 75vw;
                 }
             }
         }
     }
+
 </style>

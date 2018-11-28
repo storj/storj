@@ -18,7 +18,6 @@ export const authModule = {
         companyState: "",
         companyPostalCode: "",
     },
-
     mutations: {
         [AUTH_MUTATIONS.SET_USER_INFO](state: any, user: User): void {
             state.firstName = user.firstName;
@@ -46,11 +45,9 @@ export const authModule = {
             state.companyPostalCode = "";
         },
     },
-
     actions: {
         setUserInfo: setUserInfo,
     },
-
     getters: {
         userName: (state: any) => `${state.firstName} ${state.lastName}`
     },
