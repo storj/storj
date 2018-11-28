@@ -74,7 +74,7 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 
 	info := storj.Object{
 		Bucket: bucket,
-		Path: path,
+		Path:   path,
 	}
 
 	if createInfo != nil {
@@ -88,7 +88,7 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 	if info.ContentType == "" {
 		// TODO: autodetect content type from the path extension
 	}
-	
+
 	if info.RedundancyScheme == (storj.RedundancyScheme{}) {
 		// TODO: set default redundancy scheme from config
 	}
@@ -98,7 +98,7 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 	}
 
 	return &mutableObject{
-		db: db,
+		db:   db,
 		info: info,
 	}, nil
 }
@@ -351,13 +351,11 @@ type mutableObject struct {
 	info storj.Object
 }
 
-func (object *mutableObject) Info(ctx context.Context) (storj.Object, error) {
-	return object.info, nil
-}
+func (object *mutableObject) Info() storj.Object { return object.info }
 
 func (object *mutableObject) CreateStream(ctx context.Context) (storj.MutableStream, error) {
 	return &mutableStream{
-		db: object.db,
+		db:   object.db,
 		info: object.info,
 	}, nil
 }

@@ -197,7 +197,7 @@ type ReadOnlyStream interface {
 // MutableObject is an interface for manipulating creating/deleting object stream
 type MutableObject interface {
 	// Info gets the current information about the object
-	Info(ctx context.Context) (Object, error)
+	Info() Object
 
 	// CreateStream creates a new stream for the object
 	CreateStream(ctx context.Context) (MutableStream, error)
