@@ -37,7 +37,7 @@ func NewDBManager(databaseURL string) (*DBManager, error) {
 
 	db, err := dbx.Open(dbURL.Scheme, dbURL.Path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(dbURL.Scheme + " --- " + dbURL.Path)
 	}
 
 	err = migrate.Create("bwagreement", db)
