@@ -54,6 +54,8 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 	working := 0
 	allDone := false
 
+	fmt.Printf("looking for node %+v\n", lookup.target)
+
 	wg.Add(lookup.opts.concurrency)
 	for i := 0; i < lookup.opts.concurrency; i++ {
 		go func() {
@@ -72,12 +74,14 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 					}
 
 					next, _ = lookup.queue.Closest()
-					fmt.Printf("#### NEXT: %+v\n", next)
-					fmt.Printf("#### Found Node????  %+v\n", next.GetId() == lookup.target.String())
+
+					// Send node on channel if it matches target
+					if next.GetId() == lookup.target.String() {
+						lookup.foundOne <- next
+					}
+
 					if !lookup.opts.bootstrap && next.GetId() == lookup.target.String() {
 						allDone = true
-						fmt.Printf("Found Node: %+v\n", next)
-						// lookup.foundOne <- next
 						break // closest node is the target and is already in routing table (i.e. no lookup required)
 					}
 
@@ -92,7 +96,6 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 				lookup.cond.L.Unlock()
 
 				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target.String()})
-				// lookup.foundAll <- neighbors
 
 				if err != nil {
 					ok := lookup.queue.Reinsert(lookup.target, next, lookup.opts.retries)

@@ -141,6 +141,66 @@ func TestPeerDiscovery(t *testing.T) {
 	}
 }
 
+func TestLookupNodes(t *testing.T) {
+	dir, cleanup := mktempdir(t, "kademlia")
+	defer cleanup()
+	// make new identity
+	bootServer, mockBootServer, bootID, bootAddress := startTestNodeServer()
+	defer bootServer.Stop()
+	testServer, _, testID, testAddress := startTestNodeServer()
+	defer testServer.Stop()
+	targetServer, _, targetID, targetAddress := startTestNodeServer()
+	defer targetServer.Stop()
+
+	bootstrapNodes := []pb.Node{pb.Node{Id: bootID.ID.String(), Address: &pb.NodeAddress{Address: bootAddress}}}
+	metadata := &pb.NodeMetadata{
+		Email:  "foo@bar.com",
+		Wallet: "FarmerWallet",
+	}
+	k, err := NewKademlia(dht.NodeID(testID.ID), bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
+	assert.NoError(t, err)
+	rt, err := k.GetRoutingTable(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, rt.Local().Metadata.Email, "foo@bar.com")
+	assert.Equal(t, rt.Local().Metadata.Wallet, "FarmerWallet")
+
+	defer func() {
+		assert.NoError(t, k.Disconnect())
+	}()
+
+	cases := []struct {
+		target      dht.NodeID
+		opts        discoveryOptions
+		expected    *pb.Node
+		expectedErr error
+	}{
+		{target: func() *node.ID {
+			nid := node.ID(targetID.ID)
+			assert.NoError(t, err)
+			// this is what the bootstrap node returns
+			mockBootServer.returnValue = []*pb.Node{&pb.Node{Id: targetID.ID.String(), Address: &pb.NodeAddress{Address: targetAddress}}}
+			return &nid
+		}(),
+			opts:        discoveryOptions{concurrency: 3, bootstrap: true, retries: 1},
+			expected:    &pb.Node{},
+			expectedErr: nil,
+		},
+		{target: func() *node.ID {
+			n := node.ID(bootID.ID)
+			return &n
+		}(),
+			opts:        discoveryOptions{concurrency: 3, bootstrap: true, retries: 1},
+			expected:    nil,
+			expectedErr: nil,
+		},
+	}
+
+	for _, v := range cases {
+		err := k.lookup(context.Background(), v.target, v.opts)
+		assert.Equal(t, v.expectedErr, err)
+	}
+}
+
 func TestBootstrap(t *testing.T) {
 	bn, s, clean := testNode(t, []pb.Node{})
 	defer clean()
