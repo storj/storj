@@ -178,7 +178,12 @@ func upload(ctx context.Context, t *testing.T, db *DB, bucket storj.Bucket, path
 	}
 
 	upload := stream.NewUpload(ctx, str, db.streams, bucket.PathCipher)
-	upload.Write(data)
+
+	_, err = upload.Write(data)
+	if !assert.NoError(t, err) {
+		return
+	}
+
 	err = upload.Close()
 	if !assert.NoError(t, err) {
 		return
