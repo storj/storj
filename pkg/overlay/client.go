@@ -74,7 +74,7 @@ func (o *Overlay) Choose(ctx context.Context, op Options) ([]*pb.Node, error) {
 		Opts: &pb.OverlayOptions{
 			Amount:        int64(op.Amount),
 			Restrictions:  &pb.NodeRestrictions{FreeDisk: op.Space},
-			ExcludedNodes: &exIDs,
+			ExcludedNodes: exIDs,
 		},
 	})
 	if err != nil {

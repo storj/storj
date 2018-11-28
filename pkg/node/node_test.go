@@ -11,14 +11,17 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
-
+	"storj.io/storj/internal/storj"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/dht/mocks"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 )
 
-var ctx = context.Background()
+var (
+	ctx = context.Background()
+	helloID = teststorj.NodeIDFromString("hello")
+)
 
 func TestLookup(t *testing.T) {
 	ctx := testcontext.New(t)
@@ -31,9 +34,9 @@ func TestLookup(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			self:        pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":7070"}},
-			to:          pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":8080"}},
-			find:        pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":9090"}},
+			self:        pb.Node{Id: helloID, Address: &pb.NodeAddress{Address: ":7070"}},
+			to:          pb.Node{Id: helloID, Address: &pb.NodeAddress{Address: ":8080"}},
+			find:        pb.Node{Id: helloID, Address: &pb.NodeAddress{Address: ":9090"}},
 			expectedErr: nil,
 		},
 	}
@@ -42,8 +45,8 @@ func TestLookup(t *testing.T) {
 		lis, err := net.Listen("tcp", "127.0.0.1:0")
 		assert.NoError(t, err)
 
-		id := testidentity.NewTestIdentity(t)
-		v.to = pb.Node{Id: id.ID.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}
+		id := newTestIdentity(t)
+		v.to = pb.Node{Id: id.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}
 
 		srv, mock, err := newTestServer(ctx, &mockNodeServer{queryCalled: 0}, id)
 		assert.NoError(t, err)
@@ -80,13 +83,13 @@ func TestPing(t *testing.T) {
 	cases := []struct {
 		self        pb.Node
 		toID        string
-		toIdentity  *provider.FullIdentity
+		ident       *provider.FullIdentity
 		expectedErr error
 	}{
 		{
-			self:        pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":7070"}},
+			self:        pb.Node{Id: helloID, Address: &pb.NodeAddress{Address: ":7070"}},
 			toID:        "",
-			toIdentity:  testidentity.NewTestIdentity(t),
+			ident:       newTestIdentity(t),
 			expectedErr: nil,
 		},
 	}
@@ -100,17 +103,16 @@ func TestPing(t *testing.T) {
 		// set up a node server
 		srv := NewServer(mdht)
 
-		msrv, _, err := newTestServer(ctx, srv, v.toIdentity)
+		msrv, _, err := newTestServer(ctx, srv, v.ident)
 		assert.NoError(t, err)
 		// start gRPC server
 		ctx.Go(func() error { return msrv.Serve(lis) })
 		defer msrv.Stop()
 
-		nc, err := NewNodeClient(v.toIdentity, v.self, mdht)
+		nc, err := NewNodeClient(v.ident, v.self, mdht)
 		assert.NoError(t, err)
 
-		id := ID(v.toIdentity.ID)
-		ok, err := nc.Ping(ctx, pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}})
+		ok, err := nc.Ping(ctx, pb.Node{Id: v.ident.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}})
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, ok, true)
 	}

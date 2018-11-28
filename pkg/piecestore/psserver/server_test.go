@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore"
@@ -546,7 +547,7 @@ func NewTestServer(t *testing.T) *TestServer {
 	check(err)
 	fiC, err := caC.NewIdentity()
 	check(err)
-	co, err := fiC.DialOption("")
+	co, err := fiC.DialOption(storj.NodeID{})
 	check(err)
 
 	s, cleanup := newTestServerStruct(t)

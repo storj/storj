@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"storj.io/storj/internal/storj"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -20,63 +22,70 @@ import (
 	"storj.io/storj/storage/teststore"
 )
 
+var (
+	valid1ID, valid2ID, invalid1ID, invalid2ID = teststorj.NodeIDFromString("valid1"),
+			teststorj.NodeIDFromString("valid2"),
+			teststorj.NodeIDFromString("invalid1"),
+			teststorj.NodeIDFromString("invalid2")
+)
+
 func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore) {
 	cache := overlay.Cache{DB: store}
 
 	{ // Put
-		err := cache.Put("valid1", pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9001"}})
+		err := cache.Put(valid1ID, pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9001"}})
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = cache.Put("valid2", pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9002"}})
+		err = cache.Put(valid2ID, pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9002"}})
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	{ // Get
-		valid2, err := cache.Get(ctx, "valid2")
+		valid2, err := cache.Get(ctx, valid2ID)
 		if assert.NoError(t, err) {
 			assert.Equal(t, valid2.Address.Address, "127.0.0.1:9002")
 		}
 
-		invalid2, err := cache.Get(ctx, "invalid2")
+		invalid2, err := cache.Get(ctx, invalid2ID)
 		assert.Error(t, err)
 		assert.Nil(t, invalid2)
 
 		if storeClient, ok := store.(*teststore.Client); ok {
 			storeClient.ForceError++
-			_, err := cache.Get(ctx, "valid1")
+			_, err := cache.Get(ctx, valid1ID)
 			assert.Error(t, err)
 		}
 	}
 
 	{ // GetAll
-		nodes, err := cache.GetAll(ctx, []string{"valid2", "valid1", "valid2"})
+		nodes, err := cache.GetAll(ctx, storj.NodeIDList{valid2ID, valid1ID, valid2ID})
 		if assert.NoError(t, err) {
 			assert.Equal(t, nodes[0].Address.Address, "127.0.0.1:9002")
 			assert.Equal(t, nodes[1].Address.Address, "127.0.0.1:9001")
 			assert.Equal(t, nodes[2].Address.Address, "127.0.0.1:9002")
 		}
 
-		nodes, err = cache.GetAll(ctx, []string{"valid1", "invalid"})
+		nodes, err = cache.GetAll(ctx, storj.NodeIDList{valid1ID, invalid1ID})
 		if assert.NoError(t, err) {
 			assert.Equal(t, nodes[0].Address.Address, "127.0.0.1:9001")
 			assert.Nil(t, nodes[1])
 		}
 
-		nodes, err = cache.GetAll(ctx, []string{"", ""})
+		nodes, err = cache.GetAll(ctx, make(storj.NodeIDList, 2))
 		if assert.NoError(t, err) {
 			assert.Nil(t, nodes[0])
 			assert.Nil(t, nodes[1])
 		}
 
-		_, err = cache.GetAll(ctx, []string{})
+		_, err = cache.GetAll(ctx, storj.NodeIDList{})
 		assert.True(t, overlay.OverlayError.Has(err))
 
 		if storeClient, ok := store.(*teststore.Client); ok {
 			storeClient.ForceError++
-			_, err := cache.GetAll(ctx, []string{"valid1", "valid2"})
+			_, err := cache.GetAll(ctx, storj.NodeIDList{valid1ID, valid2ID})
 			assert.Error(t, err)
 		}
 	}

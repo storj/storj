@@ -78,11 +78,11 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 	restrictedBandwidth := restrictions.GetFreeBandwidth()
 	restrictedSpace := restrictions.GetFreeDisk()
 
-	var start storage.Key
+	var startID storj.NodeID
 	result := []*pb.Node{}
 	for {
 		var nodes []*pb.Node
-		nodes, start, err = o.populate(ctx, req.GetStart(), maxNodes, restrictedBandwidth, restrictedSpace, *excluded)
+		nodes, startID, err = o.populate(ctx, req.Start, maxNodes, restrictedBandwidth, restrictedSpace, excluded)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -93,7 +93,7 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 
 		result = append(result, nodes...)
 
-		if len(result) >= int(maxNodes) || start == nil {
+		if len(result) >= int(maxNodes) || startID == (storj.NodeID{}) {
 			break
 		}
 
@@ -132,17 +132,17 @@ func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.Node, e
 
 }
 
-func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, restrictedBandwidth, restrictedSpace int64, excluded storj.NodeIDList) ([]*pb.Node, storage.Key, error) {
+func (o *Server) populate(ctx context.Context, startID storj.NodeID, maxNodes, restrictedBandwidth, restrictedSpace int64, excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
 	limit := int(maxNodes * 2)
-	keys, err := o.cache.DB.List(starting, limit)
+	keys, err := o.cache.DB.List(startID.Bytes(), limit)
 	if err != nil {
 		o.logger.Error("Error listing nodes", zap.Error(err))
-		return nil, nil, Error.Wrap(err)
+		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
 	if len(keys) <= 0 {
 		o.logger.Info("No Keys returned from List operation")
-		return []*pb.Node{}, starting, nil
+		return []*pb.Node{}, startID, nil
 	}
 
 	// TODO: should this be `var result []*pb.Node` ?
@@ -150,7 +150,7 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 	nodes, err := o.getNodes(ctx, keys)
 	if err != nil {
 		o.logger.Error("Error getting nodes", zap.Error(err))
-		return nil, nil, Error.Wrap(err)
+		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
 	for _, v := range nodes {
@@ -164,9 +164,14 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 		result = append(result, v)
 	}
 
-	nextStart := keys[len(keys)-1]
+	var nextStart storj.NodeID
 	if len(keys) < limit {
-		nextStart = nil
+		nextStart = storj.NodeID{}
+	} else {
+		nextStart, err = storj.NodeIDFromBytes(keys[len(keys)-1])
+	}
+	if err != nil {
+		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
 	return result, nextStart, nil

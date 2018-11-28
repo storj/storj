@@ -27,7 +27,7 @@ service Nodes {
 
 // LookupRequest is is request message for the lookup rpc call
 message LookupRequest {
-    bytes node_id = 1[(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 // LookupResponse is is response message for the lookup rpc call
@@ -56,7 +56,7 @@ message FindStorageNodesRequest {
     int64 object_size = 1;
     google.protobuf.Duration contract_length = 2;
     OverlayOptions opts = 3;
-    bytes start = 4;
+    bytes start = 4 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
     int64 max_nodes = 5;
 }
 
@@ -67,7 +67,7 @@ message OverlayOptions {
     int64 min_speed_kbps = 3;
     int64 amount = 4;
     node.NodeRestrictions restrictions = 5;
-    bytes excluded_nodes = 6 [(gogoproto.customtype) = "NodeIDList"];
+    bytes excluded_nodes = 6 [(gogoproto.casttype) = "NodeIDList"];
 }
 
 message QueryRequest {
