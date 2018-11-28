@@ -7,4 +7,7 @@ declare type Project = {
     description: string
     id: string,
     isTermsAccepted: boolean,
+    isSelected: boolean,
 }
+
+

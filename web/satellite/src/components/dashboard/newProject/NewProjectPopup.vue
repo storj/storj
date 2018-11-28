@@ -113,7 +113,9 @@ import Button from "@/components/common/Button.vue";
                     name: this.$data.name,
                     description: this.$data.description,
                     isTermsAccepted: this.$data.isTermsAccepted,
-                })
+                });
+
+                this.$emit("onClose");
             }
         },
         components: {
