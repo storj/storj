@@ -13,19 +13,21 @@ import (
 
 // Upload implements Writer and Closer for writing to stream.
 type Upload struct {
-	ctx     context.Context
-	stream  storj.MutableStream
-	streams streams.Store
-	writer  io.WriteCloser
-	closed  bool
+	ctx        context.Context
+	stream     storj.MutableStream
+	streams    streams.Store
+	pathCipher storj.Cipher
+	writer     io.WriteCloser
+	closed     bool
 }
 
 // NewUpload creates new stream upload.
-func NewUpload(ctx context.Context, stream storj.MutableStream, streams streams.Store) *Upload {
+func NewUpload(ctx context.Context, stream storj.MutableStream, streams streams.Store, pathCipher storj.Cipher) *Upload {
 	return &Upload{
-		ctx:     ctx,
-		stream:  stream,
-		streams: streams,
+		ctx:        ctx,
+		stream:     stream,
+		streams:    streams,
+		pathCipher: pathCipher,
 	}
 }
 
@@ -74,7 +76,7 @@ func (upload *Upload) createWriter() error {
 
 	go func() {
 		obj := upload.stream.Info()
-		_, err := upload.streams.Put(upload.ctx, storj.JoinPaths(obj.Bucket, obj.Path), obj.Cipher, reader, obj.Metadata, obj.Expires)
+		_, err := upload.streams.Put(upload.ctx, storj.JoinPaths(obj.Bucket, obj.Path), upload.pathCipher, reader, obj.Metadata, obj.Expires)
 		if err != nil {
 			_ = reader.CloseWithError(err)
 		}

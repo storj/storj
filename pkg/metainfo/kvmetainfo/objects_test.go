@@ -4,7 +4,6 @@
 package kvmetainfo
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"fmt"
@@ -15,11 +14,80 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
 )
+
+const TestFile = "test-file"
+
+func TestCreateObject(t *testing.T) {
+	customRS := storj.RedundancyScheme{
+		Algorithm:      storj.ReedSolomon,
+		RequiredShares: 29,
+		RepairShares:   35,
+		OptimalShares:  80,
+		TotalShares:    95,
+		ShareSize:      2 * memory.KB.Int32(),
+	}
+
+	customES := storj.EncryptionScheme{
+		Cipher:    storj.Unencrypted,
+		BlockSize: 1 * memory.KB.Int32(),
+	}
+
+	runTest(t, func(ctx context.Context, db *DB) {
+		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
+		if !assert.NoError(t, err) {
+			return
+		}
+
+		for i, tt := range []struct {
+			create     *storj.CreateObject
+			expectedRS storj.RedundancyScheme
+			expectedES storj.EncryptionScheme
+		}{
+			{
+				create:     nil,
+				expectedRS: defaultRS,
+				expectedES: defaultES,
+			}, {
+				create:     &storj.CreateObject{RedundancyScheme: customRS, EncryptionScheme: customES},
+				expectedRS: customRS,
+				expectedES: customES,
+			}, {
+				create:     &storj.CreateObject{RedundancyScheme: customRS},
+				expectedRS: customRS,
+				expectedES: storj.EncryptionScheme{Cipher: defaultES.Cipher, BlockSize: customRS.ShareSize},
+			}, {
+				create:     &storj.CreateObject{EncryptionScheme: customES},
+				expectedRS: defaultRS,
+				expectedES: customES,
+			},
+		} {
+			errTag := fmt.Sprintf("%d. %+v", i, tt)
+
+			obj, err := db.CreateObject(ctx, bucket.Name, TestFile, tt.create)
+			if !assert.NoError(t, err) {
+				return
+			}
+
+			info := obj.Info()
+
+			assert.Equal(t, TestBucket, info.Bucket, errTag)
+			assert.Equal(t, TestFile, info.Path, errTag)
+			assert.EqualValues(t, 0, info.Size, errTag)
+			assert.Equal(t, tt.expectedRS.Algorithm, info.Algorithm, errTag)
+			assert.Equal(t, tt.expectedRS.RequiredShares, info.RequiredShares, errTag)
+			assert.Equal(t, tt.expectedRS.RepairShares, info.RepairShares, errTag)
+			assert.Equal(t, tt.expectedRS.OptimalShares, info.OptimalShares, errTag)
+			assert.Equal(t, tt.expectedRS.TotalShares, info.TotalShares, errTag)
+			assert.Equal(t, tt.expectedRS.ShareSize, info.ShareSize, errTag)
+			assert.Equal(t, tt.expectedES.Cipher, info.Cipher, errTag)
+			assert.Equal(t, tt.expectedES.BlockSize, info.BlockSize, errTag)
+		}
+	})
+}
 
 func TestGetObject(t *testing.T) {
 	runTest(t, func(ctx context.Context, db *DB) {
@@ -28,16 +96,7 @@ func TestGetObject(t *testing.T) {
 			return
 		}
 
-		store, err := db.buckets.GetObjectStore(ctx, bucket.Name)
-		if !assert.NoError(t, err) {
-			return
-		}
-
-		var exp time.Time
-		_, err = store.Put(ctx, "test-file", bytes.NewReader(nil), objects.SerializableMeta{}, exp)
-		if !assert.NoError(t, err) {
-			return
-		}
+		upload(ctx, t, db, bucket, TestFile, nil)
 
 		_, err = db.GetObject(ctx, "", "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
@@ -45,15 +104,15 @@ func TestGetObject(t *testing.T) {
 		_, err = db.GetObject(ctx, bucket.Name, "")
 		assert.True(t, storj.ErrNoPath.Has(err))
 
-		_, err = db.GetObject(ctx, "non-existing-bucket", "test-file")
+		_, err = db.GetObject(ctx, "non-existing-bucket", TestFile)
 		assert.True(t, storj.ErrBucketNotFound.Has(err))
 
 		_, err = db.GetObject(ctx, bucket.Name, "non-existing-file")
 		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
-		object, err := db.GetObject(ctx, bucket.Name, "test-file")
+		object, err := db.GetObject(ctx, bucket.Name, TestFile)
 		if assert.NoError(t, err) {
-			assert.Equal(t, "test-file", object.Path)
+			assert.Equal(t, TestFile, object.Path)
 		}
 	})
 }
@@ -63,37 +122,20 @@ func TestGetObjectStream(t *testing.T) {
 		// we wait a second for all the nodes to complete bootstrapping off the satellite
 		time.Sleep(2 * time.Second)
 
+		data := make([]byte, 32*memory.KB)
+		_, err := rand.Read(data)
+		if !assert.NoError(t, err) {
+			return
+		}
+
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if !assert.NoError(t, err) {
 			return
 		}
 
-		store, err := db.buckets.GetObjectStore(ctx, bucket.Name)
-		if !assert.NoError(t, err) {
-			return
-		}
-
-		var exp time.Time
-		_, err = store.Put(ctx, "empty-file", bytes.NewReader(nil), objects.SerializableMeta{}, exp)
-		if !assert.NoError(t, err) {
-			return
-		}
-
-		_, err = store.Put(ctx, "small-file", bytes.NewReader([]byte("test")), objects.SerializableMeta{}, exp)
-		if !assert.NoError(t, err) {
-			return
-		}
-
-		data := make([]byte, 32*memory.KB)
-		_, err = rand.Read(data)
-		if !assert.NoError(t, err) {
-			return
-		}
-
-		_, err = store.Put(ctx, "large-file", bytes.NewReader(data), objects.SerializableMeta{}, exp)
-		if !assert.NoError(t, err) {
-			return
-		}
+		upload(ctx, t, db, bucket, "empty-file", nil)
+		upload(ctx, t, db, bucket, "small-file", []byte("test"))
+		upload(ctx, t, db, bucket, "large-file", data)
 
 		_, err = db.GetObjectStream(ctx, "", "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
@@ -122,6 +164,30 @@ func TestGetObjectStream(t *testing.T) {
 			assertStream(ctx, t, stream, db.streams, "large-file", int64(32*memory.KB), data)
 		}
 	})
+}
+
+func upload(ctx context.Context, t *testing.T, db *DB, bucket storj.Bucket, path storj.Path, data []byte) {
+	obj, err := db.CreateObject(ctx, bucket.Name, path, nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	str, err := obj.CreateStream(ctx)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	upload := stream.NewUpload(ctx, str, db.streams, bucket.PathCipher)
+	upload.Write(data)
+	err = upload.Close()
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	err = obj.Commit(ctx)
+	if !assert.NoError(t, err) {
+		return
+	}
 }
 
 func assertStream(ctx context.Context, t *testing.T, readOnly storj.ReadOnlyStream, streams streams.Store, path storj.Path, size int64, content []byte) {
@@ -196,16 +262,7 @@ func TestDeleteObject(t *testing.T) {
 			return
 		}
 
-		store, err := db.buckets.GetObjectStore(ctx, bucket.Name)
-		if !assert.NoError(t, err) {
-			return
-		}
-
-		var exp time.Time
-		_, err = store.Put(ctx, "test-file", bytes.NewReader(nil), objects.SerializableMeta{}, exp)
-		if !assert.NoError(t, err) {
-			return
-		}
+		upload(ctx, t, db, bucket, TestFile, nil)
 
 		err = db.DeleteObject(ctx, "", "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
@@ -213,13 +270,13 @@ func TestDeleteObject(t *testing.T) {
 		err = db.DeleteObject(ctx, bucket.Name, "")
 		assert.True(t, storj.ErrNoPath.Has(err))
 
-		err = db.DeleteObject(ctx, "non-existing-bucket", "test-file")
+		err = db.DeleteObject(ctx, "non-existing-bucket", TestFile)
 		assert.True(t, storj.ErrBucketNotFound.Has(err))
 
 		err = db.DeleteObject(ctx, bucket.Name, "non-existing-file")
 		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
-		err = db.DeleteObject(ctx, bucket.Name, "test-file")
+		err = db.DeleteObject(ctx, bucket.Name, TestFile)
 		assert.NoError(t, err)
 	})
 }
@@ -254,13 +311,7 @@ func TestListObjectsEmpty(t *testing.T) {
 
 func TestListObjects(t *testing.T) {
 	runTest(t, func(ctx context.Context, db *DB) {
-		var exp time.Time
 		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.Unencrypted})
-		if !assert.NoError(t, err) {
-			return
-		}
-
-		store, err := db.buckets.GetObjectStore(ctx, bucket.Name)
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -270,11 +321,9 @@ func TestListObjects(t *testing.T) {
 			"a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc",
 			"b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc",
 		}
+
 		for _, path := range filePaths {
-			_, err = store.Put(ctx, path, bytes.NewReader(nil), objects.SerializableMeta{}, exp)
-			if !assert.NoError(t, err) {
-				return
-			}
+			upload(ctx, t, db, bucket, path, nil)
 		}
 
 		otherBucket, err := db.CreateBucket(ctx, "otherbucket", nil)
@@ -282,15 +331,7 @@ func TestListObjects(t *testing.T) {
 			return
 		}
 
-		otherStore, err := db.buckets.GetObjectStore(ctx, otherBucket.Name)
-		if !assert.NoError(t, err) {
-			return
-		}
-
-		_, err = otherStore.Put(ctx, "file-in-other-bucket", bytes.NewReader(nil), objects.SerializableMeta{}, exp)
-		if !assert.NoError(t, err) {
-			return
-		}
+		upload(ctx, t, db, otherBucket, "file-in-other-bucket", nil)
 
 		for i, tt := range []struct {
 			options storj.ListOptions

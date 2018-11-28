@@ -29,6 +29,20 @@ const (
 	committedPrefix = "l/"
 )
 
+var defaultRS = storj.RedundancyScheme{
+	Algorithm:      storj.ReedSolomon,
+	RequiredShares: 20,
+	RepairShares:   30,
+	OptimalShares:  40,
+	TotalShares:    50,
+	ShareSize:      1 * memory.KB.Int32(),
+}
+
+var defaultES = storj.EncryptionScheme{
+	Cipher:    storj.AESGCM,
+	BlockSize: 1 * memory.KB.Int32(),
+}
+
 // GetObject returns information about an object
 func (db *DB) GetObject(ctx context.Context, bucket string, path storj.Path) (info storj.Object, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -90,19 +104,12 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 	// if info.ContentType == "" {}
 
 	if info.RedundancyScheme == (storj.RedundancyScheme{}) {
-		info.RedundancyScheme = storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 20,
-			RepairShares:   30,
-			OptimalShares:  40,
-			TotalShares:    50,
-			ShareSize:      1 * memory.KB.Int32(),
-		}
+		info.RedundancyScheme = defaultRS
 	}
 
 	if info.EncryptionScheme == (storj.EncryptionScheme{}) {
 		info.EncryptionScheme = storj.EncryptionScheme{
-			Cipher:    storj.AESGCM,
+			Cipher:    defaultES.Cipher,
 			BlockSize: info.RedundancyScheme.ShareSize,
 		}
 	}
@@ -379,6 +386,6 @@ func (object *mutableObject) DeleteStream(ctx context.Context) error {
 }
 
 func (object *mutableObject) Commit(ctx context.Context) error {
-	// Do nothing for now
+	// Do nothing for now - the object will be committed to PointerDB with Upload.Close
 	return nil
 }
