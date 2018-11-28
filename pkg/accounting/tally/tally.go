@@ -173,7 +173,7 @@ func (t *tally) updateGranularTable(nodeID string, pieceSize int64) error {
 
 // Query bandwidth allocation database, selecting all new contracts since the last collection run time.
 // Grouping by storage node ID and adding total of bandwidth to granular data table.
-func (t *tally) query(ctx context.Context) error {
+func (t *tally) Query(ctx context.Context) error {
 	lastBwTally, err := t.db.Find_Timestamps_Value_By_Name(ctx, accounting.LastBandwidthTally)
 	if err != nil {
 		return err
@@ -224,7 +224,7 @@ func (t *tally) query(ctx context.Context) error {
 			err = tx.Commit()
 		} else {
 			t.logger.Warn("DB txn was rolled back in tally query")
-			tx.Rollback()
+			err = tx.Rollback()
 		}
 	}()
 
@@ -234,7 +234,11 @@ func (t *tally) query(ctx context.Context) error {
 		start := dbx.Granular_StartTime(previousLatestBwa.Value)
 		end := dbx.Granular_EndTime(latestBwa)
 		total := dbx.Granular_DataTotal(v)
-		t.db.Create_Granular(ctx, nID, start, end, total)
+		_, err = t.db.Create_Granular(ctx, nID, start, end, total)
+		if err != nil {
+			t.logger.DPanic("Create granular SQL failed in tally query")
+			return err //todo: retry strategy?
+		}
 	}
 
 	//todo:  move this into txn when we have masterdb?
