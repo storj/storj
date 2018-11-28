@@ -66,14 +66,13 @@ func applicationDir(subdir ...string) string {
 	case "linux":
 		fallthrough
 	default:
-		// XDG standards: https://specifications.freedesktop.org/basedir-spec/latest/ar01s03.html
-		for _, env := range []string{"XDG_DATA_HOME", "HOME"} {
-			val := os.Getenv(env)
-			if val != "" {
-				appdir = val
-				break
-			}
+		// Linux standards: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+		home := os.Getenv("XDG_DATA_HOME")
+		if home == "" {
+			home = os.Getenv("HOME")
+			home = filepath.Join(home, ".local", "share")
 		}
+		appdir = home
 	}
 	return filepath.Join(append([]string{appdir}, subdir...)...)
 }
