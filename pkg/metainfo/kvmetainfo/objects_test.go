@@ -91,7 +91,9 @@ func TestGetObjectStream(t *testing.T) {
 			return
 		}
 
+		fmt.Println("BEFORE")
 		_, err = store.Put(ctx, "large-file", bytes.NewReader(data), objects.SerializableMeta{}, exp)
+		fmt.Println("AFTER")
 		if !assert.NoError(t, err) {
 			return
 		}

@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"storj.io/storj/pkg/utils/node"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
@@ -256,7 +257,7 @@ func (k *Kademlia) Seen() []*pb.Node {
 	nodes := []*pb.Node{}
 	k.routingTable.mutex.Lock()
 	for _, v := range k.routingTable.seen {
-		nodes = append(nodes, proto.Clone(v).(*pb.Node))
+		nodes = append(nodes, nodeutil.CopyNode(v))
 	}
 	k.routingTable.mutex.Unlock()
 	return nodes

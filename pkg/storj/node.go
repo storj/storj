@@ -8,7 +8,6 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
-
 	"storj.io/storj/pkg/utils"
 )
 

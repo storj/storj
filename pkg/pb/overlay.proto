@@ -67,7 +67,7 @@ message OverlayOptions {
     int64 min_speed_kbps = 3;
     int64 amount = 4;
     node.NodeRestrictions restrictions = 5;
-    bytes excluded_nodes = 6 [(gogoproto.casttype) = "NodeIDList"];
+    repeated bytes excluded_nodes = 6 [(gogoproto.customtype) = "NodeID"];
 }
 
 message QueryRequest {
