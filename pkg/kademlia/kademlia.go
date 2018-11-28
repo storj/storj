@@ -184,14 +184,15 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts discovery
 	}
 
 	lookup := newPeerDiscovery(nodes, k.nodeClient, target, opts)
-	one := lookup.foundOne
-	all := lookup.foundAll
 	err = lookup.Run(ctx)
 
-	fmt.Printf("One: %+v\n All: %+v\n", one, all)
+	foundOne := <-lookup.foundOne
+	foundAll := <-lookup.foundAll
+	fmt.Printf("Found one: %+v -- Found All %+v\n", foundOne, foundAll)
 
 	if err != nil {
 		zap.L().Warn("lookup failed", zap.Error(err))
+		return err
 	}
 
 	return nil
@@ -214,16 +215,23 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (pb.Node, error) {
-	// TODO(coyle): actually Find Node not just perform a lookup
-	err := k.lookup(ctx, node.IDFromString(k.routingTable.self.GetId()), discoveryOptions{
-		concurrency: k.alpha, retries: defaultRetries, bootstrap: false,
+	kb := k.routingTable.K()
+	nodes, err := k.routingTable.FindNear(ID, kb)
+	if err != nil {
+		return pb.Node{}, err
+	}
+	lookup := newPeerDiscovery(nodes, k.nodeClient, ID, discoveryOptions{
+		concurrency: k.alpha, retries: defaultRetries, bootstrap: false, bootstrapNodes: k.bootstrapNodes,
 	})
+
+	err = lookup.Run(ctx)
 	if err != nil {
 		return pb.Node{}, err
 	}
 
-	// k.routingTable.getNodesFromIDs()
-	return pb.Node{}, nil
+	node := <-lookup.foundOne
+
+	return *node, nil
 }
 
 // ListenAndServe connects the kademlia node to the network and listens for incoming requests

@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/zeebo/errs"
@@ -53,8 +52,6 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 	// protected by `lookup.cond.L`
 	working := 0
 	allDone := false
-
-	fmt.Printf("looking for node %+v\n", lookup.target)
 
 	wg.Add(lookup.opts.concurrency)
 	for i := 0; i < lookup.opts.concurrency; i++ {
