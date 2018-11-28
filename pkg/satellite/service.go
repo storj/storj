@@ -150,7 +150,7 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) e
 	})
 }
 
-// DeleteUser deletes user by ID
+// DeleteUser deletes User by id
 func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	_, err := GetAuth(ctx)
 	if err != nil {
@@ -160,7 +160,7 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	return s.store.Users().Delete(ctx, id)
 }
 
-// GetCompany returns company by userID
+// GetCompany returns Company by userID
 func (s *Service) GetCompany(ctx context.Context, userID uuid.UUID) (*Company, error) {
 	_, err := GetAuth(ctx)
 	if err != nil {
@@ -168,6 +168,24 @@ func (s *Service) GetCompany(ctx context.Context, userID uuid.UUID) (*Company, e
 	}
 
 	return s.store.Companies().GetByUserID(ctx, userID)
+}
+
+// UpdateCompany updates Company with given userID
+func (s *Service) UpdateCompany(ctx context.Context, userID uuid.UUID, info CompanyInfo) error {
+	_, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return s.store.Companies().Update(ctx, &Company{
+		UserID:     userID,
+		Name:       info.Name,
+		Address:    info.Address,
+		Country:    info.Country,
+		City:       info.City,
+		State:      info.State,
+		PostalCode: info.PostalCode,
+	})
 }
 
 // GetProject is a method for querying project by id
