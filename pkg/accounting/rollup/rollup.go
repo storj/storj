@@ -20,10 +20,10 @@ type Rollup interface {
 type rollup struct {
 	logger *zap.Logger
 	ticker *time.Ticker
-	db     *dbx.DB
+	db     *accountingdb.Database
 }
 
-func newRollup(logger *zap.Logger, db *dbx.DB, interval time.Duration) (*rollup, error) {
+func newRollup(logger *zap.Logger, db *accountingdb.Database, interval time.Duration) (*rollup, error) {
 	return &rollup{
 		logger: logger,
 		ticker: time.NewTicker(interval),
@@ -44,7 +44,10 @@ func (r *rollup) Run(ctx context.Context) (err error) {
 		select {
 		case <-r.ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the rollup is canceled via context
-			_ = r.db.Close()
+			err = r.db.Close()
+			if err != nil {
+				zap.L().Error("error closing connection to accountingdb", zap.Error(err))
+			}
 			return ctx.Err()
 		}
 	}

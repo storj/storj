@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"storj.io/storj/pkg/accounting"
 	dbManager "storj.io/storj/pkg/bwagreement/database-manager"
+
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"

@@ -21,10 +21,14 @@ import (
 	dbManager "storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/bwagreement/test"
 	"storj.io/storj/pkg/kademlia"
+
+	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/teststore"
 )

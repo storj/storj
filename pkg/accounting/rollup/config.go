@@ -11,6 +11,7 @@ import (
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/accounting/accountingdb"
 )
 
 // Config contains configurable values for rollup
