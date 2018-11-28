@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"storj.io/storj/internal/storj"
+	"storj.io/storj/internal/teststorj"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -200,7 +200,7 @@ func TestAddNode(t *testing.T) {
 			kadKeys, err := rt.kadBucketDB.List(nil, 0)
 			assert.NoError(t, err)
 			for i, v := range kadKeys {
-				assert.True(t, bytes.Equal(c.kadIDs[i], v[:2]) == true)
+				assert.True(t, bytes.Equal(c.kadIDs[i], v[:2]))
 				ids, err := rt.getNodeIDsWithinKBucket(keyToBucketID(v))
 				assert.NoError(t, err)
 				// fmt.Printf("TOTAL=%d\n", len(ids))

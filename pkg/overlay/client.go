@@ -66,9 +66,7 @@ var _ Client = (*Overlay)(nil)
 // Choose implements the client.Choose interface
 func (o *Overlay) Choose(ctx context.Context, op Options) ([]*pb.Node, error) {
 	var exIDs storj.NodeIDList
-	for _, id := range op.Excluded {
-		exIDs = append(exIDs, id)
-	}
+	exIDs = append(exIDs, op.Excluded...)
 	// TODO(coyle): We will also need to communicate with the reputation service here
 	resp, err := o.client.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{
 		Opts: &pb.OverlayOptions{

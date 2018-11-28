@@ -11,13 +11,12 @@ import (
 	"go.uber.org/zap"
 
 	dbx "storj.io/storj/pkg/accounting/dbx"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils/lookup"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
 
@@ -114,11 +113,11 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 }
 
 func (t *tally) onlineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (online []*pb.Node, err error) {
-	responses, err := t.overlay.BulkLookup(ctx, lookup.NodeIDsToLookupRequests(nodeIDs))
+	responses, err := t.overlay.BulkLookup(ctx, pb.NodeIDsToLookupRequests(nodeIDs))
 	if err != nil {
 		return []*pb.Node{}, err
 	}
-	nodes := lookup.LookupResponsesToNodes(responses)
+	nodes := pb.LookupResponsesToNodes(responses)
 	for _, n := range nodes {
 		if n != nil {
 			online = append(online, n)

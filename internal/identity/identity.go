@@ -6,7 +6,7 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
-// helper function to generate new node identities with
+// NewTestIdentity is a helper function to generate new node identities with
 // correct difficulty and concurrency
 func NewTestIdentity() (*provider.FullIdentity, error) {
 	ca, err := provider.NewCA(context.Background(), provider.NewCAOptions{

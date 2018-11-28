@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils/lookup"
 	"storj.io/storj/storage"
 )
 
@@ -118,11 +117,11 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 
 // returns the indices of offline nodes
 func (c *checker) offlineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (offline []int32, err error) {
-	responses, err := c.overlay.BulkLookup(ctx, lookup.NodeIDsToLookupRequests(nodeIDs))
+	responses, err := c.overlay.BulkLookup(ctx, pb.NodeIDsToLookupRequests(nodeIDs))
 	if err != nil {
 		return []int32{}, err
 	}
-	nodes := lookup.LookupResponsesToNodes(responses)
+	nodes := pb.LookupResponsesToNodes(responses)
 	for i, n := range nodes {
 		if n == nil {
 			offline = append(offline, int32(i))

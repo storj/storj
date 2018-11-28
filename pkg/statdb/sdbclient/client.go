@@ -8,11 +8,11 @@ import (
 
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/pkg/statdb/proto"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
 

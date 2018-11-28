@@ -280,6 +280,9 @@ func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storj.NodeID) (bool, error) 
 		return true, nil
 	}
 	nodeIDs, err := keysToNodeIDs(nodeKeys)
+	if err != nil {
+		return false, RoutingErr.Wrap(err)
+	}
 	furthestIDWithinK, err := rt.determineFurthestIDWithinK(nodeIDs)
 	if err != nil {
 		return false, RoutingErr.New("could not determine furthest id within k: %s", err)
@@ -406,19 +409,6 @@ func (rt *RoutingTable) createFirstBucketID() bucketID {
 	x := byte(255)
 	for i := 0; i < len(id); i++ {
 	// for i := 0; i < rt.idLength / 8; i++ {
-		id[i] = x
-	}
-	return id
-}
-
-// createZeroAsBucketID creates storage Key representation of 00..00
-// TODO(bryanchriswhite): I think this can be deleted
-func (rt *RoutingTable) createZeroAsBucketID() bucketID {
-	var id bucketID
-	x := byte(0)
-	for i := 0; i < len(id); i++ {
-	// for i := 0; i < rt.idLength / 8; i++ {
-		// id = append(id, x)
 		id[i] = x
 	}
 	return id

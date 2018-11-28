@@ -11,7 +11,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
-	"storj.io/storj/internal/storj"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/dht/mocks"
 	"storj.io/storj/pkg/pb"

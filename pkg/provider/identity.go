@@ -353,6 +353,7 @@ func (fi *FullIdentity) DialOption(id storj.NodeID) (grpc.DialOption, error) {
 	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), nil
 }
 
+// NodeIDFromKey hashes a publc key and creates a node ID from it
 func NodeIDFromKey(k crypto.PublicKey) (storj.NodeID, error) {
 	kb, err := x509.MarshalPKIXPublicKey(k)
 	if err != nil {

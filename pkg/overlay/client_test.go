@@ -11,7 +11,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
-	"storj.io/storj/internal/storj"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/internal/testcontext"

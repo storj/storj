@@ -140,6 +140,7 @@ func LoadServerFromContext(ctx context.Context) *Server {
 	return nil
 }
 
+// ParseIDs converts the base58check encoded node ID strings from the config into node IDs
 func (c LookupConfig) ParseIDs() (ids storj.NodeIDList, err error) {
 	var idErrs []error
 	idStrs := strings.Split(c.NodeIDsString, c.Delimiter)

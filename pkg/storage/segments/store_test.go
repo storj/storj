@@ -12,7 +12,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
-	"storj.io/storj/internal/storj"
+	"storj.io/storj/internal/teststorj"
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/eestream/mocks"

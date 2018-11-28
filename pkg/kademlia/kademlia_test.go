@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"storj.io/storj/internal/identity"
-	"storj.io/storj/internal/storj"
+	"storj.io/storj/internal/teststorj"
 
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
@@ -90,7 +90,7 @@ func TestPeerDiscovery(t *testing.T) {
 		Email:  "foo@bar.com",
 		Wallet: "FarmerWallet",
 	}
-	k, err := NewKademlia(storj.NodeID(testID.ID), bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
+	k, err := NewKademlia(testID.ID, bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
 	assert.NoError(t, err)
 	rt, err := k.GetRoutingTable(context.Background())
 	assert.NoError(t, err)
@@ -160,12 +160,11 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	// new config
 	// new identity
 	fid, err := testidentity.NewTestIdentity()
-	id := storj.NodeID(fid.ID)
 	assert.NoError(t, err)
 	// new kademlia
 	dir, cleanup := mktempdir(t, "kademlia")
 
-	k, err := NewKademlia(id, bn, lis.Addr().String(), nil, fid, dir, defaultAlpha)
+	k, err := NewKademlia(fid.ID, bn, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
 	s := node.NewServer(k)
 	// new ident opts
