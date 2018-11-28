@@ -12,6 +12,7 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/storage"
 )
 
@@ -20,18 +21,25 @@ const (
 	OverlayBucket = "overlay"
 )
 
+// ErrNodeNotFound error standardization
+var ErrNodeNotFound = errs.New("Node not found")
+
+// ErrBucketNotFound returns if a bucket is unable to be found in the routing table
+var ErrBucketNotFound = errs.New("Bucket not found")
+
 // OverlayError creates class of errors for stack traces
 var OverlayError = errs.Class("Overlay Error")
 
 // Cache is used to store overlay data in Redis
 type Cache struct {
-	DB  storage.KeyValueStore
-	DHT dht.DHT
+	DB     storage.KeyValueStore
+	DHT    dht.DHT
+	StatDB *statdb.Server
 }
 
 // NewOverlayCache returns a new Cache
-func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT) *Cache {
-	return &Cache{DB: db, DHT: dht}
+func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT, sdb *statdb.Server) *Cache {
+	return &Cache{DB: db, DHT: dht, StatDB: sdb}
 }
 
 // Get looks up the provided nodeID from the overlay cache

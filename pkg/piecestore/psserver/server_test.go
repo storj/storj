@@ -257,7 +257,7 @@ func TestRetrieve(t *testing.T) {
 
 				err = stream.Send(
 					&pb.PieceRetrieval{
-						Bandwidthallocation: &ba,
+						BandwidthAllocation: &ba,
 					},
 				)
 				assert.NoError(err)
@@ -334,13 +334,13 @@ func TestStore(t *testing.T) {
 			assert.NoError(err)
 
 			// Write the buffer to the stream we opened earlier
-			err = stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
+			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
 			assert.NoError(err)
 
 			// Send Bandwidth Allocation Data
 			msg := &pb.PieceStore{
-				Piecedata: &pb.PieceStore_PieceData{Content: tt.content},
-				Bandwidthallocation: &pb.RenterBandwidthAllocation{
+				PieceData: &pb.PieceStore_PieceData{Content: tt.content},
+				BandwidthAllocation: &pb.RenterBandwidthAllocation{
 					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
 						PayerAllocation: &pb.PayerBandwidthAllocation{},
 						Total:           int64(len(tt.content)),
@@ -348,9 +348,9 @@ func TestStore(t *testing.T) {
 				},
 			}
 
-			s, err := cryptopasta.Sign(msg.Bandwidthallocation.Data, TS.k.(*ecdsa.PrivateKey))
+			s, err := cryptopasta.Sign(msg.BandwidthAllocation.Data, TS.k.(*ecdsa.PrivateKey))
 			assert.NoError(err)
-			msg.Bandwidthallocation.Signature = s
+			msg.BandwidthAllocation.Signature = s
 
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(msg)
@@ -390,7 +390,7 @@ func TestStore(t *testing.T) {
 
 				err = proto.Unmarshal(agreement, decoded)
 				assert.NoError(err)
-				assert.Equal(msg.Bandwidthallocation.GetSignature(), signature)
+				assert.Equal(msg.BandwidthAllocation.GetSignature(), signature)
 				assert.Equal(&pb.PayerBandwidthAllocation{}, decoded.GetPayerAllocation())
 				assert.Equal(int64(len(tt.content)), decoded.GetTotal())
 

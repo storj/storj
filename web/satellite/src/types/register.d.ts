@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 declare type RegisterData = {
 	firstName: string,
 	firstNameError: string,
@@ -16,5 +19,6 @@ declare type RegisterData = {
 	state: string,
 	postalCode: string,
 	isTermsAccepted: boolean,
+	isTermsAcceptedError: boolean,
 	optionalAreaShown: boolean
 }

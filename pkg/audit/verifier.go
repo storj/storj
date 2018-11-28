@@ -37,7 +37,7 @@ type Verifier struct {
 }
 
 type downloader interface {
-	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, authorization *pb.SignedMessage) (shares []share, nodes []*pb.Node, err error)
+	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]*pb.Node, err error)
 }
 
 // defaultDownloader downloads shares from networked storage nodes
@@ -116,8 +116,9 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 
 // Download Shares downloads shares from the nodes where remote pieces are located
 func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
-	stripeIndex int, authorization *pb.SignedMessage) (shares []share, nodes []*pb.Node, err error) {
+	stripeIndex int, authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var nodeIds storj.NodeIDList
 	pieces := pointer.Remote.GetRemotePieces()
 
@@ -125,17 +126,20 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 		nodeIds = append(nodeIds, p.NodeId)
 	}
 
-	// TODO(moby) nodes will not include offline nodes, so overlay should update uptime for these nodes
-	nodes, err = d.overlay.BulkLookup(ctx, nodeIds)
+	// TODO(moby) nodeSlice will not include offline nodes, so overlay should update uptime for these nodes
+	nodeSlice, err := d.overlay.BulkLookup(ctx, nodeIds)
 	if err != nil {
 		return nil, nodes, err
 	}
+
+	shares = make(map[int]share, len(nodeSlice))
+	nodes = make(map[int]*pb.Node, len(nodeSlice))
 
 	shareSize := int(pointer.Remote.Redundancy.GetErasureShareSize())
 	pieceID := psclient.PieceID(pointer.Remote.GetPieceId())
 
 	// this downloads shares from nodes at the given stripe index
-	for i, node := range nodes {
+	for i, node := range nodeSlice {
 		paddedSize := calcPadded(pointer.GetSegmentSize(), shareSize)
 		pieceSize := paddedSize / int64(pointer.Remote.Redundancy.GetMinReq())
 
@@ -147,13 +151,15 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 				Data:        nil,
 			}
 		}
-		shares = append(shares, s)
+
+		shares[s.PieceNumber] = s
+		nodes[s.PieceNumber] = node
 	}
 
 	return shares, nodes, nil
 }
 
-func makeCopies(ctx context.Context, originals []share) (copies []infectious.Share, err error) {
+func makeCopies(ctx context.Context, originals map[int]share) (copies []infectious.Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 	copies = make([]infectious.Share, 0, len(originals))
 	for _, original := range originals {
@@ -169,7 +175,7 @@ func makeCopies(ctx context.Context, originals []share) (copies []infectious.Sha
 
 // auditShares takes the downloaded shares and uses infectious's Correct function to check that they
 // haven't been altered. auditShares returns a slice containing the piece numbers of altered shares.
-func auditShares(ctx context.Context, required, total int, originals []share) (pieceNums []int, err error) {
+func auditShares(ctx context.Context, required, total int, originals map[int]share) (pieceNums []int, err error) {
 	defer mon.Task()(&ctx)(&err)
 	f, err := infectious.NewFEC(required, total)
 	if err != nil {
@@ -185,8 +191,8 @@ func auditShares(ctx context.Context, required, total int, originals []share) (p
 	if err != nil {
 		return nil, err
 	}
-	for i, share := range copies {
-		if !bytes.Equal(originals[i].Data, share.Data) {
+	for _, share := range copies {
+		if !bytes.Equal(originals[share.Number].Data, share.Data) {
 			pieceNums = append(pieceNums, share.Number)
 		}
 	}
@@ -211,9 +217,9 @@ func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *
 	}
 
 	var offlineNodes storj.NodeIDList
-	for i := range shares {
-		if shares[i].Error != nil {
-			offlineNodes = append(offlineNodes, nodes[i].Id)
+	for pieceNum := range shares {
+		if shares[pieceNum].Error != nil {
+			offlineNodes = append(offlineNodes, nodes[pieceNum].Id)
 		}
 	}
 
@@ -230,13 +236,13 @@ func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *
 	}
 
 	successNodes := getSuccessNodes(ctx, nodes, failedNodes, offlineNodes)
-	verifiedNodes = setVerifiedNodes(ctx, nodes, offlineNodes, failedNodes, successNodes)
+	verifiedNodes = setVerifiedNodes(ctx, offlineNodes, failedNodes, successNodes)
 
 	return verifiedNodes, nil
 }
 
 // getSuccessNodes uses the failed nodes and offline nodes arrays to determine which nodes passed the audit
-func getSuccessNodes(ctx context.Context, nodes []*pb.Node, failedNodes, offlineNodes storj.NodeIDList) (successNodes storj.NodeIDList) {
+func getSuccessNodes(ctx context.Context, nodes map[int]*pb.Node, failedNodes, offlineNodes storj.NodeIDList) (successNodes storj.NodeIDList) {
 	fails := make(map[storj.NodeID]bool)
 	for _, fail := range failedNodes {
 		fails[fail] = true
@@ -254,7 +260,7 @@ func getSuccessNodes(ctx context.Context, nodes []*pb.Node, failedNodes, offline
 }
 
 // setVerifiedNodes creates a combined array of offline nodes, failed audit nodes, and success nodes with their stats set to the statdb proto Node type
-func setVerifiedNodes(ctx context.Context, nodes []*pb.Node, offlineNodes, failedNodes, successNodes storj.NodeIDList) (verifiedNodes []*sdbproto.Node) {
+func setVerifiedNodes(ctx context.Context, offlineNodes, failedNodes, successNodes storj.NodeIDList) (verifiedNodes []*sdbproto.Node) {
 	offlineStatusNodes := setOfflineStatus(ctx, offlineNodes)
 	failStatusNodes := setAuditFailStatus(ctx, failedNodes)
 	successStatusNodes := setSuccessStatus(ctx, successNodes)

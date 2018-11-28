@@ -33,7 +33,7 @@ func NewReporter(ctx context.Context, statDBPort string, maxRetries int, apiKey 
 		return nil, err
 	}
 
-	client, err := sdbclient.NewClient(identity, statDBPort, []byte(apiKey))
+	client, err := sdbclient.NewClient(identity, statDBPort, apiKey)
 	if err != nil {
 		return nil, err
 	}

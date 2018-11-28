@@ -184,7 +184,7 @@ func contains(nodeIDs storj.NodeIDList, searchID storj.NodeID) bool {
 
 // lookupRequestsToNodeIDs returns the nodeIDs from the LookupRequests
 func lookupRequestsToNodeIDs(reqs *pb.LookupRequests) (ids storj.NodeIDList) {
-	for _, v := range reqs.Lookuprequest {
+	for _, v := range reqs.LookupRequest {
 		ids = append(ids, v.NodeId)
 	}
 	return ids
@@ -197,5 +197,5 @@ func nodesToLookupResponses(nodes []*pb.Node) *pb.LookupResponses {
 		r := &pb.LookupResponse{Node: v}
 		rs = append(rs, r)
 	}
-	return &pb.LookupResponses{Lookupresponse: rs}
+	return &pb.LookupResponses{LookupResponse: rs}
 }

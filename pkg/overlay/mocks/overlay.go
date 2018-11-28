@@ -60,13 +60,13 @@ func (mo *Overlay) Lookup(ctx context.Context, req *pb.LookupRequest) (
 func (mo *Overlay) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
 	*pb.LookupResponses, error) {
 	var responses []*pb.LookupResponse
-	for _, r := range reqs.Lookuprequest {
+	for _, r := range reqs.LookupRequest {
 		// NOTE (Dylan): tests did not catch missing node case, need updating
 		n := mo.nodes[r.NodeId]
 		resp := &pb.LookupResponse{Node: n}
 		responses = append(responses, resp)
 	}
-	return &pb.LookupResponses{Lookupresponse: responses}, nil
+	return &pb.LookupResponses{LookupResponse: responses}, nil
 }
 
 // Config specifies static nodes for mock overlay

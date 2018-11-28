@@ -9,6 +9,7 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storage"
 )
 
 // DHT is the interface for the DHT in the Storj network
@@ -29,8 +30,10 @@ type RoutingTable interface {
 	K() int
 	CacheSize() int
 
+	// Bucket methods
 	GetBucket(id storj.NodeID) (bucket Bucket, ok bool)
 	GetBuckets() ([]Bucket, error)
+	GetBucketIds() (storage.Keys, error)
 
 	FindNear(id storj.NodeID, limit int) ([]*pb.Node, error)
 

@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -60,6 +61,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return Error.New("programmer error: kademlia responsibility unstarted")
 	}
 
+	sdb := statdb.LoadFromContext(ctx)
+	if sdb == nil {
+		return Error.New("programmer error: statdb responsibility unstarted")
+	}
+
 	dburl, err := utils.ParseURL(c.DatabaseURL)
 	if err != nil {
 		return Error.Wrap(err)
@@ -84,7 +90,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return Error.New("database scheme not supported: %s", dburl.Scheme)
 	}
 
-	cache := NewOverlayCache(db, kad)
+	cache := NewOverlayCache(db, kad, sdb)
 
 	go func() {
 		err = cache.Bootstrap(ctx)

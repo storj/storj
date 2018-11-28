@@ -173,7 +173,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 		return object{}, storj.Object{}, err
 	}
 
-	pointer, _, err := db.pointers.Get(ctx, prefix+encryptedPath)
+	pointer, _, _, err := db.pointers.Get(ctx, prefix+encryptedPath)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			err = storj.ErrObjectNotFound.Wrap(err)

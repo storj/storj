@@ -1,6 +1,9 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 const ROUTES = {
-    DEFAULT: {
-        path: '/',
+    LOGIN: {
+        path: '/login',
         name: 'Login'
     },
     REGISTER: {
@@ -8,7 +11,7 @@ const ROUTES = {
         name: 'Register'
     },
     DASHBOARD: {
-        path: '/dashboard',
+        path: '/',
         name: 'Dashboard'
     }
 };

@@ -12,14 +12,12 @@ import (
 
 // Companies exposes methods to manage Company table in database.
 type Companies interface {
-	// Get is a method for querying company from the database by id
-	Get(ctx context.Context, id uuid.UUID) (*Company, error)
-	// Get is a method for querying company from the database by user id
+	// GetByUserID is a method for querying company from the database by userID
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*Company, error)
 	// Insert is a method for inserting company into the database
 	Insert(ctx context.Context, company *Company) (*Company, error)
-	// Delete is a method for deleting company by Id from the database.
-	Delete(ctx context.Context, id uuid.UUID) error
+	// Delete is a method for deleting company by userID from the database.
+	Delete(ctx context.Context, userID uuid.UUID) error
 	// Update is a method for updating company entity
 	Update(ctx context.Context, company *Company) error
 }
@@ -36,7 +34,7 @@ type CompanyInfo struct {
 
 // Company is a database object that describes Company entity
 type Company struct {
-	ID     uuid.UUID
+	//PK and FK on users table
 	UserID uuid.UUID
 
 	Name       string

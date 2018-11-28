@@ -1,36 +1,45 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <label class="container">
         <input type="checkbox" v-model="checked" @change="onChange">
-        <span class="checkmark"></span>
+        <span v-bind:class="[isCheckboxError ? 'checkmark error': 'checkmark']"></span>
     </label>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+    import {Component, Vue} from 'vue-property-decorator';
 
-// Custom checkbox component
-@Component(
-    { 
-        data: () => {
-			return {
-				checked: false
-			}
-		},
-		methods: {
-            //emits data to parent component
-			onChange () {
-				this.$emit('setData', this.$data.checked)
-			}
-		},
+    // Custom checkbox component
+    @Component(
+        {
+            data: () => {
+                return {
+                    checked: false
+                }
+            },
+            methods: {
+                //emits data to parent component
+                onChange() {
+                    this.$emit('setData', this.$data.checked)
+                }
+            },
+            props: {
+                isCheckboxError: {
+                    type: Boolean,
+                    default: false
+                },
+            },
+        }
+    )
+    export default class Checkbox extends Vue {
+
     }
-)
-export default class Checkbox extends Vue {
-    
-}
 </script>
 
 <style scoped lang="scss">
-        .container {
+    .container {
         display: block;
         position: relative;
         padding-left: 35px;
@@ -76,6 +85,10 @@ export default class Checkbox extends Vue {
         content: "";
         position: absolute;
         display: none;
+    }
+
+    .checkmark.error {
+        border-color: red;
     }
 
     .container input:checked ~ .checkmark:after {

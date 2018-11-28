@@ -12,13 +12,13 @@ func NodeIDsToLookupRequests(nodeIDs storj.NodeIDList) *pb.LookupRequests {
 		r := &pb.LookupRequest{NodeId: v}
 		rq = append(rq, r)
 	}
-	return &pb.LookupRequests{Lookuprequest: rq}
+	return &pb.LookupRequests{LookupRequest: rq}
 }
 
 // LookupResponsesToNodes ...
 func LookupResponsesToNodes(responses *pb.LookupResponses) []*pb.Node {
 	var nodes []*pb.Node
-	for _, v := range responses.Lookupresponse {
+	for _, v := range responses.LookupResponse {
 		n := v.Node
 		nodes = append(nodes, n)
 	}

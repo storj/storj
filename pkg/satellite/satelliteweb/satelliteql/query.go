@@ -14,8 +14,10 @@ const (
 	// Query is immutable graphql request
 	Query = "query"
 
-	userQuery  = "user"
-	tokenQuery = "token"
+	userQuery       = "user"
+	projectQuery    = "project"
+	myProjectsQuery = "myProjects"
+	tokenQuery      = "token"
 )
 
 // rootQuery creates query for graphql populated by AccountsClient
@@ -38,16 +40,43 @@ func rootQuery(service *satellite.Service, types Types) *graphql.Object {
 						return nil, err
 					}
 
-					user, err := service.GetUser(p.Context, *idBytes)
+					return service.GetUser(p.Context, *idBytes)
+				},
+			},
+			projectQuery: &graphql.Field{
+				Type: types.Project(),
+				Args: graphql.FieldConfigArgument{
+					fieldID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					inputID, _ := p.Args[fieldID].(string)
+
+					id, err := uuid.Parse(inputID)
 					if err != nil {
 						return nil, err
 					}
 
-					return user, nil
+					return service.GetProject(p.Context, *id)
+				},
+			},
+			myProjectsQuery: &graphql.Field{
+				Type: graphql.NewList(types.Project()),
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					// TODO: parse id and query only users projects, not all
+					//inputID, _ := p.Args[fieldID].(string)
+					//
+					//id, err := uuid.Parse(inputID)
+					//if err != nil {
+					//	return nil, err
+					//}
+
+					return service.GetUsersProjects(p.Context)
 				},
 			},
 			tokenQuery: &graphql.Field{
-				Type: graphql.String,
+				Type: types.Token(),
 				Args: graphql.FieldConfigArgument{
 					fieldEmail: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -65,7 +94,7 @@ func rootQuery(service *satellite.Service, types Types) *graphql.Object {
 						return nil, err
 					}
 
-					return token, nil
+					return tokenWrapper{Token: token}, nil
 				},
 			},
 		},

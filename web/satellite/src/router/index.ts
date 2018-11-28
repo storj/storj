@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import Vue from 'vue';
 import Router from 'vue-router';
 import ROUTES from '@/utils/constants/routerConstants';
@@ -5,6 +8,7 @@ import Login from '@/views/Login.vue';
 import Register from '@/views/Register.vue';
 import Dashboard from '@/views/Dashboard.vue';
 import AccountArea from '@/components/dashboard/account/AccountArea.vue';
+import ProjectDetails from '@/components/projectDetails/ProjectDetailsArea.vue';
 
 Vue.use(Router);
 
@@ -12,8 +16,8 @@ export default new Router({
 	mode: 'history',
 	routes: [
 		{
-			path: ROUTES.DEFAULT.path,
-			name: ROUTES.DEFAULT.name,
+			path: ROUTES.LOGIN.path,
+			name: ROUTES.LOGIN.name,
 			component: Login
 		},
 		{
@@ -27,9 +31,14 @@ export default new Router({
 			component: Dashboard,
 			children: [
 				{
-					path: 'account',
-					name: 'Account',
+					path: '/account-settings',
+					name: 'AccountSettings',
 					component: AccountArea
+				},
+				{
+					path: '/project-details',
+					name: 'ProjectDetails',
+					component: ProjectDetails
 				}
 			]
 		}

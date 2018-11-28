@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"storj.io/storj/internal/storj"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/overlay"
@@ -56,6 +57,10 @@ func (pbd *pointerDBWrapper) List(ctx context.Context, in *pb.ListRequest, opts 
 
 func (pbd *pointerDBWrapper) Delete(ctx context.Context, in *pb.DeleteRequest, opts ...grpc.CallOption) (*pb.DeleteResponse, error) {
 	return pbd.s.Delete(ctx, in)
+}
+
+func (pbd *pointerDBWrapper) PayerBandwidthAllocation(ctx context.Context, in *pb.PayerBandwidthAllocationRequest, opts ...grpc.CallOption) (*pb.PayerBandwidthAllocationResponse, error) {
+	return pbd.s.PayerBandwidthAllocation(ctx, in)
 }
 
 func TestAuditSegment(t *testing.T) {
@@ -124,7 +129,7 @@ func TestAuditSegment(t *testing.T) {
 	db := teststore.New()
 	c := pointerdb.Config{MaxInlineSegmentSize: 8000}
 
-	cache := overlay.NewOverlayCache(teststore.New(), nil)
+	cache := overlay.NewOverlayCache(teststore.New(), nil, nil)
 
 	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c, identity))
 	pointers := pdbclient.New(pdbw)
@@ -236,7 +241,7 @@ func makePutRequest(path storj.Path) pb.PutRequest {
 	var rps []*pb.RemotePiece
 	rps = append(rps, &pb.RemotePiece{
 		PieceNum: 1,
-		NodeId:   "testId",
+		NodeId:   teststorj.NodeIDFromString("testId"),
 	})
 	pr := pb.PutRequest{
 		Path: path,

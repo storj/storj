@@ -1,0 +1,96 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+import "gogo.proto";
+import "node.proto";
+
+package inspector;
+
+service Inspector {
+  // Kad/Overlay commands:
+  // CountNodes returns the number of nodes in the cache and in the routing table
+  rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
+  // GetBuckets returns the k buckets from a Kademlia instance
+  rpc GetBuckets(GetBucketsRequest) returns (GetBucketsResponse);
+  // GetBucket returns the details of a single k bucket from the kademlia instance
+  rpc GetBucket(GetBucketRequest) returns (GetBucketResponse);
+  // PingNodes sends a PING RPC to a node and returns it's availability
+  rpc PingNode(PingNodeRequest) returns (PingNodeResponse);
+
+  // StatDB commands:
+  // GetStats returns the stats for a particular node ID
+  rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
+  // CreateStats creates a node with specified stats
+  rpc CreateStats(CreateStatsRequest) returns (CreateStatsResponse);
+}
+
+// GetStats
+message GetStatsRequest {
+  bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message GetStatsResponse {
+  int64 audit_count = 1;
+  double uptime_ratio = 2;
+  double audit_ratio = 3;
+}
+
+// CreateStats
+message CreateStatsRequest {
+  bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  int64 audit_count = 2;
+  int64 audit_success_count = 3;
+  int64 uptime_count = 4;
+  int64 uptime_success_count = 5;
+}
+
+message CreateStatsResponse {
+}
+
+// CountNodes
+message CountNodesResponse {
+  int64 kademlia = 1;
+  int64 overlay = 2;
+}
+
+message CountNodesRequest {
+}
+
+// GetBuckets
+message GetBucketsRequest {
+}
+
+message GetBucketsResponse {
+  int64 total = 1;
+  bytes ids = 2 [(gogoproto.casttype) = "NodeIDList"];
+}
+
+// GetBucket
+message GetBucketRequest {
+  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message GetBucketResponse {
+  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  repeated node.Node nodes = 2;
+}
+
+message Bucket {
+  repeated node.Node nodes = 2;
+}
+
+message BucketList {
+  repeated node.Node nodes = 1;
+}
+// PingNode 
+message PingNodeRequest {
+  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  string address = 2;
+}
+
+message PingNodeResponse {
+  bool ok = 1;
+}

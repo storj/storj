@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/internal/migrate"
-	"storj.io/storj/pkg/pointerdb/auth"
+	"storj.io/storj/pkg/auth"
 	dbx "storj.io/storj/pkg/statdb/dbx"
 	pb "storj.io/storj/pkg/statdb/proto"
 )
@@ -31,10 +31,11 @@ var (
 type Server struct {
 	DB     *dbx.DB
 	logger *zap.Logger
+	apiKey []byte
 }
 
 // NewServer creates instance of Server
-func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
+func NewServer(driver, source, apiKey string, logger *zap.Logger) (*Server, error) {
 	db, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, err
@@ -48,13 +49,14 @@ func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
 	return &Server{
 		DB:     db,
 		logger: logger,
+		apiKey: []byte(apiKey),
 	}, nil
 }
 
-func (s *Server) validateAuth(APIKeyBytes []byte) error {
-	if !auth.ValidateAPIKey(string(APIKeyBytes)) {
-		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
+func (s *Server) validateAuth(ctx context.Context) error {
+	err := auth.ValidateAPIKey(ctx, s.apiKey)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -64,8 +66,7 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Create")
 
-	APIKeyBytes := createReq.APIKey
-	if err := s.validateAuth(APIKeyBytes); err != nil {
+	if err := s.validateAuth(ctx); err != nil {
 		return nil, err
 	}
 
@@ -128,8 +129,7 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Get")
 
-	APIKeyBytes := getReq.APIKey
-	err = s.validateAuth(APIKeyBytes)
+	err = s.validateAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -215,8 +215,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Update")
 
-	APIKeyBytes := updateReq.APIKey
-	err = s.validateAuth(APIKeyBytes)
+	err = s.validateAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -224,8 +223,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 	node := updateReq.GetNode()
 
 	createIfReq := &pb.CreateEntryIfNotExistsRequest{
-		Node:   updateReq.GetNode(),
-		APIKey: APIKeyBytes,
+		Node: updateReq.GetNode(),
 	}
 
 	_, err = s.CreateEntryIfNotExists(ctx, createIfReq)
@@ -285,18 +283,114 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 	}, nil
 }
 
+// UpdateUptime updates a single storagenode's uptime stats in the db
+func (s *Server) UpdateUptime(ctx context.Context, updateReq *pb.UpdateUptimeRequest) (resp *pb.UpdateUptimeResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	s.logger.Debug("entering statdb UpdateUptime")
+
+	err = s.validateAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	node := updateReq.GetNode()
+
+	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	uptimeSuccessCount := dbNode.UptimeSuccessCount
+	totalUptimeCount := dbNode.TotalUptimeCount
+	var uptimeRatio float64
+
+	updateFields := dbx.Node_Update_Fields{}
+
+	uptimeSuccessCount, totalUptimeCount, uptimeRatio = updateRatioVars(
+		node.IsUp,
+		uptimeSuccessCount,
+		totalUptimeCount,
+	)
+
+	updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(uptimeSuccessCount)
+	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
+	updateFields.UptimeRatio = dbx.Node_UptimeRatio(uptimeRatio)
+
+	dbNode, err = s.DB.Update_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()), updateFields)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	nodeStats := &pb.NodeStats{
+		NodeId:            node.Id,
+		AuditSuccessRatio: dbNode.AuditSuccessRatio,
+		UptimeRatio:       dbNode.UptimeRatio,
+		AuditCount:        dbNode.TotalAuditCount,
+	}
+	return &pb.UpdateUptimeResponse{
+		Stats: nodeStats,
+	}, nil
+}
+
+// UpdateAuditSuccess updates a single storagenode's uptime stats in the db
+func (s *Server) UpdateAuditSuccess(ctx context.Context, updateReq *pb.UpdateAuditSuccessRequest) (resp *pb.UpdateAuditSuccessResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	s.logger.Debug("entering statdb UpdateAuditSuccess")
+
+	err = s.validateAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	node := updateReq.GetNode()
+
+	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	auditSuccessCount := dbNode.AuditSuccessCount
+	totalAuditCount := dbNode.TotalAuditCount
+	var auditRatio float64
+
+	updateFields := dbx.Node_Update_Fields{}
+
+	auditSuccessCount, totalAuditCount, auditRatio = updateRatioVars(
+		node.AuditSuccess,
+		auditSuccessCount,
+		totalAuditCount,
+	)
+
+	updateFields.AuditSuccessCount = dbx.Node_AuditSuccessCount(auditSuccessCount)
+	updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(totalAuditCount)
+	updateFields.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(auditRatio)
+
+	dbNode, err = s.DB.Update_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()), updateFields)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	nodeStats := &pb.NodeStats{
+		NodeId:            node.Id,
+		AuditSuccessRatio: dbNode.AuditSuccessRatio,
+		UptimeRatio:       dbNode.UptimeRatio,
+		AuditCount:        dbNode.TotalAuditCount,
+	}
+	return &pb.UpdateAuditSuccessResponse{
+		Stats: nodeStats,
+	}, nil
+}
+
 // UpdateBatch for updating multiple farmers' stats in the db
 func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (resp *pb.UpdateBatchResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb UpdateBatch")
 
-	APIKeyBytes := updateBatchReq.APIKey
 	var nodeStatsList []*pb.NodeStats
 	var failedNodes []*pb.Node
 	for _, node := range updateBatchReq.NodeList {
 		updateReq := &pb.UpdateRequest{
-			Node:   node,
-			APIKey: APIKeyBytes,
+			Node: node,
 		}
 
 		updateRes, err := s.Update(ctx, updateReq)
@@ -317,18 +411,17 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 
 // CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist
 func (s *Server) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.CreateEntryIfNotExistsRequest) (resp *pb.CreateEntryIfNotExistsResponse, err error) {
-	APIKeyBytes := createIfReq.APIKey
+	defer mon.Task()(&ctx)(&err)
+	s.logger.Debug("entering statdb CreateEntryIfNotExists")
 
 	getReq := &pb.GetRequest{
 		NodeId: createIfReq.Node.Id,
-		APIKey: APIKeyBytes,
 	}
 	getRes, err := s.Get(ctx, getReq)
 	// TODO: figure out better way to confirm error is type dbx.ErrorCode_NoRows
 	if err != nil && strings.Contains(err.Error(), "no rows in result set") {
 		createReq := &pb.CreateRequest{
-			Node:   createIfReq.Node,
-			APIKey: APIKeyBytes,
+			Node: createIfReq.Node,
 		}
 		res, err := s.Create(ctx, createReq)
 		if err != nil {

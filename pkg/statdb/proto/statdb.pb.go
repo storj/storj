@@ -26,7 +26,6 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type CreateRequest struct {
 	Node                 *Node      `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
 	Stats                *NodeStats `protobuf:"bytes,2,opt,name=stats" json:"stats,omitempty"`
-	APIKey               []byte     `protobuf:"bytes,3,opt,name=APIKey,proto3" json:"APIKey,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -36,7 +35,7 @@ func (m *CreateRequest) Reset()         { *m = CreateRequest{} }
 func (m *CreateRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateRequest) ProtoMessage()    {}
 func (*CreateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_5594d60637806120, []int{0}
+	return fileDescriptor_statdb_d4e732c514810854, []int{0}
 }
 func (m *CreateRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateRequest.Unmarshal(m, b)
@@ -70,13 +69,6 @@ func (m *CreateRequest) GetStats() *NodeStats {
 	return nil
 }
 
-func (m *CreateRequest) GetAPIKey() []byte {
-	if m != nil {
-		return m.APIKey
-	}
-	return nil
-}
-
 // CreateResponse is a response message for the Create rpc call
 type CreateResponse struct {
 	Stats                *NodeStats `protobuf:"bytes,1,opt,name=stats" json:"stats,omitempty"`
@@ -89,7 +81,7 @@ func (m *CreateResponse) Reset()         { *m = CreateResponse{} }
 func (m *CreateResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateResponse) ProtoMessage()    {}
 func (*CreateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_5594d60637806120, []int{1}
+	return fileDescriptor_statdb_d4e732c514810854, []int{1}
 }
 func (m *CreateResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateResponse.Unmarshal(m, b)
@@ -119,7 +111,6 @@ func (m *CreateResponse) GetStats() *NodeStats {
 // GetRequest is a request message for the Get rpc call
 type GetRequest struct {
 	NodeId               NodeID   `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3,customtype=NodeID" json:"node_id"`
-	APIKey               []byte   `protobuf:"bytes,2,opt,name=APIKey,proto3" json:"APIKey,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -129,7 +120,7 @@ func (m *GetRequest) Reset()         { *m = GetRequest{} }
 func (m *GetRequest) String() string { return proto.CompactTextString(m) }
 func (*GetRequest) ProtoMessage()    {}
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_5594d60637806120, []int{2}
+	return fileDescriptor_statdb_d4e732c514810854, []int{2}
 }
 func (m *GetRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetRequest.Unmarshal(m, b)
@@ -149,13 +140,6 @@ func (m *GetRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_GetRequest proto.InternalMessageInfo
 
-func (m *GetRequest) GetAPIKey() []byte {
-	if m != nil {
-		return m.APIKey
-	}
-	return nil
-}
-
 // GetResponse is a response message for the Get rpc call
 type GetResponse struct {
 	Stats                *NodeStats `protobuf:"bytes,1,opt,name=stats" json:"stats,omitempty"`
@@ -168,7 +152,7 @@ func (m *GetResponse) Reset()         { *m = GetResponse{} }
 func (m *GetResponse) String() string { return proto.CompactTextString(m) }
 func (*GetResponse) ProtoMessage()    {}
 func (*GetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_5594d60637806120, []int{3}
+	return fileDescriptor_statdb_d4e732c514810854, []int{3}
 }
 func (m *GetResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetResponse.Unmarshal(m, b)
@@ -199,7 +183,6 @@ func (m *GetResponse) GetStats() *NodeStats {
 type FindValidNodesRequest struct {
 	NodeIds              NodeIDList `protobuf:"bytes,1,opt,name=node_ids,json=nodeIds,proto3,casttype=NodeIDList" json:"node_ids,omitempty"`
 	MinStats             *NodeStats `protobuf:"bytes,2,opt,name=min_stats,json=minStats" json:"min_stats,omitempty"`
-	APIKey               []byte     `protobuf:"bytes,3,opt,name=APIKey,proto3" json:"APIKey,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -209,7 +192,7 @@ func (m *FindValidNodesRequest) Reset()         { *m = FindValidNodesRequest{} }
 func (m *FindValidNodesRequest) String() string { return proto.CompactTextString(m) }
 func (*FindValidNodesRequest) ProtoMessage()    {}
 func (*FindValidNodesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_5594d60637806120, []int{4}
+	return fileDescriptor_statdb_d4e732c514810854, []int{4}
 }
 func (m *FindValidNodesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindValidNodesRequest.Unmarshal(m, b)
@@ -243,13 +226,6 @@ func (m *FindValidNodesRequest) GetMinStats() *NodeStats {
 	return nil
 }
 
-func (m *FindValidNodesRequest) GetAPIKey() []byte {
-	if m != nil {
-		return m.APIKey
-	}
-	return nil
-}
-
 // FindValidNodesResponse is a response message for the FindValidNodes rpc call
 type FindValidNodesResponse struct {
 	PassedIds            NodeIDList `protobuf:"bytes,1,opt,name=passed_ids,json=passedIds,proto3,casttype=NodeIDList" json:"passed_ids,omitempty"`
@@ -263,7 +239,7 @@ func (m *FindValidNodesResponse) Reset()         { *m = FindValidNodesResponse{}
 func (m *FindValidNodesResponse) String() string { return proto.CompactTextString(m) }
 func (*FindValidNodesResponse) ProtoMessage()    {}
 func (*FindValidNodesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_5594d60637806120, []int{5}
+	return fileDescriptor_statdb_d4e732c514810854, []int{5}
 }
 func (m *FindValidNodesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindValidNodesResponse.Unmarshal(m, b)
@@ -300,7 +276,6 @@ func (m *FindValidNodesResponse) GetFailedIds() NodeIDList {
 // UpdateRequest is a request message for the Update rpc call
 type UpdateRequest struct {
 	Node                 *Node    `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
-	APIKey               []byte   `protobuf:"bytes,2,opt,name=APIKey,proto3" json:"APIKey,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -310,7 +285,7 @@ func (m *UpdateRequest) Reset()         { *m = UpdateRequest{} }
 func (m *UpdateRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateRequest) ProtoMessage()    {}
 func (*UpdateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_5594d60637806120, []int{6}
+	return fileDescriptor_statdb_d4e732c514810854, []int{6}
 }
 func (m *UpdateRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateRequest.Unmarshal(m, b)
@@ -337,13 +312,6 @@ func (m *UpdateRequest) GetNode() *Node {
 	return nil
 }
 
-func (m *UpdateRequest) GetAPIKey() []byte {
-	if m != nil {
-		return m.APIKey
-	}
-	return nil
-}
-
 // UpdateRequest is a response message for the Update rpc call
 type UpdateResponse struct {
 	Stats                *NodeStats `protobuf:"bytes,1,opt,name=stats" json:"stats,omitempty"`
@@ -356,7 +324,7 @@ func (m *UpdateResponse) Reset()         { *m = UpdateResponse{} }
 func (m *UpdateResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateResponse) ProtoMessage()    {}
 func (*UpdateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_5594d60637806120, []int{7}
+	return fileDescriptor_statdb_d4e732c514810854, []int{7}
 }
 func (m *UpdateResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateResponse.Unmarshal(m, b)
@@ -383,10 +351,165 @@ func (m *UpdateResponse) GetStats() *NodeStats {
 	return nil
 }
 
+// UpdateUptimeRequest is a request message for the UpdateUptime rpc call
+type UpdateUptimeRequest struct {
+	Node                 *Node    `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *UpdateUptimeRequest) Reset()         { *m = UpdateUptimeRequest{} }
+func (m *UpdateUptimeRequest) String() string { return proto.CompactTextString(m) }
+func (*UpdateUptimeRequest) ProtoMessage()    {}
+func (*UpdateUptimeRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_statdb_d4e732c514810854, []int{8}
+}
+func (m *UpdateUptimeRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UpdateUptimeRequest.Unmarshal(m, b)
+}
+func (m *UpdateUptimeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UpdateUptimeRequest.Marshal(b, m, deterministic)
+}
+func (dst *UpdateUptimeRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpdateUptimeRequest.Merge(dst, src)
+}
+func (m *UpdateUptimeRequest) XXX_Size() int {
+	return xxx_messageInfo_UpdateUptimeRequest.Size(m)
+}
+func (m *UpdateUptimeRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpdateUptimeRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UpdateUptimeRequest proto.InternalMessageInfo
+
+func (m *UpdateUptimeRequest) GetNode() *Node {
+	if m != nil {
+		return m.Node
+	}
+	return nil
+}
+
+// UpdateUptimeResponse is a response message for the UpdateUptime rpc call
+type UpdateUptimeResponse struct {
+	Stats                *NodeStats `protobuf:"bytes,1,opt,name=stats" json:"stats,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
+	XXX_unrecognized     []byte     `json:"-"`
+	XXX_sizecache        int32      `json:"-"`
+}
+
+func (m *UpdateUptimeResponse) Reset()         { *m = UpdateUptimeResponse{} }
+func (m *UpdateUptimeResponse) String() string { return proto.CompactTextString(m) }
+func (*UpdateUptimeResponse) ProtoMessage()    {}
+func (*UpdateUptimeResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_statdb_d4e732c514810854, []int{9}
+}
+func (m *UpdateUptimeResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UpdateUptimeResponse.Unmarshal(m, b)
+}
+func (m *UpdateUptimeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UpdateUptimeResponse.Marshal(b, m, deterministic)
+}
+func (dst *UpdateUptimeResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpdateUptimeResponse.Merge(dst, src)
+}
+func (m *UpdateUptimeResponse) XXX_Size() int {
+	return xxx_messageInfo_UpdateUptimeResponse.Size(m)
+}
+func (m *UpdateUptimeResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpdateUptimeResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UpdateUptimeResponse proto.InternalMessageInfo
+
+func (m *UpdateUptimeResponse) GetStats() *NodeStats {
+	if m != nil {
+		return m.Stats
+	}
+	return nil
+}
+
+// UpdateAuditSuccessRequest is a request message for the UpdateAuditSuccess rpc call
+type UpdateAuditSuccessRequest struct {
+	Node                 *Node    `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *UpdateAuditSuccessRequest) Reset()         { *m = UpdateAuditSuccessRequest{} }
+func (m *UpdateAuditSuccessRequest) String() string { return proto.CompactTextString(m) }
+func (*UpdateAuditSuccessRequest) ProtoMessage()    {}
+func (*UpdateAuditSuccessRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_statdb_d4e732c514810854, []int{10}
+}
+func (m *UpdateAuditSuccessRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UpdateAuditSuccessRequest.Unmarshal(m, b)
+}
+func (m *UpdateAuditSuccessRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UpdateAuditSuccessRequest.Marshal(b, m, deterministic)
+}
+func (dst *UpdateAuditSuccessRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpdateAuditSuccessRequest.Merge(dst, src)
+}
+func (m *UpdateAuditSuccessRequest) XXX_Size() int {
+	return xxx_messageInfo_UpdateAuditSuccessRequest.Size(m)
+}
+func (m *UpdateAuditSuccessRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpdateAuditSuccessRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UpdateAuditSuccessRequest proto.InternalMessageInfo
+
+func (m *UpdateAuditSuccessRequest) GetNode() *Node {
+	if m != nil {
+		return m.Node
+	}
+	return nil
+}
+
+// UpdateAuditSuccessResponse is a response message for the UpdateAuditSuccess rpc call
+type UpdateAuditSuccessResponse struct {
+	Stats                *NodeStats `protobuf:"bytes,1,opt,name=stats" json:"stats,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
+	XXX_unrecognized     []byte     `json:"-"`
+	XXX_sizecache        int32      `json:"-"`
+}
+
+func (m *UpdateAuditSuccessResponse) Reset()         { *m = UpdateAuditSuccessResponse{} }
+func (m *UpdateAuditSuccessResponse) String() string { return proto.CompactTextString(m) }
+func (*UpdateAuditSuccessResponse) ProtoMessage()    {}
+func (*UpdateAuditSuccessResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_statdb_d4e732c514810854, []int{11}
+}
+func (m *UpdateAuditSuccessResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UpdateAuditSuccessResponse.Unmarshal(m, b)
+}
+func (m *UpdateAuditSuccessResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UpdateAuditSuccessResponse.Marshal(b, m, deterministic)
+}
+func (dst *UpdateAuditSuccessResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpdateAuditSuccessResponse.Merge(dst, src)
+}
+func (m *UpdateAuditSuccessResponse) XXX_Size() int {
+	return xxx_messageInfo_UpdateAuditSuccessResponse.Size(m)
+}
+func (m *UpdateAuditSuccessResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpdateAuditSuccessResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UpdateAuditSuccessResponse proto.InternalMessageInfo
+
+func (m *UpdateAuditSuccessResponse) GetStats() *NodeStats {
+	if m != nil {
+		return m.Stats
+	}
+	return nil
+}
+
 // UpdateBatchRequest is a request message for the UpdateBatch rpc call
 type UpdateBatchRequest struct {
 	NodeList             []*Node  `protobuf:"bytes,1,rep,name=node_list,json=nodeList" json:"node_list,omitempty"`
-	APIKey               []byte   `protobuf:"bytes,2,opt,name=APIKey,proto3" json:"APIKey,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -396,7 +519,7 @@ func (m *UpdateBatchRequest) Reset()         { *m = UpdateBatchRequest{} }
 func (m *UpdateBatchRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateBatchRequest) ProtoMessage()    {}
 func (*UpdateBatchRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_5594d60637806120, []int{8}
+	return fileDescriptor_statdb_d4e732c514810854, []int{12}
 }
 func (m *UpdateBatchRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateBatchRequest.Unmarshal(m, b)
@@ -423,13 +546,6 @@ func (m *UpdateBatchRequest) GetNodeList() []*Node {
 	return nil
 }
 
-func (m *UpdateBatchRequest) GetAPIKey() []byte {
-	if m != nil {
-		return m.APIKey
-	}
-	return nil
-}
-
 // UpdateBatchResponse is a response message for the UpdateBatch rpc call
 type UpdateBatchResponse struct {
 	StatsList            []*NodeStats `protobuf:"bytes,1,rep,name=stats_list,json=statsList" json:"stats_list,omitempty"`
@@ -443,7 +559,7 @@ func (m *UpdateBatchResponse) Reset()         { *m = UpdateBatchResponse{} }
 func (m *UpdateBatchResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateBatchResponse) ProtoMessage()    {}
 func (*UpdateBatchResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_5594d60637806120, []int{9}
+	return fileDescriptor_statdb_d4e732c514810854, []int{13}
 }
 func (m *UpdateBatchResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateBatchResponse.Unmarshal(m, b)
@@ -480,7 +596,6 @@ func (m *UpdateBatchResponse) GetFailedNodes() []*Node {
 // CreateEntryIfNotExistsRequest is a request message for the CreateEntryIfNotExists rpc call
 type CreateEntryIfNotExistsRequest struct {
 	Node                 *Node    `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
-	APIKey               []byte   `protobuf:"bytes,2,opt,name=APIKey,proto3" json:"APIKey,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -490,7 +605,7 @@ func (m *CreateEntryIfNotExistsRequest) Reset()         { *m = CreateEntryIfNotE
 func (m *CreateEntryIfNotExistsRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateEntryIfNotExistsRequest) ProtoMessage()    {}
 func (*CreateEntryIfNotExistsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_5594d60637806120, []int{10}
+	return fileDescriptor_statdb_d4e732c514810854, []int{14}
 }
 func (m *CreateEntryIfNotExistsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateEntryIfNotExistsRequest.Unmarshal(m, b)
@@ -517,13 +632,6 @@ func (m *CreateEntryIfNotExistsRequest) GetNode() *Node {
 	return nil
 }
 
-func (m *CreateEntryIfNotExistsRequest) GetAPIKey() []byte {
-	if m != nil {
-		return m.APIKey
-	}
-	return nil
-}
-
 // CreateEntryIfNotExistsResponse is a response message for the CreateEntryIfNotExists rpc call
 type CreateEntryIfNotExistsResponse struct {
 	Stats                *NodeStats `protobuf:"bytes,1,opt,name=stats" json:"stats,omitempty"`
@@ -536,7 +644,7 @@ func (m *CreateEntryIfNotExistsResponse) Reset()         { *m = CreateEntryIfNot
 func (m *CreateEntryIfNotExistsResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateEntryIfNotExistsResponse) ProtoMessage()    {}
 func (*CreateEntryIfNotExistsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_5594d60637806120, []int{11}
+	return fileDescriptor_statdb_d4e732c514810854, []int{15}
 }
 func (m *CreateEntryIfNotExistsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateEntryIfNotExistsResponse.Unmarshal(m, b)
@@ -572,6 +680,10 @@ func init() {
 	proto.RegisterType((*FindValidNodesResponse)(nil), "statdb.FindValidNodesResponse")
 	proto.RegisterType((*UpdateRequest)(nil), "statdb.UpdateRequest")
 	proto.RegisterType((*UpdateResponse)(nil), "statdb.UpdateResponse")
+	proto.RegisterType((*UpdateUptimeRequest)(nil), "statdb.UpdateUptimeRequest")
+	proto.RegisterType((*UpdateUptimeResponse)(nil), "statdb.UpdateUptimeResponse")
+	proto.RegisterType((*UpdateAuditSuccessRequest)(nil), "statdb.UpdateAuditSuccessRequest")
+	proto.RegisterType((*UpdateAuditSuccessResponse)(nil), "statdb.UpdateAuditSuccessResponse")
 	proto.RegisterType((*UpdateBatchRequest)(nil), "statdb.UpdateBatchRequest")
 	proto.RegisterType((*UpdateBatchResponse)(nil), "statdb.UpdateBatchResponse")
 	proto.RegisterType((*CreateEntryIfNotExistsRequest)(nil), "statdb.CreateEntryIfNotExistsRequest")
@@ -595,8 +707,12 @@ type StatDBClient interface {
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	// FindValidNodes gets a subset of storagenodes that fit minimum reputation args
 	FindValidNodes(ctx context.Context, in *FindValidNodesRequest, opts ...grpc.CallOption) (*FindValidNodesResponse, error)
-	// Update updates storagenode stats for a single storagenode
+	// Update updates all stats for a single storagenode
 	Update(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
+	// UpdateUptime updates uptime stats for a single storagenode
+	UpdateUptime(ctx context.Context, in *UpdateUptimeRequest, opts ...grpc.CallOption) (*UpdateUptimeResponse, error)
+	// UpdateAuditSuccess updates audit success stats for a single storagenode
+	UpdateAuditSuccess(ctx context.Context, in *UpdateAuditSuccessRequest, opts ...grpc.CallOption) (*UpdateAuditSuccessResponse, error)
 	// UpdateBatch updates storagenode stats for multiple farmers at a time
 	UpdateBatch(ctx context.Context, in *UpdateBatchRequest, opts ...grpc.CallOption) (*UpdateBatchResponse, error)
 	// CreateEntryIfNotExists creates a db entry if it didn't exist
@@ -647,6 +763,24 @@ func (c *statDBClient) Update(ctx context.Context, in *UpdateRequest, opts ...gr
 	return out, nil
 }
 
+func (c *statDBClient) UpdateUptime(ctx context.Context, in *UpdateUptimeRequest, opts ...grpc.CallOption) (*UpdateUptimeResponse, error) {
+	out := new(UpdateUptimeResponse)
+	err := c.cc.Invoke(ctx, "/statdb.StatDB/UpdateUptime", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *statDBClient) UpdateAuditSuccess(ctx context.Context, in *UpdateAuditSuccessRequest, opts ...grpc.CallOption) (*UpdateAuditSuccessResponse, error) {
+	out := new(UpdateAuditSuccessResponse)
+	err := c.cc.Invoke(ctx, "/statdb.StatDB/UpdateAuditSuccess", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *statDBClient) UpdateBatch(ctx context.Context, in *UpdateBatchRequest, opts ...grpc.CallOption) (*UpdateBatchResponse, error) {
 	out := new(UpdateBatchResponse)
 	err := c.cc.Invoke(ctx, "/statdb.StatDB/UpdateBatch", in, out, opts...)
@@ -674,8 +808,12 @@ type StatDBServer interface {
 	Get(context.Context, *GetRequest) (*GetResponse, error)
 	// FindValidNodes gets a subset of storagenodes that fit minimum reputation args
 	FindValidNodes(context.Context, *FindValidNodesRequest) (*FindValidNodesResponse, error)
-	// Update updates storagenode stats for a single storagenode
+	// Update updates all stats for a single storagenode
 	Update(context.Context, *UpdateRequest) (*UpdateResponse, error)
+	// UpdateUptime updates uptime stats for a single storagenode
+	UpdateUptime(context.Context, *UpdateUptimeRequest) (*UpdateUptimeResponse, error)
+	// UpdateAuditSuccess updates audit success stats for a single storagenode
+	UpdateAuditSuccess(context.Context, *UpdateAuditSuccessRequest) (*UpdateAuditSuccessResponse, error)
 	// UpdateBatch updates storagenode stats for multiple farmers at a time
 	UpdateBatch(context.Context, *UpdateBatchRequest) (*UpdateBatchResponse, error)
 	// CreateEntryIfNotExists creates a db entry if it didn't exist
@@ -758,6 +896,42 @@ func _StatDB_Update_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
+func _StatDB_UpdateUptime_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateUptimeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StatDBServer).UpdateUptime(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/statdb.StatDB/UpdateUptime",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StatDBServer).UpdateUptime(ctx, req.(*UpdateUptimeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _StatDB_UpdateAuditSuccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateAuditSuccessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StatDBServer).UpdateAuditSuccess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/statdb.StatDB/UpdateAuditSuccess",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StatDBServer).UpdateAuditSuccess(ctx, req.(*UpdateAuditSuccessRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _StatDB_UpdateBatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateBatchRequest)
 	if err := dec(in); err != nil {
@@ -815,6 +989,14 @@ var _StatDB_serviceDesc = grpc.ServiceDesc{
 			Handler:    _StatDB_Update_Handler,
 		},
 		{
+			MethodName: "UpdateUptime",
+			Handler:    _StatDB_UpdateUptime_Handler,
+		},
+		{
+			MethodName: "UpdateAuditSuccess",
+			Handler:    _StatDB_UpdateAuditSuccess_Handler,
+		},
+		{
 			MethodName: "UpdateBatch",
 			Handler:    _StatDB_UpdateBatch_Handler,
 		},
@@ -827,42 +1009,44 @@ var _StatDB_serviceDesc = grpc.ServiceDesc{
 	Metadata: "statdb.proto",
 }
 
-func init() { proto.RegisterFile("statdb.proto", fileDescriptor_statdb_5594d60637806120) }
+func init() { proto.RegisterFile("statdb.proto", fileDescriptor_statdb_d4e732c514810854) }
 
-var fileDescriptor_statdb_5594d60637806120 = []byte{
-	// 531 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x94, 0xdf, 0x6e, 0x12, 0x41,
-	0x14, 0xc6, 0x5d, 0xd0, 0x6d, 0xf9, 0xa0, 0x98, 0x4c, 0x53, 0x42, 0xd6, 0x14, 0x08, 0x49, 0xb5,
-	0x26, 0xc2, 0x45, 0x35, 0xe1, 0x5a, 0x6c, 0x4b, 0x36, 0x6a, 0x35, 0xdb, 0x54, 0x2f, 0x9b, 0xad,
-	0x33, 0xc5, 0x49, 0xe8, 0x2e, 0x32, 0xa3, 0xb1, 0x6f, 0xe0, 0xc3, 0xf8, 0x20, 0x3e, 0x83, 0x17,
-	0x3c, 0x88, 0x57, 0x66, 0xfe, 0xac, 0xfb, 0x47, 0x16, 0x43, 0xbc, 0xdb, 0x3d, 0xe7, 0x9b, 0x6f,
-	0x7e, 0x73, 0xce, 0x99, 0x41, 0x43, 0xc8, 0x50, 0xd2, 0xab, 0xe1, 0x7c, 0x11, 0xcb, 0x98, 0xb8,
-	0xe6, 0xcf, 0xc3, 0x34, 0x9e, 0xc6, 0x26, 0xe6, 0x21, 0x8a, 0x29, 0x33, 0xdf, 0xfd, 0x08, 0x3b,
-	0x2f, 0x16, 0x2c, 0x94, 0x2c, 0x60, 0x9f, 0x3e, 0x33, 0x21, 0x49, 0x07, 0x77, 0x55, 0xba, 0xed,
-	0xf4, 0x9c, 0xc3, 0xfa, 0x11, 0x86, 0x5a, 0x7b, 0x16, 0x53, 0x16, 0xe8, 0x38, 0x39, 0xc0, 0x3d,
-	0x65, 0x29, 0xda, 0x15, 0x2d, 0xb8, 0x9f, 0x0a, 0xce, 0x55, 0x38, 0x30, 0x59, 0xd2, 0x82, 0xfb,
-	0xfc, 0xad, 0xff, 0x92, 0xdd, 0xb6, 0xab, 0x3d, 0xe7, 0xb0, 0x11, 0xd8, 0xbf, 0xfe, 0x08, 0xcd,
-	0x64, 0x3f, 0x31, 0x8f, 0x23, 0x91, 0x31, 0x74, 0xd6, 0x19, 0xf6, 0x5f, 0x03, 0x13, 0x26, 0x13,
-	0xca, 0x47, 0xd8, 0x52, 0xb2, 0x4b, 0x4e, 0xf5, 0xb2, 0xc6, 0xb8, 0xf9, 0x63, 0xd9, 0xbd, 0xf3,
-	0x73, 0xd9, 0x75, 0xd5, 0x42, 0xff, 0x38, 0x70, 0x55, 0xda, 0xa7, 0x19, 0x8e, 0x4a, 0x8e, 0xe3,
-	0x19, 0xea, 0xda, 0x6e, 0x33, 0x88, 0x6f, 0x0e, 0xf6, 0x4e, 0x79, 0x44, 0xdf, 0x85, 0x33, 0x4e,
-	0x55, 0x56, 0x24, 0x40, 0x8f, 0xb1, 0x6d, 0x81, 0x44, 0x42, 0xf4, 0x6b, 0xd9, 0x85, 0xa1, 0x79,
-	0xc5, 0x85, 0x0c, 0xb6, 0x0c, 0x91, 0x20, 0x4f, 0x50, 0xbb, 0xe1, 0xd1, 0xe5, 0xda, 0x2a, 0x6e,
-	0xdf, 0xf0, 0xe8, 0x7c, 0x6d, 0x21, 0xbf, 0xa0, 0x55, 0x24, 0xb1, 0x67, 0x19, 0x00, 0xf3, 0x50,
-	0x08, 0x46, 0xd7, 0xc0, 0xd4, 0x8c, 0x42, 0xe1, 0x0c, 0x80, 0xeb, 0x90, 0xcf, 0xac, 0xbc, 0xb2,
-	0x5a, 0x6e, 0x14, 0x3e, 0x15, 0xfd, 0x09, 0x76, 0x2e, 0xe6, 0x74, 0x83, 0x81, 0x29, 0xeb, 0xc0,
-	0x08, 0xcd, 0xc4, 0x68, 0xb3, 0x26, 0x5c, 0x80, 0x98, 0x85, 0xe3, 0x50, 0x7e, 0xf8, 0x98, 0x4e,
-	0x44, 0x4d, 0x37, 0x60, 0xc6, 0x85, 0x6c, 0x3b, 0xbd, 0x6a, 0x81, 0x45, 0x77, 0x47, 0x9d, 0xa5,
-	0x94, 0x47, 0x62, 0x37, 0x67, 0x6b, 0xa1, 0x86, 0x80, 0xde, 0x36, 0x6b, 0xfc, 0x17, 0x59, 0x4d,
-	0x4b, 0xb4, 0xfd, 0x00, 0x0d, 0x5b, 0x4e, 0xa5, 0x51, 0x05, 0x2d, 0xa2, 0xd4, 0x4d, 0x5e, 0x37,
-	0xad, 0xff, 0x1e, 0xfb, 0xe6, 0x3e, 0x9c, 0x44, 0x72, 0x71, 0xeb, 0x5f, 0x9f, 0xc5, 0xf2, 0xe4,
-	0x2b, 0x17, 0x52, 0xfc, 0x6f, 0x79, 0x27, 0xe8, 0x94, 0x19, 0x6f, 0x54, 0xee, 0xa3, 0xef, 0x55,
-	0xb8, 0x2a, 0x70, 0x3c, 0x26, 0x23, 0xb8, 0xc6, 0x93, 0xec, 0x0d, 0xed, 0x2b, 0x93, 0x7b, 0x3c,
-	0xbc, 0x56, 0x31, 0xfc, 0xa7, 0x88, 0xd5, 0x09, 0x93, 0x84, 0x24, 0xe9, 0xf4, 0x26, 0x7b, 0xbb,
-	0xb9, 0x98, 0xd5, 0xbf, 0x41, 0x33, 0x3f, 0xdc, 0x64, 0x3f, 0x91, 0xad, 0xbc, 0x7e, 0x5e, 0xa7,
-	0x2c, 0x6d, 0x0d, 0x47, 0x70, 0x4d, 0x73, 0x53, 0xf2, 0xdc, 0x14, 0xa7, 0xe4, 0x85, 0x99, 0x3c,
-	0x45, 0x3d, 0x33, 0x15, 0xc4, 0xcb, 0xcb, 0xb2, 0x13, 0xe8, 0x3d, 0x58, 0x99, 0xb3, 0x3e, 0x53,
-	0xb4, 0x56, 0xb7, 0x83, 0x1c, 0xe4, 0x6b, 0x56, 0x32, 0x07, 0xde, 0xc3, 0x7f, 0xc9, 0xcc, 0x46,
-	0x57, 0xae, 0x7e, 0xd7, 0x9f, 0xfe, 0x0e, 0x00, 0x00, 0xff, 0xff, 0xc5, 0x29, 0xe3, 0x04, 0x07,
-	0x06, 0x00, 0x00,
+var fileDescriptor_statdb_d4e732c514810854 = []byte{
+	// 576 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x55, 0xcb, 0x6e, 0xd3, 0x4c,
+	0x14, 0xfe, 0xd3, 0xf6, 0x77, 0x9b, 0x93, 0x34, 0x48, 0x53, 0x1a, 0x85, 0x29, 0x4d, 0x8a, 0xa5,
+	0x72, 0x91, 0x48, 0x90, 0x0a, 0x28, 0x0b, 0x54, 0x21, 0xd2, 0x4b, 0x14, 0x09, 0x15, 0xc9, 0x55,
+	0xbb, 0x61, 0x51, 0xb9, 0x99, 0x69, 0x18, 0x29, 0xb1, 0x4d, 0x66, 0x82, 0xe0, 0x0d, 0x79, 0x00,
+	0x56, 0x2c, 0xf2, 0x20, 0xac, 0xd0, 0x5c, 0x8c, 0x3d, 0xc6, 0x09, 0xf1, 0xce, 0x99, 0xf3, 0x5d,
+	0x8e, 0xe6, 0x7c, 0x67, 0x02, 0x55, 0x2e, 0x7c, 0x41, 0x6e, 0x3b, 0xd1, 0x34, 0x14, 0x21, 0x72,
+	0xf4, 0x2f, 0x0c, 0xa3, 0x70, 0x14, 0xea, 0x33, 0x0c, 0x41, 0x48, 0xa8, 0xfe, 0x76, 0xaf, 0x61,
+	0xfb, 0x64, 0x4a, 0x7d, 0x41, 0x3d, 0xfa, 0x79, 0x46, 0xb9, 0x40, 0x4d, 0xd8, 0x90, 0xe5, 0x46,
+	0xe9, 0xa0, 0xf4, 0xb4, 0x72, 0x04, 0x1d, 0x85, 0xbd, 0x08, 0x09, 0xf5, 0xd4, 0x39, 0x3a, 0x84,
+	0xff, 0xa5, 0x24, 0x6f, 0xac, 0x29, 0xc0, 0xbd, 0x04, 0x70, 0x29, 0x8f, 0x3d, 0x5d, 0x75, 0xbb,
+	0x50, 0x8b, 0x75, 0x79, 0x14, 0x06, 0x3c, 0x45, 0x2c, 0x2d, 0x25, 0xbe, 0x06, 0xe8, 0x53, 0x11,
+	0x77, 0xf3, 0x04, 0x36, 0x25, 0xec, 0x86, 0x11, 0x45, 0xab, 0xf6, 0x6a, 0xdf, 0xe7, 0xad, 0xff,
+	0x7e, 0xce, 0x5b, 0x8e, 0x24, 0x0e, 0x4e, 0x3d, 0x47, 0x96, 0x07, 0xc4, 0x7d, 0x05, 0x15, 0x45,
+	0x2b, 0x66, 0x16, 0xc1, 0xee, 0x39, 0x0b, 0xc8, 0xb5, 0x3f, 0x66, 0x44, 0x16, 0x79, 0xec, 0xfb,
+	0x0c, 0xb6, 0x8c, 0x2f, 0x8f, 0x8d, 0x7f, 0xcd, 0x5b, 0xa0, 0x4d, 0xdf, 0x33, 0x2e, 0xbc, 0x4d,
+	0x6d, 0xcc, 0xd1, 0x73, 0x28, 0x4f, 0x58, 0x70, 0xb3, 0xf4, 0x52, 0xb6, 0x26, 0x2c, 0x50, 0x5f,
+	0xee, 0x17, 0xa8, 0x67, 0x1d, 0x4d, 0xcb, 0x6d, 0x80, 0xc8, 0xe7, 0x9c, 0x92, 0x25, 0xa6, 0x65,
+	0x8d, 0x90, 0xb6, 0x6d, 0x80, 0x3b, 0x9f, 0x8d, 0x0d, 0x7c, 0x2d, 0x1f, 0xae, 0x11, 0x03, 0xc2,
+	0xdd, 0x17, 0xb0, 0x7d, 0x15, 0x91, 0xd5, 0xe7, 0x2c, 0x07, 0x18, 0x13, 0x8a, 0x0e, 0x70, 0x47,
+	0x13, 0xaf, 0x22, 0xc1, 0x26, 0x2b, 0xfb, 0x1d, 0xc3, 0x7d, 0x9b, 0x56, 0xcc, 0xf5, 0x0d, 0x3c,
+	0xd0, 0xf4, 0x77, 0x33, 0xc2, 0xc4, 0xe5, 0x6c, 0x38, 0xa4, 0x9c, 0xaf, 0xea, 0x7d, 0x02, 0x38,
+	0x8f, 0x5c, 0xac, 0x83, 0x63, 0x40, 0x5a, 0xa4, 0xe7, 0x8b, 0xe1, 0xa7, 0x24, 0xc0, 0x65, 0x15,
+	0xa4, 0x31, 0xe3, 0xa2, 0x51, 0x3a, 0x58, 0xcf, 0xf8, 0xab, 0x94, 0xc9, 0x59, 0xb9, 0x22, 0xbe,
+	0x36, 0x43, 0x37, 0xe6, 0x1d, 0x00, 0x25, 0x9f, 0x16, 0xf8, 0xab, 0x83, 0xb2, 0x82, 0x48, 0x19,
+	0xd4, 0x86, 0xaa, 0x89, 0x85, 0xc4, 0xc8, 0x60, 0x64, 0x2d, 0x2b, 0xba, 0xae, 0xc2, 0xe7, 0xbe,
+	0x85, 0x7d, 0xbd, 0xa6, 0x67, 0x81, 0x98, 0x7e, 0x1b, 0xdc, 0x5d, 0x84, 0xe2, 0xec, 0x2b, 0xe3,
+	0x62, 0xe5, 0xab, 0xeb, 0x43, 0x73, 0x91, 0x40, 0xa1, 0xeb, 0x3b, 0xfa, 0xb1, 0x01, 0x8e, 0x3c,
+	0x38, 0xed, 0xa1, 0x2e, 0x38, 0x5a, 0x13, 0xed, 0x76, 0xcc, 0x63, 0x66, 0xbd, 0x51, 0xb8, 0x9e,
+	0x3d, 0xfe, 0x73, 0x59, 0xeb, 0x7d, 0x2a, 0x10, 0x8a, 0xcb, 0xc9, 0x43, 0x82, 0x77, 0xac, 0x33,
+	0x83, 0xff, 0x00, 0x35, 0x7b, 0x19, 0xd1, 0x7e, 0x0c, 0xcb, 0x7d, 0x16, 0x70, 0x73, 0x51, 0xd9,
+	0x08, 0x76, 0xc1, 0xd1, 0x43, 0x4c, 0x3a, 0xb7, 0xb6, 0x2e, 0xe9, 0x3c, 0xb3, 0x5b, 0x03, 0xa8,
+	0xa6, 0xd3, 0x8f, 0xf6, 0x6c, 0x9c, 0xb5, 0x4a, 0xf8, 0x61, 0x7e, 0xd1, 0x48, 0x7d, 0x8c, 0x73,
+	0x98, 0x0e, 0x33, 0x7a, 0x64, 0x73, 0x72, 0xb6, 0x04, 0xbb, 0xcb, 0x20, 0x46, 0xfc, 0x1c, 0x2a,
+	0xa9, 0x94, 0x22, 0x6c, 0x53, 0xd2, 0xc9, 0xc7, 0x7b, 0xb9, 0x35, 0xa3, 0x33, 0x82, 0x7a, 0x7e,
+	0x6c, 0xd0, 0xa1, 0x3d, 0xdb, 0x05, 0xb9, 0xc4, 0x8f, 0xff, 0x05, 0xd3, 0x46, 0xb7, 0x8e, 0xfa,
+	0x9b, 0x7b, 0xf9, 0x3b, 0x00, 0x00, 0xff, 0xff, 0xbc, 0x62, 0xc4, 0x03, 0x16, 0x07, 0x00, 0x00,
 }

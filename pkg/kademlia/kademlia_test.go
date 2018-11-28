@@ -250,7 +250,7 @@ func TestGetNodes(t *testing.T) {
 			restrictions: []pb.Restriction{
 				{
 					Operator: pb.Restriction_GT,
-					Operand:  pb.Restriction_freeBandwidth,
+					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(2),
 				},
 			},
@@ -262,12 +262,12 @@ func TestGetNodes(t *testing.T) {
 			restrictions: []pb.Restriction{
 				{
 					Operator: pb.Restriction_GT,
-					Operand:  pb.Restriction_freeBandwidth,
+					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(2),
 				},
 				{
 					Operator: pb.Restriction_LT,
-					Operand:  pb.Restriction_freeDisk,
+					Operand:  pb.Restriction_FREE_DISK,
 					Value:    int64(2),
 				},
 			},
@@ -303,7 +303,7 @@ func TestMeetsRestrictions(t *testing.T) {
 			r: []pb.Restriction{
 				{
 					Operator: pb.Restriction_EQ,
-					Operand:  pb.Restriction_freeBandwidth,
+					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(1),
 				},
 			},
@@ -318,12 +318,12 @@ func TestMeetsRestrictions(t *testing.T) {
 			r: []pb.Restriction{
 				{
 					Operator: pb.Restriction_LTE,
-					Operand:  pb.Restriction_freeBandwidth,
+					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(2),
 				},
 				{
 					Operator: pb.Restriction_GTE,
-					Operand:  pb.Restriction_freeDisk,
+					Operand:  pb.Restriction_FREE_DISK,
 					Value:    int64(2),
 				},
 			},
@@ -339,12 +339,12 @@ func TestMeetsRestrictions(t *testing.T) {
 			r: []pb.Restriction{
 				{
 					Operator: pb.Restriction_LT,
-					Operand:  pb.Restriction_freeBandwidth,
+					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(2),
 				},
 				{
 					Operator: pb.Restriction_GT,
-					Operand:  pb.Restriction_freeDisk,
+					Operand:  pb.Restriction_FREE_DISK,
 					Value:    int64(2),
 				},
 			},
@@ -360,12 +360,12 @@ func TestMeetsRestrictions(t *testing.T) {
 			r: []pb.Restriction{
 				{
 					Operator: pb.Restriction_LT,
-					Operand:  pb.Restriction_freeBandwidth,
+					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(2),
 				},
 				{
 					Operator: pb.Restriction_GT,
-					Operand:  pb.Restriction_freeDisk,
+					Operand:  pb.Restriction_FREE_DISK,
 					Value:    int64(2),
 				},
 			},

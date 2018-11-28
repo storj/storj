@@ -123,6 +123,15 @@ func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 	return bs, nil
 }
 
+// GetBucketIds returns a storage.Keys type of bucket ID's in the Kademlia instance
+func (rt *RoutingTable) GetBucketIds() (storage.Keys, error) {
+	kbuckets, err := rt.kadBucketDB.List(nil, 0)
+	if err != nil {
+		return nil, err
+	}
+	return kbuckets, nil
+}
+
 // FindNear returns the node corresponding to the provided nodeID
 // returns all Nodes closest via XOR to the provided nodeID up to the provided limit
 // always returns limit + self

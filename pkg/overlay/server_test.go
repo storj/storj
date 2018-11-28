@@ -50,15 +50,15 @@ func TestServer(t *testing.T) {
 
 	{ // BulkLookup
 		result, err := server.BulkLookup(ctx, &pb.LookupRequests{
-			Lookuprequest: []*pb.LookupRequest{
+			LookupRequest: []*pb.LookupRequest{
 				{NodeId: planet.StorageNodes[0].ID()},
 				{NodeId: planet.StorageNodes[1].ID()},
 				{NodeId: planet.StorageNodes[2].ID()},
 			},
 		})
 
-		if assert.NoError(t, err) && assert.NotNil(t, result) && assert.Len(t, result.Lookupresponse, 3) {
-			for i, resp := range result.Lookupresponse {
+		if assert.NoError(t, err) && assert.NotNil(t, result) && assert.Len(t, result.LookupResponse, 3) {
+			for i, resp := range result.LookupResponse {
 				if assert.NotNil(t, resp.Node) {
 					assert.Equal(t, resp.Node.Address.Address, planet.StorageNodes[i].Addr())
 				}

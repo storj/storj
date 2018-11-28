@@ -1,16 +1,29 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="input-container">
 		<div v-if="!isOptional" class="label-container">
 			<img v-if="error" src="../../../static/images/register/ErrorInfo.svg"/>
 			<h3 v-if="!error">{{label}}</h3>
-			<h3 class="label-container__add-label">{{additionalLabel}}</h3>
+			<h3  v-if="!error" class="label-container__add-label">{{additionalLabel}}</h3>
 			<h3 class="label-container__error" v-if="error">{{error}}</h3>
 		</div>
 		<div v-if="isOptional" class="optional-label-container">
 			<h3>{{label}}</h3>
 			<h4>Optional</h4>
 		</div>
-		<textarea v-if="isMultiline" :id="this.$props.label" :placeholder="this.$props.placeholder" v-model="value" :style="style" :rows="5" :cols="40" wrap="hard"/>
+		<textarea
+				v-if="isMultiline"
+				:id="this.$props.label"
+				:placeholder="this.$props.placeholder"
+				v-model="value"
+				:style="style"
+				:rows="5"
+				:cols="40"
+				wrap="hard"
+				@input="onInput" >
+		</textarea>
         <input 
 			v-if="!isMultiline" 
 			@input="onInput" 
@@ -18,7 +31,7 @@
 			:placeholder="this.$props.placeholder"
 			v-model="value" 
 			v-bind:type="[isPassword ? passwordType : textType]"
-			:style="style"/>
+			:style="style" />
     </div>
 </template>
 
@@ -95,6 +108,7 @@ export default class HeaderedInput extends Vue { }
 	flex-direction: column;
 	align-items: flex-start;
 	margin-top: 10px;
+	width: 48%;
 }
 .label-container {
 	display: flex;

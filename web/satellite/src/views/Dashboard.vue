@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="dashboard-container">
         <NavigationArea />
@@ -26,6 +29,7 @@ export default class Dashboard extends Vue {}
 <style scoped lang="scss">
 	.dashboard-container {
         position: fixed;
+        max-width: 100%;
 		width: 100%;
 		height: 100%;
 		left: 0;
@@ -37,8 +41,15 @@ export default class Dashboard extends Vue {}
             position: fixed;
             width: 80vw;
             height: 100%;
-            left: 20vw;
+            left: 280px;
             top: 10vh;
+        }
+    }
+    @media screen and (max-width: 720px) {
+        .dashboard-container {
+            &__main-area{
+                left: 60px;
+            }
         }
     }
 </style>

@@ -9,12 +9,19 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/statdb"
 )
 
 func TestRun(t *testing.T) {
+	bctx := context.Background()
+
 	kad := &kademlia.Kademlia{}
 	var kadKey kademlia.CtxKey
-	ctxWithKad := context.WithValue(context.Background(), kadKey, kad)
+	ctx := context.WithValue(bctx, kadKey, kad)
+
+	sdb := &statdb.Server{}
+	var statKey statdb.CtxKey
+	ctx = context.WithValue(ctx, statKey, sdb)
 
 	// run with nil
 	err := Config{}.Run(context.Background(), nil)
@@ -22,17 +29,17 @@ func TestRun(t *testing.T) {
 	assert.Equal(t, "overlay error: programmer error: kademlia responsibility unstarted", err.Error())
 
 	// run with nil, pass pointer to Kademlia in context
-	err = Config{}.Run(ctxWithKad, nil)
+	err = Config{}.Run(ctx, nil)
 	assert.Error(t, err)
 	assert.Equal(t, "overlay error: database scheme not supported: ", err.Error())
 
 	// db scheme redis conn fail
-	err = Config{DatabaseURL: "redis://somedir/overlay.db/?db=1"}.Run(ctxWithKad, nil)
+	err = Config{DatabaseURL: "redis://somedir/overlay.db/?db=1"}.Run(ctx, nil)
 
 	assert.Error(t, err)
 	assert.Equal(t, "redis error: ping failed: dial tcp: address somedir: missing port in address", err.Error())
 
 	// db scheme bolt conn fail
-	err = Config{DatabaseURL: "bolt://somedir/overlay.db"}.Run(ctxWithKad, nil)
+	err = Config{DatabaseURL: "bolt://somedir/overlay.db"}.Run(ctx, nil)
 	assert.Error(t, err)
 }

@@ -10,4 +10,4 @@ type Path = storj.Path
 type NodeID = storj.NodeID
 type NodeIDList = storj.NodeIDList
 
-//go:generate protoc -I. --gogo_out=plugins=grpc:. meta.proto overlay.proto pointerdb.proto piecestore.proto bandwidth.proto kadcli.proto datarepair.proto node.proto
+//go:generate protoc -I. --gogo_out=plugins=grpc:. meta.proto overlay.proto pointerdb.proto piecestore.proto bandwidth.proto inspector.proto datarepair.proto node.proto

@@ -1,7 +1,10 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="project-selection-container">
         <div class="project-selection-toggle-container" v-on:click="toggleSelection">
-            <h1>{{projectName}}</h1>
+            <h1>{{name}}</h1>
             <div class="project-selection-toggle-container__expander-area">
                 <img v-if="!isChoiceShown" src="../../../../static/images/register/BlueExpand.svg" />
                 <img v-if="isChoiceShown" src="../../../../static/images/register/BlueHide.svg" />
@@ -21,7 +24,7 @@ import ProjectSelectionDropdown from "./ProjectSelectionDropdown.vue"
             return {
                 isChoiceShown: false,
                 // this.$store.selectedProject
-                projectName: "Choose Project"
+                name: "Choose Project"
             }
         },
         methods: {
@@ -56,11 +59,12 @@ export default class ProjectSelectionArea extends Vue {}
         display: flex;
         flex-direction: row;
         align-items: center;
-        justify-content: space-between;
-        width: 12.5vw;
-        height: 5vh;
+        justify-content: flex-start;
+        width: 100%;
+        height: 50px;
 
         &__expander-area {
+            margin-left: 12px;
             display: flex;
             align-items: center;
             justify-content: center;

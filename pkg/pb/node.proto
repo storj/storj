@@ -61,12 +61,9 @@ message NodeStats {
 // TODO: combine with `NodeStats`
 // NodeRep is the reputation characteristics of a node
 message NodeRep {
-    // TODO: `min_uptime`
-    float minUptime = 1;
-    // TODO: `min_audit_success`
-    float minAuditSuccess = 2;
-    // TODO: `min_audit_count`
-    int64 minAuditCount = 3;
+    float min_uptime = 1;
+    float min_audit_success = 2;
+    int64 min_audit_count = 3;
 }
 
 message NodeMetadata {

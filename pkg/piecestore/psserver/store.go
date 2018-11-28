@@ -39,7 +39,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return ServerError.Wrap(err)
 	}
 
-	pd := recv.GetPiecedata()
+	pd := recv.GetPieceData()
 	if pd == nil {
 		return StoreError.New("PieceStore message is nil")
 	}

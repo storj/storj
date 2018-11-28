@@ -204,7 +204,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 
-		uplinkID := string(pbad.GetUplinkId())
+		uplinkID := string(pbad.UplinkId)
 		summary, ok := summaries[uplinkID]
 		if !ok {
 			summaries[uplinkID] = &UplinkSummary{}

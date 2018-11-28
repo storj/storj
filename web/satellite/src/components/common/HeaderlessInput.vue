@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="input-wrap">
         <input 
@@ -98,7 +101,8 @@ input {
 	margin-left: 10px;
 }
 .input-wrap {
-    position: relative;
+  position: relative;
+  width: 100%;
 
 	svg {
 		position: absolute;

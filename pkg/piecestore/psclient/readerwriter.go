@@ -56,8 +56,8 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 	}
 
 	msg := &pb.PieceStore{
-		Piecedata: &pb.PieceStore_PieceData{Content: b},
-		Bandwidthallocation: &pb.RenterBandwidthAllocation{
+		PieceData: &pb.PieceStore_PieceData{Content: b},
+		BandwidthAllocation: &pb.RenterBandwidthAllocation{
 			Data: serializedAllocation, Signature: sig,
 		},
 	}
@@ -152,7 +152,7 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 			}
 
 			msg := &pb.PieceRetrieval{
-				Bandwidthallocation: &pb.RenterBandwidthAllocation{
+				BandwidthAllocation: &pb.RenterBandwidthAllocation{
 					Signature: sig,
 					Data:      serializedAllocation,
 				},

@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import { shallowMount, mount } from '@vue/test-utils';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 
@@ -33,8 +36,8 @@ describe('HeaderedInput.vue', () => {
 
 		expect(wrapper.find("input").element.style.width).toMatch(width);
 		expect(wrapper.find("input").element.style.height).toMatch(height);
-		expect(wrapper.find(".labelContainer").text()).toMatch(label);
-		expect(wrapper.find(".hiAddLabel").text()).toMatch(additionalLabel);
+		expect(wrapper.find(".label-container").text()).toMatch(label);
+		expect(wrapper.find(".label-container__add-label").text()).toMatch(additionalLabel);
 	});
 
 	it('renders correctly with isOptional props', () => {
@@ -58,7 +61,7 @@ describe('HeaderedInput.vue', () => {
 		});
 
 		expect(wrapper).toMatchSnapshot();
-		expect(wrapper.find(".labelContainer").text()).toMatch(error);
+		expect(wrapper.find(".label-container").text()).toMatch(error);
 	});
   
   	it('emit setData on input correctly', () => {

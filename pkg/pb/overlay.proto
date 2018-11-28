@@ -37,14 +37,12 @@ message LookupResponse {
 
 //LookupRequests is a list of LookupRequest
 message LookupRequests {
-    // TODO: `lookup_request`
-    repeated LookupRequest lookuprequest = 1;
+    repeated LookupRequest lookup_request = 1;
 }
 
 //LookupResponse is a list of LookupResponse
 message LookupResponses {
-    // TODO: `lookup_response`
-    repeated LookupResponse lookupresponse = 1;
+    repeated LookupResponse lookup_response = 1;
 }
 
 
@@ -55,23 +53,18 @@ message FindStorageNodesResponse {
 
 // FindStorageNodesRequest is is request message for the FindStorageNodes rpc call
 message FindStorageNodesRequest {
-    // TODO: `object_size`
-    int64 objectSize = 1;
-    // TODO: `contract_length`
-    google.protobuf.Duration contractLength = 2;
+    int64 object_size = 1;
+    google.protobuf.Duration contract_length = 2;
     OverlayOptions opts = 3;
     bytes start = 4;
-    // TODO: `max_nodes`
-    int64 maxNodes = 5;
+    int64 max_nodes = 5;
 }
 
 // OverlayOptions is a set of criteria that a node must meet to be considered for a storage opportunity
 message OverlayOptions {
-    google.protobuf.Duration maxLatency = 1;
-    // TODO: `min_reputation`
-    node.NodeRep minReputation = 2;
-    // TODO: `min_speed_kbps`
-    int64 minSpeedKbps = 3;
+    google.protobuf.Duration max_latency = 1;
+    node.NodeRep min_reputation = 2;
+    int64 min_speed_kbps = 3;
     int64 amount = 4;
     node.NodeRestrictions restrictions = 5;
     bytes excluded_nodes = 6 [(gogoproto.customtype) = "NodeIDList"];
@@ -101,10 +94,8 @@ message Restriction {
         GTE = 4;
     }
     enum Operand {
-        // TODO: `free_bandwidth`
-        freeBandwidth = 0;
-        // TODO: `free_disk`
-        freeDisk = 1;
+        FREE_BANDWIDTH = 0;
+        FREE_DISK = 1;
     }
 
     Operator operator = 1;
