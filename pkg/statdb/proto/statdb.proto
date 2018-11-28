@@ -51,14 +51,14 @@ message GetResponse {
 
 // FindValidNodesRequest is a request message for the FindValidNodes rpc call
 message FindValidNodesRequest {
-  bytes node_ids = 1 [(gogoproto.casttype) = "NodeIDList"];
+  repeated bytes node_ids = 1 [(gogoproto.customtype) = "NodeID"];
   node.NodeStats min_stats = 2;
 }
 
 // FindValidNodesResponse is a response message for the FindValidNodes rpc call
 message FindValidNodesResponse {
-  bytes passed_ids = 1 [(gogoproto.casttype) = "NodeIDList"];
-  bytes failed_ids = 2 [(gogoproto.casttype) = "NodeIDList"];
+  repeated bytes passed_ids = 1 [(gogoproto.customtype) = "NodeID"];
+  repeated bytes failed_ids = 2 [(gogoproto.customtype) = "NodeID"];
 }
 
 // UpdateRequest is a request message for the Update rpc call
