@@ -9,6 +9,13 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
+// LastBandwidthTally is a name in the accounting timestamps database
+var LastBandwidthTally dbx.Timestamps_Name_Field
+
+func init() {
+	LastBandwidthTally = dbx.Timestamps_Name("LastBandwidthTally")
+}
+
 // NewDb - constructor for DB
 func NewDb(databaseURL string) (*dbx.DB, error) {
 	dbURL, err := utils.ParseURL(databaseURL)

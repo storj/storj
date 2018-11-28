@@ -64,6 +64,7 @@ func TestOnlineNodes(t *testing.T) {
 
 	defer func() { _ = accountingDb.Close() }()
 	tally := newTally(logger, accountingDb, bwDb, pointerdb, overlayServer, kad, limit, interval)
+
 	online, err := tally.onlineNodes(ctx, nodeIDs)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedOnline, online)
@@ -78,5 +79,9 @@ func TestNeedToContact(t *testing.T) {
 }
 
 func TestUpdateGranularTable(t *testing.T) {
+
+}
+
+func TestQuery(t *testing.T) {
 
 }

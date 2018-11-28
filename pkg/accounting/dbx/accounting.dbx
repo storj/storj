@@ -2,10 +2,16 @@
 
 // timestamps just allows us to save the last time/thing that happened
 model timestamps (
-  key pk // key is required, can't be updatable.  boo hiss!
+  key name
 
-  field pk              uint ( autoinsert )
-  field last_bw_tallied timestamp ( updatable )
+  field name            text
+  field value timestamp ( updatable )
+)
+create timestamps ( )
+update timestamps ( where timestamps.name = ? )
+read scalar (
+  select timestamps.value
+  where  timestamps.name = ?
 )
 
 model aggregate (
