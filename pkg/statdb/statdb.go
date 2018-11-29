@@ -388,6 +388,7 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 
 		updateRes, err := s.Update(ctx, updateReq)
 		if err != nil {
+			s.log.Error(err.Error())
 			failedNodes = append(failedNodes, node)
 		} else {
 			nodeStatsList = append(nodeStatsList, updateRes.Stats)
