@@ -39,6 +39,7 @@ func main() {
 
 	// Set up connection with rpc server
 	n := &pb.Node{
+		// TODO: NodeType is missing
 		Address: &pb.NodeAddress{
 			Address:   ":7777",
 			Transport: 0,
@@ -90,7 +91,7 @@ func main() {
 			id := psclient.NewPieceID()
 
 			allocationData := &pb.PayerBandwidthAllocation_Data{
-        SatelliteId:    []byte("OhHeyThisIsAnUnrealFakeSatellite"),
+				SatelliteId:    []byte("OhHeyThisIsAnUnrealFakeSatellite"),
 				Action:         pb.PayerBandwidthAllocation_PUT,
 				CreatedUnixSec: time.Now().Unix(),
 			}
@@ -154,7 +155,7 @@ func main() {
 			}
 
 			allocationData := &pb.PayerBandwidthAllocation_Data{
-        SatelliteId:    []byte("OhHeyThisIsAnUnrealFakeSatellite"),
+				SatelliteId:    []byte("OhHeyThisIsAnUnrealFakeSatellite"),
 				Action:         pb.PayerBandwidthAllocation_GET,
 				CreatedUnixSec: time.Now().Unix(),
 			}

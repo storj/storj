@@ -14,6 +14,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/dht"
@@ -70,7 +71,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		//nodes for cache
 		selection := rand.Intn(4)
 		for _, v := range ids[:selection] {
-			n := &pb.Node{Id: v, Address: &pb.NodeAddress{Address: v}}
+			n := &pb.Node{Id: v, Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: v}}
 			nodes = append(nodes, n)
 		}
 		pieces := []int32{0, 1, 2, 3}
@@ -117,7 +118,7 @@ func TestOfflineNodes(t *testing.T) {
 	expectedOffline := []int32{}
 	for i := 0; i < N; i++ {
 		str := strconv.Itoa(i)
-		n := &pb.Node{Id: str, Address: &pb.NodeAddress{Address: str}}
+		n := &pb.Node{Id: str, Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: str}}
 		nodes = append(nodes, n)
 		if i%(rand.Intn(5)+2) == 0 {
 			id := node.IDFromString("id" + str)
@@ -182,7 +183,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 		//nodes for cache
 		selection := rand.Intn(4)
 		for _, v := range ids[:selection] {
-			n := &pb.Node{Id: v, Address: &pb.NodeAddress{Address: v}}
+			n := &pb.Node{Id: v, Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: v}}
 			nodes = append(nodes, n)
 		}
 		pieces := []int32{0, 1, 2, 3}

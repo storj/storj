@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
@@ -38,7 +39,7 @@ func TestOnlineNodes(t *testing.T) {
 	expectedOnline := []*pb.Node{}
 	for i := 0; i < N; i++ {
 		str := strconv.Itoa(i)
-		n := &pb.Node{Id: str, Address: &pb.NodeAddress{Address: str}}
+		n := &pb.Node{Id: str, Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: str}}
 		nodes = append(nodes, n)
 		if i%(rand.Intn(5)+2) == 0 {
 			id := node.IDFromString("id" + str)
