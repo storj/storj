@@ -103,11 +103,11 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 	// TODO: autodetect content type from the path extension
 	// if info.ContentType == "" {}
 
-	if info.RedundancyScheme == (storj.RedundancyScheme{}) {
+	if info.RedundancyScheme.IsZero() {
 		info.RedundancyScheme = defaultRS
 	}
 
-	if info.EncryptionScheme == (storj.EncryptionScheme{}) {
+	if info.EncryptionScheme.IsZero() {
 		info.EncryptionScheme = storj.EncryptionScheme{
 			Cipher:    defaultES.Cipher,
 			BlockSize: info.RedundancyScheme.ShareSize,

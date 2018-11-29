@@ -15,6 +15,11 @@ type RedundancyScheme struct {
 	TotalShares    int16
 }
 
+// IsZero returns true if no field in the struct is set to non-zero value
+func (scheme RedundancyScheme) IsZero() bool {
+	return scheme == (RedundancyScheme{})
+}
+
 // RedundancyAlgorithm is the algorithm used for redundancy
 type RedundancyAlgorithm byte
 
