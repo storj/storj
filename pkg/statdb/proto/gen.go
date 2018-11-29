@@ -10,10 +10,13 @@ import (
 
 // NodeID is an alias to storj.NodeID for use in generated protobuf code
 type NodeID = storj.NodeID
-// NodeIDLiiist is an alias to storj.NodeIDList for use in generated protobuf code
+
+// NodeIDList is an alias to storj.NodeIDList for use in generated protobuf code
 type NodeIDList = storj.NodeIDList
+
 // Node is an alias to storj.Node for use in generated protobuf code
 type Node = pb.Node
+
 // NodeStats is an alias to storj.NodeStats for use in generated protobuf code
 type NodeStats = pb.NodeStats
 

@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"google.golang.org/grpc"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/provider"
@@ -157,8 +157,8 @@ func (sdb *StatDB) UpdateUptime(ctx context.Context, id storj.NodeID,
 	defer mon.Task()(&ctx)(&err)
 
 	node := pb.Node{
-		Id:     id,
-		IsUp:   isUp,
+		Id:   id,
+		IsUp: isUp,
 	}
 	updateReq := &pb.UpdateUptimeRequest{
 		Node: &node,
