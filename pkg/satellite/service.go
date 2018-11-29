@@ -47,6 +47,10 @@ func NewService(log *zap.Logger, signer Signer, store DB) (*Service, error) {
 func (s *Service) CreateUser(ctx context.Context, userInfo UserInfo, companyInfo CompanyInfo) (*User, error) {
 	passwordHash := sha256.Sum256([]byte(userInfo.Password))
 
+	if err := userInfo.IsValid(); err != nil {
+		return nil, err
+	}
+
 	//TODO(yar): separate creation of user and company
 	user, err := s.store.Users().Insert(ctx, &User{
 		Email:        userInfo.Email,
@@ -131,6 +135,10 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*User, error) {
 func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) error {
 	_, err := GetAuth(ctx)
 	if err != nil {
+		return err
+	}
+
+	if err = info.IsValid(); err != nil {
 		return err
 	}
 
