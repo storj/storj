@@ -75,14 +75,14 @@ func TestChoose(t *testing.T) {
 			limit: 4,
 			space: 0,
 			allNodes: func() []*pb.Node {
-				n1 := &pb.Node{Id: "n1"}
-				n2 := &pb.Node{Id: "n2"}
-				n3 := &pb.Node{Id: "n3"}
-				n4 := &pb.Node{Id: "n4"}
-				n5 := &pb.Node{Id: "n5"}
-				n6 := &pb.Node{Id: "n6"}
-				n7 := &pb.Node{Id: "n7"}
-				n8 := &pb.Node{Id: "n8"}
+				n1 := &pb.Node{Id: "n1", Type: pb.NodeType_STORAGE}
+				n2 := &pb.Node{Id: "n2", Type: pb.NodeType_STORAGE}
+				n3 := &pb.Node{Id: "n3", Type: pb.NodeType_STORAGE}
+				n4 := &pb.Node{Id: "n4", Type: pb.NodeType_STORAGE}
+				n5 := &pb.Node{Id: "n5", Type: pb.NodeType_STORAGE}
+				n6 := &pb.Node{Id: "n6", Type: pb.NodeType_STORAGE}
+				n7 := &pb.Node{Id: "n7", Type: pb.NodeType_STORAGE}
+				n8 := &pb.Node{Id: "n8", Type: pb.NodeType_STORAGE}
 				return []*pb.Node{n1, n2, n3, n4, n5, n6, n7, n8}
 			}(),
 			excluded: func() []dht.NodeID {
