@@ -185,10 +185,10 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 
 func TestGetNodes(t *testing.T) {
 	var (
-		nodeIDA     = teststorj.NodeIDFromString("AAAAA")
-		nodeIDB     = teststorj.NodeIDFromString("BBBBB")
-		nodeIDC     = teststorj.NodeIDFromString("CCCCC")
-		nodeIDD     = teststorj.NodeIDFromString("DDDDD")
+		nodeIDA = teststorj.NodeIDFromString("AAAAA")
+		nodeIDB = teststorj.NodeIDFromString("BBBBB")
+		nodeIDC = teststorj.NodeIDFromString("CCCCC")
+		nodeIDD = teststorj.NodeIDFromString("DDDDD")
 	)
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")

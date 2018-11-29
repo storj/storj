@@ -122,7 +122,7 @@ func (k *Kademlia) GetNodes(ctx context.Context, start storj.NodeID, limit int, 
 		maxLimit := storage.LookupLimit
 		for ; maxLimit > 0 && it.Next(&item); maxLimit-- {
 			var (
-				id storj.NodeID
+				id   storj.NodeID
 				node = &pb.Node{}
 			)
 			err := id.Unmarshal(item.Key)

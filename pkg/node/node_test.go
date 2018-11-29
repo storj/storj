@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	ctx = context.Background()
+	ctx     = context.Background()
 	helloID = teststorj.NodeIDFromString("hello")
 )
 
