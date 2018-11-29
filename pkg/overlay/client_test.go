@@ -60,7 +60,7 @@ func TestChoose(t *testing.T) {
 		limit        int
 		space        int64
 		uptime       float64
-		uptimeCount int64
+		uptimeCount  int64
 		auditSuccess float64
 		auditCount   int64
 		allNodes     []*pb.Node
@@ -70,7 +70,7 @@ func TestChoose(t *testing.T) {
 			limit:        4,
 			space:        0,
 			uptime:       1,
-			uptimeCount: 10,
+			uptimeCount:  10,
 			auditSuccess: 1,
 			auditCount:   10,
 			allNodes: func() []*pb.Node {
@@ -138,7 +138,7 @@ func TestChoose(t *testing.T) {
 			Amount:       v.limit,
 			Space:        v.space,
 			Uptime:       v.uptime,
-			UptimeCount: v.uptimeCount,
+			UptimeCount:  v.uptimeCount,
 			AuditSuccess: v.auditSuccess,
 			AuditCount:   v.auditCount,
 			Excluded:     v.excluded,

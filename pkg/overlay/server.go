@@ -171,9 +171,9 @@ func (o *Server) populate(ctx context.Context, startID storj.NodeID,
 		if v.Type != pb.NodeType_STORAGE {
 			continue
 		}
-		
+
 		rest := v.GetRestrictions()
-		rep := v.GetReputation() 
+		rep := v.GetReputation()
 
 		if rest.GetFreeBandwidth() < restrictedBandwidth ||
 			rest.GetFreeDisk() < restrictedSpace ||
