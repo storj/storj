@@ -28,7 +28,7 @@ var (
 // PointerDB creates a grpcClient
 type PointerDB struct {
 	client        pb.PointerDBClient
-	authorization unsafe.Pointer
+	authorization unsafe.Pointer // *pb.SignedMessage
 }
 
 // New Used as a public function
