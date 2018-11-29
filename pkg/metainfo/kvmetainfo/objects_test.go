@@ -77,14 +77,8 @@ func TestCreateObject(t *testing.T) {
 			assert.Equal(t, TestBucket, info.Bucket, errTag)
 			assert.Equal(t, TestFile, info.Path, errTag)
 			assert.EqualValues(t, 0, info.Size, errTag)
-			assert.Equal(t, tt.expectedRS.Algorithm, info.Algorithm, errTag)
-			assert.Equal(t, tt.expectedRS.RequiredShares, info.RequiredShares, errTag)
-			assert.Equal(t, tt.expectedRS.RepairShares, info.RepairShares, errTag)
-			assert.Equal(t, tt.expectedRS.OptimalShares, info.OptimalShares, errTag)
-			assert.Equal(t, tt.expectedRS.TotalShares, info.TotalShares, errTag)
-			assert.Equal(t, tt.expectedRS.ShareSize, info.ShareSize, errTag)
-			assert.Equal(t, tt.expectedES.Cipher, info.Cipher, errTag)
-			assert.Equal(t, tt.expectedES.BlockSize, info.BlockSize, errTag)
+			assert.Equal(t, tt.expectedRS, info.RedundancyScheme, errTag)
+			assert.Equal(t, tt.expectedES, info.EncryptionScheme, errTag)
 		}
 	})
 }
