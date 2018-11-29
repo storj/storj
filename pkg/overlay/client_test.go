@@ -21,8 +21,6 @@ import (
 	"storj.io/storj/storage"
 )
 
-var fooID = teststorj.NodeIDFromString("foo")
-
 func TestNewOverlayClient(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -54,9 +52,19 @@ func TestChoose(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	planet, err := testplanet.New(t, 1, 4, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(planet.Shutdown)
+
+	overlayAddr := planet.Satellites[0].Addr()
+	nid1 := planet.StorageNodes[0].ID()
+
 	cases := []struct {
 		limit        int
 		space        int64
+		bandwidth int64
 		uptime       float64
 		uptimeCount  int64
 		auditSuccess float64
@@ -67,6 +75,7 @@ func TestChoose(t *testing.T) {
 		{
 			limit:        4,
 			space:        0,
+			bandwidth: 0,
 			uptime:       1,
 			uptimeCount:  10,
 			auditSuccess: 1,
@@ -97,9 +106,6 @@ func TestChoose(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		lis, err := net.Listen("tcp", "127.0.0.1:0")
-		assert.NoError(t, err)
-
 		var listItems []storage.ListItem
 		for _, n := range v.allNodes {
 			data, err := proto.Marshal(n)
@@ -111,29 +117,18 @@ func TestChoose(t *testing.T) {
 		}
 
 
-		/*
+		
 		ca, err := testidentity.NewTestCA(ctx)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
 
-		srv := overlay.NewMockServer(listItems, func() grpc.ServerOption {
-			opt, err := identity.ServerOption()
-			assert.NoError(t, err)
-			return opt
-		}())
-
-		go func() { assert.NoError(t, srv.Serve(lis)) }()
-		defer srv.Stop()
-
-		oc, err := overlay.NewOverlayClient(identity, lis.Addr().String())
+		oc, err := overlay.NewOverlayClient(identity, overlayAddr)
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
 		ol, ok := oc.(*overlay.Overlay)
 		assert.True(t, ok)
-		assert.NotEmpty(t, ol.client)
-		*/
 
 		newNodes, err := oc.Choose(ctx, overlay.Options{
 			Amount:       v.limit,
@@ -145,10 +140,21 @@ func TestChoose(t *testing.T) {
 			Excluded:     v.excluded,
 		})
 		assert.NoError(t, err)
-		for _, new := range newNodes {
-			for _, ex := range v.excluded {
-				assert.NotEqual(t, ex.String(), new.Id)
-			}
+
+		excludedNodes := make(map[string]bool)
+		for _, e := range v.excluded {
+			excludedNodes[e.String()] = true
+		}
+		assert.Len(t, newNodes, v.limit)
+		for _, n := range newNodes {
+			assert.NotContains(t, excludedNodes, n.Id.String())
+			assert.True(t, n.GetRestrictions().GetFreeDisk() >= v.space)
+			assert.True(t, n.GetRestrictions().GetFreeBandwidth() >= v.bandwidth)
+			assert.True(t, n.GetReputation().GetUptimeRatio() >= v.uptime)
+			assert.True(t, n.GetReputation().GetUptimeCount() >= v.uptimeCount)
+			assert.True(t, n.GetReputation().GetAuditSuccessRatio() >= v.auditSuccess)
+			assert.True(t, n.GetReputation().GetAuditCount() >= v.auditCount)
+
 		}
 	}
 }
