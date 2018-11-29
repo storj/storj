@@ -96,7 +96,8 @@ func (srv *Server) PingNode(ctx context.Context, req *pb.PingNodeRequest) (*pb.P
 	}
 
 	p, err := nc.Ping(ctx, pb.Node{
-		Id: req.Id,
+		Id:   req.Id,
+		Type: self.Type,
 		Address: &pb.NodeAddress{
 			Address: req.Address,
 		},
