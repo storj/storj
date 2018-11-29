@@ -151,11 +151,15 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 	}
 
 	for _, v := range nodes {
-		rest := v.GetRestrictions()
+		if v.Type != pb.NodeType_STORAGE {
+			continue
+		}
 
-		if rest.GetFreeBandwidth() < restrictedBandwidth ||
-			rest.GetFreeDisk() < restrictedSpace ||
-			contains(excluded, v.Id) {
+		rest := v.GetRestrictions()
+		if rest.GetFreeBandwidth() < restrictedBandwidth || rest.GetFreeDisk() < restrictedSpace {
+			continue
+		}
+		if contains(excluded, v.Id) {
 			continue
 		}
 		result = append(result, v)
