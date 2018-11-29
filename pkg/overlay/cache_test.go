@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -29,8 +30,8 @@ var (
 	invalid2ID = teststorj.NodeIDFromString("invalid2")
 )
 
-func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore) {
-	cache := overlay.Cache{DB: store}
+func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, sdb *statdb.Server) {
+	cache := overlay.Cache{DB: store, StatDB: sdb}
 
 	{ // Put
 		err := cache.Put(valid1ID, pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9001"}})
@@ -95,6 +96,14 @@ func TestCache_Redis(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	planet, err := testplanet.New(t, 1, 4, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(planet.Shutdown)
+	planet.Start(ctx)
+	sdb := planet.Satellites[0].StatDB
+
 	redisAddr, cleanup, err := redisserver.Start()
 	if err != nil {
 		t.Fatal(err)
@@ -107,12 +116,20 @@ func TestCache_Redis(t *testing.T) {
 	}
 	defer ctx.Check(store.Close)
 
-	testCache(ctx, t, store)
+	testCache(ctx, t, store, sdb)
 }
 
 func TestCache_Bolt(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 4, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(planet.Shutdown)
+	planet.Start(ctx)
+	sdb := planet.Satellites[0].StatDB
 
 	client, err := boltdb.New(ctx.File("overlay.db"), "overlay")
 	if err != nil {
@@ -120,14 +137,22 @@ func TestCache_Bolt(t *testing.T) {
 	}
 	defer ctx.Check(client.Close)
 
-	testCache(ctx, t, client)
+	testCache(ctx, t, client, sdb)
 }
 
 func TestCache_Store(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testCache(ctx, t, teststore.New())
+	planet, err := testplanet.New(t, 1, 4, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(planet.Shutdown)
+	planet.Start(ctx)
+	sdb := planet.Satellites[0].StatDB
+
+	testCache(ctx, t, teststore.New(), sdb)
 }
 
 func TestCache_Refresh(t *testing.T) {
