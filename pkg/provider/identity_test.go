@@ -19,6 +19,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/internal/identity"
 	"storj.io/storj/pkg/peertls"
 )
 
@@ -247,7 +248,7 @@ func TestVerifyPeer(t *testing.T) {
 		}
 	}
 
-	ca, err := NewTestCA(context.Background())
+	ca, err := testidentity.NewTestCA(context.Background())
 	check(err)
 	fi, err := ca.NewIdentity()
 	check(err)

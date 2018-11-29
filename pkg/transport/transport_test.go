@@ -7,16 +7,16 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"storj.io/storj/internal/teststorj"
 
+	"storj.io/storj/internal/identity"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/provider"
 )
 
 var ctx = context.Background()
 
 func TestDialNode(t *testing.T) {
-	ca, err := provider.NewTestCA(ctx)
+	ca, err := testidentity.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)

@@ -24,11 +24,7 @@ type Reporter struct {
 
 // NewReporter instantiates a reporter
 func NewReporter(ctx context.Context, statDBPort string, maxRetries int, apiKey string) (reporter *Reporter, err error) {
-	ca, err := provider.NewTestCA(ctx)
-	if err != nil {
-		return nil, err
-	}
-	identity, err := ca.NewIdentity()
+	identity, err := provider.NewFullIdentity(ctx, 12, 4)
 	if err != nil {
 		return nil, err
 	}

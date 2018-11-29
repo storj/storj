@@ -15,8 +15,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
-	"storj.io/storj/internal/teststorj"
 
+	"storj.io/storj/internal/identity"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/provider"
@@ -29,7 +30,7 @@ var argError = errs.Class("argError")
 func main() {
 	cobra.EnableCommandSorting = false
 
-	ca, err := provider.NewTestCA(ctx)
+	ca, err := testidentity.NewTestCA(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}

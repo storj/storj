@@ -11,8 +11,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
-	"storj.io/storj/internal/teststorj"
+
+	"storj.io/storj/internal/identity"
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/dht/mocks"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -62,7 +64,7 @@ func TestLookup(t *testing.T) {
 		mdht.EXPECT().GetRoutingTable(gomock.Any()).Return(mrt, nil)
 		mrt.EXPECT().ConnectionSuccess(gomock.Any()).Return(nil)
 
-		ca, err := provider.NewTestCA(ctx)
+		ca, err := testidentity.NewTestCA(ctx)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -147,7 +149,7 @@ func (mn *mockNodeServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.Pi
 }
 
 func newTestIdentity(t *testing.T) *provider.FullIdentity {
-	ca, err := provider.NewTestCA(ctx)
+	ca, err := testidentity.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)

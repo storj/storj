@@ -58,7 +58,7 @@ func TestNewKademlia(t *testing.T) {
 	for i, v := range cases {
 		dir := filepath.Join(rootdir, strconv.Itoa(i))
 
-		ca, err := provider.NewTestCA(context.Background())
+		ca, err := testidentity.NewTestCA(context.Background())
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -208,11 +208,9 @@ func TestGetNodes(t *testing.T) {
 	fid2.ID = nodeIDB
 	// create two new unique identities
 	assert.NotEqual(t, fid.ID, fid2.ID)
-	kid := storj.NodeID(fid.ID)
-
 	dir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()
-	k, err := NewKademlia(kid, pb.NodeType_STORAGE, []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), nil, fid, dir, defaultAlpha)
+	k, err := NewKademlia(fid.ID, pb.NodeType_STORAGE, []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
 	defer func() {
 		assert.NoError(t, k.Disconnect())
@@ -400,7 +398,7 @@ func startTestNodeServer() (*grpc.Server, *mockNodesServer, *provider.FullIdenti
 		return nil, nil, nil, ""
 	}
 
-	ca, err := provider.NewTestCA(context.Background())
+	ca, err := testidentity.NewTestCA(context.Background())
 	if err != nil {
 		return nil, nil, nil, ""
 	}
@@ -426,7 +424,7 @@ func startTestNodeServer() (*grpc.Server, *mockNodesServer, *provider.FullIdenti
 }
 
 func newTestServer(nn []*pb.Node) (*grpc.Server, *mockNodesServer) {
-	ca, err := provider.NewTestCA(context.Background())
+	ca, err := testidentity.NewTestCA(context.Background())
 	if err != nil {
 		return nil, nil
 	}

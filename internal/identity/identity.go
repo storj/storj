@@ -22,3 +22,11 @@ func NewTestIdentity() (*provider.FullIdentity, error) {
 	}
 	return identity, err
 }
+
+// NewTestCA returns a ca with a default difficulty and concurrency for use in tests
+func NewTestCA(ctx context.Context) (*provider.FullCertificateAuthority, error) {
+	return provider.NewCA(ctx, provider.NewCAOptions{
+		Difficulty:  12,
+		Concurrency: 4,
+	})
+}

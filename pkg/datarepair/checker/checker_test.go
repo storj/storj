@@ -121,7 +121,7 @@ func TestOfflineNodes(t *testing.T) {
 		n := &pb.Node{Id: id, Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: ""}}
 		nodes = append(nodes, n)
 		if i%(rand.Intn(5)+2) == 0 {
-			nodeIDs = append(nodeIDs, teststorj.NodeIDFromString("id" + id.String()))
+			nodeIDs = append(nodeIDs, teststorj.NodeIDFromString("id"+id.String()))
 			expectedOffline = append(expectedOffline, int32(i))
 		} else {
 			nodeIDs = append(nodeIDs, id)

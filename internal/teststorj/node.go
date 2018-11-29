@@ -54,4 +54,3 @@ func MockNode(s string) *pb.Node {
 	node.Id = id
 	return &node
 }
-

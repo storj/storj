@@ -61,7 +61,7 @@ func NodeIDFromBytes(b []byte) (NodeID, error) {
 
 	var id NodeID
 	copy(id[:], b[:])
-	return NodeID(id), nil
+	return id, nil
 }
 
 // String returns NodeID as base58 encoded string with checksum and version bytes

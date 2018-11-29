@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"storj.io/storj/internal/identity"
 )
 
 func TestNewCA(t *testing.T) {
@@ -32,7 +34,7 @@ func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 		}
 	}
 
-	ca, err := NewTestCA(context.Background())
+	ca, err := testidentity.NewTestCA(context.Background())
 	check(err, ca)
 	fi, err := ca.NewIdentity()
 	check(err, fi)
