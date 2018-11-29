@@ -5,7 +5,6 @@ package overlay
 
 import (
 	"context"
-	"net/url"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -14,6 +13,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -42,8 +42,7 @@ const (
 
 // Run implements the provider.Responsibility interface. Run assumes a
 // Kademlia responsibility has been started before this one.
-func (c Config) Run(ctx context.Context, server *provider.Provider) (
-	err error) {
+func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	kad := kademlia.LoadFromContext(ctx)
@@ -51,16 +50,16 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return Error.New("programmer error: kademlia responsibility unstarted")
 	}
 
-	dburl, err := url.Parse(c.DatabaseURL)
+	driver, source, err := utils.SplitURL(c.DatabaseURL)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	var db storage.KeyValueStore
 
-	switch dburl.Scheme {
+	switch driver {
 	case "bolt":
-		db, err = boltdb.New(dburl.Path, OverlayBucket)
+		db, err = boltdb.New(source, OverlayBucket)
 		if err != nil {
 			return err
 		}
@@ -72,7 +71,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		}
 		zap.S().Info("Starting overlay cache with Redis")
 	default:
-		return Error.New("database scheme not supported: %s", dburl.Scheme)
+		return Error.New("database scheme not supported: %s", driver)
 	}
 
 	cache := NewOverlayCache(db, kad)

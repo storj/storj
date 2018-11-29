@@ -29,7 +29,7 @@ type DBManager struct {
 
 // NewDBManager creates a new instance of a DatabaseManager
 func NewDBManager(databaseURL string) (*DBManager, error) {
-	driver, source, err := utils.ParseURL(databaseURL)
+	driver, source, err := utils.SplitURL(databaseURL)
 	if err != nil {
 		return nil, err
 	}

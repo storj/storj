@@ -18,7 +18,7 @@ func init() {
 
 // NewDb - constructor for DB
 func NewDb(databaseURL string) (*dbx.DB, error) {
-	driver, source, err := utils.ParseURL(databaseURL)
+	driver, source, err := utils.SplitURL(databaseURL)
 	if err != nil {
 		return nil, err
 	}

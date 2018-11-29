@@ -25,10 +25,10 @@ func GetBytes(key interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// ParseURL extracts database parameters from a string as a URL
+// SplitURL returns the schema and non-scheme portions of a URL
 // consider https://github.com/xo/dburl if this ends up lacking
-func ParseURL(s string) (string, string, error) {
-	parts := strings.SplitAfterN(s, "://", 2)
+func SplitURL(s string) (string, string, error) {
+	parts := strings.SplitN(s, "://", 2)
 	if len(parts) != 2 {
 		return "", "", fmt.Errorf("Could not parse DB URL %s", s)
 	}

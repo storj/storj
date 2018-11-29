@@ -28,7 +28,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	log := zap.NewExample()
 
 	// Create satellite DB
-	driver, source, err := utils.ParseURL(c.DatabaseURL)
+	driver, source, err := utils.SplitURL(c.DatabaseURL)
 	if err != nil {
 		return err
 	}

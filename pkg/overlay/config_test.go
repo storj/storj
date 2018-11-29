@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
 	"storj.io/storj/pkg/kademlia"
 )
 
@@ -22,7 +21,7 @@ func TestRun(t *testing.T) {
 	assert.Equal(t, "overlay error: programmer error: kademlia responsibility unstarted", err.Error())
 
 	// run with nil, pass pointer to Kademlia in context
-	err = Config{}.Run(ctxWithKad, nil)
+	err = Config{DatabaseURL: "://bogusData"}.Run(ctxWithKad, nil)
 	assert.Error(t, err)
 	assert.Equal(t, "overlay error: database scheme not supported: ", err.Error())
 
