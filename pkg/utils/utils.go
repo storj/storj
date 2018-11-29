@@ -26,6 +26,7 @@ func GetBytes(key interface{}) ([]byte, error) {
 }
 
 // ParseURL extracts database parameters from a string as a URL
+// consider https://github.com/xo/dburl if this ends up lacking
 func ParseURL(s string) (string, string, error) {
 	parts := strings.SplitAfterN(s, "://", 2)
 	if len(parts) != 2 {
