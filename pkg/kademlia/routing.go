@@ -170,6 +170,9 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 	if node.GetId() == "" {
 		return nil
 	}
+	if node.Type == pb.NodeType_INVALID {
+		panic("invalid node type")
+	}
 
 	rt.mutex.Lock()
 	rt.seen[node.GetId()] = node
@@ -199,6 +202,10 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 // ConnectionFailed removes a node from the routing table when
 // a connection fails for the node on the network
 func (rt *RoutingTable) ConnectionFailed(node *pb.Node) error {
+	if node.Type == pb.NodeType_INVALID {
+		panic("invalid node type")
+	}
+
 	nodeID := storage.Key(node.Id)
 	bucketID, err := rt.getKBucketID(nodeID)
 	if err != nil {
