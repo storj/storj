@@ -6,6 +6,7 @@ package kademlia
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -177,11 +178,10 @@ func TestLookupNodes(t *testing.T) {
 		{target: func() *node.ID {
 			nid := node.ID(targetID.ID)
 			assert.NoError(t, err)
-			// this is what the bootstrap node returns
 			mockBootServer.returnValue = []*pb.Node{&pb.Node{Id: targetID.ID.String(), Address: &pb.NodeAddress{Address: targetAddress}}}
 			return &nid
 		}(),
-			opts:        discoveryOptions{concurrency: 3, bootstrap: true, retries: 1},
+			opts:        discoveryOptions{concurrency: 3, bootstrap: false, retries: 1},
 			expected:    &pb.Node{},
 			expectedErr: nil,
 		},
@@ -189,14 +189,16 @@ func TestLookupNodes(t *testing.T) {
 			n := node.ID(bootID.ID)
 			return &n
 		}(),
-			opts:        discoveryOptions{concurrency: 3, bootstrap: true, retries: 1},
+			opts:        discoveryOptions{concurrency: 3, bootstrap: false, retries: 1},
 			expected:    nil,
 			expectedErr: nil,
 		},
 	}
 
 	for _, v := range cases {
-		err := k.lookup(context.Background(), v.target, v.opts)
+		node, err := k.FindNode(context.Background(), v.target)
+		fmt.Printf("Asserted: %+v\n Actual: %+v\n", v.target, node.Id)
+		assert.Equal(t, node, v.target)
 		assert.Equal(t, v.expectedErr, err)
 	}
 }

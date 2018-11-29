@@ -230,6 +230,9 @@ func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (pb.Node, error)
 	}
 
 	node := <-lookup.foundOne
+	if node == nil {
+		return pb.Node{}, nil
+	}
 
 	return *node, nil
 }
