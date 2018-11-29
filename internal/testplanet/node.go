@@ -13,6 +13,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/storj"
+
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
@@ -66,7 +68,7 @@ func (planet *Planet) newNode(name string, nodeType pb.NodeType) (*Node, error) 
 	}
 
 	node.Info = pb.Node{
-		Id:   node.Identity.ID.String(),
+		Id:   node.Identity.ID,
 		Type: nodeType,
 		Address: &pb.NodeAddress{
 			Transport: pb.NodeTransport_TCP_TLS_GRPC,
@@ -76,14 +78,13 @@ func (planet *Planet) newNode(name string, nodeType pb.NodeType) (*Node, error) 
 
 	planet.nodes = append(planet.nodes, node)
 	planet.nodeInfos = append(planet.nodeInfos, node.Info)
-	planet.nodeLinks = append(planet.nodeLinks, node.Info.Id+":"+node.Listener.Addr().String())
+	planet.nodeLinks = append(planet.nodeLinks, node.Info.Id.String()+":"+node.Listener.Addr().String())
 
 	return node, nil
 }
 
 // ID returns node id
-// TODO: switch to storj.NodeID
-func (node *Node) ID() string { return node.Info.Id }
+func (node *Node) ID() storj.NodeID { return node.Info.Id }
 
 // Addr retursn node address
 func (node *Node) Addr() string { return node.Info.Address.Address }

@@ -41,7 +41,7 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 	allocationData := &pb.RenterBandwidthAllocation_Data{
 		PayerAllocation: s.pba,
 		Total:           updatedAllocation,
-		StorageNodeId:   s.signer.nodeID.Bytes(),
+		StorageNodeId:   s.signer.nodeID,
 		PubKey:          pubbytes, // TODO: Take this out. It will be kept in a database on the satellite
 	}
 
@@ -135,7 +135,7 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 			allocationData := &pb.RenterBandwidthAllocation_Data{
 				PayerAllocation: pba,
 				Total:           sr.allocated + allocate,
-				StorageNodeId:   sr.client.nodeID.Bytes(),
+				StorageNodeId:   sr.client.nodeID,
 				PubKey:          pubbytes, // TODO: Take this out. It will be kept in a database on the satellite
 			}
 

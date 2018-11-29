@@ -4,6 +4,7 @@
 package overlay
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -13,6 +14,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/spacemonkeygo/monkit.v2"
+
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
@@ -42,10 +45,10 @@ func NewServer(log *zap.Logger, cache *Cache, dht dht.DHT) *Server {
 
 // Lookup finds the address of a node in our overlay network
 func (o *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (*pb.LookupResponse, error) {
-	na, err := o.cache.Get(ctx, req.NodeID)
+	na, err := o.cache.Get(ctx, req.NodeId)
 
 	if err != nil {
-		o.logger.Error("Error looking up node", zap.Error(err), zap.String("nodeID", req.NodeID))
+		o.logger.Error("Error looking up node", zap.Error(err), zap.String("nodeID", req.NodeId.String()))
 		return nil, err
 	}
 
@@ -71,16 +74,16 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 		maxNodes = opts.GetAmount()
 	}
 
-	excluded := opts.GetExcludedNodes()
+	excluded := opts.ExcludedNodes
 	restrictions := opts.GetRestrictions()
 	restrictedBandwidth := restrictions.GetFreeBandwidth()
 	restrictedSpace := restrictions.GetFreeDisk()
 
-	var start storage.Key
+	var startID storj.NodeID
 	result := []*pb.Node{}
 	for {
 		var nodes []*pb.Node
-		nodes, start, err = o.populate(ctx, req.GetStart(), maxNodes, restrictedBandwidth, restrictedSpace, excluded)
+		nodes, startID, err = o.populate(ctx, req.Start, maxNodes, restrictedBandwidth, restrictedSpace, excluded)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -91,7 +94,7 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 
 		result = append(result, nodes...)
 
-		if len(result) >= int(maxNodes) || start == nil {
+		if len(result) >= int(maxNodes) || startID == (storj.NodeID{}) {
 			break
 		}
 
@@ -130,24 +133,25 @@ func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.Node, e
 
 }
 
-func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, restrictedBandwidth, restrictedSpace int64, excluded []string) ([]*pb.Node, storage.Key, error) {
+func (o *Server) populate(ctx context.Context, startID storj.NodeID, maxNodes, restrictedBandwidth, restrictedSpace int64, excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
 	limit := int(maxNodes * 2)
-	keys, err := o.cache.DB.List(starting, limit)
+	keys, err := o.cache.DB.List(startID.Bytes(), limit)
 	if err != nil {
 		o.logger.Error("Error listing nodes", zap.Error(err))
-		return nil, nil, Error.Wrap(err)
+		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
 	if len(keys) <= 0 {
 		o.logger.Info("No Keys returned from List operation")
-		return []*pb.Node{}, starting, nil
+		return []*pb.Node{}, startID, nil
 	}
 
+	// TODO: should this be `var result []*pb.Node` ?
 	result := []*pb.Node{}
 	nodes, err := o.getNodes(ctx, keys)
 	if err != nil {
 		o.logger.Error("Error getting nodes", zap.Error(err))
-		return nil, nil, Error.Wrap(err)
+		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
 	for _, v := range nodes {
@@ -165,29 +169,33 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 		result = append(result, v)
 	}
 
-	nextStart := keys[len(keys)-1]
+	var nextStart storj.NodeID
 	if len(keys) < limit {
-		nextStart = nil
+		nextStart = storj.NodeID{}
+	} else {
+		nextStart, err = storj.NodeIDFromBytes(keys[len(keys)-1])
+	}
+	if err != nil {
+		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
 	return result, nextStart, nil
 }
 
 // contains checks if item exists in list
-func contains(list []string, item string) bool {
-	for _, listItem := range list {
-		if listItem == item {
+func contains(nodeIDs storj.NodeIDList, searchID storj.NodeID) bool {
+	for _, id := range nodeIDs {
+		if bytes.Equal(id.Bytes(), searchID.Bytes()) {
 			return true
 		}
 	}
 	return false
 }
 
-//lookupRequestsToNodeIDs returns the nodeIDs from the LookupRequests
-func lookupRequestsToNodeIDs(reqs *pb.LookupRequests) []string {
-	var ids []string
+// lookupRequestsToNodeIDs returns the nodeIDs from the LookupRequests
+func lookupRequestsToNodeIDs(reqs *pb.LookupRequests) (ids storj.NodeIDList) {
 	for _, v := range reqs.LookupRequest {
-		ids = append(ids, v.NodeID)
+		ids = append(ids, v.NodeId)
 	}
 	return ids
 }

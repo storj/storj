@@ -141,7 +141,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 
 	// init storage nodes
 	for _, node := range planet.StorageNodes {
-		storageDir := filepath.Join(planet.directory, node.ID())
+		storageDir := filepath.Join(planet.directory, node.ID().String())
 
 		serverdb, err := psdb.OpenInMemory(context.Background(), storageDir)
 		if err != nil {

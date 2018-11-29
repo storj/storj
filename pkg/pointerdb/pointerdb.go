@@ -296,7 +296,7 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 
 // PayerBandwidthAllocation returns PayerBandwidthAllocation struct, signed and with given action type
 func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBandwidthAllocationRequest) (*pb.PayerBandwidthAllocationResponse, error) {
-	payer := s.identity.ID.Bytes()
+	payer := s.identity.ID
 
 	// TODO(michal) should be replaced with renter id when available
 	peerIdentity, err := provider.PeerIdentityFromContext(ctx)
@@ -305,7 +305,7 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 	}
 	pbad := &pb.PayerBandwidthAllocation_Data{
 		SatelliteId:    payer,
-		UplinkId:       peerIdentity.ID.Bytes(),
+		UplinkId:       peerIdentity.ID,
 		CreatedUnixSec: time.Now().Unix(),
 		Action:         req.GetAction(),
 	}
