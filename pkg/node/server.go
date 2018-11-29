@@ -44,7 +44,7 @@ func (s *Server) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResp
 			if err != nil {
 				s.logger.Error("could not respond to connection failed", zap.Error(err))
 			}
-			s.logger.Error("connection to node failed", zap.Error(err), zap.String("nodeID", req.Sender.Id))
+			s.logger.Error("connection to node failed", zap.Error(err), zap.String("nodeID", req.Sender.Id.String()))
 		}
 
 		err = rt.ConnectionSuccess(req.Sender)
@@ -53,8 +53,7 @@ func (s *Server) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResp
 		}
 	}
 
-	id := IDFromString(req.Target.Id)
-	nodes, err := rt.FindNear(id, int(req.Limit))
+	nodes, err := rt.FindNear(req.Target.Id, int(req.Limit))
 	if err != nil {
 		return &pb.QueryResponse{}, NodeClientErr.New("could not find near %s", err)
 	}

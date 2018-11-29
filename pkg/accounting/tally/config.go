@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"

@@ -10,13 +10,18 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
+
+var fooID = teststorj.NodeIDFromString("foo")
 
 func TestGet(t *testing.T) {
 	cases := []struct {
 		pool          *ConnectionPool
-		key           string
+		nodeID        storj.NodeID
 		expected      Conn
 		expectedError error
 	}{
@@ -24,10 +29,10 @@ func TestGet(t *testing.T) {
 			pool: func() *ConnectionPool {
 				p := NewConnectionPool(newTestIdentity(t))
 				p.Init()
-				p.items["foo"] = &Conn{addr: "foo"}
+				p.items[fooID] = &Conn{addr: "foo"}
 				return p
 			}(),
-			key:           "foo",
+			nodeID:        fooID,
 			expected:      Conn{addr: "foo"},
 			expectedError: nil,
 		},
@@ -35,7 +40,7 @@ func TestGet(t *testing.T) {
 
 	for i := range cases {
 		v := &cases[i]
-		test, err := v.pool.Get(v.key)
+		test, err := v.pool.Get(v.nodeID)
 		assert.Equal(t, v.expectedError, err)
 
 		assert.Equal(t, v.expected.addr, test.(*Conn).addr)
@@ -49,16 +54,16 @@ func TestDisconnect(t *testing.T) {
 	// gc.Close = func() error { return nil }
 	cases := []struct {
 		pool          ConnectionPool
-		key           string
+		nodeID        storj.NodeID
 		expected      interface{}
 		expectedError error
 	}{
 		{
 			pool: ConnectionPool{
 				mu:    sync.RWMutex{},
-				items: map[string]*Conn{"foo": &Conn{grpc: conn}},
+				items: map[storj.NodeID]*Conn{fooID: &Conn{grpc: conn}},
 			},
-			key:           "foo",
+			nodeID:        fooID,
 			expected:      nil,
 			expectedError: nil,
 		},
@@ -66,10 +71,10 @@ func TestDisconnect(t *testing.T) {
 
 	for i := range cases {
 		v := &cases[i]
-		err := v.pool.Disconnect(v.key)
+		err := v.pool.Disconnect(v.nodeID)
 		assert.Equal(t, v.expectedError, err)
 
-		test, err := v.pool.Get(v.key)
+		test, err := v.pool.Get(v.nodeID)
 		assert.Equal(t, v.expectedError, err)
 
 		assert.Equal(t, v.expected, test)
@@ -86,7 +91,7 @@ func TestDial(t *testing.T) {
 	}{
 		{
 			pool:          NewConnectionPool(newTestIdentity(t)),
-			node:          &pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: "127.0.0.1:0"}},
+			node:          &pb.Node{Id: fooID, Address: &pb.NodeAddress{Address: "127.0.0.1:0"}},
 			expected:      nil,
 			expectedError: nil,
 		},

@@ -16,6 +16,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/storj"
+
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
 	dbmanager "storj.io/storj/pkg/bwagreement/database-manager"
@@ -188,8 +190,8 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// attributes per uplinkid
-	summaries := make(map[string]*UplinkSummary)
-	uplinkIDs := []string{}
+	summaries := make(map[storj.NodeID]*UplinkSummary)
+	uplinkIDs := storj.NodeIDList{}
 
 	for _, baRow := range baRows {
 		// deserializing rbad you get payerbwallocation, total & storage node id
@@ -204,7 +206,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 
-		uplinkID := string(pbad.GetUplinkId())
+		uplinkID := pbad.UplinkId
 		summary, ok := summaries[uplinkID]
 		if !ok {
 			summaries[uplinkID] = &UplinkSummary{}
@@ -228,7 +230,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	fmt.Fprintln(w, "UplinkID\tTotal\t# Of Transactions\tPUT Action\tGET Action\t")
 
 	// populate the row fields
-	sort.Strings(uplinkIDs)
+	sort.Sort(uplinkIDs)
 	for _, uplinkID := range uplinkIDs {
 		summary := summaries[uplinkID]
 		fmt.Fprint(w, uplinkID, "\t", summary.TotalBytes, "\t", summary.TotalTransactions, "\t", summary.PutActionCount, "\t", summary.GetActionCount, "\t\n")

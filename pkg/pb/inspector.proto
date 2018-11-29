@@ -4,7 +4,8 @@
 syntax = "proto3";
 option go_package = "pb";
 
-import "overlay.proto";
+import "gogo.proto";
+import "node.proto";
 
 package inspector;
 
@@ -28,7 +29,7 @@ service Inspector {
 
 // GetStats
 message GetStatsRequest {
-  string node_id = 1;
+  bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 message GetStatsResponse {
@@ -39,7 +40,7 @@ message GetStatsResponse {
 
 // CreateStats
 message CreateStatsRequest {
-  string node_id = 1;
+  bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
   int64 audit_count = 2;
   int64 audit_success_count = 3;
   int64 uptime_count = 4;
@@ -64,29 +65,29 @@ message GetBucketsRequest {
 
 message GetBucketsResponse {
   int64 total = 1;
-  repeated bytes ids = 2;
+  repeated bytes ids = 2 [(gogoproto.customtype) = "NodeID"];
 }
 
 // GetBucket
 message GetBucketRequest {
-  string id = 1;
+  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 message GetBucketResponse {
-  string id = 1;
-  repeated overlay.Node nodes = 2;
+  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  repeated node.Node nodes = 2;
 }
 
 message Bucket {
-  repeated overlay.Node nodes = 2; 
+  repeated node.Node nodes = 2;
 }
 
 message BucketList {
-  repeated overlay.Node nodes = 1;
+  repeated node.Node nodes = 1;
 }
 // PingNode 
 message PingNodeRequest {
-  string id = 1;
+  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
   string address = 2;
 }
 

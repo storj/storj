@@ -8,6 +8,7 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 // NewMockKademlia returns a newly intialized MockKademlia struct
@@ -23,7 +24,7 @@ type MockKademlia struct {
 
 // GetNodes increments the GetNodesCalled field on MockKademlia
 // returns the Nodes field on MockKademlia
-func (k *MockKademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
+func (k *MockKademlia) GetNodes(ctx context.Context, start storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
 	return k.Nodes, nil
 }
 
@@ -47,7 +48,7 @@ func (k *MockKademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) 
 // FindNode increments the FindNodeCalled field on MockKademlia
 //
 // returns the local kademlia node
-func (k *MockKademlia) FindNode(ctx context.Context, ID dht.NodeID) (pb.Node, error) {
+func (k *MockKademlia) FindNode(ctx context.Context, id storj.NodeID) (pb.Node, error) {
 	return k.RoutingTable.Local(), nil
 }
 

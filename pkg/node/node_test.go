@@ -12,13 +12,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/identity"
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/dht/mocks"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 )
 
-var ctx = context.Background()
+var (
+	ctx     = context.Background()
+	helloID = teststorj.NodeIDFromString("hello")
+)
 
 func TestLookup(t *testing.T) {
 	ctx := testcontext.New(t)
@@ -31,9 +36,9 @@ func TestLookup(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			self:        pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":7070"}},
-			to:          pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":8080"}},
-			find:        pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":9090"}},
+			self:        pb.Node{Id: helloID, Address: &pb.NodeAddress{Address: ":7070"}},
+			to:          pb.Node{Id: helloID, Address: &pb.NodeAddress{Address: ":8080"}},
+			find:        pb.Node{Id: helloID, Address: &pb.NodeAddress{Address: ":9090"}},
 			expectedErr: nil,
 		},
 	}
@@ -43,7 +48,7 @@ func TestLookup(t *testing.T) {
 		assert.NoError(t, err)
 
 		id := newTestIdentity(t)
-		v.to = pb.Node{Id: id.ID.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}
+		v.to = pb.Node{Id: id.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}
 
 		srv, mock, err := newTestServer(ctx, &mockNodeServer{queryCalled: 0}, id)
 		assert.NoError(t, err)
@@ -59,7 +64,7 @@ func TestLookup(t *testing.T) {
 		mdht.EXPECT().GetRoutingTable(gomock.Any()).Return(mrt, nil)
 		mrt.EXPECT().ConnectionSuccess(gomock.Any()).Return(nil)
 
-		ca, err := provider.NewTestCA(ctx)
+		ca, err := testidentity.NewTestCA(ctx)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -80,13 +85,13 @@ func TestPing(t *testing.T) {
 	cases := []struct {
 		self        pb.Node
 		toID        string
-		toIdentity  *provider.FullIdentity
+		ident       *provider.FullIdentity
 		expectedErr error
 	}{
 		{
-			self:        pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":7070"}},
+			self:        pb.Node{Id: helloID, Address: &pb.NodeAddress{Address: ":7070"}},
 			toID:        "",
-			toIdentity:  newTestIdentity(t),
+			ident:       newTestIdentity(t),
 			expectedErr: nil,
 		},
 	}
@@ -100,17 +105,16 @@ func TestPing(t *testing.T) {
 		// set up a node server
 		srv := NewServer(mdht)
 
-		msrv, _, err := newTestServer(ctx, srv, v.toIdentity)
+		msrv, _, err := newTestServer(ctx, srv, v.ident)
 		assert.NoError(t, err)
 		// start gRPC server
 		ctx.Go(func() error { return msrv.Serve(lis) })
 		defer msrv.Stop()
 
-		nc, err := NewNodeClient(v.toIdentity, v.self, mdht)
+		nc, err := NewNodeClient(v.ident, v.self, mdht)
 		assert.NoError(t, err)
 
-		id := ID(v.toIdentity.ID)
-		ok, err := nc.Ping(ctx, pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}})
+		ok, err := nc.Ping(ctx, pb.Node{Id: v.ident.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}})
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, ok, true)
 	}
@@ -145,7 +149,7 @@ func (mn *mockNodeServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.Pi
 }
 
 func newTestIdentity(t *testing.T) *provider.FullIdentity {
-	ca, err := provider.NewTestCA(ctx)
+	ca, err := testidentity.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)

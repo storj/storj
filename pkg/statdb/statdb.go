@@ -14,6 +14,8 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/storj"
+
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/auth"
 	dbx "storj.io/storj/pkg/statdb/dbx"
@@ -98,7 +100,7 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 
 	dbNode, err := s.DB.Create_Node(
 		ctx,
-		dbx.Node_Id(node.NodeId),
+		dbx.Node_Id(node.Id.Bytes()),
 		dbx.Node_AuditSuccessCount(auditSuccessCount),
 		dbx.Node_TotalAuditCount(totalAuditCount),
 		dbx.Node_AuditSuccessRatio(auditSuccessRatio),
@@ -111,7 +113,7 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 	}
 
 	nodeStats := &pb.NodeStats{
-		NodeId:            dbNode.Id,
+		NodeId:            node.Id,
 		AuditCount:        dbNode.TotalAuditCount,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
 		UptimeRatio:       dbNode.UptimeRatio,
@@ -130,13 +132,13 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 		return nil, err
 	}
 
-	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(getReq.NodeId))
+	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(getReq.NodeId.Bytes()))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
 	nodeStats := &pb.NodeStats{
-		NodeId:            dbNode.Id,
+		NodeId:            getReq.NodeId,
 		AuditCount:        dbNode.TotalAuditCount,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
 		UptimeRatio:       dbNode.UptimeRatio,
@@ -150,7 +152,7 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRequest) (resp *pb.FindValidNodesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	passedIds := [][]byte{}
+	var passedIds storj.NodeIDList
 
 	nodeIds := getReq.NodeIds
 	minAuditCount := getReq.MinStats.AuditCount
@@ -175,7 +177,11 @@ func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRe
 		if err != nil {
 			return nil, err
 		}
-		passedIds = append(passedIds, node.Id)
+		id, err := storj.NodeIDFromBytes(node.Id)
+		if err != nil {
+			return nil, err
+		}
+		passedIds = append(passedIds, id)
 	}
 
 	return &pb.FindValidNodesResponse{
@@ -183,10 +189,10 @@ func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRe
 	}, nil
 }
 
-func (s *Server) findValidNodesQuery(nodeIds [][]byte, auditCount int64, auditSuccess, uptime float64) (*sql.Rows, error) {
+func (s *Server) findValidNodesQuery(nodeIds storj.NodeIDList, auditCount int64, auditSuccess, uptime float64) (*sql.Rows, error) {
 	args := make([]interface{}, len(nodeIds))
 	for i, id := range nodeIds {
-		args[i] = id
+		args[i] = id.Bytes()
 	}
 	args = append(args, auditCount, auditSuccess, uptime)
 
@@ -221,7 +227,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 		return nil, err
 	}
 
-	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(node.NodeId))
+	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -258,13 +264,13 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 		updateFields.UptimeRatio = dbx.Node_UptimeRatio(uptimeRatio)
 	}
 
-	dbNode, err = s.DB.Update_Node_By_Id(ctx, dbx.Node_Id(node.NodeId), updateFields)
+	dbNode, err = s.DB.Update_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()), updateFields)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
 	nodeStats := &pb.NodeStats{
-		NodeId:            dbNode.Id,
+		NodeId:            node.Id,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
 		UptimeRatio:       dbNode.UptimeRatio,
 	}
@@ -284,7 +290,7 @@ func (s *Server) UpdateUptime(ctx context.Context, updateReq *pb.UpdateUptimeReq
 
 	node := updateReq.GetNode()
 
-	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(node.NodeId))
+	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -305,13 +311,13 @@ func (s *Server) UpdateUptime(ctx context.Context, updateReq *pb.UpdateUptimeReq
 	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
 	updateFields.UptimeRatio = dbx.Node_UptimeRatio(uptimeRatio)
 
-	dbNode, err = s.DB.Update_Node_By_Id(ctx, dbx.Node_Id(node.NodeId), updateFields)
+	dbNode, err = s.DB.Update_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()), updateFields)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
 	nodeStats := &pb.NodeStats{
-		NodeId:            dbNode.Id,
+		NodeId:            node.Id,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
 		UptimeRatio:       dbNode.UptimeRatio,
 		AuditCount:        dbNode.TotalAuditCount,
@@ -332,7 +338,7 @@ func (s *Server) UpdateAuditSuccess(ctx context.Context, updateReq *pb.UpdateAud
 
 	node := updateReq.GetNode()
 
-	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(node.NodeId))
+	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -353,13 +359,13 @@ func (s *Server) UpdateAuditSuccess(ctx context.Context, updateReq *pb.UpdateAud
 	updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(totalAuditCount)
 	updateFields.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(auditRatio)
 
-	dbNode, err = s.DB.Update_Node_By_Id(ctx, dbx.Node_Id(node.NodeId), updateFields)
+	dbNode, err = s.DB.Update_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()), updateFields)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
 	nodeStats := &pb.NodeStats{
-		NodeId:            dbNode.Id,
+		NodeId:            node.Id,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
 		UptimeRatio:       dbNode.UptimeRatio,
 		AuditCount:        dbNode.TotalAuditCount,
@@ -400,7 +406,7 @@ func (s *Server) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.Cre
 	defer mon.Task()(&ctx)(&err)
 
 	getReq := &pb.GetRequest{
-		NodeId: createIfReq.Node.NodeId,
+		NodeId: createIfReq.Node.Id,
 	}
 	getRes, err := s.Get(ctx, getReq)
 	// TODO: figure out better way to confirm error is type dbx.ErrorCode_NoRows

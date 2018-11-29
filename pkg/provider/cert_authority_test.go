@@ -10,6 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// newTestCA returns a ca with a default difficulty and concurrency for use in tests
+func newTestCA(ctx context.Context) (*FullCertificateAuthority, error) {
+	return NewCA(ctx, NewCAOptions{
+		Difficulty:  12,
+		Concurrency: 4,
+	})
+}
+
 func TestNewCA(t *testing.T) {
 	expectedDifficulty := uint16(4)
 
@@ -20,7 +28,8 @@ func TestNewCA(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, ca)
 
-	actualDifficulty := ca.ID.Difficulty()
+	actualDifficulty, err := ca.ID.Difficulty()
+	assert.NoError(t, err)
 	assert.True(t, actualDifficulty >= expectedDifficulty)
 }
 
@@ -31,7 +40,7 @@ func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 		}
 	}
 
-	ca, err := NewTestCA(context.Background())
+	ca, err := newTestCA(context.Background())
 	check(err, ca)
 	fi, err := ca.NewIdentity()
 	check(err, fi)

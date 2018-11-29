@@ -36,12 +36,7 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer printError(logger.Sync)
 
-	ca, err := provider.NewTestCA(ctx)
-	if err != nil {
-		logger.Error("Failed to create certificate authority: ", zap.Error(err))
-		os.Exit(1)
-	}
-	identity, err := ca.NewIdentity()
+	identity, err := provider.NewFullIdentity(ctx, 12, 4)
 	if err != nil {
 		logger.Error("Failed to create full identity: ", zap.Error(err))
 		os.Exit(1)

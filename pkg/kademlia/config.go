@@ -72,7 +72,9 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		Wallet: c.Farmer.Wallet,
 	}
 
-	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, server.Addr().String(), metadata, server.Identity(), c.DBPath, c.Alpha)
+	nodeType := pb.NodeType_STORAGE // TODO: fix this for satellites
+
+	kad, err := NewKademlia(server.Identity().ID, nodeType, []pb.Node{*in}, server.Addr().String(), metadata, server.Identity(), c.DBPath, c.Alpha)
 	if err != nil {
 		return err
 	}

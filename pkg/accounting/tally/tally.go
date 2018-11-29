@@ -11,13 +11,12 @@ import (
 	"go.uber.org/zap"
 
 	dbx "storj.io/storj/pkg/accounting/dbx"
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/utils"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
 
@@ -96,9 +95,9 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 					return Error.Wrap(err)
 				}
 				pieces := pointer.Remote.RemotePieces
-				var nodeIDs []dht.NodeID
+				var nodeIDs storj.NodeIDList
 				for _, p := range pieces {
-					nodeIDs = append(nodeIDs, node.IDFromString(p.NodeId))
+					nodeIDs = append(nodeIDs, p.NodeId)
 				}
 				online, err := t.onlineNodes(ctx, nodeIDs)
 				if err != nil {
@@ -112,12 +111,12 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 	return err
 }
 
-func (t *tally) onlineNodes(ctx context.Context, nodeIDs []dht.NodeID) (online []*pb.Node, err error) {
-	responses, err := t.overlay.BulkLookup(ctx, utils.NodeIDsToLookupRequests(nodeIDs))
+func (t *tally) onlineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (online []*pb.Node, err error) {
+	responses, err := t.overlay.BulkLookup(ctx, pb.NodeIDsToLookupRequests(nodeIDs))
 	if err != nil {
 		return []*pb.Node{}, err
 	}
-	nodes := utils.LookupResponsesToNodes(responses)
+	nodes := pb.LookupResponsesToNodes(responses)
 	for _, n := range nodes {
 		if n != nil {
 			online = append(online, n)
@@ -154,13 +153,13 @@ func (t *tally) tallyAtRestStorage(ctx context.Context, pointer *pb.Pointer, nod
 	}
 }
 
-func (t *tally) needToContact(nodeID string) bool {
+func (t *tally) needToContact(id storj.NodeID) bool {
 	//TODO
 	//check db if node was updated within the last time period
 	return true
 }
 
-func (t *tally) updateGranularTable(nodeID string, pieceSize int64) error {
+func (t *tally) updateGranularTable(id storj.NodeID, pieceSize int64) error {
 	//TODO
 	return nil
 }
