@@ -18,9 +18,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
 

@@ -157,4 +157,3 @@ func (c LookupConfig) ParseIDs() (ids storj.NodeIDList, err error) {
 	}
 	return ids, nil
 }
-

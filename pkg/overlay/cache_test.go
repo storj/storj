@@ -23,10 +23,10 @@ import (
 )
 
 var (
-	valid1ID, valid2ID, invalid1ID, invalid2ID = teststorj.NodeIDFromString("valid1"),
-			teststorj.NodeIDFromString("valid2"),
-			teststorj.NodeIDFromString("invalid1"),
-			teststorj.NodeIDFromString("invalid2")
+	valid1ID   = teststorj.NodeIDFromString("valid1")
+	valid2ID   = teststorj.NodeIDFromString("valid2")
+	invalid1ID = teststorj.NodeIDFromString("invalid1")
+	invalid2ID = teststorj.NodeIDFromString("invalid2")
 )
 
 func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore) {
