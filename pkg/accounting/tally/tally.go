@@ -9,6 +9,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
+
 	dbx "storj.io/storj/pkg/accounting/dbx"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
@@ -81,7 +82,6 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	t.logger.Debug("entering pointerdb iterate")
 	err = t.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
