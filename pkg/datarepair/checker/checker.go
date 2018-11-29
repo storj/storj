@@ -65,7 +65,6 @@ func (c *checker) Run(ctx context.Context) (err error) {
 // identifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
 func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	c.logger.Debug("entering pointerdb iterate")
 
 	err = c.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
 		func(it storage.Iterator) error {

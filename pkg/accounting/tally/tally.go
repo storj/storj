@@ -81,7 +81,6 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	t.logger.Debug("entering pointerdb iterate")
 	err = t.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
