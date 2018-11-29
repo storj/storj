@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+
 	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/peertls"

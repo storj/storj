@@ -13,6 +13,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
+
 	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/cfgstruct"

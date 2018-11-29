@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
 	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/statdb/sdbclient"
@@ -61,12 +62,12 @@ func main() {
 
 	// Test farmers
 	farmer1 := proto.Node{
-		Id:             idents[1].ID,
+		Id:                 idents[1].ID,
 		UpdateAuditSuccess: false,
 		UpdateUptime:       false,
 	}
 	farmer2 := proto.Node{
-		Id:             idents[2].ID,
+		Id:                 idents[2].ID,
 		UpdateAuditSuccess: false,
 		UpdateUptime:       false,
 	}

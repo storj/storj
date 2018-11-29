@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/kademlia"

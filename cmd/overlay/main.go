@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/cfgstruct"

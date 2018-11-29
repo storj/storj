@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
 	"storj.io/storj/internal/teststorj"
 
 	"storj.io/storj/pkg/pb"

@@ -15,6 +15,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
+
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/storj"
 

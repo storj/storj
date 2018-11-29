@@ -52,7 +52,7 @@ type PieceStore struct {
 	client           pb.PieceStoreRoutesClient // PieceStore for interacting with Storage Node
 	prikey           crypto.PrivateKey         // Uplink private key
 	bandwidthMsgSize int                       // max bandwidth message size in bytes
-	nodeID           storj.NodeID                  // Storage node being connected to
+	nodeID           storj.NodeID              // Storage node being connected to
 }
 
 // NewPSClient initilizes a piecestore client

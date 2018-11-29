@@ -13,6 +13,7 @@ import (
 	"github.com/vivint/infectious"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"

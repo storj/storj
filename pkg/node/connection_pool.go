@@ -9,6 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
+
 	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/pb"

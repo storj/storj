@@ -12,6 +12,7 @@ import (
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+
 	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/auth/grpcauth"

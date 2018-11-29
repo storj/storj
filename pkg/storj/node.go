@@ -8,6 +8,7 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/utils"
 )
 
@@ -21,6 +22,7 @@ var (
 
 // NodeID is a unique node identifier
 type NodeID [32]byte
+
 // NodeIDList is a slice of NodeIDs (implements sort)
 type NodeIDList []NodeID
 

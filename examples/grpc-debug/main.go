@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"google.golang.org/grpc"
+
 	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/cfgstruct"

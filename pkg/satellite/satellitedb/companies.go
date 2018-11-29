@@ -9,6 +9,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+
 	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/pkg/satellite/satellitedb/dbx"
 )

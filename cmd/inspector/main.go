@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/pb"

@@ -9,6 +9,7 @@ import (
 
 	"github.com/vivint/infectious"
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/miniogw"

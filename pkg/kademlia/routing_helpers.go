@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 

@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+
 	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/overlay"

@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/peertls"

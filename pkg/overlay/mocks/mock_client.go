@@ -5,10 +5,12 @@
 package mocks
 
 import (
-	x "storj.io/storj/pkg/overlay"
 	context "context"
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
+
+	x "storj.io/storj/pkg/overlay"
 	pb "storj.io/storj/pkg/pb"
 	storj "storj.io/storj/pkg/storj"
 )

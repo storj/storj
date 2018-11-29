@@ -17,6 +17,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+
 	"storj.io/storj/internal/identity"
 	"storj.io/storj/internal/teststorj"
 
