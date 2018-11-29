@@ -4,8 +4,6 @@
 package overlay_test
 
 import (
-	"context"
-	"net"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
@@ -13,8 +11,8 @@ import (
 
 	"storj.io/storj/internal/identity"
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -59,12 +57,11 @@ func TestChoose(t *testing.T) {
 	defer ctx.Check(planet.Shutdown)
 
 	overlayAddr := planet.Satellites[0].Addr()
-	nid1 := planet.StorageNodes[0].ID()
 
 	cases := []struct {
 		limit        int
 		space        int64
-		bandwidth int64
+		bandwidth    int64
 		uptime       float64
 		uptimeCount  int64
 		auditSuccess float64
@@ -75,7 +72,7 @@ func TestChoose(t *testing.T) {
 		{
 			limit:        4,
 			space:        0,
-			bandwidth: 0,
+			bandwidth:    0,
 			uptime:       1,
 			uptimeCount:  10,
 			auditSuccess: 1,
@@ -116,8 +113,6 @@ func TestChoose(t *testing.T) {
 			})
 		}
 
-
-		
 		ca, err := testidentity.NewTestCA(ctx)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
@@ -127,7 +122,7 @@ func TestChoose(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
-		ol, ok := oc.(*overlay.Overlay)
+		_, ok := oc.(*overlay.Overlay)
 		assert.True(t, ok)
 
 		newNodes, err := oc.Choose(ctx, overlay.Options{
@@ -173,15 +168,15 @@ func TestLookup(t *testing.T) {
 	nid1 := planet.StorageNodes[0].ID()
 
 	cases := []struct {
-		nodeID        storj.NodeID
+		nodeID    storj.NodeID
 		expectErr bool
 	}{
 		{
-			nodeID:        nid1,
+			nodeID:    nid1,
 			expectErr: false,
 		},
 		{
-			nodeID: teststorj.NodeIDFromString("n1"),
+			nodeID:    teststorj.NodeIDFromString("n1"),
 			expectErr: true,
 		},
 	}
@@ -191,17 +186,16 @@ func TestLookup(t *testing.T) {
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
-	
+
 		oc, err := overlay.NewOverlayClient(identity, overlayAddr)
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
-		overlay, ok := oc.(*overlay.Overlay)
+		_, ok := oc.(*overlay.Overlay)
 		assert.True(t, ok)
-		
 
 		n, err := oc.Lookup(ctx, v.nodeID)
-		if (v.expectErr) {
+		if v.expectErr {
 			assert.Error(t, err)
 		} else {
 			assert.NoError(t, err)
@@ -247,7 +241,7 @@ func TestBulkLookup(t *testing.T) {
 		assert.NotNil(t, oc)
 		_, ok := oc.(*overlay.Overlay)
 		assert.True(t, ok)
-		
+
 		resNodes, err := oc.BulkLookup(ctx, v.nodeIDs)
 		assert.NoError(t, err)
 
@@ -266,34 +260,33 @@ func TestBulkLookupV2(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	assert.NoError(t, err)
+	planet, err := testplanet.New(t, 1, 4, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(planet.Shutdown)
 
-	srv, s, err := newServer(ctx)
-
-	assert.NoError(t, err)
-	go func() { assert.NoError(t, srv.Serve(lis)) }()
-	defer srv.Stop()
+	overlayAddr := planet.Satellites[0].Addr()
+	cache := planet.Satellites[0].Overlay
 
 	ca, err := testidentity.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
 
-	oc, err := NewOverlayClient(identity, lis.Addr().String())
+	oc, err := overlay.NewOverlayClient(identity, overlayAddr)
 	assert.NoError(t, err)
 
 	assert.NotNil(t, oc)
-	overlay, ok := oc.(*Overlay)
+	_, ok := oc.(*overlay.Overlay)
 	assert.True(t, ok)
-	assert.NotEmpty(t, overlay.client)
 
 	n1 := teststorj.MockNode("n1")
 	n2 := teststorj.MockNode("n2")
 	n3 := teststorj.MockNode("n3")
 	nodes := []*pb.Node{n1, n2, n3}
 	for _, n := range nodes {
-		assert.NoError(t, s.cache.Put(n.Id, *n))
+		assert.NoError(t, cache.Put(n.Id, *n))
 	}
 
 	nid1 := teststorj.NodeIDFromString("n1")
