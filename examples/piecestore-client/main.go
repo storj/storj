@@ -16,8 +16,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/identity"
-	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/provider"
@@ -30,11 +28,12 @@ var argError = errs.Class("argError")
 func main() {
 	cobra.EnableCommandSorting = false
 
-	ca, err := testidentity.NewTestCA(ctx)
+	clientIdent, err := provider.NewFullIdentity(ctx, 12, 4)
 	if err != nil {
 		log.Fatal(err)
 	}
-	identity, err := ca.NewIdentity()
+
+	serverIdent, err := provider.NewFullIdentity(ctx, 12, 4)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -46,9 +45,9 @@ func main() {
 			Address:   ":7777",
 			Transport: 0,
 		},
-		Id: teststorj.NodeIDFromString("test-node-id-1234567"),
+		Id: serverIdent.ID,
 	}
-	tc := transport.NewClient(identity)
+	tc := transport.NewClient(clientIdent)
 	psClient, err := psclient.NewPSClient(ctx, tc, n, 0)
 	if err != nil {
 		log.Fatalf("could not initialize Client: %s", err)

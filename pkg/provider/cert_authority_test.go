@@ -8,9 +8,15 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"storj.io/storj/internal/identity"
 )
+
+// newTestCA returns a ca with a default difficulty and concurrency for use in tests
+func newTestCA(ctx context.Context) (*FullCertificateAuthority, error) {
+	return NewCA(ctx, NewCAOptions{
+		Difficulty:  12,
+		Concurrency: 4,
+	})
+}
 
 func TestNewCA(t *testing.T) {
 	expectedDifficulty := uint16(4)
@@ -34,7 +40,7 @@ func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 		}
 	}
 
-	ca, err := testidentity.NewTestCA(context.Background())
+	ca, err := newTestCA(context.Background())
 	check(err, ca)
 	fi, err := ca.NewIdentity()
 	check(err, fi)

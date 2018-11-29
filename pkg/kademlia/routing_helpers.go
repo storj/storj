@@ -408,7 +408,6 @@ func (rt *RoutingTable) createFirstBucketID() bucketID {
 	var id bucketID
 	x := byte(255)
 	for i := 0; i < len(id); i++ {
-	// for i := 0; i < rt.idLength / 8; i++ {
 		id[i] = x
 	}
 	return id

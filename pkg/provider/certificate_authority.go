@@ -258,4 +258,3 @@ func (ca FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 		ID:        ca.ID,
 	}, nil
 }
-
