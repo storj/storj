@@ -67,17 +67,17 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 		return nil, err
 	}
 
-	planet.Satellites, err = planet.newNodes("satellite", satelliteCount)
+	planet.Satellites, err = planet.newNodes("satellite", satelliteCount, pb.NodeType_ADMIN)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
 
-	planet.StorageNodes, err = planet.newNodes("storage", storageNodeCount)
+	planet.StorageNodes, err = planet.newNodes("storage", storageNodeCount, pb.NodeType_STORAGE)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
 
-	planet.Uplinks, err = planet.newNodes("uplink", uplinkCount)
+	planet.Uplinks, err = planet.newNodes("uplink", uplinkCount, pb.NodeType_ADMIN) // TODO: fix the node type here
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
@@ -211,10 +211,10 @@ func (planet *Planet) Shutdown() error {
 }
 
 // newNodes creates initializes multiple nodes
-func (planet *Planet) newNodes(prefix string, count int) ([]*Node, error) {
+func (planet *Planet) newNodes(prefix string, count int, nodeType pb.NodeType) ([]*Node, error) {
 	var xs []*Node
 	for i := 0; i < count; i++ {
-		node, err := planet.newNode(prefix + strconv.Itoa(i))
+		node, err := planet.newNode(prefix+strconv.Itoa(i), nodeType)
 		if err != nil {
 			return nil, err
 		}

@@ -54,9 +54,10 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(id storj.NodeID, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
+func NewKademlia(id storj.NodeID, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
 	self := pb.Node{
 		Id:       id,
+		Type:     nodeType,
 		Address:  &pb.NodeAddress{Address: address},
 		Metadata: metadata,
 	}

@@ -74,7 +74,11 @@ func TestChoose(t *testing.T) {
 				n6 := teststorj.MockNode("n6")
 				n7 := teststorj.MockNode("n7")
 				n8 := teststorj.MockNode("n8")
-				return []*pb.Node{n1, n2, n3, n4, n5, n6, n7, n8}
+				nodes := []*pb.Node{n1, n2, n3, n4, n5, n6, n7, n8}
+				for _, n := range nodes {
+					n.Type = pb.NodeType_STORAGE
+				}
+				return nodes
 			}(),
 			excluded: func() storj.NodeIDList {
 				id1 := teststorj.NodeIDFromString("n1")

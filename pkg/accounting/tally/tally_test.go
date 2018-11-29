@@ -39,7 +39,7 @@ func TestOnlineNodes(t *testing.T) {
 	expectedOnline := []*pb.Node{}
 	for i := 0; i < N; i++ {
 		nodeID := teststorj.NodeIDFromString(strconv.Itoa(i))
-		n := &pb.Node{Id: nodeID, Address: &pb.NodeAddress{Address: ""}}
+		n := &pb.Node{Id: nodeID, Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: ""}}
 		nodes = append(nodes, n)
 		if i%(rand.Intn(5)+2) == 0 {
 			id := teststorj.NodeIDFromString("id" + nodeID.String())

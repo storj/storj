@@ -64,14 +64,6 @@ func rootQuery(service *satellite.Service, types Types) *graphql.Object {
 			myProjectsQuery: &graphql.Field{
 				Type: graphql.NewList(types.Project()),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					// TODO: parse id and query only users projects, not all
-					//inputID, _ := p.Args[fieldID].(string)
-					//
-					//id, err := uuid.Parse(inputID)
-					//if err != nil {
-					//	return nil, err
-					//}
-
 					return service.GetUsersProjects(p.Context)
 				},
 			},

@@ -211,7 +211,8 @@ func (m *mockDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer
 
 	for i := 0; i < 30; i++ {
 		nodes[i] = &pb.Node{
-			Id: teststorj.NodeIDFromString(strconv.Itoa(i)),
+			Id:   teststorj.NodeIDFromString(strconv.Itoa(i)),
+			Type: pb.NodeType_STORAGE,
 			Address: &pb.NodeAddress{
 				Address: strconv.Itoa(i),
 			},

@@ -71,7 +71,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		//nodes for cache
 		selection := rand.Intn(4)
 		for _, v := range ids[:selection] {
-			n := &pb.Node{Id: v, Address: &pb.NodeAddress{Address: ""}}
+			n := &pb.Node{Id: v, Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: ""}}
 			nodes = append(nodes, n)
 		}
 		pieces := []int32{0, 1, 2, 3}
@@ -118,7 +118,7 @@ func TestOfflineNodes(t *testing.T) {
 	expectedOffline := []int32{}
 	for i := 0; i < N; i++ {
 		id := teststorj.NodeIDFromString(strconv.Itoa(i))
-		n := &pb.Node{Id: id, Address: &pb.NodeAddress{Address: ""}}
+		n := &pb.Node{Id: id, Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: ""}}
 		nodes = append(nodes, n)
 		if i%(rand.Intn(5)+2) == 0 {
 			nodeIDs = append(nodeIDs, teststorj.NodeIDFromString("id" + id.String()))
@@ -181,7 +181,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 		//nodes for cache
 		selection := rand.Intn(4)
 		for _, v := range ids[:selection] {
-			n := &pb.Node{Id: v, Address: &pb.NodeAddress{Address: ""}}
+			n := &pb.Node{Id: v, Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: ""}}
 			nodes = append(nodes, n)
 		}
 		pieces := []int32{0, 1, 2, 3}

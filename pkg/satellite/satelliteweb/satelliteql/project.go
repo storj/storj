@@ -12,17 +12,14 @@ const (
 	projectType      = "project"
 	projectInputType = "projectInput"
 
-	fieldOwnerID     = "ownerID"
+	fieldOwnerName   = "ownerName"
 	fieldDescription = "description"
-	// Stores last accepted version of Terms & Conditions.
-	// Used in domain entity
-	fieldTermsAccepted = "termsAccepted"
 	// Indicates if user accepted Terms & Conditions during project creation
 	// Used in input model
 	fieldIsTermsAccepted = "isTermsAccepted"
 )
 
-// graphqlProject creates *graphql.Object type representation of satellite.Company
+// graphqlProject creates *graphql.Object type representation of satellite.ProjectInfo
 func graphqlProject() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: projectType,
@@ -30,7 +27,7 @@ func graphqlProject() *graphql.Object {
 			fieldID: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldOwnerID: &graphql.Field{
+			fieldOwnerName: &graphql.Field{
 				Type: graphql.String,
 			},
 			fieldName: &graphql.Field{
@@ -39,7 +36,7 @@ func graphqlProject() *graphql.Object {
 			fieldDescription: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldTermsAccepted: &graphql.Field{
+			fieldIsTermsAccepted: &graphql.Field{
 				Type: graphql.Int,
 			},
 			fieldCreatedAt: &graphql.Field{
@@ -49,7 +46,7 @@ func graphqlProject() *graphql.Object {
 	})
 }
 
-// graphqlProjectInput creates graphql.InputObject type needed to register/update satellite.Company
+// graphqlProjectInput creates graphql.InputObject type needed to create/update satellite.Project
 func graphqlProjectInput() *graphql.InputObject {
 	return graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: projectInputType,

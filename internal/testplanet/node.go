@@ -42,7 +42,7 @@ type Node struct {
 }
 
 // newNode creates a new node.
-func (planet *Planet) newNode(name string) (*Node, error) {
+func (planet *Planet) newNode(name string, nodeType pb.NodeType) (*Node, error) {
 	identity, err := planet.newIdentity()
 	if err != nil {
 		return nil, err
@@ -67,7 +67,8 @@ func (planet *Planet) newNode(name string) (*Node, error) {
 	}
 
 	node.Info = pb.Node{
-		Id: node.Identity.ID,
+		Id:   node.Identity.ID,
+		Type: nodeType,
 		Address: &pb.NodeAddress{
 			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 			Address:   node.Listener.Addr().String(),
