@@ -8,10 +8,8 @@ import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -37,7 +35,7 @@ func (m *CreateRequest) Reset()         { *m = CreateRequest{} }
 func (m *CreateRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateRequest) ProtoMessage()    {}
 func (*CreateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{0}
+	return fileDescriptor_statdb_99e851656c5814ac, []int{0}
 }
 func (m *CreateRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateRequest.Unmarshal(m, b)
@@ -83,7 +81,7 @@ func (m *CreateResponse) Reset()         { *m = CreateResponse{} }
 func (m *CreateResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateResponse) ProtoMessage()    {}
 func (*CreateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{1}
+	return fileDescriptor_statdb_99e851656c5814ac, []int{1}
 }
 func (m *CreateResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateResponse.Unmarshal(m, b)
@@ -122,7 +120,7 @@ func (m *GetRequest) Reset()         { *m = GetRequest{} }
 func (m *GetRequest) String() string { return proto.CompactTextString(m) }
 func (*GetRequest) ProtoMessage()    {}
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{2}
+	return fileDescriptor_statdb_99e851656c5814ac, []int{2}
 }
 func (m *GetRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetRequest.Unmarshal(m, b)
@@ -154,7 +152,7 @@ func (m *GetResponse) Reset()         { *m = GetResponse{} }
 func (m *GetResponse) String() string { return proto.CompactTextString(m) }
 func (*GetResponse) ProtoMessage()    {}
 func (*GetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{3}
+	return fileDescriptor_statdb_99e851656c5814ac, []int{3}
 }
 func (m *GetResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetResponse.Unmarshal(m, b)
@@ -194,7 +192,7 @@ func (m *FindValidNodesRequest) Reset()         { *m = FindValidNodesRequest{} }
 func (m *FindValidNodesRequest) String() string { return proto.CompactTextString(m) }
 func (*FindValidNodesRequest) ProtoMessage()    {}
 func (*FindValidNodesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{4}
+	return fileDescriptor_statdb_99e851656c5814ac, []int{4}
 }
 func (m *FindValidNodesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindValidNodesRequest.Unmarshal(m, b)
@@ -234,7 +232,7 @@ func (m *FindValidNodesResponse) Reset()         { *m = FindValidNodesResponse{}
 func (m *FindValidNodesResponse) String() string { return proto.CompactTextString(m) }
 func (*FindValidNodesResponse) ProtoMessage()    {}
 func (*FindValidNodesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{5}
+	return fileDescriptor_statdb_99e851656c5814ac, []int{5}
 }
 func (m *FindValidNodesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindValidNodesResponse.Unmarshal(m, b)
@@ -266,7 +264,7 @@ func (m *UpdateRequest) Reset()         { *m = UpdateRequest{} }
 func (m *UpdateRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateRequest) ProtoMessage()    {}
 func (*UpdateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{6}
+	return fileDescriptor_statdb_99e851656c5814ac, []int{6}
 }
 func (m *UpdateRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateRequest.Unmarshal(m, b)
@@ -305,7 +303,7 @@ func (m *UpdateResponse) Reset()         { *m = UpdateResponse{} }
 func (m *UpdateResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateResponse) ProtoMessage()    {}
 func (*UpdateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{7}
+	return fileDescriptor_statdb_99e851656c5814ac, []int{7}
 }
 func (m *UpdateResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateResponse.Unmarshal(m, b)
@@ -344,7 +342,7 @@ func (m *UpdateUptimeRequest) Reset()         { *m = UpdateUptimeRequest{} }
 func (m *UpdateUptimeRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateUptimeRequest) ProtoMessage()    {}
 func (*UpdateUptimeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{8}
+	return fileDescriptor_statdb_99e851656c5814ac, []int{8}
 }
 func (m *UpdateUptimeRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateUptimeRequest.Unmarshal(m, b)
@@ -383,7 +381,7 @@ func (m *UpdateUptimeResponse) Reset()         { *m = UpdateUptimeResponse{} }
 func (m *UpdateUptimeResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateUptimeResponse) ProtoMessage()    {}
 func (*UpdateUptimeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{9}
+	return fileDescriptor_statdb_99e851656c5814ac, []int{9}
 }
 func (m *UpdateUptimeResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateUptimeResponse.Unmarshal(m, b)
@@ -422,7 +420,7 @@ func (m *UpdateAuditSuccessRequest) Reset()         { *m = UpdateAuditSuccessReq
 func (m *UpdateAuditSuccessRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateAuditSuccessRequest) ProtoMessage()    {}
 func (*UpdateAuditSuccessRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{10}
+	return fileDescriptor_statdb_99e851656c5814ac, []int{10}
 }
 func (m *UpdateAuditSuccessRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateAuditSuccessRequest.Unmarshal(m, b)
@@ -461,7 +459,7 @@ func (m *UpdateAuditSuccessResponse) Reset()         { *m = UpdateAuditSuccessRe
 func (m *UpdateAuditSuccessResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateAuditSuccessResponse) ProtoMessage()    {}
 func (*UpdateAuditSuccessResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{11}
+	return fileDescriptor_statdb_99e851656c5814ac, []int{11}
 }
 func (m *UpdateAuditSuccessResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateAuditSuccessResponse.Unmarshal(m, b)
@@ -679,9 +677,8 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// StatDBClient is the client API for StatDB service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+// Client API for StatDB service
+
 type StatDBClient interface {
 	// Create a db entry for the provided storagenode ID
 	Create(ctx context.Context, in *CreateRequest, opts ...grpc.CallOption) (*CreateResponse, error)
@@ -781,7 +778,8 @@ func (c *statDBClient) CreateEntryIfNotExists(ctx context.Context, in *CreateEnt
 	return out, nil
 }
 
-// StatDBServer is the server API for StatDB service.
+// Server API for StatDB service
+
 type StatDBServer interface {
 	// Create a db entry for the provided storagenode ID
 	Create(context.Context, *CreateRequest) (*CreateResponse, error)
