@@ -198,6 +198,7 @@ func cleanup(cmd *cobra.Command) {
 	}
 }
 
+// ApplicationDir returns best base directory for specific OS
 func ApplicationDir(subdir ...string) string {
 	for i := range subdir {
 		if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
