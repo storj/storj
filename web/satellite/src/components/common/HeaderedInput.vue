@@ -14,133 +14,160 @@
 			<h4>Optional</h4>
 		</div>
 		<textarea
-				v-if="isMultiline"
-				:id="this.$props.label"
-				:placeholder="this.$props.placeholder"
-				v-model="value"
-				:style="style"
-				:rows="5"
-				:cols="40"
-				wrap="hard"
-				@input="onInput" >
+            v-if="isMultiline"
+            :id="this.$props.label"
+            :placeholder="this.$props.placeholder"
+            :style="style"
+            :rows="5"
+            :cols="40"
+            wrap="hard"
+			v-model.lazy="value"
+            @input="onInput">
 		</textarea>
-        <input 
-			v-if="!isMultiline" 
-			@input="onInput" 
-			:id="this.$props.label" 
-			:placeholder="this.$props.placeholder"
-			v-model="value" 
-			v-bind:type="[isPassword ? passwordType : textType]"
-			:style="style" />
-    </div>
+		<input
+            v-if="!isMultiline"
+            :id="this.$props.label"
+            :placeholder="this.$props.placeholder"
+            v-bind:type="[isPassword ? 'password': 'text']"
+            v-model.lazy="value"
+            @change="onInput"
+            @input="onInput"
+            :style="style"/>
+	</div>
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+    import { Component, Vue } from 'vue-property-decorator';
 
-// Custom input component with labeled header
-@Component(
-    { 
-		data: () => {
-			return {
-				value: "",
-				textType: "text",
-				passwordType: "password"
-			}
-		},
-		methods: {
-			//emits data to parent component
-			onInput () {
-				this.$emit('setData', this.$data.value)
-			}
-		},
-		props: {
-			label: {
-				type: String,
-				default: ""
-			},
-			additionalLabel: {
-				type: String,
-				default: ""
-			},
-			error: {
-				type: String
-			},
-			placeholder: {
-				type: String,
-				default: "default"
-			},
-			isOptional: {
-				type: Boolean,
-				default: false
-			},
-			isMultiline: {
-				type: Boolean,
-				default: false
-			},
-			isPassword: {
-				type: Boolean,
-				default: false
-			},
-			height: {
-				type: String,
-				default: "48px"
-			},
-			width: {
-				type: String,
-				default: "100%"
-			}
-		},
-		computed: {
-			style: function() {
-				return { width: this.$props.width, height: this.$props.height }
-			}
-		}
-    },
-)
-export default class HeaderedInput extends Vue { }
+    // Custom input component with labeled header
+    @Component(
+        {
+            data: function() {
+                return {
+                    value: this.$props.initValue ? this.$props.initValue : "",
+                }
+            },
+            methods: {
+                //emits data to parent component
+                onInput () {
+                    this.$emit('setData', this.$data.value)
+                },
+                setValue(value: string) {
+                    this.$data.value = value
+                }
+            },
+            props: {
+                initValue: {
+                    type: String,
+                },
+                label: {
+                    type: String,
+                    default: ""
+                },
+                additionalLabel: {
+                    type: String,
+                    default: ""
+                },
+                error: {
+                    type: String
+                },
+                placeholder: {
+                    type: String,
+                    default: "default"
+                },
+                isOptional: {
+                    type: Boolean,
+                    default: false
+                },
+                isMultiline: {
+                    type: Boolean,
+                    default: false
+                },
+                isPassword: {
+                    type: Boolean,
+                    default: false
+                },
+                height: {
+                    type: String,
+                    default: "48px"
+                },
+                width: {
+                    type: String,
+                    default: "100%"
+                },
+            },
+            computed: {
+                style: function() {
+                    return { width: this.$props.width, height: this.$props.height }
+                },
+            },
+        },
+    )
+    export default class HeaderedInput extends Vue { }
 
 </script>
 
 <style scoped lang="scss">
-.input-container {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	margin-top: 10px;
-	width: 48%;
-}
-.label-container {
-	display: flex;
-	justify-content: flex-start;
-	flex-direction: row;
+	.input-container {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		margin-top: 10px;
+		width: 48%;
+	}
+	.label-container {
+		display: flex;
+		justify-content: flex-start;
+		flex-direction: row;
 
-	&__add-label {
-		margin-left: 5px;
+		&__add-label {
+			margin-left: 5px;
+			font-family: 'montserrat_regular';
+			font-size: 16px;
+			line-height: 21px;
+			color: rgba(56, 75, 101, 0.4);
+		}
+
+		&__error {
+			color: #FF5560;
+			margin-left: 10px;
+		}
+	}
+	.optional-label-container {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		width: 100%;
+		h4 {
+			font-family: 'montserrat_regular';
+			font-size: 16px;
+			line-height: 21px;
+			color: #AFB7C1;
+		}
+	}
+	input,
+	textarea {
 		font-family: 'montserrat_regular';
 		font-size: 16px;
 		line-height: 21px;
-		color: rgba(56, 75, 101, 0.4);
+		resize: none;
+		height: 48px;
+		width: 100%;
+		text-indent: 20px;
+		border-color: rgba(56, 75, 101, 0.4);
+		border-radius: 6px;
 	}
-
-	&__error {
-		color: #FF5560;
-		margin-left: 10px;
+	textarea {
+		padding-top: 20px;
 	}
-}
-.optional-label-container {
-	display: flex;
-	flex-direction: row;
-	justify-content: space-between;
-	align-items: center;
-	width: 100%;
-	h4 {
+	h3 {
 		font-family: 'montserrat_regular';
 		font-size: 16px;
 		line-height: 21px;
-		color: #AFB7C1;
+		color: #354049;
 	}
-}
+
 input,
 textarea {
 	font-family: 'montserrat_regular';
