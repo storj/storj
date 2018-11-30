@@ -11,8 +11,6 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/storj"
-
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
@@ -20,6 +18,7 @@ import (
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
 	statsproto "storj.io/storj/pkg/statdb/proto"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
