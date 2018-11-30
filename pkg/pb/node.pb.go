@@ -40,7 +40,7 @@ func (x NodeType) String() string {
 	return proto.EnumName(NodeType_name, int32(x))
 }
 func (NodeType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_node_3ed6571d5b86c73c, []int{0}
+	return fileDescriptor_node_68a57ef834f1297d, []int{0}
 }
 
 // NodeTransport is an enum of possible transports for the overlay network
@@ -61,7 +61,7 @@ func (x NodeTransport) String() string {
 	return proto.EnumName(NodeTransport_name, int32(x))
 }
 func (NodeTransport) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_node_3ed6571d5b86c73c, []int{1}
+	return fileDescriptor_node_68a57ef834f1297d, []int{1}
 }
 
 //  NodeRestrictions contains all relevant data about a nodes ability to store data
@@ -77,7 +77,7 @@ func (m *NodeRestrictions) Reset()         { *m = NodeRestrictions{} }
 func (m *NodeRestrictions) String() string { return proto.CompactTextString(m) }
 func (*NodeRestrictions) ProtoMessage()    {}
 func (*NodeRestrictions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_3ed6571d5b86c73c, []int{0}
+	return fileDescriptor_node_68a57ef834f1297d, []int{0}
 }
 func (m *NodeRestrictions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeRestrictions.Unmarshal(m, b)
@@ -134,7 +134,7 @@ func (m *Node) Reset()         { *m = Node{} }
 func (m *Node) String() string { return proto.CompactTextString(m) }
 func (*Node) ProtoMessage()    {}
 func (*Node) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_3ed6571d5b86c73c, []int{1}
+	return fileDescriptor_node_68a57ef834f1297d, []int{1}
 }
 func (m *Node) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Node.Unmarshal(m, b)
@@ -237,7 +237,7 @@ func (m *NodeAddress) Reset()         { *m = NodeAddress{} }
 func (m *NodeAddress) String() string { return proto.CompactTextString(m) }
 func (*NodeAddress) ProtoMessage()    {}
 func (*NodeAddress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_3ed6571d5b86c73c, []int{2}
+	return fileDescriptor_node_68a57ef834f1297d, []int{2}
 }
 func (m *NodeAddress) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeAddress.Unmarshal(m, b)
@@ -271,7 +271,7 @@ func (m *NodeAddress) GetAddress() string {
 	return ""
 }
 
-// NodeStats is info about a single storagenode stored in the stats db
+// NodeStats is info about a single storagenode
 type NodeStats struct {
 	NodeId               NodeID   `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3,customtype=NodeID" json:"node_id"`
 	Latency_90           int64    `protobuf:"varint,2,opt,name=latency_90,json=latency90,proto3" json:"latency_90,omitempty"`
@@ -291,7 +291,7 @@ func (m *NodeStats) Reset()         { *m = NodeStats{} }
 func (m *NodeStats) String() string { return proto.CompactTextString(m) }
 func (*NodeStats) ProtoMessage()    {}
 func (*NodeStats) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_3ed6571d5b86c73c, []int{3}
+	return fileDescriptor_node_68a57ef834f1297d, []int{3}
 }
 func (m *NodeStats) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeStats.Unmarshal(m, b)
@@ -379,7 +379,7 @@ func (m *NodeMetadata) Reset()         { *m = NodeMetadata{} }
 func (m *NodeMetadata) String() string { return proto.CompactTextString(m) }
 func (*NodeMetadata) ProtoMessage()    {}
 func (*NodeMetadata) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_3ed6571d5b86c73c, []int{4}
+	return fileDescriptor_node_68a57ef834f1297d, []int{4}
 }
 func (m *NodeMetadata) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeMetadata.Unmarshal(m, b)
@@ -423,9 +423,9 @@ func init() {
 	proto.RegisterEnum("node.NodeTransport", NodeTransport_name, NodeTransport_value)
 }
 
-func init() { proto.RegisterFile("node.proto", fileDescriptor_node_3ed6571d5b86c73c) }
+func init() { proto.RegisterFile("node.proto", fileDescriptor_node_68a57ef834f1297d) }
 
-var fileDescriptor_node_3ed6571d5b86c73c = []byte{
+var fileDescriptor_node_68a57ef834f1297d = []byte{
 	// 615 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x94, 0xcf, 0x4e, 0xdb, 0x40,
 	0x10, 0xc6, 0xc9, 0xff, 0x78, 0x9c, 0x44, 0x61, 0x40, 0xc8, 0x6a, 0x45, 0x09, 0x41, 0x55, 0x23,

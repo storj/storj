@@ -498,7 +498,7 @@ func (m *UpdateBatchRequest) Reset()         { *m = UpdateBatchRequest{} }
 func (m *UpdateBatchRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateBatchRequest) ProtoMessage()    {}
 func (*UpdateBatchRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{12}
+	return fileDescriptor_statdb_99e851656c5814ac, []int{12}
 }
 func (m *UpdateBatchRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateBatchRequest.Unmarshal(m, b)
@@ -538,7 +538,7 @@ func (m *UpdateBatchResponse) Reset()         { *m = UpdateBatchResponse{} }
 func (m *UpdateBatchResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateBatchResponse) ProtoMessage()    {}
 func (*UpdateBatchResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{13}
+	return fileDescriptor_statdb_99e851656c5814ac, []int{13}
 }
 func (m *UpdateBatchResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateBatchResponse.Unmarshal(m, b)
@@ -584,7 +584,7 @@ func (m *CreateEntryIfNotExistsRequest) Reset()         { *m = CreateEntryIfNotE
 func (m *CreateEntryIfNotExistsRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateEntryIfNotExistsRequest) ProtoMessage()    {}
 func (*CreateEntryIfNotExistsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{14}
+	return fileDescriptor_statdb_99e851656c5814ac, []int{14}
 }
 func (m *CreateEntryIfNotExistsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateEntryIfNotExistsRequest.Unmarshal(m, b)
@@ -623,7 +623,7 @@ func (m *CreateEntryIfNotExistsResponse) Reset()         { *m = CreateEntryIfNot
 func (m *CreateEntryIfNotExistsResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateEntryIfNotExistsResponse) ProtoMessage()    {}
 func (*CreateEntryIfNotExistsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{15}
+	return fileDescriptor_statdb_99e851656c5814ac, []int{15}
 }
 func (m *CreateEntryIfNotExistsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateEntryIfNotExistsResponse.Unmarshal(m, b)
@@ -988,9 +988,9 @@ var _StatDB_serviceDesc = grpc.ServiceDesc{
 	Metadata: "statdb.proto",
 }
 
-func init() { proto.RegisterFile("statdb.proto", fileDescriptor_statdb_1131c2a7357160d1) }
+func init() { proto.RegisterFile("statdb.proto", fileDescriptor_statdb_99e851656c5814ac) }
 
-var fileDescriptor_statdb_1131c2a7357160d1 = []byte{
+var fileDescriptor_statdb_99e851656c5814ac = []byte{
 	// 569 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x55, 0xdd, 0x6a, 0x13, 0x41,
 	0x14, 0x36, 0x6d, 0xdd, 0x36, 0x27, 0xdb, 0x08, 0x53, 0x1b, 0xea, 0xd4, 0xa6, 0xba, 0x10, 0x6d,
