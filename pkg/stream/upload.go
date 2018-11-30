@@ -82,9 +82,7 @@ func (upload *Upload) createWriter() error {
 	reader, writer := io.Pipe()
 
 	go func() {
-		defer func() {
-			upload.done <- struct{}{}
-		}()
+		defer close(upload.done)
 
 		obj := upload.stream.Info()
 		_, err := upload.streams.Put(upload.ctx, storj.JoinPaths(obj.Bucket, obj.Path), upload.pathCipher, reader, obj.Metadata, obj.Expires)
