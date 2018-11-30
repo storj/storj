@@ -9,10 +9,8 @@ import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import timestamp "github.com/golang/protobuf/ptypes/timestamp"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -933,9 +931,8 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// PointerDBClient is the client API for PointerDB service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+// Client API for PointerDB service
+
 type PointerDBClient interface {
 	// Put formats and hands off a file path to be saved to boltdb
 	Put(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*PutResponse, error)
@@ -1002,7 +999,8 @@ func (c *pointerDBClient) PayerBandwidthAllocation(ctx context.Context, in *Paye
 	return out, nil
 }
 
-// PointerDBServer is the server API for PointerDB service.
+// Server API for PointerDB service
+
 type PointerDBServer interface {
 	// Put formats and hands off a file path to be saved to boltdb
 	Put(context.Context, *PutRequest) (*PutResponse, error)

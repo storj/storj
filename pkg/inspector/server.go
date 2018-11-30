@@ -5,6 +5,7 @@ package inspector
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -118,6 +119,23 @@ func (srv *Server) PingNode(ctx context.Context, req *pb.PingNodeRequest) (*pb.P
 	}
 
 	return res, nil
+}
+
+// LookupNode triggers a Kademlia lookup and returns the node the network found.
+func (srv *Server) LookupNode(ctx context.Context, req *pb.LookupNodeRequest) (*pb.LookupNodeResponse, error) {
+	id, err := storj.NodeIDFromString(req.Id)
+	if err != nil {
+		return &pb.LookupNodeResponse{}, err
+	}
+	node, err := srv.dht.FindNode(ctx, id)
+	fmt.Printf("found node: %+v\n", node)
+
+	return &pb.LookupNodeResponse{
+		Node: &pb.Node{
+			Id: node.Id,
+		},
+		Meta: nil,
+	}, nil
 }
 
 // ---------------------

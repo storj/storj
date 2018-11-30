@@ -9,10 +9,8 @@ import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import duration "github.com/golang/protobuf/ptypes/duration"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -651,9 +649,8 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// OverlayClient is the client API for Overlay service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+// Client API for Overlay service
+
 type OverlayClient interface {
 	// Lookup finds a nodes address from the network
 	Lookup(ctx context.Context, in *LookupRequest, opts ...grpc.CallOption) (*LookupResponse, error)
@@ -698,7 +695,8 @@ func (c *overlayClient) FindStorageNodes(ctx context.Context, in *FindStorageNod
 	return out, nil
 }
 
-// OverlayServer is the server API for Overlay service.
+// Server API for Overlay service
+
 type OverlayServer interface {
 	// Lookup finds a nodes address from the network
 	Lookup(context.Context, *LookupRequest) (*LookupResponse, error)
@@ -787,9 +785,8 @@ var _Overlay_serviceDesc = grpc.ServiceDesc{
 	Metadata: "overlay.proto",
 }
 
-// NodesClient is the client API for Nodes service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+// Client API for Nodes service
+
 type NodesClient interface {
 	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
@@ -821,7 +818,8 @@ func (c *nodesClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.Ca
 	return out, nil
 }
 
-// NodesServer is the server API for Nodes service.
+// Server API for Nodes service
+
 type NodesServer interface {
 	Query(context.Context, *QueryRequest) (*QueryResponse, error)
 	Ping(context.Context, *PingRequest) (*PingResponse, error)
