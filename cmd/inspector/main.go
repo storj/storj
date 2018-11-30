@@ -13,8 +13,10 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
@@ -186,8 +188,17 @@ func GetBucket(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	fmt.Printf("Bucket ----------- \n %+v\n", bucket)
+	fmt.Printf("Bucket ----------- \n %s\n", prettyPrintBucket(bucket))
 	return nil
+}
+
+func prettyPrintBucket(b *pb.GetBucketResponse) string {
+	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: false}
+	s, err := m.MarshalToString(b)
+	if err != nil {
+		zap.S().Error("error marshaling bucket: %s", b.Id)
+	}
+	return s
 }
 
 // PingNode sends a PING RPC across the Kad network to check node availability
@@ -212,7 +223,16 @@ func PingNode(cmd *cobra.Command, args []string) (err error) {
 		Address: args[1],
 	})
 
-	fmt.Printf("\n -- Ping response: %+v\n, -- Error: %+v\n", p, err)
+	var okayString string
+	if p.Ok {
+		okayString = "OK"
+	} else {
+		okayString = "Error"
+	}
+	fmt.Printf("\n -- Ping response: %+v\n", okayString)
+	if err != nil {
+		fmt.Printf(" -- Error: %s", err)
+	}
 	return nil
 }
 
