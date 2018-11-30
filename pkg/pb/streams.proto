@@ -24,9 +24,3 @@ message StreamMeta {
     int32 encryption_block_size = 3;
     SegmentMeta last_segment_meta = 4;
 }
-
-// SerializableMeta is the object metadata that will be stored serialized
-message SerializableMeta {
-	string ContentType = 1;
-	map<string, string> UserDefined = 2;
-}

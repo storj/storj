@@ -8,6 +8,6 @@ package objects;
 
 // SerializableMeta is the object metadata that will be stored serialized
 message SerializableMeta {
-	string ContentType = 1;
-	map<string, string> UserDefined = 2;
+	string content_type = 1;
+	map<string, string> user_defined = 2;
 }

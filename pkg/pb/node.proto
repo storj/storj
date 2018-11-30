@@ -10,8 +10,8 @@ import "gogo.proto";
 
 //  NodeRestrictions contains all relevant data about a nodes ability to store data
 message NodeRestrictions {
-    int64 freeBandwidth = 1;
-    int64 freeDisk = 2;
+    int64 free_bandwidth = 1;
+    int64 free_disk = 2;
 }
 
 // Node represents a node in the overlay network
