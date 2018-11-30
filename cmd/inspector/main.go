@@ -229,7 +229,7 @@ func PingNode(cmd *cobra.Command, args []string) (err error) {
 	} else {
 		okayString = "Error"
 	}
-	fmt.Printf("\n -- Ping response: %+v\n", okayString)
+	fmt.Printf("\n -- Ping response: %s\n", okayString)
 	if err != nil {
 		fmt.Printf(" -- Error: %s", err)
 	}
