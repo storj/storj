@@ -362,6 +362,5 @@ func meetsRestrictions(rs []pb.Restriction, n pb.Node) bool {
 			}
 		}
 	}
-	fmt.Println("restrictions met")
 	return true
 }
