@@ -157,8 +157,6 @@ func cleanup(cmd *cobra.Command) {
 		defer zap.ReplaceGlobals(logger)()
 		defer zap.RedirectStdLog(logger)()
 
-		logger.Debug("logging initialized")
-
 		// okay now that logging is working, inform about the broken keys
 		for _, key := range brokenKeys {
 			logger.Sugar().Infof("Invalid configuration file key: %s", key)

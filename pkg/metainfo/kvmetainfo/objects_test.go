@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"io"
 	"testing"
 	"time"
 
@@ -15,7 +16,9 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/stream"
 	"storj.io/storj/storage"
 )
 
@@ -88,7 +91,9 @@ func TestGetObjectStream(t *testing.T) {
 			return
 		}
 
+		fmt.Println("BEFORE")
 		_, err = store.Put(ctx, "large-file", bytes.NewReader(data), objects.SerializableMeta{}, exp)
+		fmt.Println("AFTER")
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -107,25 +112,25 @@ func TestGetObjectStream(t *testing.T) {
 
 		stream, err := db.GetObjectStream(ctx, bucket.Name, "empty-file")
 		if assert.NoError(t, err) {
-			assertStream(ctx, t, stream, "empty-file", 0, []byte{})
+			assertStream(ctx, t, stream, db.streams, "empty-file", 0, []byte{})
 		}
 
 		stream, err = db.GetObjectStream(ctx, bucket.Name, "small-file")
 		if assert.NoError(t, err) {
-			assertStream(ctx, t, stream, "small-file", 4, []byte("test"))
+			assertStream(ctx, t, stream, db.streams, "small-file", 4, []byte("test"))
 		}
 
 		stream, err = db.GetObjectStream(ctx, bucket.Name, "large-file")
 		if assert.NoError(t, err) {
-			assertStream(ctx, t, stream, "large-file", int64(32*memory.KB), data)
+			assertStream(ctx, t, stream, db.streams, "large-file", int64(32*memory.KB), data)
 		}
 	})
 }
 
-func assertStream(ctx context.Context, t *testing.T, stream storj.ReadOnlyStream, path storj.Path, size int64, content []byte) {
-	assert.Equal(t, path, stream.Info().Path)
+func assertStream(ctx context.Context, t *testing.T, readOnly storj.ReadOnlyStream, streams streams.Store, path storj.Path, size int64, content []byte) {
+	assert.Equal(t, path, readOnly.Info().Path)
 
-	segments, more, err := stream.Segments(ctx, 0, 0)
+	segments, more, err := readOnly.Segments(ctx, 0, 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -142,6 +147,21 @@ func assertStream(ctx context.Context, t *testing.T, stream storj.ReadOnlyStream
 	} else {
 		assertInlineSegment(t, segments[0], content)
 	}
+
+	download := stream.NewDownload(ctx, readOnly, streams)
+	defer func() {
+		err = download.Close()
+		assert.NoError(t, err)
+	}()
+
+	data := make([]byte, len(content))
+	n, err := io.ReadFull(download, data)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.Equal(t, len(content), n)
+	assert.Equal(t, content, data)
 }
 
 func assertInlineSegment(t *testing.T, segment storj.Segment, content []byte) {
@@ -164,7 +184,7 @@ func assertRemoteSegment(t *testing.T, segment storj.Segment) {
 		}
 		nums[piece.Number] = struct{}{}
 
-		id := piece.Location.HexString()
+		id := piece.Location.String()
 		if _, ok := nodes[id]; ok {
 			t.Fatalf("node id %s is not unique", id)
 		}

@@ -277,7 +277,6 @@ func (obj *sqlite3DB) Schema() string {
 	UNIQUE ( email )
 );
 CREATE TABLE companies (
-	id BLOB NOT NULL,
 	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	name TEXT NOT NULL,
 	address TEXT NOT NULL,
@@ -286,7 +285,7 @@ CREATE TABLE companies (
 	state TEXT NOT NULL,
 	postal_code TEXT NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( user_id )
 );
 CREATE TABLE projects (
 	id BLOB NOT NULL,
@@ -493,7 +492,6 @@ func (f User_CreatedAt_Field) value() interface{} {
 func (User_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Company struct {
-	Id         []byte
 	UserId     []byte
 	Name       string
 	Address    string
@@ -514,24 +512,6 @@ type Company_Update_Fields struct {
 	State      Company_State_Field
 	PostalCode Company_PostalCode_Field
 }
-
-type Company_Id_Field struct {
-	_set   bool
-	_value []byte
-}
-
-func Company_Id(v []byte) Company_Id_Field {
-	return Company_Id_Field{_set: true, _value: v}
-}
-
-func (f Company_Id_Field) value() interface{} {
-	if !f._set {
-		return nil
-	}
-	return f._value
-}
-
-func (Company_Id_Field) _Column() string { return "id" }
 
 type Company_UserId_Field struct {
 	_set   bool
@@ -1107,7 +1087,6 @@ func (obj *sqlite3Impl) Create_User(ctx context.Context,
 }
 
 func (obj *sqlite3Impl) Create_Company(ctx context.Context,
-	company_id Company_Id_Field,
 	company_user_id Company_UserId_Field,
 	company_name Company_Name_Field,
 	company_address Company_Address_Field,
@@ -1118,7 +1097,6 @@ func (obj *sqlite3Impl) Create_Company(ctx context.Context,
 	company *Company, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
-	__id_val := company_id.value()
 	__user_id_val := company_user_id.value()
 	__name_val := company_name.value()
 	__address_val := company_address.value()
@@ -1128,12 +1106,12 @@ func (obj *sqlite3Impl) Create_Company(ctx context.Context,
 	__postal_code_val := company_postal_code.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO companies ( id, user_id, name, address, country, city, state, postal_code, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO companies ( user_id, name, address, country, city, state, postal_code, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __user_id_val, __name_val, __address_val, __country_val, __city_val, __state_val, __postal_code_val, __created_at_val)
+	obj.logStmt(__stmt, __user_id_val, __name_val, __address_val, __country_val, __city_val, __state_val, __postal_code_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __user_id_val, __name_val, __address_val, __country_val, __city_val, __state_val, __postal_code_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __user_id_val, __name_val, __address_val, __country_val, __city_val, __state_val, __postal_code_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1254,7 +1232,7 @@ func (obj *sqlite3Impl) Get_Company_By_UserId(ctx context.Context,
 	company_user_id Company_UserId_Field) (
 	company *Company, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT companies.id, companies.user_id, companies.name, companies.address, companies.country, companies.city, companies.state, companies.postal_code, companies.created_at FROM companies WHERE companies.user_id = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT companies.user_id, companies.name, companies.address, companies.country, companies.city, companies.state, companies.postal_code, companies.created_at FROM companies WHERE companies.user_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, company_user_id.value())
@@ -1262,51 +1240,8 @@ func (obj *sqlite3Impl) Get_Company_By_UserId(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
-			return nil, obj.makeErr(err)
-		}
-		return nil, makeErr(sql.ErrNoRows)
-	}
-
 	company = &Company{}
-	err = __rows.Scan(&company.Id, &company.UserId, &company.Name, &company.Address, &company.Country, &company.City, &company.State, &company.PostalCode, &company.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	if __rows.Next() {
-		return nil, tooManyRows("Company_By_UserId")
-	}
-
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	return company, nil
-
-}
-
-func (obj *sqlite3Impl) Get_Company_By_Id(ctx context.Context,
-	company_id Company_Id_Field) (
-	company *Company, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT companies.id, companies.user_id, companies.name, companies.address, companies.country, companies.city, companies.state, companies.postal_code, companies.created_at FROM companies WHERE companies.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, company_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	company = &Company{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&company.Id, &company.UserId, &company.Name, &company.Address, &company.Country, &company.City, &company.State, &company.PostalCode, &company.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&company.UserId, &company.Name, &company.Address, &company.Country, &company.City, &company.State, &company.PostalCode, &company.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1601,13 +1536,13 @@ func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 	return user, nil
 }
 
-func (obj *sqlite3Impl) Update_Company_By_Id(ctx context.Context,
-	company_id Company_Id_Field,
+func (obj *sqlite3Impl) Update_Company_By_UserId(ctx context.Context,
+	company_user_id Company_UserId_Field,
 	update Company_Update_Fields) (
 	company *Company, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE companies SET "), __sets, __sqlbundle_Literal(" WHERE companies.id = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE companies SET "), __sets, __sqlbundle_Literal(" WHERE companies.user_id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -1647,7 +1582,7 @@ func (obj *sqlite3Impl) Update_Company_By_Id(ctx context.Context,
 		return nil, emptyUpdate()
 	}
 
-	__args = append(__args, company_id.value())
+	__args = append(__args, company_user_id.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -1661,12 +1596,12 @@ func (obj *sqlite3Impl) Update_Company_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT companies.id, companies.user_id, companies.name, companies.address, companies.country, companies.city, companies.state, companies.postal_code, companies.created_at FROM companies WHERE companies.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT companies.user_id, companies.name, companies.address, companies.country, companies.city, companies.state, companies.postal_code, companies.created_at FROM companies WHERE companies.user_id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&company.Id, &company.UserId, &company.Name, &company.Address, &company.Country, &company.City, &company.State, &company.PostalCode, &company.CreatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&company.UserId, &company.Name, &company.Address, &company.Country, &company.City, &company.State, &company.PostalCode, &company.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -1817,14 +1752,14 @@ func (obj *sqlite3Impl) Delete_User_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Delete_Company_By_Id(ctx context.Context,
-	company_id Company_Id_Field) (
+func (obj *sqlite3Impl) Delete_Company_By_UserId(ctx context.Context,
+	company_user_id Company_UserId_Field) (
 	deleted bool, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM companies WHERE companies.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM companies WHERE companies.user_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, company_id.value())
+	__values = append(__values, company_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -1917,13 +1852,13 @@ func (obj *sqlite3Impl) getLastCompany(ctx context.Context,
 	pk int64) (
 	company *Company, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT companies.id, companies.user_id, companies.name, companies.address, companies.country, companies.city, companies.state, companies.postal_code, companies.created_at FROM companies WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT companies.user_id, companies.name, companies.address, companies.country, companies.city, companies.state, companies.postal_code, companies.created_at FROM companies WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	company = &Company{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&company.Id, &company.UserId, &company.Name, &company.Address, &company.Country, &company.City, &company.State, &company.PostalCode, &company.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&company.UserId, &company.Name, &company.Address, &company.Country, &company.City, &company.State, &company.PostalCode, &company.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2111,7 +2046,6 @@ func (rx *Rx) All_Project_By_OwnerId(ctx context.Context,
 }
 
 func (rx *Rx) Create_Company(ctx context.Context,
-	company_id Company_Id_Field,
 	company_user_id Company_UserId_Field,
 	company_name Company_Name_Field,
 	company_address Company_Address_Field,
@@ -2124,7 +2058,7 @@ func (rx *Rx) Create_Company(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Company(ctx, company_id, company_user_id, company_name, company_address, company_country, company_city, company_state, company_postal_code)
+	return tx.Create_Company(ctx, company_user_id, company_name, company_address, company_country, company_city, company_state, company_postal_code)
 
 }
 
@@ -2171,14 +2105,14 @@ func (rx *Rx) Create_User(ctx context.Context,
 
 }
 
-func (rx *Rx) Delete_Company_By_Id(ctx context.Context,
-	company_id Company_Id_Field) (
+func (rx *Rx) Delete_Company_By_UserId(ctx context.Context,
+	company_user_id Company_UserId_Field) (
 	deleted bool, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Delete_Company_By_Id(ctx, company_id)
+	return tx.Delete_Company_By_UserId(ctx, company_user_id)
 }
 
 func (rx *Rx) Delete_ProjectMember_By_Id(ctx context.Context,
@@ -2209,16 +2143,6 @@ func (rx *Rx) Delete_User_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_User_By_Id(ctx, user_id)
-}
-
-func (rx *Rx) Get_Company_By_Id(ctx context.Context,
-	company_id Company_Id_Field) (
-	company *Company, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_Company_By_Id(ctx, company_id)
 }
 
 func (rx *Rx) Get_Company_By_UserId(ctx context.Context,
@@ -2282,15 +2206,15 @@ func (rx *Rx) Get_User_By_Id(ctx context.Context,
 	return tx.Get_User_By_Id(ctx, user_id)
 }
 
-func (rx *Rx) Update_Company_By_Id(ctx context.Context,
-	company_id Company_Id_Field,
+func (rx *Rx) Update_Company_By_UserId(ctx context.Context,
+	company_user_id Company_UserId_Field,
 	update Company_Update_Fields) (
 	company *Company, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Update_Company_By_Id(ctx, company_id, update)
+	return tx.Update_Company_By_UserId(ctx, company_user_id, update)
 }
 
 func (rx *Rx) Update_ProjectMember_By_Id(ctx context.Context,
@@ -2342,7 +2266,6 @@ type Methods interface {
 		rows []*Project, err error)
 
 	Create_Company(ctx context.Context,
-		company_id Company_Id_Field,
 		company_user_id Company_UserId_Field,
 		company_name Company_Name_Field,
 		company_address Company_Address_Field,
@@ -2374,8 +2297,8 @@ type Methods interface {
 		user_password_hash User_PasswordHash_Field) (
 		user *User, err error)
 
-	Delete_Company_By_Id(ctx context.Context,
-		company_id Company_Id_Field) (
+	Delete_Company_By_UserId(ctx context.Context,
+		company_user_id Company_UserId_Field) (
 		deleted bool, err error)
 
 	Delete_ProjectMember_By_Id(ctx context.Context,
@@ -2389,10 +2312,6 @@ type Methods interface {
 	Delete_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		deleted bool, err error)
-
-	Get_Company_By_Id(ctx context.Context,
-		company_id Company_Id_Field) (
-		company *Company, err error)
 
 	Get_Company_By_UserId(ctx context.Context,
 		company_user_id Company_UserId_Field) (
@@ -2419,8 +2338,8 @@ type Methods interface {
 		user_id User_Id_Field) (
 		user *User, err error)
 
-	Update_Company_By_Id(ctx context.Context,
-		company_id Company_Id_Field,
+	Update_Company_By_UserId(ctx context.Context,
+		company_user_id Company_UserId_Field,
 		update Company_Update_Fields) (
 		company *Company, err error)
 

@@ -10,7 +10,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
@@ -81,7 +80,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		return segment, err
 	}
 
-	pointer, _, err := stream.db.pointers.Get(ctx, segmentPath)
+	pointer, _, _, err := stream.db.pointers.Get(ctx, segmentPath)
 	if err != nil {
 		return segment, err
 	}
@@ -93,7 +92,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		segment.Pieces = make([]storj.Piece, 0, len(pointer.Remote.RemotePieces))
 		for _, piece := range pointer.Remote.RemotePieces {
 			var nodeID storj.NodeID
-			copy(nodeID[:], node.IDFromString(piece.NodeId).Bytes())
+			copy(nodeID[:], piece.NodeId.Bytes())
 			segment.Pieces = append(segment.Pieces, storj.Piece{Number: byte(piece.PieceNum), Location: nodeID})
 		}
 	}

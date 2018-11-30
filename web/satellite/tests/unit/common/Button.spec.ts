@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import { shallowMount, mount } from '@vue/test-utils';
 import Button from "@/components/common/Button.vue";
 import * as sinon from 'sinon';

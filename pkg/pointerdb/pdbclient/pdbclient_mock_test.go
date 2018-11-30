@@ -14,7 +14,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	grpc "google.golang.org/grpc"
 
-	"storj.io/storj/pkg/pb"
+	pb "storj.io/storj/pkg/pb"
 )
 
 // MockPointerDBClient is a mock of PointerDBClient interface
@@ -94,14 +94,22 @@ func (mr *MockPointerDBClientMockRecorder) List(arg0, arg1 interface{}, arg2 ...
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockPointerDBClient)(nil).List), varargs...)
 }
 
-// ReverseList mocks base method
-func (m *MockPointerDBClient) ReverseList(arg0 context.Context, arg1 *pb.ListRequest, arg2 ...grpc.CallOption) (*pb.ListResponse, error) {
-	return m.List(arg0, arg1, arg2...)
+// PayerBandwidthAllocation mocks base method
+func (m *MockPointerDBClient) PayerBandwidthAllocation(arg0 context.Context, arg1 *pb.PayerBandwidthAllocationRequest, arg2 ...grpc.CallOption) (*pb.PayerBandwidthAllocationResponse, error) {
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "PayerBandwidthAllocation", varargs...)
+	ret0, _ := ret[0].(*pb.PayerBandwidthAllocationResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// ReverseList indicates an expected call of ReverseList
-func (mr *MockPointerDBClientMockRecorder) ReverseList(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
-	return mr.List(arg0, arg1, arg2...)
+// PayerBandwidthAllocation indicates an expected call of PayerBandwidthAllocation
+func (mr *MockPointerDBClientMockRecorder) PayerBandwidthAllocation(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PayerBandwidthAllocation", reflect.TypeOf((*MockPointerDBClient)(nil).PayerBandwidthAllocation), varargs...)
 }
 
 // Put mocks base method

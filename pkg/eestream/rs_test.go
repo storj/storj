@@ -555,6 +555,55 @@ func readAllStalled(readers []io.Reader, stalled int) ([][]byte, error) {
 	return pieces, nil
 }
 
+func TestDecoderErrorWithStalledReaders(t *testing.T) {
+	ctx := context.Background()
+	data := randData(10 * 1024)
+	fc, err := infectious.NewFEC(10, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	es := NewRSScheme(fc, 1024)
+	rs, err := NewRedundancyStrategy(es, 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// read all readers in []byte buffers to avoid deadlock if later
+	// we don't read in parallel from all of them
+	pieces, err := readAll(readers)
+	if !assert.NoError(t, err) {
+		return
+	}
+	readerMap := make(map[int]io.ReadCloser, len(readers))
+	// just a few readers will operate normally
+	for i := 0; i < 4; i++ {
+		readerMap[i] = ioutil.NopCloser(bytes.NewReader(pieces[i]))
+	}
+	// some of the readers will be slow
+	for i := 4; i < 7; i++ {
+		readerMap[i] = ioutil.NopCloser(SlowReader(bytes.NewReader(pieces[i]), 1*time.Second))
+	}
+	// most of the readers will return error
+	for i := 7; i < 20; i++ {
+		readerMap[i] = readcloser.FatalReadCloser(errors.New("I am an error piece"))
+	}
+	decoder := DecodeReaders(ctx, readerMap, rs, int64(10*1024), 0)
+	defer func() { assert.NoError(t, decoder.Close()) }()
+	// record the time for reading the data from the decoder
+	start := time.Now()
+	_, err = ioutil.ReadAll(decoder)
+	// we expect the decoder to fail with error as there are not enough good
+	// nodes to reconstruct the data
+	assert.Error(t, err)
+	// but without waiting for the slowest nodes
+	if time.Since(start) > 1*time.Second {
+		t.Fatalf("waited for slow reader")
+	}
+}
+
 func BenchmarkReedSolomonErasureScheme(b *testing.B) {
 	data := randData(8 << 20)
 	output := make([]byte, 8<<20)

@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package statdb
+package statdb_test
 
 import (
 	"context"
@@ -12,12 +12,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/statdb"
 	dbx "storj.io/storj/pkg/statdb/dbx"
 	pb "storj.io/storj/pkg/statdb/proto"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
-	ctx = context.Background()
+	apiKey = []byte("")
+	ctx    = auth.WithAPIKey(context.Background(), apiKey)
 )
 
 func TestCreateDoesNotExist(t *testing.T) {
@@ -25,12 +30,10 @@ func TestCreateDoesNotExist(t *testing.T) {
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
-	nodeID := []byte("testnodeid")
-	node := &pb.Node{NodeId: nodeID}
+	nodeID := teststorj.NodeIDFromString("testnodeid")
+	node := &pb.Node{Id: nodeID}
 	createReq := &pb.CreateRequest{
-		Node:   node,
-		APIKey: apiKey,
+		Node: node,
 	}
 	resp, err := statdb.Create(ctx, createReq)
 	assert.NoError(t, err)
@@ -38,10 +41,10 @@ func TestCreateDoesNotExist(t *testing.T) {
 	assert.EqualValues(t, 0, stats.AuditSuccessRatio)
 	assert.EqualValues(t, 0, stats.UptimeRatio)
 
-	nodeInfo, err := db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID))
+	nodeInfo, err := db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
 	assert.NoError(t, err)
 
-	assert.EqualValues(t, nodeID, nodeInfo.Id)
+	assert.EqualValues(t, nodeID.Bytes(), nodeInfo.Id)
 	assert.EqualValues(t, 0, nodeInfo.AuditSuccessRatio)
 	assert.EqualValues(t, 0, nodeInfo.UptimeRatio)
 }
@@ -51,8 +54,7 @@ func TestCreateExists(t *testing.T) {
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
-	nodeID := []byte("testnodeid")
+	nodeID := teststorj.NodeIDFromString("testnodeid")
 
 	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
 	uptimeSuccessCount, totalUptimeCount, uptimeRatio := getRatio(8, 25)
@@ -60,10 +62,9 @@ func TestCreateExists(t *testing.T) {
 		uptimeSuccessCount, totalUptimeCount, uptimeRatio)
 	assert.NoError(t, err)
 
-	node := &pb.Node{NodeId: nodeID}
+	node := &pb.Node{Id: nodeID}
 	createReq := &pb.CreateRequest{
-		Node:   node,
-		APIKey: apiKey,
+		Node: node,
 	}
 	_, err = statdb.Create(ctx, createReq)
 	assert.Error(t, err)
@@ -75,9 +76,8 @@ func TestCreateWithStats(t *testing.T) {
 
 	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
 	uptimeSuccessCount, totalUptimeCount, uptimeRatio := getRatio(8, 25)
-	apiKey := []byte("")
-	nodeID := []byte("testnodeid")
-	node := &pb.Node{NodeId: nodeID}
+	nodeID := teststorj.NodeIDFromString("testnodeid")
+	node := &pb.Node{Id: nodeID}
 	stats := &pb.NodeStats{
 		AuditCount:         totalAuditCount,
 		AuditSuccessCount:  auditSuccessCount,
@@ -85,9 +85,8 @@ func TestCreateWithStats(t *testing.T) {
 		UptimeSuccessCount: uptimeSuccessCount,
 	}
 	createReq := &pb.CreateRequest{
-		Node:   node,
-		Stats:  stats,
-		APIKey: apiKey,
+		Node:  node,
+		Stats: stats,
 	}
 	resp, err := statdb.Create(ctx, createReq)
 	assert.NoError(t, err)
@@ -95,10 +94,10 @@ func TestCreateWithStats(t *testing.T) {
 	assert.EqualValues(t, auditRatio, s.AuditSuccessRatio)
 	assert.EqualValues(t, uptimeRatio, s.UptimeRatio)
 
-	nodeInfo, err := db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID))
+	nodeInfo, err := db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
 	assert.NoError(t, err)
 
-	assert.EqualValues(t, nodeID, nodeInfo.Id, nodeID)
+	assert.EqualValues(t, nodeID.Bytes(), nodeInfo.Id)
 	assert.EqualValues(t, auditRatio, nodeInfo.AuditSuccessRatio)
 	assert.EqualValues(t, uptimeRatio, nodeInfo.UptimeRatio)
 }
@@ -108,8 +107,7 @@ func TestGetExists(t *testing.T) {
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
-	nodeID := []byte("testnodeid")
+	nodeID := teststorj.NodeIDFromString("testnodeid")
 
 	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
 	uptimeSuccessCount, totalUptimeCount, uptimeRatio := getRatio(8, 25)
@@ -120,7 +118,6 @@ func TestGetExists(t *testing.T) {
 
 	getReq := &pb.GetRequest{
 		NodeId: nodeID,
-		APIKey: apiKey,
 	}
 	resp, err := statdb.Get(ctx, getReq)
 	assert.NoError(t, err)
@@ -135,26 +132,23 @@ func TestGetDoesNotExist(t *testing.T) {
 	statdb, _, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
-	nodeID := []byte("testnodeid")
+	nodeID := teststorj.NodeIDFromString("testnodeid")
 
 	getReq := &pb.GetRequest{
 		NodeId: nodeID,
-		APIKey: apiKey,
 	}
 	_, err = statdb.Get(ctx, getReq)
 	assert.Error(t, err)
 }
 
 func TestFindValidNodes(t *testing.T) {
+	NodeIDs := teststorj.NodeIDsFromStrings("id1", "id2", "id3", "id4", "id5", "id6", "id7")
 	dbPath := getDBPath()
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
-
 	for _, tt := range []struct {
-		nodeID             []byte
+		nodeID             storj.NodeID
 		auditSuccessCount  int64
 		totalAuditCount    int64
 		auditRatio         float64
@@ -162,13 +156,13 @@ func TestFindValidNodes(t *testing.T) {
 		totalUptimeCount   int64
 		uptimeRatio        float64
 	}{
-		{[]byte("id1"), 10, 20, 0.5, 10, 20, 0.5},   // bad ratios
-		{[]byte("id2"), 20, 20, 1, 20, 20, 1},       // good ratios
-		{[]byte("id3"), 20, 20, 1, 10, 20, 0.5},     // good audit success bad uptime
-		{[]byte("id4"), 10, 20, 0.5, 20, 20, 1},     // good uptime bad audit success
-		{[]byte("id5"), 5, 5, 1, 5, 5, 1},           // good ratios not enough audits
-		{[]byte("id6"), 20, 20, 1, 20, 20, 1},       // good ratios, excluded from query
-		{[]byte("id7"), 19, 20, 0.95, 19, 20, 0.95}, // borderline ratios
+		{NodeIDs[0], 10, 20, 0.5, 10, 20, 0.5},   // bad ratios
+		{NodeIDs[1], 20, 20, 1, 20, 20, 1},       // good ratios
+		{NodeIDs[2], 20, 20, 1, 10, 20, 0.5},     // good audit success bad uptime
+		{NodeIDs[3], 10, 20, 0.5, 20, 20, 1},     // good uptime bad audit success
+		{NodeIDs[4], 5, 5, 1, 5, 5, 1},           // good ratios not enough audits
+		{NodeIDs[5], 20, 20, 1, 20, 20, 1},       // good ratios, excluded from query
+		{NodeIDs[6], 19, 20, 0.95, 19, 20, 0.95}, // borderline ratios
 	} {
 		err = createNode(ctx, db, tt.nodeID, tt.auditSuccessCount, tt.totalAuditCount, tt.auditRatio,
 			tt.uptimeSuccessCount, tt.totalUptimeCount, tt.uptimeRatio)
@@ -176,17 +170,16 @@ func TestFindValidNodes(t *testing.T) {
 	}
 
 	findValidNodesReq := &pb.FindValidNodesRequest{
-		NodeIds: [][]byte{
-			[]byte("id1"), []byte("id2"),
-			[]byte("id3"), []byte("id4"),
-			[]byte("id5"), []byte("id7"),
+		NodeIds: storj.NodeIDList{
+			NodeIDs[0], NodeIDs[1],
+			NodeIDs[2], NodeIDs[3],
+			NodeIDs[4], NodeIDs[6],
 		},
 		MinStats: &pb.NodeStats{
 			AuditSuccessRatio: 0.95,
 			UptimeRatio:       0.95,
 			AuditCount:        15,
 		},
-		APIKey: apiKey,
 	}
 
 	resp, err := statdb.FindValidNodes(ctx, findValidNodesReq)
@@ -194,8 +187,8 @@ func TestFindValidNodes(t *testing.T) {
 
 	passed := resp.PassedIds
 
-	assert.Contains(t, passed, []byte("id2"))
-	assert.Contains(t, passed, []byte("id7"))
+	assert.Contains(t, passed, NodeIDs[1])
+	assert.Contains(t, passed, NodeIDs[6])
 	assert.Len(t, passed, 2)
 }
 
@@ -204,8 +197,7 @@ func TestUpdateExists(t *testing.T) {
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
-	nodeID := []byte("testnodeid")
+	nodeID := teststorj.NodeIDFromString("testnodeid")
 
 	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
 	uptimeSuccessCount, totalUptimeCount, uptimeRatio := getRatio(8, 25)
@@ -214,15 +206,14 @@ func TestUpdateExists(t *testing.T) {
 	assert.NoError(t, err)
 
 	node := &pb.Node{
-		NodeId:             nodeID,
+		Id:                 nodeID,
 		UpdateAuditSuccess: true,
 		AuditSuccess:       true,
 		UpdateUptime:       true,
 		IsUp:               false,
 	}
 	updateReq := &pb.UpdateRequest{
-		Node:   node,
-		APIKey: apiKey,
+		Node: node,
 	}
 	resp, err := statdb.Update(ctx, updateReq)
 	assert.NoError(t, err)
@@ -234,14 +225,73 @@ func TestUpdateExists(t *testing.T) {
 	assert.EqualValues(t, newUptimeRatio, stats.UptimeRatio)
 }
 
+func TestUpdateUptimeExists(t *testing.T) {
+	dbPath := getDBPath()
+	statdb, db, err := getServerAndDB(dbPath)
+	assert.NoError(t, err)
+
+	nodeID := teststorj.NodeIDFromString("testnodeid")
+
+	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
+	uptimeSuccessCount, totalUptimeCount, uptimeRatio := getRatio(8, 25)
+	err = createNode(ctx, db, nodeID, auditSuccessCount, totalAuditCount, auditRatio,
+		uptimeSuccessCount, totalUptimeCount, uptimeRatio)
+	assert.NoError(t, err)
+
+	node := &pb.Node{
+		Id:   nodeID,
+		IsUp: false,
+	}
+	updateReq := &pb.UpdateUptimeRequest{
+		Node: node,
+	}
+	resp, err := statdb.UpdateUptime(ctx, updateReq)
+	assert.NoError(t, err)
+
+	_, _, newUptimeRatio := getRatio(int(uptimeSuccessCount), int(totalUptimeCount+1))
+	stats := resp.Stats
+	assert.EqualValues(t, auditRatio, stats.AuditSuccessRatio)
+	assert.EqualValues(t, totalAuditCount, stats.AuditCount)
+	assert.EqualValues(t, newUptimeRatio, stats.UptimeRatio)
+}
+
+func TestUpdateAuditSuccessExists(t *testing.T) {
+	dbPath := getDBPath()
+	statdb, db, err := getServerAndDB(dbPath)
+	assert.NoError(t, err)
+
+	nodeID := teststorj.NodeIDFromString("testnodeid")
+
+	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
+	uptimeSuccessCount, totalUptimeCount, uptimeRatio := getRatio(8, 25)
+	err = createNode(ctx, db, nodeID, auditSuccessCount, totalAuditCount, auditRatio,
+		uptimeSuccessCount, totalUptimeCount, uptimeRatio)
+	assert.NoError(t, err)
+
+	node := &pb.Node{
+		Id:           nodeID,
+		AuditSuccess: false,
+	}
+	updateReq := &pb.UpdateAuditSuccessRequest{
+		Node: node,
+	}
+	resp, err := statdb.UpdateAuditSuccess(ctx, updateReq)
+	assert.NoError(t, err)
+
+	_, _, newAuditRatio := getRatio(int(auditSuccessCount), int(totalAuditCount+1))
+	stats := resp.Stats
+	assert.EqualValues(t, newAuditRatio, stats.AuditSuccessRatio)
+	assert.EqualValues(t, totalAuditCount+1, stats.AuditCount)
+	assert.EqualValues(t, uptimeRatio, stats.UptimeRatio)
+}
+
 func TestUpdateBatchExists(t *testing.T) {
 	dbPath := getDBPath()
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
-	nodeID1 := []byte("testnodeid1")
-	nodeID2 := []byte("testnodeid2")
+	nodeID1 := teststorj.NodeIDFromString("testnodeid1")
+	nodeID2 := teststorj.NodeIDFromString("testnodeid2")
 
 	auditSuccessCount1, totalAuditCount1, auditRatio1 := getRatio(4, 10)
 	uptimeSuccessCount1, totalUptimeCount1, uptimeRatio1 := getRatio(8, 25)
@@ -255,21 +305,20 @@ func TestUpdateBatchExists(t *testing.T) {
 	assert.NoError(t, err)
 
 	node1 := &pb.Node{
-		NodeId:             nodeID1,
+		Id:                 nodeID1,
 		UpdateAuditSuccess: true,
 		AuditSuccess:       true,
 		UpdateUptime:       true,
 		IsUp:               false,
 	}
 	node2 := &pb.Node{
-		NodeId:             nodeID2,
+		Id:                 nodeID2,
 		UpdateAuditSuccess: true,
 		AuditSuccess:       true,
 		UpdateUptime:       false,
 	}
 	updateBatchReq := &pb.UpdateBatchRequest{
 		NodeList: []*pb.Node{node1, node2},
-		APIKey:   apiKey,
 	}
 	resp, err := statdb.UpdateBatch(ctx, updateBatchReq)
 	assert.NoError(t, err)
@@ -290,9 +339,8 @@ func TestUpdateBatchDoesNotExist(t *testing.T) {
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
-	nodeID1 := []byte("testnodeid1")
-	nodeID2 := []byte("testnodeid2")
+	nodeID1 := teststorj.NodeIDFromString("testnodeid1")
+	nodeID2 := teststorj.NodeIDFromString("testnodeid2")
 
 	auditSuccessCount1, totalAuditCount1, auditRatio1 := getRatio(4, 10)
 	uptimeSuccessCount1, totalUptimeCount1, uptimeRatio1 := getRatio(8, 25)
@@ -301,21 +349,20 @@ func TestUpdateBatchDoesNotExist(t *testing.T) {
 	assert.NoError(t, err)
 
 	node1 := &pb.Node{
-		NodeId:             nodeID1,
+		Id:                 nodeID1,
 		UpdateAuditSuccess: true,
 		AuditSuccess:       true,
 		UpdateUptime:       true,
 		IsUp:               false,
 	}
 	node2 := &pb.Node{
-		NodeId:             nodeID2,
+		Id:                 nodeID2,
 		UpdateAuditSuccess: true,
 		AuditSuccess:       true,
 		UpdateUptime:       false,
 	}
 	updateBatchReq := &pb.UpdateBatchRequest{
 		NodeList: []*pb.Node{node1, node2},
-		APIKey:   apiKey,
 	}
 	_, err = statdb.UpdateBatch(ctx, updateBatchReq)
 	assert.NoError(t, err)
@@ -326,8 +373,7 @@ func TestUpdateBatchEmpty(t *testing.T) {
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
-	nodeID1 := []byte("testnodeid1")
+	nodeID1 := teststorj.NodeIDFromString("testnodeid1")
 
 	auditSuccessCount1, totalAuditCount1, auditRatio1 := getRatio(4, 10)
 	uptimeSuccessCount1, totalUptimeCount1, uptimeRatio1 := getRatio(8, 25)
@@ -337,7 +383,6 @@ func TestUpdateBatchEmpty(t *testing.T) {
 
 	updateBatchReq := &pb.UpdateBatchRequest{
 		NodeList: []*pb.Node{},
-		APIKey:   apiKey,
 	}
 	resp, err := statdb.UpdateBatch(ctx, updateBatchReq)
 	assert.NoError(t, err)
@@ -349,9 +394,8 @@ func TestCreateEntryIfNotExists(t *testing.T) {
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
-	apiKey := []byte("")
-	nodeID1 := []byte("testnodeid1")
-	nodeID2 := []byte("testnodeid2")
+	nodeID1 := teststorj.NodeIDFromString("testnodeid1")
+	nodeID2 := teststorj.NodeIDFromString("testnodeid2")
 
 	auditSuccessCount1, totalAuditCount1, auditRatio1 := getRatio(4, 10)
 	uptimeSuccessCount1, totalUptimeCount1, uptimeRatio1 := getRatio(8, 25)
@@ -359,31 +403,29 @@ func TestCreateEntryIfNotExists(t *testing.T) {
 		uptimeSuccessCount1, totalUptimeCount1, uptimeRatio1)
 	assert.NoError(t, err)
 
-	node1 := &pb.Node{NodeId: nodeID1}
+	node1 := &pb.Node{Id: nodeID1}
 	createIfNotExistsReq1 := &pb.CreateEntryIfNotExistsRequest{
-		Node:   node1,
-		APIKey: apiKey,
+		Node: node1,
 	}
 	_, err = statdb.CreateEntryIfNotExists(ctx, createIfNotExistsReq1)
 	assert.NoError(t, err)
 
-	nodeInfo1, err := db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID1))
+	nodeInfo1, err := db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID1.Bytes()))
 	assert.NoError(t, err)
-	assert.EqualValues(t, nodeID1, nodeInfo1.Id)
+	assert.EqualValues(t, nodeID1.Bytes(), nodeInfo1.Id)
 	assert.EqualValues(t, auditRatio1, nodeInfo1.AuditSuccessRatio)
 	assert.EqualValues(t, uptimeRatio1, nodeInfo1.UptimeRatio)
 
-	node2 := &pb.Node{NodeId: nodeID2}
+	node2 := &pb.Node{Id: nodeID2}
 	createIfNotExistsReq2 := &pb.CreateEntryIfNotExistsRequest{
-		Node:   node2,
-		APIKey: apiKey,
+		Node: node2,
 	}
 	_, err = statdb.CreateEntryIfNotExists(ctx, createIfNotExistsReq2)
 	assert.NoError(t, err)
 
-	nodeInfo2, err := db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID2))
+	nodeInfo2, err := db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID2.Bytes()))
 	assert.NoError(t, err)
-	assert.EqualValues(t, nodeID2, nodeInfo2.Id)
+	assert.EqualValues(t, nodeID2.Bytes(), nodeInfo2.Id)
 	assert.EqualValues(t, 0, nodeInfo2.AuditSuccessRatio)
 	assert.EqualValues(t, 0, nodeInfo2.UptimeRatio)
 }
@@ -392,24 +434,24 @@ func getDBPath() string {
 	return fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63())
 }
 
-func getServerAndDB(path string) (statdb *Server, db *dbx.DB, err error) {
-	statdb, err = NewServer("sqlite3", path, zap.NewNop())
+func getServerAndDB(path string) (sdb *statdb.Server, db *dbx.DB, err error) {
+	sdb, err = statdb.NewServer("sqlite3", path, string(apiKey), zap.NewNop())
 	if err != nil {
-		return &Server{}, &dbx.DB{}, err
+		return &statdb.Server{}, &dbx.DB{}, err
 	}
 	db, err = dbx.Open("sqlite3", path)
 	if err != nil {
-		return &Server{}, &dbx.DB{}, err
+		return &statdb.Server{}, &dbx.DB{}, err
 	}
-	return statdb, db, err
+	return sdb, db, err
 }
 
-func createNode(ctx context.Context, db *dbx.DB, nodeID []byte,
+func createNode(ctx context.Context, db *dbx.DB, nodeID storj.NodeID,
 	auditSuccessCount, totalAuditCount int64, auditRatio float64,
 	uptimeSuccessCount, totalUptimeCount int64, uptimeRatio float64) error {
 	_, err := db.Create_Node(
 		ctx,
-		dbx.Node_Id(nodeID),
+		dbx.Node_Id(nodeID.Bytes()),
 		dbx.Node_AuditSuccessCount(auditSuccessCount),
 		dbx.Node_TotalAuditCount(totalAuditCount),
 		dbx.Node_AuditSuccessRatio(auditRatio),

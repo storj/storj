@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="account-area-container">
         <!-- TODO: Get info for this area placeholders from store -->
@@ -93,10 +96,12 @@
                     :error="inputError"
                     @setData="setInputValue" />
             </div>
-            <div class="account-area-save-button-area__btn">
-                <!-- v-if we are editing this area -->
-                <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="140px" height="50px" :onPress="onCancel" isWhite/>
-                <Button label="Save" width="140px" height="50px" :onPress="onSave" isWhite isDisabled/> 
+            <div class="account-area-save-button-area">
+                <div class="account-area-save-button-area__btn">
+                    <!-- v-if we are editing this area -->
+                    <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="140px" height="50px" :onPress="onCancel" isWhite/>
+                    <Button label="Save" width="140px" height="50px" :onPress="onSave" isWhite isDisabled/>
+                </div>
             </div>
         </div>
         <!--end of Company area -->
@@ -130,10 +135,12 @@
                     :error="inputError"
                     @setData="setInputValue" />
             </div>
-            <div class="account-area-save-button-area__btn">
-                <!-- v-if we are editing this area -->
-                <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="140px" height="50px" :onPress="onCancel" isWhite/>
-                <Button label="Save" width="140px" height="50px" :onPress="onSave" isWhite isDisabled/> 
+            <div class="account-area-save-button-area">
+                <div class="account-area-save-button-area__btn">
+                    <!-- v-if we are editing this area -->
+                    <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="140px" height="50px" :onPress="onCancel" isWhite/>
+                    <Button label="Save" width="140px" height="50px" :onPress="onSave" isWhite isDisabled/>
+                </div>
             </div>
         </div>
         <!--end of Password area -->

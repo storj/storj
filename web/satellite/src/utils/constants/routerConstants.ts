@@ -1,5 +1,8 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 const ROUTES = {
-    DEFAULT: {
+    LOGIN: {
         path: '/login',
         name: 'Login'
     },

@@ -7,7 +7,8 @@ option go_package = "pb";
 package pointerdb;
 
 import "google/protobuf/timestamp.proto";
-import "overlay.proto";
+import "gogo.proto";
+import "node.proto";
 import "piecestore.proto";
 
 // PointerDB defines the interface for interacting with the network state persistence layer
@@ -20,6 +21,8 @@ service PointerDB {
   rpc List(ListRequest) returns (ListResponse);
   // Delete formats and hands off a file path to delete from boltdb
   rpc Delete(DeleteRequest) returns (DeleteResponse);
+  // PayerBandwidthAllocation returns signed payer bandwidth allocation struct
+  rpc PayerBandwidthAllocation(PayerBandwidthAllocationRequest) returns (PayerBandwidthAllocationResponse);
 }
 
 message RedundancyScheme {
@@ -39,11 +42,12 @@ message RedundancyScheme {
 
 message RemotePiece {
   int32 piece_num = 1;
-  string node_id = 2;
+  bytes node_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 message RemoteSegment {
   RedundancyScheme redundancy = 1;
+  // TODO: may want to use customtype and fixed-length byte slice
   string piece_id = 2;
   repeated RemotePiece remote_pieces = 3;
 
@@ -60,6 +64,7 @@ message Pointer {
 
   bytes inline_segment = 3;
   RemoteSegment remote = 4;
+  // TODO: rename
   int64 segment_size = 5;
 
   google.protobuf.Timestamp creation_date = 6;
@@ -96,7 +101,7 @@ message PutResponse {
 // GetResponse is a response message for the Get rpc call
 message GetResponse {
   Pointer pointer = 1;
-  repeated overlay.Node nodes = 2;
+  repeated node.Node nodes = 2;
   piecestoreroutes.PayerBandwidthAllocation pba = 3;
   piecestoreroutes.SignedMessage authorization = 4;
 }
@@ -127,4 +132,12 @@ message IterateRequest {
   string first = 2;
   bool recurse = 3;
   bool reverse = 4;
+}
+
+message PayerBandwidthAllocationRequest {
+  piecestoreroutes.PayerBandwidthAllocation.Action action = 1;
+}
+
+message PayerBandwidthAllocationResponse {
+  piecestoreroutes.PayerBandwidthAllocation pba = 1;
 }

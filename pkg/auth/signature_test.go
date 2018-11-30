@@ -11,12 +11,12 @@ import (
 	"github.com/gtank/cryptopasta"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/internal/identity"
 )
 
 func TestGenerateSignature(t *testing.T) {
 	ctx := context.Background()
-	ca, err := provider.NewTestCA(ctx)
+	ca, err := testidentity.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
@@ -41,7 +41,7 @@ func TestGenerateSignature(t *testing.T) {
 
 func TestSignedMessageVerifier(t *testing.T) {
 	ctx := context.Background()
-	ca, err := provider.NewTestCA(ctx)
+	ca, err := testidentity.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)

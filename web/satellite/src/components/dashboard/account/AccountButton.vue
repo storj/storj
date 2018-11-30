@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="account-button-container" >
         <div class="account-button-toggle-container" v-on:click="toggleSelection" >
@@ -25,8 +28,7 @@ import AccountDropdown from "./AccountDropdown.vue";
     { 
         data: function() {
             return {
-                // this.$store.userName
-                userName: "User Name",
+                userName: this.$store.getters.userName,
                 isChoiceShown: false
             }
         },

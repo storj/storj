@@ -16,12 +16,13 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/identity"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/teststore"
@@ -58,13 +59,17 @@ func (pbd *pointerDBWrapper) Delete(ctx context.Context, in *pb.DeleteRequest, o
 	return pbd.s.Delete(ctx, in)
 }
 
+func (pbd *pointerDBWrapper) PayerBandwidthAllocation(ctx context.Context, in *pb.PayerBandwidthAllocationRequest, opts ...grpc.CallOption) (*pb.PayerBandwidthAllocationResponse, error) {
+	return pbd.s.PayerBandwidthAllocation(ctx, in)
+}
+
 func TestAuditSegment(t *testing.T) {
 	type pathCount struct {
 		path  storj.Path
 		count int
 	}
 
-	ca, err := provider.NewTestCA(ctx)
+	ca, err := testidentity.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
@@ -124,7 +129,7 @@ func TestAuditSegment(t *testing.T) {
 	db := teststore.New()
 	c := pointerdb.Config{MaxInlineSegmentSize: 8000}
 
-	cache := overlay.NewOverlayCache(teststore.New(), nil)
+	cache := overlay.NewOverlayCache(teststore.New(), nil, nil)
 
 	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c, identity))
 	pointers := pdbclient.New(pdbw)
@@ -236,7 +241,7 @@ func makePutRequest(path storj.Path) pb.PutRequest {
 	var rps []*pb.RemotePiece
 	rps = append(rps, &pb.RemotePiece{
 		PieceNum: 1,
-		NodeId:   "testId",
+		NodeId:   teststorj.NodeIDFromString("testId"),
 	})
 	pr := pb.PutRequest{
 		Path: path,

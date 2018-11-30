@@ -1,7 +1,10 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="project-selection-container">
         <div class="project-selection-toggle-container" v-on:click="toggleSelection">
-            <h1>{{projectName}}</h1>
+            <h1>{{name}}</h1>
             <div class="project-selection-toggle-container__expander-area">
                 <img v-if="!isChoiceShown" src="../../../../static/images/register/BlueExpand.svg" />
                 <img v-if="isChoiceShown" src="../../../../static/images/register/BlueHide.svg" />
@@ -20,13 +23,26 @@ import ProjectSelectionDropdown from "./ProjectSelectionDropdown.vue"
         data: function() {
             return {
                 isChoiceShown: false,
-                // this.$store.selectedProject
-                projectName: "Choose Project"
             }
         },
         methods: {
-            toggleSelection: function () {
+            toggleSelection: async function (): Promise<any> {
+                //TODO: add progress indicator while fetching
+                let isFetchSuccess = await this.$store.dispatch("fetchProjects");
+
+                if (!isFetchSuccess || this.$store.getters.projects.length === 0) {
+                    //TODO: popup error here
+                    console.log("error during project fetching!");
+                    return;
+                }
+
                 this.$data.isChoiceShown = !this.$data.isChoiceShown;
+            }
+        },
+        computed: {
+            name: function(): string {
+                let selectedProject = this.$store.getters.selectedProject;
+                return selectedProject.id ? selectedProject.name : "Choose project";
             }
         },
         components: {

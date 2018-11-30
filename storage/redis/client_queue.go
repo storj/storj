@@ -4,6 +4,8 @@
 package redis
 
 import (
+	"github.com/go-redis/redis"
+
 	"storj.io/storj/storage"
 )
 
@@ -42,6 +44,9 @@ func (client *Queue) Enqueue(value storage.Value) error {
 func (client *Queue) Dequeue() (storage.Value, error) {
 	out, err := client.db.RPop(queueKey).Bytes()
 	if err != nil {
+		if err == redis.Nil {
+			return nil, storage.ErrEmptyQueue
+		}
 		return nil, Error.New("dequeue error: %v", err)
 	}
 	return storage.Value(out), nil

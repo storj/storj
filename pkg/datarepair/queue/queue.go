@@ -6,6 +6,7 @@ package queue
 import (
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 )
@@ -46,6 +47,9 @@ func (q *Queue) Enqueue(qi *pb.InjuredSegment) error {
 func (q *Queue) Dequeue() (pb.InjuredSegment, error) {
 	val, err := q.db.Dequeue()
 	if err != nil {
+		if err == storage.ErrEmptyQueue {
+			return pb.InjuredSegment{}, err
+		}
 		return pb.InjuredSegment{}, Error.New("error obtaining item from repair queue %s", err)
 	}
 	seg := &pb.InjuredSegment{}

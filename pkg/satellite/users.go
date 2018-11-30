@@ -5,6 +5,7 @@ package satellite
 
 import (
 	"context"
+	"net/mail"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -30,6 +31,36 @@ type UserInfo struct {
 	LastName  string `json:"lastName"`
 	Email     string `json:"email"`
 	Password  string `json:"password"`
+}
+
+// IsValid checks UserInfo validity and returns error describing whats wrong
+func (user *UserInfo) IsValid() error {
+	var errs validationErrors
+
+	// validate email
+	_, err := mail.ParseAddress(user.Email)
+	errs.AddWrap(err)
+
+	// validate firstName
+	if user.FirstName == "" {
+		errs.Add("firstName can't be empty")
+	}
+
+	{ // password checks
+		if len(user.Password) < passMinLength {
+			errs.Add("password can't be less than %d characters", passMinLength)
+		}
+
+		if countNumerics(user.Password) < passMinNumberCount {
+			errs.Add("password should contain at least %d digits", passMinNumberCount)
+		}
+
+		if countLetters(user.Password) < passMinAZCount {
+			errs.Add("password should contain at least %d alphabetic characters", passMinAZCount)
+		}
+	}
+
+	return errs.Combine()
 }
 
 // User is a database object that describes User entity

@@ -1,39 +1,48 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="new-project-popup-container">
         <div class="new-project-popup">
             <div class="new-project-popup__info-panel-container">
                 <h2 class="new-project-popup__info-panel-container__main-label-text">Create New Project</h2>
-                <img src="../../../../static/images/dashboard/CreateNewProject.png" alt="">
+                <img src="@/../static/images/dashboard/CreateNewProject.png" alt="">
             </div>
             <div class="new-project-popup__form-container">
                 <HeaderedInput 
                     label="Project Name" 
                     additionalLabel="Up To 20 Characters"
-                    placeholder="Enter Project Name" 
-                    width="30vw"
+                    placeholder="Enter Project Name"
+                    class="full-input"
+                    width="100%"
+                    :error="nameError"
                     @setData="setProjectName">
                 </HeaderedInput>
                 <HeaderedInput 
                     label="Company Name" 
-                    placeholder="Enter Company Name" 
-                    width="30vw"
-                    @setData="setCompanyName">
+                    placeholder="Enter Company Name"
+                    class="full-input"
+                    width="100%"
+                    @setData="">
                 </HeaderedInput>
                 <HeaderedInput 
                     label="Description" 
-                    placeholder="Enter Project Description" 
+                    placeholder="Enter Project Description"
+                    class="full-input"
                     isMultiline
-                    height="10vh"
-                    width="30vw"
-                    @setData="setDescription">
+                    height="100px"
+                    width="100%"
+                    @setData="setProjectDescription">
                 </HeaderedInput>
                 <div class="new-project-popup__form-container__terms-area">
-                    <Checkbox class="new-project-popup__form-container__terms-area__checkbox" @setData="setTermsAccepted"/>
+                    <Checkbox class="new-project-popup__form-container__terms-area__checkbox"
+                              @setData="setTermsAccepted"
+                              :isCheckboxError="termsAcceptedError"/>
                     <h2>I agree to the Storj Bridge Hosting <a>Terms & Conditions</a></h2>
                 </div>
                 <div class="new-project-popup__form-container__button-container">
-                    <Button label="Cancel" width="14vw" height="48px" :onPress="onCloseClick" isWhite/>
-                    <Button label="Create Project" width="14vw" height="48px" :onPress="onCreate"/>
+                    <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite/>
+                    <Button label="Create Project" width="205px" height="48px" :onPress="createProject"/>
                 </div>
             </div>
             <div class="new-project-popup__close-cross-container">
@@ -61,8 +70,60 @@ import Button from "@/components/common/Button.vue";
                 type: Function
             }
         },
+        data: function() {
+            return {
+                name: "",
+                description: "",
+                isTermsAccepted: false,
+                termsAcceptedError: false,
+                nameError: "",
+            }
+        },
         methods: {
-            onCloseClick: function () : void {
+            setProjectName: function(value: string) : void {
+                this.$data.name = value;
+                this.$data.nameError = "";
+            },
+            setProjectDescription: function(value: string) : void {
+                this.$data.description = value;
+            },
+            setTermsAccepted: function(value: boolean) : void {
+                this.$data.isTermsAccepted = value;
+                this.$data.termsAcceptedError = false;
+            },
+            onCloseClick: function() : void {
+                // TODO: save popup states in store
+                this.$emit("onClose");
+            },
+            createProject: async function() : Promise<any> {
+                if (!this.$data.isTermsAccepted) {
+                    this.$data.termsAcceptedError = true;
+                }
+
+                if (!this.$data.name) {
+                    this.$data.nameError = "Name is required!";
+                }
+
+                if (this.$data.name.length > 20) {
+                    this.$data.nameError = "Name should be less than 21 character!";
+                }
+
+                if (this.$data.nameError || this.$data.termsAcceptedError) {
+                    return;
+                }
+
+                let isSuccess = this.$store.dispatch("createProject", {
+                    name: this.$data.name,
+                    description: this.$data.description,
+                    isTermsAccepted: this.$data.isTermsAccepted,
+                });
+
+                if (!isSuccess) {
+                    // TODO: show popup here
+                    console.log("error during project creation!");
+                    return;
+                }
+
                 this.$emit("onClose");
             }
         },
@@ -90,47 +151,54 @@ export default class NewProjectPopup extends Vue {}
         justify-content: center;
         align-items: center;
     }
+    .input-container.full-input {
+        width: 100%;
+    }
     .new-project-popup {
-        width: 72.3vw;
-        height: 76vh;
+        width: 100%;
+        max-width: 845px;
+        height: 540px;
         background-color: #FFFFFF;
         border-radius: 6px;
         display: flex;
         flex-direction: row;
         align-items: center;
+        position: relative;
         justify-content: center;
+        padding: 100px 100px 100px 80px;
 
         &__info-panel-container {
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            align-items: center;
-            height: 55vh;
+             display: flex;
+             flex-direction: column;
+             justify-content: flex-start;
+             align-items: center;
+             margin-right: 55px;
+             height: 535px;
 
             &__main-label-text {
-                font-family: 'montserrat_bold';
-                font-size: 32px;
-                line-height: 39px;
-                color: #384B65;
-                margin-bottom: 60px;
-                margin-top: 0;
+                 font-family: 'montserrat_bold';
+                 font-size: 32px;
+                 line-height: 39px;
+                 color: #384B65;
+                 margin-bottom: 60px;
+                 margin-top: 0;
             }
         }
 
         &__form-container {
-            width: 32vw;
-            margin-left: 5vw;
+             width: 100%;
+             max-width: 520px;
 
             &__terms-area {
-                display: flex;
-                flex-direction: row;
-                justify-content: flex-start;
-                margin-top: 20px;
+                 display: flex;
+                 flex-direction: row;
+                 justify-content: flex-start;
+                 margin-top: 20px;
 
                 &__checkbox {
-                    align-self: center;
+                     align-self: center;
                 };
-                
+
                 h2 {
                     font-family: 'montserrat_regular';
                     font-size: 14px;
@@ -145,24 +213,41 @@ export default class NewProjectPopup extends Vue {}
             }
 
             &__button-container {
-                width: 30vw;
-                display: flex;
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: center;
-                margin-top: 30px;
+                 width: 100%;
+                 display: flex;
+                 flex-direction: row;
+                 justify-content: space-between;
+                 align-items: center;
+                 margin-top: 30px;
             }
         }
 
         &__close-cross-container {
-            height: 85%;
-            width: 1vw;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            margin-left: 3vw;
+             display: flex;
+             justify-content: center;
+             align-items: flex-start;
+             position: absolute;
+             right: 30px;
+            top: 40px;
             svg {
                 cursor: pointer;
+            }
+        }
+    }
+
+    @media screen and (max-width: 720px) {
+        .new-project-popup {
+
+            &__info-panel-container {
+                 display: none;
+
+            }
+
+            &__form-container {
+
+                &__button-container {
+                     width: 100%;
+                }
             }
         }
     }
