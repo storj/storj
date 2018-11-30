@@ -21,7 +21,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-
 	"storj.io/storj/internal/identity"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/bwagreement/database-manager"
@@ -37,10 +36,10 @@ func TestBandwidthAgreements(t *testing.T) {
 	TS := NewTestServer(t)
 	defer TS.Stop()
 
-	pba, err := generatePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, TS.k)
+	pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, TS.k)
 	assert.NoError(t, err)
 
-	rba, err := generateRenterBandwidthAllocation(pba, TS.k)
+	rba, err := GenerateRenterBandwidthAllocation(pba, TS.k)
 	assert.NoError(t, err)
 
 	/* emulate sending the bwagreement stream from piecestore node */
@@ -143,7 +142,7 @@ func connect(addr string, o ...grpc.DialOption) (pb.BandwidthClient, *grpc.Clien
 	return c, conn
 }
 
-func generatePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action, satelliteKey crypto.PrivateKey) (*pb.PayerBandwidthAllocation, error) {
+func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action, satelliteKey crypto.PrivateKey) (*pb.PayerBandwidthAllocation, error) {
 	satelliteKeyEcdsa, ok := satelliteKey.(*ecdsa.PrivateKey)
 	if !ok {
 		return nil, errs.New("Satellite Private Key is not a valid *ecdsa.PrivateKey")
@@ -174,7 +173,7 @@ func generatePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action,
 	}, nil
 }
 
-func generateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, uplinkKey crypto.PrivateKey) (*pb.RenterBandwidthAllocation, error) {
+func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, uplinkKey crypto.PrivateKey) (*pb.RenterBandwidthAllocation, error) {
 	// get "Uplink" Public Key
 	uplinkKeyEcdsa, ok := uplinkKey.(*ecdsa.PrivateKey)
 	if !ok {

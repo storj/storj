@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/bwagreement"
 	dbManager "storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
@@ -81,6 +82,42 @@ func TestUpdateGranularTable(t *testing.T) {
 
 }
 
-func TestQuery(t *testing.T) {
+func TestQueryNoAgreements(t *testing.T) {
+	logger := zap.NewNop()
+	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 
+	const N = 50
+	nodes := []*pb.Node{}
+	overlayServer := mocks.NewOverlay(nodes)
+	kad := &kademlia.Kademlia{}
+	limit := 0
+	interval := time.Second
+
+	accountingDb, err := accounting.NewDb("sqlite3://file::memory:?mode=memory&cache=shared")
+	assert.NoError(t, err)
+	defer func() { _ = accountingDb.Close() }()
+
+	bwDb, err := dbManager.NewDBManager("sqlite3", "file::memory:?mode=memory&cache=shared")
+	assert.NoError(t, err)
+	defer func() { _ = accountingDb.Close() }()
+
+	tally := newTally(logger, accountingDb, bwDb, pointerdb, overlayServer, kad, limit, interval)
+
+	err = tally.Query(ctx)
+	assert.NoError(t, err)
+}
+
+func TestQueryWithBw(t *testing.T) {
+	TS := bwagreement.NewTestServer(t)
+	defer TS.Stop()
+
+	pba, err := bwagreement.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, TS.k)
+	assert.NoError(t, err)
+
+	rba, err := bwagreement.GenerateRenterBandwidthAllocation(pba, TS.k)
+	assert.NoError(t, err)
+
+	/* emulate sending the bwagreement stream from piecestore node */
+	_, err = TS.c.BandwidthAgreements(ctx, rba)
+	assert.NoError(t, err)
 }
