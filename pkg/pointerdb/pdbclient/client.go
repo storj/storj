@@ -5,6 +5,8 @@ package pdbclient
 
 import (
 	"context"
+	"sync/atomic"
+	"unsafe"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -26,7 +28,7 @@ var (
 // PointerDB creates a grpcClient
 type PointerDB struct {
 	client        pb.PointerDBClient
-	authorization *pb.SignedMessage
+	authorization unsafe.Pointer // *pb.SignedMessage
 }
 
 // New Used as a public function
@@ -97,7 +99,7 @@ func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Poi
 		return nil, nil, nil, Error.Wrap(err)
 	}
 
-	pdb.authorization = res.GetAuthorization()
+	atomic.StorePointer(&pdb.authorization, unsafe.Pointer(res.GetAuthorization()))
 
 	return res.GetPointer(), res.GetNodes(), res.GetPba(), nil
 }
@@ -153,5 +155,5 @@ func (pdb *PointerDB) PayerBandwidthAllocation(ctx context.Context, action pb.Pa
 
 // SignedMessage gets signed message from last request
 func (pdb *PointerDB) SignedMessage() *pb.SignedMessage {
-	return pdb.authorization
+	return (*pb.SignedMessage)(atomic.LoadPointer(&pdb.authorization))
 }
