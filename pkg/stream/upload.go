@@ -24,12 +24,26 @@ type Upload struct {
 
 // NewUpload creates new stream upload.
 func NewUpload(ctx context.Context, stream storj.MutableStream, streams streams.Store, pathCipher storj.Cipher) *Upload {
+	reader, writer := io.Pipe()
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+
+		obj := stream.Info()
+		_, err := streams.Put(ctx, storj.JoinPaths(obj.Bucket, obj.Path), pathCipher, reader, obj.Metadata, obj.Expires)
+		if err != nil {
+			_ = reader.CloseWithError(err)
+		}
+	}()
+
 	return &Upload{
 		ctx:        ctx,
 		stream:     stream,
 		streams:    streams,
 		pathCipher: pathCipher,
-		done:       make(chan struct{}),
+		writer:     writer,
+		done:       done,
 	}
 }
 
@@ -39,13 +53,6 @@ func NewUpload(ctx context.Context, stream storj.MutableStream, streams streams.
 func (upload *Upload) Write(data []byte) (n int, err error) {
 	if upload.closed {
 		return 0, Error.New("already closed")
-	}
-
-	if upload.writer == nil {
-		err = upload.createWriter()
-		if err != nil {
-			return 0, err
-		}
 	}
 
 	return upload.writer.Write(data)
@@ -59,39 +66,10 @@ func (upload *Upload) Close() error {
 
 	upload.closed = true
 
-	if upload.writer == nil {
-		return nil
-	}
-
 	err := upload.writer.Close()
 
 	// Wait for streams.Put to commit the upload to the PointerDB
 	<-upload.done
 
 	return err
-}
-
-func (upload *Upload) createWriter() error {
-	if upload.writer != nil {
-		err := upload.writer.Close()
-		if err != nil {
-			return err
-		}
-	}
-
-	reader, writer := io.Pipe()
-
-	go func() {
-		defer close(upload.done)
-
-		obj := upload.stream.Info()
-		_, err := upload.streams.Put(upload.ctx, storj.JoinPaths(obj.Bucket, obj.Path), upload.pathCipher, reader, obj.Metadata, obj.Expires)
-		if err != nil {
-			_ = reader.CloseWithError(err)
-		}
-	}()
-
-	upload.writer = writer
-
-	return nil
 }
