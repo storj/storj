@@ -71,21 +71,6 @@ func (id NodeID) String() string {
 	return base58.CheckEncode(id[:], IDVersion)
 }
 
-// Len implements sort.Interface.Len()
-func (id NodeID) Len() int {
-	return len(id)
-}
-
-// Swap implements sort.Interface.Swap()
-func (id NodeID) Swap(i, j int) {
-	id[i], id[j] = id[j], id[i]
-}
-
-// Less implements sort.Interface.Less()
-func (id NodeID) Less(i, j int) bool {
-	return id[i] < id[j]
-}
-
 // Bytes returns raw bytes of the id
 func (id NodeID) Bytes() []byte { return id[:] }
 
