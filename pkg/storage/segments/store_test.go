@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/teststorj"
-
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/eestream/mocks"
 	mock_overlay "storj.io/storj/pkg/overlay/mocks"

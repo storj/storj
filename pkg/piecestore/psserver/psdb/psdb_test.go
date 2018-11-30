@@ -17,9 +17,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/pkg/storj"
-
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 var ctx = context.Background()

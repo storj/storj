@@ -11,9 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/pkg/storj"
-
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
 
