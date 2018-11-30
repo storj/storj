@@ -5,6 +5,7 @@ package kademlia
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/zeebo/errs"
@@ -32,7 +33,7 @@ var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 func newPeerDiscovery(nodes []*pb.Node, client node.Client, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
 	queue := NewXorQueue(opts.concurrency)
 	queue.Insert(target, nodes)
-	oneChan := make(chan *pb.Node)
+	oneChan := make(chan *pb.Node, 1)
 	allChan := make(chan []*pb.Node)
 
 	return &peerDiscovery{
@@ -74,12 +75,15 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 
 					next, _ = lookup.queue.Closest()
 
+					fmt.Printf("NEXT: %+v\n", next)
+
 					// Send node on channel if it matches target
-					if next.Id.String() == lookup.target.String() {
+					if next != nil && next.Id.String() == lookup.target.String() {
+						fmt.Printf("next: %+v\n", next)
 						lookup.foundOne <- next
 					}
 
-					if !lookup.opts.bootstrap && next.Id.String() == lookup.target.String() {
+					if !lookup.opts.bootstrap && next != nil && next.Id.String() == lookup.target.String() {
 						allDone = true
 						break // closest node is the target and is already in routing table (i.e. no lookup required)
 					}

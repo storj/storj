@@ -242,7 +242,17 @@ func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, erro
 		return pb.Node{}, nil
 	}
 
-	return *node, nil
+	select {
+	case foundOne := <-lookup.foundOne:
+		fmt.Printf("Found node: %+v\n", foundOne)
+		if foundOne == nil {
+			return pb.Node{}, nil
+		}
+		return *foundOne, nil
+	default:
+	}
+
+	return pb.Node{}, nil
 }
 
 // ListenAndServe connects the kademlia node to the network and listens for incoming requests
