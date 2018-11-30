@@ -56,7 +56,7 @@ matrix:
         - go get github.com/ckaznocha/protoc-gen-lint
       script:
         - go run ./scripts/check-copyright.go
-        - (cd pkg/pb && ~/protoc/bin/protoc --lint_out=. *.proto)
+        - go run ./scripts/protobuf.go lint
         - golangci-lint run
         - gospace istidy
     

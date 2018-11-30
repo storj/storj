@@ -20,6 +20,8 @@ var ignoreProto = map[string]bool{
 	"gogo.proto": true,
 }
 
+var protoc = flag.String("protoc", "protoc", "protoc location")
+
 func main() {
 	flag.Parse()
 
@@ -49,23 +51,21 @@ func main() {
 }
 
 func generate(dir string, dirs []string, files []string) error {
-	local, err := os.Getwd()
-	if err != nil {
-		return err
+	defer switchdir(dir)()
+
+	args := []string{"--gogo_out=plugins=grpc:.", "--lint_out=."}
+	args = appendCommonArguments(args, dir, dirs, files)
+
+	cmd := exec.Command(*protoc, args...)
+	fmt.Println(cmd.Path, strings.Join(cmd.Args, " "))
+	out, err := cmd.CombinedOutput()
+	if len(out) > 0 {
+		fmt.Println(string(out))
 	}
-	defer func() {
-		err := os.Chdir(local)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-		}
-	}()
+	return err
+}
 
-	if err := os.Chdir(dir); err != nil {
-		return err
-	}
-
-	args := []string{"--gogo_out=plugins=grpc:."}
-
+func appendCommonArguments(args []string, dir string, dirs []string, files []string) []string {
 	for _, otherdir := range dirs {
 		if otherdir == dir {
 			args = append(args, "-I=.")
@@ -74,7 +74,7 @@ func generate(dir string, dirs []string, files []string) error {
 
 		reldir, err := filepath.Rel(dir, otherdir)
 		if err != nil {
-			return err
+			panic(err)
 		}
 
 		args = append(args, "-I="+reldir)
@@ -82,17 +82,39 @@ func generate(dir string, dirs []string, files []string) error {
 
 	args = append(args, files...)
 
-	fmt.Println("protoc", args)
-	cmd := exec.Command("protoc", args...)
-
-	out, err := cmd.CombinedOutput()
-	fmt.Println(string(out))
-	return err
+	return args
 }
 
 func lint(dir string, dirs []string, files []string) error {
-	fmt.Println("linting", dir, files)
-	return nil
+	defer switchdir(dir)()
+
+	args := []string{"--lint_out=."}
+	args = appendCommonArguments(args, dir, dirs, files)
+
+	cmd := exec.Command(*protoc, args...)
+	fmt.Println(cmd.Path, strings.Join(cmd.Args, " "))
+	out, err := cmd.CombinedOutput()
+	if len(out) > 0 {
+		fmt.Println(string(out))
+	}
+	return err
+}
+
+func switchdir(to string) func() {
+	local, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	if err := os.Chdir(to); err != nil {
+		panic(err)
+	}
+
+	return func() {
+		if err := os.Chdir(local); err != nil {
+			panic(err)
+		}
+	}
 }
 
 func walkdirs(root string, fn func(dir string, dirs []string, files []string) error) error {
