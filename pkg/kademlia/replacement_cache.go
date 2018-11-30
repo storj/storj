@@ -5,16 +5,14 @@ package kademlia
 
 import (
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/storage"
 )
 
-func (rt *RoutingTable) addToReplacementCache(kadBucketID storage.Key, node *pb.Node) {
-	bucketID := string(kadBucketID)
-	nodes := rt.replacementCache[bucketID]
+func (rt *RoutingTable) addToReplacementCache(kadBucketID bucketID, node *pb.Node) {
+	nodes := rt.replacementCache[kadBucketID]
 	nodes = append(nodes, node)
 	if len(nodes) > rt.rcBucketSize {
 		copy(nodes, nodes[1:])
 		nodes = nodes[:len(nodes)-1]
 	}
-	rt.replacementCache[bucketID] = nodes
+	rt.replacementCache[kadBucketID] = nodes
 }

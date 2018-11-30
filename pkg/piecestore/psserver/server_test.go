@@ -26,10 +26,11 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 )
 
 var ctx = context.Background()
@@ -535,18 +536,18 @@ func NewTestServer(t *testing.T) *TestServer {
 		}
 	}
 
-	caS, err := provider.NewTestCA(context.Background())
+	caS, err := testidentity.NewTestCA(context.Background())
 	check(err)
 	fiS, err := caS.NewIdentity()
 	check(err)
 	so, err := fiS.ServerOption()
 	check(err)
 
-	caC, err := provider.NewTestCA(context.Background())
+	caC, err := testidentity.NewTestCA(context.Background())
 	check(err)
 	fiC, err := caC.NewIdentity()
 	check(err)
-	co, err := fiC.DialOption("")
+	co, err := fiC.DialOption(storj.NodeID{})
 	check(err)
 
 	s, cleanup := newTestServerStruct(t)

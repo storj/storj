@@ -147,7 +147,8 @@ textarea {
 	font-size: 16px;
 	line-height: 21px;
 	resize: none;
-	height: 48px;
+	height: 46px;
+	padding: 0;
 	width: 100%;
 	text-indent: 20px;
 	border-color: rgba(56, 75, 101, 0.4);

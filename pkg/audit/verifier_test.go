@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/vivint/infectious"
 
+	"storj.io/storj/internal/teststorj"
+
 	"storj.io/storj/pkg/pb"
 )
 
@@ -136,11 +138,12 @@ func TestFailingAudit(t *testing.T) {
 	badPieceNums := []int{0, 2, 3, 4}
 
 	ctx := context.Background()
-	auditPkgShares := make([]share, len(modifiedShares))
+	auditPkgShares := make(map[int]share, len(modifiedShares))
 	for i := range modifiedShares {
-		auditPkgShares[i].PieceNumber = modifiedShares[i].Number
-		auditPkgShares[i].Data = append([]byte(nil), modifiedShares[i].Data...)
-		auditPkgShares[i].Error = nil
+		auditPkgShares[modifiedShares[i].Number] = share{
+			PieceNumber: modifiedShares[i].Number,
+			Data:        append([]byte(nil), modifiedShares[i].Data...),
+		}
 	}
 	pieceNums, err := auditShares(ctx, 8, 14, auditPkgShares)
 	if err != nil {
@@ -177,11 +180,12 @@ func TestNotEnoughShares(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	auditPkgShares := make([]share, len(shares))
+	auditPkgShares := make(map[int]share, len(shares))
 	for i := range shares {
-		auditPkgShares[i].PieceNumber = shares[i].Number
-		auditPkgShares[i].Data = append([]byte(nil), shares[i].Data...)
-		auditPkgShares[i].Error = nil
+		auditPkgShares[shares[i].Number] = share{
+			PieceNumber: shares[i].Number,
+			Data:        append([]byte(nil), shares[i].Data...),
+		}
 	}
 	_, err = auditShares(ctx, 20, 40, auditPkgShares)
 	assert.Contains(t, err.Error(), "infectious: must specify at least the number of required shares")
@@ -202,20 +206,20 @@ func TestCalcPadded(t *testing.T) {
 }
 
 func (m *mockDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
-	stripeIndex int, authorization *pb.SignedMessage) (shares []share, nodes []*pb.Node, err error) {
-	for _, share := range m.shares {
-		shares = append(shares, share)
-	}
+	stripeIndex int, authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]*pb.Node, err error) {
+
+	nodes = make(map[int]*pb.Node, 30)
+
 	for i := 0; i < 30; i++ {
-		node := &pb.Node{
-			Id: strconv.Itoa(i),
+		nodes[i] = &pb.Node{
+			Id:   teststorj.NodeIDFromString(strconv.Itoa(i)),
+			Type: pb.NodeType_STORAGE,
 			Address: &pb.NodeAddress{
 				Address: strconv.Itoa(i),
 			},
 		}
-		nodes = append(nodes, node)
 	}
-	return shares, nodes, nil
+	return m.shares, nodes, nil
 }
 
 func makePointer(nodeAmt int) *pb.Pointer {
@@ -223,7 +227,7 @@ func makePointer(nodeAmt int) *pb.Pointer {
 	for i := 0; i < nodeAmt; i++ {
 		rps = append(rps, &pb.RemotePiece{
 			PieceNum: int32(i),
-			NodeId:   "test" + strconv.Itoa(i),
+			NodeId:   teststorj.NodeIDFromString("test" + strconv.Itoa(i)),
 		})
 	}
 	pr := &pb.Pointer{

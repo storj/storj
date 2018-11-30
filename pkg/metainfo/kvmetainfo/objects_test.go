@@ -91,7 +91,9 @@ func TestGetObjectStream(t *testing.T) {
 			return
 		}
 
+		fmt.Println("BEFORE")
 		_, err = store.Put(ctx, "large-file", bytes.NewReader(data), objects.SerializableMeta{}, exp)
+		fmt.Println("AFTER")
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -182,7 +184,7 @@ func assertRemoteSegment(t *testing.T, segment storj.Segment) {
 		}
 		nums[piece.Number] = struct{}{}
 
-		id := piece.Location.HexString()
+		id := piece.Location.String()
 		if _, ok := nodes[id]; ok {
 			t.Fatalf("node id %s is not unique", id)
 		}

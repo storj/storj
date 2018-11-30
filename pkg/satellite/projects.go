@@ -42,8 +42,13 @@ type Project struct {
 
 // ProjectInfo holds data needed to create/update Project
 type ProjectInfo struct {
+	ID uuid.UUID `json:"id"`
+
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	// Indicates if user accepted Terms & Conditions during project creation on UI
-	IsTermsAccepted bool `json:"isTermsAccepted"`
+	IsTermsAccepted bool   `json:"isTermsAccepted"`
+	OwnerName       string `json:"ownerName"`
+
+	CreatedAt time.Time `json:"createdAt"`
 }

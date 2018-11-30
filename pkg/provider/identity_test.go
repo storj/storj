@@ -235,7 +235,8 @@ func TestNodeID_Difficulty(t *testing.T) {
 	done, _, fi, knownDifficulty := tempIdentity(t)
 	defer done()
 
-	difficulty := fi.ID.Difficulty()
+	difficulty, err := fi.ID.Difficulty()
+	assert.NoError(t, err)
 	assert.True(t, difficulty >= knownDifficulty)
 }
 
@@ -246,7 +247,7 @@ func TestVerifyPeer(t *testing.T) {
 		}
 	}
 
-	ca, err := NewTestCA(context.Background())
+	ca, err := newTestCA(context.Background())
 	check(err)
 	fi, err := ca.NewIdentity()
 	check(err)

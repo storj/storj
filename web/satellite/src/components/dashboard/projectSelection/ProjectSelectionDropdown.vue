@@ -2,18 +2,17 @@
 // See LICENSE for copying information.
 
 <template>
-    <!-- To close popup we need to use method onCloseClick -->
     <div class="project-selection-choice-container" >
         <div class="project-selection-overflow-container">
             <!-- loop for rendering projects -->
             <!-- TODO: add selection logic onclick -->
-            <div class="project-selection-overflow-container__project-choice" v-for="project in projects" v-bind:key="project.name" >
+            <div class="project-selection-overflow-container__project-choice" v-on:click="onProjectSelected(project.id)" v-for="project in projects" v-bind:key="project.id" >
                 <div class="project-selection-overflow-container__project-choice__mark-container">
-                    <svg v-if="project.selected" width="15" height="13" viewBox="0 0 15 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <svg v-if="project.isSelected" width="15" height="13" viewBox="0 0 15 13" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M14.0928 3.02746C14.6603 2.4239 14.631 1.4746 14.0275 0.907152C13.4239 0.339699 12.4746 0.368972 11.9072 0.972536L14.0928 3.02746ZM4.53846 11L3.44613 12.028C3.72968 12.3293 4.12509 12.5001 4.53884 12.5C4.95258 12.4999 5.34791 12.3289 5.63131 12.0275L4.53846 11ZM3.09234 7.27469C2.52458 6.67141 1.57527 6.64261 0.971991 7.21036C0.36871 7.77812 0.339911 8.72743 0.907664 9.33071L3.09234 7.27469ZM11.9072 0.972536L3.44561 9.97254L5.63131 12.0275L14.0928 3.02746L11.9072 0.972536ZM5.6308 9.97199L3.09234 7.27469L0.907664 9.33071L3.44613 12.028L5.6308 9.97199Z" fill="#2683FF"/>
                     </svg>
                 </div>
-                <h2 v-bind:class="[project.selected ? 'project-selection-overflow-container__project-choice--selected' : 'project-selection-overflow-container__project-choice--unselected']">{{project.name}}</h2>
+                <h2 v-bind:class="[project.isSelected ? 'project-selection-overflow-container__project-choice--selected' : 'project-selection-overflow-container__project-choice--unselected']">{{project.name}}</h2>
             </div>
         </div>
     </div>
@@ -23,23 +22,21 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 @Component(
-    { 
+    {
+        updated: function() {
+            this.$data.projects = this.$store.getters.projects;
+        },
         data: function() {
             return {
-                // TODO: format prohect names ( n symbols + ...)
+                // TODO: format project names ( n symbols + ...)
                 // Projects is [project]
                 // Project here is object with name and selected properties
-                projects: [
-                    //TODO: change to actual data
-                    { name: 'Project name 1', selected: true },
-                    { name: 'Project 2 ', selected: false },
-                    { name: 'Project 3', selected: false },
-                    { name: 'Project 4', selected: false },
-                    { name: 'Project 5', selected: false },
-                    { name: 'Project 6', selected: false },
-                    { name: 'Project 7', selected: false },
-                    { name: 'Project 8', selected: false }
-                ]
+                //projects: this.$store.getters.projects
+            }
+        },
+        computed: {
+            projects: function () {
+                return this.$store.getters.projects;
             }
         },
         props: {
@@ -48,7 +45,8 @@ import { Component, Vue } from 'vue-property-decorator';
             }
         },
         methods: {
-            onCloseClick: function () : void {
+            onProjectSelected: function(projectID: string) :void {
+                this.$store.dispatch("selectProject", projectID);
                 this.$emit("onClose");
             }
         },
@@ -74,7 +72,8 @@ export default class ProjectSelectionDropdown extends Vue {}
         width: 226px;
         overflow-y: auto;
         overflow-x: hidden;
-        height: 240px;
+        height: auto;
+        max-height: 240px;
         background-color: #FFFFFF;
 
         &__project-choice {

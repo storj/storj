@@ -15,11 +15,14 @@ const (
 	Mutation = "mutation"
 
 	createUserMutation = "createUser"
+	updateUserMutation = "updateUser"
 	deleteUserMutation = "deleteUser"
 
-	createProjectMutation = "createProject"
-	deleteProjectMutation = "deleteProject"
-	updateProjectMutation = "updateProject"
+	updateCompanyMutation = "updateCompany"
+
+	createProjectMutation            = "createProject"
+	deleteProjectMutation            = "deleteProject"
+	updateProjectDescriptionMutation = "updateProjectDescription"
 
 	input = "input"
 )
@@ -38,7 +41,8 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 				},
 				// creates user and company from input params and returns userID if succeed
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					var userInput = fromMapUserInfo(p.Args[input].(map[string]interface{}))
+					//TODO(yar): separate creation of user and company
+					userInput := fromMapUserInfo(p.Args[input].(map[string]interface{}))
 
 					user, err := service.CreateUser(
 						p.Context,
@@ -51,6 +55,41 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					}
 
 					return user.ID.String(), nil
+				},
+			},
+			updateUserMutation: &graphql.Field{
+				Type: types.User(),
+				Args: graphql.FieldConfigArgument{
+					fieldID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					input: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.UserInput()),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					id, _ := p.Args[fieldID].(string)
+					input, _ := p.Args[input].(map[string]interface{})
+
+					idBytes, err := uuid.Parse(id)
+					if err != nil {
+						return nil, err
+					}
+
+					user, err := service.GetUser(p.Context, *idBytes)
+					if err != nil {
+						return nil, err
+					}
+
+					updatedUser := *user
+					info := fillUserInfo(&updatedUser, input)
+
+					err = service.UpdateUser(p.Context, *idBytes, info)
+					if err != nil {
+						return user, err
+					}
+
+					return &updatedUser, nil
 				},
 			},
 			deleteUserMutation: &graphql.Field{
@@ -77,6 +116,41 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					return user, err
 				},
 			},
+			updateCompanyMutation: &graphql.Field{
+				Type: types.Company(),
+				Args: graphql.FieldConfigArgument{
+					fieldUserID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					input: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.CompanyInput()),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					id, _ := p.Args[fieldUserID].(string)
+					input, _ := p.Args[input].(map[string]interface{})
+
+					idBytes, err := uuid.Parse(id)
+					if err != nil {
+						return nil, err
+					}
+
+					company, err := service.GetCompany(p.Context, *idBytes)
+					if err != nil {
+						return nil, err
+					}
+
+					updatedCompany := *company
+					info := fillCompanyInfo(&updatedCompany, input)
+
+					err = service.UpdateCompany(p.Context, *idBytes, info)
+					if err != nil {
+						return company, err
+					}
+
+					return &updatedCompany, nil
+				},
+			},
 			// creates project from input params
 			createProjectMutation: &graphql.Field{
 				Type: graphql.String,
@@ -96,7 +170,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 				Type: graphql.String,
 				Args: graphql.FieldConfigArgument{
 					fieldID: &graphql.ArgumentConfig{
-						Type: graphql.String,
+						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
@@ -109,19 +183,19 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					return nil, service.DeleteProject(p.Context, *projectID)
 				},
 			},
-			// updates project
-			updateProjectMutation: &graphql.Field{
+			// updates project description
+			updateProjectDescriptionMutation: &graphql.Field{
 				Type: graphql.String,
 				Args: graphql.FieldConfigArgument{
 					fieldID: &graphql.ArgumentConfig{
-						Type: graphql.String,
+						Type: graphql.NewNonNull(graphql.String),
 					},
-					input: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(types.ProjectInput()),
+					fieldDescription: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					var projectInput = fromMapProjectInfo(p.Args[input].(map[string]interface{}))
+					description := p.Args[fieldDescription].(string)
 
 					inputID := p.Args[fieldID].(string)
 					projectID, err := uuid.Parse(inputID)
@@ -129,7 +203,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						return nil, err
 					}
 
-					return service.UpdateProject(p.Context, *projectID, projectInput)
+					return service.UpdateProject(p.Context, *projectID, description)
 				},
 			},
 		},

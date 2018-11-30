@@ -28,24 +28,26 @@ var argError = errs.Class("argError")
 func main() {
 	cobra.EnableCommandSorting = false
 
-	ca, err := provider.NewTestCA(ctx)
+	clientIdent, err := provider.NewFullIdentity(ctx, 12, 4)
 	if err != nil {
 		log.Fatal(err)
 	}
-	identity, err := ca.NewIdentity()
+
+	serverIdent, err := provider.NewFullIdentity(ctx, 12, 4)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Set up connection with rpc server
 	n := &pb.Node{
+		// TODO: NodeType is missing
 		Address: &pb.NodeAddress{
 			Address:   ":7777",
 			Transport: 0,
 		},
-		Id: "test-node-id-1234567",
+		Id: serverIdent.ID,
 	}
-	tc := transport.NewClient(identity)
+	tc := transport.NewClient(clientIdent)
 	psClient, err := psclient.NewPSClient(ctx, tc, n, 0)
 	if err != nil {
 		log.Fatalf("could not initialize Client: %s", err)
@@ -81,6 +83,11 @@ func main() {
 				return argError.New(fmt.Sprintf("path (%s) is a directory, not a file", inputfile))
 			}
 
+			satelliteIdent, err := provider.NewFullIdentity(ctx, 12, 4)
+			if err != nil {
+				return err
+			}
+
 			var length = fileInfo.Size()
 			var ttl = time.Now().Add(24 * time.Hour)
 
@@ -90,7 +97,7 @@ func main() {
 			id := psclient.NewPieceID()
 
 			allocationData := &pb.PayerBandwidthAllocation_Data{
-        SatelliteId:    []byte("OhHeyThisIsAnUnrealFakeSatellite"),
+				SatelliteId:    satelliteIdent.ID,
 				Action:         pb.PayerBandwidthAllocation_PUT,
 				CreatedUnixSec: time.Now().Unix(),
 			}
@@ -153,8 +160,13 @@ func main() {
 				return err
 			}
 
+			satelliteIdent, err := provider.NewFullIdentity(ctx, 12, 4)
+			if err != nil {
+				return err
+			}
+
 			allocationData := &pb.PayerBandwidthAllocation_Data{
-        SatelliteId:    []byte("OhHeyThisIsAnUnrealFakeSatellite"),
+				SatelliteId:    satelliteIdent.ID,
 				Action:         pb.PayerBandwidthAllocation_GET,
 				CreatedUnixSec: time.Now().Unix(),
 			}

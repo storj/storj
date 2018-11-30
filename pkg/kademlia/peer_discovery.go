@@ -9,9 +9,10 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"storj.io/storj/pkg/dht"
+
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 type peerDiscovery struct {
@@ -20,14 +21,15 @@ type peerDiscovery struct {
 	opts     discoveryOptions
 	foundOne chan *pb.Node
 	foundAll chan []*pb.Node
-	cond     sync.Cond
-	queue    *XorQueue
+
+	cond  sync.Cond
+	queue *XorQueue
 }
 
 // ErrMaxRetries is used when a lookup has been retried the max number of times
 var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 
-func newPeerDiscovery(nodes []*pb.Node, client node.Client, target dht.NodeID, opts discoveryOptions) *peerDiscovery {
+func newPeerDiscovery(nodes []*pb.Node, client node.Client, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
 	queue := NewXorQueue(opts.concurrency)
 	queue.Insert(target, nodes)
 	oneChan := make(chan *pb.Node)
@@ -100,7 +102,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 						zap.S().Errorf(
 							"Error occurred during lookup of %s :: %s :: error = %s",
 							lookup.target.String(),
-							ErrMaxRetries.New("%s", next.GetId()),
+							ErrMaxRetries.New("%s", next.Id),
 							err.Error(),
 						)
 					}

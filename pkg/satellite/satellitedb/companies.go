@@ -9,6 +9,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+
 	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/pkg/satellite/satellitedb/dbx"
 )
@@ -59,7 +60,7 @@ func (companies *companies) Update(ctx context.Context, company *satellite.Compa
 	_, err := companies.db.Update_Company_By_UserId(
 		ctx,
 		dbx.Company_UserId(company.UserID[:]),
-		*getCompanyUpdateFields(company))
+		getCompanyUpdateFields(company))
 
 	return err
 }
@@ -88,8 +89,8 @@ func companyFromDBX(company *dbx.Company) (*satellite.Company, error) {
 }
 
 // getCompanyUpdateFields is used to generate company update fields
-func getCompanyUpdateFields(company *satellite.Company) *dbx.Company_Update_Fields {
-	return &dbx.Company_Update_Fields{
+func getCompanyUpdateFields(company *satellite.Company) dbx.Company_Update_Fields {
+	return dbx.Company_Update_Fields{
 		Name:       dbx.Company_Name(company.Name),
 		Address:    dbx.Company_Address(company.Address),
 		Country:    dbx.Company_Country(company.Country),
