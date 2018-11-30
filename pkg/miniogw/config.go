@@ -18,9 +18,10 @@ import (
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/ec"
-	segment "storj.io/storj/pkg/storage/segments"
+	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/metainfo/kvmetainfo"
 )
 
 // RSConfig is a configuration struct that keeps details about default
@@ -125,43 +126,82 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context, identity *provi
 func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdentity) (bs buckets.Store, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var oc overlay.Client
-	oc, err = overlay.NewOverlayClient(identity, c.OverlayAddr)
+	buckets, _, _, _, _, err := c.init(ctx, identity)
+
+	return buckets, err
+}
+
+// GetMetainfo returns an implementation of storj.Metainfo
+func (c Config) GetMetainfo(ctx context.Context, identity *provider.FullIdentity) (db storj.Metainfo, ss streams.Store, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	buckets, streams, segments, pdb, key, err := c.init(ctx, identity)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	return kvmetainfo.New(buckets, streams, segments, pdb, key), streams, nil
+}
+
+func (c Config) init(ctx context.Context, identity *provider.FullIdentity) (buckets.Store, streams.Store, segments.Store, pdbclient.Client, *storj.Key, error) {
+	var oc overlay.Client
+	oc, err := overlay.NewOverlayClient(identity, c.OverlayAddr)
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
 	}
 
 	pdb, err := pdbclient.NewClient(identity, c.PointerDBAddr, c.APIKey)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
 	ec := ecclient.NewClient(identity, c.MaxBufferMem)
 	fc, err := infectious.NewFEC(c.MinThreshold, c.MaxThreshold)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, c.ErasureShareSize), c.RepairThreshold, c.SuccessThreshold)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
-	segments := segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize)
+	segments := segments.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize)
 
 	if c.ErasureShareSize*c.MinThreshold%c.EncBlockSize != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
-		return nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
 	key := new(storj.Key)
 	copy(key[:], c.EncKey)
 
-	stream, err := streams.NewStreamStore(segments, c.SegmentSize, key, c.EncBlockSize, storj.Cipher(c.EncType))
+	streams, err := streams.NewStreamStore(segments, c.SegmentSize, key, c.EncBlockSize, storj.Cipher(c.EncType))
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
-	return buckets.NewStore(stream), nil
+	buckets := buckets.NewStore(streams)
+
+	return buckets, streams, segments, pdb, key, nil
+}
+
+// GetRedundancyScheme returns the configured redundancy scheme for new uploads
+func (c Config) GetRedundancyScheme() storj.RedundancyScheme {
+	return storj.RedundancyScheme{
+		Algorithm: storj.ReedSolomon,
+		RequiredShares: int16(c.MinThreshold),
+		RepairShares: int16(c.RepairThreshold),
+		OptimalShares: int16(c.SuccessThreshold),
+		TotalShares: int16(c.MaxThreshold),
+	}
+}
+
+// GetEncryptionScheme returns the configured encryption scheme for new uploads
+func (c Config) GetEncryptionScheme() storj.EncryptionScheme {
+	return storj.EncryptionScheme{
+		Cipher: storj.Cipher(c.EncType),
+		BlockSize: int32(c.EncBlockSize),
+	}
 }
 
 // NewGateway creates a new minio Gateway

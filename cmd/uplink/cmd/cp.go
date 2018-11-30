@@ -10,15 +10,14 @@ import (
 	"io"
 	"os"
 	"strings"
-	"time"
 
 	progressbar "github.com/cheggaaa/pb"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storage/buckets"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/stream"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -36,7 +35,7 @@ func init() {
 }
 
 // upload transfers src from local machine to s3 compatible object dst
-func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPath, showProgress bool) error {
+func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) error {
 	if !src.IsLocal() {
 		return fmt.Errorf("source must be local path: %s", src)
 	}
@@ -50,44 +49,67 @@ func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FP
 		dst = dst.Join(src.Base())
 	}
 
-	var f *os.File
+	var file *os.File
 	var err error
 	if src.Base() == "-" {
-		f = os.Stdin
+		file = os.Stdin
 	} else {
-		f, err = os.Open(src.Path())
+		file, err = os.Open(src.Path())
 		if err != nil {
 			return err
 		}
-		defer utils.LogClose(f)
+		defer utils.LogClose(file)
 	}
 
-	fi, err := f.Stat()
+	fileInfo, err := file.Stat()
 	if err != nil {
 		return err
 	}
 
-	if fi.IsDir() {
+	if fileInfo.IsDir() {
 		return fmt.Errorf("source cannot be a directory: %s", src)
 	}
 
-	o, err := bs.GetObjectStore(ctx, dst.Bucket())
+	metainfo, streams, err := cfg.Metainfo(ctx)
+	if err != nil {
+		return err
+	}
+
+	bucket, err := metainfo.GetBucket(ctx, dst.Bucket())
 	if err != nil {
 		return convertError(err, dst)
 	}
 
-	r := io.Reader(f)
-	var bar *progressbar.ProgressBar
-	if showProgress {
-		bar = progressbar.New(int(fi.Size())).SetUnits(progressbar.U_BYTES)
-		bar.Start()
-		r = bar.NewProxyReader(r)
+	create := storj.CreateObject{
+		RedundancyScheme: cfg.GetRedundancyScheme(),
+		EncryptionScheme: cfg.GetEncryptionScheme(),
+	}
+	obj, err := metainfo.CreateObject(ctx, bucket.Name, dst.Path(), &create)
+	if err != nil {
+		return convertError(err, dst)
 	}
 
-	meta := pb.SerializableMeta{}
-	expTime := time.Time{}
+	mutableStream, err := obj.CreateStream(ctx)
+	if err != nil {
+		return err
+	}
 
-	_, err = o.Put(ctx, dst.Path(), r, meta, expTime)
+	reader := io.Reader(file)
+	var bar *progressbar.ProgressBar
+	if showProgress {
+		bar = progressbar.New(int(fileInfo.Size())).SetUnits(progressbar.U_BYTES)
+		bar.Start()
+		reader = bar.NewProxyReader(reader)
+	}
+
+	upload := stream.NewUpload(ctx, mutableStream, streams, bucket.PathCipher)
+	defer utils.LogClose(upload)
+	_, err = io.Copy(upload, reader)
+	if err != nil {
+		return err
+	}
+
+	err = obj.Commit(ctx)
 	if err != nil {
 		return err
 	}
@@ -102,7 +124,7 @@ func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FP
 }
 
 // download transfers s3 compatible object src to dst on local machine
-func download(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPath, showProgress bool) error {
+func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) error {
 	if src.IsLocal() {
 		return fmt.Errorf("source must be Storj URL: %s", src)
 	}
@@ -111,45 +133,50 @@ func download(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.
 		return fmt.Errorf("destination must be local path: %s", dst)
 	}
 
-	o, err := bs.GetObjectStore(ctx, src.Bucket())
-	if err != nil {
-		return convertError(err, src)
-	}
-
-	rr, _, err := o.Get(ctx, src.Path())
-	if err != nil {
-		return convertError(err, src)
-	}
-
-	r, err := rr.Range(ctx, 0, rr.Size())
+	metainfo, streams, err := cfg.Metainfo(ctx)
 	if err != nil {
 		return err
 	}
-	defer utils.LogClose(r)
 
-	var bar *progressbar.ProgressBar
-	if showProgress {
-		bar = progressbar.New(int(rr.Size())).SetUnits(progressbar.U_BYTES)
-		bar.Start()
-		r = bar.NewProxyReader(r)
+	bucket, err := metainfo.GetBucket(ctx, src.Bucket())
+	if err != nil {
+		return convertError(err, dst)
 	}
 
-	if fi, err := os.Stat(dst.Path()); err == nil && fi.IsDir() {
+	readOnlyStream, err := metainfo.GetObjectStream(ctx, bucket.Name, src.Path())
+	if err != nil {
+		return convertError(err, src)
+	}
+
+	download := stream.NewDownload(ctx, readOnlyStream, streams, bucket.PathCipher)
+	defer utils.LogClose(download)
+
+	var bar *progressbar.ProgressBar
+	var reader io.Reader
+	if showProgress {
+		bar = progressbar.New(int(readOnlyStream.Info().Size)).SetUnits(progressbar.U_BYTES)
+		bar.Start()
+		reader = bar.NewProxyReader(download)
+	} else {
+		reader = download
+	}
+
+	if fileInfo, err := os.Stat(dst.Path()); err == nil && fileInfo.IsDir() {
 		dst = dst.Join((src.Base()))
 	}
 
-	var f *os.File
+	var file *os.File
 	if dst.Base() == "-" {
-		f = os.Stdout
+		file = os.Stdout
 	} else {
-		f, err = os.Create(dst.Path())
+		file, err = os.Create(dst.Path())
 		if err != nil {
 			return err
 		}
-		defer utils.LogClose(f)
+		defer utils.LogClose(file)
 	}
 
-	_, err = io.Copy(f, r)
+	_, err = io.Copy(file, reader)
 	if err != nil {
 		return err
 	}
@@ -166,7 +193,7 @@ func download(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.
 }
 
 // copy copies s3 compatible object src to s3 compatible object dst
-func copy(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPath) error {
+func copy(ctx context.Context, src fpath.FPath, dst fpath.FPath) error {
 	if src.IsLocal() {
 		return fmt.Errorf("source must be Storj URL: %s", src)
 	}
@@ -175,45 +202,61 @@ func copy(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPat
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
 
-	o, err := bs.GetObjectStore(ctx, src.Bucket())
-	if err != nil {
-		return convertError(err, src)
-	}
-
-	rr, _, err := o.Get(ctx, src.Path())
-	if err != nil {
-		return convertError(err, src)
-	}
-
-	r, err := rr.Range(ctx, 0, rr.Size())
+	metainfo, streams, err := cfg.Metainfo(ctx)
 	if err != nil {
 		return err
 	}
-	defer utils.LogClose(r)
+
+	srcBucket, err := metainfo.GetBucket(ctx, src.Bucket())
+	if err != nil {
+		return convertError(err, dst)
+	}
+
+	readOnlyStream, err := metainfo.GetObjectStream(ctx, srcBucket.Name, src.Path())
+	if err != nil {
+		return convertError(err, src)
+	}
+
+	download := stream.NewDownload(ctx, readOnlyStream, streams, srcBucket.PathCipher)
+	defer utils.LogClose(download)
 
 	var bar *progressbar.ProgressBar
+	var reader io.Reader
 	if *progress {
-		bar = progressbar.New(int(rr.Size())).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New(int(readOnlyStream.Info().Size)).SetUnits(progressbar.U_BYTES)
 		bar.Start()
-		r = bar.NewProxyReader(r)
+		reader = bar.NewProxyReader(download)
+	} else {
+		reader = download
 	}
-
-	if dst.Bucket() != src.Bucket() {
-		o, err = bs.GetObjectStore(ctx, dst.Bucket())
-		if err != nil {
-			return convertError(err, dst)
-		}
-	}
-
-	meta := pb.SerializableMeta{}
-	expTime := time.Time{}
 
 	// if destination object name not specified, default to source object name
 	if strings.HasSuffix(dst.Path(), "/") {
 		dst = dst.Join(src.Base())
 	}
 
-	_, err = o.Put(ctx, dst.Path(), r, meta, expTime)
+	dstBucket, err := metainfo.GetBucket(ctx, dst.Bucket())
+	if err != nil {
+		return convertError(err, dst)
+	}
+
+	create := storj.CreateObject{
+		RedundancyScheme: cfg.GetRedundancyScheme(),
+		EncryptionScheme: cfg.GetEncryptionScheme(),
+	}
+	obj, err := metainfo.CreateObject(ctx, dstBucket.Name, dst.Path(), &create)
+	if err != nil {
+		return convertError(err, dst)
+	}
+
+	mutableStream, err := obj.CreateStream(ctx)
+	if err != nil {
+		return err
+	}
+
+	upload := stream.NewUpload(ctx, mutableStream, streams, dstBucket.PathCipher)
+	defer utils.LogClose(upload)
+	_, err = io.Copy(upload, reader)
 	if err != nil {
 		return err
 	}
@@ -242,12 +285,8 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	dst, err := fpath.New(args[1])
-	if err != nil {
-		return err
-	}
 
-	bs, err := cfg.BucketStore(ctx)
+	dst, err := fpath.New(args[1])
 	if err != nil {
 		return err
 	}
@@ -259,14 +298,14 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 
 	// if uploading
 	if src.IsLocal() {
-		return upload(ctx, bs, src, dst, *progress)
+		return upload(ctx, src, dst, *progress)
 	}
 
 	// if downloading
 	if dst.IsLocal() {
-		return download(ctx, bs, src, dst, *progress)
+		return download(ctx, src, dst, *progress)
 	}
 
 	// if copying from one remote location to another
-	return copy(ctx, bs, src, dst)
+	return copy(ctx, src, dst)
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -40,12 +41,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	fmt.Printf("Secret key: %s\n", cfg.SecretKey)
 
 	ctx := process.Ctx(cmd)
-	bs, err := cfg.BucketStore(ctx)
+	metainfo, _, err := cfg.Metainfo(ctx)
 	if err != nil {
 		return err
 	}
 
-	_, _, err = bs.List(ctx, "", "", 0)
+	_, err = metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
 	if err != nil {
 		return fmt.Errorf("Failed to contact Satellite.\n"+
 			"Perhaps your configuration is invalid?\n%s", err)
