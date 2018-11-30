@@ -203,10 +203,9 @@ func (t *tally) Query(ctx context.Context) error {
 	}
 
 	//todo:  consider if we actually need EndTime in granular
-	previousLatestBwa, err := t.db.Find_Timestamps_Value_By_Name(ctx, accounting.LastBandwidthTally)
-	if err != nil {
+	if lastBwTally == nil {
 		t.logger.Info("No previous bandwidth timestamp found in tally query")
-		previousLatestBwa.Value = latestBwa //todo: something better here?
+		lastBwTally = &dbx.Value_Row{Value: latestBwa} //todo: something better here?
 	}
 
 	//insert all records in a transaction so if we fail, we don't have partial info stored
@@ -228,7 +227,7 @@ func (t *tally) Query(ctx context.Context) error {
 	//todo:  switch to bulk update SQL?
 	for k, v := range bwTotals {
 		nID := dbx.Granular_NodeId(k)
-		start := dbx.Granular_StartTime(previousLatestBwa.Value)
+		start := dbx.Granular_StartTime(lastBwTally.Value)
 		end := dbx.Granular_EndTime(latestBwa)
 		total := dbx.Granular_DataTotal(v)
 		_, err = t.db.Create_Granular(ctx, nID, start, end, total)
