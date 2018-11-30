@@ -222,7 +222,7 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
-func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (pb.Node, error) {
+func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error) {
 	kb := k.routingTable.K()
 	nodes, err := k.routingTable.FindNear(ID, kb)
 	if err != nil {

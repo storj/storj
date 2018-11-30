@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"storj.io/storj/internal/testcontext"
@@ -29,12 +30,9 @@ func TestLookupNodes(t *testing.T) {
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
-
 	k := planet.Satellites[0].Kademlia
-
-	fmt.Printf("K: %+v\n", k)
-	// err = k.Bootstrap(ctx)
-	// assert.NoError(t, err)
+	time.Sleep(5 * time.Second)
+	fmt.Printf("Done waiting")
 
 	id, err := newTestIdentity()
 	assert.NoError(t, err)

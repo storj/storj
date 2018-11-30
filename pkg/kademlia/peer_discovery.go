@@ -17,7 +17,7 @@ import (
 
 type peerDiscovery struct {
 	client   node.Client
-	target   dht.NodeID
+	target   storj.NodeID
 	opts     discoveryOptions
 	foundOne chan *pb.Node
 	foundAll chan []*pb.Node
