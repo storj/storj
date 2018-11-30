@@ -58,7 +58,8 @@ goimports-fix: ## Applies goimports to every go file (excluding vendored files)
 .PHONY: proto
 proto: ## Rebuild protobuf files
 	@echo "Running ${@}"
-	./scripts/build-protos.sh
+	go run scripts/protobuf.go install
+	go run scripts/protobuf.go generate
 
 ##@ Test
 

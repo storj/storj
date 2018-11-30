@@ -18,204 +18,72 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-type SegmentMeta struct {
-	EncryptedKey         []byte   `protobuf:"bytes,1,opt,name=encrypted_key,json=encryptedKey,proto3" json:"encrypted_key,omitempty"`
-	KeyNonce             []byte   `protobuf:"bytes,2,opt,name=key_nonce,json=keyNonce,proto3" json:"key_nonce,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+// SerializableMeta is the object metadata that will be stored serialized
+type SerializableMeta struct {
+	ContentType          string            `protobuf:"bytes,1,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	UserDefined          map[string]string `protobuf:"bytes,2,rep,name=user_defined,json=userDefined" json:"user_defined,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
 }
 
-func (m *SegmentMeta) Reset()         { *m = SegmentMeta{} }
-func (m *SegmentMeta) String() string { return proto.CompactTextString(m) }
-func (*SegmentMeta) ProtoMessage()    {}
-func (*SegmentMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_meta_f2973588633dae4c, []int{0}
+func (m *SerializableMeta) Reset()         { *m = SerializableMeta{} }
+func (m *SerializableMeta) String() string { return proto.CompactTextString(m) }
+func (*SerializableMeta) ProtoMessage()    {}
+func (*SerializableMeta) Descriptor() ([]byte, []int) {
+	return fileDescriptor_meta_12afffbb4ed1a0bb, []int{0}
 }
-func (m *SegmentMeta) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SegmentMeta.Unmarshal(m, b)
+func (m *SerializableMeta) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SerializableMeta.Unmarshal(m, b)
 }
-func (m *SegmentMeta) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SegmentMeta.Marshal(b, m, deterministic)
+func (m *SerializableMeta) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SerializableMeta.Marshal(b, m, deterministic)
 }
-func (dst *SegmentMeta) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentMeta.Merge(dst, src)
+func (dst *SerializableMeta) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SerializableMeta.Merge(dst, src)
 }
-func (m *SegmentMeta) XXX_Size() int {
-	return xxx_messageInfo_SegmentMeta.Size(m)
+func (m *SerializableMeta) XXX_Size() int {
+	return xxx_messageInfo_SerializableMeta.Size(m)
 }
-func (m *SegmentMeta) XXX_DiscardUnknown() {
-	xxx_messageInfo_SegmentMeta.DiscardUnknown(m)
+func (m *SerializableMeta) XXX_DiscardUnknown() {
+	xxx_messageInfo_SerializableMeta.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SegmentMeta proto.InternalMessageInfo
+var xxx_messageInfo_SerializableMeta proto.InternalMessageInfo
 
-func (m *SegmentMeta) GetEncryptedKey() []byte {
+func (m *SerializableMeta) GetContentType() string {
 	if m != nil {
-		return m.EncryptedKey
+		return m.ContentType
 	}
-	return nil
+	return ""
 }
 
-func (m *SegmentMeta) GetKeyNonce() []byte {
+func (m *SerializableMeta) GetUserDefined() map[string]string {
 	if m != nil {
-		return m.KeyNonce
-	}
-	return nil
-}
-
-type StreamInfo struct {
-	NumberOfSegments     int64    `protobuf:"varint,1,opt,name=number_of_segments,json=numberOfSegments,proto3" json:"number_of_segments,omitempty"`
-	SegmentsSize         int64    `protobuf:"varint,2,opt,name=segments_size,json=segmentsSize,proto3" json:"segments_size,omitempty"`
-	LastSegmentSize      int64    `protobuf:"varint,3,opt,name=last_segment_size,json=lastSegmentSize,proto3" json:"last_segment_size,omitempty"`
-	Metadata             []byte   `protobuf:"bytes,4,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *StreamInfo) Reset()         { *m = StreamInfo{} }
-func (m *StreamInfo) String() string { return proto.CompactTextString(m) }
-func (*StreamInfo) ProtoMessage()    {}
-func (*StreamInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_meta_f2973588633dae4c, []int{1}
-}
-func (m *StreamInfo) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_StreamInfo.Unmarshal(m, b)
-}
-func (m *StreamInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_StreamInfo.Marshal(b, m, deterministic)
-}
-func (dst *StreamInfo) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StreamInfo.Merge(dst, src)
-}
-func (m *StreamInfo) XXX_Size() int {
-	return xxx_messageInfo_StreamInfo.Size(m)
-}
-func (m *StreamInfo) XXX_DiscardUnknown() {
-	xxx_messageInfo_StreamInfo.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_StreamInfo proto.InternalMessageInfo
-
-func (m *StreamInfo) GetNumberOfSegments() int64 {
-	if m != nil {
-		return m.NumberOfSegments
-	}
-	return 0
-}
-
-func (m *StreamInfo) GetSegmentsSize() int64 {
-	if m != nil {
-		return m.SegmentsSize
-	}
-	return 0
-}
-
-func (m *StreamInfo) GetLastSegmentSize() int64 {
-	if m != nil {
-		return m.LastSegmentSize
-	}
-	return 0
-}
-
-func (m *StreamInfo) GetMetadata() []byte {
-	if m != nil {
-		return m.Metadata
-	}
-	return nil
-}
-
-type StreamMeta struct {
-	EncryptedStreamInfo  []byte       `protobuf:"bytes,1,opt,name=encrypted_stream_info,json=encryptedStreamInfo,proto3" json:"encrypted_stream_info,omitempty"`
-	EncryptionType       int32        `protobuf:"varint,2,opt,name=encryption_type,json=encryptionType,proto3" json:"encryption_type,omitempty"`
-	EncryptionBlockSize  int32        `protobuf:"varint,3,opt,name=encryption_block_size,json=encryptionBlockSize,proto3" json:"encryption_block_size,omitempty"`
-	LastSegmentMeta      *SegmentMeta `protobuf:"bytes,4,opt,name=last_segment_meta,json=lastSegmentMeta" json:"last_segment_meta,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
-}
-
-func (m *StreamMeta) Reset()         { *m = StreamMeta{} }
-func (m *StreamMeta) String() string { return proto.CompactTextString(m) }
-func (*StreamMeta) ProtoMessage()    {}
-func (*StreamMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_meta_f2973588633dae4c, []int{2}
-}
-func (m *StreamMeta) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_StreamMeta.Unmarshal(m, b)
-}
-func (m *StreamMeta) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_StreamMeta.Marshal(b, m, deterministic)
-}
-func (dst *StreamMeta) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StreamMeta.Merge(dst, src)
-}
-func (m *StreamMeta) XXX_Size() int {
-	return xxx_messageInfo_StreamMeta.Size(m)
-}
-func (m *StreamMeta) XXX_DiscardUnknown() {
-	xxx_messageInfo_StreamMeta.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_StreamMeta proto.InternalMessageInfo
-
-func (m *StreamMeta) GetEncryptedStreamInfo() []byte {
-	if m != nil {
-		return m.EncryptedStreamInfo
-	}
-	return nil
-}
-
-func (m *StreamMeta) GetEncryptionType() int32 {
-	if m != nil {
-		return m.EncryptionType
-	}
-	return 0
-}
-
-func (m *StreamMeta) GetEncryptionBlockSize() int32 {
-	if m != nil {
-		return m.EncryptionBlockSize
-	}
-	return 0
-}
-
-func (m *StreamMeta) GetLastSegmentMeta() *SegmentMeta {
-	if m != nil {
-		return m.LastSegmentMeta
+		return m.UserDefined
 	}
 	return nil
 }
 
 func init() {
-	proto.RegisterType((*SegmentMeta)(nil), "streams.SegmentMeta")
-	proto.RegisterType((*StreamInfo)(nil), "streams.StreamInfo")
-	proto.RegisterType((*StreamMeta)(nil), "streams.StreamMeta")
+	proto.RegisterType((*SerializableMeta)(nil), "pb.SerializableMeta")
+	proto.RegisterMapType((map[string]string)(nil), "pb.SerializableMeta.UserDefinedEntry")
 }
 
-func init() { proto.RegisterFile("meta.proto", fileDescriptor_meta_f2973588633dae4c) }
+func init() { proto.RegisterFile("meta.proto", fileDescriptor_meta_12afffbb4ed1a0bb) }
 
-var fileDescriptor_meta_f2973588633dae4c = []byte{
-	// 306 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x51, 0xcd, 0x4e, 0xf3, 0x30,
-	0x10, 0x54, 0xff, 0xbe, 0xaf, 0x6c, 0x03, 0x05, 0x03, 0x52, 0x04, 0x17, 0x14, 0x0e, 0x20, 0x84,
-	0x72, 0x28, 0x2f, 0x80, 0x7a, 0x43, 0x08, 0x2a, 0x25, 0x9c, 0xb8, 0x58, 0x4e, 0xba, 0x41, 0x51,
-	0x1a, 0x3b, 0x8a, 0xcd, 0xc1, 0x7d, 0x21, 0x1e, 0x8b, 0x57, 0x41, 0xb6, 0xf3, 0x07, 0xc7, 0x9d,
-	0x19, 0xcd, 0xce, 0xec, 0x02, 0x94, 0xa8, 0x58, 0x58, 0xd5, 0x42, 0x09, 0xf2, 0x5f, 0xaa, 0x1a,
-	0x59, 0x29, 0x83, 0x0d, 0x2c, 0x62, 0xfc, 0x28, 0x91, 0xab, 0x17, 0x54, 0x8c, 0x5c, 0xc3, 0x21,
-	0xf2, 0xb4, 0xd6, 0x95, 0xc2, 0x2d, 0x2d, 0x50, 0xfb, 0xa3, 0xab, 0xd1, 0xad, 0x17, 0x79, 0x1d,
-	0xf8, 0x8c, 0x9a, 0x5c, 0xc2, 0x41, 0x81, 0x9a, 0x72, 0xc1, 0x53, 0xf4, 0xc7, 0x56, 0x30, 0x2f,
-	0x50, 0xbf, 0x9a, 0x39, 0xf8, 0x1a, 0x01, 0xc4, 0xd6, 0xfc, 0x89, 0x67, 0x82, 0xdc, 0x03, 0xe1,
-	0x9f, 0x65, 0x82, 0x35, 0x15, 0x19, 0x95, 0x6e, 0x93, 0xb4, 0xae, 0x93, 0xe8, 0xd8, 0x31, 0x9b,
-	0xac, 0x49, 0x20, 0xcd, 0xfa, 0x56, 0x43, 0x65, 0xbe, 0x77, 0xee, 0x93, 0xc8, 0x6b, 0xc1, 0x38,
-	0xdf, 0x23, 0xb9, 0x83, 0x93, 0x1d, 0x93, 0xaa, 0x75, 0x73, 0xc2, 0x89, 0x15, 0x2e, 0x0d, 0xd1,
-	0xb8, 0x59, 0xed, 0x05, 0xcc, 0x4d, 0xeb, 0x2d, 0x53, 0xcc, 0x9f, 0xba, 0xa4, 0xed, 0x1c, 0x7c,
-	0x77, 0x49, 0x6d, 0xf5, 0x15, 0x9c, 0xf7, 0xd5, 0xdd, 0x79, 0x68, 0xce, 0x33, 0xd1, 0x9c, 0xe0,
-	0xb4, 0x23, 0x07, 0xed, 0x6e, 0x60, 0xd9, 0xc0, 0xb9, 0xe0, 0x54, 0xe9, 0xca, 0x25, 0x9e, 0x45,
-	0x47, 0x3d, 0xfc, 0xa6, 0x2b, 0x1c, 0x98, 0x1b, 0x61, 0xb2, 0x13, 0x69, 0xd1, 0xe7, 0x9e, 0x75,
-	0xe6, 0xb9, 0xe0, 0x6b, 0xc3, 0xd9, 0xec, 0x8f, 0x7f, 0x7a, 0x9a, 0xe0, 0xb6, 0xc4, 0x62, 0x75,
-	0x16, 0x36, 0xff, 0x0b, 0x07, 0xcf, 0xfb, 0xd5, 0xde, 0x00, 0xeb, 0xe9, 0xfb, 0xb8, 0x4a, 0x92,
-	0x7f, 0xf6, 0xe5, 0x0f, 0x3f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x24, 0xc6, 0xa2, 0x54, 0x00, 0x02,
-	0x00, 0x00,
+var fileDescriptor_meta_12afffbb4ed1a0bb = []byte{
+	// 191 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xca, 0x4d, 0x2d, 0x49,
+	0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0xcf, 0x4f, 0xca, 0x4a, 0x4d, 0x2e, 0x29, 0x56,
+	0x3a, 0xc2, 0xc8, 0x25, 0x10, 0x9c, 0x5a, 0x94, 0x99, 0x98, 0x93, 0x59, 0x95, 0x98, 0x94, 0x93,
+	0xea, 0x9b, 0x5a, 0x92, 0x28, 0xa4, 0xc8, 0xc5, 0x93, 0x9c, 0x9f, 0x57, 0x92, 0x9a, 0x57, 0x12,
+	0x5f, 0x52, 0x59, 0x90, 0x2a, 0xc1, 0xa8, 0xc0, 0xa8, 0xc1, 0x19, 0xc4, 0x0d, 0x15, 0x0b, 0xa9,
+	0x2c, 0x48, 0x15, 0xf2, 0xe5, 0xe2, 0x29, 0x2d, 0x4e, 0x2d, 0x8a, 0x4f, 0x49, 0x4d, 0xcb, 0xcc,
+	0x4b, 0x4d, 0x91, 0x60, 0x52, 0x60, 0xd6, 0xe0, 0x36, 0xd2, 0xd2, 0x83, 0x9a, 0xab, 0x87, 0x6e,
+	0xa6, 0x5e, 0x68, 0x71, 0x6a, 0x91, 0x0b, 0x44, 0xb1, 0x6b, 0x5e, 0x49, 0x51, 0x65, 0x10, 0x77,
+	0x29, 0x42, 0x44, 0xca, 0x8e, 0x4b, 0x00, 0x5d, 0x81, 0x90, 0x00, 0x17, 0x73, 0x76, 0x6a, 0x25,
+	0xd4, 0x72, 0x10, 0x53, 0x48, 0x84, 0x8b, 0xb5, 0x2c, 0x31, 0xa7, 0x34, 0x55, 0x82, 0x09, 0x2c,
+	0x06, 0xe1, 0x58, 0x31, 0x59, 0x30, 0x3a, 0xb1, 0x44, 0x31, 0x15, 0x24, 0x25, 0xb1, 0x81, 0x3d,
+	0x67, 0x0c, 0x08, 0x00, 0x00, 0xff, 0xff, 0x4f, 0x25, 0xc0, 0xd0, 0xea, 0x00, 0x00, 0x00,
 }

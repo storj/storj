@@ -17,6 +17,7 @@ import (
 	"github.com/minio/minio/pkg/hash"
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/buckets"
 	mock_buckets "storj.io/storj/pkg/storage/buckets/mocks"
@@ -63,7 +64,7 @@ func TestCopyObject(t *testing.T) {
 			"userdef_key2": "userdef_val2",
 		}
 
-		serMeta := objects.SerializableMeta{
+		serMeta := pb.SerializableMeta{
 			ContentType: metadata["content-type"],
 			UserDefined: map[string]string{
 				"userdef_key1": metadata["userdef_key1"],
@@ -237,7 +238,7 @@ func TestPutObject(t *testing.T) {
 			"userdef_key2": "userdef_val2",
 		}
 
-		serMeta := objects.SerializableMeta{
+		serMeta := pb.SerializableMeta{
 			ContentType: metadata["content-type"],
 			UserDefined: map[string]string{
 				"userdef_key1": metadata["userdef_key1"],
@@ -290,7 +291,7 @@ func TestGetObjectInfo(t *testing.T) {
 		Expiration: time.Time{},
 		Size:       1234,
 		Checksum:   "test-checksum",
-		SerializableMeta: objects.SerializableMeta{
+		SerializableMeta: pb.SerializableMeta{
 			ContentType: "media/foo",
 			UserDefined: map[string]string{
 				"userdef_key1": "userdef_val1",
