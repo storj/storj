@@ -75,11 +75,11 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 					next, _ = lookup.queue.Closest()
 
 					// Send node on channel if it matches target
-					if next.GetId() == lookup.target.String() {
+					if next.Id.String() == lookup.target.String() {
 						lookup.foundOne <- next
 					}
 
-					if !lookup.opts.bootstrap && next.GetId() == lookup.target.String() {
+					if !lookup.opts.bootstrap && next.Id.String() == lookup.target.String() {
 						allDone = true
 						break // closest node is the target and is already in routing table (i.e. no lookup required)
 					}
@@ -94,7 +94,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 				}
 				lookup.cond.L.Unlock()
 
-				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target.String()})
+				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target})
 
 				if err != nil {
 					ok := lookup.queue.Reinsert(lookup.target, next, lookup.opts.retries)
