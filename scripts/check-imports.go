@@ -10,7 +10,6 @@ import (
 	"go/ast"
 	"go/token"
 	"os"
-	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -76,11 +75,11 @@ func main() {
 
 func process(pkg *packages.Package) {
 	for i, file := range pkg.Syntax {
-		SortImports(pkg.Fset, pkg.CompiledGoFiles[i], file)
+		checkImports(pkg.Fset, pkg.CompiledGoFiles[i], file)
 	}
 }
 
-func SortImports(fset *token.FileSet, name string, f *ast.File) {
+func checkImports(fset *token.FileSet, name string, f *ast.File) {
 	for _, d := range f.Decls {
 		d, ok := d.(*ast.GenDecl)
 		if !ok || d.Tok != token.IMPORT {
@@ -151,21 +150,6 @@ func correctOrder(specgroups [][]ast.Spec) bool {
 	return other > 0 && std+storj == 0
 }
 
-func isStdGroup(p []ast.Spec) bool {
-	imp := p[0].(*ast.ImportSpec)
-	return stdlib[imp.Path.Value]
-}
-
-func printGroup(p []ast.Spec) {
-	std, other, storj := countGroup(p)
-	fmt.Print(std, ":", other, ":", storj, " = ")
-	for _, imp := range p {
-		imp := imp.(*ast.ImportSpec)
-		fmt.Print(imp.Path.Value, ";")
-	}
-	fmt.Println()
-}
-
 func countGroup(p []ast.Spec) (std, other, storj int) {
 	for _, imp := range p {
 		imp := imp.(*ast.ImportSpec)
@@ -192,7 +176,7 @@ func includeStd(p *packages.Package) {
 		stdlib[p.ID] = true
 		return
 	}
-	if filepath.HasPrefix(p.GoFiles[0], root) {
+	if strings.HasPrefix(p.GoFiles[0], root) {
 		stdlib[p.ID] = true
 		return
 	}
