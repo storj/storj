@@ -60,11 +60,12 @@ var (
 		BasePath string `default:"$CONFDIR" help:"base path for setup"`
 	}
 
-	defaultConfDir = "$HOME/.storj/storagenode"
+	defaultConfDir string
 	defaultDiagDir = "$HOME/.storj/capt/f37/data"
 )
 
 func init() {
+	defaultConfDir = process.ApplicationDir("storj", "storagenode")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)

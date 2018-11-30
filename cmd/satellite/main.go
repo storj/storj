@@ -87,10 +87,11 @@ var (
 		QListLimit  int    `help:"maximum segments that can be requested" default:"1000"`
 	}
 
-	defaultConfDir = "$HOME/.storj/satellite"
+	defaultConfDir string
 )
 
 func init() {
+	defaultConfDir = process.ApplicationDir("storj", "satellite")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
