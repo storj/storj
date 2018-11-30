@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
@@ -35,7 +35,7 @@ func TestGetObject(t *testing.T) {
 		}
 
 		var exp time.Time
-		_, err = store.Put(ctx, "test-file", bytes.NewReader(nil), objects.SerializableMeta{}, exp)
+		_, err = store.Put(ctx, "test-file", bytes.NewReader(nil), pb.SerializableMeta{}, exp)
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -75,12 +75,12 @@ func TestGetObjectStream(t *testing.T) {
 		}
 
 		var exp time.Time
-		_, err = store.Put(ctx, "empty-file", bytes.NewReader(nil), objects.SerializableMeta{}, exp)
+		_, err = store.Put(ctx, "empty-file", bytes.NewReader(nil), pb.SerializableMeta{}, exp)
 		if !assert.NoError(t, err) {
 			return
 		}
 
-		_, err = store.Put(ctx, "small-file", bytes.NewReader([]byte("test")), objects.SerializableMeta{}, exp)
+		_, err = store.Put(ctx, "small-file", bytes.NewReader([]byte("test")), pb.SerializableMeta{}, exp)
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -92,7 +92,7 @@ func TestGetObjectStream(t *testing.T) {
 		}
 
 		fmt.Println("BEFORE")
-		_, err = store.Put(ctx, "large-file", bytes.NewReader(data), objects.SerializableMeta{}, exp)
+		_, err = store.Put(ctx, "large-file", bytes.NewReader(data), pb.SerializableMeta{}, exp)
 		fmt.Println("AFTER")
 		if !assert.NoError(t, err) {
 			return
@@ -205,7 +205,7 @@ func TestDeleteObject(t *testing.T) {
 		}
 
 		var exp time.Time
-		_, err = store.Put(ctx, "test-file", bytes.NewReader(nil), objects.SerializableMeta{}, exp)
+		_, err = store.Put(ctx, "test-file", bytes.NewReader(nil), pb.SerializableMeta{}, exp)
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -274,7 +274,7 @@ func TestListObjects(t *testing.T) {
 			"b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc",
 		}
 		for _, path := range filePaths {
-			_, err = store.Put(ctx, path, bytes.NewReader(nil), objects.SerializableMeta{}, exp)
+			_, err = store.Put(ctx, path, bytes.NewReader(nil), pb.SerializableMeta{}, exp)
 			if !assert.NoError(t, err) {
 				return
 			}
@@ -290,7 +290,7 @@ func TestListObjects(t *testing.T) {
 			return
 		}
 
-		_, err = otherStore.Put(ctx, "file-in-other-bucket", bytes.NewReader(nil), objects.SerializableMeta{}, exp)
+		_, err = otherStore.Put(ctx, "file-in-other-bucket", bytes.NewReader(nil), pb.SerializableMeta{}, exp)
 		if !assert.NoError(t, err) {
 			return
 		}
