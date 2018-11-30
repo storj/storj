@@ -5,6 +5,7 @@ package overlay_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
@@ -50,13 +51,20 @@ func TestChoose(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 4, 0)
+	planet, err := testplanet.New(t, 1, 4, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer ctx.Check(planet.Shutdown)
 
-	overlayAddr := planet.Satellites[0].Addr()
+	planet.Start(ctx)
+	// we wait a second for all the nodes to complete bootstrapping off the satellite
+	time.Sleep(2 * time.Second)
+
+	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	cases := []struct {
 		limit        int
@@ -113,18 +121,6 @@ func TestChoose(t *testing.T) {
 			})
 		}
 
-		ca, err := testidentity.NewTestCA(ctx)
-		assert.NoError(t, err)
-		identity, err := ca.NewIdentity()
-		assert.NoError(t, err)
-
-		oc, err := overlay.NewOverlayClient(identity, overlayAddr)
-		assert.NoError(t, err)
-
-		assert.NotNil(t, oc)
-		_, ok := oc.(*overlay.Overlay)
-		assert.True(t, ok)
-
 		newNodes, err := oc.Choose(ctx, overlay.Options{
 			Amount:       v.limit,
 			Space:        v.space,
@@ -158,13 +154,20 @@ func TestLookup(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 4, 0)
+	planet, err := testplanet.New(t, 1, 4, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer ctx.Check(planet.Shutdown)
 
-	overlayAddr := planet.Satellites[0].Addr()
+	planet.Start(ctx)
+	// we wait a second for all the nodes to complete bootstrapping off the satellite
+	time.Sleep(2 * time.Second)
+
+	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+	if err != nil {
+		t.Fatal(err)
+	}
 	nid1 := planet.StorageNodes[0].ID()
 
 	cases := []struct {
@@ -182,18 +185,6 @@ func TestLookup(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		ca, err := testidentity.NewTestCA(ctx)
-		assert.NoError(t, err)
-		identity, err := ca.NewIdentity()
-		assert.NoError(t, err)
-
-		oc, err := overlay.NewOverlayClient(identity, overlayAddr)
-		assert.NoError(t, err)
-
-		assert.NotNil(t, oc)
-		_, ok := oc.(*overlay.Overlay)
-		assert.True(t, ok)
-
 		n, err := oc.Lookup(ctx, v.nodeID)
 		if v.expectErr {
 			assert.Error(t, err)
@@ -209,13 +200,20 @@ func TestBulkLookup(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 4, 0)
+	planet, err := testplanet.New(t, 1, 4, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer ctx.Check(planet.Shutdown)
 
-	overlayAddr := planet.Satellites[0].Addr()
+	planet.Start(ctx)
+	// we wait a second for all the nodes to complete bootstrapping off the satellite
+	time.Sleep(2 * time.Second)
+
+	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+	if err != nil {
+		t.Fatal(err)
+	}
 	nid1 := planet.StorageNodes[0].ID()
 	nid2 := planet.StorageNodes[1].ID()
 	nid3 := planet.StorageNodes[2].ID()
@@ -230,18 +228,6 @@ func TestBulkLookup(t *testing.T) {
 		},
 	}
 	for _, v := range cases {
-		ca, err := testidentity.NewTestCA(ctx)
-		assert.NoError(t, err)
-		identity, err := ca.NewIdentity()
-		assert.NoError(t, err)
-
-		oc, err := overlay.NewOverlayClient(identity, overlayAddr)
-		assert.NoError(t, err)
-
-		assert.NotNil(t, oc)
-		_, ok := oc.(*overlay.Overlay)
-		assert.True(t, ok)
-
 		resNodes, err := oc.BulkLookup(ctx, v.nodeIDs)
 		assert.NoError(t, err)
 
@@ -260,26 +246,21 @@ func TestBulkLookupV2(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 4, 0)
+	planet, err := testplanet.New(t, 1, 4, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer ctx.Check(planet.Shutdown)
 
-	overlayAddr := planet.Satellites[0].Addr()
+	planet.Start(ctx)
+	// we wait a second for all the nodes to complete bootstrapping off the satellite
+	time.Sleep(2 * time.Second)
+
+	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+	if err != nil {
+		t.Fatal(err)
+	}
 	cache := planet.Satellites[0].Overlay
-
-	ca, err := testidentity.NewTestCA(ctx)
-	assert.NoError(t, err)
-	identity, err := ca.NewIdentity()
-	assert.NoError(t, err)
-
-	oc, err := overlay.NewOverlayClient(identity, overlayAddr)
-	assert.NoError(t, err)
-
-	assert.NotNil(t, oc)
-	_, ok := oc.(*overlay.Overlay)
-	assert.True(t, ok)
 
 	n1 := teststorj.MockNode("n1")
 	n2 := teststorj.MockNode("n2")
