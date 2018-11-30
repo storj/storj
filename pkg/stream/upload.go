@@ -7,8 +7,11 @@ import (
 	"context"
 	"io"
 
+	"golang.org/x/sync/errgroup"
+
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 )
 
 // Upload implements Writer and Closer for writing to stream.
@@ -19,32 +22,31 @@ type Upload struct {
 	pathCipher storj.Cipher
 	writer     io.WriteCloser
 	closed     bool
-	done       chan struct{}
+	errgroup   errgroup.Group
 }
 
 // NewUpload creates new stream upload.
 func NewUpload(ctx context.Context, stream storj.MutableStream, streams streams.Store, pathCipher storj.Cipher) *Upload {
 	reader, writer := io.Pipe()
-	done := make(chan struct{})
 
-	go func() {
-		defer close(done)
-
-		obj := stream.Info()
-		_, err := streams.Put(ctx, storj.JoinPaths(obj.Bucket, obj.Path), pathCipher, reader, obj.Metadata, obj.Expires)
-		if err != nil {
-			_ = reader.CloseWithError(err)
-		}
-	}()
-
-	return &Upload{
+	upload := Upload{
 		ctx:        ctx,
 		stream:     stream,
 		streams:    streams,
 		pathCipher: pathCipher,
 		writer:     writer,
-		done:       done,
 	}
+
+	upload.errgroup.Go(func() error {
+		obj := stream.Info()
+		_, err := streams.Put(ctx, storj.JoinPaths(obj.Bucket, obj.Path), pathCipher, reader, obj.Metadata, obj.Expires)
+		if err != nil {
+			err = utils.CombineErrors(err, reader.CloseWithError(err))
+		}
+		return err
+	})
+
+	return &upload
 }
 
 // Write writes len(data) bytes from data to the underlying data stream.
@@ -69,7 +71,5 @@ func (upload *Upload) Close() error {
 	err := upload.writer.Close()
 
 	// Wait for streams.Put to commit the upload to the PointerDB
-	<-upload.done
-
-	return err
+	return utils.CombineErrors(err, upload.errgroup.Wait())
 }
