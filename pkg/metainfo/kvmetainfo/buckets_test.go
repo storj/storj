@@ -26,7 +26,7 @@ import (
 const (
 	TestAPIKey = "test-api-key"
 	TestEncKey = "test-encryption-key"
-	TestBucket = "testbucket"
+	TestBucket = "test-bucket"
 )
 
 func TestBucketsBasic(t *testing.T) {
