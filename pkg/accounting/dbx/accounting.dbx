@@ -1,5 +1,19 @@
 // dbx.v1 golang accounting.dbx .
 
+// timestamps just allows us to save the last time/thing that happened
+model timestamps (
+  key name
+
+  field name            text
+  field value timestamp ( updatable )
+)
+create timestamps ( )
+update timestamps ( where timestamps.name = ? )
+read scalar (
+  select timestamps.value
+  where  timestamps.name = ?
+)
+
 model aggregate (
 	key node_id
 
