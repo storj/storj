@@ -5,7 +5,6 @@ package inspector
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -42,9 +41,15 @@ type Server struct {
 
 // CountNodes returns the number of nodes in the cache and in kademlia
 func (srv *Server) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*pb.CountNodesResponse, error) {
+	overlayKeys, err := srv.cache.DB.List(nil, 0)
+	if err != nil {
+		return nil, err
+	}
+	kadNodes := srv.dht.Seen()
+
 	return &pb.CountNodesResponse{
-		Kademlia: 0,
-		Overlay:  0,
+		Kademlia: int64(len(kadNodes)),
+		Overlay:  int64(len(overlayKeys)),
 	}, nil
 }
 
@@ -106,14 +111,13 @@ func (srv *Server) PingNode(ctx context.Context, req *pb.PingNodeRequest) (*pb.P
 			Address: req.Address,
 		},
 	})
+	res := &pb.PingNodeResponse{Ok: p}
 
 	if err != nil {
-		return &pb.PingNodeResponse{}, ServerError.Wrap(err)
+		return res, ServerError.Wrap(err)
 	}
 
-	fmt.Printf("---- Pinged Node: %+v\n", p)
-
-	return &pb.PingNodeResponse{}, nil
+	return res, nil
 }
 
 // ---------------------
