@@ -67,32 +67,36 @@ var (
 	getBucketCmd = &cobra.Command{
 		Use:   "ls <bucket_id>",
 		Short: "get all nodes in bucket",
+		Args:  cobra.MinimumNArgs(1),
 		RunE:  GetBucket,
 	}
 	pingNodeCmd = &cobra.Command{
-		Use:   "ping <node_id>",
+		Use:   "ping <node_id> <ip:port>",
 		Short: "ping node at provided ID",
+		Args:  cobra.MinimumNArgs(2),
 		RunE:  PingNode,
 	}
 	getStatsCmd = &cobra.Command{
-		Use:   "getstats",
+		Use:   "getstats <node_id>",
 		Short: "Get node stats",
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  GetStats,
 	}
 	getCSVStatsCmd = &cobra.Command{
-		Use:   "getcsvstats",
+		Use:   "getcsvstats <path to node ID csv file>",
 		Short: "Get node stats from csv",
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  GetCSVStats,
 	}
 	createStatsCmd = &cobra.Command{
+		// TODO: add args to usage
 		Use:   "createstats",
 		Short: "Create node with stats",
 		Args:  cobra.MinimumNArgs(5), // id, auditct, auditsuccessct, uptimect, uptimesuccessct
 		RunE:  CreateStats,
 	}
 	createCSVStatsCmd = &cobra.Command{
+		// TODO: add args to usage
 		Use:   "createcsvstats",
 		Short: "Create node stats from csv",
 		Args:  cobra.MinimumNArgs(1),
@@ -167,10 +171,6 @@ func GetBuckets(cmd *cobra.Command, args []string) (err error) {
 
 // GetBucket returns a bucket with given `id`
 func GetBucket(cmd *cobra.Command, args []string) (err error) {
-	if len(args) < 1 {
-		return errs.New("Must provide at least one bucket ID")
-	}
-
 	i, err := NewInspector(*Addr)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
@@ -188,7 +188,7 @@ func GetBucket(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	fmt.Printf("Bucket ----------- \n %s\n", prettyPrintBucket(bucket))
+	fmt.Println(prettyPrintBucket(bucket))
 	return nil
 }
 
@@ -203,9 +203,6 @@ func prettyPrintBucket(b *pb.GetBucketResponse) string {
 
 // PingNode sends a PING RPC across the Kad network to check node availability
 func PingNode(cmd *cobra.Command, args []string) (err error) {
-	if len(args) < 2 {
-		return errs.New("Must provide a node ID and address to ping")
-	}
 	nodeID, err := storj.NodeIDFromString(args[0])
 	if err != nil {
 		return err
