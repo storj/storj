@@ -14,12 +14,11 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/storj"
-
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/auth"
 	dbx "storj.io/storj/pkg/statdb/dbx"
 	pb "storj.io/storj/pkg/statdb/proto"
+	"storj.io/storj/pkg/storj"
 )
 
 var (

@@ -9,13 +9,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/pkg/storj"
-
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"

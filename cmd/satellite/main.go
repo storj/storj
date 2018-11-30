@@ -16,8 +16,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/storj"
-
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
 	dbmanager "storj.io/storj/pkg/bwagreement/database-manager"
@@ -32,6 +30,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/redis"
 )
 

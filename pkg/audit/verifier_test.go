@@ -13,7 +13,6 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/internal/teststorj"
-
 	"storj.io/storj/pkg/pb"
 )
 

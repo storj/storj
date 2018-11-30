@@ -7,9 +7,8 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"go.uber.org/zap"
-
 	"github.com/graphql-go/graphql"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/satellite"
 )

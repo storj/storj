@@ -9,11 +9,10 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/storj"
-
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
 
