@@ -1,9 +1,11 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-export const AUTH_MUTATIONS = {
+export const USER_MUTATIONS = {
     SET_USER_INFO: "SET_USER_INFO",
     REVERT_TO_DEFAULT_USER_INFO: "REVERT_TO_DEFAULT_USER_INFO",
+    UPDATE_USER_INFO: "UPDATE_USER_INFO",
+    UPDATE_COMPANY_INFO: "UPDATE_COMPANY_INFO",
 };
 
 export const PROJECTS_MUTATIONS = {

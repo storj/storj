@@ -15,10 +15,10 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
@@ -355,7 +355,7 @@ func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, des
 
 	defer utils.LogClose(r)
 
-	serMetaInfo := objects.SerializableMeta{
+	serMetaInfo := pb.SerializableMeta{
 		ContentType: srcInfo.ContentType,
 		UserDefined: srcInfo.UserDefined,
 	}
@@ -363,7 +363,7 @@ func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, des
 	return s.putObject(ctx, destBucket, destObject, r, serMetaInfo)
 }
 
-func (s *storjObjects) putObject(ctx context.Context, bucket, object string, r io.Reader, meta objects.SerializableMeta) (objInfo minio.ObjectInfo, err error) {
+func (s *storjObjects) putObject(ctx context.Context, bucket, object string, r io.Reader, meta pb.SerializableMeta) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// setting zero value means the object never expires
@@ -390,7 +390,7 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string, dat
 	tempContType := metadata["content-type"]
 	delete(metadata, "content-type")
 	//metadata serialized
-	serMetaInfo := objects.SerializableMeta{
+	serMetaInfo := pb.SerializableMeta{
 		ContentType: tempContType,
 		UserDefined: metadata,
 	}

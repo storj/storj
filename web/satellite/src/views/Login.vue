@@ -45,7 +45,7 @@
     import Button from '@/components/common/Button.vue';
     import {setToken} from "../utils/tokenManager";
     import ROUTES from "../utils/constants/routerConstants";
-    import {login} from "../utils/qraphql/loginQuery";
+    import {login} from "@/api/users";
 
     @Component({
         data: function () {
@@ -80,7 +80,6 @@
             }
 
         },
-        computed: {},
         components: {
             HeaderlessInput,
             Button

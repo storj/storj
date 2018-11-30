@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
@@ -188,7 +189,7 @@ func (sf *storjFS) Mkdir(name string, mode uint32, context *fuse.Context) fuse.S
 	zap.S().Debug("Mkdir: ", name)
 
 	reader := bytes.NewReader([]byte{})
-	meta := objects.SerializableMeta{ContentType: "application/directory"}
+	meta := pb.SerializableMeta{ContentType: "application/directory"}
 	expTime := time.Time{}
 
 	_, err := sf.store.Put(sf.ctx, name+"/", reader, meta, expTime)
@@ -389,7 +390,7 @@ func (f *storjFile) getWriter(off int64) (*io.PipeWriter, error) {
 				}
 			}()
 
-			meta := objects.SerializableMeta{}
+			meta := pb.SerializableMeta{}
 			expTime := time.Time{}
 
 			m, err := f.store.Put(f.ctx, f.name, reader, meta, expTime)

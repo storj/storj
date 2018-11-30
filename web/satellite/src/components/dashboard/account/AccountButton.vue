@@ -28,7 +28,6 @@ import AccountDropdown from "./AccountDropdown.vue";
     { 
         data: function() {
             return {
-                userName: this.$store.getters.userName,
                 isChoiceShown: false
             }
         },
@@ -39,7 +38,11 @@ import AccountDropdown from "./AccountDropdown.vue";
             },
             // may change later
             avatarLetter: function() : string {
-                return this.$data.userName.slice(0,1).toUpperCase();
+                return this.$store.getters.userName.slice(0,1).toUpperCase();
+            },
+            userName: function (): string {
+                return this.$store.getters.userName;
+
             }
         },
         methods: {

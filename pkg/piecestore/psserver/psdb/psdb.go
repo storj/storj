@@ -19,10 +19,9 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/storj"
-
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
 
