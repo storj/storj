@@ -30,7 +30,6 @@ export async function updateBasicUserInfo(user: User) {
     );
 
     if (!response) {
-        console.log("error while updating user");
         return null;
     }
 
@@ -68,7 +67,6 @@ export async function updateCompanyInfo(userId: string, company: Company) {
     );
 
     if (!response) {
-        console.log("error while updating company info");
         return null;
     }
 
@@ -99,7 +97,6 @@ export async function updatePassword(userId: string, password: string) {
     );
 
     if (!response) {
-        console.log("error while updating user");
         return null;
     }
 
@@ -137,7 +134,6 @@ export async function createUser(user: User, password: string): Promise<any> {
     );
 
     if (!response) {
-        console.log("cannot create user")
         return null;
     }
 
@@ -177,7 +173,6 @@ export async function login(email: string, password: string): Promise<any> {
     );
 
     if (!response) {
-        console.error("No token received");
         return null;
     }
 
@@ -202,7 +197,6 @@ export async function deleteUserAccount(userId: string): Promise<any> {
     );
 
     if(!response) {
-        console.error("No token received")
         return null;
     }
 
