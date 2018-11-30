@@ -19,6 +19,7 @@ type Upload struct {
 	pathCipher storj.Cipher
 	writer     io.WriteCloser
 	closed     bool
+	done       chan struct{}
 }
 
 // NewUpload creates new stream upload.
@@ -28,6 +29,7 @@ func NewUpload(ctx context.Context, stream storj.MutableStream, streams streams.
 		stream:     stream,
 		streams:    streams,
 		pathCipher: pathCipher,
+		done:       make(chan struct{}),
 	}
 }
 
@@ -61,7 +63,12 @@ func (upload *Upload) Close() error {
 		return nil
 	}
 
-	return upload.writer.Close()
+	err := upload.writer.Close()
+
+	// Wait for streams.Put to commit the upload to the PointerDB
+	<-upload.done
+
+	return err
 }
 
 func (upload *Upload) createWriter() error {
@@ -75,6 +82,10 @@ func (upload *Upload) createWriter() error {
 	reader, writer := io.Pipe()
 
 	go func() {
+		defer func() {
+			upload.done <- struct{}{}
+		}()
+
 		obj := upload.stream.Info()
 		_, err := upload.streams.Put(upload.ctx, storj.JoinPaths(obj.Bucket, obj.Path), upload.pathCipher, reader, obj.Metadata, obj.Expires)
 		if err != nil {
