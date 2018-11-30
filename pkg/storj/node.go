@@ -3,13 +3,177 @@
 
 package storj
 
-import "encoding/hex"
+import (
+	"math/bits"
+
+	"github.com/btcsuite/btcutil/base58"
+	"github.com/zeebo/errs"
+
+	"storj.io/storj/pkg/utils"
+)
+
+// IDVersion is the default version used in the base58check node ID encoding
+const IDVersion = 0
+
+var (
+	// ErrNodeID is used when something goes wrong with a node id
+	ErrNodeID = errs.Class("node ID error")
+)
 
 // NodeID is a unique node identifier
 type NodeID [32]byte
 
-// HexString returns NodeID as hex encoded string
-func (id *NodeID) HexString() string { return hex.EncodeToString(id[:]) }
+// NodeIDList is a slice of NodeIDs (implements sort)
+type NodeIDList []NodeID
+
+// NodeIDFromString decodes a base58check encoded node id string
+func NodeIDFromString(s string) (NodeID, error) {
+	idBytes, _, err := base58.CheckDecode(s)
+	if err != nil {
+		return NodeID{}, ErrNodeID.Wrap(err)
+	}
+	return NodeIDFromBytes(idBytes)
+}
+
+// NodeIDsFromBytes converts a 2d byte slice into a list of nodes
+func NodeIDsFromBytes(b [][]byte) (ids NodeIDList, err error) {
+	var idErrs []error
+	for _, idBytes := range b {
+		id, err := NodeIDFromBytes(idBytes)
+		if err != nil {
+			idErrs = append(idErrs, err)
+			continue
+		}
+
+		ids = append(ids, id)
+	}
+
+	if err = utils.CombineErrors(idErrs...); err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
+
+// NodeIDFromBytes converts a byte slice into a node id
+func NodeIDFromBytes(b []byte) (NodeID, error) {
+	bLen := len(b)
+	if bLen != len(NodeID{}) {
+		return NodeID{}, ErrNodeID.New("not enough bytes to make a node id; have %d, need %d", bLen, len(NodeID{}))
+	}
+
+	var id NodeID
+	copy(id[:], b[:])
+	return id, nil
+}
+
+// String returns NodeID as base58 encoded string with checksum and version bytes
+func (id NodeID) String() string {
+	return base58.CheckEncode(id[:], IDVersion)
+}
+
+// Len implements sort.Interface.Len()
+func (id NodeID) Len() int {
+	return len(id)
+}
+
+// Swap implements sort.Interface.Swap()
+func (id NodeID) Swap(i, j int) {
+	id[i], id[j] = id[j], id[i]
+}
+
+// Less implements sort.Interface.Less()
+func (id NodeID) Less(i, j int) bool {
+	return id[i] < id[j]
+}
 
 // Bytes returns raw bytes of the id
 func (id NodeID) Bytes() []byte { return id[:] }
+
+// Difficulty returns the number of trailing zero bits in a node ID
+func (id NodeID) Difficulty() (uint16, error) {
+	idLen := len(id)
+	for i := 1; i < idLen; i++ {
+		b := id[idLen-i]
+
+		if b != 0 {
+			zeroBits := bits.TrailingZeros16(uint16(b))
+			if zeroBits == 16 {
+				zeroBits = 0
+			}
+
+			return uint16((i-1)*8 + zeroBits), nil
+		}
+	}
+
+	return 0, ErrNodeID.New("difficulty matches id hash length: %d; hash (hex): % x", idLen, id)
+}
+
+// Marshal serializes a node id
+func (id NodeID) Marshal() ([]byte, error) {
+	return id.Bytes(), nil
+}
+
+// MarshalTo serializes a node ID into the passed byte slice
+func (id *NodeID) MarshalTo(data []byte) (n int, err error) {
+	n = copy(data, id.Bytes())
+	return n, nil
+}
+
+// Unmarshal deserializes a node ID
+func (id *NodeID) Unmarshal(data []byte) error {
+	var err error
+	*id, err = NodeIDFromBytes(data)
+	return err
+}
+
+// Size returns the length of a node ID (implements gogo's custom type interface)
+func (id *NodeID) Size() int {
+	return len(id)
+}
+
+// MarshalJSON serializes a node ID to a json string as bytes
+func (id NodeID) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + id.String() + `"`), nil
+}
+
+// UnmarshalJSON deserializes a json string (as bytes) to a node ID
+func (id *NodeID) UnmarshalJSON(data []byte) error {
+	var err error
+	*id, err = NodeIDFromString(string(data))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Bytes returns a 2d byte slice of the node IDs
+func (n NodeIDList) Bytes() (idsBytes [][]byte) {
+	for _, nid := range n {
+		idsBytes = append(idsBytes, nid.Bytes())
+	}
+	return idsBytes
+}
+
+// Len implements sort.Interface.Len()
+func (n NodeIDList) Len() int {
+	return len(n)
+}
+
+// Swap implements sort.Interface.Swap()
+func (n NodeIDList) Swap(i, j int) {
+	n[i], n[j] = n[j], n[i]
+}
+
+// Less implements sort.Interface.Less()
+func (n NodeIDList) Less(i, j int) bool {
+	for k, v := range n[i] {
+		if v < n[j][k] {
+			return true
+		} else if v > n[j][k] {
+			return false
+		}
+		// compare next index
+	}
+	// identical nodeIDs
+	return false
+}

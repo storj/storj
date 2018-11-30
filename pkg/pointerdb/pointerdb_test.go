@@ -21,9 +21,9 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	"storj.io/storj/internal/identity"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
@@ -67,7 +67,7 @@ func TestServicePut(t *testing.T) {
 
 func TestServiceGet(t *testing.T) {
 	ctx := context.Background()
-	ca, err := provider.NewTestCA(ctx)
+	ca, err := testidentity.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)

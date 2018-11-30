@@ -27,9 +27,6 @@ func graphqlCompany() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: companyType,
 		Fields: graphql.Fields{
-			fieldID: &graphql.Field{
-				Type: graphql.String,
-			},
 			fieldUserID: &graphql.Field{
 				Type: graphql.String,
 			},
@@ -92,4 +89,46 @@ func fromMapCompanyInfo(args map[string]interface{}) (company satellite.CompanyI
 	company.PostalCode, _ = args[fieldPostalCode].(string)
 
 	return
+}
+
+// fillCompanyInfo fills satellite.CompanyInfo from satellite.Company and input args
+func fillCompanyInfo(company *satellite.Company, args map[string]interface{}) satellite.CompanyInfo {
+	info := satellite.CompanyInfo{
+		Name:       company.Name,
+		Address:    company.Address,
+		Country:    company.Country,
+		City:       company.City,
+		State:      company.State,
+		PostalCode: company.PostalCode,
+	}
+
+	for fName, fValue := range args {
+		val, ok := fValue.(string)
+		if !ok {
+			continue
+		}
+
+		switch fName {
+		case fieldName:
+			info.Name = val
+			company.Name = val
+		case fieldAddress:
+			info.Address = val
+			company.Address = val
+		case fieldCountry:
+			info.Country = val
+			company.Country = val
+		case fieldCity:
+			info.City = val
+			company.City = val
+		case fieldState:
+			info.State = val
+			company.State = val
+		case fieldPostalCode:
+			info.PostalCode = val
+			company.PostalCode = val
+		}
+	}
+
+	return info
 }

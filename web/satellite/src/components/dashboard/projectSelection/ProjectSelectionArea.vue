@@ -26,14 +26,23 @@ import ProjectSelectionDropdown from "./ProjectSelectionDropdown.vue"
             }
         },
         methods: {
-            toggleSelection: function () {
+            toggleSelection: async function (): Promise<any> {
+                //TODO: add progress indicator while fetching
+                let isFetchSuccess = await this.$store.dispatch("fetchProjects");
+
+                if (!isFetchSuccess || this.$store.getters.projects.length === 0) {
+                    //TODO: popup error here
+                    console.log("error during project fetching!");
+                    return;
+                }
+
                 this.$data.isChoiceShown = !this.$data.isChoiceShown;
-                this.$store.dispatch("fetchProjects");
             }
         },
         computed: {
             name: function(): string {
-                return this.$store.getters.selectedProject.name;
+                let selectedProject = this.$store.getters.selectedProject;
+                return selectedProject.id ? selectedProject.name : "Choose project";
             }
         },
         components: {

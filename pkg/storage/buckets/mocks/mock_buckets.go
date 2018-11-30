@@ -6,8 +6,10 @@ package buckets
 
 import (
 	context "context"
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
+
 	buckets "storj.io/storj/pkg/storage/buckets"
 	objects "storj.io/storj/pkg/storage/objects"
 	storj "storj.io/storj/pkg/storj"

@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -24,7 +25,7 @@ type PeerCertificateAuthority struct {
 	// Cert is the x509 certificate of the CA
 	Cert *x509.Certificate
 	// The ID is calculated from the CA public key.
-	ID nodeID
+	ID storj.NodeID
 }
 
 // FullCertificateAuthority represents the CA which is used to author and validate full identities
@@ -33,7 +34,7 @@ type FullCertificateAuthority struct {
 	// Cert is the x509 certificate of the CA
 	Cert *x509.Certificate
 	// The ID is calculated from the CA public key.
-	ID nodeID
+	ID storj.NodeID
 	// Key is the private key of the CA
 	Key crypto.PrivateKey
 }
@@ -168,7 +169,7 @@ func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
 			pc.CertPath, err)
 	}
 
-	i, err := idFromKey(c[0].PublicKey)
+	i, err := NodeIDFromKey(c[0].PublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -256,12 +257,4 @@ func (ca FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 		Key:       k,
 		ID:        ca.ID,
 	}, nil
-}
-
-// NewTestCA returns a ca with a default difficulty and concurrency for use in tests
-func NewTestCA(ctx context.Context) (*FullCertificateAuthority, error) {
-	return NewCA(ctx, NewCAOptions{
-		Difficulty:  12,
-		Concurrency: 4,
-	})
 }

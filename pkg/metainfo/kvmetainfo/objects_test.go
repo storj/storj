@@ -246,7 +246,7 @@ func assertRemoteSegment(t *testing.T, segment storj.Segment) {
 		}
 		nums[piece.Number] = struct{}{}
 
-		id := piece.Location.HexString()
+		id := piece.Location.String()
 		if _, ok := nodes[id]; ok {
 			t.Fatalf("node id %s is not unique", id)
 		}

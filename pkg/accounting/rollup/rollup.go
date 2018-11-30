@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
 	dbx "storj.io/storj/pkg/accounting/dbx"
 )
 

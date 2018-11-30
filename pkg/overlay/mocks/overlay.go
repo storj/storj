@@ -10,18 +10,20 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/storj"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 )
 
 // Overlay is a mocked overlay implementation
 type Overlay struct {
-	nodes map[string]*pb.Node
+	nodes map[storj.NodeID]*pb.Node
 }
 
 // NewOverlay returns a newly initialized mock overlal
 func NewOverlay(nodes []*pb.Node) *Overlay {
-	rv := &Overlay{nodes: map[string]*pb.Node{}}
+	rv := &Overlay{nodes: map[storj.NodeID]*pb.Node{}}
 	for _, node := range nodes {
 		rv.nodes[node.Id] = node
 	}
@@ -52,7 +54,7 @@ func (mo *Overlay) FindStorageNodes(ctx context.Context, req *pb.FindStorageNode
 // Lookup finds a single storage node based on the request
 func (mo *Overlay) Lookup(ctx context.Context, req *pb.LookupRequest) (
 	*pb.LookupResponse, error) {
-	return &pb.LookupResponse{Node: mo.nodes[req.NodeID]}, nil
+	return &pb.LookupResponse{Node: mo.nodes[req.NodeId]}, nil
 }
 
 //BulkLookup finds multiple storage nodes based on the requests
@@ -61,7 +63,7 @@ func (mo *Overlay) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
 	var responses []*pb.LookupResponse
 	for _, r := range reqs.LookupRequest {
 		// NOTE (Dylan): tests did not catch missing node case, need updating
-		n := mo.nodes[r.NodeID]
+		n := mo.nodes[r.NodeId]
 		resp := &pb.LookupResponse{Node: n}
 		responses = append(responses, resp)
 	}
@@ -81,7 +83,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 		if len(parts) != 2 {
 			return fmt.Errorf("malformed node config: %#v", nodestr)
 		}
-		id, addr := parts[0], parts[1]
+		id, err := storj.NodeIDFromString(parts[0])
+		if err != nil {
+			return err
+		}
+		addr := parts[1]
 		nodes = append(nodes, &pb.Node{
 			Id: id,
 			Address: &pb.NodeAddress{
