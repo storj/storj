@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/utils"
 )
 
 // Config defines broad Captain Planet configuration
@@ -55,9 +56,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	_, err = os.Stat(setupCfg.BasePath)
-	if !setupCfg.Overwrite && err == nil {
-		fmt.Println("A captplanet configuration already exists. Rerun with --overwrite")
+	valid, err := utils.IsValidSetupDirectory(setupCfg.BasePath)
+	if !setupCfg.Overwrite && !valid {
+		fmt.Printf("A captplanet configuration already exists (%v). Rerun with --overwrite\n", setupCfg.BasePath)
 		return nil
 	} else if setupCfg.Overwrite && err == nil {
 		fmt.Println("overwriting existing captplanet config")
