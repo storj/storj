@@ -4,7 +4,7 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
 
-import {authModule} from "@/store/modules/auth";
+import {authModule} from "@/store/modules/users";
 import {projectsModule} from "@/store/modules/projects";
 
 Vue.use(Vuex);
