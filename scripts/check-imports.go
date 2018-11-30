@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 // +build ignore
+
 package main
 
 import (
