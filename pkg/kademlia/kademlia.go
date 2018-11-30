@@ -342,27 +342,22 @@ func meetsRestrictions(rs []pb.Restriction, n pb.Node) bool {
 		switch op {
 		case pb.Restriction_EQ:
 			if comp != val {
-				fmt.Println("restriction not met 1")
 				return false
 			}
 		case pb.Restriction_LT:
 			if comp >= val {
-				fmt.Println("restriction not met 2")
 				return false
 			}
 		case pb.Restriction_LTE:
 			if comp > val {
-				fmt.Println("restriction not met 3")
 				return false
 			}
 		case pb.Restriction_GT:
 			if comp <= val {
-				fmt.Println("restriction not met 4")
 				return false
 			}
 		case pb.Restriction_GTE:
 			if comp < val {
-				fmt.Println("restriction not meti 5")
 				return false
 			}
 		}
