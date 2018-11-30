@@ -9,6 +9,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,7 +35,15 @@ func main() {
 
 	switch flag.Arg(0) {
 	case "install":
-		// TODO
+		// TODO: lock versions
+		err = install(
+			"github.com/ckaznocha/protoc-gen-lint",
+			// See https://github.com/gogo/protobuf#most-speed-and-most-customization
+			"github.com/gogo/protobuf/proto",
+			"github.com/gogo/protobuf/jsonpb",
+			"github.com/gogo/protobuf/protoc-gen-gogo",
+			"github.com/gogo/protobuf/gogoproto",
+		)
 	case "generate":
 		err = walkdirs(root, generate)
 	case "lint":
@@ -48,6 +57,35 @@ func main() {
 		fmt.Fprintf(os.Stderr, "failure: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func install(deps ...string) error {
+	gomod, err := ioutil.ReadFile("go.mod")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		stat, err := os.Stat("go.mod")
+		if err != nil {
+			panic(err)
+		}
+
+		err = ioutil.WriteFile("go.mod", gomod, stat.Mode())
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	args := []string{"get", "-u"}
+	args = append(args, deps...)
+
+	cmd := exec.Command("go", args...)
+	fmt.Println(strings.Join(cmd.Args, " "))
+	out, err := cmd.CombinedOutput()
+	if len(out) > 0 {
+		fmt.Println(string(out))
+	}
+	return err
 }
 
 func generate(dir string, dirs []string, files []string) error {
