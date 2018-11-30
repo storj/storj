@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import {
-    AUTH_MUTATIONS,
+    USER_MUTATIONS,
 } from "../mutationConstants";
 import {updateCompanyInfo, updatePassword, updateBasicUserInfo, deleteUserAccount} from "@/api/users";
 
@@ -25,7 +25,7 @@ export const authModule = {
     },
 
     mutations: {
-        [AUTH_MUTATIONS.SET_USER_INFO](state: any, user: User): void {
+        [USER_MUTATIONS.SET_USER_INFO](state: any, user: User): void {
             state.user.firstName = user.firstName;
             state.user.lastName = user.lastName;
             state.user.email = user.email;
@@ -38,7 +38,7 @@ export const authModule = {
             state.user.company.postalCode = user.company.postalCode;
         },
 
-        [AUTH_MUTATIONS.REVERT_TO_DEFAULT_USER_INFO](state: any): void {
+        [USER_MUTATIONS.REVERT_TO_DEFAULT_USER_INFO](state: any): void {
             state.user.firstName = "";
             state.user.lastName = "";
             state.user.email = "";
@@ -51,13 +51,13 @@ export const authModule = {
             state.user.company.postalCode = "";
         },
 
-        [AUTH_MUTATIONS.UPDATE_USER_INFO](state: any, user: User): void {
+        [USER_MUTATIONS.UPDATE_USER_INFO](state: any, user: User): void {
             state.user.firstName = user.firstName;
             state.user.lastName = user.lastName;
             state.user.email = user.email;
         },
 
-        [AUTH_MUTATIONS.UPDATE_COMPANY_INFO](state: any, company: Company): void {
+        [USER_MUTATIONS.UPDATE_COMPANY_INFO](state: any, company: Company): void {
             state.user.company.name = company.name;
             state.user.company.address = company.address;
             state.user.company.country = company.country;
@@ -69,46 +69,47 @@ export const authModule = {
 
     actions: {
         setUserInfo: setUserInfo,
-        updateBasicUserInfo: async function ({commit}: any, userInfo: User) {
+        updateBasicUserInfo: async function ({commit}: any, userInfo: User): Promise<boolean>{
             let response = await updateBasicUserInfo(userInfo);
 
             if (!response || !response.data) {
-                //TODO: Change to pop up
-                console.log("error during user info update");
-                return;
+                return false;
             }
 
-            commit(AUTH_MUTATIONS.UPDATE_USER_INFO, userInfo)
+            commit(USER_MUTATIONS.UPDATE_USER_INFO, userInfo)
+
+            return true;
         },
-        updateCompanyInfo: async function ({commit}: any, userInfo: User) {
+        updateCompanyInfo: async function ({commit}: any, userInfo: User): Promise<boolean>{
             let response = await updateCompanyInfo(userInfo.id, userInfo.company);
 
             if (!response || !response.data) {
-                //TODO: Change to pop up
-                console.log("error during company info update");
-                return;
+                return false;
             }
 
-            commit(AUTH_MUTATIONS.UPDATE_COMPANY_INFO, response.data.updateCompany)
+            commit(USER_MUTATIONS.UPDATE_COMPANY_INFO, response.data.updateCompany)
+
+            return true;
         },
-        updatePassword: async function ({state}: any, password: string) {
+        updatePassword: async function ({state}: any, password: string): Promise<boolean> {
             let response = await updatePassword(state.user.id, password);
 
             if (!response) {
-                //TODO: Change to pop up
                 console.log("error during password change");
-                return;
+                return false;
             }
+
+            return true;
         },
-        deleteUserAccount: async function ({commit, state}: any) {
+        deleteUserAccount: async function ({commit, state}: any):Promise<boolean> {
             let response = await deleteUserAccount(state.user.id);
 
             if (!response) {
-                //TODO: Change to pop up
                 console.log("error during account delete");
-                return;
+                return false;
             }
-            // TODO navigate to start route
+
+            return true;
         }
     },
 
@@ -121,5 +122,5 @@ export const authModule = {
 };
 
 function setUserInfo({commit}: any, userInfo: User): void {
-    commit(AUTH_MUTATIONS.SET_USER_INFO, userInfo)
+    commit(USER_MUTATIONS.SET_USER_INFO, userInfo)
 }

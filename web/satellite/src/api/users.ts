@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import apolloManager from "../utils/apolloManager";
 import gql from "graphql-tag";
 
@@ -28,7 +31,6 @@ export async function updateBasicUserInfo(user: User) {
 
     if (!response) {
         console.log("error while updating user");
-        // TODO: Change with popup
         return null;
     }
 
@@ -38,7 +40,6 @@ export async function updateBasicUserInfo(user: User) {
 // Performs update company info graphQL mutation request.
 // Returns Company object if succeed, null otherwise
 export async function updateCompanyInfo(userId: string, company: Company) {
-    console.log("updateCompQUERY: ", company);
     let response = await apolloManager.mutate(
         {
             mutation:gql(`
@@ -68,7 +69,6 @@ export async function updateCompanyInfo(userId: string, company: Company) {
 
     if (!response) {
         console.log("error while updating company info");
-        // TODO: Change with popup
         return null;
     }
 
@@ -100,7 +100,6 @@ export async function updatePassword(userId: string, password: string) {
 
     if (!response) {
         console.log("error while updating user");
-        // TODO: Change with popup
         return null;
     }
 
@@ -111,7 +110,6 @@ export async function updatePassword(userId: string, password: string) {
 // Throws an exception if error occurs
 // Returns object with newly created user
 export async function createUser(user: User, password: string): Promise<any> {
-
     let response = await apolloManager.mutate(
         {
             mutation: gql(`
@@ -140,7 +138,6 @@ export async function createUser(user: User, password: string): Promise<any> {
 
     if (!response) {
         console.log("cannot create user")
-        // TODO: Change with popup
         return null;
     }
 
@@ -179,10 +176,8 @@ export async function login(email: string, password: string): Promise<any> {
         }
     );
 
-    console.log(response);
     if (!response) {
         console.error("No token received");
-        // TODO: Change with popup
         return null;
     }
 
@@ -206,11 +201,8 @@ export async function deleteUserAccount(userId: string): Promise<any> {
         }
     );
 
-    console.log(response);
-
     if(!response) {
         console.error("No token received")
-        // TODO: Change with popup
         return null;
     }
 

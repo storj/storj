@@ -3,8 +3,6 @@
 
 <template>
     <div class="account-area-container">
-        <!-- TODO: Get info for this area placeholders from store -->
-        <!-- TODO: change isDisabled for save buttons for each area when data imputed -->
         <!--start of Account settings area -->
         <div class="account-area-settings-container">
             <h1>Account Settings</h1>
@@ -16,7 +14,7 @@
                     width="100%"
                     ref="firstNameInput"
                     :error="firstNameError"
-                    :init-value="cachedFirstName"
+                    :init-value="originalFirstName"
                     @setData="setFirstName" />
                 <HeaderedInput
                     label="Last Name"
@@ -24,7 +22,7 @@
                     width="100%"
                     ref="lastNameInput"
                     :error="lastNameError"
-                    :initValue="cachedLastName"
+                    :initValue="originalLastName"
                     @setData="setLastName"/>
             </div>
             <div class="account-area-row-container">
@@ -35,26 +33,22 @@
                     width="100%"
                     ref="emailInput"
                     :error="emailError"
-                    :initValue="cachedEmail"
+                    :initValue="originalEmail"
                     @setData="setEmail" />
             </div>
             <div v-if="isAccountSettingsEditing" class="account-area-save-button-area" >
-                <!-- v-if we are editing this area -->
                 <div class="account-area-save-button-area__terms-area">
                     <Checkbox class="checkbox"
                               @setData="setTermsAccepted"
                               :isCheckboxError="isTermsAcceptedError"/>
                     <h2>I agree to the Storj Bridge Hosting <a>Terms & Conditions</a></h2>
                 </div>
-                <!-- v-if are editing this area -->
                 <div class="account-area-save-button-area__btn">
                     <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="140px"  height="50px" :onPress="onCancelAccountSettingsButtonClick" isWhite/>
                     <Button class="account-area-save-button-area__save-button" label="Save" width="140px"  height="50px" :onPress="onSaveAccountSettingsButtonClick"/>
                 </div>
             </div>
             <div v-if="!isAccountSettingsEditing" class="account-area-save-button-area" >
-                <!-- v-if we are editing this area -->
-                <!-- v-if are editing this area -->
                 <div class="account-area-save-button-area__btn">
                     <Button class="account-area-save-button-area__save-button" label="Save" width="140px"  height="50px" :onPress="onSaveAccountSettingsButtonClick" isDisabled />
                 </div>
@@ -72,7 +66,7 @@
                     placeholder ="Enter Company Name"
                     width="100%"
                     ref="companyNameInput"
-                    :initValue="cachedCompanyName"
+                    :initValue="originalCompanyName"
                     @setData="setCompanyName" />
             </div>
             <div class="account-area-row-container">
@@ -82,7 +76,7 @@
                     placeholder ="Enter Company Address"
                     width="100%"
                     ref="companyAddressInput"
-                    :initValue="cachedCompanyAddress"
+                    :initValue="originalCompanyAddress"
                     @setData="setCompanyAddress" />
             </div>
             <div class="account-area-row-container">
@@ -91,14 +85,14 @@
                     placeholder ="Enter Country"
                     width="100%"
                     ref="companyCountryInput"
-                    :initValue="cachedCompanyAddress"
+                    :initValue="originalCompanyCountry"
                     @setData="setCompanyCountry" />
                 <HeaderedInput
                     label="City"
                     placeholder ="Enter City"
                     width="100%"
                     ref="companyCityInput"
-                    :initValue="cachedCompanyName"
+                    :initValue="originalCompanyCity"
                     @setData="setCompanyCity" />
             </div>
             <div class="account-area-row-container">
@@ -107,26 +101,24 @@
                     placeholder ="Enter State"
                     width="100%"
                     ref="companyStateInput"
-                    :initValue="cachedCompanyState"
+                    :initValue="originalCompanyState"
                     @setData="setCompanyState" />
                 <HeaderedInput
                     label="Postal Code"
                     placeholder ="Enter Postal Code"
                     width="100%"
                     ref="companyPostalCodeInput"
-                    :initValue="cachedCompanyPostalCode"
+                    :initValue="originalCompanyPostalCode"
                     @setData="setCompanyPostalCode" />
             </div>
             <div v-if="isCompanyEditing" class="account-area-save-button-area" >
                 <div class="account-area-save-button-area__btn">
-                    <!-- v-if we are editing this area -->
                     <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="140px" height="50px" :onPress="onCancelCompanyButtonClick" isWhite/>
                     <Button label="Save" width="140px" height="50px" :onPress="onSaveCompanySettingsButtonClick"/>
                 </div>
             </div>
             <div v-if="!isCompanyEditing" class="account-area-save-button-area" >
                 <div class="account-area-save-button-area__btn">
-                    <!-- v-if we are editing this area -->
                     <Button label="Save" width="140px" height="50px" :onPress="onSaveCompanySettingsButtonClick" isWhite isDisabled/>
                 </div>
             </div>
@@ -167,14 +159,12 @@
             </div>
             <div v-if="isPasswordEditing" class="account-area-save-button-area" >
                 <div class="account-area-save-button-area__btn">
-                    <!-- v-if we are editing this area -->
                     <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="140px" height="50px" :onPress="onCancelPasswordEditButtonClick" isWhite/>
                     <Button label="Save" width="140px" height="50px" :onPress="onSavePasswordButtonClick"/>
                 </div>
             </div>
             <div v-if="!isPasswordEditing" class="account-area-save-button-area" >
                 <div class="account-area-save-button-area__btn">
-                    <!-- v-if we are editing this area -->
                     <Button label="Save" width="140px" height="50px" isWhite isDisabled/>
                 </div>
             </div>
@@ -196,9 +186,9 @@ import Checkbox from '@/components/common/Checkbox.vue';
     {
         data: function() {
             return {
-                cachedFirstName:this.$store.getters.user.firstName,
-                cachedLastName: this.$store.getters.user.lastName,
-                cachedEmail:this.$store.getters.user.email,
+                originalFirstName: this.$store.getters.user.firstName,
+                originalLastName: this.$store.getters.user.lastName,
+                originalEmail:this.$store.getters.user.email,
 
                 firstName: this.$store.getters.user.firstName,
                 lastName: this.$store.getters.user.lastName,
@@ -206,20 +196,20 @@ import Checkbox from '@/components/common/Checkbox.vue';
                 isTermsAccepted: false,
 
                 firstNameError: "",
-                lastNameError:"",
-                emailError:"",
+                lastNameError: "",
+                emailError: "",
                 isTermsAcceptedError: false,
 
-                newLastName:"",
-                newEmail:"",
+                newLastName: "",
+                newEmail: "",
                 isAccountSettingsEditing: false,
 
-                cachedCompanyName: this.$store.getters.user.company.name,
-                cachedCompanyAddress: this.$store.getters.user.company.address,
-                cachedCompanyCountry: this.$store.getters.user.company.country,
-                cachedCompanyCity: this.$store.getters.user.company.city,
-                cachedCompanyState: this.$store.getters.user.company.state,
-                cachedCompanyPostalCode: this.$store.getters.user.company.postalCode,
+                originalCompanyName: this.$store.getters.user.company.name,
+                originalCompanyAddress: this.$store.getters.user.company.address,
+                originalCompanyCountry: this.$store.getters.user.company.country,
+                originalCompanyCity: this.$store.getters.user.company.city,
+                originalCompanyState: this.$store.getters.user.company.state,
+                originalCompanyPostalCode: this.$store.getters.user.company.postalCode,
 
                 companyName: this.$store.getters.user.company.name,
                 companyAddress: this.$store.getters.user.company.address,
@@ -230,13 +220,13 @@ import Checkbox from '@/components/common/Checkbox.vue';
 
                 isCompanyEditing: false,
 
-                oldPassword:"",
-                newPassword:"",
-                confirmationPassword:"",
+                oldPassword: "",
+                newPassword: "",
+                confirmationPassword: "",
 
-                oldPasswordError:"",
-                newPasswordError:"",
-                confirmationPasswordError:"",
+                oldPasswordError: "",
+                newPasswordError: "",
+                confirmationPasswordError: "",
                 isPasswordEditing: false
             }
         },
@@ -261,16 +251,16 @@ import Checkbox from '@/components/common/Checkbox.vue';
                 this.$data.isTermsAcceptedError = false;
             },
             onCancelAccountSettingsButtonClick: function () {
-                this.$data.firstName = this.$data.cachedFirstName;
+                this.$data.firstName = this.$data.originalFirstName;
                 this.$data.firstNameError = "";
                 this.$data.lastName = this.$store.getters.user.lastName;
                 this.$data.lastNameError = "";
-                this.$data.email = this.$data.cachedEmail;
+                this.$data.email = this.$data.originalEmail;
                 this.$data.emailError = "";
 
-                this.$refs.firstNameInput.setValue(this.$data.cachedFirstName);
-                this.$refs.lastNameInput.setValue(this.$data.cachedLastName);
-                this.$refs.emailInput.setValue(this.$data.cachedEmail);
+                this.$refs.firstNameInput.setValue(this.$data.originalFirstName);
+                this.$refs.lastNameInput.setValue(this.$data.originalLastName);
+                this.$refs.emailInput.setValue(this.$data.originalEmail);
 
                 this.$data.isAccountSettingsEditing = false;
             },
@@ -307,7 +297,13 @@ import Checkbox from '@/components/common/Checkbox.vue';
                     firstName: this.$data.firstName,
                     lastName: this.$data.lastName,
                 };
-                await this.$store.dispatch("updateBasicUserInfo", user);
+                let isSuccess = await this.$store.dispatch("updateBasicUserInfo", user);
+                if (!isSuccess) {
+                    //TODO Change to popup
+                    console.log("error while changing basic user info");
+
+                    return;
+                }
                 this.$data.isAccountSettingsEditing = false;
             },
 
@@ -336,19 +332,19 @@ import Checkbox from '@/components/common/Checkbox.vue';
                 this.$data.isCompanyEditing = true;
             },
             onCancelCompanyButtonClick: function () {
-                this.$data.companyName=this.$data.cachedCompanyName;
-                this.$data.companyAddress=this.$data.cachedCompanyAddress;
-                this.$data.companyCountry=this.$data.cachedCompanyCountry;
-                this.$data.companyCity=this.$data.cachedCompanyCity;
-                this.$data.companyState=this.$data.cachedCompanyState;
-                this.$data.companyPostalCode=this.$data.cachedCompanyPostalCode;
+                this.$data.companyName=this.$data.originalCompanyName;
+                this.$data.companyAddress=this.$data.originalCompanyAddress;
+                this.$data.companyCountry=this.$data.originalCompanyCountry;
+                this.$data.companyCity=this.$data.originalCompanyCity;
+                this.$data.companyState=this.$data.originalCompanyState;
+                this.$data.companyPostalCode=this.$data.originalCompanyPostalCode;
 
-                this.$refs.companyNameInput.setValue(this.$data.cachedCompanyName);
-                this.$refs.companyAddressInput.setValue(this.$data.cachedCompanyAddress);
-                this.$refs.companyCountryInput.setValue(this.$data.cachedCompanyCountry);
-                this.$refs.companyCityInput.setValue(this.$data.cachedCompanyCity);
-                this.$refs.companyStateInput.setValue(this.$data.cachedCompanyState);
-                this.$refs.companyPostalCodeInput.setValue(this.$data.cachedCompanyPostalCode);
+                this.$refs.companyNameInput.setValue(this.$data.originalCompanyName);
+                this.$refs.companyAddressInput.setValue(this.$data.originalCompanyAddress);
+                this.$refs.companyCountryInput.setValue(this.$data.originalCompanyCountry);
+                this.$refs.companyCityInput.setValue(this.$data.originalCompanyCity);
+                this.$refs.companyStateInput.setValue(this.$data.originalCompanyState);
+                this.$refs.companyPostalCodeInput.setValue(this.$data.originalCompanyPostalCode);
 
                 this.$data.isCompanyEditing= false;
             },
@@ -365,7 +361,13 @@ import Checkbox from '@/components/common/Checkbox.vue';
                     }
                 };
 
-                await this.$store.dispatch("updateCompanyInfo", user);
+                let isSuccess = await this.$store.dispatch("updateCompanyInfo", user)
+                if (!isSuccess) {
+                    //TODO Change to popup
+                    console.log("error while changing company info");
+
+                    return;
+                }
                 this.$data.isCompanyEditing = false;
             },
 
@@ -426,7 +428,13 @@ import Checkbox from '@/components/common/Checkbox.vue';
                     return;
                 }
 
-                await this.$store.dispatch("updatePassword",this.$data.newPassword);
+                let isSuccess = await this.$store.dispatch("updatePassword",this.$data.newPassword);
+                if (!isSuccess) {
+                    //TODO Change to popup
+                    console.log("error while updating user password");
+
+                    return;
+                }
 
                 this.$refs.oldPasswordInput.setValue("");
                 this.$refs.newPasswordInput.setValue("");
@@ -436,11 +444,15 @@ import Checkbox from '@/components/common/Checkbox.vue';
             },
             onDeleteAccountClick: async function () {
                 // TODO show popup with user confirmation
-                await this.$store.dispatch("deleteUserAccount");
+                let isSuccess = await this.$store.dispatch("deleteUserAccount");
+                if (!isSuccess) {
+                   //TODO  Change to popup
+                    console.log("error while deleting user account");
 
-                this.$refs.oldPasswordInput.setValue("");
-                this.$refs.newPasswordInput.setValue("");
-                this.$refs.confirmationPasswordInput.setValue("");
+                    return;
+                }
+
+                // TODO navigate to start route
             }
         },
         components: {

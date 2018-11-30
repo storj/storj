@@ -21,13 +21,14 @@
             :rows="5"
             :cols="40"
             wrap="hard"
+			v-model.lazy="value"
             @input="onInput">
 		</textarea>
 		<input
             v-if="!isMultiline"
             :id="this.$props.label"
             :placeholder="this.$props.placeholder"
-            v-bind:type="[isPassword ? 'password' : 'textType']"
+            v-bind:type="[isPassword ? 'password': 'text']"
             v-model.lazy="value"
             @change="onInput"
             @input="onInput"
@@ -36,7 +37,7 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
+    import { Component, Vue } from 'vue-property-decorator';
 
     // Custom input component with labeled header
     @Component(
@@ -44,13 +45,11 @@
             data: function() {
                 return {
                     value: this.$props.initValue ? this.$props.initValue : "",
-                    textType: "text",
-                    passwordType: "password",
                 }
             },
             methods: {
                 //emits data to parent component
-                async onInput () {
+                onInput () {
                     this.$emit('setData', this.$data.value)
                 },
                 setValue(value: string) {
@@ -104,7 +103,7 @@
             },
         },
     )
-    export default class HeaderedEditableInput extends Vue { }
+    export default class HeaderedInput extends Vue { }
 
 </script>
 
@@ -168,7 +167,7 @@
 		line-height: 21px;
 		color: #354049;
 	}
-}
+
 input,
 textarea {
 	font-family: 'montserrat_regular';
