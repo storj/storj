@@ -57,7 +57,7 @@ func generate(dir string, dirs []string, files []string) error {
 	args = appendCommonArguments(args, dir, dirs, files)
 
 	cmd := exec.Command(*protoc, args...)
-	fmt.Println(cmd.Path, strings.Join(cmd.Args, " "))
+	fmt.Println(strings.Join(cmd.Args, " "))
 	out, err := cmd.CombinedOutput()
 	if len(out) > 0 {
 		fmt.Println(string(out))
@@ -92,7 +92,7 @@ func lint(dir string, dirs []string, files []string) error {
 	args = appendCommonArguments(args, dir, dirs, files)
 
 	cmd := exec.Command(*protoc, args...)
-	fmt.Println(cmd.Path, strings.Join(cmd.Args, " "))
+	fmt.Println(strings.Join(cmd.Args, " "))
 	out, err := cmd.CombinedOutput()
 	if len(out) > 0 {
 		fmt.Println(string(out))
@@ -140,7 +140,9 @@ func walkdirs(root string, fn func(dir string, dirs []string, files []string) er
 
 	var errs []string
 	for _, dir := range dirs {
-		err := fn(dir, dirs, byDir[dir])
+		files := byDir[dir]
+		sort.Strings(files)
+		err := fn(dir, dirs, files)
 		if err != nil {
 			errs = append(errs, err.Error())
 		}
