@@ -81,10 +81,10 @@ func TestChoose(t *testing.T) {
 			limit:        4,
 			space:        0,
 			bandwidth:    0,
-			uptime:       1,
-			uptimeCount:  10,
-			auditSuccess: 1,
-			auditCount:   10,
+			uptime:       0,
+			uptimeCount:  0,
+			auditSuccess: 0,
+			auditCount:   0,
 			allNodes: func() []*pb.Node {
 				n1 := teststorj.MockNode("n1")
 				n2 := teststorj.MockNode("n2")
@@ -132,13 +132,13 @@ func TestChoose(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		excludedNodes := make(map[string]bool)
+		excludedNodes := make(map[storj.NodeID]bool)
 		for _, e := range v.excluded {
-			excludedNodes[e.String()] = true
+			excludedNodes[e] = true
 		}
 		assert.Len(t, newNodes, v.limit)
 		for _, n := range newNodes {
-			assert.NotContains(t, excludedNodes, n.Id.String())
+			assert.NotContains(t, excludedNodes, n.Id)
 			assert.True(t, n.GetRestrictions().GetFreeDisk() >= v.space)
 			assert.True(t, n.GetRestrictions().GetFreeBandwidth() >= v.bandwidth)
 			assert.True(t, n.GetReputation().GetUptimeRatio() >= v.uptime)
@@ -230,13 +230,8 @@ func TestBulkLookup(t *testing.T) {
 	for _, v := range cases {
 		resNodes, err := oc.BulkLookup(ctx, v.nodeIDs)
 		assert.NoError(t, err)
-
-		nodesFound := make(map[string]bool)
-		for _, n := range resNodes {
-			nodesFound[n.Id.String()] = true
-		}
-		for _, nid := range v.nodeIDs {
-			assert.Contains(t, nodesFound, nid.String())
+		for i, n := range resNodes {
+			assert.Equal(t, n.Id, v.nodeIDs[i])
 		}
 		assert.Equal(t, len(resNodes), len(v.nodeIDs))
 	}
@@ -282,20 +277,35 @@ func TestBulkLookupV2(t *testing.T) {
 	}
 
 	{ // valid ids
-		ns, err := oc.BulkLookup(ctx, storj.NodeIDList{nid1, nid2, nid3})
+		idList := storj.NodeIDList{nid1, nid2, nid3}
+		ns, err := oc.BulkLookup(ctx, idList)
 		assert.NoError(t, err)
-		assert.Equal(t, nodes, ns)
+
+		for i, n := range ns {
+			assert.Equal(t, n.Id, idList[i])
+		}
 	}
 
 	{ // missing ids
-		ns, err := oc.BulkLookup(ctx, storj.NodeIDList{nid4, nid5})
+		idList := storj.NodeIDList{nid4, nid5}
+		ns, err := oc.BulkLookup(ctx, idList)
 		assert.NoError(t, err)
+
 		assert.Equal(t, []*pb.Node{nil, nil}, ns)
 	}
 
 	{ // different order and missing
-		ns, err := oc.BulkLookup(ctx, storj.NodeIDList{nid3, nid4, nid1, nid2, nid5})
+		idList := storj.NodeIDList{nid3, nid4, nid1, nid2, nid5}
+		ns, err := oc.BulkLookup(ctx, idList)
 		assert.NoError(t, err)
-		assert.Equal(t, []*pb.Node{n3, nil, n1, n2, nil}, ns)
+
+		expectedNodes := []*pb.Node{n3, nil, n1, n2, nil}
+		for i, n := range ns {
+			if n == nil {
+				assert.Nil(t, expectedNodes[i])
+			} else {
+				assert.Equal(t, n.Id, expectedNodes[i].Id)
+			}
+		}
 	}
 }
