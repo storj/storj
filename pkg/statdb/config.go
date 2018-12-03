@@ -5,7 +5,6 @@ package statdb
 
 import (
 	"context"
-	"flag"
 
 	"go.uber.org/zap"
 
@@ -20,20 +19,17 @@ const (
 	ctxKeyStats CtxKey = iota
 )
 
-var (
-	apiKey = flag.String("stat-db.auth.api-key", "", "statdb api key")
-)
-
 // Config is a configuration struct that is everything you need to start a
 // StatDB responsibility
 type Config struct {
 	DatabaseURL    string `help:"the database connection string to use" default:"$CONFDIR/stats.db"`
 	DatabaseDriver string `help:"the database driver to use" default:"sqlite3"`
+	APIKey         string `help:"the statdb api key to use" default:"abc123"`
 }
 
 // Run implements the provider.Responsibility interface
 func (c Config) Run(ctx context.Context, server *provider.Provider) error {
-	ns, err := NewServer(c.DatabaseDriver, c.DatabaseURL, *apiKey, zap.L())
+	ns, err := NewServer(c.DatabaseDriver, c.DatabaseURL, c.APIKey, zap.L())
 	if err != nil {
 		return err
 	}
