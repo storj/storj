@@ -33,11 +33,11 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, s
 	cache := overlay.Cache{DB: store, StatDB: sdb}
 
 	{ // Put
-		err := cache.Put(valid1ID, *teststorj.MockNode("valid1"))
+		err := cache.Put(ctx, valid1ID, *teststorj.MockNode("valid1"))
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = cache.Put(valid2ID, *teststorj.MockNode("valid2"))
+		err = cache.Put(ctx, valid2ID, *teststorj.MockNode("valid2"))
 		if err != nil {
 			t.Fatal(err)
 		}

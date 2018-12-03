@@ -90,7 +90,7 @@ func (o *Cache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Nod
 }
 
 // Put adds a nodeID to the redis cache with a binary representation of proto defined Node
-func (o *Cache) Put(nodeID storj.NodeID, value pb.Node) error {
+func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) error {
 	// If we get a Node without an ID (i.e. bootstrap node)
 	// we don't want to add to the routing tbale
 	if nodeID == (storj.NodeID{}) {
@@ -98,7 +98,7 @@ func (o *Cache) Put(nodeID storj.NodeID, value pb.Node) error {
 	}
 
 	// get existing node rep, or create a new statdb node with 0 rep
-	res, err := o.StatDB.CreateEntryIfNotExists(context.Background(), &statproto.CreateEntryIfNotExistsRequest{
+	res, err := o.StatDB.CreateEntryIfNotExists(ctx, &statproto.CreateEntryIfNotExistsRequest{
 		Node: &pb.Node{
 			Id: nodeID,
 		},
@@ -141,7 +141,7 @@ func (o *Cache) Refresh(ctx context.Context) error {
 	nodes := o.DHT.Seen()
 
 	for _, v := range nodes {
-		if err := o.Put(v.Id, *v); err != nil {
+		if err := o.Put(ctx, v.Id, *v); err != nil {
 			return err
 		}
 	}
