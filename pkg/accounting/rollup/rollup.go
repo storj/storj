@@ -38,7 +38,7 @@ func (r *rollup) Run(ctx context.Context) (err error) {
 	for {
 		err = r.Query(ctx)
 		if err != nil {
-			zap.L().Error("Rollup Query failed", zap.Error(err))
+			Error.Wrap(err)
 		}
 
 		select {
@@ -46,7 +46,7 @@ func (r *rollup) Run(ctx context.Context) (err error) {
 		case <-ctx.Done(): // or the rollup is canceled via context
 			err = r.db.Close()
 			if err != nil {
-				zap.L().Error("error closing connection to accountingdb", zap.Error(err))
+				Error.Wrap(err)
 			}
 			return ctx.Err()
 		}
@@ -54,5 +54,6 @@ func (r *rollup) Run(ctx context.Context) (err error) {
 }
 
 func (r *rollup) Query(ctx context.Context) error {
+	//TODO
 	return nil
 }

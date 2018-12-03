@@ -33,6 +33,7 @@ func New(databaseURL string) (*Database, error) {
 	return &Database{db: db}, nil
 }
 
-func (D *Database) Close() error {
-	return D.db.Close()
+// Close is used to close db connection
+func (db *Database) Close() error {
+	return db.db.Close()
 }

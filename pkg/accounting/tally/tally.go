@@ -41,7 +41,7 @@ type tally struct {
 	db         *accountingdb.Database
 }
 
-func newTally(ctx context.Context, db *accountingdb.Database, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, interval time.Duration, logger *zap.Logger) (*tally, error) {
+func newTally(ctx context.Context, logger *zap.Logger, db *accountingdb.Database, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, interval time.Duration) (*tally, error) {
 	rt, err := kademlia.GetRoutingTable(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -72,7 +72,7 @@ func (t *tally) Run(ctx context.Context) (err error) {
 	for {
 		err = t.identifyActiveNodes(ctx)
 		if err != nil {
-			zap.L().Error("Tally failed", zap.Error(err))
+			Error.Wrap(err)
 		}
 
 		select {
@@ -80,7 +80,7 @@ func (t *tally) Run(ctx context.Context) (err error) {
 		case <-ctx.Done(): // or the tally is canceled via context
 			err = t.db.Close()
 			if err != nil {
-				zap.L().Error("error closing connection to accountingdb", zap.Error(err))
+				Error.Wrap(err)
 			}
 			return ctx.Err()
 		}
@@ -91,7 +91,7 @@ func (t *tally) Run(ctx context.Context) (err error) {
 func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	t.logger.Debug("entering pointerdb iterate")
+	t.logger.Debug("entering pointerdb iterate within identifyActiveNodes")
 	err = t.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
@@ -126,6 +126,8 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 }
 
 func (t *tally) categorize(ctx context.Context, nodeIDs []dht.NodeID) (online []*pb.Node, err error) {
+	t.logger.Debug("entering categorize")
+
 	responses, err := t.overlay.BulkLookup(ctx, utils.NodeIDsToLookupRequests(nodeIDs))
 	if err != nil {
 		return []*pb.Node{}, err
@@ -142,6 +144,7 @@ func (t *tally) categorize(ctx context.Context, nodeIDs []dht.NodeID) (online []
 }
 
 func (t *tally) tallyAtRestStorage(ctx context.Context, pointer *pb.Pointer, nodes []*pb.Node) error {
+	t.logger.Debug("entering tallyAtRestStorage")
 	segmentSize := pointer.GetSegmentSize()
 	minReq := pointer.Remote.Redundancy.GetMinReq()
 	if minReq <= 0 {
@@ -159,7 +162,7 @@ func (t *tally) tallyAtRestStorage(ctx context.Context, pointer *pb.Pointer, nod
 			}
 		}
 		if !connected || err != nil {
-			zap.L().Error("ping failed for node: " + n.Id)
+			Error.New("ping failed for node: " + n.Id)
 			t.nodes[n.Id] = 0
 			continue
 		}
@@ -168,6 +171,7 @@ func (t *tally) tallyAtRestStorage(ctx context.Context, pointer *pb.Pointer, nod
 }
 
 func (t *tally) updateRawTable(ctx context.Context) error {
+	t.logger.Debug("entering updateRawTable")
 	//TODO
 	return nil
 }
