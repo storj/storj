@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
 	dbmanager "storj.io/storj/pkg/bwagreement/database-manager"
@@ -86,10 +87,11 @@ var (
 		QListLimit  int    `help:"maximum segments that can be requested" default:"1000"`
 	}
 
-	defaultConfDir = "$HOME/.storj/satellite"
+	defaultConfDir string
 )
 
 func init() {
+	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
