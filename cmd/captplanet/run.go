@@ -118,6 +118,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			return
 		}
 
+		//nolint ignoring context rules to not create cyclic dependency, will be removed later
 		ctx = context.WithValue(ctx, "masterdb", database)
 
 		// Run satellite

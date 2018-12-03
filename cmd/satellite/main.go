@@ -115,10 +115,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
 
+	//nolint ignoring context rules to not create cyclic dependency, will be removed later
 	ctx = context.WithValue(ctx, "masterdb", database)
 
 	return runCfg.Identity.Run(
-		process.Ctx(cmd),
+		ctx,
 		grpcauth.NewAPIKeyInterceptor(),
 		runCfg.Kademlia,
 		runCfg.PointerDB,
