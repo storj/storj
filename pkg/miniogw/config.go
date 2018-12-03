@@ -122,54 +122,35 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context, identity *provi
 	return Error.New("unexpected minio exit")
 }
 
-// GetBucketStore returns an implementation of buckets.Store
-func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdentity) (bs buckets.Store, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	buckets, _, _, _, _, err := c.init(ctx, identity)
-
-	return buckets, err
-}
-
 // GetMetainfo returns an implementation of storj.Metainfo
 func (c Config) GetMetainfo(ctx context.Context, identity *provider.FullIdentity) (db storj.Metainfo, ss streams.Store, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	buckets, streams, segments, pdb, key, err := c.init(ctx, identity)
+	oc, err := overlay.NewOverlayClient(identity, c.OverlayAddr)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return kvmetainfo.New(buckets, streams, segments, pdb, key), streams, nil
-}
-
-func (c Config) init(ctx context.Context, identity *provider.FullIdentity) (buckets.Store, streams.Store, segments.Store, pdbclient.Client, *storj.Key, error) {
-	var oc overlay.Client
-	oc, err := overlay.NewOverlayClient(identity, c.OverlayAddr)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
-
 	pdb, err := pdbclient.NewClient(identity, c.PointerDBAddr, c.APIKey)
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	ec := ecclient.NewClient(identity, c.MaxBufferMem)
 	fc, err := infectious.NewFEC(c.MinThreshold, c.MaxThreshold)
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, c.ErasureShareSize), c.RepairThreshold, c.SuccessThreshold)
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	segments := segments.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize)
 
 	if c.ErasureShareSize*c.MinThreshold%c.EncBlockSize != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	key := new(storj.Key)
@@ -177,12 +158,12 @@ func (c Config) init(ctx context.Context, identity *provider.FullIdentity) (buck
 
 	streams, err := streams.NewStreamStore(segments, c.SegmentSize, key, c.EncBlockSize, storj.Cipher(c.EncType))
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	buckets := buckets.NewStore(streams)
 
-	return buckets, streams, segments, pdb, key, nil
+	return kvmetainfo.New(buckets, streams, segments, pdb, key), streams, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads
@@ -208,10 +189,10 @@ func (c Config) GetEncryptionScheme() storj.EncryptionScheme {
 func (c Config) NewGateway(ctx context.Context, identity *provider.FullIdentity) (gw minio.Gateway, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bs, err := c.GetBucketStore(ctx, identity)
+	metainfo, streams, err := c.GetMetainfo(ctx, identity)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewStorjGateway(bs, storj.Cipher(c.PathEncType)), nil
+	return NewStorjGateway(metainfo, streams, storj.Cipher(c.PathEncType), c.GetEncryptionScheme(), c.GetRedundancyScheme()), nil
 }
