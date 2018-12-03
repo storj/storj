@@ -75,11 +75,9 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 
 					next, _ = lookup.queue.Closest()
 
-					fmt.Printf("NEXT: %+v\n", next)
-
 					// Send node on channel if it matches target
 					if next != nil && next.Id.String() == lookup.target.String() {
-						fmt.Printf("next: %+v\n", next)
+						fmt.Printf("\nFOUND: %+v\nTARGETED: %+v\n", next.Id.String(), lookup.target.String())
 						lookup.foundOne <- next
 						allDone = true
 						break
