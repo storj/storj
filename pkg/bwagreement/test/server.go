@@ -29,7 +29,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-type TestServer struct {
+type testServer struct {
 	S     *bwagreement.Server
 	Grpcs *grpc.Server
 	Conn  *grpc.ClientConn
@@ -37,7 +37,7 @@ type TestServer struct {
 	K     crypto.PrivateKey
 }
 
-func NewTestServer(t *testing.T) *TestServer {
+func newTestServer(t *testing.T) *testServer {
 	check := func(e error) {
 		if !assert.NoError(t, e) {
 			t.Fail()
@@ -63,9 +63,9 @@ func NewTestServer(t *testing.T) *TestServer {
 
 	k, ok := fiC.Key.(*ecdsa.PrivateKey)
 	assert.True(t, ok)
-	ts := &TestServer{S: s, Grpcs: grpcs, K: k}
+	ts := &testServer{S: s, Grpcs: grpcs, K: k}
 	addr := ts.Start()
-	ts.C, ts.Conn = Connect(addr, co)
+	ts.C, ts.Conn = connect(addr, co)
 
 	return ts
 }
@@ -98,7 +98,7 @@ func newTestServerStruct(t *testing.T, k crypto.PrivateKey) *bwagreement.Server 
 	return server
 }
 
-func (TS *TestServer) Start() (addr string) {
+func (TS *testServer) Start() (addr string) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -113,7 +113,7 @@ func (TS *TestServer) Start() (addr string) {
 	return lis.Addr().String()
 }
 
-func Connect(addr string, o ...grpc.DialOption) (pb.BandwidthClient, *grpc.ClientConn) {
+func connect(addr string, o ...grpc.DialOption) (pb.BandwidthClient, *grpc.ClientConn) {
 	conn, err := grpc.Dial(addr, o...)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
@@ -124,6 +124,7 @@ func Connect(addr string, o ...grpc.DialOption) (pb.BandwidthClient, *grpc.Clien
 	return c, conn
 }
 
+//GeneratePayerBandwidthAllocation creates a signed PayerBandwidthAllocation from a PayerBandwidthAllocation_Action
 func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action, satelliteKey crypto.PrivateKey) (*pb.PayerBandwidthAllocation, error) {
 	satelliteKeyEcdsa, ok := satelliteKey.(*ecdsa.PrivateKey)
 	if !ok {
@@ -155,6 +156,7 @@ func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action,
 	}, nil
 }
 
+//GenerateRenterBandwidthAllocation creates a signed RenterBandwidthAllocation from a PayerBandwidthAllocation
 func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, uplinkKey crypto.PrivateKey) (*pb.RenterBandwidthAllocation, error) {
 	// get "Uplink" Public Key
 	uplinkKeyEcdsa, ok := uplinkKey.(*ecdsa.PrivateKey)
@@ -190,7 +192,7 @@ func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, uplinkK
 	}, nil
 }
 
-func (TS *TestServer) Stop() {
+func (TS *testServer) stop() {
 	if err := TS.Conn.Close(); err != nil {
 		panic(err)
 	}

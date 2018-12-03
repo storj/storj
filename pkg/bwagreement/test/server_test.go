@@ -16,8 +16,8 @@ var (
 )
 
 func TestBandwidthAgreements(t *testing.T) {
-	TS := NewTestServer(t)
-	defer TS.Stop()
+	TS := newTestServer(t)
+	defer TS.stop()
 
 	pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, TS.K)
 	assert.NoError(t, err)
