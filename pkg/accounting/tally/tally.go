@@ -79,7 +79,7 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 	self := rt.Local()
-	identity := &provider.FullIdentity{} //do i need anything in here?
+	identity, _ := provider.NewFullIdentity(ctx, 12, 4) //do i need anything in here?
 	client, err := node.NewNodeClient(identity, self, t.kademlia)
 	if err != nil {
 		return Error.Wrap(err)
@@ -98,16 +98,20 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 				if err != nil {
 					return Error.Wrap(err)
 				}
-				pieces := pointer.Remote.RemotePieces
-				var nodeIDs storj.NodeIDList
-				for _, p := range pieces {
-					nodeIDs = append(nodeIDs, p.NodeId)
+				if pointer.Remote == nil {
+					t.logger.Warn("MISSING pointer.Remote")
+				} else {
+					pieces := pointer.Remote.RemotePieces
+					var nodeIDs storj.NodeIDList
+					for _, p := range pieces {
+						nodeIDs = append(nodeIDs, p.NodeId)
+					}
+					online, err := t.onlineNodes(ctx, nodeIDs)
+					if err != nil {
+						return Error.Wrap(err)
+					}
+					go t.tallyAtRestStorage(ctx, pointer, online, client)
 				}
-				online, err := t.onlineNodes(ctx, nodeIDs)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-				go t.tallyAtRestStorage(ctx, pointer, online, client)
 			}
 			return nil
 		},

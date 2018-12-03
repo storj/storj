@@ -21,19 +21,19 @@ var (
 
 // NewDb - constructor for DB
 func NewDb(databaseURL string) (*dbx.DB, error) {
-	dbURL, err := utils.ParseURL(databaseURL)
+	driver, source, err := utils.SplitDBURL(databaseURL)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
-	db, err := dbx.Open(dbURL.Scheme, dbURL.Path)
+	db, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, Error.New("failed opening database %q, %q: %v",
-			dbURL.Scheme, dbURL.Path, err)
+			driver, source, err)
 	}
 	err = migrate.Create("accounting", db)
 	if err != nil {
 		_ = db.Close()
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 	return db, nil
 }
