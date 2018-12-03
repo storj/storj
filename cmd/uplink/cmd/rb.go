@@ -46,14 +46,9 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	bucket, err := metainfo.GetBucket(ctx, dst.Bucket())
+	list, err := metainfo.ListObjects(ctx, dst.Bucket(), storj.ListOptions{Direction: storj.After, Recursive: true, Limit: 1})
 	if err != nil {
 		return convertError(err, dst)
-	}
-
-	list, err := metainfo.ListObjects(ctx, bucket.Name, storj.ListOptions{Direction: storj.After, Recursive: true, Limit: 1})
-	if err != nil {
-		return err
 	}
 
 	if len(list.Items) > 0 {
