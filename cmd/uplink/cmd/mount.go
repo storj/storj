@@ -450,6 +450,7 @@ func (f *storjFile) closeReader() {
 func (f *storjFile) closeWriter() {
 	if f.writer != nil {
 		utils.LogClose(f.writer)
+		f.FS.removeCreatedFile(f.name)
 		f.writer = nil
 	}
 }
