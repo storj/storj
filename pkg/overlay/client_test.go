@@ -49,20 +49,9 @@ func TestChoose(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 4, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(planet.Shutdown)
-
-	planet.Start(ctx)
-	// we wait a second for all the nodes to complete bootstrapping off the satellite
-	time.Sleep(2 * time.Second)
-
-	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
-	if err != nil {
-		t.Fatal(err)
-	}
+	planet, cleanup := getPlanet(ctx, t)
+	defer cleanup()
+	oc := getOverlayClient(t, planet)
 
 	cases := []struct {
 		limit        int
@@ -142,20 +131,10 @@ func TestLookup(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 4, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(planet.Shutdown)
+	planet, cleanup := getPlanet(ctx, t)
+	defer cleanup()
+	oc := getOverlayClient(t, planet)
 
-	planet.Start(ctx)
-	// we wait a second for all the nodes to complete bootstrapping off the satellite
-	time.Sleep(2 * time.Second)
-
-	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
-	if err != nil {
-		t.Fatal(err)
-	}
 	nid1 := planet.StorageNodes[0].ID()
 
 	cases := []struct {
@@ -188,20 +167,10 @@ func TestBulkLookup(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 4, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(planet.Shutdown)
+	planet, cleanup := getPlanet(ctx, t)
+	defer cleanup()
+	oc := getOverlayClient(t, planet)
 
-	planet.Start(ctx)
-	// we wait a second for all the nodes to complete bootstrapping off the satellite
-	time.Sleep(2 * time.Second)
-
-	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
-	if err != nil {
-		t.Fatal(err)
-	}
 	nid1 := planet.StorageNodes[0].ID()
 	nid2 := planet.StorageNodes[1].ID()
 	nid3 := planet.StorageNodes[2].ID()
@@ -229,22 +198,11 @@ func TestBulkLookupV2(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 4, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(planet.Shutdown)
+	planet, cleanup := getPlanet(ctx, t)
+	defer cleanup()
+	oc := getOverlayClient(t, planet)
 
-	planet.Start(ctx)
-	// we wait a second for all the nodes to complete bootstrapping off the satellite
-	time.Sleep(2 * time.Second)
-
-	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
-	if err != nil {
-		t.Fatal(err)
-	}
 	cache := planet.Satellites[0].Overlay
-
 	n1 := teststorj.MockNode("n1")
 	n2 := teststorj.MockNode("n2")
 	n3 := teststorj.MockNode("n3")
@@ -296,4 +254,30 @@ func TestBulkLookupV2(t *testing.T) {
 			}
 		}
 	}
+}
+
+func getPlanet(ctx *testcontext.Context, t *testing.T) (planet *testplanet.Planet, f func()) {
+	planet, err := testplanet.New(t, 1, 4, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	planet.Start(ctx)
+	// we wait a second for all the nodes to complete bootstrapping off the satellite
+	time.Sleep(2 * time.Second)
+
+	f = func() {
+		ctx.Check(planet.Shutdown)
+	}
+
+	return planet, f
+}
+
+func getOverlayClient(t *testing.T, planet *testplanet.Planet) (oc overlay.Client) {
+	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return oc
 }
