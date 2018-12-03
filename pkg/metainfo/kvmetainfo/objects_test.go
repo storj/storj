@@ -208,7 +208,7 @@ func assertStream(ctx context.Context, t *testing.T, db *DB, bucket storj.Bucket
 		assertInlineSegment(t, segments[0], content)
 	}
 
-	download := stream.NewDownload(ctx, readOnly, db.streams, bucket.PathCipher)
+	download := stream.NewDownload(ctx, readOnly, db.streams)
 	defer func() {
 		err = download.Close()
 		assert.NoError(t, err)

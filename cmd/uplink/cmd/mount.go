@@ -207,7 +207,7 @@ func (sf *storjFS) Mkdir(name string, mode uint32, context *fuse.Context) fuse.S
 		return fuse.EIO
 	}
 
-	upload := stream.NewUpload(sf.ctx, mutableStream, sf.streams, sf.bucket.PathCipher)
+	upload := stream.NewUpload(sf.ctx, mutableStream, sf.streams)
 	defer utils.LogClose(upload)
 
 	_, err = upload.Write(nil)
@@ -397,7 +397,7 @@ func (f *storjFile) getReader(off int64) (io.ReadCloser, error) {
 			return nil, err
 		}
 
-		download := stream.NewDownload(f.ctx, readOnlyStream, f.streams, f.bucket.PathCipher)
+		download := stream.NewDownload(f.ctx, readOnlyStream, f.streams)
 		_, err = download.Seek(off, io.SeekStart)
 		if err != nil {
 			return nil, err
@@ -427,7 +427,7 @@ func (f *storjFile) getWriter(off int64) (io.Writer, error) {
 			return nil, err
 		}
 
-		f.writer = stream.NewUpload(f.ctx, mutableStream, f.streams, f.bucket.PathCipher)
+		f.writer = stream.NewUpload(f.ctx, mutableStream, f.streams)
 	}
 	return f.writer, nil
 }

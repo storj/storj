@@ -13,22 +13,20 @@ import (
 
 // Download implements Reader, Seeker and Closer for reading from stream.
 type Download struct {
-	ctx        context.Context
-	stream     storj.ReadOnlyStream
-	streams    streams.Store
-	pathCipher storj.Cipher
-	reader     io.ReadCloser
-	offset     int64
-	closed     bool
+	ctx     context.Context
+	stream  storj.ReadOnlyStream
+	streams streams.Store
+	reader  io.ReadCloser
+	offset  int64
+	closed  bool
 }
 
 // NewDownload creates new stream download.
-func NewDownload(ctx context.Context, stream storj.ReadOnlyStream, streams streams.Store, pathCipher storj.Cipher) *Download {
+func NewDownload(ctx context.Context, stream storj.ReadOnlyStream, streams streams.Store) *Download {
 	return &Download{
-		ctx:        ctx,
-		stream:     stream,
-		streams:    streams,
-		pathCipher: pathCipher,
+		ctx:     ctx,
+		stream:  stream,
+		streams: streams,
 	}
 }
 

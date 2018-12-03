@@ -75,16 +75,11 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return err
 	}
 
-	bucket, err := metainfo.GetBucket(ctx, dst.Bucket())
-	if err != nil {
-		return convertError(err, dst)
-	}
-
 	create := storj.CreateObject{
 		RedundancyScheme: cfg.GetRedundancyScheme(),
 		EncryptionScheme: cfg.GetEncryptionScheme(),
 	}
-	obj, err := metainfo.CreateObject(ctx, bucket.Name, dst.Path(), &create)
+	obj, err := metainfo.CreateObject(ctx, dst.Bucket(), dst.Path(), &create)
 	if err != nil {
 		return convertError(err, dst)
 	}
@@ -102,7 +97,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		reader = bar.NewProxyReader(reader)
 	}
 
-	upload := stream.NewUpload(ctx, mutableStream, streams, bucket.PathCipher)
+	upload := stream.NewUpload(ctx, mutableStream, streams)
 	defer utils.LogClose(upload)
 	_, err = io.Copy(upload, reader)
 	if err != nil {
@@ -138,17 +133,12 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return err
 	}
 
-	bucket, err := metainfo.GetBucket(ctx, src.Bucket())
-	if err != nil {
-		return convertError(err, dst)
-	}
-
-	readOnlyStream, err := metainfo.GetObjectStream(ctx, bucket.Name, src.Path())
+	readOnlyStream, err := metainfo.GetObjectStream(ctx, src.Bucket(), src.Path())
 	if err != nil {
 		return convertError(err, src)
 	}
 
-	download := stream.NewDownload(ctx, readOnlyStream, streams, bucket.PathCipher)
+	download := stream.NewDownload(ctx, readOnlyStream, streams)
 	defer utils.LogClose(download)
 
 	var bar *progressbar.ProgressBar
@@ -207,17 +197,12 @@ func copy(ctx context.Context, src fpath.FPath, dst fpath.FPath) error {
 		return err
 	}
 
-	srcBucket, err := metainfo.GetBucket(ctx, src.Bucket())
-	if err != nil {
-		return convertError(err, dst)
-	}
-
-	readOnlyStream, err := metainfo.GetObjectStream(ctx, srcBucket.Name, src.Path())
+	readOnlyStream, err := metainfo.GetObjectStream(ctx, src.Bucket(), src.Path())
 	if err != nil {
 		return convertError(err, src)
 	}
 
-	download := stream.NewDownload(ctx, readOnlyStream, streams, srcBucket.PathCipher)
+	download := stream.NewDownload(ctx, readOnlyStream, streams)
 	defer utils.LogClose(download)
 
 	var bar *progressbar.ProgressBar
@@ -235,16 +220,11 @@ func copy(ctx context.Context, src fpath.FPath, dst fpath.FPath) error {
 		dst = dst.Join(src.Base())
 	}
 
-	dstBucket, err := metainfo.GetBucket(ctx, dst.Bucket())
-	if err != nil {
-		return convertError(err, dst)
-	}
-
 	create := storj.CreateObject{
 		RedundancyScheme: cfg.GetRedundancyScheme(),
 		EncryptionScheme: cfg.GetEncryptionScheme(),
 	}
-	obj, err := metainfo.CreateObject(ctx, dstBucket.Name, dst.Path(), &create)
+	obj, err := metainfo.CreateObject(ctx, dst.Bucket(), dst.Path(), &create)
 	if err != nil {
 		return convertError(err, dst)
 	}
@@ -254,7 +234,7 @@ func copy(ctx context.Context, src fpath.FPath, dst fpath.FPath) error {
 		return err
 	}
 
-	upload := stream.NewUpload(ctx, mutableStream, streams, dstBucket.PathCipher)
+	upload := stream.NewUpload(ctx, mutableStream, streams)
 	defer utils.LogClose(upload)
 	_, err = io.Copy(upload, reader)
 	if err != nil {
