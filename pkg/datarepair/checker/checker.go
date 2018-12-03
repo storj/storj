@@ -143,14 +143,15 @@ func (c *checker) offlineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (o
 	return offline, nil
 }
 
+// Find invalidNodes by checking the audit results that are place in statdb
 func (c *checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (invalidNodes []int32, err error) {
 	// filter if nodeIDs have invalid pieces from auditing results
 	findValidNodesReq := &sdbpb.FindValidNodesRequest{
 		NodeIds: nodeIDs,
 		MinStats: &pb.NodeStats{
-			AuditSuccessRatio: 0, // TODO: update when we have stats added to statsdb
-			UptimeRatio:       0, // TODO: update when we have stats added to statsdb
-			AuditCount:        0, // TODO: update when we have stats added to statsdb
+			AuditSuccessRatio: 0, // TODO: update when we have stats added to statdb
+			UptimeRatio:       0, // TODO: update when we have stats added to statdb
+			AuditCount:        0, // TODO: update when we have stats added to statdb
 		},
 	}
 
@@ -180,6 +181,7 @@ func (c *checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (i
 	return invalidNodes, nil
 }
 
+// combine the offline nodes with nodes marked invalid by statdb
 func combineOfflineWithInvalid(offlineNodes []int32, invalidNodes []int32) (missingPieces []int32) {
 	missingPieces = append(missingPieces, offlineNodes...)
 
@@ -193,7 +195,7 @@ func combineOfflineWithInvalid(offlineNodes []int32, invalidNodes []int32) (miss
 			if missingPiece == invalidNode {
 				break
 			}
-			
+
 			found = false
 		}
 
