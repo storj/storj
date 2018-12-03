@@ -52,6 +52,7 @@ type Config struct {
 	BootstrapAddr string `help:"the kademlia node to bootstrap against" default:"bootstrap-dev.storj.io:8080"`
 	DBPath        string `help:"the path for our db services to be created on" default:"$CONFDIR/kademlia"`
 	Alpha         int    `help:"alpha is a system wide concurrency parameter." default:"5"`
+	SelfAddr      string `help:"the public address of the kademlia node; defaults to the gRPC server address." default:""`
 	Farmer        FarmerConfig
 }
 
@@ -74,7 +75,12 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	nodeType := pb.NodeType_STORAGE // TODO: fix this for satellites
 
-	kad, err := NewKademlia(server.Identity().ID, nodeType, []pb.Node{*in}, server.Addr().String(), metadata, server.Identity(), c.DBPath, c.Alpha)
+	addr := server.Addr().String()
+	if c.SelfAddr != "" {
+		addr = c.SelfAddr
+	}
+
+	kad, err := NewKademlia(server.Identity().ID, nodeType, []pb.Node{*in}, addr, metadata, server.Identity(), c.DBPath, c.Alpha)
 	if err != nil {
 		return err
 	}
