@@ -230,7 +230,7 @@ func (t *tally) Query(ctx context.Context) error {
 		start := dbx.Granular_StartTime(lastBwTally.Value)
 		end := dbx.Granular_EndTime(latestBwa)
 		total := dbx.Granular_DataTotal(v)
-		_, err = t.db.Create_Granular(ctx, nID, start, end, total)
+		_, err = tx.Create_Granular(ctx, nID, start, end, total)
 		if err != nil {
 			t.logger.DPanic("Create granular SQL failed in tally query")
 			return err //todo: retry strategy?
@@ -239,7 +239,7 @@ func (t *tally) Query(ctx context.Context) error {
 
 	//todo:  move this into txn when we have masterdb?
 	update := dbx.Timestamps_Update_Fields{Value: dbx.Timestamps_Value(latestBwa)}
-	_, err = t.db.Update_Timestamps_By_Name(ctx, accounting.LastBandwidthTally, update)
+	_, err = tx.Update_Timestamps_By_Name(ctx, accounting.LastBandwidthTally, update)
 	if err != nil {
 		t.logger.DPanic("Failed to update bandwith timestamp in tally query")
 	}
