@@ -195,7 +195,7 @@ func (sf *storjFS) Mkdir(name string, mode uint32, context *fuse.Context) fuse.S
 		RedundancyScheme: cfg.GetRedundancyScheme(),
 		EncryptionScheme: cfg.GetEncryptionScheme(),
 	}
-	object, err := sf.metainfo.CreateObject(sf.ctx, sf.bucket.Name, name, &create)
+	object, err := sf.metainfo.CreateObject(sf.ctx, sf.bucket.Name, name+"/", &create)
 	if err != nil {
 		return fuse.EIO
 	}
