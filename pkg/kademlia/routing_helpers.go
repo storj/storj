@@ -6,7 +6,6 @@ package kademlia
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"sort"
 	"time"
 
@@ -60,21 +59,16 @@ func (rt *RoutingTable) addNode(node *pb.Node) (bool, error) {
 			if err != nil {
 				return false, RoutingErr.New("could not determine leaf depth: %s", err)
 			}
-			fmt.Printf("NODEID==%v\n", node.Id.Bytes())
-			fmt.Printf("BEFORE==%v\n", kadBucketID)
 			kadBucketID = rt.splitBucket(kadBucketID, depth)
-			fmt.Printf("AFTER==%v\n", kadBucketID)
 			err = rt.createOrUpdateKBucket(kadBucketID, time.Now())
 			if err != nil {
 				return false, RoutingErr.New("could not split and create K bucket: %s", err)
 			}
 			kadBucketID, err = rt.getKBucketID(node.Id)
-			fmt.Printf("NODE BUCKET==%v\n", kadBucketID)
 			if err != nil {
 				return false, RoutingErr.New("could not get k bucket Id within add node split bucket checks: %s", err)
 			}
 			hasRoom, err = rt.kadBucketHasRoom(kadBucketID)
-			fmt.Printf("HAS ROOM? %v\n", hasRoom)
 			if err != nil {
 				return false, err
 			}
