@@ -213,7 +213,7 @@ func LookupNode(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	fmt.Printf(prettyPrintNode(node))
+	fmt.Printf("%+v\n", node)
 
 	return nil
 }
@@ -224,16 +224,6 @@ func prettyPrintBucket(b *pb.GetBucketResponse) string {
 	if err != nil {
 		zap.S().Error("error marshaling bucket: %s", b.Id)
 	}
-	return s
-}
-
-func prettyPrintNode(n *pb.LookupNodeResponse) string {
-	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: false}
-	s, err := m.MarshalToString(n.Node.Id)
-	if err != nil {
-		zap.S().Error("error marshaling node: %s", n.Node.Id)
-	}
-
 	return s
 }
 
