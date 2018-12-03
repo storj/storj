@@ -113,15 +113,51 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 					return Error.New("error getting valid nodes from statdb %s", err)
 				}
 
-				missingPieces, err := c.offlineNodes(ctx, resp.PassedIds)
+				// Find all offline nodes
+				offlineNodes, err := c.offlineNodes(ctx, nodeIDs)
 				if err != nil {
 					return Error.New("error getting offline nodes %s", err)
 				}
-				numHealthy := len(nodeIDs) - len(missingPieces)
+
+				// Add the invalidNodes to the offlineNodes
+				var isValidNode bool
+				var isAlreadyOffline bool
+				for i, node := range nodeIDs {
+					isValidNode = false
+
+					// Check if node is a valid node
+					for _, validNode := range resp.PassedIds {
+						if node == validNode {
+							isValidNode = true
+							break
+						}
+					}
+
+					// if node is not found in validNodes then the node is invalid
+					if !isValidNode {
+						isAlreadyOffline = false
+
+						// If check if node is already offline
+						for _, n := range offlineNodes {
+							if n == int32(i) {
+								isAlreadyOffline = true
+								break
+							}
+						}
+
+						// If invalid node is not already added then add it to offlineNodes
+						if !isAlreadyOffline {
+							offlineNodes = append(offlineNodes, int32(i))
+						}
+						  
+					}
+				}
+
+				numHealthy := len(nodeIDs) - len(offlineNodes)
 				if int32(numHealthy) < pointer.Remote.Redundancy.RepairThreshold {
 					err = c.repairQueue.Enqueue(&pb.InjuredSegment{
 						Path:       string(item.Key),
-						LostPieces: missingPieces,
+						LostPieces: offlineNodes,
 					})
 					if err != nil {
 						return Error.New("error adding injured segment to queue %s", err)
