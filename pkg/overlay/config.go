@@ -5,16 +5,18 @@ package overlay
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -32,6 +34,12 @@ var (
 type Config struct {
 	DatabaseURL     string        `help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
 	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
+}
+
+// LookupConfig is a configuration struct for querying the overlay cache with one or more node IDs
+type LookupConfig struct {
+	NodeIDsString string `help:"one or more string-encoded node IDs, delimited by Delimiter"`
+	Delimiter     string `help:"delimiter used for parsing node IDs" default:","`
 }
 
 // CtxKey used for assigning cache and server
@@ -130,4 +138,22 @@ func LoadServerFromContext(ctx context.Context) *Server {
 		return v
 	}
 	return nil
+}
+
+// ParseIDs converts the base58check encoded node ID strings from the config into node IDs
+func (c LookupConfig) ParseIDs() (ids storj.NodeIDList, err error) {
+	var idErrs []error
+	idStrs := strings.Split(c.NodeIDsString, c.Delimiter)
+	for _, s := range idStrs {
+		id, err := storj.NodeIDFromString(s)
+		if err != nil {
+			idErrs = append(idErrs, err)
+			continue
+		}
+		ids = append(ids, id)
+	}
+	if err := utils.CombineErrors(idErrs...); err != nil {
+		return nil, err
+	}
+	return ids, nil
 }

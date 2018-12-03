@@ -15,7 +15,7 @@ import (
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/hash"
 
-	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/pkg/pb"
 )
 
 func (s *storjObjects) NewMultipartUpload(ctx context.Context, bucket, object string, metadata map[string]string) (uploadID string, err error) {
@@ -43,7 +43,7 @@ func (s *storjObjects) NewMultipartUpload(ctx context.Context, bucket, object st
 		delete(metadata, "content-type")
 
 		// metadata serialized
-		serMetaInfo := objects.SerializableMeta{
+		serMetaInfo := pb.SerializableMeta{
 			ContentType: tempContType,
 			UserDefined: metadata,
 		}

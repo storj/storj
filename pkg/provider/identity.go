@@ -8,20 +8,19 @@ import (
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
-	"fmt"
 	"io/ioutil"
-	"math/bits"
 	"net"
 	"os"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/sha3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -39,7 +38,7 @@ type PeerIdentity struct {
 	// signed by the CA. The leaf is what is used for communication.
 	Leaf *x509.Certificate
 	// The ID taken from the CA public key
-	ID nodeID
+	ID storj.NodeID
 }
 
 // FullIdentity represents you on the network. In addition to a PeerIdentity,
@@ -52,7 +51,7 @@ type FullIdentity struct {
 	// signed by the CA. The leaf is what is used for communication.
 	Leaf *x509.Certificate
 	// The ID taken from the CA public key
-	ID nodeID
+	ID storj.NodeID
 	// Key is the key this identity uses with the leaf for communication.
 	Key crypto.PrivateKey
 	// PeerCAWhitelist is a whitelist of CA certs which, if present, restricts which peers this identity will verify as valid;
@@ -106,7 +105,7 @@ func FullIdentityFromPEM(chainPEM, keyPEM, CAWhitelistPEM []byte) (*FullIdentity
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	i, err := idFromKey(ch[1].PublicKey)
+	i, err := NodeIDFromKey(ch[1].PublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +150,7 @@ func ParseCertChain(chain [][]byte) ([]*x509.Certificate, error) {
 
 // PeerIdentityFromCerts loads a PeerIdentity from a pair of leaf and ca x509 certificates
 func PeerIdentityFromCerts(leaf, ca *x509.Certificate, rest []*x509.Certificate) (*PeerIdentity, error) {
-	i, err := idFromKey(ca.PublicKey.(crypto.PublicKey))
+	i, err := NodeIDFromKey(ca.PublicKey.(crypto.PublicKey))
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +317,7 @@ func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFun
 // DialOption returns a grpc `DialOption` for making outgoing connections
 // to the node with this peer identity
 // id is an optional id of the node we are dialing
-func (fi *FullIdentity) DialOption(id string) (grpc.DialOption, error) {
+func (fi *FullIdentity) DialOption(id storj.NodeID) (grpc.DialOption, error) {
 	// TODO(coyle): add ID
 	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
 	ch = append(ch, fi.RestChainRaw()...)
@@ -333,7 +332,7 @@ func (fi *FullIdentity) DialOption(id string) (grpc.DialOption, error) {
 		VerifyPeerCertificate: peertls.VerifyPeerFunc(
 			peertls.VerifyPeerCertChains,
 			func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
-				if id == "" {
+				if id == (storj.NodeID{}) {
 					return nil
 				}
 
@@ -342,7 +341,7 @@ func (fi *FullIdentity) DialOption(id string) (grpc.DialOption, error) {
 					return err
 				}
 
-				if peer.ID.String() != id {
+				if peer.ID.String() != id.String() {
 					return Error.New("peer ID did not match requested ID")
 				}
 
@@ -354,31 +353,29 @@ func (fi *FullIdentity) DialOption(id string) (grpc.DialOption, error) {
 	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), nil
 }
 
-type nodeID string
-
-func (n nodeID) String() string { return string(n) }
-func (n nodeID) Bytes() []byte  { return []byte(n) }
-func (n nodeID) Difficulty() uint16 {
-	hash, err := base64.URLEncoding.DecodeString(n.String())
+// NodeIDFromKey hashes a publc key and creates a node ID from it
+func NodeIDFromKey(k crypto.PublicKey) (storj.NodeID, error) {
+	kb, err := x509.MarshalPKIXPublicKey(k)
 	if err != nil {
-		zap.S().Error(errs.Wrap(err))
+		return storj.NodeID{}, storj.ErrNodeID.Wrap(err)
 	}
+	hash := make([]byte, len(storj.NodeID{}))
+	sha3.ShakeSum256(hash, kb)
+	return storj.NodeIDFromBytes(hash)
+}
 
-	for i := 1; i < len(hash); i++ {
-		b := hash[len(hash)-i]
-
-		if b != 0 {
-			zeroBits := bits.TrailingZeros16(uint16(b))
-			if zeroBits == 16 {
-				zeroBits = 0
-			}
-
-			return uint16((i-1)*8 + zeroBits)
-		}
+// NewFullIdentity creates a new ID for nodes with difficulty and concurrency params
+func NewFullIdentity(ctx context.Context, difficulty uint16, concurrency uint) (*FullIdentity, error) {
+	ca, err := NewCA(ctx, NewCAOptions{
+		Difficulty:  difficulty,
+		Concurrency: concurrency,
+	})
+	if err != nil {
+		return nil, err
 	}
-
-	// NB: this should never happen
-	reason := fmt.Sprintf("difficulty matches hash length! hash: %s", hash)
-	zap.S().Error(reason)
-	panic(reason)
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		return nil, err
+	}
+	return identity, err
 }

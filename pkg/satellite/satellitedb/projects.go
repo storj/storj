@@ -8,6 +8,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/pkg/satellite/satellitedb/dbx"
 	"storj.io/storj/pkg/utils"

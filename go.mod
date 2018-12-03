@@ -1,5 +1,24 @@
 module storj.io/storj
 
+// force specific versions for minio
+require (
+	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
+	github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1 // indirect
+	github.com/go-ole/go-ole v1.2.1 // indirect
+	github.com/graphql-go/graphql v0.7.6
+	github.com/hanwen/go-fuse v0.0.0-20181027161220-c029b69a13a7
+	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/mattn/go-colorable v0.0.9 // indirect
+
+	github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38
+	github.com/mitchellh/mapstructure v1.1.1 // indirect
+
+	github.com/prometheus/client_golang v0.9.0-pre1.0.20180416233856-82f5ff156b29 // indirect
+	github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad // indirect
+)
+
+exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.com/olivere/elastic/pull/869
+
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/Shopify/toxiproxy v2.1.3+incompatible // indirect
@@ -64,7 +83,6 @@ require (
 	github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c // indirect
 	github.com/pierrec/lz4 v2.0.5+incompatible // indirect
 	github.com/pkg/profile v1.2.1 // indirect
-
 	github.com/rcrowley/go-metrics v0.0.0-20180503174638-e2704e165165 // indirect
 	github.com/rs/cors v1.5.0 // indirect
 	github.com/shirou/gopsutil v2.17.12+incompatible
@@ -88,6 +106,7 @@ require (
 	go.uber.org/zap v1.9.1
 	golang.org/x/crypto v0.0.0-20181009213950-7c1a557ab941
 	golang.org/x/net v0.0.0-20181003013248-f5e5bdd77824
+	golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f
 	golang.org/x/sys v0.0.0-20181011152604-fa43e7bc11ba
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect
 	google.golang.org/grpc v1.15.0
@@ -97,22 +116,3 @@ require (
 	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20180827161543-6ebf5a752f9b
 	gopkg.in/vmihailenco/msgpack.v2 v2.9.1 // indirect
 )
-
-// force specific versions for minio
-require (
-	github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1 // indirect
-	github.com/go-ole/go-ole v1.2.1 // indirect
-	github.com/graphql-go/graphql v0.7.6
-	github.com/hanwen/go-fuse v0.0.0-20181027161220-c029b69a13a7
-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
-	github.com/mattn/go-colorable v0.0.9 // indirect
-
-	github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38
-	github.com/mitchellh/mapstructure v1.1.1 // indirect
-
-	github.com/prometheus/client_golang v0.9.0-pre1.0.20180416233856-82f5ff156b29 // indirect
-	github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad // indirect
-	golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f
-)
-
-exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.com/olivere/elastic/pull/869

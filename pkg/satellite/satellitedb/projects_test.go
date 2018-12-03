@@ -7,11 +7,11 @@ import (
 	"testing"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
-	"storj.io/storj/pkg/satellite/satellitedb/dbx"
-
 	"github.com/stretchr/testify/assert"
+
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/satellite"
+	"storj.io/storj/pkg/satellite/satellitedb/dbx"
 )
 
 func TestProjectsRepository(t *testing.T) {

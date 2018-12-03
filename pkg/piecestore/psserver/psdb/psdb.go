@@ -21,6 +21,7 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -105,7 +106,7 @@ func (db *DB) init() (err error) {
 		return err
 	}
 
-	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`satellite` TEXT, `agreement` BLOB, `signature` BLOB);")
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`satellite` BLOB, `agreement` BLOB, `signature` BLOB);")
 	if err != nil {
 		return err
 	}
@@ -223,7 +224,7 @@ func (db *DB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) error {
 		return err
 	}
 
-	_, err := db.DB.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature) VALUES (?, ?, ?)`, pbad.GetSatelliteId(), ba.GetData(), ba.GetSignature())
+	_, err := db.DB.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature) VALUES (?, ?, ?)`, pbad.SatelliteId.Bytes(), ba.GetData(), ba.GetSignature())
 	return err
 }
 
@@ -266,7 +267,7 @@ func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([][]byte, err
 }
 
 // GetBandwidthAllocations all bandwidth agreements and sorts by satellite
-func (db *DB) GetBandwidthAllocations() (map[string][]*Agreement, error) {
+func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
 	defer db.locked()()
 
 	rows, err := db.DB.Query(`SELECT * FROM bandwidth_agreements ORDER BY satellite`)
@@ -279,19 +280,23 @@ func (db *DB) GetBandwidthAllocations() (map[string][]*Agreement, error) {
 		}
 	}()
 
-	agreements := make(map[string][]*Agreement)
+	agreements := make(map[storj.NodeID][]*Agreement)
 	for rows.Next() {
 		agreement := &Agreement{}
-		var satellite sql.NullString
+		var satellite []byte
 		err := rows.Scan(&satellite, &agreement.Agreement, &agreement.Signature)
 		if err != nil {
 			return agreements, err
 		}
 
-		if !satellite.Valid {
-			return agreements, nil
+		// if !satellite.Valid {
+		// 	return agreements, nil
+		// }
+		satelliteID, err := storj.NodeIDFromBytes(satellite)
+		if err != nil {
+			return nil, err
 		}
-		agreements[satellite.String] = append(agreements[satellite.String], agreement)
+		agreements[satelliteID] = append(agreements[satelliteID], agreement)
 	}
 	return agreements, nil
 }

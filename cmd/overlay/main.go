@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -57,16 +58,20 @@ func cmdList(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	for _, k := range keys {
-		n, err := c.Get(process.Ctx(cmd), string(k))
+	nodeIDs, err := storj.NodeIDsFromBytes(keys.ByteSlices())
+	if err != nil {
+		return err
+	}
+	for _, id := range nodeIDs {
+		n, err := c.Get(process.Ctx(cmd), id)
 		if err != nil {
-			zap.S().Infof("ID: %s; error getting value\n", k)
+			zap.S().Infof("ID: %s; error getting value\n", id.String())
 		}
 		if n != nil {
-			zap.S().Infof("ID: %s; Address: %s\n", k, n.Address.Address)
+			zap.S().Infof("ID: %s; Address: %s\n", id.String(), n.Address.Address)
 			continue
 		}
-		zap.S().Infof("ID: %s: nil\n", k)
+		zap.S().Infof("ID: %s: nil\n", id.String())
 	}
 
 	return nil
@@ -89,9 +94,14 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	for i, a := range nodes {
+		id, err := storj.NodeIDFromString(i)
+		if err != nil {
+			zap.S().Error(err)
+		}
 		zap.S().Infof("adding node ID: %s; Address: %s", i, a)
-		err := c.Put(i, pb.Node{
-			Id: i,
+		err = c.Put(id, pb.Node{
+			Id: id,
+			// TODO: NodeType is missing
 			Address: &pb.NodeAddress{
 				Transport: 0,
 				Address:   a,

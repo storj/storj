@@ -16,7 +16,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
 
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 var ctx = context.Background()
@@ -136,11 +138,11 @@ func TestHappyPath(t *testing.T) {
 		}
 	})
 
-	bandwidthAllocation := func(satelliteID string, total int64) []byte {
+	bandwidthAllocation := func(satelliteID storj.NodeID, total int64) []byte {
 		return serialize(t, &pb.RenterBandwidthAllocation_Data{
 			PayerAllocation: &pb.PayerBandwidthAllocation{
 				Data: serialize(t, &pb.PayerBandwidthAllocation_Data{
-					SatelliteId: []byte(satelliteID),
+					SatelliteId: satelliteID,
 				}),
 			},
 			Total: total,
@@ -148,22 +150,23 @@ func TestHappyPath(t *testing.T) {
 	}
 
 	//TODO: use better data
+	nodeIDAB := teststorj.NodeIDFromString("AB")
 	allocationTests := []*pb.RenterBandwidthAllocation{
 		{
 			Signature: []byte("signed by test"),
-			Data:      bandwidthAllocation("AB", 0),
+			Data:      bandwidthAllocation(nodeIDAB, 0),
 		},
 		{
 			Signature: []byte("signed by sigma"),
-			Data:      bandwidthAllocation("AB", 10),
+			Data:      bandwidthAllocation(nodeIDAB, 10),
 		},
 		{
 			Signature: []byte("signed by sigma"),
-			Data:      bandwidthAllocation("AB", 98),
+			Data:      bandwidthAllocation(nodeIDAB, 98),
 		},
 		{
 			Signature: []byte("signed by test"),
-			Data:      bandwidthAllocation("AB", 3),
+			Data:      bandwidthAllocation(nodeIDAB, 3),
 		},
 	}
 

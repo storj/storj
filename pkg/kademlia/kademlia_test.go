@@ -5,6 +5,7 @@
 package kademlia
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
 	"net"
@@ -14,50 +15,42 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/dht"
+	"storj.io/storj/internal/identity"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 )
-
-// helper function to generate new node identities with
-// correct difficulty and concurrency
-func newTestIdentity() (*provider.FullIdentity, error) {
-	fid, err := node.NewFullIdentity(context.Background(), 12, 4)
-	return fid, err
-}
 
 func TestNewKademlia(t *testing.T) {
 	rootdir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()
 	cases := []struct {
-		id          dht.NodeID
+		id          storj.NodeID
 		bn          []pb.Node
 		addr        string
 		expectedErr error
 	}{
 		{
-			id: func() *node.ID {
-				id, err := newTestIdentity()
+			id: func() storj.NodeID {
+				id, err := testidentity.NewTestIdentity()
 				assert.NoError(t, err)
-				n := node.ID(id.ID)
-				return &n
+				return id.ID
 			}(),
-			bn:   []pb.Node{pb.Node{Id: "foo"}},
+			bn:   []pb.Node{{Id: teststorj.NodeIDFromString("foo")}},
 			addr: "127.0.0.1:8080",
 		},
 		{
-			id: func() *node.ID {
-				id, err := newTestIdentity()
+			id: func() storj.NodeID {
+				id, err := testidentity.NewTestIdentity()
 				assert.NoError(t, err)
-				n := node.ID(id.ID)
-				return &n
+				return id.ID
 			}(),
-			bn:   []pb.Node{pb.Node{Id: "foo"}},
+			bn:   []pb.Node{{Id: teststorj.NodeIDFromString("foo")}},
 			addr: "127.0.0.1:8080",
 		},
 	}
@@ -65,12 +58,12 @@ func TestNewKademlia(t *testing.T) {
 	for i, v := range cases {
 		dir := filepath.Join(rootdir, strconv.Itoa(i))
 
-		ca, err := provider.NewTestCA(context.Background())
+		ca, err := testidentity.NewTestCA(context.Background())
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
 
-		kad, err := NewKademlia(v.id, v.bn, v.addr, nil, identity, dir, defaultAlpha)
+		kad, err := NewKademlia(v.id, pb.NodeType_STORAGE, v.bn, v.addr, nil, identity, dir, defaultAlpha)
 		assert.NoError(t, err)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
@@ -92,12 +85,12 @@ func TestPeerDiscovery(t *testing.T) {
 	targetServer, _, targetID, targetAddress := startTestNodeServer()
 	defer targetServer.Stop()
 
-	bootstrapNodes := []pb.Node{pb.Node{Id: bootID.ID.String(), Address: &pb.NodeAddress{Address: bootAddress}}}
+	bootstrapNodes := []pb.Node{{Id: bootID.ID, Address: &pb.NodeAddress{Address: bootAddress}}}
 	metadata := &pb.NodeMetadata{
 		Email:  "foo@bar.com",
 		Wallet: "FarmerWallet",
 	}
-	k, err := NewKademlia(dht.NodeID(testID.ID), bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
+	k, err := NewKademlia(testID.ID, pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
 	assert.NoError(t, err)
 	rt, err := k.GetRoutingTable(context.Background())
 	assert.NoError(t, err)
@@ -109,26 +102,21 @@ func TestPeerDiscovery(t *testing.T) {
 	}()
 
 	cases := []struct {
-		target      dht.NodeID
+		target      storj.NodeID
 		opts        discoveryOptions
 		expected    *pb.Node
 		expectedErr error
 	}{
-		{target: func() *node.ID {
-			nid := node.ID(targetID.ID)
-			assert.NoError(t, err)
+		{target: func() storj.NodeID {
 			// this is what the bootstrap node returns
-			mockBootServer.returnValue = []*pb.Node{&pb.Node{Id: targetID.ID.String(), Address: &pb.NodeAddress{Address: targetAddress}}}
-			return &nid
+			mockBootServer.returnValue = []*pb.Node{{Id: targetID.ID, Address: &pb.NodeAddress{Address: targetAddress}}}
+			return targetID.ID
 		}(),
 			opts:        discoveryOptions{concurrency: 3, bootstrap: true, retries: 1},
 			expected:    &pb.Node{},
 			expectedErr: nil,
 		},
-		{target: func() *node.ID {
-			n := node.ID(bootID.ID)
-			return &n
-		}(),
+		{target: bootID.ID,
 			opts:        discoveryOptions{concurrency: 3, bootstrap: true, retries: 1},
 			expected:    nil,
 			expectedErr: nil,
@@ -171,13 +159,12 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	assert.NoError(t, err)
 	// new config
 	// new identity
-	fid, err := newTestIdentity()
-	id := dht.NodeID(fid.ID)
+	fid, err := testidentity.NewTestIdentity()
 	assert.NoError(t, err)
 	// new kademlia
 	dir, cleanup := mktempdir(t, "kademlia")
 
-	k, err := NewKademlia(id, bn, lis.Addr().String(), nil, fid, dir, defaultAlpha)
+	k, err := NewKademlia(fid.ID, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
 	s := node.NewServer(k)
 	// new ident opts
@@ -197,37 +184,40 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 }
 
 func TestGetNodes(t *testing.T) {
+	var (
+		nodeIDA = teststorj.NodeIDFromString("AAAAA")
+		nodeIDB = teststorj.NodeIDFromString("BBBBB")
+		nodeIDC = teststorj.NodeIDFromString("CCCCC")
+		nodeIDD = teststorj.NodeIDFromString("DDDDD")
+	)
+
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 
 	assert.NoError(t, err)
 
-	srv, _ := newTestServer([]*pb.Node{&pb.Node{Id: "foo"}})
+	srv, _ := newTestServer([]*pb.Node{{Id: teststorj.NodeIDFromString("foo")}})
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	defer srv.Stop()
 
 	// make new identity
-	fid, err := newTestIdentity()
+	fid, err := testidentity.NewTestIdentity()
 	assert.NoError(t, err)
-	fid2, err := newTestIdentity()
+	fid2, err := testidentity.NewTestIdentity()
 	assert.NoError(t, err)
-	fid.ID = "AAAAA"
-	fid2.ID = "BBBBB"
+	fid.ID = nodeIDA
+	fid2.ID = nodeIDB
 	// create two new unique identities
-	id := node.ID(fid.ID)
-	id2 := node.ID(fid2.ID)
-	assert.NotEqual(t, id, id2)
-	kid := dht.NodeID(fid.ID)
-
+	assert.NotEqual(t, fid.ID, fid2.ID)
 	dir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()
-	k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), nil, fid, dir, defaultAlpha)
+	k, err := NewKademlia(fid.ID, pb.NodeType_STORAGE, []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
 	defer func() {
 		assert.NoError(t, k.Disconnect())
 	}()
 
 	// add nodes
-	ids := []string{"AAAAA", "BBBBB", "CCCCC", "DDDDD"}
+	ids := storj.NodeIDList{nodeIDA, nodeIDB, nodeIDC, nodeIDD}
 	bw := []int64{1, 2, 3, 4}
 	disk := []int64{4, 3, 2, 1}
 	nodes := []*pb.Node{}
@@ -246,16 +236,16 @@ func TestGetNodes(t *testing.T) {
 
 	cases := []struct {
 		testID       string
-		start        string
+		start        storj.NodeID
 		limit        int
 		restrictions []pb.Restriction
 		expected     []*pb.Node
 	}{
 		{testID: "one",
-			start: "BBBBB",
+			start: nodeIDB,
 			limit: 2,
 			restrictions: []pb.Restriction{
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_GT,
 					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(2),
@@ -264,15 +254,15 @@ func TestGetNodes(t *testing.T) {
 			expected: nodes[2:],
 		},
 		{testID: "two",
-			start: "AAAAA",
+			start: nodeIDA,
 			limit: 3,
 			restrictions: []pb.Restriction{
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_GT,
 					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(2),
 				},
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_LT,
 					Operand:  pb.Restriction_FREE_DISK,
 					Value:    int64(2),
@@ -281,7 +271,7 @@ func TestGetNodes(t *testing.T) {
 			expected: nodes[3:],
 		},
 		{testID: "three",
-			start:        "AAAAA",
+			start:        nodeIDA,
 			limit:        4,
 			restrictions: []pb.Restriction{},
 			expected:     nodes,
@@ -293,7 +283,7 @@ func TestGetNodes(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, len(c.expected), len(ns))
 			for i, n := range ns {
-				assert.True(t, proto.Equal(c.expected[i], n))
+				assert.True(t, bytes.Equal(c.expected[i].Id.Bytes(), n.Id.Bytes()))
 			}
 		})
 	}
@@ -308,7 +298,7 @@ func TestMeetsRestrictions(t *testing.T) {
 	}{
 		{testID: "pass one",
 			r: []pb.Restriction{
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_EQ,
 					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(1),
@@ -323,12 +313,12 @@ func TestMeetsRestrictions(t *testing.T) {
 		},
 		{testID: "pass multiple",
 			r: []pb.Restriction{
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_LTE,
 					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(2),
 				},
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_GTE,
 					Operand:  pb.Restriction_FREE_DISK,
 					Value:    int64(2),
@@ -344,12 +334,12 @@ func TestMeetsRestrictions(t *testing.T) {
 		},
 		{testID: "fail one",
 			r: []pb.Restriction{
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_LT,
 					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(2),
 				},
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_GT,
 					Operand:  pb.Restriction_FREE_DISK,
 					Value:    int64(2),
@@ -365,12 +355,12 @@ func TestMeetsRestrictions(t *testing.T) {
 		},
 		{testID: "fail multiple",
 			r: []pb.Restriction{
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_LT,
 					Operand:  pb.Restriction_FREE_BANDWIDTH,
 					Value:    int64(2),
 				},
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_GT,
 					Operand:  pb.Restriction_FREE_DISK,
 					Value:    int64(2),
@@ -408,7 +398,7 @@ func startTestNodeServer() (*grpc.Server, *mockNodesServer, *provider.FullIdenti
 		return nil, nil, nil, ""
 	}
 
-	ca, err := provider.NewTestCA(context.Background())
+	ca, err := testidentity.NewTestCA(context.Background())
 	if err != nil {
 		return nil, nil, nil, ""
 	}
@@ -434,7 +424,7 @@ func startTestNodeServer() (*grpc.Server, *mockNodesServer, *provider.FullIdenti
 }
 
 func newTestServer(nn []*pb.Node) (*grpc.Server, *mockNodesServer) {
-	ca, err := provider.NewTestCA(context.Background())
+	ca, err := testidentity.NewTestCA(context.Background())
 	if err != nil {
 		return nil, nil
 	}

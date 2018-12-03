@@ -9,6 +9,11 @@ type EncryptionScheme struct {
 	BlockSize int32
 }
 
+// IsZero returns true if no field in the struct is set to non-zero value
+func (scheme EncryptionScheme) IsZero() bool {
+	return scheme == (EncryptionScheme{})
+}
+
 // Cipher specifies an encryption algorithm
 type Cipher byte
 

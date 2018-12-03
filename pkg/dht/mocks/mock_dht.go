@@ -13,7 +13,8 @@ import (
 
 	dht "storj.io/storj/pkg/dht"
 	pb "storj.io/storj/pkg/pb"
-	"storj.io/storj/storage"
+	storj "storj.io/storj/pkg/storj"
+	storage "storj.io/storj/storage"
 )
 
 // MockDHT is a mock of DHT interface
@@ -64,7 +65,7 @@ func (mr *MockDHTMockRecorder) Disconnect() *gomock.Call {
 }
 
 // FindNode mocks base method
-func (m *MockDHT) FindNode(arg0 context.Context, arg1 dht.NodeID) (pb.Node, error) {
+func (m *MockDHT) FindNode(arg0 context.Context, arg1 storj.NodeID) (pb.Node, error) {
 	ret := m.ctrl.Call(m, "FindNode", arg0, arg1)
 	ret0, _ := ret[0].(pb.Node)
 	ret1, _ := ret[1].(error)
@@ -77,7 +78,7 @@ func (mr *MockDHTMockRecorder) FindNode(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // GetNodes mocks base method
-func (m *MockDHT) GetNodes(arg0 context.Context, arg1 string, arg2 int, arg3 ...pb.Restriction) ([]*pb.Node, error) {
+func (m *MockDHT) GetNodes(arg0 context.Context, arg1 storj.NodeID, arg2 int, arg3 ...pb.Restriction) ([]*pb.Node, error) {
 	varargs := []interface{}{arg0, arg1, arg2}
 	for _, a := range arg3 {
 		varargs = append(varargs, a)
@@ -192,7 +193,7 @@ func (mr *MockRoutingTableMockRecorder) ConnectionSuccess(arg0 interface{}) *gom
 }
 
 // FindNear mocks base method
-func (m *MockRoutingTable) FindNear(arg0 dht.NodeID, arg1 int) ([]*pb.Node, error) {
+func (m *MockRoutingTable) FindNear(arg0 storj.NodeID, arg1 int) ([]*pb.Node, error) {
 	ret := m.ctrl.Call(m, "FindNear", arg0, arg1)
 	ret0, _ := ret[0].([]*pb.Node)
 	ret1, _ := ret[1].(error)
@@ -205,7 +206,7 @@ func (mr *MockRoutingTableMockRecorder) FindNear(arg0, arg1 interface{}) *gomock
 }
 
 // GetBucket mocks base method
-func (m *MockRoutingTable) GetBucket(arg0 string) (dht.Bucket, bool) {
+func (m *MockRoutingTable) GetBucket(arg0 storj.NodeID) (dht.Bucket, bool) {
 	ret := m.ctrl.Call(m, "GetBucket", arg0)
 	ret0, _ := ret[0].(dht.Bucket)
 	ret1, _ := ret[1].(bool)
@@ -217,8 +218,21 @@ func (mr *MockRoutingTableMockRecorder) GetBucket(arg0 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBucket", reflect.TypeOf((*MockRoutingTable)(nil).GetBucket), arg0)
 }
 
+// GetBucketIds mocks base method
+func (m *MockRoutingTable) GetBucketIds() (storage.Keys, error) {
+	ret := m.ctrl.Call(m, "GetBucketIds")
+	ret0, _ := ret[0].(storage.Keys)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBucketIds indicates an expected call of GetBucketIds
+func (mr *MockRoutingTableMockRecorder) GetBucketIds() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBucketIds", reflect.TypeOf((*MockRoutingTable)(nil).GetBucketIds))
+}
+
 // GetBucketTimestamp mocks base method
-func (m *MockRoutingTable) GetBucketTimestamp(arg0 string, arg1 dht.Bucket) (time.Time, error) {
+func (m *MockRoutingTable) GetBucketTimestamp(arg0 []byte, arg1 dht.Bucket) (time.Time, error) {
 	ret := m.ctrl.Call(m, "GetBucketTimestamp", arg0, arg1)
 	ret0, _ := ret[0].(time.Time)
 	ret1, _ := ret[1].(error)
@@ -236,10 +250,6 @@ func (m *MockRoutingTable) GetBuckets() ([]dht.Bucket, error) {
 	ret0, _ := ret[0].([]dht.Bucket)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
-}
-
-func (m *MockRoutingTable) GetBucketIds() (storage.Keys, error) {
-	return nil, nil
 }
 
 // GetBuckets indicates an expected call of GetBuckets
@@ -272,7 +282,7 @@ func (mr *MockRoutingTableMockRecorder) Local() *gomock.Call {
 }
 
 // SetBucketTimestamp mocks base method
-func (m *MockRoutingTable) SetBucketTimestamp(arg0 string, arg1 time.Time) error {
+func (m *MockRoutingTable) SetBucketTimestamp(arg0 []byte, arg1 time.Time) error {
 	ret := m.ctrl.Call(m, "SetBucketTimestamp", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0

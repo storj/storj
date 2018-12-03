@@ -42,7 +42,7 @@ func TestServer(t *testing.T) {
 	}
 
 	{ // Lookup
-		result, err := server.Lookup(ctx, &pb.LookupRequest{NodeID: planet.StorageNodes[0].ID()})
+		result, err := server.Lookup(ctx, &pb.LookupRequest{NodeId: planet.StorageNodes[0].ID()})
 		if assert.NoError(t, err) && assert.NotNil(t, result) {
 			assert.Equal(t, result.Node.Address.Address, planet.StorageNodes[0].Addr())
 		}
@@ -51,9 +51,9 @@ func TestServer(t *testing.T) {
 	{ // BulkLookup
 		result, err := server.BulkLookup(ctx, &pb.LookupRequests{
 			LookupRequest: []*pb.LookupRequest{
-				{NodeID: planet.StorageNodes[0].ID()},
-				{NodeID: planet.StorageNodes[1].ID()},
-				{NodeID: planet.StorageNodes[2].ID()},
+				{NodeId: planet.StorageNodes[0].ID()},
+				{NodeId: planet.StorageNodes[1].ID()},
+				{NodeId: planet.StorageNodes[2].ID()},
 			},
 		})
 

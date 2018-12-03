@@ -17,10 +17,11 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
-	psserver "storj.io/storj/pkg/piecestore/psserver"
+	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -144,8 +145,8 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// attributes per satelliteid
-	summaries := make(map[string]*SatelliteSummary)
-	satelliteIDs := []string{}
+	summaries := make(map[storj.NodeID]*SatelliteSummary)
+	satelliteIDs := storj.NodeIDList{}
 
 	for _, rbaVal := range bwAgreements {
 		for _, rbaDataVal := range rbaVal {
@@ -161,12 +162,11 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 				return err
 			}
 
-			satelliteID := string(pbad.GetSatelliteId())
-			summary, ok := summaries[satelliteID]
+			summary, ok := summaries[pbad.SatelliteId]
 			if !ok {
-				summaries[satelliteID] = &SatelliteSummary{}
-				satelliteIDs = append(satelliteIDs, satelliteID)
-				summary = summaries[satelliteID]
+				summaries[pbad.SatelliteId] = &SatelliteSummary{}
+				satelliteIDs = append(satelliteIDs, pbad.SatelliteId)
+				summary = summaries[pbad.SatelliteId]
 			}
 
 			// fill the summary info
@@ -187,7 +187,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	fmt.Fprintln(w, "SatelliteID\tTotal\t# Of Transactions\tPUT Action\tGET Action\t")
 
 	// populate the row fields
-	sort.Strings(satelliteIDs)
+	sort.Sort(satelliteIDs)
 	for _, satelliteID := range satelliteIDs {
 		summary := summaries[satelliteID]
 		fmt.Fprint(w, satelliteID, "\t", summary.TotalBytes, "\t", summary.TotalTransactions, "\t", summary.PutActionCount, "\t", summary.GetActionCount, "\t\n")

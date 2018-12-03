@@ -10,15 +10,13 @@ import (
 	"fmt"
 	"time"
 
-	"storj.io/storj/pkg/utils"
-
-	"go.uber.org/zap"
-
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/satellite/satelliteauth"
+	"storj.io/storj/pkg/utils"
 )
 
 // Service is handling accounts related logic
@@ -49,6 +47,10 @@ func NewService(log *zap.Logger, signer Signer, store DB) (*Service, error) {
 // CreateUser gets password hash value and creates new User
 func (s *Service) CreateUser(ctx context.Context, userInfo UserInfo, companyInfo CompanyInfo) (*User, error) {
 	passwordHash := sha256.Sum256([]byte(userInfo.Password))
+
+	if err := userInfo.IsValid(); err != nil {
+		return nil, err
+	}
 
 	//TODO(yar): separate creation of user and company
 	user, err := s.store.Users().Insert(ctx, &User{
@@ -134,6 +136,10 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*User, error) {
 func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) error {
 	_, err := GetAuth(ctx)
 	if err != nil {
+		return err
+	}
+
+	if err = info.IsValid(); err != nil {
 		return err
 	}
 

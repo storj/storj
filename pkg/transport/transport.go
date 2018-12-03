@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -49,7 +50,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 	}
 
 	// add ID of node we are wanting to connect to
-	dialOpt, err := transport.identity.DialOption(node.GetId())
+	dialOpt, err := transport.identity.DialOption(node.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +66,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 func (transport *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dialOpt, err := transport.identity.DialOption("")
+	dialOpt, err := transport.identity.DialOption(storj.NodeID{})
 	if err != nil {
 		return nil, err
 	}

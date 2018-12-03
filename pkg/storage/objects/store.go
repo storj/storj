@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
@@ -22,7 +23,7 @@ var mon = monkit.Package()
 
 // Meta is the full object metadata
 type Meta struct {
-	SerializableMeta
+	pb.SerializableMeta
 	Modified   time.Time
 	Expiration time.Time
 	Size       int64
@@ -40,7 +41,7 @@ type ListItem struct {
 type Store interface {
 	Meta(ctx context.Context, path storj.Path) (meta Meta, err error)
 	Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error)
-	Put(ctx context.Context, path storj.Path, data io.Reader, metadata SerializableMeta, expiration time.Time) (meta Meta, err error)
+	Put(ctx context.Context, path storj.Path, data io.Reader, metadata pb.SerializableMeta, expiration time.Time) (meta Meta, err error)
 	Delete(ctx context.Context, path storj.Path) (err error)
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
@@ -88,7 +89,7 @@ func (o *objStore) Get(ctx context.Context, path storj.Path) (
 	return rr, convertMeta(m), err
 }
 
-func (o *objStore) Put(ctx context.Context, path storj.Path, data io.Reader, metadata SerializableMeta, expiration time.Time) (meta Meta, err error) {
+func (o *objStore) Put(ctx context.Context, path storj.Path, data io.Reader, metadata pb.SerializableMeta, expiration time.Time) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {
@@ -145,7 +146,7 @@ func (o *objStore) List(ctx context.Context, prefix, startAfter, endBefore storj
 
 // convertMeta converts stream metadata to object metadata
 func convertMeta(m streams.Meta) Meta {
-	ser := SerializableMeta{}
+	ser := pb.SerializableMeta{}
 	err := proto.Unmarshal(m.Data, &ser)
 	if err != nil {
 		zap.S().Warnf("Failed deserializing metadata: %v", err)

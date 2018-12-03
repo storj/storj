@@ -146,7 +146,7 @@
     import Button from '@/components/common/Button.vue';
     import {validateEmail} from "@/utils/validation"
     import ROUTES from "../utils/constants/routerConstants";
-    import {createUser} from "../utils/qraphql/createUserQuery";
+    import {createUser} from "@/api/users";
 
     @Component(
         {

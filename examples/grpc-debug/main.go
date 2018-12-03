@@ -12,6 +12,7 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -31,7 +32,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	dialOption, err := identity.DialOption("")
+	dialOption, err := identity.DialOption(storj.NodeID{})
 	if err != nil {
 		panic(err)
 	}

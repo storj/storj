@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
 )
@@ -87,7 +88,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 				infos <- info{i: i, err: err}
 				return
 			}
-			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
+			derivedPieceID, err := pieceID.Derive(n.Id.Bytes())
 
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
@@ -97,7 +98,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 			ps, err := ec.newPSClient(ctx, n)
 			if err != nil {
 				zap.S().Errorf("Failed dialing for putting piece %s -> %s to node %s: %v",
-					pieceID, derivedPieceID, n.GetId(), err)
+					pieceID, derivedPieceID, n.Id, err)
 				infos <- info{i: i, err: err}
 				return
 			}
@@ -109,7 +110,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 			// No error logging for this case.
 			if err != nil && err != io.ErrUnexpectedEOF {
 				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
-					pieceID, derivedPieceID, n.GetId(), err)
+					pieceID, derivedPieceID, n.Id, err)
 			}
 			infos <- info{i: i, err: err}
 		}(i, n)
@@ -171,7 +172,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 		}
 
 		go func(i int, n *pb.Node) {
-			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
+			derivedPieceID, err := pieceID.Derive(n.Id.Bytes())
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
 				ch <- rangerInfo{i: i, rr: nil, err: err}
@@ -218,7 +219,7 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclie
 		}
 
 		go func(n *pb.Node) {
-			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
+			derivedPieceID, err := pieceID.Derive(n.Id.Bytes())
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
 				errs <- err
@@ -227,7 +228,7 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclie
 			ps, err := ec.newPSClient(ctx, n)
 			if err != nil {
 				zap.S().Errorf("Failed dialing for deleting piece %s -> %s from node %s: %v",
-					pieceID, derivedPieceID, n.GetId(), err)
+					pieceID, derivedPieceID, n.Id, err)
 				errs <- err
 				return
 			}
@@ -237,7 +238,7 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclie
 			utils.LogClose(ps)
 			if err != nil {
 				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v",
-					pieceID, derivedPieceID, n.GetId(), err)
+					pieceID, derivedPieceID, n.Id, err)
 			}
 			errs <- err
 		}(n)
@@ -268,15 +269,18 @@ func unique(nodes []*pb.Node) bool {
 		return true
 	}
 
-	ids := make([]string, len(nodes))
+	ids := make(storj.NodeIDList, len(nodes))
 	for i, n := range nodes {
-		ids[i] = n.GetId()
+		if n != nil {
+			ids[i] = n.Id
+		}
 	}
 
 	// sort the ids and check for identical neighbors
-	sort.Strings(ids)
+	sort.Sort(ids)
+	// sort.Slice(ids, func(i, k int) bool { return ids[i].Less(ids[k]) })
 	for i := 1; i < len(ids); i++ {
-		if ids[i] != "" && ids[i] == ids[i-1] {
+		if ids[i] != (storj.NodeID{}) && ids[i] == ids[i-1] {
 			return false
 		}
 	}

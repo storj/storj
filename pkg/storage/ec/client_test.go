@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/vivint/infectious"
 
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
@@ -38,10 +39,10 @@ var (
 )
 
 var (
-	node0 = &pb.Node{Id: "node-0"}
-	node1 = &pb.Node{Id: "node-1"}
-	node2 = &pb.Node{Id: "node-2"}
-	node3 = &pb.Node{Id: "node-3"}
+	node0 = teststorj.MockNode("node-0")
+	node1 = teststorj.MockNode("node-1")
+	node2 = teststorj.MockNode("node-2")
+	node3 = teststorj.MockNode("node-3")
 )
 
 func TestNewECClient(t *testing.T) {
@@ -126,7 +127,7 @@ TestLoop:
 			if n == nil || tt.badInput {
 				continue
 			}
-			derivedID, err := id.Derive([]byte(n.GetId()))
+			derivedID, err := id.Derive(n.Id.Bytes())
 			if !assert.NoError(t, err, errTag) {
 				continue TestLoop
 			}
@@ -229,7 +230,7 @@ TestLoop:
 		clients := make(map[*pb.Node]psclient.Client, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if errs[n] == ErrOpFailed {
-				derivedID, err := id.Derive([]byte(n.GetId()))
+				derivedID, err := id.Derive(n.Id.Bytes())
 				if !assert.NoError(t, err, errTag) {
 					continue TestLoop
 				}
@@ -288,7 +289,7 @@ TestLoop:
 		clients := make(map[*pb.Node]psclient.Client, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if n != nil && errs[n] != ErrDialFailed {
-				derivedID, err := id.Derive([]byte(n.GetId()))
+				derivedID, err := id.Derive(n.Id.Bytes())
 				if !assert.NoError(t, err, errTag) {
 					continue TestLoop
 				}

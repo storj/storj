@@ -13,13 +13,15 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -65,32 +67,36 @@ var (
 	getBucketCmd = &cobra.Command{
 		Use:   "ls <bucket_id>",
 		Short: "get all nodes in bucket",
+		Args:  cobra.MinimumNArgs(1),
 		RunE:  GetBucket,
 	}
 	pingNodeCmd = &cobra.Command{
-		Use:   "ping <node_id>",
+		Use:   "ping <node_id> <ip:port>",
 		Short: "ping node at provided ID",
+		Args:  cobra.MinimumNArgs(2),
 		RunE:  PingNode,
 	}
 	getStatsCmd = &cobra.Command{
-		Use:   "getstats",
+		Use:   "getstats <node_id>",
 		Short: "Get node stats",
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  GetStats,
 	}
 	getCSVStatsCmd = &cobra.Command{
-		Use:   "getcsvstats",
+		Use:   "getcsvstats <path to node ID csv file>",
 		Short: "Get node stats from csv",
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  GetCSVStats,
 	}
 	createStatsCmd = &cobra.Command{
+		// TODO: add args to usage
 		Use:   "createstats",
 		Short: "Create node with stats",
 		Args:  cobra.MinimumNArgs(5), // id, auditct, auditsuccessct, uptimect, uptimesuccessct
 		RunE:  CreateStats,
 	}
 	createCSVStatsCmd = &cobra.Command{
+		// TODO: add args to usage
 		Use:   "createcsvstats",
 		Short: "Create node stats from csv",
 		Args:  cobra.MinimumNArgs(1),
@@ -108,7 +114,7 @@ type Inspector struct {
 // and the overlay cache
 func NewInspector(address string) (*Inspector, error) {
 	ctx := context.Background()
-	identity, err := node.NewFullIdentity(ctx, 12, 4)
+	identity, err := provider.NewFullIdentity(ctx, 12, 4)
 	if err != nil {
 		return &Inspector{}, ErrIdentity.Wrap(err)
 	}
@@ -165,31 +171,41 @@ func GetBuckets(cmd *cobra.Command, args []string) (err error) {
 
 // GetBucket returns a bucket with given `id`
 func GetBucket(cmd *cobra.Command, args []string) (err error) {
-	if len(args) < 1 {
-		return errs.New("Must provide at least one bucket ID")
-	}
-
 	i, err := NewInspector(*Addr)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
+	nodeID, err := storj.NodeIDFromString(args[0])
+	if err != nil {
+		return err
+	}
 
 	bucket, err := i.client.GetBucket(context.Background(), &pb.GetBucketRequest{
-		Id: args[0],
+		Id: nodeID,
 	})
 
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
 
-	fmt.Printf("Bucket ----------- \n %+v\n", bucket)
+	fmt.Println(prettyPrintBucket(bucket))
 	return nil
+}
+
+func prettyPrintBucket(b *pb.GetBucketResponse) string {
+	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: false}
+	s, err := m.MarshalToString(b)
+	if err != nil {
+		zap.S().Error("error marshaling bucket: %s", b.Id)
+	}
+	return s
 }
 
 // PingNode sends a PING RPC across the Kad network to check node availability
 func PingNode(cmd *cobra.Command, args []string) (err error) {
-	if len(args) < 2 {
-		return errs.New("Must provide a node ID and address to ping")
+	nodeID, err := storj.NodeIDFromString(args[0])
+	if err != nil {
+		return err
 	}
 
 	i, err := NewInspector(*Addr)
@@ -200,11 +216,20 @@ func PingNode(cmd *cobra.Command, args []string) (err error) {
 	fmt.Printf("Pinging node %s at %s", args[0], args[1])
 
 	p, err := i.client.PingNode(context.Background(), &pb.PingNodeRequest{
-		Id:      args[0],
+		Id:      nodeID,
 		Address: args[1],
 	})
 
-	fmt.Printf("\n -- Ping response: %+v\n, -- Error: %+v\n", p, err)
+	var okayString string
+	if p.Ok {
+		okayString = "OK"
+	} else {
+		okayString = "Error"
+	}
+	fmt.Printf("\n -- Ping response: %s\n", okayString)
+	if err != nil {
+		fmt.Printf(" -- Error: %s", err)
+	}
 	return nil
 }
 
@@ -215,16 +240,19 @@ func GetStats(cmd *cobra.Command, args []string) (err error) {
 		return ErrInspectorDial.Wrap(err)
 	}
 
-	idStr := args[0]
+	nodeID, err := storj.NodeIDFromString(args[0])
+	if err != nil {
+		return err
+	}
 
 	res, err := i.client.GetStats(context.Background(), &pb.GetStatsRequest{
-		NodeId: idStr,
+		NodeId: nodeID,
 	})
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
 
-	fmt.Printf("Stats for ID %s:\n", idStr)
+	fmt.Printf("Stats for ID %s:\n", nodeID)
 	fmt.Printf("AuditSuccessRatio: %f, UptimeRatio: %f, AuditCount: %d\n",
 		res.AuditRatio, res.UptimeRatio, res.AuditCount)
 	return nil
@@ -249,15 +277,18 @@ func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
 			return ErrArgs.Wrap(err)
 		}
 
-		idStr := line[0]
+		nodeID, err := storj.NodeIDFromString(line[0])
+		if err != nil {
+			return err
+		}
 		res, err := i.client.GetStats(context.Background(), &pb.GetStatsRequest{
-			NodeId: idStr,
+			NodeId: nodeID,
 		})
 		if err != nil {
 			return ErrRequest.Wrap(err)
 		}
 
-		fmt.Printf("Stats for ID %s:\n", idStr)
+		fmt.Printf("Stats for ID %s:\n", nodeID)
 		fmt.Printf("AuditSuccessRatio: %f, UptimeRatio: %f, AuditCount: %d\n",
 			res.AuditRatio, res.UptimeRatio, res.AuditCount)
 	}
@@ -271,7 +302,10 @@ func CreateStats(cmd *cobra.Command, args []string) (err error) {
 		return ErrInspectorDial.Wrap(err)
 	}
 
-	idStr := args[0]
+	nodeID, err := storj.NodeIDFromString(args[0])
+	if err != nil {
+		return err
+	}
 	auditCount, err := strconv.ParseInt(args[1], 10, 64)
 	if err != nil {
 		return ErrArgs.New("audit count must be an int")
@@ -290,7 +324,7 @@ func CreateStats(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	_, err = i.client.CreateStats(context.Background(), &pb.CreateStatsRequest{
-		NodeId:             idStr,
+		NodeId:             nodeID,
 		AuditCount:         auditCount,
 		AuditSuccessCount:  auditSuccessCount,
 		UptimeCount:        uptimeCount,
@@ -300,7 +334,7 @@ func CreateStats(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	fmt.Printf("Created statdb entry for ID %s\n", idStr)
+	fmt.Printf("Created statdb entry for ID %s\n", nodeID)
 	return nil
 }
 
@@ -323,7 +357,10 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 			return ErrArgs.Wrap(err)
 		}
 
-		idStr := line[0]
+		nodeID, err := storj.NodeIDFromString(line[0])
+		if err != nil {
+			return err
+		}
 		auditCount, err := strconv.ParseInt(line[1], 10, 64)
 		if err != nil {
 			return ErrArgs.New("audit count must be an int")
@@ -342,7 +379,7 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		_, err = i.client.CreateStats(context.Background(), &pb.CreateStatsRequest{
-			NodeId:             idStr,
+			NodeId:             nodeID,
 			AuditCount:         auditCount,
 			AuditSuccessCount:  auditSuccessCount,
 			UptimeCount:        uptimeCount,
@@ -352,7 +389,7 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 			return ErrRequest.Wrap(err)
 		}
 
-		fmt.Printf("Created statdb entry for ID %s\n", idStr)
+		fmt.Printf("Created statdb entry for ID %s\n", nodeID)
 	}
 	return nil
 }

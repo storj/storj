@@ -114,8 +114,6 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	s.logger.Debug("entering pointerdb get")
-
 	if err = s.validateAuth(ctx); err != nil {
 		return nil, err
 	}
@@ -268,7 +266,6 @@ func (s *Server) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags 
 // Delete formats and hands off a file path to delete from boltdb
 func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.DeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	s.logger.Debug("entering pointerdb delete")
 
 	if err = s.validateAuth(ctx); err != nil {
 		return nil, err
@@ -279,7 +276,7 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.De
 		s.logger.Error("err deleting path and pointer", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	s.logger.Debug("deleted pointer at path: " + req.GetPath())
+
 	return &pb.DeleteResponse{}, nil
 }
 
@@ -296,7 +293,7 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 
 // PayerBandwidthAllocation returns PayerBandwidthAllocation struct, signed and with given action type
 func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBandwidthAllocationRequest) (*pb.PayerBandwidthAllocationResponse, error) {
-	payer := s.identity.ID.Bytes()
+	payer := s.identity.ID
 
 	// TODO(michal) should be replaced with renter id when available
 	peerIdentity, err := provider.PeerIdentityFromContext(ctx)
@@ -305,7 +302,7 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 	}
 	pbad := &pb.PayerBandwidthAllocation_Data{
 		SatelliteId:    payer,
-		UplinkId:       peerIdentity.ID.Bytes(),
+		UplinkId:       peerIdentity.ID,
 		CreatedUnixSec: time.Now().Unix(),
 		Action:         req.GetAction(),
 	}

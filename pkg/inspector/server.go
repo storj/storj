@@ -5,11 +5,10 @@ package inspector
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
@@ -18,6 +17,7 @@ import (
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
 	statsproto "storj.io/storj/pkg/statdb/proto"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -41,9 +41,15 @@ type Server struct {
 
 // CountNodes returns the number of nodes in the cache and in kademlia
 func (srv *Server) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*pb.CountNodesResponse, error) {
+	overlayKeys, err := srv.cache.DB.List(nil, 0)
+	if err != nil {
+		return nil, err
+	}
+	kadNodes := srv.dht.Seen()
+
 	return &pb.CountNodesResponse{
-		Kademlia: 0,
-		Overlay:  0,
+		Kademlia: int64(len(kadNodes)),
+		Overlay:  int64(len(overlayKeys)),
 	}, nil
 }
 
@@ -57,10 +63,13 @@ func (srv *Server) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	bytes := b.ByteSlices()
+	nodeIDs, err := storj.NodeIDsFromBytes(b.ByteSlices())
+	if err != nil {
+		return nil, err
+	}
 	return &pb.GetBucketsResponse{
 		Total: int64(len(b)),
-		Ids:   bytes,
+		Ids:   nodeIDs,
 	}, nil
 }
 
@@ -96,19 +105,19 @@ func (srv *Server) PingNode(ctx context.Context, req *pb.PingNodeRequest) (*pb.P
 	}
 
 	p, err := nc.Ping(ctx, pb.Node{
-		Id: req.Id,
+		Id:   req.Id,
+		Type: self.Type,
 		Address: &pb.NodeAddress{
 			Address: req.Address,
 		},
 	})
+	res := &pb.PingNodeResponse{Ok: p}
 
 	if err != nil {
-		return &pb.PingNodeResponse{}, ServerError.Wrap(err)
+		return res, ServerError.Wrap(err)
 	}
 
-	fmt.Printf("---- Pinged Node: %+v\n", p)
-
-	return &pb.PingNodeResponse{}, nil
+	return res, nil
 }
 
 // ---------------------
@@ -117,9 +126,8 @@ func (srv *Server) PingNode(ctx context.Context, req *pb.PingNodeRequest) (*pb.P
 
 // GetStats returns the stats for a particular node ID
 func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.GetStatsResponse, error) {
-	nodeID := node.IDFromString(req.NodeId)
 	getReq := &statsproto.GetRequest{
-		NodeId: nodeID.Bytes(),
+		NodeId: req.NodeId,
 	}
 	res, err := srv.statdb.Get(ctx, getReq)
 	if err != nil {
@@ -135,9 +143,8 @@ func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.G
 
 // CreateStats creates a node with specified stats
 func (srv *Server) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) (*pb.CreateStatsResponse, error) {
-	nodeID := node.IDFromString(req.NodeId)
 	node := &statsproto.Node{
-		NodeId: nodeID.Bytes(),
+		Id: req.NodeId,
 	}
 	stats := &statsproto.NodeStats{
 		AuditCount:         req.AuditCount,

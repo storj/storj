@@ -7,12 +7,17 @@ package storj
 type RedundancyScheme struct {
 	Algorithm RedundancyAlgorithm
 
-	ShareSize int64
+	ShareSize int32
 
 	RequiredShares int16
 	RepairShares   int16
 	OptimalShares  int16
 	TotalShares    int16
+}
+
+// IsZero returns true if no field in the struct is set to non-zero value
+func (scheme RedundancyScheme) IsZero() bool {
+	return scheme == (RedundancyScheme{})
 }
 
 // RedundancyAlgorithm is the algorithm used for redundancy
