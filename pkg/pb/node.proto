@@ -46,7 +46,7 @@ message NodeAddress {
 enum NodeTransport {
     TCP_TLS_GRPC = 0;
 }
-// NodeStats is info about a single storagenode stored in the stats db
+// NodeStats is the reputation characteristics of a node
 message NodeStats {
     bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
     int64 latency_90 = 2; // 90th percentile measure of storagenode latency
@@ -56,14 +56,6 @@ message NodeStats {
     int64 audit_success_count = 6;
     int64 uptime_count = 7;
     int64 uptime_success_count = 8;
-}
-
-// TODO: combine with `NodeStats`
-// NodeRep is the reputation characteristics of a node
-message NodeRep {
-    float min_uptime = 1;
-    float min_audit_success = 2;
-    int64 min_audit_count = 3;
 }
 
 message NodeMetadata {
