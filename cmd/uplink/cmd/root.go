@@ -13,7 +13,6 @@ import (
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw"
-	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storj"
 )
@@ -40,7 +39,7 @@ var GWCmd = &cobra.Command{
 func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 	root.AddCommand(cmd)
 
-	defaultConfDir := process.ApplicationDir("storj", "uplink")
+	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
 	cfgstruct.Bind(cmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir))
 	cmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	return cmd

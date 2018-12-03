@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/process"
 )
@@ -37,7 +38,7 @@ func main() {
 }
 
 func init() {
-	defaultConfDir = process.ApplicationDir("storj", "capt")
+	defaultConfDir = fpath.ApplicationDir("storj", "capt")
 	runCmd.Flags().String("config",
 		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	setupCmd.Flags().String("config",

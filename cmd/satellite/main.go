@@ -16,8 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/storj"
-
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
 	dbmanager "storj.io/storj/pkg/bwagreement/database-manager"
@@ -32,6 +31,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/redis"
 )
 
@@ -91,7 +91,7 @@ var (
 )
 
 func init() {
-	defaultConfDir = process.ApplicationDir("storj", "satellite")
+	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)

@@ -14,8 +14,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/pkg/storj"
-
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -23,6 +22,7 @@ import (
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -65,7 +65,7 @@ var (
 )
 
 func init() {
-	defaultConfDir = process.ApplicationDir("storj", "storagenode")
+	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
