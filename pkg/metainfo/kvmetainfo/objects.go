@@ -78,7 +78,7 @@ func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Pat
 func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, createInfo *storj.CreateObject) (object storj.MutableObject, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = db.GetBucket(ctx, bucket)
+	bucketInfo, err := db.GetBucket(ctx, bucket)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 	}
 
 	info := storj.Object{
-		Bucket: bucket,
+		Bucket: bucketInfo,
 		Path:   path,
 	}
 
@@ -154,6 +154,11 @@ func (db *DB) ListPendingObjects(ctx context.Context, bucket string, options sto
 func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.ListOptions) (list storj.ObjectList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	bucketInfo, err := db.GetBucket(ctx, bucket)
+	if err != nil {
+		return storj.ObjectList{}, err
+	}
+
 	objects, err := db.buckets.GetObjectStore(ctx, bucket)
 	if err != nil {
 		return storj.ObjectList{}, err
@@ -195,7 +200,7 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 	}
 
 	for _, item := range items {
-		list.Items = append(list.Items, objectFromMeta("", item.Path, item.IsPrefix, item.Meta))
+		list.Items = append(list.Items, objectFromMeta(bucketInfo, item.Path, item.IsPrefix, item.Meta))
 	}
 
 	return list, nil
@@ -275,7 +280,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 		return object{}, storj.Object{}, err
 	}
 
-	info = objectStreamFromMeta(bucket, path, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
+	info = objectStreamFromMeta(bucketInfo, path, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
 
 	return object{
 		fullpath:        fullpath,
@@ -286,7 +291,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 	}, info, nil
 }
 
-func objectFromMeta(bucket string, path storj.Path, isPrefix bool, meta objects.Meta) storj.Object {
+func objectFromMeta(bucket storj.Bucket, path storj.Path, isPrefix bool, meta objects.Meta) storj.Object {
 	return storj.Object{
 		Version:  0, // TODO:
 		Bucket:   bucket,
@@ -307,7 +312,7 @@ func objectFromMeta(bucket string, path storj.Path, isPrefix bool, meta objects.
 	}
 }
 
-func objectStreamFromMeta(bucket string, path storj.Path, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme *pb.RedundancyScheme) storj.Object {
+func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme *pb.RedundancyScheme) storj.Object {
 	var nonce storj.Nonce
 	copy(nonce[:], streamMeta.LastSegmentMeta.KeyNonce)
 	return storj.Object{
