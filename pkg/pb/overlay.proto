@@ -63,11 +63,7 @@ message FindStorageNodesRequest {
 // OverlayOptions is a set of criteria that a node must meet to be considered for a storage opportunity
 message OverlayOptions {
     google.protobuf.Duration max_latency = 1;
-<<<<<<< HEAD
     node.NodeStats min_stats = 2;
-=======
-    node.NodeStats min_reputation = 2;
->>>>>>> add reputation/ip filtering to overlay Choose/FindStorageNodes
     int64 min_speed_kbps = 3;
     int64 amount = 4;
     node.NodeRestrictions restrictions = 5;
