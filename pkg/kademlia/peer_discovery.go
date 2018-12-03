@@ -81,6 +81,8 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 					if next != nil && next.Id.String() == lookup.target.String() {
 						fmt.Printf("next: %+v\n", next)
 						lookup.foundOne <- next
+						allDone = true
+						break
 					}
 
 					if !lookup.opts.bootstrap && next != nil && next.Id.String() == lookup.target.String() {

@@ -223,13 +223,11 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error) {
-	fmt.Printf("finding node: %+v\n", ID)
 	kb := k.routingTable.K()
 	nodes, err := k.routingTable.FindNear(ID, kb)
 	if err != nil {
 		return pb.Node{}, err
 	}
-	fmt.Printf("starting lookup near nodes %+v\n", nodes)
 
 	lookup := newPeerDiscovery(nodes, k.nodeClient, ID, discoveryOptions{
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: false, bootstrapNodes: k.bootstrapNodes,
@@ -237,13 +235,10 @@ func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, erro
 
 	err = lookup.Run(ctx)
 	if err != nil {
-		fmt.Printf("Err during lookup: %+v\n", err)
 		return pb.Node{}, err
 	}
 
 	node := <-lookup.foundOne
-
-	fmt.Printf("Found ONE: %+v\n", node)
 
 	if node == nil {
 		return pb.Node{}, nil
@@ -251,7 +246,6 @@ func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, erro
 
 	select {
 	case foundOne := <-lookup.foundOne:
-		fmt.Printf("Found node: %+v\n", foundOne)
 		if foundOne == nil {
 			return pb.Node{}, nil
 		}
