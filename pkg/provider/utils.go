@@ -17,9 +17,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/storj"
-
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/storj"
 )
 
 // TLSFilesStatus is the status of keys

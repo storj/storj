@@ -19,5 +19,3 @@ type Node = pb.Node
 
 // NodeStats is an alias to storj.NodeStats for use in generated protobuf code
 type NodeStats = pb.NodeStats
-
-//go:generate protoc --gogo_out=plugins=grpc:. -I=. -I=$GOPATH/src/storj.io/storj/pkg/pb statdb.proto

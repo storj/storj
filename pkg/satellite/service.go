@@ -10,15 +10,13 @@ import (
 	"fmt"
 	"time"
 
-	"storj.io/storj/pkg/utils"
-
-	"go.uber.org/zap"
-
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/satellite/satelliteauth"
+	"storj.io/storj/pkg/utils"
 )
 
 // Service is handling accounts related logic

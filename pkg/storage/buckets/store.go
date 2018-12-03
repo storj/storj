@@ -12,6 +12,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storage/streams"
@@ -111,7 +112,7 @@ func (b *BucketStore) Put(ctx context.Context, bucket string, pathCipher storj.C
 		"path-enc-type": strconv.Itoa(int(pathCipher)),
 	}
 	var exp time.Time
-	m, err := b.store.Put(ctx, bucket, r, objects.SerializableMeta{UserDefined: userMeta}, exp)
+	m, err := b.store.Put(ctx, bucket, r, pb.SerializableMeta{UserDefined: userMeta}, exp)
 	if err != nil {
 		return Meta{}, err
 	}

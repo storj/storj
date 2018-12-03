@@ -20,7 +20,6 @@ import (
 
 	"storj.io/storj/internal/identity"
 	"storj.io/storj/internal/teststorj"
-
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"

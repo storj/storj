@@ -25,7 +25,7 @@ type validationErrors []error
 
 // Add new ErrValidation err
 func (validation *validationErrors) Add(format string, args ...interface{}) {
-	*validation = append(*validation, ErrValidation.New(format, args))
+	*validation = append(*validation, ErrValidation.New(format, args...))
 }
 
 // AddWrap adds new ErrValidation wrapped err

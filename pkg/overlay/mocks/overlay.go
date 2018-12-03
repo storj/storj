@@ -10,10 +10,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/storj"
-
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 )
 
 // Overlay is a mocked overlay implementation

@@ -6,7 +6,6 @@ package satellitedb
 import (
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/satellite"
-
 	"storj.io/storj/pkg/satellite/satellitedb/dbx"
 )
 

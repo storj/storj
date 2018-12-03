@@ -10,10 +10,9 @@ import (
 
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/storj"
-
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 )
 
 var (

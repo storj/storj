@@ -17,7 +17,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/teststorj"
-
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -204,9 +203,7 @@ func TestAddNode(t *testing.T) {
 				assert.True(t, bytes.Equal(c.kadIDs[i], v[:2]))
 				ids, err := rt.getNodeIDsWithinKBucket(keyToBucketID(v))
 				assert.NoError(t, err)
-				// fmt.Printf("TOTAL=%d\n", len(ids))
 				for j, id := range ids {
-					// fmt.Printf("[%v][%d]==[%v]\n", c.nodeIDs[i], j, id.String())
 					assert.True(t, bytes.Equal(teststorj.NodeIDFromString(c.nodeIDs[i][j]).Bytes(), id.Bytes()))
 				}
 			}

@@ -15,6 +15,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 
+	"storj.io/storj/pkg/pb"
 	ranger "storj.io/storj/pkg/ranger"
 	objects "storj.io/storj/pkg/storage/objects"
 )
@@ -96,7 +97,7 @@ func (mr *MockStoreMockRecorder) Meta(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Put mocks base method
-func (m *MockStore) Put(arg0 context.Context, arg1 string, arg2 io.Reader, arg3 objects.SerializableMeta, arg4 time.Time) (objects.Meta, error) {
+func (m *MockStore) Put(arg0 context.Context, arg1 string, arg2 io.Reader, arg3 pb.SerializableMeta, arg4 time.Time) (objects.Meta, error) {
 	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(objects.Meta)
 	ret1, _ := ret[1].(error)
