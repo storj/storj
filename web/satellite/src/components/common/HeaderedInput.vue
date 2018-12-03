@@ -103,7 +103,10 @@
             },
         },
     )
-    export default class HeaderedInput extends Vue { }
+    export default class HeaderedInput extends Vue implements IEditable{
+        setValue(value: string): void {
+            this.setValue(value);
+        } }
 
 </script>
 

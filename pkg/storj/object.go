@@ -33,7 +33,7 @@ type Bucket struct {
 // Object contains information about a specific object
 type Object struct {
 	Version  uint32
-	Bucket   string
+	Bucket   Bucket
 	Path     Path
 	IsPrefix bool
 

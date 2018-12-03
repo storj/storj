@@ -31,7 +31,7 @@
                 </div>
                 <h2>Payment Settup</h2>
             </div>
-            <div class="account-dropdown-item-container logout" >
+            <div class="account-dropdown-item-container logout" v-on:click="onLogoutClick">
                 <div class="account-dropdown-item-container__image-container">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path fill-rule="evenodd" clip-rule="evenodd" d="M9.53516 1C4.28906 1 0 5.25293 0 10.5C0 15.7471 4.28906 20 9.53516 20C14.3887 20 18.4229 16.3604 19 11.6611H10.2783L11.8682 13.2441C12.1562 13.5322 12.248 14.0156 12.1436 14.4277C12.0947 14.6211 12.0029 14.7988 11.8682 14.9336C11.4443 15.3555 10.5967 15.3555 10.1729 14.9336L5.72266 10.5L10.1729 6.06641C10.5967 5.64453 11.4443 5.64453 11.8682 6.06641C12.291 6.48926 12.291 7.33301 11.8682 7.75586L10.2783 9.33887H19C18.4229 4.63965 14.3887 1 9.53516 1Z" fill="#354049"/>
@@ -45,6 +45,8 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import {removeToken} from "@/utils/tokenManager";
+import ROUTES from "@/utils/constants/routerConstants";
 
 @Component(
     { 
@@ -65,6 +67,10 @@ import { Component, Vue } from 'vue-property-decorator';
             onAccountSettingsClick: function() : void {
                 this.$router.push("/account-settings");
                 this.$emit("onClose");
+            },
+            onLogoutClick: function () {
+                removeToken();
+                this.$router.push(ROUTES.LOGIN.path);
             }
         },
     }
