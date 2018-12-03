@@ -98,66 +98,24 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 					nodeIDs = append(nodeIDs, p.NodeId)
 				}
 
-				// filter if nodeIDs have invalid pieces from auditing results
-				findValidNodesReq := &sdbpb.FindValidNodesRequest{
-					NodeIds: nodeIDs,
-					MinStats: &pb.NodeStats{
-						AuditSuccessRatio: 0, // TODO: update when we have stats added to statsdb
-						UptimeRatio:       0, // TODO: update when we have stats added to statsdb
-						AuditCount:        0, // TODO: update when we have stats added to statsdb
-					},
-				}
-			
-				resp, err := c.statdb.FindValidNodes(ctx, findValidNodesReq)
-				if err != nil {
-					return Error.New("error getting valid nodes from statdb %s", err)
-				}
-
 				// Find all offline nodes
 				offlineNodes, err := c.offlineNodes(ctx, nodeIDs)
 				if err != nil {
 					return Error.New("error getting offline nodes %s", err)
 				}
 
-				// Add the invalidNodes to the offlineNodes
-				var isValidNode bool
-				var isAlreadyOffline bool
-				for i, node := range nodeIDs {
-					isValidNode = false
-
-					// Check if node is a valid node
-					for _, validNode := range resp.PassedIds {
-						if node == validNode {
-							isValidNode = true
-							break
-						}
-					}
-
-					// if node is not found in validNodes then the node is invalid
-					if !isValidNode {
-						isAlreadyOffline = false
-
-						// If check if node is already offline
-						for _, n := range offlineNodes {
-							if n == int32(i) {
-								isAlreadyOffline = true
-								break
-							}
-						}
-
-						// If invalid node is not already added then add it to offlineNodes
-						if !isAlreadyOffline {
-							offlineNodes = append(offlineNodes, int32(i))
-						}
-						  
-					}
+				invalidNodes, err := c.invalidNodes(ctx, nodeIDs)
+				if err != nil {
+					return Error.New("error getting invalid nodes %s", err)
 				}
 
-				numHealthy := len(nodeIDs) - len(offlineNodes)
+				missingPieces := combineOfflineWithInvalid(offlineNodes, invalidNodes)
+
+				numHealthy := len(nodeIDs) - len(missingPieces)
 				if int32(numHealthy) < pointer.Remote.Redundancy.RepairThreshold {
 					err = c.repairQueue.Enqueue(&pb.InjuredSegment{
 						Path:       string(item.Key),
-						LostPieces: offlineNodes,
+						LostPieces: missingPieces,
 					})
 					if err != nil {
 						return Error.New("error adding injured segment to queue %s", err)
@@ -183,4 +141,66 @@ func (c *checker) offlineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (o
 		}
 	}
 	return offline, nil
+}
+
+func (c *checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (invalidNodes []int32, err error) {
+	// filter if nodeIDs have invalid pieces from auditing results
+	findValidNodesReq := &sdbpb.FindValidNodesRequest{
+		NodeIds: nodeIDs,
+		MinStats: &pb.NodeStats{
+			AuditSuccessRatio: 0, // TODO: update when we have stats added to statsdb
+			UptimeRatio:       0, // TODO: update when we have stats added to statsdb
+			AuditCount:        0, // TODO: update when we have stats added to statsdb
+		},
+	}
+
+	resp, err := c.statdb.FindValidNodes(ctx, findValidNodesReq)
+	if err != nil {
+		return nil, Error.New("error getting valid nodes from statdb %s", err)
+	}
+
+	var isValidNode bool
+	for i, node := range nodeIDs {
+		isValidNode = true
+
+		// Check if node is a valid node
+		for _, validNode := range resp.PassedIds {
+			if node == validNode {
+				break
+			}
+			isValidNode = false
+		}
+
+		// if node is not found in validNodes then the node is invalid
+		if !isValidNode {
+			invalidNodes = append(invalidNodes, int32(i))
+		}
+	}
+
+	return invalidNodes, nil
+}
+
+func combineOfflineWithInvalid(offlineNodes []int32, invalidNodes []int32) (missingPieces []int32) {
+	missingPieces = append(missingPieces, offlineNodes...)
+
+	var found bool
+	for _, invalidNode := range invalidNodes {
+		found = true
+
+		for _, missingPiece := range missingPieces {
+
+			// If invalidNode is already in missingPiece slice don't do anything
+			if missingPiece == invalidNode {
+				break
+			}
+			
+			found = false
+		}
+
+		// if invalidNode is not already found in missingPieces slice append it
+		if !found {
+			missingPieces = append(missingPieces, invalidNode)
+		}
+	}
+	return missingPieces
 }
