@@ -13,6 +13,8 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
+	"storj.io/storj/pkg/statdb"
+	sdbpb "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
@@ -24,6 +26,7 @@ type Checker interface {
 
 // Checker contains the information needed to do checks for missing pieces
 type checker struct {
+	statdb   *statdb.Server
 	pointerdb   *pointerdb.Server
 	repairQueue *queue.Queue
 	overlay     pb.OverlayServer
@@ -33,8 +36,9 @@ type checker struct {
 }
 
 // NewChecker creates a new instance of checker
-func newChecker(pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, limit int, logger *zap.Logger, interval time.Duration) *checker {
+func newChecker(pointerdb *pointerdb.Server, sdb *statdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, limit int, logger *zap.Logger, interval time.Duration) *checker {
 	return &checker{
+		statdb: sdb,
 		pointerdb:   pointerdb,
 		repairQueue: repairQueue,
 		overlay:     overlay,
@@ -93,7 +97,23 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 				for _, p := range pieces {
 					nodeIDs = append(nodeIDs, p.NodeId)
 				}
-				missingPieces, err := c.offlineNodes(ctx, nodeIDs)
+
+				// filter if nodeIDs have invalid pieces from auditing results
+				findValidNodesReq := &sdbpb.FindValidNodesRequest{
+					NodeIds: nodeIDs,
+					MinStats: &pb.NodeStats{
+						AuditSuccessRatio: 0, // TODO: update when we have stats added to statsdb
+						UptimeRatio:       0, // TODO: update when we have stats added to statsdb
+						AuditCount:        0, // TODO: update when we have stats added to statsdb
+					},
+				}
+			
+				resp, err := c.statdb.FindValidNodes(ctx, findValidNodesReq)
+				if err != nil {
+					return Error.New("error getting valid nodes from statdb %s", err)
+				}
+
+				missingPieces, err := c.offlineNodes(ctx, resp.PassedIds)
 				if err != nil {
 					return Error.New("error getting offline nodes %s", err)
 				}

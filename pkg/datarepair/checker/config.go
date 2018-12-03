@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/storage/redis"
 )
 
@@ -27,6 +28,16 @@ type Config struct {
 // Initialize a Checker struct
 func (c Config) initialize(ctx context.Context) (Checker, error) {
 	pdb := pointerdb.LoadFromContext(ctx)
+	if pdb == nil {
+		return nil, Error.New("failed to load pointerdb from context")
+	}
+
+
+	sdb := statdb.LoadFromContext(ctx)
+	if sdb == nil {
+		return nil, Error.New("failed to load statdb from context")
+	}
+
 	var o pb.OverlayServer
 	x := overlay.LoadServerFromContext(ctx)
 	if x == nil {
@@ -39,7 +50,7 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 		return nil, Error.Wrap(err)
 	}
 	repairQueue := queue.NewQueue(redisQ)
-	return newChecker(pdb, repairQueue, o, 0, zap.L(), c.Interval), nil
+	return newChecker(pdb, sdb, repairQueue, o, 0, zap.L(), c.Interval), nil
 }
 
 // Run runs the checker with configured values
