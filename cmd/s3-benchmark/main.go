@@ -17,11 +17,11 @@ import (
 	"github.com/loov/hrtime"
 
 	"storj.io/storj/internal/memory"
-	api "storj.io/storj/internal/s3api"
+	"storj.io/storj/internal/s3client"
 )
 
 func main() {
-	var conf api.Config
+	var conf s3client.Config
 
 	flag.StringVar(&conf.S3Gateway, "s3-gateway", "127.0.0.1:7777", "s3 gateway address")
 	flag.StringVar(&conf.Satellite, "satellite", "127.0.0.1:7778", "satellite address")
@@ -56,7 +56,7 @@ func main() {
 
 	flag.Parse()
 
-	var client api.Client
+	var client s3client.Client
 	var err error
 
 	switch *clientName {
@@ -64,11 +64,11 @@ func main() {
 		log.Println("unknown client name ", *clientName, " defaulting to minio")
 		fallthrough
 	case "minio":
-		client, err = api.NewMinio(conf)
+		client, err = s3client.NewMinio(conf)
 	case "aws-cli":
-		client, err = api.NewAWSCLI(conf)
+		client, err = s3client.NewAWSCLI(conf)
 	case "uplink":
-		client, err = api.NewUplink(conf)
+		client, err = s3client.NewUplink(conf)
 	}
 	if err != nil {
 		log.Fatal(err)
@@ -257,7 +257,7 @@ func (m *Measurement) PrintStats(w io.Writer) {
 }
 
 // FileBenchmark runs file upload, download and delete benchmarks on bucket with given filesize
-func FileBenchmark(client api.Client, bucket string, filesize memory.Size, count int, duration time.Duration) (Measurement, error) {
+func FileBenchmark(client s3client.Client, bucket string, filesize memory.Size, count int, duration time.Duration) (Measurement, error) {
 	log.Print("Benchmarking file size ", filesize.String(), " ")
 
 	data := make([]byte, filesize.Int())
@@ -322,7 +322,7 @@ func FileBenchmark(client api.Client, bucket string, filesize memory.Size, count
 }
 
 // ListBenchmark runs list buckets, folders and files benchmarks on bucket
-func ListBenchmark(client api.Client, bucket string, listsize int, count int, duration time.Duration) (Measurement, error) {
+func ListBenchmark(client s3client.Client, bucket string, listsize int, count int, duration time.Duration) (Measurement, error) {
 	log.Print("Benchmarking list")
 	defer fmt.Println()
 	measurement := Measurement{}
