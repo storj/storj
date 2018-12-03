@@ -32,7 +32,6 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 		return nil, Error.New("failed to load pointerdb from context")
 	}
 
-
 	sdb := statdb.LoadFromContext(ctx)
 	if sdb == nil {
 		return nil, Error.New("failed to load statdb from context")

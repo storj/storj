@@ -26,7 +26,7 @@ type Checker interface {
 
 // Checker contains the information needed to do checks for missing pieces
 type checker struct {
-	statdb   *statdb.Server
+	statdb      *statdb.Server
 	pointerdb   *pointerdb.Server
 	repairQueue *queue.Queue
 	overlay     pb.OverlayServer
@@ -38,7 +38,7 @@ type checker struct {
 // NewChecker creates a new instance of checker
 func newChecker(pointerdb *pointerdb.Server, sdb *statdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, limit int, logger *zap.Logger, interval time.Duration) *checker {
 	return &checker{
-		statdb: sdb,
+		statdb:      sdb,
 		pointerdb:   pointerdb,
 		repairQueue: repairQueue,
 		overlay:     overlay,
