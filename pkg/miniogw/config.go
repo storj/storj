@@ -12,6 +12,7 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/miniogw/logging"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
@@ -21,7 +22,6 @@ import (
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/metainfo/kvmetainfo"
 )
 
 // RSConfig is a configuration struct that keeps details about default
@@ -188,18 +188,18 @@ func (c Config) init(ctx context.Context, identity *provider.FullIdentity) (buck
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads
 func (c Config) GetRedundancyScheme() storj.RedundancyScheme {
 	return storj.RedundancyScheme{
-		Algorithm: storj.ReedSolomon,
+		Algorithm:      storj.ReedSolomon,
 		RequiredShares: int16(c.MinThreshold),
-		RepairShares: int16(c.RepairThreshold),
-		OptimalShares: int16(c.SuccessThreshold),
-		TotalShares: int16(c.MaxThreshold),
+		RepairShares:   int16(c.RepairThreshold),
+		OptimalShares:  int16(c.SuccessThreshold),
+		TotalShares:    int16(c.MaxThreshold),
 	}
 }
 
 // GetEncryptionScheme returns the configured encryption scheme for new uploads
 func (c Config) GetEncryptionScheme() storj.EncryptionScheme {
 	return storj.EncryptionScheme{
-		Cipher: storj.Cipher(c.EncType),
+		Cipher:    storj.Cipher(c.EncType),
 		BlockSize: int32(c.EncBlockSize),
 	}
 }
