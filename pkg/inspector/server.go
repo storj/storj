@@ -74,7 +74,7 @@ func (srv *Server) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest) (*
 	return &pb.GetBucketsResponse{
 		Total: int64(len(b)),
 		// TODO(bryanchriswhite): should use bucketID type
-		Ids:   nodeIDs,
+		Ids: nodeIDs,
 	}, nil
 }
 
