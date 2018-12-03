@@ -27,6 +27,9 @@ type Size int64
 // Int returns bytes size as int
 func (size Size) Int() int { return int(size) }
 
+// Int32 returns bytes size as int32
+func (size Size) Int32() int32 { return int32(size) }
+
 // Int64 returns bytes size as int64
 func (size Size) Int64() int64 { return int64(size) }
 

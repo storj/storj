@@ -20,7 +20,6 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/internal/teststorj"
-
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"

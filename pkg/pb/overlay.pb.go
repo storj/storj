@@ -9,8 +9,10 @@ import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import duration "github.com/golang/protobuf/ptypes/duration"
 
-import context "golang.org/x/net/context"
-import grpc "google.golang.org/grpc"
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -52,7 +54,7 @@ func (x Restriction_Operator) String() string {
 	return proto.EnumName(Restriction_Operator_name, int32(x))
 }
 func (Restriction_Operator) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_366705336bc11433, []int{11, 0}
+	return fileDescriptor_overlay_9ebccc0ee1a42314, []int{11, 0}
 }
 
 type Restriction_Operand int32
@@ -75,7 +77,7 @@ func (x Restriction_Operand) String() string {
 	return proto.EnumName(Restriction_Operand_name, int32(x))
 }
 func (Restriction_Operand) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_366705336bc11433, []int{11, 1}
+	return fileDescriptor_overlay_9ebccc0ee1a42314, []int{11, 1}
 }
 
 // LookupRequest is is request message for the lookup rpc call
@@ -90,7 +92,7 @@ func (m *LookupRequest) Reset()         { *m = LookupRequest{} }
 func (m *LookupRequest) String() string { return proto.CompactTextString(m) }
 func (*LookupRequest) ProtoMessage()    {}
 func (*LookupRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_366705336bc11433, []int{0}
+	return fileDescriptor_overlay_9ebccc0ee1a42314, []int{0}
 }
 func (m *LookupRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LookupRequest.Unmarshal(m, b)
@@ -122,7 +124,7 @@ func (m *LookupResponse) Reset()         { *m = LookupResponse{} }
 func (m *LookupResponse) String() string { return proto.CompactTextString(m) }
 func (*LookupResponse) ProtoMessage()    {}
 func (*LookupResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_366705336bc11433, []int{1}
+	return fileDescriptor_overlay_9ebccc0ee1a42314, []int{1}
 }
 func (m *LookupResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LookupResponse.Unmarshal(m, b)
@@ -161,7 +163,7 @@ func (m *LookupRequests) Reset()         { *m = LookupRequests{} }
 func (m *LookupRequests) String() string { return proto.CompactTextString(m) }
 func (*LookupRequests) ProtoMessage()    {}
 func (*LookupRequests) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_366705336bc11433, []int{2}
+	return fileDescriptor_overlay_9ebccc0ee1a42314, []int{2}
 }
 func (m *LookupRequests) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LookupRequests.Unmarshal(m, b)
@@ -200,7 +202,7 @@ func (m *LookupResponses) Reset()         { *m = LookupResponses{} }
 func (m *LookupResponses) String() string { return proto.CompactTextString(m) }
 func (*LookupResponses) ProtoMessage()    {}
 func (*LookupResponses) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_366705336bc11433, []int{3}
+	return fileDescriptor_overlay_9ebccc0ee1a42314, []int{3}
 }
 func (m *LookupResponses) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LookupResponses.Unmarshal(m, b)
@@ -239,7 +241,7 @@ func (m *FindStorageNodesResponse) Reset()         { *m = FindStorageNodesRespon
 func (m *FindStorageNodesResponse) String() string { return proto.CompactTextString(m) }
 func (*FindStorageNodesResponse) ProtoMessage()    {}
 func (*FindStorageNodesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_366705336bc11433, []int{4}
+	return fileDescriptor_overlay_9ebccc0ee1a42314, []int{4}
 }
 func (m *FindStorageNodesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindStorageNodesResponse.Unmarshal(m, b)
@@ -282,7 +284,7 @@ func (m *FindStorageNodesRequest) Reset()         { *m = FindStorageNodesRequest
 func (m *FindStorageNodesRequest) String() string { return proto.CompactTextString(m) }
 func (*FindStorageNodesRequest) ProtoMessage()    {}
 func (*FindStorageNodesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_366705336bc11433, []int{5}
+	return fileDescriptor_overlay_9ebccc0ee1a42314, []int{5}
 }
 func (m *FindStorageNodesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindStorageNodesRequest.Unmarshal(m, b)
@@ -347,7 +349,7 @@ func (m *OverlayOptions) Reset()         { *m = OverlayOptions{} }
 func (m *OverlayOptions) String() string { return proto.CompactTextString(m) }
 func (*OverlayOptions) ProtoMessage()    {}
 func (*OverlayOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_366705336bc11433, []int{6}
+	return fileDescriptor_overlay_9ebccc0ee1a42314, []int{6}
 }
 func (m *OverlayOptions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OverlayOptions.Unmarshal(m, b)
@@ -416,7 +418,7 @@ func (m *QueryRequest) Reset()         { *m = QueryRequest{} }
 func (m *QueryRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryRequest) ProtoMessage()    {}
 func (*QueryRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_366705336bc11433, []int{7}
+	return fileDescriptor_overlay_9ebccc0ee1a42314, []int{7}
 }
 func (m *QueryRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_QueryRequest.Unmarshal(m, b)
@@ -476,7 +478,7 @@ func (m *QueryResponse) Reset()         { *m = QueryResponse{} }
 func (m *QueryResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryResponse) ProtoMessage()    {}
 func (*QueryResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_366705336bc11433, []int{8}
+	return fileDescriptor_overlay_9ebccc0ee1a42314, []int{8}
 }
 func (m *QueryResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_QueryResponse.Unmarshal(m, b)
@@ -520,7 +522,7 @@ func (m *PingRequest) Reset()         { *m = PingRequest{} }
 func (m *PingRequest) String() string { return proto.CompactTextString(m) }
 func (*PingRequest) ProtoMessage()    {}
 func (*PingRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_366705336bc11433, []int{9}
+	return fileDescriptor_overlay_9ebccc0ee1a42314, []int{9}
 }
 func (m *PingRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PingRequest.Unmarshal(m, b)
@@ -550,7 +552,7 @@ func (m *PingResponse) Reset()         { *m = PingResponse{} }
 func (m *PingResponse) String() string { return proto.CompactTextString(m) }
 func (*PingResponse) ProtoMessage()    {}
 func (*PingResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_366705336bc11433, []int{10}
+	return fileDescriptor_overlay_9ebccc0ee1a42314, []int{10}
 }
 func (m *PingResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PingResponse.Unmarshal(m, b)
@@ -583,7 +585,7 @@ func (m *Restriction) Reset()         { *m = Restriction{} }
 func (m *Restriction) String() string { return proto.CompactTextString(m) }
 func (*Restriction) ProtoMessage()    {}
 func (*Restriction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_366705336bc11433, []int{11}
+	return fileDescriptor_overlay_9ebccc0ee1a42314, []int{11}
 }
 func (m *Restriction) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Restriction.Unmarshal(m, b)
@@ -649,8 +651,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for Overlay service
-
+// OverlayClient is the client API for Overlay service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type OverlayClient interface {
 	// Lookup finds a nodes address from the network
 	Lookup(ctx context.Context, in *LookupRequest, opts ...grpc.CallOption) (*LookupResponse, error)
@@ -695,8 +698,7 @@ func (c *overlayClient) FindStorageNodes(ctx context.Context, in *FindStorageNod
 	return out, nil
 }
 
-// Server API for Overlay service
-
+// OverlayServer is the server API for Overlay service.
 type OverlayServer interface {
 	// Lookup finds a nodes address from the network
 	Lookup(context.Context, *LookupRequest) (*LookupResponse, error)
@@ -785,8 +787,9 @@ var _Overlay_serviceDesc = grpc.ServiceDesc{
 	Metadata: "overlay.proto",
 }
 
-// Client API for Nodes service
-
+// NodesClient is the client API for Nodes service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type NodesClient interface {
 	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
@@ -818,8 +821,7 @@ func (c *nodesClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.Ca
 	return out, nil
 }
 
-// Server API for Nodes service
-
+// NodesServer is the server API for Nodes service.
 type NodesServer interface {
 	Query(context.Context, *QueryRequest) (*QueryResponse, error)
 	Ping(context.Context, *PingRequest) (*PingResponse, error)
@@ -882,9 +884,9 @@ var _Nodes_serviceDesc = grpc.ServiceDesc{
 	Metadata: "overlay.proto",
 }
 
-func init() { proto.RegisterFile("overlay.proto", fileDescriptor_overlay_366705336bc11433) }
+func init() { proto.RegisterFile("overlay.proto", fileDescriptor_overlay_9ebccc0ee1a42314) }
 
-var fileDescriptor_overlay_366705336bc11433 = []byte{
+var fileDescriptor_overlay_9ebccc0ee1a42314 = []byte{
 	// 846 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x54, 0xdd, 0x8e, 0xdb, 0x44,
 	0x14, 0x5e, 0xe7, 0xbf, 0x27, 0xb1, 0x37, 0x1a, 0xb5, 0xbb, 0x21, 0x40, 0x37, 0x58, 0x15, 0xac,

@@ -12,13 +12,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cheggaaa/pb"
+	progressbar "github.com/cheggaaa/pb"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/buckets"
-	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -77,14 +77,14 @@ func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FP
 	}
 
 	r := io.Reader(f)
-	var bar *pb.ProgressBar
+	var bar *progressbar.ProgressBar
 	if showProgress {
-		bar = pb.New(int(fi.Size())).SetUnits(pb.U_BYTES)
+		bar = progressbar.New(int(fi.Size())).SetUnits(progressbar.U_BYTES)
 		bar.Start()
 		r = bar.NewProxyReader(r)
 	}
 
-	meta := objects.SerializableMeta{}
+	meta := pb.SerializableMeta{}
 	expTime := time.Time{}
 
 	_, err = o.Put(ctx, dst.Path(), r, meta, expTime)
@@ -127,9 +127,9 @@ func download(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.
 	}
 	defer utils.LogClose(r)
 
-	var bar *pb.ProgressBar
+	var bar *progressbar.ProgressBar
 	if showProgress {
-		bar = pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
+		bar = progressbar.New(int(rr.Size())).SetUnits(progressbar.U_BYTES)
 		bar.Start()
 		r = bar.NewProxyReader(r)
 	}
@@ -191,9 +191,9 @@ func copy(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPat
 	}
 	defer utils.LogClose(r)
 
-	var bar *pb.ProgressBar
+	var bar *progressbar.ProgressBar
 	if *progress {
-		bar = pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
+		bar = progressbar.New(int(rr.Size())).SetUnits(progressbar.U_BYTES)
 		bar.Start()
 		r = bar.NewProxyReader(r)
 	}
@@ -205,7 +205,7 @@ func copy(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPat
 		}
 	}
 
-	meta := objects.SerializableMeta{}
+	meta := pb.SerializableMeta{}
 	expTime := time.Time{}
 
 	// if destination object name not specified, default to source object name
