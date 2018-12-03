@@ -398,7 +398,7 @@ func (f *storjFile) getReader(off int64) (io.ReadCloser, error) {
 		}
 
 		download := stream.NewDownload(f.ctx, readOnlyStream, f.streams, f.bucket.PathCipher)
-		download.Seek(off, io.SeekStart)
+		_, err = download.Seek(off, io.SeekStart)
 		if err != nil {
 			return nil, err
 		}
