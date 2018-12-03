@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storage/redis"
 )
 
@@ -70,6 +71,7 @@ var (
 
 		// Audit audit.Config
 		BwAgreement bwagreement.Config
+		DatabaseURL string `help:"the master database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	}
 	setupCfg struct {
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
@@ -100,6 +102,20 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
+
+	database, err := satellitedb.NewDB(runCfg.DatabaseURL)
+	if err != nil {
+		return errs.New("Error starting master database on satellite: %+v", err)
+	}
+
+	err = database.CreateTables()
+	if err != nil {
+		return errs.New("Error creating tables for master database on satellite: %+v", err)
+	}
+
+	ctx = context.WithValue(ctx, "masterdb", database)
+
 	return runCfg.Identity.Run(
 		process.Ctx(cmd),
 		grpcauth.NewAPIKeyInterceptor(),
