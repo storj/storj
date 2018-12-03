@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/identity"
@@ -17,7 +16,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
 )
 
 func TestNewOverlayClient(t *testing.T) {
@@ -111,16 +109,6 @@ func TestChoose(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		var listItems []storage.ListItem
-		for _, n := range v.allNodes {
-			data, err := proto.Marshal(n)
-			assert.NoError(t, err)
-			listItems = append(listItems, storage.ListItem{
-				Key:   n.Id.Bytes(),
-				Value: data,
-			})
-		}
-
 		newNodes, err := oc.Choose(ctx, overlay.Options{
 			Amount:       v.limit,
 			Space:        v.space,
