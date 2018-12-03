@@ -76,7 +76,7 @@ func (o *Overlay) Choose(ctx context.Context, op Options) ([]*pb.Node, error) {
 		Opts: &pb.OverlayOptions{
 			Amount:       int64(op.Amount),
 			Restrictions: &pb.NodeRestrictions{FreeDisk: op.Space},
-			MinReputation: &pb.NodeStats{
+			MinStats: &pb.NodeStats{
 				UptimeRatio:       op.Uptime,
 				UptimeCount:       op.UptimeCount,
 				AuditSuccessRatio: op.AuditSuccess,

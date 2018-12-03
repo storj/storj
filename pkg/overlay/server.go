@@ -75,15 +75,13 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 
 	excluded := opts.ExcludedNodes
 	restrictions := opts.GetRestrictions()
-	restrictedBandwidth := restrictions.GetFreeBandwidth()
-	restrictedSpace := restrictions.GetFreeDisk()
-	minRep := opts.GetMinReputation()
+	reputation := opts.GetMinStats()
 
 	var startID storj.NodeID
 	result := []*pb.Node{}
 	for {
 		var nodes []*pb.Node
-		nodes, startID, err = o.populate(ctx, req.Start, maxNodes, restrictedBandwidth, restrictedSpace, minRep, excluded)
+		nodes, startID, err = o.populate(ctx, req.Start, maxNodes, restrictions, reputation, excluded)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -143,10 +141,10 @@ func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.Node, e
 
 }
 
-// TODO(moby) maybe use options struct instead of having so many args
-func (o *Server) populate(ctx context.Context, startID storj.NodeID,
-	maxNodes, restrictedBandwidth, restrictedSpace int64,
-	minReputation *pb.NodeStats, excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
+func (o *Server) populate(ctx context.Context, startID storj.NodeID, maxNodes int64,
+	restrictions *pb.NodeRestrictions, reputation *pb.NodeStats,
+	excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
+
 	limit := int(maxNodes * 2)
 	keys, err := o.cache.DB.List(startID.Bytes(), limit)
 	if err != nil {
@@ -175,12 +173,12 @@ func (o *Server) populate(ctx context.Context, startID storj.NodeID,
 		rest := v.GetRestrictions()
 		rep := v.GetReputation()
 
-		if rest.GetFreeBandwidth() < restrictedBandwidth ||
-			rest.GetFreeDisk() < restrictedSpace ||
-			rep.GetUptimeRatio() < minReputation.GetUptimeRatio() ||
-			rep.GetUptimeCount() < minReputation.GetUptimeCount() ||
-			rep.GetAuditSuccessRatio() < minReputation.GetAuditSuccessRatio() ||
-			rep.GetAuditCount() < minReputation.GetAuditCount() ||
+		if rest.GetFreeBandwidth() < restrictions.GetFreeBandwidth() ||
+			rest.GetFreeDisk() < restrictions.GetFreeDisk() ||
+			rep.GetUptimeRatio() < reputation.GetUptimeRatio() ||
+			rep.GetUptimeCount() < reputation.GetUptimeCount() ||
+			rep.GetAuditSuccessRatio() < reputation.GetAuditSuccessRatio() ||
+			rep.GetAuditCount() < reputation.GetAuditCount() ||
 			contains(excluded, v.Id) {
 			continue
 		}
