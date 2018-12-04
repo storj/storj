@@ -32,7 +32,6 @@ import (
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage/redis"
 )
 
@@ -124,7 +123,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	valid, err := utils.IsValidSetupDirectory(setupCfg.BasePath)
+	valid, err := fpath.IsValidSetupDir(setupCfg.BasePath)
 	if !setupCfg.Overwrite && !valid {
 		fmt.Printf("satellite configuration already exists (%v). rerun with --overwrite\n", setupCfg.BasePath)
 		return nil

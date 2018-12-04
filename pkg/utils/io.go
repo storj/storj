@@ -48,25 +48,3 @@ func LogClose(fh io.Closer) {
 	}
 	zap.S().Errorf("Failed to close file: %s", err)
 }
-
-// IsValidSetupDirectory checks if directory is valid for setup configuration
-func IsValidSetupDirectory(name string) (bool, error) {
-	_, err := os.Stat(name)
-	if err != nil {
-		// doesn't exist
-		return true, err
-	}
-
-	f, err := os.Open(name)
-	if err != nil {
-		return false, err
-	}
-	defer f.Close()
-
-	_, err = f.Readdir(1)
-	if err == io.EOF {
-		// is empty
-		return true, nil
-	}
-	return false, err
-}

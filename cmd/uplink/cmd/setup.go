@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -54,7 +53,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("%s - Invalid flag. Pleas see --help", flagname)
 	}
 
-	valid, err := utils.IsValidSetupDirectory(setupCfg.BasePath)
+	valid, err := fpath.IsValidSetupDir(setupCfg.BasePath)
 	if !setupCfg.Overwrite && !valid {
 		return fmt.Errorf("uplink configuration already exists (%v). Rerun with --overwrite", setupCfg.BasePath)
 	}

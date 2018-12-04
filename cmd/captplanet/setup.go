@@ -11,10 +11,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/utils"
 )
 
 // Config defines broad Captain Planet configuration
@@ -56,7 +56,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	valid, err := utils.IsValidSetupDirectory(setupCfg.BasePath)
+	valid, err := fpath.IsValidSetupDir(setupCfg.BasePath)
 	if !setupCfg.Overwrite && !valid {
 		fmt.Printf("captplanet configuration already exists (%v). rerun with --overwrite\n", setupCfg.BasePath)
 		return nil
