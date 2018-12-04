@@ -22,131 +22,116 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
-const (
-	apiKey = "apiKey"
-	encKey = "encKey"
-)
-
 func TestUploadDownload(t *testing.T) {
-	tests := []struct {
-		bucket     string
-		objectName string
-		k, m, o, n int
-	}{
-		{
-			bucket:     "bucket",
-			objectName: "testdata",
-			k:          20,
-			m:          25,
-			o:          30,
-			n:          40,
-		},
+	var (
+		apiKey     = "apiKey"
+		encKey     = "encKey"
+		bucket     = "bucket"
+		objectName = "testdata"
+	)
+
+	planet, err := testplanet.New(t, 1, 40, 1)
+	assert.NoError(t, err)
+
+	defer func() {
+		t.Log("Shutdown")
+		err = planet.Shutdown()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	// create temporary directory for minio
+	tmpDir, err := ioutil.TempDir("", "minio-test")
+	assert.NoError(t, err)
+
+	// cleanup
+	defer func() {
+		err = os.RemoveAll(tmpDir)
+		if err != nil {
+			t.Log(err)
+		}
+	}()
+
+	err = flag.Set("pointer-db.auth.api-key", apiKey)
+	assert.NoError(t, err)
+
+	// bind default values to config
+	var gwCfg Config
+	cfgstruct.Bind(&flag.FlagSet{}, &gwCfg)
+
+	// minio config directory
+	gwCfg.MinioDir = tmpDir
+
+	// addresses
+	gwCfg.Address = planet.Uplinks[0].Addr()
+	gwCfg.OverlayAddr = planet.Satellites[0].Addr()
+	gwCfg.PointerDBAddr = planet.Satellites[0].Addr()
+
+	// keys
+	gwCfg.APIKey = apiKey
+	gwCfg.EncKey = encKey
+
+	// redundancy
+	gwCfg.MinThreshold = 20
+	gwCfg.RepairThreshold = 25
+	gwCfg.SuccessThreshold = 30
+	gwCfg.MaxThreshold = 40
+
+	t.Log("Start")
+	planet.Start(ctx)
+
+	time.Sleep(2 * time.Second)
+
+	// free address for use
+	err = planet.Uplinks[0].Shutdown()
+	assert.NoError(t, err)
+
+	errch := make(chan error)
+
+	// setup and start gateway
+	go func() {
+		errch <- setupGW(ctx, gwCfg, planet.Uplinks[0].Identity)
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+
+	clientCfg := s3client.Config{
+		S3Gateway:     gwCfg.Address,
+		Satellite:     planet.Satellites[0].Addr(),
+		AccessKey:     gwCfg.AccessKey,
+		SecretKey:     gwCfg.SecretKey,
+		APIKey:        apiKey,
+		EncryptionKey: encKey,
+		NoSSL:         true,
 	}
 
-	for _, tt := range tests {
-		planet, err := testplanet.New(t, 1, 40, 1)
-		assert.NoError(t, err)
+	client, err := s3client.NewMinio(clientCfg)
+	assert.NoError(t, err)
 
-		defer func() {
-			t.Log("Shutdown")
-			err = planet.Shutdown()
-			if err != nil {
-				t.Fatal(err)
-			}
-		}()
+	err = client.MakeBucket(bucket, "")
+	assert.NoError(t, err)
 
-		// create temporary directory for minio
-		tmpDir, err := ioutil.TempDir("", "minio-test")
-		assert.NoError(t, err)
+	// generate enough data for a remote segment
+	data := []byte{}
+	for i := 0; i < 5000; i++ {
+		data = append(data, 'a')
+	}
 
-		// cleanup
-		defer func() {
-			err = os.RemoveAll(tmpDir)
-			if err != nil {
-				t.Log(err)
-			}
-		}()
+	err = client.Upload(bucket, objectName, data)
+	assert.NoError(t, err)
 
-		err = flag.Set("pointer-db.auth.api-key", apiKey)
-		assert.NoError(t, err)
+	// buffer := make([]byte, len(data))
 
-		// bind default values to config
-		var gwCfg Config
-		cfgstruct.Bind(&flag.FlagSet{}, &gwCfg)
+	// bytes, err := client.Download(bucket, tobjectName, buffer)
+	// assert.NoError(t, err)
 
-		// minio config directory
-		gwCfg.MinioDir = tmpDir
+	// assert.Equal(t, string(data), string(bytes))
 
-		// addresses
-		gwCfg.Address = planet.Uplinks[0].Addr()
-		gwCfg.OverlayAddr = planet.Satellites[0].Addr()
-		gwCfg.PointerDBAddr = planet.Satellites[0].Addr()
-
-		// keys
-		gwCfg.APIKey = apiKey
-		gwCfg.EncKey = encKey
-
-		// redundancy
-		gwCfg.MinThreshold = tt.k
-		gwCfg.RepairThreshold = tt.m
-		gwCfg.SuccessThreshold = tt.o
-		gwCfg.MaxThreshold = tt.n
-
-		t.Log("Start")
-		planet.Start(ctx)
-
-		time.Sleep(2 * time.Second)
-
-		// free address for use
-		err = planet.Uplinks[0].Shutdown()
-		assert.NoError(t, err)
-
-		errch := make(chan error)
-
-		// setup and start gateway
-		go func() {
-			errch <- setupGW(ctx, gwCfg, planet.Uplinks[0].Identity)
-		}()
-
-		time.Sleep(100 * time.Millisecond)
-
-		clientCfg := s3client.Config{
-			S3Gateway:     gwCfg.Address,
-			Satellite:     planet.Satellites[0].Addr(),
-			AccessKey:     gwCfg.AccessKey,
-			SecretKey:     gwCfg.SecretKey,
-			APIKey:        apiKey,
-			EncryptionKey: encKey,
-			NoSSL:         true,
-		}
-
-		client, err := s3client.NewMinio(clientCfg)
-		assert.NoError(t, err)
-
-		err = client.MakeBucket(tt.bucket, "")
-		assert.NoError(t, err)
-
-		// generate enough data for a remote segment
-		data := []byte{}
-		for i := 0; i < 5000; i++ {
-			data = append(data, 'a')
-		}
-
-		err = client.Upload(tt.bucket, tt.objectName, data)
-		assert.NoError(t, err)
-
-		// buffer := make([]byte, len(data))
-
-		// bytes, err := client.Download(tt.bucket, tt.objectName, buffer)
-		// assert.NoError(t, err)
-
-		// assert.Equal(t, string(data), string(bytes))
-
-		select {
-		case err := <-errch:
-			t.Fatal(err)
-		default:
-		}
+	select {
+	case err := <-errch:
+		t.Fatal(err)
+	default:
 	}
 }
 
@@ -180,8 +165,6 @@ func setupGW(ctx context.Context, c Config, identity *provider.FullIdentity) (er
 
 // action creates and starts a new gateway
 func action(ctx context.Context, c Config, cliCtx *cli.Context, identity *provider.FullIdentity) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	gw, err := c.NewGateway(ctx, identity)
 	if err != nil {
 		return err
