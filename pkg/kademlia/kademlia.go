@@ -329,9 +329,6 @@ func Restrict(r pb.Restriction, n []*pb.Node) []*pb.Node {
 
 func meetsRestrictions(rs []pb.Restriction, n pb.Node) bool {
 	for _, r := range rs {
-		if proto.Equal(&r, &pb.Restriction{}) {
-			return true
-		}
 		oper := r.GetOperand()
 		op := r.GetOperator()
 		val := r.GetValue()
