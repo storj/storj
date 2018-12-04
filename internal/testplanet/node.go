@@ -15,7 +15,6 @@ import (
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
@@ -38,7 +37,6 @@ type Node struct {
 	Kademlia  *kademlia.Kademlia
 	StatDB    *statdb.StatDB
 	Overlay   *overlay.Cache
-	Client    miniogw.Config
 
 	Dependencies []io.Closer
 }
