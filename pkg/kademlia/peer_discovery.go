@@ -81,7 +81,9 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 
 				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target})
 				if err != nil {
-					ok := lookup.queue.Reinsert(lookup.target, next, lookup.opts.retries)
+					// TODO: reenable retry after fixing logic
+					// ok := lookup.queue.Reinsert(lookup.target, next, lookup.opts.retries)
+					ok := false
 					if !ok {
 						zap.S().Errorf(
 							"Error occurred during lookup of %s :: %s :: error = %s",
