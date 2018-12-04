@@ -9,7 +9,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/provider"
-	pb "storj.io/storj/pkg/statdb/proto"
 )
 
 //CtxKey Used as statdb key
@@ -32,8 +31,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	if err != nil {
 		return err
 	}
-
-	pb.RegisterStatDBServer(server.GRPC(), ns)
 
 	return server.Run(context.WithValue(ctx, ctxKeyStats, ns))
 }
