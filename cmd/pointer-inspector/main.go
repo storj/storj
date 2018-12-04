@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"flag"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -15,11 +16,17 @@ import (
 )
 
 var (
+	// Addr is the address of Capt Planet from command flags
+	Addr = flag.String("address", "[::1]:7778", "address of captplanet to inspect")
+
 	// ErrIdentity is for errors during identity creation for this CLI
 	ErrIdentity = errs.Class("error creating identity:")
 
 	// ErrInspectorDial throws when there are errors dialing the inspector server
 	ErrInspectorDial = errs.Class("error dialing inspector server:")
+
+	// ErrRequest is for gRPC request errors after dialing
+	ErrRequest = errs.Class("error processing request:")
 
 	rootCmd = &cobra.Command{
 		Use:   "pointerdb",
@@ -66,5 +73,13 @@ func NewPointerInspector(address string) (*PointerInspector, error) {
 
 // ListPointers lists pointers
 func ListPointers(*cobra.Command, []string) error {
+	inspector, err := NewPointerInspector(*Addr)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+	_, err = inspector.client.ListPointers(context.Background(), &pb.ListPointersRequest{})
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
 	return nil
 }
