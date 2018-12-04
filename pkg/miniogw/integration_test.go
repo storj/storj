@@ -94,7 +94,7 @@ func TestUploadDownload(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	clientCfg := s3client.Config{
+	client, err := s3client.NewMinio(s3client.Config{
 		S3Gateway:     gwCfg.Address,
 		Satellite:     planet.Satellites[0].Addr(),
 		AccessKey:     gwCfg.AccessKey,
@@ -102,9 +102,7 @@ func TestUploadDownload(t *testing.T) {
 		APIKey:        apiKey,
 		EncryptionKey: encKey,
 		NoSSL:         true,
-	}
-
-	client, err := s3client.NewMinio(clientCfg)
+	})
 	assert.NoError(t, err)
 
 	err = client.MakeBucket(bucket, "")
