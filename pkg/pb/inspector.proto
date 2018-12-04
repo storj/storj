@@ -34,8 +34,9 @@ message GetStatsRequest {
 
 message GetStatsResponse {
   int64 audit_count = 1;
-  double uptime_ratio = 2;
-  double audit_ratio = 3;
+  double audit_ratio = 2;
+  int64 uptime_count = 3;
+  double uptime_ratio = 4;
 }
 
 // CreateStats

@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/statdb"
 	dbx "storj.io/storj/pkg/statdb/dbx"
 	pb "storj.io/storj/pkg/statdb/proto"
@@ -21,8 +20,7 @@ import (
 )
 
 var (
-	apiKey = []byte("")
-	ctx    = auth.WithAPIKey(context.Background(), apiKey)
+	ctx = context.Background()
 )
 
 func TestCreateDoesNotExist(t *testing.T) {
@@ -434,14 +432,14 @@ func getDBPath() string {
 	return fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63())
 }
 
-func getServerAndDB(path string) (sdb *statdb.Server, db *dbx.DB, err error) {
-	sdb, err = statdb.NewServer("sqlite3", path, string(apiKey), zap.NewNop())
+func getServerAndDB(path string) (sdb *statdb.StatDB, db *dbx.DB, err error) {
+	sdb, err = statdb.NewStatDB("sqlite3", path, zap.NewNop())
 	if err != nil {
-		return &statdb.Server{}, &dbx.DB{}, err
+		return &statdb.StatDB{}, &dbx.DB{}, err
 	}
 	db, err = dbx.Open("sqlite3", path)
 	if err != nil {
-		return &statdb.Server{}, &dbx.DB{}, err
+		return &statdb.StatDB{}, &dbx.DB{}, err
 	}
 	return sdb, db, err
 }

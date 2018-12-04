@@ -35,7 +35,7 @@ type Node struct {
 	Listener  net.Listener
 	Provider  *provider.Provider
 	Kademlia  *kademlia.Kademlia
-	StatDB    *statdb.Server
+	StatDB    *statdb.StatDB
 	Overlay   *overlay.Cache
 
 	Dependencies []io.Closer
@@ -159,7 +159,7 @@ func (node *Node) initOverlay(planet *Planet) error {
 // initStatDB creates statdb for a given planet
 func (node *Node) initStatDB() error {
 	dbPath := fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63())
-	sdb, err := statdb.NewServer("sqlite3", dbPath, "", zap.NewNop())
+	sdb, err := statdb.NewStatDB("sqlite3", dbPath, zap.NewNop())
 	if err != nil {
 		return err
 	}
