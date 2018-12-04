@@ -30,16 +30,23 @@ type peerDiscovery struct {
 var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 
 func newPeerDiscovery(nodes []*pb.Node, client node.Client, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
-	return &peerDiscovery{
+	discovery := &peerDiscovery{
 		client: client,
 		target: target,
 		opts:   opts,
 		cond:   sync.Cond{L: &sync.Mutex{}},
 		queue:  *newDiscoveryQueue(opts.concurrency),
 	}
+
+	discovery.queue.Insert(target, nodes...)
+	return discovery
 }
 
 func (lookup *peerDiscovery) Run(ctx context.Context) error {
+	if lookup.queue.Len() == 0 {
+		return nil // TODO: should we return an error here?
+	}
+
 	wg := sync.WaitGroup{}
 
 	// protected by `lookup.cond.L`
@@ -51,9 +58,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			for {
-				var (
-					next *pb.Node
-				)
+				var next *pb.Node
 
 				lookup.cond.L.Lock()
 				for {
@@ -180,7 +185,7 @@ func (queue *discoveryQueue) insert(target storj.NodeID, nodes ...*pb.Node) {
 	for _, node := range nodes {
 		queue.items = append(queue.items, queueItem{
 			node:     node,
-			priority: xorNodeID(target, node.Id),
+			priority: reverseNodeID(xorNodeID(target, node.Id)),
 		})
 	}
 
@@ -225,6 +230,7 @@ func xorNodeID(a, b storj.NodeID) storj.NodeID {
 }
 
 // reverseNodeID reverses NodeID bit representation
+// this ensures that discoveryQueue sorts by least-significant bit of target ^ node
 func reverseNodeID(a storj.NodeID) storj.NodeID {
 	r := storj.NodeID{}
 	for i, v := range a {
