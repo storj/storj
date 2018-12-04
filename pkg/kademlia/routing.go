@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/emitter"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
@@ -41,11 +42,12 @@ type RoutingTable struct {
 	replacementCache map[bucketID][]*pb.Node
 	bucketSize       int // max number of nodes stored in a kbucket = 20 (k)
 	rcBucketSize     int // replacementCache bucket max length
-
+	events           *emitter.Emitter
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
 func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
+	rte := emitter.NewEmitter()
 	rt := &RoutingTable{
 		self:         localNode,
 		kadBucketDB:  kdb,
@@ -58,16 +60,19 @@ func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore) (*Routin
 
 		bucketSize:   *flagBucketSize,
 		rcBucketSize: *flagReplacementCacheSize,
+		events:       rte,
 	}
 	ok, err := rt.addNode(&localNode)
 	if !ok || err != nil {
 		return nil, RoutingErr.New("could not add localNode to routing table: %s", err)
 	}
+	rt.events.Emit("rt:addnode", &localNode)
 	return rt, nil
 }
 
 // Close closes underlying databases
 func (rt *RoutingTable) Close() error {
+	rt.events.Emit("rt:close", rt)
 	return utils.CombineErrors(
 		rt.kadBucketDB.Close(),
 		rt.nodeBucketDB.Close(),
@@ -188,12 +193,14 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 		return RoutingErr.New("could not add node %s", err)
 	}
 
+	rt.events.Emit("rt:connection", node)
 	return nil
 }
 
 // ConnectionFailed removes a node from the routing table when
 // a connection fails for the node on the network
 func (rt *RoutingTable) ConnectionFailed(node *pb.Node) error {
+	rt.events.Emit("rt:failed", node)
 	err := rt.removeNode(node.Id)
 	if err != nil {
 		return RoutingErr.New("could not remove node %s", err)

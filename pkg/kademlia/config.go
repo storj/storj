@@ -6,6 +6,8 @@ package kademlia
 import (
 	"context"
 	"flag"
+	"fmt"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -87,6 +89,19 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 			zap.L().Error("Failed to bootstrap Kademlia", zap.String("ID", server.Identity().ID.String()))
 		}
 	}()
+
+	// Kademlia Events
+	kad.events.On("disconnect", func(k Kademlia) {
+		zap.L().Info(fmt.Sprintf("node %+v disconnected", k.identity.ID.String()))
+	})
+
+	kad.events.On("bootstrap:start", func(t time.Time) {
+		zap.L().Info(fmt.Sprintf("bootstrap started at %+v", t))
+	})
+
+	kad.events.On("bootstrap:complete", func(t time.Time) {
+		zap.L().Info(fmt.Sprintf("bootstrap finished at %+v", t))
+	})
 
 	return server.Run(context.WithValue(ctx, ctxKeyKad, kad))
 }

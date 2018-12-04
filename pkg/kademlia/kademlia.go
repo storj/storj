@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -16,6 +17,7 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/emitter"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -52,6 +54,7 @@ type Kademlia struct {
 	address        string
 	nodeClient     node.Client
 	identity       *provider.FullIdentity
+	events         *emitter.Emitter
 }
 
 // NewKademlia returns a newly configured Kademlia instance
@@ -88,12 +91,14 @@ func NewKademlia(id storj.NodeID, nodeType pb.NodeType, bootstrapNodes []pb.Node
 
 // NewKademliaWithRoutingTable returns a newly configured Kademlia instance
 func NewKademliaWithRoutingTable(self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
+	kadEmitter := emitter.NewEmitter()
 	k := &Kademlia{
 		alpha:          alpha,
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
 		address:        self.Address.Address,
 		identity:       identity,
+		events:         kadEmitter,
 	}
 
 	nc, err := node.NewNodeClient(identity, self, k)
@@ -108,6 +113,7 @@ func NewKademliaWithRoutingTable(self pb.Node, bootstrapNodes []pb.Node, identit
 
 // Disconnect safely closes connections to the Kademlia network
 func (k *Kademlia) Disconnect() error {
+	k.events.Emit("disconnect", k)
 	return utils.CombineErrors(
 		k.nodeClient.Disconnect(),
 		k.routingTable.Close(),
@@ -166,11 +172,14 @@ func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
 func (k *Kademlia) Bootstrap(ctx context.Context) error {
+	k.events.Emit("bootstrap:start", time.Now())
 	// What I want to do here is do a normal lookup for myself
 	// so call lookup(ctx, nodeImLookingFor)
 	if len(k.bootstrapNodes) == 0 {
 		return BootstrapErr.New("no bootstrap nodes provided")
 	}
+
+	defer k.events.Emit("bootstrap:complete", time.Now())
 
 	return k.lookup(ctx, k.routingTable.self.Id, discoveryOptions{
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: true, bootstrapNodes: k.bootstrapNodes,
