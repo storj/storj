@@ -29,7 +29,7 @@ var (
 	invalid2ID = teststorj.NodeIDFromString("invalid2")
 )
 
-func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, sdb *statdb.Server) {
+func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, sdb *statdb.StatDB) {
 	cache := overlay.Cache{DB: store, StatDB: sdb}
 
 	{ // Put
