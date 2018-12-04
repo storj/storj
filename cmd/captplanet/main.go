@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/process"
 )
@@ -28,17 +29,20 @@ var (
 		Short: "Captain Planet! With our powers combined!",
 	}
 
-	defaultConfDir = "$HOME/.storj/capt"
+	defaultConfDir string
 )
 
 func main() {
 	go dumpHandler()
-	// process.Exec will load this for this command.
+	process.Exec(rootCmd)
+}
+
+func init() {
+	defaultConfDir = fpath.ApplicationDir("storj", "capt")
 	runCmd.Flags().String("config",
 		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	setupCmd.Flags().String("config",
 		filepath.Join(defaultConfDir, "setup.yaml"), "path to configuration")
-	process.Exec(rootCmd)
 }
 
 // dumpHandler listens for Ctrl+\ on Unix

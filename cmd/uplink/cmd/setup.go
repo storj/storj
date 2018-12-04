@@ -12,6 +12,7 @@ import (
 	base58 "github.com/jbenet/go-base58"
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
@@ -37,7 +38,7 @@ var (
 )
 
 func init() {
-	defaultConfDir := applicationDir("storj", "uplink")
+	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
 	CLICmd.AddCommand(setupCmd)
 	GWCmd.AddCommand(setupCmd)
 	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
@@ -63,7 +64,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	defaultConfDir := applicationDir("storj", "uplink")
+	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
 	// TODO: handle setting base path *and* identity file paths via args
 	// NB: if base path is set this overrides identity and CA path options
 	if setupCfg.BasePath != defaultConfDir {
