@@ -8,7 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
@@ -140,7 +140,12 @@ func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.G
 		return nil, err
 	}
 
-	return res, nil
+	return &pb.GetStatsResponse{
+		AuditCount:  res.Stats.AuditCount,
+		AuditRatio:  res.Stats.AuditSuccessRatio,
+		UptimeCount: res.Stats.UptimeCount,
+		UptimeRatio: res.Stats.UptimeRatio,
+	}, nil
 }
 
 // CreateStats creates a node with specified stats
@@ -158,10 +163,10 @@ func (srv *Server) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) 
 		Node:  node,
 		Stats: stats,
 	}
-	res, err := srv.statdb.Create(ctx, createReq)
+	_, err := srv.statdb.Create(ctx, createReq)
 	if err != nil {
 		return nil, err
 	}
 
-	return res, nil
+	return &pb.CreateStatsResponse{}, nil
 }
