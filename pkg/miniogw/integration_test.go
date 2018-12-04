@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package integration_test
+package miniogw
 
 import (
 	"context"
@@ -14,14 +14,10 @@ import (
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/stretchr/testify/assert"
-	"github.com/zeebo/errs"
-
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/s3client"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/miniogw/logging"
 	"storj.io/storj/pkg/provider"
 )
@@ -29,14 +25,6 @@ import (
 const (
 	apiKey = "apiKey"
 	encKey = "encKey"
-)
-
-var (
-	mon = monkit.Package()
-	//Error is the errs class of standard End User Client errors
-	Error = errs.Class("Storj Gateway error")
-
-	ctx = context.Background()
 )
 
 func TestUploadDownload(t *testing.T) {
@@ -83,7 +71,7 @@ func TestUploadDownload(t *testing.T) {
 		assert.NoError(t, err)
 
 		// bind default values to config
-		var gwCfg miniogw.Config
+		var gwCfg Config
 		cfgstruct.Bind(&flag.FlagSet{}, &gwCfg)
 
 		// minio config directory
@@ -163,7 +151,7 @@ func TestUploadDownload(t *testing.T) {
 }
 
 // setupGW registers and calls a gateway command
-func setupGW(ctx context.Context, c miniogw.Config, identity *provider.FullIdentity) (err error) {
+func setupGW(ctx context.Context, c Config, identity *provider.FullIdentity) (err error) {
 	err = minio.RegisterGatewayCommand(cli.Command{
 		Name:  "storj",
 		Usage: "Storj",
@@ -191,7 +179,7 @@ func setupGW(ctx context.Context, c miniogw.Config, identity *provider.FullIdent
 }
 
 // action creates and starts a new gateway
-func action(ctx context.Context, c miniogw.Config, cliCtx *cli.Context, identity *provider.FullIdentity) (err error) {
+func action(ctx context.Context, c Config, cliCtx *cli.Context, identity *provider.FullIdentity) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	gw, err := c.NewGateway(ctx, identity)
