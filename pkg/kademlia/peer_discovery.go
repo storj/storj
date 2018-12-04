@@ -21,24 +21,24 @@ type peerDiscovery struct {
 	opts   discoveryOptions
 
 	cond  sync.Cond
-	queue *XorQueue
+	queue Queue
 }
 
 // ErrMaxRetries is used when a lookup has been retried the max number of times
 var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 
 func newPeerDiscovery(nodes []*pb.Node, client node.Client, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
-	queue := NewXorQueue(opts.concurrency)
-	queue.Insert(target, nodes)
-
-	return &peerDiscovery{
+	discovery := &peerDiscovery{
 		client: client,
 		target: target,
 		opts:   opts,
-
-		cond:  sync.Cond{L: &sync.Mutex{}},
-		queue: queue,
 	}
+
+	discovery.cond.L = &sync.Mutex{}
+	discovery.queue = *NewQueue(opts.concurrency)
+	discovery.queue.Insert(target, nodes...)
+
+	return discovery
 }
 
 func (lookup *peerDiscovery) Run(ctx context.Context) error {
@@ -65,7 +65,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 						return
 					}
 
-					next, _ = lookup.queue.Closest()
+					next = lookup.queue.Closest()
 					if !lookup.opts.bootstrap && next.Id == lookup.target {
 						allDone = true
 						break // closest node is the target and is already in routing table (i.e. no lookup required)
@@ -94,7 +94,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 					}
 				}
 
-				lookup.queue.Insert(lookup.target, neighbors)
+				lookup.queue.Insert(lookup.target, neighbors...)
 
 				lookup.cond.L.Lock()
 				working--

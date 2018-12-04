@@ -74,6 +74,18 @@ func (id NodeID) String() string {
 // Bytes returns raw bytes of the id
 func (id NodeID) Bytes() []byte { return id[:] }
 
+// Less returns whether id is smaller than b
+func (id NodeID) Less(b NodeID) bool {
+	for k, v := range id {
+		if v < b[k] {
+			return true
+		} else if v > b[k] {
+			return false
+		}
+	}
+	return false
+}
+
 // Difficulty returns the number of trailing zero bits in a node ID
 func (id NodeID) Difficulty() (uint16, error) {
 	idLen := len(id)
@@ -140,25 +152,10 @@ func (n NodeIDList) Bytes() (idsBytes [][]byte) {
 }
 
 // Len implements sort.Interface.Len()
-func (n NodeIDList) Len() int {
-	return len(n)
-}
+func (n NodeIDList) Len() int { return len(n) }
 
 // Swap implements sort.Interface.Swap()
-func (n NodeIDList) Swap(i, j int) {
-	n[i], n[j] = n[j], n[i]
-}
+func (n NodeIDList) Swap(i, j int) { n[i], n[j] = n[j], n[i] }
 
 // Less implements sort.Interface.Less()
-func (n NodeIDList) Less(i, j int) bool {
-	for k, v := range n[i] {
-		if v < n[j][k] {
-			return true
-		} else if v > n[j][k] {
-			return false
-		}
-		// compare next index
-	}
-	// identical nodeIDs
-	return false
-}
+func (n NodeIDList) Less(i, j int) bool { return n[i].Less(n[j]) }

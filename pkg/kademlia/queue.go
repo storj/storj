@@ -4,152 +4,123 @@
 package kademlia
 
 import (
-	"container/heap"
-	"math/big"
+	"math/bits"
+	"sort"
 	"sync"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
-// XorQueue is a priority queue where the priority is key XOR distance
-type XorQueue struct {
+// Queue is a limited priority queue with xor distance
+type Queue struct {
 	maxLen int
-
-	mu    sync.Mutex
-	added map[storj.NodeID]int
-	items items
+	mu     sync.Mutex
+	added  map[storj.NodeID]int
+	items  []queueItem
 }
 
-// NewXorQueue returns a items with priority based on XOR from targetBytes
-func NewXorQueue(size int) *XorQueue {
-	return &XorQueue{
-		items:  make(items, 0, size),
+// An queueItem is something we manage in a priority queue.
+type queueItem struct {
+	node     *pb.Node
+	priority storj.NodeID
+	// TODO: switch to using pb.NodeAddress to avoid pointer to *pb.Node
+}
+
+// xorNodeID returns the xor of each byte in NodeID
+func xorNodeID(a, b storj.NodeID) storj.NodeID {
+	r := storj.NodeID{}
+	for i, av := range a {
+		r[i] = av ^ b[i]
+	}
+	return r
+}
+
+// reverseNodeID reverses NodeID bit representation
+func reverseNodeID(a storj.NodeID) storj.NodeID {
+	r := storj.NodeID{}
+	for i, v := range a {
+		r[len(a)-i-1] = bits.Reverse8(v)
+	}
+	return r
+}
+
+// NewQueue returns a items with priority based on XOR from targetBytes
+func NewQueue(size int) *Queue {
+	return &Queue{
 		added:  make(map[storj.NodeID]int),
 		maxLen: size,
 	}
 }
 
-// Insert adds Nodes onto the queue
-func (x *XorQueue) Insert(target storj.NodeID, nodes []*pb.Node) {
-	x.mu.Lock()
-	defer x.mu.Unlock()
+// Insert adds nodes into the queue.
+func (queue *Queue) Insert(target storj.NodeID, nodes ...*pb.Node) {
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
 
 	unique := nodes[:0]
 	for _, node := range nodes {
 		nodeID := node.Id
-		if _, added := x.added[nodeID]; !added {
-			x.added[nodeID]++
+		if _, added := queue.added[nodeID]; !added {
+			queue.added[nodeID]++
 			unique = append(unique, node)
 		}
 	}
 
-	x.insert(target, unique)
+	queue.insert(target, unique...)
 }
 
-// Reinsert adds a Nodes onto the queue if it's been added >= limit times previously
-func (x *XorQueue) Reinsert(target storj.NodeID, node *pb.Node, limit int) bool {
-	x.mu.Lock()
-	defer x.mu.Unlock()
+// Reinsert adds a Nodes into the queue, only if it's has been added less than limit times.
+func (queue *Queue) Reinsert(target storj.NodeID, node *pb.Node, limit int) bool {
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
 
 	nodeID := node.Id
-	if x.added[nodeID] >= limit {
+	if queue.added[nodeID] >= limit {
 		return false
 	}
-	x.added[nodeID]++
+	queue.added[nodeID]++
 
-	x.insert(target, []*pb.Node{node})
+	queue.insert(target, node)
 	return true
 }
 
-func reverse(b []byte) (r []byte) {
-	for _, v := range b {
-		r = append([]byte{v}, r...)
-	}
-	return r
-}
-
 // insert must hold lock while adding
-func (x *XorQueue) insert(target storj.NodeID, nodes []*pb.Node) {
-	targetBytes := new(big.Int).SetBytes(reverse(target.Bytes()))
-	// insert new nodes
+func (queue *Queue) insert(target storj.NodeID, nodes ...*pb.Node) {
 	for _, node := range nodes {
-		heap.Push(&x.items, &item{
-			value:    node,
-			priority: new(big.Int).Xor(targetBytes, new(big.Int).SetBytes(reverse(node.Id.Bytes()))),
+		queue.items = append(queue.items, queueItem{
+			node:     node,
+			priority: reverseNodeID(xorNodeID(target, node.Id)),
 		})
 	}
-	// resize down if we grew too big
-	if x.items.Len() > x.maxLen {
-		olditems := x.items
-		x.items = items{}
-		for i := 0; i < x.maxLen && len(olditems) > 0; i++ {
-			item := heap.Pop(&olditems)
-			heap.Push(&x.items, item)
-		}
-		heap.Init(&x.items)
+
+	sort.Slice(queue.items, func(i, k int) bool {
+		return queue.items[i].priority.Less(queue.items[k].priority)
+	})
+
+	if len(queue.items) > queue.maxLen {
+		queue.items = queue.items[:queue.maxLen]
 	}
 }
 
-// Closest removes the closest priority node from the queue
-func (x *XorQueue) Closest() (*pb.Node, big.Int) {
-	x.mu.Lock()
-	defer x.mu.Unlock()
+// Closest returns the closest item in the queue
+func (queue *Queue) Closest() *pb.Node {
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
 
-	if x.Len() == 0 {
-		return nil, big.Int{}
+	if len(queue.items) == 0 {
+		return nil
 	}
-	item := *(heap.Pop(&x.items).(*item))
-	return item.value, *item.priority
+
+	var item queueItem
+	item, queue.items = queue.items[0], queue.items[1:]
+	return item.node
 }
 
 // Len returns the number of items in the queue
-func (x *XorQueue) Len() int {
-	return x.items.Len()
-}
+func (queue *Queue) Len() int {
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
 
-// An item is something we manage in a priority queue.
-type item struct {
-	value    *pb.Node // The value of the item; arbitrary.
-	priority *big.Int // The priority of the item in the queue.
-	// The index is needed by update and is maintained by the heap.Interface methods.
-	index int // The index of the item in the heap.
-}
-
-// A items implements heap.Interface and holds items.
-type items []*item
-
-// Len returns the length of the priority queue
-func (items items) Len() int { return len(items) }
-
-// Less does what you would think
-func (items items) Less(i, j int) bool {
-	// this sorts the nodes where the node popped has the closest location
-	return items[i].priority.Cmp(items[j].priority) < 0
-}
-
-// Swap swaps two ints
-func (items items) Swap(i, j int) {
-	items[i], items[j] = items[j], items[i]
-	items[i].index = i
-	items[j].index = j
-}
-
-// Push adds an item to the top of the queue
-// must call heap.fix to resort
-func (items *items) Push(x interface{}) {
-	n := len(*items)
-	item := x.(*item)
-	item.index = n
-	*items = append(*items, item)
-}
-
-// Pop returns the item with the lowest priority
-func (items *items) Pop() interface{} {
-	old := *items
-	n := len(old)
-	item := old[n-1]
-	item.index = -1 // for safety
-	*items = old[0 : n-1]
-	return item
+	return len(queue.items)
 }
