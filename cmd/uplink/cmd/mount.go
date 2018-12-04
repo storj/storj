@@ -453,7 +453,10 @@ func (f *storjFile) closeWriter() {
 	if f.writer != nil {
 		utils.LogClose(f.writer)
 		f.FS.removeCreatedFile(f.name)
-		f.mutableObject.Commit(f.ctx)
+		err := f.mutableObject.Commit(f.ctx)
+		if err != nil {
+			zap.S().Errorf("error during commiting data: %v", err)
+		}
 		f.writer = nil
 	}
 }
