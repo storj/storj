@@ -6,6 +6,7 @@ package fpath
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path"
@@ -158,4 +159,28 @@ func ApplicationDir(subdir ...string) string {
 		}
 	}
 	return filepath.Join(append([]string{appdir}, subdir...)...)
+}
+
+// IsValidSetupDir checks if directory is valid for setup configuration
+func IsValidSetupDir(name string) (bool, error) {
+	_, err := os.Stat(name)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return true, err
+		}
+		return false, err
+	}
+
+	f, err := os.Open(name)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = f.Close() }()
+
+	_, err = f.Readdir(1)
+	if err == io.EOF {
+		// is empty
+		return true, nil
+	}
+	return false, err
 }
