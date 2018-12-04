@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"math/bits"
 	"sort"
 	"sync"
 
@@ -185,7 +184,7 @@ func (queue *discoveryQueue) insert(target storj.NodeID, nodes ...*pb.Node) {
 	for _, node := range nodes {
 		queue.items = append(queue.items, queueItem{
 			node:     node,
-			priority: reverseNodeID(xorNodeID(target, node.Id)),
+			priority: xorNodeID(target, node.Id),
 		})
 	}
 
@@ -225,16 +224,6 @@ func xorNodeID(a, b storj.NodeID) storj.NodeID {
 	r := storj.NodeID{}
 	for i, av := range a {
 		r[i] = av ^ b[i]
-	}
-	return r
-}
-
-// reverseNodeID reverses NodeID bit representation
-// this ensures that discoveryQueue sorts by least-significant bit of target ^ node
-func reverseNodeID(a storj.NodeID) storj.NodeID {
-	r := storj.NodeID{}
-	for i, v := range a {
-		r[len(a)-i-1] = bits.Reverse8(v)
 	}
 	return r
 }
