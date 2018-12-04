@@ -19,7 +19,7 @@ func TestRun(t *testing.T) {
 	var kadKey kademlia.CtxKey
 	ctx := context.WithValue(bctx, kadKey, kad)
 
-	sdb := &statdb.Server{}
+	sdb := &statdb.StatDB{}
 	var statKey statdb.CtxKey
 	ctx = context.WithValue(ctx, statKey, sdb)
 

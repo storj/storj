@@ -12,8 +12,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storage/buckets"
-	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -32,7 +31,7 @@ func init() {
 func list(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	bs, err := cfg.BucketStore(ctx)
+	metainfo, _, err := cfg.Metainfo(ctx)
 	if err != nil {
 		return err
 	}
@@ -47,7 +46,7 @@ func list(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("No bucket specified, use format sj://bucket/")
 		}
 
-		err = listFiles(ctx, bs, src, false)
+		err = listFiles(ctx, metainfo, src, false)
 
 		return convertError(err, src)
 	}
@@ -56,30 +55,30 @@ func list(cmd *cobra.Command, args []string) error {
 	noBuckets := true
 
 	for {
-		items, more, err := bs.List(ctx, startAfter, "", 0)
+		list, err := metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After, Cursor: startAfter})
 		if err != nil {
 			return err
 		}
-		if len(items) > 0 {
+		if len(list.Items) > 0 {
 			noBuckets = false
-			for _, bucket := range items {
-				fmt.Println("BKT", formatTime(bucket.Meta.Created), bucket.Bucket)
+			for _, bucket := range list.Items {
+				fmt.Println("BKT", formatTime(bucket.Created), bucket.Name)
 				if *recursiveFlag {
-					prefix, err := fpath.New(fmt.Sprintf("sj://%s/", bucket.Bucket))
+					prefix, err := fpath.New(fmt.Sprintf("sj://%s/", bucket.Name))
 					if err != nil {
 						return err
 					}
-					err = listFiles(ctx, bs, prefix, true)
+					err = listFiles(ctx, metainfo, prefix, true)
 					if err != nil {
 						return err
 					}
 				}
 			}
 		}
-		if !more {
+		if !list.More {
 			break
 		}
-		startAfter = items[len(items)-1].Bucket
+		startAfter = list.Items[len(list.Items)-1].Name
 	}
 
 	if noBuckets {
@@ -89,21 +88,21 @@ func list(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func listFiles(ctx context.Context, bs buckets.Store, prefix fpath.FPath, prependBucket bool) error {
-	o, err := bs.GetObjectStore(ctx, prefix.Bucket())
-	if err != nil {
-		return err
-	}
-
+func listFiles(ctx context.Context, metainfo storj.Metainfo, prefix fpath.FPath, prependBucket bool) error {
 	startAfter := ""
 
 	for {
-		items, more, err := o.List(ctx, prefix.Path(), startAfter, "", *recursiveFlag, 0, meta.Modified|meta.Size)
+		list, err := metainfo.ListObjects(ctx, prefix.Bucket(), storj.ListOptions{
+			Direction: storj.After,
+			Cursor:    startAfter,
+			Prefix:    prefix.Path(),
+			Recursive: *recursiveFlag,
+		})
 		if err != nil {
 			return err
 		}
 
-		for _, object := range items {
+		for _, object := range list.Items {
 			path := object.Path
 			if prependBucket {
 				path = fmt.Sprintf("%s/%s", prefix.Bucket(), path)
@@ -111,15 +110,15 @@ func listFiles(ctx context.Context, bs buckets.Store, prefix fpath.FPath, prepen
 			if object.IsPrefix {
 				fmt.Println("PRE", path)
 			} else {
-				fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(object.Meta.Modified), object.Meta.Size, path)
+				fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(object.Modified), object.Size, path)
 			}
 		}
 
-		if !more {
+		if !list.More {
 			break
 		}
 
-		startAfter = items[len(items)-1].Path
+		startAfter = list.Items[len(list.Items)-1].Path
 	}
 
 	return nil

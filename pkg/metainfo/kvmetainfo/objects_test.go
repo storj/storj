@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
 )
@@ -146,20 +145,9 @@ func TestGetObjectStream(t *testing.T) {
 		_, err = db.GetObjectStream(ctx, bucket.Name, "non-existing-file")
 		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
-		stream, err := db.GetObjectStream(ctx, bucket.Name, "empty-file")
-		if assert.NoError(t, err) {
-			assertStream(ctx, t, stream, db.streams, "empty-file", 0, []byte{})
-		}
-
-		stream, err = db.GetObjectStream(ctx, bucket.Name, "small-file")
-		if assert.NoError(t, err) {
-			assertStream(ctx, t, stream, db.streams, "small-file", 4, []byte("test"))
-		}
-
-		stream, err = db.GetObjectStream(ctx, bucket.Name, "large-file")
-		if assert.NoError(t, err) {
-			assertStream(ctx, t, stream, db.streams, "large-file", int64(32*memory.KB), data)
-		}
+		assertStream(ctx, t, db, bucket, "empty-file", 0, []byte{})
+		assertStream(ctx, t, db, bucket, "small-file", 4, []byte("test"))
+		assertStream(ctx, t, db, bucket, "large-file", int64(32*memory.KB), data)
 	})
 }
 
@@ -192,7 +180,12 @@ func upload(ctx context.Context, t *testing.T, db *DB, bucket storj.Bucket, path
 	}
 }
 
-func assertStream(ctx context.Context, t *testing.T, readOnly storj.ReadOnlyStream, streams streams.Store, path storj.Path, size int64, content []byte) {
+func assertStream(ctx context.Context, t *testing.T, db *DB, bucket storj.Bucket, path storj.Path, size int64, content []byte) {
+	readOnly, err := db.GetObjectStream(ctx, bucket.Name, path)
+	if !assert.NoError(t, err) {
+		return
+	}
+
 	assert.Equal(t, path, readOnly.Info().Path)
 	assert.Equal(t, TestBucket, readOnly.Info().Bucket.Name)
 	assert.Equal(t, storj.AESGCM, readOnly.Info().Bucket.PathCipher)
@@ -215,7 +208,7 @@ func assertStream(ctx context.Context, t *testing.T, readOnly storj.ReadOnlyStre
 		assertInlineSegment(t, segments[0], content)
 	}
 
-	download := stream.NewDownload(ctx, readOnly, streams)
+	download := stream.NewDownload(ctx, readOnly, db.streams)
 	defer func() {
 		err = download.Close()
 		assert.NoError(t, err)

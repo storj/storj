@@ -279,8 +279,8 @@ func GetStats(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	fmt.Printf("Stats for ID %s:\n", nodeID)
-	fmt.Printf("AuditSuccessRatio: %f, UptimeRatio: %f, AuditCount: %d\n",
-		res.AuditRatio, res.UptimeRatio, res.AuditCount)
+	fmt.Printf("AuditSuccessRatio: %f, AuditCount: %d, UptimeRatio: %f, UptimeCount: %d,\n",
+		res.AuditRatio, res.AuditCount, res.UptimeRatio, res.UptimeCount)
 	return nil
 }
 
@@ -315,8 +315,8 @@ func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		fmt.Printf("Stats for ID %s:\n", nodeID)
-		fmt.Printf("AuditSuccessRatio: %f, UptimeRatio: %f, AuditCount: %d\n",
-			res.AuditRatio, res.UptimeRatio, res.AuditCount)
+		fmt.Printf("AuditSuccessRatio: %f, AuditCount: %d, UptimeRatio: %f, UptimeCount: %d,\n",
+			res.AuditRatio, res.AuditCount, res.UptimeRatio, res.UptimeCount)
 	}
 	return nil
 }
