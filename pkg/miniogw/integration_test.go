@@ -34,7 +34,6 @@ func TestUploadDownload(t *testing.T) {
 	assert.NoError(t, err)
 
 	defer func() {
-		t.Log("Shutdown")
 		err = planet.Shutdown()
 		if err != nil {
 			t.Fatal(err)
@@ -78,7 +77,6 @@ func TestUploadDownload(t *testing.T) {
 	gwCfg.SuccessThreshold = 30
 	gwCfg.MaxThreshold = 40
 
-	t.Log("Start")
 	planet.Start(ctx)
 
 	time.Sleep(2 * time.Second)
