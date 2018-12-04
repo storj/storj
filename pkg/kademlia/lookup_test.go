@@ -33,14 +33,9 @@ func TestLookupNodes(t *testing.T) {
 	err = k.Bootstrap(ctx)
 	assert.NoError(t, err)
 
-	// time.Sleep(5 * time.Second)
-
 	id, err := newTestIdentity()
 	assert.NoError(t, err)
 	assert.NotNil(t, id)
-
-	// _, err = k.GetNodes(ctx, id.ID, 1000, pb.Restriction{})
-	// assert.NoError(t, err)
 
 	seen := k.Seen()
 	assert.NotEqual(t, len(seen), 0)
