@@ -28,9 +28,8 @@ var (
 
 // StatDB implements the statdb RPC service
 type StatDB struct {
-	log    *zap.Logger
-	DB     *dbx.DB
-	apiKey []byte
+	log *zap.Logger
+	DB  *dbx.DB
 }
 
 // NewStatDB creates instance of StatDB
