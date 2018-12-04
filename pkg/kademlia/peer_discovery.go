@@ -28,17 +28,13 @@ type peerDiscovery struct {
 var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 
 func newPeerDiscovery(nodes []*pb.Node, client node.Client, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
-	discovery := &peerDiscovery{
+	return &peerDiscovery{
 		client: client,
 		target: target,
 		opts:   opts,
+		cond:   sync.Cond{L: &sync.Mutex{}},
+		queue:  *NewQueue(opts.concurrency),
 	}
-
-	discovery.cond.L = &sync.Mutex{}
-	discovery.queue = *NewQueue(opts.concurrency)
-	discovery.queue.Insert(target, nodes...)
-
-	return discovery
 }
 
 func (lookup *peerDiscovery) Run(ctx context.Context) error {

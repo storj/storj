@@ -12,7 +12,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// Queue is a limited priority queue with xor distance
+// Queue is a limited priority queue for nodes with xor distance
 type Queue struct {
 	maxLen int
 	mu     sync.Mutex
@@ -20,29 +20,11 @@ type Queue struct {
 	items  []queueItem
 }
 
-// An queueItem is something we manage in a priority queue.
+// queueItem is node with a priority
 type queueItem struct {
 	node     *pb.Node
 	priority storj.NodeID
 	// TODO: switch to using pb.NodeAddress to avoid pointer to *pb.Node
-}
-
-// xorNodeID returns the xor of each byte in NodeID
-func xorNodeID(a, b storj.NodeID) storj.NodeID {
-	r := storj.NodeID{}
-	for i, av := range a {
-		r[i] = av ^ b[i]
-	}
-	return r
-}
-
-// reverseNodeID reverses NodeID bit representation
-func reverseNodeID(a storj.NodeID) storj.NodeID {
-	r := storj.NodeID{}
-	for i, v := range a {
-		r[len(a)-i-1] = bits.Reverse8(v)
-	}
-	return r
 }
 
 // NewQueue returns a items with priority based on XOR from targetBytes
@@ -123,4 +105,22 @@ func (queue *Queue) Len() int {
 	defer queue.mu.Unlock()
 
 	return len(queue.items)
+}
+
+// xorNodeID returns the xor of each byte in NodeID
+func xorNodeID(a, b storj.NodeID) storj.NodeID {
+	r := storj.NodeID{}
+	for i, av := range a {
+		r[i] = av ^ b[i]
+	}
+	return r
+}
+
+// reverseNodeID reverses NodeID bit representation
+func reverseNodeID(a storj.NodeID) storj.NodeID {
+	r := storj.NodeID{}
+	for i, v := range a {
+		r[len(a)-i-1] = bits.Reverse8(v)
+	}
+	return r
 }
