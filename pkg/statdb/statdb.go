@@ -98,9 +98,10 @@ func (s *StatDB) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 
 	nodeStats := &pb.NodeStats{
 		NodeId:            node.Id,
-		AuditCount:        dbNode.TotalAuditCount,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
+		AuditCount:        dbNode.TotalAuditCount,
 		UptimeRatio:       dbNode.UptimeRatio,
+		UptimeCount:       dbNode.TotalUptimeCount,
 	}
 	return &pb.CreateResponse{
 		Stats: nodeStats,
@@ -118,9 +119,10 @@ func (s *StatDB) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 
 	nodeStats := &pb.NodeStats{
 		NodeId:            getReq.NodeId,
-		AuditCount:        dbNode.TotalAuditCount,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
+		AuditCount:        dbNode.TotalAuditCount,
 		UptimeRatio:       dbNode.UptimeRatio,
+		UptimeCount:       dbNode.TotalUptimeCount,
 	}
 	return &pb.GetResponse{
 		Stats: nodeStats,
@@ -246,7 +248,9 @@ func (s *StatDB) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 	nodeStats := &pb.NodeStats{
 		NodeId:            node.Id,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
+		AuditCount:        dbNode.TotalAuditCount,
 		UptimeRatio:       dbNode.UptimeRatio,
+		UptimeCount:       dbNode.TotalUptimeCount,
 	}
 	return &pb.UpdateResponse{
 		Stats: nodeStats,
@@ -288,8 +292,9 @@ func (s *StatDB) UpdateUptime(ctx context.Context, updateReq *pb.UpdateUptimeReq
 	nodeStats := &pb.NodeStats{
 		NodeId:            node.Id,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
-		UptimeRatio:       dbNode.UptimeRatio,
 		AuditCount:        dbNode.TotalAuditCount,
+		UptimeRatio:       dbNode.UptimeRatio,
+		UptimeCount:       dbNode.TotalUptimeCount,
 	}
 	return &pb.UpdateUptimeResponse{
 		Stats: nodeStats,
@@ -331,8 +336,9 @@ func (s *StatDB) UpdateAuditSuccess(ctx context.Context, updateReq *pb.UpdateAud
 	nodeStats := &pb.NodeStats{
 		NodeId:            node.Id,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
-		UptimeRatio:       dbNode.UptimeRatio,
 		AuditCount:        dbNode.TotalAuditCount,
+		UptimeRatio:       dbNode.UptimeRatio,
+		UptimeCount:       dbNode.TotalUptimeCount,
 	}
 	return &pb.UpdateAuditSuccessResponse{
 		Stats: nodeStats,

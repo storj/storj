@@ -99,7 +99,7 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 			zap.S().Error(err)
 		}
 		zap.S().Infof("adding node ID: %s; Address: %s", i, a)
-		err = c.Put(id, pb.Node{
+		err = c.Put(process.Ctx(cmd), id, pb.Node{
 			Id: id,
 			// TODO: NodeType is missing
 			Address: &pb.NodeAddress{

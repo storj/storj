@@ -148,22 +148,17 @@ func (node *Node) initOverlay(planet *Planet) error {
 	if err != nil {
 		return utils.CombineErrors(err, routing.Close())
 	}
-
 	node.Kademlia = kad
 
-	node.Overlay = overlay.NewOverlayCache(teststore.New(), node.Kademlia, node.StatDB)
-
-	return nil
-}
-
-// initStatDB creates statdb for a given planet
-func (node *Node) initStatDB() error {
 	dbPath := fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63())
 	sdb, err := statdb.NewStatDB("sqlite3", dbPath, zap.NewNop())
 	if err != nil {
 		return err
 	}
 	node.StatDB = sdb
+
+	node.Overlay = overlay.NewOverlayCache(teststore.New(), node.Kademlia, node.StatDB)
+
 	return nil
 }
 
