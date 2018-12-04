@@ -19,6 +19,8 @@ service Inspector {
   rpc GetBucket(GetBucketRequest) returns (GetBucketResponse);
   // PingNodes sends a PING RPC to a node and returns it's availability
   rpc PingNode(PingNodeRequest) returns (PingNodeResponse);
+  // LookupNode triggers a Kademlia FindNode and returns the response
+  rpc LookupNode(LookupNodeRequest) returns (LookupNodeResponse);
 
   // StatDB commands:
   // GetStats returns the stats for a particular node ID
@@ -94,4 +96,14 @@ message PingNodeRequest {
 
 message PingNodeResponse {
   bool ok = 1;
+}
+
+message LookupNodeRequest {
+  string id = 1; 
+  string address = 2;
+}
+
+message LookupNodeResponse {
+  node.Node node = 1;
+  node.NodeMetadata meta = 2;
 }

@@ -17,9 +17,10 @@ import (
 )
 
 type peerDiscovery struct {
-	client node.Client
-	target storj.NodeID
-	opts   discoveryOptions
+	client   node.Client
+	target   storj.NodeID
+	opts     discoveryOptions
+	foundOne chan *pb.Node
 
 	cond  sync.Cond
 	queue discoveryQueue
@@ -29,12 +30,14 @@ type peerDiscovery struct {
 var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 
 func newPeerDiscovery(nodes []*pb.Node, client node.Client, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
+	oneChan := make(chan *pb.Node, 1)
 	discovery := &peerDiscovery{
-		client: client,
-		target: target,
-		opts:   opts,
-		cond:   sync.Cond{L: &sync.Mutex{}},
-		queue:  *newDiscoveryQueue(opts.concurrency),
+		client:   client,
+		target:   target,
+		opts:     opts,
+		foundOne: oneChan,
+		cond:     sync.Cond{L: &sync.Mutex{}},
+		queue:    *newDiscoveryQueue(opts.concurrency),
 	}
 
 	discovery.queue.Insert(target, nodes...)
@@ -47,6 +50,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 	}
 
 	wg := sync.WaitGroup{}
+	defer close(lookup.foundOne)
 
 	// protected by `lookup.cond.L`
 	working := 0
@@ -68,7 +72,9 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 					}
 
 					next = lookup.queue.Closest()
-					if !lookup.opts.bootstrap && next.Id == lookup.target {
+
+					if !lookup.opts.bootstrap && next != nil && next.Id.String() == lookup.target.String() {
+						lookup.foundOne <- next
 						allDone = true
 						break // closest node is the target and is already in routing table (i.e. no lookup required)
 					}
@@ -84,6 +90,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 				lookup.cond.L.Unlock()
 
 				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target})
+
 				if err != nil {
 					// TODO: reenable retry after fixing logic
 					// ok := lookup.queue.Reinsert(lookup.target, next, lookup.opts.retries)

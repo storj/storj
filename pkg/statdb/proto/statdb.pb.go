@@ -35,7 +35,7 @@ func (m *CreateRequest) Reset()         { *m = CreateRequest{} }
 func (m *CreateRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateRequest) ProtoMessage()    {}
 func (*CreateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_99e851656c5814ac, []int{0}
+	return fileDescriptor_statdb_1131c2a7357160d1, []int{0}
 }
 func (m *CreateRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateRequest.Unmarshal(m, b)
@@ -81,7 +81,7 @@ func (m *CreateResponse) Reset()         { *m = CreateResponse{} }
 func (m *CreateResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateResponse) ProtoMessage()    {}
 func (*CreateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_99e851656c5814ac, []int{1}
+	return fileDescriptor_statdb_1131c2a7357160d1, []int{1}
 }
 func (m *CreateResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateResponse.Unmarshal(m, b)
@@ -120,7 +120,7 @@ func (m *GetRequest) Reset()         { *m = GetRequest{} }
 func (m *GetRequest) String() string { return proto.CompactTextString(m) }
 func (*GetRequest) ProtoMessage()    {}
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_99e851656c5814ac, []int{2}
+	return fileDescriptor_statdb_1131c2a7357160d1, []int{2}
 }
 func (m *GetRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetRequest.Unmarshal(m, b)
@@ -152,7 +152,7 @@ func (m *GetResponse) Reset()         { *m = GetResponse{} }
 func (m *GetResponse) String() string { return proto.CompactTextString(m) }
 func (*GetResponse) ProtoMessage()    {}
 func (*GetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_99e851656c5814ac, []int{3}
+	return fileDescriptor_statdb_1131c2a7357160d1, []int{3}
 }
 func (m *GetResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetResponse.Unmarshal(m, b)
@@ -192,7 +192,7 @@ func (m *FindValidNodesRequest) Reset()         { *m = FindValidNodesRequest{} }
 func (m *FindValidNodesRequest) String() string { return proto.CompactTextString(m) }
 func (*FindValidNodesRequest) ProtoMessage()    {}
 func (*FindValidNodesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_99e851656c5814ac, []int{4}
+	return fileDescriptor_statdb_1131c2a7357160d1, []int{4}
 }
 func (m *FindValidNodesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindValidNodesRequest.Unmarshal(m, b)
@@ -232,7 +232,7 @@ func (m *FindValidNodesResponse) Reset()         { *m = FindValidNodesResponse{}
 func (m *FindValidNodesResponse) String() string { return proto.CompactTextString(m) }
 func (*FindValidNodesResponse) ProtoMessage()    {}
 func (*FindValidNodesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_99e851656c5814ac, []int{5}
+	return fileDescriptor_statdb_1131c2a7357160d1, []int{5}
 }
 func (m *FindValidNodesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindValidNodesResponse.Unmarshal(m, b)
@@ -264,7 +264,7 @@ func (m *UpdateRequest) Reset()         { *m = UpdateRequest{} }
 func (m *UpdateRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateRequest) ProtoMessage()    {}
 func (*UpdateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_99e851656c5814ac, []int{6}
+	return fileDescriptor_statdb_1131c2a7357160d1, []int{6}
 }
 func (m *UpdateRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateRequest.Unmarshal(m, b)
@@ -303,7 +303,7 @@ func (m *UpdateResponse) Reset()         { *m = UpdateResponse{} }
 func (m *UpdateResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateResponse) ProtoMessage()    {}
 func (*UpdateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_99e851656c5814ac, []int{7}
+	return fileDescriptor_statdb_1131c2a7357160d1, []int{7}
 }
 func (m *UpdateResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateResponse.Unmarshal(m, b)
@@ -342,7 +342,7 @@ func (m *UpdateUptimeRequest) Reset()         { *m = UpdateUptimeRequest{} }
 func (m *UpdateUptimeRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateUptimeRequest) ProtoMessage()    {}
 func (*UpdateUptimeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_99e851656c5814ac, []int{8}
+	return fileDescriptor_statdb_1131c2a7357160d1, []int{8}
 }
 func (m *UpdateUptimeRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateUptimeRequest.Unmarshal(m, b)
@@ -381,7 +381,7 @@ func (m *UpdateUptimeResponse) Reset()         { *m = UpdateUptimeResponse{} }
 func (m *UpdateUptimeResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateUptimeResponse) ProtoMessage()    {}
 func (*UpdateUptimeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_99e851656c5814ac, []int{9}
+	return fileDescriptor_statdb_1131c2a7357160d1, []int{9}
 }
 func (m *UpdateUptimeResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateUptimeResponse.Unmarshal(m, b)
@@ -420,7 +420,7 @@ func (m *UpdateAuditSuccessRequest) Reset()         { *m = UpdateAuditSuccessReq
 func (m *UpdateAuditSuccessRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateAuditSuccessRequest) ProtoMessage()    {}
 func (*UpdateAuditSuccessRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_99e851656c5814ac, []int{10}
+	return fileDescriptor_statdb_1131c2a7357160d1, []int{10}
 }
 func (m *UpdateAuditSuccessRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateAuditSuccessRequest.Unmarshal(m, b)
@@ -459,7 +459,7 @@ func (m *UpdateAuditSuccessResponse) Reset()         { *m = UpdateAuditSuccessRe
 func (m *UpdateAuditSuccessResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateAuditSuccessResponse) ProtoMessage()    {}
 func (*UpdateAuditSuccessResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_99e851656c5814ac, []int{11}
+	return fileDescriptor_statdb_1131c2a7357160d1, []int{11}
 }
 func (m *UpdateAuditSuccessResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateAuditSuccessResponse.Unmarshal(m, b)
@@ -498,7 +498,7 @@ func (m *UpdateBatchRequest) Reset()         { *m = UpdateBatchRequest{} }
 func (m *UpdateBatchRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateBatchRequest) ProtoMessage()    {}
 func (*UpdateBatchRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_99e851656c5814ac, []int{12}
+	return fileDescriptor_statdb_1131c2a7357160d1, []int{12}
 }
 func (m *UpdateBatchRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateBatchRequest.Unmarshal(m, b)
@@ -538,7 +538,7 @@ func (m *UpdateBatchResponse) Reset()         { *m = UpdateBatchResponse{} }
 func (m *UpdateBatchResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateBatchResponse) ProtoMessage()    {}
 func (*UpdateBatchResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_99e851656c5814ac, []int{13}
+	return fileDescriptor_statdb_1131c2a7357160d1, []int{13}
 }
 func (m *UpdateBatchResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateBatchResponse.Unmarshal(m, b)
@@ -584,7 +584,7 @@ func (m *CreateEntryIfNotExistsRequest) Reset()         { *m = CreateEntryIfNotE
 func (m *CreateEntryIfNotExistsRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateEntryIfNotExistsRequest) ProtoMessage()    {}
 func (*CreateEntryIfNotExistsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_99e851656c5814ac, []int{14}
+	return fileDescriptor_statdb_1131c2a7357160d1, []int{14}
 }
 func (m *CreateEntryIfNotExistsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateEntryIfNotExistsRequest.Unmarshal(m, b)
@@ -623,7 +623,7 @@ func (m *CreateEntryIfNotExistsResponse) Reset()         { *m = CreateEntryIfNot
 func (m *CreateEntryIfNotExistsResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateEntryIfNotExistsResponse) ProtoMessage()    {}
 func (*CreateEntryIfNotExistsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_99e851656c5814ac, []int{15}
+	return fileDescriptor_statdb_1131c2a7357160d1, []int{15}
 }
 func (m *CreateEntryIfNotExistsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateEntryIfNotExistsResponse.Unmarshal(m, b)
@@ -988,9 +988,9 @@ var _StatDB_serviceDesc = grpc.ServiceDesc{
 	Metadata: "statdb.proto",
 }
 
-func init() { proto.RegisterFile("statdb.proto", fileDescriptor_statdb_99e851656c5814ac) }
+func init() { proto.RegisterFile("statdb.proto", fileDescriptor_statdb_1131c2a7357160d1) }
 
-var fileDescriptor_statdb_99e851656c5814ac = []byte{
+var fileDescriptor_statdb_1131c2a7357160d1 = []byte{
 	// 569 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x55, 0xdd, 0x6a, 0x13, 0x41,
 	0x14, 0x36, 0x6d, 0xdd, 0x36, 0x27, 0xdb, 0x08, 0x53, 0x1b, 0xea, 0xd4, 0xa6, 0xba, 0x10, 0x6d,

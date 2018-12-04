@@ -76,6 +76,12 @@ var (
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  PingNode,
 	}
+	lookupNodeCmd = &cobra.Command{
+		Use:   "lookup <node_id>",
+		Short: "lookup a node by ID only",
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  LookupNode,
+	}
 	getStatsCmd = &cobra.Command{
 		Use:   "getstats <node_id>",
 		Short: "Get node stats",
@@ -189,6 +195,26 @@ func GetBucket(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	fmt.Println(prettyPrintBucket(bucket))
+	return nil
+}
+
+// LookupNode starts a Kademlia lookup for the provided Node ID
+func LookupNode(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector(*Addr)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	node, err := i.client.LookupNode(context.Background(), &pb.LookupNodeRequest{
+		Id: args[0],
+	})
+
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	fmt.Printf("%+v\n", node)
+
 	return nil
 }
 
@@ -402,6 +428,7 @@ func init() {
 	kadCmd.AddCommand(getBucketsCmd)
 	kadCmd.AddCommand(getBucketCmd)
 	kadCmd.AddCommand(pingNodeCmd)
+	kadCmd.AddCommand(lookupNodeCmd)
 
 	statsCmd.AddCommand(getStatsCmd)
 	statsCmd.AddCommand(getCSVStatsCmd)

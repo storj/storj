@@ -52,7 +52,7 @@ func (x Restriction_Operator) String() string {
 	return proto.EnumName(Restriction_Operator_name, int32(x))
 }
 func (Restriction_Operator) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_55263e8e6ceef0b4, []int{11, 0}
+	return fileDescriptor_overlay_99a51b72c26b0776, []int{11, 0}
 }
 
 type Restriction_Operand int32
@@ -75,7 +75,7 @@ func (x Restriction_Operand) String() string {
 	return proto.EnumName(Restriction_Operand_name, int32(x))
 }
 func (Restriction_Operand) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_55263e8e6ceef0b4, []int{11, 1}
+	return fileDescriptor_overlay_99a51b72c26b0776, []int{11, 1}
 }
 
 // LookupRequest is is request message for the lookup rpc call
@@ -90,7 +90,7 @@ func (m *LookupRequest) Reset()         { *m = LookupRequest{} }
 func (m *LookupRequest) String() string { return proto.CompactTextString(m) }
 func (*LookupRequest) ProtoMessage()    {}
 func (*LookupRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_55263e8e6ceef0b4, []int{0}
+	return fileDescriptor_overlay_99a51b72c26b0776, []int{0}
 }
 func (m *LookupRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LookupRequest.Unmarshal(m, b)
@@ -122,7 +122,7 @@ func (m *LookupResponse) Reset()         { *m = LookupResponse{} }
 func (m *LookupResponse) String() string { return proto.CompactTextString(m) }
 func (*LookupResponse) ProtoMessage()    {}
 func (*LookupResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_55263e8e6ceef0b4, []int{1}
+	return fileDescriptor_overlay_99a51b72c26b0776, []int{1}
 }
 func (m *LookupResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LookupResponse.Unmarshal(m, b)
@@ -161,7 +161,7 @@ func (m *LookupRequests) Reset()         { *m = LookupRequests{} }
 func (m *LookupRequests) String() string { return proto.CompactTextString(m) }
 func (*LookupRequests) ProtoMessage()    {}
 func (*LookupRequests) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_55263e8e6ceef0b4, []int{2}
+	return fileDescriptor_overlay_99a51b72c26b0776, []int{2}
 }
 func (m *LookupRequests) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LookupRequests.Unmarshal(m, b)
@@ -200,7 +200,7 @@ func (m *LookupResponses) Reset()         { *m = LookupResponses{} }
 func (m *LookupResponses) String() string { return proto.CompactTextString(m) }
 func (*LookupResponses) ProtoMessage()    {}
 func (*LookupResponses) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_55263e8e6ceef0b4, []int{3}
+	return fileDescriptor_overlay_99a51b72c26b0776, []int{3}
 }
 func (m *LookupResponses) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LookupResponses.Unmarshal(m, b)
@@ -239,7 +239,7 @@ func (m *FindStorageNodesResponse) Reset()         { *m = FindStorageNodesRespon
 func (m *FindStorageNodesResponse) String() string { return proto.CompactTextString(m) }
 func (*FindStorageNodesResponse) ProtoMessage()    {}
 func (*FindStorageNodesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_55263e8e6ceef0b4, []int{4}
+	return fileDescriptor_overlay_99a51b72c26b0776, []int{4}
 }
 func (m *FindStorageNodesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindStorageNodesResponse.Unmarshal(m, b)
@@ -282,7 +282,7 @@ func (m *FindStorageNodesRequest) Reset()         { *m = FindStorageNodesRequest
 func (m *FindStorageNodesRequest) String() string { return proto.CompactTextString(m) }
 func (*FindStorageNodesRequest) ProtoMessage()    {}
 func (*FindStorageNodesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_55263e8e6ceef0b4, []int{5}
+	return fileDescriptor_overlay_99a51b72c26b0776, []int{5}
 }
 func (m *FindStorageNodesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindStorageNodesRequest.Unmarshal(m, b)
@@ -347,7 +347,7 @@ func (m *OverlayOptions) Reset()         { *m = OverlayOptions{} }
 func (m *OverlayOptions) String() string { return proto.CompactTextString(m) }
 func (*OverlayOptions) ProtoMessage()    {}
 func (*OverlayOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_55263e8e6ceef0b4, []int{6}
+	return fileDescriptor_overlay_99a51b72c26b0776, []int{6}
 }
 func (m *OverlayOptions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OverlayOptions.Unmarshal(m, b)
@@ -416,7 +416,7 @@ func (m *QueryRequest) Reset()         { *m = QueryRequest{} }
 func (m *QueryRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryRequest) ProtoMessage()    {}
 func (*QueryRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_55263e8e6ceef0b4, []int{7}
+	return fileDescriptor_overlay_99a51b72c26b0776, []int{7}
 }
 func (m *QueryRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_QueryRequest.Unmarshal(m, b)
@@ -476,7 +476,7 @@ func (m *QueryResponse) Reset()         { *m = QueryResponse{} }
 func (m *QueryResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryResponse) ProtoMessage()    {}
 func (*QueryResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_55263e8e6ceef0b4, []int{8}
+	return fileDescriptor_overlay_99a51b72c26b0776, []int{8}
 }
 func (m *QueryResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_QueryResponse.Unmarshal(m, b)
@@ -520,7 +520,7 @@ func (m *PingRequest) Reset()         { *m = PingRequest{} }
 func (m *PingRequest) String() string { return proto.CompactTextString(m) }
 func (*PingRequest) ProtoMessage()    {}
 func (*PingRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_55263e8e6ceef0b4, []int{9}
+	return fileDescriptor_overlay_99a51b72c26b0776, []int{9}
 }
 func (m *PingRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PingRequest.Unmarshal(m, b)
@@ -550,7 +550,7 @@ func (m *PingResponse) Reset()         { *m = PingResponse{} }
 func (m *PingResponse) String() string { return proto.CompactTextString(m) }
 func (*PingResponse) ProtoMessage()    {}
 func (*PingResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_55263e8e6ceef0b4, []int{10}
+	return fileDescriptor_overlay_99a51b72c26b0776, []int{10}
 }
 func (m *PingResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PingResponse.Unmarshal(m, b)
@@ -583,7 +583,7 @@ func (m *Restriction) Reset()         { *m = Restriction{} }
 func (m *Restriction) String() string { return proto.CompactTextString(m) }
 func (*Restriction) ProtoMessage()    {}
 func (*Restriction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_55263e8e6ceef0b4, []int{11}
+	return fileDescriptor_overlay_99a51b72c26b0776, []int{11}
 }
 func (m *Restriction) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Restriction.Unmarshal(m, b)
@@ -882,9 +882,9 @@ var _Nodes_serviceDesc = grpc.ServiceDesc{
 	Metadata: "overlay.proto",
 }
 
-func init() { proto.RegisterFile("overlay.proto", fileDescriptor_overlay_55263e8e6ceef0b4) }
+func init() { proto.RegisterFile("overlay.proto", fileDescriptor_overlay_99a51b72c26b0776) }
 
-var fileDescriptor_overlay_55263e8e6ceef0b4 = []byte{
+var fileDescriptor_overlay_99a51b72c26b0776 = []byte{
 	// 845 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x54, 0xdd, 0x8e, 0xdb, 0x44,
 	0x14, 0x5e, 0xe7, 0xc7, 0xc9, 0x9e, 0x24, 0x5e, 0x6b, 0xd4, 0xee, 0x06, 0x03, 0xdd, 0x60, 0x55,
