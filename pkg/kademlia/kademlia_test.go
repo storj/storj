@@ -129,51 +129,6 @@ func TestPeerDiscovery(t *testing.T) {
 	}
 }
 
-func TestLookup(t *testing.T) {
-	dir, cleanup := mktempdir(t, "kademlia")
-	defer cleanup()
-	// make new identity
-	bootServer, mockBootServer, bootID, bootAddress := startTestNodeServer()
-	defer bootServer.Stop()
-	testServer, _, testID, testAddress := startTestNodeServer()
-	defer testServer.Stop()
-	targetServer, _, targetID, targetAddress := startTestNodeServer()
-	defer targetServer.Stop()
-
-	bootstrapNodes := []pb.Node{{Id: bootID.ID, Address: &pb.NodeAddress{Address: bootAddress}}}
-	metadata := &pb.NodeMetadata{
-		Email:  "foo@bar.com",
-		Wallet: "FarmerWallet",
-	}
-	k, err := NewKademlia(testID.ID, pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
-	assert.NoError(t, err)
-	rt, err := k.GetRoutingTable(context.Background())
-	assert.NoError(t, err)
-	assert.Equal(t, rt.Local().Metadata.Email, "foo@bar.com")
-	assert.Equal(t, rt.Local().Metadata.Wallet, "FarmerWallet")
-
-	cases := []struct {
-		target      storj.NodeID
-		expected    *pb.Node
-		expectedErr error
-	}{
-		{
-			target: func() storj.NodeID {
-				mockBootServer.returnValue = []*pb.Node{{Id: targetID.ID, Address: &pb.NodeAddress{Address: targetAddress}}}
-				return targetID.ID
-			}(),
-			expected:    &pb.Node{Id: targetID.ID, Address: &pb.NodeAddress{Address: targetAddress}},
-			expectedErr: nil,
-		},
-	}
-
-	for _, v := range cases {
-		found, err := k.FindNode(context.Background(), v.target)
-		assert.Equal(t, v.expectedErr, err)
-		assert.Equal(t, v.expected, found)
-	}
-}
-
 func TestBootstrap(t *testing.T) {
 	bn, s, clean := testNode(t, []pb.Node{})
 	defer clean()

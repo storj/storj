@@ -31,7 +31,7 @@ var (
 	// BootstrapErr is the class for all errors pertaining to bootstrapping a node
 	BootstrapErr = errs.Class("bootstrap node error")
 	// NodeNotFound is returned when a lookup can not produce the requested node
-	NodeNotFound = NodeErr.New("node not found")
+	NodeNotFound = errs.Class("node not found")
 	// TODO: shouldn't default to TCP but not sure what to do yet
 	defaultTransport = pb.NodeTransport_TCP_TLS_GRPC
 	defaultRetries   = 3
@@ -195,8 +195,7 @@ func (k *Kademlia) lookup(ctx context.Context, target storj.NodeID, opts discove
 	err = lookup.Run(ctx)
 
 	foundOne := <-lookup.foundOne
-	foundAll := <-lookup.foundAll
-	fmt.Printf("Found one: %+v -- Found All %+v\n", foundOne, foundAll)
+	fmt.Printf("? Found one? %+v\n", foundOne)
 
 	if err != nil {
 		zap.L().Warn("lookup failed", zap.Error(err))
@@ -238,22 +237,15 @@ func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, erro
 		return pb.Node{}, err
 	}
 
-	node := <-lookup.foundOne
-
-	if node == nil {
-		return pb.Node{}, nil
-	}
-
 	select {
 	case foundOne := <-lookup.foundOne:
 		if foundOne == nil {
-			return pb.Node{}, nil
+			return pb.Node{}, NodeNotFound.New("")
 		}
 		return *foundOne, nil
 	default: // this is to keep it from blocking
 	}
 
-	fmt.Printf("Returning nothing")
 	return pb.Node{}, nil
 }
 

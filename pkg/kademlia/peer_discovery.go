@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"sync"
 
@@ -22,7 +21,6 @@ type peerDiscovery struct {
 	target   storj.NodeID
 	opts     discoveryOptions
 	foundOne chan *pb.Node
-	foundAll chan []*pb.Node
 
 	cond  sync.Cond
 	queue discoveryQueue
@@ -33,13 +31,11 @@ var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 
 func newPeerDiscovery(nodes []*pb.Node, client node.Client, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
 	oneChan := make(chan *pb.Node, 1)
-	allChan := make(chan []*pb.Node)
 	discovery := &peerDiscovery{
 		client:   client,
 		target:   target,
 		opts:     opts,
 		foundOne: oneChan,
-		foundAll: allChan,
 		cond:     sync.Cond{L: &sync.Mutex{}},
 		queue:    *newDiscoveryQueue(opts.concurrency),
 	}
@@ -55,7 +51,6 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 
 	wg := sync.WaitGroup{}
 	defer close(lookup.foundOne)
-	defer close(lookup.foundAll)
 
 	// protected by `lookup.cond.L`
 	working := 0
@@ -78,15 +73,8 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 
 					next = lookup.queue.Closest()
 
-					// Send node on channel if it matches target
-					if next != nil && next.Id.String() == lookup.target.String() {
-						fmt.Printf("\nFOUND: %+v\nTARGETED: %+v\n", next.Id.String(), lookup.target.String())
-						lookup.foundOne <- next
-						allDone = true
-						break
-					}
-
 					if !lookup.opts.bootstrap && next != nil && next.Id.String() == lookup.target.String() {
+						lookup.foundOne <- next
 						allDone = true
 						break // closest node is the target and is already in routing table (i.e. no lookup required)
 					}
