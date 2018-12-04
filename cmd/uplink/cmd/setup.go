@@ -53,7 +53,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("%s - Invalid flag. Pleas see --help", flagname)
 	}
 
-	valid, err := fpath.IsValidSetupDir(setupCfg.BasePath)
+	valid, _ := fpath.IsValidSetupDir(setupCfg.BasePath)
 	if !setupCfg.Overwrite && !valid {
 		return fmt.Errorf("uplink configuration already exists (%v). Rerun with --overwrite", setupCfg.BasePath)
 	}
