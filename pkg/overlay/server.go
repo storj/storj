@@ -142,7 +142,7 @@ func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.Node, e
 }
 
 func (o *Server) populate(ctx context.Context, startID storj.NodeID, maxNodes int64,
-	restrictions *pb.NodeRestrictions, reputation *pb.NodeStats,
+	minRestrictions *pb.NodeRestrictions, minReputation *pb.NodeStats,
 	excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
 
 	limit := int(maxNodes * 2)
@@ -170,15 +170,15 @@ func (o *Server) populate(ctx context.Context, startID storj.NodeID, maxNodes in
 			continue
 		}
 
-		rest := v.GetRestrictions()
-		rep := v.GetReputation()
+		nodeRestrictions := v.GetRestrictions()
+		nodeReputation := v.GetReputation()
 
-		if rest.GetFreeBandwidth() < restrictions.GetFreeBandwidth() ||
-			rest.GetFreeDisk() < restrictions.GetFreeDisk() ||
-			rep.GetUptimeRatio() < reputation.GetUptimeRatio() ||
-			rep.GetUptimeCount() < reputation.GetUptimeCount() ||
-			rep.GetAuditSuccessRatio() < reputation.GetAuditSuccessRatio() ||
-			rep.GetAuditCount() < reputation.GetAuditCount() ||
+		if nodeRestrictions.GetFreeBandwidth() < minRestrictions.GetFreeBandwidth() ||
+			nodeRestrictions.GetFreeDisk() < minRestrictions.GetFreeDisk() ||
+			nodeReputation.GetUptimeRatio() < minReputation.GetUptimeRatio() ||
+			nodeReputation.GetUptimeCount() < minReputation.GetUptimeCount() ||
+			nodeReputation.GetAuditSuccessRatio() < minReputation.GetAuditSuccessRatio() ||
+			nodeReputation.GetAuditCount() < minReputation.GetAuditCount() ||
 			contains(excluded, v.Id) {
 			continue
 		}
