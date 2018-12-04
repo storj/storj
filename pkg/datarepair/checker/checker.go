@@ -37,7 +37,6 @@ type checker struct {
 	ticker      *time.Ticker
 }
 
-
 // newChecker creates a new instance of checker
 func newChecker(pointerdb *pointerdb.Server, sdb *statdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, irrdb *irreparabledb.Database, limit int, logger *zap.Logger, interval time.Duration) *checker {
 	return &checker{

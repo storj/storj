@@ -43,7 +43,7 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 	if err != nil {
 		return nil, err
 	}
-  
+
 	var o pb.OverlayServer
 	x := overlay.LoadServerFromContext(ctx)
 	if x == nil {

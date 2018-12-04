@@ -174,7 +174,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	assert.NotNil(b, sdb)
 	assert.NoError(b, err)
 
-  irrdb, err := irreparabledb.New("sqlite3://file::memory:?mode=memory&cache=shared")
+	irrdb, err := irreparabledb.New("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(b, err)
 	defer func() {
 		err := irrdb.Close()
@@ -245,7 +245,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 		checker := newChecker(pointerdb, sdb, repairQueue, overlayServer, irrdb, limit, logger, interval)
 		assert.NoError(b, err)
 
-    err = checker.identifyInjuredSegments(ctx)
+		err = checker.identifyInjuredSegments(ctx)
 		assert.NoError(b, err)
 
 		//check if the expected segments were added to the queue
