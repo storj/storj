@@ -15,33 +15,41 @@ services:
     - POSTGRES_USER=storj
     - POSTGRES_PASSWORD=storj-pass
 
-  storagenode:
-    image: storjlabs/storagenode:${VERSION}
-    environment:
-    - SATELLITE_ADDR=satellite:7777
-    - STORJ_LOG_LEVEL=info
-    links:
-    - satellite
   satellite:
     image: storjlabs/satellite:${VERSION}
     environment:
     - API_KEY=abc123
     - BOOTSTRAP_ADDR=localhost:8080
-    - IDENTITY_ADDR=:7777
-    - STORJ_MOCK_OVERLAY_NODES=INTENTIONALLY:LEFT:BLANK
-    - STORJ_LOG_LEVEL=info
+    - IDENTITY_ADDR=satellite:7777
+    - STORJ_LOG_LEVEL=debug
+    - STORJ_CHECKER_QUEUE_ADDRESS=redis://redis:6379/?db=1
+    - STORJ_REPAIRER_QUEUE_ADDRESS=redis://redis:6379/?db=1
+    restart: always
     links:
     - redis
     depends_on:
     - redis
-  redis:
-    image: redis
-  uplink:
-    image: storjlabs/uplink:${VERSION}
-    command: --min-threshold 1 --max-threshold 1 --repair-threshold 1 --success-threshold 1
+  storagenode:
+    image: storjlabs/storagenode:${VERSION}
+    environment:
+    - SATELLITE_ADDR=satellite:7777
+    - STORJ_LOG_LEVEL=debug
+    - STORJ_IDENTITY_ADDRESS=storagenode:7777
+    restart: always
+    links:
+    - satellite
+  gateway:
+    image: storjlabs/gateway:${VERSION}
+    command: --min-threshold 1 --max-threshold 2 --repair-threshold 1 --success-threshold 1
     environment:
     - API_KEY=abc123
     - SATELLITE_ADDR=satellite:7777
-    - STORJ_LOG_LEVEL=info
+    - STORJ_LOG_LEVEL=debug
     ports:
     - 7777:7777
+    restart: always
+    links:
+    - satellite
+    - storagenode
+  redis:
+    image: redis
