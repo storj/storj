@@ -312,6 +312,7 @@ type storjFile struct {
 	mtime           uint64
 	reader          io.ReadCloser
 	writer          io.WriteCloser
+	mutableObject   storj.MutableObject
 	predictedOffset int64
 	FS              *storjFS
 
@@ -417,12 +418,13 @@ func (f *storjFile) getWriter(off int64) (io.Writer, error) {
 			RedundancyScheme: cfg.GetRedundancyScheme(),
 			EncryptionScheme: cfg.GetEncryptionScheme(),
 		}
-		mutableObject, err := f.metainfo.CreateObject(f.ctx, f.bucket.Name, f.name, &create)
+		var err error
+		f.mutableObject, err = f.metainfo.CreateObject(f.ctx, f.bucket.Name, f.name, &create)
 		if err != nil {
 			return nil, err
 		}
 
-		mutableStream, err := mutableObject.CreateStream(f.ctx)
+		mutableStream, err := f.mutableObject.CreateStream(f.ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -451,6 +453,7 @@ func (f *storjFile) closeWriter() {
 	if f.writer != nil {
 		utils.LogClose(f.writer)
 		f.FS.removeCreatedFile(f.name)
+		f.mutableObject.Commit(f.ctx)
 		f.writer = nil
 	}
 }
