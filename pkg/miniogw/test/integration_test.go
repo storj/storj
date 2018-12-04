@@ -43,12 +43,12 @@ func TestUploadDownload(t *testing.T) {
 		k, m, o, n int
 	}{
 		{
-			bucket: "bucket",
+			bucket:     "bucket",
 			objectName: "testdata",
-			k:      7,
-			m:      8,
-			o:      9,
-			n:      10,
+			k:          7,
+			m:          8,
+			o:          9,
+			n:          10,
 		},
 	}
 
@@ -63,7 +63,7 @@ func TestUploadDownload(t *testing.T) {
 				t.Fatal(err)
 			}
 		}()
-		
+
 		// create temporary directory for minio
 		tmpDir, err := ioutil.TempDir("", "minio-test")
 		assert.NoError(t, err)
@@ -82,15 +82,15 @@ func TestUploadDownload(t *testing.T) {
 		var gwCfg miniogw.Config
 
 		cfgstruct.Bind(&flag.FlagSet{}, &gwCfg)
-		
+
 		// minio config directory
 		gwCfg.MinioDir = tmpDir
-		
+
 		// addresses
 		gwCfg.Address = planet.Uplinks[0].Addr()
 		gwCfg.OverlayAddr = planet.Satellites[0].Addr()
 		gwCfg.PointerDBAddr = planet.Satellites[0].Addr()
-		
+
 		// keys
 		gwCfg.APIKey = apiKey
 		gwCfg.EncKey = encKey
@@ -105,17 +105,16 @@ func TestUploadDownload(t *testing.T) {
 		planet.Start(ctx)
 
 		time.Sleep(2 * time.Second)
-		
+
 		// free address for use
 		err = planet.Uplinks[0].Shutdown()
 		assert.NoError(t, err)
 
+		errch := make(chan error)
+
 		// setup and start gateway
 		go func() {
-			err = setupGW(ctx, gwCfg, planet.Uplinks[0].Identity)
-			if err != nil {
-				t.Fatal(err)
-			}
+			errch <- setupGW(ctx, gwCfg, planet.Uplinks[0].Identity)
 		}()
 
 		time.Sleep(100 * time.Millisecond)
@@ -141,16 +140,22 @@ func TestUploadDownload(t *testing.T) {
 		for i := 0; i < 5000; i++ {
 			data = append(data, 'a')
 		}
-	
+
 		err = client.Upload(tt.bucket, tt.objectName, data)
 		assert.NoError(t, err)
 
 		buffer := make([]byte, len(data))
-	
+
 		bytes, err := client.Download(tt.bucket, tt.objectName, buffer)
 		assert.NoError(t, err)
-		
+
 		assert.Equal(t, string(data), string(bytes))
+
+		select {
+		case err := <-errch:
+			t.Fatal(err)
+		default:
+		}
 	}
 }
 
