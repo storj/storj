@@ -134,7 +134,6 @@ type discoveryQueue struct {
 type queueItem struct {
 	node     *pb.Node
 	priority storj.NodeID
-	// TODO: switch to using pb.NodeAddress to avoid pointer to *pb.Node
 }
 
 // newDiscoveryQueue returns a items with priority based on XOR from targetBytes
