@@ -6,7 +6,6 @@ package miniogw
 import (
 	"context"
 	"flag"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -15,7 +14,9 @@ import (
 	minio "github.com/minio/minio/cmd"
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/internal/identity"
 	"storj.io/storj/internal/s3client"
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw/logging"
@@ -28,9 +29,10 @@ func TestUploadDownload(t *testing.T) {
 		encKey     = "encKey"
 		bucket     = "bucket"
 		objectName = "testdata"
+		ctx = testcontext.New(t)
 	)
 
-	planet, err := testplanet.New(t, 1, 40, 1)
+	planet, err := testplanet.New(t, 1, 40, 0)
 	assert.NoError(t, err)
 
 	defer func() {
@@ -41,16 +43,9 @@ func TestUploadDownload(t *testing.T) {
 	}()
 
 	// create temporary directory for minio
-	tmpDir, err := ioutil.TempDir("", "minio-test")
-	assert.NoError(t, err)
-
-	// cleanup
-	defer func() {
-		err = os.RemoveAll(tmpDir)
-		if err != nil {
-			t.Log(err)
-		}
-	}()
+	tmpDir := ctx.Dir()
+	
+	defer ctx.Cleanup()
 
 	err = flag.Set("pointer-db.auth.api-key", apiKey)
 	assert.NoError(t, err)
@@ -63,7 +58,7 @@ func TestUploadDownload(t *testing.T) {
 	gwCfg.MinioDir = tmpDir
 
 	// addresses
-	gwCfg.Address = planet.Uplinks[0].Addr()
+	gwCfg.Address = "127.0.0.1:7777"
 	gwCfg.OverlayAddr = planet.Satellites[0].Addr()
 	gwCfg.PointerDBAddr = planet.Satellites[0].Addr()
 
@@ -81,15 +76,16 @@ func TestUploadDownload(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 
-	// free address for use
-	err = planet.Uplinks[0].Shutdown()
+	ca, err := testidentity.NewTestCA(ctx)
+	assert.NoError(t, err)
+	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
 
 	errch := make(chan error)
 
 	// setup and start gateway
 	go func() {
-		errch <- runGateway(ctx, gwCfg, planet.Uplinks[0].Identity)
+		errch <-runGateway(ctx, gwCfg, identity)
 	}()
 
 	time.Sleep(100 * time.Millisecond)
@@ -125,13 +121,14 @@ func TestUploadDownload(t *testing.T) {
 	// assert.Equal(t, string(data), string(bytes))
 
 	select {
-	case err := <-errch:
+	// case <-ctx.Done():
+	case err = <-errch:
 		t.Fatal(err)
 	default:
 	}
 }
 
-// setupGW registers and calls a gateway command
+// runGateway registers and starts a gateway
 func runGateway(ctx context.Context, c Config, identity *provider.FullIdentity) (err error) {
 	err = minio.RegisterGatewayCommand(cli.Command{
 		Name:  "storj",
