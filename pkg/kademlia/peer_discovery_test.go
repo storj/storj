@@ -17,32 +17,33 @@ import (
 func TestDiscoveryQueue(t *testing.T) {
 	target := storj.NodeID{1, 1} // 00000001
 
-	//                                          // id                -> id ^ target     -> reverse id ^ target
-	nodeA := &pb.Node{Id: storj.NodeID{3, 2}}   // 00000011:00000010:0 -> 00000010:00000011:0 -> 0:11000000:01000000
-	nodeB := &pb.Node{Id: storj.NodeID{6, 5}}   // 00000110:00000101:0 -> 00000111:00000100:0 -> 0:00100000:11100000
-	nodeC := &pb.Node{Id: storj.NodeID{7, 7}}   // 00000111:00000111:0 -> 00000110:00000110:0 -> 0:01100000:01100000
-	nodeD := &pb.Node{Id: storj.NodeID{8, 4}}   // 00001000:00000100:0 -> 00001001:00000101:0 -> 0:10100000:10010000
-	nodeE := &pb.Node{Id: storj.NodeID{12, 1}}  // 00001100:00000001:0 -> 00001101:00000000:0 -> 0:00000000:10110000
-	nodeF := &pb.Node{Id: storj.NodeID{15, 16}} // 00001111:00010000:0 -> 00001110:00010001:0 -> 0:10001000:01110000
-	nodeG := &pb.Node{Id: storj.NodeID{18, 74}} // 00010010:01001010:0 -> 00010011:01001011:0 -> 0:11010010:11001000
-	nodeH := &pb.Node{Id: storj.NodeID{25, 61}} // 00011001:00111101:0 -> 00011000:00111100:0 -> 0:00111100:00011000
+	//                                          // id                -> id ^ target
+	nodeA := &pb.Node{Id: storj.NodeID{3, 2}}   // 00000011:00000010 -> 00000010:00000011
+	nodeB := &pb.Node{Id: storj.NodeID{6, 5}}   // 00000110:00000101 -> 00000111:00000100
+	nodeC := &pb.Node{Id: storj.NodeID{7, 7}}   // 00000111:00000111 -> 00000110:00000110
+	nodeD := &pb.Node{Id: storj.NodeID{8, 4}}   // 00001000:00000100 -> 00001001:00000101
+	nodeE := &pb.Node{Id: storj.NodeID{12, 1}}  // 00001100:00000001 -> 00001101:00000000
+	nodeF := &pb.Node{Id: storj.NodeID{15, 16}} // 00001111:00010000 -> 00001110:00010001
+	nodeG := &pb.Node{Id: storj.NodeID{18, 74}} // 00010010:01001010 -> 00010011:01001011
+	nodeH := &pb.Node{Id: storj.NodeID{25, 61}} // 00011001:00111101 -> 00011000:00111100
 
 	nodes := []*pb.Node{nodeA, nodeB, nodeC, nodeD, nodeE, nodeF, nodeG, nodeH}
 
 	expected := []*pb.Node{
-		nodeE, // 00001100:00000001:0 -> 00001101:00000000:0 -> 0:00000000:10110000
-		nodeB, // 00000110:00000101:0 -> 00000111:00000100:0 -> 0:00100000:11100000
-		nodeH, // 00011001:00111101:0 -> 00011000:00111100:0 -> 0:00111100:00011000
-		nodeC, // 00000111:00000111:0 -> 00000110:00000110:0 -> 0:01100000:01100000
-		nodeF, // 00001111:00010000:0 -> 00001110:00010001:0 -> 0:10001000:01110000
-		nodeD, // 00001000:00000100:0 -> 00001001:00000101:0 -> 0:10100000:10010000
+		nodeA, // 00000011:00000010 -> 00000010:00000011
+		nodeC, // 00000111:00000111 -> 00000110:00000110
+		nodeB, // 00000110:00000101 -> 00000111:00000100
+		nodeD, // 00001000:00000100 -> 00001001:00000101
+		nodeE, // 00001100:00000001 -> 00001101:00000000
+		nodeF, // 00001111:00010000 -> 00001110:00010001
+		// nodeG, // 00010010:01001010 -> 00010011:01001011
+		// nodeH, // 00011001:00111101 -> 00011000:00111100
 	}
 
 	// // code for outputting the bits above
 	// for _, node := range nodes {
 	//     xor := xorNodeID(target, node.Id)
-	//     rxor := reverseNodeID(xor)
-	//     t.Logf("%08b,%08b -> %08b,%08b -> %08b,%08b", node.Id[0], node.Id[1], xor[0], xor[1], rxor[30], rxor[31])
+	//     t.Logf("%08b,%08b -> %08b,%08b", node.Id[0], node.Id[1], xor[0], xor[1])
 	// }
 
 	queue := newDiscoveryQueue(6)
@@ -91,7 +92,7 @@ func TestDiscoveryQueueRandom(t *testing.T) {
 		previousPriority := storj.NodeID{}
 		for queue.Len() > 0 {
 			next := queue.Closest()
-			priority := reverseNodeID(xorNodeID(target, next.Id))
+			priority := xorNodeID(target, next.Id)
 			// ensure that priority is monotonically increasing
 			assert.False(t, priority.Less(previousPriority))
 		}
