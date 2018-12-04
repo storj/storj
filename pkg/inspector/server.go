@@ -5,7 +5,6 @@ package inspector
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -134,7 +133,9 @@ func (srv *Server) LookupNode(ctx context.Context, req *pb.LookupNodeRequest) (*
 		return &pb.LookupNodeResponse{}, err
 	}
 	node, err := srv.dht.FindNode(ctx, id)
-	fmt.Printf("found node: %+v\n", node)
+	if err != nil {
+		return &pb.LookupNodeResponse{}, err
+	}
 
 	return &pb.LookupNodeResponse{
 		Node: &pb.Node{
