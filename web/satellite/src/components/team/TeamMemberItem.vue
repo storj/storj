@@ -32,14 +32,10 @@ export default class TeamMemberItem extends Vue {}
         align-items: center;
         justify-content: center;
         border-radius: 6px;
-        width: 240px;
-        min-width: 210px;
-        max-width: 240px;
         height: 180px;
         background-color: #fff;
-        margin-right: 24px;
         margin-bottom: 24px;
-        padding: 40px 0;
+        padding: 30px 0;
         cursor: pointer;
         transition: box-shadow .2s ease-out;
 
@@ -65,6 +61,8 @@ export default class TeamMemberItem extends Vue {}
             font-size: 14px;
             line-height: 19px;
             color: #AFB7C1;
+            margin-top: 0;
+            margin-bottom: 15px;
         }
 
         &__company-name {
@@ -97,7 +95,30 @@ export default class TeamMemberItem extends Vue {}
                 font-family: 'montserrat_medium';
                 font-size: 16px;
                 line-height: 23px;
-                color: #354049;
+                color: #fff;
+            }
+        }
+    }
+    .user-container.selected {
+        box-shadow: 0px 12px 24px rgba(38, 131, 255, 0.4);
+        background-color: #2683FF;
+
+        p {
+
+            &:nth-child(2) {
+                color: #fff;
+            }
+
+            &:nth-child(3) {
+                color: #fff;
+            }
+
+            &:nth-child(4) {
+                color: #fff;
+            }
+
+            &:nth-child(5) {
+                color: #fff;
             }
         }
     }

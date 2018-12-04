@@ -2,50 +2,34 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="new-project-popup-container">
-        <div class="new-project-popup">
-            <div class="new-project-popup__info-panel-container">
-                <h2 class="new-project-popup__info-panel-container__main-label-text">Create New Project</h2>
-                <img src="@/../static/images/dashboard/CreateNewProject.png" alt="">
+    <div class="add-user-popup-container">
+        <div class="add-user-popup">
+            <div class="add-user-popup__info-panel-container">
+                <h2 class="add-user-popup__info-panel-container__main-label-text">Add New User</h2>
+                <img src="../../../../static/images/team/addUser.png" alt="">
             </div>
-            <div class="new-project-popup__form-container">
-                <HeaderedInput 
-                    label="Project Name" 
-                    additionalLabel="Up To 20 Characters"
-                    placeholder="Enter Project Name"
+            <div class="add-user-popup__form-container">
+                <HeaderlessInput 
+                    placeholder="test@test.net"
                     class="full-input"
-                    width="100%"
-                    :error="nameError"
-                    @setData="setProjectName">
-                </HeaderedInput>
-                <HeaderedInput 
-                    label="Company Name" 
-                    placeholder="Enter Company Name"
+                    width="100%">
+                </HeaderlessInput>
+                <HeaderlessInput 
+                    placeholder="test@test.net"
                     class="full-input"
-                    width="100%"
-                    @setData="setCompanyName">
-                </HeaderedInput>
-                <HeaderedInput 
-                    label="Description" 
-                    placeholder="Enter Project Description"
+                    width="100%">
+                </HeaderlessInput>
+                <HeaderlessInput 
+                    placeholder="test@test.net"
                     class="full-input"
-                    isMultiline
-                    height="100px"
-                    width="100%"
-                    @setData="setProjectDescription">
-                </HeaderedInput>
-                <div class="new-project-popup__form-container__terms-area">
-                    <Checkbox class="new-project-popup__form-container__terms-area__checkbox"
-                              @setData="setTermsAccepted"
-                              :isCheckboxError="termsAcceptedError"/>
-                    <h2>I agree to the Storj Bridge Hosting <a>Terms & Conditions</a></h2>
-                </div>
-                <div class="new-project-popup__form-container__button-container">
+                    width="100%">
+                </HeaderlessInput>
+                <div class="add-user-popup__form-container__button-container">
                     <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite/>
                     <Button label="Create Project" width="205px" height="48px" :onPress="createProject"/>
                 </div>
             </div>
-            <div class="new-project-popup__close-cross-container">
+            <div class="add-user-popup__close-cross-container">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" v-on:click="onCloseClick">
                     <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
                 </svg>
@@ -56,7 +40,7 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import HeaderedInput from "@/components/common/HeaderedInput.vue";
+import HeaderlessInput from "@/components/common/HeaderlessInput.vue";
 import Checkbox from "@/components/common/Checkbox.vue";
 import Button from "@/components/common/Button.vue";
 
@@ -128,25 +112,25 @@ import Button from "@/components/common/Button.vue";
             }
         },
         components: {
-            HeaderedInput,
+            HeaderlessInput,
             Checkbox,
             Button
         }
     }
 )
 
-export default class NewProjectPopup extends Vue {}
+export default class AddUserPopup extends Vue {}
 </script>
 
 <style scoped lang="scss">
-    .new-project-popup-container {
-        position: absolute;
+    .add-user-popup-container {
+        position: fixed;
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
         background-color: rgba(134, 134, 148, 0.4);
-        z-index: 900;
+        z-index: 1000;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -154,7 +138,7 @@ export default class NewProjectPopup extends Vue {}
     .input-container.full-input {
         width: 100%;
     }
-    .new-project-popup {
+    .add-user-popup {
         width: 100%;
         max-width: 845px;
         height: 540px;
@@ -236,7 +220,7 @@ export default class NewProjectPopup extends Vue {}
     }
 
     @media screen and (max-width: 720px) {
-        .new-project-popup {
+        .add-user-popup {
 
             &__info-panel-container {
                  display: none;

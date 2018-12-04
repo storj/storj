@@ -56,14 +56,18 @@
                 </div>
             </div>
             <div class="project-details__terms-area">
-                <img src="../../../static/images/projectDetails/checked.svg" alt="">
+                <img src="static/images/projectDetails/checked.svg" alt="">
                 <h2>{{projectApproval}}</h2>
             </div>
             <div class="project-details__button-area">
+                <!-- TODO: change vw to px -->
                 <Button label="Delete project" width="10vw" height="5vh" :onPress="onDeleteButtonClick" isWhite/>
             </div>
         </div>
-        <EmptyState v-if="!isProjectSelected" />
+        <EmptyState 
+            v-if="!isProjectSelected"
+            mainTitle="Choose or Create new project"
+            :imageSource="emptyImage" />
     </div>
 </template>
 
@@ -72,7 +76,8 @@ import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
-import EmptyState from '@/components/projectDetails/EmptyStateProjectArea.vue'
+import EmptyState from '@/components/common/EmptyStateArea.vue';
+import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages'
 
 @Component(
     { 
@@ -80,6 +85,7 @@ import EmptyState from '@/components/projectDetails/EmptyStateProjectArea.vue'
             return {
                 isEditing: false,
                 newDescription: "",
+                emptyImage: EMPTY_STATE_IMAGES.PROJECT
             }
         },
         methods: {

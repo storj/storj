@@ -2,13 +2,46 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="team-container">
-        <div class="team-container__header">
+    <div>
+        <div class="team-header">
             <HeaderArea/>
         </div>
-        <div class="team-container__content">
-            
+        <div v-if="teamArrayLength > 0"  class="team-container">
+            <div class="team-container__content">
+                <!-- <TeamMemberItem
+                    class="selected"
+                />
+                <TeamMemberItem/>
+                <TeamMemberItem/>
+                <TeamMemberItem/>
+                <TeamMemberItem/>
+                <TeamMemberItem/>
+                <TeamMemberItem/>
+                <TeamMemberItem/>
+                <TeamMemberItem/>
+                <TeamMemberItem/>
+                <TeamMemberItem/>
+                <TeamMemberItem/>
+                <TeamMemberItem/> 
+                <TeamMemberItem/>
+                <TeamMemberItem/>
+                <TeamMemberItem/>
+                <TeamMemberItem/>
+                <TeamMemberItem/>
+                <TeamMemberItem/> -->
+            </div>
+            <div class="footer-area">
+
+            </div>
+            <!-- <DeleteUserArea/> -->
+            <!-- <ApproveDeleteUserArea/> -->
+            <!-- <SuccesNotificationArea/> -->
         </div>
+        <EmptyState 
+            v-if="teamArrayLength === 0"
+            mainTitle="Invite Team Members"
+            additionalText="You need to click the button “+” in the left corner"
+            :imageSource="emptyImage" />
     </div>
 </template>
 
@@ -16,28 +49,58 @@
 import { Component, Vue } from 'vue-property-decorator';
 import TeamMemberItem from '@/components/team/TeamMemberItem.vue';
 import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
+import DeleteUserArea from '@/components/team/footerArea/DeleteUserArea.vue';
+import ApproveDeleteUserArea from '@/components/team/footerArea/ApproveDeleteUserArea.vue';
+// TODO: rename
+import SuccesNotificationArea from '@/components/team/footerArea/SuccesNotificationArea.vue';
+import EmptyState from '@/components/common/EmptyStateArea.vue';
+import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 @Component({
+    data: function() {
+            return {
+                // TODO: this.$store.state.teamMembers
+                teamArrayLength: 1,
+                emptyImage: EMPTY_STATE_IMAGES.TEAM
+            }
+        },
     components: {
         TeamMemberItem,
-        HeaderArea
+        HeaderArea,
+        DeleteUserArea,
+        ApproveDeleteUserArea,
+        SuccesNotificationArea,
+        EmptyState,
     }
 })
+
+
 
 export default class TeamArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
-   .team-container {
-       padding: 55px 30px 55px 64px;
+    .team-header {
+        position: fixed;
+        padding: 55px 30px 25px 64px;
+        max-width: 79.7%;
+        width: 100%;
+        background-color: rgba(255,255,255,0.6);
+        z-index: 999;
+    }
+    .team-container {
+       padding: 0px 30px 55px 64px;
+       overflow-y: scroll;
+       max-height: 84vh;
+       position: relative;
 
        &__content {
-           display: flex;
-           flex-direction: row;
-           align-items: center;
-           justify-content: flex-start;
-           flex-wrap: wrap;
-           width: 100%;
-       }
+        display: grid;
+        grid-template-columns: 260px 260px 260px 260px 260px;
+        width: 100%;
+        grid-row-gap: 20px;
+        justify-content: space-between;
+        margin-top: 165px;
+        }
    }
 </style>
