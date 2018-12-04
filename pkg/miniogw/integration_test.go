@@ -89,7 +89,7 @@ func TestUploadDownload(t *testing.T) {
 
 	// setup and start gateway
 	go func() {
-		errch <- setupGW(ctx, gwCfg, planet.Uplinks[0].Identity)
+		errch <- runGateway(ctx, gwCfg, planet.Uplinks[0].Identity)
 	}()
 
 	time.Sleep(100 * time.Millisecond)
@@ -134,7 +134,7 @@ func TestUploadDownload(t *testing.T) {
 }
 
 // setupGW registers and calls a gateway command
-func setupGW(ctx context.Context, c Config, identity *provider.FullIdentity) (err error) {
+func runGateway(ctx context.Context, c Config, identity *provider.FullIdentity) (err error) {
 	err = minio.RegisterGatewayCommand(cli.Command{
 		Name:  "storj",
 		Usage: "Storj",
