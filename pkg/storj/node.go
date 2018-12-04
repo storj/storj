@@ -74,7 +74,7 @@ func (id NodeID) String() string {
 // Bytes returns raw bytes of the id
 func (id NodeID) Bytes() []byte { return id[:] }
 
-// Less returns whether id is smaller than b
+// Less returns whether id is smaller than b in lexiographic order
 func (id NodeID) Less(b NodeID) bool {
 	for k, v := range id {
 		if v < b[k] {

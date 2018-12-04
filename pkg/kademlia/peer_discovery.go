@@ -152,16 +152,20 @@ func (queue *discoveryQueue) Insert(target storj.NodeID, nodes ...*pb.Node) {
 
 	unique := nodes[:0]
 	for _, node := range nodes {
-		nodeID := node.Id
-		if _, added := queue.added[nodeID]; added {
+		if _, added := queue.added[node.Id]; added {
 			continue
 		}
-
-		queue.added[nodeID] = 1
 		unique = append(unique, node)
 	}
 
 	queue.insert(target, unique...)
+
+	// update counts for the new items that are in the queue
+	for _, item := range queue.items {
+		if _, added := queue.added[item.node.Id]; !added {
+			queue.added[item.node.Id] = 1
+		}
+	}
 }
 
 // Reinsert adds a Nodes into the queue, only if it's has been added less than limit times.
