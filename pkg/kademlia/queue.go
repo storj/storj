@@ -43,10 +43,12 @@ func (queue *Queue) Insert(target storj.NodeID, nodes ...*pb.Node) {
 	unique := nodes[:0]
 	for _, node := range nodes {
 		nodeID := node.Id
-		if _, added := queue.added[nodeID]; !added {
-			queue.added[nodeID]++
-			unique = append(unique, node)
+		if _, added := queue.added[nodeID]; added {
+			continue
 		}
+
+		queue.added[nodeID] = 1
+		unique = append(unique, node)
 	}
 
 	queue.insert(target, unique...)
