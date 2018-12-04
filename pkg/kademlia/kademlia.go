@@ -194,9 +194,6 @@ func (k *Kademlia) lookup(ctx context.Context, target storj.NodeID, opts discove
 	lookup := newPeerDiscovery(nodes, k.nodeClient, target, opts)
 	err = lookup.Run(ctx)
 
-	foundOne := <-lookup.foundOne
-	fmt.Printf("? Found one? %+v\n", foundOne)
-
 	if err != nil {
 		zap.L().Warn("lookup failed", zap.Error(err))
 		return err
