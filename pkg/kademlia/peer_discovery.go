@@ -180,7 +180,7 @@ func (queue *discoveryQueue) insert(target storj.NodeID, nodes ...*pb.Node) {
 	for _, node := range nodes {
 		queue.items = append(queue.items, queueItem{
 			node:     node,
-			priority: reverseNodeID(xorNodeID(target, node.Id)),
+			priority: xorNodeID(target, node.Id),
 		})
 	}
 
