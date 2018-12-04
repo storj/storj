@@ -137,7 +137,13 @@ func runGateway(ctx context.Context, c Config, identity *provider.FullIdentity) 
 		Name:  "storj",
 		Usage: "Storj",
 		Action: func(cliCtx *cli.Context) error {
-			return action(ctx, c, cliCtx, identity)
+			gw, err := c.NewGateway(ctx, identity)
+			if err != nil {
+				return err
+			}
+
+			minio.StartGateway(cliCtx, logging.Gateway(gw))
+			return Error.New("unexpected minio exit")
 		},
 		HideHelpCommand: true,
 	})
@@ -156,16 +162,5 @@ func runGateway(ctx context.Context, c Config, identity *provider.FullIdentity) 
 	}
 
 	minio.Main([]string{"storj", "gateway", "storj", "--address", c.Address, "--config-dir", c.MinioDir, "--quiet"})
-	return Error.New("unexpected minio exit")
-}
-
-// action creates and starts a new gateway
-func action(ctx context.Context, c Config, cliCtx *cli.Context, identity *provider.FullIdentity) (err error) {
-	gw, err := c.NewGateway(ctx, identity)
-	if err != nil {
-		return err
-	}
-
-	minio.StartGateway(cliCtx, logging.Gateway(gw))
 	return Error.New("unexpected minio exit")
 }
