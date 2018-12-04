@@ -46,7 +46,7 @@ func (srv *Server) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	kadNodes, err := srv.dht.GetNodes(ctx, srv.identity.ID, 0, pb.Restriction{})
+	kadNodes, err := srv.dht.GetNodes(ctx, srv.identity.ID, 0)
 	if err != nil {
 		return nil, err
 	}

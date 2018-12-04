@@ -46,7 +46,7 @@ func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FP
 	}
 
 	// if object name not specified, default to filename
-	if strings.HasSuffix(dst.Path(), "/") || dst.Path() == "" {
+	if strings.HasSuffix(dst.String(), "/") || dst.Path() == "" {
 		dst = dst.Join(src.Base())
 	}
 
