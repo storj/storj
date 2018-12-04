@@ -45,7 +45,10 @@ func (srv *Server) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	kadNodes := srv.dht.Seen()
+	kadNodes, err := srv.dht.GetNodes(ctx, srv.identity.ID, 0)
+	if err != nil {
+		return nil, err
+	}
 
 	return &pb.CountNodesResponse{
 		Kademlia: int64(len(kadNodes)),
@@ -63,13 +66,15 @@ func (srv *Server) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest) (*
 	if err != nil {
 		return nil, err
 	}
+	// TODO(bryanchriswhite): should use bucketID type
 	nodeIDs, err := storj.NodeIDsFromBytes(b.ByteSlices())
 	if err != nil {
 		return nil, err
 	}
 	return &pb.GetBucketsResponse{
 		Total: int64(len(b)),
-		Ids:   nodeIDs,
+		// TODO(bryanchriswhite): should use bucketID type
+		Ids: nodeIDs,
 	}, nil
 }
 
@@ -79,6 +84,7 @@ func (srv *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb
 	if err != nil {
 		return nil, err
 	}
+	// TODO(bryanchriswhite): should use bucketID type
 	bucket, ok := rt.GetBucket(req.Id)
 	if !ok {
 		return &pb.GetBucketResponse{}, ServerError.New("GetBuckets returned non-OK response")

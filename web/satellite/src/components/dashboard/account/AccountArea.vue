@@ -258,9 +258,9 @@ import Checkbox from '@/components/common/Checkbox.vue';
                 this.$data.email = this.$data.originalEmail;
                 this.$data.emailError = "";
 
-                this.$refs.firstNameInput.setValue(this.$data.originalFirstName);
-                this.$refs.lastNameInput.setValue(this.$data.originalLastName);
-                this.$refs.emailInput.setValue(this.$data.originalEmail);
+                (this.$refs["firstNameInput"] as HeaderedInput).setValue(this.$data.originalFirstName);
+                (this.$refs["lastNameInput"] as HeaderedInput).setValue(this.$data.originalLastName);
+                (this.$refs["emailInput"] as HeaderedInput).setValue(this.$data.originalEmail);
 
                 this.$data.isAccountSettingsEditing = false;
             },
@@ -339,12 +339,12 @@ import Checkbox from '@/components/common/Checkbox.vue';
                 this.$data.companyState=this.$data.originalCompanyState;
                 this.$data.companyPostalCode=this.$data.originalCompanyPostalCode;
 
-                this.$refs.companyNameInput.setValue(this.$data.originalCompanyName);
-                this.$refs.companyAddressInput.setValue(this.$data.originalCompanyAddress);
-                this.$refs.companyCountryInput.setValue(this.$data.originalCompanyCountry);
-                this.$refs.companyCityInput.setValue(this.$data.originalCompanyCity);
-                this.$refs.companyStateInput.setValue(this.$data.originalCompanyState);
-                this.$refs.companyPostalCodeInput.setValue(this.$data.originalCompanyPostalCode);
+                (this.$refs["companyNameInput"] as HeaderedInput).setValue(this.$data.originalCompanyName);
+                (this.$refs["companyAddressInput"] as HeaderedInput).setValue(this.$data.originalCompanyAddress);
+                (this.$refs["companyCountryInput"] as HeaderedInput).setValue(this.$data.originalCompanyCountry);
+                (this.$refs["companyCityInput"] as HeaderedInput).setValue(this.$data.originalCompanyCity);
+                (this.$refs["companyStateInput"] as HeaderedInput).setValue(this.$data.originalCompanyState);
+                (this.$refs["companyPostalCodeInput"] as HeaderedInput).setValue(this.$data.originalCompanyPostalCode);
 
                 this.$data.isCompanyEditing= false;
             },
@@ -395,9 +395,9 @@ import Checkbox from '@/components/common/Checkbox.vue';
                 this.$data.newPasswordError = "";
                 this.$data.confirmationPasswordError = "";
 
-                this.$refs.oldPasswordInput.setValue("");
-                this.$refs.newPasswordInput.setValue("");
-                this.$refs.confirmationPasswordInput.setValue("");
+                (this.$refs["oldPasswordInput"] as HeaderedInput).setValue("");
+                (this.$refs["newPasswordInput"] as HeaderedInput).setValue("");
+                (this.$refs["confirmationPasswordInput"] as HeaderedInput).setValue("");
 
                 this.$data.isPasswordEditing = false;
             },
@@ -436,9 +436,9 @@ import Checkbox from '@/components/common/Checkbox.vue';
                     return;
                 }
 
-                this.$refs.oldPasswordInput.setValue("");
-                this.$refs.newPasswordInput.setValue("");
-                this.$refs.confirmationPasswordInput.setValue("");
+                (this.$refs["oldPasswordInput"] as HeaderedInput).setValue("");
+                (this.$refs["newPasswordInput"] as HeaderedInput).setValue("");
+                (this.$refs["confirmationPasswordInput"] as HeaderedInput).setValue("");
 
                 this.$data.isPasswordEditing = false;
             },

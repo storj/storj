@@ -36,17 +36,12 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("No bucket specified, use format sj://bucket/")
 	}
 
-	bs, err := cfg.BucketStore(ctx)
+	metainfo, _, err := cfg.Metainfo(ctx)
 	if err != nil {
 		return err
 	}
 
-	o, err := bs.GetObjectStore(ctx, dst.Bucket())
-	if err != nil {
-		return convertError(err, dst)
-	}
-
-	err = o.Delete(ctx, dst.Path())
+	err = metainfo.DeleteObject(ctx, dst.Bucket(), dst.Path())
 	if err != nil {
 		return convertError(err, dst)
 	}

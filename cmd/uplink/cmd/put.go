@@ -37,15 +37,10 @@ func putMain(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("No bucket specified, use format sj://bucket/")
 	}
 
-	bs, err := cfg.BucketStore(ctx)
-	if err != nil {
-		return err
-	}
-
 	src, err := fpath.New("-")
 	if err != nil {
 		return err
 	}
 
-	return upload(ctx, bs, src, dst, false)
+	return upload(ctx, src, dst, false)
 }

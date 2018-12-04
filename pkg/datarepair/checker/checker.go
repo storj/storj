@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/irreparabledb"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/statdb"
@@ -30,18 +31,21 @@ type checker struct {
 	pointerdb   *pointerdb.Server
 	repairQueue *queue.Queue
 	overlay     pb.OverlayServer
+	irrdb       *irreparabledb.Database
 	limit       int
 	logger      *zap.Logger
 	ticker      *time.Ticker
 }
 
-// NewChecker creates a new instance of checker
-func newChecker(pointerdb *pointerdb.Server, sdb *statdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, limit int, logger *zap.Logger, interval time.Duration) *checker {
+
+// newChecker creates a new instance of checker
+func newChecker(pointerdb *pointerdb.Server, sdb *statdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, irrdb *irreparabledb.Database, limit int, logger *zap.Logger, interval time.Duration) *checker {
 	return &checker{
 		statdb:      sdb,
 		pointerdb:   pointerdb,
 		repairQueue: repairQueue,
 		overlay:     overlay,
+		irrdb:       irrdb,
 		limit:       limit,
 		logger:      logger,
 		ticker:      time.NewTicker(interval),
@@ -112,13 +116,28 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 				missingPieces := combineOfflineWithInvalid(offlineNodes, invalidNodes)
 
 				numHealthy := len(nodeIDs) - len(missingPieces)
-				if int32(numHealthy) < pointer.Remote.Redundancy.RepairThreshold {
+				if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) < pointer.Remote.Redundancy.RepairThreshold) {
 					err = c.repairQueue.Enqueue(&pb.InjuredSegment{
 						Path:       string(item.Key),
 						LostPieces: missingPieces,
 					})
 					if err != nil {
 						return Error.New("error adding injured segment to queue %s", err)
+					}
+				} else if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
+					// make an entry in to the irreparable table
+					segmentInfo := &irreparabledb.RemoteSegmentInfo{
+						EncryptedSegmentPath:   item.Key,
+						EncryptedSegmentDetail: item.Value,
+						LostPiecesCount:        int64(len(missingPieces)),
+						RepairUnixSec:          time.Now().Unix(),
+						RepairAttemptCount:     int64(1),
+					}
+
+					//add the entry if new or update attempt count if already exists
+					err := c.irrdb.IncrementRepairAttempts(ctx, segmentInfo)
+					if err != nil {
+						return Error.New("error handling irreparable segment to queue %s", err)
 					}
 				}
 			}

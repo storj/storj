@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
 	dbmanager "storj.io/storj/pkg/bwagreement/database-manager"
@@ -86,10 +87,11 @@ var (
 		QListLimit  int    `help:"maximum segments that can be requested" default:"1000"`
 	}
 
-	defaultConfDir = "$HOME/.storj/satellite"
+	defaultConfDir string
 )
 
 func init() {
+	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
@@ -121,9 +123,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	_, err = os.Stat(setupCfg.BasePath)
-	if !setupCfg.Overwrite && err == nil {
-		fmt.Println("An satellite configuration already exists. Rerun with --overwrite")
+	valid, err := fpath.IsValidSetupDir(setupCfg.BasePath)
+	if !setupCfg.Overwrite && !valid {
+		fmt.Printf("satellite configuration already exists (%v). rerun with --overwrite\n", setupCfg.BasePath)
 		return nil
 	} else if setupCfg.Overwrite && err == nil {
 		fmt.Println("overwriting existing satellite config")
