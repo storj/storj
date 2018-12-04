@@ -138,10 +138,7 @@ func (srv *Server) LookupNode(ctx context.Context, req *pb.LookupNodeRequest) (*
 	}
 
 	return &pb.LookupNodeResponse{
-		Node: &pb.Node{
-			Id: node.Id,
-		},
-		Meta: nil,
+		Node: &node,
 	}, nil
 }
 
