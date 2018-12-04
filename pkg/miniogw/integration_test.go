@@ -32,7 +32,7 @@ func TestUploadDownload(t *testing.T) {
 		ctx = testcontext.New(t)
 	)
 
-	planet, err := testplanet.New(t, 1, 40, 0)
+	planet, err := testplanet.New(t, 1, 30, 0)
 	assert.NoError(t, err)
 
 	defer func() {
@@ -67,15 +67,16 @@ func TestUploadDownload(t *testing.T) {
 	gwCfg.EncKey = encKey
 
 	// redundancy
-	gwCfg.MinThreshold = 20
-	gwCfg.RepairThreshold = 25
-	gwCfg.SuccessThreshold = 30
-	gwCfg.MaxThreshold = 40
+	gwCfg.MinThreshold = 7
+	gwCfg.RepairThreshold = 8
+	gwCfg.SuccessThreshold = 9
+	gwCfg.MaxThreshold = 10
 
 	planet.Start(ctx)
 
 	time.Sleep(2 * time.Second)
 
+	// create identity for gateway
 	ca, err := testidentity.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
@@ -113,37 +114,34 @@ func TestUploadDownload(t *testing.T) {
 	err = client.Upload(bucket, objectName, data)
 	assert.NoError(t, err)
 
-	// buffer := make([]byte, len(data))
+	buffer := make([]byte, len(data))
 
-	// bytes, err := client.Download(bucket, tobjectName, buffer)
-	// assert.NoError(t, err)
+	bytes, err := client.Download(bucket, objectName, buffer)
+	assert.NoError(t, err)
 
-	// assert.Equal(t, string(data), string(bytes))
+	assert.Equal(t, string(data), string(bytes))
 
 	select {
-	// case <-ctx.Done():
 	case err = <-errch:
 		t.Fatal(err)
 	default:
 	}
 }
 
-// runGateway registers and starts a gateway
+// runGateway creates and starts a gateway
 func runGateway(ctx context.Context, c Config, identity *provider.FullIdentity) (err error) {
-	err = minio.RegisterGatewayCommand(cli.Command{
-		Name:  "storj",
-		Usage: "Storj",
-		Action: func(cliCtx *cli.Context) error {
-			gw, err := c.NewGateway(ctx, identity)
-			if err != nil {
-				return err
-			}
+	
+	// set gateway flags
+	flags := flag.NewFlagSet("gateway", flag.ExitOnError)
+	flags.String("address", c.Address, "")
+	flags.String("config-dir", c.MinioDir, "")
+	flags.Bool("quiet", true, "")
 
-			minio.StartGateway(cliCtx, logging.Gateway(gw))
-			return Error.New("unexpected minio exit")
-		},
-		HideHelpCommand: true,
-	})
+	// create *cli.Context with gateway flags
+	cliCtx := cli.NewContext(cli.NewApp(), flags, nil)
+
+	// TODO: setting the flag on flagset and cliCtx seems redundant, but doesn't work otherwise
+	err = cliCtx.Set("quiet", "true")
 	if err != nil {
 		return err
 	}
@@ -158,6 +156,11 @@ func runGateway(ctx context.Context, c Config, identity *provider.FullIdentity) 
 		return err
 	}
 
-	minio.Main([]string{"storj", "gateway", "storj", "--address", c.Address, "--config-dir", c.MinioDir, "--quiet"})
+	gw, err := c.NewGateway(ctx, identity)
+	if err != nil {
+		return err
+	}
+
+	minio.StartGateway(cliCtx, logging.Gateway(gw))
 	return Error.New("unexpected minio exit")
 }
