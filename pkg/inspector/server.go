@@ -29,7 +29,7 @@ var (
 type Server struct {
 	dht      dht.DHT
 	cache    *overlay.Cache
-	statdb   *statdb.Server
+	statdb   *statdb.StatDB
 	logger   *zap.Logger
 	metrics  *monkit.Registry
 	identity *provider.FullIdentity
@@ -140,11 +140,7 @@ func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.G
 		return nil, err
 	}
 
-	return &pb.GetStatsResponse{
-		AuditRatio:  res.Stats.AuditSuccessRatio,
-		UptimeRatio: res.Stats.UptimeRatio,
-		AuditCount:  res.Stats.AuditCount,
-	}, nil
+	return res, nil
 }
 
 // CreateStats creates a node with specified stats
@@ -162,7 +158,10 @@ func (srv *Server) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) 
 		Node:  node,
 		Stats: stats,
 	}
-	_, err := srv.statdb.Create(ctx, createReq)
+	res, err := srv.statdb.Create(ctx, createReq)
+	if err != nil {
+		return nil, err
+	}
 
-	return &pb.CreateStatsResponse{}, err
+	return res, nil
 }

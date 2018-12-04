@@ -34,11 +34,11 @@ var OverlayError = errs.Class("Overlay Error")
 type Cache struct {
 	DB     storage.KeyValueStore
 	DHT    dht.DHT
-	StatDB *statdb.Server
+	StatDB *statdb.StatDB
 }
 
 // NewOverlayCache returns a new Cache
-func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT, sdb *statdb.Server) *Cache {
+func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT, sdb *statdb.StatDB) *Cache {
 	return &Cache{DB: db, DHT: dht, StatDB: sdb}
 }
 

@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/statdb"
 	proto "storj.io/storj/pkg/statdb/proto"
-	"storj.io/storj/pkg/statdb/sdbclient"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -18,7 +18,7 @@ type reporter interface {
 
 // Reporter records audit reports in statdb and implements the reporter interface
 type Reporter struct {
-	statdb     sdbclient.Client
+	statdb     *statdb.StatDB
 	maxRetries int
 }
 

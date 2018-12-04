@@ -15,7 +15,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/migrate"
-	"storj.io/storj/pkg/auth"
 	dbx "storj.io/storj/pkg/statdb/dbx"
 	pb "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/storj"
@@ -27,15 +26,15 @@ var (
 	errUptime       = errs.Class("statdb uptime error")
 )
 
-// Server implements the statdb RPC service
-type Server struct {
+// StatDB implements the statdb RPC service
+type StatDB struct {
 	log    *zap.Logger
 	DB     *dbx.DB
 	apiKey []byte
 }
 
-// NewServer creates instance of Server
-func NewServer(driver, source, apiKey string, log *zap.Logger) (*Server, error) {
+// NewStatDB creates instance of StatDB
+func NewStatDB(driver, source string, log *zap.Logger) (*StatDB, error) {
 	db, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, err
@@ -46,28 +45,15 @@ func NewServer(driver, source, apiKey string, log *zap.Logger) (*Server, error) 
 		return nil, err
 	}
 
-	return &Server{
-		DB:     db,
-		log:    log,
-		apiKey: []byte(apiKey),
+	return &StatDB{
+		DB:  db,
+		log: log,
 	}, nil
 }
 
-func (s *Server) validateAuth(ctx context.Context) error {
-	err := auth.ValidateAPIKey(ctx, s.apiKey)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // Create a db entry for the provided storagenode
-func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp *pb.CreateResponse, err error) {
+func (s *StatDB) Create(ctx context.Context, createReq *pb.CreateRequest) (resp *pb.CreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	if err := s.validateAuth(ctx); err != nil {
-		return nil, err
-	}
 
 	var (
 		totalAuditCount    int64
@@ -123,13 +109,8 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 }
 
 // Get a storagenode's stats from the db
-func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetResponse, err error) {
+func (s *StatDB) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	err = s.validateAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
 
 	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(getReq.NodeId.Bytes()))
 	if err != nil {
@@ -148,7 +129,7 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 }
 
 // FindValidNodes finds a subset of storagenodes that meet reputation requirements
-func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRequest) (resp *pb.FindValidNodesResponse, err error) {
+func (s *StatDB) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRequest) (resp *pb.FindValidNodesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var passedIds storj.NodeIDList
@@ -188,7 +169,7 @@ func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRe
 	}, nil
 }
 
-func (s *Server) findValidNodesQuery(nodeIds storj.NodeIDList, auditCount int64, auditSuccess, uptime float64) (*sql.Rows, error) {
+func (s *StatDB) findValidNodesQuery(nodeIds storj.NodeIDList, auditCount int64, auditSuccess, uptime float64) (*sql.Rows, error) {
 	args := make([]interface{}, len(nodeIds))
 	for i, id := range nodeIds {
 		args[i] = id.Bytes()
@@ -207,13 +188,8 @@ func (s *Server) findValidNodesQuery(nodeIds storj.NodeIDList, auditCount int64,
 }
 
 // Update a single storagenode's stats in the db
-func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp *pb.UpdateResponse, err error) {
+func (s *StatDB) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp *pb.UpdateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	err = s.validateAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
 
 	node := updateReq.GetNode()
 
@@ -279,13 +255,8 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db
-func (s *Server) UpdateUptime(ctx context.Context, updateReq *pb.UpdateUptimeRequest) (resp *pb.UpdateUptimeResponse, err error) {
+func (s *StatDB) UpdateUptime(ctx context.Context, updateReq *pb.UpdateUptimeRequest) (resp *pb.UpdateUptimeResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	err = s.validateAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
 
 	node := updateReq.GetNode()
 
@@ -327,13 +298,8 @@ func (s *Server) UpdateUptime(ctx context.Context, updateReq *pb.UpdateUptimeReq
 }
 
 // UpdateAuditSuccess updates a single storagenode's uptime stats in the db
-func (s *Server) UpdateAuditSuccess(ctx context.Context, updateReq *pb.UpdateAuditSuccessRequest) (resp *pb.UpdateAuditSuccessResponse, err error) {
+func (s *StatDB) UpdateAuditSuccess(ctx context.Context, updateReq *pb.UpdateAuditSuccessRequest) (resp *pb.UpdateAuditSuccessResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	err = s.validateAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
 
 	node := updateReq.GetNode()
 
@@ -375,7 +341,7 @@ func (s *Server) UpdateAuditSuccess(ctx context.Context, updateReq *pb.UpdateAud
 }
 
 // UpdateBatch for updating multiple farmers' stats in the db
-func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (resp *pb.UpdateBatchResponse, err error) {
+func (s *StatDB) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (resp *pb.UpdateBatchResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var nodeStatsList []*pb.NodeStats
@@ -402,7 +368,7 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 }
 
 // CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist
-func (s *Server) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.CreateEntryIfNotExistsRequest) (resp *pb.CreateEntryIfNotExistsResponse, err error) {
+func (s *StatDB) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.CreateEntryIfNotExistsRequest) (resp *pb.CreateEntryIfNotExistsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	getReq := &pb.GetRequest{
