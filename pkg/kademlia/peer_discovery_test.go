@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-func TestQueue(t *testing.T) {
+func TestDiscoveryQueue(t *testing.T) {
 	target := storj.NodeID{1, 1} // 00000001
 
 	//                                          // id                -> id ^ target     -> reverse id ^ target
@@ -45,7 +45,7 @@ func TestQueue(t *testing.T) {
 	//     t.Logf("%08b,%08b -> %08b,%08b -> %08b,%08b", node.Id[0], node.Id[1], xor[0], xor[1], rxor[30], rxor[31])
 	// }
 
-	queue := NewQueue(6)
+	queue := newDiscoveryQueue(6)
 	queue.Insert(target, nodes...)
 
 	assert.Equal(t, queue.Len(), 6)
@@ -58,7 +58,7 @@ func TestQueue(t *testing.T) {
 	assert.Nil(t, queue.Closest())
 }
 
-func TestQueueRandom(t *testing.T) {
+func TestDiscoveryQueueRandom(t *testing.T) {
 	const maxLen = 8
 
 	seed := int64(rand.Uint64())
@@ -77,7 +77,7 @@ func TestQueueRandom(t *testing.T) {
 			initial = append(initial, &pb.Node{Id: nodeID})
 		}
 
-		queue := NewQueue(maxLen)
+		queue := newDiscoveryQueue(maxLen)
 		queue.Insert(target, initial...)
 
 		for k := 0; k < 10; k++ {

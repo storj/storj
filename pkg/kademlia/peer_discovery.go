@@ -5,6 +5,8 @@ package kademlia
 
 import (
 	"context"
+	"math/bits"
+	"sort"
 	"sync"
 
 	"github.com/zeebo/errs"
@@ -21,7 +23,7 @@ type peerDiscovery struct {
 	opts   discoveryOptions
 
 	cond  sync.Cond
-	queue Queue
+	queue discoveryQueue
 }
 
 // ErrMaxRetries is used when a lookup has been retried the max number of times
@@ -33,7 +35,7 @@ func newPeerDiscovery(nodes []*pb.Node, client node.Client, target storj.NodeID,
 		target: target,
 		opts:   opts,
 		cond:   sync.Cond{L: &sync.Mutex{}},
-		queue:  *NewQueue(opts.concurrency),
+		queue:  *newDiscoveryQueue(opts.concurrency),
 	}
 }
 
@@ -112,4 +114,119 @@ func isDone(ctx context.Context) bool {
 	default:
 		return false
 	}
+}
+
+// discoveryQueue is a limited priority queue for nodes with xor distance
+type discoveryQueue struct {
+	maxLen int
+	mu     sync.Mutex
+	added  map[storj.NodeID]int
+	items  []queueItem
+}
+
+// queueItem is node with a priority
+type queueItem struct {
+	node     *pb.Node
+	priority storj.NodeID
+	// TODO: switch to using pb.NodeAddress to avoid pointer to *pb.Node
+}
+
+// newDiscoveryQueue returns a items with priority based on XOR from targetBytes
+func newDiscoveryQueue(size int) *discoveryQueue {
+	return &discoveryQueue{
+		added:  make(map[storj.NodeID]int),
+		maxLen: size,
+	}
+}
+
+// Insert adds nodes into the queue.
+func (queue *discoveryQueue) Insert(target storj.NodeID, nodes ...*pb.Node) {
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
+
+	unique := nodes[:0]
+	for _, node := range nodes {
+		nodeID := node.Id
+		if _, added := queue.added[nodeID]; added {
+			continue
+		}
+
+		queue.added[nodeID] = 1
+		unique = append(unique, node)
+	}
+
+	queue.insert(target, unique...)
+}
+
+// Reinsert adds a Nodes into the queue, only if it's has been added less than limit times.
+func (queue *discoveryQueue) Reinsert(target storj.NodeID, node *pb.Node, limit int) bool {
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
+
+	nodeID := node.Id
+	if queue.added[nodeID] >= limit {
+		return false
+	}
+	queue.added[nodeID]++
+
+	queue.insert(target, node)
+	return true
+}
+
+// insert must hold lock while adding
+func (queue *discoveryQueue) insert(target storj.NodeID, nodes ...*pb.Node) {
+	for _, node := range nodes {
+		queue.items = append(queue.items, queueItem{
+			node:     node,
+			priority: reverseNodeID(xorNodeID(target, node.Id)),
+		})
+	}
+
+	sort.Slice(queue.items, func(i, k int) bool {
+		return queue.items[i].priority.Less(queue.items[k].priority)
+	})
+
+	if len(queue.items) > queue.maxLen {
+		queue.items = queue.items[:queue.maxLen]
+	}
+}
+
+// Closest returns the closest item in the queue
+func (queue *discoveryQueue) Closest() *pb.Node {
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
+
+	if len(queue.items) == 0 {
+		return nil
+	}
+
+	var item queueItem
+	item, queue.items = queue.items[0], queue.items[1:]
+	return item.node
+}
+
+// Len returns the number of items in the queue
+func (queue *discoveryQueue) Len() int {
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
+
+	return len(queue.items)
+}
+
+// xorNodeID returns the xor of each byte in NodeID
+func xorNodeID(a, b storj.NodeID) storj.NodeID {
+	r := storj.NodeID{}
+	for i, av := range a {
+		r[i] = av ^ b[i]
+	}
+	return r
+}
+
+// reverseNodeID reverses NodeID bit representation
+func reverseNodeID(a storj.NodeID) storj.NodeID {
+	r := storj.NodeID{}
+	for i, v := range a {
+		r[len(a)-i-1] = bits.Reverse8(v)
+	}
+	return r
 }
