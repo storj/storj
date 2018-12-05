@@ -76,6 +76,12 @@ var (
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  PingNode,
 	}
+	lookupNodeCmd = &cobra.Command{
+		Use:   "lookup <node_id>",
+		Short: "lookup a node by ID only",
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  LookupNode,
+	}
 	getStatsCmd = &cobra.Command{
 		Use:   "getstats <node_id>",
 		Short: "Get node stats",
@@ -192,6 +198,35 @@ func GetBucket(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+// LookupNode starts a Kademlia lookup for the provided Node ID
+func LookupNode(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector(*Addr)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	n, err := i.client.LookupNode(context.Background(), &pb.LookupNodeRequest{
+		Id: args[0],
+	})
+
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	fmt.Println(prettyPrintNode(n))
+
+	return nil
+}
+
+func prettyPrintNode(n *pb.LookupNodeResponse) string {
+	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: false}
+	s, err := m.MarshalToString(n)
+	if err != nil {
+		zap.S().Error("error marshaling node: %s", n)
+	}
+	return s
+}
+
 func prettyPrintBucket(b *pb.GetBucketResponse) string {
 	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: false}
 	s, err := m.MarshalToString(b)
@@ -253,8 +288,8 @@ func GetStats(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	fmt.Printf("Stats for ID %s:\n", nodeID)
-	fmt.Printf("AuditSuccessRatio: %f, UptimeRatio: %f, AuditCount: %d\n",
-		res.AuditRatio, res.UptimeRatio, res.AuditCount)
+	fmt.Printf("AuditSuccessRatio: %f, AuditCount: %d, UptimeRatio: %f, UptimeCount: %d,\n",
+		res.AuditRatio, res.AuditCount, res.UptimeRatio, res.UptimeCount)
 	return nil
 }
 
@@ -289,8 +324,8 @@ func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		fmt.Printf("Stats for ID %s:\n", nodeID)
-		fmt.Printf("AuditSuccessRatio: %f, UptimeRatio: %f, AuditCount: %d\n",
-			res.AuditRatio, res.UptimeRatio, res.AuditCount)
+		fmt.Printf("AuditSuccessRatio: %f, AuditCount: %d, UptimeRatio: %f, UptimeCount: %d,\n",
+			res.AuditRatio, res.AuditCount, res.UptimeRatio, res.UptimeCount)
 	}
 	return nil
 }
@@ -402,6 +437,7 @@ func init() {
 	kadCmd.AddCommand(getBucketsCmd)
 	kadCmd.AddCommand(getBucketCmd)
 	kadCmd.AddCommand(pingNodeCmd)
+	kadCmd.AddCommand(lookupNodeCmd)
 
 	statsCmd.AddCommand(getStatsCmd)
 	statsCmd.AddCommand(getCSVStatsCmd)

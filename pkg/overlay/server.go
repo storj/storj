@@ -75,23 +75,32 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 
 	excluded := opts.ExcludedNodes
 	restrictions := opts.GetRestrictions()
-	restrictedBandwidth := restrictions.GetFreeBandwidth()
-	restrictedSpace := restrictions.GetFreeDisk()
+	reputation := opts.GetMinStats()
 
 	var startID storj.NodeID
 	result := []*pb.Node{}
 	for {
 		var nodes []*pb.Node
-		nodes, startID, err = o.populate(ctx, req.Start, maxNodes, restrictedBandwidth, restrictedSpace, excluded)
+		nodes, startID, err = o.populate(ctx, req.Start, maxNodes, restrictions, reputation, excluded)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
-		if len(nodes) <= 0 {
+		resultNodes := []*pb.Node{}
+		usedAddrs := make(map[string]bool)
+		for _, n := range nodes {
+			addr := n.Address.GetAddress()
+			excluded = append(excluded, n.Id) // exclude all nodes on next iteration
+			if !usedAddrs[addr] {
+				resultNodes = append(resultNodes, n)
+				usedAddrs[addr] = true
+			}
+		}
+		if len(resultNodes) <= 0 {
 			break
 		}
 
-		result = append(result, nodes...)
+		result = append(result, resultNodes...)
 
 		if len(result) >= int(maxNodes) || startID == (storj.NodeID{}) {
 			break
@@ -132,7 +141,10 @@ func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.Node, e
 
 }
 
-func (o *Server) populate(ctx context.Context, startID storj.NodeID, maxNodes, restrictedBandwidth, restrictedSpace int64, excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
+func (o *Server) populate(ctx context.Context, startID storj.NodeID, maxNodes int64,
+	minRestrictions *pb.NodeRestrictions, minReputation *pb.NodeStats,
+	excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
+
 	limit := int(maxNodes * 2)
 	keys, err := o.cache.DB.List(startID.Bytes(), limit)
 	if err != nil {
@@ -158,11 +170,16 @@ func (o *Server) populate(ctx context.Context, startID storj.NodeID, maxNodes, r
 			continue
 		}
 
-		rest := v.GetRestrictions()
-		if rest.GetFreeBandwidth() < restrictedBandwidth || rest.GetFreeDisk() < restrictedSpace {
-			continue
-		}
-		if contains(excluded, v.Id) {
+		nodeRestrictions := v.GetRestrictions()
+		nodeReputation := v.GetReputation()
+
+		if nodeRestrictions.GetFreeBandwidth() < minRestrictions.GetFreeBandwidth() ||
+			nodeRestrictions.GetFreeDisk() < minRestrictions.GetFreeDisk() ||
+			nodeReputation.GetUptimeRatio() < minReputation.GetUptimeRatio() ||
+			nodeReputation.GetUptimeCount() < minReputation.GetUptimeCount() ||
+			nodeReputation.GetAuditSuccessRatio() < minReputation.GetAuditSuccessRatio() ||
+			nodeReputation.GetAuditCount() < minReputation.GetAuditCount() ||
+			contains(excluded, v.Id) {
 			continue
 		}
 		result = append(result, v)

@@ -31,7 +31,7 @@ var (
 	// BootstrapErr is the class for all errors pertaining to bootstrapping a node
 	BootstrapErr = errs.Class("bootstrap node error")
 	// NodeNotFound is returned when a lookup can not produce the requested node
-	NodeNotFound = NodeErr.New("node not found")
+	NodeNotFound = errs.Class("node not found")
 	// TODO: shouldn't default to TCP but not sure what to do yet
 	defaultTransport = pb.NodeTransport_TCP_TLS_GRPC
 	defaultRetries   = 3
@@ -192,9 +192,11 @@ func (k *Kademlia) lookup(ctx context.Context, target storj.NodeID, opts discove
 	}
 
 	lookup := newPeerDiscovery(nodes, k.nodeClient, target, opts)
-	err = lookup.Run(ctx)
+	_, err = lookup.Run(ctx)
+
 	if err != nil {
 		zap.L().Warn("lookup failed", zap.Error(err))
+		return err
 	}
 
 	return nil
@@ -217,16 +219,24 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error) {
-	// TODO(coyle): actually Find Node not just perform a lookup
-	err := k.lookup(ctx, k.routingTable.self.Id, discoveryOptions{
-		concurrency: k.alpha, retries: defaultRetries, bootstrap: false,
-	})
+	kb := k.routingTable.K()
+	nodes, err := k.routingTable.FindNear(ID, kb)
 	if err != nil {
 		return pb.Node{}, err
 	}
 
-	// k.routingTable.getNodesFromIDsBytes()
-	return pb.Node{}, nil
+	lookup := newPeerDiscovery(nodes, k.nodeClient, ID, discoveryOptions{
+		concurrency: k.alpha, retries: defaultRetries, bootstrap: false, bootstrapNodes: k.bootstrapNodes,
+	})
+
+	target, err := lookup.Run(ctx)
+	if err != nil {
+		return pb.Node{}, err
+	}
+	if target == nil {
+		return pb.Node{}, NodeNotFound.New("")
+	}
+	return *target, nil
 }
 
 // ListenAndServe connects the kademlia node to the network and listens for incoming requests

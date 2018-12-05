@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -27,6 +28,7 @@ func (c cacheConfig) open() (*overlay.Cache, error) {
 	}
 
 	var db storage.KeyValueStore
+	var sdb *statdb.StatDB
 
 	switch dburl.Scheme {
 	case "bolt":
@@ -47,6 +49,10 @@ func (c cacheConfig) open() (*overlay.Cache, error) {
 
 	// add logger
 	db = storelogger.New(zap.L(), db)
+	sdb, err = statdb.NewStatDB("postgres", dburl.String(), zap.L())
+	if err != nil {
+		return nil, Error.New("statdb error: %s", err)
+	}
 
-	return overlay.NewOverlayCache(db, nil, nil), nil
+	return overlay.NewOverlayCache(db, nil, sdb), nil
 }

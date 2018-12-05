@@ -4,17 +4,38 @@
 <template>
     <div class="empty-state">
         <div class="empty-state__wrap">
-            <h1>Select or create your project</h1>
-            <p></p>
-            <img src="../../../static/images/projectDetails/emptyState.svg" alt="">
+            <h1>{{mainTitle}}</h1>
+            <p>{{additionalText}}</p>
+            <Button 
+                v-if="isButtonShown" 
+                @onPress="onButtonClick"
+                :label="buttonLabel"
+                width="170px" />
+            <div class="empty-state__wrap__img" v-html="imageSource"></div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
+    import Button from '@/components/common/Button.vue';
 
-    @Component({})
+    @Component({
+        props: {
+            mainTitle: String,
+            additionalText: String,
+            imageSource: String,
+            isButtonShown: {
+                type: Boolean,
+                default: false
+            },
+            onButtonClick: Function,
+            buttonLabel: String
+        },
+        components: {
+            Button
+        }
+    })
 
     export default class EmptyStateProjectArea extends Vue {}
 </script>
@@ -28,6 +49,11 @@
 
         &__wrap {
              text-align: center;
+             margin-top: 30px;
+
+             &__img {
+                 margin-top: 90px;
+             }
 
             h1 {
                 font-family: 'montserrat_bold';

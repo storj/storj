@@ -41,18 +41,20 @@ func newPeerDiscovery(nodes []*pb.Node, client node.Client, target storj.NodeID,
 	return discovery
 }
 
-func (lookup *peerDiscovery) Run(ctx context.Context) error {
+func (lookup *peerDiscovery) Run(ctx context.Context) (target *pb.Node, err error) {
 	if lookup.queue.Len() == 0 {
-		return nil // TODO: should we return an error here?
+		return nil, nil // TODO: should we return an error here?
 	}
-
-	wg := sync.WaitGroup{}
 
 	// protected by `lookup.cond.L`
 	working := 0
 	allDone := false
+	target = nil
 
+	wg := sync.WaitGroup{}
 	wg.Add(lookup.opts.concurrency)
+	defer wg.Wait()
+
 	for i := 0; i < lookup.opts.concurrency; i++ {
 		go func() {
 			defer wg.Done()
@@ -68,8 +70,10 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 					}
 
 					next = lookup.queue.Closest()
-					if !lookup.opts.bootstrap && next.Id == lookup.target {
+
+					if !lookup.opts.bootstrap && next != nil && next.Id == lookup.target {
 						allDone = true
+						target = next
 						break // closest node is the target and is already in routing table (i.e. no lookup required)
 					}
 
@@ -84,6 +88,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 				lookup.cond.L.Unlock()
 
 				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target})
+
 				if err != nil {
 					// TODO: reenable retry after fixing logic
 					// ok := lookup.queue.Reinsert(lookup.target, next, lookup.opts.retries)
@@ -91,7 +96,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 					if !ok {
 						zap.S().Errorf(
 							"Error occurred during lookup of %s :: %s :: error = %s",
-							lookup.target.String(),
+							lookup.target,
 							ErrMaxRetries.New("%s", next.Id),
 							err.Error(),
 						)
@@ -109,8 +114,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 		}()
 	}
 
-	wg.Wait()
-	return ctx.Err()
+	return target, ctx.Err()
 }
 
 func isDone(ctx context.Context) bool {

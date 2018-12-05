@@ -23,7 +23,7 @@
                     placeholder="Enter Company Name"
                     class="full-input"
                     width="100%"
-                    @setData="">
+                    @setData="setCompanyName">
                 </HeaderedInput>
                 <HeaderedInput 
                     label="Description" 

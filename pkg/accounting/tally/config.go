@@ -5,11 +5,12 @@ package tally
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/accounting"
+	dbManager "storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
@@ -31,7 +32,15 @@ func (c Config) initialize(ctx context.Context) (Tally, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newTally(zap.L(), db, pointerdb, overlay, kademlia, 0, c.Interval)
+	u, err := url.Parse(c.DatabaseURL)
+	if err != nil {
+		return nil, err
+	}
+	dbx, err := dbManager.NewDBManager(u.Scheme, u.Path)
+	if err != nil {
+		return nil, err
+	}
+	return newTally(zap.L(), db, dbx, pointerdb, overlay, kademlia, 0, c.Interval), nil
 }
 
 // Run runs the tally with configured values

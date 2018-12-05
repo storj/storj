@@ -77,13 +77,11 @@ export default class AccountButton extends Vue {}
         flex-direction: row;
         align-items: center;
         justify-content: flex-start;
-        width: 100%;
-        max-width: 190px;
+        width: max-content;
         height: 50px;
 
         &__user-name {
             margin-left: 12px;
-            width: 100px;
             font-family: 'montserrat_medium';
             font-size: 16px;
             line-height: 23px;
