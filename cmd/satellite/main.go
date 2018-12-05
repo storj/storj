@@ -182,7 +182,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
-	defer func(){
+	defer func() {
 		err := database.Close()
 		if err != nil {
 			fmt.Printf("error closing connection to master database on satellite: %+v\n", err)

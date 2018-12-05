@@ -7,15 +7,15 @@ import (
 	"context"
 	"time"
 
-	"go.uber.org/zap"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/bwagreement"
 )
 
 // Config contains configurable values for tally

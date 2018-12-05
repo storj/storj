@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"storj.io/storj/internal/migrate"
+	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -33,7 +34,7 @@ func NewDB(databaseURL string) (*DB, error) {
 }
 
 // BandwidthAgreement is a getter for bandwidth agreement repository
-func (db *DB) BandwidthAgreement() *bandwidthagreement {
+func (db *DB) BandwidthAgreement() bwagreement.DB {
 	return &bandwidthagreement{db: db.db}
 }
 

@@ -179,7 +179,7 @@ func (t *tally) Query(ctx context.Context) error {
 	if lastBwTally == nil {
 		t.logger.Info("Tally found no existing bandwith tracking data")
 		bwAgreements, err = t.bwAgreement.GetAgreements(ctx)
-	} else { 
+	} else {
 		bwAgreements, err = t.bwAgreement.GetAgreementsSince(ctx, lastBwTally.Value)
 	}
 	if len(bwAgreements) == 0 {
