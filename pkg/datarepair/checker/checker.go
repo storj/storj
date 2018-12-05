@@ -54,7 +54,7 @@ func (c *checker) Run(ctx context.Context) (err error) {
 	for {
 		err = c.identifyInjuredSegments(ctx)
 		if err != nil {
-			zap.L().Error("Checker failed", zap.Error(err))
+			c.logger.Error("Checker failed", zap.Error(err))
 		}
 
 		select {

@@ -3,8 +3,7 @@
 CREATE TABLE raws (
 	id INTEGER NOT NULL,
 	node_id TEXT NOT NULL,
-	start_time TIMESTAMP NOT NULL,
-	end_time TIMESTAMP NOT NULL,
+	interval_end_time TIMESTAMP NOT NULL,
 	data_total INTEGER NOT NULL,
 	data_type INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,

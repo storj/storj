@@ -3,8 +3,7 @@
 CREATE TABLE raws (
 	id bigserial NOT NULL,
 	node_id text NOT NULL,
-	start_time timestamp with time zone NOT NULL,
-	end_time timestamp with time zone NOT NULL,
+	interval_end_time timestamp with time zone NOT NULL,
 	data_total bigint NOT NULL,
 	data_type integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,

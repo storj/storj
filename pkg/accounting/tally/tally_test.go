@@ -40,8 +40,8 @@ func TestIdentifyActiveNodes(t *testing.T) {
 }
 
 func TestCategorize(t *testing.T) {
-	logger := zap.NewNop()
-	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
+	// logger := zap.NewNop()
+	// pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 
 	const N = 50
 	nodes := []*pb.Node{}
@@ -87,7 +87,7 @@ func TestTallyAtRestStorage(t *testing.T) {
 }
 
 func TestUpdateRawTable(t *testing.T) {
-
+	//TODO
 }
 
 func TestQueryNoAgreements(t *testing.T) {

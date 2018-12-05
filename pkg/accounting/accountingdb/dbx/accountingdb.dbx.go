@@ -275,8 +275,7 @@ func (obj *postgresDB) Schema() string {
 	return `CREATE TABLE raws (
 	id bigserial NOT NULL,
 	node_id text NOT NULL,
-	start_time timestamp with time zone NOT NULL,
-	end_time timestamp with time zone NOT NULL,
+	interval_end_time timestamp with time zone NOT NULL,
 	data_total bigint NOT NULL,
 	data_type integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -364,8 +363,7 @@ func (obj *sqlite3DB) Schema() string {
 	return `CREATE TABLE raws (
 	id INTEGER NOT NULL,
 	node_id TEXT NOT NULL,
-	start_time TIMESTAMP NOT NULL,
-	end_time TIMESTAMP NOT NULL,
+	interval_end_time TIMESTAMP NOT NULL,
 	data_total INTEGER NOT NULL,
 	data_type INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
@@ -450,14 +448,13 @@ nextval:
 }
 
 type Raw struct {
-	Id        int64
-	NodeId    string
-	StartTime time.Time
-	EndTime   time.Time
-	DataTotal int64
-	DataType  int
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Id              int64
+	NodeId          string
+	IntervalEndTime time.Time
+	DataTotal       int64
+	DataType        int
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 func (Raw) _Table() string { return "raws" }
@@ -501,41 +498,23 @@ func (f Raw_NodeId_Field) value() interface{} {
 
 func (Raw_NodeId_Field) _Column() string { return "node_id" }
 
-type Raw_StartTime_Field struct {
+type Raw_IntervalEndTime_Field struct {
 	_set   bool
 	_value time.Time
 }
 
-func Raw_StartTime(v time.Time) Raw_StartTime_Field {
-	return Raw_StartTime_Field{_set: true, _value: v}
+func Raw_IntervalEndTime(v time.Time) Raw_IntervalEndTime_Field {
+	return Raw_IntervalEndTime_Field{_set: true, _value: v}
 }
 
-func (f Raw_StartTime_Field) value() interface{} {
+func (f Raw_IntervalEndTime_Field) value() interface{} {
 	if !f._set {
 		return nil
 	}
 	return f._value
 }
 
-func (Raw_StartTime_Field) _Column() string { return "start_time" }
-
-type Raw_EndTime_Field struct {
-	_set   bool
-	_value time.Time
-}
-
-func Raw_EndTime(v time.Time) Raw_EndTime_Field {
-	return Raw_EndTime_Field{_set: true, _value: v}
-}
-
-func (f Raw_EndTime_Field) value() interface{} {
-	if !f._set {
-		return nil
-	}
-	return f._value
-}
-
-func (Raw_EndTime_Field) _Column() string { return "end_time" }
+func (Raw_IntervalEndTime_Field) _Column() string { return "interval_end_time" }
 
 type Raw_DataTotal_Field struct {
 	_set   bool
@@ -1020,28 +999,26 @@ func (obj *postgresImpl) Create_Aggregate(ctx context.Context,
 
 func (obj *postgresImpl) Create_Raw(ctx context.Context,
 	raw_node_id Raw_NodeId_Field,
-	raw_start_time Raw_StartTime_Field,
-	raw_end_time Raw_EndTime_Field,
+	raw_interval_end_time Raw_IntervalEndTime_Field,
 	raw_data_total Raw_DataTotal_Field,
 	raw_data_type Raw_DataType_Field) (
 	raw *Raw, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := raw_node_id.value()
-	__start_time_val := raw_start_time.value()
-	__end_time_val := raw_end_time.value()
+	__interval_end_time_val := raw_interval_end_time.value()
 	__data_total_val := raw_data_total.value()
 	__data_type_val := raw_data_type.value()
 	__created_at_val := __now
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO raws ( node_id, start_time, end_time, data_total, data_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING raws.id, raws.node_id, raws.start_time, raws.end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO raws ( node_id, interval_end_time, data_total, data_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __start_time_val, __end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val)
+	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val)
 
 	raw = &Raw{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __start_time_val, __end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val).Scan(&raw.Id, &raw.NodeId, &raw.StartTime, &raw.EndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val).Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1131,7 +1108,7 @@ func (obj *postgresImpl) Get_Raw_By_Id(ctx context.Context,
 	raw_id Raw_Id_Field) (
 	raw *Raw, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.start_time, raws.end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE raws.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE raws.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, raw_id.value())
@@ -1140,7 +1117,7 @@ func (obj *postgresImpl) Get_Raw_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	raw = &Raw{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&raw.Id, &raw.NodeId, &raw.StartTime, &raw.EndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1169,6 +1146,7 @@ func (obj *postgresImpl) Update_Timestamps_By_Name(ctx context.Context,
 		return nil, emptyUpdate()
 	}
 
+<<<<<<< HEAD
 	__args = append(__args, timestamps_name.value())
 
 	__values = append(__values, __args...)
@@ -1181,6 +1159,15 @@ func (obj *postgresImpl) Update_Timestamps_By_Name(ctx context.Context,
 	err = obj.driver.QueryRow(__stmt, __values...).Scan(&timestamps.Name, &timestamps.Value)
 	if err == sql.ErrNoRows {
 		return nil, nil
+=======
+	for __rows.Next() {
+		raw := &Raw{}
+		err = __rows.Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, raw)
+>>>>>>> eaefe780... wip
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
@@ -1230,7 +1217,7 @@ func (obj *postgresImpl) Update_Raw_By_Id(ctx context.Context,
 	raw *Raw, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE raws SET "), __sets, __sqlbundle_Literal(" WHERE raws.id = ? RETURNING raws.id, raws.node_id, raws.start_time, raws.end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE raws SET "), __sets, __sqlbundle_Literal(" WHERE raws.id = ? RETURNING raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -1250,7 +1237,7 @@ func (obj *postgresImpl) Update_Raw_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	raw = &Raw{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&raw.Id, &raw.NodeId, &raw.StartTime, &raw.EndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -1417,27 +1404,25 @@ func (obj *sqlite3Impl) Create_Aggregate(ctx context.Context,
 
 func (obj *sqlite3Impl) Create_Raw(ctx context.Context,
 	raw_node_id Raw_NodeId_Field,
-	raw_start_time Raw_StartTime_Field,
-	raw_end_time Raw_EndTime_Field,
+	raw_interval_end_time Raw_IntervalEndTime_Field,
 	raw_data_total Raw_DataTotal_Field,
 	raw_data_type Raw_DataType_Field) (
 	raw *Raw, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := raw_node_id.value()
-	__start_time_val := raw_start_time.value()
-	__end_time_val := raw_end_time.value()
+	__interval_end_time_val := raw_interval_end_time.value()
 	__data_total_val := raw_data_total.value()
 	__data_type_val := raw_data_type.value()
 	__created_at_val := __now
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO raws ( node_id, start_time, end_time, data_total, data_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO raws ( node_id, interval_end_time, data_total, data_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __start_time_val, __end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val)
+	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __start_time_val, __end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val)
+	__res, err := obj.driver.Exec(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1531,7 +1516,7 @@ func (obj *sqlite3Impl) Get_Raw_By_Id(ctx context.Context,
 	raw_id Raw_Id_Field) (
 	raw *Raw, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.start_time, raws.end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE raws.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE raws.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, raw_id.value())
@@ -1540,7 +1525,7 @@ func (obj *sqlite3Impl) Get_Raw_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	raw = &Raw{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&raw.Id, &raw.NodeId, &raw.StartTime, &raw.EndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1554,7 +1539,11 @@ func (obj *sqlite3Impl) Update_Timestamps_By_Name(ctx context.Context,
 	timestamps *Timestamps, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
+<<<<<<< HEAD
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE timestamps SET "), __sets, __sqlbundle_Literal(" WHERE timestamps.name = ?")}}
+=======
+	var __embed_stmt = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE raws.node_id = ?")
+>>>>>>> eaefe780... wip
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -1583,6 +1572,7 @@ func (obj *sqlite3Impl) Update_Timestamps_By_Name(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
+<<<<<<< HEAD
 	var __embed_stmt_get = __sqlbundle_Literal("SELECT timestamps.name, timestamps.value FROM timestamps WHERE timestamps.name = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
@@ -1591,6 +1581,15 @@ func (obj *sqlite3Impl) Update_Timestamps_By_Name(ctx context.Context,
 	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&timestamps.Name, &timestamps.Value)
 	if err == sql.ErrNoRows {
 		return nil, nil
+=======
+	for __rows.Next() {
+		raw := &Raw{}
+		err = __rows.Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, raw)
+>>>>>>> eaefe780... wip
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
@@ -1675,12 +1674,12 @@ func (obj *sqlite3Impl) Update_Raw_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.start_time, raws.end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE raws.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE raws.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&raw.Id, &raw.NodeId, &raw.StartTime, &raw.EndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -1782,13 +1781,13 @@ func (obj *sqlite3Impl) getLastRaw(ctx context.Context,
 	pk int64) (
 	raw *Raw, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.start_time, raws.end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	raw = &Raw{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&raw.Id, &raw.NodeId, &raw.StartTime, &raw.EndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1913,8 +1912,7 @@ func (rx *Rx) All_Rollup_By_NodeId(ctx context.Context,
 
 func (rx *Rx) Create_Raw(ctx context.Context,
 	raw_node_id Raw_NodeId_Field,
-	raw_start_time Raw_StartTime_Field,
-	raw_end_time Raw_EndTime_Field,
+	raw_interval_end_time Raw_IntervalEndTime_Field,
 	raw_data_total Raw_DataTotal_Field,
 	raw_data_type Raw_DataType_Field) (
 	raw *Raw, err error) {
@@ -1922,7 +1920,7 @@ func (rx *Rx) Create_Raw(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Raw(ctx, raw_node_id, raw_start_time, raw_end_time, raw_data_total, raw_data_type)
+	return tx.Create_Raw(ctx, raw_node_id, raw_interval_end_time, raw_data_total, raw_data_type)
 
 }
 
@@ -2024,6 +2022,7 @@ func (rx *Rx) Update_Rollup_By_Id(ctx context.Context,
 	return tx.Update_Rollup_By_Id(ctx, rollup_id, update)
 }
 
+<<<<<<< HEAD
 func (rx *Rx) Update_Timestamps_By_Name(ctx context.Context,
 	timestamps_name Timestamps_Name_Field,
 	update Timestamps_Update_Fields) (
@@ -2034,6 +2033,30 @@ func (rx *Rx) Update_Timestamps_By_Name(ctx context.Context,
 	}
 	return tx.Update_Timestamps_By_Name(ctx, timestamps_name, update)
 }
+=======
+type Methods interface {
+	All_Raw_By_NodeId(ctx context.Context,
+		raw_node_id Raw_NodeId_Field) (
+		rows []*Raw, err error)
+
+	All_Rollup_By_NodeId(ctx context.Context,
+		rollup_node_id Rollup_NodeId_Field) (
+		rows []*Rollup, err error)
+
+	Create_Raw(ctx context.Context,
+		raw_node_id Raw_NodeId_Field,
+		raw_interval_end_time Raw_IntervalEndTime_Field,
+		raw_data_total Raw_DataTotal_Field,
+		raw_data_type Raw_DataType_Field) (
+		raw *Raw, err error)
+
+	Create_Rollup(ctx context.Context,
+		rollup_node_id Rollup_NodeId_Field,
+		rollup_start_time Rollup_StartTime_Field,
+		rollup_interval Rollup_Interval_Field,
+		rollup_data_type Rollup_DataType_Field) (
+		rollup *Rollup, err error)
+>>>>>>> eaefe780... wip
 
 type Methods interface {
 	Create_Aggregate(ctx context.Context,

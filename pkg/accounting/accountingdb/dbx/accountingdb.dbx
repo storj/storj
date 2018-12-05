@@ -30,8 +30,7 @@ model raw (
 
   field id serial64
   field node_id    text
-  field start_time timestamp
-  field end_time   timestamp
+  field interval_end_time   timestamp
   field data_total int64
   field data_type  int
   field created_at timestamp ( autoinsert )

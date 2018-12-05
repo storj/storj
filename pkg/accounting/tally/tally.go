@@ -36,7 +36,6 @@ type tally struct {
 	limit      int
 	logger     *zap.Logger
 	ticker     *time.Ticker
-	nodes      map[string]int64
 	nodeClient node.Client
 	db         *accountingdb.Database
 }
@@ -47,7 +46,7 @@ func newTally(ctx context.Context, logger *zap.Logger, db *accountingdb.Database
 		return nil, Error.Wrap(err)
 	}
 	self := rt.Local()
-	identity, err := node.NewFullIdentity(ctx, 12, 4) //TODO: what values go here?
+	identity, err := node.NewFullIdentity(ctx, 12, 4) //Q: is there any way to get an existing identity?
 	client, err := node.NewNodeClient(identity, self, kademlia)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -59,7 +58,6 @@ func newTally(ctx context.Context, logger *zap.Logger, db *accountingdb.Database
 		limit:      limit,
 		logger:     logger,
 		ticker:     time.NewTicker(interval),
-		nodes:      make(map[string]int64),
 		nodeClient: client,
 		db:         db,
 	}, nil
@@ -72,16 +70,12 @@ func (t *tally) Run(ctx context.Context) (err error) {
 	for {
 		err = t.identifyActiveNodes(ctx)
 		if err != nil {
-			Error.Wrap(err)
+			t.logger.Error("identifyActiveNodes failed", zap.Error(err))
 		}
 
 		select {
 		case <-t.ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the tally is canceled via context
-			err = t.db.Close()
-			if err != nil {
-				Error.Wrap(err)
-			}
 			return ctx.Err()
 		}
 	}
@@ -90,7 +84,7 @@ func (t *tally) Run(ctx context.Context) (err error) {
 // identifyActiveNodes iterates through pointerdb and identifies nodes that have storage on them
 func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
+	var nodeData = make(map[string]int64)
 	t.logger.Debug("entering pointerdb iterate within identifyActiveNodes")
 	err = t.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
 		func(it storage.Iterator) error {
@@ -110,11 +104,11 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 				for _, p := range pieces {
 					nodeIDs = append(nodeIDs, p.NodeId)
 				}
-				online, err := t.categorize(ctx, nodeIDs)
+				online, err := t.categorize(ctx, nodeIDs, nodeData)
 				if err != nil {
 					return Error.Wrap(err)
 				}
-				err = t.tallyAtRestStorage(ctx, pointer, online)
+				err = t.tallyAtRestStorage(ctx, pointer, online, nodeData)
 				if err != nil {
 					return Error.Wrap(err)
 				}
@@ -122,10 +116,10 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 			return nil
 		},
 	)
-	return t.updateRawTable(ctx)
+	return t.updateRawTable(ctx, nodeData)
 }
 
-func (t *tally) categorize(ctx context.Context, nodeIDs []dht.NodeID) (online []*pb.Node, err error) {
+func (t *tally) categorize(ctx context.Context, nodeIDs []dht.NodeID, nodeData map[string]int64) (online []*pb.Node, err error) {
 	t.logger.Debug("entering categorize")
 
 	responses, err := t.overlay.BulkLookup(ctx, utils.NodeIDsToLookupRequests(nodeIDs))
@@ -137,13 +131,13 @@ func (t *tally) categorize(ctx context.Context, nodeIDs []dht.NodeID) (online []
 		if n != nil {
 			online = append(online, n)
 		} else {
-			t.nodes[n.Id] = 0
+			nodeData[n.Id] = 0
 		}
 	}
 	return online, nil
 }
 
-func (t *tally) tallyAtRestStorage(ctx context.Context, pointer *pb.Pointer, nodes []*pb.Node) error {
+func (t *tally) tallyAtRestStorage(ctx context.Context, pointer *pb.Pointer, nodes []*pb.Node, nodeData map[string]int64) error {
 	t.logger.Debug("entering tallyAtRestStorage")
 	segmentSize := pointer.GetSegmentSize()
 	minReq := pointer.Remote.Redundancy.GetMinReq()
@@ -154,23 +148,18 @@ func (t *tally) tallyAtRestStorage(ctx context.Context, pointer *pb.Pointer, nod
 	for _, n := range nodes {
 		connected, err := t.nodeClient.Ping(ctx, *n)
 		if connected {
-			val, ok := t.nodes[n.Id]
-			if ok {
-				t.nodes[n.Id] = val + pieceSize
-			} else {
-				t.nodes[n.Id] = pieceSize
-			}
+			nodeData[n.Id] += pieceSize
 		}
 		if !connected || err != nil {
-			Error.New("ping failed for node: " + n.Id)
-			t.nodes[n.Id] = 0
+			t.logger.Error("ping failed for node: " + n.Id)
+			nodeData[n.Id] = 0
 			continue
 		}
 	}
 	return nil
 }
 
-func (t *tally) updateRawTable(ctx context.Context) error {
+func (t *tally) updateRawTable(ctx context.Context, nodeData map[string]int64) error {
 	t.logger.Debug("entering updateRawTable")
 	//TODO
 	return nil

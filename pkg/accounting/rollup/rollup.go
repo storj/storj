@@ -38,16 +38,12 @@ func (r *rollup) Run(ctx context.Context) (err error) {
 	for {
 		err = r.Query(ctx)
 		if err != nil {
-			Error.Wrap(err)
+			r.logger.Error("Query failed", zap.Error(err))
 		}
 
 		select {
 		case <-r.ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the rollup is canceled via context
-			err = r.db.Close()
-			if err != nil {
-				Error.Wrap(err)
-			}
 			return ctx.Err()
 		}
 	}
