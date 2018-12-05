@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"

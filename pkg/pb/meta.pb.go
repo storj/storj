@@ -66,8 +66,8 @@ func (m *SerializableMeta) GetUserDefined() map[string]string {
 }
 
 func init() {
-	proto.RegisterType((*SerializableMeta)(nil), "pb.SerializableMeta")
-	proto.RegisterMapType((map[string]string)(nil), "pb.SerializableMeta.UserDefinedEntry")
+	proto.RegisterType((*SerializableMeta)(nil), "objects.SerializableMeta")
+	proto.RegisterMapType((map[string]string)(nil), "objects.SerializableMeta.UserDefinedEntry")
 }
 
 func init() { proto.RegisterFile("meta.proto", fileDescriptor_meta_12afffbb4ed1a0bb) }

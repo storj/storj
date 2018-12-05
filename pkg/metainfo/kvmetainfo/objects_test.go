@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
 )
@@ -74,7 +73,8 @@ func TestCreateObject(t *testing.T) {
 
 			info := obj.Info()
 
-			assert.Equal(t, TestBucket, info.Bucket, errTag)
+			assert.Equal(t, TestBucket, info.Bucket.Name, errTag)
+			assert.Equal(t, storj.AESGCM, info.Bucket.PathCipher, errTag)
 			assert.Equal(t, TestFile, info.Path, errTag)
 			assert.EqualValues(t, 0, info.Size, errTag)
 			assert.Equal(t, tt.expectedRS, info.RedundancyScheme, errTag)
@@ -107,6 +107,8 @@ func TestGetObject(t *testing.T) {
 		object, err := db.GetObject(ctx, bucket.Name, TestFile)
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestFile, object.Path)
+			assert.Equal(t, TestBucket, object.Bucket.Name)
+			assert.Equal(t, storj.AESGCM, object.Bucket.PathCipher)
 		}
 	})
 }
@@ -140,23 +142,12 @@ func TestGetObjectStream(t *testing.T) {
 		_, err = db.GetObjectStream(ctx, "non-existing-bucket", "small-file")
 		assert.True(t, storj.ErrBucketNotFound.Has(err))
 
-		_, err = db.GetObject(ctx, bucket.Name, "non-existing-file")
+		_, err = db.GetObjectStream(ctx, bucket.Name, "non-existing-file")
 		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
-		stream, err := db.GetObjectStream(ctx, bucket.Name, "empty-file")
-		if assert.NoError(t, err) {
-			assertStream(ctx, t, stream, db.streams, "empty-file", 0, []byte{})
-		}
-
-		stream, err = db.GetObjectStream(ctx, bucket.Name, "small-file")
-		if assert.NoError(t, err) {
-			assertStream(ctx, t, stream, db.streams, "small-file", 4, []byte("test"))
-		}
-
-		stream, err = db.GetObjectStream(ctx, bucket.Name, "large-file")
-		if assert.NoError(t, err) {
-			assertStream(ctx, t, stream, db.streams, "large-file", int64(32*memory.KB), data)
-		}
+		assertStream(ctx, t, db, bucket, "empty-file", 0, []byte{})
+		assertStream(ctx, t, db, bucket, "small-file", 4, []byte("test"))
+		assertStream(ctx, t, db, bucket, "large-file", int64(32*memory.KB), data)
 	})
 }
 
@@ -171,7 +162,7 @@ func upload(ctx context.Context, t *testing.T, db *DB, bucket storj.Bucket, path
 		return
 	}
 
-	upload := stream.NewUpload(ctx, str, db.streams, bucket.PathCipher)
+	upload := stream.NewUpload(ctx, str, db.streams)
 
 	_, err = upload.Write(data)
 	if !assert.NoError(t, err) {
@@ -189,8 +180,15 @@ func upload(ctx context.Context, t *testing.T, db *DB, bucket storj.Bucket, path
 	}
 }
 
-func assertStream(ctx context.Context, t *testing.T, readOnly storj.ReadOnlyStream, streams streams.Store, path storj.Path, size int64, content []byte) {
+func assertStream(ctx context.Context, t *testing.T, db *DB, bucket storj.Bucket, path storj.Path, size int64, content []byte) {
+	readOnly, err := db.GetObjectStream(ctx, bucket.Name, path)
+	if !assert.NoError(t, err) {
+		return
+	}
+
 	assert.Equal(t, path, readOnly.Info().Path)
+	assert.Equal(t, TestBucket, readOnly.Info().Bucket.Name)
+	assert.Equal(t, storj.AESGCM, readOnly.Info().Bucket.PathCipher)
 
 	segments, more, err := readOnly.Segments(ctx, 0, 0)
 	if !assert.NoError(t, err) {
@@ -210,7 +208,7 @@ func assertStream(ctx context.Context, t *testing.T, readOnly storj.ReadOnlyStre
 		assertInlineSegment(t, segments[0], content)
 	}
 
-	download := stream.NewDownload(ctx, readOnly, streams)
+	download := stream.NewDownload(ctx, readOnly, db.streams)
 	defer func() {
 		err = download.Close()
 		assert.NoError(t, err)
@@ -647,7 +645,11 @@ func TestListObjects(t *testing.T) {
 
 			if assert.NoError(t, err, errTag) {
 				assert.Equal(t, tt.more, list.More, errTag)
-				assert.Equal(t, tt.result, getObjectPaths(list), errTag)
+				for i, item := range list.Items {
+					assert.Equal(t, tt.result[i], item.Path, errTag)
+					assert.Equal(t, TestBucket, item.Bucket.Name, errTag)
+					assert.Equal(t, storj.Unencrypted, item.Bucket.PathCipher, errTag)
+				}
 			}
 		}
 	})
@@ -670,14 +672,4 @@ func optionsRecursive(prefix, cursor string, direction storj.ListDirection, limi
 		Limit:     limit,
 		Recursive: true,
 	}
-}
-
-func getObjectPaths(list storj.ObjectList) []string {
-	names := make([]string, len(list.Items))
-
-	for i, item := range list.Items {
-		names[i] = item.Path
-	}
-
-	return names
 }

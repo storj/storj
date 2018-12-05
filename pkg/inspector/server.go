@@ -8,7 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
@@ -29,7 +29,7 @@ var (
 type Server struct {
 	dht      dht.DHT
 	cache    *overlay.Cache
-	statdb   *statdb.Server
+	statdb   *statdb.StatDB
 	logger   *zap.Logger
 	metrics  *monkit.Registry
 	identity *provider.FullIdentity
@@ -45,7 +45,10 @@ func (srv *Server) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	kadNodes := srv.dht.Seen()
+	kadNodes, err := srv.dht.GetNodes(ctx, srv.identity.ID, 0)
+	if err != nil {
+		return nil, err
+	}
 
 	return &pb.CountNodesResponse{
 		Kademlia: int64(len(kadNodes)),
@@ -63,13 +66,15 @@ func (srv *Server) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest) (*
 	if err != nil {
 		return nil, err
 	}
+	// TODO(bryanchriswhite): should use bucketID type
 	nodeIDs, err := storj.NodeIDsFromBytes(b.ByteSlices())
 	if err != nil {
 		return nil, err
 	}
 	return &pb.GetBucketsResponse{
 		Total: int64(len(b)),
-		Ids:   nodeIDs,
+		// TODO(bryanchriswhite): should use bucketID type
+		Ids: nodeIDs,
 	}, nil
 }
 
@@ -79,6 +84,7 @@ func (srv *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb
 	if err != nil {
 		return nil, err
 	}
+	// TODO(bryanchriswhite): should use bucketID type
 	bucket, ok := rt.GetBucket(req.Id)
 	if !ok {
 		return &pb.GetBucketResponse{}, ServerError.New("GetBuckets returned non-OK response")
@@ -120,6 +126,22 @@ func (srv *Server) PingNode(ctx context.Context, req *pb.PingNodeRequest) (*pb.P
 	return res, nil
 }
 
+// LookupNode triggers a Kademlia lookup and returns the node the network found.
+func (srv *Server) LookupNode(ctx context.Context, req *pb.LookupNodeRequest) (*pb.LookupNodeResponse, error) {
+	id, err := storj.NodeIDFromString(req.Id)
+	if err != nil {
+		return &pb.LookupNodeResponse{}, err
+	}
+	node, err := srv.dht.FindNode(ctx, id)
+	if err != nil {
+		return &pb.LookupNodeResponse{}, err
+	}
+
+	return &pb.LookupNodeResponse{
+		Node: &node,
+	}, nil
+}
+
 // ---------------------
 // StatDB commands:
 // ---------------------
@@ -135,9 +157,10 @@ func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.G
 	}
 
 	return &pb.GetStatsResponse{
-		AuditRatio:  res.Stats.AuditSuccessRatio,
-		UptimeRatio: res.Stats.UptimeRatio,
 		AuditCount:  res.Stats.AuditCount,
+		AuditRatio:  res.Stats.AuditSuccessRatio,
+		UptimeCount: res.Stats.UptimeCount,
+		UptimeRatio: res.Stats.UptimeRatio,
 	}, nil
 }
 
@@ -157,6 +180,9 @@ func (srv *Server) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) 
 		Stats: stats,
 	}
 	_, err := srv.statdb.Create(ctx, createReq)
+	if err != nil {
+		return nil, err
+	}
 
-	return &pb.CreateStatsResponse{}, err
+	return &pb.CreateStatsResponse{}, nil
 }

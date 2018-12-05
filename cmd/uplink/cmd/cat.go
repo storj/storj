@@ -37,15 +37,10 @@ func catMain(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("No bucket specified, use format sj://bucket/")
 	}
 
-	bs, err := cfg.BucketStore(ctx)
-	if err != nil {
-		return err
-	}
-
 	dst, err := fpath.New("-")
 	if err != nil {
 		return err
 	}
 
-	return download(ctx, bs, src, dst, false)
+	return download(ctx, src, dst, false)
 }

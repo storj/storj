@@ -16,18 +16,21 @@ following:
    Export the version of the network you want to run. Latest should be ok, but
    if you're testing something else, set the version here. ex: `c6cd912-all-in-one-go1.10`
    Usable images should be pushed to the Docker Hub:
-   - https://hub.docker.com/r/storjlabs/storage-node/tags/
+   - https://hub.docker.com/r/storjlabs/gateway/tags/
+   - https://hub.docker.com/r/storjlabs/storagenode/tags/
    - https://hub.docker.com/r/storjlabs/satellite/tags/
-   - https://hub.docker.com/r/storjlabs/uplink/tags/
 
-3. `docker-compose up -d storage-node`
-   Create the first storage node.
-
-4. `scripts/fix-mock-overlay`
-   Fix the mock-overlay flag for the satellite. This is needed until the overlay
-   network is populated from kademlia correctly.
-
-5. `docker-compose up satellite uplink`
-   Bring up the satellite and uplink
+5. `docker-compose up satellite storagenode gateway`
+   Bring up the gateway, satellite, and 1 storagenode
 
 6. Visit http://localhost:7777 or use the aws tool with `--endpoint=http://localhost:7777`
+
+Troubleshooting
+---------------
+
+Soemtimes, the overlay cache gets confused and has old nodes in it. This will
+need to be cleared. It's easiest to just remove the redis container completely.
+```
+docker-compose stop redis
+docker-compose rm redis
+```

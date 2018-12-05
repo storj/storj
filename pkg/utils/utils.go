@@ -33,7 +33,18 @@ func ParseURL(s string) (*url.URL, error) {
 			Path:   strings.TrimPrefix(s, "bolt://"),
 		}, nil
 	}
-
+	if strings.HasPrefix(s, "sqlite3://") {
+		return &url.URL{
+			Scheme: "sqlite3",
+			Path:   strings.TrimPrefix(s, "sqlite3://"),
+		}, nil
+	}
+	if strings.HasPrefix(s, "postgres://") {
+		return &url.URL{
+			Scheme: "postgres",
+			Path:   s,
+		}, nil
+	}
 	return url.Parse(s)
 }
 

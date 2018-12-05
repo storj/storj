@@ -14,6 +14,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -59,11 +60,12 @@ var (
 		BasePath string `default:"$CONFDIR" help:"base path for setup"`
 	}
 
-	defaultConfDir = "$HOME/.storj/storagenode"
+	defaultConfDir string
 	defaultDiagDir = "$HOME/.storj/capt/f37/data"
 )
 
 func init() {
+	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)

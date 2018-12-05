@@ -8,10 +8,8 @@ import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -679,9 +677,8 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// StatDBClient is the client API for StatDB service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+// Client API for StatDB service
+
 type StatDBClient interface {
 	// Create a db entry for the provided storagenode ID
 	Create(ctx context.Context, in *CreateRequest, opts ...grpc.CallOption) (*CreateResponse, error)
@@ -781,7 +778,8 @@ func (c *statDBClient) CreateEntryIfNotExists(ctx context.Context, in *CreateEnt
 	return out, nil
 }
 
-// StatDBServer is the server API for StatDB service.
+// Server API for StatDB service
+
 type StatDBServer interface {
 	// Create a db entry for the provided storagenode ID
 	Create(context.Context, *CreateRequest) (*CreateResponse, error)

@@ -5,7 +5,7 @@ FROM storjlabs/golang as build-env
 
 # final stage
 FROM alpine
-ENV CONF_PATH=/root/.storj/storagenode/config.yaml \
+ENV CONF_PATH=/root/.local/share/storj/storagenode/config.yaml \
     SATELLITE_ADDR=
 EXPOSE 7776/udp \
        7777
