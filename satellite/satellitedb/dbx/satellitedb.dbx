@@ -1,4 +1,6 @@
-// dbx.v1 golang satellitedb.dbx .
+// dbx.v1 golang irreparabledb.dbx .
+model irreparabledb (
+	key segmentpath
 
 model bwagreement (
 	key signature 

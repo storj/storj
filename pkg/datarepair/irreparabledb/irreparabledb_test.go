@@ -14,6 +14,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/datarepair/irreparabledb"
+	"storj.io/storj/satellite/satellitedb"
 )
 
 const (
@@ -34,11 +35,16 @@ func TestPostgres(t *testing.T) {
 	defer ctx.Cleanup()
 
 	// creating in-memory db and opening connection
-	irrdb, err := irreparabledb.New(*testPostgres)
+	db, err := satellitedb.NewDB(*testPostgres)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ctx.Check(irrdb.Close)
+	defer ctx.Check(db.Close)
+
+	_ = db.CreateTables()
+	//assert.NoError(t, err)
+
+	irrdb := irreparabledb.New(db.Irreparable())
 
 	testDatabase(ctx, t, irrdb)
 }
@@ -48,11 +54,16 @@ func TestSqlite3(t *testing.T) {
 	defer ctx.Cleanup()
 
 	// creating in-memory db and opening connection
-	irrdb, err := irreparabledb.New("sqlite3://file::memory:?mode=memory&cache=shared")
+	db, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ctx.Check(irrdb.Close)
+	defer ctx.Check(db.Close)
+
+	err = db.CreateTables()
+	assert.NoError(t, err)
+
+	irrdb := irreparabledb.New(db.Irreparable())
 
 	testDatabase(ctx, t, irrdb)
 }

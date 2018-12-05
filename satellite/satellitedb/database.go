@@ -71,6 +71,11 @@ func (db *DB) BandwidthAgreement() bwagreement.DB {
 // 	return &accountingDB{db: db.db}
 // }
 
+// Irreparable is a getter for IrreparableDB repository
+func (db *DB) Irreparable() irreparabledb.IrreparableDB {
+	return &irreparable{db: db.db}
+}
+
 // CreateTables is a method for creating all tables for database
 func (db *DB) CreateTables() error {
 	return migrate.Create("database", db.db)
