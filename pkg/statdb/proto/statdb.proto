@@ -13,8 +13,8 @@ service StatDB {
   rpc Create(CreateRequest) returns (CreateResponse);
   // Get uses a storagenode ID to get that storagenode's stats
   rpc Get(GetRequest) returns (GetResponse);
-  // FindValidNodes gets a subset of storagenodes that fit minimum reputation args
-  rpc FindValidNodes(FindValidNodesRequest) returns (FindValidNodesResponse);
+  // FindInvalidNodes gets a subset of storagenodes that fail to meet minimum reputation args
+  rpc FindInvalidNodes(FindInvalidNodesRequest) returns (FindInvalidNodesResponse);
   // Update updates all stats for a single storagenode
   rpc Update(UpdateRequest) returns (UpdateResponse);
   // UpdateUptime updates uptime stats for a single storagenode
@@ -49,16 +49,15 @@ message GetResponse {
   node.NodeStats stats = 1;
 }
 
-// FindValidNodesRequest is a request message for the FindValidNodes rpc call
-message FindValidNodesRequest {
+// FindInvalidNodesRequest is a request message for the FindInvalidNodes rpc call
+message FindInvalidNodesRequest {
   repeated bytes node_ids = 1 [(gogoproto.customtype) = "NodeID"];
-  node.NodeStats min_stats = 2;
+  node.NodeStats max_stats = 2;
 }
 
-// FindValidNodesResponse is a response message for the FindValidNodes rpc call
-message FindValidNodesResponse {
-  repeated bytes passed_ids = 1 [(gogoproto.customtype) = "NodeID"];
-  repeated bytes failed_ids = 2 [(gogoproto.customtype) = "NodeID"];
+// FindInvalidNodesResponse is a response message for the FindInvalidNodes rpc call
+message FindInvalidNodesResponse {
+  repeated bytes invalid_ids = 1 [(gogoproto.customtype) = "NodeID"];
 }
 
 // UpdateRequest is a request message for the Update rpc call
