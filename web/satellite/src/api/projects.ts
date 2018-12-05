@@ -7,6 +7,8 @@ import gql from "graphql-tag";
 // Performs graqhQL request.
 // Throws an exception if error occurs
 export async function createProject(project: Project): Promise<any> {
+    console.log("in api", project);
+
     let response = await apollo.mutate(
         {
             mutation: gql(`
@@ -15,6 +17,7 @@ export async function createProject(project: Project): Promise<any> {
                         input: {
                             name: "${project.name}",
                             description: "${project.description}",
+                            companyName: "${project.companyName}",
                             isTermsAccepted: ${project.isTermsAccepted},
                         }
                     )
@@ -46,6 +49,7 @@ export async function fetchProjects(): Promise<any> {
                         description
                         createdAt            
                         ownerName           
+                        companyName           
                         isTermsAccepted
                     }
                 }`

@@ -12,7 +12,7 @@
                 </div>
                 <div class="project-details-info-container__name-container">
                     <h2>Company / Organization</h2>
-                    <h3>Name Project</h3>
+                    <h3>{{companyName}}</h3>
                 </div>
             </div>
             <div class="project-details-info-container">
@@ -126,6 +126,9 @@ import EmptyState from '@/components/projectDetails/EmptyStateProjectArea.vue'
             },
             description: function(): string {
                 return this.$store.getters.selectedProject.description;
+            },
+            companyName: function(): string {
+                return this.$store.getters.selectedProject.companyName;
             },
             projectApproval: function(): string {
                 let date = new Date(this.$store.getters.selectedProject.createdAt);

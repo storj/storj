@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
-	"fmt"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -16,7 +15,6 @@ import (
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/satellite/satelliteauth"
-	"storj.io/storj/pkg/utils"
 )
 
 // Service is handling accounts related logic
@@ -208,21 +206,13 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (*Project
 }
 
 // GetUsersProjects is a method for querying all projects
-func (s *Service) GetUsersProjects(ctx context.Context) ([]ProjectInfo, error) {
-	// TODO: parse id and query only users projects, not all
-
-	_, err := GetAuth(ctx)
+func (s *Service) GetUsersProjects(ctx context.Context) ([]Project, error) {
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: should return only users projects, not all
-	projects, err := s.store.Projects().GetAll(ctx)
-	if err != nil {
-		return nil, errs.New("Can not fetch projects!")
-	}
-
-	return s.projectsToProjectInfoSlice(ctx, projects)
+	return s.store.Projects().GetByUserID(ctx, auth.User.ID)
 }
 
 // CreateProject is a method for creating new project
@@ -239,11 +229,23 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 	project := &Project{
 		OwnerID:       &auth.User.ID,
 		Description:   projectInfo.Description,
+		CompanyName:   projectInfo.CompanyName,
 		Name:          projectInfo.Name,
 		TermsAccepted: 1, //TODO: get lat version of Term of Use
 	}
 
-	return s.store.Projects().Insert(ctx, project)
+	// For now we make this operations sequentially.
+	// But soon we will add functionality to be able to
+	// do any operations in transaction scope
+	prj, err := s.store.Projects().Insert(ctx, project)
+	if err != nil {
+		return nil, err
+	}
+
+	// Project owner is also a project member
+	_, err = s.store.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
+
+	return prj, err
 }
 
 // DeleteProject is a method for deleting project by id
@@ -355,52 +357,4 @@ func (s *Service) authorize(ctx context.Context, claims *satelliteauth.Claims) (
 	}
 
 	return user, nil
-}
-
-// projectToProjectInfo is used for creating ProjectInfo entity from Project struct
-func (s *Service) projectToProjectInfo(ctx context.Context, project *Project) (*ProjectInfo, error) {
-	if project == nil {
-		return nil, errs.New("project parameter is nil")
-	}
-
-	projInfo := &ProjectInfo{
-		ID:          project.ID,
-		Name:        project.Name,
-		Description: project.Description,
-		// TODO: create a better check for isTermsAccepted
-		IsTermsAccepted: true,
-		CreatedAt:       project.CreatedAt,
-	}
-
-	if project.OwnerID == nil {
-		return projInfo, nil
-	}
-
-	owner, err := s.store.Users().Get(ctx, *project.OwnerID)
-	if err != nil {
-		return projInfo, nil
-	}
-
-	projInfo.OwnerName = fmt.Sprintf("%s %s", owner.FirstName, owner.LastName)
-
-	return projInfo, nil
-}
-
-// projectsToProjectInfoSlice is used for creating []ProjectInfo entities from []Project struct
-func (s *Service) projectsToProjectInfoSlice(ctx context.Context, projects []Project) ([]ProjectInfo, error) {
-	var projectsInfo []ProjectInfo
-	var errors []error
-
-	// Generating []dbo from []dbx and collecting all errors
-	for _, project := range projects {
-		project, err := s.projectToProjectInfo(ctx, &project)
-		if err != nil {
-			errors = append(errors, err)
-			continue
-		}
-
-		projectsInfo = append(projectsInfo, *project)
-	}
-
-	return projectsInfo, utils.CombineErrors(errors...)
 }

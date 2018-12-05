@@ -7,14 +7,16 @@ declare type Project = {
     ownerName: string,
 
     name: string,
-    description: string
+    description: string,
+    companyName: string,
     isTermsAccepted: boolean,
-    createdAt: string
+    createdAt: string,
 
     isSelected: boolean,
 }
 
+// UpdateProjectModel is a type, used for updating project description
 declare type UpdateProjectModel = {
     id: string,
-    description: string
+    description: string,
 }

@@ -55,7 +55,8 @@ model project (
     field id             blob
     field owner_id       user.id   setnull ( nullable, updatable )
 
-    field name           text      ( updatable )
+    field name           text
+    field company_name   text
     field description    text      ( updatable )
     // stores last accepted version of terms of use
     field terms_accepted int       ( updatable )

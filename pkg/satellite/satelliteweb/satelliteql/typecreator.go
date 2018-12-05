@@ -53,13 +53,13 @@ func (c *TypeCreator) Create(service *satellite.Service) error {
 		return err
 	}
 
-	c.project = graphqlProject()
-	if err := c.project.Error(); err != nil {
+	c.projectInput = graphqlProjectInput()
+	if err := c.projectInput.Error(); err != nil {
 		return err
 	}
 
-	c.projectInput = graphqlProjectInput()
-	if err := c.projectInput.Error(); err != nil {
+	c.project = graphqlProject(service)
+	if err := c.project.Error(); err != nil {
 		return err
 	}
 
