@@ -25,12 +25,11 @@ type Users interface {
 	Update(ctx context.Context, user *User) error
 }
 
-// UserInfo holds data needed to create/update User
+// UserInfo holds User updatable data
 type UserInfo struct {
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
 	Email     string `json:"email"`
-	Password  string `json:"password"`
 }
 
 // IsValid checks UserInfo validity and returns error describing whats wrong
@@ -46,19 +45,21 @@ func (user *UserInfo) IsValid() error {
 		errs.Add("firstName can't be empty")
 	}
 
-	{ // password checks
-		if len(user.Password) < passMinLength {
-			errs.Add("password can't be less than %d characters", passMinLength)
-		}
+	return errs.Combine()
+}
 
-		if countNumerics(user.Password) < passMinNumberCount {
-			errs.Add("password should contain at least %d digits", passMinNumberCount)
-		}
+// CreateUser struct holds info for User creation
+type CreateUser struct {
+	UserInfo
+	Password string `json:"password"`
+}
 
-		if countLetters(user.Password) < passMinAZCount {
-			errs.Add("password should contain at least %d alphabetic characters", passMinAZCount)
-		}
-	}
+// IsValid checks CreateUser validity and returns error describing whats wrong
+func (user *CreateUser) IsValid() error {
+	var errs validationErrors
+
+	errs.AddWrap(user.UserInfo.IsValid())
+	errs.AddWrap(validatePassword(user.Password))
 
 	return errs.Combine()
 }
