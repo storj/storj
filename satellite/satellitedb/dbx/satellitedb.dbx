@@ -22,3 +22,7 @@ read limitoffset (
 read all (
 	select bwagreement
 )
+read all (
+	select bwagreement
+	where  bwagreement.created_at > ?
+)

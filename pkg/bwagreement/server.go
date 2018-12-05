@@ -8,6 +8,7 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/x509"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gtank/cryptopasta"
@@ -19,10 +20,12 @@ import (
 
 // DB interface for database operations
 type DB interface {
-	// CreateAgreement creates agreement in database
+	// CreateAgreement creates bandwidth agreement in database
 	CreateAgreement(context.Context, *Agreement) error
-	// GetAgreements gets all agreements from database
-	GetAllAgreements(context.Context) ([]*Agreement, error)
+	// GetAgreements gets all bandwidth agreements
+	GetAgreements(context.Context) ([]*Agreement, error)
+	// GetAgreementsSince gets all bandwidth agreements since specific time
+	GetAgreementsSince(context.Context, time.Time) ([]*Agreement, error)
 }
 
 // Server is an implementation of the pb.BandwidthServer interface
@@ -36,6 +39,7 @@ type Server struct {
 type Agreement struct {
 	Agreement []byte
 	Signature []byte
+	CreatedAt time.Time
 }
 
 // NewServer creates instance of Server

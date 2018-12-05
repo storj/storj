@@ -190,7 +190,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	//get all bandwidth agreements rows already ordered
-	baRows, err := database.BandwidthAgreement().GetAllAgreements(context.Background())
+	baRows, err := database.BandwidthAgreement().GetAgreements(context.Background())
 	if err != nil {
 		fmt.Printf("error reading satellite database %v: %v\n", diagCfg.Database, err)
 		return err

@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"time"
 
 	"storj.io/storj/pkg/bwagreement"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -23,7 +24,7 @@ func (b *bandwidthagreement) CreateAgreement(ctx context.Context, agreement *bwa
 	return err
 }
 
-func (b *bandwidthagreement) GetAllAgreements(ctx context.Context) ([]*bwagreement.Agreement, error) {
+func (b *bandwidthagreement) GetAgreements(ctx context.Context) ([]*bwagreement.Agreement, error) {
 	rows, err := b.db.All_Bwagreement(ctx)
 	if err != nil {
 		return nil, err
@@ -34,6 +35,24 @@ func (b *bandwidthagreement) GetAllAgreements(ctx context.Context) ([]*bwagreeme
 		agreements = append(agreements, &bwagreement.Agreement{
 			Signature: entry.Signature,
 			Agreement: entry.Data,
+			CreatedAt: entry.CreatedAt,
+		})
+	}
+	return agreements, nil
+}
+
+func (b *bandwidthagreement) GetAgreementsSince(ctx context.Context, since time.Time) ([]*bwagreement.Agreement, error) {
+	rows, err := b.db.All_Bwagreement_By_CreatedAt_Greater(ctx, dbx.Bwagreement_CreatedAt(since))
+	if err != nil {
+		return nil, err
+	}
+
+	var agreements []*bwagreement.Agreement
+	for _, entry := range rows {
+		agreements = append(agreements, &bwagreement.Agreement{
+			Signature: entry.Signature,
+			Agreement: entry.Data,
+			CreatedAt: entry.CreatedAt,
 		})
 	}
 	return agreements, nil
