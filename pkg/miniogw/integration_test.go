@@ -32,8 +32,6 @@ func TestUploadDownload(t *testing.T) {
 
 	defer ctx.Check(planet.Shutdown)
 
-	// create temporary directory for minio
-
 	err = flag.Set("pointer-db.auth.api-key", "apiKey")
 	assert.NoError(t, err)
 
