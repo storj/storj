@@ -26,7 +26,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("Invalid argument %#v. Try 'uplink run'", flagname)
 	}
 
-	address := cfg.Identity.Address
+	address := cfg.Identity.Server.Address
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
 		return err

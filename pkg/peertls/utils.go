@@ -75,10 +75,10 @@ func verifyChainSignatures(certs []*x509.Certificate) error {
 }
 
 func verifyCertSignature(parentCert, childCert *x509.Certificate) error {
-	return verifySignature(childCert.Signature, childCert.RawTBSCertificate, parentCert.PublicKey)
+	return VerifySignature(childCert.Signature, childCert.RawTBSCertificate, parentCert.PublicKey)
 }
 
-func verifySignature(signedData []byte, data []byte, pubKey crypto.PublicKey) error {
+func VerifySignature(signedData []byte, data []byte, pubKey crypto.PublicKey) error {
 	key, ok := pubKey.(*ecdsa.PublicKey)
 	if !ok {
 		return ErrUnsupportedKey.New("%T", key)

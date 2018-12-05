@@ -96,14 +96,14 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	// start satellite
 	go func() {
 		_, _ = fmt.Printf("starting satellite on %s\n",
-			runCfg.Satellite.Identity.Address)
+			runCfg.Satellite.Identity.Server.Address)
 
 		if runCfg.Satellite.Audit.SatelliteAddr == "" {
-			runCfg.Satellite.Audit.SatelliteAddr = runCfg.Satellite.Identity.Address
+			runCfg.Satellite.Audit.SatelliteAddr = runCfg.Satellite.Identity.Server.Address
 		}
 
 		if runCfg.Satellite.Web.SatelliteAddr == "" {
-			runCfg.Satellite.Web.SatelliteAddr = runCfg.Satellite.Identity.Address
+			runCfg.Satellite.Web.SatelliteAddr = runCfg.Satellite.Identity.Server.Address
 		}
 
 		database, err := satellitedb.NewDB(runCfg.Satellite.Database)
@@ -148,7 +148,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 				return
 			}
 
-			address := v.Identity.Address
+			address := v.Identity.Server.Address
 			storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
 
 			_, _ = fmt.Printf("starting storage node %d %s (kad on %s)\n", i, storagenode, address)
@@ -159,7 +159,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	// start s3 uplink
 	go func() {
 		_, _ = fmt.Printf("Starting s3-gateway on %s\nAccess key: %s\nSecret key: %s\n",
-			runCfg.Uplink.Identity.Address,
+			runCfg.Uplink.Identity.Server.Address,
 			runCfg.Uplink.Minio.AccessKey,
 			runCfg.Uplink.Minio.SecretKey)
 		errch <- runCfg.Uplink.Run(ctx)

@@ -26,10 +26,23 @@ const (
 	BlockTypeIDOptions = "ID OPTIONS"
 )
 
-var (
-	// AuthoritySignatureExtID is the asn1 object ID for a pkix extension holding a signature of the leaf cert, signed by some CA (e.g. the root cert)
+const (
+	// WhitelistSignedLeafExtID is the asn1 object ID for a pkix extension holding a signature of the leaf cert, signed by some CA (e.g. the root cert)
 	// This extension allows for an additional signature per certificate
-	AuthoritySignatureExtID = asn1.ObjectIdentifier{2, 999, 1}
+	WhitelistSignedLeafExtID = iota
+	// RevocationExtID is the asn1 object ID for a pkix extension containing the most recent certificate revocation data
+	// for the current TLS cert chain
+	RevocationExtID
+)
+
+var (
+	// ExtensionIDs is a map from an enum to extension object identifiers
+	ExtensionIDs = map[int]asn1.ObjectIdentifier{
+		WhitelistSignedLeafExtID: {2, 999, 1, 1},
+		RevocationExtID: {2, 999, 2, 1},
+	}
+	// ErrExtension is used when an error occurs while processing an extension
+	ErrExtension = errs.Class("extension error")
 	// ErrNotExist is used when a file or directory doesn't exist
 	ErrNotExist = errs.Class("file or directory not found error")
 	// ErrGenerate is used when an error occurred during cert/key generation
@@ -48,7 +61,7 @@ var (
 	// (i.e.: each cert in the chain should be signed by the preceding cert and the root should be self-signed)
 	ErrVerifyCertificateChain = errs.Class("certificate chain signature verification failed")
 	// ErrVerifyCAWhitelist is used when the leaf of a peer certificate isn't signed by any CA in the whitelist
-	ErrVerifyCAWhitelist = errs.Class("certificate isn't signed by any CA in the whitelist")
+	ErrVerifyCAWhitelist = errs.Class("not signed by any CA in the whitelist")
 	// ErrSign is used when something goes wrong while generating a signature
 	ErrSign = errs.Class("unable to generate signature")
 )
@@ -125,36 +138,17 @@ func VerifyPeerCertChains(_ [][]byte, parsedChains [][]*x509.Certificate) error 
 
 // VerifyCAWhitelist verifies that the peer identity's CA and leaf-extension was signed
 // by any one of the (certificate authority) certificates in the provided whitelist
-func VerifyCAWhitelist(cas []*x509.Certificate, verifyExtension bool) PeerCertVerificationFunc {
+func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
 	if cas == nil {
 		return nil
 	}
 
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
-		var (
-			leaf = parsedChains[0][0]
-			err  error
-		)
-
-		// Leaf extension must contain leaf signature, signed by a CA in the whitelist.
-		// That *same* CA must also have signed the leaf's parent cert (regular cert chain signature, not extension).
+		var err  error
 		for _, ca := range cas {
 			err = verifyCertSignature(ca, parsedChains[0][1])
 			if err == nil {
-				if !verifyExtension {
 					break
-				}
-
-				for _, ext := range leaf.Extensions {
-					if ext.Id.Equal(AuthoritySignatureExtID) {
-						err = verifySignature(ext.Value, leaf.RawTBSCertificate, leaf.PublicKey)
-						if err != nil {
-							return ErrVerifyCAWhitelist.New("authority signature extension verification error: %s", err.Error())
-						}
-						return nil
-					}
-				}
-				break
 			}
 		}
 
