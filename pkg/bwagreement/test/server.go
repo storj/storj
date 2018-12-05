@@ -21,12 +21,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+
 	"storj.io/storj/internal/identity"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/bwagreement"
-	"storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/satellitedb"
 )
 
 type testServer struct {
@@ -85,17 +86,18 @@ func newTestServerStruct(t *testing.T, k crypto.PrivateKey) *bwagreement.Server 
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
 	}
 
-	dbm, err := dbmanager.NewDBManager("postgres", *testPostgres)
+	db, err := satellitedb.NewDB(*testPostgres)
 	if err != nil {
-		t.Fatalf("Failed to initialize dbmanager when creating test server: %+v", err)
+		t.Fatalf("Failed to initialize master db for test server: %+v", err)
+	}
+
+	err = db.CreateTables()
+	if err != nil {
+		t.Fatalf("Failed to create master db tables: %+v", err)
 	}
 
 	p, _ := k.(*ecdsa.PrivateKey)
-	server, err := bwagreement.NewServer(dbm, zap.NewNop(), &p.PublicKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return server
+	return bwagreement.NewServer(db.BandwidthAgreement(), zap.NewNop(), &p.PublicKey)
 }
 
 func (TS *testServer) Start() (addr string) {

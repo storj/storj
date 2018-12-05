@@ -32,6 +32,11 @@ func NewDB(databaseURL string) (*DB, error) {
 	return &DB{db: db}, nil
 }
 
+// BandwidthAgreement is a getter for bandwidth agreement repository
+func (db *DB) BandwidthAgreement() *bandwidthagreement {
+	return &bandwidthagreement{db: db.db}
+}
+
 // // PointerDB is a getter for PointerDB repository
 // func (db *DB) PointerDB() pointerdb.DB {
 // 	return &pointerDB{db: db.db}
@@ -40,11 +45,6 @@ func NewDB(databaseURL string) (*DB, error) {
 // // StatDB is a getter for StatDB repository
 // func (db *DB) StatDB() statdb.DB {
 // 	return &statDB{db: db.db}
-// }
-
-// // BandwidthAllocationDB is a getter for BandwidthAllocationDB repository
-// func (db *DB) BandwidthAllocationDB() bwagreement.DB {
-// 	return &bandwidthAllocationDB{db: db.db}
 // }
 
 // // OverlayCacheDB is a getter for OverlayCacheDB repository
