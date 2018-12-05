@@ -166,10 +166,9 @@ func (c *checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (i
 	// filter if nodeIDs have invalid pieces from auditing results
 	findInValidNodesReq := &sdbpb.FindInvalidNodesRequest{
 		NodeIds: nodeIDs,
-		MinStats: &pb.NodeStats{
+		MaxStats: &pb.NodeStats{
 			AuditSuccessRatio: 0, // TODO: update when we have stats added to statdb
 			UptimeRatio:       0, // TODO: update when we have stats added to statdb
-			AuditCount:        0, // TODO: update when we have stats added to statdb
 		},
 	}
 
@@ -180,12 +179,12 @@ func (c *checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (i
 
 	// What if some valid nodes haven't been audited. Just because they don't appear doesn't mean they aren't valid
 	invalidNodesMap := make(map[storj.NodeID]bool)
-	for _, invalidID := range resp.PassedIds {
+	for _, invalidID := range resp.InvalidIds {
 		invalidNodesMap[invalidID] = true
 	}
 
 	for i, nID := range nodeIDs {
-		if !invalidNodesMap[nID] {
+		if invalidNodesMap[nID] {
 			invalidNodes = append(invalidNodes, int32(i))
 		}
 	}
