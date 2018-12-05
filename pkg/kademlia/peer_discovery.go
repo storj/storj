@@ -29,7 +29,6 @@ type peerDiscovery struct {
 var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 
 func newPeerDiscovery(nodes []*pb.Node, client node.Client, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
-	oneChan := make(chan *pb.Node, 1)
 	discovery := &peerDiscovery{
 		client: client,
 		target: target,
