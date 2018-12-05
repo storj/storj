@@ -114,7 +114,7 @@ func TestQueryWithBw(t *testing.T) {
 	accountingDb, err := accounting.NewDb("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
 	defer func() { _ = accountingDb.Close() }()
-	
+
 	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
 	err = masterDB.CreateTables()
