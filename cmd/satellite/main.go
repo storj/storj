@@ -73,7 +73,7 @@ var (
 
 		// Audit audit.Config
 		BwAgreement bwagreement.Config
-		DatabaseURL string `help:"the master database connection string" default:"sqlite3://$CONFDIR/master.db"`
+		Database    string `help:"the master database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	}
 	setupCfg struct {
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
@@ -107,7 +107,7 @@ func init() {
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
 
-	database, err := satellitedb.NewDB(runCfg.DatabaseURL)
+	database, err := satellitedb.NewDB(runCfg.Database)
 	if err != nil {
 		return errs.New("Error starting master database on satellite: %+v", err)
 	}

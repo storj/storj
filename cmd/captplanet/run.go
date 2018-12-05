@@ -49,7 +49,7 @@ type Satellite struct {
 	StatDB      statdb.Config
 	BwAgreement bwagreement.Config
 	Web         satelliteweb.Config
-	DatabaseURL string `help:"the master database connection string" default:"sqlite3://$CONFDIR/master.db"`
+	Database    string `help:"the master database connection string" default:"sqlite3://$CONFDIR/master.db"`
 }
 
 // StorageNode is for configuring storage nodes
@@ -106,7 +106,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.Web.SatelliteAddr = runCfg.Satellite.Identity.Address
 		}
 
-		database, err := satellitedb.NewDB(runCfg.Satellite.DatabaseURL)
+		database, err := satellitedb.NewDB(runCfg.Satellite.Database)
 		if err != nil {
 			errch <- errs.New("Error starting master database on satellite: %+v", err)
 			return
