@@ -96,12 +96,14 @@ export default class NavigationArea extends Vue {}
         outline: none;
     }
 
-    @media screen and (max-width: 720px) {
+    @media screen and (max-width: 1024px) {
         .navigation-area {
-            width: 50px;
+            width: 80px;
+            max-width: 80px;
+            min-width: 80px;
 
             &__item-container {
-                 padding-left: 12px;
+                 padding-left: 26px;
 
                 &__link-container {
                     h1 {

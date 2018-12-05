@@ -3,39 +3,16 @@
 
 <template>
     <div>
-        <div class="team-header">
+        <div v-if="teamArrayLength > 0"  class="team-header">
             <HeaderArea/>
         </div>
         <div v-if="teamArrayLength > 0"  class="team-container">
             <div class="team-container__content">
-                <!-- <TeamMemberItem
-                    class="selected"
-                />
+                <TeamMemberItem class="selected"/>
                 <TeamMemberItem/>
-                <TeamMemberItem/>
-                <TeamMemberItem/>
-                <TeamMemberItem/>
-                <TeamMemberItem/>
-                <TeamMemberItem/>
-                <TeamMemberItem/>
-                <TeamMemberItem/>
-                <TeamMemberItem/>
-                <TeamMemberItem/>
-                <TeamMemberItem/>
-                <TeamMemberItem/> 
-                <TeamMemberItem/>
-                <TeamMemberItem/>
-                <TeamMemberItem/>
-                <TeamMemberItem/>
-                <TeamMemberItem/>
-                <TeamMemberItem/> -->
             </div>
-            <div class="footer-area">
-
-            </div>
-            <!-- <DeleteUserArea/> -->
-            <!-- <ApproveDeleteUserArea/> -->
-            <!-- <SuccesNotificationArea/> -->
+            <!-- only when selecting team members -->
+            <Footer/>
         </div>
         <EmptyState 
             v-if="teamArrayLength === 0"
@@ -49,10 +26,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 import TeamMemberItem from '@/components/team/TeamMemberItem.vue';
 import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
-import DeleteUserArea from '@/components/team/footerArea/DeleteUserArea.vue';
-import ApproveDeleteUserArea from '@/components/team/footerArea/ApproveDeleteUserArea.vue';
-// TODO: rename
-import SuccesNotificationArea from '@/components/team/footerArea/SuccesNotificationArea.vue';
+import Footer from '@/components/team/footerArea/Footer.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
@@ -67,9 +41,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     components: {
         TeamMemberItem,
         HeaderArea,
-        DeleteUserArea,
-        ApproveDeleteUserArea,
-        SuccesNotificationArea,
+        Footer,
         EmptyState,
     }
 })
@@ -95,12 +67,51 @@ export default class TeamArea extends Vue {}
        position: relative;
 
        &__content {
-        display: grid;
-        grid-template-columns: 260px 260px 260px 260px 260px;
-        width: 100%;
-        grid-row-gap: 20px;
-        justify-content: space-between;
-        margin-top: 165px;
+            display: grid;
+            grid-template-columns: 260px 260px 260px 260px 260px;
+            width: 100%;
+            grid-row-gap: 20px;
+            justify-content: space-between;
+            margin-top: 175px;
+            margin-bottom: 100px;
+        }
+   }
+
+   @media screen and (max-width: 1600px) {
+       .team-container {
+
+            &__content {
+                grid-template-columns: 240px 240px 240px 240px;
+            }
+        }
+        .team-header {
+            max-width: 73.7%;
+        }
+   }
+
+     @media screen and (max-width: 1366px) {
+       .team-container {
+
+            &__content {
+                grid-template-columns: 260px 260px 260px;
+            }
+        }
+
+        .team-header {
+            max-width: 72%;
+        }
+   }
+
+   @media screen and (max-width: 1120px) {
+       .team-container {
+
+       &__content {
+            grid-template-columns: 270px 270px 270px;
+            grid-row-gap: 0px;
+            }
+        }
+        .team-header {
+            max-width: 82.7%;
         }
    }
 </style>

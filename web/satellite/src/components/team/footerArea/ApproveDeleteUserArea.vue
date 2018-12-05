@@ -10,8 +10,18 @@
                 <p>Are you sure you want tot delete <span>1</span> user?</p>
             </div>
             <div class="delete-user-container__buttons-group">
-                <span class="delete-user-container__buttons-group__cancel">Cancel</span>
-                <span class="delete-user-container__buttons-group__delete">Delete</span>
+                <Button 
+                    class="delete-user-container__buttons-group__cancel" 
+                    label="Cancel" 
+                    width="140px" 
+                    height="58px" 
+                    :onPress="onCancelButtonClick" 
+                    isWhite />
+                <Button 
+                    label="Delete" 
+                    width="140px" 
+                    height="58px" 
+                    :onPress="onDeleteButtonClick" />
             </div>
         </div>
     </div>
@@ -19,8 +29,13 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import Button from '@/components/common/Button.vue';
 
-@Component({})
+@Component({
+    components: {
+        Button
+    }
+})
 
 export default class ApproveDeleteUserArea extends Vue {}
 </script>
@@ -39,7 +54,7 @@ export default class ApproveDeleteUserArea extends Vue {}
         padding: 0 50px;
         box-shadow: 0px 12px 24px rgba(175, 183, 193, 0.4);
         border-radius: 6px;
-        z-index: 999;
+        z-index: 1000;
 
         &__text {
             display: flex;
@@ -68,15 +83,7 @@ export default class ApproveDeleteUserArea extends Vue {}
             }
 
             &__cancel {
-                color: #354049;
-                border: 1px solid #354049;
                 margin-right: 24px;
-            }
-
-            &__delete {
-                color: #fff;
-                border: 1px solid #2683FF;
-                background: #2683FF;
             }
         }
     }
@@ -85,7 +92,7 @@ export default class ApproveDeleteUserArea extends Vue {}
         height: 100vh;
         top: 0;
         left: 0;
-        z-index: 99;
+        z-index: 1000;
         width: 100%;
         filter: blur(4px);
         background-color: rgba(0,0,0,0.5);

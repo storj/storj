@@ -3,13 +3,13 @@
 
 <template>
     <div>
-        <div class="delete-user-container" >
-            <div class="delete-user-container__text">
+        <div class="notification-container" >
+            <div class="notification-container__text">
                 <img src="../../../../static/images/team/info.svg" alt="">
                 <p>All team members succesfully deleted</p>
             </div>
-            <div class="delete-user-container__buttons-group">
-                <span class="delete-user-container__buttons-group__close"></span>
+            <div class="notification-container__buttons-group">
+                <span class="notification-container__buttons-group__close"></span>
             </div>
         </div>
     </div>
@@ -20,11 +20,11 @@ import { Component, Vue } from 'vue-property-decorator';
 
 @Component({})
 
-export default class SuccesNotificationArea extends Vue {}
+export default class Notification extends Vue {}
 </script>
 
 <style scoped lang="scss">
-    .delete-user-container {
+    .notification-container {
         height: 98px;
         max-width: 74.2%;
         width: 100%;

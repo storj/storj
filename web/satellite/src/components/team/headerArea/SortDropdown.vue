@@ -48,7 +48,7 @@ export default class SortDropdown extends Vue {}
 <style scoped lang="scss">
     .sort-dropdown-choice-container {
         position: absolute;
-        top: 9vh;
+        top: 70px;
         left: 0px;
         border-radius: 4px;
         padding: 10px 0px 10px 0px;
@@ -58,7 +58,7 @@ export default class SortDropdown extends Vue {}
     }
     .sort-dropdown-overflow-container {
         position: relative;
-        width: 210px;
+        width: 260px;
         height: auto;
         background-color: #FFFFFF;
     }
@@ -67,7 +67,6 @@ export default class SortDropdown extends Vue {}
         flex-direction: row;
         align-items: center;
         justify-content: flex-start;
-        min-width: 210px;
         padding-left: 20px;
         padding-right: 20px;
 
