@@ -153,7 +153,7 @@ func (s *StatDB) FindInvalidNodes(ctx context.Context, getReq *pb.FindInvalidNod
 
 	for rows.Next() {
 		node := &dbx.Node{}
-		err = rows.Scan(&node.Id, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeRatio, &node.CreatedAt)
+		err = rows.Scan(&node.Id, &node.TotalAuditCount, &node.TotalUptimeCount, &node.AuditSuccessRatio, &node.UptimeRatio)
 		if err != nil {
 			return nil, err
 		}
@@ -178,13 +178,15 @@ func (s *StatDB) findInvalidNodesQuery(nodeIds storj.NodeIDList, auditSuccess, u
 
 	rows, err := s.DB.Query(`SELECT nodes.id, nodes.total_audit_count, 
 		nodes.total_uptime_count, nodes.audit_success_ratio, 
-		nodes.uptime_ratio, nodes.created_at
+		nodes.uptime_ratio
 		FROM nodes
 		WHERE nodes.id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
 		AND nodes.total_audit_count > 0
 		AND nodes.total_uptime_count > 0
-		AND nodes.audit_success_ratio < ?
-		AND nodes.uptime_ratio < ?`, args...)
+		AND (
+			nodes.audit_success_ratio < ?
+			OR nodes.uptime_ratio < ?
+		)`, args...)
 
 	return rows, err
 }
