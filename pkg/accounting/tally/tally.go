@@ -74,7 +74,10 @@ func (t *tally) Run(ctx context.Context) (err error) {
 		if err != nil {
 			t.logger.Error("identifyActiveNodes failed", zap.Error(err))
 		}
-
+		err = t.Query(ctx)
+		if err != nil {
+			t.logger.Error("Query for bandwith failed", zap.Error(err))
+		}
 		select {
 		case <-t.ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the tally is canceled via context

@@ -30,7 +30,7 @@ import (
 var ctx = context.Background()
 
 func TestIdentifyActiveNodes(t *testing.T) {
-
+	//TODO
 }
 func TestOnlineNodes(t *testing.T) {
 	logger := zap.NewNop()
