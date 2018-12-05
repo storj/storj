@@ -14,7 +14,7 @@ import (
 )
 
 // Error is the default boltdb errs class
-var Error = errs.Class("irreparabaledb error")
+var Error = errs.Class("irreparabledb error")
 
 // Database implements the irreparable RPC service
 type Database struct {
