@@ -17,8 +17,8 @@ import (
 
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/datarepair/irreparabledb"
 	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/irreparabledb"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
