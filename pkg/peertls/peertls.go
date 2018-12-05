@@ -39,7 +39,7 @@ var (
 	// ExtensionIDs is a map from an enum to extension object identifiers
 	ExtensionIDs = map[int]asn1.ObjectIdentifier{
 		WhitelistSignedLeafExtID: {2, 999, 1, 1},
-		RevocationExtID: {2, 999, 2, 1},
+		RevocationExtID:          {2, 999, 2, 1},
 	}
 	// ErrExtension is used when an error occurs while processing an extension
 	ErrExtension = errs.Class("extension error")
@@ -144,11 +144,11 @@ func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
 	}
 
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
-		var err  error
+		var err error
 		for _, ca := range cas {
 			err = verifyCertSignature(ca, parsedChains[0][1])
 			if err == nil {
-					break
+				break
 			}
 		}
 

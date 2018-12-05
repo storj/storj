@@ -208,24 +208,6 @@ func TestIdentityConfig_LoadIdentity(t *testing.T) {
 	assert.Equal(t, expectedFI.Leaf, fi.Leaf)
 	assert.Equal(t, expectedFI.CA, fi.CA)
 	assert.Equal(t, expectedFI.ID.Bytes(), fi.ID.Bytes())
-
-	// TODO(bryanchriswhite): test ca whitelist
-	// tmp := path.Join(os.TempDir(), "temp-ca-whitelist.pem")
-	// w, err := os.Create(tmp)
-	// assert.NoError(t, err)
-	// defer func() {
-	// 	err := os.RemoveAll(tmp)
-	// 	if err != nil {
-	// 		fmt.Printf("unable to cleanup temp ca whitelist at \"%s\": %s", tmp, err.Error())
-	// 	}
-	// }()
-	//
-	// err = peertls.WriteChain(w, fi.CA)
-	// assert.NoError(t, err)
-	//
-	// ic.Server.PeerCAWhitelistPath = tmp
-	// fi, err = ic.Load()
-	// assert.NoError(t, err)
 }
 
 func TestNodeID_Difficulty(t *testing.T) {

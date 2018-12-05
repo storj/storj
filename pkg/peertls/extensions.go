@@ -76,4 +76,3 @@ func (e Extensions) VerifyFunc() PeerCertVerificationFunc {
 		return nil
 	}
 }
-

@@ -72,9 +72,9 @@ type IdentitySetupConfig struct {
 // IdentityConfig allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
 type IdentityConfig struct {
-	CertPath   string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`
-	KeyPath    string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
-	Server     ServerConfig
+	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`
+	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
+	Server   ServerConfig
 }
 
 type ServerConfig struct {
@@ -85,9 +85,9 @@ type ServerConfig struct {
 
 type serverOptions struct {
 	extensions []asn1.ObjectIdentifier
-	config ServerConfig
-	ident *FullIdentity
-	pcvFuncs []peertls.PeerCertVerificationFunc
+	config     ServerConfig
+	ident      *FullIdentity
+	pcvFuncs   []peertls.PeerCertVerificationFunc
 }
 
 func NewServerOptions(i *FullIdentity, c ServerConfig) (*serverOptions, error) {
@@ -180,11 +180,11 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 	}
 
 	return &FullIdentity{
-		RestChain:       ch[2:],
-		CA:              ch[1],
-		Leaf:            ch[0],
-		Key:             k,
-		ID:              i,
+		RestChain: ch[2:],
+		CA:        ch[1],
+		Leaf:      ch[0],
+		Key:       k,
+		ID:        i,
 	}, nil
 }
 
@@ -435,4 +435,3 @@ func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
 		return nil
 	}
 }
-

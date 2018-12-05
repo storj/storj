@@ -226,3 +226,7 @@ func TestVerifyCAWhitelist(t *testing.T) {
 	// err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{c, z}, true))([][]byte{z.Raw, x.Raw, y.Raw}, nil)
 	// assert.NoError(t, err)
 }
+
+func TestParseExtensions(t *testing.T) {
+
+}
