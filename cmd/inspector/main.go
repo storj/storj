@@ -213,7 +213,7 @@ func LookupNode(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	fmt.Printf(prettyPrintNode(n))
+	fmt.Println(prettyPrintNode(n))
 
 	return nil
 }
