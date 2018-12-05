@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 export const EMPTY_STATE_IMAGES = {
     PROJECT: `<svg width="346" height="345" viewBox="0 0 346 345" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M165.9 284.9C244.4 284.9 308 221.1 308 142.4C308 63.7 244.4 0 165.9 0C87.3998 0 23.7998 63.8 23.7998 142.5C23.7998 221.2 87.3998 284.9 165.9 284.9Z" fill="#E8EAF2"/>
