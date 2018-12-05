@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package bwagreement
+package test
 
 import (
 	"context"
@@ -21,42 +21,23 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-
 	"storj.io/storj/internal/identity"
 	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
-var (
-	ctx = context.Background()
-)
-
-func TestBandwidthAgreements(t *testing.T) {
-	TS := NewTestServer(t)
-	defer TS.Stop()
-
-	pba, err := generatePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, TS.k)
-	assert.NoError(t, err)
-
-	rba, err := generateRenterBandwidthAllocation(pba, TS.k)
-	assert.NoError(t, err)
-
-	/* emulate sending the bwagreement stream from piecestore node */
-	_, err = TS.c.BandwidthAgreements(ctx, rba)
-	assert.NoError(t, err)
+type testServer struct {
+	S     *bwagreement.Server
+	Grpcs *grpc.Server
+	Conn  *grpc.ClientConn
+	C     pb.BandwidthClient
+	K     crypto.PrivateKey
 }
 
-type TestServer struct {
-	s     *Server
-	grpcs *grpc.Server
-	conn  *grpc.ClientConn
-	c     pb.BandwidthClient
-	k     crypto.PrivateKey
-}
-
-func NewTestServer(t *testing.T) *TestServer {
+func newTestServer(t *testing.T) *testServer {
 	check := func(e error) {
 		if !assert.NoError(t, e) {
 			t.Fail()
@@ -82,9 +63,9 @@ func NewTestServer(t *testing.T) *TestServer {
 
 	k, ok := fiC.Key.(*ecdsa.PrivateKey)
 	assert.True(t, ok)
-	ts := &TestServer{s: s, grpcs: grpcs, k: k}
-	addr := ts.start()
-	ts.c, ts.conn = connect(addr, co)
+	ts := &testServer{S: s, Grpcs: grpcs, K: k}
+	addr := ts.Start()
+	ts.C, ts.Conn = connect(addr, co)
 
 	return ts
 }
@@ -99,7 +80,7 @@ var (
 	testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
 )
 
-func newTestServerStruct(t *testing.T, k crypto.PrivateKey) *Server {
+func newTestServerStruct(t *testing.T, k crypto.PrivateKey) *bwagreement.Server {
 	if *testPostgres == "" {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
 	}
@@ -110,22 +91,22 @@ func newTestServerStruct(t *testing.T, k crypto.PrivateKey) *Server {
 	}
 
 	p, _ := k.(*ecdsa.PrivateKey)
-	server, err := NewServer(dbm, zap.NewNop(), &p.PublicKey)
+	server, err := bwagreement.NewServer(dbm, zap.NewNop(), &p.PublicKey)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return server
 }
 
-func (TS *TestServer) start() (addr string) {
+func (TS *testServer) Start() (addr string) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	pb.RegisterBandwidthServer(TS.grpcs, TS.s)
+	pb.RegisterBandwidthServer(TS.Grpcs, TS.S)
 
 	go func() {
-		if err := TS.grpcs.Serve(lis); err != nil {
+		if err := TS.Grpcs.Serve(lis); err != nil {
 			log.Fatalf("failed to serve: %v", err)
 		}
 	}()
@@ -143,7 +124,8 @@ func connect(addr string, o ...grpc.DialOption) (pb.BandwidthClient, *grpc.Clien
 	return c, conn
 }
 
-func generatePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action, satelliteKey crypto.PrivateKey) (*pb.PayerBandwidthAllocation, error) {
+//GeneratePayerBandwidthAllocation creates a signed PayerBandwidthAllocation from a PayerBandwidthAllocation_Action
+func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action, satelliteKey crypto.PrivateKey) (*pb.PayerBandwidthAllocation, error) {
 	satelliteKeyEcdsa, ok := satelliteKey.(*ecdsa.PrivateKey)
 	if !ok {
 		return nil, errs.New("Satellite Private Key is not a valid *ecdsa.PrivateKey")
@@ -174,7 +156,8 @@ func generatePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action,
 	}, nil
 }
 
-func generateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, uplinkKey crypto.PrivateKey) (*pb.RenterBandwidthAllocation, error) {
+//GenerateRenterBandwidthAllocation creates a signed RenterBandwidthAllocation from a PayerBandwidthAllocation
+func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, uplinkKey crypto.PrivateKey) (*pb.RenterBandwidthAllocation, error) {
 	// get "Uplink" Public Key
 	uplinkKeyEcdsa, ok := uplinkKey.(*ecdsa.PrivateKey)
 	if !ok {
@@ -209,9 +192,9 @@ func generateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, uplinkK
 	}, nil
 }
 
-func (TS *TestServer) Stop() {
-	if err := TS.conn.Close(); err != nil {
+func (TS *testServer) stop() {
+	if err := TS.Conn.Close(); err != nil {
 		panic(err)
 	}
-	TS.grpcs.Stop()
+	TS.Grpcs.Stop()
 }

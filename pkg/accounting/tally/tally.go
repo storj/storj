@@ -9,8 +9,10 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
-
+	"storj.io/storj/pkg/accounting"
 	dbx "storj.io/storj/pkg/accounting/dbx"
+	dbManager "storj.io/storj/pkg/bwagreement/database-manager"
+	bwDbx "storj.io/storj/pkg/bwagreement/database-manager/dbx"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
@@ -32,10 +34,11 @@ type tally struct {
 	limit     int
 	logger    *zap.Logger
 	ticker    *time.Ticker
-	db        *dbx.DB
+	db        *dbx.DB              // accounting db
+	dbm       *dbManager.DBManager // bwagreements database
 }
 
-func newTally(logger *zap.Logger, db *dbx.DB, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, interval time.Duration) (*tally, error) {
+func newTally(logger *zap.Logger, db *dbx.DB, dbm *dbManager.DBManager, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, interval time.Duration) *tally {
 	return &tally{
 		pointerdb: pointerdb,
 		overlay:   overlay,
@@ -43,8 +46,9 @@ func newTally(logger *zap.Logger, db *dbx.DB, pointerdb *pointerdb.Server, overl
 		limit:     limit,
 		logger:    logger,
 		ticker:    time.NewTicker(interval),
+		dbm:       dbm,
 		db:        db,
-	}, nil
+	}
 }
 
 // Run the tally loop
@@ -162,4 +166,82 @@ func (t *tally) needToContact(id storj.NodeID) bool {
 func (t *tally) updateGranularTable(id storj.NodeID, pieceSize int64) error {
 	//TODO
 	return nil
+}
+
+// Query bandwidth allocation database, selecting all new contracts since the last collection run time.
+// Grouping by storage node ID and adding total of bandwidth to granular data table.
+func (t *tally) Query(ctx context.Context) error {
+	lastBwTally, err := t.db.Find_Timestamps_Value_By_Name(ctx, accounting.LastBandwidthTally)
+	if err != nil {
+		return err
+	}
+	var bwAgreements []*bwDbx.Bwagreement
+	if lastBwTally == nil {
+		t.logger.Info("Tally found no existing bandwith tracking data")
+		bwAgreements, err = t.dbm.GetBandwidthAllocations(ctx)
+	} else {
+		bwAgreements, err = t.dbm.GetBandwidthAllocationsSince(ctx, lastBwTally.Value)
+	}
+	if len(bwAgreements) == 0 {
+		t.logger.Info("Tally found no new bandwidth allocations")
+		return nil
+	}
+
+	// sum totals by node id ... todo: add nodeid as SQL column so DB can do this?
+	bwTotals := make(map[string]int64)
+	var latestBwa time.Time
+	for _, baRow := range bwAgreements {
+		rbad := &pb.RenterBandwidthAllocation_Data{}
+		if err := proto.Unmarshal(baRow.Data, rbad); err != nil {
+			t.logger.DPanic("Could not deserialize renter bwa in tally query")
+			continue
+		}
+		if baRow.CreatedAt.After(latestBwa) {
+			latestBwa = baRow.CreatedAt
+		}
+		bwTotals[rbad.StorageNodeId.String()] += rbad.GetTotal() // todo: check for overflow?
+	}
+
+	//todo:  consider if we actually need EndTime in granular
+	if lastBwTally == nil {
+		t.logger.Info("No previous bandwidth timestamp found in tally query")
+		lastBwTally = &dbx.Value_Row{Value: latestBwa} //todo: something better here?
+	}
+
+	//insert all records in a transaction so if we fail, we don't have partial info stored
+	//todo:  replace with a WithTx() method per DBX docs?
+	tx, err := t.db.Open(ctx)
+	if err != nil {
+		t.logger.DPanic("Failed to create DB txn in tally query")
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		} else {
+			t.logger.Warn("DB txn was rolled back in tally query")
+			err = tx.Rollback()
+		}
+	}()
+
+	//todo:  switch to bulk update SQL?
+	for k, v := range bwTotals {
+		nID := dbx.Granular_NodeId(k)
+		start := dbx.Granular_StartTime(lastBwTally.Value)
+		end := dbx.Granular_EndTime(latestBwa)
+		total := dbx.Granular_DataTotal(v)
+		_, err = tx.Create_Granular(ctx, nID, start, end, total)
+		if err != nil {
+			t.logger.DPanic("Create granular SQL failed in tally query")
+			return err //todo: retry strategy?
+		}
+	}
+
+	//todo:  move this into txn when we have masterdb?
+	update := dbx.Timestamps_Update_Fields{Value: dbx.Timestamps_Value(latestBwa)}
+	_, err = tx.Update_Timestamps_By_Name(ctx, accounting.LastBandwidthTally, update)
+	if err != nil {
+		t.logger.DPanic("Failed to update bandwith timestamp in tally query")
+	}
+	return err
 }
