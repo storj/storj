@@ -55,9 +55,6 @@ type FullIdentity struct {
 	ID storj.NodeID
 	// Key is the key this identity uses with the leaf for communication.
 	Key crypto.PrivateKey
-	// VerfyAuthExtSig if true, client leafs which handshake with this identity must contain a valid "authority signature extension"
-	// (NB: authority signature extensions are verified against certs in the `PeerCAWhitelist`; i.e. if true, a whitelist must be provided)
-	VerifyAuthExtSig bool
 }
 
 // IdentitySetupConfig allows you to run a set of Responsibilities with the given
