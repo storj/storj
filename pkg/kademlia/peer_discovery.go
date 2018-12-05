@@ -17,10 +17,9 @@ import (
 )
 
 type peerDiscovery struct {
-	client   node.Client
-	target   storj.NodeID
-	opts     discoveryOptions
-	foundOne chan *pb.Node
+	client node.Client
+	target storj.NodeID
+	opts   discoveryOptions
 
 	cond  sync.Cond
 	queue discoveryQueue
@@ -32,31 +31,31 @@ var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 func newPeerDiscovery(nodes []*pb.Node, client node.Client, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
 	oneChan := make(chan *pb.Node, 1)
 	discovery := &peerDiscovery{
-		client:   client,
-		target:   target,
-		opts:     opts,
-		foundOne: oneChan,
-		cond:     sync.Cond{L: &sync.Mutex{}},
-		queue:    *newDiscoveryQueue(opts.concurrency),
+		client: client,
+		target: target,
+		opts:   opts,
+		cond:   sync.Cond{L: &sync.Mutex{}},
+		queue:  *newDiscoveryQueue(opts.concurrency),
 	}
 
 	discovery.queue.Insert(target, nodes...)
 	return discovery
 }
 
-func (lookup *peerDiscovery) Run(ctx context.Context) error {
+func (lookup *peerDiscovery) Run(ctx context.Context) (target *pb.Node, err error) {
 	if lookup.queue.Len() == 0 {
-		return nil // TODO: should we return an error here?
+		return nil, nil // TODO: should we return an error here?
 	}
-
-	wg := sync.WaitGroup{}
-	defer close(lookup.foundOne)
 
 	// protected by `lookup.cond.L`
 	working := 0
 	allDone := false
+	target = nil
 
+	wg := sync.WaitGroup{}
 	wg.Add(lookup.opts.concurrency)
+	defer wg.Wait()
+
 	for i := 0; i < lookup.opts.concurrency; i++ {
 		go func() {
 			defer wg.Done()
@@ -73,9 +72,9 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 
 					next = lookup.queue.Closest()
 
-					if !lookup.opts.bootstrap && next != nil && next.Id.String() == lookup.target.String() {
-						lookup.foundOne <- next
+					if !lookup.opts.bootstrap && next != nil && next.Id == lookup.target {
 						allDone = true
+						target = next
 						break // closest node is the target and is already in routing table (i.e. no lookup required)
 					}
 
@@ -98,7 +97,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 					if !ok {
 						zap.S().Errorf(
 							"Error occurred during lookup of %s :: %s :: error = %s",
-							lookup.target.String(),
+							lookup.target,
 							ErrMaxRetries.New("%s", next.Id),
 							err.Error(),
 						)
@@ -116,8 +115,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 		}()
 	}
 
-	wg.Wait()
-	return ctx.Err()
+	return target, ctx.Err()
 }
 
 func isDone(ctx context.Context) bool {

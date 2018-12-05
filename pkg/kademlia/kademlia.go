@@ -229,21 +229,14 @@ func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, erro
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: false, bootstrapNodes: k.bootstrapNodes,
 	})
 
-	err = lookup.Run(ctx)
+	target, err := lookup.Run(ctx)
 	if err != nil {
-		return pb.Node{}, err
+		return nil, err
 	}
-
-	select {
-	case foundOne := <-lookup.foundOne:
-		if foundOne == nil {
-			return pb.Node{}, NodeNotFound.New("")
-		}
-		return *foundOne, nil
-	default: // this is to keep it from blocking
+	if target == nil {
+		return pb.Node{}, NodeNotFound.New("")
 	}
-
-	return pb.Node{}, nil
+	return *target, nil
 }
 
 // ListenAndServe connects the kademlia node to the network and listens for incoming requests
