@@ -137,7 +137,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	overrides := map[string]interface{}{
 		"satellite.identity.cert-path": setupCfg.HCIdentity.CertPath,
 		"satellite.identity.key-path":  setupCfg.HCIdentity.KeyPath,
-		"satellite.identity.address": joinHostPort(
+		"satellite.identity.server.address": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"satellite.kademlia.bootstrap-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
@@ -175,7 +175,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			storagenodePath, "identity.cert")
 		overrides[storagenode+"identity.key-path"] = filepath.Join(
 			storagenodePath, "identity.key")
-		overrides[storagenode+"identity.address"] = joinHostPort(
+		overrides[storagenode+"identity.server.address"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+i*2+3)
 		overrides[storagenode+"kademlia.bootstrap-addr"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+1)
