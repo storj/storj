@@ -231,7 +231,7 @@ func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, erro
 
 	target, err := lookup.Run(ctx)
 	if err != nil {
-		return nil, err
+		return pb.Node{}, err
 	}
 	if target == nil {
 		return pb.Node{}, NodeNotFound.New("")
