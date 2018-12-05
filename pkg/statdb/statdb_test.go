@@ -139,7 +139,7 @@ func TestGetDoesNotExist(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestFindValidNodes(t *testing.T) {
+func TestFindInvalidNodes(t *testing.T) {
 	NodeIDs := teststorj.NodeIDsFromStrings("id1", "id2", "id3", "id4", "id5", "id6", "id7")
 	dbPath := getDBPath()
 	statdb, db, err := getServerAndDB(dbPath)
@@ -154,40 +154,40 @@ func TestFindValidNodes(t *testing.T) {
 		totalUptimeCount   int64
 		uptimeRatio        float64
 	}{
-		{NodeIDs[0], 10, 20, 0.5, 10, 20, 0.5},   // bad ratios
-		{NodeIDs[1], 20, 20, 1, 20, 20, 1},       // good ratios
-		{NodeIDs[2], 20, 20, 1, 10, 20, 0.5},     // good audit success bad uptime
-		{NodeIDs[3], 10, 20, 0.5, 20, 20, 1},     // good uptime bad audit success
-		{NodeIDs[4], 5, 5, 1, 5, 5, 1},           // good ratios not enough audits
-		{NodeIDs[5], 20, 20, 1, 20, 20, 1},       // good ratios, excluded from query
-		{NodeIDs[6], 19, 20, 0.95, 19, 20, 0.95}, // borderline ratios
+		{NodeIDs[0], 20, 20, 1, 20, 20, 1},   // good audit success
+		{NodeIDs[1], 5, 20, 0.25, 20, 20, 1}, // bad audit success, good uptime
+		{NodeIDs[2], 20, 20, 1, 5, 20, 0.25}, // good audit success, bad uptime
+		{NodeIDs[3], 0, 0, 0, 20, 20, 1},     // "bad" audit success, no audits
+		{NodeIDs[4], 20, 20, 1, 0, 0, 0},     // "bad" uptime success, no checks
+		{NodeIDs[5], 0, 1, 0, 5, 5, 1},       // bad audit success exactly one audit
+		{NodeIDs[6], 0, 20, 0, 20, 20, 1},    // bad ratios, excluded from query
 	} {
 		err = createNode(ctx, db, tt.nodeID, tt.auditSuccessCount, tt.totalAuditCount, tt.auditRatio,
 			tt.uptimeSuccessCount, tt.totalUptimeCount, tt.uptimeRatio)
 		assert.NoError(t, err)
 	}
 
-	findValidNodesReq := &pb.FindValidNodesRequest{
+	findInvalidNodesReq := &pb.FindInvalidNodesRequest{
 		NodeIds: storj.NodeIDList{
 			NodeIDs[0], NodeIDs[1],
 			NodeIDs[2], NodeIDs[3],
-			NodeIDs[4], NodeIDs[6],
+			NodeIDs[4], NodeIDs[5],
 		},
-		MinStats: &pb.NodeStats{
-			AuditSuccessRatio: 0.95,
-			UptimeRatio:       0.95,
-			AuditCount:        15,
+		MaxStats: &pb.NodeStats{
+			AuditSuccessRatio: 0.5,
+			UptimeRatio:       0.5,
 		},
 	}
 
-	resp, err := statdb.FindValidNodes(ctx, findValidNodesReq)
+	resp, err := statdb.FindInvalidNodes(ctx, findInvalidNodesReq)
 	assert.NoError(t, err)
 
-	passed := resp.PassedIds
+	invalid := resp.InvalidIds
 
-	assert.Contains(t, passed, NodeIDs[1])
-	assert.Contains(t, passed, NodeIDs[6])
-	assert.Len(t, passed, 2)
+	assert.Contains(t, invalid, NodeIDs[1])
+	assert.Contains(t, invalid, NodeIDs[2])
+	assert.Contains(t, invalid, NodeIDs[5])
+	assert.Len(t, invalid, 3)
 }
 
 func TestUpdateExists(t *testing.T) {
