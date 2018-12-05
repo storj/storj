@@ -30,7 +30,7 @@ func TestUploadDownload(t *testing.T) {
 	planet, err := testplanet.New(t, 1, 30, 0)
 	assert.NoError(t, err)
 
-	defer ctx.Check(func() error { return planet.Shutdown() } )
+	defer ctx.Check(planet.Shutdown)
 
 	// create temporary directory for minio
 
