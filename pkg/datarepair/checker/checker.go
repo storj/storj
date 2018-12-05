@@ -202,7 +202,7 @@ func combineOfflineWithInvalid(offlineNodes []int32, invalidNodes []int32) (miss
 	}
 	for _, i := range invalidNodes {
 		if !offlineMap[i] {
-			missingPieces = append(missingPieces, int32(i))
+			missingPieces = append(missingPieces, i)
 		}
 	}
 
