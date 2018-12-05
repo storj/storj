@@ -24,30 +24,17 @@ import (
 )
 
 func TestUploadDownload(t *testing.T) {
-	var (
-		apiKey     = "apiKey"
-		encKey     = "encKey"
-		bucket     = "bucket"
-		objectName = "testdata"
-		ctx = testcontext.New(t)
-	)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
 	planet, err := testplanet.New(t, 1, 30, 0)
 	assert.NoError(t, err)
 
-	defer func() {
-		err = planet.Shutdown()
-		if err != nil {
-			t.Fatal(err)
-		}
-	}()
+	defer ctx.Check(func() error { return planet.Shutdown() } )
 
 	// create temporary directory for minio
-	tmpDir := ctx.Dir()
-	
-	defer ctx.Cleanup()
 
-	err = flag.Set("pointer-db.auth.api-key", apiKey)
+	err = flag.Set("pointer-db.auth.api-key", "apiKey")
 	assert.NoError(t, err)
 
 	// bind default values to config
@@ -55,7 +42,7 @@ func TestUploadDownload(t *testing.T) {
 	cfgstruct.Bind(&flag.FlagSet{}, &gwCfg)
 
 	// minio config directory
-	gwCfg.MinioDir = tmpDir
+	gwCfg.MinioDir = ctx.Dir("minio")
 
 	// addresses
 	gwCfg.Address = "127.0.0.1:7777"
@@ -63,8 +50,8 @@ func TestUploadDownload(t *testing.T) {
 	gwCfg.PointerDBAddr = planet.Satellites[0].Addr()
 
 	// keys
-	gwCfg.APIKey = apiKey
-	gwCfg.EncKey = encKey
+	gwCfg.APIKey = "apiKey"
+	gwCfg.EncKey = "encKey"
 
 	// redundancy
 	gwCfg.MinThreshold = 7
@@ -82,12 +69,8 @@ func TestUploadDownload(t *testing.T) {
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
 
-	errch := make(chan error)
-
 	// setup and start gateway
-	go func() {
-		errch <-runGateway(ctx, gwCfg, identity)
-	}()
+	ctx.Go(func() error { return runGateway(ctx, gwCfg, identity) } )
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -96,11 +79,13 @@ func TestUploadDownload(t *testing.T) {
 		Satellite:     planet.Satellites[0].Addr(),
 		AccessKey:     gwCfg.AccessKey,
 		SecretKey:     gwCfg.SecretKey,
-		APIKey:        apiKey,
-		EncryptionKey: encKey,
+		APIKey:        gwCfg.APIKey,
+		EncryptionKey: gwCfg.EncKey,
 		NoSSL:         true,
 	})
 	assert.NoError(t, err)
+
+	bucket := "bucket"
 
 	err = client.MakeBucket(bucket, "")
 	assert.NoError(t, err)
@@ -111,6 +96,8 @@ func TestUploadDownload(t *testing.T) {
 		data = append(data, 'a')
 	}
 
+	objectName := "testdata"
+
 	err = client.Upload(bucket, objectName, data)
 	assert.NoError(t, err)
 
@@ -120,12 +107,6 @@ func TestUploadDownload(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, string(data), string(bytes))
-
-	select {
-	case err = <-errch:
-		t.Fatal(err)
-	default:
-	}
 }
 
 // runGateway creates and starts a gateway
@@ -140,7 +121,7 @@ func runGateway(ctx context.Context, c Config, identity *provider.FullIdentity) 
 	// create *cli.Context with gateway flags
 	cliCtx := cli.NewContext(cli.NewApp(), flags, nil)
 
-	// TODO: setting the flag on flagset and cliCtx seems redundant, but doesn't work otherwise
+	// TODO: setting the flag on flagset and cliCtx seems redundant, but output is not quiet otherwise
 	err = cliCtx.Set("quiet", "true")
 	if err != nil {
 		return err
