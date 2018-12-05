@@ -3,10 +3,12 @@
 
 <template>
     <div class="dashboard-container">
-        <NavigationArea />
         <DashboardHeader />
-        <div class="dashboard-container__main-area">
-            <router-view />
+        <div class="dashboard-container__wrap">
+            <NavigationArea />
+            <div class="dashboard-container__main-area">
+                <router-view />
+            </div>
         </div>
     </div>
 </template>
@@ -37,12 +39,14 @@ export default class Dashboard extends Vue {}
         background-color: #F5F6FA;
         z-index: 10;
 
+        &__wrap {
+            display: flex;
+        }
+
         &__main-area {
-            position: fixed;
-            width: 80vw;
+            position: relative;
+            width: 100%;
             height: 100%;
-            left: 280px;
-            top: 10vh;
         }
     }
     @media screen and (max-width: 720px) {

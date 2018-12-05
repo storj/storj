@@ -110,7 +110,7 @@ export default class DashboardHeader extends Vue {}
         }
     }
 
-    @media screen and (max-width: 720px) {
+    @media screen and (max-width: 1024px) {
         .header-container {
 
             &__left-area {
