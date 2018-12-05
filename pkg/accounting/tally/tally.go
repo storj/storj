@@ -9,18 +9,17 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/accounting"
 	dbx "storj.io/storj/pkg/accounting/dbx"
+	dbManager "storj.io/storj/pkg/bwagreement/database-manager"
 	bwDbx "storj.io/storj/pkg/bwagreement/database-manager/dbx"
-
-	"storj.io/storj/pkg/accounting/accountingdb"
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -37,16 +36,18 @@ type tally struct {
 	logger     *zap.Logger
 	ticker     *time.Ticker
 	nodeClient node.Client
-	db         *accountingdb.Database
+	db         *accounting.Database
+	dbm        *dbManager.DBManager // bwagreements database
 }
 
-func newTally(ctx context.Context, logger *zap.Logger, db *accountingdb.Database, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, interval time.Duration) (*tally, error) {
+func newTally(ctx context.Context, logger *zap.Logger, db *accounting.Database, dbm *dbManager.DBManager, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, interval time.Duration) (*tally, error) {
 	rt, err := kademlia.GetRoutingTable(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	self := rt.Local()
-	identity, err := node.NewFullIdentity(ctx, 12, 4) //Q: is there any way to get an existing identity?
+	//Q: is there any way to get an existing identity?
+	identity, err := provider.NewFullIdentity(ctx, 12, 4)
 	client, err := node.NewNodeClient(identity, self, kademlia)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -60,6 +61,7 @@ func newTally(ctx context.Context, logger *zap.Logger, db *accountingdb.Database
 		ticker:     time.NewTicker(interval),
 		nodeClient: client,
 		db:         db,
+		dbm:        dbm,
 	}, nil
 }
 
@@ -119,10 +121,10 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 	return t.updateRawTable(ctx, nodeData)
 }
 
-func (t *tally) categorize(ctx context.Context, nodeIDs []dht.NodeID, nodeData map[string]int64) (online []*pb.Node, err error) {
+func (t *tally) categorize(ctx context.Context, nodeIDs storj.NodeIDList, nodeData map[string]int64) (online []*pb.Node, err error) {
 	t.logger.Debug("entering categorize")
 
-	responses, err := t.overlay.BulkLookup(ctx, utils.NodeIDsToLookupRequests(nodeIDs))
+	responses, err := t.overlay.BulkLookup(ctx, pb.NodeIDsToLookupRequests(nodeIDs))
 	if err != nil {
 		return []*pb.Node{}, err
 	}
@@ -131,7 +133,7 @@ func (t *tally) categorize(ctx context.Context, nodeIDs []dht.NodeID, nodeData m
 		if n != nil {
 			online = append(online, n)
 		} else {
-			nodeData[n.Id] = 0
+			nodeData[n.Id.String()] = 0
 		}
 	}
 	return online, nil
@@ -148,11 +150,11 @@ func (t *tally) tallyAtRestStorage(ctx context.Context, pointer *pb.Pointer, nod
 	for _, n := range nodes {
 		connected, err := t.nodeClient.Ping(ctx, *n)
 		if connected {
-			nodeData[n.Id] += pieceSize
+			nodeData[n.Id.String()] += pieceSize
 		}
 		if !connected || err != nil {
-			t.logger.Error("ping failed for node: " + n.Id)
-			nodeData[n.Id] = 0
+			t.logger.Error("ping failed for node: " + n.Id.String())
+			nodeData[n.Id.String()] = 0
 			continue
 		}
 	}
@@ -168,7 +170,7 @@ func (t *tally) updateRawTable(ctx context.Context, nodeData map[string]int64) e
 // Query bandwidth allocation database, selecting all new contracts since the last collection run time.
 // Grouping by storage node ID and adding total of bandwidth to granular data table.
 func (t *tally) Query(ctx context.Context) error {
-	lastBwTally, err := t.db.Find_Timestamps_Value_By_Name(ctx, accounting.LastBandwidthTally)
+	lastBwTally, err := t.db.FindLastBwTally(ctx)
 	if err != nil {
 		return err
 	}
@@ -223,11 +225,11 @@ func (t *tally) Query(ctx context.Context) error {
 
 	//todo:  switch to bulk update SQL?
 	for k, v := range bwTotals {
-		nID := dbx.Granular_NodeId(k)
-		start := dbx.Granular_StartTime(lastBwTally.Value)
-		end := dbx.Granular_EndTime(latestBwa)
-		total := dbx.Granular_DataTotal(v)
-		_, err = tx.Create_Granular(ctx, nID, start, end, total)
+		nID := dbx.Raw_NodeId(k)
+		end := dbx.Raw_IntervalEndTime(latestBwa)
+		total := dbx.Raw_DataTotal(v)
+		dataType := dbx.Raw_DataType(accounting.Bandwith)
+		_, err = tx.Create_Raw(ctx, nID, end, total, dataType)
 		if err != nil {
 			t.logger.DPanic("Create granular SQL failed in tally query")
 			return err //todo: retry strategy?

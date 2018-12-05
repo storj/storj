@@ -14,42 +14,51 @@ read scalar (
   where  timestamps.name = ?
 )
 
-
 model rollup (
-	key node_id
-
+  key id
+  
+  field id         serial64
   field node_id    text
-  field start_time timestamp ( updatable )
-  field interval   int64  ( updatable )
+  field start_time timestamp
+  field interval   int64
   field data_type  int
   field created_at timestamp ( autoinsert )
 	field updated_at timestamp ( autoinsert, autoupdate )
 )
 
 create rollup ( )
-update rollup ( where rollup.node_id = ? )
-delete rollup ( where rollup.node_id = ? )
+update rollup ( where rollup.id = ? )
+delete rollup ( where rollup.id = ? )
 read one (
   select rollup
-  where  rollup.node_id = ?
+  where  rollup.id = ?
+)
+read all (
+  select rollup
+  where rollup.node_id = ?
 )
 
-model raw (
-  key node_id
 
+model raw (
+  key id
+
+  field id serial64
   field node_id    text
-  field start_time timestamp ( updatable )
-  field end_time   timestamp ( updatable )
-  field data_total int64     ( updatable )
+  field interval_end_time   timestamp
+  field data_total int64
   field data_type  int
   field created_at timestamp ( autoinsert )
   field updated_at timestamp ( autoinsert, autoupdate )
 )
 
 create raw ( )
-update raw ( where raw.node_id = ? )
-delete raw ( where raw.node_id = ? )
+update raw ( where raw.id = ? )
+delete raw ( where raw.id = ? )
 read one (
   select raw
-  where  raw.node_id = ?
+  where  raw.id = ?
+)
+read all (
+  select raw
+  where raw.node_id = ?
 )

@@ -11,17 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/pkg/node"
-	"storj.io/storj/pkg/provider"
-
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/accounting"
 	dbManager "storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/bwagreement/test"
-	"storj.io/storj/pkg/kademlia"
-
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"

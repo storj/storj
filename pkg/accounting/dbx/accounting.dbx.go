@@ -290,7 +290,7 @@ CREATE TABLE rollups (
 	data_type integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( node_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE timestamps (
 	name text NOT NULL,
@@ -378,7 +378,7 @@ CREATE TABLE rollups (
 	data_type INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( node_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE timestamps (
 	name TEXT NOT NULL,
@@ -969,11 +969,12 @@ func (obj *postgresImpl) Create_Timestamps(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Create_Aggregate(ctx context.Context,
-	aggregate_node_id Aggregate_NodeId_Field,
-	aggregate_start_time Aggregate_StartTime_Field,
-	aggregate_interval Aggregate_Interval_Field) (
-	aggregate *Aggregate, err error) {
+func (obj *postgresImpl) Create_Rollup(ctx context.Context,
+	rollup_node_id Rollup_NodeId_Field,
+	rollup_start_time Rollup_StartTime_Field,
+	rollup_interval Rollup_Interval_Field,
+	rollup_data_type Rollup_DataType_Field) (
+	rollup *Rollup, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := rollup_node_id.value()
@@ -1050,9 +1051,9 @@ func (obj *postgresImpl) Find_Timestamps_Value_By_Name(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Get_Aggregate_By_NodeId(ctx context.Context,
-	aggregate_node_id Aggregate_NodeId_Field) (
-	aggregate *Aggregate, err error) {
+func (obj *postgresImpl) Get_Rollup_By_Id(ctx context.Context,
+	rollup_id Rollup_Id_Field) (
+	rollup *Rollup, err error) {
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT rollups.id, rollups.node_id, rollups.start_time, rollups.interval, rollups.data_type, rollups.created_at, rollups.updated_at FROM rollups WHERE rollups.id = ?")
 
@@ -1125,6 +1126,39 @@ func (obj *postgresImpl) Get_Raw_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) All_Raw_By_NodeId(ctx context.Context,
+	raw_node_id Raw_NodeId_Field) (
+	rows []*Raw, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE raws.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, raw_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		raw := &Raw{}
+		err = __rows.Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, raw)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Update_Timestamps_By_Name(ctx context.Context,
 	timestamps_name Timestamps_Name_Field,
 	update Timestamps_Update_Fields) (
@@ -1146,7 +1180,6 @@ func (obj *postgresImpl) Update_Timestamps_By_Name(ctx context.Context,
 		return nil, emptyUpdate()
 	}
 
-<<<<<<< HEAD
 	__args = append(__args, timestamps_name.value())
 
 	__values = append(__values, __args...)
@@ -1159,15 +1192,6 @@ func (obj *postgresImpl) Update_Timestamps_By_Name(ctx context.Context,
 	err = obj.driver.QueryRow(__stmt, __values...).Scan(&timestamps.Name, &timestamps.Value)
 	if err == sql.ErrNoRows {
 		return nil, nil
-=======
-	for __rows.Next() {
-		raw := &Raw{}
-		err = __rows.Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, raw)
->>>>>>> eaefe780... wip
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
@@ -1175,10 +1199,10 @@ func (obj *postgresImpl) Update_Timestamps_By_Name(ctx context.Context,
 	return timestamps, nil
 }
 
-func (obj *postgresImpl) Update_Aggregate_By_NodeId(ctx context.Context,
-	aggregate_node_id Aggregate_NodeId_Field,
-	update Aggregate_Update_Fields) (
-	aggregate *Aggregate, err error) {
+func (obj *postgresImpl) Update_Rollup_By_Id(ctx context.Context,
+	rollup_id Rollup_Id_Field,
+	update Rollup_Update_Fields) (
+	rollup *Rollup, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE rollups SET "), __sets, __sqlbundle_Literal(" WHERE rollups.id = ? RETURNING rollups.id, rollups.node_id, rollups.start_time, rollups.interval, rollups.data_type, rollups.created_at, rollups.updated_at")}}
@@ -1322,7 +1346,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM granulars;")
+	__res, err = obj.driver.Exec("DELETE FROM rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -1371,11 +1395,12 @@ func (obj *sqlite3Impl) Create_Timestamps(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Create_Aggregate(ctx context.Context,
-	aggregate_node_id Aggregate_NodeId_Field,
-	aggregate_start_time Aggregate_StartTime_Field,
-	aggregate_interval Aggregate_Interval_Field) (
-	aggregate *Aggregate, err error) {
+func (obj *sqlite3Impl) Create_Rollup(ctx context.Context,
+	rollup_node_id Rollup_NodeId_Field,
+	rollup_start_time Rollup_StartTime_Field,
+	rollup_interval Rollup_Interval_Field,
+	rollup_data_type Rollup_DataType_Field) (
+	rollup *Rollup, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := rollup_node_id.value()
@@ -1458,9 +1483,9 @@ func (obj *sqlite3Impl) Find_Timestamps_Value_By_Name(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Get_Aggregate_By_NodeId(ctx context.Context,
-	aggregate_node_id Aggregate_NodeId_Field) (
-	aggregate *Aggregate, err error) {
+func (obj *sqlite3Impl) Get_Rollup_By_Id(ctx context.Context,
+	rollup_id Rollup_Id_Field) (
+	rollup *Rollup, err error) {
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT rollups.id, rollups.node_id, rollups.start_time, rollups.interval, rollups.data_type, rollups.created_at, rollups.updated_at FROM rollups WHERE rollups.id = ?")
 
@@ -1533,17 +1558,46 @@ func (obj *sqlite3Impl) Get_Raw_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) All_Raw_By_NodeId(ctx context.Context,
+	raw_node_id Raw_NodeId_Field) (
+	rows []*Raw, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE raws.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, raw_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		raw := &Raw{}
+		err = __rows.Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, raw)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *sqlite3Impl) Update_Timestamps_By_Name(ctx context.Context,
 	timestamps_name Timestamps_Name_Field,
 	update Timestamps_Update_Fields) (
 	timestamps *Timestamps, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-<<<<<<< HEAD
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE timestamps SET "), __sets, __sqlbundle_Literal(" WHERE timestamps.name = ?")}}
-=======
-	var __embed_stmt = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE raws.node_id = ?")
->>>>>>> eaefe780... wip
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -1572,7 +1626,6 @@ func (obj *sqlite3Impl) Update_Timestamps_By_Name(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-<<<<<<< HEAD
 	var __embed_stmt_get = __sqlbundle_Literal("SELECT timestamps.name, timestamps.value FROM timestamps WHERE timestamps.name = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
@@ -1581,15 +1634,6 @@ func (obj *sqlite3Impl) Update_Timestamps_By_Name(ctx context.Context,
 	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&timestamps.Name, &timestamps.Value)
 	if err == sql.ErrNoRows {
 		return nil, nil
-=======
-	for __rows.Next() {
-		raw := &Raw{}
-		err = __rows.Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, raw)
->>>>>>> eaefe780... wip
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
@@ -1597,10 +1641,10 @@ func (obj *sqlite3Impl) Update_Timestamps_By_Name(ctx context.Context,
 	return timestamps, nil
 }
 
-func (obj *sqlite3Impl) Update_Aggregate_By_NodeId(ctx context.Context,
-	aggregate_node_id Aggregate_NodeId_Field,
-	update Aggregate_Update_Fields) (
-	aggregate *Aggregate, err error) {
+func (obj *sqlite3Impl) Update_Rollup_By_Id(ctx context.Context,
+	rollup_id Rollup_Id_Field,
+	update Rollup_Update_Fields) (
+	rollup *Rollup, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE rollups SET "), __sets, __sqlbundle_Literal(" WHERE rollups.id = ?")}}
@@ -1759,7 +1803,7 @@ func (obj *sqlite3Impl) getLastTimestamps(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) getLastAggregate(ctx context.Context,
+func (obj *sqlite3Impl) getLastRollup(ctx context.Context,
 	pk int64) (
 	rollup *Rollup, err error) {
 
@@ -1823,7 +1867,7 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM granulars;")
+	__res, err = obj.driver.Exec("DELETE FROM rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -1950,8 +1994,8 @@ func (rx *Rx) Create_Timestamps(ctx context.Context,
 
 }
 
-func (rx *Rx) Delete_Aggregate_By_NodeId(ctx context.Context,
-	aggregate_node_id Aggregate_NodeId_Field) (
+func (rx *Rx) Delete_Raw_By_Id(ctx context.Context,
+	raw_id Raw_Id_Field) (
 	deleted bool, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
@@ -1980,9 +2024,9 @@ func (rx *Rx) Find_Timestamps_Value_By_Name(ctx context.Context,
 	return tx.Find_Timestamps_Value_By_Name(ctx, timestamps_name)
 }
 
-func (rx *Rx) Get_Aggregate_By_NodeId(ctx context.Context,
-	aggregate_node_id Aggregate_NodeId_Field) (
-	aggregate *Aggregate, err error) {
+func (rx *Rx) Get_Raw_By_Id(ctx context.Context,
+	raw_id Raw_Id_Field) (
+	raw *Raw, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
@@ -2022,7 +2066,6 @@ func (rx *Rx) Update_Rollup_By_Id(ctx context.Context,
 	return tx.Update_Rollup_By_Id(ctx, rollup_id, update)
 }
 
-<<<<<<< HEAD
 func (rx *Rx) Update_Timestamps_By_Name(ctx context.Context,
 	timestamps_name Timestamps_Name_Field,
 	update Timestamps_Update_Fields) (
@@ -2033,7 +2076,7 @@ func (rx *Rx) Update_Timestamps_By_Name(ctx context.Context,
 	}
 	return tx.Update_Timestamps_By_Name(ctx, timestamps_name, update)
 }
-=======
+
 type Methods interface {
 	All_Raw_By_NodeId(ctx context.Context,
 		raw_node_id Raw_NodeId_Field) (
@@ -2056,29 +2099,14 @@ type Methods interface {
 		rollup_interval Rollup_Interval_Field,
 		rollup_data_type Rollup_DataType_Field) (
 		rollup *Rollup, err error)
->>>>>>> eaefe780... wip
-
-type Methods interface {
-	Create_Aggregate(ctx context.Context,
-		aggregate_node_id Aggregate_NodeId_Field,
-		aggregate_start_time Aggregate_StartTime_Field,
-		aggregate_interval Aggregate_Interval_Field) (
-		aggregate *Aggregate, err error)
-
-	Create_Granular(ctx context.Context,
-		granular_node_id Granular_NodeId_Field,
-		granular_start_time Granular_StartTime_Field,
-		granular_end_time Granular_EndTime_Field,
-		granular_data_total Granular_DataTotal_Field) (
-		granular *Granular, err error)
 
 	Create_Timestamps(ctx context.Context,
 		timestamps_name Timestamps_Name_Field,
 		timestamps_value Timestamps_Value_Field) (
 		timestamps *Timestamps, err error)
 
-	Delete_Aggregate_By_NodeId(ctx context.Context,
-		aggregate_node_id Aggregate_NodeId_Field) (
+	Delete_Raw_By_Id(ctx context.Context,
+		raw_id Raw_Id_Field) (
 		deleted bool, err error)
 
 	Delete_Rollup_By_Id(ctx context.Context,
@@ -2089,9 +2117,9 @@ type Methods interface {
 		timestamps_name Timestamps_Name_Field) (
 		row *Value_Row, err error)
 
-	Get_Aggregate_By_NodeId(ctx context.Context,
-		aggregate_node_id Aggregate_NodeId_Field) (
-		aggregate *Aggregate, err error)
+	Get_Raw_By_Id(ctx context.Context,
+		raw_id Raw_Id_Field) (
+		raw *Raw, err error)
 
 	Get_Rollup_By_Id(ctx context.Context,
 		rollup_id Rollup_Id_Field) (
@@ -2102,10 +2130,10 @@ type Methods interface {
 		update Raw_Update_Fields) (
 		raw *Raw, err error)
 
-	Update_Granular_By_NodeId(ctx context.Context,
-		granular_node_id Granular_NodeId_Field,
-		update Granular_Update_Fields) (
-		granular *Granular, err error)
+	Update_Rollup_By_Id(ctx context.Context,
+		rollup_id Rollup_Id_Field,
+		update Rollup_Update_Fields) (
+		rollup *Rollup, err error)
 
 	Update_Timestamps_By_Name(ctx context.Context,
 		timestamps_name Timestamps_Name_Field,
