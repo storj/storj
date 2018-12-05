@@ -39,7 +39,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 	assert.NotNil(t, pointerdb)
 
-	sdb, err := statdb.NewServer("sqlite3", fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63()), "abcdefghijklmnopqrstuvwrxyz", logger)
+	sdb, err := statdb.NewStatDB("sqlite3", fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63()), logger)
 	assert.NotNil(t, sdb)
 	assert.NoError(t, err)
 
@@ -128,7 +128,7 @@ func TestOfflineNodes(t *testing.T) {
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 	assert.NotNil(t, pointerdb)
 
-	sdb, err := statdb.NewServer("sqlite3", fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63()), "abcdefghijklmnopqrstuvwrxyz", logger)
+	sdb, err := statdb.NewStatDB("sqlite3", fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63()), logger)
 	assert.NotNil(t, sdb)
 	assert.NoError(t, err)
 
@@ -170,7 +170,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 	assert.NotNil(b, pointerdb)
 
-	sdb, err := statdb.NewServer("sqlite3", fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63()), "abcdefghijklmnopqrstuvwrxyz", logger)
+	sdb, err := statdb.NewStatDB("sqlite3", fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63()), logger)
 	assert.NotNil(b, sdb)
 	assert.NoError(b, err)
 

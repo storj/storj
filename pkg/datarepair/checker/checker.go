@@ -27,7 +27,7 @@ type Checker interface {
 
 // Checker contains the information needed to do checks for missing pieces
 type checker struct {
-	statdb      *statdb.Server
+	statdb      *statdb.StatDB
 	pointerdb   *pointerdb.Server
 	repairQueue *queue.Queue
 	overlay     pb.OverlayServer
@@ -38,7 +38,7 @@ type checker struct {
 }
 
 // newChecker creates a new instance of checker
-func newChecker(pointerdb *pointerdb.Server, sdb *statdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, irrdb *irreparabledb.Database, limit int, logger *zap.Logger, interval time.Duration) *checker {
+func newChecker(pointerdb *pointerdb.Server, sdb *statdb.StatDB, repairQueue *queue.Queue, overlay pb.OverlayServer, irrdb *irreparabledb.Database, limit int, logger *zap.Logger, interval time.Duration) *checker {
 	return &checker{
 		statdb:      sdb,
 		pointerdb:   pointerdb,
@@ -164,7 +164,7 @@ func (c *checker) offlineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (o
 // Find invalidNodes by checking the audit results that are place in statdb
 func (c *checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (invalidNodes []int32, err error) {
 	// filter if nodeIDs have invalid pieces from auditing results
-	findValidNodesReq := &sdbpb.FindValidNodesRequest{
+	findInValidNodesReq := &sdbpb.FindInvalidNodesRequest{
 		NodeIds: nodeIDs,
 		MinStats: &pb.NodeStats{
 			AuditSuccessRatio: 0, // TODO: update when we have stats added to statdb
@@ -173,25 +173,19 @@ func (c *checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (i
 		},
 	}
 
-	resp, err := c.statdb.FindValidNodes(ctx, findValidNodesReq)
+	resp, err := c.statdb.FindInvalidNodes(ctx, findInValidNodesReq)
 	if err != nil {
 		return nil, Error.New("error getting valid nodes from statdb %s", err)
 	}
 
-	var isValidNode bool
-	for i, node := range nodeIDs {
-		isValidNode = true
+	// What if some valid nodes haven't been audited. Just because they don't appear doesn't mean they aren't valid
+	invalidNodesMap := make(map[storj.NodeID]bool)
+	for _, invalidID := range resp.PassedIds {
+		invalidNodesMap[invalidID] = true
+	}
 
-		// Check if node is a valid node
-		for _, validNode := range resp.PassedIds {
-			if node == validNode {
-				break
-			}
-			isValidNode = false
-		}
-
-		// if node is not found in validNodes then the node is invalid
-		if !isValidNode {
+	for i, nID := range nodeIDs {
+		if !invalidNodesMap[nID] {
 			invalidNodes = append(invalidNodes, int32(i))
 		}
 	}
@@ -203,24 +197,15 @@ func (c *checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (i
 func combineOfflineWithInvalid(offlineNodes []int32, invalidNodes []int32) (missingPieces []int32) {
 	missingPieces = append(missingPieces, offlineNodes...)
 
-	var found bool
-	for _, invalidNode := range invalidNodes {
-		found = true
-
-		for _, missingPiece := range missingPieces {
-
-			// If invalidNode is already in missingPiece slice don't do anything
-			if missingPiece == invalidNode {
-				break
-			}
-
-			found = false
-		}
-
-		// if invalidNode is not already found in missingPieces slice append it
-		if !found {
-			missingPieces = append(missingPieces, invalidNode)
+	offlineMap := make(map[int32]bool)
+	for _, i := range offlineNodes {
+		offlineMap[i] = true
+	}
+	for _, i := range invalidNodes {
+		if !offlineMap[i] {
+			missingPieces = append(missingPieces, int32(i))
 		}
 	}
+
 	return missingPieces
 }
