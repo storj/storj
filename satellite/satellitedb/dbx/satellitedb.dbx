@@ -1,0 +1,8 @@
+// dbx.v1 golang satellitedb.dbx .
+
+// remove it when first table will be added
+model test (
+	key id
+
+	field id blob
+)

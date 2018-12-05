@@ -4,11 +4,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/alicebob/miniredis"
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
@@ -27,6 +29,7 @@ import (
 	"storj.io/storj/pkg/satellite/satelliteweb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/satellite/satellitedb"
 )
 
 const (
@@ -46,6 +49,7 @@ type Satellite struct {
 	StatDB      statdb.Config
 	BwAgreement bwagreement.Config
 	Web         satelliteweb.Config
+	Database    string `help:"the master database connection string" default:"sqlite3://$CONFDIR/master.db"`
 }
 
 // StorageNode is for configuring storage nodes
@@ -101,6 +105,22 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		if runCfg.Satellite.Web.SatelliteAddr == "" {
 			runCfg.Satellite.Web.SatelliteAddr = runCfg.Satellite.Identity.Address
 		}
+
+		database, err := satellitedb.NewDB(runCfg.Satellite.Database)
+		if err != nil {
+			errch <- errs.New("Error starting master database on satellite: %+v", err)
+			return
+		}
+
+		err = database.CreateTables()
+		if err != nil {
+			errch <- errs.New("Error creating tables for master database on satellite: %+v", err)
+			return
+		}
+
+		//nolint ignoring context rules to not create cyclic dependency, will be removed later
+		ctx = context.WithValue(ctx, "masterdb", database)
+
 		// Run satellite
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			grpcauth.NewAPIKeyInterceptor(),
