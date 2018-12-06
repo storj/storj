@@ -8,16 +8,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zeebo/errs"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/internal/migrate"
 	dbx "storj.io/storj/pkg/bwagreement/database-manager/dbx"
 	"storj.io/storj/pkg/pb"
 )
 
 var (
-	mon = monkit.Package()
+	mon   = monkit.Package()
+	Error = errs.Class("bwagreementdb")
 )
 
 // DBManager is an implementation of the database access interface
@@ -30,7 +33,8 @@ type DBManager struct {
 func NewDBManager(driver, source string) (*DBManager, error) {
 	db, err := dbx.Open(driver, source)
 	if err != nil {
-		return nil, err
+		return nil, Error.New("failed opening database %q, %q: %v",
+			driver, source, err)
 	}
 
 	err = migrate.Create("bwagreement", db)

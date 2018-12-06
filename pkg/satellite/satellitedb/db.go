@@ -4,9 +4,15 @@
 package satellitedb
 
 import (
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/pkg/satellite/satellitedb/dbx"
+)
+
+var (
+	Error = errs.Class("satellitedb")
 )
 
 // Database contains access to different satellite databases
@@ -17,9 +23,9 @@ type Database struct {
 // New - constructor for DB
 func New(driver, source string) (satellite.DB, error) {
 	db, err := dbx.Open(driver, source)
-
 	if err != nil {
-		return nil, err
+		return nil, Error.New("failed opening database %q, %q: %v",
+			driver, source, err)
 	}
 
 	database := &Database{

@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/bwagreement/database-manager"
+	dbmanager "storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 )

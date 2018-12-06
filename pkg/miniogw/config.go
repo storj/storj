@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/buckets"
-	"storj.io/storj/pkg/storage/ec"
+	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
