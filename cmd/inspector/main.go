@@ -82,6 +82,11 @@ var (
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  LookupNode,
 	}
+	dumpNodesCmd = &cobra.Command{
+		Use:   "dump-nodes",
+		Short: "dump all nodes in the routing table",
+		RunE:  DumpNodes,
+	}
 	getStatsCmd = &cobra.Command{
 		Use:   "getstats <node_id>",
 		Short: "Get node stats",
@@ -215,6 +220,37 @@ func LookupNode(cmd *cobra.Command, args []string) (err error) {
 
 	fmt.Println(prettyPrintNode(n))
 
+	return nil
+}
+
+// DumpNodes outputs a json list of every node in every bucket in the satellite
+func DumpNodes(cmd *cobra.Command, args []string) (err error) {
+	fmt.Println("querying for buckets and nodes, sit tight....")
+	i, err := NewInspector(*Addr)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	nodes := []pb.Node{}
+
+	buckets, err := i.client.GetBuckets(context.Background(), &pb.GetBucketsRequest{})
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	for _, bucket := range buckets.Ids {
+		b, err := i.client.GetBucket(context.Background(), &pb.GetBucketRequest{
+			Id: bucket,
+		})
+		if err != nil {
+			return err
+		}
+
+		for _, node := range b.Nodes {
+			nodes = append(nodes, *node)
+		}
+	}
+	fmt.Printf("%+v\n", nodes)
 	return nil
 }
 
@@ -438,6 +474,7 @@ func init() {
 	kadCmd.AddCommand(getBucketCmd)
 	kadCmd.AddCommand(pingNodeCmd)
 	kadCmd.AddCommand(lookupNodeCmd)
+	kadCmd.AddCommand(dumpNodesCmd)
 
 	statsCmd.AddCommand(getStatsCmd)
 	statsCmd.AddCommand(getCSVStatsCmd)
