@@ -333,10 +333,7 @@ func (layer *gatewayLayer) MakeBucketWithLocation(ctx context.Context, bucket st
 		return convertError(err, bucket, "")
 	}
 
-	_, err = layer.gateway.metainfo.CreateBucket(ctx, bucket, &storj.Bucket{
-		Name:       bucket,
-		PathCipher: layer.gateway.pathCipher,
-	})
+	_, err = layer.gateway.metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: layer.gateway.pathCipher})
 
 	return err
 }
