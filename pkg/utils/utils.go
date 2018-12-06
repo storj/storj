@@ -84,15 +84,10 @@ type ErrorGroup []error
 
 // Add adds an error to the ErrorGroup if it is non-nil
 func (e *ErrorGroup) Add(errs ...error) {
-	j := 0
-	for i, err := range errs {
+	for _, err := range errs {
 		if err != nil {
-			errs[j] = errs[i]
-			j++
+			*e = append(*e, err)
 		}
-	}
-	if j > 0 {
-		*e = append(*e, errs[:j]...)
 	}
 }
 
