@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/signal"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
@@ -52,6 +53,7 @@ type Kademlia struct {
 	address        string
 	nodeClient     node.Client
 	identity       *provider.FullIdentity
+	events         *signal.Dispatcher
 }
 
 // NewKademlia returns a newly configured Kademlia instance
@@ -88,12 +90,15 @@ func NewKademlia(id storj.NodeID, nodeType pb.NodeType, bootstrapNodes []pb.Node
 
 // NewKademliaWithRoutingTable returns a newly configured Kademlia instance
 func NewKademliaWithRoutingTable(self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
+	dispatcher := signal.NewDispatcher("kademlia")
+
 	k := &Kademlia{
 		alpha:          alpha,
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
 		address:        self.Address.Address,
 		identity:       identity,
+		events:         dispatcher,
 	}
 
 	nc, err := node.NewNodeClient(identity, self, k)
@@ -168,13 +173,19 @@ func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error
 func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	// What I want to do here is do a normal lookup for myself
 	// so call lookup(ctx, nodeImLookingFor)
+
 	if len(k.bootstrapNodes) == 0 {
 		return BootstrapErr.New("no bootstrap nodes provided")
 	}
 
-	return k.lookup(ctx, k.routingTable.self.Id, discoveryOptions{
+	err := k.lookup(ctx, k.routingTable.self.Id, discoveryOptions{
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: true, bootstrapNodes: k.bootstrapNodes,
 	})
+
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (k *Kademlia) lookup(ctx context.Context, target storj.NodeID, opts discoveryOptions) error {
