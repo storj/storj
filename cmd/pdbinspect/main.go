@@ -21,106 +21,37 @@ import (
 	"storj.io/storj/pkg/storage/meta"
 )
 
-func main() {
-	ctx := context.Background()
-	var port string
-	var apiKey string
-	var prefix string
-	var endBefore string
-	var startAfter string
-	var recursive bool
-	var limit int
-	var metaFlags uint32
-	var jsonBool bool
+var (
+	ctx = context.Background()
 
-	var cmdList = &cobra.Command{
+	port      string
+	apiKey    string
+	jsonPrint bool
+
+	prefix     string
+	endBefore  string
+	startAfter string
+	recursive  bool
+	limit      int
+	metaFlags  uint32
+
+	rootCmd = &cobra.Command{Use: "pdbinspect"}
+
+	cmdList = &cobra.Command{
 		Use:   "list",
 		Short: "lists pointers",
-		Run: func(cmd *cobra.Command, args []string) {
-			client, err := newPDBClient(ctx, port, apiKey)
-			if err != nil {
-				fmt.Println("Error", err)
-				os.Exit(1)
-			}
-			items, more, err := client.List(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags)
-			if err != nil {
-				fmt.Println("Error", err)
-				os.Exit(1)
-			}
-			if jsonBool {
-				for index, pointer := range items {
-					pointerFields := map[string]interface{}{
-						"Index": index,
-						"Path":  pointer.Path,
-					}
-					formatted, err := json.MarshalIndent(pointerFields, "", "  ")
-					if err != nil {
-						fmt.Println("Error", err)
-					}
-					fmt.Println(string(formatted))
-				}
-			} else {
-				fmt.Println("Index\tPath\t")
-
-				for i, pointer := range items {
-					fmt.Println(i, "\t", pointer.Path, "\t")
-				}
-			}
-
-			if more {
-				fmt.Println("\nMore pointers remaining.\nRun list again with `--startAfter <last-path>`")
-			}
-		},
+		Run:   listPointers,
 	}
 
-	var cmdGet = &cobra.Command{
+	cmdGet = &cobra.Command{
 		Use:   "get",
 		Short: "gets pointer",
 		Args:  cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			client, err := newPDBClient(ctx, port, apiKey)
-			if err != nil {
-				fmt.Println("Error", err)
-				os.Exit(1)
-			}
-			pointer, _, _, err := client.Get(ctx, args[0])
-			if err != nil {
-				fmt.Println("Error", err)
-				os.Exit(1)
-			}
-
-			if jsonBool {
-				prettyPointer := prettyPrint(pointer)
-				fmt.Println(prettyPointer)
-			} else {
-
-				if pointer.GetType() == pb.Pointer_INLINE {
-					fmt.Println("Type\tCreation Date\tExpiration Date\t")
-					fmt.Println(pointer.GetType(), "\t", readableTime(pointer.GetCreationDate()), "\t",
-						readableTime(pointer.GetExpirationDate()), "\t")
-				}
-
-				if pointer.GetType() == pb.Pointer_REMOTE {
-					fmt.Println("\nRemote Pieces:")
-					fmt.Println("\nIndex\tPiece Number\tNode ID")
-					for index, piece := range pointer.GetRemote().GetRemotePieces() {
-						fmt.Println(index, "\t", piece.GetPieceNum(), "\t\t", piece.NodeId)
-					}
-
-					fmt.Println("\nType\t\t", pointer.GetType(), "\nCreation Date\t", readableTime(pointer.GetCreationDate()),
-						"\nExpiration Date\t", readableTime(pointer.GetExpirationDate()), "\nSegment Size\t", pointer.GetSegmentSize(),
-						"\nPiece ID\t", pointer.GetRemote().GetPieceId(),
-						"\n\nRedundancy:\n\n\tMinimum Required\t", pointer.GetRemote().GetRedundancy().GetMinReq(),
-						"\n\tTotal\t\t\t", pointer.GetRemote().GetRedundancy().GetTotal(),
-						"\n\tRepair Threshold\t", pointer.GetRemote().GetRedundancy().GetRepairThreshold(),
-						"\n\tSuccess Threshold\t", pointer.GetRemote().GetRedundancy().GetSuccessThreshold(),
-						"\n\tErasure Share Size\t", pointer.GetRemote().GetRedundancy().GetErasureShareSize(),
-					)
-				}
-			}
-		},
+		Run:   getPointer,
 	}
+)
 
+func main() {
 	cmdList.Flags().StringVarP(&prefix, "prefix", "x", "", "bucket prefix")
 	cmdList.Flags().StringVarP(&endBefore, "endBefore", "e", "", "end before path")
 	cmdList.Flags().StringVarP(&startAfter, "startAfter", "s", "", "start after path")
@@ -128,16 +59,95 @@ func main() {
 	cmdList.Flags().IntVarP(&limit, "limit", "l", 0, "listing limit")
 	cmdList.Flags().Uint32VarP(&metaFlags, "metaFlags", "m", meta.None, "listing limit")
 
-	var rootCmd = &cobra.Command{Use: "pdbinspect"}
 	rootCmd.PersistentFlags().StringVarP(&port, "port", "p", ":7778", "pointerdb port")
 	rootCmd.PersistentFlags().StringVarP(&apiKey, "apikey", "a", "abc123", "pointerdb api key")
-	rootCmd.PersistentFlags().BoolVarP(&jsonBool, "json", "j", false, "formats in json")
+	rootCmd.PersistentFlags().BoolVarP(&jsonPrint, "json", "j", false, "formats in json")
 
 	rootCmd.AddCommand(cmdList, cmdGet)
 	err := rootCmd.Execute()
 	if err != nil {
 		fmt.Println("Error", err)
 		os.Exit(1)
+	}
+}
+
+func listPointers(cmd *cobra.Command, args []string) {
+	client, err := newPDBClient(ctx, port, apiKey)
+	if err != nil {
+		fmt.Println("Error", err)
+		os.Exit(1)
+	}
+	items, more, err := client.List(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags)
+	if err != nil {
+		fmt.Println("Error", err)
+		os.Exit(1)
+	}
+	if jsonPrint {
+		for index, pointer := range items {
+			pointerFields := map[string]interface{}{
+				"Index": index,
+				"Path":  pointer.Path,
+			}
+			formatted, err := json.MarshalIndent(pointerFields, "", "  ")
+			if err != nil {
+				fmt.Println("Error", err)
+				os.Exit(1)
+			}
+			fmt.Println(string(formatted))
+		}
+	} else {
+		fmt.Println("Index\tPath\t")
+
+		for i, pointer := range items {
+			fmt.Println(i, "\t", pointer.Path, "\t")
+		}
+	}
+
+	if more {
+		fmt.Println("\nMore pointers remaining.\nRun list again with `--startAfter <last-path>`")
+	}
+}
+
+func getPointer(cmd *cobra.Command, args []string) {
+	client, err := newPDBClient(ctx, port, apiKey)
+	if err != nil {
+		fmt.Println("Error", err)
+		os.Exit(1)
+	}
+	pointer, _, _, err := client.Get(ctx, args[0])
+	if err != nil {
+		fmt.Println("Error", err)
+		os.Exit(1)
+	}
+
+	if jsonPrint {
+		prettyPointer := prettyPrint(pointer)
+		fmt.Println(prettyPointer)
+	} else {
+
+		if pointer.GetType() == pb.Pointer_INLINE {
+			fmt.Println("Type\tCreation Date\tExpiration Date\t")
+			fmt.Println(pointer.GetType(), "\t", readableTime(pointer.GetCreationDate()), "\t",
+				readableTime(pointer.GetExpirationDate()), "\t")
+		}
+
+		if pointer.GetType() == pb.Pointer_REMOTE {
+			fmt.Println("\nRemote Pieces:")
+			fmt.Println("\nIndex\tPiece Number\tNode ID")
+			for index, piece := range pointer.GetRemote().GetRemotePieces() {
+				fmt.Println(index, "\t", piece.GetPieceNum(), "\t\t", piece.NodeId)
+			}
+
+			fmt.Println("\nType\t\t", pointer.GetType(), "\nCreation Date\t", readableTime(pointer.GetCreationDate()),
+				"\nExpiration Date\t", readableTime(pointer.GetExpirationDate()), "\nSegment Size\t", pointer.GetSegmentSize(),
+				"\nPiece ID\t", pointer.GetRemote().GetPieceId(),
+				"\n\nRedundancy:\n\n\tMinimum Required\t", pointer.GetRemote().GetRedundancy().GetMinReq(),
+				"\n\tTotal\t\t\t", pointer.GetRemote().GetRedundancy().GetTotal(),
+				"\n\tRepair Threshold\t", pointer.GetRemote().GetRedundancy().GetRepairThreshold(),
+				"\n\tSuccess Threshold\t", pointer.GetRemote().GetRedundancy().GetSuccessThreshold(),
+				"\n\tErasure Share Size\t", pointer.GetRemote().GetRedundancy().GetErasureShareSize(),
+			)
+		}
 	}
 }
 
@@ -152,11 +162,11 @@ func prettyPrint(unformatted proto.Message) string {
 	formatted, err := m.MarshalToString(unformatted)
 	if err != nil {
 		fmt.Println("Error", err)
+		os.Exit(1)
 	}
 	return formatted
 }
 
-// newPDBClient creates a new pointerdb client
 func newPDBClient(ctx context.Context, port, apiKey string) (*pdbclient.PointerDB, error) {
 	identity, err := provider.NewFullIdentity(ctx, 12, 4)
 	if err != nil {
