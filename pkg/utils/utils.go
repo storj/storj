@@ -50,18 +50,8 @@ func ParseURL(s string) (*url.URL, error) {
 
 // CombineErrors combines multiple errors to a single error
 func CombineErrors(errs ...error) error {
-	// avoid some allocations
-	nonnil := 0
-	for _, err := range errs {
-		if err != nil {
-			nonnil += 1
-		}
-	}
-	errlist := make(ErrorGroup, 0, nonnil)
-
-	for _, err := range errs {
-		errlist.Add(err)
-	}
+	var errlist ErrorGroup
+	errlist.Add(errs...)
 	return errlist.Finish()
 }
 
@@ -93,9 +83,16 @@ func (errs combinedError) Error() string {
 type ErrorGroup []error
 
 // Add adds an error to the ErrorGroup if it is non-nil
-func (e *ErrorGroup) Add(err error) {
-	if err != nil {
-		*e = append(*e, err)
+func (e *ErrorGroup) Add(errs ...error) {
+	j := 0
+	for i, err := range errs {
+		if err != nil {
+			errs[j] = errs[i]
+			j++
+		}
+	}
+	if j > 0 {
+		*e = append(*e, errs[:j]...)
 	}
 }
 
