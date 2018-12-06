@@ -2,7 +2,14 @@ package signal
 
 import (
 	"sync"
+
+	"github.com/zeebo/errs"
+
+	"storj.io/storj/pkg/utils"
 )
+
+// ErrNilCallback throws if there is no callback function provided
+var ErrNilCallback = errs.Class("must provide a callback function to register")
 
 // Dispatcher is what's loaded onto each service
 type Dispatcher struct {
@@ -23,9 +30,12 @@ func NewDispatcher(source string) *Dispatcher {
 }
 
 // Dispatch broadcasts an event across all callbacks
+// If any of them error, it will return that error,
 func (d *Dispatcher) Dispatch(name string) error {
 	d.Lock()
 	defer d.Unlock()
+
+	errors := []error{}
 
 	if d.callbacks[name] == nil {
 		d.callbacks[name] = make([]Callback, 0)
@@ -33,20 +43,25 @@ func (d *Dispatcher) Dispatch(name string) error {
 
 	for _, cb := range d.callbacks[name] {
 		if err := cb(); err != nil {
-			return err
+			errors = append(errors, err)
 		}
 	}
 
-	return nil
+	return utils.CombineErrors(errors...)
 }
 
 // Register adds a callback on the dispatcher
-func (d *Dispatcher) Register(name string, c Callback) {
+func (d *Dispatcher) Register(name string, c Callback) error {
 	d.Lock()
 	defer d.Unlock()
+
+	if c == nil {
+		return ErrNilCallback.New("")
+	}
 
 	if d.callbacks[name] == nil {
 		d.callbacks[name] = make([]Callback, 0)
 	}
 	d.callbacks[name] = append(d.callbacks[name], c)
+	return nil
 }
