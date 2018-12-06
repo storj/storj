@@ -27,9 +27,8 @@ type extension struct {
 }
 
 // ParseExtensions an extension config into a slice of extensions with their
-// respective ids (`asn1.ObjectIdentifier`) and a function (`f`) which, when
-// called with an instance of that type of extension from a certificate and
-// the cert chains, will valid
+// respective ids (`asn1.ObjectIdentifier`) and a function (`f`) which can be
+// used in the context of peer certificate verification.
 func ParseExtensions(c TLSExtConfig, caWhitelist []*x509.Certificate) (exts Extensions) {
 	if c.WhitelistSignedLeaf {
 		exts = append(exts, extension{
