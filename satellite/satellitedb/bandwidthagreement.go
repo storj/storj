@@ -32,7 +32,7 @@ func (b *bandwidthagreement) GetAgreements(ctx context.Context) ([]bwagreement.A
 
 	agreements := make([]bwagreement.Agreement, len(rows))
 	for i, entry := range rows {
-		agreement := agreements[i]
+		agreement := &agreements[i]
 		agreement.Signature = entry.Signature
 		agreement.Agreement = entry.Data
 		agreement.CreatedAt = entry.CreatedAt
@@ -48,7 +48,7 @@ func (b *bandwidthagreement) GetAgreementsSince(ctx context.Context, since time.
 
 	agreements := make([]bwagreement.Agreement, len(rows))
 	for i, entry := range rows {
-		agreement := agreements[i]
+		agreement := &agreements[i]
 		agreement.Signature = entry.Signature
 		agreement.Agreement = entry.Data
 		agreement.CreatedAt = entry.CreatedAt
