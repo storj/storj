@@ -20,7 +20,7 @@ export async function createProject(project: Project): Promise<any> {
                             companyName: "${project.companyName}",
                             isTermsAccepted: ${project.isTermsAccepted},
                         }
-                    )
+                    ) {id}
                 }`
             ),
             fetchPolicy: "no-cache",

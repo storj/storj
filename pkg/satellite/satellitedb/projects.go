@@ -16,7 +16,7 @@ import (
 
 // implementation of Projects interface repository using spacemonkeygo/dbx orm
 type projects struct {
-	db *dbx.DB
+	db dbx.Methods
 }
 
 // GetAll is a method for querying all projects from the database.

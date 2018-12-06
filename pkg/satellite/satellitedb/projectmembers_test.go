@@ -114,74 +114,20 @@ func TestProjectMembersRepository(t *testing.T) {
 		assert.Equal(t, projectMembers2[0].MemberID, createdUsers[2].ID)
 	})
 
-	t.Run("Get all and get by id success", func(t *testing.T) {
-		allProjMembers, err := projectMembers.GetAll(ctx)
-		assert.NotNil(t, allProjMembers)
-		assert.Equal(t, 3, len(allProjMembers))
-		assert.Nil(t, err)
-		assert.NoError(t, err)
-
-		projMember1, err := projectMembers.Get(ctx, allProjMembers[0].ID)
-		assert.NotNil(t, projMember1)
-		assert.Nil(t, err)
-		assert.NoError(t, err)
-
-		projMember2, err := projectMembers.Get(ctx, allProjMembers[1].ID)
-		assert.NotNil(t, projMember2)
-		assert.Nil(t, err)
-		assert.NoError(t, err)
-
-		projMember3, err := projectMembers.Get(ctx, allProjMembers[2].ID)
-		assert.NotNil(t, projMember3)
-		assert.Nil(t, err)
-		assert.NoError(t, err)
-	})
-
-	t.Run("Update success", func(t *testing.T) {
-		// fetching member of project #2
-		members, err := projectMembers.GetByProjectID(ctx, createdProjects[1].ID)
-		assert.NotNil(t, members)
-		assert.Equal(t, 1, len(members))
-		assert.Nil(t, err)
-		assert.NoError(t, err)
-
-		// set its proj id to proj1 id
-		projMemberToUpdate := members[0]
-		projMemberToUpdate.ProjectID = createdProjects[0].ID
-
-		err = projectMembers.Update(ctx, &projMemberToUpdate)
-		assert.Nil(t, err)
-		assert.NoError(t, err)
-
-		// checking that proj 2 has 0 members
-		members, err = projectMembers.GetByProjectID(ctx, createdProjects[1].ID)
-		assert.Equal(t, 0, len(members))
-		assert.Nil(t, members)
-		assert.Nil(t, err)
-		assert.NoError(t, err)
-
-		// checking that proj 1 has 3 members after update
-		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID)
-		assert.NotNil(t, members)
-		assert.Equal(t, 3, len(members))
-		assert.Nil(t, err)
-		assert.NoError(t, err)
-	})
-
 	t.Run("Delete success", func(t *testing.T) {
 		members, err := projectMembers.GetByProjectID(ctx, createdProjects[0].ID)
 		assert.NotNil(t, members)
-		assert.Equal(t, 3, len(members))
+		assert.Equal(t, 2, len(members))
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 
-		err = projectMembers.Delete(ctx, members[2].ID)
+		err = projectMembers.Delete(ctx, members[1].MemberID, members[1].ProjectID)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 
 		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID)
 		assert.NotNil(t, members)
-		assert.Equal(t, 2, len(members))
+		assert.Equal(t, 1, len(members))
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 	})

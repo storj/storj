@@ -299,11 +299,10 @@ CREATE TABLE projects (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE project_members (
-	id BLOB NOT NULL,
 	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( member_id, project_id )
 );`
 }
 
@@ -842,7 +841,6 @@ func (f Project_CreatedAt_Field) value() interface{} {
 func (Project_CreatedAt_Field) _Column() string { return "created_at" }
 
 type ProjectMember struct {
-	Id        []byte
 	MemberId  []byte
 	ProjectId []byte
 	CreatedAt time.Time
@@ -851,27 +849,7 @@ type ProjectMember struct {
 func (ProjectMember) _Table() string { return "project_members" }
 
 type ProjectMember_Update_Fields struct {
-	ProjectId ProjectMember_ProjectId_Field
 }
-
-type ProjectMember_Id_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func ProjectMember_Id(v []byte) ProjectMember_Id_Field {
-	return ProjectMember_Id_Field{_set: true, _value: v}
-}
-
-func (f ProjectMember_Id_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectMember_Id_Field) _Column() string { return "id" }
 
 type ProjectMember_MemberId_Field struct {
 	_set   bool
@@ -1204,23 +1182,21 @@ func (obj *sqlite3Impl) Create_Project(ctx context.Context,
 }
 
 func (obj *sqlite3Impl) Create_ProjectMember(ctx context.Context,
-	project_member_id ProjectMember_Id_Field,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
 	project_member *ProjectMember, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
-	__id_val := project_member_id.value()
 	__member_id_val := project_member_member_id.value()
 	__project_id_val := project_member_project_id.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_members ( id, member_id, project_id, created_at ) VALUES ( ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_members ( member_id, project_id, created_at ) VALUES ( ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __member_id_val, __project_id_val, __created_at_val)
+	obj.logStmt(__stmt, __member_id_val, __project_id_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __member_id_val, __project_id_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __member_id_val, __project_id_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1422,43 +1398,11 @@ func (obj *sqlite3Impl) All_Project_By_ProjectMember_MemberId(ctx context.Contex
 
 }
 
-func (obj *sqlite3Impl) All_ProjectMember(ctx context.Context) (
-	rows []*ProjectMember, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.id, project_members.member_id, project_members.project_id, project_members.created_at FROM project_members")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		project_member := &ProjectMember{}
-		err = __rows.Scan(&project_member.Id, &project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, project_member)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
 func (obj *sqlite3Impl) All_ProjectMember_By_ProjectId(ctx context.Context,
 	project_member_project_id ProjectMember_ProjectId_Field) (
 	rows []*ProjectMember, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.id, project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.project_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_member_project_id.value())
@@ -1474,7 +1418,7 @@ func (obj *sqlite3Impl) All_ProjectMember_By_ProjectId(ctx context.Context,
 
 	for __rows.Next() {
 		project_member := &ProjectMember{}
-		err = __rows.Scan(&project_member.Id, &project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+		err = __rows.Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -1491,7 +1435,7 @@ func (obj *sqlite3Impl) Get_ProjectMember_By_MemberId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field) (
 	project_member *ProjectMember, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.id, project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.member_id = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.member_id = ? LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, project_member_member_id.value())
@@ -1513,7 +1457,7 @@ func (obj *sqlite3Impl) Get_ProjectMember_By_MemberId(ctx context.Context,
 	}
 
 	project_member = &ProjectMember{}
-	err = __rows.Scan(&project_member.Id, &project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+	err = __rows.Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1526,27 +1470,6 @@ func (obj *sqlite3Impl) Get_ProjectMember_By_MemberId(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	return project_member, nil
-
-}
-
-func (obj *sqlite3Impl) Get_ProjectMember_By_Id(ctx context.Context,
-	project_member_id ProjectMember_Id_Field) (
-	project_member *ProjectMember, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.id, project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_member_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	project_member = &ProjectMember{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project_member.Id, &project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
 	return project_member, nil
 
 }
@@ -1751,56 +1674,6 @@ func (obj *sqlite3Impl) Update_Project_By_Id(ctx context.Context,
 	return project, nil
 }
 
-func (obj *sqlite3Impl) Update_ProjectMember_By_Id(ctx context.Context,
-	project_member_id ProjectMember_Id_Field,
-	update ProjectMember_Update_Fields) (
-	project_member *ProjectMember, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_members SET "), __sets, __sqlbundle_Literal(" WHERE project_members.id = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.ProjectId._set {
-		__values = append(__values, update.ProjectId.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("project_id = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, project_member_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	project_member = &ProjectMember{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT project_members.id, project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&project_member.Id, &project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project_member, nil
-}
-
 func (obj *sqlite3Impl) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -1879,14 +1752,15 @@ func (obj *sqlite3Impl) Delete_Project_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Delete_ProjectMember_By_Id(ctx context.Context,
-	project_member_id ProjectMember_Id_Field) (
+func (obj *sqlite3Impl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field,
+	project_member_project_id ProjectMember_ProjectId_Field) (
 	deleted bool, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_members WHERE project_members.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_members WHERE project_members.member_id = ? AND project_members.project_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, project_member_id.value())
+	__values = append(__values, project_member_member_id.value(), project_member_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -1963,13 +1837,13 @@ func (obj *sqlite3Impl) getLastProjectMember(ctx context.Context,
 	pk int64) (
 	project_member *ProjectMember, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.id, project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	project_member = &ProjectMember{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&project_member.Id, &project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2091,15 +1965,6 @@ func (rx *Rx) All_Project(ctx context.Context) (
 	return tx.All_Project(ctx)
 }
 
-func (rx *Rx) All_ProjectMember(ctx context.Context) (
-	rows []*ProjectMember, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_ProjectMember(ctx)
-}
-
 func (rx *Rx) All_ProjectMember_By_ProjectId(ctx context.Context,
 	project_member_project_id ProjectMember_ProjectId_Field) (
 	rows []*ProjectMember, err error) {
@@ -2164,7 +2029,6 @@ func (rx *Rx) Create_Project(ctx context.Context,
 }
 
 func (rx *Rx) Create_ProjectMember(ctx context.Context,
-	project_member_id ProjectMember_Id_Field,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
 	project_member *ProjectMember, err error) {
@@ -2172,7 +2036,7 @@ func (rx *Rx) Create_ProjectMember(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_ProjectMember(ctx, project_member_id, project_member_member_id, project_member_project_id)
+	return tx.Create_ProjectMember(ctx, project_member_member_id, project_member_project_id)
 
 }
 
@@ -2201,14 +2065,15 @@ func (rx *Rx) Delete_Company_By_UserId(ctx context.Context,
 	return tx.Delete_Company_By_UserId(ctx, company_user_id)
 }
 
-func (rx *Rx) Delete_ProjectMember_By_Id(ctx context.Context,
-	project_member_id ProjectMember_Id_Field) (
+func (rx *Rx) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field,
+	project_member_project_id ProjectMember_ProjectId_Field) (
 	deleted bool, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Delete_ProjectMember_By_Id(ctx, project_member_id)
+	return tx.Delete_ProjectMember_By_MemberId_And_ProjectId(ctx, project_member_member_id, project_member_project_id)
 }
 
 func (rx *Rx) Delete_Project_By_Id(ctx context.Context,
@@ -2239,16 +2104,6 @@ func (rx *Rx) Get_Company_By_UserId(ctx context.Context,
 		return
 	}
 	return tx.Get_Company_By_UserId(ctx, company_user_id)
-}
-
-func (rx *Rx) Get_ProjectMember_By_Id(ctx context.Context,
-	project_member_id ProjectMember_Id_Field) (
-	project_member *ProjectMember, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_ProjectMember_By_Id(ctx, project_member_id)
 }
 
 func (rx *Rx) Get_ProjectMember_By_MemberId(ctx context.Context,
@@ -2303,17 +2158,6 @@ func (rx *Rx) Update_Company_By_UserId(ctx context.Context,
 	return tx.Update_Company_By_UserId(ctx, company_user_id, update)
 }
 
-func (rx *Rx) Update_ProjectMember_By_Id(ctx context.Context,
-	project_member_id ProjectMember_Id_Field,
-	update ProjectMember_Update_Fields) (
-	project_member *ProjectMember, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Update_ProjectMember_By_Id(ctx, project_member_id, update)
-}
-
 func (rx *Rx) Update_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field,
 	update Project_Update_Fields) (
@@ -2339,9 +2183,6 @@ func (rx *Rx) Update_User_By_Id(ctx context.Context,
 type Methods interface {
 	All_Project(ctx context.Context) (
 		rows []*Project, err error)
-
-	All_ProjectMember(ctx context.Context) (
-		rows []*ProjectMember, err error)
 
 	All_ProjectMember_By_ProjectId(ctx context.Context,
 		project_member_project_id ProjectMember_ProjectId_Field) (
@@ -2375,7 +2216,6 @@ type Methods interface {
 		project *Project, err error)
 
 	Create_ProjectMember(ctx context.Context,
-		project_member_id ProjectMember_Id_Field,
 		project_member_member_id ProjectMember_MemberId_Field,
 		project_member_project_id ProjectMember_ProjectId_Field) (
 		project_member *ProjectMember, err error)
@@ -2392,8 +2232,9 @@ type Methods interface {
 		company_user_id Company_UserId_Field) (
 		deleted bool, err error)
 
-	Delete_ProjectMember_By_Id(ctx context.Context,
-		project_member_id ProjectMember_Id_Field) (
+	Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
+		project_member_member_id ProjectMember_MemberId_Field,
+		project_member_project_id ProjectMember_ProjectId_Field) (
 		deleted bool, err error)
 
 	Delete_Project_By_Id(ctx context.Context,
@@ -2407,10 +2248,6 @@ type Methods interface {
 	Get_Company_By_UserId(ctx context.Context,
 		company_user_id Company_UserId_Field) (
 		company *Company, err error)
-
-	Get_ProjectMember_By_Id(ctx context.Context,
-		project_member_id ProjectMember_Id_Field) (
-		project_member *ProjectMember, err error)
 
 	Get_ProjectMember_By_MemberId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field) (
@@ -2433,11 +2270,6 @@ type Methods interface {
 		company_user_id Company_UserId_Field,
 		update Company_Update_Fields) (
 		company *Company, err error)
-
-	Update_ProjectMember_By_Id(ctx context.Context,
-		project_member_id ProjectMember_Id_Field,
-		update ProjectMember_Update_Fields) (
-		project_member *ProjectMember, err error)
 
 	Update_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field,

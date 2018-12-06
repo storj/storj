@@ -235,18 +235,24 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 		TermsAccepted: 1, //TODO: get lat version of Term of Use
 	}
 
-	// For now we make this operations sequentially.
-	// But soon we will add functionality to be able to
-	// do any operations in transaction scope
+	err = s.store.BeginTransaction(ctx)
+	if err != nil {
+		return nil, errs.New("Can not start transaction!")
+	}
+
 	prj, err := s.store.Projects().Insert(ctx, project)
 	if err != nil {
+		s.store.RollbackTransaction()
 		return nil, err
 	}
 
-	// Project owner is also a project member
 	_, err = s.store.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
+	if err != nil {
+		s.store.RollbackTransaction()
+		return nil, err
+	}
 
-	return prj, err
+	return prj, s.store.CommitTransaction()
 }
 
 // DeleteProject is a method for deleting project by id
@@ -299,19 +305,7 @@ func (s *Service) DeleteProjectMember(ctx context.Context, projectID, userID uui
 		return err
 	}
 
-	// TODO: remove when appropriate method is added
-	members, err := s.store.ProjectMembers().GetAll(ctx)
-	if err != nil {
-		return err
-	}
-
-	for _, member := range members {
-		if member.ProjectID == projectID && member.MemberID == userID {
-			return s.store.ProjectMembers().Delete(ctx, member.ID)
-		}
-	}
-
-	return errs.New("project with id %s doesn't have a member with id %s", projectID.String(), userID.String())
+	return s.store.ProjectMembers().Delete(ctx, userID, projectID)
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
