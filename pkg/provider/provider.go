@@ -41,7 +41,7 @@ type Provider struct {
 
 // NewProvider creates a Provider out of an Identity, a net.Listener, a UnaryInterceptorProvider and
 // a set of responsibilities.
-func NewProvider(opts *serverOptions, lis net.Listener, interceptor grpc.UnaryServerInterceptor,
+func NewProvider(opts *ServerOptions, lis net.Listener, interceptor grpc.UnaryServerInterceptor,
 	responsibilities ...Responsibility) (*Provider, error) {
 	grpcOpts, err := opts.grpcOpts()
 	if err != nil {
@@ -61,7 +61,7 @@ func NewProvider(opts *serverOptions, lis net.Listener, interceptor grpc.UnarySe
 			grpcOpts,
 		),
 		next:     responsibilities,
-		identity: opts.ident,
+		identity: opts.Ident,
 	}, nil
 }
 

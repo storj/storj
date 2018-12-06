@@ -80,24 +80,24 @@ type ServerConfig struct {
 	Extensions          peertls.TLSExtConfig
 }
 
-// serverOptions holds config, identity, and peer verification function data for use with a grpc server.
-type serverOptions struct {
-	config     ServerConfig
-	ident      *FullIdentity
-	pcvFuncs   []peertls.PeerCertVerificationFunc
+// ServerOptions holds config, identity, and peer verification function data for use with a grpc server.
+type ServerOptions struct {
+	Config   ServerConfig
+	Ident    *FullIdentity
+	PCVFuncs []peertls.PeerCertVerificationFunc
 }
 
 // NewServerOptions is a constructor for `serverOptions` given an identity and config
-func NewServerOptions(i *FullIdentity, c ServerConfig) (*serverOptions, error) {
+func NewServerOptions(i *FullIdentity, c ServerConfig) (*ServerOptions, error) {
 	pcvFuncs, err := c.PCVFuncs()
 	if err != nil {
 		return nil, err
 	}
 
-	return &serverOptions{
-		config:   c,
-		ident:    i,
-		pcvFuncs: pcvFuncs,
+	return &ServerOptions{
+		Config:   c,
+		Ident:    i,
+		PCVFuncs: pcvFuncs,
 	}, nil
 }
 
@@ -385,8 +385,8 @@ func (c ServerConfig) PCVFuncs() (pcvs []peertls.PeerCertVerificationFunc, err e
 	return pcvs, nil
 }
 
-func (so *serverOptions) grpcOpts() (grpc.ServerOption, error) {
-	return so.ident.ServerOption(so.pcvFuncs...)
+func (so *ServerOptions) grpcOpts() (grpc.ServerOption, error) {
+	return so.Ident.ServerOption(so.PCVFuncs...)
 }
 
 func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
