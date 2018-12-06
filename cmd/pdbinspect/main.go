@@ -37,7 +37,7 @@ func main() {
 		Use:   "list",
 		Short: "lists pointers",
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := newPdbClient(ctx, port, apiKey)
+			client, err := newPDBClient(ctx, port, apiKey)
 			if err != nil {
 				fmt.Println("Error", err)
 				os.Exit(1)
@@ -78,7 +78,7 @@ func main() {
 		Short: "gets pointer",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := newPdbClient(ctx, port, apiKey)
+			client, err := newPDBClient(ctx, port, apiKey)
 			if err != nil {
 				fmt.Println("Error", err)
 				os.Exit(1)
@@ -156,8 +156,8 @@ func prettyPrint(unformatted proto.Message) string {
 	return formatted
 }
 
-// newPdbClient creates a new pointerdb client
-func newPdbClient(ctx context.Context, port, apiKey string) (*pdbclient.PointerDB, error) {
+// newPDBClient creates a new pointerdb client
+func newPDBClient(ctx context.Context, port, apiKey string) (*pdbclient.PointerDB, error) {
 	identity, err := provider.NewFullIdentity(ctx, 12, 4)
 	if err != nil {
 		return nil, err
