@@ -11,22 +11,22 @@ import (
 // PacketFilter is used during Packet parsing to determine if the Packet should
 // continue to be parsed.
 type PacketFilter struct {
-	appRE, instRE *regexp.Regexp
+	appRegex, instRegex *regexp.Regexp
 }
 
 // NewPacketFilter creates a PacketFilter. It takes an application regular
 // expression and an instance regular expression. If the regular expression
 // is matched, the packet will be parsed.
-func NewPacketFilter(applicationRE, instanceRE string) *PacketFilter {
+func NewPacketFilter(applicationRegex, instanceRegex string) *PacketFilter {
 	return &PacketFilter{
-		appRE:  regexp.MustCompile(applicationRE),
-		instRE: regexp.MustCompile(instanceRE),
+		appRegex:  regexp.MustCompile(applicationRegex),
+		instRegex: regexp.MustCompile(instanceRegex),
 	}
 }
 
 // Filter returns true if the application and instance match the filter.
 func (a *PacketFilter) Filter(application, instance string) bool {
-	return a.appRE.MatchString(application) && a.instRE.MatchString(instance)
+	return a.appRegex.MatchString(application) && a.instRegex.MatchString(instance)
 }
 
 // KeyFilter is a MetricDest that only passes along metrics that pass the key

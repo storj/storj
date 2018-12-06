@@ -19,9 +19,13 @@ type GraphiteDest struct {
 	address string
 	conn    net.Conn
 	buf     *bufio.Writer
+	stopped bool
 }
 
-// NewGraphiteDest creates a GraphiteDest with TCP address address
+// NewGraphiteDest creates a GraphiteDest with TCP address address. Because
+// this function is called in a Lua pipeline domain-specific language, the DSL
+// wants a graphite destination to be flushing every few seconds, so this
+// constructor will start that process. Use Close to stop it.
 func NewGraphiteDest(address string) *GraphiteDest {
 	rv := &GraphiteDest{address: address}
 	go rv.flush()
@@ -49,10 +53,22 @@ func (d *GraphiteDest) Metric(application, instance string,
 	return err
 }
 
+// Close stops the flushing goroutine
+func (d *GraphiteDest) Close() error {
+	d.mtx.Lock()
+	d.stopped = true
+	d.mtx.Unlock()
+	return nil
+}
+
 func (d *GraphiteDest) flush() {
 	for {
 		time.Sleep(5 * time.Second)
 		d.mtx.Lock()
+		if d.stopped {
+			d.mtx.Unlock()
+			return
+		}
 		var err error
 		if d.buf != nil {
 			err = d.buf.Flush()

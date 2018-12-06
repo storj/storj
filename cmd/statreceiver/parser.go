@@ -11,6 +11,10 @@ import (
 	"github.com/zeebo/admission/admproto"
 )
 
+const (
+	kb = 1024
+)
+
 // Parser is a PacketDest that sends data to a MetricDest
 type Parser struct {
 	d       MetricDest
@@ -25,7 +29,7 @@ func NewParser(d MetricDest, f ...*PacketFilter) *Parser {
 		d: d, f: f,
 		scratch: sync.Pool{
 			New: func() interface{} {
-				var x [10 * 1024]byte
+				var x [10 * kb]byte
 				return &x
 			},
 		}}
@@ -37,7 +41,7 @@ func (p *Parser) Packet(data []byte, ts time.Time) (err error) {
 	if err != nil {
 		return err
 	}
-	scratch := p.scratch.Get().(*[10 * 1024]byte)
+	scratch := p.scratch.Get().(*[10 * kb]byte)
 	defer p.scratch.Put(scratch)
 	r := admproto.NewReaderWith((*scratch)[:])
 	data, appb, instb, err := r.Begin(data)

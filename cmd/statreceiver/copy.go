@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"time"
+
+	"storj.io/storj/pkg/utils"
 )
 
 // PacketCopier sends the same packet to multiple destinations
@@ -22,13 +24,11 @@ func NewPacketCopier(d ...PacketDest) *PacketCopier {
 
 // Packet implements the PacketDest interface
 func (p *PacketCopier) Packet(data []byte, ts time.Time) (ferr error) {
+	var errs utils.ErrorGroup
 	for _, d := range p.d {
-		err := d.Packet(data, ts)
-		if ferr == nil && err != nil {
-			ferr = err
-		}
+		errs.Add(d.Packet(data, ts))
 	}
-	return ferr
+	return errs.Finish()
 }
 
 // MetricCopier sends the same metric to multiple destinations
@@ -45,13 +45,11 @@ func NewMetricCopier(d ...MetricDest) *MetricCopier {
 // Metric implements the MetricDest interface
 func (m *MetricCopier) Metric(application, instance string,
 	key []byte, val float64, ts time.Time) (ferr error) {
+	var errs utils.ErrorGroup
 	for _, d := range m.d {
-		err := d.Metric(application, instance, key, val, ts)
-		if ferr == nil && err != nil {
-			ferr = err
-		}
+		errs.Add(d.Metric(application, instance, key, val, ts))
 	}
-	return ferr
+	return errs.Finish()
 }
 
 // Packet represents a single packet
@@ -93,10 +91,11 @@ func (p *PacketBuffer) Packet(data []byte, ts time.Time) error {
 
 // Metric represents a single metric
 type Metric struct {
-	Application, Instance string
-	Key                   []byte
-	Val                   float64
-	TS                    time.Time
+	Application string
+	Instance    string
+	Key         []byte
+	Val         float64
+	TS          time.Time
 }
 
 // MetricBuffer is a metric buffer. It has a given buffer size and allows

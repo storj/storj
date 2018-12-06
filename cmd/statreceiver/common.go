@@ -4,16 +4,26 @@
 package main
 
 import (
+	"io"
 	"log"
+	"sync/atomic"
 	"time"
 )
 
+type closerfunc func() error
+
+func (f closerfunc) Close() error { return f() }
+
 // Deliver kicks off a goroutine that reads packets from s and delivers them
-// to p.
-func Deliver(s Source, p PacketDest) {
+// to p. To stop delivery, call Close on the return value then close the source.
+func Deliver(s Source, p PacketDest) io.Closer {
+	done := new(uint32)
 	go func() {
 		for {
 			data, ts, err := s.Next()
+			if atomic.LoadUint32(done) == 1 {
+				return
+			}
 			if err != nil {
 				log.Printf("failed getting packet: %v", err)
 				continue
@@ -25,6 +35,10 @@ func Deliver(s Source, p PacketDest) {
 			}
 		}
 	}()
+	return closerfunc(func() error {
+		atomic.StoreUint32(done, 1)
+		return nil
+	})
 }
 
 // Source reads incoming packets
