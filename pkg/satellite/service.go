@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
+	"storj.io/storj/pkg/utils"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -218,6 +219,8 @@ func (s *Service) GetUsersProjects(ctx context.Context) ([]Project, error) {
 
 // CreateProject is a method for creating new project
 func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*Project, error) {
+	var errors []error
+
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
@@ -242,14 +245,14 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 
 	prj, err := s.store.Projects().Insert(ctx, project)
 	if err != nil {
-		s.store.RollbackTransaction()
-		return nil, err
+		errors = append(errors, s.store.RollbackTransaction(), err)
+		return nil, utils.CombineErrors(errors...)
 	}
 
 	_, err = s.store.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
 	if err != nil {
-		s.store.RollbackTransaction()
-		return nil, err
+		errors = append(errors, s.store.RollbackTransaction(), err)
+		return nil, utils.CombineErrors(errors...)
 	}
 
 	return prj, s.store.CommitTransaction()
