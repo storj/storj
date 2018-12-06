@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/pointerdb/pdbclient"
@@ -59,7 +61,7 @@ func main() {
 				if err != nil {
 					fmt.Println("error:", err)
 				}
-				fmt.Print(string(formatted))
+				fmt.Println(string(formatted))
 			}
 			fmt.Println("\n\nMore pointers remaining:", more)
 		},
@@ -81,39 +83,15 @@ func main() {
 				os.Exit(1)
 			}
 
-			pointerFields := map[string]interface{}{
-				"Type":            pointer.GetType(),
-				"Redundancy":      pointer.GetRemote().GetRedundancy(),
-				"Segment Size":    pointer.GetSegmentSize(),
-				"Creation Date":   pointer.GetCreationDate(),
-				"Expiration Date": pointer.GetExpirationDate(),
-				"PBA Signature":   pba.Signature,
-				"PBA Data":        pba.Data,
-			}
-			formatted, err := json.MarshalIndent(pointerFields, "", "  ")
-			if err != nil {
-				fmt.Println("error:", err)
-			}
-			fmt.Print(string(formatted))
+			prettyPointer := prettyPrint(pointer)
+			fmt.Println(prettyPointer)
+
+			prettyPBA := prettyPrint(pba)
+			fmt.Println(prettyPBA)
 
 			for index, node := range nodes {
-				nodeFields := map[string]interface{}{
-					"Index":         index,
-					"NodeID":        node.Id,
-					"Address":       node.GetAddress(),
-					"Audit Success": node.GetAuditSuccess(),
-					"Is Up":         node.GetIsUp(),
-					"Latency List":  node.GetLatencyList(),
-					"Metadata":      node.GetMetadata(),
-					"Reputation":    node.GetReputation(),
-					"Restrictions":  node.GetRestrictions(),
-					"Type":          node.GetType(),
-				}
-				formatted, err := json.MarshalIndent(nodeFields, "", "  ")
-				if err != nil {
-					fmt.Println("error:", err)
-				}
-				fmt.Print(string(formatted))
+				prettyNode := prettyPrint(node)
+				fmt.Print(index, prettyNode)
 			}
 		},
 	}
@@ -137,6 +115,15 @@ func main() {
 		fmt.Println("Error", err)
 		os.Exit(1)
 	}
+}
+
+func prettyPrint(unformatted proto.Message) string {
+	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: false}
+	formatted, err := m.MarshalToString(unformatted)
+	if err != nil {
+		fmt.Println("Error", err)
+	}
+	return formatted
 }
 
 // newPdbClient creates a new pointerdb client
