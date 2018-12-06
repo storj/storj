@@ -51,18 +51,6 @@ func ParseExtensions(c TLSExtConfig, caWhitelist []*x509.Certificate) (exts Exte
 		})
 	}
 
-	// if c.Revocation {
-	// 	exts = append(exts, extension{
-	// 		id: ExtensionIDs[RevocationExtID],
-	// 		f: func(certExt pkix.Extension, chains [][]*x509.Certificate) (bool, error) {
-	// 			ca := chains[0][1]
-	// 			// verify timestamp is > last
-	// 			// verify revocation signed by ca
-	// 		},
-	// 		// err: ErrRevocation.New("")
-	// 	})
-	// }
-
 	return exts
 }
 
