@@ -7,8 +7,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
-	"storj.io/storj/pkg/utils"
 	"time"
+
+	"storj.io/storj/pkg/utils"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
