@@ -23,21 +23,21 @@ func TestRegistrationAndDispatch(t *testing.T) {
 	err := d.Dispatch("test:error")
 	assert.Equal(t, err, errors.New("error"))
 
-	d.Register("test:normal", func() error {
+	err = d.Register("test:normal", func() error {
 		return nil
 	})
 	err = d.Dispatch("test:normal")
 	assert.Equal(t, err, nil)
 
-	d.Register("test:multiple", func() error {
+	err = d.Register("test:multiple", func() error {
 		return nil
 	})
 
-	d.Register("test:multiple", func() error {
+	err = d.Register("test:multiple", func() error {
 		return errors.New("multiple")
 	})
 
-	d.Register("test:multiple", func() error {
+	err = d.Register("test:multiple", func() error {
 		return nil
 	})
 
