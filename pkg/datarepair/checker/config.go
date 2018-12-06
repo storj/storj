@@ -7,9 +7,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/datarepair/irreparabledb"
+	"storj.io/storj/pkg/datarepair"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
@@ -37,9 +38,11 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 		return nil, Error.New("failed to load statdb from context")
 	}
 
-	irrdb, err := irreparabledb.New(c.IrreparabledbURL)
-	if err != nil {
-		return nil, err
+	db, ok := ctx.Value("masterdb").(interface {
+		Irreparable() datarepair.IrreparableDB
+	})
+	if !ok {
+		return nil, errs.New("unable to get master db instance")
 	}
 	o := overlay.LoadServerFromContext(ctx)
 	redisQ, err := redis.NewQueueFrom(c.QueueAddress)

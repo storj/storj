@@ -72,7 +72,7 @@ func (db *DB) BandwidthAgreement() bwagreement.DB {
 // }
 
 // Irreparable is a getter for IrreparableDB repository
-func (db *DB) Irreparable() irreparabledb.IrreparableDB {
+func (db *DB) Irreparable() datarepair.IrreparableDB {
 	return &irreparable{db: db.db}
 }
 

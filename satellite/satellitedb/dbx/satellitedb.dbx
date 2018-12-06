@@ -1,4 +1,4 @@
-// dbx.v1 golang irreparabledb.dbx .
+// datarepair.IrreparableDB
 model irreparabledb (
 	key segmentpath
 

@@ -1,29 +1,17 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package irreparabledb_test
+package satellitedb
 
 import (
 	"context"
-	"flag"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/pkg/datarepair/irreparabledb"
-	"storj.io/storj/satellite/satellitedb"
-)
-
-const (
-	// postgres connstring that works with docker-compose
-	defaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
-)
-
-var (
-	testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
+	"storj.io/storj/pkg/datarepair"
 )
 
 func TestPostgres(t *testing.T) {
@@ -35,16 +23,16 @@ func TestPostgres(t *testing.T) {
 	defer ctx.Cleanup()
 
 	// creating in-memory db and opening connection
-	db, err := satellitedb.NewDB(*testPostgres)
+	db, err := NewDB(*testPostgres)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer ctx.Check(db.Close)
 
-	_ = db.CreateTables()
-	//assert.NoError(t, err)
+	err = db.CreateTables()
+	assert.NoError(t, err)
 
-	irrdb := irreparabledb.New(db.Irreparable())
+	irrdb := db.Irreparable()
 
 	testDatabase(ctx, t, irrdb)
 }
@@ -54,7 +42,7 @@ func TestSqlite3(t *testing.T) {
 	defer ctx.Cleanup()
 
 	// creating in-memory db and opening connection
-	db, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
+	db, err := NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,14 +51,14 @@ func TestSqlite3(t *testing.T) {
 	err = db.CreateTables()
 	assert.NoError(t, err)
 
-	irrdb := irreparabledb.New(db.Irreparable())
+	irrdb := db.Irreparable()
 
 	testDatabase(ctx, t, irrdb)
 }
 
-func testDatabase(ctx context.Context, t *testing.T, irrdb *irreparabledb.Database) {
+func testDatabase(ctx context.Context, t *testing.T, irrdb datarepair.IrreparableDB) {
 	//testing variables
-	segmentInfo := &irreparabledb.RemoteSegmentInfo{
+	segmentInfo := &datarepair.RemoteSegmentInfo{
 		EncryptedSegmentPath:   []byte("IamSegmentkeyinfo"),
 		EncryptedSegmentDetail: []byte("IamSegmentdetailinfo"),
 		LostPiecesCount:        int64(10),

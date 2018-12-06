@@ -6,7 +6,7 @@ package satellitedb
 import (
 	"context"
 
-	"storj.io/storj/pkg/datarepair/irreparabledb"
+	"storj.io/storj/pkg/datarepair"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -16,7 +16,7 @@ type irreparable struct {
 }
 
 // IncrementRepairAttempts a db entry for to increment the repair attempts field
-func (db *irreparable) IncrementRepairAttempts(ctx context.Context, segmentInfo *irreparabledb.RemoteSegmentInfo) (err error) {
+func (db *irreparable) IncrementRepairAttempts(ctx context.Context, segmentInfo *datarepair.RemoteSegmentInfo) (err error) {
 	tx, err := db.db.Begin()
 	if err != nil {
 		return err
@@ -55,13 +55,13 @@ func (db *irreparable) IncrementRepairAttempts(ctx context.Context, segmentInfo 
 }
 
 // Get a irreparable's segment info from the db
-func (db *irreparable) Get(ctx context.Context, segmentPath []byte) (resp *irreparabledb.RemoteSegmentInfo, err error) {
+func (db *irreparable) Get(ctx context.Context, segmentPath []byte) (resp *datarepair.RemoteSegmentInfo, err error) {
 	dbxInfo, err := db.db.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
 	if err != nil {
-		return &irreparabledb.RemoteSegmentInfo{}, err
+		return &datarepair.RemoteSegmentInfo{}, err
 	}
 
-	return &irreparabledb.RemoteSegmentInfo{
+	return &datarepair.RemoteSegmentInfo{
 		EncryptedSegmentPath:   dbxInfo.Segmentpath,
 		EncryptedSegmentDetail: dbxInfo.Segmentdetail,
 		LostPiecesCount:        dbxInfo.PiecesLostCount,

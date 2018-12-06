@@ -10,7 +10,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/datarepair/irreparabledb"
+	"storj.io/storj/pkg/datarepair"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
@@ -31,14 +31,14 @@ type checker struct {
 	pointerdb   *pointerdb.Server
 	repairQueue *queue.Queue
 	overlay     pb.OverlayServer
-	irrdb       *irreparabledb.Database
+	irrdb       datarepair.IrreparableDB
 	limit       int
 	logger      *zap.Logger
 	ticker      *time.Ticker
 }
 
 // newChecker creates a new instance of checker
-func newChecker(pointerdb *pointerdb.Server, sdb *statdb.StatDB, repairQueue *queue.Queue, overlay pb.OverlayServer, irrdb *irreparabledb.Database, limit int, logger *zap.Logger, interval time.Duration) *checker {
+func newChecker(pointerdb *pointerdb.Server, sdb *statdb.StatDB, repairQueue *queue.Queue, overlay pb.OverlayServer, irrdb datarepair.IrreparableDB, limit int, logger *zap.Logger, interval time.Duration) *checker {
 	return &checker{
 		statdb:      sdb,
 		pointerdb:   pointerdb,
@@ -125,7 +125,7 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 					}
 				} else if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
 					// make an entry in to the irreparable table
-					segmentInfo := &irreparabledb.RemoteSegmentInfo{
+					segmentInfo := &datarepair.RemoteSegmentInfo{
 						EncryptedSegmentPath:   item.Key,
 						EncryptedSegmentDetail: item.Value,
 						LostPiecesCount:        int64(len(missingPieces)),
