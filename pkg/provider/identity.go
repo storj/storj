@@ -8,7 +8,6 @@ import (
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/asn1"
 	"io/ioutil"
 	"net"
 	"os"
@@ -74,21 +73,23 @@ type IdentityConfig struct {
 	Server   ServerConfig
 }
 
+// ServerConfig holds server specific configuration parameters
 type ServerConfig struct {
 	PeerCAWhitelistPath string `help:"path to the CA cert whitelist (peer identities must be signed by one these to be verified)"`
 	Address             string `help:"address to listen on" default:":7777"`
 	Extensions          peertls.TLSExtConfig
 }
 
+// serverOptions holds config, identity, and peer verification function data for use with a grpc server.
 type serverOptions struct {
-	extensions []asn1.ObjectIdentifier
 	config     ServerConfig
 	ident      *FullIdentity
 	pcvFuncs   []peertls.PeerCertVerificationFunc
 }
 
+// NewServerOptions is a constructor for `serverOptions` given an identity and config
 func NewServerOptions(i *FullIdentity, c ServerConfig) (*serverOptions, error) {
-	pcvFuncs, err := c.PcvFuncs()
+	pcvFuncs, err := c.PCVFuncs()
 	if err != nil {
 		return nil, err
 	}
@@ -98,53 +99,6 @@ func NewServerOptions(i *FullIdentity, c ServerConfig) (*serverOptions, error) {
 		ident:    i,
 		pcvFuncs: pcvFuncs,
 	}, nil
-}
-
-func loadWhitelist(path string) ([]*x509.Certificate, error) {
-	w, err := ioutil.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, err
-	}
-
-	var (
-		wb        [][]byte
-		whitelist []*x509.Certificate
-	)
-	if w != nil {
-		wb, err = decodePEM(w)
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-		whitelist, err = ParseCertChain(wb)
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-	}
-	return whitelist, nil
-}
-
-func (c ServerConfig) PcvFuncs() (pcvs []peertls.PeerCertVerificationFunc, err error) {
-	var caWhitelist []*x509.Certificate
-	if c.PeerCAWhitelistPath != "" {
-		caWhitelist, err = loadWhitelist(c.PeerCAWhitelistPath)
-		if err != nil {
-			return nil, err
-		}
-		pcvs = append(pcvs, peertls.VerifyCAWhitelist(caWhitelist))
-	}
-
-	exts := peertls.ParseExtensions(c.Extensions, caWhitelist)
-	pcvs = append(pcvs, exts.VerifyFunc())
-
-	return pcvs, nil
-}
-
-func (so *serverOptions) grpcOpts() (grpc.ServerOption, error) {
-	pcvFuncs, err := so.config.PcvFuncs()
-	if err != nil {
-		return nil, err
-	}
-	return so.ident.ServerOption(pcvFuncs...)
 }
 
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and
@@ -414,6 +368,27 @@ func NewFullIdentity(ctx context.Context, difficulty uint16, concurrency uint) (
 	return identity, err
 }
 
+// PCVFuncs returns a slice of peer certificate verification functions based on the config.
+func (c ServerConfig) PCVFuncs() (pcvs []peertls.PeerCertVerificationFunc, err error) {
+	var caWhitelist []*x509.Certificate
+	if c.PeerCAWhitelistPath != "" {
+		caWhitelist, err = loadWhitelist(c.PeerCAWhitelistPath)
+		if err != nil {
+			return nil, err
+		}
+		pcvs = append(pcvs, peertls.VerifyCAWhitelist(caWhitelist))
+	}
+
+	exts := peertls.ParseExtensions(c.Extensions, caWhitelist)
+	pcvs = append(pcvs, exts.VerifyFunc())
+
+	return pcvs, nil
+}
+
+func (so *serverOptions) grpcOpts() (grpc.ServerOption, error) {
+	return so.ident.ServerOption(so.pcvFuncs...)
+}
+
 func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
 		if id == (storj.NodeID{}) {
@@ -431,4 +406,27 @@ func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
 
 		return nil
 	}
+}
+
+func loadWhitelist(path string) ([]*x509.Certificate, error) {
+	w, err := ioutil.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	var (
+		wb        [][]byte
+		whitelist []*x509.Certificate
+	)
+	if w != nil {
+		wb, err = decodePEM(w)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		whitelist, err = ParseCertChain(wb)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+	}
+	return whitelist, nil
 }
