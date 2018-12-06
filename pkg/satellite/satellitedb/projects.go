@@ -5,7 +5,6 @@ package satellitedb
 
 import (
 	"context"
-	"log"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -42,56 +41,12 @@ func (projects *projects) GetByOwnerID(ctx context.Context, ownerID uuid.UUID) (
 
 // GetByUserID is a method for querying all projects from the database by userID.
 func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) ([]satellite.Project, error) {
-	var products []satellite.Project
-	var errors []error
-
-	rows, err := projects.db.Query(`
-			select p.*
-					from project_members pm
-                    	inner join projects p 
-						on pm.project_id = p.id
-							where pm.member_id = $1`, userID[:])
+	projectsDbx, err := projects.db.All_Project_By_ProjectMember_MemberId(ctx, dbx.ProjectMember_MemberId(userID[:]))
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		err = rows.Close()
-		if err != nil {
-			// TODO: Should another logger to be used here?
-			log.Fatal(err.Error())
-		}
-	}()
 
-	for rows.Next() {
-		p := satellite.Project{}
-
-		var idBytes, ownerIDBytes []uint8
-		var ownerID uuid.UUID
-
-		err := rows.Scan(&idBytes, &ownerIDBytes, &p.Name, &p.CompanyName, &p.Description, &p.TermsAccepted, &p.CreatedAt)
-		if err != nil {
-			errors = append(errors, err)
-			continue
-		}
-
-		p.ID, err = bytesToUUID(idBytes)
-		if err != nil {
-			errors = append(errors, err)
-			continue
-		}
-
-		ownerID, err = bytesToUUID(ownerIDBytes)
-		if err != nil {
-			errors = append(errors, err)
-			continue
-		}
-
-		p.OwnerID = &ownerID
-
-		products = append(products, p)
-	}
-
-	return products, utils.CombineErrors(errors...)
+	return projectsFromDbxSlice(projectsDbx)
 }
 
 // Get is a method for querying project from the database by id.

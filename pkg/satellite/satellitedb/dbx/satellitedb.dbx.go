@@ -1363,6 +1363,39 @@ func (obj *sqlite3Impl) All_Project_By_OwnerId(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) All_Project_By_ProjectMember_MemberId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field) (
+	rows []*Project, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.company_name, projects.description, projects.terms_accepted, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_member_member_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project := &Project{}
+		err = __rows.Scan(&project.Id, &project.OwnerId, &project.Name, &project.CompanyName, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *sqlite3Impl) All_ProjectMember(ctx context.Context) (
 	rows []*ProjectMember, err error) {
 
@@ -2061,6 +2094,16 @@ func (rx *Rx) All_Project_By_OwnerId(ctx context.Context,
 	return tx.All_Project_By_OwnerId(ctx, project_owner_id)
 }
 
+func (rx *Rx) All_Project_By_ProjectMember_MemberId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field) (
+	rows []*Project, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Project_By_ProjectMember_MemberId(ctx, project_member_member_id)
+}
+
 func (rx *Rx) Create_Company(ctx context.Context,
 	company_user_id Company_UserId_Field,
 	company_name Company_Name_Field,
@@ -2280,6 +2323,10 @@ type Methods interface {
 
 	All_Project_By_OwnerId(ctx context.Context,
 		project_owner_id Project_OwnerId_Field) (
+		rows []*Project, err error)
+
+	All_Project_By_ProjectMember_MemberId(ctx context.Context,
+		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*Project, err error)
 
 	Create_Company(ctx context.Context,

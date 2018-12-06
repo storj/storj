@@ -72,6 +72,11 @@ read all (
     select project
     where project.owner_id = ?
 )
+read all (
+    select project
+    join project.id = project_member.project_id
+    where project_member.member_id = ?
+)
 create project ( )
 update project ( where project.id = ? )
 delete project ( where project.id = ? )

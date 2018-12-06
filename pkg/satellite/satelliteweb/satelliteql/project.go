@@ -4,8 +4,6 @@
 package satelliteql
 
 import (
-	"fmt"
-
 	"github.com/graphql-go/graphql"
 
 	"storj.io/storj/pkg/satellite"
@@ -59,7 +57,7 @@ func graphqlProject(service *satellite.Service) *graphql.Object {
 						return "", nil
 					}
 
-					return fmt.Sprintf("%s %s", user.FirstName, user.LastName), nil
+					return user.FirstName + " " + user.LastName, nil
 				},
 			},
 		},
