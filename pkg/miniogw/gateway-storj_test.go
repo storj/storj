@@ -454,8 +454,12 @@ func TestListObjectsV2(t *testing.T) {
 
 func testListObjects(t *testing.T, listObjects func(context.Context, minio.ObjectLayer, string, string, string, string, int) ([]string, []minio.ObjectInfo, bool, error)) {
 	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, metainfo storj.Metainfo, streams streams.Store) {
+		// Check the error when listing objects with unsupported delimiter
+		_, err := layer.ListObjects(ctx, TestBucket, "", "", "#", 0)
+		assert.Equal(t, minio.UnsupportedDelimiter{Delimiter: "#"}, err)
+
 		// Check the error when listing objects in a bucket with empty name
-		_, err := layer.ListObjects(ctx, "", "", "", "/", 0)
+		_, err = layer.ListObjects(ctx, "", "", "", "/", 0)
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
 
 		// Check the error when listing objects in a non-existing bucket
@@ -483,10 +487,6 @@ func testListObjects(t *testing.T, listObjects func(context.Context, minio.Objec
 			files[filePath] = file
 			assert.NoError(t, err)
 		}
-
-		// Check the error when listing objects with unsupported delimiter
-		_, err = layer.ListObjects(ctx, TestBucket, "", "", "#", 0)
-		assert.Equal(t, minio.UnsupportedDelimiter{Delimiter: "#"}, err)
 
 		for i, tt := range []struct {
 			prefix    string
