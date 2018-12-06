@@ -32,7 +32,7 @@ var ctx = context.Background()
 func TestIdentifyActiveNodes(t *testing.T) {
 	//TODO
 }
-func TestOnlineNodes(t *testing.T) {
+func TestCategorizeNodes(t *testing.T) {
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 
@@ -64,7 +64,7 @@ func TestOnlineNodes(t *testing.T) {
 	bwDb, err := dbManager.NewDBManager("sqlite3", "file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
 	defer func() { _ = accountingDb.Close() }()
-
+	//use testplanet
 	tally, err := newTally(ctx, logger, accountingDb, bwDb, pointerdb, overlayServer, kad, limit, interval)
 	assert.NoError(t, err)
 	var nodeData = make(map[string]int64)
@@ -74,15 +74,11 @@ func TestOnlineNodes(t *testing.T) {
 }
 
 func TestTallyAtRestStorage(t *testing.T) {
-
+	//TODO -- 
 }
 
-func TestNeedToContact(t *testing.T) {
-
-}
-
-func TestUpdateGranularTable(t *testing.T) {
-
+func TestUpdateRawTable(t *testing.T) {
+	//TODO
 }
 
 func TestQueryNoAgreements(t *testing.T) {
