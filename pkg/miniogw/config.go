@@ -35,6 +35,15 @@ type RSConfig struct {
 	MaxThreshold     int `help:"the largest amount of pieces to encode to. n." default:"95"`
 }
 
+// NodeSelectionConfig is a configuration struct that keeps information about
+// what nodes to select
+type NodeSelectionConfig struct {
+	Uptime       int `help:"a node's ratio of being up/online vs. down/offline"`
+	UptimeCount  int `help:"the number of times a node's uptime has been checked"`
+	AuditSuccess int `help:"a node's ratio of successful audits"`
+	AuditCount   int `help:"the number of times a node has been audited"`
+}
+
 // EncryptionConfig is a configuration struct that keeps details about
 // encrypting segments
 type EncryptionConfig struct {
@@ -72,6 +81,7 @@ type Config struct {
 	Client   ClientConfig
 	RS       RSConfig
 	Enc      EncryptionConfig
+	Node     NodeSelectionConfig
 }
 
 // Run starts a Minio Gateway given proper config
@@ -146,7 +156,8 @@ func (c Config) GetMetainfo(ctx context.Context, identity *provider.FullIdentity
 		return nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, c.Client.MaxInlineSize)
+	segments := segments.NewSegmentStore(oc, ec, pdb, rs, c.Client.MaxInlineSize, c.Node.Uptime,
+		c.Node.UptimeCount, c.Node.AuditSuccess, c.Node.AuditCount)
 
 	if c.RS.ErasureShareSize*c.RS.MinThreshold%c.Enc.BlockSize != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")

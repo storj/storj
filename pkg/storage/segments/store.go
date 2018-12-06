@@ -54,17 +54,34 @@ type Store interface {
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
+type nodeStats struct {
+	Uptime       int
+	UptimeCount  int
+	AuditSuccess int
+	AuditCount   int
+	Excluded     storj.NodeIDList
+}
+
 type segmentStore struct {
 	oc            overlay.Client
 	ec            ecclient.Client
 	pdb           pdbclient.Client
 	rs            eestream.RedundancyStrategy
 	thresholdSize int
+	nodeStats     nodeStats
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, t int) Store {
-	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs, thresholdSize: t}
+func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold,
+	uptime, uptimeCount, auditSuccess, auditCount int) Store {
+	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs, thresholdSize: threshold,
+		nodeStats: nodeStats{
+			Uptime:       uptime,
+			UptimeCount:  uptimeCount,
+			AuditSuccess: auditSuccess,
+			AuditCount:   auditCount,
+		},
+	}
 }
 
 // Meta retrieves the metadata of the segment
@@ -111,29 +128,31 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			Metadata:       metadata,
 		}
 	} else {
-		// uses overlay client to request a list of nodes
+		sizedReader := SizeReader(peekReader)
+
+		// uses overlay client to request a list of nodes according to configured standards
 		nodes, err := s.oc.Choose(ctx,
 			overlay.Options{
 				Amount:       s.rs.TotalCount(),
-				Space:        0,
-				Uptime:       0,
-				UptimeCount:  0,
-				AuditSuccess: 0,
-				AuditCount:   0,
+				Bandwidth:    sizedReader.Size(),
+				Space:        sizedReader.Size(),
+				Uptime:       float64(s.nodeStats.Uptime),
+				UptimeCount:  int64(s.nodeStats.UptimeCount),
+				AuditSuccess: float64(s.nodeStats.AuditSuccess),
+				AuditCount:   int64(s.nodeStats.AuditCount),
 				Excluded:     nil,
 			})
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
 		pieceID := psclient.NewPieceID()
-		sizedReader := SizeReader(peekReader)
 
 		authorization := s.pdb.SignedMessage()
 		pba, err := s.pdb.PayerBandwidthAllocation(ctx, pb.PayerBandwidthAllocation_PUT)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
-		// puts file to ecclient
+
 		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba, authorization)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
