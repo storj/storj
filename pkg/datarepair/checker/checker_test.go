@@ -5,6 +5,7 @@ package checker
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"sort"
 	"strconv"
@@ -23,6 +24,7 @@ import (
 	"storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/redis"
 	"storj.io/storj/storage/redis/redisserver"
@@ -35,6 +37,11 @@ var ctx = context.Background()
 func TestIdentifyInjuredSegments(t *testing.T) {
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
+	assert.NotNil(t, pointerdb)
+
+	sdb, err := statdb.NewStatDB("sqlite3", fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63()), logger)
+	assert.NotNil(t, sdb)
+	assert.NoError(t, err)
 
 	repairQueue := queue.NewQueue(testqueue.New())
 
@@ -96,7 +103,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 	assert.NoError(t, err)
-	checker := newChecker(pointerdb, repairQueue, overlayServer, irrdb, limit, logger, interval)
+	checker := newChecker(pointerdb, sdb, repairQueue, overlayServer, irrdb, limit, logger, interval)
 	assert.NoError(t, err)
 	err = checker.identifyInjuredSegments(ctx)
 	assert.NoError(t, err)
@@ -119,6 +126,11 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 func TestOfflineNodes(t *testing.T) {
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
+	assert.NotNil(t, pointerdb)
+
+	sdb, err := statdb.NewStatDB("sqlite3", fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63()), logger)
+	assert.NotNil(t, sdb)
+	assert.NoError(t, err)
 
 	repairQueue := queue.NewQueue(testqueue.New())
 	const N = 50
@@ -146,7 +158,7 @@ func TestOfflineNodes(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 	assert.NoError(t, err)
-	checker := newChecker(pointerdb, repairQueue, overlayServer, irrdb, limit, logger, interval)
+	checker := newChecker(pointerdb, sdb, repairQueue, overlayServer, irrdb, limit, logger, interval)
 	assert.NoError(t, err)
 	offline, err := checker.offlineNodes(ctx, nodeIDs)
 	assert.NoError(t, err)
@@ -156,6 +168,12 @@ func TestOfflineNodes(t *testing.T) {
 func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
+	assert.NotNil(b, pointerdb)
+
+	sdb, err := statdb.NewStatDB("sqlite3", fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63()), logger)
+	assert.NotNil(b, sdb)
+	assert.NoError(b, err)
+
 	irrdb, err := irreparabledb.New("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(b, err)
 	defer func() {
@@ -224,8 +242,9 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		interval := time.Second
 		assert.NoError(b, err)
-		checker := newChecker(pointerdb, repairQueue, overlayServer, irrdb, limit, logger, interval)
+		checker := newChecker(pointerdb, sdb, repairQueue, overlayServer, irrdb, limit, logger, interval)
 		assert.NoError(b, err)
+
 		err = checker.identifyInjuredSegments(ctx)
 		assert.NoError(b, err)
 
