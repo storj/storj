@@ -6,10 +6,15 @@ package irreparabledb
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/migrate"
-	dbx "storj.io/storj/pkg/irreparabledb/dbx"
+	dbx "storj.io/storj/pkg/datarepair/irreparabledb/dbx"
 	"storj.io/storj/pkg/utils"
 )
+
+// Error is the default irreparabledb errs class
+var Error = errs.Class("irreparabledb error")
 
 // Database implements the irreparable RPC service
 type Database struct {
@@ -109,7 +114,7 @@ func (db *Database) Delete(ctx context.Context, segmentPath []byte) (err error) 
 	return err
 }
 
-// Close  close db connection
+// Close close db connection
 func (db *Database) Close() (err error) {
 	return db.db.Close()
 }

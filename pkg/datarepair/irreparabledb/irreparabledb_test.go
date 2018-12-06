@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package irreparabledb
+package irreparabledb_test
 
 import (
 	"context"
@@ -11,11 +11,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/pkg/datarepair/irreparabledb"
 )
 
 const (
-	// this connstring is expected to work under the storj-test docker-compose instance
+	// postgres connstring that works with docker-compose
 	defaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
 )
 
@@ -32,11 +34,11 @@ func TestPostgres(t *testing.T) {
 	defer ctx.Cleanup()
 
 	// creating in-memory db and opening connection
-	irrdb, err := New(*testPostgres)
+	irrdb, err := irreparabledb.New(*testPostgres)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ctx.Check(irrdb.db.Close)
+	defer ctx.Check(irrdb.Close)
 
 	testDatabase(ctx, t, irrdb)
 }
@@ -46,18 +48,18 @@ func TestSqlite3(t *testing.T) {
 	defer ctx.Cleanup()
 
 	// creating in-memory db and opening connection
-	irrdb, err := New("sqlite3://file::memory:?mode=memory&cache=shared")
+	irrdb, err := irreparabledb.New("sqlite3://file::memory:?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ctx.Check(irrdb.db.Close)
+	defer ctx.Check(irrdb.Close)
 
 	testDatabase(ctx, t, irrdb)
 }
 
-func testDatabase(ctx context.Context, t *testing.T, irrdb *Database) {
+func testDatabase(ctx context.Context, t *testing.T, irrdb *irreparabledb.Database) {
 	//testing variables
-	segmentInfo := &RemoteSegmentInfo{
+	segmentInfo := &irreparabledb.RemoteSegmentInfo{
 		EncryptedSegmentPath:   []byte("IamSegmentkeyinfo"),
 		EncryptedSegmentDetail: []byte("IamSegmentdetailinfo"),
 		LostPiecesCount:        int64(10),

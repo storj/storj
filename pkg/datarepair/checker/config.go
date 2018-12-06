@@ -9,8 +9,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/datarepair/irreparabledb"
 	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/irreparabledb"
 	"storj.io/storj/pkg/overlay"
 	mock "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
