@@ -52,9 +52,6 @@ func graphqlProjectInput() *graphql.InputObject {
 	return graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: projectInputType,
 		Fields: graphql.InputObjectConfigFieldMap{
-			fieldID: &graphql.InputObjectFieldConfig{
-				Type: graphql.String,
-			},
 			fieldName: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},

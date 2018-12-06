@@ -12,6 +12,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/auth"
@@ -276,6 +277,39 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, descri
 	}
 
 	return project, nil
+}
+
+// AddProjectMember adds User as member of given Project
+func (s *Service) AddProjectMember(ctx context.Context, projectID, userID uuid.UUID) error {
+	_, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.store.ProjectMembers().Insert(ctx, userID, projectID)
+	return err
+}
+
+// DeleteProjectMember removes user membership for given project
+func (s *Service) DeleteProjectMember(ctx context.Context, projectID, userID uuid.UUID) error {
+	_, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	// TODO: remove when appropriate method is added
+	projects, err := s.store.ProjectMembers().GetAll(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, project := range projects {
+		if project.ProjectID == projectID && project.MemberID == userID {
+			return s.store.ProjectMembers().Delete(ctx, project.ID)
+		}
+	}
+
+	return errs.New("project with id %s doesn't have a member with id %s", projectID.String(), userID.String())
 }
 
 // Authorize validates token from context and returns authorized Authorization
