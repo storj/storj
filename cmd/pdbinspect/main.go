@@ -44,18 +44,10 @@ func main() {
 				os.Exit(1)
 			}
 
-			fmt.Println("Pointers ----------------")
-
 			for index, pointer := range items {
 				pointerFields := map[string]interface{}{
-					"Index":           index,
-					"Path":            pointer.Path,
-					"IsPrefix":        pointer.IsPrefix,
-					"Type":            pointer.Pointer.GetType(),
-					"Remote":          pointer.Pointer.GetRemote(),
-					"Segment Size":    pointer.Pointer.GetSegmentSize(),
-					"Creation Date":   pointer.Pointer.GetCreationDate(),
-					"Expiration Date": pointer.Pointer.GetExpirationDate(),
+					"Index": index,
+					"Path":  pointer.Path,
 				}
 				formatted, err := json.MarshalIndent(pointerFields, "", "  ")
 				if err != nil {
@@ -63,7 +55,9 @@ func main() {
 				}
 				fmt.Println(string(formatted))
 			}
-			fmt.Println("\n\nMore pointers remaining:", more)
+			if more {
+				fmt.Println("\n\nMore pointers remaining.\nRun list again with `--startAfter <last-path>`.")
+			}
 		},
 	}
 
