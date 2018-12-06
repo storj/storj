@@ -150,7 +150,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	err = os.MkdirAll(setupCfg.BasePath, 0700)
+	err = os.MkdirAll(filepath.Join(setupCfg.BasePath, "identity"), 0700)
 	if err != nil {
 		return err
 	}
@@ -168,13 +168,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	o := map[string]interface{}{
-		"identity.cert-path": setupCfg.Identity.CertPath,
-		"identity.key-path":  setupCfg.Identity.KeyPath,
-	}
-
 	return process.SaveConfig(runCmd.Flags(),
-		filepath.Join(setupCfg.BasePath, "config.yaml"), o)
+		filepath.Join(setupCfg.BasePath, "config.yaml"), nil)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {

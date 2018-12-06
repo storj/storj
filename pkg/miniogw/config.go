@@ -29,7 +29,7 @@ import (
 // redundancy strategy information
 type RSConfig struct {
 	MaxBufferMem     int `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"0x400000"`
-	ErasureShareSize int `help:"the size of each new erasure sure in bytes" default:"1024"`
+	ErasureShareSize int `help:"the size of each new erasure share in bytes" default:"1024"`
 	MinThreshold     int `help:"the minimum pieces required to recover a segment. k." default:"29"`
 	RepairThreshold  int `help:"the minimum safe pieces before a repair is triggered. m." default:"35"`
 	SuccessThreshold int `help:"the desired total pieces for a segment. o." default:"80"`
@@ -59,7 +59,7 @@ type EncryptionConfig struct {
 type MinioConfig struct {
 	AccessKey string `help:"Minio Access Key to use" default:"insecure-dev-access-key"`
 	SecretKey string `help:"Minio Secret Key to use" default:"insecure-dev-secret-key"`
-	Dir       string `help:"Minio generic server config path" default:"$CONFDIR/minio"`
+	Dir       string `help:"Minio generic server config path" default:"$CONFDIR"`
 }
 
 // ClientConfig is a configuration struct for the miniogw that controls how

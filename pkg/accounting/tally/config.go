@@ -21,7 +21,7 @@ import (
 // Config contains configurable values for tally
 type Config struct {
 	Interval    time.Duration `help:"how frequently tally should run" default:"30s"`
-	DatabaseURL string        `help:"the database connection string to use" default:"sqlite3://$CONFDIR/accounting.db"`
+	DatabaseURL string        `help:"the database connection string to use" default:"sqlite3://${CONFNAME}.db"`
 }
 
 // Initialize a tally struct
@@ -34,7 +34,9 @@ func (c Config) initialize(ctx context.Context) (Tally, error) {
 		return nil, Error.Wrap(err)
 	}
 
-	masterDB, ok := ctx.Value("masterdb").(interface{ BandwidthAgreement() bwagreement.DB })
+	masterDB, ok := ctx.Value("masterdb").(interface {
+		BandwidthAgreement() bwagreement.DB
+	})
 	if !ok {
 		return nil, errs.New("unable to get master db instance")
 	}

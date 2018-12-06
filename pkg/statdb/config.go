@@ -21,7 +21,7 @@ const (
 // Config is a configuration struct that is everything you need to start a
 // StatDB responsibility
 type Config struct {
-	DatabaseURL    string `help:"the database connection string to use" default:"$CONFDIR/stats.db"`
+	DatabaseURL    string `help:"the database connection string to use" default:"${CONFNAME}.db"`
 	DatabaseDriver string `help:"the database driver to use" default:"sqlite3"`
 }
 

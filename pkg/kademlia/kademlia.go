@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -66,16 +65,11 @@ func NewKademlia(id storj.NodeID, nodeType pb.NodeType, bootstrapNodes []pb.Node
 		Metadata: metadata,
 	}
 
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err := os.MkdirAll(path, 0777); err != nil {
-			return nil, err
-		}
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return nil, BootstrapErr.Wrap(err)
 	}
 
-	bucketIdentifier := id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
-	dbpath := filepath.Join(path, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
-
-	dbs, err := boltdb.NewShared(dbpath, KademliaBucket, NodeBucket)
+	dbs, err := boltdb.NewShared(path, KademliaBucket, NodeBucket)
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
 	}

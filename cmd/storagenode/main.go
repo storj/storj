@@ -100,14 +100,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	overrides := map[string]interface{}{
-		"identity.cert-path": setupCfg.Identity.CertPath,
-		"identity.key-path":  setupCfg.Identity.KeyPath,
-		"storage.path":       filepath.Join(setupCfg.BasePath, "storage"),
-	}
-
 	return process.SaveConfig(runCmd.Flags(),
-		filepath.Join(setupCfg.BasePath, "config.yaml"), overrides)
+		filepath.Join(setupCfg.BasePath, "config.yaml"), nil)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {

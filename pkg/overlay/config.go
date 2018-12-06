@@ -32,7 +32,7 @@ var (
 // Config is a configuration struct for everything you need to start the
 // Overlay cache responsibility.
 type Config struct {
-	DatabaseURL     string        `help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
+	DatabaseURL     string        `help:"the database connection string to use" default:"bolt://${CONFNAME}.db"`
 	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
 }
 

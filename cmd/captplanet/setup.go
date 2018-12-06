@@ -67,11 +67,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	satellitePath := filepath.Join(setupCfg.BasePath, "satellite")
-	err = os.MkdirAll(satellitePath, 0700)
-	if err != nil {
-		return err
-	}
+	satellitePath := filepath.Join(setupCfg.BasePath, "satellite", "identity")
 	setupCfg.SatelliteCA.CertPath = filepath.Join(satellitePath, "ca.cert")
 	setupCfg.SatelliteCA.KeyPath = filepath.Join(satellitePath, "ca.key")
 	setupCfg.SatelliteIdentity.CertPath = filepath.Join(satellitePath, "identity.cert")
@@ -83,11 +79,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	for i := 0; i < len(runCfg.StorageNodes); i++ {
-		storagenodePath := filepath.Join(setupCfg.BasePath, fmt.Sprintf("f%d", i))
-		err = os.MkdirAll(storagenodePath, 0700)
-		if err != nil {
-			return err
-		}
+		storagenodePath := filepath.Join(setupCfg.BasePath, "storage-nodes",
+			fmt.Sprintf("%02d", i), "identity")
 		storagenodeCA := setupCfg.StorageNodeCA
 		storagenodeCA.CertPath = filepath.Join(storagenodePath, "ca.cert")
 		storagenodeCA.KeyPath = filepath.Join(storagenodePath, "ca.key")
@@ -101,11 +94,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	uplinkPath := filepath.Join(setupCfg.BasePath, "uplink")
-	err = os.MkdirAll(uplinkPath, 0700)
-	if err != nil {
-		return err
-	}
+	uplinkPath := filepath.Join(setupCfg.BasePath, "uplink/identity")
 	setupCfg.UplinkCA.CertPath = filepath.Join(uplinkPath, "ca.cert")
 	setupCfg.UplinkCA.KeyPath = filepath.Join(uplinkPath, "ca.key")
 	setupCfg.UplinkIdentity.CertPath = filepath.Join(uplinkPath, "identity.cert")
@@ -117,14 +106,16 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if setupCfg.GenerateMinioCerts {
-		minioCertsPath := filepath.Join(uplinkPath, "minio", "certs")
+		minioCertsPath := filepath.Join(uplinkPath, "uplink", "minio", "certs")
 		if err := os.MkdirAll(minioCertsPath, 0744); err != nil {
 			return err
 		}
-		if err := os.Link(setupCfg.UplinkIdentity.CertPath, filepath.Join(minioCertsPath, "public.crt")); err != nil {
+		if err := os.Link(setupCfg.UplinkIdentity.CertPath,
+			filepath.Join(minioCertsPath, "public.crt")); err != nil {
 			return err
 		}
-		if err := os.Link(setupCfg.UplinkIdentity.KeyPath, filepath.Join(minioCertsPath, "private.key")); err != nil {
+		if err := os.Link(setupCfg.UplinkIdentity.KeyPath,
+			filepath.Join(minioCertsPath, "private.key")); err != nil {
 			return err
 		}
 	}
@@ -134,32 +125,22 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	overlayAddr := joinHostPort(setupCfg.ListenHost, startingPort+1)
 
 	overrides := map[string]interface{}{
-		"satellite.identity.cert-path": setupCfg.SatelliteIdentity.CertPath,
-		"satellite.identity.key-path":  setupCfg.SatelliteIdentity.KeyPath,
 		"satellite.identity.server.address": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"satellite.kademlia.bootstrap-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
-		"satellite.pointer-db.database-url": "bolt://" + filepath.Join(
-			setupCfg.BasePath, "satellite", "pointerdb.db"),
-		"satellite.overlay.database-url": "bolt://" + filepath.Join(
-			setupCfg.BasePath, "satellite", "overlay.db"),
 		"satellite.kademlia.alpha":         3,
 		"satellite.repairer.queue-address": "redis://127.0.0.1:6378?db=1&password=abc123",
 		"satellite.repairer.overlay-addr":  overlayAddr,
 		"satellite.repairer.pointer-db-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"satellite.repairer.api-key": setupCfg.APIKey,
-		"uplink.identity.cert-path":  setupCfg.UplinkIdentity.CertPath,
-		"uplink.identity.key-path":   setupCfg.UplinkIdentity.KeyPath,
 		"uplink.identity.server.address": joinHostPort(
 			setupCfg.ListenHost, startingPort),
 		"uplink.client.overlay-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"uplink.client.pointer-db-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
-		"uplink.minio.dir": filepath.Join(
-			setupCfg.BasePath, "uplink", "minio"),
 		"uplink.enc.key":                  setupCfg.EncKey,
 		"uplink.client.api-key":           setupCfg.APIKey,
 		"uplink.rs.min-threshold":         1 * len(runCfg.StorageNodes) / 5,
@@ -181,17 +162,11 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	for i := 0; i < len(runCfg.StorageNodes); i++ {
-		storagenodePath := filepath.Join(setupCfg.BasePath, fmt.Sprintf("f%d", i))
 		storagenode := fmt.Sprintf("storage-nodes.%02d.", i)
-		overrides[storagenode+"identity.cert-path"] = filepath.Join(
-			storagenodePath, "identity.cert")
-		overrides[storagenode+"identity.key-path"] = filepath.Join(
-			storagenodePath, "identity.key")
 		overrides[storagenode+"identity.server.address"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+i*2+3)
 		overrides[storagenode+"kademlia.bootstrap-addr"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+1)
-		overrides[storagenode+"storage.path"] = filepath.Join(storagenodePath, "data")
 		overrides[storagenode+"kademlia.alpha"] = 3
 	}
 

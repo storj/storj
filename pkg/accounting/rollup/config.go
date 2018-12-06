@@ -15,7 +15,7 @@ import (
 // Config contains configurable values for rollup
 type Config struct {
 	Interval    time.Duration `help:"how frequently rollup should run" default:"30s"`
-	DatabaseURL string        `help:"the database connection string to use" default:"sqlite3://$CONFDIR/stats.db"`
+	DatabaseURL string        `help:"the database connection string to use" default:"sqlite3://${CONFNAME}.db"`
 }
 
 // Initialize a rollup struct

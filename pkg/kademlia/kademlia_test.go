@@ -60,7 +60,7 @@ func TestNewKademlia(t *testing.T) {
 	}
 
 	for i, v := range cases {
-		dir := filepath.Join(rootdir, strconv.Itoa(i))
+		dir := filepath.Join(rootdir, strconv.Itoa(i)+".db")
 
 		ca, err := testidentity.NewTestCA(context.Background())
 		assert.NoError(t, err)
@@ -94,7 +94,7 @@ func TestPeerDiscovery(t *testing.T) {
 		Email:  "foo@bar.com",
 		Wallet: "FarmerWallet",
 	}
-	k, err := NewKademlia(testID.ID, pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
+	k, err := NewKademlia(testID.ID, pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, filepath.Join(dir, "db.db"), defaultAlpha)
 	assert.NoError(t, err)
 	rt, err := k.GetRoutingTable(context.Background())
 	assert.NoError(t, err)
@@ -168,7 +168,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	// new kademlia
 	dir, cleanup := mktempdir(t, "kademlia")
 
-	k, err := NewKademlia(fid.ID, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, dir, defaultAlpha)
+	k, err := NewKademlia(fid.ID, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, filepath.Join(dir, "db.db"), defaultAlpha)
 	assert.NoError(t, err)
 	s := node.NewServer(k)
 	// new ident opts
@@ -214,7 +214,7 @@ func TestGetNodes(t *testing.T) {
 	assert.NotEqual(t, fid.ID, fid2.ID)
 	dir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()
-	k, err := NewKademlia(fid.ID, pb.NodeType_STORAGE, []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), nil, fid, dir, defaultAlpha)
+	k, err := NewKademlia(fid.ID, pb.NodeType_STORAGE, []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), nil, fid, filepath.Join(dir, "db.db"), defaultAlpha)
 	assert.NoError(t, err)
 	defer func() {
 		assert.NoError(t, k.Disconnect())

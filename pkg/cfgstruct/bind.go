@@ -17,8 +17,10 @@ import (
 // BindOpt is an option for the Bind method
 type BindOpt func(vars map[string]confVar)
 
-// ConfDir sets variables for default options called $CONFDIR and $CONFNAME.
-func ConfDir(confdir string) BindOpt {
+// ConfDirUnnested sets variables for default options called $CONFDIR and
+// $CONFNAME. ConfDirUnnested does not append parent struct field names to the
+// path when descending into substructs.
+func ConfDirUnnested(confdir string) BindOpt {
 	val := filepath.Clean(os.ExpandEnv(confdir))
 	return BindOpt(func(vars map[string]confVar) {
 		vars["CONFDIR"] = confVar{val: val, nested: false}
@@ -26,10 +28,10 @@ func ConfDir(confdir string) BindOpt {
 	})
 }
 
-// ConfDirNested sets variables for default options called $CONFDIR and $CONFNAME.
-// ConfDirNested also appends the parent struct field name to the paths before
+// ConfDir sets variables for default options called $CONFDIR and $CONFNAME.
+// ConfDir also appends the parent struct field name to the paths before
 // descending into substructs.
-func ConfDirNested(confdir string) BindOpt {
+func ConfDir(confdir string) BindOpt {
 	val := filepath.Clean(os.ExpandEnv(confdir))
 	return BindOpt(func(vars map[string]confVar) {
 		vars["CONFDIR"] = confVar{val: val, nested: true}

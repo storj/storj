@@ -45,7 +45,7 @@ type FarmerConfig struct {
 // server endpoints (and not necessarily client code).
 type Config struct {
 	BootstrapAddr   string `help:"the kademlia node to bootstrap against" default:"bootstrap-dev.storj.io:8080"`
-	DBPath          string `help:"the path for our db services to be created on" default:"$CONFDIR/kademlia"`
+	DBPath          string `help:"the path for our db services to be created on" default:"${CONFNAME}.db"`
 	Alpha           int    `help:"alpha is a system wide concurrency parameter." default:"5"`
 	ExternalAddress string `help:"the public address of the kademlia node; defaults to the gRPC server address." default:""`
 	Farmer          FarmerConfig
