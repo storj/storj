@@ -10,11 +10,14 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
+// TLSExtConfig is used to bind cli flags for determining which extensions will
+// be used by the server
 type TLSExtConfig struct {
 	Revocation          bool `help:"if true, client leafs may contain the most recent certificate revocation for the current certificate" default:"true"`
-	WhitelistSignedLeaf bool `help:"if true, client leafs must contain a valid \"authority signature extension\" (NB: authority signature extensions are verified against certs in the peer ca whitelist; i.e. if true, a whitelist must be provided)" default:"false"`
+	WhitelistSignedLeaf bool `help:"if true, client leafs must contain a valid \"signed certificate extension\" (NB: verified against certs in the peer ca whitelist; i.e. if true, a whitelist must be provided)" default:"false"`
 }
 
+// Extensions is a collection of `extension`s for convenience (see `VerifyFunc`)
 type Extensions []extension
 
 type extension struct {
@@ -23,10 +26,14 @@ type extension struct {
 	err error
 }
 
+// ParseExtensions an extension config into a slice of extensions with their
+// respective ids (`asn1.ObjectIdentifier`) and a function (`f`) which, when
+// called with an instance of that type of extension from a certificate and
+// the cert chains, will valid
 func ParseExtensions(c TLSExtConfig, caWhitelist []*x509.Certificate) (exts Extensions) {
 	if c.WhitelistSignedLeaf {
 		exts = append(exts, extension{
-			id: ExtensionIDs[WhitelistSignedLeafExtID],
+			id: ExtensionIDs[SignedCertExtID],
 			f: func(certExt pkix.Extension, chains [][]*x509.Certificate) (bool, error) {
 				if caWhitelist == nil {
 					return false, errs.New("whitelist required for leaf whitelist signature verification")
@@ -49,7 +56,7 @@ func ParseExtensions(c TLSExtConfig, caWhitelist []*x509.Certificate) (exts Exte
 	// 		id: ExtensionIDs[RevocationExtID],
 	// 		f: func(certExt pkix.Extension, chains [][]*x509.Certificate) (bool, error) {
 	// 			ca := chains[0][1]
-	// 			// verify timestamp is >
+	// 			// verify timestamp is > last
 	// 			// verify revocation signed by ca
 	// 		},
 	// 		// err: ErrRevocation.New("")
@@ -59,6 +66,9 @@ func ParseExtensions(c TLSExtConfig, caWhitelist []*x509.Certificate) (exts Exte
 	return exts
 }
 
+// VerifyFunc returns a peer certificate verification function which iterates
+// over all the leaf cert's extensions and receiver extensions and calls
+// `extension#f` when it finds a match by id (`asn1.ObjectIdentifier`)
 func (e Extensions) VerifyFunc() PeerCertVerificationFunc {
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
 		for _, ext := range parsedChains[0][0].Extensions {
