@@ -21,11 +21,11 @@ import (
 // DB interface for database operations
 type DB interface {
 	// CreateAgreement creates bandwidth agreement in database
-	CreateAgreement(context.Context, *Agreement) error
+	CreateAgreement(context.Context, Agreement) error
 	// GetAgreements gets all bandwidth agreements
-	GetAgreements(context.Context) ([]*Agreement, error)
+	GetAgreements(context.Context) ([]Agreement, error)
 	// GetAgreementsSince gets all bandwidth agreements since specific time
-	GetAgreementsSince(context.Context, time.Time) ([]*Agreement, error)
+	GetAgreementsSince(context.Context, time.Time) ([]Agreement, error)
 }
 
 // Server is an implementation of the pb.BandwidthServer interface
@@ -65,7 +65,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, req *pb.RenterBandwidt
 		return reply, err
 	}
 
-	err = s.db.CreateAgreement(ctx, &Agreement{
+	err = s.db.CreateAgreement(ctx, Agreement{
 		Signature: req.GetSignature(),
 		Agreement: req.GetData(),
 	})
