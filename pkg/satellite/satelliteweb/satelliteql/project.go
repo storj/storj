@@ -14,6 +14,7 @@ const (
 	projectInputType = "projectInput"
 
 	fieldOwnerName   = "ownerName"
+	fieldCompanyName = "companyName"
 	fieldDescription = "description"
 	// Indicates if user accepted Terms & Conditions during project creation
 	// Used in input model
@@ -21,17 +22,17 @@ const (
 )
 
 // graphqlProject creates *graphql.Object type representation of satellite.ProjectInfo
-func graphqlProject() *graphql.Object {
+func graphqlProject(service *satellite.Service) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: projectType,
 		Fields: graphql.Fields{
 			fieldID: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldOwnerName: &graphql.Field{
+			fieldName: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldName: &graphql.Field{
+			fieldCompanyName: &graphql.Field{
 				Type: graphql.String,
 			},
 			fieldDescription: &graphql.Field{
@@ -43,6 +44,22 @@ func graphqlProject() *graphql.Object {
 			fieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
 			},
+			fieldOwnerName: &graphql.Field{
+				Type: graphql.String,
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					project, _ := p.Source.(satellite.Project)
+					if project.OwnerID == nil {
+						return "", nil
+					}
+
+					user, err := service.GetUser(p.Context, *project.OwnerID)
+					if err != nil {
+						return "", nil
+					}
+
+					return user.FirstName + " " + user.LastName, nil
+				},
+			},
 		},
 	})
 }
@@ -53,6 +70,9 @@ func graphqlProjectInput() *graphql.InputObject {
 		Name: projectInputType,
 		Fields: graphql.InputObjectConfigFieldMap{
 			fieldName: &graphql.InputObjectFieldConfig{
+				Type: graphql.String,
+			},
+			fieldCompanyName: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
 			fieldDescription: &graphql.InputObjectFieldConfig{
@@ -70,6 +90,7 @@ func fromMapProjectInfo(args map[string]interface{}) (project satellite.ProjectI
 	project.Name, _ = args[fieldName].(string)
 	project.Description, _ = args[fieldDescription].(string)
 	project.IsTermsAccepted, _ = args[fieldIsTermsAccepted].(bool)
+	project.CompanyName, _ = args[fieldCompanyName].(string)
 
 	return
 }

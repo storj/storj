@@ -291,6 +291,7 @@ CREATE TABLE projects (
 	id BLOB NOT NULL,
 	owner_id BLOB REFERENCES users( id ) ON DELETE SET NULL,
 	name TEXT NOT NULL,
+	company_name TEXT NOT NULL,
 	description TEXT NOT NULL,
 	terms_accepted INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
@@ -661,6 +662,7 @@ type Project struct {
 	Id            []byte
 	OwnerId       []byte
 	Name          string
+	CompanyName   string
 	Description   string
 	TermsAccepted int
 	CreatedAt     time.Time
@@ -674,7 +676,6 @@ type Project_Create_Fields struct {
 
 type Project_Update_Fields struct {
 	OwnerId       Project_OwnerId_Field
-	Name          Project_Name_Field
 	Description   Project_Description_Field
 	TermsAccepted Project_TermsAccepted_Field
 }
@@ -745,6 +746,24 @@ func (f Project_Name_Field) value() interface{} {
 }
 
 func (Project_Name_Field) _Column() string { return "name" }
+
+type Project_CompanyName_Field struct {
+	_set   bool
+	_value string
+}
+
+func Project_CompanyName(v string) Project_CompanyName_Field {
+	return Project_CompanyName_Field{_set: true, _value: v}
+}
+
+func (f Project_CompanyName_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Project_CompanyName_Field) _Column() string { return "company_name" }
 
 type Project_Description_Field struct {
 	_set   bool
@@ -1126,6 +1145,7 @@ func (obj *sqlite3Impl) Create_Company(ctx context.Context,
 func (obj *sqlite3Impl) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
+	project_company_name Project_CompanyName_Field,
 	project_description Project_Description_Field,
 	project_terms_accepted Project_TermsAccepted_Field,
 	optional Project_Create_Fields) (
@@ -1135,16 +1155,17 @@ func (obj *sqlite3Impl) Create_Project(ctx context.Context,
 	__id_val := project_id.value()
 	__owner_id_val := optional.OwnerId.value()
 	__name_val := project_name.value()
+	__company_name_val := project_company_name.value()
 	__description_val := project_description.value()
 	__terms_accepted_val := project_terms_accepted.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, owner_id, name, description, terms_accepted, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, owner_id, name, company_name, description, terms_accepted, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __owner_id_val, __name_val, __description_val, __terms_accepted_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __owner_id_val, __name_val, __company_name_val, __description_val, __terms_accepted_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __owner_id_val, __name_val, __description_val, __terms_accepted_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __owner_id_val, __name_val, __company_name_val, __description_val, __terms_accepted_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1252,7 +1273,7 @@ func (obj *sqlite3Impl) Get_Company_By_UserId(ctx context.Context,
 func (obj *sqlite3Impl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.description, projects.terms_accepted, projects.created_at FROM projects")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.company_name, projects.description, projects.terms_accepted, projects.created_at FROM projects")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -1268,7 +1289,7 @@ func (obj *sqlite3Impl) All_Project(ctx context.Context) (
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.OwnerId, &project.Name, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.OwnerId, &project.Name, &project.CompanyName, &project.Description, &project.TermsAccepted, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -1285,7 +1306,7 @@ func (obj *sqlite3Impl) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.description, projects.terms_accepted, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.company_name, projects.description, projects.terms_accepted, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -1294,7 +1315,7 @@ func (obj *sqlite3Impl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.OwnerId, &project.Name, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.OwnerId, &project.Name, &project.CompanyName, &project.Description, &project.TermsAccepted, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1308,7 +1329,7 @@ func (obj *sqlite3Impl) All_Project_By_OwnerId(ctx context.Context,
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.owner_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.description, projects.terms_accepted, projects.created_at FROM projects WHERE "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.company_name, projects.description, projects.terms_accepted, projects.created_at FROM projects WHERE "), __cond_0}}
 
 	var __values []interface{}
 	__values = append(__values)
@@ -1329,7 +1350,40 @@ func (obj *sqlite3Impl) All_Project_By_OwnerId(ctx context.Context,
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.OwnerId, &project.Name, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.OwnerId, &project.Name, &project.CompanyName, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) All_Project_By_ProjectMember_MemberId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field) (
+	rows []*Project, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.company_name, projects.description, projects.terms_accepted, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_member_member_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project := &Project{}
+		err = __rows.Scan(&project.Id, &project.OwnerId, &project.Name, &project.CompanyName, &project.Description, &project.TermsAccepted, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -1628,11 +1682,6 @@ func (obj *sqlite3Impl) Update_Project_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("owner_id = ?"))
 	}
 
-	if update.Name._set {
-		__values = append(__values, update.Name.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
-	}
-
 	if update.Description._set {
 		__values = append(__values, update.Description.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
@@ -1661,12 +1710,12 @@ func (obj *sqlite3Impl) Update_Project_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.description, projects.terms_accepted, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.company_name, projects.description, projects.terms_accepted, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&project.Id, &project.OwnerId, &project.Name, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&project.Id, &project.OwnerId, &project.Name, &project.CompanyName, &project.Description, &project.TermsAccepted, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -1870,13 +1919,13 @@ func (obj *sqlite3Impl) getLastProject(ctx context.Context,
 	pk int64) (
 	project *Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.description, projects.terms_accepted, projects.created_at FROM projects WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.company_name, projects.description, projects.terms_accepted, projects.created_at FROM projects WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&project.Id, &project.OwnerId, &project.Name, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&project.Id, &project.OwnerId, &project.Name, &project.CompanyName, &project.Description, &project.TermsAccepted, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2045,6 +2094,16 @@ func (rx *Rx) All_Project_By_OwnerId(ctx context.Context,
 	return tx.All_Project_By_OwnerId(ctx, project_owner_id)
 }
 
+func (rx *Rx) All_Project_By_ProjectMember_MemberId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field) (
+	rows []*Project, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Project_By_ProjectMember_MemberId(ctx, project_member_member_id)
+}
+
 func (rx *Rx) Create_Company(ctx context.Context,
 	company_user_id Company_UserId_Field,
 	company_name Company_Name_Field,
@@ -2065,6 +2124,7 @@ func (rx *Rx) Create_Company(ctx context.Context,
 func (rx *Rx) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
+	project_company_name Project_CompanyName_Field,
 	project_description Project_Description_Field,
 	project_terms_accepted Project_TermsAccepted_Field,
 	optional Project_Create_Fields) (
@@ -2073,7 +2133,7 @@ func (rx *Rx) Create_Project(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Project(ctx, project_id, project_name, project_description, project_terms_accepted, optional)
+	return tx.Create_Project(ctx, project_id, project_name, project_company_name, project_description, project_terms_accepted, optional)
 
 }
 
@@ -2265,6 +2325,10 @@ type Methods interface {
 		project_owner_id Project_OwnerId_Field) (
 		rows []*Project, err error)
 
+	All_Project_By_ProjectMember_MemberId(ctx context.Context,
+		project_member_member_id ProjectMember_MemberId_Field) (
+		rows []*Project, err error)
+
 	Create_Company(ctx context.Context,
 		company_user_id Company_UserId_Field,
 		company_name Company_Name_Field,
@@ -2278,6 +2342,7 @@ type Methods interface {
 	Create_Project(ctx context.Context,
 		project_id Project_Id_Field,
 		project_name Project_Name_Field,
+		project_company_name Project_CompanyName_Field,
 		project_description Project_Description_Field,
 		project_terms_accepted Project_TermsAccepted_Field,
 		optional Project_Create_Fields) (

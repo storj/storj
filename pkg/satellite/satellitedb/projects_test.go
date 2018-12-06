@@ -25,10 +25,10 @@ func TestProjectsRepository(t *testing.T) {
 
 		// for project
 		name        = "Project"
+		companyName = "Comp Name"
 		description = "some description"
 
 		// updated project values
-		newName        = "NewProject"
 		newDescription = "some new description"
 	)
 
@@ -59,6 +59,7 @@ func TestProjectsRepository(t *testing.T) {
 		project := &satellite.Project{
 			OwnerID:       nil,
 			Name:          name,
+			CompanyName:   companyName,
 			Description:   description,
 			TermsAccepted: 1,
 		}
@@ -85,6 +86,7 @@ func TestProjectsRepository(t *testing.T) {
 			OwnerID: &owner.ID,
 
 			Name:          name,
+			CompanyName:   companyName,
 			Description:   description,
 			TermsAccepted: 1,
 		}
@@ -105,6 +107,7 @@ func TestProjectsRepository(t *testing.T) {
 
 		assert.Equal(t, projectsByOwnerID[0].OwnerID, &owner.ID)
 		assert.Equal(t, projectsByOwnerID[0].Name, name)
+		assert.Equal(t, projectsByOwnerID[0].CompanyName, companyName)
 		assert.Equal(t, projectsByOwnerID[0].Description, description)
 		assert.Equal(t, projectsByOwnerID[0].TermsAccepted, 1)
 
@@ -116,6 +119,7 @@ func TestProjectsRepository(t *testing.T) {
 		assert.Equal(t, projectByID.ID, projectsByOwnerID[0].ID)
 		assert.Equal(t, projectByID.OwnerID, &owner.ID)
 		assert.Equal(t, projectByID.Name, name)
+		assert.Equal(t, projectByID.CompanyName, companyName)
 		assert.Equal(t, projectByID.Description, description)
 		assert.Equal(t, projectByID.TermsAccepted, 1)
 	})
@@ -131,9 +135,8 @@ func TestProjectsRepository(t *testing.T) {
 		newProject := &satellite.Project{
 			ID:            oldProjects[0].ID,
 			OwnerID:       &owner.ID,
-			Name:          newName,
 			Description:   newDescription,
-			TermsAccepted: 1,
+			TermsAccepted: 2,
 		}
 
 		err = projects.Update(ctx, newProject)
@@ -148,9 +151,8 @@ func TestProjectsRepository(t *testing.T) {
 
 		assert.Equal(t, newProject.ID, oldProjects[0].ID)
 		assert.Equal(t, newProject.OwnerID, &owner.ID)
-		assert.Equal(t, newProject.Name, newName)
 		assert.Equal(t, newProject.Description, newDescription)
-		assert.Equal(t, newProject.TermsAccepted, 1)
+		assert.Equal(t, newProject.TermsAccepted, 2)
 	})
 
 	t.Run("Delete project success", func(t *testing.T) {
