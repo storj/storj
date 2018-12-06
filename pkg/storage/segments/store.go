@@ -112,7 +112,16 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 	} else {
 		// uses overlay client to request a list of nodes
-		nodes, err := s.oc.Choose(ctx, overlay.Options{Amount: s.rs.TotalCount(), Space: 0, Excluded: nil})
+		nodes, err := s.oc.Choose(ctx,
+			overlay.Options{
+				Amount:       s.rs.TotalCount(),
+				Space:        0,
+				Uptime:       0,
+				UptimeCount:  0,
+				AuditSuccess: 0,
+				AuditCount:   0,
+				Excluded:     nil,
+			})
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
