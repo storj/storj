@@ -96,8 +96,6 @@ func main() {
 		},
 	}
 
-	cmdList.Flags().StringVarP(&port, "port", "p", ":7778", "pointerdb port")
-	cmdList.Flags().StringVarP(&apiKey, "apikey", "a", "abc123", "pointerdb api key")
 	cmdList.Flags().StringVarP(&prefix, "prefix", "x", "", "bucket prefix")
 	cmdList.Flags().StringVarP(&endBefore, "endBefore", "e", "", "end before path")
 	cmdList.Flags().StringVarP(&startAfter, "startAfter", "s", "", "start after path")
@@ -105,10 +103,10 @@ func main() {
 	cmdList.Flags().IntVarP(&limit, "limit", "l", 0, "listing limit")
 	cmdList.Flags().Uint32VarP(&metaFlags, "metaFlags", "m", meta.None, "listing limit")
 
-	cmdGet.Flags().StringVarP(&port, "port", "p", ":7778", "pointerdb port")
-	cmdGet.Flags().StringVarP(&apiKey, "apikey", "a", "abc123", "pointerdb api key")
-
 	var rootCmd = &cobra.Command{Use: "pdbinspect"}
+	rootCmd.PersistentFlags().StringVarP(&port, "port", "p", ":7778", "pointerdb port")
+	rootCmd.PersistentFlags().StringVarP(&apiKey, "apikey", "a", "abc123", "pointerdb api key")
+
 	rootCmd.AddCommand(cmdList, cmdGet)
 	err := rootCmd.Execute()
 	if err != nil {
@@ -118,7 +116,7 @@ func main() {
 }
 
 func prettyPrint(unformatted proto.Message) string {
-	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: false}
+	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: true}
 	formatted, err := m.MarshalToString(unformatted)
 	if err != nil {
 		fmt.Println("Error", err)
