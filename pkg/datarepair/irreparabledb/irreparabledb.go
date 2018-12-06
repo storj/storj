@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
-// Error is the default boltdb errs class
+// Error is the default irreparabledb errs class
 var Error = errs.Class("irreparabledb error")
 
 // Database implements the irreparable RPC service
