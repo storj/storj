@@ -46,14 +46,15 @@ func NewUpload(ctx context.Context, stream storj.MutableStream, streams streams.
 		}
 		metadata, err := proto.Marshal(&serMetaInfo)
 		if err != nil {
-			err = utils.CombineErrors(err, reader.CloseWithError(err))
+			return utils.CombineErrors(err, reader.CloseWithError(err))
 		}
 
 		_, err = streams.Put(ctx, storj.JoinPaths(obj.Bucket.Name, obj.Path), obj.Bucket.PathCipher, reader, metadata, obj.Expires)
 		if err != nil {
-			err = utils.CombineErrors(err, reader.CloseWithError(err))
+			return utils.CombineErrors(err, reader.CloseWithError(err))
 		}
-		return err
+
+		return nil
 	})
 
 	return &upload

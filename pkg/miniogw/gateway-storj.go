@@ -453,11 +453,3 @@ func convertError(err error, bucket, object string) error {
 
 	return err
 }
-
-func invalidRangeError(offset, length, size int64) minio.InvalidRange {
-	return minio.InvalidRange{
-		OffsetBegin:  offset,
-		OffsetEnd:    offset + length,
-		ResourceSize: size,
-	}
-}

@@ -55,7 +55,7 @@ func TestMakeBucketWithLocation(t *testing.T) {
 		bucket, err := metainfo.GetBucket(ctx, TestBucket)
 		assert.NoError(t, err)
 		assert.Equal(t, TestBucket, bucket.Name)
-		assert.True(t, time.Now().Sub(bucket.Created) < 1*time.Second)
+		assert.True(t, time.Since(bucket.Created) < 1*time.Second)
 		assert.Equal(t, storj.AESGCM, bucket.PathCipher)
 
 		// Check the error when trying to create an existing bucket
@@ -196,7 +196,7 @@ func TestPutObject(t *testing.T) {
 			assert.Equal(t, TestFile, info.Name)
 			assert.Equal(t, TestBucket, info.Bucket)
 			assert.False(t, info.IsDir)
-			assert.True(t, time.Now().Sub(info.ModTime) < 1*time.Second)
+			assert.True(t, time.Since(info.ModTime) < 1*time.Second)
 			assert.Equal(t, data.Size(), info.Size)
 			// assert.Equal(t, data.SHA256HexString(), info.ETag) TODO: when we start calculating checksums
 			assert.Equal(t, serMetaInfo.ContentType, info.ContentType)

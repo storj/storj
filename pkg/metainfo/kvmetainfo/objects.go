@@ -334,9 +334,9 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segm
 		Metadata: serMetaInfo.UserDefined,
 
 		ContentType: serMetaInfo.ContentType,
-		Created:  lastSegment.Modified,   // TODO: use correct field
-		Modified: lastSegment.Modified,   // TODO: use correct field
-		Expires:  lastSegment.Expiration, // TODO: use correct field
+		Created:     lastSegment.Modified,   // TODO: use correct field
+		Modified:    lastSegment.Modified,   // TODO: use correct field
+		Expires:     lastSegment.Expiration, // TODO: use correct field
 
 		Stream: storj.Stream{
 			Size: stream.SegmentsSize*(stream.NumberOfSegments-1) + stream.LastSegmentSize,
