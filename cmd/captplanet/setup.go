@@ -29,7 +29,7 @@ type Config struct {
 	ListenHost          string `help:"the host for providers to listen on" default:"127.0.0.1"`
 	StartingPort        int    `help:"all providers will listen on ports consecutively starting with this one" default:"7777"`
 	APIKey              string `default:"abc123" help:"the api key to use for the satellite"`
-	EncKey              string `default:"highlydistributedridiculouslyresilient" help:"your root encryption key"`
+	EncKey              string `default:"insecure-default-encryption-key" help:"your root encryption key"`
 	Overwrite           bool   `help:"whether to overwrite pre-existing configuration files" default:"false"`
 	GenerateMinioCerts  bool   `default:"false" help:"generate sample TLS certs for Minio GW"`
 }
