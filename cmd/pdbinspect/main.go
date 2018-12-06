@@ -8,11 +8,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
@@ -28,6 +31,7 @@ func main() {
 	var recursive bool
 	var limit int
 	var metaFlags uint32
+	var jsonBool bool
 
 	var cmdList = &cobra.Command{
 		Use:   "list",
@@ -43,20 +47,28 @@ func main() {
 				fmt.Println("Error", err)
 				os.Exit(1)
 			}
+			if jsonBool {
+				for index, pointer := range items {
+					pointerFields := map[string]interface{}{
+						"Index": index,
+						"Path":  pointer.Path,
+					}
+					formatted, err := json.MarshalIndent(pointerFields, "", "  ")
+					if err != nil {
+						fmt.Println("Error", err)
+					}
+					fmt.Println(string(formatted))
+				}
+			} else {
+				fmt.Println("Index\tPath\t")
 
-			for index, pointer := range items {
-				pointerFields := map[string]interface{}{
-					"Index": index,
-					"Path":  pointer.Path,
+				for i, pointer := range items {
+					fmt.Println(i, "\t", pointer.Path, "\t")
 				}
-				formatted, err := json.MarshalIndent(pointerFields, "", "  ")
-				if err != nil {
-					fmt.Println("error:", err)
-				}
-				fmt.Println(string(formatted))
 			}
+
 			if more {
-				fmt.Println("\n\nMore pointers remaining.\nRun list again with `--startAfter <last-path>`.")
+				fmt.Println("\nMore pointers remaining.\nRun list again with `--startAfter <last-path>`")
 			}
 		},
 	}
@@ -71,21 +83,40 @@ func main() {
 				fmt.Println("Error", err)
 				os.Exit(1)
 			}
-			pointer, nodes, pba, err := client.Get(ctx, args[0])
+			pointer, _, _, err := client.Get(ctx, args[0])
 			if err != nil {
 				fmt.Println("Error", err)
 				os.Exit(1)
 			}
 
-			prettyPointer := prettyPrint(pointer)
-			fmt.Println(prettyPointer)
+			if jsonBool {
+				prettyPointer := prettyPrint(pointer)
+				fmt.Println(prettyPointer)
+			} else {
 
-			prettyPBA := prettyPrint(pba)
-			fmt.Println(prettyPBA)
+				if pointer.GetType() == pb.Pointer_INLINE {
+					fmt.Println("Type\tCreation Date\tExpiration Date\t")
+					fmt.Println(pointer.GetType(), "\t", readableTime(pointer.GetCreationDate()), "\t",
+						readableTime(pointer.GetExpirationDate()), "\t")
+				}
 
-			for index, node := range nodes {
-				prettyNode := prettyPrint(node)
-				fmt.Print(index, prettyNode)
+				if pointer.GetType() == pb.Pointer_REMOTE {
+					fmt.Println("\nRemote Pieces:")
+					fmt.Println("\nIndex\tPiece Number\tNode ID")
+					for index, piece := range pointer.GetRemote().GetRemotePieces() {
+						fmt.Println(index, "\t", piece.GetPieceNum(), "\t\t", piece.NodeId)
+					}
+
+					fmt.Println("\nType\t\t", pointer.GetType(), "\nCreation Date\t", readableTime(pointer.GetCreationDate()),
+						"\nExpiration Date\t", readableTime(pointer.GetExpirationDate()), "\nSegment Size\t", pointer.GetSegmentSize(),
+						"\nPiece ID\t", pointer.GetRemote().GetPieceId(),
+						"\n\nRedundancy:\n\n\tMinimum Required\t", pointer.GetRemote().GetRedundancy().GetMinReq(),
+						"\n\tTotal\t\t\t", pointer.GetRemote().GetRedundancy().GetTotal(),
+						"\n\tRepair Threshold\t", pointer.GetRemote().GetRedundancy().GetRepairThreshold(),
+						"\n\tSuccess Threshold\t", pointer.GetRemote().GetRedundancy().GetSuccessThreshold(),
+						"\n\tErasure Share Size\t", pointer.GetRemote().GetRedundancy().GetErasureShareSize(),
+					)
+				}
 			}
 		},
 	}
@@ -100,6 +131,7 @@ func main() {
 	var rootCmd = &cobra.Command{Use: "pdbinspect"}
 	rootCmd.PersistentFlags().StringVarP(&port, "port", "p", ":7778", "pointerdb port")
 	rootCmd.PersistentFlags().StringVarP(&apiKey, "apikey", "a", "abc123", "pointerdb api key")
+	rootCmd.PersistentFlags().BoolVarP(&jsonBool, "json", "j", false, "formats in json")
 
 	rootCmd.AddCommand(cmdList, cmdGet)
 	err := rootCmd.Execute()
@@ -107,6 +139,12 @@ func main() {
 		fmt.Println("Error", err)
 		os.Exit(1)
 	}
+}
+
+func readableTime(stamp *timestamp.Timestamp) string {
+	t := time.Unix(stamp.GetSeconds(), int64(stamp.GetNanos()))
+	readable := t.Format(time.RFC822Z)
+	return readable
 }
 
 func prettyPrint(unformatted proto.Message) string {
