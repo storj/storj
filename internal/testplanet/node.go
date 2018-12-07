@@ -91,6 +91,9 @@ func (node *Node) Addr() string { return node.Info.Address.Address }
 // Shutdown shuts down all node dependencies
 func (node *Node) Shutdown() error {
 	var errs []error
+	if node.Kademlia != nil {
+		errs = append(errs, node.Kademlia.Disconnect())
+	}
 	if node.Provider != nil {
 		errs = append(errs, node.Provider.Close())
 	}
@@ -98,9 +101,6 @@ func (node *Node) Shutdown() error {
 	// if node.Listener != nil {
 	//    errs = append(errs, node.Listener.Close())
 	// }
-	if node.Kademlia != nil {
-		errs = append(errs, node.Kademlia.Disconnect())
-	}
 
 	for _, dep := range node.Dependencies {
 		err := dep.Close()

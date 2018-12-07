@@ -46,12 +46,13 @@ type discoveryOptions struct {
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
 type Kademlia struct {
-	alpha          int // alpha is a system wide concurrency parameter
-	routingTable   *RoutingTable
-	bootstrapNodes []pb.Node
-	address        string
-	nodeClient     node.Client
-	identity       *provider.FullIdentity
+	alpha           int // alpha is a system wide concurrency parameter
+	routingTable    *RoutingTable
+	bootstrapNodes  []pb.Node
+	address         string
+	nodeClient      node.Client
+	identity        *provider.FullIdentity
+	bootstrapCancel context.CancelFunc
 }
 
 // NewKademlia returns a newly configured Kademlia instance
@@ -108,6 +109,10 @@ func NewKademliaWithRoutingTable(self pb.Node, bootstrapNodes []pb.Node, identit
 
 // Disconnect safely closes connections to the Kademlia network
 func (k *Kademlia) Disconnect() error {
+	if k.bootstrapCancel != nil {
+		k.bootstrapCancel()
+	}
+
 	return utils.CombineErrors(
 		k.nodeClient.Disconnect(),
 		k.routingTable.Close(),
@@ -172,7 +177,10 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return BootstrapErr.New("no bootstrap nodes provided")
 	}
 
-	return k.lookup(ctx, k.routingTable.self.Id, discoveryOptions{
+	bootstrapContext, bootstrapCancel := context.WithCancel(ctx)
+	k.bootstrapCancel = bootstrapCancel
+
+	return k.lookup(bootstrapContext, k.routingTable.self.Id, discoveryOptions{
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: true, bootstrapNodes: k.bootstrapNodes,
 	})
 }
