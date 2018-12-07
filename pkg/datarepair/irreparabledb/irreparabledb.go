@@ -39,7 +39,8 @@ func New(source string) (*Database, error) {
 
 	db, err := dbx.Open(u.Scheme, u.Path)
 	if err != nil {
-		return nil, err
+		return nil, Error.New("failed opening database %q, %q: %v",
+			u.Scheme, u.Path, err)
 	}
 
 	err = migrate.Create("irreparabledb", db)

@@ -4,10 +4,17 @@
 package satellitedb
 
 import (
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
+)
+
+var (
+	// Error is the default satellitedb errs class
+	Error = errs.Class("satellitedb")
 )
 
 // DB contains access to different database tables
@@ -27,7 +34,8 @@ func NewDB(databaseURL string) (*DB, error) {
 	}
 	db, err := dbx.Open(dbURL.Scheme, source)
 	if err != nil {
-		return nil, err
+		return nil, Error.New("failed opening database %q, %q: %v",
+			dbURL.Scheme, source, err)
 	}
 
 	return &DB{db: db}, nil
