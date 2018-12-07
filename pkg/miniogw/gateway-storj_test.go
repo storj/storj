@@ -644,7 +644,7 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 
 	defer ctx.Check(planet.Shutdown)
 
-	planet.Start(context.Background())
+	planet.Start(ctx)
 
 	layer, metainfo, streams, err := initEnv(planet)
 	if !assert.NoError(t, err) {

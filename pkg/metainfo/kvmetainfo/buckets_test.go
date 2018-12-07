@@ -318,7 +318,7 @@ func runTest(t *testing.T, test func(context.Context, *DB)) {
 
 	defer ctx.Check(planet.Shutdown)
 
-	planet.Start(context.Background())
+	planet.Start(ctx)
 
 	db, err := newDB(planet)
 	if !assert.NoError(t, err) {
