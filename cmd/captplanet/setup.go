@@ -166,6 +166,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 		// Repairer
 		"piecestore.agreementsender.overlay_addr": overlayAddr,
+
+		"log.development": true,
+		"log.level":       "debug",
 	}
 
 	for i := 0; i < len(runCfg.StorageNodes); i++ {
