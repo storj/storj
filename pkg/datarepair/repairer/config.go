@@ -28,6 +28,15 @@ type Config struct {
 	Interval     time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
 	miniogw.ClientConfig
 	miniogw.RSConfig
+	nodeStats nodeStats
+}
+
+type nodeStats struct {
+	Uptime       int
+	UptimeCount  int
+	AuditSuccess int
+	AuditCount   int
+	Excluded     storj.NodeIDList
 }
 
 // Run runs the repairer with configured values
@@ -84,5 +93,6 @@ func (c Config) getSegmentStore(ctx context.Context, identity *provider.FullIden
 		return nil, err
 	}
 
-	return segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize), nil
+	return segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize, c.nodeStats.uptime, c.nodeStats.uptimeCount,
+		c.nodeStats.auditSuccess, c.nodeStats.auditCount), nil
 }
