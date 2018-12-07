@@ -300,18 +300,28 @@ func (s *Service) DeleteProjectMember(ctx context.Context, projectID, userID uui
 	}
 
 	// TODO: remove when appropriate method is added
-	projects, err := s.store.ProjectMembers().GetAll(ctx)
+	members, err := s.store.ProjectMembers().GetAll(ctx)
 	if err != nil {
 		return err
 	}
 
-	for _, project := range projects {
-		if project.ProjectID == projectID && project.MemberID == userID {
-			return s.store.ProjectMembers().Delete(ctx, project.ID)
+	for _, member := range members {
+		if member.ProjectID == projectID && member.MemberID == userID {
+			return s.store.ProjectMembers().Delete(ctx, member.ID)
 		}
 	}
 
 	return errs.New("project with id %s doesn't have a member with id %s", projectID.String(), userID.String())
+}
+
+// GetProjectMembers returns ProjectMembers for given Project
+func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID) ([]ProjectMember, error) {
+	_, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.store.ProjectMembers().GetByProjectID(ctx, projectID)
 }
 
 // Authorize validates token from context and returns authorized Authorization

@@ -5,7 +5,6 @@ package satelliteql
 
 import (
 	"github.com/graphql-go/graphql"
-
 	"storj.io/storj/pkg/satellite"
 )
 
@@ -19,10 +18,11 @@ const (
 	// Indicates if user accepted Terms & Conditions during project creation
 	// Used in input model
 	fieldIsTermsAccepted = "isTermsAccepted"
+	fieldMembers         = "members"
 )
 
 // graphqlProject creates *graphql.Object type representation of satellite.ProjectInfo
-func graphqlProject(service *satellite.Service) *graphql.Object {
+func graphqlProject(service *satellite.Service, types Types) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: projectType,
 		Fields: graphql.Fields{
@@ -58,6 +58,32 @@ func graphqlProject(service *satellite.Service) *graphql.Object {
 					}
 
 					return user.FirstName + " " + user.LastName, nil
+				},
+			},
+			fieldMembers: &graphql.Field{
+				Type: graphql.NewList(types.ProjectMember()),
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					project, _ := p.Source.(*satellite.Project)
+
+					members, err := service.GetProjectMembers(p.Context, project.ID)
+					if err != nil {
+						return nil, err
+					}
+
+					var users []projectMember
+					for _, member := range members {
+						user, err := service.GetUser(p.Context, member.MemberID)
+						if err != nil {
+							return nil, err
+						}
+
+						users = append(users, projectMember{
+							User:     user,
+							JoinedAt: member.CreatedAt,
+						})
+					}
+
+					return users, nil
 				},
 			},
 		},
