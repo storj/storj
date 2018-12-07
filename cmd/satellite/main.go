@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/cfgstruct"
@@ -61,15 +62,14 @@ var (
 	}
 
 	runCfg struct {
-		Identity  provider.IdentityConfig
-		Kademlia  kademlia.Config
-		PointerDB pointerdb.Config
-		Overlay   overlay.Config
-		StatDB    statdb.Config
-		Checker   checker.Config
-		Repairer  repairer.Config
-
-		// Audit audit.Config
+		Identity    provider.IdentityConfig
+		Kademlia    kademlia.Config
+		PointerDB   pointerdb.Config
+		Overlay     overlay.Config
+		StatDB      statdb.Config
+		Checker     checker.Config
+		Repairer    repairer.Config
+		Audit       audit.Config
 		BwAgreement bwagreement.Config
 		Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	}
@@ -127,7 +127,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		runCfg.Overlay,
 		runCfg.Checker,
 		runCfg.Repairer,
-		// runCfg.Audit,
+		runCfg.Audit,
 		runCfg.BwAgreement,
 	)
 }
