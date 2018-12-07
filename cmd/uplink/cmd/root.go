@@ -50,7 +50,7 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 // Temporarily it also returns an instance of streams.Store until we improve
 // the metainfo and streas implementations.
 func (c *Config) Metainfo(ctx context.Context) (storj.Metainfo, streams.Store, error) {
-	identity, err := c.Load()
+	identity, err := c.Identity.Load()
 	if err != nil {
 		return nil, nil, err
 	}

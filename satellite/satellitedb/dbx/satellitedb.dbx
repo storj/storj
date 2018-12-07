@@ -1,8 +1,28 @@
 // dbx.v1 golang satellitedb.dbx .
 
-// remove it when first table will be added
-model test (
-	key id
+model bwagreement (
+	key signature 
 
-	field id blob
+	field signature blob 
+
+	field data blob
+	
+	field created_at timestamp ( autoinsert )
+)
+
+create bwagreement ( )
+delete bwagreement ( where bwagreement.signature = ? )
+read one (
+  select bwagreement 
+  where  bwagreement.signature = ?
+)
+read limitoffset (
+	select bwagreement
+)
+read all (
+	select bwagreement
+)
+read all (
+	select bwagreement
+	where  bwagreement.created_at > ?
 )

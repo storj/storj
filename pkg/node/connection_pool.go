@@ -6,6 +6,8 @@ package node
 import (
 	"context"
 	"sync"
+	"sync/atomic"
+	"unsafe"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
@@ -33,7 +35,7 @@ type Conn struct {
 
 	dial   sync.Once
 	client pb.NodesClient
-	grpc   *grpc.ClientConn
+	grpc   unsafe.Pointer //*grpc.ClientConn
 	err    error
 }
 
@@ -73,14 +75,19 @@ func (pool *ConnectionPool) Disconnect(id storj.NodeID) error {
 }
 
 func (pool *ConnectionPool) disconnect(id storj.NodeID) error {
-	i, ok := pool.items[id]
-	if !ok || i.grpc == nil {
+	conn, ok := pool.items[id]
+	if !ok {
+		return nil
+	}
+
+	ptr := atomic.LoadPointer(&conn.grpc)
+	if ptr == nil {
 		return nil
 	}
 
 	delete(pool.items, id)
 
-	return i.grpc.Close()
+	return (*grpc.ClientConn)(ptr).Close()
 }
 
 // Dial connects to the node with the given ID and Address returning a gRPC Node Client
@@ -95,12 +102,15 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 	pool.mu.Unlock()
 
 	conn.dial.Do(func() {
-		conn.grpc, conn.err = pool.tc.DialNode(ctx, n, grpc.WithBlock())
+		grpc, err := pool.tc.DialNode(ctx, n, grpc.WithBlock())
+		conn.err = err
 		if conn.err != nil {
 			return
 		}
 
-		conn.client = pb.NewNodesClient(conn.grpc)
+		atomic.StorePointer(&conn.grpc, unsafe.Pointer(grpc))
+
+		conn.client = pb.NewNodesClient(grpc)
 	})
 
 	if conn.err != nil {

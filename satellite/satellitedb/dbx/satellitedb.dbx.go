@@ -272,9 +272,11 @@ func newpostgres(db *DB) *postgresDB {
 }
 
 func (obj *postgresDB) Schema() string {
-	return `CREATE TABLE tests (
-	id bytea NOT NULL,
-	PRIMARY KEY ( id )
+	return `CREATE TABLE bwagreements (
+	signature bytea NOT NULL,
+	data bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( signature )
 );`
 }
 
@@ -339,9 +341,11 @@ func newsqlite3(db *DB) *sqlite3DB {
 }
 
 func (obj *sqlite3DB) Schema() string {
-	return `CREATE TABLE tests (
-	id BLOB NOT NULL,
-	PRIMARY KEY ( id )
+	return `CREATE TABLE bwagreements (
+	signature BLOB NOT NULL,
+	data BLOB NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( signature )
 );`
 }
 
@@ -405,32 +409,70 @@ nextval:
 	fmt.Fprint(f, "]")
 }
 
-type Test struct {
-	Id []byte
+type Bwagreement struct {
+	Signature []byte
+	Data      []byte
+	CreatedAt time.Time
 }
 
-func (Test) _Table() string { return "tests" }
+func (Bwagreement) _Table() string { return "bwagreements" }
 
-type Test_Update_Fields struct {
+type Bwagreement_Update_Fields struct {
 }
 
-type Test_Id_Field struct {
+type Bwagreement_Signature_Field struct {
 	_set   bool
 	_value []byte
 }
 
-func Test_Id(v []byte) Test_Id_Field {
-	return Test_Id_Field{_set: true, _value: v}
+func Bwagreement_Signature(v []byte) Bwagreement_Signature_Field {
+	return Bwagreement_Signature_Field{_set: true, _value: v}
 }
 
-func (f Test_Id_Field) value() interface{} {
+func (f Bwagreement_Signature_Field) value() interface{} {
 	if !f._set {
 		return nil
 	}
 	return f._value
 }
 
-func (Test_Id_Field) _Column() string { return "id" }
+func (Bwagreement_Signature_Field) _Column() string { return "signature" }
+
+type Bwagreement_Data_Field struct {
+	_set   bool
+	_value []byte
+}
+
+func Bwagreement_Data(v []byte) Bwagreement_Data_Field {
+	return Bwagreement_Data_Field{_set: true, _value: v}
+}
+
+func (f Bwagreement_Data_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Bwagreement_Data_Field) _Column() string { return "data" }
+
+type Bwagreement_CreatedAt_Field struct {
+	_set   bool
+	_value time.Time
+}
+
+func Bwagreement_CreatedAt(v time.Time) Bwagreement_CreatedAt_Field {
+	return Bwagreement_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Bwagreement_CreatedAt_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Bwagreement_CreatedAt_Field) _Column() string { return "created_at" }
 
 func toUTC(t time.Time) time.Time {
 	return t.UTC()
@@ -600,6 +642,177 @@ func (h *__sqlbundle_Hole) Render() string { return h.SQL.Render() }
 // end runtime support for building sql statements
 //
 
+func (obj *postgresImpl) Create_Bwagreement(ctx context.Context,
+	bwagreement_signature Bwagreement_Signature_Field,
+	bwagreement_data Bwagreement_Data_Field) (
+	bwagreement *Bwagreement, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__signature_val := bwagreement_signature.value()
+	__data_val := bwagreement_data.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( signature, data, created_at ) VALUES ( ?, ?, ? ) RETURNING bwagreements.signature, bwagreements.data, bwagreements.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __signature_val, __data_val, __created_at_val)
+
+	bwagreement = &Bwagreement{}
+	err = obj.driver.QueryRow(__stmt, __signature_val, __data_val, __created_at_val).Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bwagreement, nil
+
+}
+
+func (obj *postgresImpl) Get_Bwagreement_By_Signature(ctx context.Context,
+	bwagreement_signature Bwagreement_Signature_Field) (
+	bwagreement *Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.signature = ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_signature.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bwagreement = &Bwagreement{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bwagreement, nil
+
+}
+
+func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_Bwagreement(ctx context.Context) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
+	bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.created_at > ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_created_at_greater.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Delete_Bwagreement_By_Signature(ctx context.Context,
+	bwagreement_signature Bwagreement_Signature_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreements WHERE bwagreements.signature = ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_signature.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -613,7 +826,7 @@ func (impl postgresImpl) isConstraintError(err error) (
 func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
-	__res, err = obj.driver.Exec("DELETE FROM tests;")
+	__res, err = obj.driver.Exec("DELETE FROM bwagreements;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -625,6 +838,198 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	count += __count
 
 	return count, nil
+
+}
+
+func (obj *sqlite3Impl) Create_Bwagreement(ctx context.Context,
+	bwagreement_signature Bwagreement_Signature_Field,
+	bwagreement_data Bwagreement_Data_Field) (
+	bwagreement *Bwagreement, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__signature_val := bwagreement_signature.value()
+	__data_val := bwagreement_data.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( signature, data, created_at ) VALUES ( ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __signature_val, __data_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __signature_val, __data_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastBwagreement(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Get_Bwagreement_By_Signature(ctx context.Context,
+	bwagreement_signature Bwagreement_Signature_Field) (
+	bwagreement *Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.signature = ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_signature.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bwagreement = &Bwagreement{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bwagreement, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Bwagreement(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) All_Bwagreement(ctx context.Context) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
+	bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.created_at > ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_created_at_greater.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Delete_Bwagreement_By_Signature(ctx context.Context,
+	bwagreement_signature Bwagreement_Signature_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreements WHERE bwagreements.signature = ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_signature.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) getLastBwagreement(ctx context.Context,
+	pk int64) (
+	bwagreement *Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	bwagreement = &Bwagreement{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bwagreement, nil
 
 }
 
@@ -646,7 +1051,7 @@ func (impl sqlite3Impl) isConstraintError(err error) (
 func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
-	__res, err = obj.driver.Exec("DELETE FROM tests;")
+	__res, err = obj.driver.Exec("DELETE FROM bwagreements;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -703,7 +1108,91 @@ func (rx *Rx) Rollback() (err error) {
 	return err
 }
 
+func (rx *Rx) All_Bwagreement(ctx context.Context) (
+	rows []*Bwagreement, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Bwagreement(ctx)
+}
+
+func (rx *Rx) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
+	bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
+	rows []*Bwagreement, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Bwagreement_By_CreatedAt_Greater(ctx, bwagreement_created_at_greater)
+}
+
+func (rx *Rx) Create_Bwagreement(ctx context.Context,
+	bwagreement_signature Bwagreement_Signature_Field,
+	bwagreement_data Bwagreement_Data_Field) (
+	bwagreement *Bwagreement, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Bwagreement(ctx, bwagreement_signature, bwagreement_data)
+
+}
+
+func (rx *Rx) Delete_Bwagreement_By_Signature(ctx context.Context,
+	bwagreement_signature Bwagreement_Signature_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_Bwagreement_By_Signature(ctx, bwagreement_signature)
+}
+
+func (rx *Rx) Get_Bwagreement_By_Signature(ctx context.Context,
+	bwagreement_signature Bwagreement_Signature_Field) (
+	bwagreement *Bwagreement, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Bwagreement_By_Signature(ctx, bwagreement_signature)
+}
+
+func (rx *Rx) Limited_Bwagreement(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Bwagreement, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Bwagreement(ctx, limit, offset)
+}
+
 type Methods interface {
+	All_Bwagreement(ctx context.Context) (
+		rows []*Bwagreement, err error)
+
+	All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
+		bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
+		rows []*Bwagreement, err error)
+
+	Create_Bwagreement(ctx context.Context,
+		bwagreement_signature Bwagreement_Signature_Field,
+		bwagreement_data Bwagreement_Data_Field) (
+		bwagreement *Bwagreement, err error)
+
+	Delete_Bwagreement_By_Signature(ctx context.Context,
+		bwagreement_signature Bwagreement_Signature_Field) (
+		deleted bool, err error)
+
+	Get_Bwagreement_By_Signature(ctx context.Context,
+		bwagreement_signature Bwagreement_Signature_Field) (
+		bwagreement *Bwagreement, err error)
+
+	Limited_Bwagreement(ctx context.Context,
+		limit int, offset int64) (
+		rows []*Bwagreement, err error)
 }
 
 type TxMethods interface {

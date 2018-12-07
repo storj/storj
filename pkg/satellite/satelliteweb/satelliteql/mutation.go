@@ -8,6 +8,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/pkg/satellite"
+	"storj.io/storj/pkg/utils"
 )
 
 const (
@@ -24,7 +25,12 @@ const (
 	deleteProjectMutation            = "deleteProject"
 	updateProjectDescriptionMutation = "updateProjectDescription"
 
+	addProjectMemberMutation    = "addProjectMember"
+	deleteProjectMemberMutation = "deleteProjectMember"
+
 	input = "input"
+
+	fieldProjectID = "projectID"
 )
 
 // rootMutation creates mutation for graphql populated by AccountsClient
@@ -153,7 +159,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 			},
 			// creates project from input params
 			createProjectMutation: &graphql.Field{
-				Type: graphql.String,
+				Type: types.Project(),
 				Args: graphql.FieldConfigArgument{
 					input: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(types.ProjectInput()),
@@ -204,6 +210,62 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					}
 
 					return service.UpdateProject(p.Context, *projectID, description)
+				},
+			},
+			// add user as member of given project
+			addProjectMemberMutation: &graphql.Field{
+				Type: types.Project(),
+				Args: graphql.FieldConfigArgument{
+					fieldProjectID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					fieldUserID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					pID, _ := p.Args[fieldProjectID].(string)
+					uID, _ := p.Args[fieldUserID].(string)
+
+					projectID, pErr := uuid.Parse(pID)
+					userID, uErr := uuid.Parse(uID)
+
+					err := utils.CombineErrors(pErr, uErr)
+					if err != nil {
+						return nil, err
+					}
+
+					err = service.AddProjectMember(p.Context, *projectID, *userID)
+					project, getErr := service.GetProject(p.Context, *projectID)
+					return project, utils.CombineErrors(err, getErr)
+				},
+			},
+			// delete user membership for given project
+			deleteProjectMemberMutation: &graphql.Field{
+				Type: types.Project(),
+				Args: graphql.FieldConfigArgument{
+					fieldProjectID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					fieldUserID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					pID, _ := p.Args[fieldProjectID].(string)
+					uID, _ := p.Args[fieldUserID].(string)
+
+					projectID, pErr := uuid.Parse(pID)
+					userID, uErr := uuid.Parse(uID)
+
+					err := utils.CombineErrors(pErr, uErr)
+					if err != nil {
+						return nil, err
+					}
+
+					err = service.DeleteProjectMember(p.Context, *projectID, *userID)
+					project, getErr := service.GetProject(p.Context, *projectID)
+					return project, utils.CombineErrors(err, getErr)
 				},
 			},
 		},

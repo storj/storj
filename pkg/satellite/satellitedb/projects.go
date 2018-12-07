@@ -39,6 +39,16 @@ func (projects *projects) GetByOwnerID(ctx context.Context, ownerID uuid.UUID) (
 	return projectsFromDbxSlice(projectsDbx)
 }
 
+// GetByUserID is a method for querying all projects from the database by userID.
+func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) ([]satellite.Project, error) {
+	projectsDbx, err := projects.db.All_Project_By_ProjectMember_MemberId(ctx, dbx.ProjectMember_MemberId(userID[:]))
+	if err != nil {
+		return nil, err
+	}
+
+	return projectsFromDbxSlice(projectsDbx)
+}
+
 // Get is a method for querying project from the database by id.
 func (projects *projects) Get(ctx context.Context, id uuid.UUID) (*satellite.Project, error) {
 	project, err := projects.db.Get_Project_By_Id(ctx, dbx.Project_Id(id[:]))
@@ -67,6 +77,7 @@ func (projects *projects) Insert(ctx context.Context, project *satellite.Project
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),
 		dbx.Project_Name(project.Name),
+		dbx.Project_CompanyName(project.CompanyName),
 		dbx.Project_Description(project.Description),
 		dbx.Project_TermsAccepted(project.TermsAccepted),
 		dbx.Project_Create_Fields{
@@ -87,15 +98,20 @@ func (projects *projects) Delete(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-// Update is a method for updating user entity
+// Update is a method for updating project entity
 func (projects *projects) Update(ctx context.Context, project *satellite.Project) error {
+	updateFields := dbx.Project_Update_Fields{
+		Description:   dbx.Project_Description(project.Description),
+		TermsAccepted: dbx.Project_TermsAccepted(project.TermsAccepted),
+	}
+
+	if project.OwnerID != nil {
+		updateFields.OwnerId = dbx.Project_OwnerId(project.OwnerID[:])
+	}
+
 	_, err := projects.db.Update_Project_By_Id(ctx,
 		dbx.Project_Id(project.ID[:]),
-		dbx.Project_Update_Fields{
-			Name:          dbx.Project_Name(project.Name),
-			Description:   dbx.Project_Description(project.Description),
-			TermsAccepted: dbx.Project_TermsAccepted(project.TermsAccepted),
-		})
+		updateFields)
 
 	return err
 }
@@ -114,6 +130,7 @@ func projectFromDBX(project *dbx.Project) (*satellite.Project, error) {
 	u := &satellite.Project{
 		ID:            id,
 		Name:          project.Name,
+		CompanyName:   project.CompanyName,
 		Description:   project.Description,
 		TermsAccepted: project.TermsAccepted,
 		CreatedAt:     project.CreatedAt,

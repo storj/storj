@@ -5,12 +5,13 @@ package tally
 
 import (
 	"context"
-	"net/url"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/accounting"
-	dbManager "storj.io/storj/pkg/bwagreement/database-manager"
+	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
@@ -32,15 +33,12 @@ func (c Config) initialize(ctx context.Context) (Tally, error) {
 	if err != nil {
 		return nil, err
 	}
-	u, err := url.Parse(c.DatabaseURL)
-	if err != nil {
-		return nil, err
+
+	masterDB, ok := ctx.Value("masterdb").(interface{ BandwidthAgreement() bwagreement.DB })
+	if !ok {
+		return nil, errs.New("unable to get master db instance")
 	}
-	dbx, err := dbManager.NewDBManager(u.Scheme, u.Path)
-	if err != nil {
-		return nil, err
-	}
-	return newTally(zap.L(), db, dbx, pointerdb, overlay, kademlia, 0, c.Interval), nil
+	return newTally(zap.L(), db, masterDB.BandwidthAgreement(), pointerdb, overlay, kademlia, 0, c.Interval), nil
 }
 
 // Run runs the tally with configured values

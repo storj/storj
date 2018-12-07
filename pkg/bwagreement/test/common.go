@@ -4,125 +4,18 @@
 package test
 
 import (
-	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/x509"
-	"flag"
-	"log"
-	"net"
-	"os"
-	"testing"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gtank/cryptopasta"
-	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"storj.io/storj/internal/identity"
+
 	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/pkg/bwagreement"
-	"storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 )
-
-type testServer struct {
-	S     *bwagreement.Server
-	Grpcs *grpc.Server
-	Conn  *grpc.ClientConn
-	C     pb.BandwidthClient
-	K     crypto.PrivateKey
-}
-
-func newTestServer(t *testing.T) *testServer {
-	check := func(e error) {
-		if !assert.NoError(t, e) {
-			t.Fail()
-		}
-	}
-
-	caS, err := testidentity.NewTestCA(context.Background())
-	check(err)
-	fiS, err := caS.NewIdentity()
-	check(err)
-	so, err := fiS.ServerOption()
-	check(err)
-
-	caC, err := testidentity.NewTestCA(context.Background())
-	check(err)
-	fiC, err := caC.NewIdentity()
-	check(err)
-	co, err := fiC.DialOption(storj.NodeID{})
-	check(err)
-
-	s := newTestServerStruct(t, fiC.Key)
-	grpcs := grpc.NewServer(so)
-
-	k, ok := fiC.Key.(*ecdsa.PrivateKey)
-	assert.True(t, ok)
-	ts := &testServer{S: s, Grpcs: grpcs, K: k}
-	addr := ts.Start()
-	ts.C, ts.Conn = connect(addr, co)
-
-	return ts
-}
-
-const (
-	// this connstring is expected to work under the storj-test docker-compose instance
-	defaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
-)
-
-var (
-	// for travis build support
-	testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
-)
-
-func newTestServerStruct(t *testing.T, k crypto.PrivateKey) *bwagreement.Server {
-	if *testPostgres == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
-	}
-
-	dbm, err := dbmanager.NewDBManager("postgres", *testPostgres)
-	if err != nil {
-		t.Fatalf("Failed to initialize dbmanager when creating test server: %+v", err)
-	}
-
-	p, _ := k.(*ecdsa.PrivateKey)
-	server, err := bwagreement.NewServer(dbm, zap.NewNop(), &p.PublicKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return server
-}
-
-func (TS *testServer) Start() (addr string) {
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	pb.RegisterBandwidthServer(TS.Grpcs, TS.S)
-
-	go func() {
-		if err := TS.Grpcs.Serve(lis); err != nil {
-			log.Fatalf("failed to serve: %v", err)
-		}
-	}()
-	return lis.Addr().String()
-}
-
-func connect(addr string, o ...grpc.DialOption) (pb.BandwidthClient, *grpc.ClientConn) {
-	conn, err := grpc.Dial(addr, o...)
-	if err != nil {
-		log.Fatalf("did not connect: %v", err)
-	}
-
-	c := pb.NewBandwidthClient(conn)
-
-	return c, conn
-}
 
 //GeneratePayerBandwidthAllocation creates a signed PayerBandwidthAllocation from a PayerBandwidthAllocation_Action
 func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action, satelliteKey crypto.PrivateKey) (*pb.PayerBandwidthAllocation, error) {
@@ -190,11 +83,4 @@ func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, uplinkK
 		Signature: s,
 		Data:      data,
 	}, nil
-}
-
-func (TS *testServer) stop() {
-	if err := TS.Conn.Close(); err != nil {
-		panic(err)
-	}
-	TS.Grpcs.Stop()
 }
