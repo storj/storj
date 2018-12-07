@@ -3,19 +3,36 @@ package discovery
 import (
 	"context"
 
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/statdb"
 )
+
+// Discovery struct loads on cache, kad, and statdb
+type Discovery struct {
+	cache  *overlay.Cache
+	kad    *kademlia.Kademlia
+	statdb *statdb.StatDB
+}
+
+// NewDiscovery Returns a new Discovery instance with cache, kad, and statdb loaded on
+func NewDiscovery(ol *overlay.Cache, kad *kademlia.Kademlia, stat *statdb.StatDB) *Discovery {
+	return &Discovery{
+		cache:  ol,
+		kad:    kad,
+		statdb: stat,
+	}
+}
 
 // Refresh updates the cache db with the current DHT.
 // We currently do not penalize nodes that are unresponsive,
 // but should in the future.
-func Refresh(ctx context.Context) error {
+func (d *Discovery) Refresh(ctx context.Context) error {
 	// TODO(coyle): make refresh work by looking on the network for new ndoes
-	o := overlay.LoadFromContext(ctx)
-	nodes := o.DHT.Seen()
+	nodes := d.kad.Seen()
 
 	for _, v := range nodes {
-		if err := o.Put(ctx, v.Id, *v); err != nil {
+		if err := d.cache.Put(ctx, v.Id, *v); err != nil {
 			return err
 		}
 	}
@@ -24,7 +41,7 @@ func Refresh(ctx context.Context) error {
 }
 
 // Bootstrap walks the initialized network and populates the cache
-func Bootstrap(ctx context.Context) error {
+func (d *Discovery) Bootstrap(ctx context.Context) error {
 	// o := overlay.LoadFromContext(ctx)
 	// kad := kademlia.LoadFromContext(ctx)
 	// TODO(coyle): make Bootstrap work
