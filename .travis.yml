@@ -40,7 +40,7 @@ matrix:
         - go install -race ./...
       script:
         - go run scripts/use-ports.go -from 1024 -to 10000 &
-        - go test -race -cover -coverprofile=.coverprofile -json ./... | tparse -all
+        - go test -race -cover -coverprofile=.coverprofile -json -timeout 9m ./... | tparse -all
         - goveralls -coverprofile=.coverprofile -service=travis-ci
         - rm .coverprofile
         - go run scripts/check-clean-directory.go
