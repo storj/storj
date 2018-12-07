@@ -13,10 +13,10 @@ import (
 	"os"
 
 	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/utils"
 
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 )
 
 // PeerCertificateAuthority represents the CA which is used to validate peer identities
@@ -211,22 +211,18 @@ func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	if err != nil {
 		return err
 	}
-	defer utils.LogClose(certFile)
+
 	keyFile, err := openKey(fc.KeyPath, mode)
 	if err != nil {
-		return err
+		return utils.CombineErrors(err, certFile.Close())
 	}
-	defer utils.LogClose(keyFile)
 
 	chain := []*x509.Certificate{ca.Cert}
 	chain = append(chain, ca.RestChain...)
-	if err = peertls.WriteChain(certFile, chain...); err != nil {
-		return err
-	}
-	if err = peertls.WriteKey(keyFile, ca.Key); err != nil {
-		return err
-	}
-	return nil
+	certWriteErr := peertls.WriteChain(certFile, chain...)
+	keyWriteErr := peertls.WriteKey(keyFile, ca.Key)
+
+	return utils.CombineErrors(certWriteErr, keyWriteErr, certFile.Close(), keyFile.Close())
 }
 
 // NewIdentity generates a new `FullIdentity` based on the CA. The CA
