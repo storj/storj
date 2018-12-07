@@ -7,10 +7,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
-	"crypto/rand"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/asn1"
 	"encoding/pem"
 	"os"
 	"path/filepath"
@@ -103,7 +100,7 @@ func newCAWorker(ctx context.Context, difficulty uint16, parentCert *x509.Certif
 		return
 	}
 
-	c, err := newCACert(k, parentKey, ct, parentCert)
+	c, err := peertls.NewCert(k, parentKey, ct, parentCert)
 	if err != nil {
 		eC <- err
 		return
@@ -118,53 +115,6 @@ func newCAWorker(ctx context.Context, difficulty uint16, parentCert *x509.Certif
 		ca.RestChain = []*x509.Certificate{parentCert}
 	}
 	caC <- ca
-}
-
-func newCACert(key, parentKey crypto.PrivateKey, template, parentCert *x509.Certificate) (*x509.Certificate, error) {
-	p, ok := key.(*ecdsa.PrivateKey)
-	if !ok {
-		return nil, peertls.ErrUnsupportedKey.New("%T", key)
-	}
-
-	var signingKey crypto.PrivateKey
-	if parentKey != nil {
-		signingKey = parentKey
-	} else {
-		signingKey = key
-	}
-
-	cert, err := peertls.NewCert(template, parentCert, &p.PublicKey, signingKey)
-	if err != nil {
-		return nil, err
-	}
-
-	if parentKey != nil {
-		p, ok := parentKey.(*ecdsa.PrivateKey)
-		if !ok {
-			return nil, peertls.ErrUnsupportedKey.New("%T", key)
-		}
-
-		hash := crypto.SHA256.New()
-		_, err := hash.Write(cert.RawTBSCertificate)
-		if err != nil {
-			return nil, peertls.ErrSign.Wrap(err)
-		}
-		r, s, err := ecdsa.Sign(rand.Reader, p, hash.Sum(nil))
-		if err != nil {
-			return nil, peertls.ErrSign.Wrap(err)
-		}
-
-		signature, err := asn1.Marshal(peertls.ECDSASignature{R: r, S: s})
-		if err != nil {
-			return nil, peertls.ErrSign.Wrap(err)
-		}
-
-		cert.ExtraExtensions = append(cert.ExtraExtensions, pkix.Extension{
-			Id:    peertls.AuthoritySignatureExtID,
-			Value: signature,
-		})
-	}
-	return cert, nil
 }
 
 func openCert(path string, flag int) (*os.File, error) {

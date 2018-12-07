@@ -9,10 +9,8 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -23,77 +21,73 @@ import (
 )
 
 func TestPeerIdentityFromCertChain(t *testing.T) {
-	k, err := peertls.NewKey()
+	caKey, err := peertls.NewKey()
 	assert.NoError(t, err)
 
-	caT, err := peertls.CATemplate()
+	caTemplate, err := peertls.CATemplate()
 	assert.NoError(t, err)
 
-	cp, _ := k.(*ecdsa.PrivateKey)
-	c, err := peertls.NewCert(caT, nil, &cp.PublicKey, k)
+	caCert, err := peertls.NewCert(caKey, caKey, caTemplate, nil)
 	assert.NoError(t, err)
 
-	lT, err := peertls.LeafTemplate()
+	leafTemplate, err := peertls.LeafTemplate()
 	assert.NoError(t, err)
 
-	lk, err := peertls.NewKey()
+	leafKey, err := peertls.NewKey()
 	assert.NoError(t, err)
 
-	lp, _ := lk.(*ecdsa.PrivateKey)
-	l, err := peertls.NewCert(lT, caT, &lp.PublicKey, k)
+	leafCert, err := peertls.NewCert(leafKey, caKey, leafTemplate, caTemplate)
 	assert.NoError(t, err)
 
-	pi, err := PeerIdentityFromCerts(l, c, nil)
+	peerIdent, err := PeerIdentityFromCerts(leafCert, caCert, nil)
 	assert.NoError(t, err)
-	assert.Equal(t, c, pi.CA)
-	assert.Equal(t, l, pi.Leaf)
-	assert.NotEmpty(t, pi.ID)
+	assert.Equal(t, caCert, peerIdent.CA)
+	assert.Equal(t, leafCert, peerIdent.Leaf)
+	assert.NotEmpty(t, peerIdent.ID)
 }
 
 func TestFullIdentityFromPEM(t *testing.T) {
-	ck, err := peertls.NewKey()
+	caKey, err := peertls.NewKey()
 	assert.NoError(t, err)
 
-	caT, err := peertls.CATemplate()
+	caTemplate, err := peertls.CATemplate()
 	assert.NoError(t, err)
 
-	cp, _ := ck.(*ecdsa.PrivateKey)
-	c, err := peertls.NewCert(caT, nil, &cp.PublicKey, ck)
+	caCert, err := peertls.NewCert(caKey, caKey, caTemplate, nil)
 	assert.NoError(t, err)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, c)
+	assert.NotEmpty(t, caCert)
 
-	lT, err := peertls.LeafTemplate()
-	assert.NoError(t, err)
-
-	lk, err := peertls.NewKey()
+	leafTemplate, err := peertls.LeafTemplate()
 	assert.NoError(t, err)
 
-	lp, _ := lk.(*ecdsa.PrivateKey)
-	l, err := peertls.NewCert(lT, caT, &lp.PublicKey, ck)
+	leafKey, err := peertls.NewKey()
 	assert.NoError(t, err)
-	assert.NotEmpty(t, l)
+
+	leafCert, err := peertls.NewCert(leafKey, caKey, leafTemplate, caTemplate)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, leafCert)
 
 	chainPEM := bytes.NewBuffer([]byte{})
-	assert.NoError(t, pem.Encode(chainPEM, peertls.NewCertBlock(l.Raw)))
-	assert.NoError(t, pem.Encode(chainPEM, peertls.NewCertBlock(c.Raw)))
+	assert.NoError(t, pem.Encode(chainPEM, peertls.NewCertBlock(leafCert.Raw)))
+	assert.NoError(t, pem.Encode(chainPEM, peertls.NewCertBlock(caCert.Raw)))
 
-	lkE, ok := lk.(*ecdsa.PrivateKey)
+	leafECKey, ok := leafKey.(*ecdsa.PrivateKey)
 	assert.True(t, ok)
-	assert.NotEmpty(t, lkE)
+	assert.NotEmpty(t, leafECKey)
 
-	lkB, err := x509.MarshalECPrivateKey(lkE)
+	leafKeyBytes, err := x509.MarshalECPrivateKey(leafECKey)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, lkB)
+	assert.NotEmpty(t, leafKeyBytes)
 
 	keyPEM := bytes.NewBuffer([]byte{})
-	assert.NoError(t, pem.Encode(keyPEM, peertls.NewKeyBlock(lkB)))
+	assert.NoError(t, pem.Encode(keyPEM, peertls.NewKeyBlock(leafKeyBytes)))
 
-	fi, err := FullIdentityFromPEM(chainPEM.Bytes(), keyPEM.Bytes(), nil)
+	fullIdent, err := FullIdentityFromPEM(chainPEM.Bytes(), keyPEM.Bytes())
 	assert.NoError(t, err)
-	assert.Equal(t, l.Raw, fi.Leaf.Raw)
-	assert.Equal(t, c.Raw, fi.CA.Raw)
-	assert.Equal(t, lk, fi.Key)
+	assert.Equal(t, leafCert.Raw, fullIdent.Leaf.Raw)
+	assert.Equal(t, caCert.Raw, fullIdent.CA.Raw)
+	assert.Equal(t, leafKey, fullIdent.Key)
 }
 
 func TestIdentityConfig_SaveIdentity(t *testing.T) {
@@ -185,7 +179,7 @@ AwEHoUQDQgAEoLy/0hs5deTXZunRumsMkiHpF0g8wAc58aXANmr7Mxx9tzoIYFnx
 	ic, cleanup, err := tempIdentityConfig()
 	assert.NoError(t, err)
 
-	fi, err := FullIdentityFromPEM([]byte(chain), []byte(key), nil)
+	fi, err := FullIdentityFromPEM([]byte(chain), []byte(key))
 	assert.NoError(t, err)
 
 	return cleanup, ic, fi, difficulty
@@ -200,7 +194,6 @@ func TestIdentityConfig_LoadIdentity(t *testing.T) {
 
 	fi, err := ic.Load()
 	assert.NoError(t, err)
-	assert.Nil(t, fi.PeerCAWhitelist)
 	assert.NotEmpty(t, fi)
 	assert.NotEmpty(t, fi.Key)
 	assert.NotEmpty(t, fi.Leaf)
@@ -211,24 +204,10 @@ func TestIdentityConfig_LoadIdentity(t *testing.T) {
 	assert.Equal(t, expectedFI.Leaf, fi.Leaf)
 	assert.Equal(t, expectedFI.CA, fi.CA)
 	assert.Equal(t, expectedFI.ID.Bytes(), fi.ID.Bytes())
+}
 
-	tmp := path.Join(os.TempDir(), "temp-ca-whitelist.pem")
-	w, err := os.Create(tmp)
-	assert.NoError(t, err)
-	defer func() {
-		err := os.RemoveAll(tmp)
-		if err != nil {
-			fmt.Printf("unable to cleanup temp ca whitelist at \"%s\": %s", tmp, err.Error())
-		}
-	}()
+func TestNewI(t *testing.T) {
 
-	err = peertls.WriteChain(w, fi.CA)
-	assert.NoError(t, err)
-
-	ic.PeerCAWhitelistPath = tmp
-	fi, err = ic.Load()
-	assert.NoError(t, err)
-	assert.NotEmpty(t, fi.PeerCAWhitelist)
 }
 
 func TestNodeID_Difficulty(t *testing.T) {
