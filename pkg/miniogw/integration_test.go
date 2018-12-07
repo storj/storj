@@ -13,6 +13,7 @@ import (
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/identity"
@@ -41,22 +42,22 @@ func TestUploadDownload(t *testing.T) {
 	cfgstruct.Bind(&flag.FlagSet{}, &gwCfg)
 
 	// minio config directory
-	gwCfg.MinioDir = ctx.Dir("minio")
+	gwCfg.Minio.Dir = ctx.Dir("minio")
 
 	// addresses
-	gwCfg.Address = "127.0.0.1:7777"
-	gwCfg.OverlayAddr = planet.Satellites[0].Addr()
-	gwCfg.PointerDBAddr = planet.Satellites[0].Addr()
+	gwCfg.Identity.Server.Address = "127.0.0.1:7777"
+	gwCfg.Client.OverlayAddr = planet.Satellites[0].Addr()
+	gwCfg.Client.PointerDBAddr = planet.Satellites[0].Addr()
 
 	// keys
-	gwCfg.APIKey = "apiKey"
-	gwCfg.EncKey = "encKey"
+	gwCfg.Client.APIKey = "apiKey"
+	gwCfg.Enc.Key = "encKey"
 
 	// redundancy
-	gwCfg.MinThreshold = 7
-	gwCfg.RepairThreshold = 8
-	gwCfg.SuccessThreshold = 9
-	gwCfg.MaxThreshold = 10
+	gwCfg.RS.MinThreshold = 7
+	gwCfg.RS.RepairThreshold = 8
+	gwCfg.RS.SuccessThreshold = 9
+	gwCfg.RS.MaxThreshold = 10
 
 	planet.Start(ctx)
 
@@ -71,7 +72,7 @@ func TestUploadDownload(t *testing.T) {
 	// setup and start gateway
 	go func() {
 		// TODO: this leaks the gateway server, however it shouldn't
-		err := runGateway(ctx, gwCfg, identity)
+		err := runGateway(ctx, gwCfg, zaptest.NewLogger(t), identity)
 		if err != nil {
 			t.Log(err)
 		}
@@ -80,12 +81,12 @@ func TestUploadDownload(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	client, err := s3client.NewMinio(s3client.Config{
-		S3Gateway:     gwCfg.Address,
+		S3Gateway:     gwCfg.Identity.Server.Address,
 		Satellite:     planet.Satellites[0].Addr(),
-		AccessKey:     gwCfg.AccessKey,
-		SecretKey:     gwCfg.SecretKey,
-		APIKey:        gwCfg.APIKey,
-		EncryptionKey: gwCfg.EncKey,
+		AccessKey:     gwCfg.Minio.AccessKey,
+		SecretKey:     gwCfg.Minio.SecretKey,
+		APIKey:        gwCfg.Client.APIKey,
+		EncryptionKey: gwCfg.Enc.Key,
 		NoSSL:         true,
 	})
 	assert.NoError(t, err)
@@ -115,12 +116,12 @@ func TestUploadDownload(t *testing.T) {
 }
 
 // runGateway creates and starts a gateway
-func runGateway(ctx context.Context, c Config, identity *provider.FullIdentity) (err error) {
+func runGateway(ctx context.Context, c Config, log *zap.Logger, identity *provider.FullIdentity) (err error) {
 
 	// set gateway flags
 	flags := flag.NewFlagSet("gateway", flag.ExitOnError)
-	flags.String("address", c.Address, "")
-	flags.String("config-dir", c.MinioDir, "")
+	flags.String("address", c.Identity.Server.Address, "")
+	flags.String("config-dir", c.Minio.Dir, "")
 	flags.Bool("quiet", true, "")
 
 	// create *cli.Context with gateway flags
@@ -132,12 +133,12 @@ func runGateway(ctx context.Context, c Config, identity *provider.FullIdentity) 
 		return err
 	}
 
-	err = os.Setenv("MINIO_ACCESS_KEY", c.AccessKey)
+	err = os.Setenv("MINIO_ACCESS_KEY", c.Minio.AccessKey)
 	if err != nil {
 		return err
 	}
 
-	err = os.Setenv("MINIO_SECRET_KEY", c.SecretKey)
+	err = os.Setenv("MINIO_SECRET_KEY", c.Minio.SecretKey)
 	if err != nil {
 		return err
 	}
@@ -147,6 +148,6 @@ func runGateway(ctx context.Context, c Config, identity *provider.FullIdentity) 
 		return err
 	}
 
-	minio.StartGateway(cliCtx, logging.Gateway(gw, zaptest.NewLogger(t)))
+	minio.StartGateway(cliCtx, logging.Gateway(gw, log))
 	return Error.New("unexpected minio exit")
 }
