@@ -12,8 +12,6 @@ import (
 	"storj.io/storj/pkg/datarepair/irreparabledb"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
-	mock "storj.io/storj/pkg/overlay/mocks"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
@@ -43,14 +41,7 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	var o pb.OverlayServer
-	x := overlay.LoadServerFromContext(ctx)
-	if x == nil {
-		o = mock.LoadServerFromContext(ctx)
-	} else {
-		o = x
-	}
+	o := overlay.LoadServerFromContext(ctx)
 	redisQ, err := redis.NewQueueFrom(c.QueueAddress)
 	if err != nil {
 		return nil, Error.Wrap(err)
