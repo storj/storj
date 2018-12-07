@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
 	ecclient "storj.io/storj/pkg/storage/ec"
@@ -24,10 +23,13 @@ import (
 
 // Config contains configurable values for repairer
 type Config struct {
-	QueueAddress string        `help:"data repair queue address" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
-	MaxRepair    int           `help:"maximum segments that can be repaired concurrently" default:"100"`
-	Interval     time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
-	nodeStats    *pb.NodeStats `help:"the minimum values for nodes to select"`
+	QueueAddress      string        `help:"data repair queue address" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
+	MaxRepair         int           `help:"maximum segments that can be repaired concurrently" default:"100"`
+	Interval          time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
+	UptimeRatio       float64       `help:"the minimum uptime ratio for nodes selected" default:"0"`
+	AuditSuccessRatio float64       `help:"the minimum audit success ratio for nodes selected" default:"0"`
+	UptimeCount       int64         `help:"the minimum number of uptime checks for nodes selected" default:"0"`
+	AuditCount        int64         `help:"the minimum number of audits for nodes selected" default:"0"`
 	miniogw.ClientConfig
 	miniogw.RSConfig
 }
@@ -86,6 +88,6 @@ func (c Config) getSegmentStore(ctx context.Context, identity *provider.FullIden
 		return nil, err
 	}
 
-	return segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize, c.nodeStats.UptimeRatio,
-		c.nodeStats.AuditSuccessRatio, c.nodeStats.UptimeCount, c.nodeStats.AuditCount), nil
+	return segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize, c.UptimeRatio, c.AuditSuccessRatio,
+		c.UptimeCount, c.AuditCount), nil
 }
