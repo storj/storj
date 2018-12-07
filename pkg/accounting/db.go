@@ -12,6 +12,7 @@ import (
 )
 
 var (
+	// Error is the default accountingdb errs class
 	Error = errs.Class("accountingdb")
 
 	// LastBandwidthTally is a name in the accounting timestamps database

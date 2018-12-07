@@ -27,7 +27,8 @@ import (
 )
 
 var (
-	mon   = monkit.Package()
+	mon = monkit.Package()
+	// Error is the default psdb errs class
 	Error = errs.Class("psdb")
 
 	defaultCheckInterval = flag.Duration("piecestore.ttl.check_interval", time.Hour, "number of seconds to sleep between ttl checks")
