@@ -10,6 +10,7 @@ import (
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/vivint/infectious"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
@@ -118,7 +119,7 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context, identity *provi
 		return err
 	}
 
-	minio.StartGateway(cliCtx, logging.Gateway(gw))
+	minio.StartGateway(cliCtx, logging.Gateway(gw, zap.L()))
 	return Error.New("unexpected minio exit")
 }
 
