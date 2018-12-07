@@ -71,7 +71,7 @@ var (
 
 		// Audit audit.Config
 		BwAgreement bwagreement.Config
-		Database    string `help:"the master database connection string" default:"sqlite3://$CONFDIR/master.db"`
+		Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	}
 	setupCfg struct {
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
@@ -80,7 +80,7 @@ var (
 		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 	diagCfg struct {
-		Database string `help:"the database connection string to use" default:"sqlite3://$CONFDIR/master.db"`
+		Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	}
 	qdiagCfg struct {
 		DatabaseURL string `help:"the database connection string to use" default:"redis://127.0.0.1:6378?db=1&password=abc123"`

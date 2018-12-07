@@ -49,7 +49,7 @@ type Satellite struct {
 	StatDB      statdb.Config
 	BwAgreement bwagreement.Config
 	Web         satelliteweb.Config
-	Database    string `help:"the master database connection string" default:"sqlite3://$CONFDIR/master.db"`
+	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 }
 
 // StorageNode is for configuring storage nodes
