@@ -35,13 +35,13 @@ type RSConfig struct {
 	MaxThreshold     int `help:"the largest amount of pieces to encode to. n." default:"95"`
 }
 
-// NodeSelectionConfig is a configuration struct that keeps information about
-// what nodes to select
+// NodeSelectionConfig is a configuration struct to determine the minimum
+// values for nodes to select
 type NodeSelectionConfig struct {
-	Uptime       int `help:"a node's ratio of being up/online vs. down/offline"`
-	UptimeCount  int `help:"the number of times a node's uptime has been checked"`
-	AuditSuccess int `help:"a node's ratio of successful audits"`
-	AuditCount   int `help:"the number of times a node has been audited"`
+	UptimeRatio       float64 `help:"a node's ratio of being up/online vs. down/offline"`
+	UptimeCount       int64   `help:"the number of times a node's uptime has been checked"`
+	AuditSuccessRatio float64 `help:"a node's ratio of successful audits"`
+	AuditCount        int64   `help:"the number of times a node has been audited"`
 }
 
 // EncryptionConfig is a configuration struct that keeps details about
@@ -156,8 +156,8 @@ func (c Config) GetMetainfo(ctx context.Context, identity *provider.FullIdentity
 		return nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, c.Client.MaxInlineSize, c.Node.Uptime,
-		c.Node.UptimeCount, c.Node.AuditSuccess, c.Node.AuditCount)
+	segments := segments.NewSegmentStore(oc, ec, pdb, rs, c.Client.MaxInlineSize, c.Node.UptimeRatio,
+		c.Node.AuditSuccessRatio, c.Node.UptimeCount, c.Node.AuditCount)
 
 	if c.RS.ErasureShareSize*c.RS.MinThreshold%c.Enc.BlockSize != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")

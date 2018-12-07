@@ -54,32 +54,24 @@ type Store interface {
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
-type nodeStats struct {
-	Uptime       int
-	UptimeCount  int
-	AuditSuccess int
-	AuditCount   int
-	Excluded     storj.NodeIDList
-}
-
 type segmentStore struct {
 	oc            overlay.Client
 	ec            ecclient.Client
 	pdb           pdbclient.Client
 	rs            eestream.RedundancyStrategy
 	thresholdSize int
-	nodeStats     nodeStats
+	nodeStats     *pb.NodeStats
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold,
-	uptime, uptimeCount, auditSuccess, auditCount int) Store {
+func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int,
+	uptimeRatio, auditSuccessRatio float64, uptimeCount, auditCount int64) Store {
 	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs, thresholdSize: threshold,
-		nodeStats: nodeStats{
-			Uptime:       uptime,
-			UptimeCount:  uptimeCount,
-			AuditSuccess: auditSuccess,
-			AuditCount:   auditCount,
+		nodeStats: &pb.NodeStats{
+			UptimeRatio:       uptimeRatio,
+			UptimeCount:       uptimeCount,
+			AuditSuccessRatio: auditSuccessRatio,
+			AuditCount:        auditCount,
 		},
 	}
 }
@@ -134,11 +126,11 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		nodes, err := s.oc.Choose(ctx,
 			overlay.Options{
 				Amount:       s.rs.TotalCount(),
-				Bandwidth:    sizedReader.Size(),
-				Space:        sizedReader.Size(),
-				Uptime:       float64(s.nodeStats.Uptime),
+				Bandwidth:    sizedReader.Size() / int64(s.rs.TotalCount()),
+				Space:        sizedReader.Size() / int64(s.rs.TotalCount()),
+				Uptime:       float64(s.nodeStats.UptimeRatio),
 				UptimeCount:  int64(s.nodeStats.UptimeCount),
-				AuditSuccess: float64(s.nodeStats.AuditSuccess),
+				AuditSuccess: float64(s.nodeStats.AuditSuccessRatio),
 				AuditCount:   int64(s.nodeStats.AuditCount),
 				Excluded:     nil,
 			})
