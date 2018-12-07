@@ -4,7 +4,6 @@
 package tally
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"math/rand"
 	"strconv"
@@ -15,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/identity"
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
@@ -29,12 +29,13 @@ import (
 	"storj.io/storj/storage/teststore"
 )
 
-var ctx = context.Background()
-
 func TestIdentifyActiveNodes(t *testing.T) {
 
 }
 func TestOnlineNodes(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 
@@ -61,11 +62,11 @@ func TestOnlineNodes(t *testing.T) {
 
 	accountingDb, err := accounting.NewDb("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
-	defer func() { _ = accountingDb.Close() }()
+	defer ctx.Check(accountingDb.Close)
 
 	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
-	defer func() { _ = masterDB.Close() }()
+	defer ctx.Check(masterDB.Close)
 
 	tally := newTally(logger, accountingDb, masterDB.BandwidthAgreement(), pointerdb, overlayServer, kad, limit, interval)
 
@@ -87,17 +88,20 @@ func TestUpdateGranularTable(t *testing.T) {
 }
 
 func TestQueryNoAgreements(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	//get stuff we need
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 	kad := &kademlia.Kademlia{}
 	accountingDb, err := accounting.NewDb("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
-	defer func() { _ = accountingDb.Close() }()
+	defer ctx.Check(accountingDb.Close)
 
 	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
-	defer func() { _ = masterDB.Close() }()
+	defer ctx.Check(masterDB.Close)
 
 	tally := newTally(zap.NewNop(), accountingDb, masterDB.BandwidthAgreement(), pointerdb, overlayServer, kad, 0, time.Second)
 
@@ -107,19 +111,22 @@ func TestQueryNoAgreements(t *testing.T) {
 }
 
 func TestQueryWithBw(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	//get stuff we need
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 	kad := &kademlia.Kademlia{}
 	accountingDb, err := accounting.NewDb("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
-	defer func() { _ = accountingDb.Close() }()
+	defer ctx.Check(accountingDb.Close)
 
 	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
 	err = masterDB.CreateTables()
 	assert.NoError(t, err)
-	defer func() { _ = masterDB.Close() }()
+	defer ctx.Check(masterDB.Close)
 
 	bwDb := masterDB.BandwidthAgreement()
 	tally := newTally(zap.NewNop(), accountingDb, bwDb, pointerdb, overlayServer, kad, 0, time.Second)
