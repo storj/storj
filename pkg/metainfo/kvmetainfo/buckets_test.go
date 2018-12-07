@@ -356,7 +356,7 @@ func newDB(planet *testplanet.Planet) (*DB, error) {
 		return nil, err
 	}
 
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, int(8*memory.KB))
+	segments := segments.NewSegmentStore(oc, ec, pdb, rs, int(8*memory.KB), 0, 0, 0, 0)
 
 	key := new(storj.Key)
 	copy(key[:], TestEncKey)
