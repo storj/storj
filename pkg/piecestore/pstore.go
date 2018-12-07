@@ -56,7 +56,7 @@ func StoreWriter(id string, dir string) (io.WriteCloser, error) {
 	}
 
 	// Create File on file system
-	return os.OpenFile(dataPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0755)
+	return os.OpenFile(dataPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 }
 
 // RetrieveReader retrieves data from pstore directory
