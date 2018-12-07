@@ -128,9 +128,9 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 				Amount:       s.rs.TotalCount(),
 				Bandwidth:    sizedReader.Size() / int64(s.rs.TotalCount()),
 				Space:        sizedReader.Size() / int64(s.rs.TotalCount()),
-				Uptime:       float64(s.nodeStats.UptimeRatio),
-				UptimeCount:  int64(s.nodeStats.UptimeCount),
-				AuditSuccess: float64(s.nodeStats.AuditSuccessRatio),
+				Uptime:       s.nodeStats.UptimeRatio,
+				UptimeCount:  s.nodeStats.UptimeCount,
+				AuditSuccess: s.nodeStats.AuditSuccessRatio,
 				AuditCount:   int64(s.nodeStats.AuditCount),
 				Excluded:     nil,
 			})
