@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb
+package irreparabledb_test
 
 import (
 	"context"
@@ -11,54 +11,23 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/pkg/datarepair"
+	"storj.io/storj/pkg/datarepair/irreparable"
+	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestPostgres(t *testing.T) {
-	if *testPostgres == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
-	}
+func TestIrreparable(t *testing.T) {
+	satellitedbtest.Run(t, func(db *satellitedb.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
 
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	// creating in-memory db and opening connection
-	db, err := NewDB(*testPostgres)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(db.Close)
-
-	err = db.CreateTables()
-	assert.NoError(t, err)
-
-	irrdb := db.Irreparable()
-
-	testDatabase(ctx, t, irrdb)
+		testDatabase(ctx, t, db.Irreparable())
+	})
 }
 
-func TestSqlite3(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	// creating in-memory db and opening connection
-	db, err := NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(db.Close)
-
-	err = db.CreateTables()
-	assert.NoError(t, err)
-
-	irrdb := db.Irreparable()
-
-	testDatabase(ctx, t, irrdb)
-}
-
-func testDatabase(ctx context.Context, t *testing.T, irrdb datarepair.IrreparableDB) {
+func testDatabase(ctx context.Context, t *testing.T, irrdb irreparable.DB) {
 	//testing variables
-	segmentInfo := &datarepair.RemoteSegmentInfo{
+	segmentInfo := &irreparable.RemoteSegmentInfo{
 		EncryptedSegmentPath:   []byte("IamSegmentkeyinfo"),
 		EncryptedSegmentDetail: []byte("IamSegmentdetailinfo"),
 		LostPiecesCount:        int64(10),

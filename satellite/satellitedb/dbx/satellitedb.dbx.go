@@ -19,7 +19,7 @@ import (
 
 	"github.com/lib/pq"
 
-	"math/rand"
+	"github.com/mattn/go-sqlite3"
 )
 
 // Prevent conditional imports from causing build failures
@@ -277,6 +277,14 @@ func (obj *postgresDB) Schema() string {
 	data bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( signature )
+);
+CREATE TABLE irreparabledbs (
+	segmentpath bytea NOT NULL,
+	segmentdetail bytea NOT NULL,
+	pieces_lost_count bigint NOT NULL,
+	seg_damaged_unix_sec bigint NOT NULL,
+	repair_attempt_count bigint NOT NULL,
+	PRIMARY KEY ( segmentpath )
 );`
 }
 
@@ -346,6 +354,14 @@ func (obj *sqlite3DB) Schema() string {
 	data BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( signature )
+);
+CREATE TABLE irreparabledbs (
+	segmentpath BLOB NOT NULL,
+	segmentdetail BLOB NOT NULL,
+	pieces_lost_count INTEGER NOT NULL,
+	seg_damaged_unix_sec INTEGER NOT NULL,
+	repair_attempt_count INTEGER NOT NULL,
+	PRIMARY KEY ( segmentpath )
 );`
 }
 
@@ -422,7 +438,6 @@ type Bwagreement_Update_Fields struct {
 
 type Bwagreement_Signature_Field struct {
 	_set   bool
-	_null  bool
 	_value []byte
 }
 
@@ -431,7 +446,7 @@ func Bwagreement_Signature(v []byte) Bwagreement_Signature_Field {
 }
 
 func (f Bwagreement_Signature_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -441,7 +456,6 @@ func (Bwagreement_Signature_Field) _Column() string { return "signature" }
 
 type Bwagreement_Data_Field struct {
 	_set   bool
-	_null  bool
 	_value []byte
 }
 
@@ -450,7 +464,7 @@ func Bwagreement_Data(v []byte) Bwagreement_Data_Field {
 }
 
 func (f Bwagreement_Data_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -460,7 +474,6 @@ func (Bwagreement_Data_Field) _Column() string { return "data" }
 
 type Bwagreement_CreatedAt_Field struct {
 	_set   bool
-	_null  bool
 	_value time.Time
 }
 
@@ -469,13 +482,120 @@ func Bwagreement_CreatedAt(v time.Time) Bwagreement_CreatedAt_Field {
 }
 
 func (f Bwagreement_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
 }
 
 func (Bwagreement_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Irreparabledb struct {
+	Segmentpath        []byte
+	Segmentdetail      []byte
+	PiecesLostCount    int64
+	SegDamagedUnixSec  int64
+	RepairAttemptCount int64
+}
+
+func (Irreparabledb) _Table() string { return "irreparabledbs" }
+
+type Irreparabledb_Update_Fields struct {
+	Segmentdetail      Irreparabledb_Segmentdetail_Field
+	PiecesLostCount    Irreparabledb_PiecesLostCount_Field
+	SegDamagedUnixSec  Irreparabledb_SegDamagedUnixSec_Field
+	RepairAttemptCount Irreparabledb_RepairAttemptCount_Field
+}
+
+type Irreparabledb_Segmentpath_Field struct {
+	_set   bool
+	_value []byte
+}
+
+func Irreparabledb_Segmentpath(v []byte) Irreparabledb_Segmentpath_Field {
+	return Irreparabledb_Segmentpath_Field{_set: true, _value: v}
+}
+
+func (f Irreparabledb_Segmentpath_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Irreparabledb_Segmentpath_Field) _Column() string { return "segmentpath" }
+
+type Irreparabledb_Segmentdetail_Field struct {
+	_set   bool
+	_value []byte
+}
+
+func Irreparabledb_Segmentdetail(v []byte) Irreparabledb_Segmentdetail_Field {
+	return Irreparabledb_Segmentdetail_Field{_set: true, _value: v}
+}
+
+func (f Irreparabledb_Segmentdetail_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Irreparabledb_Segmentdetail_Field) _Column() string { return "segmentdetail" }
+
+type Irreparabledb_PiecesLostCount_Field struct {
+	_set   bool
+	_value int64
+}
+
+func Irreparabledb_PiecesLostCount(v int64) Irreparabledb_PiecesLostCount_Field {
+	return Irreparabledb_PiecesLostCount_Field{_set: true, _value: v}
+}
+
+func (f Irreparabledb_PiecesLostCount_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Irreparabledb_PiecesLostCount_Field) _Column() string { return "pieces_lost_count" }
+
+type Irreparabledb_SegDamagedUnixSec_Field struct {
+	_set   bool
+	_value int64
+}
+
+func Irreparabledb_SegDamagedUnixSec(v int64) Irreparabledb_SegDamagedUnixSec_Field {
+	return Irreparabledb_SegDamagedUnixSec_Field{_set: true, _value: v}
+}
+
+func (f Irreparabledb_SegDamagedUnixSec_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Irreparabledb_SegDamagedUnixSec_Field) _Column() string { return "seg_damaged_unix_sec" }
+
+type Irreparabledb_RepairAttemptCount_Field struct {
+	_set   bool
+	_value int64
+}
+
+func Irreparabledb_RepairAttemptCount(v int64) Irreparabledb_RepairAttemptCount_Field {
+	return Irreparabledb_RepairAttemptCount_Field{_set: true, _value: v}
+}
+
+func (f Irreparabledb_RepairAttemptCount_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Irreparabledb_RepairAttemptCount_Field) _Column() string { return "repair_attempt_count" }
 
 func toUTC(t time.Time) time.Time {
 	return t.UTC()
@@ -669,6 +789,33 @@ func (obj *postgresImpl) Create_Bwagreement(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_Irreparabledb(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
+	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
+	irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
+	irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
+	irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
+	irreparabledb *Irreparabledb, err error) {
+	__segmentpath_val := irreparabledb_segmentpath.value()
+	__segmentdetail_val := irreparabledb_segmentdetail.value()
+	__pieces_lost_count_val := irreparabledb_pieces_lost_count.value()
+	__seg_damaged_unix_sec_val := irreparabledb_seg_damaged_unix_sec.value()
+	__repair_attempt_count_val := irreparabledb_repair_attempt_count.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO irreparabledbs ( segmentpath, segmentdetail, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count ) VALUES ( ?, ?, ?, ?, ? ) RETURNING irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
+
+	irreparabledb = &Irreparabledb{}
+	err = obj.driver.QueryRow(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return irreparabledb, nil
+
+}
+
 func (obj *postgresImpl) Get_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	bwagreement *Bwagreement, err error) {
@@ -790,6 +937,82 @@ func (obj *postgresImpl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Contex
 
 }
 
+func (obj *postgresImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
+	irreparabledb *Irreparabledb, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
+
+	var __values []interface{}
+	__values = append(__values, irreparabledb_segmentpath.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	irreparabledb = &Irreparabledb{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return irreparabledb, nil
+
+}
+
+func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
+	update Irreparabledb_Update_Fields) (
+	irreparabledb *Irreparabledb, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE irreparabledbs SET "), __sets, __sqlbundle_Literal(" WHERE irreparabledbs.segmentpath = ? RETURNING irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Segmentdetail._set {
+		__values = append(__values, update.Segmentdetail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("segmentdetail = ?"))
+	}
+
+	if update.PiecesLostCount._set {
+		__values = append(__values, update.PiecesLostCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("pieces_lost_count = ?"))
+	}
+
+	if update.SegDamagedUnixSec._set {
+		__values = append(__values, update.SegDamagedUnixSec.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("seg_damaged_unix_sec = ?"))
+	}
+
+	if update.RepairAttemptCount._set {
+		__values = append(__values, update.RepairAttemptCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("repair_attempt_count = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, irreparabledb_segmentpath.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	irreparabledb = &Irreparabledb{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return irreparabledb, nil
+}
+
 func (obj *postgresImpl) Delete_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	deleted bool, err error) {
@@ -798,6 +1021,32 @@ func (obj *postgresImpl) Delete_Bwagreement_By_Signature(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_signature.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
+
+	var __values []interface{}
+	__values = append(__values, irreparabledb_segmentpath.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -829,6 +1078,16 @@ func (impl postgresImpl) isConstraintError(err error) (
 func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
+	__res, err = obj.driver.Exec("DELETE FROM irreparabledbs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bwagreements;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -868,6 +1127,36 @@ func (obj *sqlite3Impl) Create_Bwagreement(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastBwagreement(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_Irreparabledb(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
+	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
+	irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
+	irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
+	irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
+	irreparabledb *Irreparabledb, err error) {
+	__segmentpath_val := irreparabledb_segmentpath.value()
+	__segmentdetail_val := irreparabledb_segmentdetail.value()
+	__pieces_lost_count_val := irreparabledb_pieces_lost_count.value()
+	__seg_damaged_unix_sec_val := irreparabledb_seg_damaged_unix_sec.value()
+	__repair_attempt_count_val := irreparabledb_repair_attempt_count.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO irreparabledbs ( segmentpath, segmentdetail, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count ) VALUES ( ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
+
+	__res, err := obj.driver.Exec(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastIrreparabledb(ctx, __pk)
 
 }
 
@@ -992,6 +1281,92 @@ func (obj *sqlite3Impl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context
 
 }
 
+func (obj *sqlite3Impl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
+	irreparabledb *Irreparabledb, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
+
+	var __values []interface{}
+	__values = append(__values, irreparabledb_segmentpath.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	irreparabledb = &Irreparabledb{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return irreparabledb, nil
+
+}
+
+func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
+	update Irreparabledb_Update_Fields) (
+	irreparabledb *Irreparabledb, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE irreparabledbs SET "), __sets, __sqlbundle_Literal(" WHERE irreparabledbs.segmentpath = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Segmentdetail._set {
+		__values = append(__values, update.Segmentdetail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("segmentdetail = ?"))
+	}
+
+	if update.PiecesLostCount._set {
+		__values = append(__values, update.PiecesLostCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("pieces_lost_count = ?"))
+	}
+
+	if update.SegDamagedUnixSec._set {
+		__values = append(__values, update.SegDamagedUnixSec.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("seg_damaged_unix_sec = ?"))
+	}
+
+	if update.RepairAttemptCount._set {
+		__values = append(__values, update.RepairAttemptCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("repair_attempt_count = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, irreparabledb_segmentpath.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	irreparabledb = &Irreparabledb{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return irreparabledb, nil
+}
+
 func (obj *sqlite3Impl) Delete_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	deleted bool, err error) {
@@ -1000,6 +1375,32 @@ func (obj *sqlite3Impl) Delete_Bwagreement_By_Signature(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_signature.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
+
+	var __values []interface{}
+	__values = append(__values, irreparabledb_segmentpath.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -1036,6 +1437,24 @@ func (obj *sqlite3Impl) getLastBwagreement(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastIrreparabledb(ctx context.Context,
+	pk int64) (
+	irreparabledb *Irreparabledb, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	irreparabledb = &Irreparabledb{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return irreparabledb, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -1054,6 +1473,16 @@ func (impl sqlite3Impl) isConstraintError(err error) (
 func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
+	__res, err = obj.driver.Exec("DELETE FROM irreparabledbs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bwagreements;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -1142,6 +1571,21 @@ func (rx *Rx) Create_Bwagreement(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_Irreparabledb(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
+	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
+	irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
+	irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
+	irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
+	irreparabledb *Irreparabledb, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Irreparabledb(ctx, irreparabledb_segmentpath, irreparabledb_segmentdetail, irreparabledb_pieces_lost_count, irreparabledb_seg_damaged_unix_sec, irreparabledb_repair_attempt_count)
+
+}
+
 func (rx *Rx) Delete_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	deleted bool, err error) {
@@ -1150,6 +1594,16 @@ func (rx *Rx) Delete_Bwagreement_By_Signature(ctx context.Context,
 		return
 	}
 	return tx.Delete_Bwagreement_By_Signature(ctx, bwagreement_signature)
+}
+
+func (rx *Rx) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath)
 }
 
 func (rx *Rx) Get_Bwagreement_By_Signature(ctx context.Context,
@@ -1162,6 +1616,16 @@ func (rx *Rx) Get_Bwagreement_By_Signature(ctx context.Context,
 	return tx.Get_Bwagreement_By_Signature(ctx, bwagreement_signature)
 }
 
+func (rx *Rx) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
+	irreparabledb *Irreparabledb, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath)
+}
+
 func (rx *Rx) Limited_Bwagreement(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Bwagreement, err error) {
@@ -1170,6 +1634,17 @@ func (rx *Rx) Limited_Bwagreement(ctx context.Context,
 		return
 	}
 	return tx.Limited_Bwagreement(ctx, limit, offset)
+}
+
+func (rx *Rx) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
+	update Irreparabledb_Update_Fields) (
+	irreparabledb *Irreparabledb, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath, update)
 }
 
 type Methods interface {
@@ -1185,17 +1660,38 @@ type Methods interface {
 		bwagreement_data Bwagreement_Data_Field) (
 		bwagreement *Bwagreement, err error)
 
+	Create_Irreparabledb(ctx context.Context,
+		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
+		irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
+		irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
+		irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
+		irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
+		irreparabledb *Irreparabledb, err error)
+
 	Delete_Bwagreement_By_Signature(ctx context.Context,
 		bwagreement_signature Bwagreement_Signature_Field) (
+		deleted bool, err error)
+
+	Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
+		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 		deleted bool, err error)
 
 	Get_Bwagreement_By_Signature(ctx context.Context,
 		bwagreement_signature Bwagreement_Signature_Field) (
 		bwagreement *Bwagreement, err error)
 
+	Get_Irreparabledb_By_Segmentpath(ctx context.Context,
+		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
+		irreparabledb *Irreparabledb, err error)
+
 	Limited_Bwagreement(ctx context.Context,
 		limit int, offset int64) (
 		rows []*Bwagreement, err error)
+
+	Update_Irreparabledb_By_Segmentpath(ctx context.Context,
+		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
+		update Irreparabledb_Update_Fields) (
+		irreparabledb *Irreparabledb, err error)
 }
 
 type TxMethods interface {
@@ -1231,11 +1727,7 @@ func openpostgres(source string) (*sql.DB, error) {
 	return sql.Open("postgres", source)
 }
 
-var sqlite3DriverName = func() string {
-	var id [16]byte
-	rand.Read(id[:])
-	return fmt.Sprintf("sqlite3_%x", string(id[:]))
-}()
+var sqlite3DriverName = "sqlite3_" + fmt.Sprint(time.Now().UnixNano())
 
 func init() {
 	sql.Register(sqlite3DriverName, &sqlite3.SQLiteDriver{

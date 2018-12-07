@@ -99,11 +99,13 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	// creating in-memory db and opening connection
 	db, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
+	defer func() {
+		err = db.Close()
+		assert.NoError(t, err)
+	}()
 	err = db.CreateTables()
 	assert.NoError(t, err)
-	irrdb := db.Irreparable()
-	assert.NoError(t, err)
-	checker := newChecker(pointerdb, sdb, repairQueue, overlayServer, irrdb, limit, logger, interval)
+	checker := newChecker(pointerdb, sdb, repairQueue, overlayServer, db.Irreparable(), limit, logger, interval)
 	assert.NoError(t, err)
 	err = checker.identifyInjuredSegments(ctx)
 	assert.NoError(t, err)
@@ -154,11 +156,13 @@ func TestOfflineNodes(t *testing.T) {
 	// creating in-memory db and opening connection
 	db, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
+	defer func() {
+		err = db.Close()
+		assert.NoError(t, err)
+	}()
 	err = db.CreateTables()
 	assert.NoError(t, err)
-	irrdb := db.Irreparable()
-	assert.NoError(t, err)
-	checker := newChecker(pointerdb, sdb, repairQueue, overlayServer, irrdb, limit, logger, interval)
+	checker := newChecker(pointerdb, sdb, repairQueue, overlayServer, db.Irreparable(), limit, logger, interval)
 	assert.NoError(t, err)
 	offline, err := checker.offlineNodes(ctx, nodeIDs)
 	assert.NoError(t, err)
@@ -176,10 +180,11 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 
 	// creating in-memory db and opening connection
 	db, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
-	assert.NoError(b, err)
+	defer func() {
+		err = db.Close()
+		assert.NoError(b, err)
+	}()
 	err = db.CreateTables()
-	assert.NoError(b, err)
-	irrdb := db.Irreparable()
 	assert.NoError(b, err)
 
 	addr, cleanup, err := redisserver.Start()
@@ -243,7 +248,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		interval := time.Second
 		assert.NoError(b, err)
-		checker := newChecker(pointerdb, sdb, repairQueue, overlayServer, irrdb, limit, logger, interval)
+		checker := newChecker(pointerdb, sdb, repairQueue, overlayServer, db.Irreparable(), limit, logger, interval)
 		assert.NoError(b, err)
 
 		err = checker.identifyInjuredSegments(ctx)

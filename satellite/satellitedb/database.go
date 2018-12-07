@@ -8,6 +8,7 @@ import (
 
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -71,9 +72,9 @@ func (db *DB) BandwidthAgreement() bwagreement.DB {
 // 	return &accountingDB{db: db.db}
 // }
 
-// Irreparable is a getter for IrreparableDB repository
-func (db *DB) Irreparable() datarepair.IrreparableDB {
-	return &irreparable{db: db.db}
+// Irreparable returns database for storing segments that failed repair
+func (db *DB) Irreparable() irreparable.DB {
+	return &irreparableDB{db: db.db}
 }
 
 // CreateTables is a method for creating all tables for database

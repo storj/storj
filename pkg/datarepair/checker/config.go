@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/datarepair"
+	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
@@ -23,7 +23,7 @@ import (
 type Config struct {
 	QueueAddress     string        `help:"data checker queue address" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
 	Interval         time.Duration `help:"how frequently checker should audit segments" default:"30s"`
-	IrreparabledbURL string        `help:"the database connection string to use" default:"sqlite3://$CONFDIR/irreparabledb.db"`
+	IrreparabledbURL string        `help:"the database connection string to use" default:"sqlite3://$CONFDIR/irreparable.db"`
 }
 
 // Initialize a Checker struct
@@ -39,7 +39,7 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 	}
 
 	db, ok := ctx.Value("masterdb").(interface {
-		Irreparable() datarepair.IrreparableDB
+		Irreparable() irreparable.DB
 	})
 	if !ok {
 		return nil, errs.New("unable to get master db instance")
@@ -50,7 +50,7 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 		return nil, Error.Wrap(err)
 	}
 	repairQueue := queue.NewQueue(redisQ)
-	return newChecker(pdb, sdb, repairQueue, o, irrdb, 0, zap.L(), c.Interval), nil
+	return newChecker(pdb, sdb, repairQueue, o, db.Irreparable(), 0, zap.L(), c.Interval), nil
 }
 
 // Run runs the checker with configured values

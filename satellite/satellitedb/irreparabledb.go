@@ -6,17 +6,17 @@ package satellitedb
 import (
 	"context"
 
-	"storj.io/storj/pkg/datarepair"
+	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-type irreparable struct {
+type irreparableDB struct {
 	db *dbx.DB
 }
 
 // IncrementRepairAttempts a db entry for to increment the repair attempts field
-func (db *irreparable) IncrementRepairAttempts(ctx context.Context, segmentInfo *datarepair.RemoteSegmentInfo) (err error) {
+func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInfo *irreparable.RemoteSegmentInfo) (err error) {
 	tx, err := db.db.Begin()
 	if err != nil {
 		return err
@@ -55,13 +55,13 @@ func (db *irreparable) IncrementRepairAttempts(ctx context.Context, segmentInfo 
 }
 
 // Get a irreparable's segment info from the db
-func (db *irreparable) Get(ctx context.Context, segmentPath []byte) (resp *datarepair.RemoteSegmentInfo, err error) {
+func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *irreparable.RemoteSegmentInfo, err error) {
 	dbxInfo, err := db.db.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
 	if err != nil {
-		return &datarepair.RemoteSegmentInfo{}, err
+		return &irreparable.RemoteSegmentInfo{}, err
 	}
 
-	return &datarepair.RemoteSegmentInfo{
+	return &irreparable.RemoteSegmentInfo{
 		EncryptedSegmentPath:   dbxInfo.Segmentpath,
 		EncryptedSegmentDetail: dbxInfo.Segmentdetail,
 		LostPiecesCount:        dbxInfo.PiecesLostCount,
@@ -71,13 +71,8 @@ func (db *irreparable) Get(ctx context.Context, segmentPath []byte) (resp *datar
 }
 
 // Delete a irreparable's segment info from the db
-func (db *irreparable) Delete(ctx context.Context, segmentPath []byte) (err error) {
+func (db *irreparableDB) Delete(ctx context.Context, segmentPath []byte) (err error) {
 	_, err = db.db.Delete_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
 
 	return err
-}
-
-// Close  close db connection
-func (db *irreparable) Close() (err error) {
-	return db.db.Close()
 }
