@@ -15,7 +15,7 @@ import (
 
 // implementation of Companies interface repository using spacemonkeygo/dbx orm
 type companies struct {
-	db *dbx.DB
+	db dbx.Methods
 }
 
 // Get is a method for querying company from the database by user id

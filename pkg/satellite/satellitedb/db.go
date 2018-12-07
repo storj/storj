@@ -27,7 +27,7 @@ type Database struct {
 }
 
 // New - constructor for DB
-func New(driver, source string) (satellite.DB, error) {
+func New(driver, source string) (*Database, error) {
 	db, err := dbx.Open(driver, source)
 
 	if err != nil {
@@ -45,12 +45,12 @@ func New(driver, source string) (satellite.DB, error) {
 
 // Users is getter a for Users repository
 func (db *Database) Users() satellite.Users {
-	return &users{db.db}
+	return &users{db.methods}
 }
 
 // Companies is a getter for Companies repository
 func (db *Database) Companies() satellite.Companies {
-	return &companies{db.db}
+	return &companies{db.methods}
 }
 
 // Projects is a getter for Projects repository
@@ -65,48 +65,60 @@ func (db *Database) ProjectMembers() satellite.ProjectMembers {
 
 // CreateTables is a method for creating all tables for satellitedb
 func (db *Database) CreateTables() error {
+	if db.db == nil {
+		return errs.New("Connection is closed")
+	}
+
 	return migrate.Create("satellitedb", db.db)
 }
 
 // Close is used to close db connection
 func (db *Database) Close() error {
+	if db.db == nil {
+		return errs.New("Connection is closed")
+	}
+
 	return db.db.Close()
 }
 
 // BeginTransaction is a method for opening transaction
-func (db *Database) BeginTransaction(ctx context.Context) (err error) {
+func (db *Database) BeginTransaction(ctx context.Context) (satellite.DBTx, error) {
 	if db.db == nil {
-		return errs.New("DB is not initialized!")
+		return nil, errs.New("DB is not initialized!")
 	}
 
-	db.tx, err = db.db.Open(ctx)
+	tx, err := db.db.Open(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	db.methods = db.tx
+	return &DBTx{
+		Database: &Database{
+			tx:      tx,
+			methods: tx,
+		},
+	}, nil
+}
 
-	return err
+// DBTx extends Database with transaction scope
+type DBTx struct {
+	*Database
 }
 
 // CommitTransaction is a method for committing and closing transaction
-func (db *Database) CommitTransaction() error {
+func (db *DBTx) CommitTransaction() error {
 	if db.tx == nil {
 		return errs.New("begin transaction before commit it!")
 	}
-
-	db.methods = db.db
 
 	return db.tx.Commit()
 }
 
 // RollbackTransaction is a method for rollback and closing transaction
-func (db *Database) RollbackTransaction() error {
+func (db *DBTx) RollbackTransaction() error {
 	if db.tx == nil {
 		return errs.New("begin transaction before rollback it!")
 	}
-
-	db.methods = db.db
 
 	return db.tx.Rollback()
 }

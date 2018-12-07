@@ -15,7 +15,7 @@ import (
 
 // implementation of Users interface repository using spacemonkeygo/dbx orm
 type users struct {
-	db *dbx.DB
+	db dbx.Methods
 }
 
 // Get is a method for querying user from the database by id

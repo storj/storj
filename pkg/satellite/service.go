@@ -239,24 +239,24 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 		TermsAccepted: 1, //TODO: get lat version of Term of Use
 	}
 
-	err = s.store.BeginTransaction(ctx)
+	transaction, err := s.store.BeginTransaction(ctx)
 	if err != nil {
 		return nil, errs.New("Can not start transaction!")
 	}
 
-	prj, err := s.store.Projects().Insert(ctx, project)
+	prj, err := transaction.Projects().Insert(ctx, project)
 	if err != nil {
-		errors = append(errors, s.store.RollbackTransaction(), err)
+		errors = append(errors, transaction.RollbackTransaction(), err)
 		return nil, utils.CombineErrors(errors...)
 	}
 
-	_, err = s.store.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
+	_, err = transaction.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
 	if err != nil {
-		errors = append(errors, s.store.RollbackTransaction(), err)
+		errors = append(errors, transaction.RollbackTransaction(), err)
 		return nil, utils.CombineErrors(errors...)
 	}
 
-	return prj, s.store.CommitTransaction()
+	return prj, transaction.CommitTransaction()
 }
 
 // DeleteProject is a method for deleting project by id
