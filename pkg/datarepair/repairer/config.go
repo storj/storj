@@ -86,6 +86,6 @@ func (c Config) getSegmentStore(ctx context.Context, identity *provider.FullIden
 		return nil, err
 	}
 
-	return segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize, c.nodeStats.UptimeRatio, c.nodeStats.UptimeCount,
-		c.nodeStats.AuditSuccessRatio, c.nodeStats.AuditCount), nil
+	return segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize, c.nodeStats.UptimeRatio,
+		c.nodeStats.AuditSuccessRatio, c.nodeStats.UptimeCount, c.nodeStats.AuditCount), nil
 }
