@@ -13,6 +13,7 @@ import (
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/identity"
 	"storj.io/storj/internal/s3client"
@@ -146,6 +147,6 @@ func runGateway(ctx context.Context, c Config, identity *provider.FullIdentity) 
 		return err
 	}
 
-	minio.StartGateway(cliCtx, logging.Gateway(gw))
+	minio.StartGateway(cliCtx, logging.Gateway(gw, zaptest.NewLogger(t)))
 	return Error.New("unexpected minio exit")
 }
