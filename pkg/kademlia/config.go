@@ -28,7 +28,6 @@ const (
 )
 
 var (
-	// TODO: replace these with constants after tuning
 	flagBucketSize           = flag.Int("kademlia-bucket-size", 20, "Size of each Kademlia bucket")
 	flagReplacementCacheSize = flag.Int("kademlia-replacement-cache-size", 5, "Size of Kademlia replacement cache")
 )
