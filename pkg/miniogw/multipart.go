@@ -15,64 +15,47 @@ import (
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/hash"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
-func (s *storjObjects) NewMultipartUpload(ctx context.Context, bucket, object string, metadata map[string]string) (uploadID string, err error) {
+func (layer *gatewayLayer) NewMultipartUpload(ctx context.Context, bucket, object string, metadata map[string]string) (uploadID string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	uploads := s.storj.multipart
+	uploads := layer.gateway.multipart
 
 	upload, err := uploads.Create(bucket, object, metadata)
 	if err != nil {
 		return "", err
 	}
 
-	objectStore, err := s.storj.bs.GetObjectStore(ctx, bucket)
-	if err != nil {
-		uploads.RemoveByID(upload.ID)
-		upload.fail(err)
-		return "", err
-	}
-
 	go func() {
-		// setting zero value means the object never expires
-		expTime := time.Time{}
-
-		tempContType := metadata["content-type"]
+		contentType := metadata["content-type"]
 		delete(metadata, "content-type")
 
-		// metadata serialized
-		serMetaInfo := pb.SerializableMeta{
-			ContentType: tempContType,
-			UserDefined: metadata,
+		createInfo := storj.CreateObject{
+			ContentType:      contentType,
+			Metadata:         metadata,
+			RedundancyScheme: layer.gateway.redundancy,
+			EncryptionScheme: layer.gateway.encryption,
 		}
+		objInfo, err := layer.putObject(ctx, bucket, object, upload.Stream, &createInfo)
 
-		result, err := objectStore.Put(ctx, object, upload.Stream, serMetaInfo, expTime)
 		uploads.RemoveByID(upload.ID)
 
 		if err != nil {
 			upload.fail(err)
 		} else {
-			upload.complete(minio.ObjectInfo{
-				Name:        object,
-				Bucket:      bucket,
-				ModTime:     result.Modified,
-				Size:        result.Size,
-				ETag:        result.Checksum,
-				ContentType: result.ContentType,
-				UserDefined: result.UserDefined,
-			})
+			upload.complete(objInfo)
 		}
 	}()
 
 	return upload.ID, nil
 }
 
-func (s *storjObjects) PutObjectPart(ctx context.Context, bucket, object, uploadID string, partID int, data *hash.Reader) (info minio.PartInfo, err error) {
+func (layer *gatewayLayer) PutObjectPart(ctx context.Context, bucket, object, uploadID string, partID int, data *hash.Reader) (info minio.PartInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	uploads := s.storj.multipart
+	uploads := layer.gateway.multipart
 
 	upload, err := uploads.Get(bucket, object, uploadID)
 	if err != nil {
@@ -101,10 +84,10 @@ func (s *storjObjects) PutObjectPart(ctx context.Context, bucket, object, upload
 	return partInfo, nil
 }
 
-func (s *storjObjects) AbortMultipartUpload(ctx context.Context, bucket, object, uploadID string) (err error) {
+func (layer *gatewayLayer) AbortMultipartUpload(ctx context.Context, bucket, object, uploadID string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	uploads := s.storj.multipart
+	uploads := layer.gateway.multipart
 
 	upload, err := uploads.Remove(bucket, object, uploadID)
 	if err != nil {
@@ -120,10 +103,10 @@ func (s *storjObjects) AbortMultipartUpload(ctx context.Context, bucket, object,
 	return nil
 }
 
-func (s *storjObjects) CompleteMultipartUpload(ctx context.Context, bucket, object, uploadID string, uploadedParts []minio.CompletePart) (objInfo minio.ObjectInfo, err error) {
+func (layer *gatewayLayer) CompleteMultipartUpload(ctx context.Context, bucket, object, uploadID string, uploadedParts []minio.CompletePart) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	uploads := s.storj.multipart
+	uploads := layer.gateway.multipart
 	upload, err := uploads.Remove(bucket, object, uploadID)
 	if err != nil {
 		return minio.ObjectInfo{}, err
@@ -137,10 +120,10 @@ func (s *storjObjects) CompleteMultipartUpload(ctx context.Context, bucket, obje
 	return result.Info, result.Error
 }
 
-func (s *storjObjects) ListObjectParts(ctx context.Context, bucket, object, uploadID string, partNumberMarker int, maxParts int) (result minio.ListPartsInfo, err error) {
+func (layer *gatewayLayer) ListObjectParts(ctx context.Context, bucket, object, uploadID string, partNumberMarker int, maxParts int) (result minio.ListPartsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	uploads := s.storj.multipart
+	uploads := layer.gateway.multipart
 	upload, err := uploads.Get(bucket, object, uploadID)
 	if err != nil {
 		return minio.ListPartsInfo{}, err
@@ -179,8 +162,8 @@ func (s *storjObjects) ListObjectParts(ctx context.Context, bucket, object, uplo
 }
 
 // TODO: implement
-// func (s *storjObjects) ListMultipartUploads(ctx context.Context, bucket, prefix, keyMarker, uploadIDMarker, delimiter string, maxUploads int) (result minio.ListMultipartsInfo, err error) {
-// func (s *storjObjects) CopyObjectPart(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, uploadID string, partID int, startOffset int64, length int64, srcInfo minio.ObjectInfo) (info minio.PartInfo, err error) {
+// func (layer *gatewayLayer) ListMultipartUploads(ctx context.Context, bucket, prefix, keyMarker, uploadIDMarker, delimiter string, maxUploads int) (result minio.ListMultipartsInfo, err error) {
+// func (layer *gatewayLayer) CopyObjectPart(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, uploadID string, partID int, startOffset int64, length int64, srcInfo minio.ObjectInfo) (info minio.PartInfo, err error) {
 
 // MultipartUploads manages pending multipart uploads
 type MultipartUploads struct {

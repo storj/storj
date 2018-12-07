@@ -75,11 +75,11 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return err
 	}
 
-	create := storj.CreateObject{
+	createInfo := storj.CreateObject{
 		RedundancyScheme: cfg.GetRedundancyScheme(),
 		EncryptionScheme: cfg.GetEncryptionScheme(),
 	}
-	obj, err := metainfo.CreateObject(ctx, dst.Bucket(), dst.Path(), &create)
+	obj, err := metainfo.CreateObject(ctx, dst.Bucket(), dst.Path(), &createInfo)
 	if err != nil {
 		return convertError(err, dst)
 	}
@@ -220,11 +220,11 @@ func copy(ctx context.Context, src fpath.FPath, dst fpath.FPath) error {
 		dst = dst.Join(src.Base())
 	}
 
-	create := storj.CreateObject{
+	createInfo := storj.CreateObject{
 		RedundancyScheme: cfg.GetRedundancyScheme(),
 		EncryptionScheme: cfg.GetEncryptionScheme(),
 	}
-	obj, err := metainfo.CreateObject(ctx, dst.Bucket(), dst.Path(), &create)
+	obj, err := metainfo.CreateObject(ctx, dst.Bucket(), dst.Path(), &createInfo)
 	if err != nil {
 		return convertError(err, dst)
 	}

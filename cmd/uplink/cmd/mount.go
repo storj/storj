@@ -190,12 +190,12 @@ func (sf *storjFS) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntr
 func (sf *storjFS) Mkdir(name string, mode uint32, context *fuse.Context) fuse.Status {
 	zap.S().Debug("Mkdir: ", name)
 
-	create := storj.CreateObject{
+	createInfo := storj.CreateObject{
 		ContentType:      "application/directory",
 		RedundancyScheme: cfg.GetRedundancyScheme(),
 		EncryptionScheme: cfg.GetEncryptionScheme(),
 	}
-	object, err := sf.metainfo.CreateObject(sf.ctx, sf.bucket.Name, name+"/", &create)
+	object, err := sf.metainfo.CreateObject(sf.ctx, sf.bucket.Name, name+"/", &createInfo)
 	if err != nil {
 		return fuse.EIO
 	}
@@ -414,12 +414,12 @@ func (f *storjFile) getWriter(off int64) (io.Writer, error) {
 		f.size = 0
 		f.closeWriter()
 
-		create := storj.CreateObject{
+		createInfo := storj.CreateObject{
 			RedundancyScheme: cfg.GetRedundancyScheme(),
 			EncryptionScheme: cfg.GetEncryptionScheme(),
 		}
 		var err error
-		f.mutableObject, err = f.metainfo.CreateObject(f.ctx, f.bucket.Name, f.name, &create)
+		f.mutableObject, err = f.metainfo.CreateObject(f.ctx, f.bucket.Name, f.name, &createInfo)
 		if err != nil {
 			return nil, err
 		}

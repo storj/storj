@@ -37,7 +37,7 @@ type Object struct {
 	Path     Path
 	IsPrefix bool
 
-	Metadata []byte
+	Metadata map[string]string
 
 	ContentType string
 	Created     time.Time
