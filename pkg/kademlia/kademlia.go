@@ -9,6 +9,8 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync/atomic"
+	"unsafe"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -52,7 +54,7 @@ type Kademlia struct {
 	address         string
 	nodeClient      node.Client
 	identity        *provider.FullIdentity
-	bootstrapCancel context.CancelFunc
+	bootstrapCancel unsafe.Pointer // context.CancelFunc
 }
 
 // NewKademlia returns a newly configured Kademlia instance
@@ -109,8 +111,10 @@ func NewKademliaWithRoutingTable(self pb.Node, bootstrapNodes []pb.Node, identit
 
 // Disconnect safely closes connections to the Kademlia network
 func (k *Kademlia) Disconnect() error {
-	if k.bootstrapCancel != nil {
-		k.bootstrapCancel()
+	// Cancel the bootstrap context
+	ptr := atomic.LoadPointer(&k.bootstrapCancel)
+	if ptr != nil {
+		(*(*context.CancelFunc)(ptr))()
 	}
 
 	return utils.CombineErrors(
@@ -178,7 +182,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	}
 
 	bootstrapContext, bootstrapCancel := context.WithCancel(ctx)
-	k.bootstrapCancel = bootstrapCancel
+	atomic.StorePointer(&k.bootstrapCancel, unsafe.Pointer(&bootstrapCancel))
 
 	return k.lookup(bootstrapContext, k.routingTable.self.Id, discoveryOptions{
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: true, bootstrapNodes: k.bootstrapNodes,
