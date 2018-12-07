@@ -101,14 +101,14 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	o := map[string]interface{}{
-		"cert-path":       setupCfg.Identity.CertPath,
-		"key-path":        setupCfg.Identity.KeyPath,
-		"api-key":         setupCfg.APIKey,
-		"pointer-db-addr": setupCfg.SatelliteAddr,
-		"overlay-addr":    setupCfg.SatelliteAddr,
-		"access-key":      accessKey,
-		"secret-key":      secretKey,
-		"enc-key":         setupCfg.EncKey,
+		"identity.cert-path":     setupCfg.Identity.CertPath,
+		"identity.key-path":      setupCfg.Identity.KeyPath,
+		"client.api-key":         setupCfg.APIKey,
+		"client.pointer-db-addr": setupCfg.SatelliteAddr,
+		"client.overlay-addr":    setupCfg.SatelliteAddr,
+		"minio.access-key":       accessKey,
+		"minio.secret-key":       secretKey,
+		"enc.key":                setupCfg.EncKey,
 	}
 
 	return process.SaveConfig(runCmd.Flags(),

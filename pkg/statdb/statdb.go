@@ -129,18 +129,17 @@ func (s *StatDB) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 	}, nil
 }
 
-// FindValidNodes finds a subset of storagenodes that meet reputation requirements
-func (s *StatDB) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRequest) (resp *pb.FindValidNodesResponse, err error) {
+// FindInvalidNodes finds a subset of storagenodes that fail to meet minimum reputation requirements
+func (s *StatDB) FindInvalidNodes(ctx context.Context, getReq *pb.FindInvalidNodesRequest) (resp *pb.FindInvalidNodesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var passedIds storj.NodeIDList
+	var invalidIds storj.NodeIDList
 
 	nodeIds := getReq.NodeIds
-	minAuditCount := getReq.MinStats.AuditCount
-	minAuditSuccess := getReq.MinStats.AuditSuccessRatio
-	minUptime := getReq.MinStats.UptimeRatio
+	maxAuditSuccess := getReq.MaxStats.AuditSuccessRatio
+	maxUptime := getReq.MaxStats.UptimeRatio
 
-	rows, err := s.findValidNodesQuery(nodeIds, minAuditCount, minAuditSuccess, minUptime)
+	rows, err := s.findInvalidNodesQuery(nodeIds, maxAuditSuccess, maxUptime)
 
 	if err != nil {
 		return nil, err
@@ -154,7 +153,7 @@ func (s *StatDB) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRe
 
 	for rows.Next() {
 		node := &dbx.Node{}
-		err = rows.Scan(&node.Id, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeRatio, &node.CreatedAt)
+		err = rows.Scan(&node.Id, &node.TotalAuditCount, &node.TotalUptimeCount, &node.AuditSuccessRatio, &node.UptimeRatio)
 		if err != nil {
 			return nil, err
 		}
@@ -162,28 +161,32 @@ func (s *StatDB) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRe
 		if err != nil {
 			return nil, err
 		}
-		passedIds = append(passedIds, id)
+		invalidIds = append(invalidIds, id)
 	}
 
-	return &pb.FindValidNodesResponse{
-		PassedIds: passedIds,
+	return &pb.FindInvalidNodesResponse{
+		InvalidIds: invalidIds,
 	}, nil
 }
 
-func (s *StatDB) findValidNodesQuery(nodeIds storj.NodeIDList, auditCount int64, auditSuccess, uptime float64) (*sql.Rows, error) {
+func (s *StatDB) findInvalidNodesQuery(nodeIds storj.NodeIDList, auditSuccess, uptime float64) (*sql.Rows, error) {
 	args := make([]interface{}, len(nodeIds))
 	for i, id := range nodeIds {
 		args[i] = id.Bytes()
 	}
-	args = append(args, auditCount, auditSuccess, uptime)
+	args = append(args, auditSuccess, uptime)
 
 	rows, err := s.DB.Query(`SELECT nodes.id, nodes.total_audit_count, 
-		nodes.audit_success_ratio, nodes.uptime_ratio, nodes.created_at
+		nodes.total_uptime_count, nodes.audit_success_ratio, 
+		nodes.uptime_ratio
 		FROM nodes
 		WHERE nodes.id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
-		AND nodes.total_audit_count >= ?
-		AND nodes.audit_success_ratio >= ?
-		AND nodes.uptime_ratio >= ?`, args...)
+		AND nodes.total_audit_count > 0
+		AND nodes.total_uptime_count > 0
+		AND (
+			nodes.audit_success_ratio < ?
+			OR nodes.uptime_ratio < ?
+		)`, args...)
 
 	return rows, err
 }

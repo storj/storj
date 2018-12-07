@@ -53,7 +53,7 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 	if !storj.ErrBucketNotFound.Has(err) {
 		return err
 	}
-	_, err = metainfo.CreateBucket(ctx, dst.Bucket(), &storj.Bucket{PathCipher: storj.Cipher(cfg.PathEncType)})
+	_, err = metainfo.CreateBucket(ctx, dst.Bucket(), &storj.Bucket{PathCipher: storj.Cipher(cfg.Enc.PathType)})
 	if err != nil {
 		return err
 	}

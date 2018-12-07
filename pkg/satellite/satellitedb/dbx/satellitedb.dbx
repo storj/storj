@@ -55,7 +55,8 @@ model project (
     field id             blob
     field owner_id       user.id   setnull ( nullable, updatable )
 
-    field name           text      ( updatable )
+    field name           text
+    field company_name   text
     field description    text      ( updatable )
     // stores last accepted version of terms of use
     field terms_accepted int       ( updatable )
@@ -70,6 +71,11 @@ read one (
 read all (
     select project
     where project.owner_id = ?
+)
+read all (
+    select project
+    join project.id = project_member.project_id
+    where project_member.member_id = ?
 )
 create project ( )
 update project ( where project.id = ? )

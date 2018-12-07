@@ -22,6 +22,7 @@
             :cols="40"
             wrap="hard"
 			v-model.lazy="value"
+			@change="onInput"
             @input="onInput">
 		</textarea>
 		<input

@@ -25,6 +25,7 @@ CREATE TABLE projects (
 	id BLOB NOT NULL,
 	owner_id BLOB REFERENCES users( id ) ON DELETE SET NULL,
 	name TEXT NOT NULL,
+	company_name TEXT NOT NULL,
 	description TEXT NOT NULL,
 	terms_accepted INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
