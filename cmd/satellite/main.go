@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -19,7 +18,6 @@ import (
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
-	dbmanager "storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/queue"
@@ -73,7 +71,7 @@ var (
 
 		// Audit audit.Config
 		BwAgreement bwagreement.Config
-		Database    string `help:"the master database connection string" default:"sqlite3://$CONFDIR/master.db"`
+		Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	}
 	setupCfg struct {
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
@@ -82,7 +80,7 @@ var (
 		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 	diagCfg struct {
-		DatabaseURL string `help:"the database connection string to use" default:"sqlite3://$CONFDIR/bw.db"`
+		Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	}
 	qdiagCfg struct {
 		DatabaseURL string `help:"the database connection string to use" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
@@ -180,21 +178,21 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
-	// open the psql db
-	u, err := url.Parse(diagCfg.DatabaseURL)
+	database, err := satellitedb.NewDB(diagCfg.Database)
 	if err != nil {
-		return errs.New("Invalid Database URL: %+v", err)
+		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
+	defer func() {
+		err := database.Close()
+		if err != nil {
+			fmt.Printf("error closing connection to master database on satellite: %+v\n", err)
+		}
+	}()
 
-	dbm, err := dbmanager.NewDBManager(u.Scheme, u.Path)
+	//get all bandwidth agreements rows already ordered
+	baRows, err := database.BandwidthAgreement().GetAgreements(context.Background())
 	if err != nil {
-		return err
-	}
-
-	//get all bandwidth aggrements rows already ordered
-	baRows, err := dbm.GetBandwidthAllocations(context.Background())
-	if err != nil {
-		fmt.Printf("error reading satellite database %v: %v\n", u.Path, err)
+		fmt.Printf("error reading satellite database %v: %v\n", diagCfg.Database, err)
 		return err
 	}
 
@@ -214,7 +212,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	for _, baRow := range baRows {
 		// deserializing rbad you get payerbwallocation, total & storage node id
 		rbad := &pb.RenterBandwidthAllocation_Data{}
-		if err := proto.Unmarshal(baRow.Data, rbad); err != nil {
+		if err := proto.Unmarshal(baRow.Agreement, rbad); err != nil {
 			return err
 		}
 

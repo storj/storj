@@ -8,19 +8,29 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/x509"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gtank/cryptopasta"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 )
 
+// DB interface for database operations
+type DB interface {
+	// CreateAgreement creates bandwidth agreement in database
+	CreateAgreement(context.Context, Agreement) error
+	// GetAgreements gets all bandwidth agreements
+	GetAgreements(context.Context) ([]Agreement, error)
+	// GetAgreementsSince gets all bandwidth agreements since specific time
+	GetAgreementsSince(context.Context, time.Time) ([]Agreement, error)
+}
+
 // Server is an implementation of the pb.BandwidthServer interface
 type Server struct {
-	dbm    *dbmanager.DBManager
+	db     DB
 	pkey   crypto.PublicKey
 	logger *zap.Logger
 }
@@ -29,19 +39,20 @@ type Server struct {
 type Agreement struct {
 	Agreement []byte
 	Signature []byte
+	CreatedAt time.Time
 }
 
 // NewServer creates instance of Server
-func NewServer(dbm *dbmanager.DBManager, logger *zap.Logger, pkey crypto.PublicKey) (*Server, error) {
+func NewServer(db DB, logger *zap.Logger, pkey crypto.PublicKey) *Server {
 	return &Server{
-		dbm:    dbm,
+		db:     db,
 		logger: logger,
 		pkey:   pkey,
-	}, nil
+	}
 }
 
 // BandwidthAgreements receives and stores bandwidth agreements from storage nodes
-func (s *Server) BandwidthAgreements(ctx context.Context, agreement *pb.RenterBandwidthAllocation) (reply *pb.AgreementsSummary, err error) {
+func (s *Server) BandwidthAgreements(ctx context.Context, req *pb.RenterBandwidthAllocation) (reply *pb.AgreementsSummary, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	s.logger.Debug("Received Agreement...")
@@ -50,11 +61,15 @@ func (s *Server) BandwidthAgreements(ctx context.Context, agreement *pb.RenterBa
 		Status: pb.AgreementsSummary_FAIL,
 	}
 
-	if err = s.verifySignature(ctx, agreement); err != nil {
+	if err = s.verifySignature(ctx, req); err != nil {
 		return reply, err
 	}
 
-	_, err = s.dbm.Create(ctx, agreement)
+	err = s.db.CreateAgreement(ctx, Agreement{
+		Signature: req.GetSignature(),
+		Agreement: req.GetData(),
+	})
+
 	if err != nil {
 		return reply, err
 	}
