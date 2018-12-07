@@ -28,7 +28,6 @@ const (
 )
 
 var (
-	// TODO: replace these with constants after tuning
 	flagBucketSize           = flag.Int("kademlia-bucket-size", 20, "Size of each Kademlia bucket")
 	flagReplacementCacheSize = flag.Int("kademlia-replacement-cache-size", 5, "Size of Kademlia replacement cache")
 )
@@ -73,7 +72,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		Wallet: c.Farmer.Wallet,
 	}
 
-	nodeType := pb.NodeType_STORAGE // TODO: fix this for satellites
+	nodeType := pb.NodeType_STORAGE
 
 	addr := server.Addr().String()
 	if c.ExternalAddress != "" {
