@@ -19,11 +19,12 @@ func TestDispatcher(t *testing.T) {
 
 func TestRegistrationAndDispatch(t *testing.T) {
 	d := NewDispatcher("test")
-	d.Register("test:error", func() error {
+	err := d.Register("test:error", func() error {
 		return errors.New("error")
 	})
+	assert.Equal(t, err, nil)
 
-	err := d.Dispatch("test:error")
+	err = d.Dispatch("test:error")
 	assert.Equal(t, err, errors.New("error"))
 
 	err = d.Register("test:normal", func() error {
