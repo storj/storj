@@ -68,7 +68,13 @@ func TestUploadDownload(t *testing.T) {
 	assert.NoError(t, err)
 
 	// setup and start gateway
-	ctx.Go(func() error { return runGateway(ctx, gwCfg, identity) } )
+	go func() {
+		// TODO: this leaks the gateway server, however it shouldn't
+		err := runGateway(ctx, gwCfg, identity)
+		if err != nil {
+			t.Log(err)
+		}
+	}()
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -109,7 +115,7 @@ func TestUploadDownload(t *testing.T) {
 
 // runGateway creates and starts a gateway
 func runGateway(ctx context.Context, c Config, identity *provider.FullIdentity) (err error) {
-	
+
 	// set gateway flags
 	flags := flag.NewFlagSet("gateway", flag.ExitOnError)
 	flags.String("address", c.Address, "")
