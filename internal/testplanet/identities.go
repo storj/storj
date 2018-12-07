@@ -44,7 +44,7 @@ func (identities *Identities) NewIdentity() (*provider.FullIdentity, error) {
 // mustParsePEM parses pem encoded chain and key strings.
 func mustParsePEM(chain, key string) *provider.FullIdentity {
 	// TODO: add whitelist handling somehow
-	fi, err := provider.FullIdentityFromPEM([]byte(chain), []byte(key), nil)
+	fi, err := provider.FullIdentityFromPEM([]byte(chain), []byte(key))
 	if err != nil {
 		panic(err)
 	}

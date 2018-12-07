@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/pem"
 	"io"
@@ -26,30 +27,43 @@ const (
 	BlockTypeIDOptions = "ID OPTIONS"
 )
 
+const (
+	// SignedCertExtID is the asn1 object ID for a pkix extension holding a signature of the cert it's extending, signed by some CA (e.g. the root cert chain).
+	// This extension allows for an additional signature per certificate.
+	SignedCertExtID = iota
+	// RevocationExtID is the asn1 object ID for a pkix extension containing the most recent certificate revocation data
+	// for the current TLS cert chain.
+	RevocationExtID
+)
+
 var (
-	// AuthoritySignatureExtID is the asn1 object ID for a pkix extension holding a signature of the leaf cert, signed by some CA (e.g. the root cert)
-	// This extension allows for an additional signature per certificate
-	AuthoritySignatureExtID = asn1.ObjectIdentifier{2, 999, 1}
-	// ErrNotExist is used when a file or directory doesn't exist
+	// ExtensionIDs is a map from an enum to extension object identifiers.
+	ExtensionIDs = map[int]asn1.ObjectIdentifier{
+		SignedCertExtID: {2, 999, 1, 1},
+		RevocationExtID: {2, 999, 2, 1},
+	}
+	// ErrExtension is used when an error occurs while processing an extension.
+	ErrExtension = errs.Class("extension error")
+	// ErrNotExist is used when a file or directory doesn't exist.
 	ErrNotExist = errs.Class("file or directory not found error")
-	// ErrGenerate is used when an error occurred during cert/key generation
+	// ErrGenerate is used when an error occurred during cert/key generation.
 	ErrGenerate = errs.Class("tls generation error")
-	// ErrUnsupportedKey is used when key type is not supported
+	// ErrUnsupportedKey is used when key type is not supported.
 	ErrUnsupportedKey = errs.Class("unsupported key type")
-	// ErrTLSTemplate is used when an error occurs during tls template generation
+	// ErrTLSTemplate is used when an error occurs during tls template generation.
 	ErrTLSTemplate = errs.Class("tls template error")
-	// ErrVerifyPeerCert is used when an error occurs during `VerifyPeerCertificate`
+	// ErrVerifyPeerCert is used when an error occurs during `VerifyPeerCertificate`.
 	ErrVerifyPeerCert = errs.Class("tls peer certificate verification error")
-	// ErrParseCerts is used when an error occurs while parsing a certificate or cert chain
+	// ErrParseCerts is used when an error occurs while parsing a certificate or cert chain.
 	ErrParseCerts = errs.Class("unable to parse certificate")
-	// ErrVerifySignature is used when a cert-chain signature verificaion error occurs
+	// ErrVerifySignature is used when a cert-chain signature verificaion error occurs.
 	ErrVerifySignature = errs.Class("tls certificate signature verification error")
 	// ErrVerifyCertificateChain is used when a certificate chain can't be verified from leaf to root
-	// (i.e.: each cert in the chain should be signed by the preceding cert and the root should be self-signed)
+	// (i.e.: each cert in the chain should be signed by the preceding cert and the root should be self-signed).
 	ErrVerifyCertificateChain = errs.Class("certificate chain signature verification failed")
-	// ErrVerifyCAWhitelist is used when the leaf of a peer certificate isn't signed by any CA in the whitelist
-	ErrVerifyCAWhitelist = errs.Class("certificate isn't signed by any CA in the whitelist")
-	// ErrSign is used when something goes wrong while generating a signature
+	// ErrVerifyCAWhitelist is used when the leaf of a peer certificate isn't signed by any CA in the whitelist.
+	ErrVerifyCAWhitelist = errs.Class("not signed by any CA in the whitelist")
+	// ErrSign is used when something goes wrong while generating a signature.
 	ErrSign = errs.Class("unable to generate signature")
 )
 
@@ -65,36 +79,6 @@ func NewKey() (crypto.PrivateKey, error) {
 	}
 
 	return k, nil
-}
-
-// NewCert returns a new x509 certificate using the provided templates and
-// signed by the `signer` key
-func NewCert(template, parentTemplate *x509.Certificate, pubKey crypto.PublicKey, signer crypto.PrivateKey) (*x509.Certificate, error) {
-	k, ok := signer.(*ecdsa.PrivateKey)
-	if !ok {
-		return nil, ErrUnsupportedKey.New("%T", k)
-	}
-
-	if parentTemplate == nil {
-		parentTemplate = template
-	}
-
-	cb, err := x509.CreateCertificate(
-		rand.Reader,
-		template,
-		parentTemplate,
-		pubKey,
-		k,
-	)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	c, err := x509.ParseCertificate(cb)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	return c, nil
 }
 
 // VerifyPeerFunc combines multiple `*tls.Config#VerifyPeerCertificate`
@@ -118,63 +102,41 @@ func VerifyPeerFunc(next ...PeerCertVerificationFunc) PeerCertVerificationFunc {
 }
 
 // VerifyPeerCertChains verifies that the first certificate chain contains certificates
-// which are signed by their respective parents, ending with a self-signed root
+// which are signed by their respective parents, ending with a self-signed root.
 func VerifyPeerCertChains(_ [][]byte, parsedChains [][]*x509.Certificate) error {
 	return verifyChainSignatures(parsedChains[0])
 }
 
 // VerifyCAWhitelist verifies that the peer identity's CA and leaf-extension was signed
-// by any one of the (certificate authority) certificates in the provided whitelist
-func VerifyCAWhitelist(cas []*x509.Certificate, verifyExtension bool) PeerCertVerificationFunc {
+// by any one of the (certificate authority) certificates in the provided whitelist.
+func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
 	if cas == nil {
 		return nil
 	}
-
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
-		var (
-			leaf = parsedChains[0][0]
-			err  error
-		)
-
-		// Leaf extension must contain leaf signature, signed by a CA in the whitelist.
-		// That *same* CA must also have signed the leaf's parent cert (regular cert chain signature, not extension).
 		for _, ca := range cas {
-			err = verifyCertSignature(ca, parsedChains[0][1])
+			err := verifyCertSignature(ca, parsedChains[0][1])
 			if err == nil {
-				if !verifyExtension {
-					break
-				}
-
-				for _, ext := range leaf.Extensions {
-					if ext.Id.Equal(AuthoritySignatureExtID) {
-						err = verifySignature(ext.Value, leaf.RawTBSCertificate, leaf.PublicKey)
-						if err != nil {
-							return ErrVerifyCAWhitelist.New("authority signature extension verification error: %s", err.Error())
-						}
-						return nil
-					}
-				}
-				break
+				return nil
 			}
 		}
-
-		return ErrVerifyCAWhitelist.Wrap(err)
+		return ErrVerifyCAWhitelist.New("extension signature doesn't match any CA in the whitelist")
 	}
 }
 
 // NewKeyBlock converts an ASN1/DER-encoded byte-slice of a private key into
-// a `pem.Block` pointer
+// a `pem.Block` pointer.
 func NewKeyBlock(b []byte) *pem.Block {
 	return &pem.Block{Type: BlockTypeEcPrivateKey, Bytes: b}
 }
 
 // NewCertBlock converts an ASN1/DER-encoded byte-slice of a tls certificate
-// into a `pem.Block` pointer
+// into a `pem.Block` pointer.
 func NewCertBlock(b []byte) *pem.Block {
 	return &pem.Block{Type: BlockTypeCertificate, Bytes: b}
 }
 
-// TLSCert creates a tls.Certificate from chains, key and leaf
+// TLSCert creates a tls.Certificate from chains, key and leaf.
 func TLSCert(chain [][]byte, leaf *x509.Certificate, key crypto.PrivateKey) (*tls.Certificate, error) {
 	var err error
 	if leaf == nil {
@@ -225,5 +187,72 @@ func WriteKey(w io.Writer, key crypto.PrivateKey) error {
 	if err := pem.Encode(w, NewKeyBlock(kb)); err != nil {
 		return errs.Wrap(err)
 	}
+	return nil
+}
+
+// NewCert returns a new x509 certificate using the provided templates and key,
+// signed by the parent cert if provided; otherwise, self-signed.
+func NewCert(key, parentKey crypto.PrivateKey, template, parent *x509.Certificate) (*x509.Certificate, error) {
+	p, ok := key.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, ErrUnsupportedKey.New("%T", key)
+	}
+
+	var signingKey crypto.PrivateKey
+	if parentKey != nil {
+		signingKey = parentKey
+	} else {
+		signingKey = key
+	}
+
+	if parent == nil {
+		parent = template
+	}
+
+	cb, err := x509.CreateCertificate(
+		rand.Reader,
+		template,
+		parent,
+		&p.PublicKey,
+		signingKey,
+	)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	cert, err := x509.ParseCertificate(cb)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	return cert, nil
+}
+
+// AddSignedLeafExt adds a "signed certificate extension" to the passed cert,
+// using the passed private key.
+func AddSignedLeafExt(key crypto.PrivateKey, cert *x509.Certificate) error {
+	ecKey, ok := key.(*ecdsa.PrivateKey)
+	if !ok {
+		return ErrUnsupportedKey.New("%T", key)
+	}
+
+	hash := crypto.SHA256.New()
+	_, err := hash.Write(cert.RawTBSCertificate)
+	if err != nil {
+		return ErrSign.Wrap(err)
+	}
+	r, s, err := ecdsa.Sign(rand.Reader, ecKey, hash.Sum(nil))
+	if err != nil {
+		return ErrSign.Wrap(err)
+	}
+
+	signature, err := asn1.Marshal(ECDSASignature{R: r, S: s})
+	if err != nil {
+		return ErrSign.Wrap(err)
+	}
+
+	cert.ExtraExtensions = append(cert.ExtraExtensions, pkix.Extension{
+		Id:    ExtensionIDs[SignedCertExtID],
+		Value: signature,
+	})
 	return nil
 }

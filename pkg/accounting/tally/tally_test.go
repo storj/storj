@@ -4,7 +4,6 @@
 package tally
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"math/rand"
 	"strconv"
@@ -13,10 +12,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+
 	"storj.io/storj/internal/identity"
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/accounting"
-	dbManager "storj.io/storj/pkg/bwagreement/database-manager"
+	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/bwagreement/test"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
@@ -24,15 +25,17 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storage/teststore"
 )
-
-var ctx = context.Background()
 
 func TestIdentifyActiveNodes(t *testing.T) {
 
 }
 func TestOnlineNodes(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 
@@ -59,13 +62,13 @@ func TestOnlineNodes(t *testing.T) {
 
 	accountingDb, err := accounting.NewDb("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
-	defer func() { _ = accountingDb.Close() }()
+	defer ctx.Check(accountingDb.Close)
 
-	bwDb, err := dbManager.NewDBManager("sqlite3", "file::memory:?mode=memory&cache=shared")
+	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
-	defer func() { _ = accountingDb.Close() }()
+	defer ctx.Check(masterDB.Close)
 
-	tally := newTally(logger, accountingDb, bwDb, pointerdb, overlayServer, kad, limit, interval)
+	tally := newTally(logger, accountingDb, masterDB.BandwidthAgreement(), pointerdb, overlayServer, kad, limit, interval)
 
 	online, err := tally.onlineNodes(ctx, nodeIDs)
 	assert.NoError(t, err)
@@ -85,17 +88,22 @@ func TestUpdateGranularTable(t *testing.T) {
 }
 
 func TestQueryNoAgreements(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	//get stuff we need
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 	kad := &kademlia.Kademlia{}
 	accountingDb, err := accounting.NewDb("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
-	defer func() { _ = accountingDb.Close() }()
-	bwDb, err := dbManager.NewDBManager("sqlite3", "file::memory:?mode=memory&cache=shared")
+	defer ctx.Check(accountingDb.Close)
+
+	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
-	defer func() { _ = accountingDb.Close() }()
-	tally := newTally(zap.NewNop(), accountingDb, bwDb, pointerdb, overlayServer, kad, 0, time.Second)
+	defer ctx.Check(masterDB.Close)
+
+	tally := newTally(zap.NewNop(), accountingDb, masterDB.BandwidthAgreement(), pointerdb, overlayServer, kad, 0, time.Second)
 
 	//check the db
 	err = tally.Query(ctx)
@@ -103,16 +111,24 @@ func TestQueryNoAgreements(t *testing.T) {
 }
 
 func TestQueryWithBw(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	//get stuff we need
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 	kad := &kademlia.Kademlia{}
 	accountingDb, err := accounting.NewDb("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
-	defer func() { _ = accountingDb.Close() }()
-	bwDb, err := dbManager.NewDBManager("sqlite3", "file::memory:?mode=memory&cache=shared")
+	defer ctx.Check(accountingDb.Close)
+
+	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
-	defer func() { _ = accountingDb.Close() }()
+	err = masterDB.CreateTables()
+	assert.NoError(t, err)
+	defer ctx.Check(masterDB.Close)
+
+	bwDb := masterDB.BandwidthAgreement()
 	tally := newTally(zap.NewNop(), accountingDb, bwDb, pointerdb, overlayServer, kad, 0, time.Second)
 
 	//get a private key
@@ -126,7 +142,7 @@ func TestQueryWithBw(t *testing.T) {
 	rba, err := test.GenerateRenterBandwidthAllocation(pba, k)
 	assert.NoError(t, err)
 	//save to db
-	_, err = bwDb.Create(ctx, rba)
+	err = bwDb.CreateAgreement(ctx, bwagreement.Agreement{Signature: rba.GetSignature(), Agreement: rba.GetData()})
 	assert.NoError(t, err)
 
 	//check the db

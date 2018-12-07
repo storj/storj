@@ -9,10 +9,10 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/accounting"
 	dbx "storj.io/storj/pkg/accounting/dbx"
-	dbManager "storj.io/storj/pkg/bwagreement/database-manager"
-	bwDbx "storj.io/storj/pkg/bwagreement/database-manager/dbx"
+	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
@@ -28,26 +28,26 @@ type Tally interface {
 }
 
 type tally struct {
-	pointerdb *pointerdb.Server
-	overlay   pb.OverlayServer
-	kademlia  *kademlia.Kademlia
-	limit     int
-	logger    *zap.Logger
-	ticker    *time.Ticker
-	db        *dbx.DB              // accounting db
-	dbm       *dbManager.DBManager // bwagreements database
+	pointerdb   *pointerdb.Server
+	overlay     pb.OverlayServer
+	kademlia    *kademlia.Kademlia
+	limit       int
+	logger      *zap.Logger
+	ticker      *time.Ticker
+	db          *dbx.DB        // accounting db
+	bwAgreement bwagreement.DB // bwagreements database
 }
 
-func newTally(logger *zap.Logger, db *dbx.DB, dbm *dbManager.DBManager, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, interval time.Duration) *tally {
+func newTally(logger *zap.Logger, db *dbx.DB, bwAgreement bwagreement.DB, pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, interval time.Duration) *tally {
 	return &tally{
-		pointerdb: pointerdb,
-		overlay:   overlay,
-		kademlia:  kademlia,
-		limit:     limit,
-		logger:    logger,
-		ticker:    time.NewTicker(interval),
-		dbm:       dbm,
-		db:        db,
+		pointerdb:   pointerdb,
+		overlay:     overlay,
+		kademlia:    kademlia,
+		limit:       limit,
+		logger:      logger,
+		ticker:      time.NewTicker(interval),
+		bwAgreement: bwAgreement,
+		db:          db,
 	}
 }
 
@@ -175,12 +175,12 @@ func (t *tally) Query(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var bwAgreements []*bwDbx.Bwagreement
+	var bwAgreements []bwagreement.Agreement
 	if lastBwTally == nil {
 		t.logger.Info("Tally found no existing bandwith tracking data")
-		bwAgreements, err = t.dbm.GetBandwidthAllocations(ctx)
+		bwAgreements, err = t.bwAgreement.GetAgreements(ctx)
 	} else {
-		bwAgreements, err = t.dbm.GetBandwidthAllocationsSince(ctx, lastBwTally.Value)
+		bwAgreements, err = t.bwAgreement.GetAgreementsSince(ctx, lastBwTally.Value)
 	}
 	if len(bwAgreements) == 0 {
 		t.logger.Info("Tally found no new bandwidth allocations")
@@ -192,7 +192,7 @@ func (t *tally) Query(ctx context.Context) error {
 	var latestBwa time.Time
 	for _, baRow := range bwAgreements {
 		rbad := &pb.RenterBandwidthAllocation_Data{}
-		if err := proto.Unmarshal(baRow.Data, rbad); err != nil {
+		if err := proto.Unmarshal(baRow.Agreement, rbad); err != nil {
 			t.logger.DPanic("Could not deserialize renter bwa in tally query")
 			continue
 		}

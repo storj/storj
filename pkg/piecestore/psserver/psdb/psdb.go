@@ -16,17 +16,21 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3" // register sqlite to sql
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
 
 var (
-	mon                  = monkit.Package()
+	mon = monkit.Package()
+	// Error is the default psdb errs class
+	Error = errs.Class("psdb")
+
 	defaultCheckInterval = flag.Duration("piecestore.ttl.check_interval", time.Hour, "number of seconds to sleep between ttl checks")
 )
 
@@ -54,7 +58,7 @@ func Open(ctx context.Context, dataPath, DBPath string) (db *DB, err error) {
 
 	sqlite, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?cache=shared&mode=rwc&mutex=full", DBPath))
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 	db = &DB{
 		DB:       sqlite,

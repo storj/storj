@@ -53,7 +53,7 @@ check-copyrights: ## Check source files for copyright headers
 
 .PHONY: goimports-fix
 goimports-fix: ## Applies goimports to every go file (excluding vendored files)
-	goimports -w $$(find . -type f -name '*.go' -not -path "*/vendor/*")
+	goimports -w -local storj.io $$(find . -type f -name '*.go' -not -path "*/vendor/*")
 
 .PHONY: proto
 proto: ## Rebuild protobuf files

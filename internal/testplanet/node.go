@@ -61,7 +61,12 @@ func (planet *Planet) newNode(name string, nodeType pb.NodeType) (*Node, error) 
 
 	node.Transport = transport.NewClient(identity)
 
-	node.Provider, err = provider.NewProvider(node.Identity, node.Listener, grpcauth.NewAPIKeyInterceptor())
+	serverConfig := provider.ServerConfig{Address: node.Listener.Addr().String()}
+	opts, err := provider.NewServerOptions(node.Identity, serverConfig)
+	if err != nil {
+		return nil, err
+	}
+	node.Provider, err = provider.NewProvider(opts, node.Listener, grpcauth.NewAPIKeyInterceptor())
 	if err != nil {
 		return nil, utils.CombineErrors(err, listener.Close())
 	}

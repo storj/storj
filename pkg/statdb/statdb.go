@@ -36,7 +36,8 @@ type StatDB struct {
 func NewStatDB(driver, source string, log *zap.Logger) (*StatDB, error) {
 	db, err := dbx.Open(driver, source)
 	if err != nil {
-		return nil, err
+		return nil, Error.New("failed opening database %q, %q: %v",
+			driver, source, err)
 	}
 
 	err = migrate.Create("statdb", db)
@@ -176,8 +177,8 @@ func (s *StatDB) findInvalidNodesQuery(nodeIds storj.NodeIDList, auditSuccess, u
 	}
 	args = append(args, auditSuccess, uptime)
 
-	rows, err := s.DB.Query(`SELECT nodes.id, nodes.total_audit_count, 
-		nodes.total_uptime_count, nodes.audit_success_ratio, 
+	rows, err := s.DB.Query(`SELECT nodes.id, nodes.total_audit_count,
+		nodes.total_uptime_count, nodes.audit_success_ratio,
 		nodes.uptime_ratio
 		FROM nodes
 		WHERE nodes.id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)

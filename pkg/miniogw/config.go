@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/buckets"
-	"storj.io/storj/pkg/storage/ec"
+	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
@@ -106,7 +106,7 @@ func (c Config) Run(ctx context.Context) (err error) {
 	}
 
 	minio.Main([]string{"storj", "gateway", "storj",
-		"--address", c.Identity.Address, "--config-dir", c.Minio.Dir, "--quiet"})
+		"--address", c.Identity.Server.Address, "--config-dir", c.Minio.Dir, "--quiet"})
 	return Error.New("unexpected minio exit")
 }
 
