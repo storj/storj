@@ -14,3 +14,15 @@ CREATE TABLE irreparabledbs (
 	repair_attempt_count INTEGER NOT NULL,
 	PRIMARY KEY ( segmentpath )
 );
+CREATE TABLE nodes (
+	id BLOB NOT NULL,
+	audit_success_count INTEGER NOT NULL,
+	total_audit_count INTEGER NOT NULL,
+	audit_success_ratio REAL NOT NULL,
+	uptime_success_count INTEGER NOT NULL,
+	total_uptime_count INTEGER NOT NULL,
+	uptime_ratio REAL NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);

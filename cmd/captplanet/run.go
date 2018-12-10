@@ -30,7 +30,6 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/satellite/satelliteweb"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -41,15 +40,15 @@ const (
 
 // Satellite is for configuring client
 type Satellite struct {
-	Identity    provider.IdentityConfig
-	Kademlia    kademlia.Config
-	PointerDB   pointerdb.Config
-	Overlay     overlay.Config
-	Inspector   inspector.Config
-	Checker     checker.Config
-	Repairer    repairer.Config
-	Audit       audit.Config
-	StatDB      statdb.Config
+	Identity  provider.IdentityConfig
+	Kademlia  kademlia.Config
+	PointerDB pointerdb.Config
+	Overlay   overlay.Config
+	Inspector inspector.Config
+	Checker   checker.Config
+	Repairer  repairer.Config
+	Audit     audit.Config
+	//StatDB      statdb.Config
 	BwAgreement bwagreement.Config
 	Web         satelliteweb.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`

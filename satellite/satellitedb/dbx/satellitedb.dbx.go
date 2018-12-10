@@ -19,7 +19,11 @@ import (
 
 	"github.com/lib/pq"
 
+<<<<<<< HEAD
 	"math/rand"
+=======
+	"github.com/mattn/go-sqlite3"
+>>>>>>> statdb refactor compiles
 )
 
 // Prevent conditional imports from causing build failures
@@ -310,6 +314,17 @@ CREATE TABLE timestamps (
 	name text NOT NULL,
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
+CREATE TABLE nodes (
+	id bytea NOT NULL,
+	audit_success_count bigint NOT NULL,
+	total_audit_count bigint NOT NULL,
+	audit_success_ratio double precision NOT NULL,
+	uptime_success_count bigint NOT NULL,
+	total_uptime_count bigint NOT NULL,
+	uptime_ratio double precision NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
 );`
 }
 
@@ -388,6 +403,7 @@ CREATE TABLE irreparabledbs (
 	repair_attempt_count INTEGER NOT NULL,
 	PRIMARY KEY ( segmentpath )
 );
+<<<<<<< HEAD
 CREATE TABLE raws (
 	id INTEGER NOT NULL,
 	node_id TEXT NOT NULL,
@@ -412,6 +428,19 @@ CREATE TABLE timestamps (
 	name TEXT NOT NULL,
 	value TIMESTAMP NOT NULL,
 	PRIMARY KEY ( name )
+=======
+CREATE TABLE nodes (
+	id BLOB NOT NULL,
+	audit_success_count INTEGER NOT NULL,
+	total_audit_count INTEGER NOT NULL,
+	audit_success_ratio REAL NOT NULL,
+	uptime_success_count INTEGER NOT NULL,
+	total_uptime_count INTEGER NOT NULL,
+	uptime_ratio REAL NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+>>>>>>> statdb refactor compiles
 );`
 }
 
@@ -655,6 +684,7 @@ func (f Irreparabledb_RepairAttemptCount_Field) value() interface{} {
 
 func (Irreparabledb_RepairAttemptCount_Field) _Column() string { return "repair_attempt_count" }
 
+<<<<<<< HEAD
 type Raw struct {
 	Id              int64
 	NodeId          string
@@ -720,11 +750,48 @@ func Raw_IntervalEndTime(v time.Time) Raw_IntervalEndTime_Field {
 
 func (f Raw_IntervalEndTime_Field) value() interface{} {
 	if !f._set || f._null {
+=======
+type Node struct {
+	Id                 []byte
+	AuditSuccessCount  int64
+	TotalAuditCount    int64
+	AuditSuccessRatio  float64
+	UptimeSuccessCount int64
+	TotalUptimeCount   int64
+	UptimeRatio        float64
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
+func (Node) _Table() string { return "nodes" }
+
+type Node_Update_Fields struct {
+	AuditSuccessCount  Node_AuditSuccessCount_Field
+	TotalAuditCount    Node_TotalAuditCount_Field
+	AuditSuccessRatio  Node_AuditSuccessRatio_Field
+	UptimeSuccessCount Node_UptimeSuccessCount_Field
+	TotalUptimeCount   Node_TotalUptimeCount_Field
+	UptimeRatio        Node_UptimeRatio_Field
+}
+
+type Node_Id_Field struct {
+	_set   bool
+	_value []byte
+}
+
+func Node_Id(v []byte) Node_Id_Field {
+	return Node_Id_Field{_set: true, _value: v}
+}
+
+func (f Node_Id_Field) value() interface{} {
+	if !f._set {
+>>>>>>> statdb refactor compiles
 		return nil
 	}
 	return f._value
 }
 
+<<<<<<< HEAD
 func (Raw_IntervalEndTime_Field) _Column() string { return "interval_end_time" }
 
 type Raw_DataTotal_Field struct {
@@ -777,11 +844,27 @@ func Raw_CreatedAt(v time.Time) Raw_CreatedAt_Field {
 
 func (f Raw_CreatedAt_Field) value() interface{} {
 	if !f._set || f._null {
+=======
+func (Node_Id_Field) _Column() string { return "id" }
+
+type Node_AuditSuccessCount_Field struct {
+	_set   bool
+	_value int64
+}
+
+func Node_AuditSuccessCount(v int64) Node_AuditSuccessCount_Field {
+	return Node_AuditSuccessCount_Field{_set: true, _value: v}
+}
+
+func (f Node_AuditSuccessCount_Field) value() interface{} {
+	if !f._set {
+>>>>>>> statdb refactor compiles
 		return nil
 	}
 	return f._value
 }
 
+<<<<<<< HEAD
 func (Raw_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Raw_UpdatedAt_Field struct {
@@ -830,11 +913,27 @@ func Rollup_Id(v int64) Rollup_Id_Field {
 
 func (f Rollup_Id_Field) value() interface{} {
 	if !f._set || f._null {
+=======
+func (Node_AuditSuccessCount_Field) _Column() string { return "audit_success_count" }
+
+type Node_TotalAuditCount_Field struct {
+	_set   bool
+	_value int64
+}
+
+func Node_TotalAuditCount(v int64) Node_TotalAuditCount_Field {
+	return Node_TotalAuditCount_Field{_set: true, _value: v}
+}
+
+func (f Node_TotalAuditCount_Field) value() interface{} {
+	if !f._set {
+>>>>>>> statdb refactor compiles
 		return nil
 	}
 	return f._value
 }
 
+<<<<<<< HEAD
 func (Rollup_Id_Field) _Column() string { return "id" }
 
 type Rollup_NodeId_Field struct {
@@ -849,11 +948,27 @@ func Rollup_NodeId(v string) Rollup_NodeId_Field {
 
 func (f Rollup_NodeId_Field) value() interface{} {
 	if !f._set || f._null {
+=======
+func (Node_TotalAuditCount_Field) _Column() string { return "total_audit_count" }
+
+type Node_AuditSuccessRatio_Field struct {
+	_set   bool
+	_value float64
+}
+
+func Node_AuditSuccessRatio(v float64) Node_AuditSuccessRatio_Field {
+	return Node_AuditSuccessRatio_Field{_set: true, _value: v}
+}
+
+func (f Node_AuditSuccessRatio_Field) value() interface{} {
+	if !f._set {
+>>>>>>> statdb refactor compiles
 		return nil
 	}
 	return f._value
 }
 
+<<<<<<< HEAD
 func (Rollup_NodeId_Field) _Column() string { return "node_id" }
 
 type Rollup_StartTime_Field struct {
@@ -887,11 +1002,27 @@ func Rollup_Interval(v int64) Rollup_Interval_Field {
 
 func (f Rollup_Interval_Field) value() interface{} {
 	if !f._set || f._null {
+=======
+func (Node_AuditSuccessRatio_Field) _Column() string { return "audit_success_ratio" }
+
+type Node_UptimeSuccessCount_Field struct {
+	_set   bool
+	_value int64
+}
+
+func Node_UptimeSuccessCount(v int64) Node_UptimeSuccessCount_Field {
+	return Node_UptimeSuccessCount_Field{_set: true, _value: v}
+}
+
+func (f Node_UptimeSuccessCount_Field) value() interface{} {
+	if !f._set {
+>>>>>>> statdb refactor compiles
 		return nil
 	}
 	return f._value
 }
 
+<<<<<<< HEAD
 func (Rollup_Interval_Field) _Column() string { return "interval" }
 
 type Rollup_DataType_Field struct {
@@ -906,11 +1037,27 @@ func Rollup_DataType(v int) Rollup_DataType_Field {
 
 func (f Rollup_DataType_Field) value() interface{} {
 	if !f._set || f._null {
+=======
+func (Node_UptimeSuccessCount_Field) _Column() string { return "uptime_success_count" }
+
+type Node_TotalUptimeCount_Field struct {
+	_set   bool
+	_value int64
+}
+
+func Node_TotalUptimeCount(v int64) Node_TotalUptimeCount_Field {
+	return Node_TotalUptimeCount_Field{_set: true, _value: v}
+}
+
+func (f Node_TotalUptimeCount_Field) value() interface{} {
+	if !f._set {
+>>>>>>> statdb refactor compiles
 		return nil
 	}
 	return f._value
 }
 
+<<<<<<< HEAD
 func (Rollup_DataType_Field) _Column() string { return "data_type" }
 
 type Rollup_CreatedAt_Field struct {
@@ -925,11 +1072,27 @@ func Rollup_CreatedAt(v time.Time) Rollup_CreatedAt_Field {
 
 func (f Rollup_CreatedAt_Field) value() interface{} {
 	if !f._set || f._null {
+=======
+func (Node_TotalUptimeCount_Field) _Column() string { return "total_uptime_count" }
+
+type Node_UptimeRatio_Field struct {
+	_set   bool
+	_value float64
+}
+
+func Node_UptimeRatio(v float64) Node_UptimeRatio_Field {
+	return Node_UptimeRatio_Field{_set: true, _value: v}
+}
+
+func (f Node_UptimeRatio_Field) value() interface{} {
+	if !f._set {
+>>>>>>> statdb refactor compiles
 		return nil
 	}
 	return f._value
 }
 
+<<<<<<< HEAD
 func (Rollup_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Rollup_UpdatedAt_Field struct {
@@ -974,11 +1137,27 @@ func Timestamps_Name(v string) Timestamps_Name_Field {
 
 func (f Timestamps_Name_Field) value() interface{} {
 	if !f._set || f._null {
+=======
+func (Node_UptimeRatio_Field) _Column() string { return "uptime_ratio" }
+
+type Node_CreatedAt_Field struct {
+	_set   bool
+	_value time.Time
+}
+
+func Node_CreatedAt(v time.Time) Node_CreatedAt_Field {
+	return Node_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Node_CreatedAt_Field) value() interface{} {
+	if !f._set {
+>>>>>>> statdb refactor compiles
 		return nil
 	}
 	return f._value
 }
 
+<<<<<<< HEAD
 func (Timestamps_Name_Field) _Column() string { return "name" }
 
 type Timestamps_Value_Field struct {
@@ -993,12 +1172,31 @@ func Timestamps_Value(v time.Time) Timestamps_Value_Field {
 
 func (f Timestamps_Value_Field) value() interface{} {
 	if !f._set || f._null {
+=======
+func (Node_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Node_UpdatedAt_Field struct {
+	_set   bool
+	_value time.Time
+}
+
+func Node_UpdatedAt(v time.Time) Node_UpdatedAt_Field {
+	return Node_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f Node_UpdatedAt_Field) value() interface{} {
+	if !f._set {
+>>>>>>> statdb refactor compiles
 		return nil
 	}
 	return f._value
 }
 
+<<<<<<< HEAD
 func (Timestamps_Value_Field) _Column() string { return "value" }
+=======
+func (Node_UpdatedAt_Field) _Column() string { return "updated_at" }
+>>>>>>> statdb refactor compiles
 
 func toUTC(t time.Time) time.Time {
 	return t.UTC()
@@ -1223,6 +1421,7 @@ func (obj *postgresImpl) Create_Irreparabledb(ctx context.Context,
 
 }
 
+<<<<<<< HEAD
 func (obj *postgresImpl) Create_Timestamps(ctx context.Context,
 	timestamps_name Timestamps_Name_Field,
 	timestamps_value Timestamps_Value_Field) (
@@ -1299,6 +1498,40 @@ func (obj *postgresImpl) Create_Raw(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return raw, nil
+=======
+func (obj *postgresImpl) Create_Node(ctx context.Context,
+	node_id Node_Id_Field,
+	node_audit_success_count Node_AuditSuccessCount_Field,
+	node_total_audit_count Node_TotalAuditCount_Field,
+	node_audit_success_ratio Node_AuditSuccessRatio_Field,
+	node_uptime_success_count Node_UptimeSuccessCount_Field,
+	node_total_uptime_count Node_TotalUptimeCount_Field,
+	node_uptime_ratio Node_UptimeRatio_Field) (
+	node *Node, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := node_id.value()
+	__audit_success_count_val := node_audit_success_count.value()
+	__total_audit_count_val := node_total_audit_count.value()
+	__audit_success_ratio_val := node_audit_success_ratio.value()
+	__uptime_success_count_val := node_uptime_success_count.value()
+	__total_uptime_count_val := node_total_uptime_count.value()
+	__uptime_ratio_val := node_uptime_ratio.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val)
+
+	node = &Node{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node, nil
+>>>>>>> statdb refactor compiles
 
 }
 
@@ -1444,6 +1677,7 @@ func (obj *postgresImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 
 }
 
+<<<<<<< HEAD
 func (obj *postgresImpl) Find_Timestamps_Value_By_Name(ctx context.Context,
 	timestamps_name Timestamps_Name_Field) (
 	row *Value_Row, err error) {
@@ -1452,10 +1686,21 @@ func (obj *postgresImpl) Find_Timestamps_Value_By_Name(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, timestamps_name.value())
+=======
+func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	node *Node, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at FROM nodes WHERE nodes.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_id.value())
+>>>>>>> statdb refactor compiles
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
+<<<<<<< HEAD
 	row = &Value_Row{}
 	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.Value)
 	if err == sql.ErrNoRows {
@@ -1573,6 +1818,14 @@ func (obj *postgresImpl) All_Raw_By_NodeId(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return rows, nil
+=======
+	node = &Node{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node, nil
+>>>>>>> statdb refactor compiles
 
 }
 
@@ -1631,6 +1884,7 @@ func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context
 	return irreparabledb, nil
 }
 
+<<<<<<< HEAD
 func (obj *postgresImpl) Update_Timestamps_By_Name(ctx context.Context,
 	timestamps_name Timestamps_Name_Field,
 	update Timestamps_Update_Fields) (
@@ -1638,11 +1892,21 @@ func (obj *postgresImpl) Update_Timestamps_By_Name(ctx context.Context,
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE timestamps SET "), __sets, __sqlbundle_Literal(" WHERE timestamps.name = ? RETURNING timestamps.name, timestamps.value")}}
+=======
+func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	node *Node, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at")}}
+>>>>>>> statdb refactor compiles
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
 	var __args []interface{}
 
+<<<<<<< HEAD
 	if update.Value._set {
 		__values = append(__values, update.Value.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("value = ?"))
@@ -1718,13 +1982,48 @@ func (obj *postgresImpl) Update_Raw_By_Id(ctx context.Context,
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
 	var __args []interface{}
+=======
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	}
+
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	}
+
+	if update.AuditSuccessRatio._set {
+		__values = append(__values, update.AuditSuccessRatio.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_ratio = ?"))
+	}
+
+	if update.UptimeSuccessCount._set {
+		__values = append(__values, update.UptimeSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_success_count = ?"))
+	}
+
+	if update.TotalUptimeCount._set {
+		__values = append(__values, update.TotalUptimeCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_uptime_count = ?"))
+	}
+
+	if update.UptimeRatio._set {
+		__values = append(__values, update.UptimeRatio.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_ratio = ?"))
+	}
+>>>>>>> statdb refactor compiles
 
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
 	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
 
+<<<<<<< HEAD
 	__args = append(__args, raw_id.value())
+=======
+	__args = append(__args, node_id.value())
+>>>>>>> statdb refactor compiles
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -1732,15 +2031,24 @@ func (obj *postgresImpl) Update_Raw_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
+<<<<<<< HEAD
 	raw = &Raw{}
 	err = obj.driver.QueryRow(__stmt, __values...).Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+=======
+	node = &Node{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt)
+>>>>>>> statdb refactor compiles
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
+<<<<<<< HEAD
 	return raw, nil
+=======
+	return node, nil
+>>>>>>> statdb refactor compiles
 }
 
 func (obj *postgresImpl) Delete_Bwagreement_By_Signature(ctx context.Context,
@@ -1795,6 +2103,7 @@ func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context
 
 }
 
+<<<<<<< HEAD
 func (obj *postgresImpl) Delete_Rollup_By_Id(ctx context.Context,
 	rollup_id Rollup_Id_Field) (
 	deleted bool, err error) {
@@ -1829,6 +2138,16 @@ func (obj *postgresImpl) Delete_Raw_By_Id(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, raw_id.value())
+=======
+func (obj *postgresImpl) Delete_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM nodes WHERE nodes.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_id.value())
+>>>>>>> statdb refactor compiles
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -1860,6 +2179,7 @@ func (impl postgresImpl) isConstraintError(err error) (
 func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
+<<<<<<< HEAD
 	__res, err = obj.driver.Exec("DELETE FROM timestamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -1881,6 +2201,9 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM raws;")
+=======
+	__res, err = obj.driver.Exec("DELETE FROM nodes;")
+>>>>>>> statdb refactor compiles
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -1972,6 +2295,7 @@ func (obj *sqlite3Impl) Create_Irreparabledb(ctx context.Context,
 
 }
 
+<<<<<<< HEAD
 func (obj *sqlite3Impl) Create_Timestamps(ctx context.Context,
 	timestamps_name Timestamps_Name_Field,
 	timestamps_value Timestamps_Value_Field) (
@@ -2049,6 +2373,35 @@ func (obj *sqlite3Impl) Create_Raw(ctx context.Context,
 	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val)
 
 	__res, err := obj.driver.Exec(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val)
+=======
+func (obj *sqlite3Impl) Create_Node(ctx context.Context,
+	node_id Node_Id_Field,
+	node_audit_success_count Node_AuditSuccessCount_Field,
+	node_total_audit_count Node_TotalAuditCount_Field,
+	node_audit_success_ratio Node_AuditSuccessRatio_Field,
+	node_uptime_success_count Node_UptimeSuccessCount_Field,
+	node_total_uptime_count Node_TotalUptimeCount_Field,
+	node_uptime_ratio Node_UptimeRatio_Field) (
+	node *Node, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := node_id.value()
+	__audit_success_count_val := node_audit_success_count.value()
+	__total_audit_count_val := node_total_audit_count.value()
+	__audit_success_ratio_val := node_audit_success_ratio.value()
+	__uptime_success_count_val := node_uptime_success_count.value()
+	__total_uptime_count_val := node_total_uptime_count.value()
+	__uptime_ratio_val := node_uptime_ratio.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val)
+>>>>>>> statdb refactor compiles
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2056,7 +2409,11 @@ func (obj *sqlite3Impl) Create_Raw(ctx context.Context,
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
+<<<<<<< HEAD
 	return obj.getLastRaw(ctx, __pk)
+=======
+	return obj.getLastNode(ctx, __pk)
+>>>>>>> statdb refactor compiles
 
 }
 
@@ -2495,10 +2852,38 @@ func (obj *sqlite3Impl) Update_Rollup_By_Id(ctx context.Context,
 	return rollup, nil
 }
 
+<<<<<<< HEAD
 func (obj *sqlite3Impl) Update_Raw_By_Id(ctx context.Context,
 	raw_id Raw_Id_Field,
 	update Raw_Update_Fields) (
 	raw *Raw, err error) {
+=======
+func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	node *Node, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at FROM nodes WHERE nodes.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node = &Node{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node, nil
+
+}
+
+func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
+	update Irreparabledb_Update_Fields) (
+	irreparabledb *Irreparabledb, err error) {
+>>>>>>> statdb refactor compiles
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE raws SET "), __sets, __sqlbundle_Literal(" WHERE raws.id = ?")}}
@@ -2539,6 +2924,82 @@ func (obj *sqlite3Impl) Update_Raw_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return raw, nil
+}
+
+func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	node *Node, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	}
+
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	}
+
+	if update.AuditSuccessRatio._set {
+		__values = append(__values, update.AuditSuccessRatio.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_ratio = ?"))
+	}
+
+	if update.UptimeSuccessCount._set {
+		__values = append(__values, update.UptimeSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_success_count = ?"))
+	}
+
+	if update.TotalUptimeCount._set {
+		__values = append(__values, update.TotalUptimeCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_uptime_count = ?"))
+	}
+
+	if update.UptimeRatio._set {
+		__values = append(__values, update.UptimeRatio.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_ratio = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node = &Node{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at FROM nodes WHERE nodes.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node, nil
 }
 
 func (obj *sqlite3Impl) Delete_Bwagreement_By_Signature(ctx context.Context,
@@ -2593,6 +3054,7 @@ func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 
 }
 
+<<<<<<< HEAD
 func (obj *sqlite3Impl) Delete_Rollup_By_Id(ctx context.Context,
 	rollup_id Rollup_Id_Field) (
 	deleted bool, err error) {
@@ -2627,6 +3089,16 @@ func (obj *sqlite3Impl) Delete_Raw_By_Id(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, raw_id.value())
+=======
+func (obj *sqlite3Impl) Delete_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM nodes WHERE nodes.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_id.value())
+>>>>>>> statdb refactor compiles
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -2681,15 +3153,24 @@ func (obj *sqlite3Impl) getLastIrreparabledb(ctx context.Context,
 
 }
 
+<<<<<<< HEAD
 func (obj *sqlite3Impl) getLastTimestamps(ctx context.Context,
 	pk int64) (
 	timestamps *Timestamps, err error) {
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT timestamps.name, timestamps.value FROM timestamps WHERE _rowid_ = ?")
+=======
+func (obj *sqlite3Impl) getLastNode(ctx context.Context,
+	pk int64) (
+	node *Node, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at FROM nodes WHERE _rowid_ = ?")
+>>>>>>> statdb refactor compiles
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
+<<<<<<< HEAD
 	timestamps = &Timestamps{}
 	err = obj.driver.QueryRow(__stmt, pk).Scan(&timestamps.Name, &timestamps.Value)
 	if err != nil {
@@ -2732,6 +3213,14 @@ func (obj *sqlite3Impl) getLastRaw(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return raw, nil
+=======
+	node = &Node{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node, nil
+>>>>>>> statdb refactor compiles
 
 }
 
@@ -2753,6 +3242,7 @@ func (impl sqlite3Impl) isConstraintError(err error) (
 func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
+<<<<<<< HEAD
 	__res, err = obj.driver.Exec("DELETE FROM timestamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -2774,6 +3264,9 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM raws;")
+=======
+	__res, err = obj.driver.Exec("DELETE FROM nodes;")
+>>>>>>> statdb refactor compiles
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -2916,16 +3409,29 @@ func (rx *Rx) Create_Irreparabledb(ctx context.Context,
 
 }
 
+<<<<<<< HEAD
 func (rx *Rx) Create_Raw(ctx context.Context,
 	raw_node_id Raw_NodeId_Field,
 	raw_interval_end_time Raw_IntervalEndTime_Field,
 	raw_data_total Raw_DataTotal_Field,
 	raw_data_type Raw_DataType_Field) (
 	raw *Raw, err error) {
+=======
+func (rx *Rx) Create_Node(ctx context.Context,
+	node_id Node_Id_Field,
+	node_audit_success_count Node_AuditSuccessCount_Field,
+	node_total_audit_count Node_TotalAuditCount_Field,
+	node_audit_success_ratio Node_AuditSuccessRatio_Field,
+	node_uptime_success_count Node_UptimeSuccessCount_Field,
+	node_total_uptime_count Node_TotalUptimeCount_Field,
+	node_uptime_ratio Node_UptimeRatio_Field) (
+	node *Node, err error) {
+>>>>>>> statdb refactor compiles
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
+<<<<<<< HEAD
 	return tx.Create_Raw(ctx, raw_node_id, raw_interval_end_time, raw_data_total, raw_data_type)
 
 }
@@ -2953,6 +3459,9 @@ func (rx *Rx) Create_Timestamps(ctx context.Context,
 		return
 	}
 	return tx.Create_Timestamps(ctx, timestamps_name, timestamps_value)
+=======
+	return tx.Create_Node(ctx, node_id, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio)
+>>>>>>> statdb refactor compiles
 
 }
 
@@ -2976,13 +3485,19 @@ func (rx *Rx) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	return tx.Delete_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath)
 }
 
+<<<<<<< HEAD
 func (rx *Rx) Delete_Raw_By_Id(ctx context.Context,
 	raw_id Raw_Id_Field) (
+=======
+func (rx *Rx) Delete_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+>>>>>>> statdb refactor compiles
 	deleted bool, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
+<<<<<<< HEAD
 	return tx.Delete_Raw_By_Id(ctx, raw_id)
 }
 
@@ -3004,6 +3519,9 @@ func (rx *Rx) Find_Timestamps_Value_By_Name(ctx context.Context,
 		return
 	}
 	return tx.Find_Timestamps_Value_By_Name(ctx, timestamps_name)
+=======
+	return tx.Delete_Node_By_Id(ctx, node_id)
+>>>>>>> statdb refactor compiles
 }
 
 func (rx *Rx) Get_Bwagreement_By_Signature(ctx context.Context,
@@ -3026,13 +3544,20 @@ func (rx *Rx) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 	return tx.Get_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath)
 }
 
+<<<<<<< HEAD
 func (rx *Rx) Get_Raw_By_Id(ctx context.Context,
 	raw_id Raw_Id_Field) (
 	raw *Raw, err error) {
+=======
+func (rx *Rx) Get_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	node *Node, err error) {
+>>>>>>> statdb refactor compiles
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
+<<<<<<< HEAD
 	return tx.Get_Raw_By_Id(ctx, raw_id)
 }
 
@@ -3044,6 +3569,9 @@ func (rx *Rx) Get_Rollup_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_Rollup_By_Id(ctx, rollup_id)
+=======
+	return tx.Get_Node_By_Id(ctx, node_id)
+>>>>>>> statdb refactor compiles
 }
 
 func (rx *Rx) Limited_Bwagreement(ctx context.Context,
@@ -3067,14 +3595,22 @@ func (rx *Rx) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	return tx.Update_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath, update)
 }
 
+<<<<<<< HEAD
 func (rx *Rx) Update_Raw_By_Id(ctx context.Context,
 	raw_id Raw_Id_Field,
 	update Raw_Update_Fields) (
 	raw *Raw, err error) {
+=======
+func (rx *Rx) Update_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	node *Node, err error) {
+>>>>>>> statdb refactor compiles
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
+<<<<<<< HEAD
 	return tx.Update_Raw_By_Id(ctx, raw_id, update)
 }
 
@@ -3098,6 +3634,9 @@ func (rx *Rx) Update_Timestamps_By_Name(ctx context.Context,
 		return
 	}
 	return tx.Update_Timestamps_By_Name(ctx, timestamps_name, update)
+=======
+	return tx.Update_Node_By_Id(ctx, node_id, update)
+>>>>>>> statdb refactor compiles
 }
 
 type Methods interface {
@@ -3129,6 +3668,7 @@ type Methods interface {
 		irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
 		irreparabledb *Irreparabledb, err error)
 
+<<<<<<< HEAD
 	Create_Raw(ctx context.Context,
 		raw_node_id Raw_NodeId_Field,
 		raw_interval_end_time Raw_IntervalEndTime_Field,
@@ -3147,6 +3687,17 @@ type Methods interface {
 		timestamps_name Timestamps_Name_Field,
 		timestamps_value Timestamps_Value_Field) (
 		timestamps *Timestamps, err error)
+=======
+	Create_Node(ctx context.Context,
+		node_id Node_Id_Field,
+		node_audit_success_count Node_AuditSuccessCount_Field,
+		node_total_audit_count Node_TotalAuditCount_Field,
+		node_audit_success_ratio Node_AuditSuccessRatio_Field,
+		node_uptime_success_count Node_UptimeSuccessCount_Field,
+		node_total_uptime_count Node_TotalUptimeCount_Field,
+		node_uptime_ratio Node_UptimeRatio_Field) (
+		node *Node, err error)
+>>>>>>> statdb refactor compiles
 
 	Delete_Bwagreement_By_Signature(ctx context.Context,
 		bwagreement_signature Bwagreement_Signature_Field) (
@@ -3156,6 +3707,7 @@ type Methods interface {
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 		deleted bool, err error)
 
+<<<<<<< HEAD
 	Delete_Raw_By_Id(ctx context.Context,
 		raw_id Raw_Id_Field) (
 		deleted bool, err error)
@@ -3168,6 +3720,12 @@ type Methods interface {
 		timestamps_name Timestamps_Name_Field) (
 		row *Value_Row, err error)
 
+=======
+	Delete_Node_By_Id(ctx context.Context,
+		node_id Node_Id_Field) (
+		deleted bool, err error)
+
+>>>>>>> statdb refactor compiles
 	Get_Bwagreement_By_Signature(ctx context.Context,
 		bwagreement_signature Bwagreement_Signature_Field) (
 		bwagreement *Bwagreement, err error)
@@ -3176,6 +3734,7 @@ type Methods interface {
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 		irreparabledb *Irreparabledb, err error)
 
+<<<<<<< HEAD
 	Get_Raw_By_Id(ctx context.Context,
 		raw_id Raw_Id_Field) (
 		raw *Raw, err error)
@@ -3183,6 +3742,11 @@ type Methods interface {
 	Get_Rollup_By_Id(ctx context.Context,
 		rollup_id Rollup_Id_Field) (
 		rollup *Rollup, err error)
+=======
+	Get_Node_By_Id(ctx context.Context,
+		node_id Node_Id_Field) (
+		node *Node, err error)
+>>>>>>> statdb refactor compiles
 
 	Limited_Bwagreement(ctx context.Context,
 		limit int, offset int64) (
@@ -3193,6 +3757,7 @@ type Methods interface {
 		update Irreparabledb_Update_Fields) (
 		irreparabledb *Irreparabledb, err error)
 
+<<<<<<< HEAD
 	Update_Raw_By_Id(ctx context.Context,
 		raw_id Raw_Id_Field,
 		update Raw_Update_Fields) (
@@ -3207,6 +3772,12 @@ type Methods interface {
 		timestamps_name Timestamps_Name_Field,
 		update Timestamps_Update_Fields) (
 		timestamps *Timestamps, err error)
+=======
+	Update_Node_By_Id(ctx context.Context,
+		node_id Node_Id_Field,
+		update Node_Update_Fields) (
+		node *Node, err error)
+>>>>>>> statdb refactor compiles
 }
 
 type TxMethods interface {

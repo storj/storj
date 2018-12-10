@@ -30,7 +30,6 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storage/redis"
@@ -63,11 +62,11 @@ var (
 	}
 
 	runCfg struct {
-		Identity    provider.IdentityConfig
-		Kademlia    kademlia.Config
-		PointerDB   pointerdb.Config
-		Overlay     overlay.Config
-		StatDB      statdb.Config
+		Identity  provider.IdentityConfig
+		Kademlia  kademlia.Config
+		PointerDB pointerdb.Config
+		Overlay   overlay.Config
+		//StatDB      statdb.Config
 		Checker     checker.Config
 		Repairer    repairer.Config
 		Audit       audit.Config

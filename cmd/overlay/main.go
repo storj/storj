@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"io/ioutil"
 
@@ -48,7 +49,7 @@ func init() {
 }
 
 func cmdList(cmd *cobra.Command, args []string) (err error) {
-	c, err := cacheCfg.open()
+	c, err := cacheCfg.open(context.Background())
 	if err != nil {
 		return err
 	}
@@ -88,7 +89,7 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 		return errs.Wrap(err)
 	}
 
-	c, err := cacheCfg.open()
+	c, err := cacheCfg.open(context.Background())
 	if err != nil {
 		return err
 	}
