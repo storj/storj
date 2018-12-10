@@ -61,3 +61,22 @@ func countLetters(s string) int {
 
 	return total
 }
+
+// validatePassword validates password
+func validatePassword(pass string) error {
+	var errs validationErrors
+
+	if len(pass) < passMinLength {
+		errs.Add("password can't be less than %d characters", passMinLength)
+	}
+
+	if countNumerics(pass) < passMinNumberCount {
+		errs.Add("password should contain at least %d digits", passMinNumberCount)
+	}
+
+	if countLetters(pass) < passMinAZCount {
+		errs.Add("password should contain at least %d alphabetic characters", passMinAZCount)
+	}
+
+	return errs.Combine()
+}

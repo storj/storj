@@ -32,9 +32,8 @@ CREATE TABLE projects (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE project_members (
-	id BLOB NOT NULL,
 	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( member_id, project_id )
 );

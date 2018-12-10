@@ -5,9 +5,10 @@ package satellite
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/subtle"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -16,6 +17,7 @@ import (
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/satellite/satelliteauth"
+	"storj.io/storj/pkg/utils"
 )
 
 // Service is handling accounts related logic
@@ -44,70 +46,37 @@ func NewService(log *zap.Logger, signer Signer, store DB) (*Service, error) {
 }
 
 // CreateUser gets password hash value and creates new User
-func (s *Service) CreateUser(ctx context.Context, userInfo UserInfo, companyInfo CompanyInfo) (*User, error) {
-	passwordHash := sha256.Sum256([]byte(userInfo.Password))
-
-	if err := userInfo.IsValid(); err != nil {
+func (s *Service) CreateUser(ctx context.Context, user CreateUser) (*User, error) {
+	if err := user.IsValid(); err != nil {
 		return nil, err
 	}
 
-	//TODO(yar): separate creation of user and company
-	user, err := s.store.Users().Insert(ctx, &User{
-		Email:        userInfo.Email,
-		FirstName:    userInfo.FirstName,
-		LastName:     userInfo.LastName,
-		PasswordHash: passwordHash[:],
-	})
-
+	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
-
-	_, err = s.store.Companies().Insert(ctx, &Company{
-		UserID:     user.ID,
-		Name:       companyInfo.Name,
-		Address:    companyInfo.Address,
-		Country:    companyInfo.Country,
-		City:       companyInfo.City,
-		State:      companyInfo.State,
-		PostalCode: companyInfo.PostalCode,
-	})
-
-	if err != nil {
-		s.log.Error(err.Error())
-	}
-
-	return user, nil
-}
-
-// CreateCompany creates Company for authorized User
-func (s *Service) CreateCompany(ctx context.Context, info CompanyInfo) (*Company, error) {
-	auth, err := GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.store.Companies().Insert(ctx, &Company{
-		UserID:     auth.User.ID,
-		Name:       info.Name,
-		Address:    info.Address,
-		Country:    info.Country,
-		City:       info.City,
-		State:      info.State,
-		PostalCode: info.PostalCode,
+	//passwordHash := sha256.Sum256()
+	return s.store.Users().Insert(ctx, &User{
+		Email:        user.Email,
+		FirstName:    user.FirstName,
+		LastName:     user.LastName,
+		PasswordHash: hash,
 	})
 }
 
 // Token authenticates User by credentials and returns auth token
 func (s *Service) Token(ctx context.Context, email, password string) (string, error) {
-	passwordHash := sha256.Sum256([]byte(password))
-
-	user, err := s.store.Users().GetByCredentials(ctx, passwordHash[:], email)
+	user, err := s.store.Users().GetByEmail(ctx, email)
 	if err != nil {
 		return "", err
 	}
 
-	//TODO: move expiration time to constants
+	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))
+	if err != nil {
+		return "", ErrUnauthorized.New("password is incorrect")
+	}
+
+	// TODO: move expiration time to constants
 	claims := satelliteauth.Claims{
 		ID:         user.ID,
 		Expiration: time.Now().Add(time.Minute * 15),
@@ -142,20 +111,43 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) e
 		return err
 	}
 
-	//TODO(yar): remove when validation is added
-	var passwordHash []byte
-	if info.Password != "" {
-		hash := sha256.Sum256([]byte(info.Password))
-		passwordHash = hash[:]
-	}
-
 	return s.store.Users().Update(ctx, &User{
 		ID:           id,
 		FirstName:    info.FirstName,
 		LastName:     info.LastName,
 		Email:        info.Email,
-		PasswordHash: passwordHash,
+		PasswordHash: nil,
 	})
+}
+
+// ChangeUserPassword updates password for a given user
+func (s *Service) ChangeUserPassword(ctx context.Context, id uuid.UUID, pass, newPass string) error {
+	_, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	user, err := s.store.Users().Get(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(pass))
+	if err != nil {
+		return ErrUnauthorized.New("origin password is incorrect")
+	}
+
+	if err := validatePassword(newPass); err != nil {
+		return err
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	user.PasswordHash = hash
+	return s.store.Users().Update(ctx, user)
 }
 
 // DeleteUser deletes User by id
@@ -166,6 +158,24 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return s.store.Users().Delete(ctx, id)
+}
+
+// CreateCompany creates Company for User with given id
+func (s *Service) CreateCompany(ctx context.Context, userID uuid.UUID, info CompanyInfo) (*Company, error) {
+	_, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.store.Companies().Insert(ctx, &Company{
+		UserID:     userID,
+		Name:       info.Name,
+		Address:    info.Address,
+		Country:    info.Country,
+		City:       info.City,
+		State:      info.State,
+		PostalCode: info.PostalCode,
+	})
 }
 
 // GetCompany returns Company by userID
@@ -235,18 +245,22 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 		TermsAccepted: 1, //TODO: get lat version of Term of Use
 	}
 
-	// For now we make this operations sequentially.
-	// But soon we will add functionality to be able to
-	// do any operations in transaction scope
-	prj, err := s.store.Projects().Insert(ctx, project)
+	transaction, err := s.store.BeginTx(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// Project owner is also a project member
-	_, err = s.store.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
+	prj, err := transaction.Projects().Insert(ctx, project)
+	if err != nil {
+		return nil, utils.CombineErrors(err, transaction.Rollback())
+	}
 
-	return prj, err
+	_, err = transaction.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
+	if err != nil {
+		return nil, utils.CombineErrors(err, transaction.Rollback())
+	}
+
+	return prj, transaction.Commit()
 }
 
 // DeleteProject is a method for deleting project by id
@@ -299,19 +313,17 @@ func (s *Service) DeleteProjectMember(ctx context.Context, projectID, userID uui
 		return err
 	}
 
-	// TODO: remove when appropriate method is added
-	projects, err := s.store.ProjectMembers().GetAll(ctx)
+	return s.store.ProjectMembers().Delete(ctx, userID, projectID)
+}
+
+// GetProjectMembers returns ProjectMembers for given Project
+func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID) ([]ProjectMember, error) {
+	_, err := GetAuth(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	for _, project := range projects {
-		if project.ProjectID == projectID && project.MemberID == userID {
-			return s.store.ProjectMembers().Delete(ctx, project.ID)
-		}
-	}
-
-	return errs.New("project with id %s doesn't have a member with id %s", projectID.String(), userID.String())
+	return s.store.ProjectMembers().GetByProjectID(ctx, projectID)
 }
 
 // Authorize validates token from context and returns authorized Authorization

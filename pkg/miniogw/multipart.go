@@ -21,6 +21,12 @@ import (
 func (layer *gatewayLayer) NewMultipartUpload(ctx context.Context, bucket, object string, metadata map[string]string) (uploadID string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// Check that the bucket exists
+	_, err = layer.gateway.metainfo.GetBucket(ctx, bucket)
+	if err != nil {
+		return "", convertError(err, bucket, "")
+	}
+
 	uploads := layer.gateway.multipart
 
 	upload, err := uploads.Create(bucket, object, metadata)
