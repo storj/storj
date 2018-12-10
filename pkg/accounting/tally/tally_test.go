@@ -13,18 +13,20 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	
 	"storj.io/storj/internal/identity"
 	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/accounting"
 	dbManager "storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/bwagreement/test"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/teststore"
+	"storj.io/storj/internal/testcontext"
 )
 
 var ctx = context.Background()
@@ -33,6 +35,18 @@ func TestIdentifyActiveNodes(t *testing.T) {
 	//TODO
 }
 func TestCategorizeNodes(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 30, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	kad := planet.Satellites[0].Kademlia
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 
@@ -53,7 +67,6 @@ func TestCategorizeNodes(t *testing.T) {
 		}
 	}
 	overlayServer := mocks.NewOverlay(nodes)
-	kad := &kademlia.Kademlia{}
 	limit := 0
 	interval := time.Second
 
@@ -64,7 +77,6 @@ func TestCategorizeNodes(t *testing.T) {
 	bwDb, err := dbManager.NewDBManager("sqlite3", "file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
 	defer func() { _ = accountingDb.Close() }()
-	//use testplanet
 	tally, err := newTally(ctx, logger, accountingDb, bwDb, pointerdb, overlayServer, kad, limit, interval)
 	assert.NoError(t, err)
 	var nodeData = make(map[string]int64)
@@ -82,10 +94,21 @@ func TestUpdateRawTable(t *testing.T) {
 }
 
 func TestQueryNoAgreements(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 30, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	kad := planet.Satellites[0].Kademlia
 	//get stuff we need
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
-	kad := &kademlia.Kademlia{}
 	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
 	defer func() { _ = accountingDb.Close() }()
@@ -100,10 +123,21 @@ func TestQueryNoAgreements(t *testing.T) {
 }
 
 func TestQueryWithBw(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 30, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	kad := planet.Satellites[0].Kademlia
 	//get stuff we need
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
-	kad := &kademlia.Kademlia{}
 	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
 	defer func() { _ = accountingDb.Close() }()

@@ -126,17 +126,16 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 
 func (t *tally) categorize(ctx context.Context, nodeIDs storj.NodeIDList, nodeData map[string]int64) (online []*pb.Node, err error) {
 	t.logger.Debug("entering categorize")
-
 	responses, err := t.overlay.BulkLookup(ctx, pb.NodeIDsToLookupRequests(nodeIDs))
 	if err != nil {
 		return []*pb.Node{}, err
 	}
 	nodes := pb.LookupResponsesToNodes(responses)
-	for _, n := range nodes {
+	for i, n := range nodes {
 		if n != nil {
 			online = append(online, n)
 		} else {
-			nodeData[n.Id.String()] = 0
+			nodeData[nodeIDs[i].String()] = 0
 		}
 	}
 	return online, nil
