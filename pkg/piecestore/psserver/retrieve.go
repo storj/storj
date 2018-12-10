@@ -48,7 +48,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return RetrieveError.New("PieceStore message is nil")
 	}
 
-	zap.S().Infof("Retrieving %s...", pd.GetId())
+	zap.S().Infof("Retrieving piece %s with offset %d and length %d.", pd.GetId(), pd.GetOffset(), pd.GetPieceSize())
 
 	id, err := getNamespacedPieceID([]byte(pd.GetId()), getNamespace(authorization))
 	if err != nil {
