@@ -81,7 +81,7 @@ func (db *Database) Close() error {
 	return db.db.Close()
 }
 
-// BeginTransaction is a method for opening transaction
+// BeginTx is a method for opening transaction
 func (db *Database) BeginTx(ctx context.Context) (satellite.DBTx, error) {
 	if db.db == nil {
 		return nil, errs.New("DB is not initialized!")
@@ -105,7 +105,7 @@ type DBTx struct {
 	*Database
 }
 
-// CommitTransaction is a method for committing and closing transaction
+// Commit is a method for committing and closing transaction
 func (db *DBTx) Commit() error {
 	if db.tx == nil {
 		return errs.New("begin transaction before commit it!")
@@ -114,7 +114,7 @@ func (db *DBTx) Commit() error {
 	return db.tx.Commit()
 }
 
-// RollbackTransaction is a method for rollback and closing transaction
+// Rollback is a method for rollback and closing transaction
 func (db *DBTx) Rollback() error {
 	if db.tx == nil {
 		return errs.New("begin transaction before rollback it!")
