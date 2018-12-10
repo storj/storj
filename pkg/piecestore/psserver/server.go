@@ -26,7 +26,7 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
 	as "storj.io/storj/pkg/piecestore/psserver/agreementsender"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/provider"
@@ -129,14 +129,13 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	}
 
 	// get how much is currently used, if for the first time totalUsed = 0
-	totalUsed, err := db.SumTTLSizes()
+	totalUsed, err := getUsedSpace(db)
 	if err != nil {
 		//first time setup
 		totalUsed = 0x00
 	}
 
-	// get used bandwidth from the beginning of the month to till date
-	usedBandwidth, err := db.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
+	usedBandwidth, err := getUsedBandwidth(db)
 	if err != nil {
 		return nil, ServerError.Wrap(err)
 	}
@@ -176,6 +175,18 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 		totalBwAllocated: allocatedBandwidth,
 		verifier:         auth.NewSignedMessageVerifier(),
 	}, nil
+}
+
+func getUsedBandwidth(db *psdb.DB) (int64, error) {
+	// get used bandwidth from the beginning of the month to till date
+	usedBandwidth, err := db.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
+	return usedBandwidth, err
+}
+
+func getUsedSpace(db *psdb.DB) (int64, error) {
+	// get how much is currently used, if for the first time totalUsed = 0
+	totalUsed, err := db.SumTTLSizes()
+	return totalUsed, err
 }
 
 // New creates a Server with custom db
