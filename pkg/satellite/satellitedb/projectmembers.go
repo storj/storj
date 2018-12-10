@@ -16,17 +16,7 @@ import (
 
 // ProjectMembers exposes methods to manage ProjectMembers table in database.
 type projectMembers struct {
-	db *dbx.DB
-}
-
-// GetAll is a method for querying all project members from the database.
-func (pm *projectMembers) GetAll(ctx context.Context) ([]satellite.ProjectMember, error) {
-	projectMembersDbx, err := pm.db.All_ProjectMember(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return projectMembersFromDbxSlice(projectMembersDbx)
+	db dbx.Methods
 }
 
 // GetByMemberID is a method for querying project member from the database by memberID.
@@ -49,25 +39,9 @@ func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUI
 	return projectMembersFromDbxSlice(projectMembersDbx)
 }
 
-// Get is a method for querying project member from the database by id.
-func (pm *projectMembers) Get(ctx context.Context, id uuid.UUID) (*satellite.ProjectMember, error) {
-	projectMember, err := pm.db.Get_ProjectMember_By_Id(ctx, dbx.ProjectMember_Id(id[:]))
-	if err != nil {
-		return nil, err
-	}
-
-	return projectMemberFromDBX(projectMember)
-}
-
 // Insert is a method for inserting project member into the database.
 func (pm *projectMembers) Insert(ctx context.Context, memberID, projectID uuid.UUID) (*satellite.ProjectMember, error) {
-	id, err := uuid.New()
-	if err != nil {
-		return nil, err
-	}
-
 	createdProjectMember, err := pm.db.Create_ProjectMember(ctx,
-		dbx.ProjectMember_Id(id[:]),
 		dbx.ProjectMember_MemberId(memberID[:]),
 		dbx.ProjectMember_ProjectId(projectID[:]))
 	if err != nil {
@@ -77,20 +51,13 @@ func (pm *projectMembers) Insert(ctx context.Context, memberID, projectID uuid.U
 	return projectMemberFromDBX(createdProjectMember)
 }
 
-// Delete is a method for deleting project member by Id from the database.
-func (pm *projectMembers) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := pm.db.Delete_ProjectMember_By_Id(ctx, dbx.ProjectMember_Id(id[:]))
-
-	return err
-}
-
-// Update is a method for updating project member entity.
-func (pm *projectMembers) Update(ctx context.Context, projectMember *satellite.ProjectMember) error {
-	_, err := pm.db.Update_ProjectMember_By_Id(ctx,
-		dbx.ProjectMember_Id(projectMember.ID[:]),
-		dbx.ProjectMember_Update_Fields{
-			ProjectId: dbx.ProjectMember_ProjectId(projectMember.ProjectID[:]),
-		})
+// Delete is a method for deleting project member by memberID and projectID from the database.
+func (pm *projectMembers) Delete(ctx context.Context, memberID, projectID uuid.UUID) error {
+	_, err := pm.db.Delete_ProjectMember_By_MemberId_And_ProjectId(
+		ctx,
+		dbx.ProjectMember_MemberId(memberID[:]),
+		dbx.ProjectMember_ProjectId(projectID[:]),
+	)
 
 	return err
 }
@@ -99,11 +66,6 @@ func (pm *projectMembers) Update(ctx context.Context, projectMember *satellite.P
 func projectMemberFromDBX(projectMember *dbx.ProjectMember) (*satellite.ProjectMember, error) {
 	if projectMember == nil {
 		return nil, errs.New("projectMember parameter is nil")
-	}
-
-	id, err := bytesToUUID(projectMember.Id)
-	if err != nil {
-		return nil, err
 	}
 
 	memberID, err := bytesToUUID(projectMember.MemberId)
@@ -117,7 +79,6 @@ func projectMemberFromDBX(projectMember *dbx.ProjectMember) (*satellite.ProjectM
 	}
 
 	return &satellite.ProjectMember{
-		ID:        id,
 		MemberID:  memberID,
 		ProjectID: projectID,
 		CreatedAt: projectMember.CreatedAt,

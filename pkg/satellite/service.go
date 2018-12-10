@@ -9,6 +9,8 @@ import (
 	"crypto/subtle"
 	"time"
 
+	"storj.io/storj/pkg/utils"
+
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
@@ -235,18 +237,22 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 		TermsAccepted: 1, //TODO: get lat version of Term of Use
 	}
 
-	// For now we make this operations sequentially.
-	// But soon we will add functionality to be able to
-	// do any operations in transaction scope
-	prj, err := s.store.Projects().Insert(ctx, project)
+	transaction, err := s.store.BeginTx(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// Project owner is also a project member
-	_, err = s.store.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
+	prj, err := transaction.Projects().Insert(ctx, project)
+	if err != nil {
+		return nil, utils.CombineErrors(err, transaction.Rollback())
+	}
 
-	return prj, err
+	_, err = transaction.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
+	if err != nil {
+		return nil, utils.CombineErrors(err, transaction.Rollback())
+	}
+
+	return prj, transaction.Commit()
 }
 
 // DeleteProject is a method for deleting project by id
@@ -299,19 +305,7 @@ func (s *Service) DeleteProjectMember(ctx context.Context, projectID, userID uui
 		return err
 	}
 
-	// TODO: remove when appropriate method is added
-	members, err := s.store.ProjectMembers().GetAll(ctx)
-	if err != nil {
-		return err
-	}
-
-	for _, member := range members {
-		if member.ProjectID == projectID && member.MemberID == userID {
-			return s.store.ProjectMembers().Delete(ctx, member.ID)
-		}
-	}
-
-	return errs.New("project with id %s doesn't have a member with id %s", projectID.String(), userID.String())
+	return s.store.ProjectMembers().Delete(ctx, userID, projectID)
 }
 
 // GetProjectMembers returns ProjectMembers for given Project

@@ -83,16 +83,14 @@ delete project ( where project.id = ? )
 
 
 model project_member (
-    key id
+    key member_id project_id
 
-    field id                   blob
     field member_id            user.id      cascade
-    field project_id           project.id   cascade ( updatable )
+    field project_id           project.id   cascade
 
     field created_at           timestamp ( autoinsert )
 )
 
-read all ( select project_member)
 read all (
     select project_member
     where project_member.project_id = ?
@@ -101,10 +99,8 @@ read one (
     select project_member
     where project_member.member_id = ?
 )
-read one (
-    select project_member
-    where project_member.id = ?
-)
 create project_member ( )
-update project_member ( where project_member.id = ? )
-delete project_member ( where project_member.id = ? )
+delete project_member (
+    where project_member.member_id = ?
+    where project_member.project_id = ?
+)

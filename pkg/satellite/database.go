@@ -3,6 +3,8 @@
 
 package satellite
 
+import "context"
+
 // DB contains access to different satellite databases
 type DB interface {
 	// Users is a getter for Users repository
@@ -18,4 +20,16 @@ type DB interface {
 	CreateTables() error
 	// Close is used to close db connection
 	Close() error
+
+	// BeginTransaction is a method for opening transaction
+	BeginTx(ctx context.Context) (DBTx, error)
+}
+
+// DBTx extends Database with transaction scope
+type DBTx interface {
+	DB
+	// CommitTransaction is a method for committing and closing transaction
+	Commit() error
+	// RollbackTransaction is a method for rollback and closing transaction
+	Rollback() error
 }
