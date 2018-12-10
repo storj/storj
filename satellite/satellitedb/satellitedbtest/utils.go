@@ -23,7 +23,7 @@ var (
 	testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
 )
 
-// ForEach method will iterate over all supported databases. Will establish
+// Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
 func Run(t *testing.T, test func(db *satellitedb.DB)) {
 	for _, dbInfo := range []struct {
