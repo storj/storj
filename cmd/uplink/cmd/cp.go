@@ -114,14 +114,10 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 	}
 
 	upload := stream.NewUpload(ctx, mutableStream, streams)
-	defer utils.LogClose(upload)
 
 	_, err = io.Copy(upload, reader)
-	if err != nil {
-		return err
-	}
 
-	return err
+	return utils.CombineErrors(err, upload.Close())
 }
 
 // download transfers s3 compatible object src to dst on local machine
@@ -235,14 +231,7 @@ func copy(ctx context.Context, src fpath.FPath, dst fpath.FPath) error {
 		return convertError(err, dst)
 	}
 
-	mutableStream, err := obj.CreateStream(ctx)
-	if err != nil {
-		return err
-	}
-
-	upload := stream.NewUpload(ctx, mutableStream, streams)
-	defer utils.LogClose(upload)
-	_, err = io.Copy(upload, reader)
+	err = uploadStream(ctx, streams, obj, reader)
 	if err != nil {
 		return err
 	}
