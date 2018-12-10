@@ -28,12 +28,9 @@ func (users *users) Get(ctx context.Context, id uuid.UUID) (*satellite.User, err
 	return userFromDBX(user)
 }
 
-// GetByCredentials is a method for querying user by credentials from the database.
-func (users *users) GetByCredentials(ctx context.Context, password []byte, email string) (*satellite.User, error) {
-	userEmail := dbx.User_Email(email)
-	userPassword := dbx.User_PasswordHash(password)
-
-	user, err := users.db.Get_User_By_Email_And_PasswordHash(ctx, userEmail, userPassword)
+// GetByEmail is a method for querying user by email from the database.
+func (users *users) GetByEmail(ctx context.Context, email string) (*satellite.User, error) {
+	user, err := users.db.Get_User_By_Email(ctx, dbx.User_Email(email))
 
 	if err != nil {
 		return nil, err
