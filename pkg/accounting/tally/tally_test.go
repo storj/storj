@@ -74,11 +74,10 @@ func TestCategorizeNodes(t *testing.T) {
 
 	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
-	defer func() { _ = accountingDb.Close() }()
+	defer ctx.Check(accountingDb.Close)
 
 	bwDb, err := dbManager.NewDBManager("sqlite3", "file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
-	defer func() { _ = accountingDb.Close() }()
 	tally, err := newTally(ctx, logger, accountingDb, bwDb, pointerdb, overlayServer, kad, limit, interval)
 	assert.NoError(t, err)
 	online, nodeMap, err := tally.categorize(ctx, nodeIDs)
@@ -100,6 +99,7 @@ func TestTallyAtRestStorage(t *testing.T) {
 	planet.Start(ctx)
 
 	kad := planet.Satellites[0].Kademlia
+
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
