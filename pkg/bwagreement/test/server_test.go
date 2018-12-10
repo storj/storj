@@ -16,10 +16,11 @@ import (
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestBandwidthAgreements(t *testing.T) {
-	satellitedb.ForEach(t, func(db *satellitedb.DB) {
+	satellitedbtest.ForEach(t, func(db *satellitedb.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
