@@ -220,8 +220,6 @@ func (s *Service) GetUsersProjects(ctx context.Context) ([]Project, error) {
 
 // CreateProject is a method for creating new project
 func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*Project, error) {
-	var errors []error
-
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
@@ -239,24 +237,22 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 		TermsAccepted: 1, //TODO: get lat version of Term of Use
 	}
 
-	transaction, err := s.store.BeginTransaction(ctx)
+	transaction, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return nil, errs.New("Can not start transaction!")
+		return nil, err
 	}
 
 	prj, err := transaction.Projects().Insert(ctx, project)
 	if err != nil {
-		errors = append(errors, transaction.RollbackTransaction(), err)
-		return nil, utils.CombineErrors(errors...)
+		return nil, utils.CombineErrors(err, transaction.Rollback())
 	}
 
 	_, err = transaction.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
 	if err != nil {
-		errors = append(errors, transaction.RollbackTransaction(), err)
-		return nil, utils.CombineErrors(errors...)
+		return nil, utils.CombineErrors(err, transaction.Rollback())
 	}
 
-	return prj, transaction.CommitTransaction()
+	return prj, transaction.Commit()
 }
 
 // DeleteProject is a method for deleting project by id
