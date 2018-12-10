@@ -14,7 +14,6 @@ import (
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	"storj.io/storj/pkg/miniogw/logging"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
@@ -119,7 +118,7 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context, identity *provi
 		return err
 	}
 
-	minio.StartGateway(cliCtx, logging.Gateway(gw, zap.L()))
+	minio.StartGateway(cliCtx, Logging(gw, zap.L()))
 	return Error.New("unexpected minio exit")
 }
 
