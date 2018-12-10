@@ -32,9 +32,11 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 		return nil, Error.New("failed to load pointerdb from context")
 	}
 
-	sdb := statdb.LoadFromContext(ctx)
-	if sdb == nil {
-		return nil, Error.New("failed to load statdb from context")
+	sdb, ok := ctx.Value("masterdb").(interface {
+		Statdb() statdb.DB
+	})
+	if !ok {
+		return nil, Error.New("unable to get master db instance")
 	}
 
 	db, ok := ctx.Value("masterdb").(interface {
@@ -49,7 +51,7 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 		return nil, Error.Wrap(err)
 	}
 	repairQueue := queue.NewQueue(redisQ)
-	return newChecker(pdb, sdb, repairQueue, o, db.Irreparable(), 0, zap.L(), c.Interval), nil
+	return newChecker(pdb, sdb.Statdb(), repairQueue, o, db.Irreparable(), 0, zap.L(), c.Interval), nil
 }
 
 // Run runs the checker with configured values

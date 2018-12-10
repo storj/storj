@@ -125,7 +125,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		grpcauth.NewAPIKeyInterceptor(),
 		runCfg.Kademlia,
 		runCfg.PointerDB,
-		runCfg.StatDB,
+		//runCfg.StatDB,
 		runCfg.Overlay,
 		runCfg.Checker,
 		runCfg.Repairer,

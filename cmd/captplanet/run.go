@@ -131,7 +131,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			grpcauth.NewAPIKeyInterceptor(),
 			runCfg.Satellite.Kademlia,
-			runCfg.Satellite.StatDB,
+			//runCfg.Satellite.StatDB,
 			runCfg.Satellite.Audit,
 			runCfg.Satellite.Overlay,
 			runCfg.Satellite.Discovery,

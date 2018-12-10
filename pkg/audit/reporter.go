@@ -6,6 +6,8 @@ package audit
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	statsproto "storj.io/storj/pkg/statdb/proto"
@@ -18,15 +20,19 @@ type reporter interface {
 
 // Reporter records audit reports in statdb and implements the reporter interface
 type Reporter struct {
-	statdb     *statdb.StatDB
+	statdb     statdb.DB
 	maxRetries int
 }
 
 // NewReporter instantiates a reporter
 func NewReporter(ctx context.Context, statDBPort string, maxRetries int, apiKey string) (reporter *Reporter, err error) {
-	sdb := statdb.LoadFromContext(ctx)
-
-	return &Reporter{statdb: sdb, maxRetries: maxRetries}, nil
+	sdb, ok := ctx.Value("masterdb").(interface {
+		Statdb() statdb.DB
+	})
+	if !ok {
+		return nil, errs.New("unable to get master db instance")
+	}
+	return &Reporter{statdb: sdb.Statdb(), maxRetries: maxRetries}, nil
 }
 
 // RecordAudits saves failed audit details to statdb

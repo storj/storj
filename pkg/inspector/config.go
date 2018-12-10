@@ -8,7 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
@@ -42,9 +42,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return Error.New("programmer error: overlay responsibility unstarted")
 	}
 
-	sdb := statdb.LoadFromContext(ctx)
-	if sdb == nil {
-		return Error.New("programmer error: statdb responsibility unstarted")
+	sdb, ok := ctx.Value("masterdb").(interface {
+		Statdb() statdb.DB
+	})
+	if !ok {
+		return Error.New("unable to get master db instance")
 	}
 
 	id, err := provider.NewFullIdentity(ctx, 12, 4)
@@ -56,7 +58,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		dht:      kad,
 		identity: id,
 		cache:    ol,
-		statdb:   sdb,
+		statdb:   sdb.Statdb(),
 		logger:   zap.L(),
 		metrics:  monkit.Default,
 	}

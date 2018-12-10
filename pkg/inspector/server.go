@@ -29,7 +29,7 @@ var (
 type Server struct {
 	dht      dht.DHT
 	cache    *overlay.Cache
-	statdb   *statdb.StatDB
+	statdb   statdb.DB
 	logger   *zap.Logger
 	metrics  *monkit.Registry
 	identity *provider.FullIdentity

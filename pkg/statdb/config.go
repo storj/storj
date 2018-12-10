@@ -3,14 +3,6 @@
 
 package statdb
 
-import (
-	"context"
-
-	"go.uber.org/zap"
-
-	"storj.io/storj/pkg/provider"
-)
-
 //CtxKey Used as statdb key
 type CtxKey int
 
@@ -25,21 +17,26 @@ type Config struct {
 	DatabaseDriver string `help:"the database driver to use" default:"sqlite3"`
 }
 
-// Run implements the provider.Responsibility interface
-func (c Config) Run(ctx context.Context, server *provider.Provider) error {
-	ns, err := NewStatDB(c.DatabaseDriver, c.DatabaseURL, zap.L())
-	if err != nil {
-		return err
-	}
+// // Run implements the provider.Responsibility interface
+// func (c Config) Run(ctx context.Context, server *provider.Provider) error {
+// 	db, ok := ctx.Value("masterdb").(interface {
+// 		Irreparable() irreparable.DB
+// 	})
+// 	if !ok {
+// 		return nil, errs.New("unable to get master db instance")
+// 	}
 
-	return server.Run(context.WithValue(ctx, ctxKeyStats, ns))
-}
+// 	return server.Run(context.WithValue(ctx, ctxKeyStats, db))
+// }
 
-// LoadFromContext loads an existing StatDB from the Provider context
-// stack if one exists.
-func LoadFromContext(ctx context.Context) *StatDB {
-	if v, ok := ctx.Value(ctxKeyStats).(*StatDB); ok {
-		return v
-	}
-	return nil
-}
+// // LoadFromContext loads an existing StatDB from the Provider context
+// // stack if one exists.
+// func LoadFromContext(ctx context.Context) statdb.DB {
+// 	db, ok := ctx.Value("masterdb").(interface {
+// 		Statdb() statdb.DB
+// 	})
+// 	if !ok {
+// 		return nil, errs.New("unable to get master db instance")
+// 	}
+// 	return db.Statdb()
+// }

@@ -4,11 +4,12 @@
 package main
 
 import (
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -27,7 +28,6 @@ func (c cacheConfig) open() (*overlay.Cache, error) {
 	}
 
 	var db storage.KeyValueStore
-	var sdb *statdb.StatDB
 
 	switch driver {
 	case "bolt":
@@ -48,10 +48,10 @@ func (c cacheConfig) open() (*overlay.Cache, error) {
 
 	// add logger
 	db = storelogger.New(zap.L().Named("oc"), db)
-	sdb, err = statdb.NewStatDB("postgres", source, zap.L()) //todo:  unhardcode this
+	sdb, err := satellitedb.NewInMemory()
 	if err != nil {
-		return nil, Error.New("statdb error: %s", err)
+		return nil, errs.New("unable to get master db instance")
 	}
 
-	return overlay.NewOverlayCache(db, nil, sdb), nil
+	return overlay.NewOverlayCache(db, nil, sdb.StatDB()), nil
 }
