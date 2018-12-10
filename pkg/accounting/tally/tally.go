@@ -5,6 +5,7 @@ package tally
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -89,8 +90,8 @@ func (t *tally) Run(ctx context.Context) (err error) {
 // identifyActiveNodes iterates through pointerdb and identifies nodes that have storage on them
 func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	var nodeData = make(map[string]int64)
 	t.logger.Debug("entering pointerdb iterate within identifyActiveNodes")
+	var nodeData = make(map[string]int64)
 	err = t.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
@@ -109,11 +110,11 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 				for _, p := range pieces {
 					nodeIDs = append(nodeIDs, p.NodeId)
 				}
-				online, err := t.categorize(ctx, nodeIDs, nodeData)
+				online, nodeMap, err := t.categorize(ctx, nodeIDs)
 				if err != nil {
 					return Error.Wrap(err)
 				}
-				err = t.tallyAtRestStorage(ctx, pointer, online, nodeData)
+				nodeData, err = t.tallyAtRestStorage(ctx, pointer, online, nodeMap)
 				if err != nil {
 					return Error.Wrap(err)
 				}
@@ -124,33 +125,39 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 	return t.updateRawTable(ctx, nodeData)
 }
 
-func (t *tally) categorize(ctx context.Context, nodeIDs storj.NodeIDList, nodeData map[string]int64) (online []*pb.Node, err error) {
+func (t *tally) categorize(ctx context.Context, nodeIDs storj.NodeIDList) (online []*pb.Node, nodeMap map[string]int64, err error) {
 	t.logger.Debug("entering categorize")
+	nodeMap = make(map[string]int64)
 	responses, err := t.overlay.BulkLookup(ctx, pb.NodeIDsToLookupRequests(nodeIDs))
 	if err != nil {
-		return []*pb.Node{}, err
+		return []*pb.Node{}, nodeMap, err
 	}
 	nodes := pb.LookupResponsesToNodes(responses)
 	for i, n := range nodes {
 		if n != nil {
 			online = append(online, n)
 		} else {
-			nodeData[nodeIDs[i].String()] = 0
+			nodeMap[nodeIDs[i].String()] = 0
 		}
 	}
-	return online, nil
+	return online, nodeMap, nil
 }
 
-func (t *tally) tallyAtRestStorage(ctx context.Context, pointer *pb.Pointer, nodes []*pb.Node, nodeData map[string]int64) error {
+func (t *tally) tallyAtRestStorage(ctx context.Context, pointer *pb.Pointer, nodes []*pb.Node, nodeMap map[string]int64) (nodeData map[string]int64, err error) {
 	t.logger.Debug("entering tallyAtRestStorage")
+	nodeData = make(map[string]int64)
+	for i, v := range nodeMap {
+		nodeData[i] = v
+	}
 	segmentSize := pointer.GetSegmentSize()
 	minReq := pointer.Remote.Redundancy.GetMinReq()
 	if minReq <= 0 {
-		return Error.New("minReq must be an int greater than 0")
+		return nodeData, Error.New("minReq must be an int greater than 0")
 	}
 	pieceSize := segmentSize / int64(minReq)
 	for _, n := range nodes {
 		connected, err := t.nodeClient.Ping(ctx, *n)
+		fmt.Println(t.nodeClient)
 		if connected {
 			nodeData[n.Id.String()] += pieceSize
 		}
@@ -160,7 +167,7 @@ func (t *tally) tallyAtRestStorage(ctx context.Context, pointer *pb.Pointer, nod
 			continue
 		}
 	}
-	return nil
+	return nodeData, nil
 }
 
 func (t *tally) updateRawTable(ctx context.Context, nodeData map[string]int64) error {

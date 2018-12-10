@@ -7,16 +7,16 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"math/rand"
-	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-	
-	"storj.io/storj/internal/identity"
-	"storj.io/storj/internal/teststorj"
+
+	testidentity "storj.io/storj/internal/identity"
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/accounting"
 	dbManager "storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/bwagreement/test"
@@ -26,7 +26,6 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/teststore"
-	"storj.io/storj/internal/testcontext"
 )
 
 var ctx = context.Background()
@@ -50,22 +49,25 @@ func TestCategorizeNodes(t *testing.T) {
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 
-	const N = 50
 	nodes := []*pb.Node{}
 	nodeIDs := storj.NodeIDList{}
 	expectedOnline := []*pb.Node{}
-	for i := 0; i < N; i++ {
-		nodeID := teststorj.NodeIDFromString(strconv.Itoa(i))
-		n := &pb.Node{Id: nodeID, Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: ""}}
-		nodes = append(nodes, n)
+	var expectedNodeMap = make(map[string]int64)
+	ns := planet.StorageNodes
+
+	for i, n := range ns {
+		node := &pb.Node{Id: n.ID(), Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: n.Addr()}}
+		nodes = append(nodes, node)
 		if i%(rand.Intn(5)+2) == 0 {
-			id := teststorj.NodeIDFromString("id" + nodeID.String())
+			id := teststorj.NodeIDFromString("id" + n.ID().String())
 			nodeIDs = append(nodeIDs, id)
+			expectedNodeMap[id.String()] = 0
 		} else {
-			nodeIDs = append(nodeIDs, nodeID)
-			expectedOnline = append(expectedOnline, n)
+			nodeIDs = append(nodeIDs, n.ID())
+			expectedOnline = append(expectedOnline, node)
 		}
 	}
+
 	overlayServer := mocks.NewOverlay(nodes)
 	limit := 0
 	interval := time.Second
@@ -79,14 +81,53 @@ func TestCategorizeNodes(t *testing.T) {
 	defer func() { _ = accountingDb.Close() }()
 	tally, err := newTally(ctx, logger, accountingDb, bwDb, pointerdb, overlayServer, kad, limit, interval)
 	assert.NoError(t, err)
-	var nodeData = make(map[string]int64)
-	online, err := tally.categorize(ctx, nodeIDs, nodeData)
+	online, nodeMap, err := tally.categorize(ctx, nodeIDs)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedOnline, online)
+	assert.Equal(t, expectedNodeMap, nodeMap)
 }
 
 func TestTallyAtRestStorage(t *testing.T) {
-	//TODO -- 
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 30, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	kad := planet.Satellites[0].Kademlia
+	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
+	overlayServer := mocks.NewOverlay([]*pb.Node{})
+	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
+	assert.NoError(t, err)
+	defer func() { _ = accountingDb.Close() }()
+	bwDb, err := dbManager.NewDBManager("sqlite3", "file::memory:?mode=memory&cache=shared")
+	assert.NoError(t, err)
+	defer func() { _ = accountingDb.Close() }()
+	tally, err := newTally(ctx, zap.NewNop(), accountingDb, bwDb, pointerdb, overlayServer, kad, 0, time.Second)
+	assert.NoError(t, err)
+
+	pointer := &pb.Pointer{
+		Remote:      &pb.RemoteSegment{Redundancy: &pb.RedundancyScheme{MinReq: 1}},
+		SegmentSize: 5,
+	}
+	nodes := []*pb.Node{}
+	ns := planet.StorageNodes
+	nodeMap := make(map[string]int64)
+	expectedNodeData := make(map[string]int64)
+	for _, n := range ns {
+		node := &pb.Node{Id: n.ID(), Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: n.Addr()}}
+		nodes = append(nodes, node)
+		expectedNodeData[n.ID().String()] = 5
+	}
+	nodeData, err := tally.tallyAtRestStorage(ctx, pointer, nodes, nodeMap)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedNodeData, nodeData)
+
 }
 
 func TestUpdateRawTable(t *testing.T) {
