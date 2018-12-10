@@ -75,6 +75,7 @@ matrix:
     
     ### windows tests ###
     - env: MODE=windows-tests
+      if: commit_message !~ /windows/
       os: windows
       services:
         - redis
