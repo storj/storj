@@ -6,3 +6,11 @@ CREATE TABLE bwagreements (
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( signature )
 );
+CREATE TABLE irreparabledbs (
+	segmentpath BLOB NOT NULL,
+	segmentdetail BLOB NOT NULL,
+	pieces_lost_count INTEGER NOT NULL,
+	seg_damaged_unix_sec INTEGER NOT NULL,
+	repair_attempt_count INTEGER NOT NULL,
+	PRIMARY KEY ( segmentpath )
+);

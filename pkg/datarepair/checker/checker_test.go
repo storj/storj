@@ -18,7 +18,6 @@ import (
 
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/datarepair/irreparabledb"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/overlay/mocks"
@@ -26,6 +25,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storage/redis"
 	"storj.io/storj/storage/redis/redisserver"
 	"storj.io/storj/storage/testqueue"
@@ -96,14 +96,16 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	overlayServer := mocks.NewOverlay(nodes)
 	limit := 0
 	interval := time.Second
-	irrdb, err := irreparabledb.New("sqlite3://file::memory:?mode=memory&cache=shared")
+	// creating in-memory db and opening connection
+	db, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
 	defer func() {
-		err := irrdb.Close()
+		err = db.Close()
 		assert.NoError(t, err)
 	}()
+	err = db.CreateTables()
 	assert.NoError(t, err)
-	checker := newChecker(pointerdb, sdb, repairQueue, overlayServer, irrdb, limit, logger, interval)
+	checker := newChecker(pointerdb, sdb, repairQueue, overlayServer, db.Irreparable(), limit, logger, interval)
 	assert.NoError(t, err)
 	err = checker.identifyInjuredSegments(ctx)
 	assert.NoError(t, err)
@@ -151,14 +153,16 @@ func TestOfflineNodes(t *testing.T) {
 	overlayServer := mocks.NewOverlay(nodes)
 	limit := 0
 	interval := time.Second
-	irrdb, err := irreparabledb.New("sqlite3://file::memory:?mode=memory&cache=shared")
+	// creating in-memory db and opening connection
+	db, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
 	defer func() {
-		err := irrdb.Close()
+		err = db.Close()
 		assert.NoError(t, err)
 	}()
+	err = db.CreateTables()
 	assert.NoError(t, err)
-	checker := newChecker(pointerdb, sdb, repairQueue, overlayServer, irrdb, limit, logger, interval)
+	checker := newChecker(pointerdb, sdb, repairQueue, overlayServer, db.Irreparable(), limit, logger, interval)
 	assert.NoError(t, err)
 	offline, err := checker.offlineNodes(ctx, nodeIDs)
 	assert.NoError(t, err)
@@ -174,12 +178,14 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	assert.NotNil(b, sdb)
 	assert.NoError(b, err)
 
-	irrdb, err := irreparabledb.New("sqlite3://file::memory:?mode=memory&cache=shared")
-	assert.NoError(b, err)
+	// creating in-memory db and opening connection
+	db, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	defer func() {
-		err := irrdb.Close()
+		err = db.Close()
 		assert.NoError(b, err)
 	}()
+	err = db.CreateTables()
+	assert.NoError(b, err)
 
 	addr, cleanup, err := redisserver.Start()
 	defer cleanup()
@@ -242,7 +248,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		interval := time.Second
 		assert.NoError(b, err)
-		checker := newChecker(pointerdb, sdb, repairQueue, overlayServer, irrdb, limit, logger, interval)
+		checker := newChecker(pointerdb, sdb, repairQueue, overlayServer, db.Irreparable(), limit, logger, interval)
 		assert.NoError(b, err)
 
 		err = checker.identifyInjuredSegments(ctx)
