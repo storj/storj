@@ -4,22 +4,11 @@
 package satellitedb
 
 import (
-	"flag"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
-)
-
-const (
-	// this connstring is expected to work under the storj-test docker-compose instance
-	defaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
-)
-
-var (
-	testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
 )
 
 func TestDatabase(t *testing.T) {
