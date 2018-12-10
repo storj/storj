@@ -64,6 +64,11 @@ var (
 	defaultDiagDir string
 )
 
+const(
+	defaultServerAddr = ":28967"
+	defaultSatteliteAddr = "master.satellite.dev.storj.io:7777"
+)
+
 func init() {
 	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
@@ -101,9 +106,12 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	overrides := map[string]interface{}{
-		"identity.cert-path": setupCfg.Identity.CertPath,
-		"identity.key-path":  setupCfg.Identity.KeyPath,
-		"storage.path":       filepath.Join(setupCfg.BasePath, "storage"),
+		"identity.cert-path":                      setupCfg.Identity.CertPath,
+		"identity.key-path":                       setupCfg.Identity.KeyPath,
+		"identity.server.address":                 defaultServerAddr,
+		"storage.path":                            filepath.Join(setupCfg.BasePath, "storage"),
+		"kademlia.bootstrap-addr":                 defaultSatteliteAddr,
+		"piecestore.agreementsender.overlay_addr": defaultSatteliteAddr,
 	}
 
 	return process.SaveConfig(runCmd.Flags(),
