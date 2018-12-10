@@ -104,9 +104,13 @@ func (s *Service) CreateCompany(ctx context.Context, info CompanyInfo) (*Company
 func (s *Service) Token(ctx context.Context, email, password string) (string, error) {
 	passwordHash := sha256.Sum256([]byte(password))
 
-	user, err := s.store.Users().GetByCredentials(ctx, passwordHash[:], email)
+	user, err := s.store.Users().GetByEmail(ctx, email)
 	if err != nil {
 		return "", err
+	}
+
+	if subtle.ConstantTimeCompare(user.PasswordHash, passwordHash[:]) != 1 {
+		return "", ErrUnauthorized.New("password doesn't match!")
 	}
 
 	//TODO: move expiration time to constants

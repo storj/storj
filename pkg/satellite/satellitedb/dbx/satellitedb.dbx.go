@@ -1208,15 +1208,14 @@ func (obj *sqlite3Impl) Create_ProjectMember(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Get_User_By_Email_And_PasswordHash(ctx context.Context,
-	user_email User_Email_Field,
-	user_password_hash User_PasswordHash_Field) (
+func (obj *sqlite3Impl) Get_User_By_Email(ctx context.Context,
+	user_email User_Email_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE users.email = ? AND users.password_hash = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE users.email = ?")
 
 	var __values []interface{}
-	__values = append(__values, user_email.value(), user_password_hash.value())
+	__values = append(__values, user_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -2126,15 +2125,14 @@ func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	return tx.Get_Project_By_Id(ctx, project_id)
 }
 
-func (rx *Rx) Get_User_By_Email_And_PasswordHash(ctx context.Context,
-	user_email User_Email_Field,
-	user_password_hash User_PasswordHash_Field) (
+func (rx *Rx) Get_User_By_Email(ctx context.Context,
+	user_email User_Email_Field) (
 	user *User, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_User_By_Email_And_PasswordHash(ctx, user_email, user_password_hash)
+	return tx.Get_User_By_Email(ctx, user_email)
 }
 
 func (rx *Rx) Get_User_By_Id(ctx context.Context,
@@ -2257,9 +2255,8 @@ type Methods interface {
 		project_id Project_Id_Field) (
 		project *Project, err error)
 
-	Get_User_By_Email_And_PasswordHash(ctx context.Context,
-		user_email User_Email_Field,
-		user_password_hash User_PasswordHash_Field) (
+	Get_User_By_Email(ctx context.Context,
+		user_email User_Email_Field) (
 		user *User, err error)
 
 	Get_User_By_Id(ctx context.Context,

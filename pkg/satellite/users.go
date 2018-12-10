@@ -13,8 +13,8 @@ import (
 
 // Users exposes methods to manage User table in database.
 type Users interface {
-	// GetByCredentials is a method for querying user by credentials from the database.
-	GetByCredentials(ctx context.Context, password []byte, email string) (*User, error)
+	// GetByEmail is a method for querying user by email from the database.
+	GetByEmail(ctx context.Context, email string) (*User, error)
 	// Get is a method for querying user from the database by id
 	Get(ctx context.Context, id uuid.UUID) (*User, error)
 	// Insert is a method for inserting user into the database

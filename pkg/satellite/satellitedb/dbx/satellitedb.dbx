@@ -15,7 +15,6 @@ model user (
 read one (
     select user
     where user.email = ?
-    where user.password_hash = ?
 )
 read one (
     select user
