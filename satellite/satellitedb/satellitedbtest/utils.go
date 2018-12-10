@@ -25,7 +25,7 @@ var (
 
 // ForEach method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
-func ForEach(t *testing.T, test func(db *satellitedb.DB)) {
+func Run(t *testing.T, test func(db *satellitedb.DB)) {
 	for _, dbInfo := range []struct {
 		dbName    string
 		dbURL     string
