@@ -109,7 +109,7 @@ func TestSegmentStorePutRemote(t *testing.T) {
 		assert.NotNil(t, ss)
 
 		calls := []*gomock.Call{
-			mockES.EXPECT().TotalCount().Return(1),
+			mockES.EXPECT().TotalCount().Return(1).AnyTimes(),
 			mockOC.EXPECT().Choose(
 				gomock.Any(), gomock.Any(),
 			).Return([]*pb.Node{
