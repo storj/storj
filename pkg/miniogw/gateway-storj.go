@@ -399,14 +399,10 @@ func upload(ctx context.Context, streams streams.Store, mutableObject storj.Muta
 	}
 
 	upload := stream.NewUpload(ctx, mutableStream, streams)
-	defer utils.LogClose(upload)
 
 	_, err = io.Copy(upload, reader)
-	if err != nil {
-		return err
-	}
 
-	return err
+	return utils.CombineErrors(err, upload.Close())
 }
 
 func (layer *gatewayLayer) PutObject(ctx context.Context, bucket, object string, data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo, err error) {
