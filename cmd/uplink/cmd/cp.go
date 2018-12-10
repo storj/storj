@@ -16,6 +16,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
 	"storj.io/storj/pkg/utils"
@@ -84,11 +85,6 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return convertError(err, dst)
 	}
 
-	mutableStream, err := obj.CreateStream(ctx)
-	if err != nil {
-		return err
-	}
-
 	reader := io.Reader(file)
 	var bar *progressbar.ProgressBar
 	if showProgress {
@@ -97,14 +93,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		reader = bar.NewProxyReader(reader)
 	}
 
-	upload := stream.NewUpload(ctx, mutableStream, streams)
-	defer utils.LogClose(upload)
-	_, err = io.Copy(upload, reader)
-	if err != nil {
-		return err
-	}
-
-	err = obj.Commit(ctx)
+	err = uploadStream(ctx, streams, obj, reader)
 	if err != nil {
 		return err
 	}
@@ -116,6 +105,23 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	fmt.Printf("Created %s\n", dst.String())
 
 	return nil
+}
+
+func uploadStream(ctx context.Context, streams streams.Store, mutableObject storj.MutableObject, reader io.Reader) error {
+	mutableStream, err := mutableObject.CreateStream(ctx)
+	if err != nil {
+		return err
+	}
+
+	upload := stream.NewUpload(ctx, mutableStream, streams)
+	defer utils.LogClose(upload)
+
+	_, err = io.Copy(upload, reader)
+	if err != nil {
+		return err
+	}
+
+	return err
 }
 
 // download transfers s3 compatible object src to dst on local machine
