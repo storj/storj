@@ -8,7 +8,6 @@ FROM alpine
 ENV API_KEY= \
     CONF_PATH=/root/.local/share/storj/satellite/config.yaml \
     OVERLAY_URL=redis://redis:6379/?db=0 \
-    IDENTITY_ADDR=:7777 \
     BOOTSTRAP_ADDR=bootstrap.storj.io:8080 \
     STORJ_MOCK_OVERLAY_NODES=
 EXPOSE 7776/udp \
