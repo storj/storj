@@ -18,6 +18,7 @@ import (
 	"unicode"
 
 	"github.com/mattn/go-sqlite3"
+	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
@@ -386,6 +387,7 @@ type User_Update_Fields struct {
 
 type User_Id_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -394,7 +396,7 @@ func User_Id(v []byte) User_Id_Field {
 }
 
 func (f User_Id_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -404,6 +406,7 @@ func (User_Id_Field) _Column() string { return "id" }
 
 type User_FirstName_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -412,7 +415,7 @@ func User_FirstName(v string) User_FirstName_Field {
 }
 
 func (f User_FirstName_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -422,6 +425,7 @@ func (User_FirstName_Field) _Column() string { return "first_name" }
 
 type User_LastName_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -430,7 +434,7 @@ func User_LastName(v string) User_LastName_Field {
 }
 
 func (f User_LastName_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -440,6 +444,7 @@ func (User_LastName_Field) _Column() string { return "last_name" }
 
 type User_Email_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -448,7 +453,7 @@ func User_Email(v string) User_Email_Field {
 }
 
 func (f User_Email_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -458,6 +463,7 @@ func (User_Email_Field) _Column() string { return "email" }
 
 type User_PasswordHash_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -466,7 +472,7 @@ func User_PasswordHash(v []byte) User_PasswordHash_Field {
 }
 
 func (f User_PasswordHash_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -476,6 +482,7 @@ func (User_PasswordHash_Field) _Column() string { return "password_hash" }
 
 type User_CreatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -484,7 +491,7 @@ func User_CreatedAt(v time.Time) User_CreatedAt_Field {
 }
 
 func (f User_CreatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -516,6 +523,7 @@ type Company_Update_Fields struct {
 
 type Company_UserId_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -524,7 +532,7 @@ func Company_UserId(v []byte) Company_UserId_Field {
 }
 
 func (f Company_UserId_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -534,6 +542,7 @@ func (Company_UserId_Field) _Column() string { return "user_id" }
 
 type Company_Name_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -542,7 +551,7 @@ func Company_Name(v string) Company_Name_Field {
 }
 
 func (f Company_Name_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -552,6 +561,7 @@ func (Company_Name_Field) _Column() string { return "name" }
 
 type Company_Address_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -560,7 +570,7 @@ func Company_Address(v string) Company_Address_Field {
 }
 
 func (f Company_Address_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -570,6 +580,7 @@ func (Company_Address_Field) _Column() string { return "address" }
 
 type Company_Country_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -578,7 +589,7 @@ func Company_Country(v string) Company_Country_Field {
 }
 
 func (f Company_Country_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -588,6 +599,7 @@ func (Company_Country_Field) _Column() string { return "country" }
 
 type Company_City_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -596,7 +608,7 @@ func Company_City(v string) Company_City_Field {
 }
 
 func (f Company_City_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -606,6 +618,7 @@ func (Company_City_Field) _Column() string { return "city" }
 
 type Company_State_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -614,7 +627,7 @@ func Company_State(v string) Company_State_Field {
 }
 
 func (f Company_State_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -624,6 +637,7 @@ func (Company_State_Field) _Column() string { return "state" }
 
 type Company_PostalCode_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -632,7 +646,7 @@ func Company_PostalCode(v string) Company_PostalCode_Field {
 }
 
 func (f Company_PostalCode_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -642,6 +656,7 @@ func (Company_PostalCode_Field) _Column() string { return "postal_code" }
 
 type Company_CreatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -650,7 +665,7 @@ func Company_CreatedAt(v time.Time) Company_CreatedAt_Field {
 }
 
 func (f Company_CreatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -682,6 +697,7 @@ type Project_Update_Fields struct {
 
 type Project_Id_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -690,7 +706,7 @@ func Project_Id(v []byte) Project_Id_Field {
 }
 
 func (f Project_Id_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -700,6 +716,7 @@ func (Project_Id_Field) _Column() string { return "id" }
 
 type Project_OwnerId_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -715,13 +732,13 @@ func Project_OwnerId_Raw(v []byte) Project_OwnerId_Field {
 }
 
 func Project_OwnerId_Null() Project_OwnerId_Field {
-	return Project_OwnerId_Field{_set: true}
+	return Project_OwnerId_Field{_set: true, _null: true}
 }
 
-func (f Project_OwnerId_Field) isnull() bool { return !f._set || f._value == nil }
+func (f Project_OwnerId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f Project_OwnerId_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -731,6 +748,7 @@ func (Project_OwnerId_Field) _Column() string { return "owner_id" }
 
 type Project_Name_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -739,7 +757,7 @@ func Project_Name(v string) Project_Name_Field {
 }
 
 func (f Project_Name_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -749,6 +767,7 @@ func (Project_Name_Field) _Column() string { return "name" }
 
 type Project_CompanyName_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -757,7 +776,7 @@ func Project_CompanyName(v string) Project_CompanyName_Field {
 }
 
 func (f Project_CompanyName_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -767,6 +786,7 @@ func (Project_CompanyName_Field) _Column() string { return "company_name" }
 
 type Project_Description_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -775,7 +795,7 @@ func Project_Description(v string) Project_Description_Field {
 }
 
 func (f Project_Description_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -785,6 +805,7 @@ func (Project_Description_Field) _Column() string { return "description" }
 
 type Project_TermsAccepted_Field struct {
 	_set   bool
+	_null  bool
 	_value int
 }
 
@@ -793,7 +814,7 @@ func Project_TermsAccepted(v int) Project_TermsAccepted_Field {
 }
 
 func (f Project_TermsAccepted_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -803,6 +824,7 @@ func (Project_TermsAccepted_Field) _Column() string { return "terms_accepted" }
 
 type Project_CreatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -811,7 +833,7 @@ func Project_CreatedAt(v time.Time) Project_CreatedAt_Field {
 }
 
 func (f Project_CreatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -834,6 +856,7 @@ type ProjectMember_Update_Fields struct {
 
 type ProjectMember_Id_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -842,7 +865,7 @@ func ProjectMember_Id(v []byte) ProjectMember_Id_Field {
 }
 
 func (f ProjectMember_Id_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -852,6 +875,7 @@ func (ProjectMember_Id_Field) _Column() string { return "id" }
 
 type ProjectMember_MemberId_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -860,7 +884,7 @@ func ProjectMember_MemberId(v []byte) ProjectMember_MemberId_Field {
 }
 
 func (f ProjectMember_MemberId_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -870,6 +894,7 @@ func (ProjectMember_MemberId_Field) _Column() string { return "member_id" }
 
 type ProjectMember_ProjectId_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -878,7 +903,7 @@ func ProjectMember_ProjectId(v []byte) ProjectMember_ProjectId_Field {
 }
 
 func (f ProjectMember_ProjectId_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -888,6 +913,7 @@ func (ProjectMember_ProjectId_Field) _Column() string { return "project_id" }
 
 type ProjectMember_CreatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -896,7 +922,7 @@ func ProjectMember_CreatedAt(v time.Time) ProjectMember_CreatedAt_Field {
 }
 
 func (f ProjectMember_CreatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -2453,7 +2479,11 @@ type dbMethods interface {
 	makeErr(err error) error
 }
 
-var sqlite3DriverName = "sqlite3_" + fmt.Sprint(time.Now().UnixNano())
+var sqlite3DriverName = func() string {
+	var id [16]byte
+	rand.Read(id[:])
+	return fmt.Sprintf("sqlite3_%x", string(id[:]))
+}()
 
 func init() {
 	sql.Register(sqlite3DriverName, &sqlite3.SQLiteDriver{
