@@ -26,7 +26,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("Invalid argument %#v. Try 'uplink run'", flagname)
 	}
 
-	address := cfg.Address
+	address := cfg.Identity.Server.Address
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
 		return err
@@ -37,8 +37,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	fmt.Printf("Starting Storj S3-compatible gateway!\n\n")
 	fmt.Printf("Endpoint: %s\n", address)
-	fmt.Printf("Access key: %s\n", cfg.AccessKey)
-	fmt.Printf("Secret key: %s\n", cfg.SecretKey)
+	fmt.Printf("Access key: %s\n", cfg.Minio.AccessKey)
+	fmt.Printf("Secret key: %s\n", cfg.Minio.SecretKey)
 
 	ctx := process.Ctx(cmd)
 	metainfo, _, err := cfg.Metainfo(ctx)

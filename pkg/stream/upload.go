@@ -7,8 +7,10 @@ import (
 	"context"
 	"io"
 
+	"github.com/gogo/protobuf/proto"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
@@ -37,11 +39,22 @@ func NewUpload(ctx context.Context, stream storj.MutableStream, streams streams.
 
 	upload.errgroup.Go(func() error {
 		obj := stream.Info()
-		_, err := streams.Put(ctx, storj.JoinPaths(obj.Bucket.Name, obj.Path), obj.Bucket.PathCipher, reader, obj.Metadata, obj.Expires)
-		if err != nil {
-			err = utils.CombineErrors(err, reader.CloseWithError(err))
+
+		serMetaInfo := pb.SerializableMeta{
+			ContentType: obj.ContentType,
+			UserDefined: obj.Metadata,
 		}
-		return err
+		metadata, err := proto.Marshal(&serMetaInfo)
+		if err != nil {
+			return utils.CombineErrors(err, reader.CloseWithError(err))
+		}
+
+		_, err = streams.Put(ctx, storj.JoinPaths(obj.Bucket.Name, obj.Path), obj.Bucket.PathCipher, reader, metadata, obj.Expires)
+		if err != nil {
+			return utils.CombineErrors(err, reader.CloseWithError(err))
+		}
+
+		return nil
 	})
 
 	return &upload

@@ -45,7 +45,7 @@ type Metainfo interface {
 
 // CreateObject has optional parameters that can be set
 type CreateObject struct {
-	Metadata    []byte
+	Metadata    map[string]string
 	ContentType string
 	Expires     time.Time
 

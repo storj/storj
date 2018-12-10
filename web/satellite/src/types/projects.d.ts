@@ -7,14 +7,25 @@ declare type Project = {
     ownerName: string,
 
     name: string,
-    description: string
+    description: string,
+    companyName: string,
     isTermsAccepted: boolean,
-    createdAt: string
+    createdAt: string,
 
     isSelected: boolean,
 }
 
+// UpdateProjectModel is a type, used for updating project description
 declare type UpdateProjectModel = {
     id: string,
-    description: string
+    description: string,
+}
+
+// TeamMemberModel stores needed info about user info to show it on UI
+declare type TeamMemberModel = {
+    email: string,
+    firstName: string,
+    lastName: string,
+    companyName: string,
+    joinedAt: string,
 }

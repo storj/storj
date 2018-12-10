@@ -15,7 +15,6 @@ model user (
 read one (
     select user
     where user.email = ?
-    where user.password_hash = ?
 )
 read one (
     select user
@@ -55,7 +54,8 @@ model project (
     field id             blob
     field owner_id       user.id   setnull ( nullable, updatable )
 
-    field name           text      ( updatable )
+    field name           text
+    field company_name   text
     field description    text      ( updatable )
     // stores last accepted version of terms of use
     field terms_accepted int       ( updatable )
@@ -71,22 +71,25 @@ read all (
     select project
     where project.owner_id = ?
 )
+read all (
+    select project
+    join project.id = project_member.project_id
+    where project_member.member_id = ?
+)
 create project ( )
 update project ( where project.id = ? )
 delete project ( where project.id = ? )
 
 
 model project_member (
-    key id
+    key member_id project_id
 
-    field id                   blob
     field member_id            user.id      cascade
-    field project_id           project.id   cascade ( updatable )
+    field project_id           project.id   cascade
 
     field created_at           timestamp ( autoinsert )
 )
 
-read all ( select project_member)
 read all (
     select project_member
     where project_member.project_id = ?
@@ -95,10 +98,8 @@ read one (
     select project_member
     where project_member.member_id = ?
 )
-read one (
-    select project_member
-    where project_member.id = ?
-)
 create project_member ( )
-update project_member ( where project_member.id = ? )
-delete project_member ( where project_member.id = ? )
+delete project_member (
+    where project_member.member_id = ?
+    where project_member.project_id = ?
+)

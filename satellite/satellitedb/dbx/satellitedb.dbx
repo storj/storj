@@ -1,8 +1,47 @@
 // dbx.v1 golang satellitedb.dbx .
 
-// remove it when first table will be added
-model test (
-	key id
+model bwagreement (
+	key signature 
 
-	field id blob
+	field signature blob 
+
+	field data blob
+	
+	field created_at timestamp ( autoinsert )
+)
+
+create bwagreement ( )
+delete bwagreement ( where bwagreement.signature = ? )
+read one (
+  select bwagreement 
+  where  bwagreement.signature = ?
+)
+read limitoffset (
+	select bwagreement
+)
+read all (
+	select bwagreement
+)
+read all (
+	select bwagreement
+	where  bwagreement.created_at > ?
+)
+
+// datarepair.irreparableDB
+model irreparabledb (
+	key segmentpath
+
+	field segmentpath blob
+	field segmentdetail blob (updatable)
+	field pieces_lost_count int64 (updatable)
+	field seg_damaged_unix_sec int64 (updatable)
+	field repair_attempt_count int64 (updatable)
+)
+
+create irreparabledb ( )
+update irreparabledb ( where irreparabledb.segmentpath = ? )
+delete irreparabledb ( where irreparabledb.segmentpath = ? )
+read one (
+  select irreparabledb 
+  where  irreparabledb.segmentpath = ?
 )

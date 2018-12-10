@@ -13,10 +13,10 @@ import (
 	"os"
 
 	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/utils"
 
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 )
 
 // PeerCertificateAuthority represents the CA which is used to validate peer identities
@@ -206,55 +206,58 @@ func NewCA(ctx context.Context, opts NewCAOptions) (*FullCertificateAuthority, e
 
 // Save saves a CA with the given configuration
 func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
-	f := os.O_WRONLY | os.O_CREATE
-	c, err := openCert(fc.CertPath, f)
+	mode := os.O_WRONLY | os.O_CREATE
+	certFile, err := openCert(fc.CertPath, mode)
 	if err != nil {
 		return err
 	}
-	defer utils.LogClose(c)
-	k, err := openKey(fc.KeyPath, f)
+
+	keyFile, err := openKey(fc.KeyPath, mode)
 	if err != nil {
-		return err
+		return utils.CombineErrors(err, certFile.Close())
 	}
-	defer utils.LogClose(k)
 
 	chain := []*x509.Certificate{ca.Cert}
 	chain = append(chain, ca.RestChain...)
-	if err = peertls.WriteChain(c, chain...); err != nil {
-		return err
-	}
-	if err = peertls.WriteKey(k, ca.Key); err != nil {
-		return err
-	}
-	return nil
+	certWriteErr := peertls.WriteChain(certFile, chain...)
+	keyWriteErr := peertls.WriteKey(keyFile, ca.Key)
+
+	return utils.CombineErrors(certWriteErr, keyWriteErr, certFile.Close(), keyFile.Close())
 }
 
 // NewIdentity generates a new `FullIdentity` based on the CA. The CA
 // cert is included in the identity's cert chain and the identity's leaf cert
 // is signed by the CA.
 func (ca FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
-	lT, err := peertls.LeafTemplate()
+	leafTemplate, err := peertls.LeafTemplate()
 	if err != nil {
 		return nil, err
 	}
-	k, err := peertls.NewKey()
+	leafKey, err := peertls.NewKey()
 	if err != nil {
 		return nil, err
 	}
-	pk, ok := k.(*ecdsa.PrivateKey)
+	pk, ok := leafKey.(*ecdsa.PrivateKey)
 	if !ok {
-		return nil, peertls.ErrUnsupportedKey.New("%T", k)
+		return nil, peertls.ErrUnsupportedKey.New("%T", leafKey)
 	}
-	l, err := peertls.NewCert(lT, ca.Cert, &pk.PublicKey, ca.Key)
+	leafCert, err := peertls.NewCert(pk, ca.Key, leafTemplate, ca.Cert)
 	if err != nil {
 		return nil, err
+	}
+
+	if ca.RestChain != nil && len(ca.RestChain) > 0 {
+		err := peertls.AddSignedLeafExt(ca.Key, leafCert)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &FullIdentity{
 		RestChain: ca.RestChain,
 		CA:        ca.Cert,
-		Leaf:      l,
-		Key:       k,
+		Leaf:      leafCert,
+		Key:       leafKey,
 		ID:        ca.ID,
 	}, nil
 }

@@ -89,33 +89,21 @@ func graphqlUserInput(types Types) *graphql.InputObject {
 			fieldPassword: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
-			//TODO(yar): separate creation of user and company
-			companyType: &graphql.InputObjectFieldConfig{
-				Type: types.CompanyInput(),
-			},
 		},
 	})
 }
 
-// UserInput encapsulates satellite.UserInfo and satellite.CompanyInfo which is used in user related queries
-type UserInput struct {
-	User    satellite.UserInfo
-	Company satellite.CompanyInfo
+// fromMapUserInfo creates UserInput from input args
+func fromMapUserInfo(args map[string]interface{}) (user satellite.UserInfo) {
+	user.Email, _ = args[fieldEmail].(string)
+	user.FirstName, _ = args[fieldFirstName].(string)
+	user.LastName, _ = args[fieldLastName].(string)
+	return
 }
 
-// fromMapUserInfo creates UserInput from input args
-func fromMapUserInfo(args map[string]interface{}) (input UserInput) {
-	input.User.Email, _ = args[fieldEmail].(string)
-	input.User.FirstName, _ = args[fieldFirstName].(string)
-	input.User.LastName, _ = args[fieldLastName].(string)
-	input.User.Password, _ = args[fieldPassword].(string)
-
-	companyArgs, ok := args[companyType].(map[string]interface{})
-	if !ok {
-		return
-	}
-
-	input.Company = fromMapCompanyInfo(companyArgs)
+func fromMapCreateUser(args map[string]interface{}) (user satellite.CreateUser) {
+	user.UserInfo = fromMapUserInfo(args)
+	user.Password, _ = args[fieldPassword].(string)
 	return
 }
 
@@ -125,7 +113,6 @@ func fillUserInfo(user *satellite.User, args map[string]interface{}) satellite.U
 		Email:     user.Email,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
-		Password:  "",
 	}
 
 	for fieldName, fieldValue := range args {
@@ -144,8 +131,6 @@ func fillUserInfo(user *satellite.User, args map[string]interface{}) satellite.U
 		case fieldLastName:
 			info.LastName = value
 			user.LastName = value
-		case fieldPassword:
-			info.Password = value
 		}
 	}
 

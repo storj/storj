@@ -5,9 +5,9 @@ package miniogw
 
 import (
 	"context"
+	"encoding/hex"
 	"io"
 	"strings"
-	"time"
 
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
@@ -15,192 +15,180 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storage/buckets"
-	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/stream"
 	"storj.io/storj/pkg/utils"
 )
 
 var (
 	mon = monkit.Package()
-	//Error is the errs class of standard End User Client errors
+
+	// Error is the errs class of standard End User Client errors
 	Error = errs.Class("Storj Gateway error")
 )
 
 // NewStorjGateway creates a *Storj object from an existing ObjectStore
-func NewStorjGateway(bs buckets.Store, pathCipher storj.Cipher) *Storj {
-	return &Storj{bs: bs, pathCipher: pathCipher, multipart: NewMultipartUploads()}
+func NewStorjGateway(metainfo storj.Metainfo, streams streams.Store, pathCipher storj.Cipher, encryption storj.EncryptionScheme, redundancy storj.RedundancyScheme) *Gateway {
+	return &Gateway{
+		metainfo:   metainfo,
+		streams:    streams,
+		pathCipher: pathCipher,
+		encryption: encryption,
+		redundancy: redundancy,
+		multipart:  NewMultipartUploads(),
+	}
 }
 
-//Storj is the implementation of a minio cmd.Gateway
-type Storj struct {
-	bs         buckets.Store
+// Gateway is the implementation of a minio cmd.Gateway
+type Gateway struct {
+	metainfo   storj.Metainfo
+	streams    streams.Store
 	pathCipher storj.Cipher
+	encryption storj.EncryptionScheme
+	redundancy storj.RedundancyScheme
 	multipart  *MultipartUploads
 }
 
 // Name implements cmd.Gateway
-func (s *Storj) Name() string {
+func (gateway *Gateway) Name() string {
 	return "storj"
 }
 
 // NewGatewayLayer implements cmd.Gateway
-func (s *Storj) NewGatewayLayer(creds auth.Credentials) (
-	minio.ObjectLayer, error) {
-	return &storjObjects{storj: s}, nil
+func (gateway *Gateway) NewGatewayLayer(creds auth.Credentials) (minio.ObjectLayer, error) {
+	return &gatewayLayer{gateway: gateway}, nil
 }
 
 // Production implements cmd.Gateway
-func (s *Storj) Production() bool {
+func (gateway *Gateway) Production() bool {
 	return false
 }
 
-type storjObjects struct {
+type gatewayLayer struct {
 	minio.GatewayUnsupported
-	storj *Storj
+	gateway *Gateway
 }
 
-func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) (err error) {
+func (layer *gatewayLayer) DeleteBucket(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
+	list, err := layer.gateway.metainfo.ListObjects(ctx, bucket, storj.ListOptions{Direction: storj.After, Recursive: true, Limit: 1})
 	if err != nil {
-		return convertBucketNotFoundError(err, bucket)
+		return convertError(err, bucket, "")
 	}
 
-	items, _, err := o.List(ctx, "", "", "", true, 1, meta.None)
-	if err != nil {
-		return err
-	}
-
-	if len(items) > 0 {
+	if len(list.Items) > 0 {
 		return minio.BucketNotEmpty{Bucket: bucket}
 	}
 
-	err = s.storj.bs.Delete(ctx, bucket)
+	err = layer.gateway.metainfo.DeleteBucket(ctx, bucket)
 
-	return convertBucketNotFoundError(err, bucket)
+	return convertError(err, bucket, "")
 }
 
-func (s *storjObjects) DeleteObject(ctx context.Context, bucket, object string) (err error) {
+func (layer *gatewayLayer) DeleteObject(ctx context.Context, bucket, object string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
-	if err != nil {
-		return convertBucketNotFoundError(err, bucket)
-	}
+	err = layer.gateway.metainfo.DeleteObject(ctx, bucket, object)
 
-	err = o.Delete(ctx, object)
-
-	return convertObjectNotFoundError(err, bucket, object)
+	return convertError(err, bucket, object)
 }
 
-func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (bucketInfo minio.BucketInfo, err error) {
+func (layer *gatewayLayer) GetBucketInfo(ctx context.Context, bucket string) (bucketInfo minio.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	meta, err := s.storj.bs.Get(ctx, bucket)
+	info, err := layer.gateway.metainfo.GetBucket(ctx, bucket)
 
 	if err != nil {
-		return minio.BucketInfo{}, convertBucketNotFoundError(err, bucket)
+		return minio.BucketInfo{}, convertError(err, bucket, "")
 	}
 
-	return minio.BucketInfo{Name: bucket, Created: meta.Created}, nil
+	return minio.BucketInfo{Name: info.Name, Created: info.Created}, nil
 }
 
-func (s *storjObjects) getObject(ctx context.Context, bucket, object string) (rr ranger.Ranger, err error) {
+func (layer *gatewayLayer) GetObject(ctx context.Context, bucket, object string, startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
+	readOnlyStream, err := layer.gateway.metainfo.GetObjectStream(ctx, bucket, object)
 	if err != nil {
-		return nil, convertBucketNotFoundError(err, bucket)
+		return convertError(err, bucket, object)
 	}
 
-	rr, _, err = o.Get(ctx, object)
+	if startOffset < 0 || length < -1 || startOffset+length > readOnlyStream.Info().Size {
+		return minio.InvalidRange{
+			OffsetBegin:  startOffset,
+			OffsetEnd:    startOffset + length,
+			ResourceSize: readOnlyStream.Info().Size,
+		}
+	}
 
-	return rr, convertObjectNotFoundError(err, bucket, object)
-}
+	download := stream.NewDownload(ctx, readOnlyStream, layer.gateway.streams)
+	defer utils.LogClose(download)
 
-func (s *storjObjects) GetObject(ctx context.Context, bucket, object string, startOffset int64, length int64, writer io.Writer, etag string) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	rr, err := s.getObject(ctx, bucket, object)
+	_, err = download.Seek(startOffset, io.SeekStart)
 	if err != nil {
 		return err
 	}
 
 	if length == -1 {
-		length = rr.Size() - startOffset
+		_, err = io.Copy(writer, download)
+	} else {
+		_, err = io.CopyN(writer, download, length)
 	}
-
-	r, err := rr.Range(ctx, startOffset, length)
-	if err != nil {
-		return err
-	}
-	defer utils.LogClose(r)
-
-	_, err = io.Copy(writer, r)
 
 	return err
 }
 
-func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket, object string) (objInfo minio.ObjectInfo, err error) {
+func (layer *gatewayLayer) GetObjectInfo(ctx context.Context, bucket, object string) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
+	obj, err := layer.gateway.metainfo.GetObject(ctx, bucket, object)
 	if err != nil {
-		return minio.ObjectInfo{}, convertBucketNotFoundError(err, bucket)
-	}
-
-	m, err := o.Meta(ctx, object)
-	if err != nil {
-		return objInfo, convertObjectNotFoundError(err, bucket, object)
+		return minio.ObjectInfo{}, convertError(err, bucket, object)
 	}
 
 	return minio.ObjectInfo{
 		Name:        object,
 		Bucket:      bucket,
-		ModTime:     m.Modified,
-		Size:        m.Size,
-		ETag:        m.Checksum,
-		ContentType: m.ContentType,
-		UserDefined: m.UserDefined,
+		ModTime:     obj.Modified,
+		Size:        obj.Size,
+		ETag:        hex.EncodeToString(obj.Checksum),
+		ContentType: obj.ContentType,
+		UserDefined: obj.Metadata,
 	}, err
 }
 
-func (s *storjObjects) ListBuckets(ctx context.Context) (bucketItems []minio.BucketInfo, err error) {
+func (layer *gatewayLayer) ListBuckets(ctx context.Context) (bucketItems []minio.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	startAfter := ""
-	var items []buckets.ListItem
 
 	for {
-		moreItems, more, err := s.storj.bs.List(ctx, startAfter, "", 0)
+		list, err := layer.gateway.metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After, Cursor: startAfter})
 		if err != nil {
 			return nil, err
 		}
-		items = append(items, moreItems...)
-		if !more {
+
+		for _, item := range list.Items {
+			bucketItems = append(bucketItems, minio.BucketInfo{Name: item.Name, Created: item.Created})
+		}
+
+		if !list.More {
 			break
 		}
-		startAfter = moreItems[len(moreItems)-1].Bucket
-	}
 
-	bucketItems = make([]minio.BucketInfo, len(items))
-	for i, item := range items {
-		bucketItems[i].Name = item.Bucket
-		bucketItems[i].Created = item.Meta.Created
+		startAfter = list.Items[len(list.Items)-1].Name
 	}
 
 	return bucketItems, err
 }
 
-func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker, delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
+func (layer *gatewayLayer) ListObjects(ctx context.Context, bucket, prefix, marker, delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if delimiter != "" && delimiter != "/" {
-		return minio.ListObjectsInfo{}, Error.New("delimiter %s not supported", delimiter)
+		return minio.ListObjectsInfo{}, minio.UnsupportedDelimiter{Delimiter: delimiter}
 	}
 
 	startAfter := marker
@@ -208,16 +196,20 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker, 
 
 	var objects []minio.ObjectInfo
 	var prefixes []string
-	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
+
+	list, err := layer.gateway.metainfo.ListObjects(ctx, bucket, storj.ListOptions{
+		Direction: storj.After,
+		Cursor:    startAfter,
+		Prefix:    prefix,
+		Recursive: recursive,
+		Limit:     maxKeys,
+	})
 	if err != nil {
-		return minio.ListObjectsInfo{}, convertBucketNotFoundError(err, bucket)
+		return result, convertError(err, bucket, "")
 	}
-	items, more, err := o.List(ctx, prefix, startAfter, "", recursive, maxKeys, meta.All)
-	if err != nil {
-		return result, err
-	}
-	if len(items) > 0 {
-		for _, item := range items {
+
+	if len(list.Items) > 0 {
+		for _, item := range list.Items {
 			path := item.Path
 			if recursive && prefix != "" {
 				path = storj.JoinPaths(strings.TrimSuffix(prefix, "/"), path)
@@ -230,22 +222,22 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker, 
 				Bucket:      bucket,
 				IsDir:       false,
 				Name:        path,
-				ModTime:     item.Meta.Modified,
-				Size:        item.Meta.Size,
-				ContentType: item.Meta.ContentType,
-				UserDefined: item.Meta.UserDefined,
-				ETag:        item.Meta.Checksum,
+				ModTime:     item.Modified,
+				Size:        item.Size,
+				ETag:        hex.EncodeToString(item.Checksum),
+				ContentType: item.ContentType,
+				UserDefined: item.Metadata,
 			})
 		}
-		startAfter = items[len(items)-1].Path
+		startAfter = list.Items[len(list.Items)-1].Path
 	}
 
 	result = minio.ListObjectsInfo{
-		IsTruncated: more,
+		IsTruncated: list.More,
 		Objects:     objects,
 		Prefixes:    prefixes,
 	}
-	if more {
+	if list.More {
 		result.NextMarker = startAfter
 	}
 
@@ -253,11 +245,11 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker, 
 }
 
 // ListObjectsV2 - Not implemented stub
-func (s *storjObjects) ListObjectsV2(ctx context.Context, bucket, prefix, continuationToken, delimiter string, maxKeys int, fetchOwner bool, startAfter string) (result minio.ListObjectsV2Info, err error) {
+func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucket, prefix, continuationToken, delimiter string, maxKeys int, fetchOwner bool, startAfter string) (result minio.ListObjectsV2Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if delimiter != "" && delimiter != "/" {
-		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, Error.New("delimiter %s not supported", delimiter)
+		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, minio.UnsupportedDelimiter{Delimiter: delimiter}
 	}
 
 	recursive := delimiter == ""
@@ -273,17 +265,20 @@ func (s *storjObjects) ListObjectsV2(ctx context.Context, bucket, prefix, contin
 
 	var objects []minio.ObjectInfo
 	var prefixes []string
-	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
+
+	list, err := layer.gateway.metainfo.ListObjects(ctx, bucket, storj.ListOptions{
+		Direction: storj.After,
+		Cursor:    startAfterPath,
+		Prefix:    prefix,
+		Recursive: recursive,
+		Limit:     maxKeys,
+	})
 	if err != nil {
-		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, convertBucketNotFoundError(err, bucket)
-	}
-	items, more, err := o.List(ctx, prefix, startAfterPath, "", recursive, maxKeys, meta.All)
-	if err != nil {
-		return result, err
+		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, convertError(err, bucket, "")
 	}
 
-	if len(items) > 0 {
-		for _, item := range items {
+	if len(list.Items) > 0 {
+		for _, item := range list.Items {
 			path := item.Path
 			if recursive && prefix != "" {
 				path = storj.JoinPaths(strings.TrimSuffix(prefix, "/"), path)
@@ -296,31 +291,31 @@ func (s *storjObjects) ListObjectsV2(ctx context.Context, bucket, prefix, contin
 				Bucket:      bucket,
 				IsDir:       false,
 				Name:        path,
-				ModTime:     item.Meta.Modified,
-				Size:        item.Meta.Size,
-				ContentType: item.Meta.ContentType,
-				UserDefined: item.Meta.UserDefined,
-				ETag:        item.Meta.Checksum,
+				ModTime:     item.Modified,
+				Size:        item.Size,
+				ETag:        hex.EncodeToString(item.Checksum),
+				ContentType: item.ContentType,
+				UserDefined: item.Metadata,
 			})
 		}
 
-		nextContinuationToken = items[len(items)-1].Path + "\x00"
+		nextContinuationToken = list.Items[len(list.Items)-1].Path + "\x00"
 	}
 
 	result = minio.ListObjectsV2Info{
-		IsTruncated:       more,
+		IsTruncated:       list.More,
 		ContinuationToken: continuationToken,
 		Objects:           objects,
 		Prefixes:          prefixes,
 	}
-	if more {
+	if list.More {
 		result.NextContinuationToken = nextContinuationToken
 	}
 
 	return result, err
 }
 
-func (s *storjObjects) MakeBucketWithLocation(ctx context.Context, bucket string, location string) (err error) {
+func (layer *gatewayLayer) MakeBucketWithLocation(ctx context.Context, bucket string, location string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// TODO: This current strategy of calling bs.Get
 	// to check if a bucket exists, then calling bs.Put
@@ -329,94 +324,128 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context, bucket string
 	// therefore try to Put a bucket at the same time.
 	// The reason for the Get call to check if the
 	// bucket already exists is to match S3 CLI behavior.
-	_, err = s.storj.bs.Get(ctx, bucket)
+	_, err = layer.gateway.metainfo.GetBucket(ctx, bucket)
 	if err == nil {
 		return minio.BucketAlreadyExists{Bucket: bucket}
 	}
+
 	if !storj.ErrBucketNotFound.Has(err) {
-		return err
+		return convertError(err, bucket, "")
 	}
-	_, err = s.storj.bs.Put(ctx, bucket, s.storj.pathCipher)
+
+	_, err = layer.gateway.metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: layer.gateway.pathCipher})
+
 	return err
 }
 
-func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, srcInfo minio.ObjectInfo) (objInfo minio.ObjectInfo, err error) {
+func (layer *gatewayLayer) CopyObject(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, srcInfo minio.ObjectInfo) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rr, err := s.getObject(ctx, srcBucket, srcObject)
+	readOnlyStream, err := layer.gateway.metainfo.GetObjectStream(ctx, srcBucket, srcObject)
 	if err != nil {
-		return objInfo, err
+		return minio.ObjectInfo{}, convertError(err, srcBucket, srcObject)
 	}
 
-	r, err := rr.Range(ctx, 0, rr.Size())
-	if err != nil {
-		return objInfo, err
+	download := stream.NewDownload(ctx, readOnlyStream, layer.gateway.streams)
+	defer utils.LogClose(download)
+
+	info := readOnlyStream.Info()
+	createInfo := storj.CreateObject{
+		ContentType:      info.ContentType,
+		Expires:          info.Expires,
+		Metadata:         info.Metadata,
+		RedundancyScheme: info.RedundancyScheme,
+		EncryptionScheme: info.EncryptionScheme,
 	}
 
-	defer utils.LogClose(r)
-
-	serMetaInfo := pb.SerializableMeta{
-		ContentType: srcInfo.ContentType,
-		UserDefined: srcInfo.UserDefined,
-	}
-
-	return s.putObject(ctx, destBucket, destObject, r, serMetaInfo)
+	return layer.putObject(ctx, destBucket, destObject, download, &createInfo)
 }
 
-func (s *storjObjects) putObject(ctx context.Context, bucket, object string, r io.Reader, meta pb.SerializableMeta) (objInfo minio.ObjectInfo, err error) {
+func (layer *gatewayLayer) putObject(ctx context.Context, bucket, object string, reader io.Reader, createInfo *storj.CreateObject) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// setting zero value means the object never expires
-	expTime := time.Time{}
-	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
+	mutableObject, err := layer.gateway.metainfo.CreateObject(ctx, bucket, object, createInfo)
 	if err != nil {
-		return minio.ObjectInfo{}, convertBucketNotFoundError(err, bucket)
+		return minio.ObjectInfo{}, convertError(err, bucket, object)
 	}
-	m, err := o.Put(ctx, object, r, meta, expTime)
+
+	err = upload(ctx, layer.gateway.streams, mutableObject, reader)
+	if err != nil {
+		return minio.ObjectInfo{}, err
+	}
+
+	err = mutableObject.Commit(ctx)
+	if err != nil {
+		return minio.ObjectInfo{}, err
+	}
+
+	info := mutableObject.Info()
+
 	return minio.ObjectInfo{
 		Name:        object,
 		Bucket:      bucket,
-		ModTime:     m.Modified,
-		Size:        m.Size,
-		ETag:        m.Checksum,
-		ContentType: m.ContentType,
-		UserDefined: m.UserDefined,
-	}, err
+		ModTime:     info.Modified,
+		Size:        info.Size,
+		ETag:        hex.EncodeToString(info.Checksum),
+		ContentType: info.ContentType,
+		UserDefined: info.Metadata,
+	}, nil
 }
 
-func (s *storjObjects) PutObject(ctx context.Context, bucket, object string, data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo, err error) {
-
-	defer mon.Task()(&ctx)(&err)
-	tempContType := metadata["content-type"]
-	delete(metadata, "content-type")
-	//metadata serialized
-	serMetaInfo := pb.SerializableMeta{
-		ContentType: tempContType,
-		UserDefined: metadata,
+func upload(ctx context.Context, streams streams.Store, mutableObject storj.MutableObject, reader io.Reader) error {
+	mutableStream, err := mutableObject.CreateStream(ctx)
+	if err != nil {
+		return err
 	}
 
-	return s.putObject(ctx, bucket, object, data, serMetaInfo)
+	upload := stream.NewUpload(ctx, mutableStream, streams)
+
+	_, err = io.Copy(upload, reader)
+
+	return utils.CombineErrors(err, upload.Close())
 }
 
-func (s *storjObjects) Shutdown(ctx context.Context) (err error) {
+func (layer *gatewayLayer) PutObject(ctx context.Context, bucket, object string, data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	contentType := metadata["content-type"]
+	delete(metadata, "content-type")
+
+	createInfo := storj.CreateObject{
+		ContentType:      contentType,
+		Metadata:         metadata,
+		RedundancyScheme: layer.gateway.redundancy,
+		EncryptionScheme: layer.gateway.encryption,
+	}
+
+	return layer.putObject(ctx, bucket, object, data, &createInfo)
+}
+
+func (layer *gatewayLayer) Shutdown(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return nil
 }
 
-func (s *storjObjects) StorageInfo(context.Context) minio.StorageInfo {
+func (layer *gatewayLayer) StorageInfo(context.Context) minio.StorageInfo {
 	return minio.StorageInfo{}
 }
 
-func convertBucketNotFoundError(err error, bucket string) error {
+func convertError(err error, bucket, object string) error {
+	if storj.ErrNoBucket.Has(err) {
+		return minio.BucketNameInvalid{Bucket: bucket}
+	}
+
 	if storj.ErrBucketNotFound.Has(err) {
 		return minio.BucketNotFound{Bucket: bucket}
 	}
-	return err
-}
 
-func convertObjectNotFoundError(err error, bucket, object string) error {
+	if storj.ErrNoPath.Has(err) {
+		return minio.ObjectNameInvalid{Bucket: bucket, Object: object}
+	}
+
 	if storj.ErrObjectNotFound.Has(err) {
 		return minio.ObjectNotFound{Bucket: bucket, Object: object}
 	}
+
 	return err
 }

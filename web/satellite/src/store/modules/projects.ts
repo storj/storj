@@ -13,6 +13,7 @@ export const projectsModule = {
             name: "Choose Project",
             id: "",
             ownerName: "",
+            companyName: "",
             description: "",
             isTermsAccepted: false,
             createdAt: "",
@@ -67,6 +68,8 @@ export const projectsModule = {
         },
         createProject: async function({commit}: any, project: Project): Promise<boolean> {
             let response = await createProject(project);
+
+            console.log("in action", project);
 
             if(!response || response.errors) {
                 return false;

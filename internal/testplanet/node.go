@@ -61,7 +61,12 @@ func (planet *Planet) newNode(name string, nodeType pb.NodeType) (*Node, error) 
 
 	node.Transport = transport.NewClient(identity)
 
-	node.Provider, err = provider.NewProvider(node.Identity, node.Listener, grpcauth.NewAPIKeyInterceptor())
+	serverConfig := provider.ServerConfig{Address: node.Listener.Addr().String()}
+	opts, err := provider.NewServerOptions(node.Identity, serverConfig)
+	if err != nil {
+		return nil, err
+	}
+	node.Provider, err = provider.NewProvider(opts, node.Listener, grpcauth.NewAPIKeyInterceptor())
 	if err != nil {
 		return nil, utils.CombineErrors(err, listener.Close())
 	}
@@ -91,6 +96,9 @@ func (node *Node) Addr() string { return node.Info.Address.Address }
 // Shutdown shuts down all node dependencies
 func (node *Node) Shutdown() error {
 	var errs []error
+	if node.Kademlia != nil {
+		errs = append(errs, node.Kademlia.Disconnect())
+	}
 	if node.Provider != nil {
 		errs = append(errs, node.Provider.Close())
 	}
@@ -98,9 +106,6 @@ func (node *Node) Shutdown() error {
 	// if node.Listener != nil {
 	//    errs = append(errs, node.Listener.Close())
 	// }
-	if node.Kademlia != nil {
-		errs = append(errs, node.Kademlia.Disconnect())
-	}
 
 	for _, dep := range node.Dependencies {
 		err := dep.Close()

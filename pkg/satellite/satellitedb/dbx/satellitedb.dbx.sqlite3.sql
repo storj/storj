@@ -25,15 +25,15 @@ CREATE TABLE projects (
 	id BLOB NOT NULL,
 	owner_id BLOB REFERENCES users( id ) ON DELETE SET NULL,
 	name TEXT NOT NULL,
+	company_name TEXT NOT NULL,
 	description TEXT NOT NULL,
 	terms_accepted INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE project_members (
-	id BLOB NOT NULL,
 	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( member_id, project_id )
 );

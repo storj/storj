@@ -16,6 +16,8 @@ type Projects interface {
 	GetAll(ctx context.Context) ([]Project, error)
 	// GetByOwnerID is a method for querying projects from the database by ownerID.
 	GetByOwnerID(ctx context.Context, ownerID uuid.UUID) ([]Project, error)
+	// GetByUserID is a method for querying all projects from the database by userID.
+	GetByUserID(ctx context.Context, userID uuid.UUID) ([]Project, error)
 	// Get is a method for querying project from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*Project, error)
 	// Insert is a method for inserting project into the database.
@@ -33,6 +35,7 @@ type Project struct {
 	OwnerID *uuid.UUID `json:"ownerId"`
 
 	Name        string `json:"name"`
+	CompanyName string `json:"companyName"`
 	Description string `json:"description"`
 	// stores last accepted version of terms of use.
 	TermsAccepted int `json:"termsAccepted"`
@@ -42,13 +45,11 @@ type Project struct {
 
 // ProjectInfo holds data needed to create/update Project
 type ProjectInfo struct {
-	ID uuid.UUID `json:"id"`
-
 	Name        string `json:"name"`
+	CompanyName string `json:"companyName"`
 	Description string `json:"description"`
 	// Indicates if user accepted Terms & Conditions during project creation on UI
-	IsTermsAccepted bool   `json:"isTermsAccepted"`
-	OwnerName       string `json:"ownerName"`
+	IsTermsAccepted bool `json:"isTermsAccepted"`
 
 	CreatedAt time.Time `json:"createdAt"`
 }

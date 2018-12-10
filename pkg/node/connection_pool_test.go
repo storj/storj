@@ -7,6 +7,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
@@ -61,7 +62,7 @@ func TestDisconnect(t *testing.T) {
 		{
 			pool: ConnectionPool{
 				mu:    sync.RWMutex{},
-				items: map[storj.NodeID]*Conn{fooID: &Conn{grpc: conn}},
+				items: map[storj.NodeID]*Conn{fooID: &Conn{grpc: unsafe.Pointer(conn)}},
 			},
 			nodeID:        fooID,
 			expected:      nil,

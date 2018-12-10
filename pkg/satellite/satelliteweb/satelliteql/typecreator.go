@@ -19,6 +19,7 @@ type Types interface {
 	User() *graphql.Object
 	Company() *graphql.Object
 	Project() *graphql.Object
+	ProjectMember() *graphql.Object
 
 	UserInput() *graphql.InputObject
 	CompanyInput() *graphql.InputObject
@@ -32,9 +33,10 @@ type TypeCreator struct {
 
 	token *graphql.Object
 
-	user    *graphql.Object
-	company *graphql.Object
-	project *graphql.Object
+	user          *graphql.Object
+	company       *graphql.Object
+	project       *graphql.Object
+	projectMember *graphql.Object
 
 	userInput    *graphql.InputObject
 	companyInput *graphql.InputObject
@@ -43,28 +45,9 @@ type TypeCreator struct {
 
 // Create create types and check for error
 func (c *TypeCreator) Create(service *satellite.Service) error {
-	c.company = graphqlCompany()
-	if err := c.company.Error(); err != nil {
-		return err
-	}
-
+	// inputs
 	c.companyInput = graphqlCompanyInput()
 	if err := c.companyInput.Error(); err != nil {
-		return err
-	}
-
-	c.project = graphqlProject()
-	if err := c.project.Error(); err != nil {
-		return err
-	}
-
-	c.projectInput = graphqlProjectInput()
-	if err := c.projectInput.Error(); err != nil {
-		return err
-	}
-
-	c.user = graphqlUser(service, c)
-	if err := c.user.Error(); err != nil {
 		return err
 	}
 
@@ -73,11 +56,38 @@ func (c *TypeCreator) Create(service *satellite.Service) error {
 		return err
 	}
 
+	c.projectInput = graphqlProjectInput()
+	if err := c.projectInput.Error(); err != nil {
+		return err
+	}
+
+	// entities
+	c.company = graphqlCompany()
+	if err := c.company.Error(); err != nil {
+		return err
+	}
+
+	c.user = graphqlUser(service, c)
+	if err := c.user.Error(); err != nil {
+		return err
+	}
+
+	c.projectMember = graphqlProjectMember(service, c)
+	if err := c.projectMember.Error(); err != nil {
+		return err
+	}
+
+	c.project = graphqlProject(service, c)
+	if err := c.project.Error(); err != nil {
+		return err
+	}
+
 	c.token = graphqlToken(service, c)
 	if err := c.user.Error(); err != nil {
 		return err
 	}
 
+	// root objects
 	c.query = rootQuery(service, c)
 	if err := c.query.Error(); err != nil {
 		return err
@@ -119,6 +129,11 @@ func (c *TypeCreator) Company() *graphql.Object {
 // Project returns instance of satellite.Project *graphql.Object
 func (c *TypeCreator) Project() *graphql.Object {
 	return c.project
+}
+
+// ProjectMember returns instance of projectMember *graphql.Object
+func (c *TypeCreator) ProjectMember() *graphql.Object {
+	return c.projectMember
 }
 
 // UserInput returns instance of UserInput *graphql.Object

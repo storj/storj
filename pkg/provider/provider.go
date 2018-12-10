@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/storage"
 )
 
@@ -42,13 +41,9 @@ type Provider struct {
 
 // NewProvider creates a Provider out of an Identity, a net.Listener, a UnaryInterceptorProvider and
 // a set of responsibilities.
-func NewProvider(identity *FullIdentity, lis net.Listener, interceptor grpc.UnaryServerInterceptor,
+func NewProvider(opts *ServerOptions, lis net.Listener, interceptor grpc.UnaryServerInterceptor,
 	responsibilities ...Responsibility) (*Provider, error) {
-	// NB: talk to anyone with an identity
-	ident, err := identity.ServerOption(peertls.VerifyCAWhitelist(
-		identity.PeerCAWhitelist,
-		identity.VerifyAuthExtSig,
-	))
+	grpcOpts, err := opts.grpcOpts()
 	if err != nil {
 		return nil, err
 	}
@@ -63,10 +58,10 @@ func NewProvider(identity *FullIdentity, lis net.Listener, interceptor grpc.Unar
 		grpc: grpc.NewServer(
 			grpc.StreamInterceptor(streamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
-			ident,
+			grpcOpts,
 		),
 		next:     responsibilities,
-		identity: identity,
+		identity: opts.Ident,
 	}, nil
 }
 

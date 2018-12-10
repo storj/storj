@@ -1,0 +1,60 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package irreparabledb_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/pkg/datarepair/irreparable"
+	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+)
+
+func TestIrreparable(t *testing.T) {
+	satellitedbtest.Run(t, func(db *satellitedb.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		testDatabase(ctx, t, db.Irreparable())
+	})
+}
+
+func testDatabase(ctx context.Context, t *testing.T, irrdb irreparable.DB) {
+	//testing variables
+	segmentInfo := &irreparable.RemoteSegmentInfo{
+		EncryptedSegmentPath:   []byte("IamSegmentkeyinfo"),
+		EncryptedSegmentDetail: []byte("IamSegmentdetailinfo"),
+		LostPiecesCount:        int64(10),
+		RepairUnixSec:          time.Now().Unix(),
+		RepairAttemptCount:     int64(10),
+	}
+
+	{ // New entry
+		err := irrdb.IncrementRepairAttempts(ctx, segmentInfo)
+		assert.NoError(t, err)
+	}
+
+	{ //Increment the already existing entry
+		err := irrdb.IncrementRepairAttempts(ctx, segmentInfo)
+		assert.NoError(t, err)
+		segmentInfo.RepairAttemptCount++
+
+		dbxInfo, err := irrdb.Get(ctx, segmentInfo.EncryptedSegmentPath)
+		assert.NoError(t, err)
+		assert.Equal(t, segmentInfo, dbxInfo)
+	}
+
+	{ //Delete existing entry
+		err := irrdb.Delete(ctx, segmentInfo.EncryptedSegmentPath)
+		assert.NoError(t, err)
+
+		_, err = irrdb.Get(ctx, segmentInfo.EncryptedSegmentPath)
+		assert.Error(t, err)
+	}
+}

@@ -280,7 +280,10 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 		return object{}, storj.Object{}, err
 	}
 
-	info = objectStreamFromMeta(bucketInfo, path, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
+	info, err = objectStreamFromMeta(bucketInfo, path, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
+	if err != nil {
+		return object{}, storj.Object{}, err
+	}
 
 	return object{
 		fullpath:        fullpath,
@@ -298,7 +301,7 @@ func objectFromMeta(bucket storj.Bucket, path storj.Path, isPrefix bool, meta ob
 		Path:     path,
 		IsPrefix: isPrefix,
 
-		Metadata: nil,
+		Metadata: meta.UserDefined,
 
 		ContentType: meta.ContentType,
 		Created:     meta.Modified, // TODO: use correct field
@@ -312,21 +315,28 @@ func objectFromMeta(bucket storj.Bucket, path storj.Path, isPrefix bool, meta ob
 	}
 }
 
-func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme *pb.RedundancyScheme) storj.Object {
+func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme *pb.RedundancyScheme) (storj.Object, error) {
 	var nonce storj.Nonce
 	copy(nonce[:], streamMeta.LastSegmentMeta.KeyNonce)
+
+	serMetaInfo := pb.SerializableMeta{}
+	err := proto.Unmarshal(stream.Metadata, &serMetaInfo)
+	if err != nil {
+		return storj.Object{}, err
+	}
+
 	return storj.Object{
 		Version:  0, // TODO:
 		Bucket:   bucket,
 		Path:     path,
 		IsPrefix: false,
 
-		Metadata: nil, // TODO:
+		Metadata: serMetaInfo.UserDefined,
 
-		// ContentType: object.ContentType,
-		Created:  lastSegment.Modified,   // TODO: use correct field
-		Modified: lastSegment.Modified,   // TODO: use correct field
-		Expires:  lastSegment.Expiration, // TODO: use correct field
+		ContentType: serMetaInfo.ContentType,
+		Created:     lastSegment.Modified,   // TODO: use correct field
+		Modified:    lastSegment.Modified,   // TODO: use correct field
+		Expires:     lastSegment.Expiration, // TODO: use correct field
 
 		Stream: storj.Stream{
 			Size: stream.SegmentsSize*(stream.NumberOfSegments-1) + stream.LastSegmentSize,
@@ -353,7 +363,7 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segm
 				EncryptedKey:      streamMeta.LastSegmentMeta.EncryptedKey,
 			},
 		},
-	}
+	}, nil
 }
 
 // convertTime converts gRPC timestamp to Go time
@@ -391,6 +401,7 @@ func (object *mutableObject) DeleteStream(ctx context.Context) error {
 }
 
 func (object *mutableObject) Commit(ctx context.Context) error {
-	// Do nothing for now - the object will be committed to PointerDB with Upload.Close
-	return nil
+	_, info, err := object.db.getInfo(ctx, committedPrefix, object.info.Bucket.Name, object.info.Path)
+	object.info = info
+	return err
 }

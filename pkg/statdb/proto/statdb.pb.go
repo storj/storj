@@ -35,7 +35,7 @@ func (m *CreateRequest) Reset()         { *m = CreateRequest{} }
 func (m *CreateRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateRequest) ProtoMessage()    {}
 func (*CreateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{0}
+	return fileDescriptor_statdb_c60cfd63f3ff5762, []int{0}
 }
 func (m *CreateRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateRequest.Unmarshal(m, b)
@@ -81,7 +81,7 @@ func (m *CreateResponse) Reset()         { *m = CreateResponse{} }
 func (m *CreateResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateResponse) ProtoMessage()    {}
 func (*CreateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{1}
+	return fileDescriptor_statdb_c60cfd63f3ff5762, []int{1}
 }
 func (m *CreateResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateResponse.Unmarshal(m, b)
@@ -120,7 +120,7 @@ func (m *GetRequest) Reset()         { *m = GetRequest{} }
 func (m *GetRequest) String() string { return proto.CompactTextString(m) }
 func (*GetRequest) ProtoMessage()    {}
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{2}
+	return fileDescriptor_statdb_c60cfd63f3ff5762, []int{2}
 }
 func (m *GetRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetRequest.Unmarshal(m, b)
@@ -152,7 +152,7 @@ func (m *GetResponse) Reset()         { *m = GetResponse{} }
 func (m *GetResponse) String() string { return proto.CompactTextString(m) }
 func (*GetResponse) ProtoMessage()    {}
 func (*GetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{3}
+	return fileDescriptor_statdb_c60cfd63f3ff5762, []int{3}
 }
 func (m *GetResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetResponse.Unmarshal(m, b)
@@ -179,78 +179,77 @@ func (m *GetResponse) GetStats() *NodeStats {
 	return nil
 }
 
-// FindValidNodesRequest is a request message for the FindValidNodes rpc call
-type FindValidNodesRequest struct {
+// FindInvalidNodesRequest is a request message for the FindInvalidNodes rpc call
+type FindInvalidNodesRequest struct {
 	NodeIds              []NodeID   `protobuf:"bytes,1,rep,name=node_ids,json=nodeIds,customtype=NodeID" json:"node_ids,omitempty"`
-	MinStats             *NodeStats `protobuf:"bytes,2,opt,name=min_stats,json=minStats" json:"min_stats,omitempty"`
+	MaxStats             *NodeStats `protobuf:"bytes,2,opt,name=max_stats,json=maxStats" json:"max_stats,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
 }
 
-func (m *FindValidNodesRequest) Reset()         { *m = FindValidNodesRequest{} }
-func (m *FindValidNodesRequest) String() string { return proto.CompactTextString(m) }
-func (*FindValidNodesRequest) ProtoMessage()    {}
-func (*FindValidNodesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{4}
+func (m *FindInvalidNodesRequest) Reset()         { *m = FindInvalidNodesRequest{} }
+func (m *FindInvalidNodesRequest) String() string { return proto.CompactTextString(m) }
+func (*FindInvalidNodesRequest) ProtoMessage()    {}
+func (*FindInvalidNodesRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_statdb_c60cfd63f3ff5762, []int{4}
 }
-func (m *FindValidNodesRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_FindValidNodesRequest.Unmarshal(m, b)
+func (m *FindInvalidNodesRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FindInvalidNodesRequest.Unmarshal(m, b)
 }
-func (m *FindValidNodesRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_FindValidNodesRequest.Marshal(b, m, deterministic)
+func (m *FindInvalidNodesRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FindInvalidNodesRequest.Marshal(b, m, deterministic)
 }
-func (dst *FindValidNodesRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FindValidNodesRequest.Merge(dst, src)
+func (dst *FindInvalidNodesRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FindInvalidNodesRequest.Merge(dst, src)
 }
-func (m *FindValidNodesRequest) XXX_Size() int {
-	return xxx_messageInfo_FindValidNodesRequest.Size(m)
+func (m *FindInvalidNodesRequest) XXX_Size() int {
+	return xxx_messageInfo_FindInvalidNodesRequest.Size(m)
 }
-func (m *FindValidNodesRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_FindValidNodesRequest.DiscardUnknown(m)
+func (m *FindInvalidNodesRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_FindInvalidNodesRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_FindValidNodesRequest proto.InternalMessageInfo
+var xxx_messageInfo_FindInvalidNodesRequest proto.InternalMessageInfo
 
-func (m *FindValidNodesRequest) GetMinStats() *NodeStats {
+func (m *FindInvalidNodesRequest) GetMaxStats() *NodeStats {
 	if m != nil {
-		return m.MinStats
+		return m.MaxStats
 	}
 	return nil
 }
 
-// FindValidNodesResponse is a response message for the FindValidNodes rpc call
-type FindValidNodesResponse struct {
-	PassedIds            []NodeID `protobuf:"bytes,1,rep,name=passed_ids,json=passedIds,customtype=NodeID" json:"passed_ids,omitempty"`
-	FailedIds            []NodeID `protobuf:"bytes,2,rep,name=failed_ids,json=failedIds,customtype=NodeID" json:"failed_ids,omitempty"`
+// FindInvalidNodesResponse is a response message for the FindInvalidNodes rpc call
+type FindInvalidNodesResponse struct {
+	InvalidIds           []NodeID `protobuf:"bytes,1,rep,name=invalid_ids,json=invalidIds,customtype=NodeID" json:"invalid_ids,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *FindValidNodesResponse) Reset()         { *m = FindValidNodesResponse{} }
-func (m *FindValidNodesResponse) String() string { return proto.CompactTextString(m) }
-func (*FindValidNodesResponse) ProtoMessage()    {}
-func (*FindValidNodesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{5}
+func (m *FindInvalidNodesResponse) Reset()         { *m = FindInvalidNodesResponse{} }
+func (m *FindInvalidNodesResponse) String() string { return proto.CompactTextString(m) }
+func (*FindInvalidNodesResponse) ProtoMessage()    {}
+func (*FindInvalidNodesResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_statdb_c60cfd63f3ff5762, []int{5}
 }
-func (m *FindValidNodesResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_FindValidNodesResponse.Unmarshal(m, b)
+func (m *FindInvalidNodesResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FindInvalidNodesResponse.Unmarshal(m, b)
 }
-func (m *FindValidNodesResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_FindValidNodesResponse.Marshal(b, m, deterministic)
+func (m *FindInvalidNodesResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FindInvalidNodesResponse.Marshal(b, m, deterministic)
 }
-func (dst *FindValidNodesResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FindValidNodesResponse.Merge(dst, src)
+func (dst *FindInvalidNodesResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FindInvalidNodesResponse.Merge(dst, src)
 }
-func (m *FindValidNodesResponse) XXX_Size() int {
-	return xxx_messageInfo_FindValidNodesResponse.Size(m)
+func (m *FindInvalidNodesResponse) XXX_Size() int {
+	return xxx_messageInfo_FindInvalidNodesResponse.Size(m)
 }
-func (m *FindValidNodesResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_FindValidNodesResponse.DiscardUnknown(m)
+func (m *FindInvalidNodesResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_FindInvalidNodesResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_FindValidNodesResponse proto.InternalMessageInfo
+var xxx_messageInfo_FindInvalidNodesResponse proto.InternalMessageInfo
 
 // UpdateRequest is a request message for the Update rpc call
 type UpdateRequest struct {
@@ -264,7 +263,7 @@ func (m *UpdateRequest) Reset()         { *m = UpdateRequest{} }
 func (m *UpdateRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateRequest) ProtoMessage()    {}
 func (*UpdateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{6}
+	return fileDescriptor_statdb_c60cfd63f3ff5762, []int{6}
 }
 func (m *UpdateRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateRequest.Unmarshal(m, b)
@@ -303,7 +302,7 @@ func (m *UpdateResponse) Reset()         { *m = UpdateResponse{} }
 func (m *UpdateResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateResponse) ProtoMessage()    {}
 func (*UpdateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{7}
+	return fileDescriptor_statdb_c60cfd63f3ff5762, []int{7}
 }
 func (m *UpdateResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateResponse.Unmarshal(m, b)
@@ -342,7 +341,7 @@ func (m *UpdateUptimeRequest) Reset()         { *m = UpdateUptimeRequest{} }
 func (m *UpdateUptimeRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateUptimeRequest) ProtoMessage()    {}
 func (*UpdateUptimeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{8}
+	return fileDescriptor_statdb_c60cfd63f3ff5762, []int{8}
 }
 func (m *UpdateUptimeRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateUptimeRequest.Unmarshal(m, b)
@@ -381,7 +380,7 @@ func (m *UpdateUptimeResponse) Reset()         { *m = UpdateUptimeResponse{} }
 func (m *UpdateUptimeResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateUptimeResponse) ProtoMessage()    {}
 func (*UpdateUptimeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{9}
+	return fileDescriptor_statdb_c60cfd63f3ff5762, []int{9}
 }
 func (m *UpdateUptimeResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateUptimeResponse.Unmarshal(m, b)
@@ -420,7 +419,7 @@ func (m *UpdateAuditSuccessRequest) Reset()         { *m = UpdateAuditSuccessReq
 func (m *UpdateAuditSuccessRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateAuditSuccessRequest) ProtoMessage()    {}
 func (*UpdateAuditSuccessRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{10}
+	return fileDescriptor_statdb_c60cfd63f3ff5762, []int{10}
 }
 func (m *UpdateAuditSuccessRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateAuditSuccessRequest.Unmarshal(m, b)
@@ -459,7 +458,7 @@ func (m *UpdateAuditSuccessResponse) Reset()         { *m = UpdateAuditSuccessRe
 func (m *UpdateAuditSuccessResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateAuditSuccessResponse) ProtoMessage()    {}
 func (*UpdateAuditSuccessResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{11}
+	return fileDescriptor_statdb_c60cfd63f3ff5762, []int{11}
 }
 func (m *UpdateAuditSuccessResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateAuditSuccessResponse.Unmarshal(m, b)
@@ -498,7 +497,7 @@ func (m *UpdateBatchRequest) Reset()         { *m = UpdateBatchRequest{} }
 func (m *UpdateBatchRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateBatchRequest) ProtoMessage()    {}
 func (*UpdateBatchRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{12}
+	return fileDescriptor_statdb_c60cfd63f3ff5762, []int{12}
 }
 func (m *UpdateBatchRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateBatchRequest.Unmarshal(m, b)
@@ -538,7 +537,7 @@ func (m *UpdateBatchResponse) Reset()         { *m = UpdateBatchResponse{} }
 func (m *UpdateBatchResponse) String() string { return proto.CompactTextString(m) }
 func (*UpdateBatchResponse) ProtoMessage()    {}
 func (*UpdateBatchResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{13}
+	return fileDescriptor_statdb_c60cfd63f3ff5762, []int{13}
 }
 func (m *UpdateBatchResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpdateBatchResponse.Unmarshal(m, b)
@@ -584,7 +583,7 @@ func (m *CreateEntryIfNotExistsRequest) Reset()         { *m = CreateEntryIfNotE
 func (m *CreateEntryIfNotExistsRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateEntryIfNotExistsRequest) ProtoMessage()    {}
 func (*CreateEntryIfNotExistsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{14}
+	return fileDescriptor_statdb_c60cfd63f3ff5762, []int{14}
 }
 func (m *CreateEntryIfNotExistsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateEntryIfNotExistsRequest.Unmarshal(m, b)
@@ -623,7 +622,7 @@ func (m *CreateEntryIfNotExistsResponse) Reset()         { *m = CreateEntryIfNot
 func (m *CreateEntryIfNotExistsResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateEntryIfNotExistsResponse) ProtoMessage()    {}
 func (*CreateEntryIfNotExistsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statdb_1131c2a7357160d1, []int{15}
+	return fileDescriptor_statdb_c60cfd63f3ff5762, []int{15}
 }
 func (m *CreateEntryIfNotExistsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateEntryIfNotExistsResponse.Unmarshal(m, b)
@@ -655,8 +654,8 @@ func init() {
 	proto.RegisterType((*CreateResponse)(nil), "statdb.CreateResponse")
 	proto.RegisterType((*GetRequest)(nil), "statdb.GetRequest")
 	proto.RegisterType((*GetResponse)(nil), "statdb.GetResponse")
-	proto.RegisterType((*FindValidNodesRequest)(nil), "statdb.FindValidNodesRequest")
-	proto.RegisterType((*FindValidNodesResponse)(nil), "statdb.FindValidNodesResponse")
+	proto.RegisterType((*FindInvalidNodesRequest)(nil), "statdb.FindInvalidNodesRequest")
+	proto.RegisterType((*FindInvalidNodesResponse)(nil), "statdb.FindInvalidNodesResponse")
 	proto.RegisterType((*UpdateRequest)(nil), "statdb.UpdateRequest")
 	proto.RegisterType((*UpdateResponse)(nil), "statdb.UpdateResponse")
 	proto.RegisterType((*UpdateUptimeRequest)(nil), "statdb.UpdateUptimeRequest")
@@ -684,8 +683,8 @@ type StatDBClient interface {
 	Create(ctx context.Context, in *CreateRequest, opts ...grpc.CallOption) (*CreateResponse, error)
 	// Get uses a storagenode ID to get that storagenode's stats
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
-	// FindValidNodes gets a subset of storagenodes that fit minimum reputation args
-	FindValidNodes(ctx context.Context, in *FindValidNodesRequest, opts ...grpc.CallOption) (*FindValidNodesResponse, error)
+	// FindInvalidNodes gets a subset of storagenodes that fail to meet minimum reputation args
+	FindInvalidNodes(ctx context.Context, in *FindInvalidNodesRequest, opts ...grpc.CallOption) (*FindInvalidNodesResponse, error)
 	// Update updates all stats for a single storagenode
 	Update(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 	// UpdateUptime updates uptime stats for a single storagenode
@@ -724,9 +723,9 @@ func (c *statDBClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.Cal
 	return out, nil
 }
 
-func (c *statDBClient) FindValidNodes(ctx context.Context, in *FindValidNodesRequest, opts ...grpc.CallOption) (*FindValidNodesResponse, error) {
-	out := new(FindValidNodesResponse)
-	err := c.cc.Invoke(ctx, "/statdb.StatDB/FindValidNodes", in, out, opts...)
+func (c *statDBClient) FindInvalidNodes(ctx context.Context, in *FindInvalidNodesRequest, opts ...grpc.CallOption) (*FindInvalidNodesResponse, error) {
+	out := new(FindInvalidNodesResponse)
+	err := c.cc.Invoke(ctx, "/statdb.StatDB/FindInvalidNodes", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -785,8 +784,8 @@ type StatDBServer interface {
 	Create(context.Context, *CreateRequest) (*CreateResponse, error)
 	// Get uses a storagenode ID to get that storagenode's stats
 	Get(context.Context, *GetRequest) (*GetResponse, error)
-	// FindValidNodes gets a subset of storagenodes that fit minimum reputation args
-	FindValidNodes(context.Context, *FindValidNodesRequest) (*FindValidNodesResponse, error)
+	// FindInvalidNodes gets a subset of storagenodes that fail to meet minimum reputation args
+	FindInvalidNodes(context.Context, *FindInvalidNodesRequest) (*FindInvalidNodesResponse, error)
 	// Update updates all stats for a single storagenode
 	Update(context.Context, *UpdateRequest) (*UpdateResponse, error)
 	// UpdateUptime updates uptime stats for a single storagenode
@@ -839,20 +838,20 @@ func _StatDB_Get_Handler(srv interface{}, ctx context.Context, dec func(interfac
 	return interceptor(ctx, in, info, handler)
 }
 
-func _StatDB_FindValidNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FindValidNodesRequest)
+func _StatDB_FindInvalidNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FindInvalidNodesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(StatDBServer).FindValidNodes(ctx, in)
+		return srv.(StatDBServer).FindInvalidNodes(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/statdb.StatDB/FindValidNodes",
+		FullMethod: "/statdb.StatDB/FindInvalidNodes",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StatDBServer).FindValidNodes(ctx, req.(*FindValidNodesRequest))
+		return srv.(StatDBServer).FindInvalidNodes(ctx, req.(*FindInvalidNodesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -960,8 +959,8 @@ var _StatDB_serviceDesc = grpc.ServiceDesc{
 			Handler:    _StatDB_Get_Handler,
 		},
 		{
-			MethodName: "FindValidNodes",
-			Handler:    _StatDB_FindValidNodes_Handler,
+			MethodName: "FindInvalidNodes",
+			Handler:    _StatDB_FindInvalidNodes_Handler,
 		},
 		{
 			MethodName: "Update",
@@ -988,44 +987,43 @@ var _StatDB_serviceDesc = grpc.ServiceDesc{
 	Metadata: "statdb.proto",
 }
 
-func init() { proto.RegisterFile("statdb.proto", fileDescriptor_statdb_1131c2a7357160d1) }
+func init() { proto.RegisterFile("statdb.proto", fileDescriptor_statdb_c60cfd63f3ff5762) }
 
-var fileDescriptor_statdb_1131c2a7357160d1 = []byte{
-	// 569 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x55, 0xdd, 0x6a, 0x13, 0x41,
-	0x14, 0x36, 0x6d, 0xdd, 0x36, 0x27, 0xdb, 0x08, 0x53, 0x1b, 0xea, 0xd4, 0xa6, 0xba, 0x10, 0x6d,
-	0x41, 0x23, 0x54, 0x25, 0x17, 0x52, 0xc4, 0xf4, 0x27, 0x2c, 0x48, 0x85, 0x94, 0xf6, 0xc6, 0x8b,
-	0xb2, 0xcd, 0x4c, 0xe3, 0x40, 0xb2, 0xbb, 0x66, 0x26, 0xa0, 0x6f, 0xe8, 0x03, 0x78, 0xe5, 0x45,
-	0x9f, 0x45, 0xe6, 0x67, 0xdd, 0x9d, 0x64, 0x13, 0x77, 0xef, 0x36, 0x73, 0xbe, 0x9f, 0xc3, 0x9c,
-	0xef, 0x4c, 0xc0, 0xe5, 0x22, 0x10, 0xe4, 0xb6, 0x1d, 0x4f, 0x22, 0x11, 0x21, 0x47, 0xff, 0xc2,
-	0x30, 0x8c, 0x86, 0x91, 0x3e, 0xc3, 0x10, 0x46, 0x84, 0xea, 0x6f, 0xef, 0x1a, 0x36, 0x4f, 0x26,
-	0x34, 0x10, 0xb4, 0x4f, 0xbf, 0x4f, 0x29, 0x17, 0xa8, 0x09, 0x6b, 0xb2, 0xbc, 0x53, 0x79, 0x56,
-	0x39, 0xa8, 0x1d, 0x41, 0x5b, 0x61, 0x2f, 0x22, 0x42, 0xfb, 0xea, 0x1c, 0xb5, 0xe0, 0xa1, 0x94,
-	0xe4, 0x3b, 0x2b, 0x0a, 0xf0, 0x28, 0x05, 0x5c, 0xca, 0xe3, 0xbe, 0xae, 0x7a, 0x1d, 0xa8, 0x27,
-	0xba, 0x3c, 0x8e, 0x42, 0x9e, 0x21, 0x56, 0x96, 0x12, 0xdf, 0x03, 0xf4, 0xa8, 0x48, 0xba, 0x79,
-	0x09, 0xeb, 0x12, 0x76, 0xc3, 0x88, 0xa2, 0xb9, 0xdd, 0xfa, 0xaf, 0xfb, 0xfd, 0x07, 0x7f, 0xee,
-	0xf7, 0x1d, 0x49, 0xf4, 0x4f, 0xfb, 0x8e, 0x2c, 0xfb, 0xc4, 0x7b, 0x07, 0x35, 0x45, 0x2b, 0x67,
-	0x36, 0x82, 0xed, 0x73, 0x16, 0x92, 0xeb, 0x60, 0xc4, 0x88, 0x2c, 0xf2, 0xc4, 0xb7, 0x05, 0x1b,
-	0xc6, 0x57, 0x4a, 0xac, 0x1e, 0xb8, 0x5d, 0xc8, 0x98, 0xae, 0x6b, 0x53, 0x8e, 0x5e, 0x41, 0x75,
-	0xcc, 0xc2, 0x9b, 0xa5, 0x17, 0xb2, 0x31, 0x66, 0xa1, 0xfa, 0xf2, 0x42, 0x68, 0xcc, 0xba, 0x99,
-	0x76, 0x0f, 0x01, 0xe2, 0x80, 0x73, 0x4a, 0x16, 0x18, 0x56, 0x75, 0x55, 0x5a, 0x1e, 0x02, 0xdc,
-	0x05, 0x6c, 0x64, 0xa0, 0x2b, 0xf3, 0x50, 0x5d, 0xf5, 0x09, 0xf7, 0xde, 0xc0, 0xe6, 0x55, 0x4c,
-	0x8a, 0xcf, 0x56, 0x0e, 0x2d, 0x21, 0x94, 0x1d, 0xda, 0x96, 0x26, 0x5e, 0xc5, 0x82, 0x8d, 0x0b,
-	0xfb, 0x1d, 0xc3, 0x63, 0x9b, 0x56, 0xce, 0xf5, 0x03, 0x3c, 0xd1, 0xf4, 0x4f, 0x53, 0xc2, 0xc4,
-	0xe5, 0x74, 0x30, 0xa0, 0x9c, 0x17, 0xf5, 0x3e, 0x01, 0x9c, 0x47, 0x2e, 0xd7, 0xc1, 0x31, 0x20,
-	0x2d, 0xd2, 0x0d, 0xc4, 0xe0, 0x5b, 0x1a, 0xda, 0xaa, 0x0a, 0xcf, 0x88, 0x71, 0xa1, 0x86, 0x69,
-	0xfb, 0xab, 0x64, 0x7d, 0x66, 0x5c, 0x78, 0x22, 0xb9, 0x36, 0x43, 0x37, 0xe6, 0x6d, 0x00, 0x25,
-	0x9f, 0x15, 0x98, 0xeb, 0xa0, 0xaa, 0x20, 0x52, 0x06, 0xbd, 0x06, 0xd7, 0x44, 0x42, 0x62, 0x74,
-	0x28, 0x6c, 0xcb, 0x9a, 0xae, 0xab, 0xd0, 0x79, 0x1f, 0x61, 0x4f, 0xaf, 0xe6, 0x59, 0x28, 0x26,
-	0x3f, 0xfd, 0xbb, 0x8b, 0x48, 0x9c, 0xfd, 0x60, 0x5c, 0x14, 0xbe, 0xba, 0x1e, 0x34, 0x17, 0x09,
-	0x94, 0xba, 0xbe, 0xa3, 0xdf, 0x6b, 0xe0, 0xc8, 0x83, 0xd3, 0x2e, 0xea, 0x80, 0xa3, 0x35, 0xd1,
-	0x76, 0xdb, 0x3c, 0x60, 0xd6, 0xbb, 0x84, 0x1b, 0xb3, 0xc7, 0xff, 0x2e, 0x6b, 0xb5, 0x47, 0x05,
-	0x42, 0x49, 0x39, 0x7d, 0x3c, 0xf0, 0x96, 0x75, 0x66, 0xf0, 0x5f, 0xa0, 0x6e, 0x2f, 0x21, 0xda,
-	0x4b, 0x60, 0xb9, 0x4f, 0x01, 0x6e, 0x2e, 0x2a, 0x1b, 0xc1, 0x0e, 0x38, 0x7a, 0x88, 0x69, 0xe7,
-	0xd6, 0xd6, 0xa5, 0x9d, 0xcf, 0xec, 0x96, 0x0f, 0x6e, 0x36, 0xfd, 0x68, 0xd7, 0xc6, 0x59, 0xab,
-	0x84, 0x9f, 0xe6, 0x17, 0x8d, 0xd4, 0xd7, 0x24, 0x87, 0xd9, 0x30, 0xa3, 0xe7, 0x36, 0x27, 0x67,
-	0x4b, 0xb0, 0xb7, 0x0c, 0x62, 0xc4, 0xcf, 0xa1, 0x96, 0x49, 0x29, 0xc2, 0x36, 0x25, 0x9b, 0x7c,
-	0xbc, 0x9b, 0x5b, 0x33, 0x3a, 0x43, 0x68, 0xe4, 0xc7, 0x06, 0xb5, 0xec, 0xd9, 0x2e, 0xc8, 0x25,
-	0x7e, 0xf1, 0x3f, 0x98, 0x36, 0xba, 0x75, 0xd4, 0x5f, 0xdb, 0xdb, 0xbf, 0x01, 0x00, 0x00, 0xff,
-	0xff, 0x12, 0x96, 0xa2, 0x48, 0x0a, 0x07, 0x00, 0x00,
+var fileDescriptor_statdb_c60cfd63f3ff5762 = []byte{
+	// 560 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x55, 0x5d, 0x6f, 0xd3, 0x3c,
+	0x14, 0x7e, 0xfb, 0x6e, 0x64, 0xeb, 0x49, 0x36, 0x90, 0x07, 0xa3, 0x78, 0xb0, 0x8e, 0x48, 0x85,
+	0x49, 0x40, 0x91, 0x06, 0xa8, 0x17, 0x68, 0x42, 0x74, 0x1f, 0x55, 0x24, 0xb4, 0x8b, 0x4e, 0xe5,
+	0x86, 0x8b, 0x2a, 0xab, 0xbd, 0x62, 0xa9, 0x4d, 0x4a, 0xed, 0xa2, 0xf2, 0x0f, 0xf9, 0x0d, 0xbb,
+	0xd8, 0x6f, 0x41, 0xfe, 0x08, 0x89, 0xbb, 0xa4, 0x34, 0x77, 0xe9, 0x39, 0xcf, 0x87, 0xe5, 0xf3,
+	0x1c, 0x17, 0x3c, 0x2e, 0x42, 0x41, 0xae, 0x9a, 0x93, 0x69, 0x2c, 0x62, 0xe4, 0xe8, 0x5f, 0x18,
+	0x86, 0xf1, 0x30, 0xd6, 0x35, 0x0c, 0x51, 0x4c, 0xa8, 0xfe, 0xf6, 0xbf, 0xc2, 0xd6, 0xc9, 0x94,
+	0x86, 0x82, 0x76, 0xe9, 0x8f, 0x19, 0xe5, 0x02, 0xed, 0xc3, 0xba, 0x6c, 0xd7, 0x2a, 0x07, 0x95,
+	0x43, 0xf7, 0x08, 0x9a, 0x0a, 0x7b, 0x11, 0x13, 0xda, 0x55, 0x75, 0xd4, 0x80, 0x7b, 0x52, 0x92,
+	0xd7, 0xfe, 0x57, 0x80, 0xfb, 0x29, 0xe0, 0x52, 0x96, 0xbb, 0xba, 0xeb, 0xb7, 0x60, 0x3b, 0xd1,
+	0xe5, 0x93, 0x38, 0xe2, 0x19, 0x62, 0x65, 0x29, 0xf1, 0x03, 0x40, 0x87, 0x8a, 0xe4, 0x34, 0x2f,
+	0x61, 0x43, 0xc2, 0xfa, 0x8c, 0x28, 0x9a, 0xd7, 0xde, 0xfe, 0x7d, 0x5b, 0xff, 0xef, 0xe6, 0xb6,
+	0xee, 0x48, 0x62, 0x70, 0xda, 0x75, 0x64, 0x3b, 0x20, 0xfe, 0x7b, 0x70, 0x15, 0xad, 0x9c, 0x59,
+	0x04, 0x8f, 0xcf, 0x59, 0x44, 0x82, 0xe8, 0x67, 0x38, 0x62, 0x44, 0xb6, 0x79, 0xe2, 0xdc, 0x80,
+	0x4d, 0xe3, 0x2c, 0x45, 0xd6, 0x0e, 0xbd, 0x36, 0x64, 0x6c, 0x37, 0xb4, 0x2d, 0x47, 0xaf, 0xa1,
+	0x3a, 0x0e, 0xe7, 0xfd, 0xa5, 0x57, 0xb2, 0x39, 0x0e, 0xe7, 0xea, 0xcb, 0xef, 0x40, 0xed, 0xae,
+	0x9f, 0x39, 0xf2, 0x2b, 0x70, 0x99, 0xae, 0x17, 0x78, 0x82, 0x69, 0x07, 0x84, 0xfb, 0x6f, 0x61,
+	0xab, 0x37, 0x21, 0xab, 0x8f, 0x4d, 0xce, 0x23, 0x21, 0x94, 0x9d, 0xc7, 0x8e, 0x26, 0xf6, 0x26,
+	0x82, 0x8d, 0x57, 0xf6, 0x3b, 0x86, 0x87, 0x36, 0xad, 0x9c, 0xeb, 0x47, 0x78, 0xa2, 0xe9, 0x9f,
+	0x67, 0x84, 0x89, 0xcb, 0xd9, 0x60, 0x40, 0x39, 0x5f, 0xd5, 0xfb, 0x04, 0x70, 0x1e, 0xb9, 0xdc,
+	0x09, 0x8e, 0x01, 0x69, 0x91, 0x76, 0x28, 0x06, 0xdf, 0xd3, 0x3c, 0x56, 0x55, 0x2a, 0x46, 0x8c,
+	0x0b, 0x35, 0x22, 0xdb, 0x5f, 0x45, 0xe6, 0x0b, 0xe3, 0xc2, 0x17, 0xc9, 0xb5, 0x19, 0xba, 0x31,
+	0x6f, 0x02, 0x28, 0xf9, 0xac, 0xc0, 0x9d, 0x13, 0x54, 0x15, 0x44, 0xca, 0xa0, 0x37, 0xe0, 0x5d,
+	0x87, 0x6c, 0x44, 0x49, 0x5f, 0x62, 0x64, 0xc2, 0x16, 0x2d, 0x5d, 0xdd, 0x57, 0x59, 0xf2, 0x3f,
+	0xc1, 0x33, 0xbd, 0x75, 0x67, 0x91, 0x98, 0xfe, 0x0a, 0xae, 0x2f, 0x62, 0x71, 0x36, 0x67, 0x5c,
+	0xac, 0x7c, 0x75, 0x1d, 0xd8, 0x2f, 0x12, 0x28, 0x75, 0x7d, 0x47, 0x37, 0xeb, 0xe0, 0xc8, 0xc2,
+	0x69, 0x1b, 0xb5, 0xc0, 0xd1, 0x9a, 0xe8, 0x51, 0xd3, 0xbc, 0x4d, 0xd6, 0x93, 0x83, 0x77, 0x17,
+	0xcb, 0x7f, 0x2f, 0x6b, 0xad, 0x43, 0x05, 0x42, 0x49, 0x3b, 0x7d, 0x17, 0xf0, 0x8e, 0x55, 0x33,
+	0xf8, 0x1e, 0x3c, 0x58, 0xdc, 0x2e, 0x54, 0x4f, 0x80, 0x05, 0x7b, 0x8e, 0x0f, 0x8a, 0x01, 0x46,
+	0xb6, 0x05, 0x8e, 0x1e, 0x65, 0x7a, 0x7e, 0x6b, 0xf7, 0xd2, 0xf3, 0x2f, 0x6c, 0x58, 0x00, 0x5e,
+	0x76, 0x07, 0xd0, 0x9e, 0x8d, 0xb3, 0x16, 0x0a, 0x3f, 0xcd, 0x6f, 0x1a, 0xa9, 0x6f, 0x49, 0x1a,
+	0xb3, 0x91, 0x46, 0xcf, 0x6d, 0x4e, 0xce, 0xae, 0x60, 0x7f, 0x19, 0xc4, 0x88, 0x9f, 0x83, 0x9b,
+	0xc9, 0x2a, 0xc2, 0x36, 0x25, 0x9b, 0x7f, 0xbc, 0x97, 0xdb, 0x33, 0x3a, 0x43, 0xd8, 0xcd, 0x0f,
+	0x0f, 0x6a, 0xd8, 0x13, 0x2e, 0x48, 0x27, 0x7e, 0xf1, 0x2f, 0x98, 0x36, 0xba, 0x72, 0xd4, 0x7f,
+	0xd7, 0xbb, 0x3f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x7a, 0xcd, 0x56, 0x62, 0xeb, 0x06, 0x00, 0x00,
 }

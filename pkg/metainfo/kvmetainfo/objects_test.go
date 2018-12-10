@@ -373,7 +373,7 @@ func TestListObjects(t *testing.T) {
 				more:    true,
 				result:  []string{"a", "a/"},
 			}, {
-				options: options("", "1", storj.After, 2),
+				options: options("", "`", storj.After, 2),
 				more:    true,
 				result:  []string{"a", "a/"},
 			}, {
@@ -487,7 +487,7 @@ func TestListObjects(t *testing.T) {
 				options: options("", "", storj.Backward, 0),
 				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
 			}, {
-				options: options("", "1", storj.Backward, 0),
+				options: options("", "`", storj.Backward, 0),
 				result:  []string{},
 			}, {
 				options: options("", "b", storj.Backward, 0),
@@ -503,7 +503,7 @@ func TestListObjects(t *testing.T) {
 				more:    true,
 				result:  []string{"c"},
 			}, {
-				options: options("", "1", storj.Backward, 1),
+				options: options("", "`", storj.Backward, 1),
 				result:  []string{},
 			}, {
 				options: options("", "aa", storj.Backward, 1),

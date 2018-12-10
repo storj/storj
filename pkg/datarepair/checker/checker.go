@@ -10,10 +10,12 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/irreparabledb"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
+	"storj.io/storj/pkg/statdb"
+	statpb "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
@@ -25,18 +27,20 @@ type Checker interface {
 
 // Checker contains the information needed to do checks for missing pieces
 type checker struct {
+	statdb      *statdb.StatDB
 	pointerdb   *pointerdb.Server
 	repairQueue *queue.Queue
 	overlay     pb.OverlayServer
-	irrdb       *irreparabledb.Database
+	irrdb       irreparable.DB
 	limit       int
 	logger      *zap.Logger
 	ticker      *time.Ticker
 }
 
 // newChecker creates a new instance of checker
-func newChecker(pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, irrdb *irreparabledb.Database, limit int, logger *zap.Logger, interval time.Duration) *checker {
+func newChecker(pointerdb *pointerdb.Server, sdb *statdb.StatDB, repairQueue *queue.Queue, overlay pb.OverlayServer, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *checker {
 	return &checker{
+		statdb:      sdb,
 		pointerdb:   pointerdb,
 		repairQueue: repairQueue,
 		overlay:     overlay,
@@ -96,10 +100,20 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 				for _, p := range pieces {
 					nodeIDs = append(nodeIDs, p.NodeId)
 				}
-				missingPieces, err := c.offlineNodes(ctx, nodeIDs)
+
+				// Find all offline nodes
+				offlineNodes, err := c.offlineNodes(ctx, nodeIDs)
 				if err != nil {
 					return Error.New("error getting offline nodes %s", err)
 				}
+
+				invalidNodes, err := c.invalidNodes(ctx, nodeIDs)
+				if err != nil {
+					return Error.New("error getting invalid nodes %s", err)
+				}
+
+				missingPieces := combineOfflineWithInvalid(offlineNodes, invalidNodes)
+
 				numHealthy := len(nodeIDs) - len(missingPieces)
 				if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) < pointer.Remote.Redundancy.RepairThreshold) {
 					err = c.repairQueue.Enqueue(&pb.InjuredSegment{
@@ -111,7 +125,7 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 					}
 				} else if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
 					// make an entry in to the irreparable table
-					segmentInfo := &irreparabledb.RemoteSegmentInfo{
+					segmentInfo := &irreparable.RemoteSegmentInfo{
 						EncryptedSegmentPath:   item.Key,
 						EncryptedSegmentDetail: item.Value,
 						LostPiecesCount:        int64(len(missingPieces)),
@@ -145,4 +159,51 @@ func (c *checker) offlineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (o
 		}
 	}
 	return offline, nil
+}
+
+// Find invalidNodes by checking the audit results that are place in statdb
+func (c *checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (invalidNodes []int32, err error) {
+	// filter if nodeIDs have invalid pieces from auditing results
+	findInvalidNodesReq := &statpb.FindInvalidNodesRequest{
+		NodeIds: nodeIDs,
+		MaxStats: &pb.NodeStats{
+			AuditSuccessRatio: 0, // TODO: update when we have stats added to statdb
+			UptimeRatio:       0, // TODO: update when we have stats added to statdb
+		},
+	}
+
+	resp, err := c.statdb.FindInvalidNodes(ctx, findInvalidNodesReq)
+	if err != nil {
+		return nil, Error.New("error getting valid nodes from statdb %s", err)
+	}
+
+	invalidNodesMap := make(map[storj.NodeID]bool)
+	for _, invalidID := range resp.InvalidIds {
+		invalidNodesMap[invalidID] = true
+	}
+
+	for i, nID := range nodeIDs {
+		if invalidNodesMap[nID] {
+			invalidNodes = append(invalidNodes, int32(i))
+		}
+	}
+
+	return invalidNodes, nil
+}
+
+// combine the offline nodes with nodes marked invalid by statdb
+func combineOfflineWithInvalid(offlineNodes []int32, invalidNodes []int32) (missingPieces []int32) {
+	missingPieces = append(missingPieces, offlineNodes...)
+
+	offlineMap := make(map[int32]bool)
+	for _, i := range offlineNodes {
+		offlineMap[i] = true
+	}
+	for _, i := range invalidNodes {
+		if !offlineMap[i] {
+			missingPieces = append(missingPieces, i)
+		}
+	}
+
+	return missingPieces
 }

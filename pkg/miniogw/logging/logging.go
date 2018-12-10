@@ -17,19 +17,15 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	errTemplate   = "gateway error: %v"
-	debugTemplate = "gateway error: %+v"
-)
-
 type gwLogWrap struct {
-	gw minio.Gateway
+	gw  minio.Gateway
+	log *zap.Logger
 }
 
 // Gateway is a wrapper of minio.Gateway that logs errors before
 // returning them.
-func Gateway(gw minio.Gateway) minio.Gateway {
-	return &gwLogWrap{gw: gw}
+func Gateway(gw minio.Gateway, log *zap.Logger) minio.Gateway {
+	return &gwLogWrap{gw, log}
 }
 
 func (lg *gwLogWrap) Name() string     { return lg.gw.Name() }
@@ -37,7 +33,7 @@ func (lg *gwLogWrap) Production() bool { return lg.gw.Production() }
 func (lg *gwLogWrap) NewGatewayLayer(creds auth.Credentials) (
 	minio.ObjectLayer, error) {
 	ol, err := lg.gw.NewGatewayLayer(creds)
-	return &olLogWrap{ol: ol, logger: zap.S()}, err
+	return &olLogWrap{ol: ol, logger: lg.log}, err
 }
 
 type olLogWrap struct {
@@ -47,8 +43,7 @@ type olLogWrap struct {
 
 // ErrorLogger logs a templated error message.
 type ErrorLogger interface {
-	Errorf(template string, args ...interface{})
-	Debugf(template string, args ...interface{})
+	Error(msg string, fields ...zap.Field)
 }
 
 // minioError checks if the given error is a minio error.
@@ -60,8 +55,7 @@ func minioError(err error) bool {
 // to allow method chaining.
 func (ol *olLogWrap) log(err error) error {
 	if err != nil && !minioError(err) {
-		ol.logger.Errorf(errTemplate, err)
-		ol.logger.Debugf(debugTemplate, err)
+		ol.logger.Error("gateway error:", zap.Error(err))
 	}
 	return err
 }

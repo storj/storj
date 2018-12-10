@@ -19,17 +19,17 @@ import (
 
 // Config defines broad Captain Planet configuration
 type Config struct {
-	HCCA                provider.CASetupConfig
-	HCIdentity          provider.IdentitySetupConfig
-	ULCA                provider.CASetupConfig
-	ULIdentity          provider.IdentitySetupConfig
+	SatelliteCA         provider.CASetupConfig
+	SatelliteIdentity   provider.IdentitySetupConfig
+	UplinkCA            provider.CASetupConfig
+	UplinkIdentity      provider.IdentitySetupConfig
 	StorageNodeCA       provider.CASetupConfig
 	StorageNodeIdentity provider.IdentitySetupConfig
 	BasePath            string `help:"base path for captain planet storage" default:"$CONFDIR"`
 	ListenHost          string `help:"the host for providers to listen on" default:"127.0.0.1"`
 	StartingPort        int    `help:"all providers will listen on ports consecutively starting with this one" default:"7777"`
 	APIKey              string `default:"abc123" help:"the api key to use for the satellite"`
-	EncKey              string `default:"highlydistributedridiculouslyresilient" help:"your root encryption key"`
+	EncKey              string `default:"insecure-default-encryption-key" help:"your root encryption key"`
 	Overwrite           bool   `help:"whether to overwrite pre-existing configuration files" default:"false"`
 	GenerateMinioCerts  bool   `default:"false" help:"generate sample TLS certs for Minio GW"`
 }
@@ -68,17 +68,17 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	hcPath := filepath.Join(setupCfg.BasePath, "satellite")
-	err = os.MkdirAll(hcPath, 0700)
+	satellitePath := filepath.Join(setupCfg.BasePath, "satellite")
+	err = os.MkdirAll(satellitePath, 0700)
 	if err != nil {
 		return err
 	}
-	setupCfg.HCCA.CertPath = filepath.Join(hcPath, "ca.cert")
-	setupCfg.HCCA.KeyPath = filepath.Join(hcPath, "ca.key")
-	setupCfg.HCIdentity.CertPath = filepath.Join(hcPath, "identity.cert")
-	setupCfg.HCIdentity.KeyPath = filepath.Join(hcPath, "identity.key")
+	setupCfg.SatelliteCA.CertPath = filepath.Join(satellitePath, "ca.cert")
+	setupCfg.SatelliteCA.KeyPath = filepath.Join(satellitePath, "ca.key")
+	setupCfg.SatelliteIdentity.CertPath = filepath.Join(satellitePath, "identity.cert")
+	setupCfg.SatelliteIdentity.KeyPath = filepath.Join(satellitePath, "identity.key")
 	fmt.Printf("creating identity for satellite\n")
-	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.HCCA, setupCfg.HCIdentity)
+	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.SatelliteCA, setupCfg.SatelliteIdentity)
 	if err != nil {
 		return err
 	}
@@ -107,12 +107,12 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	setupCfg.ULCA.CertPath = filepath.Join(uplinkPath, "ca.cert")
-	setupCfg.ULCA.KeyPath = filepath.Join(uplinkPath, "ca.key")
-	setupCfg.ULIdentity.CertPath = filepath.Join(uplinkPath, "identity.cert")
-	setupCfg.ULIdentity.KeyPath = filepath.Join(uplinkPath, "identity.key")
+	setupCfg.UplinkCA.CertPath = filepath.Join(uplinkPath, "ca.cert")
+	setupCfg.UplinkCA.KeyPath = filepath.Join(uplinkPath, "ca.key")
+	setupCfg.UplinkIdentity.CertPath = filepath.Join(uplinkPath, "identity.cert")
+	setupCfg.UplinkIdentity.KeyPath = filepath.Join(uplinkPath, "identity.key")
 	fmt.Printf("creating identity for uplink\n")
-	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.ULCA, setupCfg.ULIdentity)
+	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.UplinkCA, setupCfg.UplinkIdentity)
 	if err != nil {
 		return err
 	}
@@ -122,10 +122,10 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		if err := os.MkdirAll(minioCertsPath, 0744); err != nil {
 			return err
 		}
-		if err := os.Link(setupCfg.ULIdentity.CertPath, filepath.Join(minioCertsPath, "public.crt")); err != nil {
+		if err := os.Link(setupCfg.UplinkIdentity.CertPath, filepath.Join(minioCertsPath, "public.crt")); err != nil {
 			return err
 		}
-		if err := os.Link(setupCfg.ULIdentity.KeyPath, filepath.Join(minioCertsPath, "private.key")); err != nil {
+		if err := os.Link(setupCfg.UplinkIdentity.KeyPath, filepath.Join(minioCertsPath, "private.key")); err != nil {
 			return err
 		}
 	}
@@ -135,9 +135,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	overlayAddr := joinHostPort(setupCfg.ListenHost, startingPort+1)
 
 	overrides := map[string]interface{}{
-		"satellite.identity.cert-path": setupCfg.HCIdentity.CertPath,
-		"satellite.identity.key-path":  setupCfg.HCIdentity.KeyPath,
-		"satellite.identity.address": joinHostPort(
+		"satellite.identity.cert-path": setupCfg.SatelliteIdentity.CertPath,
+		"satellite.identity.key-path":  setupCfg.SatelliteIdentity.KeyPath,
+		"satellite.identity.server.address": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"satellite.kademlia.bootstrap-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
@@ -150,22 +150,25 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"satellite.repairer.pointer-db-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"satellite.repairer.api-key": setupCfg.APIKey,
-		"uplink.cert-path":           setupCfg.ULIdentity.CertPath,
-		"uplink.key-path":            setupCfg.ULIdentity.KeyPath,
-		"uplink.address": joinHostPort(
+		"uplink.identity.cert-path":  setupCfg.UplinkIdentity.CertPath,
+		"uplink.identity.key-path":   setupCfg.UplinkIdentity.KeyPath,
+		"uplink.identity.address": joinHostPort(
 			setupCfg.ListenHost, startingPort),
-		"uplink.overlay-addr": joinHostPort(
+		"uplink.client.overlay-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
-		"uplink.pointer-db-addr": joinHostPort(
+		"uplink.client.pointer-db-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
-		"uplink.minio-dir": filepath.Join(
+		"uplink.minio.dir": filepath.Join(
 			setupCfg.BasePath, "uplink", "minio"),
-		"uplink.enc-key":          setupCfg.EncKey,
-		"uplink.api-key":          setupCfg.APIKey,
+		"uplink.enc.key":          setupCfg.EncKey,
+		"uplink.client.api-key":   setupCfg.APIKey,
 		"pointer-db.auth.api-key": setupCfg.APIKey,
 
 		// Repairer
 		"piecestore.agreementsender.overlay_addr": overlayAddr,
+
+		"log.development": true,
+		"log.level":       "debug",
 	}
 
 	for i := 0; i < len(runCfg.StorageNodes); i++ {
@@ -175,7 +178,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			storagenodePath, "identity.cert")
 		overrides[storagenode+"identity.key-path"] = filepath.Join(
 			storagenodePath, "identity.key")
-		overrides[storagenode+"identity.address"] = joinHostPort(
+		overrides[storagenode+"identity.server.address"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+i*2+3)
 		overrides[storagenode+"kademlia.bootstrap-addr"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+1)

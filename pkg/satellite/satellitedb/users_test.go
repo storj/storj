@@ -85,30 +85,30 @@ func TestUserRepository(t *testing.T) {
 	})
 
 	t.Run("Get user success", func(t *testing.T) {
-		userByCreds, err := repository.GetByCredentials(ctx, []byte(passValid), email)
+		userByEmail, err := repository.GetByEmail(ctx, email)
 
-		assert.Equal(t, userByCreds.FirstName, name)
-		assert.Equal(t, userByCreds.LastName, lastName)
+		assert.Equal(t, userByEmail.FirstName, name)
+		assert.Equal(t, userByEmail.LastName, lastName)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 
-		userByID, err := repository.Get(ctx, userByCreds.ID)
+		userByID, err := repository.Get(ctx, userByEmail.ID)
 
 		assert.Equal(t, userByID.FirstName, name)
 		assert.Equal(t, userByID.LastName, lastName)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 
-		assert.Equal(t, userByID.ID, userByCreds.ID)
-		assert.Equal(t, userByID.FirstName, userByCreds.FirstName)
-		assert.Equal(t, userByID.LastName, userByCreds.LastName)
-		assert.Equal(t, userByID.Email, userByCreds.Email)
-		assert.Equal(t, userByID.PasswordHash, userByCreds.PasswordHash)
-		assert.Equal(t, userByID.CreatedAt, userByCreds.CreatedAt)
+		assert.Equal(t, userByID.ID, userByEmail.ID)
+		assert.Equal(t, userByID.FirstName, userByEmail.FirstName)
+		assert.Equal(t, userByID.LastName, userByEmail.LastName)
+		assert.Equal(t, userByID.Email, userByEmail.Email)
+		assert.Equal(t, userByID.PasswordHash, userByEmail.PasswordHash)
+		assert.Equal(t, userByID.CreatedAt, userByEmail.CreatedAt)
 	})
 
 	t.Run("Update user success", func(t *testing.T) {
-		oldUser, err := repository.GetByCredentials(ctx, []byte(passValid), email)
+		oldUser, err := repository.GetByEmail(ctx, email)
 
 		assert.NoError(t, err)
 
@@ -138,7 +138,7 @@ func TestUserRepository(t *testing.T) {
 	})
 
 	t.Run("Delete user success", func(t *testing.T) {
-		oldUser, err := repository.GetByCredentials(ctx, []byte(newPass), newEmail)
+		oldUser, err := repository.GetByEmail(ctx, newEmail)
 
 		assert.NoError(t, err)
 
