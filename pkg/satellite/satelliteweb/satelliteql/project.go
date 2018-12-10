@@ -47,6 +47,7 @@ func graphqlProject(service *satellite.Service, types Types) *graphql.Object {
 			fieldOwnerName: &graphql.Field{
 				Type: graphql.String,
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					// TODO: return owner (user) instead of ownerName
 					project, _ := p.Source.(satellite.Project)
 					if project.OwnerID == nil {
 						return "", nil
