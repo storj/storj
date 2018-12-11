@@ -61,11 +61,12 @@ var (
 	}
 
 	defaultConfDir string
-	defaultDiagDir = "$HOME/.storj/capt/f37/data"
+	defaultDiagDir string
 )
 
 func init() {
 	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
+	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
