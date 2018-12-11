@@ -39,7 +39,7 @@ type DB interface {
 
 // CreateRequest is a statdb create request message
 type CreateRequest struct {
-	Node  *pb.Node
+	Node  storj.NodeID
 	Stats *pb.NodeStats
 }
 

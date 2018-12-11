@@ -30,24 +30,6 @@ type statDB struct {
 	db *dbx.DB
 }
 
-// // NewStatDB creates instance of StatDB
-// func NewStatDB(driver, source string, log *zap.Logger) (*StatDB, error) {
-// 	db, err := dbx.Open(driver, source)
-// 	if err != nil {
-// 		return nil, Error.New("failed opening database %q, %q: %v",
-// 			driver, source, err)
-// 	}
-
-// 	err = migrate.Create("statdb", db)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return &StatDB{
-// 		DB: db,
-// 	}, nil
-// }
-
 // Create a db entry for the provided storagenode
 func (s *statDB) Create(ctx context.Context, createReq *statdb.CreateRequest) (resp *statdb.CreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -82,7 +64,7 @@ func (s *statDB) Create(ctx context.Context, createReq *statdb.CreateRequest) (r
 
 	dbNode, err := s.db.Create_Node(
 		ctx,
-		dbx.Node_Id(node.Id.Bytes()),
+		dbx.Node_Id(node.Bytes()),
 		dbx.Node_AuditSuccessCount(auditSuccessCount),
 		dbx.Node_TotalAuditCount(totalAuditCount),
 		dbx.Node_AuditSuccessRatio(auditSuccessRatio),
@@ -95,7 +77,7 @@ func (s *statDB) Create(ctx context.Context, createReq *statdb.CreateRequest) (r
 	}
 
 	nodeStats := &pb.NodeStats{
-		NodeId:            node.Id,
+		NodeId:            node,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
 		AuditCount:        dbNode.TotalAuditCount,
 		UptimeRatio:       dbNode.UptimeRatio,
@@ -384,7 +366,7 @@ func (s *statDB) CreateEntryIfNotExists(ctx context.Context, createIfReq *statdb
 	// TODO: figure out better way to confirm error is type dbx.ErrorCode_NoRows
 	if err != nil && strings.Contains(err.Error(), "no rows in result set") {
 		createReq := &statdb.CreateRequest{
-			Node: createIfReq.Node,
+			Node: createIfReq.Node.Id,
 		}
 		res, err := s.Create(ctx, createReq)
 		if err != nil {
