@@ -148,7 +148,7 @@ func (srv *Server) LookupNode(ctx context.Context, req *pb.LookupNodeRequest) (*
 // GetStats returns the stats for a particular node ID
 func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.GetStatsResponse, error) {
 	getReq := &statdb.GetRequest{
-		NodeId: req.NodeId,
+		Node: req.NodeId,
 	}
 	res, err := srv.statdb.Get(ctx, getReq)
 	if err != nil {

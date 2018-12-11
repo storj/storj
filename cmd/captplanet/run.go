@@ -40,15 +40,14 @@ const (
 
 // Satellite is for configuring client
 type Satellite struct {
-	Identity  provider.IdentityConfig
-	Kademlia  kademlia.Config
-	PointerDB pointerdb.Config
-	Overlay   overlay.Config
-	Inspector inspector.Config
-	Checker   checker.Config
-	Repairer  repairer.Config
-	Audit     audit.Config
-	//StatDB      statdb.Config
+	Identity    provider.IdentityConfig
+	Kademlia    kademlia.Config
+	PointerDB   pointerdb.Config
+	Overlay     overlay.Config
+	Inspector   inspector.Config
+	Checker     checker.Config
+	Repairer    repairer.Config
+	Audit       audit.Config
 	BwAgreement bwagreement.Config
 	Web         satelliteweb.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
@@ -130,7 +129,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			grpcauth.NewAPIKeyInterceptor(),
 			runCfg.Satellite.Kademlia,
-			//runCfg.Satellite.StatDB,
 			runCfg.Satellite.Audit,
 			runCfg.Satellite.Overlay,
 			runCfg.Satellite.Discovery,

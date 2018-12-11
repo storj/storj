@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/datarepair/irreparable"
@@ -43,7 +42,7 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 		Irreparable() irreparable.DB
 	})
 	if !ok {
-		return nil, errs.New("unable to get master db instance")
+		return nil, Error.New("unable to get master db instance")
 	}
 	o := overlay.LoadServerFromContext(ctx)
 	redisQ, err := redis.NewQueueFrom(c.QueueAddress)

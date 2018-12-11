@@ -26,3 +26,28 @@ CREATE TABLE nodes (
 	updated_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE raws (
+	id INTEGER NOT NULL,
+	node_id TEXT NOT NULL,
+	interval_end_time TIMESTAMP NOT NULL,
+	data_total INTEGER NOT NULL,
+	data_type INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE rollups (
+	id INTEGER NOT NULL,
+	node_id TEXT NOT NULL,
+	start_time TIMESTAMP NOT NULL,
+	interval INTEGER NOT NULL,
+	data_type INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE timestamps (
+	name TEXT NOT NULL,
+	value TIMESTAMP NOT NULL,
+	PRIMARY KEY ( name )
+);

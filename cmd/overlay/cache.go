@@ -4,12 +4,13 @@
 package main
 
 import (
-	"github.com/zeebo/errs"
+	"context"
+
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
-	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -21,7 +22,7 @@ type cacheConfig struct {
 	DatabaseURL string `help:"the database connection string to use"`
 }
 
-func (c cacheConfig) open() (*overlay.Cache, error) {
+func (c cacheConfig) open(ctx context.Context) (*overlay.Cache, error) {
 	driver, source, err := utils.SplitDBURL(c.DatabaseURL)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -48,9 +49,11 @@ func (c cacheConfig) open() (*overlay.Cache, error) {
 
 	// add logger
 	db = storelogger.New(zap.L().Named("oc"), db)
-	sdb, err := satellitedb.NewInMemory()
-	if err != nil {
-		return nil, errs.New("unable to get master db instance")
+	sdb, ok := ctx.Value("masterdb").(interface {
+		StatDB() statdb.DB
+	})
+	if !ok {
+		return nil, Error.New("unable to get master db instance")
 	}
 
 	return overlay.NewOverlayCache(db, nil, sdb.StatDB()), nil

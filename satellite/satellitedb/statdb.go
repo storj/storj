@@ -92,17 +92,19 @@ func (s *statDB) Create(ctx context.Context, createReq *statdb.CreateRequest) (r
 func (s *statDB) Get(ctx context.Context, getReq *statdb.GetRequest) (resp *statdb.GetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbNode, err := s.db.Get_Node_By_Id(ctx, dbx.Node_Id(getReq.NodeId.Bytes()))
+	dbNode, err := s.db.Get_Node_By_Id(ctx, dbx.Node_Id(getReq.Node.Bytes()))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
 	nodeStats := &pb.NodeStats{
-		NodeId:            getReq.NodeId,
-		AuditSuccessRatio: dbNode.AuditSuccessRatio,
-		AuditCount:        dbNode.TotalAuditCount,
-		UptimeRatio:       dbNode.UptimeRatio,
-		UptimeCount:       dbNode.TotalUptimeCount,
+		NodeId:             getReq.Node,
+		AuditCount:         dbNode.TotalAuditCount,
+		AuditSuccessCount:  dbNode.AuditSuccessCount,
+		AuditSuccessRatio:  dbNode.AuditSuccessRatio,
+		UptimeCount:        dbNode.TotalUptimeCount,
+		UptimeSuccessCount: dbNode.UptimeSuccessCount,
+		UptimeRatio:        dbNode.UptimeRatio,
 	}
 	return &statdb.GetResponse{
 		Stats: nodeStats,
@@ -125,10 +127,7 @@ func (s *statDB) FindInvalidNodes(ctx context.Context, getReq *statdb.FindInvali
 		return nil, err
 	}
 	defer func() {
-		err = rows.Close()
-		if err != nil {
-			//@TODO ASK s.log.Error(err.Error())
-		}
+		_ = rows.Close()
 	}()
 
 	for rows.Next() {
@@ -156,7 +155,7 @@ func (s *statDB) findInvalidNodesQuery(nodeIds storj.NodeIDList, auditSuccess, u
 	}
 	args = append(args, auditSuccess, uptime)
 
-	rows, err := s.db.Query(`SELECT nodes.id, nodes.total_audit_count,
+	rows, err := s.db.Query(s.db.Rebind(`SELECT nodes.id, nodes.total_audit_count,
 		nodes.total_uptime_count, nodes.audit_success_ratio,
 		nodes.uptime_ratio
 		FROM nodes
@@ -166,7 +165,7 @@ func (s *statDB) findInvalidNodesQuery(nodeIds storj.NodeIDList, auditSuccess, u
 		AND (
 			nodes.audit_success_ratio < ?
 			OR nodes.uptime_ratio < ?
-		)`, args...)
+		)`), args...)
 
 	return rows, err
 }
@@ -175,10 +174,8 @@ func (s *statDB) findInvalidNodesQuery(nodeIds storj.NodeIDList, auditSuccess, u
 func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (resp *statdb.UpdateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	node := updateReq.GetNode()
-
 	createIfReq := &statdb.CreateEntryIfNotExistsRequest{
-		Node: node.Id,
+		Node: updateReq.Node,
 	}
 
 	_, err = s.CreateEntryIfNotExists(ctx, createIfReq)
@@ -186,7 +183,7 @@ func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (r
 		return nil, err
 	}
 
-	dbNode, err := s.db.Get_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()))
+	dbNode, err := s.db.Get_Node_By_Id(ctx, dbx.Node_Id(updateReq.Node.Bytes()))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -200,9 +197,9 @@ func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (r
 
 	updateFields := dbx.Node_Update_Fields{}
 
-	if node.UpdateAuditSuccess {
+	if updateReq.UpdateAuditSuccess {
 		auditSuccessCount, totalAuditCount, auditSuccessRatio = updateRatioVars(
-			node.AuditSuccess,
+			updateReq.AuditSuccess,
 			auditSuccessCount,
 			totalAuditCount,
 		)
@@ -211,9 +208,9 @@ func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (r
 		updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(totalAuditCount)
 		updateFields.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(auditSuccessRatio)
 	}
-	if node.UpdateUptime {
+	if updateReq.UpdateUptime {
 		uptimeSuccessCount, totalUptimeCount, uptimeRatio = updateRatioVars(
-			node.IsUp,
+			updateReq.IsUp,
 			uptimeSuccessCount,
 			totalUptimeCount,
 		)
@@ -223,17 +220,19 @@ func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (r
 		updateFields.UptimeRatio = dbx.Node_UptimeRatio(uptimeRatio)
 	}
 
-	dbNode, err = s.db.Update_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()), updateFields)
+	dbNode, err = s.db.Update_Node_By_Id(ctx, dbx.Node_Id(updateReq.Node.Bytes()), updateFields)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
 	nodeStats := &pb.NodeStats{
-		NodeId:            node.Id,
-		AuditSuccessRatio: dbNode.AuditSuccessRatio,
-		AuditCount:        dbNode.TotalAuditCount,
-		UptimeRatio:       dbNode.UptimeRatio,
-		UptimeCount:       dbNode.TotalUptimeCount,
+		NodeId:             updateReq.Node,
+		AuditCount:         dbNode.TotalAuditCount,
+		AuditSuccessCount:  dbNode.AuditSuccessCount,
+		AuditSuccessRatio:  dbNode.AuditSuccessRatio,
+		UptimeCount:        dbNode.TotalUptimeCount,
+		UptimeSuccessCount: dbNode.UptimeSuccessCount,
+		UptimeRatio:        dbNode.UptimeRatio,
 	}
 	return &statdb.UpdateResponse{
 		Stats: nodeStats,
@@ -244,9 +243,9 @@ func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (r
 func (s *statDB) UpdateUptime(ctx context.Context, updateReq *statdb.UpdateUptimeRequest) (resp *statdb.UpdateUptimeResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	node := updateReq.GetNode()
+	node := updateReq.Node
 
-	dbNode, err := s.db.Get_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()))
+	dbNode, err := s.db.Get_Node_By_Id(ctx, dbx.Node_Id(node.Bytes()))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -258,7 +257,7 @@ func (s *statDB) UpdateUptime(ctx context.Context, updateReq *statdb.UpdateUptim
 	updateFields := dbx.Node_Update_Fields{}
 
 	uptimeSuccessCount, totalUptimeCount, uptimeRatio = updateRatioVars(
-		node.IsUp,
+		updateReq.IsUp,
 		uptimeSuccessCount,
 		totalUptimeCount,
 	)
@@ -267,17 +266,19 @@ func (s *statDB) UpdateUptime(ctx context.Context, updateReq *statdb.UpdateUptim
 	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
 	updateFields.UptimeRatio = dbx.Node_UptimeRatio(uptimeRatio)
 
-	dbNode, err = s.db.Update_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()), updateFields)
+	dbNode, err = s.db.Update_Node_By_Id(ctx, dbx.Node_Id(node.Bytes()), updateFields)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
 	nodeStats := &pb.NodeStats{
-		NodeId:            node.Id,
-		AuditSuccessRatio: dbNode.AuditSuccessRatio,
-		AuditCount:        dbNode.TotalAuditCount,
-		UptimeRatio:       dbNode.UptimeRatio,
-		UptimeCount:       dbNode.TotalUptimeCount,
+		NodeId:             node,
+		AuditCount:         dbNode.TotalAuditCount,
+		AuditSuccessCount:  dbNode.AuditSuccessCount,
+		AuditSuccessRatio:  dbNode.AuditSuccessRatio,
+		UptimeCount:        dbNode.TotalUptimeCount,
+		UptimeSuccessCount: dbNode.UptimeSuccessCount,
+		UptimeRatio:        dbNode.UptimeRatio,
 	}
 	return &statdb.UpdateUptimeResponse{
 		Stats: nodeStats,
@@ -288,9 +289,9 @@ func (s *statDB) UpdateUptime(ctx context.Context, updateReq *statdb.UpdateUptim
 func (s *statDB) UpdateAuditSuccess(ctx context.Context, updateReq *statdb.UpdateAuditSuccessRequest) (resp *statdb.UpdateAuditSuccessResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	node := updateReq.GetNode()
+	node := updateReq.Node
 
-	dbNode, err := s.db.Get_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()))
+	dbNode, err := s.db.Get_Node_By_Id(ctx, dbx.Node_Id(node.Bytes()))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -302,7 +303,7 @@ func (s *statDB) UpdateAuditSuccess(ctx context.Context, updateReq *statdb.Updat
 	updateFields := dbx.Node_Update_Fields{}
 
 	auditSuccessCount, totalAuditCount, auditRatio = updateRatioVars(
-		node.AuditSuccess,
+		updateReq.AuditSuccess,
 		auditSuccessCount,
 		totalAuditCount,
 	)
@@ -311,13 +312,13 @@ func (s *statDB) UpdateAuditSuccess(ctx context.Context, updateReq *statdb.Updat
 	updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(totalAuditCount)
 	updateFields.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(auditRatio)
 
-	dbNode, err = s.db.Update_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()), updateFields)
+	dbNode, err = s.db.Update_Node_By_Id(ctx, dbx.Node_Id(node.Bytes()), updateFields)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
 	nodeStats := &pb.NodeStats{
-		NodeId:            node.Id,
+		NodeId:            node,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
 		AuditCount:        dbNode.TotalAuditCount,
 		UptimeRatio:       dbNode.UptimeRatio,
@@ -333,10 +334,14 @@ func (s *statDB) UpdateBatch(ctx context.Context, updateBatchReq *statdb.UpdateB
 	defer mon.Task()(&ctx)(&err)
 
 	var nodeStatsList []*pb.NodeStats
-	var failedNodes []*pb.Node
+	var failedNodes []*statdb.UpdateRequest
 	for _, node := range updateBatchReq.NodeList {
 		updateReq := &statdb.UpdateRequest{
-			Node: node,
+			Node:               node.Node,
+			UpdateAuditSuccess: node.UpdateAuditSuccess,
+			AuditSuccess:       node.AuditSuccess,
+			UpdateUptime:       node.UpdateUptime,
+			IsUp:               node.IsUp,
 		}
 
 		updateRes, err := s.Update(ctx, updateReq)
@@ -360,7 +365,7 @@ func (s *statDB) CreateEntryIfNotExists(ctx context.Context, createIfReq *statdb
 	defer mon.Task()(&ctx)(&err)
 
 	getReq := &statdb.GetRequest{
-		NodeId: createIfReq.Node,
+		Node: createIfReq.Node,
 	}
 	getRes, err := s.Get(ctx, getReq)
 	// TODO: figure out better way to confirm error is type dbx.ErrorCode_NoRows
@@ -405,7 +410,9 @@ func checkRatioVars(successCount, totalCount int64) (ratio float64, err error) {
 	if successCount > totalCount {
 		return 0, errs.New("success count greater than total count")
 	}
-
+	if totalCount == 0 {
+		return 0, nil
+	}
 	ratio = float64(successCount) / float64(totalCount)
 	return ratio, nil
 }

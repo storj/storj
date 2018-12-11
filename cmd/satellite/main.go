@@ -62,11 +62,10 @@ var (
 	}
 
 	runCfg struct {
-		Identity  provider.IdentityConfig
-		Kademlia  kademlia.Config
-		PointerDB pointerdb.Config
-		Overlay   overlay.Config
-		//StatDB      statdb.Config
+		Identity    provider.IdentityConfig
+		Kademlia    kademlia.Config
+		PointerDB   pointerdb.Config
+		Overlay     overlay.Config
 		Checker     checker.Config
 		Repairer    repairer.Config
 		Audit       audit.Config
@@ -124,7 +123,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		grpcauth.NewAPIKeyInterceptor(),
 		runCfg.Kademlia,
 		runCfg.PointerDB,
-		//runCfg.StatDB,
 		runCfg.Overlay,
 		runCfg.Checker,
 		runCfg.Repairer,

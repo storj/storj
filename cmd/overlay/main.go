@@ -4,7 +4,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"io/ioutil"
 
@@ -49,7 +48,8 @@ func init() {
 }
 
 func cmdList(cmd *cobra.Command, args []string) (err error) {
-	c, err := cacheCfg.open(context.Background())
+	ctx := process.Ctx(cmd)
+	c, err := cacheCfg.open(ctx)
 	if err != nil {
 		return err
 	}
@@ -79,6 +79,7 @@ func cmdList(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdAdd(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
 	j, err := ioutil.ReadFile(cacheCfg.NodesPath)
 	if err != nil {
 		return errs.Wrap(err)
@@ -89,7 +90,7 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 		return errs.Wrap(err)
 	}
 
-	c, err := cacheCfg.open(context.Background())
+	c, err := cacheCfg.open(ctx)
 	if err != nil {
 		return err
 	}

@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -40,6 +39,7 @@ type Node struct {
 	Discovery *discovery.Discovery
 	StatDB    statdb.DB
 	Overlay   *overlay.Cache
+	Database  *satellitedb.DB
 
 	Dependencies []io.Closer
 }
@@ -155,6 +155,17 @@ func (node *Node) DialOverlay(destination *Node) (overlay.Client, error) {
 
 // initOverlay creates overlay for a given planet
 func (node *Node) initOverlay(planet *Planet) error {
+	var err error
+	node.Database, err = satellitedb.NewInMemory()
+	if err != nil {
+		return err
+	}
+
+	err = node.Database.CreateTables()
+	if err != nil {
+		return err
+	}
+
 	routing, err := kademlia.NewRoutingTable(node.Info, teststore.New(), teststore.New())
 	if err != nil {
 		return err
@@ -166,12 +177,7 @@ func (node *Node) initOverlay(planet *Planet) error {
 	}
 	node.Kademlia = kad
 
-	sdb, err := satellitedb.NewInMemory()
-	if err != nil {
-		return errs.New("unable to get master db instance")
-	}
-
-	node.StatDB = sdb.StatDB()
+	node.StatDB = node.Database.StatDB()
 
 	node.Overlay = overlay.NewOverlayCache(teststore.New(), node.Kademlia, node.StatDB)
 	node.Discovery = discovery.NewDiscovery(node.Overlay, node.Kademlia, node.StatDB)

@@ -8,13 +8,12 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 )
 
 type reporter interface {
-	RecordAudits(ctx context.Context, failedNodes []*pb.Node) (err error)
+	RecordAudits(ctx context.Context, failedNodes []*statdb.UpdateRequest) (err error)
 }
 
 // Reporter records audit reports in statdb and implements the reporter interface
@@ -35,7 +34,7 @@ func NewReporter(ctx context.Context, statDBPort string, maxRetries int, apiKey 
 }
 
 // RecordAudits saves failed audit details to statdb
-func (reporter *Reporter) RecordAudits(ctx context.Context, nodes []*pb.Node) (err error) {
+func (reporter *Reporter) RecordAudits(ctx context.Context, nodes []*statdb.UpdateRequest) (err error) {
 	retries := 0
 	for len(nodes) > 0 && retries < reporter.maxRetries {
 		res, err := reporter.statdb.UpdateBatch(ctx, &statdb.UpdateBatchRequest{
@@ -53,10 +52,10 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, nodes []*pb.Node) (e
 	return nil
 }
 
-func setAuditFailStatus(ctx context.Context, failedNodes storj.NodeIDList) (failStatusNodes []*pb.Node) {
+func setAuditFailStatus(ctx context.Context, failedNodes storj.NodeIDList) (failStatusNodes []*statdb.UpdateRequest) {
 	for i := range failedNodes {
-		setNode := &pb.Node{
-			Id:                 failedNodes[i],
+		setNode := &statdb.UpdateRequest{
+			Node:               failedNodes[i],
 			AuditSuccess:       false,
 			IsUp:               true,
 			UpdateAuditSuccess: true,
@@ -68,10 +67,10 @@ func setAuditFailStatus(ctx context.Context, failedNodes storj.NodeIDList) (fail
 }
 
 // TODO: offline nodes should maybe be marked as failing the audit in the future
-func setOfflineStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (offlineStatusNodes []*pb.Node) {
+func setOfflineStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (offlineStatusNodes []*statdb.UpdateRequest) {
 	for i := range offlineNodeIDs {
-		setNode := &pb.Node{
-			Id:           offlineNodeIDs[i],
+		setNode := &statdb.UpdateRequest{
+			Node:         offlineNodeIDs[i],
 			IsUp:         false,
 			UpdateUptime: true,
 		}
@@ -80,10 +79,10 @@ func setOfflineStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (off
 	return offlineStatusNodes
 }
 
-func setSuccessStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (successStatusNodes []*pb.Node) {
+func setSuccessStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (successStatusNodes []*statdb.UpdateRequest) {
 	for i := range offlineNodeIDs {
-		setNode := &pb.Node{
-			Id:                 offlineNodeIDs[i],
+		setNode := &statdb.UpdateRequest{
+			Node:               offlineNodeIDs[i],
 			AuditSuccess:       true,
 			IsUp:               true,
 			UpdateAuditSuccess: true,
