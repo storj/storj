@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	storagenodeCount = 100
+	storagenodeCount = 10
 )
 
 // Satellite is for configuring client

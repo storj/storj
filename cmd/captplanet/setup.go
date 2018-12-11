@@ -145,6 +145,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			setupCfg.BasePath, "satellite", "pointerdb.db"),
 		"satellite.overlay.database-url": "bolt://" + filepath.Join(
 			setupCfg.BasePath, "satellite", "overlay.db"),
+		"satellite.kademlia.alpha":         3,
 		"satellite.repairer.queue-address": "redis://127.0.0.1:6378?db=1&password=abc123",
 		"satellite.repairer.overlay-addr":  overlayAddr,
 		"satellite.repairer.pointer-db-addr": joinHostPort(
@@ -152,7 +153,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"satellite.repairer.api-key": setupCfg.APIKey,
 		"uplink.identity.cert-path":  setupCfg.UplinkIdentity.CertPath,
 		"uplink.identity.key-path":   setupCfg.UplinkIdentity.KeyPath,
-		"uplink.identity.address": joinHostPort(
+		"uplink.identity.server.address": joinHostPort(
 			setupCfg.ListenHost, startingPort),
 		"uplink.client.overlay-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
@@ -160,11 +161,20 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			setupCfg.ListenHost, startingPort+1),
 		"uplink.minio.dir": filepath.Join(
 			setupCfg.BasePath, "uplink", "minio"),
-		"uplink.enc.key":          setupCfg.EncKey,
-		"uplink.client.api-key":   setupCfg.APIKey,
+		"uplink.enc.key":                  setupCfg.EncKey,
+		"uplink.client.api-key":           setupCfg.APIKey,
+		"uplink.rs.min-threshold":         1 * len(runCfg.StorageNodes) / 5,
+		"uplink.rs.repair-threshold":      2 * len(runCfg.StorageNodes) / 5,
+		"uplink.rs.success-threshold":     3 * len(runCfg.StorageNodes) / 5,
+		"uplink.rs.max-threshold":         4 * len(runCfg.StorageNodes) / 5,
+		"kademlia.bucket-size":            4,
+		"kademlia.replacement-cache-size": 1,
+
+		// TODO: this will eventually go away
 		"pointer-db.auth.api-key": setupCfg.APIKey,
 
-		// Repairer
+		// TODO: this is a source of bugs. this value should be pulled from
+		// kademlia instead
 		"piecestore.agreementsender.overlay_addr": overlayAddr,
 
 		"log.development": true,
@@ -173,7 +183,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	for i := 0; i < len(runCfg.StorageNodes); i++ {
 		storagenodePath := filepath.Join(setupCfg.BasePath, fmt.Sprintf("f%d", i))
-		storagenode := fmt.Sprintf("storage-nodes.%03d.", i)
+		storagenode := fmt.Sprintf("storage-nodes.%02d.", i)
 		overrides[storagenode+"identity.cert-path"] = filepath.Join(
 			storagenodePath, "identity.cert")
 		overrides[storagenode+"identity.key-path"] = filepath.Join(
@@ -183,6 +193,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		overrides[storagenode+"kademlia.bootstrap-addr"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+1)
 		overrides[storagenode+"storage.path"] = filepath.Join(storagenodePath, "data")
+		overrides[storagenode+"kademlia.alpha"] = 3
 	}
 
 	return process.SaveConfig(runCmd.Flags(),
