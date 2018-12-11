@@ -95,10 +95,10 @@ func (s *StreamReader) Read(b []byte) (int, error) {
 	}
 
 	n, err := s.src.Read(b)
+	s.sofar += int64(n)
 	if err != nil {
 		return n, err
 	}
-	s.sofar += int64(n)
 
 	return n, nil
 }
