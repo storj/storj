@@ -128,7 +128,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 			t := time.NewTicker(500 * time.Millisecond).C
 			for {
 				<-t
-				if err := n.Overlay.Refresh(context.Background()); err != nil {
+				if err := n.Discovery.Refresh(context.Background()); err != nil {
 					log.Error(err.Error())
 				}
 			}

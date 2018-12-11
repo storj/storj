@@ -72,6 +72,7 @@ var (
 		Audit       audit.Config
 		BwAgreement bwagreement.Config
 		Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+		Discovery   discovery.Config
 	}
 	setupCfg struct {
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
@@ -129,6 +130,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		runCfg.Repairer,
 		runCfg.Audit,
 		runCfg.BwAgreement,
+		runCfg.Discovery,
 	)
 }
 
