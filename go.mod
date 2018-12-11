@@ -21,6 +21,7 @@ exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.
 
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
+	github.com/Shopify/go-lua v0.0.0-20181106184032-48449c60c0a9
 	github.com/Shopify/toxiproxy v2.1.3+incompatible // indirect
 	github.com/StackExchange/wmi v0.0.0-20180725035823-b12b22c5341f // indirect
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
@@ -54,6 +55,7 @@ require (
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c // indirect
 	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf // indirect
 	github.com/jbenet/go-base58 v0.0.0-20150317085156-6237cf65f3a6
+	github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0
 	github.com/jtolds/monkit-hw v0.0.0-20180827162413-5a254051f35d
 	github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e // indirect
 	github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510 // indirect
@@ -63,7 +65,7 @@ require (
 	github.com/mailru/easyjson v0.0.0-20180823135443-60711f1a8329 // indirect
 	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/mattn/go-runewidth v0.0.3 // indirect
-	github.com/mattn/go-sqlite3 v1.9.0
+	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/minio/cli v1.3.0
 	github.com/minio/dsync v0.0.0-20180124070302-439a0961af70 // indirect
 	github.com/minio/highwayhash v0.0.0-20180501080913-85fc8a2dacad // indirect
