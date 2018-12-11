@@ -13,13 +13,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/identity"
+	testidentity "storj.io/storj/internal/identity"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/bwagreement/test"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
@@ -30,82 +29,84 @@ import (
 )
 
 func TestIdentifyActiveNodes(t *testing.T) {
-
+	//TODO
 }
-func TestOnlineNodes(t *testing.T) {
+
+func TestCalculate(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
-
-	const N = 50
+	limit := 0
+	interval := time.Second
 	nodes := []*pb.Node{}
 	nodeIDs := storj.NodeIDList{}
-	expectedOnline := []*pb.Node{}
+	nodeData := make(map[string]int64)
+	expectedNodeData := make(map[string]int64)
+	const N = 50
+
 	for i := 0; i < N; i++ {
 		nodeID := teststorj.NodeIDFromString(strconv.Itoa(i))
 		n := &pb.Node{Id: nodeID, Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: ""}}
 		nodes = append(nodes, n)
 		if i%(rand.Intn(5)+2) == 0 {
+			//offline nodes
 			id := teststorj.NodeIDFromString("id" + nodeID.String())
 			nodeIDs = append(nodeIDs, id)
+			expectedNodeData[id.String()] = 0
 		} else {
+			//online nodes
 			nodeIDs = append(nodeIDs, nodeID)
-			expectedOnline = append(expectedOnline, n)
+			expectedNodeData[nodeID.String()] = 5
 		}
 	}
 	overlayServer := mocks.NewOverlay(nodes)
-	kad := &kademlia.Kademlia{}
-	limit := 0
-	interval := time.Second
 
 	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
-	assert.NoError(t, err)
 	defer ctx.Check(accountingDb.Close)
+	assert.NoError(t, err)
 
 	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
-	assert.NoError(t, err)
 	defer ctx.Check(masterDB.Close)
-
-	tally := newTally(logger, accountingDb, masterDB.BandwidthAgreement(), pointerdb, overlayServer, kad, limit, interval)
-
-	online, err := tally.onlineNodes(ctx, nodeIDs)
 	assert.NoError(t, err)
-	assert.Equal(t, expectedOnline, online)
+
+	tally := newTally(logger, accountingDb, masterDB.BandwidthAgreement(), pointerdb, overlayServer, limit, interval)
+
+	pointer := &pb.Pointer{
+		Remote:      &pb.RemoteSegment{Redundancy: &pb.RedundancyScheme{MinReq: 2}},
+		SegmentSize: 10,
+	}
+
+	nodeData, err = tally.calculate(ctx, pointer, nodeIDs)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedNodeData, nodeData)
+
+	nodeData = nil
+	expectedNodeData = nil
 }
 
-func TestTallyAtRestStorage(t *testing.T) {
-
-}
-
-func TestNeedToContact(t *testing.T) {
-
-}
-
-func TestUpdateGranularTable(t *testing.T) {
-
+func TestUpdateRawTable(t *testing.T) {
+	//TODO
 }
 
 func TestQueryNoAgreements(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	//get stuff we need
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
-	kad := &kademlia.Kademlia{}
+
 	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
-	assert.NoError(t, err)
 	defer ctx.Check(accountingDb.Close)
+	assert.NoError(t, err)
 
 	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
-	assert.NoError(t, err)
 	defer ctx.Check(masterDB.Close)
+	assert.NoError(t, err)
 
-	tally := newTally(zap.NewNop(), accountingDb, masterDB.BandwidthAgreement(), pointerdb, overlayServer, kad, 0, time.Second)
+	tally := newTally(zap.NewNop(), accountingDb, masterDB.BandwidthAgreement(), pointerdb, overlayServer, 0, time.Second)
 
-	//check the db
 	err = tally.Query(ctx)
 	assert.NoError(t, err)
 }
@@ -114,22 +115,21 @@ func TestQueryWithBw(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	//get stuff we need
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
-	kad := &kademlia.Kademlia{}
+
 	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
-	assert.NoError(t, err)
 	defer ctx.Check(accountingDb.Close)
+	assert.NoError(t, err)
 
 	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
+	defer ctx.Check(masterDB.Close)
 	assert.NoError(t, err)
 	err = masterDB.CreateTables()
 	assert.NoError(t, err)
-	defer ctx.Check(masterDB.Close)
 
 	bwDb := masterDB.BandwidthAgreement()
-	tally := newTally(zap.NewNop(), accountingDb, bwDb, pointerdb, overlayServer, kad, 0, time.Second)
+	tally := newTally(zap.NewNop(), accountingDb, bwDb, pointerdb, overlayServer, 0, time.Second)
 
 	//get a private key
 	fiC, err := testidentity.NewTestIdentity()

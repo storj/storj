@@ -12,7 +12,6 @@ import (
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
@@ -37,8 +36,7 @@ func (c Config) initialize(ctx context.Context) (Tally, error) {
 	if !ok {
 		return nil, errs.New("unable to get master db instance")
 	}
-	// return newTally(ctx, zap.L(), db, dbx, pointerdb, overlay, kademlia, 0, c.Interval)
-	return newTally(ctx, zap.L(), db, masterDB.BandwidthAgreement(), pointerdb, overlay, 0, c.Interval), nil
+	return newTally(zap.L(), db, masterDB.BandwidthAgreement(), pointerdb, overlay, 0, c.Interval), nil
 }
 
 // Run runs the tally with configured values
