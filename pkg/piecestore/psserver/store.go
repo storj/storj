@@ -92,9 +92,6 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 
 	defer utils.LogClose(storeFile)
 
-	reader := NewStreamReader(s, stream)
-
-	// set file limit as minimum of (bw left, space left)
 	bwUsed, err := getUsedBandwidth(s.DB)
 	if err != nil {
 		return 0, err
@@ -105,11 +102,7 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	}
 	bwLeft := s.totalBwAllocated - bwUsed
 	spaceLeft := s.totalAllocated - spaceUsed
-	readerCap := bwLeft
-	if spaceLeft < readerCap {
-		readerCap = spaceLeft
-	}
-	maxReader := NewMaxReader(reader, readerCap)
+	reader := NewStreamReader(s, stream, bwLeft, spaceLeft)
 
 	defer func() {
 		baWriteErr := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
@@ -118,7 +111,7 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 		}
 	}()
 
-	total, err = io.Copy(storeFile, maxReader)
+	total, err = io.Copy(storeFile, reader)
 
 	if err != nil && err != io.EOF {
 		return 0, err

@@ -5,10 +5,14 @@ package psserver
 
 import (
 	"github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
 )
+
+// StreamWriterError is a type of error for failures in StreamWriter
+var StreamWriterError = errs.Class("stream writer error")
 
 // StreamWriter -- Struct for writing piece to server upload stream
 type StreamWriter struct {
@@ -36,11 +40,17 @@ type StreamReader struct {
 	src                 *utils.ReaderSource
 	bandwidthAllocation *pb.RenterBandwidthAllocation
 	currentTotal        int64
+	bandwidthRemaining  int64
+	spaceRemaining      int64
+	sofar               int64
 }
 
 // NewStreamReader returns a new StreamReader for Server.Store
-func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer) *StreamReader {
-	sr := &StreamReader{}
+func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, bandwidthRemaining, spaceRemaining int64) *StreamReader {
+	sr := &StreamReader{
+		bandwidthRemaining: bandwidthRemaining,
+		spaceRemaining:     spaceRemaining,
+	}
 	sr.src = utils.NewReaderSource(func() ([]byte, error) {
 
 		recv, err := stream.Recv()
@@ -77,5 +87,18 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer) *StreamR
 
 // Read -- Read method for piece download from stream
 func (s *StreamReader) Read(b []byte) (int, error) {
-	return s.src.Read(b)
+	if s.sofar >= s.bandwidthRemaining {
+		return 0, StreamWriterError.New("out of bandwidth")
+	}
+	if s.sofar >= s.spaceRemaining {
+		return 0, StreamWriterError.New("out of space")
+	}
+
+	n, err := s.src.Read(b)
+	if err != nil {
+		return n, err
+	}
+	s.sofar += int64(n)
+
+	return n, nil
 }
