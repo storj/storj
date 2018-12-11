@@ -207,12 +207,9 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 		seg := pr.GetRemote()
 		pid := psclient.PieceID(seg.GetPieceId())
 
-		// fall back if nodes are not available
-		if nodes == nil {
-			nodes, err = s.lookupNodes(ctx, seg)
-			if err != nil {
-				return nil, Meta{}, Error.Wrap(err)
-			}
+		nodes, err = s.lookupAndAlignNodes(ctx, nodes, seg)
+		if err != nil {
+			return nil, Meta{}, Error.Wrap(err)
 		}
 
 		es, err := makeErasureScheme(pr.GetRemote().GetRedundancy())
@@ -293,12 +290,9 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 		seg := pr.GetRemote()
 		pid := psclient.PieceID(seg.PieceId)
 
-		// fall back if nodes are not available
-		if nodes == nil {
-			nodes, err = s.lookupNodes(ctx, seg)
-			if err != nil {
-				return Error.Wrap(err)
-			}
+		nodes, err = s.lookupAndAlignNodes(ctx, nodes, seg)
+		if err != nil {
+			return Error.Wrap(err)
 		}
 
 		authorization := s.pdb.SignedMessage()
@@ -330,13 +324,9 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	seg := pr.GetRemote()
 	pid := psclient.PieceID(seg.GetPieceId())
 
-	// Fall back if nodes are not available
-	if originalNodes == nil {
-		// Get the list of remote pieces from the pointer
-		originalNodes, err = s.lookupNodes(ctx, seg)
-		if err != nil {
-			return Error.Wrap(err)
-		}
+	originalNodes, err = s.lookupAndAlignNodes(ctx, originalNodes, seg)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	// Get the nodes list that needs to be excluded
@@ -441,25 +431,32 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	return s.pdb.Put(ctx, path, pointer)
 }
 
-// lookupNodes calls Lookup to get node addresses from the overlay
-func (s *segmentStore) lookupNodes(ctx context.Context, seg *pb.RemoteSegment) (nodes []*pb.Node, err error) {
-	// Get list of all nodes IDs storing a piece from the segment
-	var nodeIds storj.NodeIDList
-	for _, p := range seg.RemotePieces {
-		nodeIds = append(nodeIds, p.NodeId)
+// lookupNodes, if necessary, calls Lookup to get node addresses from the overlay.
+// It also realigns the nodes to an indexed list of nodes based on the piece number.
+// Missing pieces are represented by a nil node.
+func (s *segmentStore) lookupAndAlignNodes(ctx context.Context, nodes []*pb.Node, seg *pb.RemoteSegment) (result []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if nodes == nil {
+		// Get list of all nodes IDs storing a piece from the segment
+		var nodeIds storj.NodeIDList
+		for _, p := range seg.RemotePieces {
+			nodeIds = append(nodeIds, p.NodeId)
+		}
+		// Lookup the node info from node IDs
+		nodes, err = s.oc.BulkLookup(ctx, nodeIds)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 	}
-	// Lookup the node info from node IDs
-	n, err := s.oc.BulkLookup(ctx, nodeIds)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	// Create an indexed list of nodes based on the piece number.
-	// Missing pieces are represented by a nil node.
-	nodes = make([]*pb.Node, seg.GetRedundancy().GetTotal())
+
+	// Realign the nodes
+	result = make([]*pb.Node, seg.GetRedundancy().GetTotal())
 	for i, p := range seg.GetRemotePieces() {
-		nodes[p.PieceNum] = n[i]
+		result[p.PieceNum] = nodes[i]
 	}
-	return nodes, nil
+
+	return result, nil
 }
 
 // List retrieves paths to segments and their metadata stored in the pointerdb
