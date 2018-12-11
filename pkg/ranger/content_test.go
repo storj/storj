@@ -16,7 +16,6 @@ import (
 
 func TestServeContent(t *testing.T) {
 	for _, tt := range []struct {
-		testName         string
 		requestMethod    string
 		requestHeaderMap map[string]string
 		writerHeaderMap  map[string]string
