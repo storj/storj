@@ -106,7 +106,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.Web.SatelliteAddr = runCfg.Satellite.Identity.Server.Address
 		}
 
-		database, err := satellitedb.NewDB(runCfg.Satellite.Database)
+		database, err := satellitedb.New(runCfg.Satellite.Database)
 		if err != nil {
 			errch <- errs.New("Error starting master database on satellite: %+v", err)
 			return

@@ -43,21 +43,22 @@ func TestHTTPRanger(t *testing.T) {
 		{"abcdef", 6, -1, 7, "abcde", "ranger error: negative offset"},
 		{"abcdef", 6, 0, -1, "abcde", "ranger error: negative length"},
 	} {
-		errTag := fmt.Sprintf("Test case #%d", i)
+		tag := fmt.Sprintf("#%d. %+v", i, tt)
+
 		content = tt.data
 		rr, err := HTTPRanger(ts.URL)
-		if assert.NoError(t, err, errTag) {
-			assert.Equal(t, tt.size, rr.Size(), errTag)
+		if assert.NoError(t, err, tag) {
+			assert.Equal(t, tt.size, rr.Size(), tag)
 		}
 		r, err := rr.Range(context.Background(), tt.offset, tt.length)
 		if tt.errString != "" {
-			assert.EqualError(t, err, tt.errString, errTag)
+			assert.EqualError(t, err, tt.errString, tag)
 			continue
 		}
-		assert.NoError(t, err, errTag)
+		assert.NoError(t, err, tag)
 		data, err := ioutil.ReadAll(r)
-		if assert.NoError(t, err, errTag) {
-			assert.Equal(t, []byte(tt.substr), data, errTag)
+		if assert.NoError(t, err, tag) {
+			assert.Equal(t, []byte(tt.substr), data, tag)
 		}
 	}
 }
@@ -106,19 +107,20 @@ func TestHTTPRangerSize(t *testing.T) {
 		{"abcdef", 6, -1, 7, "abcde", "ranger error: negative offset"},
 		{"abcdef", 6, 0, -1, "abcde", "ranger error: negative length"},
 	} {
-		errTag := fmt.Sprintf("Test case #%d", i)
+		tag := fmt.Sprintf("#%d. %+v", i, tt)
+
 		content = tt.data
 		rr := HTTPRangerSize(ts.URL, tt.size)
-		assert.Equal(t, tt.size, rr.Size(), errTag)
+		assert.Equal(t, tt.size, rr.Size(), tag)
 		r, err := rr.Range(context.Background(), tt.offset, tt.length)
 		if tt.errString != "" {
-			assert.EqualError(t, err, tt.errString, errTag)
+			assert.EqualError(t, err, tt.errString, tag)
 			continue
 		}
-		assert.NoError(t, err, errTag)
+		assert.NoError(t, err, tag)
 		data, err := ioutil.ReadAll(r)
-		if assert.NoError(t, err, errTag) {
-			assert.Equal(t, []byte(tt.substr), data, errTag)
+		if assert.NoError(t, err, tag) {
+			assert.Equal(t, []byte(tt.substr), data, tag)
 		}
 	}
 }

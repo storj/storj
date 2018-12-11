@@ -8,12 +8,12 @@ fi
 RUN_PARAMS="${RUN_PARAMS:-} --config ${CONF_PATH}"
 
 if [[ -n "${API_KEY}" ]]; then
-	RUN_PARAMS="${RUN_PARAMS} --api-key ${API_KEY}"
+	RUN_PARAMS="${RUN_PARAMS} --client.api-key ${API_KEY}"
 fi
 
 if [ -n "${SATELLITE_ADDR:-}" ]; then
-	RUN_PARAMS="${RUN_PARAMS} --overlay-addr $SATELLITE_ADDR"
-	RUN_PARAMS="${RUN_PARAMS} --pointer-db-addr $SATELLITE_ADDR"
+	RUN_PARAMS="${RUN_PARAMS} --client.overlay-addr $SATELLITE_ADDR"
+	RUN_PARAMS="${RUN_PARAMS} --client.pointer-db-addr $SATELLITE_ADDR"
 fi
 
 exec ./gateway run $RUN_PARAMS "$@"

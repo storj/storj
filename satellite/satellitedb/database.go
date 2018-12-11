@@ -8,6 +8,7 @@ import (
 
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -22,8 +23,8 @@ type DB struct {
 	db *dbx.DB
 }
 
-// NewDB creates instance of database (supports: postgres, sqlite3)
-func NewDB(databaseURL string) (*DB, error) {
+// New creates instance of satellite database (supports: postgres, sqlite3)
+func New(databaseURL string) (*DB, error) {
 	dbURL, err := utils.ParseURL(databaseURL)
 	if err != nil {
 		return nil, err
@@ -39,6 +40,11 @@ func NewDB(databaseURL string) (*DB, error) {
 	}
 
 	return &DB{db: db}, nil
+}
+
+// NewInMemory creates instance of Sqlite in memory satellite database
+func NewInMemory() (*DB, error) {
+	return New("sqlite3://file::memory:?mode=memory&cache=shared")
 }
 
 // BandwidthAgreement is a getter for bandwidth agreement repository
@@ -70,6 +76,11 @@ func (db *DB) BandwidthAgreement() bwagreement.DB {
 // func (db *DB) AccountingDB() accounting.DB {
 // 	return &accountingDB{db: db.db}
 // }
+
+// Irreparable returns database for storing segments that failed repair
+func (db *DB) Irreparable() irreparable.DB {
+	return &irreparableDB{db: db.db}
+}
 
 // CreateTables is a method for creating all tables for database
 func (db *DB) CreateTables() error {
