@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
+	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/inspector"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
@@ -50,6 +51,7 @@ type Satellite struct {
 	BwAgreement bwagreement.Config
 	Web         satelliteweb.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+	Discovery   discovery.Config
 }
 
 // StorageNode is for configuring storage nodes
@@ -133,6 +135,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.Repairer,
 			runCfg.Satellite.BwAgreement,
 			runCfg.Satellite.Web,
+			runCfg.Satellite.Discovery,
 
 			// NB(dylan): Inspector is only used for local development and testing.
 			// It should not be added to the Satellite startup
