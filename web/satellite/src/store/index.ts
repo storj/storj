@@ -4,8 +4,9 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
 
-import {authModule} from "@/store/modules/users";
-import {projectsModule} from "@/store/modules/projects";
+import { authModule } from "@/store/modules/users";
+import { projectsModule } from "@/store/modules/projects";
+import { notificationsModule } from '@/store/modules/notifications';
 
 Vue.use(Vuex);
 
@@ -13,8 +14,9 @@ Vue.use(Vuex);
 const store = new Vuex.Store({
 	modules: {
 	    authModule,
-        projectsModule
-	}
+		projectsModule,
+		notificationsModule,
+	},
 });
   
 export default store;
