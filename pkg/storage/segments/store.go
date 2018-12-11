@@ -220,11 +220,9 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 			return nil, Meta{}, err
 		}
 
-		// calculate how many minimum nodes needed based on t = k + (n-o)k/o
-		rs := pr.GetRemote().GetRedundancy()
-		needed := rs.GetMinReq() + ((rs.GetTotal()-rs.GetSuccessThreshold())*rs.GetMinReq())/rs.GetSuccessThreshold()
+		needed := calcNeededNodes(pr.GetRemote().GetRedundancy())
+		selected := make([]*pb.Node, es.TotalCount())
 
-		selected := make([]*pb.Node, rs.GetTotal())
 		for _, i := range rand.Perm(len(nodes)) {
 			node := nodes[i]
 			if node == nil {
@@ -258,6 +256,28 @@ func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) 
 	}
 	es := eestream.NewRSScheme(fc, int(rs.GetErasureShareSize()))
 	return es, nil
+}
+
+// calcNeededNodes calculate how many minimum nodes are needed for download,
+// based on t = k + (n-o)k/o
+func calcNeededNodes(rs *pb.RedundancyScheme) int32 {
+	extra := int32(1)
+
+	if rs.GetSuccessThreshold() > 0 {
+		extra = ((rs.GetTotal()-rs.GetSuccessThreshold())*rs.GetMinReq())/rs.GetSuccessThreshold()
+		if extra == 0 {
+			// ensure there is at least one extra node, so we can have error detection/correction
+			extra = 1
+		}
+	}
+
+	needed := rs.GetMinReq() + extra
+
+	if needed > rs.GetTotal() {
+		needed = rs.GetTotal()
+	}
+
+	return needed
 }
 
 // Delete tells piece stores to delete a segment and deletes pointer from pointerdb
