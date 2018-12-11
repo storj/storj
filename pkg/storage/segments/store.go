@@ -264,7 +264,7 @@ func calcNeededNodes(rs *pb.RedundancyScheme) int32 {
 	extra := int32(1)
 
 	if rs.GetSuccessThreshold() > 0 {
-		extra = ((rs.GetTotal()-rs.GetSuccessThreshold())*rs.GetMinReq())/rs.GetSuccessThreshold()
+		extra = ((rs.GetTotal() - rs.GetSuccessThreshold()) * rs.GetMinReq()) / rs.GetSuccessThreshold()
 		if extra == 0 {
 			// ensure there is at least one extra node, so we can have error detection/correction
 			extra = 1
@@ -317,7 +317,7 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	//Read the segment's pointer's info from the PointerDB
+	// Read the segment's pointer's info from the PointerDB
 	pr, originalNodes, pba, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
@@ -330,7 +330,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	seg := pr.GetRemote()
 	pid := psclient.PieceID(seg.GetPieceId())
 
-	// fall back if nodes are not available
+	// Fall back if nodes are not available
 	if originalNodes == nil {
 		// Get the list of remote pieces from the pointer
 		originalNodes, err = s.lookupNodes(ctx, seg)
@@ -339,15 +339,15 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 		}
 	}
 
-	// get the nodes list that needs to be excluded
+	// Get the nodes list that needs to be excluded
 	var excludeNodeIDs storj.NodeIDList
 
-	// count the number of nil nodes thats needs to be repaired
+	// Count the number of nil nodes thats needs to be repaired
 	totalNilNodes := 0
 
 	healthyNodes := make([]*pb.Node, len(originalNodes))
 
-	// populate healthyNodes with all nodes from originalNodes except those correlating to indices in lostPieces
+	// Populate healthyNodes with all nodes from originalNodes except those correlating to indices in lostPieces
 	for i, v := range originalNodes {
 		if v == nil {
 			totalNilNodes++
@@ -364,7 +364,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 		}
 	}
 
-	//Request Overlay for n-h new storage nodes
+	// Request Overlay for n-h new storage nodes
 	op := overlay.Options{Amount: totalNilNodes, Space: 0, Excluded: excludeNodeIDs}
 	newNodes, err := s.oc.Choose(ctx, op)
 	if err != nil {
@@ -377,23 +377,23 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 
 	totalRepairCount := len(newNodes)
 
-	//make a repair nodes list just with new unique ids
-	repairNodesList := make([]*pb.Node, len(healthyNodes))
-	for j, vr := range healthyNodes {
-		// check that totalRepairCount is non-negative
+	// Make a repair nodes list just with new unique ids
+	repairNodes := make([]*pb.Node, len(healthyNodes))
+	for i, vr := range healthyNodes {
+		// Check that totalRepairCount is non-negative
 		if totalRepairCount < 0 {
 			return Error.New("Total repair count (%d) less than zero", totalRepairCount)
 		}
 
-		// find the nil in the node list
+		// Find the nil nodes in the healthyNodes list
 		if vr == nil {
-			// replace the location with the newNode Node info
+			// Assign the item in repairNodes list with an item from the newNode list
 			totalRepairCount--
-			repairNodesList[j] = newNodes[totalRepairCount]
+			repairNodes[i] = newNodes[totalRepairCount]
 		}
 	}
 
-	// check that all nil nodes have a replacement prepared
+	// Check that all nil nodes have a replacement prepared
 	if totalRepairCount != 0 {
 		return Error.New("Failed to replace all nil nodes (%d). (%d) new nodes not inserted", len(newNodes), totalRepairCount)
 	}
@@ -405,28 +405,25 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 
 	signedMessage := s.pdb.SignedMessage()
 
-	// download the segment using the nodes just with healthy nodes
+	// Download the segment using just the healthyNodes
 	rr, err := s.ec.Get(ctx, healthyNodes, es, pid, pr.GetSegmentSize(), pba, signedMessage)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	// get io.Reader from ranger
 	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 	defer utils.LogClose(r)
 
-	// puts file to ecclient
-	exp := pr.GetExpirationDate()
-
-	successfulNodes, err := s.ec.Put(ctx, repairNodesList, s.rs, pid, r, time.Unix(exp.GetSeconds(), 0), pba, signedMessage)
+	// Upload the repaired pieces to the repairNodes
+	successfulNodes, err := s.ec.Put(ctx, repairNodes, s.rs, pid, r, convertTime(pr.GetExpirationDate()), pba, signedMessage)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	// merge the successful nodes list into the healthy nodes list
+	// Merge the successful nodes list into the healthy nodes list
 	for i, v := range healthyNodes {
 		if v == nil {
 			// copy the successfuNode info
@@ -435,7 +432,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	}
 
 	metadata := pr.GetMetadata()
-	pointer, err := s.makeRemotePointer(healthyNodes, pid, rr.Size(), exp, metadata)
+	pointer, err := s.makeRemotePointer(healthyNodes, pid, rr.Size(), pr.GetExpirationDate(), metadata)
 	if err != nil {
 		return err
 	}
