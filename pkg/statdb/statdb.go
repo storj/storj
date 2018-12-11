@@ -6,7 +6,7 @@ package statdb
 import (
 	"context"
 
-	pb "storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
