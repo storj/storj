@@ -98,9 +98,7 @@ func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) err
 
 	// get existing node rep, or create a new statdb node with 0 rep
 	res, err := o.StatDB.CreateEntryIfNotExists(ctx, &statdb.CreateEntryIfNotExistsRequest{
-		Node: &pb.Node{
-			Id: nodeID,
-		},
+		Node: nodeID,
 	})
 	if err != nil {
 		return err

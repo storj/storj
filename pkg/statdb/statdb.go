@@ -144,7 +144,7 @@ func (m *UpdateBatchResponse) GetFailedNodes() []*pb.Node {
 
 // CreateEntryIfNotExistsRequest is a statdb create entry request message
 type CreateEntryIfNotExistsRequest struct {
-	Node *pb.Node
+	Node storj.NodeID
 }
 
 // CreateEntryIfNotExistsResponse is a statdb create response message

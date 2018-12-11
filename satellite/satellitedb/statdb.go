@@ -178,7 +178,7 @@ func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (r
 	node := updateReq.GetNode()
 
 	createIfReq := &statdb.CreateEntryIfNotExistsRequest{
-		Node: updateReq.GetNode(),
+		Node: node.Id,
 	}
 
 	_, err = s.CreateEntryIfNotExists(ctx, createIfReq)
@@ -360,13 +360,13 @@ func (s *statDB) CreateEntryIfNotExists(ctx context.Context, createIfReq *statdb
 	defer mon.Task()(&ctx)(&err)
 
 	getReq := &statdb.GetRequest{
-		NodeId: createIfReq.Node.Id,
+		NodeId: createIfReq.Node,
 	}
 	getRes, err := s.Get(ctx, getReq)
 	// TODO: figure out better way to confirm error is type dbx.ErrorCode_NoRows
 	if err != nil && strings.Contains(err.Error(), "no rows in result set") {
 		createReq := &statdb.CreateRequest{
-			Node: createIfReq.Node.Id,
+			Node: createIfReq.Node,
 		}
 		res, err := s.Create(ctx, createReq)
 		if err != nil {
