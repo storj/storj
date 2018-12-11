@@ -231,7 +231,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 				continue
 			}
 
-			selected[seg.GetRemotePieces()[i].PieceNum] = node		
+			selected[i] = node
 
 			needed--
 			if needed <= 0 {
