@@ -17,6 +17,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/asn1"
 	"math/big"
 
@@ -78,7 +79,7 @@ func verifyCertSignature(parentCert, childCert *x509.Certificate) error {
 	return VerifySignature(childCert.Signature, childCert.RawTBSCertificate, parentCert.PublicKey)
 }
 
-// VerifySignature checks the signature against the passed data and public key
+// Verify checks the signature against the passed data and public key
 func VerifySignature(signedData []byte, data []byte, pubKey crypto.PublicKey) error {
 	key, ok := pubKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -86,17 +87,14 @@ func VerifySignature(signedData []byte, data []byte, pubKey crypto.PublicKey) er
 	}
 
 	signature := new(ECDSASignature)
-
 	if _, err := asn1.Unmarshal(signedData, signature); err != nil {
 		return ErrVerifySignature.New("unable to unmarshal ecdsa signature: %v", err)
 	}
 
-	h := crypto.SHA256.New()
-	_, err := h.Write(data)
+	digest, err := hashBytes(data)
 	if err != nil {
 		return ErrVerifySignature.Wrap(err)
 	}
-	digest := h.Sum(nil)
 
 	if !ecdsa.Verify(key, digest, signature.R, signature.S) {
 		return ErrVerifySignature.New("signature is not valid")
@@ -112,4 +110,59 @@ func newSerialNumber() (*big.Int, error) {
 	}
 
 	return serialNumber, nil
+}
+func uniqueExts(exts []pkix.Extension) bool {
+	seen := make(map[string]struct{}, len(exts))
+	for _, e := range exts {
+		s := e.Id.String()
+		if _, ok := seen[s]; ok {
+			return false
+		}
+		seen[s] = struct{}{}
+	}
+	return true
+}
+func signHashOf(key crypto.PrivateKey, data []byte) ([]byte, error) {
+	hash, err := hashBytes(data)
+	if err != nil {
+		return nil, ErrSign.Wrap(err)
+	}
+	signature, err := signBytes(key, hash)
+	if err != nil {
+		return nil, ErrSign.Wrap(err)
+	}
+	return signature, nil
+}
+
+func signBytes(key crypto.PrivateKey, data []byte) ([]byte, error) {
+	ecKey, ok := key.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, ErrUnsupportedKey.New("%T", key)
+	}
+
+	r, s, err := ecdsa.Sign(rand.Reader, ecKey, data)
+	if err != nil {
+		return nil, ErrSign.Wrap(err)
+	}
+
+	return asn1.Marshal(ECDSASignature{R: r, S: s})
+}
+
+func hashBytes(data []byte) ([]byte, error) {
+	hash := crypto.SHA256.New()
+	if _, err := hash.Write(data); err != nil {
+		return nil, err
+	}
+	return hash.Sum(nil), nil
+}
+
+// NB: searches `ExtraExtensions` NOT `ExtensionHandlers`
+// (see https://golang.org/pkg/crypto/x509/#Certificate)
+func findExtension(cert *x509.Certificate, extID int) (*pkix.Extension, error) {
+	for _, ext := range cert.ExtraExtensions {
+		if ExtensionIDs[extID].Equal(ext.Id) {
+			return &ext, nil
+		}
+	}
+	return nil, ErrExtensionNotFound.New("%s", ExtensionIDs[extID].String())
 }

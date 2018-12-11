@@ -25,11 +25,6 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
-const (
-	// IdentityLength is the number of bytes required to represent node id
-	IdentityLength = uint16(256 / 8) // 256 bits
-)
-
 // PeerIdentity represents another peer on the network.
 type PeerIdentity struct {
 	RestChain []*x509.Certificate
@@ -76,9 +71,11 @@ type IdentityConfig struct {
 
 // ServerConfig holds server specific configuration parameters
 type ServerConfig struct {
-	PeerCAWhitelistPath string `help:"path to the CA cert whitelist (peer identities must be signed by one these to be verified)"`
-	Address             string `help:"address to listen on" default:":7777"`
-	Extensions          peertls.TLSExtConfig
+	RevocationDBPath         string `help:"path to the revocation database file" default:"$CONFDIR/revocations.db"`
+	RevocationDBRedisAddress string `help:"connection string for revocation redis database; overrides RevocationDBPath (e.g. redis://127.0.0.1:6378?db=2&password=abc123)"`
+	PeerCAWhitelistPath      string `help:"path to the CA cert whitelist (peer identities must be signed by one these to be verified)"`
+	Address                  string `help:"address to listen on" default:":7777"`
+	Extensions               peertls.TLSExtConfig
 }
 
 // ServerOptions holds config, identity, and peer verification function data for use with a grpc server.
@@ -365,18 +362,35 @@ func NewFullIdentity(ctx context.Context, difficulty uint16, concurrency uint) (
 	return identity, err
 }
 
+func (c ServerConfig) NewRevDB() (*peertls.RevocationDB, error) {
+	if c.RevocationDBRedisAddress != "" {
+		return peertls.NewRevocationDBRedis(c.RevocationDBRedisAddress)
+	}
+	return peertls.NewRevocationDBBolt(c.RevocationDBPath)
+}
+
 // PCVFuncs returns a slice of peer certificate verification functions based on the config.
 func (c ServerConfig) PCVFuncs() (pcvs []peertls.PeerCertVerificationFunc, err error) {
-	var caWhitelist []*x509.Certificate
+	parseOpts := peertls.ParseExtOptions{}
+
 	if c.PeerCAWhitelistPath != "" {
-		caWhitelist, err = loadWhitelist(c.PeerCAWhitelistPath)
+		caWhitelist, err := loadWhitelist(c.PeerCAWhitelistPath)
 		if err != nil {
 			return nil, err
 		}
+		parseOpts.CAWhitelist = caWhitelist
 		pcvs = append(pcvs, peertls.VerifyCAWhitelist(caWhitelist))
 	}
 
-	exts := peertls.ParseExtensions(c.Extensions, caWhitelist)
+	if c.Extensions.Revocation {
+		revDB, err := c.NewRevDB()
+		if err != nil {
+			return nil, err
+		}
+		pcvs = append(pcvs, peertls.VerifyUnrevokedChainFunc(revDB))
+	}
+
+	exts := peertls.ParseExtensions(c.Extensions, parseOpts)
 	pcvs = append(pcvs, exts.VerifyFunc())
 
 	return pcvs, nil

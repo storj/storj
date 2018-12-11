@@ -247,7 +247,7 @@ func (ca FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 	}
 
 	if ca.RestChain != nil && len(ca.RestChain) > 0 {
-		err := peertls.AddSignedLeafExt(ca.Key, leafCert)
+		err := peertls.AddSignedCertExt(ca.Key, leafCert)
 		if err != nil {
 			return nil, err
 		}
