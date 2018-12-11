@@ -38,10 +38,10 @@ type RSConfig struct {
 // NodeSelectionConfig is a configuration struct to determine the minimum
 // values for nodes to select
 type NodeSelectionConfig struct {
-	UptimeRatio       float64 `help:"a node's ratio of being up/online vs. down/offline"`
-	UptimeCount       int64   `help:"the number of times a node's uptime has been checked"`
-	AuditSuccessRatio float64 `help:"a node's ratio of successful audits"`
-	AuditCount        int64   `help:"the number of times a node has been audited"`
+	UptimeRatio       float64 `help:"a node's ratio of being up/online vs. down/offline" default:"0"`
+	UptimeCount       int64   `help:"the number of times a node's uptime has been checked" default:"0"`
+	AuditSuccessRatio float64 `help:"a node's ratio of successful audits" default:"0"`
+	AuditCount        int64   `help:"the number of times a node has been audited" default:"0"`
 }
 
 // EncryptionConfig is a configuration struct that keeps details about
