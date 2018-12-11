@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	base58 "github.com/jbenet/go-base58"
 	"github.com/spf13/cobra"
@@ -40,13 +39,9 @@ var (
 func init() {
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
 
-	// workaround to have early access to 'dir' param
-	for i, arg := range os.Args {
-		if strings.HasPrefix(arg, "--dir=") {
-			defaultConfDir = strings.TrimPrefix(arg, "--dir=")
-		} else if arg == "--dir" && i < len(os.Args)-1 {
-			defaultConfDir = os.Args[i+1]
-		}
+	dirParam := cfgstruct.FindDirParam()
+	if dirParam != "" {
+		defaultConfDir = dirParam
 	}
 
 	CLICmd.AddCommand(setupCmd)

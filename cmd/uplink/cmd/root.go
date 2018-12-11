@@ -6,9 +6,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -44,13 +42,9 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
 
-	// workaround to have early access to 'dir' param
-	for i, arg := range os.Args {
-		if strings.HasPrefix(arg, "--dir=") {
-			defaultConfDir = strings.TrimPrefix(arg, "--dir=")
-		} else if arg == "--dir" && i < len(os.Args)-1 {
-			defaultConfDir = os.Args[i+1]
-		}
+	dirParam := cfgstruct.FindDirParam()
+	if dirParam != "" {
+		defaultConfDir = dirParam
 	}
 
 	cfgstruct.Bind(cmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir))

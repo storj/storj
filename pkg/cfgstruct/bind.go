@@ -122,3 +122,16 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value,
 func expand(vars map[string]string, val string) string {
 	return os.Expand(val, func(key string) string { return vars[key] })
 }
+
+// FindDirParam returns 'dir' param from os.Args (if exists)
+func FindDirParam() string {
+	// workaround to have early access to 'dir' param
+	for i, arg := range os.Args {
+		if strings.HasPrefix(arg, "--dir=") {
+			return strings.TrimPrefix(arg, "--dir=")
+		} else if arg == "--dir" && i < len(os.Args)-1 {
+			return os.Args[i+1]
+		}
+	}
+	return ""
+}

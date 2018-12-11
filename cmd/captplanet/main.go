@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"syscall"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 )
 
@@ -41,13 +41,9 @@ func main() {
 func init() {
 	defaultConfDir = fpath.ApplicationDir("storj", "capt")
 
-	// workaround to have early access to 'dir' param
-	for i, arg := range os.Args {
-		if strings.HasPrefix(arg, "--dir=") {
-			defaultConfDir = strings.TrimPrefix(arg, "--dir=")
-		} else if arg == "--dir" && i < len(os.Args)-1 {
-			defaultConfDir = os.Args[i+1]
-		}
+	dirParam := cfgstruct.FindDirParam()
+	if dirParam != "" {
+		defaultConfDir = dirParam
 	}
 
 	runCmd.Flags().String("config",

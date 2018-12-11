@@ -67,7 +67,6 @@ var (
 	}
 
 	runCfg struct {
-		Dir          string `default:"$CONFDIR" help:"main directory for captplanet configuration"`
 		Satellite    Satellite
 		StorageNodes [storagenodeCount]StorageNode
 		Uplink       miniogw.Config
@@ -76,6 +75,7 @@ var (
 
 func init() {
 	rootCmd.AddCommand(runCmd)
+	runCmd.Flags().String("dir", defaultConfDir, "main directory for captplanet configuration")
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 

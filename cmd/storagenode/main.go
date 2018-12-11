@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"text/tabwriter"
 
 	"github.com/gogo/protobuf/proto"
@@ -48,7 +47,6 @@ var (
 	}
 
 	runCfg struct {
-		Dir      string `default:"$CONFDIR" help:"main directory for configuration"`
 		Identity provider.IdentityConfig
 		Kademlia kademlia.Config
 		Storage  psserver.Config
@@ -69,14 +67,12 @@ var (
 func init() {
 	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
 
-	// workaround to have early access to 'dir' param
-	for i, arg := range os.Args {
-		if strings.HasPrefix(arg, "--dir=") {
-			defaultConfDir = strings.TrimPrefix(arg, "--dir=")
-		} else if arg == "--dir" && i < len(os.Args)-1 {
-			defaultConfDir = os.Args[i+1]
-		}
+	dirParam := cfgstruct.FindDirParam()
+	if dirParam != "" {
+		defaultConfDir = dirParam
 	}
+
+	runCmd.Flags().String("dir", defaultConfDir, "main directory for satellite configuration")
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
