@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/gogo/protobuf/proto"
@@ -62,6 +63,7 @@ var (
 	}
 
 	runCfg struct {
+		Dir         string `default:"$CONFDIR" help:"main directory for satellite configuration"`
 		Identity    provider.IdentityConfig
 		Kademlia    kademlia.Config
 		PointerDB   pointerdb.Config
@@ -74,7 +76,7 @@ var (
 		Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	}
 	setupCfg struct {
-		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
+		Dir       string `default:"$CONFDIR" help:"main directory for satellite configuration"`
 		CA        provider.CASetupConfig
 		Identity  provider.IdentitySetupConfig
 		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
@@ -92,6 +94,16 @@ var (
 
 func init() {
 	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
+
+	// workaround to have early access to 'dir' param
+	for i, arg := range os.Args {
+		if strings.HasPrefix(arg, "--dir=") {
+			defaultConfDir = strings.TrimPrefix(arg, "--dir=")
+		} else if arg == "--dir" && i < len(os.Args)-1 {
+			defaultConfDir = os.Args[i+1]
+		}
+	}
+
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
@@ -133,35 +145,35 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupCfg.BasePath, err = filepath.Abs(setupCfg.BasePath)
+	setupDir, err := filepath.Abs(setupCfg.Dir)
 	if err != nil {
 		return err
 	}
 
-	valid, err := fpath.IsValidSetupDir(setupCfg.BasePath)
+	valid, err := fpath.IsValidSetupDir(setupDir)
 	if !setupCfg.Overwrite && !valid {
-		fmt.Printf("satellite configuration already exists (%v). rerun with --overwrite\n", setupCfg.BasePath)
+		fmt.Printf("satellite configuration already exists (%v). rerun with --overwrite\n", setupDir)
 		return nil
 	} else if setupCfg.Overwrite && err == nil {
 		fmt.Println("overwriting existing satellite config")
-		err = os.RemoveAll(setupCfg.BasePath)
+		err = os.RemoveAll(setupDir)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = os.MkdirAll(setupCfg.BasePath, 0700)
+	err = os.MkdirAll(setupDir, 0700)
 	if err != nil {
 		return err
 	}
 
 	// TODO: handle setting base path *and* identity file paths via args
 	// NB: if base path is set this overrides identity and CA path options
-	if setupCfg.BasePath != defaultConfDir {
-		setupCfg.CA.CertPath = filepath.Join(setupCfg.BasePath, "ca.cert")
-		setupCfg.CA.KeyPath = filepath.Join(setupCfg.BasePath, "ca.key")
-		setupCfg.Identity.CertPath = filepath.Join(setupCfg.BasePath, "identity.cert")
-		setupCfg.Identity.KeyPath = filepath.Join(setupCfg.BasePath, "identity.key")
+	if setupDir != defaultConfDir {
+		setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
+		setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
+		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
+		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 	}
 	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
@@ -174,7 +186,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return process.SaveConfig(runCmd.Flags(),
-		filepath.Join(setupCfg.BasePath, "config.yaml"), o)
+		filepath.Join(setupDir, "config.yaml"), o)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	base58 "github.com/jbenet/go-base58"
 	"github.com/spf13/cobra"
@@ -27,7 +28,7 @@ var (
 	setupCfg struct {
 		CA                 provider.CASetupConfig
 		Identity           provider.IdentitySetupConfig
-		BasePath           string `default:"$CONFDIR" help:"base path for setup"`
+		Dir                string `default:"$CONFDIR" help:"main directory for setup configuration"`
 		Overwrite          bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
 		SatelliteAddr      string `default:"localhost:7778" help:"the address to use for the satellite"`
 		APIKey             string `default:"" help:"the api key to use for the satellite"`
@@ -38,13 +39,23 @@ var (
 
 func init() {
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
+
+	// workaround to have early access to 'dir' param
+	for i, arg := range os.Args {
+		if strings.HasPrefix(arg, "--dir=") {
+			defaultConfDir = strings.TrimPrefix(arg, "--dir=")
+		} else if arg == "--dir" && i < len(os.Args)-1 {
+			defaultConfDir = os.Args[i+1]
+		}
+	}
+
 	CLICmd.AddCommand(setupCmd)
 	GWCmd.AddCommand(setupCmd)
 	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupCfg.BasePath, err = filepath.Abs(setupCfg.BasePath)
+	setupDir, err := filepath.Abs(setupCfg.Dir)
 	if err != nil {
 		return err
 	}
@@ -53,12 +64,12 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("%s - Invalid flag. Pleas see --help", flagname)
 	}
 
-	valid, _ := fpath.IsValidSetupDir(setupCfg.BasePath)
+	valid, _ := fpath.IsValidSetupDir(setupDir)
 	if !setupCfg.Overwrite && !valid {
-		return fmt.Errorf("uplink configuration already exists (%v). Rerun with --overwrite", setupCfg.BasePath)
+		return fmt.Errorf("uplink configuration already exists (%v). Rerun with --overwrite", setupDir)
 	}
 
-	err = os.MkdirAll(setupCfg.BasePath, 0700)
+	err = os.MkdirAll(setupDir, 0700)
 	if err != nil {
 		return err
 	}
@@ -66,11 +77,11 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
 	// TODO: handle setting base path *and* identity file paths via args
 	// NB: if base path is set this overrides identity and CA path options
-	if setupCfg.BasePath != defaultConfDir {
-		setupCfg.CA.CertPath = filepath.Join(setupCfg.BasePath, "ca.cert")
-		setupCfg.CA.KeyPath = filepath.Join(setupCfg.BasePath, "ca.key")
-		setupCfg.Identity.CertPath = filepath.Join(setupCfg.BasePath, "identity.cert")
-		setupCfg.Identity.KeyPath = filepath.Join(setupCfg.BasePath, "identity.key")
+	if setupDir != defaultConfDir {
+		setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
+		setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
+		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
+		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 	}
 	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
@@ -78,7 +89,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if setupCfg.GenerateMinioCerts {
-		minioCerts := filepath.Join(setupCfg.BasePath, "minio", "certs")
+		minioCerts := filepath.Join(setupDir, "minio", "certs")
 		if err := os.MkdirAll(minioCerts, 0744); err != nil {
 			return err
 		}
@@ -112,7 +123,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return process.SaveConfig(runCmd.Flags(),
-		filepath.Join(setupCfg.BasePath, "config.yaml"), o)
+		filepath.Join(setupDir, "config.yaml"), o)
 }
 
 func generateAWSKey() (key string, err error) {

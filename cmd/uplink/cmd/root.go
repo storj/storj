@@ -6,7 +6,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -19,6 +21,7 @@ import (
 
 // Config is miniogw.Config configuration
 type Config struct {
+	Dir string `default:"$CONFDIR" help:"main directory for configuration"`
 	miniogw.Config
 }
 
@@ -40,6 +43,16 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 	root.AddCommand(cmd)
 
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
+
+	// workaround to have early access to 'dir' param
+	for i, arg := range os.Args {
+		if strings.HasPrefix(arg, "--dir=") {
+			defaultConfDir = strings.TrimPrefix(arg, "--dir=")
+		} else if arg == "--dir" && i < len(os.Args)-1 {
+			defaultConfDir = os.Args[i+1]
+		}
+	}
+
 	cfgstruct.Bind(cmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir))
 	cmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	return cmd

@@ -25,7 +25,7 @@ type Config struct {
 	UplinkIdentity      provider.IdentitySetupConfig
 	StorageNodeCA       provider.CASetupConfig
 	StorageNodeIdentity provider.IdentitySetupConfig
-	BasePath            string `help:"base path for captain planet storage" default:"$CONFDIR"`
+	Dir                 string `default:"$CONFDIR" help:"main directory for captplanet configuration"`
 	ListenHost          string `help:"the host for providers to listen on" default:"127.0.0.1"`
 	StartingPort        int    `help:"all providers will listen on ports consecutively starting with this one" default:"7777"`
 	APIKey              string `default:"abc123" help:"the api key to use for the satellite"`
@@ -51,24 +51,24 @@ func init() {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupCfg.BasePath, err = filepath.Abs(setupCfg.BasePath)
+	setupDir, err := filepath.Abs(setupCfg.Dir)
 	if err != nil {
 		return err
 	}
 
-	valid, err := fpath.IsValidSetupDir(setupCfg.BasePath)
+	valid, err := fpath.IsValidSetupDir(setupDir)
 	if !setupCfg.Overwrite && !valid {
-		fmt.Printf("captplanet configuration already exists (%v). rerun with --overwrite\n", setupCfg.BasePath)
+		fmt.Printf("captplanet configuration already exists (%v). rerun with --overwrite\n", setupDir)
 		return nil
 	} else if setupCfg.Overwrite && err == nil {
 		fmt.Println("overwriting existing captplanet config")
-		err = os.RemoveAll(setupCfg.BasePath)
+		err = os.RemoveAll(setupDir)
 		if err != nil {
 			return err
 		}
 	}
 
-	satellitePath := filepath.Join(setupCfg.BasePath, "satellite")
+	satellitePath := filepath.Join(setupDir, "satellite")
 	err = os.MkdirAll(satellitePath, 0700)
 	if err != nil {
 		return err
@@ -84,7 +84,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	for i := 0; i < len(runCfg.StorageNodes); i++ {
-		storagenodePath := filepath.Join(setupCfg.BasePath, fmt.Sprintf("f%d", i))
+		storagenodePath := filepath.Join(setupDir, fmt.Sprintf("f%d", i))
 		err = os.MkdirAll(storagenodePath, 0700)
 		if err != nil {
 			return err
@@ -102,7 +102,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	uplinkPath := filepath.Join(setupCfg.BasePath, "uplink")
+	uplinkPath := filepath.Join(setupDir, "uplink")
 	err = os.MkdirAll(uplinkPath, 0700)
 	if err != nil {
 		return err
@@ -142,9 +142,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"satellite.kademlia.bootstrap-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"satellite.pointer-db.database-url": "bolt://" + filepath.Join(
-			setupCfg.BasePath, "satellite", "pointerdb.db"),
+			setupDir, "satellite", "pointerdb.db"),
 		"satellite.overlay.database-url": "bolt://" + filepath.Join(
-			setupCfg.BasePath, "satellite", "overlay.db"),
+			setupDir, "satellite", "overlay.db"),
 		"satellite.repairer.queue-address": "redis://127.0.0.1:6378?db=1&password=abc123",
 		"satellite.repairer.overlay-addr":  overlayAddr,
 		"satellite.repairer.pointer-db-addr": joinHostPort(
@@ -159,7 +159,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"uplink.client.pointer-db-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"uplink.minio.dir": filepath.Join(
-			setupCfg.BasePath, "uplink", "minio"),
+			setupDir, "uplink", "minio"),
 		"uplink.enc.key":          setupCfg.EncKey,
 		"uplink.client.api-key":   setupCfg.APIKey,
 		"pointer-db.auth.api-key": setupCfg.APIKey,
@@ -172,7 +172,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	for i := 0; i < len(runCfg.StorageNodes); i++ {
-		storagenodePath := filepath.Join(setupCfg.BasePath, fmt.Sprintf("f%d", i))
+		storagenodePath := filepath.Join(setupDir, fmt.Sprintf("f%d", i))
 		storagenode := fmt.Sprintf("storage-nodes.%03d.", i)
 		overrides[storagenode+"identity.cert-path"] = filepath.Join(
 			storagenodePath, "identity.cert")
@@ -186,7 +186,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return process.SaveConfig(runCmd.Flags(),
-		filepath.Join(setupCfg.BasePath, "config.yaml"), overrides)
+		filepath.Join(setupDir, "config.yaml"), overrides)
 }
 
 func joinHostPort(host string, port int) string {

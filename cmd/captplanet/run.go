@@ -67,6 +67,7 @@ var (
 	}
 
 	runCfg struct {
+		Dir          string `default:"$CONFDIR" help:"main directory for captplanet configuration"`
 		Satellite    Satellite
 		StorageNodes [storagenodeCount]StorageNode
 		Uplink       miniogw.Config
