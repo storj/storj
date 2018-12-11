@@ -82,9 +82,7 @@ func Test_isZeroTime(t *testing.T) {
 			name:     "Valid",
 			t:        time.Now().UTC(),
 			expected: false,
-		},
-
-		{
+		}, {
 			name:     "Zero time",
 			t:        time.Unix(0, 0).UTC(),
 			expected: true,
@@ -149,56 +147,42 @@ func Test_checkPreconditions(t *testing.T) {
 			requestHeaderMap:    map[string]string{"If-Match": "\t\t"},
 			expectedDone:        true,
 			expectedRangeHeader: "",
-		},
-
-		{
+		}, {
 			name:                "No If-Match header",
 			requestHeaderMap:    map[string]string{"If-Unmodified-Since": "Thursday, 18-Jul-18 12:20:25 EEST"},
 			expectedDone:        true,
 			modtime:             time.Unix(1531999477, 0).UTC(),
 			expectedRangeHeader: "",
-		},
-
-		{
+		}, {
 			name:                "Any If-Match header with GET request",
 			requestMethod:       http.MethodGet, //By default method is GET. Wrote for clarity
 			requestHeaderMap:    map[string]string{"If-None-Match": "*"},
 			expectedDone:        true,
 			expectedRangeHeader: "",
-		},
-
-		{
+		}, {
 			name:                "Any If-Match header with HEAD request",
 			requestHeaderMap:    map[string]string{"If-None-Match": "*"},
 			requestMethod:       http.MethodHead,
 			expectedDone:        true,
 			expectedRangeHeader: "",
-		},
-
-		{
+		}, {
 			name:                "Any If-Match header with PUT request",
 			requestHeaderMap:    map[string]string{"If-None-Match": "*"},
 			requestMethod:       http.MethodPut,
 			expectedDone:        true,
 			expectedRangeHeader: "",
-		},
-
-		{
+		}, {
 			name:                "Empty request",
 			requestHeaderMap:    map[string]string{},
 			expectedDone:        false,
 			expectedRangeHeader: "",
-		},
-
-		{
+		}, {
 			name:                "Empty modified request",
 			requestHeaderMap:    map[string]string{"If-Modified-Since": "Thursday, 20-Jul-18 12:20:25 EEST"},
 			modtime:             time.Unix(1531999477, 0).UTC(),
 			expectedDone:        true,
 			expectedRangeHeader: "",
-		},
-
-		{
+		}, {
 			name:                "Empty unmodified request",
 			requestHeaderMap:    map[string]string{"Range": "aaa", "If-Range": "\"abcde\""},
 			expectedDone:        false,
@@ -235,40 +219,28 @@ func Test_checkIfMatch(t *testing.T) {
 			name:             "No If-Match header",
 			requestHeaderMap: map[string]string{},
 			expectedResult:   condNone,
-		},
-
-		{
+		}, {
 			name:             "Empty If-Match with trailing spaces",
 			requestHeaderMap: map[string]string{"If-Match": "\t\t"},
 			expectedResult:   condFalse,
-		},
-
-		{
+		}, {
 			name:             "Starts with coma",
 			requestHeaderMap: map[string]string{"If-Match": ","},
 			expectedResult:   condFalse,
-		},
-
-		{
+		}, {
 			name:             "Anything match",
 			requestHeaderMap: map[string]string{"If-Match": "*"},
 			expectedResult:   condTrue,
-		},
-
-		{
+		}, {
 			name:             "Empty If-Match ETag",
 			requestHeaderMap: map[string]string{"If-Match": "abcd"},
 			expectedResult:   condFalse,
-		},
-
-		{
+		}, {
 			name:             "First ETag match",
 			requestHeaderMap: map[string]string{"If-Match": "\"testETag\", \"testETag\""},
 			writerHeaderMap:  map[string]string{"Etag": "\"testETag\""},
 			expectedResult:   condTrue,
-		},
-
-		{
+		}, {
 			name:             "Separated ETag match",
 			requestHeaderMap: map[string]string{"If-Match": "\"wrongETag\", \"correctETag\""},
 			writerHeaderMap:  map[string]string{"Etag": "\"correctETag\""},
@@ -305,30 +277,22 @@ func Test_checkIfUnmodifiedSince(t *testing.T) {
 			headerMap:      map[string]string{},
 			modtime:        time.Now().UTC(),
 			expectedResult: condNone,
-		},
-
-		{
+		}, {
 			name:           "Zero time",
 			headerMap:      map[string]string{"If-Unmodified-Since": "Thursday, 18-Jul-18 12:20:25 EEST"},
 			modtime:        time.Unix(0, 0).UTC(),
 			expectedResult: condNone,
-		},
-
-		{
+		}, {
 			name:           "Is modified",
 			headerMap:      map[string]string{"If-Unmodified-Since": "Thursday, 20-Jul-18 12:20:25 EEST"},
 			modtime:        time.Unix(1531999477, 0).UTC(),
 			expectedResult: condTrue,
-		},
-
-		{
+		}, {
 			name:           "Is not modified",
 			headerMap:      map[string]string{"If-Unmodified-Since": "Thursday, 18-Jul-18 12:20:25 EEST"},
 			modtime:        time.Unix(1531999477, 0).UTC(),
 			expectedResult: condFalse,
-		},
-
-		{
+		}, {
 			name:           "Malformed RFC time",
 			headerMap:      map[string]string{"If-Unmodified-Since": "abcdefg"},
 			modtime:        time.Unix(1531999477, 0).UTC(),
@@ -359,40 +323,28 @@ func Test_checkIfNoneMatch(t *testing.T) {
 			name:             "No If-None-Match header",
 			requestHeaderMap: map[string]string{},
 			expectedResult:   condNone,
-		},
-
-		{
+		}, {
 			name:             "Empty If-None-Match with trailing spaces",
 			requestHeaderMap: map[string]string{"If-None-Match": "\t\t"},
 			expectedResult:   condTrue,
-		},
-
-		{
+		}, {
 			name:             "Starts with coma",
 			requestHeaderMap: map[string]string{"If-None-Match": ","},
 			expectedResult:   condTrue,
-		},
-
-		{
+		}, {
 			name:             "Anything match",
 			requestHeaderMap: map[string]string{"If-None-Match": "*"},
 			expectedResult:   condFalse,
-		},
-
-		{
+		}, {
 			name:             "Empty If-None-Match ETag",
 			requestHeaderMap: map[string]string{"If-None-Match": "abcd"},
 			expectedResult:   condTrue,
-		},
-
-		{
+		}, {
 			name:             "First ETag match",
 			requestHeaderMap: map[string]string{"If-None-Match": "\"testETag\", \"testETag\""},
 			writerHeaderMap:  map[string]string{"Etag": "\"testETag\""},
 			expectedResult:   condFalse,
-		},
-
-		{
+		}, {
 			name:             "Separated ETag match",
 			requestHeaderMap: map[string]string{"If-None-Match": "\"wrongETag\", \"correctETag\""},
 			writerHeaderMap:  map[string]string{"Etag": "\"correctETag\""},
@@ -430,31 +382,23 @@ func Test_checkIfModifiedSince(t *testing.T) {
 			requestMethod:  "PUT",
 			headerMap:      map[string]string{},
 			expectedResult: condNone,
-		},
-
-		{
+		}, {
 			name:           "No If-Modified-Since header",
 			requestMethod:  "GET",
 			expectedResult: condNone,
-		},
-
-		{
+		}, {
 			name:           "Malformed If-Modified-Since header",
 			requestMethod:  "GET",
 			headerMap:      map[string]string{"If-Modified-Since": "aaaa"},
 			modtime:        time.Unix(1531999477, 0).UTC(),
 			expectedResult: condNone,
-		},
-
-		{
+		}, {
 			name:           "Is not modified before",
 			requestMethod:  "GET",
 			headerMap:      map[string]string{"If-Modified-Since": "Thursday, 20-Jul-18 12:20:25 EEST"},
 			modtime:        time.Unix(1531999477, 0).UTC(),
 			expectedResult: condFalse,
-		},
-
-		{
+		}, {
 			name:           "Modified before",
 			requestMethod:  "GET",
 			headerMap:      map[string]string{"If-Modified-Since": "Thursday, 18-Jul-18 12:20:25 EEST"},
@@ -488,22 +432,16 @@ func Test_checkIfRange(t *testing.T) {
 			name:           "Unacceptable Method",
 			requestMethod:  "PUT",
 			expectedResult: condNone,
-		},
-
-		{
+		}, {
 			name:           "No If-Range header",
 			requestMethod:  "GET",
 			expectedResult: condNone,
-		},
-
-		{
+		}, {
 			name:             "Not matching ETags",
 			requestMethod:    "GET",
 			requestHeaderMap: map[string]string{"If-Range": "\"abcde\""},
 			expectedResult:   condFalse,
-		},
-
-		{
+		}, {
 			name:             "Matching ETags",
 			requestMethod:    "GET",
 			requestHeaderMap: map[string]string{"If-Range": "\"abcde\""},
@@ -519,25 +457,19 @@ func Test_checkIfRange(t *testing.T) {
 			requestHeaderMap: map[string]string{"If-Range": "a"},
 			modtime:          time.Unix(0, 0).UTC(),
 			expectedResult:   condFalse,
-		},
-
-		{
+		}, {
 			name:             "Malformed header time",
 			requestMethod:    "GET",
 			requestHeaderMap: map[string]string{"If-Range": "aaa"},
 			modtime:          time.Unix(1531999477, 0).UTC(),
 			expectedResult:   condFalse,
-		},
-
-		{
+		}, {
 			name:             "Equal time",
 			requestMethod:    "GET",
 			requestHeaderMap: map[string]string{"If-Range": "Thu, 19 Jul 2018 14:12:03 GMT"},
 			modtime:          time.Unix(1532009523, 0).UTC(),
 			expectedResult:   condTrue,
-		},
-
-		{
+		}, {
 			name:             "Equal time",
 			requestMethod:    "GET",
 			requestHeaderMap: map[string]string{"If-Range": "Thu, 18 Jul 2018 14:12:03 GMT"},
@@ -576,9 +508,7 @@ func Test_writeNotModified(t *testing.T) {
 				"Content-Length": "23",
 				"Etag":           "",
 			},
-		},
-
-		{
+		}, {
 			name: "Existing ETag",
 			writerHeaderMap: map[string]string{
 				"Content-Type":   "a",
@@ -616,29 +546,21 @@ func Test_scanETag(t *testing.T) {
 			name: "Empty ETag", s: "",
 			expectedEtag:   "",
 			expectedRemain: "",
-		},
-
-		{
+		}, {
 			name: "Empty ETag with W", s: "W/",
 			expectedEtag:   "",
 			expectedRemain: "",
-		},
-
-		{
+		}, {
 			name:           "Malformed ETag",
 			s:              "asdf",
 			expectedEtag:   "",
 			expectedRemain: "",
-		},
-
-		{
+		}, {
 			name:           "Valid ETag",
 			s:              "\"abcdef\"",
 			expectedEtag:   "\"abcdef\"",
 			expectedRemain: "",
-		},
-
-		{
+		}, {
 			name:           "Valid ETag with W/",
 			s:              "W/\"aaaa\"",
 			expectedEtag:   "W/\"aaaa\"",
@@ -712,16 +634,12 @@ func Test_etagWeakMatch(t *testing.T) {
 			a:             "",
 			b:             "",
 			expectedMatch: true,
-		},
-
-		{
+		}, {
 			name:          "Not equal ETags",
 			a:             "W/a",
 			b:             "W/b",
 			expectedMatch: false,
-		},
-
-		{
+		}, {
 			name:          "Equal ETags",
 			a:             "W/a",
 			b:             "W/a",
@@ -873,9 +791,7 @@ func Test_countingWriter_Write(t *testing.T) {
 			arrayHolder:    "abcd",
 			expectedLength: 4,
 			expectingError: false,
-		},
-
-		{
+		}, {
 			name:           "",
 			arrayHolder:    "",
 			expectedLength: 0,
@@ -927,9 +843,7 @@ func Test_sumRangesSize(t *testing.T) {
 				{length: 5},
 			},
 			expectedSize: 15,
-		},
-
-		{
+		}, {
 			ranges: []httpRange{
 				{length: 0},
 				{length: 0},
