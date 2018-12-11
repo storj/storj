@@ -48,5 +48,17 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	stat := statdb.LoadFromContext(ctx)
 	discovery := NewDiscovery(ol, kad, stat)
 
+	zap.L().Debug("Starting discovery")
+
+	err = discovery.kad.Bootstrap(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = discovery.Refresh(ctx)
+	if err != nil {
+		return err
+	}
+
 	return server.Run(context.WithValue(ctx, ctxKeyDiscovery, discovery))
 }

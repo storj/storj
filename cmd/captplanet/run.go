@@ -130,12 +130,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.StatDB,
 			runCfg.Satellite.Audit,
 			runCfg.Satellite.Overlay,
+			runCfg.Satellite.Discovery,
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Checker,
 			runCfg.Satellite.Repairer,
 			runCfg.Satellite.BwAgreement,
 			runCfg.Satellite.Web,
-			runCfg.Satellite.Discovery,
 
 			// NB(dylan): Inspector is only used for local development and testing.
 			// It should not be added to the Satellite startup
