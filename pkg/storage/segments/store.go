@@ -131,7 +131,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 				Uptime:       s.nodeStats.UptimeRatio,
 				UptimeCount:  s.nodeStats.UptimeCount,
 				AuditSuccess: s.nodeStats.AuditSuccessRatio,
-				AuditCount:   int64(s.nodeStats.AuditCount),
+				AuditCount:   s.nodeStats.AuditCount,
 				Excluded:     nil,
 			})
 		if err != nil {
