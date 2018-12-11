@@ -18,8 +18,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
-
-	"storj.io/storj/internal/testpeertls"
 )
 
 func TestNewCert_CA(t *testing.T) {
@@ -70,23 +68,11 @@ func TestNewCert_Leaf(t *testing.T) {
 }
 
 func TestVerifyPeerFunc(t *testing.T) {
-	caKey, err := NewKey()
-	assert.NoError(t, err)
-
-	caTemplate, err := CATemplate()
-	assert.NoError(t, err)
-
-	caCert, err := NewCert(caKey, nil, caTemplate, nil)
-	assert.NoError(t, err)
-
-	leafKey, err := NewKey()
-	assert.NoError(t, err)
-
-	leafTemplate, err := LeafTemplate()
-	assert.NoError(t, err)
-
-	leafCert, err := NewCert(leafKey, caKey, leafTemplate, caCert)
-	assert.NoError(t, err)
+	_, chain, err := newCertChain(2)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+	leafCert, caCert := chain[0], chain[1]
 
 	testFunc := func(chain [][]byte, parsedChains [][]*x509.Certificate) error {
 		switch {
@@ -113,23 +99,11 @@ func TestVerifyPeerFunc(t *testing.T) {
 }
 
 func TestVerifyPeerCertChains(t *testing.T) {
-	caKey, err := NewKey()
-	assert.NoError(t, err)
-
-	caTemplate, err := CATemplate()
-	assert.NoError(t, err)
-
-	caCert, err := NewCert(caKey, nil, caTemplate, nil)
-	assert.NoError(t, err)
-
-	leafKey, err := NewKey()
-	assert.NoError(t, err)
-
-	leafTemplate, err := LeafTemplate()
-	assert.NoError(t, err)
-
-	leafCert, err := NewCert(leafKey, caKey, leafTemplate, caCert)
-	assert.NoError(t, err)
+	keys, chain, err := newCertChain(2)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+	leafKey, leafCert, caCert := keys[1], chain[0], chain[1]
 
 	err = VerifyPeerFunc(VerifyPeerCertChains)([][]byte{leafCert.Raw, caCert.Raw}, nil)
 	assert.NoError(t, err)
@@ -137,7 +111,7 @@ func TestVerifyPeerCertChains(t *testing.T) {
 	wrongKey, err := NewKey()
 	assert.NoError(t, err)
 
-	leafCert, err = NewCert(leafKey, wrongKey, leafTemplate, caCert)
+	leafCert, err = NewCert(leafKey, wrongKey, leafCert, caCert)
 	assert.NoError(t, err)
 
 	err = VerifyPeerFunc(VerifyPeerCertChains)([][]byte{leafCert.Raw, caCert.Raw}, nil)
@@ -146,66 +120,58 @@ func TestVerifyPeerCertChains(t *testing.T) {
 }
 
 func TestVerifyCAWhitelist(t *testing.T) {
-	caKey, err := NewKey()
-	assert.NoError(t, err)
+	_, chain2, err := newCertChain(2)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+	leafCert, caCert := chain2[0], chain2[1]
 
-	caTemplate, err := CATemplate()
-	assert.NoError(t, err)
+	t.Run("empty whitelist", func(t *testing.T) {
+		err = VerifyPeerFunc(VerifyCAWhitelist(nil))([][]byte{leafCert.Raw, caCert.Raw}, nil)
+		assert.NoError(t, err)
+	})
 
-	caCert, err := NewCert(caKey, nil, caTemplate, nil)
-	assert.NoError(t, err)
+	t.Run("whitelist contains ca", func(t *testing.T) {
+		err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{caCert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
+		assert.NoError(t, err)
+	})
 
-	leafKey, err := NewKey()
-	assert.NoError(t, err)
+	_, unrelatedChain, err := newCertChain(1)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+	unrelatedCert := unrelatedChain[0]
 
-	leafTemplate, err := LeafTemplate()
-	assert.NoError(t, err)
+	t.Run("no valid signed extension, non-empty whitelist", func(t *testing.T) {
+		err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{unrelatedCert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
+		assert.True(t, ErrVerifyCAWhitelist.Has(err))
+	})
 
-	leafCert, err := NewCert(leafKey, caKey, leafTemplate, caCert)
-	assert.NoError(t, err)
+	t.Run("last cert in whitelist is signer", func(t *testing.T) {
+		err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{unrelatedCert, caCert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
+		assert.NoError(t, err)
+	})
 
-	// empty whitelist
-	err = VerifyPeerFunc(VerifyCAWhitelist(nil))([][]byte{leafCert.Raw, caCert.Raw}, nil)
-	assert.NoError(t, err)
+	t.Run("first cert in whitelist is signer", func(t *testing.T) {
+		err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{caCert, unrelatedCert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
+		assert.NoError(t, err)
+	})
 
-	// whitelist contains ca
-	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{caCert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
-	assert.NoError(t, err)
+	_, chain3, err := newCertChain(3)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+	leaf2Cert, ca2Cert, rootCert := chain3[0], chain3[1], chain3[2]
 
-	rootKey, err := NewKey()
-	assert.NoError(t, err)
+	t.Run("length 3 chain - first cert in whitelist is signer", func(t *testing.T) {
+		err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{rootCert, unrelatedCert}))([][]byte{leaf2Cert.Raw, ca2Cert.Raw, unrelatedCert.Raw}, nil)
+		assert.NoError(t, err)
+	})
 
-	rootTemplate, err := CATemplate()
-	assert.NoError(t, err)
-
-	rootCert, err := NewCert(rootKey, nil, rootTemplate, nil)
-	assert.NoError(t, err)
-
-	// no valid signed extensionHandler, non-empty whitelist
-	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{rootCert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
-	assert.True(t, ErrVerifyCAWhitelist.Has(err))
-
-	// last cert in whitelist is signer
-	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{rootCert, caCert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
-	assert.NoError(t, err)
-
-	// first cert in whitelist is signer
-	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{caCert, rootCert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
-	assert.NoError(t, err)
-
-	ca2Cert, err := NewCert(caKey, rootKey, caTemplate, rootCert)
-	assert.NoError(t, err)
-
-	leaf2Cert, err := NewCert(leafKey, caKey, leafTemplate, ca2Cert)
-	assert.NoError(t, err)
-
-	// length 3 chain; first cert in whitelist is signer
-	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{rootCert, caCert}))([][]byte{leaf2Cert.Raw, ca2Cert.Raw, rootCert.Raw}, nil)
-	assert.NoError(t, err)
-
-	// length 3 chain; last cert in whitelist is signer
-	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{caCert, rootCert}))([][]byte{leaf2Cert.Raw, ca2Cert.Raw, rootCert.Raw}, nil)
-	assert.NoError(t, err)
+	t.Run("length 3 chain - last cert in whitelist is signer", func(t *testing.T) {
+		err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{unrelatedCert, rootCert}))([][]byte{leaf2Cert.Raw, ca2Cert.Raw, unrelatedCert.Raw}, nil)
+		assert.NoError(t, err)
+	})
 }
 
 func TestAddExtension(t *testing.T) {
@@ -217,23 +183,8 @@ func TestAddSignedCertExt(t *testing.T) {
 }
 
 func TestSignLeafExt(t *testing.T) {
-	caKey, err := NewKey()
-	assert.NoError(t, err)
-
-	caTemplate, err := CATemplate()
-	assert.NoError(t, err)
-
-	caCert, err := NewCert(caKey, nil, caTemplate, nil)
-	assert.NoError(t, err)
-
-	leafKey, err := NewKey()
-	assert.NoError(t, err)
-
-	leafTemplate, err := LeafTemplate()
-	assert.NoError(t, err)
-
-	leafCert, err := NewCert(leafKey, caKey, leafTemplate, caCert)
-	assert.NoError(t, err)
+	keys, chain, err := newCertChain(2)
+	caKey, leafCert := keys[0], chain[0]
 
 	err = AddSignedCertExt(caKey, leafCert)
 	assert.NoError(t, err)
@@ -249,92 +200,13 @@ func TestSignLeafExt(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// NB: keys are in the reverse order compared to certs (i.e. first key belongs to last cert)!
-func newCertChain(length int) (keys []crypto.PrivateKey, certs []*x509.Certificate, _ error) {
-	for i := 0; i < length; i++ {
-		key, err := NewKey()
-		if err != nil {
-			return nil, nil, err
-		}
-		keys = append(keys, key)
-
-		var template *x509.Certificate
-		if i == length-1 {
-			template, err = CATemplate()
-		} else {
-			template, err = LeafTemplate()
-		}
-		if err != nil {
-			return nil, nil, err
-		}
-
-		var cert *x509.Certificate
-		if i == 0 {
-			cert, err = NewCert(key, nil, template, nil)
-		} else {
-			cert, err = NewCert(key, keys[i-1], template, certs[i-1:][0])
-		}
-		if err != nil {
-			return nil, nil, err
-		}
-
-		certs = append([]*x509.Certificate{cert}, certs...)
-	}
-	return keys, certs, nil
-}
-
-func revokeLeaf(keys []crypto.PrivateKey, chain []*x509.Certificate) ([]crypto.PrivateKey, []*x509.Certificate, error) {
-	revokingKey, err := NewKey()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	revokingTemplate, err := LeafTemplate()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	revokingCert, err := NewCert(revokingKey, keys[0], revokingTemplate, chain[1])
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = AddRevocationExt(keys[0], chain[0], revokingCert)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	chain[0] = revokingCert
-	return keys, chain, nil
-}
-
-func newRevokedLeafChain() ([]crypto.PrivateKey, []*x509.Certificate, error) {
-	keys2, certs2, err := newCertChain(2)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return revokeLeaf(keys2, certs2)
-}
-
-func TestSanity(t *testing.T) {
-	keys, certs, _ := newCertChain(2)
-
-	oldCert := *certs[0]
-	testpeertls.PrintJson(oldCert, "oldCert")
-
-	_ = AddRevocationExt(keys[0], &oldCert, certs[0])
-	testpeertls.PrintJson(certs[0], "certs[0]")
-	testpeertls.NewCertDebug(oldCert).Cmp(testpeertls.NewCertDebug(*certs[0]), "oldCert:certs[0]")
-}
-
 func TestRevocation_Sign(t *testing.T) {
-	keys, certs, err := newCertChain(2)
+	keys, chain, err := newCertChain(2)
 	assert.NoError(t, err)
 
 	rev := Revocation{
 		Timestamp: time.Now().Unix(),
-		Cert:      make([]byte, len(certs[0].Raw)),
+		Cert:      make([]byte, len(chain[0].Raw)),
 	}
 	err = rev.Sign(keys[0])
 	assert.NoError(t, err)
@@ -342,28 +214,28 @@ func TestRevocation_Sign(t *testing.T) {
 }
 
 func TestRevocation_Verify(t *testing.T) {
-	keys, certs, err := newCertChain(2)
+	keys, chain, err := newCertChain(2)
 	assert.NoError(t, err)
 
 	rev := Revocation{
 		Timestamp: time.Now().Unix(),
-		Cert:      make([]byte, len(certs[0].Raw)),
+		Cert:      make([]byte, len(chain[0].Raw)),
 	}
 	err = rev.Sign(keys[0])
 	assert.NoError(t, err)
 	assert.NotEmpty(t, rev.Signature)
 
-	err = rev.Verify(certs[1])
+	err = rev.Verify(chain[1])
 	assert.NoError(t, err)
 }
 
 func TestRevocation_Marshal(t *testing.T) {
-	keys, certs, err := newCertChain(2)
+	keys, chain, err := newCertChain(2)
 	assert.NoError(t, err)
 
 	rev := Revocation{
 		Timestamp: time.Now().Unix(),
-		Cert:      make([]byte, len(certs[0].Raw)),
+		Cert:      make([]byte, len(chain[0].Raw)),
 	}
 	err = rev.Sign(keys[0])
 	assert.NoError(t, err)
@@ -381,12 +253,12 @@ func TestRevocation_Marshal(t *testing.T) {
 }
 
 func TestRevocation_Unmarshal(t *testing.T) {
-	keys, certs, err := newCertChain(2)
+	keys, chain, err := newCertChain(2)
 	assert.NoError(t, err)
 
 	rev := Revocation{
 		Timestamp: time.Now().Unix(),
-		Cert:      make([]byte, len(certs[0].Raw)),
+		Cert:      make([]byte, len(chain[0].Raw)),
 	}
 	err = rev.Sign(keys[0])
 	assert.NoError(t, err)
@@ -405,17 +277,17 @@ func TestRevocation_Unmarshal(t *testing.T) {
 }
 
 func TestNewRevocationExt(t *testing.T) {
-	keys, certs, err := newCertChain(2)
+	keys, chain, err := newCertChain(2)
 	assert.NoError(t, err)
 
-	ext, err := NewRevocationExt(keys[0], certs[0])
+	ext, err := NewRevocationExt(keys[0], chain[0])
 	assert.NoError(t, err)
 
 	var rev Revocation
 	err = rev.Unmarshal(ext.Value)
 	assert.NoError(t, err)
 
-	err = rev.Verify(certs[1])
+	err = rev.Verify(chain[1])
 	assert.NoError(t, err)
 }
 
@@ -423,12 +295,12 @@ func TestRevocationDB_Get(t *testing.T) {
 	tmp, err := ioutil.TempDir("", os.TempDir())
 	defer os.RemoveAll(tmp)
 
-	keys, certs, err := newCertChain(2)
+	keys, chain, err := newCertChain(2)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
 
-	ext, err := NewRevocationExt(keys[0], certs[0])
+	ext, err := NewRevocationExt(keys[0], chain[0])
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
@@ -440,12 +312,12 @@ func TestRevocationDB_Get(t *testing.T) {
 
 	var rev *Revocation
 	t.Run("missing key", func(t *testing.T) {
-		rev, err = revDB.Get(certs)
+		rev, err = revDB.Get(chain)
 		assert.NoError(t, err)
 		assert.Nil(t, rev)
 	})
 
-	caHash, err := hashBytes(certs[1].Raw)
+	caHash, err := hashBytes(chain[1].Raw)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
@@ -456,7 +328,7 @@ func TestRevocationDB_Get(t *testing.T) {
 	}
 
 	t.Run("existing key", func(t *testing.T) {
-		rev, err = revDB.Get(certs)
+		rev, err = revDB.Get(chain)
 		assert.NoError(t, err)
 
 		revBytes, err := rev.Marshal()
@@ -469,22 +341,22 @@ func TestRevocationDB_Put(t *testing.T) {
 	tmp, err := ioutil.TempDir("", os.TempDir())
 	defer os.RemoveAll(tmp)
 
-	keys, certs, err := newCertChain(2)
+	keys, chain, err := newCertChain(2)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
 
-	olderExt, err := NewRevocationExt(keys[0], certs[0])
+	olderExt, err := NewRevocationExt(keys[0], chain[0])
 	assert.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
-	ext, err := NewRevocationExt(keys[0], certs[0])
+	ext, err := NewRevocationExt(keys[0], chain[0])
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
 
 	time.Sleep(1 * time.Second)
-	newerExt, err := NewRevocationExt(keys[0], certs[0])
+	newerExt, err := NewRevocationExt(keys[0], chain[0])
 	assert.NoError(t, err)
 
 	revDB, err := NewRevocationDBBolt(filepath.Join(tmp, "revocations.db"))
@@ -493,7 +365,7 @@ func TestRevocationDB_Put(t *testing.T) {
 	}
 
 	check := func(t2 *testing.T, ext pkix.Extension) {
-		caHash, err := hashBytes(certs[1].Raw)
+		caHash, err := hashBytes(chain[1].Raw)
 		if !assert.NoError(t2, err) {
 			t2.FailNow()
 		}
@@ -541,7 +413,7 @@ func TestRevocationDB_Put(t *testing.T) {
 				t2.Fail()
 				t.FailNow()
 			}
-			err = revDB.Put(certs, c.ext)
+			err = revDB.Put(chain, c.ext)
 			if c.errClass != nil {
 				assert.True(t, c.errClass.Has(err))
 			}
@@ -554,7 +426,6 @@ func TestRevocationDB_Put(t *testing.T) {
 					t2.Fail()
 					t.FailNow()
 				}
-
 				check(t2, c.ext)
 			}
 		})
@@ -696,4 +567,72 @@ func TestParseExtensions(t *testing.T) {
 			}
 		})
 	}
+}
+
+// NB: keys are in the reverse order compared to certs (i.e. first key belongs to last cert)!
+func newCertChain(length int) (keys []crypto.PrivateKey, certs []*x509.Certificate, _ error) {
+	for i := 0; i < length; i++ {
+		key, err := NewKey()
+		if err != nil {
+			return nil, nil, err
+		}
+		keys = append(keys, key)
+
+		var template *x509.Certificate
+		if i == length-1 {
+			template, err = CATemplate()
+		} else {
+			template, err = LeafTemplate()
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+
+		var cert *x509.Certificate
+		if i == 0 {
+			cert, err = NewCert(key, nil, template, nil)
+		} else {
+			cert, err = NewCert(key, keys[i-1], template, certs[i-1:][0])
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+
+		certs = append([]*x509.Certificate{cert}, certs...)
+	}
+	return keys, certs, nil
+}
+
+func revokeLeaf(keys []crypto.PrivateKey, chain []*x509.Certificate) ([]crypto.PrivateKey, []*x509.Certificate, error) {
+	revokingKey, err := NewKey()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	revokingTemplate, err := LeafTemplate()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	revokingCert, err := NewCert(revokingKey, keys[0], revokingTemplate, chain[1])
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = AddRevocationExt(keys[0], chain[0], revokingCert)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	chain[0] = revokingCert
+	return keys, chain, nil
+}
+
+func newRevokedLeafChain() ([]crypto.PrivateKey, []*x509.Certificate, error) {
+	keys2, certs2, err := newCertChain(2)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return revokeLeaf(keys2, certs2)
 }
