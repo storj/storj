@@ -81,9 +81,6 @@ func TestCalculate(t *testing.T) {
 	nodeData, err = tally.calculate(ctx, pointer, nodeIDs)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedNodeData, nodeData)
-
-	nodeData = nil
-	expectedNodeData = nil
 }
 
 func TestUpdateRawTable(t *testing.T) {
