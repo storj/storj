@@ -129,13 +129,13 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	}
 
 	// get how much is currently used, if for the first time totalUsed = 0
-	totalUsed, err := getUsedSpace(db)
+	totalUsed, err := db.SumTTLSizes()
 	if err != nil {
 		//first time setup
 		totalUsed = 0x00
 	}
 
-	usedBandwidth, err := getUsedBandwidth(db)
+	usedBandwidth, err := db.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
 	if err != nil {
 		return nil, ServerError.Wrap(err)
 	}
@@ -175,18 +175,6 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 		totalBwAllocated: allocatedBandwidth,
 		verifier:         auth.NewSignedMessageVerifier(),
 	}, nil
-}
-
-func getUsedBandwidth(db *psdb.DB) (int64, error) {
-	// get used bandwidth from the beginning of the month to till date
-	usedBandwidth, err := db.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
-	return usedBandwidth, err
-}
-
-func getUsedSpace(db *psdb.DB) (int64, error) {
-	// get how much is currently used, if for the first time totalUsed = 0
-	totalUsed, err := db.SumTTLSizes()
-	return totalUsed, err
 }
 
 // New creates a Server with custom db
