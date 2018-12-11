@@ -6,6 +6,7 @@ package ranger
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -73,8 +74,7 @@ func TestConcatReader(t *testing.T) {
 		{[]string{"abcdef", "ghijkl"}, 12, 7, 4, "hijk"},
 		{[]string{"abcdef", "ghijkl"}, 12, 7, 5, "hijkl"},
 		{[]string{"abcdef", "ghijkl", "mnopqr"}, 18, 7, 7, "hijklmn"},
-		{[]string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"},
-			12, 7, 3, "hij"},
+		{[]string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"}, 12, 7, 3, "hij"},
 	} {
 		var readers []Ranger
 		for _, data := range example.data {
@@ -115,8 +115,7 @@ func TestSubranger(t *testing.T) {
 		{"abcdefghijkl", 8, 4, 0, 3, "ijk"},
 		{"abcdefghijkl", 8, 4, 1, 3, "jkl"},
 	} {
-		rr, err := Subrange(ByteRanger([]byte(example.data)),
-			example.offset1, example.length1)
+		rr, err := Subrange(ByteRanger([]byte(example.data)), example.offset1, example.length1)
 		if err != nil {
 			t.Fatalf("unexpected err: %v", err)
 		}
@@ -127,6 +126,7 @@ func TestSubranger(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected err: %v", err)
 		}
+
 		data, err := ioutil.ReadAll(r)
 		if err != nil {
 			t.Fatalf("unexpected err: %v", err)
@@ -138,20 +138,19 @@ func TestSubranger(t *testing.T) {
 }
 
 func TestSubrangerError(t *testing.T) {
-	for _, tt := range []struct {
-		name           string
-		data           string
-		offset, length int64
+	for i, tt := range []struct {
+		data   string
+		offset int64
+		length int64
 	}{
-		{name: "Negative offset", data: "abcd", offset: -1},
-		{name: "Offset is bigger than DataSize", data: "abcd", offset: 5},
-		{name: "Length and offset is bigger than DataSize", data: "abcd", offset: 4, length: 1},
+		{data: "abcd", offset: -1},           // Negative offset
+		{data: "abcd", offset: 5},            // Offset is bigger than data size
+		{data: "abcd", offset: 4, length: 1}, // LSength and offset is bigger than DataSize
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			rr, err := Subrange(ByteRanger([]byte(tt.data)), tt.offset, tt.length)
-			assert.Nil(t, rr)
-			assert.NotNil(t, err)
-		})
+		tag := fmt.Sprintf("#%d. %+v", i, tt)
 
+		rr, err := Subrange(ByteRanger([]byte(tt.data)), tt.offset, tt.length)
+		assert.Nil(t, rr, tag)
+		assert.NotNil(t, err, tag)
 	}
 }

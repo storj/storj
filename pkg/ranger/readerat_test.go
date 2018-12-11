@@ -5,35 +5,27 @@ package ranger
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRange(t *testing.T) {
-	for _, tt := range []struct {
-		name   string
+	for i, tt := range []struct {
 		offset int64
 		length int64
 		size   int64
 	}{
-		{
-			name:   "Negative offset",
-			offset: -2,
-		},
-
-		{
-			name:   "Negative length",
-			offset: 2,
-			length: -1,
-		},
+		{offset: -2, size: 0},
+		{offset: 2, length: -1, size: 0},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			rr := readerAtRanger{size: tt.size}
-			closer, err := rr.Range(context.Background(), tt.offset, tt.length)
-			assert.Nil(t, closer)
-			assert.NotNil(t, err)
-		})
+		tag := fmt.Sprintf("#%d. %+v", i, tt)
+
+		rr := readerAtRanger{size: tt.size}
+		closer, err := rr.Range(context.Background(), tt.offset, tt.length)
+		assert.Nil(t, closer, tag)
+		assert.NotNil(t, err, tag)
 	}
 }
 
