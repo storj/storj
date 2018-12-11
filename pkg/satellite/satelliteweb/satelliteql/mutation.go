@@ -62,7 +62,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					return user.ID.String(), nil
 				},
 			},
-			updateUserMutation: &graphql.Field{
+			"oldUpdateMethod": &graphql.Field{
 				Type: types.User(),
 				Args: graphql.FieldConfigArgument{
 					fieldID: &graphql.ArgumentConfig{
@@ -96,6 +96,35 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 
 					return &updatedUser, nil
 				},
+			},
+			updateUserMutation: &graphql.Field{
+				Type: types.User(),
+				Args: graphql.FieldConfigArgument{
+					fieldID: &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
+					input: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.UserInput()),
+					},
+				},
+				Resolve: resolveWithAuthID(fieldID, func(p graphql.ResolveParams, id *uuid.UUID) (interface{}, error) {
+					input, _ := p.Args[input].(map[string]interface{})
+
+					user, err := service.GetUser(p.Context, *id)
+					if err != nil {
+						return nil, err
+					}
+
+					updatedUser := *user
+					info := fillUserInfo(&updatedUser, input)
+
+					err = service.UpdateUser(p.Context, *id, info)
+					if err != nil {
+						return user, err
+					}
+
+					return &updatedUser, nil
+				}),
 			},
 			changeUserPasswordMutation: &graphql.Field{
 				Type: types.User(),
