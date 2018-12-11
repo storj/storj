@@ -33,7 +33,7 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 	}
 
 	sdb, ok := ctx.Value("masterdb").(interface {
-		Statdb() statdb.DB
+		StatDB() statdb.DB
 	})
 	if !ok {
 		return nil, Error.New("unable to get master db instance")
@@ -51,7 +51,7 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 		return nil, Error.Wrap(err)
 	}
 	repairQueue := queue.NewQueue(redisQ)
-	return newChecker(pdb, sdb.Statdb(), repairQueue, o, db.Irreparable(), 0, zap.L(), c.Interval), nil
+	return newChecker(pdb, sdb.StatDB(), repairQueue, o, db.Irreparable(), 0, zap.L(), c.Interval), nil
 }
 
 // Run runs the checker with configured values

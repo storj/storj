@@ -21,6 +21,11 @@ var (
 	ctx = context.Background()
 )
 
+func getRatio(s, t int) (success, total int64, ratio float64) {
+	ratio = float64(s) / float64(t)
+	return int64(s), int64(t), ratio
+}
+
 func TestIrreparable(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
 		ctx := testcontext.New(t)
@@ -31,12 +36,14 @@ func TestIrreparable(t *testing.T) {
 }
 
 func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
+	nodeID := teststorj.NodeIDFromString("testnodeid")
+	// 	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
+	// 	uptimeSuccessCount, totalUptimeCount, uptimeRatio := getRatio(8, 25)
+	node := &pb.Node{Id: nodeID}
+	createReq := &pb.CreateRequest{
+		Node: node,
+	}
 	t.Run("TestCreateDoesNotExist", func(t *testing.T) {
-		nodeID := teststorj.NodeIDFromString("testnodeid")
-		node := &pb.Node{Id: nodeID}
-		createReq := &pb.CreateRequest{
-			Node: node,
-		}
 		resp, err := sdb.Create(ctx, createReq)
 		assert.NoError(t, err)
 		stats := resp.Stats

@@ -62,7 +62,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	}
 
 	sdb, ok := ctx.Value("masterdb").(interface {
-		Statdb() statdb.DB
+		StatDB() statdb.DB
 	})
 	if !ok {
 		return Error.New("unable to get master db instance")
@@ -92,7 +92,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return Error.New("database scheme not supported: %s", driver)
 	}
 
-	cache := NewOverlayCache(db, kad, sdb.Statdb())
+	cache := NewOverlayCache(db, kad, sdb.StatDB())
 	srv := NewServer(zap.L(), cache, kad)
 	pb.RegisterOverlayServer(server.GRPC(), srv)
 

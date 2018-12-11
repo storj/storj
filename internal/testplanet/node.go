@@ -5,11 +5,10 @@ package testplanet
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"math/rand"
 	"net"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -25,6 +24,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storage/teststore"
 )
 
@@ -166,15 +166,12 @@ func (node *Node) initOverlay(planet *Planet) error {
 	}
 	node.Kademlia = kad
 
-	dbPath := fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63())
-	sdb, ok := ctx.Value("masterdb").(interface {
-		Statdb() statdb.DB
-	})
-	if !ok {
-		return nil, errs.New("unable to get master db instance")
+	sdb, err := satellitedb.NewInMemory()
+	if err != nil {
+		return errs.New("unable to get master db instance")
 	}
 
-	node.StatDB = sdb
+	node.StatDB = sdb.StatDB()
 
 	node.Overlay = overlay.NewOverlayCache(teststore.New(), node.Kademlia, node.StatDB)
 	node.Discovery = discovery.NewDiscovery(node.Overlay, node.Kademlia, node.StatDB)

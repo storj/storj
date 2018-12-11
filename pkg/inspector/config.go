@@ -43,7 +43,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	}
 
 	sdb, ok := ctx.Value("masterdb").(interface {
-		Statdb() statdb.DB
+		StatDB() statdb.DB
 	})
 	if !ok {
 		return Error.New("unable to get master db instance")
@@ -58,7 +58,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		dht:      kad,
 		identity: id,
 		cache:    ol,
-		statdb:   sdb.Statdb(),
+		statdb:   sdb.StatDB(),
 		logger:   zap.L(),
 		metrics:  monkit.Default,
 	}

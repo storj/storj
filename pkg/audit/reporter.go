@@ -27,12 +27,12 @@ type Reporter struct {
 // NewReporter instantiates a reporter
 func NewReporter(ctx context.Context, statDBPort string, maxRetries int, apiKey string) (reporter *Reporter, err error) {
 	sdb, ok := ctx.Value("masterdb").(interface {
-		Statdb() statdb.DB
+		StatDB() statdb.DB
 	})
 	if !ok {
 		return nil, errs.New("unable to get master db instance")
 	}
-	return &Reporter{statdb: sdb.Statdb(), maxRetries: maxRetries}, nil
+	return &Reporter{statdb: sdb.StatDB(), maxRetries: maxRetries}, nil
 }
 
 // RecordAudits saves failed audit details to statdb
