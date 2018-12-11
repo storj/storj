@@ -10,6 +10,7 @@ import (
 	"storj.io/storj/pkg/satellite"
 )
 
+// uuidIDAuthFallback returns auth user id if no id argument provided
 func uuidIDAuthFallback(p graphql.ResolveParams, field string) (*uuid.UUID, error) {
 	// if client passed id - parse it and return
 	if idStr, ok := p.Args[field].(string); ok {
