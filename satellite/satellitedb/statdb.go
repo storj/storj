@@ -13,7 +13,8 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	pb "storj.io/storj/pkg/statdb/proto"
+	pb "storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -48,7 +49,7 @@ type statDB struct {
 // }
 
 // Create a db entry for the provided storagenode
-func (s *statDB) Create(ctx context.Context, createReq *pb.CreateRequest) (resp *pb.CreateResponse, err error) {
+func (s *statDB) Create(ctx context.Context, createReq *statdb.CreateRequest) (resp *statdb.CreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var (
@@ -100,13 +101,13 @@ func (s *statDB) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 		UptimeRatio:       dbNode.UptimeRatio,
 		UptimeCount:       dbNode.TotalUptimeCount,
 	}
-	return &pb.CreateResponse{
+	return &statdb.CreateResponse{
 		Stats: nodeStats,
 	}, nil
 }
 
 // Get a storagenode's stats from the db
-func (s *statDB) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetResponse, err error) {
+func (s *statDB) Get(ctx context.Context, getReq *statdb.GetRequest) (resp *statdb.GetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	dbNode, err := s.db.Get_Node_By_Id(ctx, dbx.Node_Id(getReq.NodeId.Bytes()))
@@ -121,13 +122,13 @@ func (s *statDB) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 		UptimeRatio:       dbNode.UptimeRatio,
 		UptimeCount:       dbNode.TotalUptimeCount,
 	}
-	return &pb.GetResponse{
+	return &statdb.GetResponse{
 		Stats: nodeStats,
 	}, nil
 }
 
 // FindInvalidNodes finds a subset of storagenodes that fail to meet minimum reputation requirements
-func (s *statDB) FindInvalidNodes(ctx context.Context, getReq *pb.FindInvalidNodesRequest) (resp *pb.FindInvalidNodesResponse, err error) {
+func (s *statDB) FindInvalidNodes(ctx context.Context, getReq *statdb.FindInvalidNodesRequest) (resp *statdb.FindInvalidNodesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var invalidIds storj.NodeIDList
@@ -161,7 +162,7 @@ func (s *statDB) FindInvalidNodes(ctx context.Context, getReq *pb.FindInvalidNod
 		invalidIds = append(invalidIds, id)
 	}
 
-	return &pb.FindInvalidNodesResponse{
+	return &statdb.FindInvalidNodesResponse{
 		InvalidIds: invalidIds,
 	}, nil
 }
@@ -189,12 +190,12 @@ func (s *statDB) findInvalidNodesQuery(nodeIds storj.NodeIDList, auditSuccess, u
 }
 
 // Update a single storagenode's stats in the db
-func (s *statDB) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp *pb.UpdateResponse, err error) {
+func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (resp *statdb.UpdateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node := updateReq.GetNode()
 
-	createIfReq := &pb.CreateEntryIfNotExistsRequest{
+	createIfReq := &statdb.CreateEntryIfNotExistsRequest{
 		Node: updateReq.GetNode(),
 	}
 
@@ -252,13 +253,13 @@ func (s *statDB) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 		UptimeRatio:       dbNode.UptimeRatio,
 		UptimeCount:       dbNode.TotalUptimeCount,
 	}
-	return &pb.UpdateResponse{
+	return &statdb.UpdateResponse{
 		Stats: nodeStats,
 	}, nil
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db
-func (s *statDB) UpdateUptime(ctx context.Context, updateReq *pb.UpdateUptimeRequest) (resp *pb.UpdateUptimeResponse, err error) {
+func (s *statDB) UpdateUptime(ctx context.Context, updateReq *statdb.UpdateUptimeRequest) (resp *statdb.UpdateUptimeResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node := updateReq.GetNode()
@@ -296,13 +297,13 @@ func (s *statDB) UpdateUptime(ctx context.Context, updateReq *pb.UpdateUptimeReq
 		UptimeRatio:       dbNode.UptimeRatio,
 		UptimeCount:       dbNode.TotalUptimeCount,
 	}
-	return &pb.UpdateUptimeResponse{
+	return &statdb.UpdateUptimeResponse{
 		Stats: nodeStats,
 	}, nil
 }
 
 // UpdateAuditSuccess updates a single storagenode's uptime stats in the db
-func (s *statDB) UpdateAuditSuccess(ctx context.Context, updateReq *pb.UpdateAuditSuccessRequest) (resp *pb.UpdateAuditSuccessResponse, err error) {
+func (s *statDB) UpdateAuditSuccess(ctx context.Context, updateReq *statdb.UpdateAuditSuccessRequest) (resp *statdb.UpdateAuditSuccessResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node := updateReq.GetNode()
@@ -340,19 +341,19 @@ func (s *statDB) UpdateAuditSuccess(ctx context.Context, updateReq *pb.UpdateAud
 		UptimeRatio:       dbNode.UptimeRatio,
 		UptimeCount:       dbNode.TotalUptimeCount,
 	}
-	return &pb.UpdateAuditSuccessResponse{
+	return &statdb.UpdateAuditSuccessResponse{
 		Stats: nodeStats,
 	}, nil
 }
 
 // UpdateBatch for updating multiple farmers' stats in the db
-func (s *statDB) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (resp *pb.UpdateBatchResponse, err error) {
+func (s *statDB) UpdateBatch(ctx context.Context, updateBatchReq *statdb.UpdateBatchRequest) (resp *statdb.UpdateBatchResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var nodeStatsList []*pb.NodeStats
 	var failedNodes []*pb.Node
 	for _, node := range updateBatchReq.NodeList {
-		updateReq := &pb.UpdateRequest{
+		updateReq := &statdb.UpdateRequest{
 			Node: node,
 		}
 
@@ -365,7 +366,7 @@ func (s *statDB) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 		}
 	}
 
-	updateBatchRes := &pb.UpdateBatchResponse{
+	updateBatchRes := &statdb.UpdateBatchResponse{
 		FailedNodes: failedNodes,
 		StatsList:   nodeStatsList,
 	}
@@ -373,23 +374,23 @@ func (s *statDB) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 }
 
 // CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist
-func (s *statDB) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.CreateEntryIfNotExistsRequest) (resp *pb.CreateEntryIfNotExistsResponse, err error) {
+func (s *statDB) CreateEntryIfNotExists(ctx context.Context, createIfReq *statdb.CreateEntryIfNotExistsRequest) (resp *statdb.CreateEntryIfNotExistsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	getReq := &pb.GetRequest{
+	getReq := &statdb.GetRequest{
 		NodeId: createIfReq.Node.Id,
 	}
 	getRes, err := s.Get(ctx, getReq)
 	// TODO: figure out better way to confirm error is type dbx.ErrorCode_NoRows
 	if err != nil && strings.Contains(err.Error(), "no rows in result set") {
-		createReq := &pb.CreateRequest{
+		createReq := &statdb.CreateRequest{
 			Node: createIfReq.Node,
 		}
 		res, err := s.Create(ctx, createReq)
 		if err != nil {
 			return nil, err
 		}
-		createEntryIfNotExistsRes := &pb.CreateEntryIfNotExistsResponse{
+		createEntryIfNotExistsRes := &statdb.CreateEntryIfNotExistsResponse{
 			Stats: res.Stats,
 		}
 		return createEntryIfNotExistsRes, nil
@@ -397,7 +398,7 @@ func (s *statDB) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.Cre
 	if err != nil {
 		return nil, err
 	}
-	createEntryIfNotExistsRes := &pb.CreateEntryIfNotExistsResponse{
+	createEntryIfNotExistsRes := &statdb.CreateEntryIfNotExistsResponse{
 		Stats: getRes.Stats,
 	}
 	return createEntryIfNotExistsRes, nil

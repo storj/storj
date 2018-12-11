@@ -10,7 +10,6 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
-	statsproto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -39,7 +38,7 @@ func NewReporter(ctx context.Context, statDBPort string, maxRetries int, apiKey 
 func (reporter *Reporter) RecordAudits(ctx context.Context, nodes []*pb.Node) (err error) {
 	retries := 0
 	for len(nodes) > 0 && retries < reporter.maxRetries {
-		res, err := reporter.statdb.UpdateBatch(ctx, &statsproto.UpdateBatchRequest{
+		res, err := reporter.statdb.UpdateBatch(ctx, &statdb.UpdateBatchRequest{
 			NodeList: nodes,
 		})
 		if err != nil {

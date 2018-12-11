@@ -12,7 +12,6 @@ import (
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
-	statproto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
@@ -98,7 +97,7 @@ func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) err
 	}
 
 	// get existing node rep, or create a new statdb node with 0 rep
-	res, err := o.StatDB.CreateEntryIfNotExists(ctx, &statproto.CreateEntryIfNotExistsRequest{
+	res, err := o.StatDB.CreateEntryIfNotExists(ctx, &statdb.CreateEntryIfNotExistsRequest{
 		Node: &pb.Node{
 			Id: nodeID,
 		},

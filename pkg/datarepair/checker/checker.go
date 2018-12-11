@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/statdb"
-	statpb "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
@@ -167,7 +166,7 @@ func (c *checker) offlineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (o
 // Find invalidNodes by checking the audit results that are place in statdb
 func (c *checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (invalidNodes []int32, err error) {
 	// filter if nodeIDs have invalid pieces from auditing results
-	findInvalidNodesReq := &statpb.FindInvalidNodesRequest{
+	findInvalidNodesReq := &statdb.FindInvalidNodesRequest{
 		NodeIds: nodeIDs,
 		MaxStats: &pb.NodeStats{
 			AuditSuccessRatio: 0, // TODO: update when we have stats added to statdb

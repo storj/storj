@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
-	statsproto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -148,7 +147,7 @@ func (srv *Server) LookupNode(ctx context.Context, req *pb.LookupNodeRequest) (*
 
 // GetStats returns the stats for a particular node ID
 func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.GetStatsResponse, error) {
-	getReq := &statsproto.GetRequest{
+	getReq := &statdb.GetRequest{
 		NodeId: req.NodeId,
 	}
 	res, err := srv.statdb.Get(ctx, getReq)
@@ -166,16 +165,16 @@ func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.G
 
 // CreateStats creates a node with specified stats
 func (srv *Server) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) (*pb.CreateStatsResponse, error) {
-	node := &statsproto.Node{
+	node := &pb.Node{
 		Id: req.NodeId,
 	}
-	stats := &statsproto.NodeStats{
+	stats := &pb.NodeStats{
 		AuditCount:         req.AuditCount,
 		AuditSuccessCount:  req.AuditSuccessCount,
 		UptimeCount:        req.UptimeCount,
 		UptimeSuccessCount: req.UptimeSuccessCount,
 	}
-	createReq := &statsproto.CreateRequest{
+	createReq := &statdb.CreateRequest{
 		Node:  node,
 		Stats: stats,
 	}
