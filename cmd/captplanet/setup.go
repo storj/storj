@@ -46,8 +46,7 @@ var (
 func init() {
 	rootCmd.AddCommand(setupCmd)
 	cfgstruct.Bind(setupCmd.Flags(), &setupCfg,
-		cfgstruct.ConfDir(defaultConfDir),
-	)
+		cfgstruct.ConfDir(defaultConfDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
