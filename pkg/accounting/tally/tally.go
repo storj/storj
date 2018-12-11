@@ -30,7 +30,7 @@ type tally struct {
 	limit       int
 	logger      *zap.Logger
 	ticker      *time.Ticker
-	db         *accounting.Database
+	db         	*accounting.Database
 	bwAgreement bwagreement.DB // bwagreements database
 }
 
