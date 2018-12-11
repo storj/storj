@@ -131,7 +131,32 @@ func (t *tally) calculate(ctx context.Context, pointer *pb.Pointer, nodeIDs stor
 
 func (t *tally) updateRawTable(ctx context.Context, nodeData map[string]int64) error {
 	t.logger.Debug("entering updateRawTable")
-	//TODO
+	tx, err := t.db.Open(ctx)
+	if err != nil {
+		t.logger.DPanic("Failed to create DB txn in tally query")
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		} else {
+			t.logger.Warn("DB txn was rolled back in tally query")
+			err = tx.Rollback()
+		}
+	}()
+
+	// TODO: change this to a bulk insert
+	for i, n := range nodeData {
+		nID := dbx.Raw_NodeId(i)
+		end := dbx.Raw_IntervalEndTime()
+		total := dbx.Raw_DataTotal(n)
+		dataType := dbx.Raw_DataType(accounting.Static)
+		_, err = tx.Create_Raw(ctx, nID, end, total, dataType)
+		if err != nil {
+			t.logger.DPanic("Create raw SQL failed in tally updateRawTable")
+			return Error.Wrap(err) //todo: retry strategy?
+		}
+	}
 	return nil
 }
 
@@ -170,10 +195,10 @@ func (t *tally) Query(ctx context.Context) error {
 	}
 
 	//todo:  consider if we actually need EndTime in granular
-	if lastBwTally == nil {
-		t.logger.Info("No previous bandwidth timestamp found in tally query")
-		lastBwTally = &dbx.Value_Row{Value: latestBwa} //todo: something better here?
-	}
+	// if lastBwTally == nil {
+	// 	t.logger.Info("No previous bandwidth timestamp found in tally query")
+	// 	lastBwTally = &dbx.Value_Row{Value: latestBwa} //todo: something better here?
+	// }
 
 	//insert all records in a transaction so if we fail, we don't have partial info stored
 	//todo:  replace with a WithTx() method per DBX docs?
@@ -194,12 +219,12 @@ func (t *tally) Query(ctx context.Context) error {
 	//todo:  switch to bulk update SQL?
 	for k, v := range bwTotals {
 		nID := dbx.Raw_NodeId(k)
-		end := dbx.Raw_IntervalEndTime(latestBwa)
+		end := dbx.Raw_IntervalEndTime(latestBwa) //is this the right value?
 		total := dbx.Raw_DataTotal(v)
 		dataType := dbx.Raw_DataType(accounting.Bandwith)
 		_, err = tx.Create_Raw(ctx, nID, end, total, dataType)
 		if err != nil {
-			t.logger.DPanic("Create granular SQL failed in tally query")
+			t.logger.DPanic("Create raw SQL failed in tally query")
 			return err //todo: retry strategy?
 		}
 	}
