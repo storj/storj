@@ -42,7 +42,6 @@ func TestCalculate(t *testing.T) {
 	interval := time.Second
 	nodes := []*pb.Node{}
 	nodeIDs := storj.NodeIDList{}
-	nodeData := make(map[string]int64)
 	expectedNodeData := make(map[string]int64)
 	const N = 50
 
@@ -78,7 +77,7 @@ func TestCalculate(t *testing.T) {
 		SegmentSize: 10,
 	}
 
-	nodeData, err = tally.calculate(ctx, pointer, nodeIDs)
+	nodeData, err := tally.calculate(ctx, pointer, nodeIDs)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedNodeData, nodeData)
 }

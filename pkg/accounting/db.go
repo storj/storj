@@ -55,7 +55,7 @@ func (db *Database) Close() error {
 	return db.db.Close()
 }
 
-// FindLastBwTally returns the timestamp of the last bandwith tally
+// FindLastBwTally returns the timestamp of the last bandwidth tally
 func (db *Database) FindLastBwTally(ctx context.Context) (*dbx.Value_Row, error) {
 	return db.db.Find_Timestamps_Value_By_Name(ctx, LastBandwidthTally)
 }
