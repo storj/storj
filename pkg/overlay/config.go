@@ -99,8 +99,8 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	//	}
 	//}()
 
-	ticker := time.NewTicker(c.RefreshInterval)
-	defer ticker.Stop()
+	// ticker := time.NewTicker(c.RefreshInterval)
+	// defer ticker.Stop()
 
 	// go func() {
 	// 	for {

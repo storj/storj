@@ -60,5 +60,23 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return err
 	}
 
+	ticker := time.NewTicker(c.RefreshInterval)
+	defer ticker.Stop()
+
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				zap.L().Debug("Kicking off refresh")
+				err := discovery.Refresh(ctx)
+				if err != nil {
+					zap.L().Error("Error with cache refresh: ", zap.Error(err))
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	return server.Run(context.WithValue(ctx, ctxKeyDiscovery, discovery))
 }
