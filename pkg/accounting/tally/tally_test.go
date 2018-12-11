@@ -60,7 +60,7 @@ func TestOnlineNodes(t *testing.T) {
 	limit := 0
 	interval := time.Second
 
-	accountingDb, err := accounting.NewDb("sqlite3://file::memory:?mode=memory&cache=shared")
+	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
 	defer ctx.Check(accountingDb.Close)
 
@@ -95,7 +95,7 @@ func TestQueryNoAgreements(t *testing.T) {
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 	kad := &kademlia.Kademlia{}
-	accountingDb, err := accounting.NewDb("sqlite3://file::memory:?mode=memory&cache=shared")
+	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
 	defer ctx.Check(accountingDb.Close)
 
@@ -118,7 +118,7 @@ func TestQueryWithBw(t *testing.T) {
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 	kad := &kademlia.Kademlia{}
-	accountingDb, err := accounting.NewDb("sqlite3://file::memory:?mode=memory&cache=shared")
+	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
 	defer ctx.Check(accountingDb.Close)
 
