@@ -62,41 +62,6 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					return user.ID.String(), nil
 				},
 			},
-			"oldUpdateMethod": &graphql.Field{
-				Type: types.User(),
-				Args: graphql.FieldConfigArgument{
-					fieldID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
-					},
-					input: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(types.UserInput()),
-					},
-				},
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					id, _ := p.Args[fieldID].(string)
-					input, _ := p.Args[input].(map[string]interface{})
-
-					idBytes, err := uuid.Parse(id)
-					if err != nil {
-						return nil, err
-					}
-
-					user, err := service.GetUser(p.Context, *idBytes)
-					if err != nil {
-						return nil, err
-					}
-
-					updatedUser := *user
-					info := fillUserInfo(&updatedUser, input)
-
-					err = service.UpdateUser(p.Context, *idBytes, info)
-					if err != nil {
-						return user, err
-					}
-
-					return &updatedUser, nil
-				},
-			},
 			updateUserMutation: &graphql.Field{
 				Type: types.User(),
 				Args: graphql.FieldConfigArgument{
@@ -107,7 +72,12 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						Type: graphql.NewNonNull(types.UserInput()),
 					},
 				},
-				Resolve: resolveWithAuthID(fieldID, func(p graphql.ResolveParams, id *uuid.UUID) (interface{}, error) {
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					id, err := uuidIDAuthFallback(p, fieldID)
+					if err != nil {
+						return nil, err
+					}
+
 					input, _ := p.Args[input].(map[string]interface{})
 
 					user, err := service.GetUser(p.Context, *id)
@@ -124,13 +94,13 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					}
 
 					return &updatedUser, nil
-				}),
+				},
 			},
 			changeUserPasswordMutation: &graphql.Field{
 				Type: types.User(),
 				Args: graphql.FieldConfigArgument{
 					fieldID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type: graphql.String,
 					},
 					fieldPassword: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -140,17 +110,16 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					id, _ := p.Args[fieldID].(string)
-					pass, _ := p.Args[fieldPassword].(string)
-					newPass, _ := p.Args[fieldNewPassword].(string)
-
-					idBytes, err := uuid.Parse(id)
+					id, err := uuidIDAuthFallback(p, fieldID)
 					if err != nil {
 						return nil, err
 					}
 
-					err = service.ChangeUserPassword(p.Context, *idBytes, pass, newPass)
-					user, getErr := service.GetUser(p.Context, *idBytes)
+					pass, _ := p.Args[fieldPassword].(string)
+					newPass, _ := p.Args[fieldNewPassword].(string)
+
+					err = service.ChangeUserPassword(p.Context, *id, pass, newPass)
+					user, getErr := service.GetUser(p.Context, *id)
 					return user, utils.CombineErrors(err, getErr)
 				},
 			},
@@ -158,23 +127,21 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 				Type: types.User(),
 				Args: graphql.FieldConfigArgument{
 					fieldID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type: graphql.String,
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					id, _ := p.Args[fieldID].(string)
-
-					idBytes, err := uuid.Parse(id)
+					id, err := uuidIDAuthFallback(p, fieldID)
 					if err != nil {
 						return nil, err
 					}
 
-					user, err := service.GetUser(p.Context, *idBytes)
+					user, err := service.GetUser(p.Context, *id)
 					if err != nil {
 						return nil, err
 					}
 
-					err = service.DeleteUser(p.Context, *idBytes)
+					err = service.DeleteUser(p.Context, *id)
 					return user, err
 				},
 			},
@@ -182,45 +149,43 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 				Type: types.Company(),
 				Args: graphql.FieldConfigArgument{
 					fieldUserID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type: graphql.String,
 					},
 					input: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(types.CompanyInput()),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					id, _ := p.Args[fieldUserID].(string)
-					input, _ := p.Args[input].(map[string]interface{})
-
-					idBytes, err := uuid.Parse(id)
+					id, err := uuidIDAuthFallback(p, fieldUserID)
 					if err != nil {
 						return nil, err
 					}
 
+					input, _ := p.Args[input].(map[string]interface{})
+
 					info := fromMapCompanyInfo(input)
-					return service.CreateCompany(p.Context, *idBytes, info)
+					return service.CreateCompany(p.Context, *id, info)
 				},
 			},
 			updateCompanyMutation: &graphql.Field{
 				Type: types.Company(),
 				Args: graphql.FieldConfigArgument{
 					fieldUserID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type: graphql.String,
 					},
 					input: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(types.CompanyInput()),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					id, _ := p.Args[fieldUserID].(string)
-					input, _ := p.Args[input].(map[string]interface{})
-
-					idBytes, err := uuid.Parse(id)
+					id, err := uuidIDAuthFallback(p, fieldUserID)
 					if err != nil {
 						return nil, err
 					}
 
-					company, err := service.GetCompany(p.Context, *idBytes)
+					input, _ := p.Args[input].(map[string]interface{})
+
+					company, err := service.GetCompany(p.Context, *id)
 					if err != nil {
 						return nil, err
 					}
@@ -228,7 +193,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					updatedCompany := *company
 					info := fillCompanyInfo(&updatedCompany, input)
 
-					err = service.UpdateCompany(p.Context, *idBytes, info)
+					err = service.UpdateCompany(p.Context, *id, info)
 					if err != nil {
 						return company, err
 					}
