@@ -27,8 +27,6 @@ import (
 )
 
 func TestUploadDownload(t *testing.T) {
-	t.Skip("disable because, keeps stalling Travis intermittently")
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
