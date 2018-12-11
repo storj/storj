@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
 	ecclient "storj.io/storj/pkg/storage/ec"
@@ -26,6 +27,7 @@ type Config struct {
 	QueueAddress string        `help:"data repair queue address" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
 	MaxRepair    int           `help:"maximum segments that can be repaired concurrently" default:"100"`
 	Interval     time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
+	miniogw.NodeSelectionConfig
 	miniogw.ClientConfig
 	miniogw.RSConfig
 }
@@ -84,5 +86,12 @@ func (c Config) getSegmentStore(ctx context.Context, identity *provider.FullIden
 		return nil, err
 	}
 
-	return segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize), nil
+	ns := &pb.NodeStats{
+		UptimeRatio:       c.UptimeRatio,
+		AuditSuccessRatio: c.AuditSuccessRatio,
+		UptimeCount:       c.UptimeCount,
+		AuditCount:        c.AuditCount,
+	}
+
+	return segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize, ns), nil
 }

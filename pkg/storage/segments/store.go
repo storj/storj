@@ -61,11 +61,20 @@ type segmentStore struct {
 	pdb           pdbclient.Client
 	rs            eestream.RedundancyStrategy
 	thresholdSize int
+	nodeStats     *pb.NodeStats
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, t int) Store {
-	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs, thresholdSize: t}
+func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int,
+	nodeStats *pb.NodeStats) Store {
+	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs, thresholdSize: threshold,
+		nodeStats: &pb.NodeStats{
+			UptimeRatio:       nodeStats.UptimeRatio,
+			UptimeCount:       nodeStats.UptimeCount,
+			AuditSuccessRatio: nodeStats.AuditSuccessRatio,
+			AuditCount:        nodeStats.AuditCount,
+		},
+	}
 }
 
 // Meta retrieves the metadata of the segment
@@ -112,20 +121,31 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			Metadata:       metadata,
 		}
 	} else {
-		// uses overlay client to request a list of nodes
-		nodes, err := s.oc.Choose(ctx, overlay.Options{Amount: s.rs.TotalCount(), Space: 0, Excluded: nil})
+		sizedReader := SizeReader(peekReader)
+
+		// uses overlay client to request a list of nodes according to configured standards
+		nodes, err := s.oc.Choose(ctx,
+			overlay.Options{
+				Amount:       s.rs.TotalCount(),
+				Bandwidth:    sizedReader.Size() / int64(s.rs.TotalCount()),
+				Space:        sizedReader.Size() / int64(s.rs.TotalCount()),
+				Uptime:       s.nodeStats.UptimeRatio,
+				UptimeCount:  s.nodeStats.UptimeCount,
+				AuditSuccess: s.nodeStats.AuditSuccessRatio,
+				AuditCount:   s.nodeStats.AuditCount,
+				Excluded:     nil,
+			})
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
 		pieceID := psclient.NewPieceID()
-		sizedReader := SizeReader(peekReader)
 
 		authorization := s.pdb.SignedMessage()
 		pba, err := s.pdb.PayerBandwidthAllocation(ctx, pb.PayerBandwidthAllocation_PUT)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
-		// puts file to ecclient
+
 		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba, authorization)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)

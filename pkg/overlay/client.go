@@ -41,6 +41,7 @@ type Overlay struct {
 type Options struct {
 	Amount       int
 	Space        int64
+	Bandwidth    int64
 	Uptime       float64
 	UptimeCount  int64
 	AuditSuccess float64
@@ -75,7 +76,7 @@ func (o *Overlay) Choose(ctx context.Context, op Options) ([]*pb.Node, error) {
 	resp, err := o.client.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{
 		Opts: &pb.OverlayOptions{
 			Amount:       int64(op.Amount),
-			Restrictions: &pb.NodeRestrictions{FreeDisk: op.Space},
+			Restrictions: &pb.NodeRestrictions{FreeDisk: op.Space, FreeBandwidth: op.Bandwidth},
 			MinStats: &pb.NodeStats{
 				UptimeRatio:       op.Uptime,
 				UptimeCount:       op.UptimeCount,
