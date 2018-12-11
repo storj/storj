@@ -6,6 +6,7 @@ package segments
 import (
 	"context"
 	"io"
+	"math/rand"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -199,7 +200,10 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 		return nil, Meta{}, Error.Wrap(err)
 	}
 
-	if pr.GetType() == pb.Pointer_REMOTE {
+	switch pr.GetType() {
+	case pb.Pointer_INLINE:
+		rr = ranger.ByteRanger(pr.InlineSegment)
+	case pb.Pointer_REMOTE:
 		seg := pr.GetRemote()
 		pid := psclient.PieceID(seg.GetPieceId())
 
@@ -220,23 +224,28 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 		rs := pr.GetRemote().GetRedundancy()
 		needed := rs.GetMinReq() + ((rs.GetTotal()-rs.GetSuccessThreshold())*rs.GetMinReq())/rs.GetSuccessThreshold()
 
-		for i, v := range nodes {
-			if v != nil {
-				needed--
-				if needed <= 0 {
-					nodes = nodes[:i+1]
-					break
-				}
+		selected := make([]*pb.Node, rs.GetTotal())
+		for _, i := range rand.Perm(len(nodes)) {
+			node := nodes[i]
+			if node == nil {
+				continue
+			}
+
+			selected[seg.GetRemotePieces()[i].PieceNum] = node		
+
+			needed--
+			if needed <= 0 {
+				break
 			}
 		}
 
 		authorization := s.pdb.SignedMessage()
-		rr, err = s.ec.Get(ctx, nodes, es, pid, pr.GetSegmentSize(), pba, authorization)
+		rr, err = s.ec.Get(ctx, selected, es, pid, pr.GetSegmentSize(), pba, authorization)
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
-	} else {
-		rr = ranger.ByteRanger(pr.InlineSegment)
+	default:
+		return nil, Meta{}, Error.New("unsupported pointer type: %d", pr.GetType())
 	}
 
 	return rr, convertMeta(pr), nil
