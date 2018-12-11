@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/buckets"
@@ -156,8 +157,14 @@ func (c Config) GetMetainfo(ctx context.Context, identity *provider.FullIdentity
 		return nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, c.Client.MaxInlineSize, c.Node.UptimeRatio,
-		c.Node.AuditSuccessRatio, c.Node.UptimeCount, c.Node.AuditCount)
+	ns := &pb.NodeStats{
+		UptimeCount:       c.Node.UptimeCount,
+		UptimeRatio:       c.Node.UptimeRatio,
+		AuditSuccessRatio: c.Node.AuditSuccessRatio,
+		AuditCount:        c.Node.AuditCount,
+	}
+
+	segments := segments.NewSegmentStore(oc, ec, pdb, rs, c.Client.MaxInlineSize, ns)
 
 	if c.RS.ErasureShareSize*c.RS.MinThreshold%c.Enc.BlockSize != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")

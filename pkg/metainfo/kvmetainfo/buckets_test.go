@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
@@ -356,7 +357,7 @@ func newDB(planet *testplanet.Planet) (*DB, error) {
 		return nil, err
 	}
 
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, int(8*memory.KB), 0, 0, 0, 0)
+	segments := segments.NewSegmentStore(oc, ec, pdb, rs, int(8*memory.KB), &pb.NodeStats{})
 
 	key := new(storj.Key)
 	copy(key[:], TestEncKey)

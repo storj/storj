@@ -41,7 +41,7 @@ func TestNewSegmentStore(t *testing.T) {
 		ErasureScheme: mock_eestream.NewMockErasureScheme(ctrl),
 	}
 
-	ss := NewSegmentStore(mockOC, mockEC, mockPDB, rs, 10, 0, 0, 0, 0)
+	ss := NewSegmentStore(mockOC, mockEC, mockPDB, rs, 10, &pb.NodeStats{})
 	assert.NotNil(t, ss)
 }
 
