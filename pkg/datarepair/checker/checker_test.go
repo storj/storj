@@ -97,7 +97,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	limit := 0
 	interval := time.Second
 	// creating in-memory db and opening connection
-	db, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
+	db, err := satellitedb.NewInMemory()
 	assert.NoError(t, err)
 	defer func() {
 		err = db.Close()
@@ -154,7 +154,7 @@ func TestOfflineNodes(t *testing.T) {
 	limit := 0
 	interval := time.Second
 	// creating in-memory db and opening connection
-	db, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
+	db, err := satellitedb.NewInMemory()
 	assert.NoError(t, err)
 	defer func() {
 		err = db.Close()
@@ -179,7 +179,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	assert.NoError(b, err)
 
 	// creating in-memory db and opening connection
-	db, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
+	db, err := satellitedb.NewInMemory()
 	defer func() {
 		err = db.Close()
 		assert.NoError(b, err)

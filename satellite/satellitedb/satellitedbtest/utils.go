@@ -25,7 +25,7 @@ var (
 
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
-func Run(t *testing.T, test func(db *satellitedb.DB)) {
+func Run(t *testing.T, test func(t *testing.T, db *satellitedb.DB)) {
 	for _, dbInfo := range []struct {
 		dbName    string
 		dbURL     string
@@ -39,7 +39,7 @@ func Run(t *testing.T, test func(db *satellitedb.DB)) {
 				t.Skipf("Database %s connection string not provided. %s", dbInfo.dbName, dbInfo.dbMessage)
 			}
 
-			db, err := satellitedb.NewDB(dbInfo.dbURL)
+			db, err := satellitedb.New(dbInfo.dbURL)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -56,7 +56,7 @@ func Run(t *testing.T, test func(db *satellitedb.DB)) {
 				t.Fatal(err)
 			}
 
-			test(db)
+			test(t, db)
 		})
 	}
 }
