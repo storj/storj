@@ -5,6 +5,7 @@ package ranger
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -28,19 +29,17 @@ func TestServeContent(t *testing.T) {
 			requestHeaderMap: map[string]string{"If-Match": "\t\t"},
 		},
 	} {
-		t.Run(tt.testName, func(t *testing.T) {
-			req := httptest.NewRequest(tt.requestMethod, "/", nil)
-			for k, v := range tt.requestHeaderMap {
-				req.Header.Add(k, v)
-			}
+		req := httptest.NewRequest(tt.requestMethod, "/", nil)
+		for k, v := range tt.requestHeaderMap {
+			req.Header.Add(k, v)
+		}
 
-			writer := httptest.NewRecorder()
-			for k, v := range tt.writerHeaderMap {
-				writer.Header().Add(k, v)
-			}
+		writer := httptest.NewRecorder()
+		for k, v := range tt.writerHeaderMap {
+			writer.Header().Add(k, v)
+		}
 
-			ServeContent(context.Background(), writer, req, tt.name, tt.modtime, tt.content)
-		})
+		ServeContent(context.Background(), writer, req, tt.name, tt.modtime, tt.content)
 	}
 }
 
@@ -78,21 +77,12 @@ func Test_isZeroTime(t *testing.T) {
 		t        time.Time
 		expected bool
 	}{
-		{
-			name:     "Valid",
-			t:        time.Now().UTC(),
-			expected: false,
-		}, {
-			name:     "Zero time",
-			t:        time.Unix(0, 0).UTC(),
-			expected: true,
-		},
+		{"Valid", time.Now().UTC(), false},
+		{"Zero time", time.Unix(0, 0).UTC(), true},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isZeroTime(tt.t)
+		got := isZeroTime(tt.t)
 
-			assert.Equal(t, tt.expected, got)
-		})
+		assert.Equal(t, tt.expected, got, tt.name)
 	}
 }
 
@@ -102,24 +92,13 @@ func Test_setLastModified(t *testing.T) {
 		modtime  time.Time
 		expected string
 	}{
-		{
-			name:     "Zero time",
-			modtime:  time.Unix(0, 0).UTC(),
-			expected: "",
-		},
-		{
-			name:     "Valid time",
-			modtime:  time.Unix(1531836358, 0).UTC(),
-			expected: "Tue, 17 Jul 2018 14:05:58 GMT",
-		},
+		{"Zero time", time.Unix(0, 0).UTC(), ""},
+		{"Valid time", time.Unix(1531836358, 0).UTC(), "Tue, 17 Jul 2018 14:05:58 GMT"},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRecorder()
+		req := httptest.NewRecorder()
+		setLastModified(req, tt.modtime)
 
-			setLastModified(req, tt.modtime)
-
-			assert.Equal(t, tt.expected, req.Result().Header.Get("Last-Modified"))
-		})
+		assert.Equal(t, tt.expected, req.Result().Header.Get("Last-Modified"), tt.name)
 	}
 }
 
@@ -189,22 +168,20 @@ func Test_checkPreconditions(t *testing.T) {
 			expectedRangeHeader: "",
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.requestMethod, "/", nil)
-			for k, v := range tt.requestHeaderMap {
-				req.Header.Add(k, v)
-			}
+		req := httptest.NewRequest(tt.requestMethod, "/", nil)
+		for k, v := range tt.requestHeaderMap {
+			req.Header.Add(k, v)
+		}
 
-			writer := httptest.NewRecorder()
-			for k, v := range tt.writerHeaderMap {
-				writer.Header().Add(k, v)
-			}
+		writer := httptest.NewRecorder()
+		for k, v := range tt.writerHeaderMap {
+			writer.Header().Add(k, v)
+		}
 
-			gotDone, gotRangeHeader := checkPreconditions(writer, req, tt.modtime)
+		gotDone, gotRangeHeader := checkPreconditions(writer, req, tt.modtime)
 
-			assert.Equal(t, tt.expectedDone, gotDone)
-			assert.Equal(t, tt.expectedRangeHeader, gotRangeHeader)
-		})
+		assert.Equal(t, tt.expectedDone, gotDone, tt.name)
+		assert.Equal(t, tt.expectedRangeHeader, gotRangeHeader, tt.name)
 	}
 }
 
@@ -247,21 +224,19 @@ func Test_checkIfMatch(t *testing.T) {
 			expectedResult:   condTrue,
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("", "/", nil)
-			for k, v := range tt.requestHeaderMap {
-				req.Header.Add(k, v)
-			}
+		req := httptest.NewRequest("", "/", nil)
+		for k, v := range tt.requestHeaderMap {
+			req.Header.Add(k, v)
+		}
 
-			writer := httptest.NewRecorder()
-			for k, v := range tt.writerHeaderMap {
-				writer.Header().Add(k, v)
-			}
+		writer := httptest.NewRecorder()
+		for k, v := range tt.writerHeaderMap {
+			writer.Header().Add(k, v)
+		}
 
-			gotResult := checkIfMatch(writer, req)
+		gotResult := checkIfMatch(writer, req)
 
-			assert.Equal(t, tt.expectedResult, gotResult)
-		})
+		assert.Equal(t, tt.expectedResult, gotResult, tt.name)
 	}
 }
 
@@ -299,16 +274,14 @@ func Test_checkIfUnmodifiedSince(t *testing.T) {
 			expectedResult: condNone,
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("", "/", nil)
-			for k, v := range tt.headerMap {
-				req.Header.Add(k, v)
-			}
+		req := httptest.NewRequest("", "/", nil)
+		for k, v := range tt.headerMap {
+			req.Header.Add(k, v)
+		}
 
-			gotResult := checkIfUnmodifiedSince(req, tt.modtime)
+		gotResult := checkIfUnmodifiedSince(req, tt.modtime)
 
-			assert.Equal(t, tt.expectedResult, gotResult)
-		})
+		assert.Equal(t, tt.expectedResult, gotResult, tt.name)
 	}
 }
 
@@ -351,21 +324,19 @@ func Test_checkIfNoneMatch(t *testing.T) {
 			expectedResult:   condFalse,
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("", "/", nil)
-			for k, v := range tt.requestHeaderMap {
-				req.Header.Add(k, v)
-			}
+		req := httptest.NewRequest("", "/", nil)
+		for k, v := range tt.requestHeaderMap {
+			req.Header.Add(k, v)
+		}
 
-			writer := httptest.NewRecorder()
-			for k, v := range tt.writerHeaderMap {
-				writer.Header().Add(k, v)
-			}
+		writer := httptest.NewRecorder()
+		for k, v := range tt.writerHeaderMap {
+			writer.Header().Add(k, v)
+		}
 
-			gotResult := checkIfNoneMatch(writer, req)
+		gotResult := checkIfNoneMatch(writer, req)
 
-			assert.Equal(t, tt.expectedResult, gotResult)
-		})
+		assert.Equal(t, tt.expectedResult, gotResult, tt.name)
 	}
 }
 
@@ -406,16 +377,14 @@ func Test_checkIfModifiedSince(t *testing.T) {
 			expectedResult: condTrue,
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.requestMethod, "/", nil)
-			for k, v := range tt.headerMap {
-				req.Header.Add(k, v)
-			}
+		req := httptest.NewRequest(tt.requestMethod, "/", nil)
+		for k, v := range tt.headerMap {
+			req.Header.Add(k, v)
+		}
 
-			gotResult := checkIfModifiedSince(req, tt.modtime)
+		gotResult := checkIfModifiedSince(req, tt.modtime)
 
-			assert.Equal(t, tt.expectedResult, gotResult)
-		})
+		assert.Equal(t, tt.expectedResult, gotResult, tt.name)
 	}
 }
 
@@ -447,11 +416,7 @@ func Test_checkIfRange(t *testing.T) {
 			requestHeaderMap: map[string]string{"If-Range": "\"abcde\""},
 			writerHeaderMap:  map[string]string{"Etag": "\"abcde\""},
 			expectedResult:   condTrue,
-		},
-
-		//TODO This test case increases test coverage of 'checkIfRange' function to 100%
-		//Waiting PR #158 to be accepted
-		{
+		}, {
 			name:             "Zero modtime",
 			requestMethod:    "GET",
 			requestHeaderMap: map[string]string{"If-Range": "a"},
@@ -477,21 +442,19 @@ func Test_checkIfRange(t *testing.T) {
 			expectedResult:   condFalse,
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.requestMethod, "/", nil)
-			for k, v := range tt.requestHeaderMap {
-				req.Header.Add(k, v)
-			}
+		req := httptest.NewRequest(tt.requestMethod, "/", nil)
+		for k, v := range tt.requestHeaderMap {
+			req.Header.Add(k, v)
+		}
 
-			writer := httptest.NewRecorder()
-			for k, v := range tt.writerHeaderMap {
-				writer.Header().Add(k, v)
-			}
+		writer := httptest.NewRecorder()
+		for k, v := range tt.writerHeaderMap {
+			writer.Header().Add(k, v)
+		}
 
-			gotResult := checkIfRange(writer, req, tt.modtime)
+		gotResult := checkIfRange(writer, req, tt.modtime)
 
-			assert.Equal(t, tt.expectedResult, gotResult)
-		})
+		assert.Equal(t, tt.expectedResult, gotResult, tt.name)
 	}
 }
 
@@ -518,19 +481,17 @@ func Test_writeNotModified(t *testing.T) {
 			},
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			writer := httptest.NewRecorder()
-			for k, v := range tt.writerHeaderMap {
-				writer.Header().Add(k, v)
-			}
+		writer := httptest.NewRecorder()
+		for k, v := range tt.writerHeaderMap {
+			writer.Header().Add(k, v)
+		}
 
-			writeNotModified(writer)
+		writeNotModified(writer)
 
-			assert.Equal(t, http.StatusNotModified, writer.Code)
-			assert.Equal(t, "", writer.Header().Get("Content-Type"))
-			assert.Equal(t, "", writer.Header().Get("Content-Length"))
-			assert.Equal(t, "", writer.Header().Get("Last-Modified"))
-		})
+		assert.Equal(t, http.StatusNotModified, writer.Code, tt.name)
+		assert.Equal(t, "", writer.Header().Get("Content-Type"), tt.name)
+		assert.Equal(t, "", writer.Header().Get("Content-Length"), tt.name)
+		assert.Equal(t, "", writer.Header().Get("Last-Modified"), tt.name)
 	}
 }
 
@@ -574,13 +535,10 @@ func Test_scanETag(t *testing.T) {
 		//	expectedRemain: "",
 		//},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
+		gotEtag, gotRemain := scanETag(tt.s)
 
-			gotEtag, gotRemain := scanETag(tt.s)
-
-			assert.Equal(t, tt.expectedEtag, gotEtag)
-			assert.Equal(t, tt.expectedRemain, gotRemain)
-		})
+		assert.Equal(t, tt.expectedEtag, gotEtag)
+		assert.Equal(t, tt.expectedRemain, gotRemain, tt.name)
 	}
 }
 
@@ -615,11 +573,9 @@ func Test_etagStrongMatch(t *testing.T) {
 			expectedMatch: true,
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			gotMatch := etagStrongMatch(tt.a, tt.b)
+		gotMatch := etagStrongMatch(tt.a, tt.b)
 
-			assert.Equal(t, tt.expectedMatch, gotMatch)
-		})
+		assert.Equal(t, tt.expectedMatch, gotMatch, tt.name)
 	}
 }
 
@@ -646,11 +602,9 @@ func Test_etagWeakMatch(t *testing.T) {
 			expectedMatch: true,
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			gotMatch := etagWeakMatch(tt.a, tt.b)
+		gotMatch := etagWeakMatch(tt.a, tt.b)
 
-			assert.Equal(t, tt.expectedMatch, gotMatch)
-		})
+		assert.Equal(t, tt.expectedMatch, gotMatch, tt.name)
 	}
 }
 
@@ -670,16 +624,14 @@ func Test_httpRange_contentRange(t *testing.T) {
 			expectedRangeSize: "bytes 1-5/8",
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			r := httpRange{
-				start:  tt.start,
-				length: tt.length,
-			}
+		r := httpRange{
+			start:  tt.start,
+			length: tt.length,
+		}
 
-			gotRangeSize := r.contentRange(tt.size)
+		gotRangeSize := r.contentRange(tt.size)
 
-			assert.Equal(t, tt.expectedRangeSize, gotRangeSize)
-		})
+		assert.Equal(t, tt.expectedRangeSize, gotRangeSize, tt.name)
 	}
 }
 
@@ -697,17 +649,15 @@ func Test_httpRange_mimeHeader(t *testing.T) {
 			expected:    "bytes 1-5/8",
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			r := httpRange{
-				start:  1,
-				length: 5,
-			}
+		r := httpRange{
+			start:  1,
+			length: 5,
+		}
 
-			gotMimeHeader := r.mimeHeader(tt.contentType, tt.size)
+		gotMimeHeader := r.mimeHeader(tt.contentType, tt.size)
 
-			assert.Equal(t, tt.contentType, gotMimeHeader.Get("Content-Type"))
-			assert.Equal(t, tt.expected, gotMimeHeader.Get("Content-Range"))
-		})
+		assert.Equal(t, tt.contentType, gotMimeHeader.Get("Content-Type"), tt.name)
+		assert.Equal(t, tt.expected, gotMimeHeader.Get("Content-Range"), tt.name)
 	}
 }
 
@@ -769,13 +719,10 @@ func Test_parseRange(t *testing.T) {
 			expectedError: true,
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			gotRange, err := parseRange(tt.s, tt.size)
+		gotRange, err := parseRange(tt.s, tt.size)
 
-			assert.Equal(t, err != nil, tt.expectedError)
-			assert.Equal(t, gotRange, tt.expectedRange)
-		})
-
+		assert.Equal(t, err != nil, tt.expectedError, tt.name)
+		assert.Equal(t, gotRange, tt.expectedRange, tt.name)
 	}
 }
 
@@ -798,14 +745,12 @@ func Test_countingWriter_Write(t *testing.T) {
 			expectingError: false,
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			var a countingWriter
+		var a countingWriter
 
-			gotN, err := a.Write([]byte(tt.arrayHolder))
+		gotN, err := a.Write([]byte(tt.arrayHolder))
 
-			assert.Equal(t, tt.expectedLength, gotN)
-			assert.Equal(t, tt.expectingError, err != nil)
-		})
+		assert.Equal(t, tt.expectedLength, gotN, tt.name)
+		assert.Equal(t, tt.expectingError, err != nil, tt.name)
 	}
 }
 
@@ -823,11 +768,9 @@ func Test_rangesMIMESize(t *testing.T) {
 			expectedEncSize: 187,
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			gotEncSize := rangesMIMESize(tt.ranges, "text", 3)
+		gotEncSize := rangesMIMESize(tt.ranges, "text", 3)
 
-			assert.Equal(t, tt.expectedEncSize, gotEncSize)
-		})
+		assert.Equal(t, tt.expectedEncSize, gotEncSize, tt.name)
 	}
 }
 
@@ -854,6 +797,6 @@ func Test_sumRangesSize(t *testing.T) {
 	} {
 		gotSize := sumRangesSize(tt.ranges)
 
-		assert.Equal(t, tt.expectedSize, gotSize)
+		assert.Equal(t, tt.expectedSize, gotSize, fmt.Sprintf("%+v", tt.ranges))
 	}
 }
