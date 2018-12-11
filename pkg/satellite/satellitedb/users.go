@@ -87,7 +87,7 @@ func toUpdateUser(user *satellite.User) dbx.User_Update_Fields {
 	}
 
 	// extra password check to update only calculated hash from service
-	if len(user.PasswordHash) == 32 {
+	if len(user.PasswordHash) != 0 {
 		update.PasswordHash = dbx.User_PasswordHash(user.PasswordHash)
 	}
 

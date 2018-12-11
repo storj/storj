@@ -15,10 +15,12 @@ const (
 	// Mutation is graphql request that modifies data
 	Mutation = "mutation"
 
-	createUserMutation = "createUser"
-	updateUserMutation = "updateUser"
-	deleteUserMutation = "deleteUser"
+	createUserMutation         = "createUser"
+	updateUserMutation         = "updateUser"
+	deleteUserMutation         = "deleteUser"
+	changeUserPasswordMutation = "changeUserPassword"
 
+	createCompanyMutation = "createCompany"
 	updateCompanyMutation = "updateCompany"
 
 	createProjectMutation            = "createProject"
@@ -31,6 +33,8 @@ const (
 	input = "input"
 
 	fieldProjectID = "projectID"
+
+	fieldNewPassword = "newPassword"
 )
 
 // rootMutation creates mutation for graphql populated by AccountsClient
@@ -47,15 +51,10 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 				},
 				// creates user and company from input params and returns userID if succeed
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					//TODO(yar): separate creation of user and company
-					userInput := fromMapUserInfo(p.Args[input].(map[string]interface{}))
+					input, _ := p.Args[input].(map[string]interface{})
+					createUser := fromMapCreateUser(input)
 
-					user, err := service.CreateUser(
-						p.Context,
-						userInput.User,
-						userInput.Company,
-					)
-
+					user, err := service.CreateUser(p.Context, createUser)
 					if err != nil {
 						return "", err
 					}
@@ -98,6 +97,34 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					return &updatedUser, nil
 				},
 			},
+			changeUserPasswordMutation: &graphql.Field{
+				Type: types.User(),
+				Args: graphql.FieldConfigArgument{
+					fieldID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					fieldPassword: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					fieldNewPassword: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					id, _ := p.Args[fieldID].(string)
+					pass, _ := p.Args[fieldPassword].(string)
+					newPass, _ := p.Args[fieldNewPassword].(string)
+
+					idBytes, err := uuid.Parse(id)
+					if err != nil {
+						return nil, err
+					}
+
+					err = service.ChangeUserPassword(p.Context, *idBytes, pass, newPass)
+					user, getErr := service.GetUser(p.Context, *idBytes)
+					return user, utils.CombineErrors(err, getErr)
+				},
+			},
 			deleteUserMutation: &graphql.Field{
 				Type: types.User(),
 				Args: graphql.FieldConfigArgument{
@@ -120,6 +147,29 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 
 					err = service.DeleteUser(p.Context, *idBytes)
 					return user, err
+				},
+			},
+			createCompanyMutation: &graphql.Field{
+				Type: types.Company(),
+				Args: graphql.FieldConfigArgument{
+					fieldUserID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					input: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.CompanyInput()),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					id, _ := p.Args[fieldUserID].(string)
+					input, _ := p.Args[input].(map[string]interface{})
+
+					idBytes, err := uuid.Parse(id)
+					if err != nil {
+						return nil, err
+					}
+
+					info := fromMapCompanyInfo(input)
+					return service.CreateCompany(p.Context, *idBytes, info)
 				},
 			},
 			updateCompanyMutation: &graphql.Field{
