@@ -66,7 +66,6 @@ func TestCalculate(t *testing.T) {
 	assert.NoError(t, err)
 	defer ctx.Check(accountingDb.Close)
 	
-
 	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
 	defer ctx.Check(masterDB.Close)
