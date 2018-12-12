@@ -23,15 +23,9 @@ export async function addProjectMember(userID: string, projectID: string): Promi
 			}
 		);
     }catch (e) {
+		// TODO: replace with popup in future
         console.error(e);
 	}
-
-    if(!response){
-        // TODO: replace with popup in future
-        console.error("cannot create project");
-
-        return null;
-    }
 
     return response;
 }
@@ -55,15 +49,9 @@ export async function deleteProjectMember(userID: string, projectID: string): Pr
 			}
 		);
 	} catch (e) {
+		// TODO: replace with popup in future
 		console.error(e);
 	}
-
-    if(!response){
-        // TODO: replace with popup in future
-        console.error("cannot create project");
-
-        return null;
-    }
 
     return response;
 }
@@ -99,15 +87,9 @@ export async function fetchProjectMembers(projectID: string): Promise<any> {
 			}
 		);
 	} catch (e) {
+		// TODO: replace with popup in future
 		console.error(e);
 	}
-
-    if(!response){
-        // TODO: replace with popup in future
-        console.error("cannot create project");
-
-        return null;
-    }
 
     return response;
 }
