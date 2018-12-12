@@ -159,7 +159,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"uplink.client.pointer-db-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"uplink.minio.dir": filepath.Join(
-			setupCfg.BasePath, "uplink", "minio"),
+			setupDir, "uplink", "minio"),
 		"uplink.enc.key":                  setupCfg.EncKey,
 		"uplink.client.api-key":           setupCfg.APIKey,
 		"uplink.rs.min-threshold":         1 * len(runCfg.StorageNodes) / 5,
@@ -181,7 +181,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	for i := 0; i < len(runCfg.StorageNodes); i++ {
-		storagenodePath := filepath.Join(setupCfg.BasePath, fmt.Sprintf("f%d", i))
+		storagenodePath := filepath.Join(setupDir, fmt.Sprintf("f%d", i))
 		storagenode := fmt.Sprintf("storage-nodes.%02d.", i)
 		overrides[storagenode+"identity.cert-path"] = filepath.Join(
 			storagenodePath, "identity.cert")
