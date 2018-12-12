@@ -52,9 +52,9 @@ func (t *tally) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
-		err = t.identifyActiveNodes(ctx)
+		err = t.calculateStaticData(ctx)
 		if err != nil {
-			t.logger.Error("identifyActiveNodes failed", zap.Error(err))
+			t.logger.Error("calculateStaticData failed", zap.Error(err))
 		}
 		err = t.Query(ctx)
 		if err != nil {
