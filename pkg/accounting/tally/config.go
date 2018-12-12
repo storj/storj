@@ -21,7 +21,7 @@ import (
 // Config contains configurable values for tally
 type Config struct {
 	Interval    time.Duration `help:"how frequently tally should run" default:"30s"`
-	DatabaseURL string        `help:"the database connection string to use" default:"sqlite3://$CONFDIR/stats.db"`
+	DatabaseURL string        `help:"the database connection string to use" default:"sqlite3://$CONFDIR/accounting.db"`
 }
 
 // Initialize a tally struct
@@ -31,7 +31,7 @@ func (c Config) initialize(ctx context.Context) (Tally, error) {
 	kademlia := kademlia.LoadFromContext(ctx)
 	db, err := accounting.NewDb(c.DatabaseURL)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	masterDB, ok := ctx.Value("masterdb").(interface{ BandwidthAgreement() bwagreement.DB })
@@ -45,7 +45,7 @@ func (c Config) initialize(ctx context.Context) (Tally, error) {
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	tally, err := c.initialize(ctx)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 	ctx, cancel := context.WithCancel(ctx)
 

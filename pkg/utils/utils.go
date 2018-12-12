@@ -6,7 +6,7 @@ package utils
 import (
 	"bytes"
 	"encoding/gob"
-	"net/url"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -22,30 +22,17 @@ func GetBytes(key interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// ParseURL extracts database parameters from a string as a URL
-//   bolt://storj.db
-//   bolt://C:\storj.db
-//   redis://hostname
-func ParseURL(s string) (*url.URL, error) {
-	if strings.HasPrefix(s, "bolt://") {
-		return &url.URL{
-			Scheme: "bolt",
-			Path:   strings.TrimPrefix(s, "bolt://"),
-		}, nil
+// SplitDBURL returns the driver and DSN portions of a URL
+func SplitDBURL(s string) (string, string, error) {
+	// consider https://github.com/xo/dburl if this ends up lacking
+	parts := strings.SplitN(s, "://", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("Could not parse DB URL %s", s)
 	}
-	if strings.HasPrefix(s, "sqlite3://") {
-		return &url.URL{
-			Scheme: "sqlite3",
-			Path:   strings.TrimPrefix(s, "sqlite3://"),
-		}, nil
+	if parts[0] == "postgres" {
+		parts[1] = s // postgres wants full URLS for its DSN
 	}
-	if strings.HasPrefix(s, "postgres://") {
-		return &url.URL{
-			Scheme: "postgres",
-			Path:   s,
-		}, nil
-	}
-	return url.Parse(s)
+	return parts[0], parts[1], nil
 }
 
 // CombineErrors combines multiple errors to a single error

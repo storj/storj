@@ -19,7 +19,7 @@ type irreparableDB struct {
 func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInfo *irreparable.RemoteSegmentInfo) (err error) {
 	tx, err := db.db.Begin()
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	dbxInfo, err := db.Get(ctx, segmentInfo.EncryptedSegmentPath)
@@ -34,7 +34,7 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 			dbx.Irreparabledb_RepairAttemptCount(segmentInfo.RepairAttemptCount),
 		)
 		if err != nil {
-			return utils.CombineErrors(err, tx.Rollback())
+			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 		}
 	} else {
 		// row exits increment the attempt counter
@@ -47,18 +47,18 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 			updateFields,
 		)
 		if err != nil {
-			return utils.CombineErrors(err, tx.Rollback())
+			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 		}
 	}
 
-	return tx.Commit()
+	return Error.Wrap(tx.Commit())
 }
 
 // Get a irreparable's segment info from the db
 func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *irreparable.RemoteSegmentInfo, err error) {
 	dbxInfo, err := db.db.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
 	if err != nil {
-		return &irreparable.RemoteSegmentInfo{}, err
+		return &irreparable.RemoteSegmentInfo{}, Error.Wrap(err)
 	}
 
 	return &irreparable.RemoteSegmentInfo{
@@ -74,5 +74,5 @@ func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *irr
 func (db *irreparableDB) Delete(ctx context.Context, segmentPath []byte) (err error) {
 	_, err = db.db.Delete_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
 
-	return err
+	return Error.Wrap(err)
 }
