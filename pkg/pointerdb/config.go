@@ -60,7 +60,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	defer func() { _ = db.Close() }()
 
 	cache := overlay.LoadFromContext(ctx)
-	dblogged := storelogger.New(zap.L(), db)
+	dblogged := storelogger.New(zap.L().Named("pdb"), db)
 	s := NewServer(dblogged, cache, zap.L(), c, server.Identity())
 	pb.RegisterPointerDBServer(server.GRPC(), s)
 	// add the server to the context
