@@ -33,7 +33,7 @@ type Config struct {
 	miniogw.NodeSelectionConfig
 }
 
-// Run runs the repairer with configured values
+// Run runs the repair service with configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	redisQ, err := redis.NewQueueFrom(c.QueueAddress)
 	if err != nil {
@@ -42,20 +42,20 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 	queue := queue.NewQueue(redisQ)
 
-	sr, err := c.getSegmentRepairer(ctx, server.Identity())
+	repairer, err := c.getSegmentRepairer(ctx, server.Identity())
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	repairer := newRepairer(queue, sr, c.Interval, c.MaxRepair)
+	service := newService(queue, repairer, c.Interval, c.MaxRepair)
 
 	ctx, cancel := context.WithCancel(ctx)
 
 	// TODO(coyle): we need to figure out how to propagate the error up to cancel the service
 	go func() {
-		if err := repairer.Run(ctx); err != nil {
+		if err := service.Run(ctx); err != nil {
 			defer cancel()
-			zap.L().Error("Error running repairer", zap.Error(err))
+			zap.L().Error("Error running repair service", zap.Error(err))
 		}
 	}()
 
@@ -63,7 +63,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 }
 
 // getSegmentRepairer creates a new segment repairer from storeConfig values
-func (c Config) getSegmentRepairer(ctx context.Context, identity *provider.FullIdentity) (ss segments.Repairer, err error) {
+func (c Config) getSegmentRepairer(ctx context.Context, identity *provider.FullIdentity) (ss SegmentRepairer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var oc overlay.Client

@@ -75,7 +75,7 @@ func TestSegmentStoreRepairRemote(t *testing.T) {
 		mockEC := mock_ecclient.NewMockClient(ctrl)
 		mockPDB := mock_pointerdb.NewMockClient(ctrl)
 
-		sr := segmentRepairer{mockOC, mockEC, mockPDB, &pb.NodeStats{}}
+		sr := Repairer{mockOC, mockEC, mockPDB, &pb.NodeStats{}}
 		assert.NotNil(t, sr)
 
 		calls := []*gomock.Call{

@@ -16,24 +16,20 @@ import (
 )
 
 // Repairer for segments
-type Repairer interface {
-	Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error)
-}
-
-type segmentRepairer struct {
+type Repairer struct {
 	oc        overlay.Client
 	ec        ecclient.Client
 	pdb       pdbclient.Client
 	nodeStats *pb.NodeStats
 }
 
-// NewSegmentRepairer creates a new instance of segmentRepairer
-func NewSegmentRepairer(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, nodeStats *pb.NodeStats) Repairer {
-	return &segmentRepairer{oc: oc, ec: ec, pdb: pdb, nodeStats: nodeStats}
+// NewSegmentRepairer creates a new instance of SegmentRepairer
+func NewSegmentRepairer(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, nodeStats *pb.NodeStats) *Repairer {
+	return &Repairer{oc: oc, ec: ec, pdb: pdb, nodeStats: nodeStats}
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
-func (s *segmentRepairer) Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error) {
+func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Read the segment's pointer's info from the PointerDB
