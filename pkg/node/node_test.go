@@ -10,12 +10,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -36,17 +36,19 @@ func TestClient(t *testing.T) {
 
 	planet.Start(ctx)
 
+	peers := []*testplanet.Node{}
+	peers = append(peers, planet.Satellites...)
+	peers = append(peers, planet.StorageNodes...)
+
 	{ // Ping
 		client, err := planet.StorageNodes[0].NewNodeClient()
 		assert.NoError(t, err)
 		defer ctx.Check(client.Disconnect)
 
-		var group errgroup.Group
-
-		for i := range planet.StorageNodes {
-			sat := planet.StorageNodes[i]
-			group.Go(func() error {
-				pinged, err := client.Ping(ctx, sat.Info)
+		for i := range peers {
+			peer := peers[i]
+			ctx.Go(func() error {
+				pinged, err := client.Ping(ctx, peer.Info)
 				var pingErr error
 				if !pinged {
 					pingErr = errors.New("ping should have succeeded")
@@ -54,8 +56,6 @@ func TestClient(t *testing.T) {
 				return utils.CombineErrors(pingErr, err)
 			})
 		}
-
-		assert.NoError(t, group.Wait())
 	}
 
 	{ // Lookup
@@ -63,15 +63,17 @@ func TestClient(t *testing.T) {
 		assert.NoError(t, err)
 		defer ctx.Check(client.Disconnect)
 
-		var group errgroup.Group
-
-		for i := range planet.StorageNodes {
-			sat := planet.StorageNodes[i]
-			group.Go(func() error {
-				for _, target := range planet.StorageNodes {
-					results, err := client.Lookup(ctx, sat.Info, target.Info)
+		for i := range peers {
+			peer := peers[i]
+			ctx.Go(func() error {
+				for _, target := range peers {
+					results, err := client.Lookup(ctx, peer.Info, target.Info)
 					if err != nil {
 						return err
+					}
+
+					if containsResult(results, target.ID()) {
+						continue
 					}
 
 					if len(results) != planet.NetworkSize() {
@@ -83,7 +85,15 @@ func TestClient(t *testing.T) {
 				return nil
 			})
 		}
-
-		assert.NoError(t, group.Wait())
 	}
+
+}
+
+func containsResult(nodes []*pb.Node, target storj.NodeID) bool {
+	for _, node := range nodes {
+		if node.Id == target {
+			return true
+		}
+	}
+	return false
 }
