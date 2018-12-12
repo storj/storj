@@ -20,10 +20,10 @@ type Rollup interface {
 type rollup struct {
 	logger *zap.Logger
 	ticker *time.Ticker
-	db     *accounting.Database
+	db     accounting.DB
 }
 
-func newRollup(logger *zap.Logger, db *accounting.Database, interval time.Duration) (*rollup, error) {
+func newRollup(logger *zap.Logger, db accounting.DB, interval time.Duration) (*rollup, error) {
 	return &rollup{
 		logger: logger,
 		ticker: time.NewTicker(interval),

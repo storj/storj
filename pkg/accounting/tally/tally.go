@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/accounting"
-	dbx "storj.io/storj/pkg/accounting/dbx"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
@@ -25,24 +24,24 @@ type Tally interface {
 }
 
 type tally struct {
-	pointerdb   *pointerdb.Server
-	overlay     pb.OverlayServer
-	limit       int
-	logger      *zap.Logger
-	ticker      *time.Ticker
-	db          *accounting.Database
-	bwAgreement bwagreement.DB // bwagreements database
+	pointerdb     *pointerdb.Server
+	overlay       pb.OverlayServer
+	limit         int
+	logger        *zap.Logger
+	ticker        *time.Ticker
+	accountingDB  accounting.DB
+	bwAgreementDB bwagreement.DB // bwagreements database
 }
 
-func newTally(logger *zap.Logger, db *accounting.Database, bwAgreement bwagreement.DB, pointerdb *pointerdb.Server, overlay pb.OverlayServer, limit int, interval time.Duration) *tally {
+func newTally(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Server, overlay pb.OverlayServer, limit int, interval time.Duration) *tally {
 	return &tally{
-		pointerdb:   pointerdb,
-		overlay:     overlay,
-		limit:       limit,
-		logger:      logger,
-		ticker:      time.NewTicker(interval),
-		db:          db,
-		bwAgreement: bwAgreement,
+		pointerdb:     pointerdb,
+		overlay:       overlay,
+		limit:         limit,
+		logger:        logger,
+		ticker:        time.NewTicker(interval),
+		accountingDB:  accountingDB,
+		bwAgreementDB: bwAgreementDB,
 	}
 }
 
@@ -110,7 +109,10 @@ func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 			return nil
 		},
 	)
-	return t.updateRawTable(ctx, nodeData)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	return Error.Wrap(t.updateRawTable(ctx, nodeData))
 }
 
 func (t *tally) updateRawTable(ctx context.Context, nodeData map[storj.NodeID]int64) error {
@@ -121,16 +123,19 @@ func (t *tally) updateRawTable(ctx context.Context, nodeData map[storj.NodeID]in
 // Query bandwidth allocation database, selecting all new contracts since the last collection run time.
 // Grouping by storage node ID and adding total of bandwidth to granular data table.
 func (t *tally) Query(ctx context.Context) error {
-	lastBwTally, err := t.db.FindLastBwTally(ctx)
+	lastBwTally, isNil, err := t.accountingDB.LastGranularTime(ctx)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 	var bwAgreements []bwagreement.Agreement
-	if lastBwTally == nil {
+	if isNil {
 		t.logger.Info("Tally found no existing bandwith tracking data")
-		bwAgreements, err = t.bwAgreement.GetAgreements(ctx)
+		bwAgreements, err = t.bwAgreementDB.GetAgreements(ctx)
 	} else {
-		bwAgreements, err = t.bwAgreement.GetAgreementsSince(ctx, lastBwTally.Value)
+		bwAgreements, err = t.bwAgreementDB.GetAgreementsSince(ctx, lastBwTally)
+	}
+	if err != nil {
+		return Error.Wrap(err)
 	}
 	if len(bwAgreements) == 0 {
 		t.logger.Info("Tally found no new bandwidth allocations")
@@ -152,46 +157,5 @@ func (t *tally) Query(ctx context.Context) error {
 		bwTotals[rbad.StorageNodeId.String()] += rbad.GetTotal() // todo: check for overflow?
 	}
 
-	//todo:  consider if we actually need EndTime in granular
-	if lastBwTally == nil {
-		t.logger.Info("No previous bandwidth timestamp found in tally query")
-		lastBwTally = &dbx.Value_Row{Value: latestBwa} //todo: something better here?
-	}
-
-	//insert all records in a transaction so if we fail, we don't have partial info stored
-	//todo:  replace with a WithTx() method per DBX docs?
-	tx, err := t.db.BeginTx(ctx)
-	if err != nil {
-		t.logger.DPanic("Failed to create DB txn in tally query")
-		return err
-	}
-	defer func() {
-		if err == nil {
-			err = tx.Commit()
-		} else {
-			t.logger.Warn("DB txn was rolled back in tally query")
-			err = tx.Rollback()
-		}
-	}()
-
-	//todo:  switch to bulk update SQL?
-	for k, v := range bwTotals {
-		nID := dbx.Raw_NodeId(k)
-		end := dbx.Raw_IntervalEndTime(latestBwa)
-		total := dbx.Raw_DataTotal(v)
-		dataType := dbx.Raw_DataType(accounting.Bandwith)
-		_, err = tx.Create_Raw(ctx, nID, end, total, dataType)
-		if err != nil {
-			t.logger.DPanic("Create granular SQL failed in tally query")
-			return err //todo: retry strategy?
-		}
-	}
-
-	//todo:  move this into txn when we have masterdb?
-	update := dbx.Timestamps_Update_Fields{Value: dbx.Timestamps_Value(latestBwa)}
-	_, err = tx.Update_Timestamps_By_Name(ctx, accounting.LastBandwidthTally, update)
-	if err != nil {
-		t.logger.DPanic("Failed to update bandwith timestamp in tally query")
-	}
-	return err
+	return Error.Wrap(t.accountingDB.SaveGranulars(ctx, t.logger, lastBwTally, bwTotals))
 }

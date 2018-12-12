@@ -7,7 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/provider"
 )
@@ -20,11 +22,11 @@ type Config struct {
 
 // Initialize a rollup struct
 func (c Config) initialize(ctx context.Context) (Rollup, error) {
-	db, err := accounting.NewDB(c.DatabaseURL)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	db, ok := ctx.Value("masterdb").(interface{ Accounting() accounting.DB })
+	if !ok {
+		return nil, errs.New("unable to get master db instance")
 	}
-	return newRollup(zap.L(), db, c.Interval)
+	return newRollup(zap.L(), db.Accounting(), c.Interval)
 }
 
 // Run runs the rollup with configured values
