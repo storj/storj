@@ -6,6 +6,7 @@ package node_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
@@ -28,6 +29,8 @@ func TestClient(t *testing.T) {
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
+
+	time.Sleep(2 * time.Second)
 
 	peers := []*testplanet.Node{}
 	peers = append(peers, planet.Satellites...)
