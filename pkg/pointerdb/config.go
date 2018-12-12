@@ -37,16 +37,16 @@ type Config struct {
 }
 
 func newKeyValueStore(dbURLString string) (db storage.KeyValueStore, err error) {
-	dburl, err := utils.ParseURL(dbURLString)
+	driver, source, err := utils.SplitDBURL(dbURLString)
 	if err != nil {
 		return nil, err
 	}
-	if dburl.Scheme == "bolt" {
-		db, err = boltdb.New(dburl.Path, BoltPointerBucket)
-	} else if dburl.Scheme == "postgresql" || dburl.Scheme == "postgres" {
-		db, err = postgreskv.New(dbURLString)
+	if driver == "bolt" {
+		db, err = boltdb.New(source, BoltPointerBucket)
+	} else if driver == "postgresql" || driver == "postgres" {
+		db, err = postgreskv.New(source)
 	} else {
-		err = Error.New("unsupported db scheme: %s", dburl.Scheme)
+		err = Error.New("unsupported db scheme: %s", driver)
 	}
 	return db, err
 }

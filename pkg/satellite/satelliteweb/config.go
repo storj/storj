@@ -29,12 +29,12 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	log := zap.NewExample()
 
 	// Create satellite DB
-	dbURL, err := utils.ParseURL(c.DatabaseURL)
+	driver, source, err := utils.SplitDBURL(c.DatabaseURL)
 	if err != nil {
 		return err
 	}
 
-	db, err := satellitedb.New(dbURL.Scheme, dbURL.Path)
+	db, err := satellitedb.New(driver, source)
 	if err != nil {
 		return err
 	}
