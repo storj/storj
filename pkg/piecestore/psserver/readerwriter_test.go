@@ -25,7 +25,8 @@ func TestRead(t *testing.T) {
 	}{
 		{"Test EOF error: ", []byte("abcdefghijklmnopqrstuvwxyz"), 30, 40, 40, 26, true, false, false},
 		{"Test exceeds bandwidth error: ", []byte("abcdefghijklmnopqrstuvwxyz"), 26, 5, 40, 10, false, true, false},
-		{"Test exceeds space error: ", []byte("abcdefghijklmnopqrstuvwxyz"), 26, 40, 5, 10, false, false, true},
+		{"Test exceeds space error 1: ", []byte("abcdefghijklmnopqrstuvwxyz"), 26, 40, 5, 10, false, false, true},
+		{"Test exceeds space error 2: ", []byte("abcdefghijklmnopqrstuvwxyz"), 26, 40, 0, 0, false, false, true},
 		{"Test no error: ", []byte("abcdefghijklmnopqrstuvwxyz"), 20, 40, 40, 20, false, false, false},
 	} {
 		remaining := tt.file
