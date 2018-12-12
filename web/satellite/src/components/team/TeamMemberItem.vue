@@ -6,10 +6,10 @@
         <div class="user-container__avatar">
             <h1>m</h1>
         </div>
-        <p class="user-container__company-name"> Test</p>
-        <p class="user-container__user-name">Larry Test</p>
-        <p class="user-container__user-email">larry@mail.com</p>
-        <p class="user-container__date">23 june 2018</p>
+        <p class="user-container__company-name">{{projectMember.user.company ? projectMember.user.company.name : "Company"}}</p>
+        <p class="user-container__user-name">{{`${projectMember.user.firstName} ${projectMember.user.lastName}`}}</p>
+        <p class="user-container__user-email">{{projectMember.user.email}}</p>
+        <p class="user-container__date">{{new Date(projectMember.joinedAt).toLocaleDateString()}}</p>
     </div>
 </template>
 
@@ -18,8 +18,8 @@ import { Component, Vue } from 'vue-property-decorator';
 
 @Component({
     props: {
-        userInfo: Object
-    }
+    	projectMember: Object,
+    },
 })
 
 export default class TeamMemberItem extends Vue {}
