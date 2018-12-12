@@ -63,12 +63,13 @@ func TestCalculate(t *testing.T) {
 	overlayServer := mocks.NewOverlay(nodes)
 
 	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
-	defer ctx.Check(accountingDb.Close)
 	assert.NoError(t, err)
+	defer ctx.Check(accountingDb.Close)
+	
 
 	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
-	defer ctx.Check(masterDB.Close)
 	assert.NoError(t, err)
+	defer ctx.Check(masterDB.Close)
 
 	tally := newTally(logger, accountingDb, masterDB.BandwidthAgreement(), pointerdb, overlayServer, limit, interval)
 
@@ -94,12 +95,14 @@ func TestQueryNoAgreements(t *testing.T) {
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 
 	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
-	defer ctx.Check(accountingDb.Close)
 	assert.NoError(t, err)
+	defer ctx.Check(accountingDb.Close)
+	
 
 	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
-	defer ctx.Check(masterDB.Close)
 	assert.NoError(t, err)
+	defer ctx.Check(masterDB.Close)
+	
 
 	tally := newTally(zap.NewNop(), accountingDb, masterDB.BandwidthAgreement(), pointerdb, overlayServer, 0, time.Second)
 
@@ -115,12 +118,12 @@ func TestQueryWithBw(t *testing.T) {
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 
 	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
-	defer ctx.Check(accountingDb.Close)
 	assert.NoError(t, err)
+	defer ctx.Check(accountingDb.Close)
 
 	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
-	defer ctx.Check(masterDB.Close)
 	assert.NoError(t, err)
+	defer ctx.Check(masterDB.Close)
 	err = masterDB.CreateTables()
 	assert.NoError(t, err)
 
