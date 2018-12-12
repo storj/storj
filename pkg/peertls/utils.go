@@ -79,7 +79,7 @@ func verifyCertSignature(parentCert, childCert *x509.Certificate) error {
 	return VerifySignature(childCert.Signature, childCert.RawTBSCertificate, parentCert.PublicKey)
 }
 
-// Verify checks the signature against the passed data and public key
+// VerifySignature checks the signature against the passed data and public key
 func VerifySignature(signedData []byte, data []byte, pubKey crypto.PublicKey) error {
 	key, ok := pubKey.(*ecdsa.PublicKey)
 	if !ok {

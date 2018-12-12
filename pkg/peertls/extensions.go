@@ -126,7 +126,7 @@ func ParseExtensions(c TLSExtConfig, opts ParseExtOptions) (handlers ExtensionHa
 	return handlers
 }
 
-// NewRevocationDBBolt creates a bolt-backed RevocatioDB
+// NewRevocationDBBolt creates a bolt-backed RevocationDB
 func NewRevocationDBBolt(path string) (*RevocationDB, error) {
 	client, err := boltdb.New(path, RevocationBucket)
 	if err != nil {
@@ -137,7 +137,7 @@ func NewRevocationDBBolt(path string) (*RevocationDB, error) {
 	}, nil
 }
 
-// NewRevocationDBBolt creates a redis-backed RevocatioDB.
+// NewRevocationDBRedis creates a redis-backed RevocationDB.
 func NewRevocationDBRedis(address string) (*RevocationDB, error) {
 	client, err := redis.NewClientFrom(address)
 	if err != nil {
@@ -370,7 +370,7 @@ func (r Revocation) Marshal() ([]byte, error) {
 	return data.Bytes(), nil
 }
 
-// Marshal deserializes a revocation from bytes
+// Unmarshal deserializes a revocation from bytes
 func (r *Revocation) Unmarshal(data []byte) error {
 	// NB: using gob instead of asn1 because we plan to leave tls and asn1 is meh
 	decoder := gob.NewDecoder(bytes.NewBuffer(data))

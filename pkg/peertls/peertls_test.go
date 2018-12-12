@@ -184,6 +184,9 @@ func TestAddSignedCertExt(t *testing.T) {
 
 func TestSignLeafExt(t *testing.T) {
 	keys, chain, err := newCertChain(2)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
 	caKey, leafCert := keys[0], chain[0]
 
 	err = AddSignedCertExt(caKey, leafCert)

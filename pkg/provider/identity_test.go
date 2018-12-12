@@ -188,7 +188,7 @@ func TestNewServerOptions(t *testing.T) {
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
-	defer os.RemoveAll(tmp)
+	defer func() { _ = os.RemoveAll(tmp) }()
 
 	whitelistPath := filepath.Join(tmp, "whitelist.pem")
 	w, err := os.Create(whitelistPath)
@@ -213,7 +213,7 @@ func TestNewServerOptions(t *testing.T) {
 		{
 			"revocation processing",
 			ServerConfig{
-				RevocationDBPath: filepath.Join(tmp, "revocation1.db"),
+				RevocationDBURL: "bolt://" + filepath.Join(tmp, "revocation1.db"),
 				Extensions: peertls.TLSExtConfig{
 					Revocation: true,
 				},
@@ -243,7 +243,7 @@ func TestNewServerOptions(t *testing.T) {
 			ServerConfig{
 				// NB: file doesn't actually exist
 				PeerCAWhitelistPath: whitelistPath,
-				RevocationDBPath:    filepath.Join(tmp, "revocation2.db"),
+				RevocationDBURL:     "bolt://" + filepath.Join(tmp, "revocation2.db"),
 				Extensions: peertls.TLSExtConfig{
 					Revocation: true,
 				},
@@ -255,7 +255,7 @@ func TestNewServerOptions(t *testing.T) {
 			ServerConfig{
 				// NB: file doesn't actually exist
 				PeerCAWhitelistPath: whitelistPath,
-				RevocationDBPath:    filepath.Join(tmp, "revocation3.db"),
+				RevocationDBURL:     "bolt://" + filepath.Join(tmp, "revocation3.db"),
 				Extensions: peertls.TLSExtConfig{
 					Revocation:          true,
 					WhitelistSignedLeaf: true,

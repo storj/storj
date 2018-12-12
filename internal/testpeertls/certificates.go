@@ -48,7 +48,7 @@ func NewCertDebug(cert x509.Certificate) DebugCert {
 func (c DebugCert) Cmp(c2 DebugCert, label string) {
 	fmt.Println("diff " + label + " ---================================================================---")
 	cmpBytes := func(a, b []byte) {
-		PrintJson(bytes.Compare(a, b), "")
+		PrintJSON(bytes.Compare(a, b), "")
 	}
 
 	cmpBytes(c.Raw, c2.Raw)
@@ -58,9 +58,9 @@ func (c DebugCert) Cmp(c2 DebugCert, label string) {
 	c.PublicKeyY.Cmp(c2.PublicKeyY)
 }
 
-// PrintJson uses a json marshaler to pretty-print arbitrary data for debugging
+// PrintJSON uses a json marshaler to pretty-print arbitrary data for debugging
 // with special considerations for certain, specific types
-func PrintJson(data interface{}, label string) {
+func PrintJSON(data interface{}, label string) {
 	var (
 		jsonBytes []byte
 		err       error
