@@ -34,12 +34,10 @@ func TestQueryNoAgreements(t *testing.T) {
 	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
 	assert.NoError(t, err)
 	defer ctx.Check(accountingDb.Close)
-	
 
 	masterDB, err := satellitedb.NewInMemory()
 	assert.NoError(t, err)
 	defer ctx.Check(masterDB.Close)
-	
 
 	tally := newTally(zap.NewNop(), accountingDb, masterDB.BandwidthAgreement(), pointerdb, overlayServer, 0, time.Second)
 

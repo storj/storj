@@ -30,7 +30,7 @@ type tally struct {
 	limit       int
 	logger      *zap.Logger
 	ticker      *time.Ticker
-	db         	*accounting.Database
+	db          *accounting.Database
 	bwAgreement bwagreement.DB // bwagreements database
 }
 
@@ -43,7 +43,6 @@ func newTally(logger *zap.Logger, db *accounting.Database, bwAgreement bwagreeme
 		ticker:      time.NewTicker(interval),
 		db:          db,
 		bwAgreement: bwAgreement,
-
 	}
 }
 
@@ -69,7 +68,7 @@ func (t *tally) Run(ctx context.Context) (err error) {
 	}
 }
 
-// calculateAtRestData iterates through the pieces on pointerdb and calculates 
+// calculateAtRestData iterates through the pieces on pointerdb and calculates
 // the amount of at-rest data stored on each respective node
 func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -105,8 +104,8 @@ func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 				}
 				pieceSize := segmentSize / int64(minReq)
 				for _, piece := range pieces {
-                    nodeData[piece.NodeId] += pieceSize
-                }
+					nodeData[piece.NodeId] += pieceSize
+				}
 			}
 			return nil
 		},

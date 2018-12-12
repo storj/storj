@@ -1,0 +1,6 @@
+{
+    "go.installDependenciesWhenBuilding": false,
+    "go.formatTool": "goimports",
+    "editor.formatOnSave": true,
+    "go.docsTool": "gogetdoc"
+}
