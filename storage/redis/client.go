@@ -4,14 +4,13 @@
 package redis
 
 import (
+	"net/url"
 	"sort"
 	"strconv"
 	"time"
 
 	"github.com/go-redis/redis"
 	"github.com/zeebo/errs"
-
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -49,7 +48,7 @@ func NewClient(address, password string, db int) (*Client, error) {
 
 // NewClientFrom returns a configured Client instance from a redis address, verifying a successful connection to redis
 func NewClientFrom(address string) (*Client, error) {
-	redisurl, err := utils.ParseURL(address)
+	redisurl, err := url.Parse(address)
 	if err != nil {
 		return nil, err
 	}

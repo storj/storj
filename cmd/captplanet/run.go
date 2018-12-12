@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
@@ -33,7 +34,7 @@ import (
 )
 
 const (
-	storagenodeCount = 100
+	storagenodeCount = 10
 )
 
 // Satellite is for configuring client
@@ -50,6 +51,7 @@ type Satellite struct {
 	BwAgreement bwagreement.Config
 	Web         satelliteweb.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+	Tally       tally.Config
 }
 
 // StorageNode is for configuring storage nodes
@@ -106,7 +108,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.Web.SatelliteAddr = runCfg.Satellite.Identity.Server.Address
 		}
 
-		database, err := satellitedb.NewDB(runCfg.Satellite.Database)
+		database, err := satellitedb.New(runCfg.Satellite.Database)
 		if err != nil {
 			errch <- errs.New("Error starting master database on satellite: %+v", err)
 			return
@@ -133,6 +135,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.Repairer,
 			runCfg.Satellite.BwAgreement,
 			runCfg.Satellite.Web,
+			runCfg.Satellite.Tally,
 
 			// NB(dylan): Inspector is only used for local development and testing.
 			// It should not be added to the Satellite startup

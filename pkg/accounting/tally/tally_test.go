@@ -64,7 +64,7 @@ func TestOnlineNodes(t *testing.T) {
 	assert.NoError(t, err)
 	defer ctx.Check(accountingDb.Close)
 
-	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
+	masterDB, err := satellitedb.NewInMemory()
 	assert.NoError(t, err)
 	defer ctx.Check(masterDB.Close)
 
@@ -99,7 +99,7 @@ func TestQueryNoAgreements(t *testing.T) {
 	assert.NoError(t, err)
 	defer ctx.Check(accountingDb.Close)
 
-	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
+	masterDB, err := satellitedb.NewInMemory()
 	assert.NoError(t, err)
 	defer ctx.Check(masterDB.Close)
 
@@ -122,7 +122,7 @@ func TestQueryWithBw(t *testing.T) {
 	assert.NoError(t, err)
 	defer ctx.Check(accountingDb.Close)
 
-	masterDB, err := satellitedb.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
+	masterDB, err := satellitedb.NewInMemory()
 	assert.NoError(t, err)
 	err = masterDB.CreateTables()
 	assert.NoError(t, err)

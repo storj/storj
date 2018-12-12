@@ -1,63 +1,25 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package irreparabledb
+package satellitedb
 
 import (
 	"context"
 
-	"github.com/zeebo/errs"
-
-	"storj.io/storj/internal/migrate"
-	dbx "storj.io/storj/pkg/datarepair/irreparabledb/dbx"
+	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/utils"
+	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// Error is the default irreparabledb errs class
-var Error = errs.Class("irreparabledb error")
-
-// Database implements the irreparable RPC service
-type Database struct {
+type irreparableDB struct {
 	db *dbx.DB
 }
 
-// RemoteSegmentInfo is info about a single entry stored in the irreparable db
-type RemoteSegmentInfo struct {
-	EncryptedSegmentPath   []byte
-	EncryptedSegmentDetail []byte //contains marshaled info of pb.Pointer
-	LostPiecesCount        int64
-	RepairUnixSec          int64
-	RepairAttemptCount     int64
-}
-
-// New creates instance of Server
-func New(source string) (*Database, error) {
-	u, err := utils.ParseURL(source)
-	if err != nil {
-		return nil, err
-	}
-
-	db, err := dbx.Open(u.Scheme, u.Path)
-	if err != nil {
-		return nil, Error.New("failed opening database %q, %q: %v",
-			u.Scheme, u.Path, err)
-	}
-
-	err = migrate.Create("irreparabledb", db)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Database{
-		db: db,
-	}, nil
-}
-
 // IncrementRepairAttempts a db entry for to increment the repair attempts field
-func (db *Database) IncrementRepairAttempts(ctx context.Context, segmentInfo *RemoteSegmentInfo) (err error) {
+func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInfo *irreparable.RemoteSegmentInfo) (err error) {
 	tx, err := db.db.Begin()
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	dbxInfo, err := db.Get(ctx, segmentInfo.EncryptedSegmentPath)
@@ -72,7 +34,7 @@ func (db *Database) IncrementRepairAttempts(ctx context.Context, segmentInfo *Re
 			dbx.Irreparabledb_RepairAttemptCount(segmentInfo.RepairAttemptCount),
 		)
 		if err != nil {
-			return utils.CombineErrors(err, tx.Rollback())
+			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 		}
 	} else {
 		// row exits increment the attempt counter
@@ -85,21 +47,21 @@ func (db *Database) IncrementRepairAttempts(ctx context.Context, segmentInfo *Re
 			updateFields,
 		)
 		if err != nil {
-			return utils.CombineErrors(err, tx.Rollback())
+			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 		}
 	}
 
-	return tx.Commit()
+	return Error.Wrap(tx.Commit())
 }
 
 // Get a irreparable's segment info from the db
-func (db *Database) Get(ctx context.Context, segmentPath []byte) (resp *RemoteSegmentInfo, err error) {
+func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *irreparable.RemoteSegmentInfo, err error) {
 	dbxInfo, err := db.db.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
 	if err != nil {
-		return &RemoteSegmentInfo{}, err
+		return &irreparable.RemoteSegmentInfo{}, Error.Wrap(err)
 	}
 
-	return &RemoteSegmentInfo{
+	return &irreparable.RemoteSegmentInfo{
 		EncryptedSegmentPath:   dbxInfo.Segmentpath,
 		EncryptedSegmentDetail: dbxInfo.Segmentdetail,
 		LostPiecesCount:        dbxInfo.PiecesLostCount,
@@ -109,13 +71,8 @@ func (db *Database) Get(ctx context.Context, segmentPath []byte) (resp *RemoteSe
 }
 
 // Delete a irreparable's segment info from the db
-func (db *Database) Delete(ctx context.Context, segmentPath []byte) (err error) {
+func (db *irreparableDB) Delete(ctx context.Context, segmentPath []byte) (err error) {
 	_, err = db.db.Delete_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
 
-	return err
-}
-
-// Close close db connection
-func (db *Database) Close() (err error) {
-	return db.db.Close()
+	return Error.Wrap(err)
 }

@@ -26,6 +26,10 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+const (
+	defaultAlpha = 5
+)
+
 func TestNewKademlia(t *testing.T) {
 	rootdir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()

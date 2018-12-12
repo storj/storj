@@ -4,12 +4,11 @@
 package main
 
 import (
-	"net/url"
-
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -22,7 +21,7 @@ type cacheConfig struct {
 }
 
 func (c cacheConfig) open() (*overlay.Cache, error) {
-	dburl, err := url.Parse(c.DatabaseURL)
+	driver, source, err := utils.SplitDBURL(c.DatabaseURL)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -30,9 +29,9 @@ func (c cacheConfig) open() (*overlay.Cache, error) {
 	var db storage.KeyValueStore
 	var sdb *statdb.StatDB
 
-	switch dburl.Scheme {
+	switch driver {
 	case "bolt":
-		db, err = boltdb.New(dburl.Path, overlay.OverlayBucket)
+		db, err = boltdb.New(source, overlay.OverlayBucket)
 		if err != nil {
 			return nil, Error.New("invalid overlay cache database: %s", err)
 		}
@@ -44,12 +43,12 @@ func (c cacheConfig) open() (*overlay.Cache, error) {
 		}
 		zap.S().Info("Starting overlay cache with Redis")
 	default:
-		return nil, Error.New("database scheme not supported: %s", dburl.Scheme)
+		return nil, Error.New("database scheme not supported: %s", driver)
 	}
 
 	// add logger
 	db = storelogger.New(zap.L(), db)
-	sdb, err = statdb.NewStatDB("postgres", dburl.String(), zap.L())
+	sdb, err = statdb.NewStatDB("postgres", source, zap.L()) //todo:  unhardcode this
 	if err != nil {
 		return nil, Error.New("statdb error: %s", err)
 	}

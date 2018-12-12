@@ -89,7 +89,7 @@ TestLoop:
 		errString string
 	}{
 		{[]*pb.Node{}, 0, 0, true, []error{},
-			fmt.Sprintf("ecclient error: number of nodes (0) do not match total count (%v) of erasure scheme", n)},
+			fmt.Sprintf("ecclient error: size of nodes slice (0) does not match total count (%v) of erasure scheme", n)},
 		{[]*pb.Node{node0, node1, node2, node3}, 0, -1, true,
 			[]error{nil, nil, nil, nil},
 			"eestream error: negative max buffer memory"},
@@ -109,7 +109,7 @@ TestLoop:
 		{[]*pb.Node{node0, node1, node2, node3}, 2, 0, false,
 			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed},
 			"ecclient error: successful puts (1) less than repair threshold (2)"},
-		{[]*pb.Node{nil, nil, node2, node3}, 0, 0, false,
+		{[]*pb.Node{nil, nil, node2, node3}, 2, 0, false,
 			[]error{nil, nil, nil, nil}, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
@@ -201,7 +201,7 @@ TestLoop:
 		errString string
 	}{
 		{[]*pb.Node{}, 0, []error{}, "ecclient error: " +
-			fmt.Sprintf("number of nodes (0) do not match minimum required count (%v) of erasure scheme", k)},
+			fmt.Sprintf("size of nodes slice (0) does not match total count (%v) of erasure scheme", n)},
 		{[]*pb.Node{node0, node1, node2, node3}, -1,
 			[]error{nil, nil, nil, nil},
 			"eestream error: negative max buffer memory"},

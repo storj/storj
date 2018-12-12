@@ -6,7 +6,7 @@ package utils
 import (
 	"bytes"
 	"encoding/gob"
-	"net/url"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -22,46 +22,24 @@ func GetBytes(key interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// ParseURL extracts database parameters from a string as a URL
-//   bolt://storj.db
-//   bolt://C:\storj.db
-//   redis://hostname
-func ParseURL(s string) (*url.URL, error) {
-	if strings.HasPrefix(s, "bolt://") {
-		return &url.URL{
-			Scheme: "bolt",
-			Path:   strings.TrimPrefix(s, "bolt://"),
-		}, nil
+// SplitDBURL returns the driver and DSN portions of a URL
+func SplitDBURL(s string) (string, string, error) {
+	// consider https://github.com/xo/dburl if this ends up lacking
+	parts := strings.SplitN(s, "://", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("Could not parse DB URL %s", s)
 	}
-	if strings.HasPrefix(s, "sqlite3://") {
-		return &url.URL{
-			Scheme: "sqlite3",
-			Path:   strings.TrimPrefix(s, "sqlite3://"),
-		}, nil
+	if parts[0] == "postgres" {
+		parts[1] = s // postgres wants full URLS for its DSN
 	}
-	if strings.HasPrefix(s, "postgres://") {
-		return &url.URL{
-			Scheme: "postgres",
-			Path:   s,
-		}, nil
-	}
-	return url.Parse(s)
+	return parts[0], parts[1], nil
 }
 
 // CombineErrors combines multiple errors to a single error
 func CombineErrors(errs ...error) error {
-	var errlist combinedError
-	for _, err := range errs {
-		if err != nil {
-			errlist = append(errlist, err)
-		}
-	}
-	if len(errlist) == 0 {
-		return nil
-	} else if len(errlist) == 1 {
-		return errlist[0]
-	}
-	return errlist
+	var errlist ErrorGroup
+	errlist.Add(errs...)
+	return errlist.Finish()
 }
 
 type combinedError []error
@@ -86,6 +64,31 @@ func (errs combinedError) Error() string {
 		return allErrors
 	}
 	return ""
+}
+
+// ErrorGroup contains a set of non-nil errors
+type ErrorGroup []error
+
+// Add adds an error to the ErrorGroup if it is non-nil
+func (e *ErrorGroup) Add(errs ...error) {
+	for _, err := range errs {
+		if err != nil {
+			*e = append(*e, err)
+		}
+	}
+}
+
+// Finish returns nil if there were no non-nil errors, the first error if there
+// was only one non-nil error, or the result of CombineErrors if there was more
+// than one non-nil error.
+func (e ErrorGroup) Finish() error {
+	if len(e) == 0 {
+		return nil
+	}
+	if len(e) == 1 {
+		return e[0]
+	}
+	return combinedError(e)
 }
 
 // CollectErrors returns first error from channel and all errors that happen within duration

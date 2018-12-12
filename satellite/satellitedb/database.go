@@ -8,6 +8,7 @@ import (
 
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -22,23 +23,23 @@ type DB struct {
 	db *dbx.DB
 }
 
-// NewDB creates instance of database (supports: postgres, sqlite3)
-func NewDB(databaseURL string) (*DB, error) {
-	dbURL, err := utils.ParseURL(databaseURL)
+// New creates instance of database (supports: postgres, sqlite3)
+func New(databaseURL string) (*DB, error) {
+	driver, source, err := utils.SplitDBURL(databaseURL)
 	if err != nil {
 		return nil, err
 	}
-	source := databaseURL
-	if dbURL.Scheme == "sqlite3" {
-		source = dbURL.Path
-	}
-	db, err := dbx.Open(dbURL.Scheme, source)
+	db, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, Error.New("failed opening database %q, %q: %v",
-			dbURL.Scheme, source, err)
+			driver, source, err)
 	}
-
 	return &DB{db: db}, nil
+}
+
+// NewInMemory creates instance of Sqlite in memory satellite database
+func NewInMemory() (*DB, error) {
+	return New("sqlite3://file::memory:?mode=memory&cache=shared")
 }
 
 // BandwidthAgreement is a getter for bandwidth agreement repository
@@ -70,6 +71,11 @@ func (db *DB) BandwidthAgreement() bwagreement.DB {
 // func (db *DB) AccountingDB() accounting.DB {
 // 	return &accountingDB{db: db.db}
 // }
+
+// Irreparable returns database for storing segments that failed repair
+func (db *DB) Irreparable() irreparable.DB {
+	return &irreparableDB{db: db.db}
+}
 
 // CreateTables is a method for creating all tables for database
 func (db *DB) CreateTables() error {

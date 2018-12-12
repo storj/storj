@@ -28,18 +28,16 @@ func rootQuery(service *satellite.Service, types Types) *graphql.Object {
 				Type: types.User(),
 				Args: graphql.FieldConfigArgument{
 					fieldID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type: graphql.String,
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					id, _ := p.Args[fieldID].(string)
-
-					idBytes, err := uuid.Parse(id)
+					id, err := uuidIDAuthFallback(p, fieldID)
 					if err != nil {
 						return nil, err
 					}
 
-					return service.GetUser(p.Context, *idBytes)
+					return service.GetUser(p.Context, *id)
 				},
 			},
 			projectQuery: &graphql.Field{
