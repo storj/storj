@@ -7,6 +7,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"github.com/zeebo/errs"
@@ -27,27 +28,30 @@ type ConnectionPool struct {
 	tc    transport.Client
 	mu    sync.RWMutex
 	items map[storj.NodeID]*Conn
+	max   int
 }
 
 // Conn is the connection that is stored in the connection pool
 type Conn struct {
 	addr string
 
-	dial   sync.Once
-	client pb.NodesClient
-	grpc   unsafe.Pointer //*grpc.ClientConn
-	err    error
+	dial    sync.Once
+	client  pb.NodesClient
+	grpc    unsafe.Pointer //*grpc.ClientConn
+	err     error
+	created time.Time
 }
 
 // NewConn intitalizes a new Conn struct with the provided address, but does not iniate a connection
-func NewConn(addr string) *Conn { return &Conn{addr: addr} }
+func NewConn(addr string) *Conn { return &Conn{addr: addr, created: time.Now()} }
 
 // NewConnectionPool initializes a new in memory pool
-func NewConnectionPool(identity *provider.FullIdentity) *ConnectionPool {
+func NewConnectionPool(max int, identity *provider.FullIdentity) *ConnectionPool {
 	return &ConnectionPool{
 		tc:    transport.NewClient(identity),
 		items: make(map[storj.NodeID]*Conn),
 		mu:    sync.RWMutex{},
+		max:   max,
 	}
 }
 
@@ -92,14 +96,7 @@ func (pool *ConnectionPool) disconnect(id storj.NodeID) error {
 
 // Dial connects to the node with the given ID and Address returning a gRPC Node Client
 func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClient, error) {
-	id := n.Id
-	pool.mu.Lock()
-	conn, ok := pool.items[id]
-	if !ok {
-		conn = NewConn(n.GetAddress().Address)
-		pool.items[id] = conn
-	}
-	pool.mu.Unlock()
+	conn := pool.getAndMaintain(n)
 
 	conn.dial.Do(func() {
 		grpc, err := pool.tc.DialNode(ctx, n, grpc.WithBlock())
@@ -141,3 +138,39 @@ func (pool *ConnectionPool) Init() {
 	pool.items = make(map[storj.NodeID]*Conn)
 	pool.mu.Unlock()
 }
+
+// getAndMaintain handles all pool maintenance and returns a connection
+func (pool *ConnectionPool) getAndMaintain(node *pb.Node) *Conn {
+	pool.mu.Lock()
+
+	id := node.Id
+	conn, ok := pool.items[id]
+	if !ok && len(pool.items) < pool.max {
+		conn = NewConn(node.GetAddress().Address)
+		pool.items[id] = conn
+	}
+
+	if !ok && len(pool.items) >= pool.max {
+		var oldest storj.NodeID
+		var prevOldest time.Time
+		for k, v := range pool.items {
+			if prevOldest.After(v.created) {
+				oldest = k
+			}
+		}
+
+		if err := pool.disconnect(oldest); err != nil {
+			// TODO log
+		}
+
+		delete(pool.items, oldest)
+
+		conn = NewConn(node.GetAddress().Address)
+		pool.items[id] = conn
+	}
+
+	pool.mu.Unlock()
+
+	return conn
+}
+

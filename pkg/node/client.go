@@ -18,10 +18,15 @@ var NodeClientErr = errs.Class("node client error")
 
 // NewNodeClient instantiates a node client
 func NewNodeClient(identity *provider.FullIdentity, self pb.Node, dht dht.DHT) (Client, error) {
+	rt, err := dht.GetRoutingTable(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
 	node := &Node{
 		dht:  dht,
 		self: self,
-		pool: NewConnectionPool(identity),
+		pool: NewConnectionPool(rt.K(), identity),
 	}
 
 	node.pool.Init()
