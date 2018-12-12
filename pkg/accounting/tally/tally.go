@@ -73,29 +73,41 @@ func (t *tally) Run(ctx context.Context) (err error) {
 func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	t.logger.Debug("entering pointerdb iterate within identifyActiveNodes")
-	var nodeData = make(map[string]int64)
+	var nodeData = make(map[storj.NodeID]int64)
 	err = t.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
-			lim := t.limit
-			if lim <= 0 || lim > storage.LookupLimit {
-				lim = storage.LookupLimit
-			}
-			for ; lim > 0 && it.Next(&item); lim-- {
+			for it.Next(&item) {
 				pointer := &pb.Pointer{}
 				err = proto.Unmarshal(item.Value, pointer)
 				if err != nil {
 					return Error.Wrap(err)
 				}
-				pieces := pointer.Remote.RemotePieces
-				var nodeIDs storj.NodeIDList
-				for _, p := range pieces {
-					nodeIDs = append(nodeIDs, p.NodeId)
+				remote := pointer.GetRemote()
+				if remote == nil {
+					t.logger.Debug("no remote segment on pointer")
+					continue
 				}
-				nodeData, err = t.calculate(ctx, pointer, nodeIDs)
-				if err != nil {
-					return Error.Wrap(err)
+				pieces := remote.GetRemotePieces()
+				if pieces == nil {
+					t.logger.Debug("no pieces on remote segment")
+					continue
 				}
+				segmentSize := pointer.GetSegmentSize()
+				redundancy := remote.GetRedundancy()
+				if redundancy == nil {
+					t.logger.Debug("no redundancy scheme present")
+					continue
+				}
+				minReq := redundancy.GetMinReq()
+				if minReq <= 0 {
+					t.logger.Debug("pointer minReq must be an int greater than 0")
+					continue
+				}
+				pieceSize := segmentSize / int64(minReq)
+				for _, piece := range pieces {
+                    nodeData[piece.NodeId] += pieceSize
+                }
 			}
 			return nil
 		},
@@ -103,33 +115,7 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 	return t.updateRawTable(ctx, nodeData)
 }
 
-func (t *tally) calculate(ctx context.Context, pointer *pb.Pointer, nodeIDs storj.NodeIDList) (nodeData map[string]int64, err error) {
-	t.logger.Debug("entering categorize and calculate")
-	nodeData = make(map[string]int64)
-	
-	segmentSize := pointer.GetSegmentSize()
-	minReq := pointer.Remote.Redundancy.GetMinReq()
-	if minReq <= 0 {
-		return nodeData, Error.New("minReq must be an int greater than 0")
-	}
-	pieceSize := segmentSize / int64(minReq)
-
-	responses, err := t.overlay.BulkLookup(ctx, pb.NodeIDsToLookupRequests(nodeIDs))
-	if err != nil {
-		return nodeData, Error.Wrap(err)
-	}
-	nodes := pb.LookupResponsesToNodes(responses)
-	for i, n := range nodes {
-		if n != nil {
-			nodeData[n.Id.String()] += pieceSize
-		} else {
-			nodeData[nodeIDs[i].String()] = 0
-		}
-	}
-	return nodeData, nil
-}
-
-func (t *tally) updateRawTable(ctx context.Context, nodeData map[string]int64) error {
+func (t *tally) updateRawTable(ctx context.Context, nodeData map[storj.NodeID]int64) error {
 	t.logger.Debug("entering updateRawTable")
 	//TODO
 	return nil
