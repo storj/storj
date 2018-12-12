@@ -52,12 +52,10 @@ var (
 		Storage  psserver.Config
 	}
 	setupCfg struct {
-		Dir      string `default:"$CONFDIR" help:"main directory for configuration"`
 		CA       provider.CASetupConfig
 		Identity provider.IdentitySetupConfig
 	}
 	diagCfg struct {
-		Dir string `default:"$CONFDIR" help:"main directory for configuration"`
 	}
 
 	defaultConfDir string
@@ -74,6 +72,7 @@ func init() {
 	}
 
 	confDir = rootCmd.PersistentFlags().String("dir", defaultConfDir, "main directory for storagenode configuration")
+	runCmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
@@ -115,12 +114,11 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"storage.path":       filepath.Join(setupDir, "storage"),
 	}
 
-	return process.SaveConfig(runCmd.Flags(),
-		filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfig(runCmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
-	diagDir, err := filepath.Abs(diagCfg.Dir)
+	diagDir, err := filepath.Abs(*confDir)
 	if err != nil {
 		return err
 	}
@@ -211,7 +209,5 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 }
 
 func main() {
-	runCmd.Flags().String("config",
-		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	process.Exec(rootCmd)
 }
