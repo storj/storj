@@ -120,7 +120,7 @@ func (node *Node) Shutdown() error {
 }
 
 // NewNodeClient creates a node client for this node
-func (n *Node) NewNodeClient() (node.Client, error) {
+func (n *Node) NewNodeClient() (node.Client, error) { //nolint renaming to node would conflict with package name; rename Node to Peer to resolve
 	// TODO: handle disconnect verification
 	return node.NewNodeClient(n.Identity, n.Info, n.Kademlia)
 }
