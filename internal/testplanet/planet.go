@@ -190,7 +190,8 @@ func (planet *Planet) Start(ctx context.Context) {
 	planet.started = true
 }
 
-func (planet *Planet) NetworkSize() int { return len(planet.nodes) }
+// Size returns number of nodes in the network
+func (planet *Planet) Size() int { return len(planet.nodes) }
 
 // Shutdown shuts down all the nodes and deletes temporary directories.
 func (planet *Planet) Shutdown() error {

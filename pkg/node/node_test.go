@@ -4,7 +4,6 @@
 package node_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -13,15 +12,9 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
-)
-
-var (
-	ctx     = context.Background()
-	helloID = teststorj.NodeIDFromString("hello")
 )
 
 func TestClient(t *testing.T) {
@@ -76,8 +69,9 @@ func TestClient(t *testing.T) {
 						continue
 					}
 
-					if len(results) != planet.NetworkSize() {
-						return fmt.Errorf("expected %d got %d: %s", planet.NetworkSize(), len(results), pb.NodesToIDs(results))
+					// with small network we expect to return everything
+					if len(results) != planet.Size() {
+						return fmt.Errorf("expected %d got %d: %s", planet.Size(), len(results), pb.NodesToIDs(results))
 					}
 
 					return nil
