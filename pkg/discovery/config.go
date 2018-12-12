@@ -55,11 +55,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return err
 	}
 
-	err = discovery.Refresh(ctx)
-	if err != nil {
-		return err
-	}
-
 	ticker := time.NewTicker(c.RefreshInterval)
 	defer ticker.Stop()
 

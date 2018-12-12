@@ -45,13 +45,6 @@ func (d *Discovery) Refresh(ctx context.Context) error {
 
 // Bootstrap walks the initialized network and populates the cache
 func (d *Discovery) Bootstrap(ctx context.Context) error {
-	nodes := d.kad.Seen()
-
-	for _, node := range nodes {
-		if err := d.cache.Put(ctx, node.Id, *node); err != nil {
-			return err
-		}
-	}
 	// o := overlay.LoadFromContext(ctx)
 	// kad := kademlia.LoadFromContext(ctx)
 	// TODO(coyle): make Bootstrap work
