@@ -384,23 +384,6 @@ func TestRevocationDB_Put(t *testing.T) {
 		t.FailNow()
 	}
 
-	check := func(t2 *testing.T, ext pkix.Extension) {
-		caHash, err := hashBytes(chain[1].Raw)
-		if !assert.NoError(t2, err) {
-			t2.FailNow()
-		}
-
-		revBytes, err := revDB.DB.Get(caHash)
-		if !assert.NoError(t2, err) {
-			t2.FailNow()
-		}
-
-		rev := new(Revocation)
-		err = rev.Unmarshal(revBytes)
-		assert.NoError(t2, err)
-		assert.True(t2, bytes.Equal(ext.Value, revBytes))
-	}
-
 	cases := []struct {
 		testID   string
 		ext      pkix.Extension
@@ -446,7 +429,22 @@ func TestRevocationDB_Put(t *testing.T) {
 					t2.Fail()
 					t.FailNow()
 				}
-				check(t2, c.ext)
+				func(t2 *testing.T, ext pkix.Extension) {
+					caHash, err := hashBytes(chain[1].Raw)
+					if !assert.NoError(t2, err) {
+						t2.FailNow()
+					}
+
+					revBytes, err := revDB.DB.Get(caHash)
+					if !assert.NoError(t2, err) {
+						t2.FailNow()
+					}
+
+					rev := new(Revocation)
+					err = rev.Unmarshal(revBytes)
+					assert.NoError(t2, err)
+					assert.True(t2, bytes.Equal(ext.Value, revBytes))
+				}(t2, c.ext)
 			}
 		})
 	}

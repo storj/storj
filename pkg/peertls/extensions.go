@@ -211,6 +211,9 @@ func AddExtension(cert *x509.Certificate, exts ...pkix.Extension) (err error) {
 // over all the leaf cert's extensions and receiver extensions and calls
 // `extensionHandler#f` when it finds a match by id (`asn1.ObjectIdentifier`)
 func (e ExtensionHandlers) VerifyFunc() PeerCertVerificationFunc {
+	if len(e) == 0 {
+		return nil
+	}
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
 		for _, ext := range parsedChains[0][LeafIndex].Extensions {
 			for _, v := range e {

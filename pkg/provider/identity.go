@@ -9,6 +9,7 @@ import (
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -89,6 +90,7 @@ type ServerOptions struct {
 func NewServerOptions(i *FullIdentity, c ServerConfig) (*ServerOptions, error) {
 	pcvFuncs, err := c.PCVFuncs()
 	if err != nil {
+		fmt.Printf("%+v\n", errs.Wrap(err))
 		return nil, err
 	}
 
@@ -188,6 +190,33 @@ func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 	}
 
 	return PeerIdentityFromPeer(p)
+}
+
+// NodeIDFromKey hashes a publc key and creates a node ID from it
+func NodeIDFromKey(k crypto.PublicKey) (storj.NodeID, error) {
+	kb, err := x509.MarshalPKIXPublicKey(k)
+	if err != nil {
+		return storj.NodeID{}, storj.ErrNodeID.Wrap(err)
+	}
+	hash := make([]byte, len(storj.NodeID{}))
+	sha3.ShakeSum256(hash, kb)
+	return storj.NodeIDFromBytes(hash)
+}
+
+// NewFullIdentity creates a new ID for nodes with difficulty and concurrency params
+func NewFullIdentity(ctx context.Context, difficulty uint16, concurrency uint) (*FullIdentity, error) {
+	ca, err := NewCA(ctx, NewCAOptions{
+		Difficulty:  difficulty,
+		Concurrency: concurrency,
+	})
+	if err != nil {
+		return nil, err
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		return nil, err
+	}
+	return identity, err
 }
 
 // Stat returns the status of the identity cert/key files for the config
@@ -299,6 +328,7 @@ func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFun
 		[]peertls.PeerCertVerificationFunc{peertls.VerifyPeerCertChains},
 		pcvFuncs...,
 	)
+	fmt.Printf("VerifyPeerCertChains: %p\n", peertls.VerifyPeerCertChains)
 	tlsConfig := &tls.Config{
 		Certificates:       []tls.Certificate{*c},
 		InsecureSkipVerify: true,
@@ -315,7 +345,6 @@ func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFun
 // to the node with this peer identity
 // id is an optional id of the node we are dialing
 func (fi *FullIdentity) DialOption(id storj.NodeID) (grpc.DialOption, error) {
-	// TODO(coyle): add ID
 	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
 	ch = append(ch, fi.RestChainRaw()...)
 	c, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
@@ -333,33 +362,6 @@ func (fi *FullIdentity) DialOption(id storj.NodeID) (grpc.DialOption, error) {
 	}
 
 	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), nil
-}
-
-// NodeIDFromKey hashes a publc key and creates a node ID from it
-func NodeIDFromKey(k crypto.PublicKey) (storj.NodeID, error) {
-	kb, err := x509.MarshalPKIXPublicKey(k)
-	if err != nil {
-		return storj.NodeID{}, storj.ErrNodeID.Wrap(err)
-	}
-	hash := make([]byte, len(storj.NodeID{}))
-	sha3.ShakeSum256(hash, kb)
-	return storj.NodeIDFromBytes(hash)
-}
-
-// NewFullIdentity creates a new ID for nodes with difficulty and concurrency params
-func NewFullIdentity(ctx context.Context, difficulty uint16, concurrency uint) (*FullIdentity, error) {
-	ca, err := NewCA(ctx, NewCAOptions{
-		Difficulty:  difficulty,
-		Concurrency: concurrency,
-	})
-	if err != nil {
-		return nil, err
-	}
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		return nil, err
-	}
-	return identity, err
 }
 
 func (c ServerConfig) NewRevDB() (*peertls.RevocationDB, error) {
@@ -393,6 +395,13 @@ func (c ServerConfig) PCVFuncs() (pcvs []peertls.PeerCertVerificationFunc, err e
 	exts := peertls.ParseExtensions(c.Extensions, parseOpts)
 	pcvs = append(pcvs, exts.VerifyFunc())
 
+	// NB: remove nil elements
+	for i, f := range pcvs {
+		if f == nil {
+			copy(pcvs[i:], pcvs[i+1:])
+			pcvs = pcvs[:len(pcvs)-1]
+		}
+	}
 	return pcvs, nil
 }
 
