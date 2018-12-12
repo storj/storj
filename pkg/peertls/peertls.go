@@ -222,8 +222,8 @@ func VerifyUnrevokedChainFunc(revDB *RevocationDB) PeerCertVerificationFunc {
 			return nil
 		}
 
-		// if bytes.Equal(lastRev.Cert.Bytes(), ca.Raw) || bytes.Equal(lastRev.Cert.Bytes(), leaf.Raw) {
-		if bytes.Equal(lastRev.Cert, ca.Raw) || bytes.Equal(lastRev.Cert, leaf.Raw) {
+		// if bytes.Equal(lastRev.CertHash.Bytes(), ca.Raw) || bytes.Equal(lastRev.CertHash.Bytes(), leaf.Raw) {
+		if bytes.Equal(lastRev.CertHash, ca.Raw) || bytes.Equal(lastRev.CertHash, leaf.Raw) {
 			lastRevErr := lastRev.Verify(ca)
 			if lastRevErr != nil {
 				return ErrExtension.Wrap(lastRevErr)

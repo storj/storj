@@ -203,12 +203,17 @@ func TestSignLeafExt(t *testing.T) {
 func TestRevocation_Sign(t *testing.T) {
 	keys, chain, err := newCertChain(2)
 	assert.NoError(t, err)
+	leafCert, caKey := chain[0], keys[0]
+
+	leafHash, err := hashBytes(leafCert.Raw)
+	assert.NoError(t, err)
 
 	rev := Revocation{
 		Timestamp: time.Now().Unix(),
-		Cert:      make([]byte, len(chain[0].Raw)),
+		CertHash:  make([]byte, len(leafHash)),
 	}
-	err = rev.Sign(keys[0])
+	copy(rev.CertHash, leafHash)
+	err = rev.Sign(caKey)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, rev.Signature)
 }
@@ -216,28 +221,38 @@ func TestRevocation_Sign(t *testing.T) {
 func TestRevocation_Verify(t *testing.T) {
 	keys, chain, err := newCertChain(2)
 	assert.NoError(t, err)
+	leafCert, caCert, caKey := chain[0], chain[1], keys[0]
+
+	leafHash, err := hashBytes(leafCert.Raw)
+	assert.NoError(t, err)
 
 	rev := Revocation{
 		Timestamp: time.Now().Unix(),
-		Cert:      make([]byte, len(chain[0].Raw)),
+		CertHash:  make([]byte, len(leafHash)),
 	}
-	err = rev.Sign(keys[0])
+	copy(rev.CertHash, leafHash)
+	err = rev.Sign(caKey)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, rev.Signature)
 
-	err = rev.Verify(chain[1])
+	err = rev.Verify(caCert)
 	assert.NoError(t, err)
 }
 
 func TestRevocation_Marshal(t *testing.T) {
 	keys, chain, err := newCertChain(2)
 	assert.NoError(t, err)
+	leafCert, caKey := chain[0], keys[0]
+
+	leafHash, err := hashBytes(leafCert.Raw)
+	assert.NoError(t, err)
 
 	rev := Revocation{
 		Timestamp: time.Now().Unix(),
-		Cert:      make([]byte, len(chain[0].Raw)),
+		CertHash:  make([]byte, len(leafHash)),
 	}
-	err = rev.Sign(keys[0])
+	copy(rev.CertHash, leafHash)
+	err = rev.Sign(caKey)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, rev.Signature)
 
@@ -255,12 +270,17 @@ func TestRevocation_Marshal(t *testing.T) {
 func TestRevocation_Unmarshal(t *testing.T) {
 	keys, chain, err := newCertChain(2)
 	assert.NoError(t, err)
+	leafCert, caKey := chain[0], keys[0]
+
+	leafHash, err := hashBytes(leafCert.Raw)
+	assert.NoError(t, err)
 
 	rev := Revocation{
 		Timestamp: time.Now().Unix(),
-		Cert:      make([]byte, len(chain[0].Raw)),
+		CertHash:  make([]byte, len(leafHash)),
 	}
-	err = rev.Sign(keys[0])
+	copy(rev.CertHash, leafHash)
+	err = rev.Sign(caKey)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, rev.Signature)
 
@@ -450,6 +470,7 @@ func TestParseExtensions(t *testing.T) {
 	if err != nil {
 		t.FailNow()
 	}
+
 	defer os.RemoveAll(tmp)
 	revDB, err := NewRevocationDBBolt(filepath.Join(tmp, "revocations.db"))
 	assert.NoError(t, err)
@@ -494,54 +515,51 @@ func TestParseExtensions(t *testing.T) {
 			nil,
 			nil,
 		},
-		// {
-		// 	"certificate revocation - multiple, serial revocations",
-		// 	TLSExtConfig{Revocation: true},
-		// 	func() []*x509.Certificate {
-		// 		rev := new(Revocation)
-		// 		err = rev.Unmarshal(revokedLeafChain[0].ExtraExtensions[0].Value)
-		// 		testpeertls.PrintJson(rev, "rev1")
-		// 		assert.NoError(t, err)
+		{
+			"certificate revocation - multiple, serial revocations",
+			TLSExtConfig{Revocation: true},
+			func() []*x509.Certificate {
+				rev := new(Revocation)
+				err = rev.Unmarshal(revokedLeafChain[0].ExtraExtensions[0].Value)
+				assert.NoError(t, err)
+
+				time.Sleep(1 * time.Second)
+				_, chain, err := revokeLeaf(revokedLeafKeys, revokedLeafChain)
+				assert.NoError(t, err)
+
+				err = rev.Unmarshal(chain[0].ExtraExtensions[0].Value)
+				assert.NoError(t, err)
+
+				return chain
+			}(),
+			nil,
+			nil,
+			nil,
+		},
+		// TODO: test multiple simultaneous extensions
+		// TODO:
+		// 	{
+		// 		"certificate revocation - error (older timestamp)",
+		// 		TLSExtConfig{Revocation: true},
+		// 		func() []*x509.Certificate {
+		// 			rev := new(Revocation)
+		// 			err = rev.Unmarshal(revokedLeafChain[0].ExtraExtensions[0].Value)
+		// 			assert.NoError(t, err)
 		//
-		// 		time.Sleep(1 * time.Second)
-		// 		_, chain, err := revokeLeaf(revokedLeafKeys, revokedLeafChain)
-		// 		assert.NoError(t, err)
+		// 			time.Sleep(1 * time.Second)
+		// 			_, chain, err := revokeLeaf(revokedLeafKeys, revokedLeafChain)
+		// 			assert.NoError(t, err)
 		//
-		// 		err = rev.Unmarshal(chain[0].ExtraExtensions[0].Value)
-		// 		testpeertls.PrintJson(rev, "rev2")
-		// 		assert.NoError(t, err)
+		// 			err = rev.Unmarshal(chain[0].ExtraExtensions[0].Value)
+		// 			assert.NoError(t, err)
 		//
-		// 		// err = revDB.Put(revokedLeafChain, chain[0].ExtraExtensions[0])
-		// 		return chain
-		// 	}(),
-		// 	nil,
-		// 	nil,
-		// 	nil,
-		// },
-		// {
-		// 	"certificate revocation - error (older timestamp)",
-		// 	TLSExtConfig{Revocation: true},
-		// 	func() []*x509.Certificate {
-		// 		rev := new(Revocation)
-		// 		err = rev.Unmarshal(revokedLeafChain[0].ExtraExtensions[0].Value)
-		// 		testpeertls.PrintJson(rev, "rev1")
-		// 		assert.NoError(t, err)
-		//
-		// 		time.Sleep(1 * time.Second)
-		// 		_, chain, err := revokeLeaf(revokedLeafKeys, revokedLeafChain)
-		// 		assert.NoError(t, err)
-		//
-		// 		err = rev.Unmarshal(chain[0].ExtraExtensions[0].Value)
-		// 		testpeertls.PrintJson(rev, "rev2")
-		// 		assert.NoError(t, err)
-		//
-		// 		// err = revDB.Put(revokedLeafChain, chain[0].ExtraExtensions[0])
-		// 		return chain
-		// 	}(),
-		// 	nil,
-		// 	nil,
-		// 	nil,
-		// },
+		// 			err = revDB.Put(revokedLeafChain, chain[0].ExtraExtensions[0])
+		// 			return chain
+		// 		}(),
+		// 		nil,
+		// 		&ErrExtension,
+		// 		ErrRevocationTimestamp,
+		// 	},
 	}
 
 	for _, c := range cases {
@@ -624,8 +642,7 @@ func revokeLeaf(keys []crypto.PrivateKey, chain []*x509.Certificate) ([]crypto.P
 		return nil, nil, err
 	}
 
-	chain[0] = revokingCert
-	return keys, chain, nil
+	return keys, append([]*x509.Certificate{revokingCert}, chain[1:]...), nil
 }
 
 func newRevokedLeafChain() ([]crypto.PrivateKey, []*x509.Certificate, error) {

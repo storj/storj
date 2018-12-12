@@ -15,7 +15,6 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/testpeertls"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -80,7 +79,7 @@ type ParseExtOptions struct {
 
 type Revocation struct {
 	Timestamp int64
-	Cert      []byte
+	CertHash  []byte
 	Signature []byte
 }
 
@@ -137,11 +136,15 @@ func NewRevocationDBRedis(address string) (*RevocationDB, error) {
 func NewRevocationExt(key crypto.PrivateKey, revokedCert *x509.Certificate) (pkix.Extension, error) {
 	nowUnix := time.Now().Unix()
 
+	hash, err := hashBytes(revokedCert.Raw)
+	if err != nil {
+		return pkix.Extension{}, err
+	}
 	rev := Revocation{
 		Timestamp: nowUnix,
-		Cert:      make([]byte, len(revokedCert.Raw)),
+		CertHash:  make([]byte, len(hash)),
 	}
-	copy(rev.Cert, revokedCert.Raw)
+	copy(rev.CertHash, hash)
 
 	if err := rev.Sign(key); err != nil {
 		return pkix.Extension{}, err
@@ -209,7 +212,7 @@ func AddExtension(cert *x509.Certificate, exts ...pkix.Extension) (err error) {
 // `extensionHandler#f` when it finds a match by id (`asn1.ObjectIdentifier`)
 func (e ExtensionHandlers) VerifyFunc() PeerCertVerificationFunc {
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
-		for _, ext := range parsedChains[0][0].Extensions {
+		for _, ext := range parsedChains[0][LeafIndex].Extensions {
 			for _, v := range e {
 				if v.id.Equal(ext.Id) {
 					err := v.f(ext, parsedChains)
@@ -261,8 +264,6 @@ func (r RevocationDB) Put(chain []*x509.Certificate, revExt pkix.Extension) erro
 	if err != nil {
 		return err
 	} else if lastRev != nil && lastRev.Timestamp >= rev.Timestamp {
-		testpeertls.PrintJson(lastRev, "lastRev")
-		testpeertls.PrintJson(rev, "rev")
 		return ErrRevocationTimestamp
 	}
 
@@ -291,8 +292,9 @@ func (r Revocation) Verify(signingCert *x509.Certificate) error {
 }
 
 func (r *Revocation) TBSBytes() ([]byte, error) {
+
 	toHash := new(bytes.Buffer)
-	_, err := toHash.Write(r.Cert)
+	_, err := toHash.Write(r.CertHash)
 	if err != nil {
 		return nil, ErrExtension.Wrap(err)
 	}
