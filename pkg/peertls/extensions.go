@@ -68,8 +68,8 @@ type ExtensionHandlers []extensionHandler
 type extensionVerificationFunc func(pkix.Extension, [][]*x509.Certificate) error
 
 type extensionHandler struct {
-	id asn1.ObjectIdentifier
-	f  extensionVerificationFunc
+	id     asn1.ObjectIdentifier
+	verify extensionVerificationFunc
 }
 
 type ParseExtOptions struct {
@@ -88,20 +88,20 @@ type RevocationDB struct {
 }
 
 // ParseExtensions parses an extension config into a slice of extension handlers
-// with their respective ids (`asn1.ObjectIdentifier`) and a function (`f`) which
-// can be used in the context of peer certificate verification.
-func ParseExtensions(c TLSExtConfig, opts ParseExtOptions) (exts ExtensionHandlers) {
+// with their respective ids (`asn1.ObjectIdentifier`) and a "verify" function
+// to be used in the context of peer certificate verification.
+func ParseExtensions(c TLSExtConfig, opts ParseExtOptions) (handlers ExtensionHandlers) {
 	if c.WhitelistSignedLeaf {
-		exts = append(exts, extensionHandler{
-			id: ExtensionIDs[SignedCertExtID],
-			f:  verifyCAWhitelistSignedLeafFunc(opts.CAWhitelist),
+		handlers = append(handlers, extensionHandler{
+			id:     ExtensionIDs[SignedCertExtID],
+			verify: verifyCAWhitelistSignedLeafFunc(opts.CAWhitelist),
 		})
 	}
 
 	if c.Revocation {
-		exts = append(exts, extensionHandler{
+		handlers = append(handlers, extensionHandler{
 			id: ExtensionIDs[RevocationExtID],
-			f: func(certExt pkix.Extension, chains [][]*x509.Certificate) error {
+			verify: func(certExt pkix.Extension, chains [][]*x509.Certificate) error {
 				if err := opts.RevDB.Put(chains[0], certExt); err != nil {
 					return err
 				}
@@ -110,7 +110,7 @@ func ParseExtensions(c TLSExtConfig, opts ParseExtOptions) (exts ExtensionHandle
 		})
 	}
 
-	return exts
+	return handlers
 }
 
 func NewRevocationDBBolt(path string) (*RevocationDB, error) {
@@ -209,19 +209,22 @@ func AddExtension(cert *x509.Certificate, exts ...pkix.Extension) (err error) {
 
 // VerifyFunc returns a peer certificate verification function which iterates
 // over all the leaf cert's extensions and receiver extensions and calls
-// `extensionHandler#f` when it finds a match by id (`asn1.ObjectIdentifier`)
+// `extensionHandler#verify` when it finds a match by id (`asn1.ObjectIdentifier`)
 func (e ExtensionHandlers) VerifyFunc() PeerCertVerificationFunc {
 	if len(e) == 0 {
 		return nil
 	}
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
+		leafExts := make(map[string]pkix.Extension)
 		for _, ext := range parsedChains[0][LeafIndex].Extensions {
-			for _, v := range e {
-				if v.id.Equal(ext.Id) {
-					err := v.f(ext, parsedChains)
-					if err != nil {
-						return ErrExtension.Wrap(err)
-					}
+			leafExts[ext.Id.String()] = ext
+		}
+
+		for _, handler := range e {
+			if ext, ok := leafExts[handler.id.String()]; ok {
+				err := handler.verify(ext, parsedChains)
+				if err != nil {
+					return ErrExtension.Wrap(err)
 				}
 			}
 		}
@@ -271,6 +274,9 @@ func (r RevocationDB) Put(chain []*x509.Certificate, revExt pkix.Extension) erro
 	}
 
 	hash, err := hashBytes(ca.Raw)
+	if err != nil {
+		return err
+	}
 	if err := r.DB.Put(hash, revExt.Value); err != nil {
 		return err
 	}

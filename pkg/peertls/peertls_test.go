@@ -570,7 +570,7 @@ func TestParseExtensions(t *testing.T) {
 			exts := ParseExtensions(c.config, opts)
 			assert.Equal(t, 1, len(exts))
 			for _, e := range exts {
-				err := e.f(c.certChain[0].ExtraExtensions[0], [][]*x509.Certificate{c.certChain})
+				err := e.verify(c.certChain[0].ExtraExtensions[0], [][]*x509.Certificate{c.certChain})
 				if c.errClass != nil {
 					assert.True(t, c.errClass.Has(err))
 				}

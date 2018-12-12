@@ -98,7 +98,7 @@ func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
 	}
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
 		for _, ca := range cas {
-			err := verifyCertSignature(ca, parsedChains[0][1])
+			err := verifyCertSignature(ca, parsedChains[0][CAIndex])
 			if err == nil {
 				return nil
 			}
@@ -222,7 +222,6 @@ func VerifyUnrevokedChainFunc(revDB *RevocationDB) PeerCertVerificationFunc {
 			return nil
 		}
 
-		// if bytes.Equal(lastRev.CertHash.Bytes(), ca.Raw) || bytes.Equal(lastRev.CertHash.Bytes(), leaf.Raw) {
 		if bytes.Equal(lastRev.CertHash, ca.Raw) || bytes.Equal(lastRev.CertHash, leaf.Raw) {
 			lastRevErr := lastRev.Verify(ca)
 			if lastRevErr != nil {

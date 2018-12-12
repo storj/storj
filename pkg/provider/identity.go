@@ -72,11 +72,12 @@ type IdentityConfig struct {
 
 // ServerConfig holds server specific configuration parameters
 type ServerConfig struct {
-	RevocationDBPath         string `help:"path to the revocation database file" default:"$CONFDIR/revocations.db"`
-	RevocationDBRedisAddress string `help:"connection string for revocation redis database; overrides RevocationDBPath (e.g. redis://127.0.0.1:6378?db=2&password=abc123)"`
-	PeerCAWhitelistPath      string `help:"path to the CA cert whitelist (peer identities must be signed by one these to be verified)"`
-	Address                  string `help:"address to listen on" default:":7777"`
-	Extensions               peertls.TLSExtConfig
+	// TODO: maybe combine these and switch stores based on url protocol (e.g. `redis://` vs `bolt://`)
+	RevocationDBPath      string `help:"path to the revocation database file" default:"$CONFDIR/revocations.db"`
+	RevocationDBRedisAddr string `help:"connection string for revocation redis database; overrides RevocationDBPath (e.g. redis://127.0.0.1:6378?db=2&password=abc123)"`
+	PeerCAWhitelistPath   string `help:"path to the CA cert whitelist (peer identities must be signed by one these to be verified)"`
+	Address               string `help:"address to listen on" default:":7777"`
+	Extensions            peertls.TLSExtConfig
 }
 
 // ServerOptions holds config, identity, and peer verification function data for use with a grpc server.
@@ -365,8 +366,9 @@ func (fi *FullIdentity) DialOption(id storj.NodeID) (grpc.DialOption, error) {
 }
 
 func (c ServerConfig) NewRevDB() (*peertls.RevocationDB, error) {
-	if c.RevocationDBRedisAddress != "" {
-		return peertls.NewRevocationDBRedis(c.RevocationDBRedisAddress)
+	// TODO: maybe switch stores based on protocol of one url field instead (e.g. `redis://` vs `bolt://`)
+	if c.RevocationDBRedisAddr != "" {
+		return peertls.NewRevocationDBRedis(c.RevocationDBRedisAddr)
 	}
 	return peertls.NewRevocationDBBolt(c.RevocationDBPath)
 }
