@@ -10,6 +10,7 @@ import Dashboard from '@/views/Dashboard.vue';
 import AccountArea from '@/components/dashboard/account/AccountArea.vue';
 import ProjectDetails from '@/components/projectDetails/ProjectDetailsArea.vue';
 import TeamArea from '@/components/team/TeamArea.vue';
+import Page404 from '@/components/errors/Page404.vue';
 import { getToken } from "@/utils/tokenManager";
 
 Vue.use(Router);
@@ -48,6 +49,11 @@ let router = new Router({
 					component: TeamArea
 				}
 			]
+		},
+		{
+			path: '*',
+			name: '404',
+			component: Page404
 		}
   	]
 });
