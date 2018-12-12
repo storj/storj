@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/statdb"
 )
@@ -31,7 +30,7 @@ func TestRun(t *testing.T) {
 	// run with nil, pass pointer to Kademlia in context
 	err = Config{}.Run(ctx, nil)
 	assert.Error(t, err)
-	assert.Equal(t, "overlay error: database scheme not supported: ", err.Error())
+	assert.Equal(t, "overlay error: Could not parse DB URL ", err.Error())
 
 	// db scheme redis conn fail
 	err = Config{DatabaseURL: "redis://somedir/overlay.db/?db=1"}.Run(ctx, nil)
