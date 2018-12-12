@@ -15,13 +15,13 @@
                     label="Cancel" 
                     width="140px" 
                     height="58px" 
-                    :onPress="onCancelProjectMembersButtonClick"
+                    :onPress="onClearSelection"
                     isWhite />
                 <Button 
                     label="Delete" 
                     width="140px" 
                     height="58px" 
-                    :onPress="onDeleteProjectMembersButtonClick" />
+                    :onPress="onDelete" />
             </div>
         </div>
     </div>
@@ -33,7 +33,7 @@ import Button from '@/components/common/Button.vue';
 
 @Component({
     methods: {
-    	onDeleteProjectMembersButtonClick: async function () {
+    	onDelete: async function () {
     		const projectMemberIds = this.$store.getters.selectedProjectMembers.map((member:TeamMemberModel) => {
     			return member.user.id;
             });
@@ -44,7 +44,7 @@ import Button from '@/components/common/Button.vue';
     			console.error("Error while deleting users from team");
             }
 		},
-        onCancelProjectMembersButtonClick: async function () {
+        onClearSelection: function () {
     		this.$store.dispatch("clearProjectMemberSelection");
 		}
 

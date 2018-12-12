@@ -39,7 +39,8 @@ import ProjectSelectionDropdown from "./ProjectSelectionDropdown.vue"
 					const isFetchProjectMemberSuccess = await this.$store.dispatch("fetchProjectMembers");
 
 					if(!isFetchProjectMemberSuccess) {
-						console.log("Unable to fetch project members");
+						// TODO: Replace with popup
+						console.error("Unable to fetch project members");
                     }
                 }
 
