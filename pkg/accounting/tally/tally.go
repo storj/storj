@@ -98,9 +98,7 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 				if err != nil {
 					return Error.Wrap(err)
 				}
-				if pointer.Remote == nil {
-					t.logger.Warn("MISSING pointer.Remote")
-				} else {
+				if pointer.Remote != nil {
 					pieces := pointer.Remote.RemotePieces
 					var nodeIDs storj.NodeIDList
 					for _, p := range pieces {
