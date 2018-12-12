@@ -60,7 +60,7 @@ func (planet *Planet) newNode(name string, nodeType pb.NodeType) (*Node, error) 
 		Listener: listener,
 	}
 
-	node.Log.Debug(identity.ID.String())
+	node.Log.Debug("id=" + identity.ID.String())
 
 	node.Transport = transport.NewClient(identity)
 

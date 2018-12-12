@@ -81,6 +81,28 @@ func TestClient(t *testing.T) {
 		}
 	}
 
+	{ // Lookup
+		client, err := planet.StorageNodes[2].NewNodeClient()
+		assert.NoError(t, err)
+		defer ctx.Check(client.Disconnect)
+
+		for i := range peers {
+			peer := peers[i]
+			ctx.Go(func() error {
+				results, err := client.Lookup(ctx, peer.Info, pb.Node{Id: storj.NodeID{}})
+				if err != nil {
+					return err
+				}
+
+				// with small network we expect to return everything
+				if len(results) != planet.Size() {
+					return fmt.Errorf("expected %d got %d: %s", planet.Size(), len(results), pb.NodesToIDs(results))
+				}
+
+				return nil
+			})
+		}
+	}
 }
 
 func containsResult(nodes []*pb.Node, target storj.NodeID) bool {
