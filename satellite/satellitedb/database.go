@@ -23,8 +23,8 @@ type DB struct {
 	db *dbx.DB
 }
 
-// NewDB creates instance of database (supports: postgres, sqlite3)
-func NewDB(databaseURL string) (*DB, error) {
+// New creates instance of satellite database (supports: postgres, sqlite3)
+func New(databaseURL string) (*DB, error) {
 	dbURL, err := utils.ParseURL(databaseURL)
 	if err != nil {
 		return nil, err
@@ -40,6 +40,11 @@ func NewDB(databaseURL string) (*DB, error) {
 	}
 
 	return &DB{db: db}, nil
+}
+
+// NewInMemory creates instance of Sqlite in memory satellite database
+func NewInMemory() (*DB, error) {
+	return New("sqlite3://file::memory:?mode=memory&cache=shared")
 }
 
 // BandwidthAgreement is a getter for bandwidth agreement repository

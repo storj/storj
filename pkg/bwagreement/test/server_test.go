@@ -20,7 +20,7 @@ import (
 )
 
 func TestBandwidthAgreements(t *testing.T) {
-	satellitedbtest.Run(t, func(db *satellitedb.DB) {
+	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 

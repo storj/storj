@@ -33,7 +33,7 @@ type Config struct {
 	DatabaseURL          string `help:"the database connection string to use" default:"bolt://$CONFDIR/pointerdb.db"`
 	MinRemoteSegmentSize int    `default:"1240" help:"minimum remote segment size"`
 	MaxInlineSegmentSize int    `default:"8000" help:"maximum inline segment size"`
-	Overlay              bool   `default:"false" help:"toggle flag if overlay is enabled"`
+	Overlay              bool   `default:"true" help:"toggle flag if overlay is enabled"`
 }
 
 func newKeyValueStore(dbURLString string) (db storage.KeyValueStore, err error) {
