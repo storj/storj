@@ -74,3 +74,37 @@ func TestBind(t *testing.T) {
 	assertEqual(c.Fields[0].AnotherInt, int(0))
 	assertEqual(c.Fields[3].AnotherInt, int(1))
 }
+
+func TestConfDir(t *testing.T) {
+	f := flag.NewFlagSet("test", flag.PanicOnError)
+	var c struct {
+		String    string `default:"-$CONFDIR+"`
+		MyStruct1 struct {
+			String    string `default:"1${CONFDIR}2"`
+			MyStruct2 struct {
+				String string `default:"2${CONFDIR}3"`
+			}
+		}
+	}
+	Bind(f, &c, ConfDir("confpath"))
+	assertEqual(f.Lookup("string").DefValue, "-confpath+")
+	assertEqual(f.Lookup("my-struct1.string").DefValue, "1confpath2")
+	assertEqual(f.Lookup("my-struct1.my-struct2.string").DefValue, "2confpath3")
+}
+
+func TestNesting(t *testing.T) {
+	f := flag.NewFlagSet("test", flag.PanicOnError)
+	var c struct {
+		String    string `default:"-$CONFDIR+"`
+		MyStruct1 struct {
+			String    string `default:"1${CONFDIR}2"`
+			MyStruct2 struct {
+				String string `default:"2${CONFDIR}3"`
+			}
+		}
+	}
+	Bind(f, &c, ConfDirNested("confpath"))
+	assertEqual(f.Lookup("string").DefValue, "-confpath+")
+	assertEqual(f.Lookup("my-struct1.string").DefValue, "1confpath/my-struct12")
+	assertEqual(f.Lookup("my-struct1.my-struct2.string").DefValue, "2confpath/my-struct1/my-struct23")
+}

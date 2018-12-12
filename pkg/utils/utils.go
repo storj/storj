@@ -50,18 +50,9 @@ func ParseURL(s string) (*url.URL, error) {
 
 // CombineErrors combines multiple errors to a single error
 func CombineErrors(errs ...error) error {
-	var errlist combinedError
-	for _, err := range errs {
-		if err != nil {
-			errlist = append(errlist, err)
-		}
-	}
-	if len(errlist) == 0 {
-		return nil
-	} else if len(errlist) == 1 {
-		return errlist[0]
-	}
-	return errlist
+	var errlist ErrorGroup
+	errlist.Add(errs...)
+	return errlist.Finish()
 }
 
 type combinedError []error
@@ -86,6 +77,31 @@ func (errs combinedError) Error() string {
 		return allErrors
 	}
 	return ""
+}
+
+// ErrorGroup contains a set of non-nil errors
+type ErrorGroup []error
+
+// Add adds an error to the ErrorGroup if it is non-nil
+func (e *ErrorGroup) Add(errs ...error) {
+	for _, err := range errs {
+		if err != nil {
+			*e = append(*e, err)
+		}
+	}
+}
+
+// Finish returns nil if there were no non-nil errors, the first error if there
+// was only one non-nil error, or the result of CombineErrors if there was more
+// than one non-nil error.
+func (e ErrorGroup) Finish() error {
+	if len(e) == 0 {
+		return nil
+	}
+	if len(e) == 1 {
+		return e[0]
+	}
+	return combinedError(e)
 }
 
 // CollectErrors returns first error from channel and all errors that happen within duration

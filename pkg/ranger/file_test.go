@@ -8,23 +8,15 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
+
+	"storj.io/storj/internal/testcontext"
 )
 
 func TestFileRanger(t *testing.T) {
-	tempdir, err := ioutil.TempDir("", "storj-fileranger")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		err := os.RemoveAll(tempdir)
-		if err != nil {
-			_ = err // TODO: figure out what is holding the folder open
-			// t.Fatal(err)
-		}
-	}()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
 	for i, example := range []struct {
 		data                 string
@@ -45,7 +37,7 @@ func TestFileRanger(t *testing.T) {
 		{"abcdef", 6, -1, 7, "abcde", true},
 		{"abcdef", 6, 0, -1, "abcde", true},
 	} {
-		fh, err := os.Create(filepath.Join(tempdir, "test"+strconv.Itoa(i)))
+		fh, err := os.Create(ctx.File(strconv.Itoa(i)))
 		if err != nil {
 			t.Fatalf("failed making tempfile")
 		}

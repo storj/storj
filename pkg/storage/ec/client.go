@@ -62,8 +62,13 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodes) != rs.TotalCount() {
-		return nil, Error.New("number of nodes (%d) do not match total count (%d) of erasure scheme", len(nodes), rs.TotalCount())
+		return nil, Error.New("size of nodes slice (%d) does not match total count (%d) of erasure scheme", len(nodes), rs.TotalCount())
 	}
+
+	if nonNilCount(nodes) < rs.RepairThreshold() {
+		return nil, Error.New("number of non-nil nodes (%d) is less than repair threshold (%d) of erasure scheme", nonNilCount(nodes), rs.RepairThreshold())
+	}
+
 	if !unique(nodes) {
 		return nil, Error.New("duplicated nodes are not allowed")
 	}
@@ -149,9 +154,12 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 	pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	validNodeCount := validCount(nodes)
-	if validNodeCount < es.RequiredCount() {
-		return nil, Error.New("number of nodes (%v) do not match minimum required count (%v) of erasure scheme", len(nodes), es.RequiredCount())
+	if len(nodes) != es.TotalCount() {
+		return nil, Error.New("size of nodes slice (%d) does not match total count (%d) of erasure scheme", len(nodes), es.TotalCount())
+	}
+
+	if nonNilCount(nodes) < es.RequiredCount() {
+		return nil, Error.New("number of non-nil nodes (%d) is less than required count (%d) of erasure scheme", nonNilCount(nodes), es.RequiredCount())
 	}
 
 	paddedSize := calcPadded(size, es.StripeSize())
@@ -327,7 +335,7 @@ func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.
 	return lr.ranger.Range(ctx, offset, length)
 }
 
-func validCount(nodes []*pb.Node) int {
+func nonNilCount(nodes []*pb.Node) int {
 	total := 0
 	for _, node := range nodes {
 		if node != nil {
