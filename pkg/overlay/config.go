@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -66,16 +66,16 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return Error.New("programmer error: statdb responsibility unstarted")
 	}
 
-	dburl, err := utils.ParseURL(c.DatabaseURL)
+	driver, source, err := utils.SplitDBURL(c.DatabaseURL)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	var db storage.KeyValueStore
 
-	switch dburl.Scheme {
+	switch driver {
 	case "bolt":
-		db, err = boltdb.New(dburl.Path, OverlayBucket)
+		db, err = boltdb.New(source, OverlayBucket)
 		if err != nil {
 			return err
 		}
@@ -87,7 +87,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		}
 		zap.S().Info("Starting overlay cache with Redis")
 	default:
-		return Error.New("database scheme not supported: %s", dburl.Scheme)
+		return Error.New("database scheme not supported: %s", driver)
 	}
 
 	cache := NewOverlayCache(db, kad, sdb)

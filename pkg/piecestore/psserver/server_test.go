@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"net"
 	"os"
 	"path"
@@ -496,7 +497,13 @@ func newTestServerStruct(t *testing.T) (*Server, func()) {
 	verifier := func(authorization *pb.SignedMessage) error {
 		return nil
 	}
-	server := &Server{DataDir: tempDir, DB: psDB, verifier: verifier}
+	server := &Server{
+		DataDir:          tempDir,
+		DB:               psDB,
+		verifier:         verifier,
+		totalAllocated:   math.MaxInt64,
+		totalBwAllocated: math.MaxInt64,
+	}
 	return server, func() {
 		if serr := server.Stop(ctx); serr != nil {
 			t.Fatal(serr)

@@ -230,7 +230,7 @@
                     }
 
                     if (this.$data.repeatedPassword !== this.$data.password) {
-                        this.$data.repeatedPasswordError = "Passwords don`t match";
+                        this.$data.repeatedPasswordError = "Password doesn't match";
                         hasError = true;
                     }
 

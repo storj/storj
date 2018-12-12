@@ -69,7 +69,7 @@ matrix:
         - redis
       install:
         - source scripts/install-awscli.sh
-        - go install storj.io/storj/cmd/captplanet
+        - go install -race storj.io/storj/cmd/captplanet
       script:
         - make test-captplanet
     
