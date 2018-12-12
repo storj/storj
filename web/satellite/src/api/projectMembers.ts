@@ -7,26 +7,25 @@ import gql from "graphql-tag";
 // Performs graqhQL request.
 // Throws an exception if error occurs
 export async function addProjectMember(userID: string, projectID: string): Promise<any> {
-    let response = await apollo.mutate(
-        {
-            mutation: gql(`
+    let response = null;
+    try{
+		response = await apollo.mutate(
+			{
+				mutation: gql(`
                 mutation {
                     addProjectMember(
                         projectID: "${projectID}",
                         userID: "${userID}"
                     ) {id}
                 }`
-            ),
-            fetchPolicy: "no-cache",
-        }
-    );
-
-    if(!response){
-        // TODO: replace with popup in future
-        console.log("cannot create project");
-
-        return null;
-    }
+				),
+				fetchPolicy: "no-cache",
+			}
+		);
+    }catch (e) {
+		// TODO: replace with popup in future
+        console.error(e);
+	}
 
     return response;
 }
@@ -34,26 +33,25 @@ export async function addProjectMember(userID: string, projectID: string): Promi
 // Performs graqhQL request.
 // Throws an exception if error occurs
 export async function deleteProjectMember(userID: string, projectID: string): Promise<any> {
-    let response = await apollo.mutate(
-        {
-            mutation: gql(`
+    let response = null;
+    try {
+    	response = await apollo.mutate(
+			{
+				mutation: gql(`
                 mutation {
                     deleteProjectMember(
                         projectID: "${projectID}",
                         userID: "${userID}"
                     ) {id}
                 }`
-            ),
-            fetchPolicy: "no-cache",
-        }
-    );
-
-    if(!response){
-        // TODO: replace with popup in future
-        console.log("cannot create project");
-
-        return null;
-    }
+				),
+				fetchPolicy: "no-cache",
+			}
+		);
+	} catch (e) {
+		// TODO: replace with popup in future
+		console.error(e);
+	}
 
     return response;
 }
@@ -61,15 +59,18 @@ export async function deleteProjectMember(userID: string, projectID: string): Pr
 // Performs graqhQL request.
 // Throws an exception if error occurs
 export async function fetchProjectMembers(projectID: string): Promise<any> {
-    let response = await apollo.mutate(
-        {
-            mutation: gql(`
+    let response = null;
+    try {
+    	response = await apollo.query(
+			{
+				query: gql(`
                 query {
                     project(
                         id: "${projectID}",
                     ) {
                         members {
                             user {
+                                id,
                                 firstName,
                                 lastName,
                                 email,
@@ -81,17 +82,14 @@ export async function fetchProjectMembers(projectID: string): Promise<any> {
                         }
                     }
                 }`
-            ),
-            fetchPolicy: "no-cache",
-        }
-    );
-
-    if(!response){
-        // TODO: replace with popup in future
-        console.log("cannot create project");
-
-        return null;
-    }
+				),
+				fetchPolicy: "no-cache",
+			}
+		);
+	} catch (e) {
+		// TODO: replace with popup in future
+		console.error(e);
+	}
 
     return response;
 }

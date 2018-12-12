@@ -28,14 +28,15 @@ type Database struct {
 
 // NewDB - constructor for Database
 func NewDB(databaseURL string) (*Database, error) {
-	dbURL, err := utils.ParseURL(databaseURL)
+	driver, source, err := utils.SplitDBURL(databaseURL)
+
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
-	db, err := dbx.Open(dbURL.Scheme, dbURL.Path)
+	db, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, Error.New("failed opening database %q, %q: %v",
-			dbURL.Scheme, dbURL.Path, err)
+			driver, source, err)
 	}
 	err = migrate.Create("accounting", db)
 	if err != nil {

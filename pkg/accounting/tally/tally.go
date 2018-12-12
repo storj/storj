@@ -105,8 +105,8 @@ func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 				}
 				pieceSize := segmentSize / int64(minReq)
 				for _, piece := range pieces {
-                    nodeData[piece.NodeId] += pieceSize
-                }
+          nodeData[piece.NodeId] += pieceSize
+        }
 			}
 			return nil
 		},

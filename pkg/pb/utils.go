@@ -25,6 +25,17 @@ func LookupResponsesToNodes(responses *LookupResponses) []*Node {
 	return nodes
 }
 
+// NodesToIDs extracts Node-s into a list of ids
+func NodesToIDs(nodes []*Node) storj.NodeIDList {
+	ids := make(storj.NodeIDList, len(nodes))
+	for i, node := range nodes {
+		if node != nil {
+			ids[i] = node.Id
+		}
+	}
+	return ids
+}
+
 // CopyNode returns a deep copy of a node
 // It would be better to use `proto.Clone` but it is curently incompatible
 // with gogo's customtype extension.

@@ -29,7 +29,6 @@ type Database struct {
 // New - constructor for DB
 func New(driver, source string) (*Database, error) {
 	db, err := dbx.Open(driver, source)
-
 	if err != nil {
 		return nil, Error.New("failed opening database %q, %q: %v",
 			driver, source, err)
@@ -68,7 +67,6 @@ func (db *Database) CreateTables() error {
 	if db.db == nil {
 		return errs.New("Connection is closed")
 	}
-
 	return migrate.Create("satellitedb", db.db)
 }
 
@@ -77,7 +75,6 @@ func (db *Database) Close() error {
 	if db.db == nil {
 		return errs.New("Connection is closed")
 	}
-
 	return db.db.Close()
 }
 

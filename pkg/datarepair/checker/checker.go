@@ -82,20 +82,23 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 			}
 			for ; lim > 0 && it.Next(&item); lim-- {
 				pointer := &pb.Pointer{}
+
 				err = proto.Unmarshal(item.Value, pointer)
 				if err != nil {
 					return Error.New("error unmarshalling pointer %s", err)
 				}
+
 				remote := pointer.GetRemote()
 				if remote == nil {
-					c.logger.Debug("no remote segment on pointer")
 					continue
 				}
+
 				pieces := remote.GetRemotePieces()
 				if pieces == nil {
 					c.logger.Debug("no pieces on remote segment")
 					continue
 				}
+
 				var nodeIDs storj.NodeIDList
 				for _, p := range pieces {
 					nodeIDs = append(nodeIDs, p.NodeId)

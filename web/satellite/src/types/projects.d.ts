@@ -23,9 +23,14 @@ declare type UpdateProjectModel = {
 
 // TeamMemberModel stores needed info about user info to show it on UI
 declare type TeamMemberModel = {
-    email: string,
-    firstName: string,
-    lastName: string,
-    companyName: string,
+    user: {
+		id: string,
+		email: string,
+		firstName: string,
+		lastName: string,
+		company: {
+			companyName: string,
+		}
+    }
     joinedAt: string,
 }
