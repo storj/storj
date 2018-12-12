@@ -93,12 +93,12 @@ var (
 func init() {
 	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
 
-	dirParam := cfgstruct.FindDirParam()
+	dirParam := cfgstruct.FindConfigDirParam()
 	if dirParam != "" {
 		defaultConfDir = dirParam
 	}
 
-	confDir = rootCmd.PersistentFlags().String("dir", defaultConfDir, "main directory for satellite configuration")
+	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for satellite configuration")
 
 	runCmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 

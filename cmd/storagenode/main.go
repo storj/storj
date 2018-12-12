@@ -66,12 +66,12 @@ var (
 func init() {
 	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
 
-	dirParam := cfgstruct.FindDirParam()
+	dirParam := cfgstruct.FindConfigDirParam()
 	if dirParam != "" {
 		defaultConfDir = dirParam
 	}
 
-	confDir = rootCmd.PersistentFlags().String("dir", defaultConfDir, "main directory for storagenode configuration")
+	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for storagenode configuration")
 	runCmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")

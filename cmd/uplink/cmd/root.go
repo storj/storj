@@ -41,7 +41,7 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
 
-	dirParam := cfgstruct.FindDirParam()
+	dirParam := cfgstruct.FindConfigDirParam()
 	if dirParam != "" {
 		defaultConfDir = dirParam
 	}

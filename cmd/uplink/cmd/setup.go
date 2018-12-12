@@ -41,13 +41,13 @@ var (
 func init() {
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
 
-	dirParam := cfgstruct.FindDirParam()
+	dirParam := cfgstruct.FindConfigDirParam()
 	if dirParam != "" {
 		defaultConfDir = dirParam
 	}
 
-	cliConfDir = CLICmd.PersistentFlags().String("dir", defaultConfDir, "main directory for setup configuration")
-	gwConfDir = GWCmd.PersistentFlags().String("dir", defaultConfDir, "main directory for setup configuration")
+	cliConfDir = CLICmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for setup configuration")
+	gwConfDir = GWCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for setup configuration")
 
 	CLICmd.AddCommand(setupCmd)
 	GWCmd.AddCommand(setupCmd)

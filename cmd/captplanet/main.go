@@ -42,12 +42,12 @@ func main() {
 func init() {
 	defaultConfDir = fpath.ApplicationDir("storj", "capt")
 
-	dirParam := cfgstruct.FindDirParam()
+	dirParam := cfgstruct.FindConfigDirParam()
 	if dirParam != "" {
 		defaultConfDir = dirParam
 	}
 
-	confDir = rootCmd.PersistentFlags().String("dir", defaultConfDir, "main directory for captplanet configuration")
+	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for captplanet configuration")
 
 	runCmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	setupCmd.Flags().String("config", filepath.Join(defaultConfDir, "setup.yaml"), "path to configuration")
