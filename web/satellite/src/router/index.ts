@@ -10,7 +10,7 @@ import Dashboard from '@/views/Dashboard.vue';
 import AccountArea from '@/components/dashboard/account/AccountArea.vue';
 import ProjectDetails from '@/components/projectDetails/ProjectDetailsArea.vue';
 import TeamArea from '@/components/team/TeamArea.vue';
-import { getToken } from "@/utils/tokenManager";
+import { getToken } from '@/utils/tokenManager';
 
 Vue.use(Router);
 
@@ -30,6 +30,9 @@ let router = new Router({
 		{
 			path: ROUTES.DASHBOARD.path,
 			name: ROUTES.DASHBOARD.name,
+			meta: {
+				requiresAuth: true
+			},
 			component: Dashboard,
 			children: [
 				{
@@ -49,21 +52,21 @@ let router = new Router({
 				}
 			]
 		}
-  	]
+	]
 });
 
 // Makes check that Token exist at session storage before any route except Login and Register
 router.beforeEach((to, from, next) => {
 
-    if(to.matched.some(record => record.meta.requiresAuth)) {
-        if (!getToken()) {
+	if (to.matched.some(record => record.meta.requiresAuth)) {
+		if (!getToken()) {
 
-            next(ROUTES.LOGIN)
-            return;
-        }
-    }
+			next(ROUTES.LOGIN);
+			return;
+		}
+	}
 
-    next();
+	next();
 });
 
 export default router;
