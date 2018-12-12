@@ -15,6 +15,7 @@ import (
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
@@ -114,6 +115,12 @@ func (node *Node) Shutdown() error {
 		}
 	}
 	return utils.CombineErrors(errs...)
+}
+
+// NewNodeClient creates a node client for this node
+func (n *Node) NewNodeClient() (node.Client, error) {
+	// TODO: handle disconnect verification
+	return node.NewNodeClient(n.Identity, n.Info, n.Kademlia)
 }
 
 // DialPointerDB dials destination with apikey and returns pointerdb Client

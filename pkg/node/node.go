@@ -18,18 +18,24 @@ type Node struct {
 }
 
 // Lookup queries nodes looking for a particular node in the network
-func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node, error) {
-	c, err := n.pool.Dial(ctx, &to)
+func (node *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node, error) {
+	conn, err := node.pool.Dial(ctx, &to)
 	if err != nil {
 		return nil, NodeClientErr.Wrap(err)
 	}
 
-	resp, err := c.Query(ctx, &pb.QueryRequest{Limit: 20, Sender: &n.self, Target: &find, Pingback: true})
+	resp, err := conn.Query(ctx, &pb.QueryRequest{
+		Limit:    20,
+		Sender:   &node.self,
+		Target:   &find,
+		Pingback: true,
+	})
+
 	if err != nil {
 		return nil, NodeClientErr.Wrap(err)
 	}
 
-	rt, err := n.dht.GetRoutingTable(ctx)
+	rt, err := node.dht.GetRoutingTable(ctx)
 	if err != nil {
 		return nil, NodeClientErr.Wrap(err)
 	}
@@ -42,13 +48,13 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 }
 
 // Ping attempts to establish a connection with a node to verify it is alive
-func (n *Node) Ping(ctx context.Context, to pb.Node) (bool, error) {
-	c, err := n.pool.Dial(ctx, &to)
+func (node *Node) Ping(ctx context.Context, to pb.Node) (bool, error) {
+	conn, err := node.pool.Dial(ctx, &to)
 	if err != nil {
 		return false, NodeClientErr.Wrap(err)
 	}
 
-	_, err = c.Ping(ctx, &pb.PingRequest{})
+	_, err = conn.Ping(ctx, &pb.PingRequest{})
 	if err != nil {
 		return false, err
 	}
@@ -57,6 +63,6 @@ func (n *Node) Ping(ctx context.Context, to pb.Node) (bool, error) {
 }
 
 // Disconnect closes all connections within the pool
-func (n *Node) Disconnect() error {
-	return n.pool.DisconnectAll()
+func (node *Node) Disconnect() error {
+	return node.pool.DisconnectAll()
 }

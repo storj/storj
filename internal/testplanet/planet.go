@@ -190,6 +190,8 @@ func (planet *Planet) Start(ctx context.Context) {
 	planet.started = true
 }
 
+func (planet *Planet) NetworkSize() int { return len(planet.nodes) }
+
 // Shutdown shuts down all the nodes and deletes temporary directories.
 func (planet *Planet) Shutdown() error {
 	var errs []error
