@@ -90,7 +90,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 	}
 
 	for _, n := range planet.nodes {
-		server := node.NewServer(n.Kademlia)
+		server := node.NewServer(n.Log.Named("node"), n.Kademlia)
 		pb.RegisterNodesServer(n.Provider.GRPC(), server)
 		// TODO: shutdown
 	}
@@ -189,6 +189,9 @@ func (planet *Planet) Start(ctx context.Context) {
 	}
 	planet.started = true
 }
+
+// Size returns number of nodes in the network
+func (planet *Planet) Size() int { return len(planet.nodes) }
 
 // Shutdown shuts down all the nodes and deletes temporary directories.
 func (planet *Planet) Shutdown() error {

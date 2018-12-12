@@ -1,158 +1,142 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package node
+package node_test
 
 import (
-	"context"
-	"net"
+	"fmt"
 	"testing"
+	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc"
+	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/identity"
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/pkg/dht/mocks"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 )
 
-var (
-	ctx     = context.Background()
-	helloID = teststorj.NodeIDFromString("hello")
-)
-
-func TestLookup(t *testing.T) {
+func TestClient(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	cases := []struct {
-		self        pb.Node
-		to          pb.Node
-		find        pb.Node
-		expectedErr error
-	}{
-		{
-			self:        pb.Node{Id: helloID, Address: &pb.NodeAddress{Address: ":7070"}},
-			to:          pb.Node{Id: helloID, Address: &pb.NodeAddress{Address: ":8080"}},
-			find:        pb.Node{Id: helloID, Address: &pb.NodeAddress{Address: ":9090"}},
-			expectedErr: nil,
-		},
-	}
-
-	for _, v := range cases {
-		lis, err := net.Listen("tcp", "127.0.0.1:0")
-		assert.NoError(t, err)
-
-		id := newTestIdentity(t)
-		v.to = pb.Node{Id: id.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}
-
-		srv, mock, err := newTestServer(ctx, &mockNodeServer{queryCalled: 0}, id)
-		assert.NoError(t, err)
-
-		ctx.Go(func() error { return srv.Serve(lis) })
-		defer srv.Stop()
-
-		ctrl := gomock.NewController(t)
-
-		mdht := mock_dht.NewMockDHT(ctrl)
-		mrt := mock_dht.NewMockRoutingTable(ctrl)
-
-		mdht.EXPECT().GetRoutingTable(gomock.Any()).Return(mrt, nil)
-		mrt.EXPECT().ConnectionSuccess(gomock.Any()).Return(nil)
-
-		ca, err := testidentity.NewTestCA(ctx)
-		assert.NoError(t, err)
-		identity, err := ca.NewIdentity()
-		assert.NoError(t, err)
-
-		nc, err := NewNodeClient(identity, v.self, mdht)
-		assert.NoError(t, err)
-
-		_, err = nc.Lookup(ctx, v.to, v.find)
-		assert.Equal(t, v.expectedErr, err)
-		assert.Equal(t, 1, mock.(*mockNodeServer).queryCalled)
-	}
-}
-
-func TestPing(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	cases := []struct {
-		self        pb.Node
-		toID        string
-		ident       *provider.FullIdentity
-		expectedErr error
-	}{
-		{
-			self:        pb.Node{Id: helloID, Address: &pb.NodeAddress{Address: ":7070"}},
-			toID:        "",
-			ident:       newTestIdentity(t),
-			expectedErr: nil,
-		},
-	}
-
-	for _, v := range cases {
-		lis, err := net.Listen("tcp", "127.0.0.1:0")
-		assert.NoError(t, err)
-		// new mock DHT for node client
-		ctrl := gomock.NewController(t)
-		mdht := mock_dht.NewMockDHT(ctrl)
-		// set up a node server
-		srv := NewServer(mdht)
-
-		msrv, _, err := newTestServer(ctx, srv, v.ident)
-		assert.NoError(t, err)
-		// start gRPC server
-		ctx.Go(func() error { return msrv.Serve(lis) })
-		defer msrv.Stop()
-
-		nc, err := NewNodeClient(v.ident, v.self, mdht)
-		assert.NoError(t, err)
-
-		ok, err := nc.Ping(ctx, pb.Node{Id: v.ident.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}})
-		assert.Equal(t, v.expectedErr, err)
-		assert.Equal(t, ok, true)
-	}
-}
-
-func newTestServer(ctx context.Context, ns pb.NodesServer, identity *provider.FullIdentity) (*grpc.Server, pb.NodesServer, error) {
-	identOpt, err := identity.ServerOption()
+	planet, err := testplanet.New(t, 1, 4, 0)
 	if err != nil {
-		return nil, nil, err
+		t.Fatal(err)
+	}
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	time.Sleep(2 * time.Second)
+
+	peers := []*testplanet.Node{}
+	peers = append(peers, planet.Satellites...)
+	peers = append(peers, planet.StorageNodes...)
+
+	{ // Ping
+		client, err := planet.StorageNodes[0].NewNodeClient()
+		assert.NoError(t, err)
+		defer ctx.Check(client.Disconnect)
+
+		var group errgroup.Group
+
+		for i := range peers {
+			peer := peers[i]
+			group.Go(func() error {
+				pinged, err := client.Ping(ctx, peer.Info)
+				var pingErr error
+				if !pinged {
+					pingErr = fmt.Errorf("ping to %s should have succeeded", peer.ID())
+				}
+				return utils.CombineErrors(pingErr, err)
+			})
+		}
+
+		defer ctx.Check(group.Wait)
 	}
 
-	grpcServer := grpc.NewServer(identOpt)
-	pb.RegisterNodesServer(grpcServer, ns)
+	{ // Lookup
+		client, err := planet.StorageNodes[1].NewNodeClient()
+		assert.NoError(t, err)
+		defer ctx.Check(client.Disconnect)
 
-	return grpcServer, ns, nil
+		var group errgroup.Group
 
+		for i := range peers {
+			peer := peers[i]
+			group.Go(func() error {
+				for _, target := range peers {
+					errTag := fmt.Errorf("lookup peer:%s target:%s", peer.ID(), target.ID())
+
+					results, err := client.Lookup(ctx, peer.Info, target.Info)
+					if err != nil {
+						return utils.CombineErrors(errTag, err)
+					}
+
+					if containsResult(results, target.ID()) {
+						continue
+					}
+
+					// with small network we expect to return everything
+					if len(results) != planet.Size() {
+						return utils.CombineErrors(errTag, fmt.Errorf("expected %d got %d: %s", planet.Size(), len(results), pb.NodesToIDs(results)))
+					}
+
+					return nil
+				}
+				return nil
+			})
+		}
+
+		defer ctx.Check(group.Wait)
+	}
+
+	{ // Lookup
+		client, err := planet.StorageNodes[2].NewNodeClient()
+		assert.NoError(t, err)
+		defer ctx.Check(client.Disconnect)
+
+		targets := []storj.NodeID{
+			{},    // empty target
+			{255}, // non-empty
+		}
+
+		var group errgroup.Group
+
+		for i := range targets {
+			target := targets[i]
+			for i := range peers {
+				peer := peers[i]
+				group.Go(func() error {
+					errTag := fmt.Errorf("invalid lookup peer:%s target:%s", peer.ID(), target)
+
+					results, err := client.Lookup(ctx, peer.Info, pb.Node{Id: target})
+					if err != nil {
+						return utils.CombineErrors(errTag, err)
+					}
+
+					// with small network we expect to return everything
+					if len(results) != planet.Size() {
+						return utils.CombineErrors(errTag, fmt.Errorf("expected %d got %d: %s", planet.Size(), len(results), pb.NodesToIDs(results)))
+					}
+
+					return nil
+				})
+			}
+		}
+
+		defer ctx.Check(group.Wait)
+	}
 }
 
-type mockNodeServer struct {
-	queryCalled int
-	pingCalled  int
-}
-
-func (mn *mockNodeServer) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
-	mn.queryCalled++
-	return &pb.QueryResponse{}, nil
-}
-
-func (mn *mockNodeServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
-	mn.pingCalled++
-	return &pb.PingResponse{}, nil
-}
-
-func newTestIdentity(t *testing.T) *provider.FullIdentity {
-	ca, err := testidentity.NewTestCA(ctx)
-	assert.NoError(t, err)
-	identity, err := ca.NewIdentity()
-	assert.NoError(t, err)
-
-	return identity
+func containsResult(nodes []*pb.Node, target storj.NodeID) bool {
+	for _, node := range nodes {
+		if node.Id == target {
+			return true
+		}
+	}
+	return false
 }
