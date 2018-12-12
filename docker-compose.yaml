@@ -20,7 +20,6 @@ services:
     environment:
     - API_KEY=abc123
     - BOOTSTRAP_ADDR=localhost:8080
-    - IDENTITY_ADDR=satellite:7777
     - STORJ_LOG_LEVEL=debug
     - STORJ_CHECKER_QUEUE_ADDRESS=redis://redis:6379/?db=1
     - STORJ_REPAIRER_QUEUE_ADDRESS=redis://redis:6379/?db=1
@@ -34,13 +33,13 @@ services:
     environment:
     - SATELLITE_ADDR=satellite:7777
     - STORJ_LOG_LEVEL=debug
-    - STORJ_IDENTITY_ADDRESS=storagenode:7777
+    - STORJ_IDENTITY_SERVER_ADDRESS=storagenode:7777
     restart: always
     links:
     - satellite
   gateway:
     image: storjlabs/gateway:${VERSION}
-    command: --min-threshold 1 --max-threshold 2 --repair-threshold 1 --success-threshold 1
+    command: --rs.min-threshold 1 --rs.max-threshold 2 --rs.repair-threshold 1 --rs.success-threshold 1
     environment:
     - API_KEY=abc123
     - SATELLITE_ADDR=satellite:7777

@@ -3,7 +3,13 @@ set -ueo pipefail
 go install -v storj.io/storj/cmd/captplanet
 
 captplanet setup --overwrite
-sed -i~ 's/interval:.*/interval: 1s/g' $HOME/.local/share/storj/capt/config.yaml
+
+unamestr=`uname`
+if [[ "$unamestr" == 'Darwin' ]]; then
+  sed -i~ 's/interval:.*/interval: 1s/g' $HOME/Library/Application\ Support/Storj/Capt/config.yaml
+else
+  sed -i~ 's/interval:.*/interval: 1s/g' $HOME/.local/share/storj/capt/config.yaml
+fi
 
 # run captplanet for 5 seconds to reproduce kademlia problems. See V3-526
 captplanet run &
@@ -76,7 +82,12 @@ fi
 kill -9 $CAPT_PID
 
 captplanet setup --listen-host ::1 --overwrite
-sed -i~ 's/interval:.*/interval: 1s/g' $HOME/.local/share/storj/capt/config.yaml
+if [[ "$unamestr" == 'Darwin' ]]; then
+  sed -i~ 's/interval:.*/interval: 1s/g' $HOME/Library/Application\ Support/Storj/Capt/config.yaml
+else
+  sed -i~ 's/interval:.*/interval: 1s/g' $HOME/.local/share/storj/capt/config.yaml
+fi
+
 captplanet run &
 CAPT_PID=$!
 

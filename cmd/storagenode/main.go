@@ -61,7 +61,7 @@ var (
 	}
 
 	defaultConfDir string
-	defaultDiagDir = "$HOME/.storj/capt/f37/data"
+	defaultDiagDir string
 )
 
 func init() {
@@ -72,8 +72,9 @@ func init() {
 		defaultConfDir = dirParam
 	}
 
-	runCmd.Flags().String("dir", defaultConfDir, "main directory for satellite configuration")
+	runCmd.Flags().String("dir", defaultConfDir, "main directory for storage node configuration")
 
+	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)

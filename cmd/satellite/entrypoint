@@ -11,8 +11,6 @@ if [[ -n "${OVERLAY_URL:-}" ]]; then
 	RUN_PARAMS="${RUN_PARAMS} --overlay.database-url ${OVERLAY_URL}"
 fi
 
-RUN_PARAMS="${RUN_PARAMS} --identity.address=${IDENTITY_ADDR}"
-
 if [[ -n "${API_KEY}" ]]; then
 	export STORJ_POINTER_DB_AUTH_API_KEY="${API_KEY}"
 fi

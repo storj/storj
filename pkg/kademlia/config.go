@@ -23,13 +23,9 @@ var (
 	mon   = monkit.Package()
 )
 
-const (
-	defaultAlpha = 5
-)
-
 var (
-	flagBucketSize           = flag.Int("kademlia-bucket-size", 20, "Size of each Kademlia bucket")
-	flagReplacementCacheSize = flag.Int("kademlia-replacement-cache-size", 5, "Size of Kademlia replacement cache")
+	flagBucketSize           = flag.Int("kademlia.bucket-size", 20, "Size of each Kademlia bucket")
+	flagReplacementCacheSize = flag.Int("kademlia.replacement-cache-size", 5, "Size of Kademlia replacement cache")
 )
 
 //CtxKey Used as kademlia key

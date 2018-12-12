@@ -5,6 +5,7 @@ package segments
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -41,7 +42,7 @@ func TestNewSegmentStore(t *testing.T) {
 		ErasureScheme: mock_eestream.NewMockErasureScheme(ctrl),
 	}
 
-	ss := NewSegmentStore(mockOC, mockEC, mockPDB, rs, 10)
+	ss := NewSegmentStore(mockOC, mockEC, mockPDB, rs, 10, &pb.NodeStats{})
 	assert.NotNil(t, ss)
 }
 
@@ -56,7 +57,7 @@ func TestSegmentStoreMeta(t *testing.T) {
 		ErasureScheme: mock_eestream.NewMockErasureScheme(ctrl),
 	}
 
-	ss := segmentStore{mockOC, mockEC, mockPDB, rs, 10}
+	ss := segmentStore{mockOC, mockEC, mockPDB, rs, 10, &pb.NodeStats{}}
 	assert.NotNil(t, ss)
 
 	var mExp time.Time
@@ -105,11 +106,11 @@ func TestSegmentStorePutRemote(t *testing.T) {
 			ErasureScheme: mockES,
 		}
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize, &pb.NodeStats{}}
 		assert.NotNil(t, ss)
 
 		calls := []*gomock.Call{
-			mockES.EXPECT().TotalCount().Return(1),
+			mockES.EXPECT().TotalCount().Return(1).AnyTimes(),
 			mockOC.EXPECT().Choose(
 				gomock.Any(), gomock.Any(),
 			).Return([]*pb.Node{
@@ -161,7 +162,7 @@ func TestSegmentStorePutInline(t *testing.T) {
 			ErasureScheme: mockES,
 		}
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize, &pb.NodeStats{}}
 		assert.NotNil(t, ss)
 
 		calls := []*gomock.Call{
@@ -207,7 +208,7 @@ func TestSegmentStoreGetInline(t *testing.T) {
 			ErasureScheme: mockES,
 		}
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize, &pb.NodeStats{}}
 		assert.NotNil(t, ss)
 
 		calls := []*gomock.Call{
@@ -277,7 +278,7 @@ func TestSegmentStoreRepairRemote(t *testing.T) {
 			ErasureScheme: mockES,
 		}
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize, &pb.NodeStats{}}
 		assert.NotNil(t, ss)
 
 		calls := []*gomock.Call{
@@ -349,7 +350,7 @@ func TestSegmentStoreGetRemote(t *testing.T) {
 			ErasureScheme: mockES,
 		}
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize, &pb.NodeStats{}}
 		assert.NotNil(t, ss)
 
 		calls := []*gomock.Call{
@@ -412,7 +413,7 @@ func TestSegmentStoreDeleteInline(t *testing.T) {
 			ErasureScheme: mockES,
 		}
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize, &pb.NodeStats{}}
 		assert.NotNil(t, ss)
 
 		calls := []*gomock.Call{
@@ -462,7 +463,7 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 			ErasureScheme: mockES,
 		}
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize, &pb.NodeStats{}}
 		assert.NotNil(t, ss)
 
 		calls := []*gomock.Call{
@@ -524,7 +525,7 @@ func TestSegmentStoreList(t *testing.T) {
 			ErasureScheme: mockES,
 		}
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize, &pb.NodeStats{}}
 		assert.NotNil(t, ss)
 
 		ti := time.Unix(0, 0).UTC()
@@ -553,5 +554,32 @@ func TestSegmentStoreList(t *testing.T) {
 
 		_, _, err = ss.List(ctx, tt.prefix, tt.startAfter, "", false, 10, meta.Modified)
 		assert.NoError(t, err)
+	}
+}
+
+func TestCalcNeededNodes(t *testing.T) {
+	for i, tt := range []struct {
+		k, m, o, n int32
+		needed     int32
+	}{
+		{k: 0, m: 0, o: 0, n: 0, needed: 0},
+		{k: 1, m: 1, o: 1, n: 1, needed: 1},
+		{k: 1, m: 1, o: 2, n: 2, needed: 2},
+		{k: 1, m: 2, o: 2, n: 2, needed: 2},
+		{k: 2, m: 3, o: 4, n: 4, needed: 3},
+		{k: 2, m: 4, o: 6, n: 8, needed: 3},
+		{k: 20, m: 30, o: 40, n: 50, needed: 25},
+		{k: 29, m: 35, o: 80, n: 95, needed: 34},
+	} {
+		tag := fmt.Sprintf("#%d. %+v", i, tt)
+
+		rs := pb.RedundancyScheme{
+			MinReq:           tt.k,
+			RepairThreshold:  tt.m,
+			SuccessThreshold: tt.o,
+			Total:            tt.n,
+		}
+
+		assert.Equal(t, tt.needed, calcNeededNodes(&rs), tag)
 	}
 }
