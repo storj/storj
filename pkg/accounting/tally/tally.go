@@ -69,8 +69,9 @@ func (t *tally) Run(ctx context.Context) (err error) {
 	}
 }
 
-// identifyActiveNodes iterates through pointerdb and identifies nodes that have storage on them
-func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
+// calculateStaticData iterates through the pieces on pointerdb and calculates 
+// the amount of at-rest data stored on each respective node
+func (t *tally) calculateStaticData(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	t.logger.Debug("entering pointerdb iterate within identifyActiveNodes")
 	var nodeData = make(map[storj.NodeID]int64)
