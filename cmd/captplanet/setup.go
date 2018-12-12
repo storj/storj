@@ -138,6 +138,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"satellite.identity.key-path":  setupCfg.SatelliteIdentity.KeyPath,
 		"satellite.identity.server.address": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
+		"satellite.identity.server.revocation-db-addr": "redis://127.0.0.1:6378?db=2&password=abc123",
 		"satellite.kademlia.bootstrap-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"satellite.pointer-db.database-url": "bolt://" + filepath.Join(
@@ -189,6 +190,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			storagenodePath, "identity.key")
 		overrides[storagenode+"identity.server.address"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+i*2+3)
+		overrides[storagenode+"identity.server.revocation-db-addr"] = "redis://127.0.0.1:6378?db=2&password=abc123"
 		overrides[storagenode+"kademlia.bootstrap-addr"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+1)
 		overrides[storagenode+"storage.path"] = filepath.Join(storagenodePath, "data")
