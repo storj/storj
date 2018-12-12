@@ -52,9 +52,9 @@ func (t *tally) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
-		err = t.calculateStaticData(ctx)
+		err = t.calculateAtRestData(ctx)
 		if err != nil {
-			t.logger.Error("calculateStaticData failed", zap.Error(err))
+			t.logger.Error("calculateAtRestData failed", zap.Error(err))
 		}
 		err = t.Query(ctx)
 		if err != nil {
@@ -69,11 +69,10 @@ func (t *tally) Run(ctx context.Context) (err error) {
 	}
 }
 
-// calculateStaticData iterates through the pieces on pointerdb and calculates 
+// calculateAtRestData iterates through the pieces on pointerdb and calculates 
 // the amount of at-rest data stored on each respective node
-func (t *tally) calculateStaticData(ctx context.Context) (err error) {
+func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	t.logger.Debug("entering pointerdb iterate within identifyActiveNodes")
 	var nodeData = make(map[storj.NodeID]int64)
 	err = t.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
 		func(it storage.Iterator) error {
@@ -86,7 +85,6 @@ func (t *tally) calculateStaticData(ctx context.Context) (err error) {
 				}
 				remote := pointer.GetRemote()
 				if remote == nil {
-					t.logger.Debug("no remote segment on pointer")
 					continue
 				}
 				pieces := remote.GetRemotePieces()
@@ -117,7 +115,6 @@ func (t *tally) calculateStaticData(ctx context.Context) (err error) {
 }
 
 func (t *tally) updateRawTable(ctx context.Context, nodeData map[storj.NodeID]int64) error {
-	t.logger.Debug("entering updateRawTable")
 	//TODO
 	return nil
 }

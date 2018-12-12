@@ -39,8 +39,7 @@ func NewDB(databaseURL string) (*Database, error) {
 	}
 	err = migrate.Create("accounting", db)
 	if err != nil {
-		e := db.Close()
-		return nil, Error.New("creation error: %v, closing error: %v", err, e)
+		return nil, utils.CombineErrors(err, db.Close())
 	}
 	return &Database{db: db}, nil
 }
