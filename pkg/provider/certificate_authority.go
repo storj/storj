@@ -4,15 +4,16 @@
 package provider
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
 	"io/ioutil"
-	"os"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/utils"
 
 	"storj.io/storj/pkg/peertls"
@@ -206,23 +207,23 @@ func NewCA(ctx context.Context, opts NewCAOptions) (*FullCertificateAuthority, e
 
 // Save saves a CA with the given configuration
 func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
-	mode := os.O_WRONLY | os.O_CREATE
-	certFile, err := openCert(fc.CertPath, mode)
-	if err != nil {
-		return err
-	}
-
-	keyFile, err := openKey(fc.KeyPath, mode)
-	if err != nil {
-		return utils.CombineErrors(err, certFile.Close())
-	}
+	var certData, keyData bytes.Buffer
 
 	chain := []*x509.Certificate{ca.Cert}
 	chain = append(chain, ca.RestChain...)
-	certWriteErr := peertls.WriteChain(certFile, chain...)
-	keyWriteErr := peertls.WriteKey(keyFile, ca.Key)
 
-	return utils.CombineErrors(certWriteErr, keyWriteErr, certFile.Close(), keyFile.Close())
+	writeErr := utils.CombineErrors(
+		peertls.WriteChain(&certData, chain...),
+		peertls.WriteKey(&keyData, ca.Key),
+	)
+	if writeErr != nil {
+		return writeErr
+	}
+
+	return utils.CombineErrors(
+		writeCertData(fc.CertPath, certData.Bytes()),
+		writeKeyData(fc.KeyPath, certData.Bytes()),
+	)
 }
 
 // NewIdentity generates a new `FullIdentity` based on the CA. The CA
