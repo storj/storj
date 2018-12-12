@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -38,9 +39,11 @@ func TestClient(t *testing.T) {
 		assert.NoError(t, err)
 		defer ctx.Check(client.Disconnect)
 
+		var group errgroup.Group
+
 		for i := range peers {
 			peer := peers[i]
-			ctx.Go(func() error {
+			group.Go(func() error {
 				pinged, err := client.Ping(ctx, peer.Info)
 				var pingErr error
 				if !pinged {
@@ -49,6 +52,8 @@ func TestClient(t *testing.T) {
 				return utils.CombineErrors(pingErr, err)
 			})
 		}
+
+		defer ctx.Check(group.Wait)
 	}
 
 	{ // Lookup
@@ -56,9 +61,11 @@ func TestClient(t *testing.T) {
 		assert.NoError(t, err)
 		defer ctx.Check(client.Disconnect)
 
+		var group errgroup.Group
+
 		for i := range peers {
 			peer := peers[i]
-			ctx.Go(func() error {
+			group.Go(func() error {
 				for _, target := range peers {
 					results, err := client.Lookup(ctx, peer.Info, target.Info)
 					if err != nil {
@@ -71,7 +78,7 @@ func TestClient(t *testing.T) {
 
 					// with small network we expect to return everything
 					if len(results) != planet.Size() {
-						return fmt.Errorf("expected %d got %d: %s", planet.Size(), len(results), pb.NodesToIDs(results))
+						return fmt.Errorf("lookup peer:%s target:%s expected %d got %d: %s", peer.ID(), target.ID(), planet.Size(), len(results), pb.NodesToIDs(results))
 					}
 
 					return nil
@@ -79,6 +86,8 @@ func TestClient(t *testing.T) {
 				return nil
 			})
 		}
+
+		defer ctx.Check(group.Wait)
 	}
 
 	{ // Lookup
@@ -86,22 +95,34 @@ func TestClient(t *testing.T) {
 		assert.NoError(t, err)
 		defer ctx.Check(client.Disconnect)
 
-		for i := range peers {
-			peer := peers[i]
-			ctx.Go(func() error {
-				results, err := client.Lookup(ctx, peer.Info, pb.Node{Id: storj.NodeID{}})
-				if err != nil {
-					return err
-				}
-
-				// with small network we expect to return everything
-				if len(results) != planet.Size() {
-					return fmt.Errorf("expected %d got %d: %s", planet.Size(), len(results), pb.NodesToIDs(results))
-				}
-
-				return nil
-			})
+		targets := []storj.NodeID{
+			{},    // empty target
+			{255}, // non-empty
 		}
+
+		var group errgroup.Group
+
+		for i := range targets {
+			target := targets[i]
+			for i := range peers {
+				peer := peers[i]
+				group.Go(func() error {
+					results, err := client.Lookup(ctx, peer.Info, pb.Node{Id: target})
+					if err != nil {
+						return err
+					}
+
+					// with small network we expect to return everything
+					if len(results) != planet.Size() {
+						return fmt.Errorf("lookup peer:%s target:%s expected %d got %d: %s", peer.ID(), target, planet.Size(), len(results), pb.NodesToIDs(results))
+					}
+
+					return nil
+				})
+			}
+		}
+
+		defer ctx.Check(group.Wait)
 	}
 }
 
