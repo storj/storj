@@ -90,7 +90,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 	}
 
 	for _, n := range planet.nodes {
-		server := node.NewServer(n.Kademlia)
+		server := node.NewServer(log.Named("node"), n.Kademlia)
 		pb.RegisterNodesServer(n.Provider.GRPC(), server)
 		// TODO: shutdown
 	}

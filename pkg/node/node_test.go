@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -38,7 +39,7 @@ func TestClient(t *testing.T) {
 	{ // Ping
 		client, err := planet.StorageNodes[0].NewNodeClient()
 		assert.NoError(t, err)
-		defer ctx.Check(client.Disconnect())
+		defer ctx.Check(client.Disconnect)
 
 		var group errgroup.Group
 
@@ -60,7 +61,7 @@ func TestClient(t *testing.T) {
 	{ // Lookup
 		client, err := planet.StorageNodes[1].NewNodeClient()
 		assert.NoError(t, err)
-		defer ctx.Check(client.Disconnect())
+		defer ctx.Check(client.Disconnect)
 
 		var group errgroup.Group
 
@@ -74,7 +75,7 @@ func TestClient(t *testing.T) {
 					}
 
 					if len(results) != planet.NetworkSize() {
-						return fmt.Errorf("expected %d got %d", planet.NetworkSize())
+						return fmt.Errorf("expected %d got %d: %s", planet.NetworkSize(), len(results), pb.NodesToIDs(results))
 					}
 
 					return nil

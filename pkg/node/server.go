@@ -19,7 +19,7 @@ type Server struct {
 }
 
 // NewServer returns a newly instantiated Node Server
-func NewServer(dht dht.DHT, log *zap.Logger) *Server {
+func NewServer(log *zap.Logger, dht dht.DHT) *Server {
 	return &Server{
 		dht: dht,
 		log: log,
