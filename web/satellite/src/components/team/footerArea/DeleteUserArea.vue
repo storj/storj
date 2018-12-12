@@ -6,8 +6,8 @@
         <div class="delete-user-container__wrap">
             <div class="delete-user-container__selected-users-count">
                 <span class="delete-user-container__selected-users-count__button"></span>
-                <p class="delete-user-container__selected-users-count__count">1 </p>
-                <p class="delete-user-container__selected-users-count__total-count"> of <span>8</span> Users Selected</p>
+                <p class="delete-user-container__selected-users-count__count">{{selectedProjectMembersCount}}</p>
+                <p class="delete-user-container__selected-users-count__total-count"> of <span>{{projectMembersCount}}</span> Users Selected</p>
             </div>
             <div class="delete-user-container__buttons-group">
                 <Button 
@@ -15,13 +15,13 @@
                     label="Cancel" 
                     width="140px" 
                     height="58px" 
-                    :onPress="onCancelButtonClick" 
+                    :onPress="onClearSelection"
                     isWhite />
                 <Button 
                     label="Delete" 
                     width="140px" 
                     height="58px" 
-                    :onPress="onDeleteButtonClick" />
+                    :onPress="onDelete" />
             </div>
         </div>
     </div>
@@ -32,6 +32,31 @@ import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
 
 @Component({
+    methods: {
+    	onDelete: async function () {
+    		const projectMemberIds = this.$store.getters.selectedProjectMembers.map((member:TeamMemberModel) => {
+    			return member.user.id;
+            });
+
+    		const isSuccess = await this.$store.dispatch("deleteProjectMembers", projectMemberIds);
+
+    		if (!isSuccess) {
+    			console.error("Error while deleting users from team");
+            }
+		},
+        onClearSelection: function () {
+    		this.$store.dispatch("clearProjectMemberSelection");
+		}
+
+    },
+    computed: {
+        selectedProjectMembersCount: function () {
+        	return this.$store.getters.selectedProjectMembers.length
+		},
+        projectMembersCount: function () {
+            return this.$store.getters.projectMembers.length;
+		}
+    },
     components: {
         Button
     }

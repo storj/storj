@@ -1,9 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import {
-    PROJECTS_MUTATIONS
-} from "../mutationConstants";
+import { PROJECTS_MUTATIONS } from "../mutationConstants";
 import { createProject, fetchProjects, updateProject, deleteProject } from "@/api/projects";
 
 export const projectsModule = {
