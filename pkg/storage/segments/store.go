@@ -65,8 +65,7 @@ type segmentStore struct {
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int,
-	nodeStats *pb.NodeStats) Store {
+func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int, nodeStats *pb.NodeStats) Store {
 	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs, thresholdSize: threshold,
 		nodeStats: &pb.NodeStats{
 			UptimeRatio:       nodeStats.UptimeRatio,
@@ -157,7 +156,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 		path = p
 
-		pointer, err = s.makeRemotePointer(successfulNodes, pieceID, sizedReader.Size(), exp, metadata)
+		pointer, err = makeRemotePointer(successfulNodes, s.rs, pieceID, sizedReader.Size(), exp, metadata)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -178,7 +177,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 }
 
 // makeRemotePointer creates a pointer of type remote
-func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID psclient.PieceID, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
+func makeRemotePointer(nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
 	var remotePieces []*pb.RemotePiece
 	for i := range nodes {
 		if nodes[i] == nil {
@@ -195,11 +194,11 @@ func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID psclient.Piec
 		Remote: &pb.RemoteSegment{
 			Redundancy: &pb.RedundancyScheme{
 				Type:             pb.RedundancyScheme_RS,
-				MinReq:           int32(s.rs.RequiredCount()),
-				Total:            int32(s.rs.TotalCount()),
-				RepairThreshold:  int32(s.rs.RepairThreshold()),
-				SuccessThreshold: int32(s.rs.OptimalThreshold()),
-				ErasureShareSize: int32(s.rs.ErasureShareSize()),
+				MinReq:           int32(rs.RequiredCount()),
+				Total:            int32(rs.TotalCount()),
+				RepairThreshold:  int32(rs.RepairThreshold()),
+				SuccessThreshold: int32(rs.OptimalThreshold()),
+				ErasureShareSize: int32(rs.ErasureShareSize()),
 			},
 			PieceId:      string(pieceID),
 			RemotePieces: remotePieces,
@@ -232,13 +231,13 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 			return nil, Meta{}, Error.Wrap(err)
 		}
 
-		es, err := makeErasureScheme(pr.GetRemote().GetRedundancy())
+		rs, err := makeRedundancyStrategy(pr.GetRemote().GetRedundancy())
 		if err != nil {
 			return nil, Meta{}, err
 		}
 
 		needed := calcNeededNodes(pr.GetRemote().GetRedundancy())
-		selected := make([]*pb.Node, es.TotalCount())
+		selected := make([]*pb.Node, rs.TotalCount())
 
 		for _, i := range rand.Perm(len(nodes)) {
 			node := nodes[i]
@@ -255,7 +254,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 		}
 
 		authorization := s.pdb.SignedMessage()
-		rr, err = s.ec.Get(ctx, selected, es, pid, pr.GetSegmentSize(), pba, authorization)
+		rr, err = s.ec.Get(ctx, selected, rs, pid, pr.GetSegmentSize(), pba, authorization)
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
@@ -266,13 +265,13 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 	return rr, convertMeta(pr), nil
 }
 
-func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) {
-	fc, err := infectious.NewFEC(int(rs.GetMinReq()), int(rs.GetTotal()))
+func makeRedundancyStrategy(scheme *pb.RedundancyScheme) (eestream.RedundancyStrategy, error) {
+	fc, err := infectious.NewFEC(int(scheme.GetMinReq()), int(scheme.GetTotal()))
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return eestream.RedundancyStrategy{}, Error.Wrap(err)
 	}
-	es := eestream.NewRSScheme(fc, int(rs.GetErasureShareSize()))
-	return es, nil
+	es := eestream.NewRSScheme(fc, int(scheme.GetErasureShareSize()))
+	return eestream.NewRedundancyStrategy(es, int(scheme.GetRepairThreshold()), int(scheme.GetSuccessThreshold()))
 }
 
 // calcNeededNodes calculate how many minimum nodes are needed for download,
@@ -408,7 +407,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 		return Error.New("Failed to replace all nil nodes (%d). (%d) new nodes not inserted", len(newNodes), totalRepairCount)
 	}
 
-	es, err := makeErasureScheme(pr.GetRemote().GetRedundancy())
+	rs, err := makeRedundancyStrategy(pr.GetRemote().GetRedundancy())
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -416,7 +415,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	signedMessage := s.pdb.SignedMessage()
 
 	// Download the segment using just the healthyNodes
-	rr, err := s.ec.Get(ctx, healthyNodes, es, pid, pr.GetSegmentSize(), pba, signedMessage)
+	rr, err := s.ec.Get(ctx, healthyNodes, rs, pid, pr.GetSegmentSize(), pba, signedMessage)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -428,7 +427,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	defer utils.LogClose(r)
 
 	// Upload the repaired pieces to the repairNodes
-	successfulNodes, err := s.ec.Put(ctx, repairNodes, s.rs, pid, r, convertTime(pr.GetExpirationDate()), pba, signedMessage)
+	successfulNodes, err := s.ec.Put(ctx, repairNodes, rs, pid, r, convertTime(pr.GetExpirationDate()), pba, signedMessage)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -442,7 +441,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	}
 
 	metadata := pr.GetMetadata()
-	pointer, err := s.makeRemotePointer(healthyNodes, pid, rr.Size(), pr.GetExpirationDate(), metadata)
+	pointer, err := makeRemotePointer(healthyNodes, rs, pid, rr.Size(), pr.GetExpirationDate(), metadata)
 	if err != nil {
 		return err
 	}
