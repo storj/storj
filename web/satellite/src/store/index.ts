@@ -4,17 +4,19 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
 
-import {authModule} from "@/store/modules/users";
-import {projectsModule} from "@/store/modules/projects";
+import { usersModule } from '@/store/modules/users';
+import { projectsModule } from '@/store/modules/projects';
+import { projectMembersModule } from '@/store/modules/projectMembers';
 
 Vue.use(Vuex);
 
 // Satellite store (vuex)
 const store = new Vuex.Store({
 	modules: {
-	    authModule,
-        projectsModule
+		usersModule,
+		projectsModule,
+		projectMembersModule
 	}
 });
-  
+
 export default store;

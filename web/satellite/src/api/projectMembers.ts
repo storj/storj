@@ -23,7 +23,7 @@ export async function addProjectMember(userID: string, projectID: string): Promi
 
     if(!response){
         // TODO: replace with popup in future
-        console.log("cannot create project");
+        console.error("cannot create project");
 
         return null;
     }
@@ -50,7 +50,7 @@ export async function deleteProjectMember(userID: string, projectID: string): Pr
 
     if(!response){
         // TODO: replace with popup in future
-        console.log("cannot create project");
+        console.error("cannot create project");
 
         return null;
     }
@@ -61,15 +61,16 @@ export async function deleteProjectMember(userID: string, projectID: string): Pr
 // Performs graqhQL request.
 // Throws an exception if error occurs
 export async function fetchProjectMembers(projectID: string): Promise<any> {
-    let response = await apollo.mutate(
+    let response = await apollo.query(
         {
-            mutation: gql(`
+            query: gql(`
                 query {
                     project(
                         id: "${projectID}",
                     ) {
                         members {
                             user {
+                                id,
                                 firstName,
                                 lastName,
                                 email,
@@ -88,7 +89,7 @@ export async function fetchProjectMembers(projectID: string): Promise<any> {
 
     if(!response){
         // TODO: replace with popup in future
-        console.log("cannot create project");
+        console.error("cannot create project");
 
         return null;
     }
