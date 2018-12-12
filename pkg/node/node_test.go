@@ -69,7 +69,7 @@ func TestClient(t *testing.T) {
 			peer := peers[i]
 			group.Go(func() error {
 				for _, target := range peers {
-					errTag := fmt.Errorf("lookup peer:%s target:%s\n", peer.ID(), target.ID())
+					errTag := fmt.Errorf("lookup peer:%s target:%s", peer.ID(), target.ID())
 
 					results, err := client.Lookup(ctx, peer.Info, target.Info)
 					if err != nil {
