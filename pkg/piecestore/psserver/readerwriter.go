@@ -99,6 +99,9 @@ func (s *StreamReader) Read(b []byte) (int, error) {
 	if err != nil {
 		return n, err
 	}
+	if s.sofar >= s.spaceRemaining {
+		return n, StreamWriterError.New("out of space")
+	}
 
 	return n, nil
 }
