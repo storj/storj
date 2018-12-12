@@ -39,14 +39,14 @@ func NewDB(databaseURL string) (*Database, error) {
 	}
 	err = migrate.Create("accounting", db)
 	if err != nil {
-		_ = db.Close()
-		return nil, err
+		e := db.Close()
+		return nil, Error.New("creation error: %v, closing error: %v", err, e)
 	}
 	return &Database{db: db}, nil
 }
 
-// Open is used to open db connection
-func (db *Database) Open(ctx context.Context) (*dbx.Tx, error) {
+// BeginTx is used to open db connection
+func (db *Database) BeginTx(ctx context.Context) (*dbx.Tx, error) {
 	return db.db.Open(ctx)
 }
 
