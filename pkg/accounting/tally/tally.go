@@ -177,7 +177,7 @@ func (t *tally) Query(ctx context.Context) error {
 
 	//insert all records in a transaction so if we fail, we don't have partial info stored
 	//todo:  replace with a WithTx() method per DBX docs?
-	tx, err := t.db.Open(ctx)
+	tx, err := t.db.BeginTx(ctx)
 	if err != nil {
 		t.logger.DPanic("Failed to create DB txn in tally query")
 		return err
