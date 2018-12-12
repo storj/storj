@@ -60,6 +60,7 @@ type IdentitySetupConfig struct {
 	KeyPath   string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
 	Overwrite bool   `help:"if true, existing identity certs AND keys will overwritten for" default:"false"`
 	Version   string `help:"semantic version of identity storage format" default:"0"`
+	Server    ServerConfig
 }
 
 // IdentityConfig allows you to run a set of Responsibilities with the given
@@ -72,12 +73,10 @@ type IdentityConfig struct {
 
 // ServerConfig holds server specific configuration parameters
 type ServerConfig struct {
-	// TODO: maybe combine these and switch stores based on url protocol (e.g. `redis://` vs `bolt://`)
-	RevocationDBPath      string `help:"path to the revocation database file" default:"$CONFDIR/revocations.db"`
-	RevocationDBRedisAddr string `help:"connection string for revocation redis database; overrides RevocationDBPath (e.g. redis://127.0.0.1:6378?db=2&password=abc123)"`
-	PeerCAWhitelistPath   string `help:"path to the CA cert whitelist (peer identities must be signed by one these to be verified)"`
-	Address               string `help:"address to listen on" default:":7777"`
-	Extensions            peertls.TLSExtConfig
+	RevocationDBURL     string `help:"url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)" default:"bolt://$CONFDIR/revocations.db"`
+	PeerCAWhitelistPath string `help:"path to the CA cert whitelist (peer identities must be signed by one these to be verified)"`
+	Address             string `help:"address to listen on" default:":7777"`
+	Extensions          peertls.TLSExtConfig
 }
 
 // ServerOptions holds config, identity, and peer verification function data for use with a grpc server.
@@ -91,7 +90,6 @@ type ServerOptions struct {
 func NewServerOptions(i *FullIdentity, c ServerConfig) (*ServerOptions, error) {
 	pcvFuncs, err := c.PCVFuncs()
 	if err != nil {
-		fmt.Printf("%+v\n", errs.Wrap(err))
 		return nil, err
 	}
 
@@ -367,11 +365,30 @@ func (fi *FullIdentity) DialOption(id storj.NodeID) (grpc.DialOption, error) {
 
 // NewRevDB returns a new revocation database given the config
 func (c ServerConfig) NewRevDB() (*peertls.RevocationDB, error) {
-	// TODO: maybe switch stores based on protocol of one url field instead (e.g. `redis://` vs `bolt://`)
-	if c.RevocationDBRedisAddr != "" {
-		return peertls.NewRevocationDBRedis(c.RevocationDBRedisAddr)
+	driver, source, err := utils.SplitDBURL(c.RevocationDBURL)
+	if err != nil {
+		return nil, peertls.ErrRevocationDB.Wrap(err)
 	}
-	return peertls.NewRevocationDBBolt(c.RevocationDBPath)
+
+	var db *peertls.RevocationDB
+	switch driver {
+	case "bolt":
+		db, err = peertls.NewRevocationDBBolt(source)
+		if err != nil {
+			return nil, peertls.ErrRevocationDB.Wrap(err)
+		}
+		zap.S().Info("Starting overlay cache with BoltDB")
+	case "redis":
+		db, err = peertls.NewRevocationDBRedis(c.RevocationDBURL)
+		if err != nil {
+			return nil, peertls.ErrRevocationDB.Wrap(err)
+		}
+		zap.S().Info("Starting overlay cache with Redis")
+	default:
+		return nil, peertls.ErrRevocationDB.New("database scheme not supported: %s", driver)
+	}
+
+	return db, nil
 }
 
 // PCVFuncs returns a slice of peer certificate verification functions based on the config.
