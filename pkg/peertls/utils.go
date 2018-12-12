@@ -155,14 +155,3 @@ func hashBytes(data []byte) ([]byte, error) {
 	}
 	return hash.Sum(nil), nil
 }
-
-// NB: searches `ExtraExtensions` NOT `ExtensionHandlers`
-// (see https://golang.org/pkg/crypto/x509/#Certificate)
-func findExtension(cert *x509.Certificate, extID int) (*pkix.Extension, error) {
-	for _, ext := range cert.ExtraExtensions {
-		if ExtensionIDs[extID].Equal(ext.Id) {
-			return &ext, nil
-		}
-	}
-	return nil, ErrExtensionNotFound.New("%s", ExtensionIDs[extID].String())
-}

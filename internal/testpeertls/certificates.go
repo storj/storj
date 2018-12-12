@@ -10,7 +10,8 @@ import (
 	"math/big"
 )
 
-type CertDebug struct {
+// DebugCert is a subset of the most relevant fields from an x509.Certificate for debugging
+type DebugCert struct {
 	Raw               []byte
 	RawTBSCertificate []byte
 	Signature         []byte
@@ -19,9 +20,10 @@ type CertDebug struct {
 	Extensions        []pkix.Extension
 }
 
-func NewCertDebug(cert x509.Certificate) CertDebug {
+// NewCertDebug converts an *x509.Certificate into a DebugCert
+func NewCertDebug(cert x509.Certificate) DebugCert {
 	pubKey := cert.PublicKey.(*ecdsa.PublicKey)
-	c := CertDebug{
+	c := DebugCert{
 		Raw:               make([]byte, len(cert.Raw)),
 		RawTBSCertificate: make([]byte, len(cert.RawTBSCertificate)),
 		Signature:         make([]byte, len(cert.Signature)),
@@ -42,7 +44,8 @@ func NewCertDebug(cert x509.Certificate) CertDebug {
 	return c
 }
 
-func (c CertDebug) Cmp(c2 CertDebug, label string) {
+// Cmp is used to compare 2 DebugCerts against each other and print the diff
+func (c DebugCert) Cmp(c2 DebugCert, label string) {
 	fmt.Println("diff " + label + " ---================================================================---")
 	cmpBytes := func(a, b []byte) {
 		PrintJson(bytes.Compare(a, b), "")
@@ -55,6 +58,8 @@ func (c CertDebug) Cmp(c2 CertDebug, label string) {
 	c.PublicKeyY.Cmp(c2.PublicKeyY)
 }
 
+// PrintJson uses a json marshaler to pretty-print arbitrary data for debugging
+// with special considerations for certain, specific types
 func PrintJson(data interface{}, label string) {
 	var (
 		jsonBytes []byte

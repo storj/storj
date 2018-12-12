@@ -365,6 +365,7 @@ func (fi *FullIdentity) DialOption(id storj.NodeID) (grpc.DialOption, error) {
 	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), nil
 }
 
+// NewRevDB returns a new revocation database given the config
 func (c ServerConfig) NewRevDB() (*peertls.RevocationDB, error) {
 	// TODO: maybe switch stores based on protocol of one url field instead (e.g. `redis://` vs `bolt://`)
 	if c.RevocationDBRedisAddr != "" {

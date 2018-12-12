@@ -210,6 +210,8 @@ func NewCert(key, parentKey crypto.PrivateKey, template, parent *x509.Certificat
 	return cert, nil
 }
 
+// VerifyUnrevokedChainFunc returns a peer certificate verification function which
+// returns an error if the incoming cert chain contains a revoked CA or leaf.
 func VerifyUnrevokedChainFunc(revDB *RevocationDB) PeerCertVerificationFunc {
 	return func(_ [][]byte, chains [][]*x509.Certificate) error {
 		leaf := chains[0][LeafIndex]
