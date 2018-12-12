@@ -35,6 +35,14 @@ import ProjectSelectionDropdown from "./ProjectSelectionDropdown.vue"
                     console.log("error during project fetching!");
                     return;
                 }
+                if(this.$store.getters.selectedProject.id) {
+					const isFetchProjectMemberSuccess = await this.$store.dispatch("fetchProjectMembers");
+
+					if(!isFetchProjectMemberSuccess) {
+						console.log("Unable to fetch project members");
+                    }
+                }
+
 
                 this.$data.isChoiceShown = !this.$data.isChoiceShown;
             }
