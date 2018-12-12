@@ -31,6 +31,7 @@ var (
 	}
 
 	defaultConfDir string
+	confDir        *string
 )
 
 func main() {
@@ -46,10 +47,10 @@ func init() {
 		defaultConfDir = dirParam
 	}
 
-	runCmd.Flags().String("config",
-		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
-	setupCmd.Flags().String("config",
-		filepath.Join(defaultConfDir, "setup.yaml"), "path to configuration")
+	confDir = rootCmd.PersistentFlags().String("dir", defaultConfDir, "main directory for captplanet configuration")
+
+	runCmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
+	setupCmd.Flags().String("config", filepath.Join(defaultConfDir, "setup.yaml"), "path to configuration")
 }
 
 // dumpHandler listens for Ctrl+\ on Unix

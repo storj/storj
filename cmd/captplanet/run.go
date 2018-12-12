@@ -75,7 +75,6 @@ var (
 
 func init() {
 	rootCmd.AddCommand(runCmd)
-	runCmd.Flags().String("dir", defaultConfDir, "main directory for captplanet configuration")
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 

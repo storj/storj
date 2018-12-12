@@ -62,6 +62,7 @@ var (
 
 	defaultConfDir string
 	defaultDiagDir string
+	confDir        *string
 )
 
 func init() {
@@ -72,7 +73,7 @@ func init() {
 		defaultConfDir = dirParam
 	}
 
-	runCmd.Flags().String("dir", defaultConfDir, "main directory for storage node configuration")
+	confDir = rootCmd.PersistentFlags().String("dir", defaultConfDir, "main directory for storagenode configuration")
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
@@ -88,7 +89,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(setupCfg.Dir)
+	setupDir, err := filepath.Abs(*confDir)
 	if err != nil {
 		return err
 	}

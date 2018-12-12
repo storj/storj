@@ -74,7 +74,6 @@ var (
 		Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	}
 	setupCfg struct {
-		Dir       string `default:"$CONFDIR" help:"main directory for satellite configuration"`
 		CA        provider.CASetupConfig
 		Identity  provider.IdentitySetupConfig
 		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
@@ -88,6 +87,7 @@ var (
 	}
 
 	defaultConfDir string
+	confDir        *string
 )
 
 func init() {
@@ -98,7 +98,9 @@ func init() {
 		defaultConfDir = dirParam
 	}
 
-	runCmd.Flags().String("dir", defaultConfDir, "main directory for satellite configuration")
+	confDir = rootCmd.PersistentFlags().String("dir", defaultConfDir, "main directory for satellite configuration")
+
+	runCmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
@@ -141,7 +143,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(setupCfg.Dir)
+	setupDir, err := filepath.Abs(*confDir)
 	if err != nil {
 		return err
 	}
@@ -294,7 +296,5 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 }
 
 func main() {
-	runCmd.Flags().String("config",
-		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	process.Exec(rootCmd)
 }

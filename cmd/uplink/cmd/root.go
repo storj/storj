@@ -19,7 +19,6 @@ import (
 
 // Config is miniogw.Config configuration
 type Config struct {
-	Dir string `default:"$CONFDIR" help:"main directory for configuration"`
 	miniogw.Config
 }
 
