@@ -14,10 +14,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/utils"
-
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 )
 
 // PeerCertificateAuthority represents the CA which is used to validate peer identities
