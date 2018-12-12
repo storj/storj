@@ -7,6 +7,6 @@ package accounting
 const (
 	// Static is the data_type representing at-rest data calculated from pointerdb
 	Static = iota
-	// Bandwidth is the data_type representing bandwith allocation.
+	// Bandwidth is the data_type representing bandwidth allocation.
 	Bandwith = iota
 )
