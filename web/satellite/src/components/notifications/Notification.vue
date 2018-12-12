@@ -2,43 +2,84 @@
 // See LICENSE for copying information.
 
 <template>
-    <div>
-        <div class="notification-container" >
-            <div class="notification-container__text">
-                <img src="../../../../static/images/team/info.svg" alt="">
-                <p>All team members succesfully deleted</p>
-            </div>
-            <div class="notification-container__buttons-group">
-                <span class="notification-container__buttons-group__close"></span>
-            </div>
+    <div :style="configuration.style" class="notification-wrap" @mouseover="onMouseOver" @mouseleave="onMouseLeave" >
+        <div class="notification-wrap__text">
+            <div v-html="configuration.imageSource"></div>
+            <p>{{message}}</p>
+        </div>
+        <div class="notification-wrap__buttons-group" v-on:click="onCloseClick">
+            <span class="notification-wrap__buttons-group__close" v-html="configuration.closeImage"></span>
         </div>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import { NOTIFICATION_TYPES, NOTIFICATION_IMAGES } from '@/utils/constants/notification';
 
-@Component({})
+@Component({
+    props: {
+        type: String,
+        message: String,
+    },
+    methods: {
+        // Force delete notification
+        onCloseClick: function(): void {
+            this.$store.dispatch('deleteNotification');
+        },
+        // Force notification to stay on page on mouse over it 
+        onMouseOver: function(): void {
+            this.$store.dispatch('pauseNotification');
+        },
+        // Resume notification flow when mouse leaves notification
+        onMouseLeave: function(): void {
+            this.$store.dispatch('resumeNotification');
+        },
+    },
+    computed: {
+        configuration: function() {
+            let backgroundColor, imageSource;
+
+            // Switch for choosing notification style depends on notification type
+            switch (this.$props.type) {
+                case NOTIFICATION_TYPES.SUCCESS: 
+                    backgroundColor = 'rgba(214, 235, 208, 0.4)';
+                    imageSource = NOTIFICATION_IMAGES.SUCCESS;
+                    break;
+
+                case NOTIFICATION_TYPES.ERROR:
+                    backgroundColor = 'rgba(246, 205, 204, 0.4)';
+                    imageSource = NOTIFICATION_IMAGES.ERROR;
+                    break;
+                case NOTIFICATION_TYPES.NOTIFICATION:
+                default:
+                    backgroundColor = 'rgba(219, 225, 232, 0.4)';
+                    imageSource = NOTIFICATION_IMAGES.NOTIFICATION;
+                    break;
+            }
+
+            return { 
+                style: {
+                    backgroundColor
+                },
+                imageSource,
+                closeImage: NOTIFICATION_IMAGES.CLOSE
+            }
+        },
+    }
+})
 
 export default class Notification extends Vue {}
 </script>
 
 <style scoped lang="scss">
-    .notification-container {
-        height: 98px;
-        max-width: 74.2%;
+    .notification-wrap {
         width: 100%;
-        background-color: #fff;
+        height: 98px;
         display: flex;
-        position: fixed;
-        bottom: 100px;
-        align-items: center;
         justify-content: space-between;
         padding: 0 50px;
-        background: rgba(194, 214, 241, 1);
-        box-shadow: 0px 12px 24px rgba(175, 183, 193, 0.4);
-        border-radius: 6px;
-        z-index: 999;
+        align-items: center;
 
         &__text {
             display: flex;
@@ -48,6 +89,10 @@ export default class Notification extends Vue {}
                 font-family: 'montserrat_medium';
                 font-size: 16px;
                 margin-left: 40px;
+
+                span {
+                    margin-right: 10px;
+                }
             }
         }
 
@@ -57,7 +102,7 @@ export default class Notification extends Vue {}
             &__close {
                 width: 32px;
                 height: 32px;
-                background-image: url('../../../../static/images/team/close.svg');
+                cursor: pointer;
             }
         }
     }
