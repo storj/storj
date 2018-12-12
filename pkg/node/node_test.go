@@ -4,7 +4,6 @@
 package node_test
 
 import (
-	"errors"
 	"fmt"
 	"testing"
 
@@ -47,7 +46,7 @@ func TestClient(t *testing.T) {
 				pinged, err := client.Ping(ctx, peer.Info)
 				var pingErr error
 				if !pinged {
-					pingErr = errors.New("ping should have succeeded")
+					pingErr = fmt.Errorf("ping to %s should have succeeded", peer.ID())
 				}
 				return utils.CombineErrors(pingErr, err)
 			})
@@ -67,9 +66,11 @@ func TestClient(t *testing.T) {
 			peer := peers[i]
 			group.Go(func() error {
 				for _, target := range peers {
+					errTag := fmt.Errorf("lookup peer:%s target:%s\n", peer.ID(), target.ID())
+
 					results, err := client.Lookup(ctx, peer.Info, target.Info)
 					if err != nil {
-						return err
+						return utils.CombineErrors(errTag, err)
 					}
 
 					if containsResult(results, target.ID()) {
@@ -78,7 +79,7 @@ func TestClient(t *testing.T) {
 
 					// with small network we expect to return everything
 					if len(results) != planet.Size() {
-						return fmt.Errorf("lookup peer:%s target:%s expected %d got %d: %s", peer.ID(), target.ID(), planet.Size(), len(results), pb.NodesToIDs(results))
+						return utils.CombineErrors(errTag, fmt.Errorf("expected %d got %d: %s", planet.Size(), len(results), pb.NodesToIDs(results)))
 					}
 
 					return nil
@@ -107,14 +108,16 @@ func TestClient(t *testing.T) {
 			for i := range peers {
 				peer := peers[i]
 				group.Go(func() error {
+					errTag := fmt.Errorf("invalid lookup peer:%s target:%s", peer.ID(), target)
+
 					results, err := client.Lookup(ctx, peer.Info, pb.Node{Id: target})
 					if err != nil {
-						return err
+						return utils.CombineErrors(errTag, err)
 					}
 
 					// with small network we expect to return everything
 					if len(results) != planet.Size() {
-						return fmt.Errorf("lookup peer:%s target:%s expected %d got %d: %s", peer.ID(), target, planet.Size(), len(results), pb.NodesToIDs(results))
+						return utils.CombineErrors(errTag, fmt.Errorf("expected %d got %d: %s", planet.Size(), len(results), pb.NodesToIDs(results)))
 					}
 
 					return nil
