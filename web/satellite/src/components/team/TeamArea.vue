@@ -3,19 +3,25 @@
 
 <template>
     <div>
-        <div v-if="teamArrayLength > 0"  class="team-header">
+        <div v-if="projectMembers.length > 0" class="team-header">
             <HeaderArea/>
         </div>
-        <div v-if="teamArrayLength > 0"  class="team-container">
+        <div v-if="projectMembers.length > 0" class="team-container">
             <div class="team-container__content">
-                <TeamMemberItem class="selected"/>
-                <TeamMemberItem/>
+                <div v-for="member in projectMembers" v-on:click="onMemberClick(member)">
+                    <TeamMemberItem
+                            :projectMember = "member"
+                            v-bind:class = "[member.isSelected ? 'selected' : 'xxx']"
+                    />
+                </div>
             </div>
             <!-- only when selecting team members -->
-            <Footer/>
+            <div v-if="selectedProjectMembers.length > 0" >
+                <Footer/>
+            </div>
         </div>
-        <EmptyState 
-            v-if="teamArrayLength === 0"
+        <EmptyState
+            v-if="projectMembers.length === 0"
             mainTitle="Invite Team Members"
             additionalText="You need to click the button “+” in the left corner"
             :imageSource="emptyImage" />
@@ -33,11 +39,22 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 @Component({
     data: function() {
             return {
-                // TODO: this.$store.state.teamMembers
-                teamArrayLength: 1,
                 emptyImage: EMPTY_STATE_IMAGES.TEAM
             }
         },
+    methods: {
+    	onMemberClick: function (member: any) {
+    		this.$store.dispatch('toggleProjectMemberSelection', member.user.id);
+		},
+    },
+    computed: {
+        projectMembers: function () {
+            return this.$store.getters.projectMembers;
+		},
+        selectedProjectMembers: function () {
+            return this.$store.getters.selectedProjectMembers;
+		}
+    },
     components: {
         TeamMemberItem,
         HeaderArea,
