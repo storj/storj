@@ -20,9 +20,10 @@ import (
 
 var (
 	setupCmd = &cobra.Command{
-		Use:   "setup",
-		Short: "Create an uplink config file",
-		RunE:  cmdSetup,
+		Use:         "setup",
+		Short:       "Create an uplink config file",
+		RunE:        cmdSetup,
+		Annotations: map[string]string{"type": "setup"},
 	}
 	setupCfg struct {
 		CA                 provider.CASetupConfig

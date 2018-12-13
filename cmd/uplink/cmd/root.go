@@ -6,7 +6,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -47,7 +46,6 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 	}
 
 	cfgstruct.Bind(cmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir))
-	cmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	return cmd
 }
 

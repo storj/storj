@@ -35,9 +35,10 @@ type Config struct {
 
 var (
 	setupCmd = &cobra.Command{
-		Use:   "setup",
-		Short: "Set up configurations",
-		RunE:  cmdSetup,
+		Use:         "setup",
+		Short:       "Set up configurations",
+		RunE:        cmdSetup,
+		Annotations: map[string]string{"type": "setup"},
 	}
 	setupCfg Config
 )

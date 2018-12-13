@@ -49,6 +49,7 @@ var (
 		Use:   "setup",
 		Short: "Create config files",
 		RunE:  cmdSetup,
+		Annotations: map[string]string{"type": "setup"},
 	}
 	diagCmd = &cobra.Command{
 		Use:   "diag",
@@ -99,8 +100,6 @@ func init() {
 	}
 
 	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for satellite configuration")
-
-	runCmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
