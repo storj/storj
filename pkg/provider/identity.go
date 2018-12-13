@@ -327,7 +327,6 @@ func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFun
 		[]peertls.PeerCertVerificationFunc{peertls.VerifyPeerCertChains},
 		pcvFuncs...,
 	)
-	fmt.Printf("VerifyPeerCertChains: %p\n", peertls.VerifyPeerCertChains)
 	tlsConfig := &tls.Config{
 		Certificates:       []tls.Certificate{*c},
 		InsecureSkipVerify: true,
