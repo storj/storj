@@ -74,6 +74,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		log.Fatal(s.Stop(ctx))
 	}()
 
+	s.log.Infof("Started Node %v", server.Identity().ID)
 	return server.Run(ctx)
 }
 
