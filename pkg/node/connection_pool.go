@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/pb"
@@ -25,6 +26,7 @@ var Error = errs.Class("connection pool error")
 
 // ConnectionPool is the in memory pool of node connections
 type ConnectionPool struct {
+	log   *zap.Logger
 	tc    transport.Client
 	mu    sync.RWMutex
 	items map[storj.NodeID]*Conn
@@ -48,6 +50,7 @@ func NewConn(addr string) *Conn { return &Conn{addr: addr, created: time.Now()} 
 // NewConnectionPool initializes a new in memory pool
 func NewConnectionPool(max int, identity *provider.FullIdentity) *ConnectionPool {
 	return &ConnectionPool{
+		log:   zap.NewNop(),
 		tc:    transport.NewClient(identity),
 		items: make(map[storj.NodeID]*Conn),
 		mu:    sync.RWMutex{},
@@ -160,7 +163,7 @@ func (pool *ConnectionPool) getAndMaintain(node *pb.Node) *Conn {
 		}
 
 		if err := pool.disconnect(oldest); err != nil {
-			// TODO log
+			pool.log.Warn("Failed to disconeect node", zap.String("ID", oldest.String()))
 		}
 
 		delete(pool.items, oldest)
