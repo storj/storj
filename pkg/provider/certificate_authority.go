@@ -221,7 +221,7 @@ func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 
 	return utils.CombineErrors(
 		writeCertData(fc.CertPath, certData.Bytes()),
-		writeKeyData(fc.KeyPath, certData.Bytes()),
+		writeKeyData(fc.KeyPath, keyData.Bytes()),
 	)
 }
 
