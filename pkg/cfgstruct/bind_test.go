@@ -6,6 +6,7 @@ package cfgstruct
 import (
 	"flag"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -105,6 +106,6 @@ func TestNesting(t *testing.T) {
 	}
 	Bind(f, &c, ConfDirNested("confpath"))
 	assertEqual(f.Lookup("string").DefValue, "-confpath+")
-	assertEqual(f.Lookup("my-struct1.string").DefValue, "1confpath/my-struct12")
-	assertEqual(f.Lookup("my-struct1.my-struct2.string").DefValue, "2confpath/my-struct1/my-struct23")
+	assertEqual(f.Lookup("my-struct1.string").DefValue, filepath.FromSlash("1confpath/my-struct12"))
+	assertEqual(f.Lookup("my-struct1.my-struct2.string").DefValue, filepath.FromSlash("2confpath/my-struct1/my-struct23"))
 }
