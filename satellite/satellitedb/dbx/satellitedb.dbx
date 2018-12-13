@@ -168,9 +168,7 @@ read limitoffset (
 update overlay_cache_node ( where overlay_cache_node.key = ? )
 delete overlay_cache_node ( where overlay_cache_node.key = ? )
 model injuredsegment (
-	key path
-
-	field path text
+	key info
 
 	field info blob
 )
@@ -182,4 +180,4 @@ read first (
 read limitoffset (
 	select injuredsegment
 )
-delete injuredsegment ( where injuredsegment.path = ? )
+delete injuredsegment ( where injuredsegment.info = ? )
