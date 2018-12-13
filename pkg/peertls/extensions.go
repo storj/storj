@@ -238,7 +238,7 @@ func (e ExtensionHandlers) VerifyFunc() PeerCertVerificationFunc {
 	}
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
 		leafExts := make(map[string]pkix.Extension)
-		for _, ext := range parsedChains[0][LeafIndex].Extensions {
+		for _, ext := range parsedChains[0][LeafIndex].ExtraExtensions {
 			leafExts[ext.Id.String()] = ext
 		}
 
@@ -386,7 +386,7 @@ func verifyCAWhitelistSignedLeafFunc(caWhitelist []*x509.Certificate) extensionV
 			return ErrVerifyCAWhitelist.New("no whitelist provided")
 		}
 
-		leaf := chains[0][0]
+		leaf := chains[0][LeafIndex]
 		for _, ca := range caWhitelist {
 			err := VerifySignature(certExt.Value, leaf.RawTBSCertificate, ca.PublicKey)
 			if err == nil {

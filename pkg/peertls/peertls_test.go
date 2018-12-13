@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/zeebo/errs"
 )
 
@@ -453,10 +454,57 @@ func TestRevocationDB_Put(t *testing.T) {
 	}
 }
 
+type extensionHandlerMock struct {
+	mock.Mock
+}
+
+func (m *extensionHandlerMock) verify(ext pkix.Extension, chain [][]*x509.Certificate) error {
+	args := m.Called(ext, chain)
+	return args.Error(0)
+}
+
+func TestExtensionHandlers_VerifyFunc(t *testing.T) {
+	keys, chain, err := newRevokedLeafChain()
+	chains := [][]*x509.Certificate{chain}
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+	err = AddSignedCertExt(keys[0], chain[0])
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+
+	extMock := new(extensionHandlerMock)
+	verify := func(ext pkix.Extension, chain [][]*x509.Certificate) error {
+		return extMock.verify(ext, chain)
+	}
+
+	handlers := ExtensionHandlers{
+		{
+			id:     ExtensionIDs[RevocationExtID],
+			verify: verify,
+		},
+		{
+			id:     ExtensionIDs[SignedCertExtID],
+			verify: verify,
+		},
+	}
+
+	extMock.On("verify", chains[0][LeafIndex].ExtraExtensions[0], chains).Return(nil)
+	extMock.On("verify", chains[0][LeafIndex].ExtraExtensions[1], chains).Return(nil)
+
+	err = handlers.VerifyFunc()(nil, chains)
+	assert.NoError(t, err)
+	extMock.AssertCalled(t, "verify", chains[0][LeafIndex].ExtraExtensions[0], chains)
+	extMock.AssertCalled(t, "verify", chains[0][LeafIndex].ExtraExtensions[1], chains)
+	extMock.AssertExpectations(t)
+
+	// TODO: test error scenario(s)
+}
+
 func TestParseExtensions(t *testing.T) {
 	revokedLeafKeys, revokedLeafChain, err := newRevokedLeafChain()
 	assert.NoError(t, err)
-	_ = revokedLeafKeys
 
 	whitelistSignedKeys, whitelistSignedChain, err := newCertChain(3)
 	assert.NoError(t, err)
@@ -479,6 +527,7 @@ func TestParseExtensions(t *testing.T) {
 	cases := []struct {
 		testID    string
 		config    TLSExtConfig
+		extLen    int
 		certChain []*x509.Certificate
 		whitelist []*x509.Certificate
 		errClass  *errs.Class
@@ -487,6 +536,7 @@ func TestParseExtensions(t *testing.T) {
 		{
 			"leaf whitelist signature - success",
 			TLSExtConfig{WhitelistSignedLeaf: true},
+			1,
 			whitelistSignedChain,
 			[]*x509.Certificate{whitelistSignedChain[2]},
 			nil,
@@ -495,6 +545,7 @@ func TestParseExtensions(t *testing.T) {
 		{
 			"leaf whitelist signature - failure (empty whitelist)",
 			TLSExtConfig{WhitelistSignedLeaf: true},
+			1,
 			whitelistSignedChain,
 			nil,
 			&ErrVerifyCAWhitelist,
@@ -503,6 +554,7 @@ func TestParseExtensions(t *testing.T) {
 		{
 			"leaf whitelist signature - failure",
 			TLSExtConfig{WhitelistSignedLeaf: true},
+			1,
 			whitelistSignedChain,
 			unrelatedChain,
 			&ErrVerifyCAWhitelist,
@@ -511,19 +563,18 @@ func TestParseExtensions(t *testing.T) {
 		{
 			"certificate revocation - single revocation ",
 			TLSExtConfig{Revocation: true},
+			1,
 			revokedLeafChain,
 			nil,
 			nil,
 			nil,
 		},
 		{
-			"certificate revocation - multiple, serial revocations",
+			"certificate revocation - serial revocations",
 			TLSExtConfig{Revocation: true},
+			1,
 			func() []*x509.Certificate {
 				rev := new(Revocation)
-				err = rev.Unmarshal(revokedLeafChain[0].ExtraExtensions[0].Value)
-				assert.NoError(t, err)
-
 				time.Sleep(1 * time.Second)
 				_, chain, err := revokeLeaf(revokedLeafKeys, revokedLeafChain)
 				assert.NoError(t, err)
@@ -537,30 +588,52 @@ func TestParseExtensions(t *testing.T) {
 			nil,
 			nil,
 		},
-		// TODO: test multiple simultaneous extensions
-		// TODO:
-		// 	{
-		// 		"certificate revocation - error (older timestamp)",
-		// 		TLSExtConfig{Revocation: true},
-		// 		func() []*x509.Certificate {
-		// 			rev := new(Revocation)
-		// 			err = rev.Unmarshal(revokedLeafChain[0].ExtraExtensions[0].Value)
-		// 			assert.NoError(t, err)
-		//
-		// 			time.Sleep(1 * time.Second)
-		// 			_, chain, err := revokeLeaf(revokedLeafKeys, revokedLeafChain)
-		// 			assert.NoError(t, err)
-		//
-		// 			err = rev.Unmarshal(chain[0].ExtraExtensions[0].Value)
-		// 			assert.NoError(t, err)
-		//
-		// 			err = revDB.Put(revokedLeafChain, chain[0].ExtraExtensions[0])
-		// 			return chain
-		// 		}(),
-		// 		nil,
-		// 		&ErrExtension,
-		// 		ErrRevocationTimestamp,
-		// 	},
+		{
+			"certificate revocation - serial revocations error (older timestamp)",
+			TLSExtConfig{Revocation: true},
+			1,
+			func() []*x509.Certificate {
+				keys, chain, err := newRevokedLeafChain()
+				assert.NoError(t, err)
+
+				rev := new(Revocation)
+				err = rev.Unmarshal(chain[0].ExtraExtensions[0].Value)
+				assert.NoError(t, err)
+
+				rev.Timestamp = rev.Timestamp + 300
+				err = rev.Sign(keys[0])
+				assert.NoError(t, err)
+
+				revBytes, err := rev.Marshal()
+				assert.NoError(t, err)
+
+				err = revDB.Put(chain, pkix.Extension{
+					Id:    ExtensionIDs[RevocationExtID],
+					Value: revBytes,
+				})
+				return chain
+			}(),
+			nil,
+			&ErrExtension,
+			ErrRevocationTimestamp,
+		},
+		{
+			"certificate revocation and leaf whitelist signature",
+			TLSExtConfig{Revocation: true, WhitelistSignedLeaf: true},
+			2,
+			func() []*x509.Certificate {
+				_, chain, err := newRevokedLeafChain()
+				assert.NoError(t, err)
+
+				err = AddSignedCertExt(whitelistSignedKeys[0], chain[0])
+				assert.NoError(t, err)
+
+				return chain
+			}(),
+			[]*x509.Certificate{whitelistSignedChain[2]},
+			nil,
+			nil,
+		},
 	}
 
 	for _, c := range cases {
@@ -570,19 +643,17 @@ func TestParseExtensions(t *testing.T) {
 				RevDB:       revDB,
 			}
 
-			exts := ParseExtensions(c.config, opts)
-			assert.Equal(t, 1, len(exts))
-			for _, e := range exts {
-				err := e.verify(c.certChain[0].ExtraExtensions[0], [][]*x509.Certificate{c.certChain})
-				if c.errClass != nil {
-					assert.True(t, c.errClass.Has(err))
-				}
-				if c.err != nil {
-					assert.NotNil(t, err)
-				}
-				if c.errClass == nil && c.err == nil {
-					assert.NoError(t, err)
-				}
+			handlers := ParseExtensions(c.config, opts)
+			assert.Equal(t, c.extLen, len(handlers))
+			err := handlers.VerifyFunc()(nil, [][]*x509.Certificate{c.certChain})
+			if c.errClass != nil {
+				assert.True(t, c.errClass.Has(err))
+			}
+			if c.err != nil {
+				assert.NotNil(t, err)
+			}
+			if c.errClass == nil && c.err == nil {
+				assert.NoError(t, err)
 			}
 		})
 	}
