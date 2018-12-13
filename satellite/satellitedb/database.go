@@ -65,10 +65,10 @@ func (db *DB) OverlayCache() storage.KeyValueStore {
 	return newOverlaycache(db.db)
 }
 
-// // RepairQueueDB is a getter for RepairQueueDB repository
-// func (db *DB) RepairQueueDB() queue.DB {
-// 	return &repairQueueDB{db: db.db}
-// }
+// RepairQueueDB is a getter for RepairQueueDB repository
+func (db *DB) RepairQueueDB() storage.Queue {
+	return &repairQueueDB{db: db.db}
+}
 
 // Accounting returns database for tracking bandwidth agreements over time
 func (db *DB) Accounting() accounting.DB {
