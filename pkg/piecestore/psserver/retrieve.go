@@ -7,13 +7,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"sync/atomic"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
@@ -48,7 +46,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return RetrieveError.New("PieceStore message is nil")
 	}
 
-	zap.S().Infof("Retrieving piece %s with offset %d and length %d.", pd.GetId(), pd.GetOffset(), pd.GetPieceSize())
+	s.log.Infof("Retrieving piece %s with offset %d and length %d.", pd.GetId(), pd.GetOffset(), pd.GetPieceSize())
 
 	id, err := getNamespacedPieceID([]byte(pd.GetId()), getNamespace(authorization))
 	if err != nil {
@@ -81,7 +79,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return err
 	}
 
-	zap.S().Infof("Successfully retrieved %s: Allocated: %v, Retrieved: %v\n", pd.GetId(), allocated, retrieved)
+	s.log.Infof("Successfully retrieved %s: Allocated: %v, Retrieved: %v\n", pd.GetId(), allocated, retrieved)
 	return nil
 }
 
@@ -110,7 +108,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			err := s.DB.WriteBandwidthAllocToDB(lastAllocation)
 			if err != nil {
 				// TODO: handle error properly
-				log.Println("WriteBandwidthAllocToDB Error:", err)
+				s.log.Infof("WriteBandwidthAllocToDB Error:", err)
 			}
 		}()
 

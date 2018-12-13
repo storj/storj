@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore"
@@ -45,7 +44,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("PieceStore message is nil")
 	}
 
-	zap.S().Infof("Storing %s...", pd.GetId())
+	s.log.Infof("Storing %s...", pd.GetId())
 
 	if pd.GetId() == "" {
 		return StoreError.New("piece ID not specified")
@@ -68,7 +67,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	if err = s.DB.AddBandwidthUsed(total); err != nil {
 		return StoreError.New("failed to write bandwidth info to database: %v", err)
 	}
-	zap.S().Infof("Successfully stored %s.", pd.GetId())
+	s.log.Infof("Successfully stored %s.", pd.GetId())
 
 	return reqStream.SendAndClose(&pb.PieceStoreSummary{Message: OK, TotalReceived: total})
 }
@@ -80,7 +79,7 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	defer func() {
 		if err != nil && err != io.EOF {
 			if deleteErr := s.deleteByID(id); deleteErr != nil {
-				zap.S().Errorf("Failed on deleteByID in Store: %s", deleteErr.Error())
+				s.log.Errorf("Failed on deleteByID in Store: %s", deleteErr.Error())
 			}
 		}
 	}()
@@ -108,7 +107,7 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	defer func() {
 		baWriteErr := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
 		if baWriteErr != nil {
-			zap.S().Errorf("Error while writing Bandwidth Alloc to DB: %s\n", baWriteErr.Error())
+			s.log.Errorf("Error while writing Bandwidth Alloc to DB: %s\n", baWriteErr.Error())
 		}
 	}()
 
