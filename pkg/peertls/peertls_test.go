@@ -656,6 +656,7 @@ func TestParseExtensions(t *testing.T) {
 					Id:    ExtensionIDs[RevocationExtID],
 					Value: revBytes,
 				})
+				assert.NoError(t, err)
 				return chain
 			}(),
 			nil,

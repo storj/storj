@@ -9,7 +9,6 @@ import (
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
