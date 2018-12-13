@@ -5,6 +5,7 @@ package storage
 
 import (
 	"bytes"
+	"context"
 	"errors"
 
 	"github.com/zeebo/errs"
@@ -73,11 +74,11 @@ type KeyValueStore interface {
 //Queue is an interface describing queue stores like redis
 type Queue interface {
 	//Enqueue add a FIFO element
-	Enqueue(Value) error
+	Enqueue(context.Context, Value) error
 	//Dequeue removes a FIFO element, returning ErrEmptyQueue if empty
-	Dequeue() (Value, error)
+	Dequeue(context.Context) (Value, error)
 	//Peekqueue returns 'limit' elements from the queue
-	Peekqueue(limit int) ([]Value, error)
+	Peekqueue(ctx context.Context, limit int) ([]Value, error)
 	//Close closes the store
 	Close() error
 }
