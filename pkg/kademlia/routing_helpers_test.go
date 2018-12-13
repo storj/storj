@@ -28,8 +28,8 @@ import (
 func newTestRoutingTable(localNode pb.Node) (*RoutingTable, error) {
 	rt := &RoutingTable{
 		self:         localNode,
-		kadBucketDB:  storelogger.New(zap.L(), teststore.New()),
-		nodeBucketDB: storelogger.New(zap.L(), teststore.New()),
+		kadBucketDB:  storelogger.New(zap.L().Named("rt.kad"), teststore.New()),
+		nodeBucketDB: storelogger.New(zap.L().Named("rt.node"), teststore.New()),
 		transport:    &defaultTransport,
 
 		mutex:            &sync.Mutex{},

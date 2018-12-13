@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/provider"
 )
@@ -21,9 +20,9 @@ type Config struct {
 
 // Initialize a rollup struct
 func (c Config) initialize(ctx context.Context) (Rollup, error) {
-	db, err := accounting.NewDb(c.DatabaseURL)
+	db, err := accounting.NewDB(c.DatabaseURL)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 	return newRollup(zap.L(), db, c.Interval)
 }
@@ -32,7 +31,7 @@ func (c Config) initialize(ctx context.Context) (Rollup, error) {
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	rollup, err := c.initialize(ctx)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 	ctx, cancel := context.WithCancel(ctx)
 

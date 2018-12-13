@@ -19,8 +19,7 @@ import (
 )
 
 func TestEnqueueDequeue(t *testing.T) {
-	db := testqueue.New()
-	q := NewQueue(db)
+	q := NewQueue(testqueue.New())
 	seg := &pb.InjuredSegment{
 		Path:       "abc",
 		LostPieces: []int32{int32(1), int32(3)},
@@ -34,16 +33,14 @@ func TestEnqueueDequeue(t *testing.T) {
 }
 
 func TestDequeueEmptyQueue(t *testing.T) {
-	db := testqueue.New()
-	q := NewQueue(db)
+	q := NewQueue(testqueue.New())
 	s, err := q.Dequeue()
 	assert.Error(t, err)
 	assert.Equal(t, pb.InjuredSegment{}, s)
 }
 
 func TestSequential(t *testing.T) {
-	db := testqueue.New()
-	q := NewQueue(db)
+	q := NewQueue(testqueue.New())
 	const N = 100
 	var addSegs []*pb.InjuredSegment
 	for i := 0; i < N; i++ {

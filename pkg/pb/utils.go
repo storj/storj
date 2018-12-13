@@ -5,7 +5,7 @@ package pb
 
 import "storj.io/storj/pkg/storj"
 
-// NodeIDsToLookupRequests ...
+// NodeIDsToLookupRequests converts NodeIDs to LookupRequests
 func NodeIDsToLookupRequests(nodeIDs storj.NodeIDList) *LookupRequests {
 	var rq []*LookupRequest
 	for _, v := range nodeIDs {
@@ -15,14 +15,25 @@ func NodeIDsToLookupRequests(nodeIDs storj.NodeIDList) *LookupRequests {
 	return &LookupRequests{LookupRequest: rq}
 }
 
-// LookupResponsesToNodes ...
+// LookupResponsesToNodes converts LookupResponses to Nodes
 func LookupResponsesToNodes(responses *LookupResponses) []*Node {
 	var nodes []*Node
 	for _, v := range responses.LookupResponse {
-		n := v.Node
+		n := v.GetNode()
 		nodes = append(nodes, n)
 	}
 	return nodes
+}
+
+// NodesToIDs extracts Node-s into a list of ids
+func NodesToIDs(nodes []*Node) storj.NodeIDList {
+	ids := make(storj.NodeIDList, len(nodes))
+	for i, node := range nodes {
+		if node != nil {
+			ids[i] = node.Id
+		}
+	}
+	return ids
 }
 
 // CopyNode returns a deep copy of a node

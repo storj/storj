@@ -173,6 +173,7 @@
         <div class="account-area-button-area">
             <Button label="Delete account" width="140px" height="50px" :onPress="onDeleteAccountClick" isWhite/>
         </div>
+        <!-- <DeleteAccontPopup /> -->
     </div>
 </template>
 
@@ -181,6 +182,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
+import DeleteAccontPopup from '@/components/dashboard/account/DeleteAccontPopup.vue';
 
 @Component(
     {
@@ -458,7 +460,8 @@ import Checkbox from '@/components/common/Checkbox.vue';
         components: {
             Button,
             HeaderedInput,
-            Checkbox
+            Checkbox,
+            DeleteAccontPopup
         },
         computed: {
         }
