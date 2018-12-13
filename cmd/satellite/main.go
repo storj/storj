@@ -46,9 +46,9 @@ var (
 		RunE:  cmdRun,
 	}
 	setupCmd = &cobra.Command{
-		Use:   "setup",
-		Short: "Create config files",
-		RunE:  cmdSetup,
+		Use:         "setup",
+		Short:       "Create config files",
+		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
 	diagCmd = &cobra.Command{
