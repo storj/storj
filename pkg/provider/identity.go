@@ -259,15 +259,23 @@ func (ic IdentityConfig) Load() (*FullIdentity, error) {
 
 // Save saves a FullIdentity according to the config
 func (ic IdentityConfig) Save(fi *FullIdentity) error {
-	var certData, keyData bytes.Buffer
+	var (
+		certData, keyData          bytes.Buffer
+		writeChainErr, writeKeyErr error
+	)
 
 	chain := []*x509.Certificate{fi.Leaf, fi.CA}
 	chain = append(chain, fi.RestChain...)
 
-	writeErr := utils.CombineErrors(
-		peertls.WriteChain(&certData, chain...),
-		peertls.WriteKey(&keyData, fi.Key),
-	)
+	if ic.CertPath != "" {
+		writeChainErr = peertls.WriteChain(&certData, chain...)
+	}
+
+	if ic.KeyPath != "" {
+		writeKeyErr = peertls.WriteKey(&keyData, fi.Key)
+	}
+
+	writeErr := utils.CombineErrors(writeChainErr, writeKeyErr)
 	if writeErr != nil {
 		return writeErr
 	}

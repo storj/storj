@@ -206,15 +206,23 @@ func NewCA(ctx context.Context, opts NewCAOptions) (*FullCertificateAuthority, e
 
 // Save saves a CA with the given configuration
 func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
-	var certData, keyData bytes.Buffer
+	var (
+		certData, keyData          bytes.Buffer
+		writeChainErr, writeKeyErr error
+	)
 
 	chain := []*x509.Certificate{ca.Cert}
 	chain = append(chain, ca.RestChain...)
 
-	writeErr := utils.CombineErrors(
-		peertls.WriteChain(&certData, chain...),
-		peertls.WriteKey(&keyData, ca.Key),
-	)
+	if fc.CertPath != "" {
+		writeChainErr = peertls.WriteChain(&certData, chain...)
+	}
+
+	if fc.KeyPath != "" {
+		writeKeyErr = peertls.WriteKey(&keyData, ca.Key)
+	}
+
+	writeErr := utils.CombineErrors(writeChainErr, writeKeyErr)
 	if writeErr != nil {
 		return writeErr
 	}
