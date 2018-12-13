@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/storage"
 )
 
@@ -17,25 +18,28 @@ func RunQueueTests(t *testing.T, q storage.Queue) {
 }
 
 func testBasic(t *testing.T, q storage.Queue) {
-	err := q.Enqueue(storage.Value("hello world"))
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	err := q.Enqueue(ctx, storage.Value("hello world"))
 	assert.NoError(t, err)
-	err = q.Enqueue(storage.Value("Привіт, світе"))
+	err = q.Enqueue(ctx, storage.Value("Привіт, світе"))
 	assert.NoError(t, err)
-	err = q.Enqueue(storage.Value([]byte{0, 0, 0, 0, 255, 255, 255, 255}))
+	err = q.Enqueue(ctx, storage.Value([]byte{0, 0, 0, 0, 255, 255, 255, 255}))
 	assert.NoError(t, err)
-	list, err := q.Peekqueue(100)
+	list, err := q.Peekqueue(ctx, 100)
 	assert.NotNil(t, list)
 	assert.NoError(t, err)
-	out, err := q.Dequeue()
+	out, err := q.Dequeue(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, out, storage.Value("hello world"))
-	out, err = q.Dequeue()
+	out, err = q.Dequeue(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, out, storage.Value("Привіт, світе"))
-	out, err = q.Dequeue()
+	out, err = q.Dequeue(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, out, storage.Value([]byte{0, 0, 0, 0, 255, 255, 255, 255}))
-	out, err = q.Dequeue()
+	out, err = q.Dequeue(ctx)
 	assert.Nil(t, out)
 	assert.Error(t, err)
 }

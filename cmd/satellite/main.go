@@ -266,6 +266,9 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
+	// TODO: add logic for selecting between masterdb or redis
+
 	// open the redis db
 	dbpath := qdiagCfg.DatabaseURL
 
@@ -275,7 +278,7 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	queue := queue.NewQueue(redisQ)
-	list, err := queue.Peekqueue(qdiagCfg.QListLimit)
+	list, err := queue.Peekqueue(ctx, qdiagCfg.QListLimit)
 	if err != nil {
 		return err
 	}
