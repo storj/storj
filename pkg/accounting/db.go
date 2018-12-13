@@ -4,6 +4,8 @@
 package accounting
 
 import (
+	"context"
+
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/migrate"
@@ -19,9 +21,15 @@ var (
 	LastBandwidthTally = dbx.Timestamps_Name("LastBandwidthTally")
 )
 
-// NewDb - constructor for DB
-func NewDb(databaseURL string) (*dbx.DB, error) {
+// Database contains access to accounting database
+type Database struct {
+	db *dbx.DB
+}
+
+// NewDB - constructor for Database
+func NewDB(databaseURL string) (*Database, error) {
 	driver, source, err := utils.SplitDBURL(databaseURL)
+
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -32,8 +40,22 @@ func NewDb(databaseURL string) (*dbx.DB, error) {
 	}
 	err = migrate.Create("accounting", db)
 	if err != nil {
-		_ = db.Close()
-		return nil, Error.Wrap(err)
+		return nil, utils.CombineErrors(err, db.Close())
 	}
-	return db, nil
+	return &Database{db: db}, nil
+}
+
+// BeginTx is used to open db connection
+func (db *Database) BeginTx(ctx context.Context) (*dbx.Tx, error) {
+	return db.db.Open(ctx)
+}
+
+// Close is used to close db connection
+func (db *Database) Close() error {
+	return db.db.Close()
+}
+
+// FindLastBwTally returns the timestamp of the last bandwidth tally
+func (db *Database) FindLastBwTally(ctx context.Context) (*dbx.Value_Row, error) {
+	return db.db.Find_Timestamps_Value_By_Name(ctx, LastBandwidthTally)
 }

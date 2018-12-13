@@ -8,10 +8,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/spf13/cobra"
 
@@ -125,10 +125,22 @@ func getPointer(cmd *cobra.Command, args []string) {
 		fmt.Println(prettyPointer)
 	} else {
 
+		creationDate, err := checkCreation(pointer.GetCreationDate())
+		if err != nil {
+			fmt.Println("Error", err)
+			creationDate = "error converting"
+		}
+
+		expirationDate, err := checkExpiration(pointer.GetExpirationDate())
+		if err != nil {
+			fmt.Println("Error", err)
+			expirationDate = "error converting"
+		}
+
 		if pointer.GetType() == pb.Pointer_INLINE {
 			fmt.Println("Type\tCreation Date\tExpiration Date\t")
-			fmt.Println(pointer.GetType(), "\t", readableTime(pointer.GetCreationDate()), "\t",
-				readableTime(pointer.GetExpirationDate()), "\t")
+			fmt.Println(pointer.GetType(), "\t", creationDate, "\t",
+				expirationDate, "\t")
 		}
 
 		if pointer.GetType() == pb.Pointer_REMOTE {
@@ -138,8 +150,8 @@ func getPointer(cmd *cobra.Command, args []string) {
 				fmt.Println(index, "\t", piece.GetPieceNum(), "\t\t", piece.NodeId)
 			}
 
-			fmt.Println("\nType\t\t", pointer.GetType(), "\nCreation Date\t", readableTime(pointer.GetCreationDate()),
-				"\nExpiration Date\t", readableTime(pointer.GetExpirationDate()), "\nSegment Size\t", pointer.GetSegmentSize(),
+			fmt.Println("\nType\t\t", pointer.GetType(), "\nCreation Date\t", creationDate,
+				"\nExpiration Date\t", expirationDate, "\nSegment Size\t", pointer.GetSegmentSize(),
 				"\nPiece ID\t", pointer.GetRemote().GetPieceId(),
 				"\n\nRedundancy:\n\n\tMinimum Required\t", pointer.GetRemote().GetRedundancy().GetMinReq(),
 				"\n\tTotal\t\t\t", pointer.GetRemote().GetRedundancy().GetTotal(),
@@ -151,10 +163,29 @@ func getPointer(cmd *cobra.Command, args []string) {
 	}
 }
 
-func readableTime(stamp *timestamp.Timestamp) string {
-	t := time.Unix(stamp.GetSeconds(), int64(stamp.GetNanos()))
-	readable := t.Format(time.RFC822Z)
-	return readable
+func checkCreation(stamp *timestamp.Timestamp) (string, error) {
+	if stamp == nil {
+		return "timestamp was nil", nil
+	}
+	ti, err := ptypes.Timestamp(stamp)
+	if err != nil {
+		return "", err
+	}
+	return ti.String(), nil
+}
+
+func checkExpiration(stamp *timestamp.Timestamp) (string, error) {
+	if stamp == nil {
+		return "timestamp was nil", nil
+	}
+	ti, err := ptypes.Timestamp(stamp)
+	if err != nil {
+		return "", err
+	}
+	if !ti.IsZero() {
+		return ti.String(), nil
+	}
+	return "never expires", nil
 }
 
 func prettyPrint(unformatted proto.Message) string {

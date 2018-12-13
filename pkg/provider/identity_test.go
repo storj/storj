@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"testing"
 
@@ -113,7 +114,7 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 	assert.NoError(t, err)
 
 	if runtime.GOOS != "windows" {
-		//TODO (windows): ignoring for windows due to different default permissions
+		// TODO (windows): ignoring for windows due to different default permissions
 		certInfo, err := os.Stat(ic.CertPath)
 		assert.NoError(t, err)
 		assert.Equal(t, os.FileMode(0644), certInfo.Mode())
@@ -131,6 +132,148 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 
 	assert.Equal(t, chainPEM.Bytes(), savedChainPEM)
 	assert.Equal(t, keyPEM.Bytes(), savedKeyPEM)
+}
+
+func TestIdentityConfig_LoadIdentity(t *testing.T) {
+	done, ic, expectedFI, _ := tempIdentity(t)
+	defer done()
+
+	err := ic.Save(expectedFI)
+	assert.NoError(t, err)
+
+	fi, err := ic.Load()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, fi)
+	assert.NotEmpty(t, fi.Key)
+	assert.NotEmpty(t, fi.Leaf)
+	assert.NotEmpty(t, fi.CA)
+	assert.NotEmpty(t, fi.ID.Bytes())
+
+	assert.Equal(t, expectedFI.Key, fi.Key)
+	assert.Equal(t, expectedFI.Leaf, fi.Leaf)
+	assert.Equal(t, expectedFI.CA, fi.CA)
+	assert.Equal(t, expectedFI.ID.Bytes(), fi.ID.Bytes())
+}
+
+func TestNodeID_Difficulty(t *testing.T) {
+	done, _, fi, knownDifficulty := tempIdentity(t)
+	defer done()
+
+	difficulty, err := fi.ID.Difficulty()
+	assert.NoError(t, err)
+	assert.True(t, difficulty >= knownDifficulty)
+}
+
+func TestVerifyPeer(t *testing.T) {
+	check := func(e error) {
+		if !assert.NoError(t, e) {
+			t.Fail()
+		}
+	}
+
+	ca, err := newTestCA(context.Background())
+	check(err)
+	fi, err := ca.NewIdentity()
+	check(err)
+
+	err = peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)([][]byte{fi.Leaf.Raw, fi.CA.Raw}, nil)
+	assert.NoError(t, err)
+}
+
+func TestNewServerOptions(t *testing.T) {
+	done, _, fi, _ := tempIdentity(t)
+	defer done()
+
+	tmp, err := ioutil.TempDir(os.TempDir(), "")
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+	defer func() { _ = os.RemoveAll(tmp) }()
+
+	whitelistPath := filepath.Join(tmp, "whitelist.pem")
+	w, err := os.Create(whitelistPath)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+	err = peertls.WriteChain(w, fi.CA)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+
+	cases := []struct {
+		testID      string
+		config      ServerConfig
+		pcvFuncsLen int
+	}{
+		{
+			"default",
+			ServerConfig{},
+			0,
+		},
+		{
+			"revocation processing",
+			ServerConfig{
+				RevocationDBURL: "bolt://" + filepath.Join(tmp, "revocation1.db"),
+				Extensions: peertls.TLSExtConfig{
+					Revocation: true,
+				},
+			},
+			2,
+		},
+		{
+			"ca whitelist verification",
+			ServerConfig{
+				PeerCAWhitelistPath: whitelistPath,
+			},
+			1,
+		},
+		{
+			"ca whitelist verification and whitelist signed leaf verification",
+			ServerConfig{
+				// NB: file doesn't actually exist
+				PeerCAWhitelistPath: filepath.Join(tmp, "whitelist.pem"),
+				Extensions: peertls.TLSExtConfig{
+					WhitelistSignedLeaf: true,
+				},
+			},
+			2,
+		},
+		{
+			"revocation processing and whitelist verification",
+			ServerConfig{
+				// NB: file doesn't actually exist
+				PeerCAWhitelistPath: whitelistPath,
+				RevocationDBURL:     "bolt://" + filepath.Join(tmp, "revocation2.db"),
+				Extensions: peertls.TLSExtConfig{
+					Revocation: true,
+				},
+			},
+			3,
+		},
+		{
+			"revocation processing, whitelist, and signed leaf verification",
+			ServerConfig{
+				// NB: file doesn't actually exist
+				PeerCAWhitelistPath: whitelistPath,
+				RevocationDBURL:     "bolt://" + filepath.Join(tmp, "revocation3.db"),
+				Extensions: peertls.TLSExtConfig{
+					Revocation:          true,
+					WhitelistSignedLeaf: true,
+				},
+			},
+			3,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			opts, err := NewServerOptions(fi, c.config)
+			assert.NoError(t, err)
+			assert.True(t, reflect.DeepEqual(fi, opts.Ident))
+			assert.Equal(t, c.config, opts.Config)
+			assert.Len(t, opts.PCVFuncs, c.pcvFuncsLen)
+		})
+	}
 }
 
 func tempIdentityConfig() (*IdentityConfig, func(), error) {
@@ -183,54 +326,4 @@ AwEHoUQDQgAEoLy/0hs5deTXZunRumsMkiHpF0g8wAc58aXANmr7Mxx9tzoIYFnx
 	assert.NoError(t, err)
 
 	return cleanup, ic, fi, difficulty
-}
-
-func TestIdentityConfig_LoadIdentity(t *testing.T) {
-	done, ic, expectedFI, _ := tempIdentity(t)
-	defer done()
-
-	err := ic.Save(expectedFI)
-	assert.NoError(t, err)
-
-	fi, err := ic.Load()
-	assert.NoError(t, err)
-	assert.NotEmpty(t, fi)
-	assert.NotEmpty(t, fi.Key)
-	assert.NotEmpty(t, fi.Leaf)
-	assert.NotEmpty(t, fi.CA)
-	assert.NotEmpty(t, fi.ID.Bytes())
-
-	assert.Equal(t, expectedFI.Key, fi.Key)
-	assert.Equal(t, expectedFI.Leaf, fi.Leaf)
-	assert.Equal(t, expectedFI.CA, fi.CA)
-	assert.Equal(t, expectedFI.ID.Bytes(), fi.ID.Bytes())
-}
-
-func TestNewI(t *testing.T) {
-
-}
-
-func TestNodeID_Difficulty(t *testing.T) {
-	done, _, fi, knownDifficulty := tempIdentity(t)
-	defer done()
-
-	difficulty, err := fi.ID.Difficulty()
-	assert.NoError(t, err)
-	assert.True(t, difficulty >= knownDifficulty)
-}
-
-func TestVerifyPeer(t *testing.T) {
-	check := func(e error) {
-		if !assert.NoError(t, e) {
-			t.Fail()
-		}
-	}
-
-	ca, err := newTestCA(context.Background())
-	check(err)
-	fi, err := ca.NewIdentity()
-	check(err)
-
-	err = peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)([][]byte{fi.Leaf.Raw, fi.CA.Raw}, nil)
-	assert.NoError(t, err)
 }

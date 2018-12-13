@@ -20,7 +20,7 @@ type Config struct {
 
 // Initialize a rollup struct
 func (c Config) initialize(ctx context.Context) (Rollup, error) {
-	db, err := accounting.NewDb(c.DatabaseURL)
+	db, err := accounting.NewDB(c.DatabaseURL)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

@@ -12,7 +12,6 @@ import (
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
@@ -28,8 +27,7 @@ type Config struct {
 func (c Config) initialize(ctx context.Context) (Tally, error) {
 	pointerdb := pointerdb.LoadFromContext(ctx)
 	overlay := overlay.LoadServerFromContext(ctx)
-	kademlia := kademlia.LoadFromContext(ctx)
-	db, err := accounting.NewDb(c.DatabaseURL)
+	db, err := accounting.NewDB(c.DatabaseURL)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -38,7 +36,7 @@ func (c Config) initialize(ctx context.Context) (Tally, error) {
 	if !ok {
 		return nil, errs.New("unable to get master db instance")
 	}
-	return newTally(zap.L(), db, masterDB.BandwidthAgreement(), pointerdb, overlay, kademlia, 0, c.Interval), nil
+	return newTally(zap.L(), db, masterDB.BandwidthAgreement(), pointerdb, overlay, 0, c.Interval), nil
 }
 
 // Run runs the tally with configured values
