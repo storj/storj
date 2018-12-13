@@ -9,6 +9,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha512"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -52,7 +53,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	s, err := Initialize(ctx, c, server.Identity().Key, zap.S())
+	s, err := Initialize(ctx, c, server.Identity().Key, zap.S().Named(fmt.Sprintf("storage node (%s)", server.Identity().ID)))
 	if err != nil {
 		return err
 	}
@@ -74,7 +75,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		log.Fatal(s.Stop(ctx))
 	}()
 
-	s.log.Infof("Started Node %v", server.Identity().ID)
+	s.log.Infof("Started Node %s", server.Identity().ID)
 	return server.Run(ctx)
 }
 

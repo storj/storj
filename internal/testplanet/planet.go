@@ -148,7 +148,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 			Path:               storageDir,
 			AllocatedDiskSpace: memory.GB.Int64(),
 			AllocatedBandwidth: 100 * memory.GB.Int64(),
-		}, node.Identity.Key, zap.S())
+		}, node.Identity.Key, node.Log.Sugar())
 
 		pb.RegisterPieceStoreRoutesServer(node.Provider.GRPC(), server)
 
