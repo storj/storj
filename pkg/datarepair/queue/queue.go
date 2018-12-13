@@ -4,6 +4,8 @@
 package queue
 
 import (
+	"context"
+
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
 
@@ -13,9 +15,9 @@ import (
 
 // RepairQueue is the interface for the data repair queue
 type RepairQueue interface {
-	Enqueue(qi *pb.InjuredSegment) error
-	Dequeue() (pb.InjuredSegment, error)
-	Peekqueue(limit int) ([]pb.InjuredSegment, error)
+	Enqueue(ctx context.Context, qi *pb.InjuredSegment) error
+	Dequeue(context.Context) (pb.InjuredSegment, error)
+	Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error)
 }
 
 // Queue implements the RepairQueue interface
@@ -30,13 +32,13 @@ func NewQueue(client storage.Queue) *Queue {
 }
 
 // Enqueue adds a repair segment to the queue
-func (q *Queue) Enqueue(qi *pb.InjuredSegment) error {
+func (q *Queue) Enqueue(ctx context.Context, qi *pb.InjuredSegment) error {
 	val, err := proto.Marshal(qi)
 	if err != nil {
 		return Error.New("error marshalling injured seg %s", err)
 	}
 
-	err = q.db.Enqueue(val)
+	err = q.db.Enqueue(ctx, val)
 	if err != nil {
 		return Error.New("error adding injured seg to queue %s", err)
 	}
@@ -44,8 +46,8 @@ func (q *Queue) Enqueue(qi *pb.InjuredSegment) error {
 }
 
 // Dequeue returns the next repair segement and removes it from the queue
-func (q *Queue) Dequeue() (pb.InjuredSegment, error) {
-	val, err := q.db.Dequeue()
+func (q *Queue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
+	val, err := q.db.Dequeue(ctx)
 	if err != nil {
 		if err == storage.ErrEmptyQueue {
 			return pb.InjuredSegment{}, err
@@ -61,11 +63,11 @@ func (q *Queue) Dequeue() (pb.InjuredSegment, error) {
 }
 
 // Peekqueue returns upto 'limit' of the entries from the repair queue
-func (q *Queue) Peekqueue(limit int) ([]pb.InjuredSegment, error) {
+func (q *Queue) Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
 	if limit < 0 || limit > storage.LookupLimit {
 		limit = storage.LookupLimit
 	}
-	result, err := q.db.Peekqueue(limit)
+	result, err := q.db.Peekqueue(ctx, limit)
 	if err != nil {
 		return []pb.InjuredSegment{}, Error.New("error peeking into repair queue %s", err)
 	}
