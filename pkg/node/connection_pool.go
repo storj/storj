@@ -176,4 +176,3 @@ func (pool *ConnectionPool) getAndMaintain(node *pb.Node) *Conn {
 
 	return conn
 }
-
