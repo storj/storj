@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/tls"
@@ -231,27 +232,23 @@ func (ic IdentityConfig) Load() (*FullIdentity, error) {
 
 // Save saves a FullIdentity according to the config
 func (ic IdentityConfig) Save(fi *FullIdentity) error {
-	f := os.O_WRONLY | os.O_CREATE
-	c, err := openCert(ic.CertPath, f)
-	if err != nil {
-		return err
-	}
-	defer utils.LogClose(c)
-	k, err := openKey(ic.KeyPath, f)
-	if err != nil {
-		return err
-	}
-	defer utils.LogClose(k)
+	var certData, keyData bytes.Buffer
 
 	chain := []*x509.Certificate{fi.Leaf, fi.CA}
 	chain = append(chain, fi.RestChain...)
-	if err = peertls.WriteChain(c, chain...); err != nil {
-		return err
+
+	writeErr := utils.CombineErrors(
+		peertls.WriteChain(&certData, chain...),
+		peertls.WriteKey(&keyData, fi.Key),
+	)
+	if writeErr != nil {
+		return writeErr
 	}
-	if err = peertls.WriteKey(k, fi.Key); err != nil {
-		return err
-	}
-	return nil
+
+	return utils.CombineErrors(
+		writeCertData(ic.CertPath, certData.Bytes()),
+		writeKeyData(ic.KeyPath, keyData.Bytes()),
+	)
 }
 
 // Run will run the given responsibilities with the configured identity.
