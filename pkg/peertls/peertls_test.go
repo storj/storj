@@ -7,8 +7,10 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/gob"
 	"io/ioutil"
 	"os"
@@ -176,11 +178,54 @@ func TestVerifyCAWhitelist(t *testing.T) {
 }
 
 func TestAddExtension(t *testing.T) {
-	t.SkipNow()
+	_, chain, err := newCertChain(1)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+
+	// NB: there's nothing special about length 32
+	randBytes := make([]byte, 32)
+	exampleID := asn1.ObjectIdentifier{2, 999}
+	i, err := rand.Read(randBytes)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+	assert.Equal(t, 32, i)
+
+	ext := pkix.Extension{
+		Id:    exampleID,
+		Value: randBytes,
+	}
+
+	err = AddExtension(chain[0], ext)
+	assert.NoError(t, err)
+	assert.Len(t, chain[0].ExtraExtensions, 1)
+	assert.Equal(t, ext, chain[0].ExtraExtensions[0])
 }
 
 func TestAddSignedCertExt(t *testing.T) {
-	t.SkipNow()
+	keys, chain, err := newCertChain(1)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+
+	err = AddSignedCertExt(keys[0], chain[0])
+	assert.NoError(t, err)
+
+	assert.Len(t, chain[0].ExtraExtensions, 1)
+	assert.Equal(t, ExtensionIDs[SignedCertExtID], chain[0].ExtraExtensions[0].Id)
+
+	ecKey, ok := keys[0].(*ecdsa.PrivateKey)
+	if !assert.True(t, ok) {
+		t.FailNow()
+	}
+
+	err = VerifySignature(
+		chain[0].ExtraExtensions[0].Value,
+		chain[0].RawTBSCertificate,
+		&ecKey.PublicKey,
+	)
+	assert.NoError(t, err)
 }
 
 func TestSignLeafExt(t *testing.T) {
