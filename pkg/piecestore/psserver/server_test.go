@@ -24,6 +24,7 @@ import (
 	"github.com/gtank/cryptopasta"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
@@ -503,6 +504,7 @@ func newTestServerStruct(t *testing.T) (*Server, func()) {
 		verifier:         verifier,
 		totalAllocated:   math.MaxInt64,
 		totalBwAllocated: math.MaxInt64,
+		log:              zap.S(),
 	}
 	return server, func() {
 		if serr := server.Stop(ctx); serr != nil {
