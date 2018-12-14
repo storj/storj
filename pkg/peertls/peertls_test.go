@@ -361,7 +361,7 @@ func TestNewRevocationExt(t *testing.T) {
 }
 
 func TestRevocationDB_Get(t *testing.T) {
-	tmp, err := ioutil.TempDir("", os.TempDir())
+	tmp, err := ioutil.TempDir("", "TestRevocationDB_Get")
 	defer func() { _ = os.RemoveAll(tmp) }()
 
 	keys, chain, err := newCertChain(2)
@@ -407,7 +407,7 @@ func TestRevocationDB_Get(t *testing.T) {
 }
 
 func TestRevocationDB_Put(t *testing.T) {
-	tmp, err := ioutil.TempDir("", os.TempDir())
+	tmp, err := ioutil.TempDir("", "TestRevocationDB_Put")
 	defer func() { _ = os.RemoveAll(tmp) }()
 
 	keys, chain, err := newCertChain(2)
@@ -560,7 +560,7 @@ func TestParseExtensions(t *testing.T) {
 	_, unrelatedChain, err := newCertChain(1)
 	assert.NoError(t, err)
 
-	tmp, err := ioutil.TempDir("", os.TempDir())
+	tmp, err := ioutil.TempDir("", "TestParseExtensions")
 	if err != nil {
 		t.FailNow()
 	}
