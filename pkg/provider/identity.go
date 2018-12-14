@@ -89,8 +89,8 @@ type ServerOptions struct {
 // NewServerOptions is a constructor for `serverOptions` given an identity and config
 func NewServerOptions(i *FullIdentity, c ServerConfig) (*ServerOptions, error) {
 	serverOpts := &ServerOptions{
-		Config:   c,
-		Ident:    i,
+		Config: c,
+		Ident:  i,
 	}
 
 	err := c.configure(serverOpts)
