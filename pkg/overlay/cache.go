@@ -167,7 +167,7 @@ func (o *Cache) Walk(ctx context.Context) error {
 }
 
 func randomID() (storj.NodeID, error) {
-	token := make([]byte, 32)
-	rand.Read(token)
-	return storj.NodeIDFromBytes(token)
+	b := make([]byte, 32)
+	rand.Read(b)
+	return storj.NodeIDFromBytes(b)
 }
