@@ -1,60 +1,85 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
-package transport
+package transport_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
 
-	"storj.io/storj/internal/identity"
-	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 )
 
-var ctx = context.Background()
-
 func TestDialNode(t *testing.T) {
-	ca, err := testidentity.NewTestCA(ctx)
-	assert.NoError(t, err)
-	identity, err := ca.NewIdentity()
-	assert.NoError(t, err)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	oc := Transport{
-		identity: identity,
+	planet, err := testplanet.New(t, 0, 2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	client := transport.NewClient(planet.StorageNodes[0].Identity)
+
+	{ // DialNode with invalid targets
+		targets := []*pb.Node{
+			{Id: storj.NodeID{}, Address: nil},
+			{Id: storj.NodeID{}, Address: &pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+			}},
+			{Id: storj.NodeID{123}, Address: &pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				Address:   "127.0.0.1:100",
+			}},
+		}
+
+		for _, target := range targets {
+			tag := fmt.Sprintf("%+v", target)
+
+			timedCtx, cancel := context.WithTimeout(ctx, time.Second)
+			conn, err := client.DialNode(timedCtx, target, grpc.WithBlock())
+			cancel()
+			assert.Error(t, err, tag)
+			assert.Nil(t, conn, tag)
+		}
 	}
 
-	// node.Address.Address == "" condition test
-	node := pb.Node{
-		Id: teststorj.NodeIDFromString("DUMMYID1"),
-		Address: &pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
-			Address:   "",
-		},
-	}
-	conn, err := oc.DialNode(ctx, &node)
-	assert.Error(t, err)
-	assert.Nil(t, conn)
+	{ // DialNode with valid target
+		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
+		conn, err := client.DialNode(timedCtx, &pb.Node{
+			Id: planet.StorageNodes[1].ID(),
+			Address: &pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				Address:   planet.StorageNodes[1].Addr(),
+			},
+		}, grpc.WithBlock())
+		cancel()
 
-	// node.Address == nil condition test
-	node = pb.Node{
-		Id:      teststorj.NodeIDFromString("DUMMYID2"),
-		Address: nil,
-	}
-	conn, err = oc.DialNode(ctx, &node)
-	assert.Error(t, err)
-	assert.Nil(t, conn)
+		assert.NoError(t, err)
+		assert.NotNil(t, conn)
 
-	// node is valid argument condition test
-	node = pb.Node{
-		Id: teststorj.NodeIDFromString("DUMMYID3"),
-		Address: &pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
-			Address:   "127.0.0.0:9000",
-		},
+		assert.NoError(t, conn.Close())
 	}
-	conn, err = oc.DialNode(ctx, &node)
-	assert.NoError(t, err)
-	assert.NotNil(t, conn)
+
+	{ // DialAddress with valid address
+		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
+		conn, err := client.DialAddress(timedCtx, planet.StorageNodes[1].Addr(), grpc.WithBlock())
+		cancel()
+
+		assert.NoError(t, err)
+		assert.NotNil(t, conn)
+
+		assert.NoError(t, conn.Close())
+	}
 }
