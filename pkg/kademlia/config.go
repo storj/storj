@@ -81,7 +81,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	}
 	defer func() { err = utils.CombineErrors(err, kad.Disconnect()) }()
 
-	pb.RegisterNodesServer(server.GRPC(), node.NewServer(kad))
+	pb.RegisterNodesServer(server.GRPC(), node.NewServer(zap.L(), kad))
 
 	go func() {
 		if err = kad.Bootstrap(ctx); err != nil {

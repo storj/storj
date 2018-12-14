@@ -7,6 +7,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/migrate"
+	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/utils"
@@ -23,22 +24,17 @@ type DB struct {
 	db *dbx.DB
 }
 
-// New creates instance of satellite database (supports: postgres, sqlite3)
+// New creates instance of database (supports: postgres, sqlite3)
 func New(databaseURL string) (*DB, error) {
-	dbURL, err := utils.ParseURL(databaseURL)
+	driver, source, err := utils.SplitDBURL(databaseURL)
 	if err != nil {
 		return nil, err
 	}
-	source := databaseURL
-	if dbURL.Scheme == "sqlite3" {
-		source = dbURL.Path
-	}
-	db, err := dbx.Open(dbURL.Scheme, source)
+	db, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, Error.New("failed opening database %q, %q: %v",
-			dbURL.Scheme, source, err)
+			driver, source, err)
 	}
-
 	return &DB{db: db}, nil
 }
 
@@ -72,10 +68,10 @@ func (db *DB) BandwidthAgreement() bwagreement.DB {
 // 	return &repairQueueDB{db: db.db}
 // }
 
-// // AccountingDB is a getter for AccountingDB repository
-// func (db *DB) AccountingDB() accounting.DB {
-// 	return &accountingDB{db: db.db}
-// }
+// Accounting returns database for tracking bandwidth agreements over time
+func (db *DB) Accounting() accounting.DB {
+	return &accountingDB{db: db.db}
+}
 
 // Irreparable returns database for storing segments that failed repair
 func (db *DB) Irreparable() irreparable.DB {

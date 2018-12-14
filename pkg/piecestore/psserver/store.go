@@ -6,6 +6,7 @@ package psserver
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -92,7 +93,17 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 
 	defer utils.LogClose(storeFile)
 
-	reader := NewStreamReader(s, stream)
+	bwUsed, err := s.DB.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
+	if err != nil {
+		return 0, err
+	}
+	spaceUsed, err := s.DB.SumTTLSizes()
+	if err != nil {
+		return 0, err
+	}
+	bwLeft := s.totalBwAllocated - bwUsed
+	spaceLeft := s.totalAllocated - spaceUsed
+	reader := NewStreamReader(s, stream, bwLeft, spaceLeft)
 
 	defer func() {
 		baWriteErr := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)

@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/accounting"
@@ -15,24 +16,23 @@ import (
 
 // Config contains configurable values for rollup
 type Config struct {
-	Interval    time.Duration `help:"how frequently rollup should run" default:"30s"`
-	DatabaseURL string        `help:"the database connection string to use" default:"sqlite3://$CONFDIR/stats.db"`
+	Interval time.Duration `help:"how frequently rollup should run" default:"30s"`
 }
 
 // Initialize a rollup struct
 func (c Config) initialize(ctx context.Context) (Rollup, error) {
-	db, err := accounting.NewDb(c.DatabaseURL)
-	if err != nil {
-		return nil, err
+	db, ok := ctx.Value("masterdb").(interface{ Accounting() accounting.DB })
+	if !ok {
+		return nil, Error.Wrap(errs.New("unable to get master db instance"))
 	}
-	return newRollup(zap.L(), db, c.Interval)
+	return newRollup(zap.L(), db.Accounting(), c.Interval), nil
 }
 
 // Run runs the rollup with configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	rollup, err := c.initialize(ctx)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 	ctx, cancel := context.WithCancel(ctx)
 

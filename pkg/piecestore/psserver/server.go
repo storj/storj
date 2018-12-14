@@ -26,7 +26,7 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
 	as "storj.io/storj/pkg/piecestore/psserver/agreementsender"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/provider"
@@ -135,7 +135,6 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 		totalUsed = 0x00
 	}
 
-	// get used bandwidth from the beginning of the month to till date
 	usedBandwidth, err := db.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
 	if err != nil {
 		return nil, ServerError.Wrap(err)

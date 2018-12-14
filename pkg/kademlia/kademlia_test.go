@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	testidentity "storj.io/storj/internal/identity"
@@ -170,7 +171,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 
 	k, err := NewKademlia(fid.ID, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
-	s := node.NewServer(k)
+	s := node.NewServer(zap.L(), k)
 	// new ident opts
 	identOpt, err := fid.ServerOption()
 	assert.NoError(t, err)

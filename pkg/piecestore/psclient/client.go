@@ -29,10 +29,10 @@ var ClientError = errs.Class("piecestore client error")
 
 var (
 	defaultBandwidthMsgSize = flag.Int(
-		"piecestore.rpc.client.default_bandwidth_msg_size", 32*1024,
+		"piecestore.rpc.client.default-bandwidth-msg-size", 32*1024,
 		"default bandwidth message size in bytes")
 	maxBandwidthMsgSize = flag.Int(
-		"piecestore.rpc.client.max_bandwidth_msg_size", 64*1024,
+		"piecestore.rpc.client.max-bandwidth-msg-size", 64*1024,
 		"max bandwidth message size in bytes")
 )
 

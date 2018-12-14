@@ -15,6 +15,7 @@ import (
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
@@ -58,6 +59,8 @@ func (planet *Planet) newNode(name string, nodeType pb.NodeType) (*Node, error) 
 		Identity: identity,
 		Listener: listener,
 	}
+
+	node.Log.Debug("id=" + identity.ID.String())
 
 	node.Transport = transport.NewClient(identity)
 
@@ -114,6 +117,12 @@ func (node *Node) Shutdown() error {
 		}
 	}
 	return utils.CombineErrors(errs...)
+}
+
+// NewNodeClient creates a node client for this node
+func (n *Node) NewNodeClient() (node.Client, error) { //nolint renaming to node would conflict with package name; rename Node to Peer to resolve
+	// TODO: handle disconnect verification
+	return node.NewNodeClient(n.Identity, n.Info, n.Kademlia)
 }
 
 // DialPointerDB dials destination with apikey and returns pointerdb Client
