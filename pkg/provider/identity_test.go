@@ -167,14 +167,10 @@ func TestNewServerOptions(t *testing.T) {
 	whitelistPath := ctx.File("whitelist.pem")
 
 	chainData, err := peertls.ChainBytes(fi.CA)
-	if assert.NoError(t, err) {
-		t.FailNow()
-	}
+	assert.NoError(t, err)
 
 	err = ioutil.WriteFile(whitelistPath, chainData, 0644)
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
+	assert.NoError(t, err)
 
 	cases := []struct {
 		testID      string
@@ -242,48 +238,44 @@ func TestNewServerOptions(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Log(c.testID)
-		opts, err := provider.NewServerOptions(fi, c.config)
-		assert.NoError(t, err)
-		assert.True(t, reflect.DeepEqual(fi, opts.Ident))
-		assert.Equal(t, c.config, opts.Config)
-		assert.Len(t, opts.PCVFuncs, c.pcvFuncsLen)
+		t.Run(c.testID, func(t *testing.T) {
+			opts, err := provider.NewServerOptions(fi, c.config)
+			assert.NoError(t, err)
+			assert.True(t, reflect.DeepEqual(fi, opts.Ident))
+			assert.Equal(t, c.config, opts.Config)
+			assert.Len(t, opts.PCVFuncs, c.pcvFuncsLen)
+		})
 	}
 }
 
 func pregeneratedIdentity(t *testing.T) *provider.FullIdentity {
-	const (
-		chain = `-----BEGIN CERTIFICATE-----
-			MIIBQDCB56ADAgECAhB+u3d03qyW/ROgwy/ZsPccMAoGCCqGSM49BAMCMAAwIhgP
-			MDAwMTAxMDEwMDAwMDBaGA8wMDAxMDEwMTAwMDAwMFowADBZMBMGByqGSM49AgEG
-			CCqGSM49AwEHA0IABIZrEPV/ExEkF0qUF0fJ3qSeGt5oFUX231v02NSUywcQ/Ve0
-			v3nHbmcJdjWBis2AkfL25mYDVC25jLl4tylMKumjPzA9MA4GA1UdDwEB/wQEAwIF
-			oDAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDAYDVR0TAQH/BAIwADAK
-			BggqhkjOPQQDAgNIADBFAiEA2ZvsR0ncw4mHRIg2Isavd+XVEoMo/etXQRAkDy9n
-			wyoCIDykUsqjshc9kCrXOvPSN8GuO2bNoLu5C7K1GlE/HI2X
-			-----END CERTIFICATE-----
-			-----BEGIN CERTIFICATE-----
-			MIIBODCB4KADAgECAhAOcvhKe5TWT44LqFfgA1f8MAoGCCqGSM49BAMCMAAwIhgP
-			MDAwMTAxMDEwMDAwMDBaGA8wMDAxMDEwMTAwMDAwMFowADBZMBMGByqGSM49AgEG
-			CCqGSM49AwEHA0IABIZrEPV/ExEkF0qUF0fJ3qSeGt5oFUX231v02NSUywcQ/Ve0
-			v3nHbmcJdjWBis2AkfL25mYDVC25jLl4tylMKumjODA2MA4GA1UdDwEB/wQEAwIC
-			BDATBgNVHSUEDDAKBggrBgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49
-			BAMCA0cAMEQCIGAZfPT1qvlnkTacojTtP20ZWf6XbnSztJHIKlUw6AE+AiB5Vcjj
-			awRaC5l1KBPGqiKB0coVXDwhW+K70l326MPUcg==
-			-----END CERTIFICATE-----`
+	const chain = `-----BEGIN CERTIFICATE-----
+MIIBQDCB56ADAgECAhB+u3d03qyW/ROgwy/ZsPccMAoGCCqGSM49BAMCMAAwIhgP
+MDAwMTAxMDEwMDAwMDBaGA8wMDAxMDEwMTAwMDAwMFowADBZMBMGByqGSM49AgEG
+CCqGSM49AwEHA0IABIZrEPV/ExEkF0qUF0fJ3qSeGt5oFUX231v02NSUywcQ/Ve0
+v3nHbmcJdjWBis2AkfL25mYDVC25jLl4tylMKumjPzA9MA4GA1UdDwEB/wQEAwIF
+oDAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDAYDVR0TAQH/BAIwADAK
+BggqhkjOPQQDAgNIADBFAiEA2ZvsR0ncw4mHRIg2Isavd+XVEoMo/etXQRAkDy9n
+wyoCIDykUsqjshc9kCrXOvPSN8GuO2bNoLu5C7K1GlE/HI2X
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+MIIBODCB4KADAgECAhAOcvhKe5TWT44LqFfgA1f8MAoGCCqGSM49BAMCMAAwIhgP
+MDAwMTAxMDEwMDAwMDBaGA8wMDAxMDEwMTAwMDAwMFowADBZMBMGByqGSM49AgEG
+CCqGSM49AwEHA0IABIZrEPV/ExEkF0qUF0fJ3qSeGt5oFUX231v02NSUywcQ/Ve0
+v3nHbmcJdjWBis2AkfL25mYDVC25jLl4tylMKumjODA2MA4GA1UdDwEB/wQEAwIC
+BDATBgNVHSUEDDAKBggrBgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49
+BAMCA0cAMEQCIGAZfPT1qvlnkTacojTtP20ZWf6XbnSztJHIKlUw6AE+AiB5Vcjj
+awRaC5l1KBPGqiKB0coVXDwhW+K70l326MPUcg==
+-----END CERTIFICATE-----`
 
-		key = `-----BEGIN EC PRIVATE KEY-----
-			MHcCAQEEIKGjEetrxKrzl+AL1E5LXke+1ElyAdjAmr88/1Kx09+doAoGCCqGSM49
-			AwEHoUQDQgAEoLy/0hs5deTXZunRumsMkiHpF0g8wAc58aXANmr7Mxx9tzoIYFnx
-			0YN4VDKdCtUJa29yA6TIz1MiIDUAcB5YCA==
-			-----END EC PRIVATE KEY-----`
-	)
+	const key = `-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIKGjEetrxKrzl+AL1E5LXke+1ElyAdjAmr88/1Kx09+doAoGCCqGSM49
+AwEHoUQDQgAEoLy/0hs5deTXZunRumsMkiHpF0g8wAc58aXANmr7Mxx9tzoIYFnx
+0YN4VDKdCtUJa29yA6TIz1MiIDUAcB5YCA==
+-----END EC PRIVATE KEY-----`
 
 	fi, err := provider.FullIdentityFromPEM([]byte(chain), []byte(key))
-	if err != nil {
-		panic(err)
-	}
-	// assert.NoError(t, err)
+	assert.NoError(t, err)
 
 	return fi
 }
