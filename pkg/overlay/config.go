@@ -110,6 +110,10 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 				if err != nil {
 					zap.L().Error("Error with cache refresh: ", zap.Error(err))
 				}
+				err = cache.Discovery(ctx)
+				if err != nil {
+					zap.L().Error("Error with cache discovery: ", zap.Error(err))
+				}
 			case <-ctx.Done():
 				return
 			}

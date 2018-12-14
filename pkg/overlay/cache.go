@@ -5,6 +5,7 @@ package overlay
 
 import (
 	"context"
+	"crypto/rand"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -133,6 +134,16 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	return nil
 }
 
+// Discovery runs lookups for random node ID's to find new nodes in the network
+func (o *Cache) Discovery(ctx context.Context) error {
+	r, err := randomID()
+	_, err = o.DHT.FindNode(ctx, r)
+	if err != nil {
+		return OverlayError.Wrap(err)
+	}
+	return nil
+}
+
 // Refresh updates the cache db with the current DHT.
 // We currently do not penalize nodes that are unresponsive,
 // but should in the future.
@@ -153,4 +164,10 @@ func (o *Cache) Refresh(ctx context.Context) error {
 func (o *Cache) Walk(ctx context.Context) error {
 	// TODO: This should walk the cache, rather than be a duplicate of refresh
 	return nil
+}
+
+func randomID() (storj.NodeID, error) {
+	token := make([]byte, 32)
+	rand.Read(token)
+	return storj.NodeIDFromBytes(token)
 }
