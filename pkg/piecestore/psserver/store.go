@@ -106,18 +106,13 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	spaceLeft := s.totalAllocated - spaceUsed
 	reader := NewStreamReader(s, stream, bwLeft, spaceLeft)
 
-	defer func() {
-		baWriteErr := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
-		if baWriteErr != nil {
-			s.log.Error("Error while writing Bandwidth Alloc to DB", zap.Error(baWriteErr))
-		}
-	}()
-
 	total, err = io.Copy(storeFile, reader)
 
 	if err != nil && err != io.EOF {
 		return 0, err
 	}
 
-	return total, nil
+	err = s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
+
+	return total, err
 }
