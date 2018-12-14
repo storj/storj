@@ -2,7 +2,7 @@
 set -ueo pipefail
 go install -v storj.io/storj/cmd/captplanet
 
-captplanet setup --overwrite --satellite-identity.server.revocation-dburl="redis://127.0.0.1:6378?db=2&password=abc123"
+captplanet setup --overwrite
 
 unamestr=`uname`
 if [[ "$unamestr" == 'Darwin' ]]; then
@@ -84,7 +84,7 @@ fi
 
 kill -9 $CAPT_PID
 
-captplanet setup --listen-host ::1 --overwrite --satellite-identity.server.revocation-dburl="redis://127.0.0.1:6378?db=2&password=abc123"
+captplanet setup --listen-host ::1 --overwrite
 if [[ "$unamestr" == 'Darwin' ]]; then
   sed -i~ 's/interval:.*/interval: 1s/g' $HOME/Library/Application\ Support/Storj/Capt/config.yaml
 else

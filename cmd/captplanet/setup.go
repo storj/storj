@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"regexp"
 
 	"github.com/spf13/cobra"
 
@@ -51,7 +50,6 @@ func init() {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	redisURL := regexp.MustCompile("^redis://")
 	setupCfg.BasePath, err = filepath.Abs(setupCfg.BasePath)
 	if err != nil {
 		return err
@@ -112,9 +110,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	setupCfg.UplinkCA.KeyPath = filepath.Join(uplinkPath, "ca.key")
 	setupCfg.UplinkIdentity.CertPath = filepath.Join(uplinkPath, "identity.cert")
 	setupCfg.UplinkIdentity.KeyPath = filepath.Join(uplinkPath, "identity.key")
-	if redisURL.MatchString(setupCfg.SatelliteIdentity.Server.RevocationDBURL) {
-		setupCfg.UplinkIdentity.Server.RevocationDBURL = setupCfg.SatelliteIdentity.Server.RevocationDBURL
-	}
 	fmt.Printf("creating identity for uplink\n")
 	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.UplinkCA, setupCfg.UplinkIdentity)
 	if err != nil {
@@ -143,7 +138,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"satellite.identity.key-path":  setupCfg.SatelliteIdentity.KeyPath,
 		"satellite.identity.server.address": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
-		"satellite.identity.server.revocation-dburl": setupCfg.SatelliteIdentity.Server.RevocationDBURL,
+		"satellite.identity.server.revocation-dburl": "redis://127.0.0.1:6378?db=2&password=abc123",
 		"satellite.kademlia.bootstrap-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"satellite.pointer-db.database-url": "bolt://" + filepath.Join(
@@ -160,7 +155,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"uplink.identity.key-path":   setupCfg.UplinkIdentity.KeyPath,
 		"uplink.identity.server.address": joinHostPort(
 			setupCfg.ListenHost, startingPort),
-		"uplink.identity.server.revocation-dburl": setupCfg.SatelliteIdentity.Server.RevocationDBURL,
+		"uplink.identity.server.revocation-dburl": "redis://127.0.0.1:6378?db=2&password=abc123",
 		"uplink.client.overlay-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"uplink.client.pointer-db-addr": joinHostPort(
@@ -198,9 +193,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			setupCfg.ListenHost, startingPort+i*2+3)
 		overrides[storagenode+"identity.server.revocation-dburl"] = "bolt://" + filepath.Join(
 			storagenodePath, "revocations.db")
-		if redisURL.MatchString(setupCfg.SatelliteIdentity.Server.RevocationDBURL) {
-			overrides[storagenode+"identity.server.revocation-dburl"] = setupCfg.SatelliteIdentity.Server.RevocationDBURL
-		}
+		overrides[storagenode+"identity.server.revocation-dburl"] = "redis://127.0.0.1:6378?db=2&password=abc123"
 		overrides[storagenode+"kademlia.bootstrap-addr"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+1)
 		overrides[storagenode+"storage.path"] = filepath.Join(storagenodePath, "data")
