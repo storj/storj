@@ -181,8 +181,7 @@ func TestNewServerOptions(t *testing.T) {
 			"default",
 			provider.ServerConfig{},
 			0,
-		},
-		{
+		}, {
 			"revocation processing",
 			provider.ServerConfig{
 				RevocationDBURL: "bolt://" + ctx.File("revocation1.db"),
@@ -191,15 +190,13 @@ func TestNewServerOptions(t *testing.T) {
 				},
 			},
 			2,
-		},
-		{
+		}, {
 			"ca whitelist verification",
 			provider.ServerConfig{
 				PeerCAWhitelistPath: whitelistPath,
 			},
 			1,
-		},
-		{
+		}, {
 			"ca whitelist verification and whitelist signed leaf verification",
 			provider.ServerConfig{
 				// NB: file doesn't actually exist
@@ -209,8 +206,7 @@ func TestNewServerOptions(t *testing.T) {
 				},
 			},
 			2,
-		},
-		{
+		}, {
 			"revocation processing and whitelist verification",
 			provider.ServerConfig{
 				// NB: file doesn't actually exist
@@ -221,8 +217,7 @@ func TestNewServerOptions(t *testing.T) {
 				},
 			},
 			3,
-		},
-		{
+		}, {
 			"revocation processing, whitelist, and signed leaf verification",
 			provider.ServerConfig{
 				// NB: file doesn't actually exist
