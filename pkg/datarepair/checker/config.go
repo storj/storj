@@ -15,6 +15,8 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
+	"storj.io/storj/pkg/utils"
+	"storj.io/storj/storage"
 	"storj.io/storj/storage/redis"
 )
 
@@ -45,9 +47,30 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 		return nil, Error.New("unable to get master db instance")
 	}
 	o := overlay.LoadServerFromContext(ctx)
-	redisQ, err := redis.NewQueueFrom(c.QueueAddress)
+
+	driver, _, err := utils.SplitDBURL(c.QueueAddress)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, err
+	}
+
+	var repairQueue *queue.Queue
+	switch driver {
+	case "postgres":
+		postgresDB, ok := ctx.Value("masterdb").(interface {
+			RepairQueueDB() storage.Queue
+		})
+		if !ok {
+			return nil, errs.New("unable to get master db instance")
+		}
+		repairQueue = queue.NewQueue(postgresDB.RepairQueueDB())
+	case "redis":
+		redisDB, err := redis.NewQueueFrom(c.QueueAddress)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		repairQueue = queue.NewQueue(redisDB)
+	default:
+		return nil, errs.New("Unsupported driver (%s). Please use postgres or redis", driver)
 	}
 	repairQueue := queue.NewQueue(redisQ)
 	return newChecker(pdb, sdb.StatDB(), repairQueue, o, db.Irreparable(), 0, zap.L(), c.Interval), nil
