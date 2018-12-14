@@ -56,6 +56,11 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 		log = zaptest.NewLogger(t)
 	}
 
+	return NewWithLogger(log, satelliteCount, storageNodeCount, uplinkCount)
+}
+
+// NewWithLogger creates a new full system with the given number of nodes.
+func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	planet := &Planet{
 		log:        log,
 		identities: pregeneratedIdentities.Clone(),
@@ -223,8 +228,8 @@ func (planet *Planet) newNodes(prefix string, count int, nodeType pb.NodeType) (
 	return xs, nil
 }
 
-// newIdentity creates a new identity for a node
-func (planet *Planet) newIdentity() (*provider.FullIdentity, error) {
+// NewIdentity creates a new identity for a node
+func (planet *Planet) NewIdentity() (*provider.FullIdentity, error) {
 	return planet.identities.NewIdentity()
 }
 
