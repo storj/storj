@@ -67,6 +67,9 @@ func (d *Discovery) Bootstrap(ctx context.Context) error {
 // Discovery runs lookups for random node ID's to find new nodes in the network
 func (d *Discovery) Discovery(ctx context.Context) error {
 	r, err := randomID()
+	if err != nil {
+		return DiscoveryError.Wrap(err)
+	}
 	_, err = d.kad.FindNode(ctx, r)
 	if err != nil {
 		return DiscoveryError.Wrap(err)
@@ -82,6 +85,9 @@ func (d *Discovery) Walk(ctx context.Context) error {
 
 func randomID() (storj.NodeID, error) {
 	b := make([]byte, 32)
-	rand.Read(b)
+	_, err := rand.Read(b)
+	if err != nil {
+		return storj.NodeID{}, DiscoveryError.Wrap(err)
+	}
 	return storj.NodeIDFromBytes(b)
 }
