@@ -5,7 +5,7 @@ package main
 
 import (
 	"github.com/spf13/cobra"
-
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/process"
 )
 
@@ -15,7 +15,7 @@ var (
 		Short: "Identity management",
 	}
 
-	defaultConfDir = "$HOME/.storj/identity"
+	defaultConfDir = fpath.ApplicationDir("storj", "identity")
 )
 
 func main() {

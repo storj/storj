@@ -90,6 +90,9 @@ func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
 	// NB: backup original cert
 	var backupCfg provider.IdentityConfig
 	extRegex, err := regexp.Compile(filepath.Ext(revokeLeafCfg.Identity.CertPath) + "$")
+	if err != nil {
+		return err
+	}
 	backupCfg.CertPath = extRegex.ReplaceAllString(
 		revokeLeafCfg.Identity.CertPath,
 		strconv.Itoa(int(time.Now().Unix()))+".bak$1",

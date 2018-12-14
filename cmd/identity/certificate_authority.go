@@ -89,6 +89,9 @@ func cmdRevokeCA(cmd *cobra.Command, args []string) (err error) {
 	// NB: backup original cert
 	var backupCfg provider.FullCAConfig
 	extRegex, err := regexp.Compile(filepath.Ext(revokeCACfg.CA.CertPath) + "$")
+	if err != nil {
+		return err
+	}
 	backupCfg.CertPath = extRegex.ReplaceAllString(
 		revokeCACfg.Identity.CertPath,
 		strconv.Itoa(int(time.Now().Unix()))+".bak$1",
