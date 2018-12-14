@@ -13,7 +13,6 @@ import (
 
 	testidentity "storj.io/storj/internal/identity"
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/bwagreement/test"
 	"storj.io/storj/pkg/overlay"
@@ -31,15 +30,12 @@ func TestQueryNoAgreements(t *testing.T) {
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 
-	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
+	db, err := satellitedb.NewInMemory()
 	assert.NoError(t, err)
-	defer ctx.Check(accountingDb.Close)
+	defer ctx.Check(db.Close)
+	assert.NoError(t, db.CreateTables())
 
-	masterDB, err := satellitedb.NewInMemory()
-	assert.NoError(t, err)
-	defer ctx.Check(masterDB.Close)
-
-	tally := newTally(zap.NewNop(), accountingDb, masterDB.BandwidthAgreement(), pointerdb, overlayServer, 0, time.Second)
+	tally := newTally(zap.NewNop(), db.Accounting(), db.BandwidthAgreement(), pointerdb, overlayServer, 0, time.Second)
 
 	err = tally.Query(ctx)
 	assert.NoError(t, err)
@@ -52,18 +48,13 @@ func TestQueryWithBw(t *testing.T) {
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 
-	accountingDb, err := accounting.NewDB("sqlite3://file::memory:?mode=memory&cache=shared")
+	db, err := satellitedb.NewInMemory()
 	assert.NoError(t, err)
-	defer ctx.Check(accountingDb.Close)
+	defer ctx.Check(db.Close)
+	assert.NoError(t, db.CreateTables())
 
-	masterDB, err := satellitedb.NewInMemory()
-	assert.NoError(t, err)
-	defer ctx.Check(masterDB.Close)
-	err = masterDB.CreateTables()
-	assert.NoError(t, err)
-
-	bwDb := masterDB.BandwidthAgreement()
-	tally := newTally(zap.NewNop(), accountingDb, bwDb, pointerdb, overlayServer, 0, time.Second)
+	bwDb := db.BandwidthAgreement()
+	tally := newTally(zap.NewNop(), db.Accounting(), bwDb, pointerdb, overlayServer, 0, time.Second)
 
 	//get a private key
 	fiC, err := testidentity.NewTestIdentity()
