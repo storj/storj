@@ -29,7 +29,7 @@ var (
 		Short: "Captain Planet! With our powers combined!",
 	}
 
-	defaultConfDir string
+	defaultConfDir = fpath.ApplicationDir("storj", "capt")
 )
 
 func main() {
@@ -38,7 +38,6 @@ func main() {
 }
 
 func init() {
-	defaultConfDir = fpath.ApplicationDir("storj", "capt")
 	runCmd.Flags().String("config",
 		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	setupCmd.Flags().String("config",
