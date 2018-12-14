@@ -296,7 +296,7 @@ func (ic IdentityConfig) Run(ctx context.Context, interceptor grpc.UnaryServerIn
 	if err != nil {
 		return err
 	}
-	defer func() { _ = opts.RevDB.Close() }()
+	defer func() { err = utils.CombineErrors(err, opts.RevDB.Close()) }()
 
 	s, err := NewProvider(opts, lis, interceptor, responsibilities...)
 	if err != nil {
