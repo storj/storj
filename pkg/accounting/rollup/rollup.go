@@ -23,12 +23,12 @@ type rollup struct {
 	db     accounting.DB
 }
 
-func newRollup(logger *zap.Logger, db accounting.DB, interval time.Duration) (*rollup, error) {
+func newRollup(logger *zap.Logger, db accounting.DB, interval time.Duration) *rollup {
 	return &rollup{
 		logger: logger,
 		ticker: time.NewTicker(interval),
 		db:     db,
-	}, nil
+	}
 }
 
 // Run the rollup loop

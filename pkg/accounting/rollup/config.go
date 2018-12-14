@@ -16,17 +16,16 @@ import (
 
 // Config contains configurable values for rollup
 type Config struct {
-	Interval    time.Duration `help:"how frequently rollup should run" default:"30s"`
-	DatabaseURL string        `help:"the database connection string to use" default:"sqlite3://$CONFDIR/stats.db"`
+	Interval time.Duration `help:"how frequently rollup should run" default:"30s"`
 }
 
 // Initialize a rollup struct
 func (c Config) initialize(ctx context.Context) (Rollup, error) {
 	db, ok := ctx.Value("masterdb").(interface{ Accounting() accounting.DB })
 	if !ok {
-		return nil, errs.New("unable to get master db instance")
+		return nil, Error.Wrap(errs.New("unable to get master db instance"))
 	}
-	return newRollup(zap.L(), db.Accounting(), c.Interval)
+	return newRollup(zap.L(), db.Accounting(), c.Interval), nil
 }
 
 // Run runs the rollup with configured values
