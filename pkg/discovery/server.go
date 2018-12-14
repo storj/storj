@@ -10,14 +10,14 @@ import (
 
 // Server struct that loads on logging and metrics
 type Server struct {
-	logger  *zap.Logger
+	log     *zap.Logger
 	metrics *monkit.Registry
 }
 
 // NewServer returns a server
-func NewServer(log *zap.Logger) *Server {
+func NewServer(l *zap.Logger) *Server {
 	return &Server{
-		logger:  log,
+		log:     l,
 		metrics: monkit.Default,
 	}
 }
