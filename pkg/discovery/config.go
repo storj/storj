@@ -45,8 +45,13 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 	ol := overlay.LoadFromContext(ctx)
 	kad := kademlia.LoadFromContext(ctx)
-	stat := statdb.LoadFromContext(ctx)
-	discovery := NewDiscovery(ol, kad, stat)
+	stat, ok := ctx.Value("masterdb").(interface {
+		StatDB() statdb.DB
+	})
+	if !ok {
+		return Error.New("unable to get master db instance")
+	}
+	discovery := NewDiscovery(ol, kad, stat.StatDB())
 
 	zap.L().Debug("Starting discovery")
 

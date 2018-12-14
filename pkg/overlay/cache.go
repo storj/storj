@@ -12,7 +12,6 @@ import (
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
-	statproto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
@@ -35,11 +34,11 @@ var OverlayError = errs.Class("Overlay Error")
 type Cache struct {
 	DB     storage.KeyValueStore
 	DHT    dht.DHT
-	StatDB *statdb.StatDB
+	StatDB statdb.DB
 }
 
 // NewOverlayCache returns a new Cache
-func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT, sdb *statdb.StatDB) *Cache {
+func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT, sdb statdb.DB) *Cache {
 	return &Cache{DB: db, DHT: dht, StatDB: sdb}
 }
 
@@ -98,10 +97,8 @@ func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) err
 	}
 
 	// get existing node rep, or create a new statdb node with 0 rep
-	res, err := o.StatDB.CreateEntryIfNotExists(ctx, &statproto.CreateEntryIfNotExistsRequest{
-		Node: &pb.Node{
-			Id: nodeID,
-		},
+	res, err := o.StatDB.CreateEntryIfNotExists(ctx, &statdb.CreateEntryIfNotExistsRequest{
+		Node: nodeID,
 	})
 	if err != nil {
 		return err

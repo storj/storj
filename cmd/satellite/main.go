@@ -30,7 +30,6 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storage/redis"
@@ -67,7 +66,6 @@ var (
 		Kademlia    kademlia.Config
 		PointerDB   pointerdb.Config
 		Overlay     overlay.Config
-		StatDB      statdb.Config
 		Checker     checker.Config
 		Repairer    repairer.Config
 		Audit       audit.Config
@@ -125,7 +123,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		grpcauth.NewAPIKeyInterceptor(),
 		runCfg.Kademlia,
 		runCfg.PointerDB,
-		runCfg.StatDB,
 		runCfg.Overlay,
 		runCfg.Checker,
 		runCfg.Repairer,

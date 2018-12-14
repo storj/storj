@@ -61,9 +61,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return Error.New("programmer error: kademlia responsibility unstarted")
 	}
 
-	sdb := statdb.LoadFromContext(ctx)
-	if sdb == nil {
-		return Error.New("programmer error: statdb responsibility unstarted")
+	sdb, ok := ctx.Value("masterdb").(interface {
+		StatDB() statdb.DB
+	})
+	if !ok {
+		return Error.New("unable to get master db instance")
 	}
 
 	driver, source, err := utils.SplitDBURL(c.DatabaseURL)
@@ -90,7 +92,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return Error.New("database scheme not supported: %s", driver)
 	}
 
-	cache := NewOverlayCache(db, kad, sdb)
+	cache := NewOverlayCache(db, kad, sdb.StatDB())
 	srv := NewServer(zap.L(), cache, kad)
 	pb.RegisterOverlayServer(server.GRPC(), srv)
 
