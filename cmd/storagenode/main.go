@@ -66,7 +66,7 @@ var (
 
 const(
 	defaultServerAddr = ":28967"
-	defaultSatteliteAddr = "master.satellite.dev.storj.io:7777"
+	defaultSatteliteAddr = "127.0.0.1:7778"
 )
 
 func init() {
