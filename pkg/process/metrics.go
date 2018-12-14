@@ -24,7 +24,7 @@ var (
 		"address to send telemetry to")
 	metricApp = flag.String("metrics.app", filepath.Base(os.Args[0]),
 		"application name for telemetry identification")
-	metricAppSuffix = flag.String("metrics.app_suffix", "-dev",
+	metricAppSuffix = flag.String("metrics.app-suffix", "-dev",
 		"application suffix")
 )
 

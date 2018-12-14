@@ -21,7 +21,6 @@ var (
 // Config is a configuration struct that is everything you need to start an
 // agreement receiver responsibility
 type Config struct {
-	DatabaseURL string `help:"the database connection string to use" default:"sqlite3://$CONFDIR/bw.db"`
 }
 
 // Run implements the provider.Responsibility interface
