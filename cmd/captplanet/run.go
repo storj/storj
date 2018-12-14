@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
@@ -54,6 +55,7 @@ type Satellite struct {
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	Discovery   discovery.Config
 	Tally       tally.Config
+	Rollup      rollup.Config
 }
 
 // StorageNode is for configuring storage nodes
@@ -139,6 +141,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.BwAgreement,
 			runCfg.Satellite.Web,
 			runCfg.Satellite.Tally,
+			runCfg.Satellite.Rollup,
 
 			// NB(dylan): Inspector is only used for local development and testing.
 			// It should not be added to the Satellite startup

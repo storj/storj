@@ -196,6 +196,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			storagenodePath, "identity.key")
 		overrides[storagenode+"identity.server.address"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+i*2+3)
+		overrides[storagenode+"identity.server.revocation-dburl"] = "bolt://" + filepath.Join(
+			storagenodePath, "revocations.db")
 		if redisURL.MatchString(setupCfg.SatelliteIdentity.Server.RevocationDBURL) {
 			overrides[storagenode+"identity.server.revocation-dburl"] = setupCfg.SatelliteIdentity.Server.RevocationDBURL
 		}

@@ -20,6 +20,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/mattn/go-sqlite3"
+	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
@@ -285,6 +286,31 @@ CREATE TABLE irreparabledbs (
 	seg_damaged_unix_sec bigint NOT NULL,
 	repair_attempt_count bigint NOT NULL,
 	PRIMARY KEY ( segmentpath )
+);
+CREATE TABLE raws (
+	id bigserial NOT NULL,
+	node_id text NOT NULL,
+	interval_end_time timestamp with time zone NOT NULL,
+	data_total bigint NOT NULL,
+	data_type integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE rollups (
+	id bigserial NOT NULL,
+	node_id text NOT NULL,
+	start_time timestamp with time zone NOT NULL,
+	interval bigint NOT NULL,
+	data_type integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE timestamps (
+	name text NOT NULL,
+	value timestamp with time zone NOT NULL,
+	PRIMARY KEY ( name )
 );`
 }
 
@@ -362,6 +388,31 @@ CREATE TABLE irreparabledbs (
 	seg_damaged_unix_sec INTEGER NOT NULL,
 	repair_attempt_count INTEGER NOT NULL,
 	PRIMARY KEY ( segmentpath )
+);
+CREATE TABLE raws (
+	id INTEGER NOT NULL,
+	node_id TEXT NOT NULL,
+	interval_end_time TIMESTAMP NOT NULL,
+	data_total INTEGER NOT NULL,
+	data_type INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE rollups (
+	id INTEGER NOT NULL,
+	node_id TEXT NOT NULL,
+	start_time TIMESTAMP NOT NULL,
+	interval INTEGER NOT NULL,
+	data_type INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE timestamps (
+	name TEXT NOT NULL,
+	value TIMESTAMP NOT NULL,
+	PRIMARY KEY ( name )
 );`
 }
 
@@ -438,6 +489,7 @@ type Bwagreement_Update_Fields struct {
 
 type Bwagreement_Signature_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -446,7 +498,7 @@ func Bwagreement_Signature(v []byte) Bwagreement_Signature_Field {
 }
 
 func (f Bwagreement_Signature_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -456,6 +508,7 @@ func (Bwagreement_Signature_Field) _Column() string { return "signature" }
 
 type Bwagreement_Data_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -464,7 +517,7 @@ func Bwagreement_Data(v []byte) Bwagreement_Data_Field {
 }
 
 func (f Bwagreement_Data_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -474,6 +527,7 @@ func (Bwagreement_Data_Field) _Column() string { return "data" }
 
 type Bwagreement_CreatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -482,7 +536,7 @@ func Bwagreement_CreatedAt(v time.Time) Bwagreement_CreatedAt_Field {
 }
 
 func (f Bwagreement_CreatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -509,6 +563,7 @@ type Irreparabledb_Update_Fields struct {
 
 type Irreparabledb_Segmentpath_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -517,7 +572,7 @@ func Irreparabledb_Segmentpath(v []byte) Irreparabledb_Segmentpath_Field {
 }
 
 func (f Irreparabledb_Segmentpath_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -527,6 +582,7 @@ func (Irreparabledb_Segmentpath_Field) _Column() string { return "segmentpath" }
 
 type Irreparabledb_Segmentdetail_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -535,7 +591,7 @@ func Irreparabledb_Segmentdetail(v []byte) Irreparabledb_Segmentdetail_Field {
 }
 
 func (f Irreparabledb_Segmentdetail_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -545,6 +601,7 @@ func (Irreparabledb_Segmentdetail_Field) _Column() string { return "segmentdetai
 
 type Irreparabledb_PiecesLostCount_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -553,7 +610,7 @@ func Irreparabledb_PiecesLostCount(v int64) Irreparabledb_PiecesLostCount_Field 
 }
 
 func (f Irreparabledb_PiecesLostCount_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -563,6 +620,7 @@ func (Irreparabledb_PiecesLostCount_Field) _Column() string { return "pieces_los
 
 type Irreparabledb_SegDamagedUnixSec_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -571,7 +629,7 @@ func Irreparabledb_SegDamagedUnixSec(v int64) Irreparabledb_SegDamagedUnixSec_Fi
 }
 
 func (f Irreparabledb_SegDamagedUnixSec_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -581,6 +639,7 @@ func (Irreparabledb_SegDamagedUnixSec_Field) _Column() string { return "seg_dama
 
 type Irreparabledb_RepairAttemptCount_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -589,13 +648,358 @@ func Irreparabledb_RepairAttemptCount(v int64) Irreparabledb_RepairAttemptCount_
 }
 
 func (f Irreparabledb_RepairAttemptCount_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
 func (Irreparabledb_RepairAttemptCount_Field) _Column() string { return "repair_attempt_count" }
+
+type Raw struct {
+	Id              int64
+	NodeId          string
+	IntervalEndTime time.Time
+	DataTotal       int64
+	DataType        int
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (Raw) _Table() string { return "raws" }
+
+type Raw_Update_Fields struct {
+}
+
+type Raw_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Raw_Id(v int64) Raw_Id_Field {
+	return Raw_Id_Field{_set: true, _value: v}
+}
+
+func (f Raw_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Raw_Id_Field) _Column() string { return "id" }
+
+type Raw_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Raw_NodeId(v string) Raw_NodeId_Field {
+	return Raw_NodeId_Field{_set: true, _value: v}
+}
+
+func (f Raw_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Raw_NodeId_Field) _Column() string { return "node_id" }
+
+type Raw_IntervalEndTime_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Raw_IntervalEndTime(v time.Time) Raw_IntervalEndTime_Field {
+	return Raw_IntervalEndTime_Field{_set: true, _value: v}
+}
+
+func (f Raw_IntervalEndTime_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Raw_IntervalEndTime_Field) _Column() string { return "interval_end_time" }
+
+type Raw_DataTotal_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Raw_DataTotal(v int64) Raw_DataTotal_Field {
+	return Raw_DataTotal_Field{_set: true, _value: v}
+}
+
+func (f Raw_DataTotal_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Raw_DataTotal_Field) _Column() string { return "data_total" }
+
+type Raw_DataType_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Raw_DataType(v int) Raw_DataType_Field {
+	return Raw_DataType_Field{_set: true, _value: v}
+}
+
+func (f Raw_DataType_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Raw_DataType_Field) _Column() string { return "data_type" }
+
+type Raw_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Raw_CreatedAt(v time.Time) Raw_CreatedAt_Field {
+	return Raw_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Raw_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Raw_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Raw_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Raw_UpdatedAt(v time.Time) Raw_UpdatedAt_Field {
+	return Raw_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f Raw_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Raw_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type Rollup struct {
+	Id        int64
+	NodeId    string
+	StartTime time.Time
+	Interval  int64
+	DataType  int
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (Rollup) _Table() string { return "rollups" }
+
+type Rollup_Update_Fields struct {
+}
+
+type Rollup_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Rollup_Id(v int64) Rollup_Id_Field {
+	return Rollup_Id_Field{_set: true, _value: v}
+}
+
+func (f Rollup_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Rollup_Id_Field) _Column() string { return "id" }
+
+type Rollup_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Rollup_NodeId(v string) Rollup_NodeId_Field {
+	return Rollup_NodeId_Field{_set: true, _value: v}
+}
+
+func (f Rollup_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Rollup_NodeId_Field) _Column() string { return "node_id" }
+
+type Rollup_StartTime_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Rollup_StartTime(v time.Time) Rollup_StartTime_Field {
+	return Rollup_StartTime_Field{_set: true, _value: v}
+}
+
+func (f Rollup_StartTime_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Rollup_StartTime_Field) _Column() string { return "start_time" }
+
+type Rollup_Interval_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Rollup_Interval(v int64) Rollup_Interval_Field {
+	return Rollup_Interval_Field{_set: true, _value: v}
+}
+
+func (f Rollup_Interval_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Rollup_Interval_Field) _Column() string { return "interval" }
+
+type Rollup_DataType_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Rollup_DataType(v int) Rollup_DataType_Field {
+	return Rollup_DataType_Field{_set: true, _value: v}
+}
+
+func (f Rollup_DataType_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Rollup_DataType_Field) _Column() string { return "data_type" }
+
+type Rollup_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Rollup_CreatedAt(v time.Time) Rollup_CreatedAt_Field {
+	return Rollup_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Rollup_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Rollup_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Rollup_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Rollup_UpdatedAt(v time.Time) Rollup_UpdatedAt_Field {
+	return Rollup_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f Rollup_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Rollup_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type Timestamps struct {
+	Name  string
+	Value time.Time
+}
+
+func (Timestamps) _Table() string { return "timestamps" }
+
+type Timestamps_Update_Fields struct {
+	Value Timestamps_Value_Field
+}
+
+type Timestamps_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Timestamps_Name(v string) Timestamps_Name_Field {
+	return Timestamps_Name_Field{_set: true, _value: v}
+}
+
+func (f Timestamps_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Timestamps_Name_Field) _Column() string { return "name" }
+
+type Timestamps_Value_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Timestamps_Value(v time.Time) Timestamps_Value_Field {
+	return Timestamps_Value_Field{_set: true, _value: v}
+}
+
+func (f Timestamps_Value_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Timestamps_Value_Field) _Column() string { return "value" }
 
 func toUTC(t time.Time) time.Time {
 	return t.UTC()
@@ -765,6 +1169,10 @@ func (h *__sqlbundle_Hole) Render() string { return h.SQL.Render() }
 // end runtime support for building sql statements
 //
 
+type Value_Row struct {
+	Value time.Time
+}
+
 func (obj *postgresImpl) Create_Bwagreement(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field,
 	bwagreement_data Bwagreement_Data_Field) (
@@ -813,6 +1221,85 @@ func (obj *postgresImpl) Create_Irreparabledb(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return irreparabledb, nil
+
+}
+
+func (obj *postgresImpl) Create_Timestamps(ctx context.Context,
+	timestamps_name Timestamps_Name_Field,
+	timestamps_value Timestamps_Value_Field) (
+	timestamps *Timestamps, err error) {
+	__name_val := timestamps_name.value()
+	__value_val := timestamps_value.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO timestamps ( name, value ) VALUES ( ?, ? ) RETURNING timestamps.name, timestamps.value")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __name_val, __value_val)
+
+	timestamps = &Timestamps{}
+	err = obj.driver.QueryRow(__stmt, __name_val, __value_val).Scan(&timestamps.Name, &timestamps.Value)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return timestamps, nil
+
+}
+
+func (obj *postgresImpl) Create_Rollup(ctx context.Context,
+	rollup_node_id Rollup_NodeId_Field,
+	rollup_start_time Rollup_StartTime_Field,
+	rollup_interval Rollup_Interval_Field,
+	rollup_data_type Rollup_DataType_Field) (
+	rollup *Rollup, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__node_id_val := rollup_node_id.value()
+	__start_time_val := rollup_start_time.value()
+	__interval_val := rollup_interval.value()
+	__data_type_val := rollup_data_type.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO rollups ( node_id, start_time, interval, data_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING rollups.id, rollups.node_id, rollups.start_time, rollups.interval, rollups.data_type, rollups.created_at, rollups.updated_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __start_time_val, __interval_val, __data_type_val, __created_at_val, __updated_at_val)
+
+	rollup = &Rollup{}
+	err = obj.driver.QueryRow(__stmt, __node_id_val, __start_time_val, __interval_val, __data_type_val, __created_at_val, __updated_at_val).Scan(&rollup.Id, &rollup.NodeId, &rollup.StartTime, &rollup.Interval, &rollup.DataType, &rollup.CreatedAt, &rollup.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rollup, nil
+
+}
+
+func (obj *postgresImpl) Create_Raw(ctx context.Context,
+	raw_node_id Raw_NodeId_Field,
+	raw_interval_end_time Raw_IntervalEndTime_Field,
+	raw_data_total Raw_DataTotal_Field,
+	raw_data_type Raw_DataType_Field) (
+	raw *Raw, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__node_id_val := raw_node_id.value()
+	__interval_end_time_val := raw_interval_end_time.value()
+	__data_total_val := raw_data_total.value()
+	__data_type_val := raw_data_type.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO raws ( node_id, interval_end_time, data_total, data_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val)
+
+	raw = &Raw{}
+	err = obj.driver.QueryRow(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val).Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return raw, nil
 
 }
 
@@ -958,6 +1445,138 @@ func (obj *postgresImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Find_Timestamps_Value_By_Name(ctx context.Context,
+	timestamps_name Timestamps_Name_Field) (
+	row *Value_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT timestamps.value FROM timestamps WHERE timestamps.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, timestamps_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Value_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.Value)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *postgresImpl) Get_Rollup_By_Id(ctx context.Context,
+	rollup_id Rollup_Id_Field) (
+	rollup *Rollup, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT rollups.id, rollups.node_id, rollups.start_time, rollups.interval, rollups.data_type, rollups.created_at, rollups.updated_at FROM rollups WHERE rollups.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, rollup_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	rollup = &Rollup{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&rollup.Id, &rollup.NodeId, &rollup.StartTime, &rollup.Interval, &rollup.DataType, &rollup.CreatedAt, &rollup.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rollup, nil
+
+}
+
+func (obj *postgresImpl) All_Rollup_By_NodeId(ctx context.Context,
+	rollup_node_id Rollup_NodeId_Field) (
+	rows []*Rollup, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT rollups.id, rollups.node_id, rollups.start_time, rollups.interval, rollups.data_type, rollups.created_at, rollups.updated_at FROM rollups WHERE rollups.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, rollup_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		rollup := &Rollup{}
+		err = __rows.Scan(&rollup.Id, &rollup.NodeId, &rollup.StartTime, &rollup.Interval, &rollup.DataType, &rollup.CreatedAt, &rollup.UpdatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, rollup)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Get_Raw_By_Id(ctx context.Context,
+	raw_id Raw_Id_Field) (
+	raw *Raw, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE raws.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, raw_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	raw = &Raw{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return raw, nil
+
+}
+
+func (obj *postgresImpl) All_Raw_By_NodeId(ctx context.Context,
+	raw_node_id Raw_NodeId_Field) (
+	rows []*Raw, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE raws.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, raw_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		raw := &Raw{}
+		err = __rows.Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, raw)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -1013,6 +1632,118 @@ func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context
 	return irreparabledb, nil
 }
 
+func (obj *postgresImpl) Update_Timestamps_By_Name(ctx context.Context,
+	timestamps_name Timestamps_Name_Field,
+	update Timestamps_Update_Fields) (
+	timestamps *Timestamps, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE timestamps SET "), __sets, __sqlbundle_Literal(" WHERE timestamps.name = ? RETURNING timestamps.name, timestamps.value")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Value._set {
+		__values = append(__values, update.Value.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("value = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, timestamps_name.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	timestamps = &Timestamps{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&timestamps.Name, &timestamps.Value)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return timestamps, nil
+}
+
+func (obj *postgresImpl) Update_Rollup_By_Id(ctx context.Context,
+	rollup_id Rollup_Id_Field,
+	update Rollup_Update_Fields) (
+	rollup *Rollup, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE rollups SET "), __sets, __sqlbundle_Literal(" WHERE rollups.id = ? RETURNING rollups.id, rollups.node_id, rollups.start_time, rollups.interval, rollups.data_type, rollups.created_at, rollups.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, rollup_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	rollup = &Rollup{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&rollup.Id, &rollup.NodeId, &rollup.StartTime, &rollup.Interval, &rollup.DataType, &rollup.CreatedAt, &rollup.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rollup, nil
+}
+
+func (obj *postgresImpl) Update_Raw_By_Id(ctx context.Context,
+	raw_id Raw_Id_Field,
+	update Raw_Update_Fields) (
+	raw *Raw, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE raws SET "), __sets, __sqlbundle_Literal(" WHERE raws.id = ? RETURNING raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, raw_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	raw = &Raw{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return raw, nil
+}
+
 func (obj *postgresImpl) Delete_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	deleted bool, err error) {
@@ -1065,6 +1796,58 @@ func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context
 
 }
 
+func (obj *postgresImpl) Delete_Rollup_By_Id(ctx context.Context,
+	rollup_id Rollup_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM rollups WHERE rollups.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, rollup_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *postgresImpl) Delete_Raw_By_Id(ctx context.Context,
+	raw_id Raw_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM raws WHERE raws.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, raw_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -1078,6 +1861,36 @@ func (impl postgresImpl) isConstraintError(err error) (
 func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
+	__res, err = obj.driver.Exec("DELETE FROM timestamps;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM raws;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM irreparabledbs;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -1157,6 +1970,94 @@ func (obj *sqlite3Impl) Create_Irreparabledb(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastIrreparabledb(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_Timestamps(ctx context.Context,
+	timestamps_name Timestamps_Name_Field,
+	timestamps_value Timestamps_Value_Field) (
+	timestamps *Timestamps, err error) {
+	__name_val := timestamps_name.value()
+	__value_val := timestamps_value.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO timestamps ( name, value ) VALUES ( ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __name_val, __value_val)
+
+	__res, err := obj.driver.Exec(__stmt, __name_val, __value_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastTimestamps(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_Rollup(ctx context.Context,
+	rollup_node_id Rollup_NodeId_Field,
+	rollup_start_time Rollup_StartTime_Field,
+	rollup_interval Rollup_Interval_Field,
+	rollup_data_type Rollup_DataType_Field) (
+	rollup *Rollup, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__node_id_val := rollup_node_id.value()
+	__start_time_val := rollup_start_time.value()
+	__interval_val := rollup_interval.value()
+	__data_type_val := rollup_data_type.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO rollups ( node_id, start_time, interval, data_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __start_time_val, __interval_val, __data_type_val, __created_at_val, __updated_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __node_id_val, __start_time_val, __interval_val, __data_type_val, __created_at_val, __updated_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastRollup(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_Raw(ctx context.Context,
+	raw_node_id Raw_NodeId_Field,
+	raw_interval_end_time Raw_IntervalEndTime_Field,
+	raw_data_total Raw_DataTotal_Field,
+	raw_data_type Raw_DataType_Field) (
+	raw *Raw, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__node_id_val := raw_node_id.value()
+	__interval_end_time_val := raw_interval_end_time.value()
+	__data_total_val := raw_data_total.value()
+	__data_type_val := raw_data_type.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO raws ( node_id, interval_end_time, data_total, data_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastRaw(ctx, __pk)
 
 }
 
@@ -1302,6 +2203,138 @@ func (obj *sqlite3Impl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Find_Timestamps_Value_By_Name(ctx context.Context,
+	timestamps_name Timestamps_Name_Field) (
+	row *Value_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT timestamps.value FROM timestamps WHERE timestamps.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, timestamps_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Value_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.Value)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *sqlite3Impl) Get_Rollup_By_Id(ctx context.Context,
+	rollup_id Rollup_Id_Field) (
+	rollup *Rollup, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT rollups.id, rollups.node_id, rollups.start_time, rollups.interval, rollups.data_type, rollups.created_at, rollups.updated_at FROM rollups WHERE rollups.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, rollup_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	rollup = &Rollup{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&rollup.Id, &rollup.NodeId, &rollup.StartTime, &rollup.Interval, &rollup.DataType, &rollup.CreatedAt, &rollup.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rollup, nil
+
+}
+
+func (obj *sqlite3Impl) All_Rollup_By_NodeId(ctx context.Context,
+	rollup_node_id Rollup_NodeId_Field) (
+	rows []*Rollup, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT rollups.id, rollups.node_id, rollups.start_time, rollups.interval, rollups.data_type, rollups.created_at, rollups.updated_at FROM rollups WHERE rollups.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, rollup_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		rollup := &Rollup{}
+		err = __rows.Scan(&rollup.Id, &rollup.NodeId, &rollup.StartTime, &rollup.Interval, &rollup.DataType, &rollup.CreatedAt, &rollup.UpdatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, rollup)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Get_Raw_By_Id(ctx context.Context,
+	raw_id Raw_Id_Field) (
+	raw *Raw, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE raws.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, raw_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	raw = &Raw{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return raw, nil
+
+}
+
+func (obj *sqlite3Impl) All_Raw_By_NodeId(ctx context.Context,
+	raw_node_id Raw_NodeId_Field) (
+	rows []*Raw, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE raws.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, raw_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		raw := &Raw{}
+		err = __rows.Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, raw)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -1367,6 +2400,148 @@ func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	return irreparabledb, nil
 }
 
+func (obj *sqlite3Impl) Update_Timestamps_By_Name(ctx context.Context,
+	timestamps_name Timestamps_Name_Field,
+	update Timestamps_Update_Fields) (
+	timestamps *Timestamps, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE timestamps SET "), __sets, __sqlbundle_Literal(" WHERE timestamps.name = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Value._set {
+		__values = append(__values, update.Value.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("value = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, timestamps_name.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	timestamps = &Timestamps{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT timestamps.name, timestamps.value FROM timestamps WHERE timestamps.name = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&timestamps.Name, &timestamps.Value)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return timestamps, nil
+}
+
+func (obj *sqlite3Impl) Update_Rollup_By_Id(ctx context.Context,
+	rollup_id Rollup_Id_Field,
+	update Rollup_Update_Fields) (
+	rollup *Rollup, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE rollups SET "), __sets, __sqlbundle_Literal(" WHERE rollups.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, rollup_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	rollup = &Rollup{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT rollups.id, rollups.node_id, rollups.start_time, rollups.interval, rollups.data_type, rollups.created_at, rollups.updated_at FROM rollups WHERE rollups.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&rollup.Id, &rollup.NodeId, &rollup.StartTime, &rollup.Interval, &rollup.DataType, &rollup.CreatedAt, &rollup.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rollup, nil
+}
+
+func (obj *sqlite3Impl) Update_Raw_By_Id(ctx context.Context,
+	raw_id Raw_Id_Field,
+	update Raw_Update_Fields) (
+	raw *Raw, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE raws SET "), __sets, __sqlbundle_Literal(" WHERE raws.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, raw_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	raw = &Raw{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE raws.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return raw, nil
+}
+
 func (obj *sqlite3Impl) Delete_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	deleted bool, err error) {
@@ -1401,6 +2576,58 @@ func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, irreparabledb_segmentpath.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) Delete_Rollup_By_Id(ctx context.Context,
+	rollup_id Rollup_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM rollups WHERE rollups.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, rollup_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) Delete_Raw_By_Id(ctx context.Context,
+	raw_id Raw_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM raws WHERE raws.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, raw_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -1455,6 +2682,60 @@ func (obj *sqlite3Impl) getLastIrreparabledb(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastTimestamps(ctx context.Context,
+	pk int64) (
+	timestamps *Timestamps, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT timestamps.name, timestamps.value FROM timestamps WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	timestamps = &Timestamps{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&timestamps.Name, &timestamps.Value)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return timestamps, nil
+
+}
+
+func (obj *sqlite3Impl) getLastRollup(ctx context.Context,
+	pk int64) (
+	rollup *Rollup, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT rollups.id, rollups.node_id, rollups.start_time, rollups.interval, rollups.data_type, rollups.created_at, rollups.updated_at FROM rollups WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	rollup = &Rollup{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&rollup.Id, &rollup.NodeId, &rollup.StartTime, &rollup.Interval, &rollup.DataType, &rollup.CreatedAt, &rollup.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rollup, nil
+
+}
+
+func (obj *sqlite3Impl) getLastRaw(ctx context.Context,
+	pk int64) (
+	raw *Raw, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT raws.id, raws.node_id, raws.interval_end_time, raws.data_total, raws.data_type, raws.created_at, raws.updated_at FROM raws WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	raw = &Raw{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&raw.Id, &raw.NodeId, &raw.IntervalEndTime, &raw.DataTotal, &raw.DataType, &raw.CreatedAt, &raw.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return raw, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -1473,6 +2754,36 @@ func (impl sqlite3Impl) isConstraintError(err error) (
 func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
+	__res, err = obj.driver.Exec("DELETE FROM timestamps;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM raws;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM irreparabledbs;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -1559,6 +2870,26 @@ func (rx *Rx) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
 	return tx.All_Bwagreement_By_CreatedAt_Greater(ctx, bwagreement_created_at_greater)
 }
 
+func (rx *Rx) All_Raw_By_NodeId(ctx context.Context,
+	raw_node_id Raw_NodeId_Field) (
+	rows []*Raw, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Raw_By_NodeId(ctx, raw_node_id)
+}
+
+func (rx *Rx) All_Rollup_By_NodeId(ctx context.Context,
+	rollup_node_id Rollup_NodeId_Field) (
+	rows []*Rollup, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Rollup_By_NodeId(ctx, rollup_node_id)
+}
+
 func (rx *Rx) Create_Bwagreement(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field,
 	bwagreement_data Bwagreement_Data_Field) (
@@ -1586,6 +2917,46 @@ func (rx *Rx) Create_Irreparabledb(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_Raw(ctx context.Context,
+	raw_node_id Raw_NodeId_Field,
+	raw_interval_end_time Raw_IntervalEndTime_Field,
+	raw_data_total Raw_DataTotal_Field,
+	raw_data_type Raw_DataType_Field) (
+	raw *Raw, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Raw(ctx, raw_node_id, raw_interval_end_time, raw_data_total, raw_data_type)
+
+}
+
+func (rx *Rx) Create_Rollup(ctx context.Context,
+	rollup_node_id Rollup_NodeId_Field,
+	rollup_start_time Rollup_StartTime_Field,
+	rollup_interval Rollup_Interval_Field,
+	rollup_data_type Rollup_DataType_Field) (
+	rollup *Rollup, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Rollup(ctx, rollup_node_id, rollup_start_time, rollup_interval, rollup_data_type)
+
+}
+
+func (rx *Rx) Create_Timestamps(ctx context.Context,
+	timestamps_name Timestamps_Name_Field,
+	timestamps_value Timestamps_Value_Field) (
+	timestamps *Timestamps, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Timestamps(ctx, timestamps_name, timestamps_value)
+
+}
+
 func (rx *Rx) Delete_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	deleted bool, err error) {
@@ -1606,6 +2977,36 @@ func (rx *Rx) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	return tx.Delete_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath)
 }
 
+func (rx *Rx) Delete_Raw_By_Id(ctx context.Context,
+	raw_id Raw_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_Raw_By_Id(ctx, raw_id)
+}
+
+func (rx *Rx) Delete_Rollup_By_Id(ctx context.Context,
+	rollup_id Rollup_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_Rollup_By_Id(ctx, rollup_id)
+}
+
+func (rx *Rx) Find_Timestamps_Value_By_Name(ctx context.Context,
+	timestamps_name Timestamps_Name_Field) (
+	row *Value_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Find_Timestamps_Value_By_Name(ctx, timestamps_name)
+}
+
 func (rx *Rx) Get_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	bwagreement *Bwagreement, err error) {
@@ -1624,6 +3025,26 @@ func (rx *Rx) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 		return
 	}
 	return tx.Get_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath)
+}
+
+func (rx *Rx) Get_Raw_By_Id(ctx context.Context,
+	raw_id Raw_Id_Field) (
+	raw *Raw, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Raw_By_Id(ctx, raw_id)
+}
+
+func (rx *Rx) Get_Rollup_By_Id(ctx context.Context,
+	rollup_id Rollup_Id_Field) (
+	rollup *Rollup, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Rollup_By_Id(ctx, rollup_id)
 }
 
 func (rx *Rx) Limited_Bwagreement(ctx context.Context,
@@ -1647,6 +3068,39 @@ func (rx *Rx) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	return tx.Update_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath, update)
 }
 
+func (rx *Rx) Update_Raw_By_Id(ctx context.Context,
+	raw_id Raw_Id_Field,
+	update Raw_Update_Fields) (
+	raw *Raw, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_Raw_By_Id(ctx, raw_id, update)
+}
+
+func (rx *Rx) Update_Rollup_By_Id(ctx context.Context,
+	rollup_id Rollup_Id_Field,
+	update Rollup_Update_Fields) (
+	rollup *Rollup, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_Rollup_By_Id(ctx, rollup_id, update)
+}
+
+func (rx *Rx) Update_Timestamps_By_Name(ctx context.Context,
+	timestamps_name Timestamps_Name_Field,
+	update Timestamps_Update_Fields) (
+	timestamps *Timestamps, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_Timestamps_By_Name(ctx, timestamps_name, update)
+}
+
 type Methods interface {
 	All_Bwagreement(ctx context.Context) (
 		rows []*Bwagreement, err error)
@@ -1654,6 +3108,14 @@ type Methods interface {
 	All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
 		bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
 		rows []*Bwagreement, err error)
+
+	All_Raw_By_NodeId(ctx context.Context,
+		raw_node_id Raw_NodeId_Field) (
+		rows []*Raw, err error)
+
+	All_Rollup_By_NodeId(ctx context.Context,
+		rollup_node_id Rollup_NodeId_Field) (
+		rows []*Rollup, err error)
 
 	Create_Bwagreement(ctx context.Context,
 		bwagreement_signature Bwagreement_Signature_Field,
@@ -1668,6 +3130,25 @@ type Methods interface {
 		irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
 		irreparabledb *Irreparabledb, err error)
 
+	Create_Raw(ctx context.Context,
+		raw_node_id Raw_NodeId_Field,
+		raw_interval_end_time Raw_IntervalEndTime_Field,
+		raw_data_total Raw_DataTotal_Field,
+		raw_data_type Raw_DataType_Field) (
+		raw *Raw, err error)
+
+	Create_Rollup(ctx context.Context,
+		rollup_node_id Rollup_NodeId_Field,
+		rollup_start_time Rollup_StartTime_Field,
+		rollup_interval Rollup_Interval_Field,
+		rollup_data_type Rollup_DataType_Field) (
+		rollup *Rollup, err error)
+
+	Create_Timestamps(ctx context.Context,
+		timestamps_name Timestamps_Name_Field,
+		timestamps_value Timestamps_Value_Field) (
+		timestamps *Timestamps, err error)
+
 	Delete_Bwagreement_By_Signature(ctx context.Context,
 		bwagreement_signature Bwagreement_Signature_Field) (
 		deleted bool, err error)
@@ -1675,6 +3156,18 @@ type Methods interface {
 	Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 		deleted bool, err error)
+
+	Delete_Raw_By_Id(ctx context.Context,
+		raw_id Raw_Id_Field) (
+		deleted bool, err error)
+
+	Delete_Rollup_By_Id(ctx context.Context,
+		rollup_id Rollup_Id_Field) (
+		deleted bool, err error)
+
+	Find_Timestamps_Value_By_Name(ctx context.Context,
+		timestamps_name Timestamps_Name_Field) (
+		row *Value_Row, err error)
 
 	Get_Bwagreement_By_Signature(ctx context.Context,
 		bwagreement_signature Bwagreement_Signature_Field) (
@@ -1684,6 +3177,14 @@ type Methods interface {
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 		irreparabledb *Irreparabledb, err error)
 
+	Get_Raw_By_Id(ctx context.Context,
+		raw_id Raw_Id_Field) (
+		raw *Raw, err error)
+
+	Get_Rollup_By_Id(ctx context.Context,
+		rollup_id Rollup_Id_Field) (
+		rollup *Rollup, err error)
+
 	Limited_Bwagreement(ctx context.Context,
 		limit int, offset int64) (
 		rows []*Bwagreement, err error)
@@ -1692,6 +3193,21 @@ type Methods interface {
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 		update Irreparabledb_Update_Fields) (
 		irreparabledb *Irreparabledb, err error)
+
+	Update_Raw_By_Id(ctx context.Context,
+		raw_id Raw_Id_Field,
+		update Raw_Update_Fields) (
+		raw *Raw, err error)
+
+	Update_Rollup_By_Id(ctx context.Context,
+		rollup_id Rollup_Id_Field,
+		update Rollup_Update_Fields) (
+		rollup *Rollup, err error)
+
+	Update_Timestamps_By_Name(ctx context.Context,
+		timestamps_name Timestamps_Name_Field,
+		update Timestamps_Update_Fields) (
+		timestamps *Timestamps, err error)
 }
 
 type TxMethods interface {
@@ -1727,7 +3243,11 @@ func openpostgres(source string) (*sql.DB, error) {
 	return sql.Open("postgres", source)
 }
 
-var sqlite3DriverName = "sqlite3_" + fmt.Sprint(time.Now().UnixNano())
+var sqlite3DriverName = func() string {
+	var id [16]byte
+	rand.Read(id[:])
+	return fmt.Sprintf("sqlite3_%x", string(id[:]))
+}()
 
 func init() {
 	sql.Register(sqlite3DriverName, &sqlite3.SQLiteDriver{
