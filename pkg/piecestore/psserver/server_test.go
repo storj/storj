@@ -24,7 +24,7 @@ import (
 	"github.com/gtank/cryptopasta"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
@@ -499,7 +499,7 @@ func newTestServerStruct(t *testing.T) (*Server, func()) {
 		return nil
 	}
 	server := &Server{
-		log:              zap.S(),
+		log:              zaptest.NewLogger(t),
 		DataDir:          tempDir,
 		DB:               psDB,
 		verifier:         verifier,
