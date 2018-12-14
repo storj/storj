@@ -149,19 +149,3 @@ func TestCache_Store(t *testing.T) {
 
 	testCache(ctx, t, teststore.New(), sdb)
 }
-
-func TestCache_Refresh(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet, err := testplanet.New(t, 1, 30, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(planet.Shutdown)
-
-	planet.Start(ctx)
-
-	err = planet.Satellites[0].Overlay.Refresh(ctx)
-	assert.NoError(t, err)
-}

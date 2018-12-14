@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
@@ -36,6 +37,7 @@ type Node struct {
 	Listener  net.Listener
 	Provider  *provider.Provider
 	Kademlia  *kademlia.Kademlia
+	Discovery *discovery.Discovery
 	StatDB    *statdb.StatDB
 	Overlay   *overlay.Cache
 
@@ -172,6 +174,7 @@ func (node *Node) initOverlay(planet *Planet) error {
 	node.StatDB = sdb
 
 	node.Overlay = overlay.NewOverlayCache(teststore.New(), node.Kademlia, node.StatDB)
+	node.Discovery = discovery.NewDiscovery(node.Overlay, node.Kademlia, node.StatDB)
 
 	return nil
 }

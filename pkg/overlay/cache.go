@@ -5,7 +5,6 @@ package overlay
 
 import (
 	"context"
-	"crypto/rand"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -121,53 +120,4 @@ func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) err
 	}
 
 	return o.DB.Put(nodeID.Bytes(), data)
-}
-
-// Bootstrap walks the initialized network and populates the cache
-func (o *Cache) Bootstrap(ctx context.Context) error {
-	// TODO(coyle): make Bootstrap work
-	// look in our routing table
-	// get every node we know about
-	// ask every node for every node they know about
-	// for each newly known node, ask those nodes for every node they know about
-	// continue until no new nodes are found
-	return nil
-}
-
-// Discovery runs lookups for random node ID's to find new nodes in the network
-func (o *Cache) Discovery(ctx context.Context) error {
-	r, err := randomID()
-	_, err = o.DHT.FindNode(ctx, r)
-	if err != nil {
-		return OverlayError.Wrap(err)
-	}
-	return nil
-}
-
-// Refresh updates the cache db with the current DHT.
-// We currently do not penalize nodes that are unresponsive,
-// but should in the future.
-func (o *Cache) Refresh(ctx context.Context) error {
-	// TODO(coyle): make refresh work by looking on the network for new ndoes
-	nodes := o.DHT.Seen()
-
-	for _, v := range nodes {
-		if err := o.Put(ctx, v.Id, *v); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// Walk iterates over each node in each bucket to traverse the network
-func (o *Cache) Walk(ctx context.Context) error {
-	// TODO: This should walk the cache, rather than be a duplicate of refresh
-	return nil
-}
-
-func randomID() (storj.NodeID, error) {
-	b := make([]byte, 32)
-	rand.Read(b)
-	return storj.NodeIDFromBytes(b)
 }

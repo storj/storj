@@ -7,6 +7,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/migrate"
+	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/utils"
@@ -67,10 +68,10 @@ func (db *DB) BandwidthAgreement() bwagreement.DB {
 // 	return &repairQueueDB{db: db.db}
 // }
 
-// // AccountingDB is a getter for AccountingDB repository
-// func (db *DB) AccountingDB() accounting.DB {
-// 	return &accountingDB{db: db.db}
-// }
+// Accounting returns database for tracking bandwidth agreements over time
+func (db *DB) Accounting() accounting.DB {
+	return &accountingDB{db: db.db}
+}
 
 // Irreparable returns database for storing segments that failed repair
 func (db *DB) Irreparable() irreparable.DB {
