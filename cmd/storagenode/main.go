@@ -64,8 +64,8 @@ var (
 	defaultDiagDir string
 )
 
-const(
-	defaultServerAddr = ":28967"
+const (
+	defaultServerAddr    = ":28967"
 	defaultSatteliteAddr = "127.0.0.1:7778"
 )
 
