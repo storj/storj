@@ -238,13 +238,12 @@ func TestNewServerOptions(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			opts, err := provider.NewServerOptions(fi, c.config)
-			assert.NoError(t, err)
-			assert.True(t, reflect.DeepEqual(fi, opts.Ident))
-			assert.Equal(t, c.config, opts.Config)
-			assert.Len(t, opts.PCVFuncs, c.pcvFuncsLen)
-		})
+		t.Log(c.testID)
+		opts, err := provider.NewServerOptions(fi, c.config)
+		assert.NoError(t, err)
+		assert.True(t, reflect.DeepEqual(fi, opts.Ident))
+		assert.Equal(t, c.config, opts.Config)
+		assert.Len(t, opts.PCVFuncs, c.pcvFuncsLen)
 	}
 }
 
