@@ -52,7 +52,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	s, err := Initialize(ctx, c, server.Identity().Key, zap.L())
+	s, err := NewEndpoint(ctx, c, server.Identity().Key, zap.L())
 	if err != nil {
 		return err
 	}
@@ -107,8 +107,8 @@ type Server struct {
 	verifier         auth.SignedMessageVerifier
 }
 
-// Initialize -- initializes a server struct
-func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey, log *zap.Logger) (*Server, error) {
+// NewEndpoint -- initializes a new endpoint for a piecestore server
+func NewEndpoint(ctx context.Context, config Config, pkey crypto.PrivateKey, log *zap.Logger) (*Server, error) {
 	dbPath := filepath.Join(config.Path, "piecestore.db")
 	dataDir := filepath.Join(config.Path, "piece-store-data")
 
