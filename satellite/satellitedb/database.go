@@ -10,6 +10,7 @@ import (
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/irreparable"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -53,10 +54,10 @@ func (db *DB) BandwidthAgreement() bwagreement.DB {
 // 	return &pointerDB{db: db.db}
 // }
 
-// // StatDB is a getter for StatDB repository
-// func (db *DB) StatDB() statdb.DB {
-// 	return &statDB{db: db.db}
-// }
+// StatDB is a getter for StatDB repository
+func (db *DB) StatDB() statdb.DB {
+	return &statDB{db: db.db}
+}
 
 // // OverlayCacheDB is a getter for OverlayCacheDB repository
 // func (db *DB) OverlayCacheDB() overlay.DB {

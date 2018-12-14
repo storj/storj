@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
-	statsproto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -29,7 +28,7 @@ var (
 type Server struct {
 	dht      dht.DHT
 	cache    *overlay.Cache
-	statdb   *statdb.StatDB
+	statdb   statdb.DB
 	logger   *zap.Logger
 	metrics  *monkit.Registry
 	identity *provider.FullIdentity
@@ -148,8 +147,8 @@ func (srv *Server) LookupNode(ctx context.Context, req *pb.LookupNodeRequest) (*
 
 // GetStats returns the stats for a particular node ID
 func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.GetStatsResponse, error) {
-	getReq := &statsproto.GetRequest{
-		NodeId: req.NodeId,
+	getReq := &statdb.GetRequest{
+		Node: req.NodeId,
 	}
 	res, err := srv.statdb.Get(ctx, getReq)
 	if err != nil {
@@ -166,17 +165,14 @@ func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.G
 
 // CreateStats creates a node with specified stats
 func (srv *Server) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) (*pb.CreateStatsResponse, error) {
-	node := &statsproto.Node{
-		Id: req.NodeId,
-	}
-	stats := &statsproto.NodeStats{
+	stats := &pb.NodeStats{
 		AuditCount:         req.AuditCount,
 		AuditSuccessCount:  req.AuditSuccessCount,
 		UptimeCount:        req.UptimeCount,
 		UptimeSuccessCount: req.UptimeSuccessCount,
 	}
-	createReq := &statsproto.CreateRequest{
-		Node:  node,
+	createReq := &statdb.CreateRequest{
+		Node:  req.NodeId,
 		Stats: stats,
 	}
 	_, err := srv.statdb.Create(ctx, createReq)

@@ -30,7 +30,7 @@ var (
 		Short: "Captain Planet! With our powers combined!",
 	}
 
-	defaultConfDir string
+	defaultConfDir = fpath.ApplicationDir("storj", "capt")
 	confDir        *string
 )
 
@@ -40,8 +40,6 @@ func main() {
 }
 
 func init() {
-	defaultConfDir = fpath.ApplicationDir("storj", "capt")
-
 	dirParam := cfgstruct.FindConfigDirParam()
 	if dirParam != "" {
 		defaultConfDir = dirParam

@@ -5,15 +5,14 @@ package testplanet
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"math/rand"
 	"net"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
@@ -24,6 +23,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storage/teststore"
 )
 
@@ -36,8 +36,10 @@ type Node struct {
 	Listener  net.Listener
 	Provider  *provider.Provider
 	Kademlia  *kademlia.Kademlia
-	StatDB    *statdb.StatDB
+	Discovery *discovery.Discovery
+	StatDB    statdb.DB
 	Overlay   *overlay.Cache
+	Database  *satellitedb.DB
 
 	Dependencies []io.Closer
 }
@@ -153,6 +155,17 @@ func (node *Node) DialOverlay(destination *Node) (overlay.Client, error) {
 
 // initOverlay creates overlay for a given planet
 func (node *Node) initOverlay(planet *Planet) error {
+	var err error
+	node.Database, err = satellitedb.NewInMemory()
+	if err != nil {
+		return err
+	}
+
+	err = node.Database.CreateTables()
+	if err != nil {
+		return err
+	}
+
 	routing, err := kademlia.NewRoutingTable(node.Info, teststore.New(), teststore.New())
 	if err != nil {
 		return err
@@ -164,14 +177,10 @@ func (node *Node) initOverlay(planet *Planet) error {
 	}
 	node.Kademlia = kad
 
-	dbPath := fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63())
-	sdb, err := statdb.NewStatDB("sqlite3", dbPath, zap.NewNop())
-	if err != nil {
-		return err
-	}
-	node.StatDB = sdb
+	node.StatDB = node.Database.StatDB()
 
 	node.Overlay = overlay.NewOverlayCache(teststore.New(), node.Kademlia, node.StatDB)
+	node.Discovery = discovery.NewDiscovery(node.Overlay, node.Kademlia, node.StatDB)
 
 	return nil
 }

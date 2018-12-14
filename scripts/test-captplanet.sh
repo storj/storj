@@ -2,7 +2,7 @@
 set -ueo pipefail
 go install -v storj.io/storj/cmd/captplanet
 
-captplanet setup --overwrite --satellite-identity.server.revocation-dburl="redis://127.0.0.1:6378?db=2&password=abc123"
+captplanet setup --overwrite
 
 unamestr=`uname`
 if [[ "$unamestr" == 'Darwin' ]]; then
@@ -20,8 +20,8 @@ kill -9 $CAPT_PID
 captplanet run &
 CAPT_PID=$!
 
-# Wait 2 seconds for kademlia startup
-sleep 2
+# Wait 5 seconds for kademlia startup
+sleep 5
 
 #setup tmpdir for testfiles and cleanup
 TMP_DIR=$(mktemp -d -t tmp.XXXXXXXXXX)
@@ -84,7 +84,7 @@ fi
 
 kill -9 $CAPT_PID
 
-captplanet setup --listen-host ::1 --overwrite --satellite-identity.server.revocation-dburl="redis://127.0.0.1:6378?db=2&password=abc123"
+captplanet setup --listen-host ::1 --overwrite
 if [[ "$unamestr" == 'Darwin' ]]; then
   sed -i~ 's/interval:.*/interval: 1s/g' $HOME/Library/Application\ Support/Storj/Capt/config.yaml
 else
@@ -94,8 +94,8 @@ fi
 captplanet run &
 CAPT_PID=$!
 
-# Wait 2 seconds for kademlia startup
-sleep 2
+# Wait 5 seconds for kademlia startup
+sleep 5
 
 aws s3 --endpoint=http://localhost:7777/ mb s3://bucket
 aws s3 --endpoint=http://localhost:7777/ cp $TMP_DIR/big-upload-testfile s3://bucket/big-testfile

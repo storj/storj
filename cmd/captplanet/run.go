@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
+	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/inspector"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
@@ -29,7 +30,6 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/satellite/satelliteweb"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -48,10 +48,10 @@ type Satellite struct {
 	Checker     checker.Config
 	Repairer    repairer.Config
 	Audit       audit.Config
-	StatDB      statdb.Config
 	BwAgreement bwagreement.Config
 	Web         satelliteweb.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+	Discovery   discovery.Config
 	Tally       tally.Config
 	Rollup      rollup.Config
 }
@@ -129,9 +129,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			grpcauth.NewAPIKeyInterceptor(),
 			runCfg.Satellite.Kademlia,
-			runCfg.Satellite.StatDB,
 			runCfg.Satellite.Audit,
 			runCfg.Satellite.Overlay,
+			runCfg.Satellite.Discovery,
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Checker,
 			runCfg.Satellite.Repairer,

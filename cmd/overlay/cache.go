@@ -4,6 +4,8 @@
 package main
 
 import (
+	"context"
+
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/overlay"
@@ -20,14 +22,13 @@ type cacheConfig struct {
 	DatabaseURL string `help:"the database connection string to use"`
 }
 
-func (c cacheConfig) open() (*overlay.Cache, error) {
+func (c cacheConfig) open(ctx context.Context) (*overlay.Cache, error) {
 	driver, source, err := utils.SplitDBURL(c.DatabaseURL)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	var db storage.KeyValueStore
-	var sdb *statdb.StatDB
 
 	switch driver {
 	case "bolt":
@@ -48,10 +49,12 @@ func (c cacheConfig) open() (*overlay.Cache, error) {
 
 	// add logger
 	db = storelogger.New(zap.L().Named("oc"), db)
-	sdb, err = statdb.NewStatDB("postgres", source, zap.L()) //todo:  unhardcode this
-	if err != nil {
-		return nil, Error.New("statdb error: %s", err)
+	sdb, ok := ctx.Value("masterdb").(interface {
+		StatDB() statdb.DB
+	})
+	if !ok {
+		return nil, Error.New("unable to get master db instance")
 	}
 
-	return overlay.NewOverlayCache(db, nil, sdb), nil
+	return overlay.NewOverlayCache(db, nil, sdb.StatDB()), nil
 }

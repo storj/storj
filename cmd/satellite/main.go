@@ -23,13 +23,13 @@ import (
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/datarepair/repairer"
+	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storage/redis"
@@ -67,12 +67,12 @@ var (
 		Kademlia    kademlia.Config
 		PointerDB   pointerdb.Config
 		Overlay     overlay.Config
-		StatDB      statdb.Config
 		Checker     checker.Config
 		Repairer    repairer.Config
 		Audit       audit.Config
 		BwAgreement bwagreement.Config
 		Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+		Discovery   discovery.Config
 	}
 	setupCfg struct {
 		CA        provider.CASetupConfig
@@ -132,12 +132,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		grpcauth.NewAPIKeyInterceptor(),
 		runCfg.Kademlia,
 		runCfg.PointerDB,
-		runCfg.StatDB,
 		runCfg.Overlay,
 		runCfg.Checker,
 		runCfg.Repairer,
 		runCfg.Audit,
 		runCfg.BwAgreement,
+		runCfg.Discovery,
 	)
 }
 
