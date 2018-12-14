@@ -154,7 +154,7 @@ func (t *tally) Query(ctx context.Context) error {
 		if baRow.CreatedAt.After(latestBwa) {
 			latestBwa = baRow.CreatedAt
 		}
-		bwTotals[rbad.StorageNodeId.String()] += rbad.GetTotal() // todo: check for overflow?
+		bwTotals[rbad.StorageNodeId.String()] += rbad.GetTotal()
 	}
 
 	return Error.Wrap(t.accountingDB.SaveGranulars(ctx, t.logger, lastBwTally, bwTotals))

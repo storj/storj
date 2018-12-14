@@ -101,14 +101,13 @@ func Test_setLastModified(t *testing.T) {
 	}
 }
 
-//TODO This code block is commented until PR #158 acceptance
-//func Test_setLastModifiedNilWriter(t *testing.T) {
-//	req := httptest.NewRecorder()
-//
-//	setLastModified(nil, time.Now().UTC())
-//
-//	assert.Equal(t, "", req.HeaderMap.Get("Last-Modified"))
-//}
+func Test_setLastModifiedNilWriter(t *testing.T) {
+	req := httptest.NewRecorder()
+
+	setLastModified(nil, time.Now().UTC())
+
+	assert.Equal(t, "", req.HeaderMap.Get("Last-Modified"))
+}
 
 func Test_checkPreconditions(t *testing.T) {
 	for _, tt := range []struct {
@@ -494,7 +493,6 @@ func Test_writeNotModified(t *testing.T) {
 	}
 }
 
-//TODO Waiting PR #158 to be accepted for 100% coverage
 func Test_scanETag(t *testing.T) {
 	for _, tt := range []struct {
 		name           string
@@ -526,13 +524,12 @@ func Test_scanETag(t *testing.T) {
 			expectedEtag:   "W/\"aaaa\"",
 			expectedRemain: "",
 		},
-
-		//{
-		//	name:           "Valid ETag with special character",
-		//	s:              "\"{aa\"",
-		//	expectedEtag:   "",
-		//	expectedRemain: "",
-		//},
+		{
+			name:           "Valid ETag with special character",
+			s:              "\"{aa\"",
+			expectedEtag:   "",
+			expectedRemain: "",
+		},
 	} {
 		gotEtag, gotRemain := scanETag(tt.s)
 
