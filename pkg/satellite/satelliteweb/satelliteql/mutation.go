@@ -129,6 +129,9 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					fieldID: &graphql.ArgumentConfig{
 						Type: graphql.String,
 					},
+					fieldPassword: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					id, err := uuidIDAuthFallback(p, fieldID)
@@ -136,12 +139,14 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						return nil, err
 					}
 
+					password, _ := p.Args[fieldPassword].(string)
+
 					user, err := service.GetUser(p.Context, *id)
 					if err != nil {
 						return nil, err
 					}
 
-					err = service.DeleteUser(p.Context, *id)
+					err = service.DeleteUser(p.Context, *id, password)
 					return user, err
 				},
 			},

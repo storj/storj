@@ -151,10 +151,19 @@ func (s *Service) ChangeUserPassword(ctx context.Context, id uuid.UUID, pass, ne
 }
 
 // DeleteUser deletes User by id
-func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID) error {
-	_, err := GetAuth(ctx)
+func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string) error {
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
+	}
+
+	if auth.User.ID != id {
+		return ErrUnauthorized.New("user has no rights")
+	}
+
+	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(password))
+	if err != nil {
+		return ErrUnauthorized.New("origin password is incorrect")
 	}
 
 	return s.store.Users().Delete(ctx, id)
