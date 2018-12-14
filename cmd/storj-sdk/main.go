@@ -28,11 +28,11 @@ func main() {
 	var flags Flags
 
 	rootCmd := &cobra.Command{
-		Use:   "storj-local-network",
-		Short: "Storj Local Network",
+		Use:   "storj-sdk",
+		Short: "Storj SDK",
 	}
 
-	rootCmd.PersistentFlags().StringVarP(&flags.Directory, "dir", "", fpath.ApplicationDir("storj", "local-network"), "base project directory")
+	rootCmd.PersistentFlags().StringVarP(&flags.Directory, "config-dir", "", fpath.ApplicationDir("storj", "local-network"), "base project directory")
 
 	rootCmd.PersistentFlags().IntVarP(&flags.SatelliteCount, "satellites", "", 1, "number of satellites to start")
 	rootCmd.PersistentFlags().IntVarP(&flags.StorageNodeCount, "storage-nodes", "", 10, "number of storage nodes to start")

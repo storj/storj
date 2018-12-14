@@ -40,8 +40,8 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 		}
 		processes.List = append(processes.List, process)
 
-		process.Arguments["run"] = []string{"run", "--base-path", "."}
-		process.Arguments["setup"] = []string{"--base-path", ".", "--overwrite"}
+		process.Arguments["run"] = []string{"--config-dir", ".", "run"}
+		process.Arguments["setup"] = []string{"--config-dir", ".", "setup"}
 	}
 
 	for i := 0; i < storageNodeCount; i++ {
@@ -58,8 +58,8 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 		}
 		processes.List = append(processes.List, process)
 
-		process.Arguments["run"] = []string{"run", "--base-path", "."}
-		process.Arguments["setup"] = []string{"--base-path", ".", "--overwrite"}
+		process.Arguments["run"] = []string{"--config-dir", ".", "run"}
+		process.Arguments["setup"] = []string{"--config-dir", ".", "setup"}
 	}
 
 	return processes, nil
