@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
 	"storj.io/storj/pkg/peertls"
 
 	"storj.io/storj/pkg/cfgstruct"
@@ -68,7 +69,7 @@ func cmdNewID(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
-ca, err := revokeLeafCfg.CA.Load()
+	ca, err := revokeLeafCfg.CA.Load()
 	if err != nil {
 		return err
 	}
