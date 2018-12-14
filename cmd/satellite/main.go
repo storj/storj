@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/datarepair/repairer"
+	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -72,6 +73,7 @@ var (
 		Audit       audit.Config
 		BwAgreement bwagreement.Config
 		Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+		Discovery   discovery.Config
 	}
 	setupCfg struct {
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
@@ -129,6 +131,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		runCfg.Repairer,
 		runCfg.Audit,
 		runCfg.BwAgreement,
+		runCfg.Discovery,
 	)
 }
 

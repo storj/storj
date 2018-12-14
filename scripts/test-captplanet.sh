@@ -20,8 +20,8 @@ kill -9 $CAPT_PID
 captplanet run &
 CAPT_PID=$!
 
-# Wait 2 seconds for kademlia startup
-sleep 2
+# Wait 5 seconds for kademlia startup
+sleep 5
 
 #setup tmpdir for testfiles and cleanup
 TMP_DIR=$(mktemp -d -t tmp.XXXXXXXXXX)
@@ -94,8 +94,8 @@ fi
 captplanet run &
 CAPT_PID=$!
 
-# Wait 2 seconds for kademlia startup
-sleep 2
+# Wait 5 seconds for kademlia startup
+sleep 5
 
 aws s3 --endpoint=http://localhost:7777/ mb s3://bucket
 aws s3 --endpoint=http://localhost:7777/ cp $TMP_DIR/big-upload-testfile s3://bucket/big-testfile
