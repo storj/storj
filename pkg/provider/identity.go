@@ -123,6 +123,7 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+
 	i, err := NodeIDFromKey(ch[1].PublicKey)
 	if err != nil {
 		return nil, err

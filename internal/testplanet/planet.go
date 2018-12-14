@@ -58,7 +58,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 
 	planet := &Planet{
 		log:        log,
-		identities: pregeneratedIdentities.Clone(),
+		identities: NewPregeneratedIdentities(),
 	}
 
 	var err error
