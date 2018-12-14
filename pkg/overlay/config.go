@@ -91,31 +91,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	}
 
 	cache := NewOverlayCache(db, kad, sdb)
-
-	//go func() {
-	//	err = cache.Bootstrap(ctx)
-	//	if err != nil {
-	//		panic(err)
-	//	}
-	//}()
-
-	// ticker := time.NewTicker(c.RefreshInterval)
-	// defer ticker.Stop()
-
-	// go func() {
-	// 	for {
-	// 		select {
-	// 		case <-ticker.C:
-	// 			err := cache.Refresh(ctx)
-	// 			if err != nil {
-	// 				zap.L().Error("Error with cache refresh: ", zap.Error(err))
-	// 			}
-	// 		case <-ctx.Done():
-	// 			return
-	// 		}
-	// 	}
-	// }()
-
 	srv := NewServer(zap.L(), cache, kad)
 	pb.RegisterOverlayServer(server.GRPC(), srv)
 
