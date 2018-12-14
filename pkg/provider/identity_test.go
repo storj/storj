@@ -184,7 +184,7 @@ func TestNewServerOptions(t *testing.T) {
 	done, _, fi, _ := tempIdentity(t)
 	defer done()
 
-	tmp, err := ioutil.TempDir(os.TempDir(), "")
+	tmp, err := ioutil.TempDir("", "TestNewServerOptions")
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
