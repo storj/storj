@@ -52,7 +52,12 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	s, err := NewEndpoint(ctx, c, server.Identity().Key, zap.L())
+	db, err := psdb.Open(ctx, filepath.Join(c.Path, "piece-store-data"), filepath.Join(c.Path, "piecestore.db"))
+	if err != nil {
+		return nil, ServerError.Wrap(err)
+	}
+
+	s, err := NewEndpoint(ctx, c, db, server.Identity().Key, zap.L())
 	if err != nil {
 		return err
 	}
@@ -108,9 +113,7 @@ type Server struct {
 }
 
 // NewEndpoint -- initializes a new endpoint for a piecestore server
-func NewEndpoint(ctx context.Context, config Config, pkey crypto.PrivateKey, log *zap.Logger) (*Server, error) {
-	dbPath := filepath.Join(config.Path, "piecestore.db")
-	dataDir := filepath.Join(config.Path, "piece-store-data")
+func NewEndpoint(ctx context.Context, config Config, db *psdb.DB, pkey crypto.PrivateKey, log *zap.Logger) (*Server, error) {
 
 	// read the allocated disk space from the config file
 	allocatedDiskSpace := config.AllocatedDiskSpace
@@ -124,11 +127,6 @@ func NewEndpoint(ctx context.Context, config Config, pkey crypto.PrivateKey, log
 		return nil, ServerError.Wrap(err)
 	}
 	freeDiskSpace := int64(diskSpace.Free)
-
-	db, err := psdb.Open(ctx, dataDir, dbPath)
-	if err != nil {
-		return nil, ServerError.Wrap(err)
-	}
 
 	// get how much is currently used, if for the first time totalUsed = 0
 	totalUsed, err := db.SumTTLSizes()
@@ -171,7 +169,7 @@ func NewEndpoint(ctx context.Context, config Config, pkey crypto.PrivateKey, log
 
 	return &Server{
 		log:              log,
-		DataDir:          dataDir,
+		DataDir:          filepath.Join(config.Path, "piece-store-data"),
 		DB:               db,
 		pkey:             pkey,
 		totalAllocated:   allocatedDiskSpace,
