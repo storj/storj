@@ -23,11 +23,11 @@ var (
 type Discovery struct {
 	cache  *overlay.Cache
 	kad    *kademlia.Kademlia
-	statdb *statdb.StatDB
+	statdb statdb.DB
 }
 
 // NewDiscovery Returns a new Discovery instance with cache, kad, and statdb loaded on
-func NewDiscovery(ol *overlay.Cache, kad *kademlia.Kademlia, stat *statdb.StatDB) *Discovery {
+func NewDiscovery(ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB) *Discovery {
 	return &Discovery{
 		cache:  ol,
 		kad:    kad,

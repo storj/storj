@@ -310,6 +310,11 @@ func (r RevocationDB) Put(chain []*x509.Certificate, revExt pkix.Extension) erro
 	return nil
 }
 
+// Close closes the underlying store
+func (r RevocationDB) Close() error {
+	return r.DB.Close()
+}
+
 // Verify checks if the signature of the revocation was produced by the passed cert's public key.
 func (r Revocation) Verify(signingCert *x509.Certificate) error {
 	pubKey, ok := signingCert.PublicKey.(crypto.PublicKey)

@@ -30,7 +30,6 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storage/redis"
@@ -47,9 +46,10 @@ var (
 		RunE:  cmdRun,
 	}
 	setupCmd = &cobra.Command{
-		Use:   "setup",
-		Short: "Create config files",
-		RunE:  cmdSetup,
+		Use:         "setup",
+		Short:       "Create config files",
+		RunE:        cmdSetup,
+		Annotations: map[string]string{"type": "setup"},
 	}
 	diagCmd = &cobra.Command{
 		Use:   "diag",
@@ -67,7 +67,6 @@ var (
 		Kademlia    kademlia.Config
 		PointerDB   pointerdb.Config
 		Overlay     overlay.Config
-		StatDB      statdb.Config
 		Checker     checker.Config
 		Repairer    repairer.Config
 		Audit       audit.Config
@@ -76,7 +75,6 @@ var (
 		Discovery   discovery.Config
 	}
 	setupCfg struct {
-		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
 		CA        provider.CASetupConfig
 		Identity  provider.IdentitySetupConfig
 		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
@@ -90,10 +88,19 @@ var (
 	}
 
 	defaultConfDir string
+	confDir        *string
 )
 
 func init() {
 	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
+
+	dirParam := cfgstruct.FindConfigDirParam()
+	if dirParam != "" {
+		defaultConfDir = dirParam
+	}
+
+	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for satellite configuration")
+
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
@@ -125,7 +132,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		grpcauth.NewAPIKeyInterceptor(),
 		runCfg.Kademlia,
 		runCfg.PointerDB,
-		runCfg.StatDB,
 		runCfg.Overlay,
 		runCfg.Checker,
 		runCfg.Repairer,
@@ -136,35 +142,35 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupCfg.BasePath, err = filepath.Abs(setupCfg.BasePath)
+	setupDir, err := filepath.Abs(*confDir)
 	if err != nil {
 		return err
 	}
 
-	valid, err := fpath.IsValidSetupDir(setupCfg.BasePath)
+	valid, err := fpath.IsValidSetupDir(setupDir)
 	if !setupCfg.Overwrite && !valid {
-		fmt.Printf("satellite configuration already exists (%v). rerun with --overwrite\n", setupCfg.BasePath)
+		fmt.Printf("satellite configuration already exists (%v). rerun with --overwrite\n", setupDir)
 		return nil
 	} else if setupCfg.Overwrite && err == nil {
 		fmt.Println("overwriting existing satellite config")
-		err = os.RemoveAll(setupCfg.BasePath)
+		err = os.RemoveAll(setupDir)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = os.MkdirAll(setupCfg.BasePath, 0700)
+	err = os.MkdirAll(setupDir, 0700)
 	if err != nil {
 		return err
 	}
 
 	// TODO: handle setting base path *and* identity file paths via args
 	// NB: if base path is set this overrides identity and CA path options
-	if setupCfg.BasePath != defaultConfDir {
-		setupCfg.CA.CertPath = filepath.Join(setupCfg.BasePath, "ca.cert")
-		setupCfg.CA.KeyPath = filepath.Join(setupCfg.BasePath, "ca.key")
-		setupCfg.Identity.CertPath = filepath.Join(setupCfg.BasePath, "identity.cert")
-		setupCfg.Identity.KeyPath = filepath.Join(setupCfg.BasePath, "identity.key")
+	if setupDir != defaultConfDir {
+		setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
+		setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
+		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
+		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 	}
 	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
@@ -177,7 +183,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return process.SaveConfig(runCmd.Flags(),
-		filepath.Join(setupCfg.BasePath, "config.yaml"), o)
+		filepath.Join(setupDir, "config.yaml"), o)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
@@ -289,7 +295,5 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 }
 
 func main() {
-	runCmd.Flags().String("config",
-		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	process.Exec(rootCmd)
 }

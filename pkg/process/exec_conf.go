@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -121,15 +122,19 @@ func cleanup(cmd *cobra.Command) {
 		vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 		vip.AutomaticEnv()
 
-		cfgFlag := cmd.Flags().Lookup("config")
+		logger, err := newLogger()
+
+		cfgFlag := cmd.Flags().Lookup("config-dir")
 		if cfgFlag != nil && cfgFlag.Value.String() != "" {
-			path := os.ExpandEnv(cfgFlag.Value.String())
-			if cfgFlag.Changed || fileExists(path) {
+			path := filepath.Join(os.ExpandEnv(cfgFlag.Value.String()), "config.yaml")
+			if cmd.Annotations["type"] != "setup" || fileExists(path) {
 				vip.SetConfigFile(path)
 				err = vip.ReadInConfig()
 				if err != nil {
 					return err
 				}
+
+				logger.Sugar().Debug("Configuration loaded from: ", vip.ConfigFileUsed())
 			}
 		}
 
@@ -149,7 +154,6 @@ func cleanup(cmd *cobra.Command) {
 			}
 		}
 
-		logger, err := newLogger()
 		if err != nil {
 			return err
 		}

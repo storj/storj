@@ -82,21 +82,23 @@ type ServerConfig struct {
 type ServerOptions struct {
 	Config   ServerConfig
 	Ident    *FullIdentity
+	RevDB    *peertls.RevocationDB
 	PCVFuncs []peertls.PeerCertVerificationFunc
 }
 
 // NewServerOptions is a constructor for `serverOptions` given an identity and config
 func NewServerOptions(i *FullIdentity, c ServerConfig) (*ServerOptions, error) {
-	pcvFuncs, err := c.PCVFuncs()
+	serverOpts := &ServerOptions{
+		Config: c,
+		Ident:  i,
+	}
+
+	err := c.configure(serverOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ServerOptions{
-		Config:   c,
-		Ident:    i,
-		PCVFuncs: pcvFuncs,
-	}, nil
+	return serverOpts, nil
 }
 
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and
@@ -294,11 +296,14 @@ func (ic IdentityConfig) Run(ctx context.Context, interceptor grpc.UnaryServerIn
 	if err != nil {
 		return err
 	}
+	defer func() { err = utils.CombineErrors(err, opts.RevDB.Close()) }()
+
 	s, err := NewProvider(opts, lis, interceptor, responsibilities...)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = s.Close() }()
+
 	zap.S().Infof("Node %s started", s.Identity().ID)
 	return s.Run(ctx)
 }
@@ -389,25 +394,26 @@ func (c ServerConfig) NewRevDB() (*peertls.RevocationDB, error) {
 	return db, nil
 }
 
-// PCVFuncs returns a slice of peer certificate verification functions based on the config.
-func (c ServerConfig) PCVFuncs() (pcvs []peertls.PeerCertVerificationFunc, err error) {
+// configure adds peer certificate verification functions and revocation datase to the config.
+func (c ServerConfig) configure(opts *ServerOptions) (err error) {
+	var pcvs []peertls.PeerCertVerificationFunc
 	parseOpts := peertls.ParseExtOptions{}
 
 	if c.PeerCAWhitelistPath != "" {
 		caWhitelist, err := loadWhitelist(c.PeerCAWhitelistPath)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		parseOpts.CAWhitelist = caWhitelist
 		pcvs = append(pcvs, peertls.VerifyCAWhitelist(caWhitelist))
 	}
 
 	if c.Extensions.Revocation {
-		revDB, err := c.NewRevDB()
+		opts.RevDB, err = c.NewRevDB()
 		if err != nil {
-			return nil, err
+			return err
 		}
-		pcvs = append(pcvs, peertls.VerifyUnrevokedChainFunc(revDB))
+		pcvs = append(pcvs, peertls.VerifyUnrevokedChainFunc(opts.RevDB))
 	}
 
 	exts := peertls.ParseExtensions(c.Extensions, parseOpts)
@@ -420,7 +426,9 @@ func (c ServerConfig) PCVFuncs() (pcvs []peertls.PeerCertVerificationFunc, err e
 			pcvs = pcvs[:len(pcvs)-1]
 		}
 	}
-	return pcvs, nil
+
+	opts.PCVFuncs = pcvs
+	return nil
 }
 
 func (so *ServerOptions) grpcOpts() (grpc.ServerOption, error) {
