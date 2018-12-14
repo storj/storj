@@ -49,7 +49,7 @@ read one (
   where  irreparabledb.segmentpath = ?
 )
 
-//--- acounting ---//
+//--- accounting ---//
 
 // timestamps just allows us to save the last time/thing that happened
 model timestamps (

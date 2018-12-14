@@ -20,6 +20,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/mattn/go-sqlite3"
+	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
@@ -488,6 +489,7 @@ type Bwagreement_Update_Fields struct {
 
 type Bwagreement_Signature_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -496,7 +498,7 @@ func Bwagreement_Signature(v []byte) Bwagreement_Signature_Field {
 }
 
 func (f Bwagreement_Signature_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -506,6 +508,7 @@ func (Bwagreement_Signature_Field) _Column() string { return "signature" }
 
 type Bwagreement_Data_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -514,7 +517,7 @@ func Bwagreement_Data(v []byte) Bwagreement_Data_Field {
 }
 
 func (f Bwagreement_Data_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -524,6 +527,7 @@ func (Bwagreement_Data_Field) _Column() string { return "data" }
 
 type Bwagreement_CreatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -532,7 +536,7 @@ func Bwagreement_CreatedAt(v time.Time) Bwagreement_CreatedAt_Field {
 }
 
 func (f Bwagreement_CreatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -559,6 +563,7 @@ type Irreparabledb_Update_Fields struct {
 
 type Irreparabledb_Segmentpath_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -567,7 +572,7 @@ func Irreparabledb_Segmentpath(v []byte) Irreparabledb_Segmentpath_Field {
 }
 
 func (f Irreparabledb_Segmentpath_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -577,6 +582,7 @@ func (Irreparabledb_Segmentpath_Field) _Column() string { return "segmentpath" }
 
 type Irreparabledb_Segmentdetail_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -585,7 +591,7 @@ func Irreparabledb_Segmentdetail(v []byte) Irreparabledb_Segmentdetail_Field {
 }
 
 func (f Irreparabledb_Segmentdetail_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -595,6 +601,7 @@ func (Irreparabledb_Segmentdetail_Field) _Column() string { return "segmentdetai
 
 type Irreparabledb_PiecesLostCount_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -603,7 +610,7 @@ func Irreparabledb_PiecesLostCount(v int64) Irreparabledb_PiecesLostCount_Field 
 }
 
 func (f Irreparabledb_PiecesLostCount_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -613,6 +620,7 @@ func (Irreparabledb_PiecesLostCount_Field) _Column() string { return "pieces_los
 
 type Irreparabledb_SegDamagedUnixSec_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -621,7 +629,7 @@ func Irreparabledb_SegDamagedUnixSec(v int64) Irreparabledb_SegDamagedUnixSec_Fi
 }
 
 func (f Irreparabledb_SegDamagedUnixSec_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -631,6 +639,7 @@ func (Irreparabledb_SegDamagedUnixSec_Field) _Column() string { return "seg_dama
 
 type Irreparabledb_RepairAttemptCount_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -639,7 +648,7 @@ func Irreparabledb_RepairAttemptCount(v int64) Irreparabledb_RepairAttemptCount_
 }
 
 func (f Irreparabledb_RepairAttemptCount_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -664,6 +673,7 @@ type Raw_Update_Fields struct {
 
 type Raw_Id_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -672,7 +682,7 @@ func Raw_Id(v int64) Raw_Id_Field {
 }
 
 func (f Raw_Id_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -682,6 +692,7 @@ func (Raw_Id_Field) _Column() string { return "id" }
 
 type Raw_NodeId_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -690,7 +701,7 @@ func Raw_NodeId(v string) Raw_NodeId_Field {
 }
 
 func (f Raw_NodeId_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -700,6 +711,7 @@ func (Raw_NodeId_Field) _Column() string { return "node_id" }
 
 type Raw_IntervalEndTime_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -708,7 +720,7 @@ func Raw_IntervalEndTime(v time.Time) Raw_IntervalEndTime_Field {
 }
 
 func (f Raw_IntervalEndTime_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -718,6 +730,7 @@ func (Raw_IntervalEndTime_Field) _Column() string { return "interval_end_time" }
 
 type Raw_DataTotal_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -726,7 +739,7 @@ func Raw_DataTotal(v int64) Raw_DataTotal_Field {
 }
 
 func (f Raw_DataTotal_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -736,6 +749,7 @@ func (Raw_DataTotal_Field) _Column() string { return "data_total" }
 
 type Raw_DataType_Field struct {
 	_set   bool
+	_null  bool
 	_value int
 }
 
@@ -744,7 +758,7 @@ func Raw_DataType(v int) Raw_DataType_Field {
 }
 
 func (f Raw_DataType_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -754,6 +768,7 @@ func (Raw_DataType_Field) _Column() string { return "data_type" }
 
 type Raw_CreatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -762,7 +777,7 @@ func Raw_CreatedAt(v time.Time) Raw_CreatedAt_Field {
 }
 
 func (f Raw_CreatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -772,6 +787,7 @@ func (Raw_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Raw_UpdatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -780,7 +796,7 @@ func Raw_UpdatedAt(v time.Time) Raw_UpdatedAt_Field {
 }
 
 func (f Raw_UpdatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -805,6 +821,7 @@ type Rollup_Update_Fields struct {
 
 type Rollup_Id_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -813,7 +830,7 @@ func Rollup_Id(v int64) Rollup_Id_Field {
 }
 
 func (f Rollup_Id_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -823,6 +840,7 @@ func (Rollup_Id_Field) _Column() string { return "id" }
 
 type Rollup_NodeId_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -831,7 +849,7 @@ func Rollup_NodeId(v string) Rollup_NodeId_Field {
 }
 
 func (f Rollup_NodeId_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -841,6 +859,7 @@ func (Rollup_NodeId_Field) _Column() string { return "node_id" }
 
 type Rollup_StartTime_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -849,7 +868,7 @@ func Rollup_StartTime(v time.Time) Rollup_StartTime_Field {
 }
 
 func (f Rollup_StartTime_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -859,6 +878,7 @@ func (Rollup_StartTime_Field) _Column() string { return "start_time" }
 
 type Rollup_Interval_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -867,7 +887,7 @@ func Rollup_Interval(v int64) Rollup_Interval_Field {
 }
 
 func (f Rollup_Interval_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -877,6 +897,7 @@ func (Rollup_Interval_Field) _Column() string { return "interval" }
 
 type Rollup_DataType_Field struct {
 	_set   bool
+	_null  bool
 	_value int
 }
 
@@ -885,7 +906,7 @@ func Rollup_DataType(v int) Rollup_DataType_Field {
 }
 
 func (f Rollup_DataType_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -895,6 +916,7 @@ func (Rollup_DataType_Field) _Column() string { return "data_type" }
 
 type Rollup_CreatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -903,7 +925,7 @@ func Rollup_CreatedAt(v time.Time) Rollup_CreatedAt_Field {
 }
 
 func (f Rollup_CreatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -913,6 +935,7 @@ func (Rollup_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Rollup_UpdatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -921,7 +944,7 @@ func Rollup_UpdatedAt(v time.Time) Rollup_UpdatedAt_Field {
 }
 
 func (f Rollup_UpdatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -942,6 +965,7 @@ type Timestamps_Update_Fields struct {
 
 type Timestamps_Name_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -950,7 +974,7 @@ func Timestamps_Name(v string) Timestamps_Name_Field {
 }
 
 func (f Timestamps_Name_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -960,6 +984,7 @@ func (Timestamps_Name_Field) _Column() string { return "name" }
 
 type Timestamps_Value_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -968,7 +993,7 @@ func Timestamps_Value(v time.Time) Timestamps_Value_Field {
 }
 
 func (f Timestamps_Value_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -3218,7 +3243,11 @@ func openpostgres(source string) (*sql.DB, error) {
 	return sql.Open("postgres", source)
 }
 
-var sqlite3DriverName = "sqlite3_" + fmt.Sprint(time.Now().UnixNano())
+var sqlite3DriverName = func() string {
+	var id [16]byte
+	rand.Read(id[:])
+	return fmt.Sprintf("sqlite3_%x", string(id[:]))
+}()
 
 func init() {
 	sql.Register(sqlite3DriverName, &sqlite3.SQLiteDriver{
