@@ -11,9 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/pkg/peertls"
-
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/provider"
 )
 
