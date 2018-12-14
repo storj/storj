@@ -9,7 +9,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha512"
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -53,7 +52,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	s, err := Initialize(ctx, c, server.Identity().Key, zap.S().Named(fmt.Sprintf("storage node (%s)", server.Identity().ID)))
+	s, err := Initialize(ctx, c, server.Identity().Key, zap.L())
 	if err != nil {
 		return err
 	}
@@ -99,17 +98,17 @@ func DirSize(path string) (int64, error) {
 
 // Server -- GRPC server meta data used in route calls
 type Server struct {
+	log              *zap.Logger
 	DataDir          string
 	DB               *psdb.DB
 	pkey             crypto.PrivateKey
 	totalAllocated   int64
 	totalBwAllocated int64
 	verifier         auth.SignedMessageVerifier
-	log              *zap.SugaredLogger
 }
 
 // Initialize -- initializes a server struct
-func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey, log *zap.SugaredLogger) (*Server, error) {
+func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey, log *zap.Logger) (*Server, error) {
 	dbPath := filepath.Join(config.Path, "piecestore.db")
 	dataDir := filepath.Join(config.Path, "piece-store-data")
 
@@ -171,26 +170,26 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey, log 
 	}
 
 	return &Server{
+		log:              log,
 		DataDir:          dataDir,
 		DB:               db,
 		pkey:             pkey,
 		totalAllocated:   allocatedDiskSpace,
 		totalBwAllocated: allocatedBandwidth,
 		verifier:         auth.NewSignedMessageVerifier(),
-		log:              log,
 	}, nil
 }
 
 // New creates a Server with custom db
-func New(dataDir string, db *psdb.DB, config Config, pkey crypto.PrivateKey, log *zap.SugaredLogger) *Server {
+func New(dataDir string, db *psdb.DB, config Config, pkey crypto.PrivateKey, log *zap.Logger) *Server {
 	return &Server{
+		log:              log,
 		DataDir:          dataDir,
 		DB:               db,
 		pkey:             pkey,
 		totalAllocated:   config.AllocatedDiskSpace,
 		totalBwAllocated: config.AllocatedBandwidth,
 		verifier:         auth.NewSignedMessageVerifier(),
-		log:              log,
 	}
 }
 

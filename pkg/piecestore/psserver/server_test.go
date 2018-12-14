@@ -499,12 +499,12 @@ func newTestServerStruct(t *testing.T) (*Server, func()) {
 		return nil
 	}
 	server := &Server{
+		log:              zap.S(),
 		DataDir:          tempDir,
 		DB:               psDB,
 		verifier:         verifier,
 		totalAllocated:   math.MaxInt64,
 		totalBwAllocated: math.MaxInt64,
-		log:              zap.S(),
 	}
 	return server, func() {
 		if serr := server.Stop(ctx); serr != nil {
