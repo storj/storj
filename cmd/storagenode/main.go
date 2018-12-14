@@ -36,9 +36,10 @@ var (
 		RunE:  cmdRun,
 	}
 	setupCmd = &cobra.Command{
-		Use:   "setup",
-		Short: "Create config files",
-		RunE:  cmdSetup,
+		Use:         "setup",
+		Short:       "Create config files",
+		RunE:        cmdSetup,
+		Annotations: map[string]string{"type": "setup"},
 	}
 	diagCmd = &cobra.Command{
 		Use:   "diag",
@@ -52,20 +53,27 @@ var (
 		Storage  psserver.Config
 	}
 	setupCfg struct {
-		BasePath string `default:"$CONFDIR" help:"base path for setup"`
 		CA       provider.CASetupConfig
 		Identity provider.IdentitySetupConfig
 	}
 	diagCfg struct {
-		BasePath string `default:"$CONFDIR" help:"base path for setup"`
 	}
 
 	defaultConfDir string
 	defaultDiagDir string
+	confDir        *string
 )
 
 func init() {
 	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
+
+	dirParam := cfgstruct.FindConfigDirParam()
+	if dirParam != "" {
+		defaultConfDir = dirParam
+	}
+
+	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for storagenode configuration")
+
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
@@ -80,20 +88,20 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupCfg.BasePath, err = filepath.Abs(setupCfg.BasePath)
+	setupDir, err := filepath.Abs(*confDir)
 	if err != nil {
 		return err
 	}
 
-	err = os.MkdirAll(setupCfg.BasePath, 0700)
+	err = os.MkdirAll(setupDir, 0700)
 	if err != nil {
 		return err
 	}
 
-	setupCfg.CA.CertPath = filepath.Join(setupCfg.BasePath, "ca.cert")
-	setupCfg.CA.KeyPath = filepath.Join(setupCfg.BasePath, "ca.key")
-	setupCfg.Identity.CertPath = filepath.Join(setupCfg.BasePath, "identity.cert")
-	setupCfg.Identity.KeyPath = filepath.Join(setupCfg.BasePath, "identity.key")
+	setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
+	setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
+	setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
+	setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 
 	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
@@ -103,28 +111,27 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	overrides := map[string]interface{}{
 		"identity.cert-path": setupCfg.Identity.CertPath,
 		"identity.key-path":  setupCfg.Identity.KeyPath,
-		"storage.path":       filepath.Join(setupCfg.BasePath, "storage"),
+		"storage.path":       filepath.Join(setupDir, "storage"),
 	}
 
-	return process.SaveConfig(runCmd.Flags(),
-		filepath.Join(setupCfg.BasePath, "config.yaml"), overrides)
+	return process.SaveConfig(runCmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
-	diagCfg.BasePath, err = filepath.Abs(diagCfg.BasePath)
+	diagDir, err := filepath.Abs(*confDir)
 	if err != nil {
 		return err
 	}
 
 	// check if the directory exists
-	_, err = os.Stat(diagCfg.BasePath)
+	_, err = os.Stat(diagDir)
 	if err != nil {
-		fmt.Println("Storagenode directory doesn't exist", diagCfg.BasePath)
+		fmt.Println("Storagenode directory doesn't exist", diagDir)
 		return err
 	}
 
 	// open the sql db
-	dbpath := filepath.Join(diagCfg.BasePath, "piecestore.db")
+	dbpath := filepath.Join(diagDir, "piecestore.db")
 	db, err := psdb.Open(context.Background(), "", dbpath)
 	if err != nil {
 		fmt.Println("Storagenode database couldnt open:", dbpath)
@@ -202,7 +209,5 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 }
 
 func main() {
-	runCmd.Flags().String("config",
-		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	process.Exec(rootCmd)
 }

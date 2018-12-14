@@ -18,6 +18,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 )
 
@@ -30,6 +31,7 @@ var (
 	}
 
 	defaultConfDir = fpath.ApplicationDir("storj", "capt")
+	confDir        *string
 )
 
 func main() {
@@ -38,10 +40,12 @@ func main() {
 }
 
 func init() {
-	runCmd.Flags().String("config",
-		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
-	setupCmd.Flags().String("config",
-		filepath.Join(defaultConfDir, "setup.yaml"), "path to configuration")
+	dirParam := cfgstruct.FindConfigDirParam()
+	if dirParam != "" {
+		defaultConfDir = dirParam
+	}
+
+	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for captplanet configuration")
 }
 
 // dumpHandler listens for Ctrl+\ on Unix
