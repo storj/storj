@@ -29,7 +29,7 @@ func (db *accountingDB) LastGranularTime(ctx context.Context) (time.Time, bool, 
 
 // SaveGranulars records granular tallies (sums of bw agreement values) to the database
 // and updates the LastGranularTime
-func (db *accountingDB) SaveGranulars(ctx context.Context, logger *zap.Logger, latestBwa time.Time, bwTotals map[string]int64) error {
+func (db *accountingDB) SaveGranulars(ctx context.Context, logger *zap.Logger, latestBwa time.Time, bwTotals map[string]int64) (err error) {
 	// We use the latest bandwidth agreement value of a batch of records as the start of the next batch
 	// This enables us to not use:
 	// 1) local time (which may deviate from DB time)
