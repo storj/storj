@@ -106,7 +106,7 @@ func Test_setLastModifiedNilWriter(t *testing.T) {
 
 	setLastModified(nil, time.Now().UTC())
 
-	assert.Equal(t, "", req.HeaderMap.Get("Last-Modified"))
+	assert.Equal(t, "", req.Result().Header.Get("Last-Modified"))
 }
 
 func Test_checkPreconditions(t *testing.T) {
