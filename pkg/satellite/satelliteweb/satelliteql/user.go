@@ -25,7 +25,7 @@ const (
 )
 
 // base graphql config for user
-func baseUserConfig(service *satellite.Service, ) graphql.ObjectConfig {
+func baseUserConfig(service *satellite.Service) graphql.ObjectConfig {
 	return graphql.ObjectConfig{
 		Name: userType,
 		Fields: graphql.Fields{
