@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -29,7 +30,7 @@ var (
 	invalid2ID = teststorj.NodeIDFromString("invalid2")
 )
 
-func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, sdb *statdb.StatDB) {
+func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, sdb statdb.DB) {
 	cache := overlay.Cache{DB: store, StatDB: sdb}
 
 	{ // Put
@@ -145,23 +146,11 @@ func TestCache_Store(t *testing.T) {
 	}
 	defer ctx.Check(planet.Shutdown)
 	planet.Start(ctx)
-	sdb := planet.Satellites[0].StatDB
 
-	testCache(ctx, t, teststore.New(), sdb)
-}
-
-func TestCache_Refresh(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet, err := testplanet.New(t, 1, 30, 0)
+	sdb, err := satellitedb.NewInMemory()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ctx.Check(planet.Shutdown)
 
-	planet.Start(ctx)
-
-	err = planet.Satellites[0].Overlay.Refresh(ctx)
-	assert.NoError(t, err)
+	testCache(ctx, t, teststore.New(), sdb.StatDB())
 }

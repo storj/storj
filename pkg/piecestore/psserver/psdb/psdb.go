@@ -31,7 +31,7 @@ var (
 	// Error is the default psdb errs class
 	Error = errs.Class("psdb")
 
-	defaultCheckInterval = flag.Duration("piecestore.ttl.check_interval", time.Hour, "number of seconds to sleep between ttl checks")
+	defaultCheckInterval = flag.Duration("piecestore.ttl.check-interval", time.Hour, "number of seconds to sleep between ttl checks")
 )
 
 // DB is a piece store database

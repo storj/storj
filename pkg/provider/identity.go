@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/tls"
@@ -22,11 +23,6 @@ import (
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
-)
-
-const (
-	// IdentityLength is the number of bytes required to represent node id
-	IdentityLength = uint16(256 / 8) // 256 bits
 )
 
 // PeerIdentity represents another peer on the network.
@@ -63,6 +59,7 @@ type IdentitySetupConfig struct {
 	KeyPath   string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
 	Overwrite bool   `help:"if true, existing identity certs AND keys will overwritten for" default:"false"`
 	Version   string `help:"semantic version of identity storage format" default:"0"`
+	Server    ServerConfig
 }
 
 // IdentityConfig allows you to run a set of Responsibilities with the given
@@ -75,6 +72,7 @@ type IdentityConfig struct {
 
 // ServerConfig holds server specific configuration parameters
 type ServerConfig struct {
+	RevocationDBURL     string `help:"url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)" default:"bolt://$CONFDIR/revocations.db"`
 	PeerCAWhitelistPath string `help:"path to the CA cert whitelist (peer identities must be signed by one these to be verified)"`
 	Address             string `help:"address to listen on" default:":7777"`
 	Extensions          peertls.TLSExtConfig
@@ -84,21 +82,23 @@ type ServerConfig struct {
 type ServerOptions struct {
 	Config   ServerConfig
 	Ident    *FullIdentity
+	RevDB    *peertls.RevocationDB
 	PCVFuncs []peertls.PeerCertVerificationFunc
 }
 
 // NewServerOptions is a constructor for `serverOptions` given an identity and config
 func NewServerOptions(i *FullIdentity, c ServerConfig) (*ServerOptions, error) {
-	pcvFuncs, err := c.PCVFuncs()
+	serverOpts := &ServerOptions{
+		Config: c,
+		Ident:  i,
+	}
+
+	err := c.configure(serverOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ServerOptions{
-		Config:   c,
-		Ident:    i,
-		PCVFuncs: pcvFuncs,
-	}, nil
+	return serverOpts, nil
 }
 
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and
@@ -192,6 +192,33 @@ func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 	return PeerIdentityFromPeer(p)
 }
 
+// NodeIDFromKey hashes a publc key and creates a node ID from it
+func NodeIDFromKey(k crypto.PublicKey) (storj.NodeID, error) {
+	kb, err := x509.MarshalPKIXPublicKey(k)
+	if err != nil {
+		return storj.NodeID{}, storj.ErrNodeID.Wrap(err)
+	}
+	hash := make([]byte, len(storj.NodeID{}))
+	sha3.ShakeSum256(hash, kb)
+	return storj.NodeIDFromBytes(hash)
+}
+
+// NewFullIdentity creates a new ID for nodes with difficulty and concurrency params
+func NewFullIdentity(ctx context.Context, difficulty uint16, concurrency uint) (*FullIdentity, error) {
+	ca, err := NewCA(ctx, NewCAOptions{
+		Difficulty:  difficulty,
+		Concurrency: concurrency,
+	})
+	if err != nil {
+		return nil, err
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		return nil, err
+	}
+	return identity, err
+}
+
 // Stat returns the status of the identity cert/key files for the config
 func (is IdentitySetupConfig) Stat() TLSFilesStatus {
 	return statTLSFiles(is.CertPath, is.KeyPath)
@@ -231,27 +258,23 @@ func (ic IdentityConfig) Load() (*FullIdentity, error) {
 
 // Save saves a FullIdentity according to the config
 func (ic IdentityConfig) Save(fi *FullIdentity) error {
-	f := os.O_WRONLY | os.O_CREATE
-	c, err := openCert(ic.CertPath, f)
-	if err != nil {
-		return err
-	}
-	defer utils.LogClose(c)
-	k, err := openKey(ic.KeyPath, f)
-	if err != nil {
-		return err
-	}
-	defer utils.LogClose(k)
+	var certData, keyData bytes.Buffer
 
 	chain := []*x509.Certificate{fi.Leaf, fi.CA}
 	chain = append(chain, fi.RestChain...)
-	if err = peertls.WriteChain(c, chain...); err != nil {
-		return err
+
+	writeErr := utils.CombineErrors(
+		peertls.WriteChain(&certData, chain...),
+		peertls.WriteKey(&keyData, fi.Key),
+	)
+	if writeErr != nil {
+		return writeErr
 	}
-	if err = peertls.WriteKey(k, fi.Key); err != nil {
-		return err
-	}
-	return nil
+
+	return utils.CombineErrors(
+		writeCertData(ic.CertPath, certData.Bytes()),
+		writeKeyData(ic.KeyPath, keyData.Bytes()),
+	)
 }
 
 // Run will run the given responsibilities with the configured identity.
@@ -273,11 +296,14 @@ func (ic IdentityConfig) Run(ctx context.Context, interceptor grpc.UnaryServerIn
 	if err != nil {
 		return err
 	}
+	defer func() { err = utils.CombineErrors(err, opts.RevDB.Close()) }()
+
 	s, err := NewProvider(opts, lis, interceptor, responsibilities...)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = s.Close() }()
+
 	zap.S().Infof("Node %s started", s.Identity().ID)
 	return s.Run(ctx)
 }
@@ -321,7 +347,6 @@ func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFun
 // to the node with this peer identity
 // id is an optional id of the node we are dialing
 func (fi *FullIdentity) DialOption(id storj.NodeID) (grpc.DialOption, error) {
-	// TODO(coyle): add ID
 	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
 	ch = append(ch, fi.RestChainRaw()...)
 	c, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
@@ -341,48 +366,69 @@ func (fi *FullIdentity) DialOption(id storj.NodeID) (grpc.DialOption, error) {
 	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), nil
 }
 
-// NodeIDFromKey hashes a publc key and creates a node ID from it
-func NodeIDFromKey(k crypto.PublicKey) (storj.NodeID, error) {
-	kb, err := x509.MarshalPKIXPublicKey(k)
+// NewRevDB returns a new revocation database given the config
+func (c ServerConfig) NewRevDB() (*peertls.RevocationDB, error) {
+	driver, source, err := utils.SplitDBURL(c.RevocationDBURL)
 	if err != nil {
-		return storj.NodeID{}, storj.ErrNodeID.Wrap(err)
+		return nil, peertls.ErrRevocationDB.Wrap(err)
 	}
-	hash := make([]byte, len(storj.NodeID{}))
-	sha3.ShakeSum256(hash, kb)
-	return storj.NodeIDFromBytes(hash)
-}
 
-// NewFullIdentity creates a new ID for nodes with difficulty and concurrency params
-func NewFullIdentity(ctx context.Context, difficulty uint16, concurrency uint) (*FullIdentity, error) {
-	ca, err := NewCA(ctx, NewCAOptions{
-		Difficulty:  difficulty,
-		Concurrency: concurrency,
-	})
-	if err != nil {
-		return nil, err
-	}
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		return nil, err
-	}
-	return identity, err
-}
-
-// PCVFuncs returns a slice of peer certificate verification functions based on the config.
-func (c ServerConfig) PCVFuncs() (pcvs []peertls.PeerCertVerificationFunc, err error) {
-	var caWhitelist []*x509.Certificate
-	if c.PeerCAWhitelistPath != "" {
-		caWhitelist, err = loadWhitelist(c.PeerCAWhitelistPath)
+	var db *peertls.RevocationDB
+	switch driver {
+	case "bolt":
+		db, err = peertls.NewRevocationDBBolt(source)
 		if err != nil {
-			return nil, err
+			return nil, peertls.ErrRevocationDB.Wrap(err)
 		}
+		zap.S().Info("Starting overlay cache with BoltDB")
+	case "redis":
+		db, err = peertls.NewRevocationDBRedis(c.RevocationDBURL)
+		if err != nil {
+			return nil, peertls.ErrRevocationDB.Wrap(err)
+		}
+		zap.S().Info("Starting overlay cache with Redis")
+	default:
+		return nil, peertls.ErrRevocationDB.New("database scheme not supported: %s", driver)
+	}
+
+	return db, nil
+}
+
+// configure adds peer certificate verification functions and revocation datase to the config.
+func (c ServerConfig) configure(opts *ServerOptions) (err error) {
+	var pcvs []peertls.PeerCertVerificationFunc
+	parseOpts := peertls.ParseExtOptions{}
+
+	if c.PeerCAWhitelistPath != "" {
+		caWhitelist, err := loadWhitelist(c.PeerCAWhitelistPath)
+		if err != nil {
+			return err
+		}
+		parseOpts.CAWhitelist = caWhitelist
 		pcvs = append(pcvs, peertls.VerifyCAWhitelist(caWhitelist))
 	}
 
-	exts := peertls.ParseExtensions(c.Extensions, caWhitelist)
+	if c.Extensions.Revocation {
+		opts.RevDB, err = c.NewRevDB()
+		if err != nil {
+			return err
+		}
+		pcvs = append(pcvs, peertls.VerifyUnrevokedChainFunc(opts.RevDB))
+	}
+
+	exts := peertls.ParseExtensions(c.Extensions, parseOpts)
 	pcvs = append(pcvs, exts.VerifyFunc())
 
-	return pcvs, nil
+	// NB: remove nil elements
+	for i, f := range pcvs {
+		if f == nil {
+			copy(pcvs[i:], pcvs[i+1:])
+			pcvs = pcvs[:len(pcvs)-1]
+		}
+	}
+
+	opts.PCVFuncs = pcvs
+	return nil
 }
 
 func (so *ServerOptions) grpcOpts() (grpc.ServerOption, error) {

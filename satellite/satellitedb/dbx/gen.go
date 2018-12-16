@@ -3,6 +3,7 @@
 
 package satellitedb
 
+//go:generate dbx.v1 schema -d postgres -d sqlite3 satellitedb.dbx .
 //go:generate dbx.v1 golang -d postgres -d sqlite3 satellitedb.dbx .
 
 import (

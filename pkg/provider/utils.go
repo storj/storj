@@ -9,6 +9,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -117,28 +118,35 @@ func newCAWorker(ctx context.Context, difficulty uint16, parentCert *x509.Certif
 	caC <- ca
 }
 
-func openCert(path string, flag int) (*os.File, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0744); err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	c, err := os.OpenFile(path, flag, 0644)
+// writeCertData writes data to path ensuring permissions are appropriate for a cert
+func writeCertData(path string, data []byte) error {
+	err := writeFile(path, 0744, 0644, data)
 	if err != nil {
-		return nil, errs.New("unable to open cert file for writing \"%s\": %v", path, err)
+		return errs.New("unable to write certificate to \"%s\": %v", path, err)
 	}
-	return c, nil
+	return nil
 }
 
-func openKey(path string, flag int) (*os.File, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return nil, errs.Wrap(err)
+// writeKeyData writes data to path ensuring permissions are appropriate for a cert
+func writeKeyData(path string, data []byte) error {
+	err := writeFile(path, 0700, 0600, data)
+	if err != nil {
+		return errs.New("unable to write key to \"%s\": %v", path, err)
+	}
+	return nil
+}
+
+// writeFile writes to path, creating directories and files with the necessary permissions
+func writeFile(path string, dirmode, filemode os.FileMode, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), dirmode); err != nil {
+		return errs.Wrap(err)
 	}
 
-	k, err := os.OpenFile(path, flag, 0600)
-	if err != nil {
-		return nil, errs.New("unable to open key file for writing \"%s\": %v", path, err)
+	if err := ioutil.WriteFile(path, data, filemode); err != nil {
+		return errs.Wrap(err)
 	}
-	return k, nil
+
+	return nil
 }
 
 func statTLSFiles(certPath, keyPath string) TLSFilesStatus {

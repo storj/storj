@@ -62,13 +62,7 @@ func CopyNode(src *Node) (dst *Node) {
 		}
 	}
 
-	node.AuditSuccess = src.AuditSuccess
-	node.IsUp = src.IsUp
-	node.LatencyList = src.LatencyList
 	node.Type = src.Type
-	node.UpdateAuditSuccess = src.UpdateAuditSuccess
-	node.UpdateLatency = src.UpdateLatency
-	node.UpdateUptime = src.UpdateUptime
 
 	return &node
 }

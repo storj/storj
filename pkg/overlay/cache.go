@@ -12,7 +12,6 @@ import (
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
-	statproto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
@@ -35,11 +34,11 @@ var OverlayError = errs.Class("Overlay Error")
 type Cache struct {
 	DB     storage.KeyValueStore
 	DHT    dht.DHT
-	StatDB *statdb.StatDB
+	StatDB statdb.DB
 }
 
 // NewOverlayCache returns a new Cache
-func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT, sdb *statdb.StatDB) *Cache {
+func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT, sdb statdb.DB) *Cache {
 	return &Cache{DB: db, DHT: dht, StatDB: sdb}
 }
 
@@ -98,10 +97,8 @@ func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) err
 	}
 
 	// get existing node rep, or create a new statdb node with 0 rep
-	res, err := o.StatDB.CreateEntryIfNotExists(ctx, &statproto.CreateEntryIfNotExistsRequest{
-		Node: &pb.Node{
-			Id: nodeID,
-		},
+	res, err := o.StatDB.CreateEntryIfNotExists(ctx, &statdb.CreateEntryIfNotExistsRequest{
+		Node: nodeID,
 	})
 	if err != nil {
 		return err
@@ -120,37 +117,4 @@ func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) err
 	}
 
 	return o.DB.Put(nodeID.Bytes(), data)
-}
-
-// Bootstrap walks the initialized network and populates the cache
-func (o *Cache) Bootstrap(ctx context.Context) error {
-	// TODO(coyle): make Bootstrap work
-	// look in our routing table
-	// get every node we know about
-	// ask every node for every node they know about
-	// for each newly known node, ask those nodes for every node they know about
-	// continue until no new nodes are found
-	return nil
-}
-
-// Refresh updates the cache db with the current DHT.
-// We currently do not penalize nodes that are unresponsive,
-// but should in the future.
-func (o *Cache) Refresh(ctx context.Context) error {
-	// TODO(coyle): make refresh work by looking on the network for new ndoes
-	nodes := o.DHT.Seen()
-
-	for _, v := range nodes {
-		if err := o.Put(ctx, v.Id, *v); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// Walk iterates over each node in each bucket to traverse the network
-func (o *Cache) Walk(ctx context.Context) error {
-	// TODO: This should walk the cache, rather than be a duplicate of refresh
-	return nil
 }
