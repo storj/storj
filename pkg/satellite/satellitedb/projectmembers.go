@@ -39,6 +39,21 @@ func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUI
 	return projectMembersFromDbxSlice(projectMembersDbx)
 }
 
+// GetPaged is a method for querying project members from the database by projectID, offset and limit.
+func (pm *projectMembers) GetPaged(ctx context.Context, projectID uuid.UUID, limit, offset int64) ([]satellite.ProjectMember, error) {
+	projectMembersDbx, err := pm.db.Limited_ProjectMember_By_ProjectId(
+		ctx,
+		dbx.ProjectMember_ProjectId(projectID[:]),
+		int(limit),
+		offset)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return projectMembersFromDbxSlice(projectMembersDbx)
+}
+
 // Insert is a method for inserting project member into the database.
 func (pm *projectMembers) Insert(ctx context.Context, memberID, projectID uuid.UUID) (*satellite.ProjectMember, error) {
 	createdProjectMember, err := pm.db.Create_ProjectMember(ctx,

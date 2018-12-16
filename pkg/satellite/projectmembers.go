@@ -16,6 +16,8 @@ type ProjectMembers interface {
 	GetByMemberID(ctx context.Context, memberID uuid.UUID) (*ProjectMember, error)
 	// GetByProjectID is a method for querying project members from the database by projectID.
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]ProjectMember, error)
+	// GetPaged is a method for querying project members from the database by projectID, offset and limit.
+	GetPaged(ctx context.Context, projectID uuid.UUID, limit, offset int64) ([]ProjectMember, error)
 	// Insert is a method for inserting project member into the database.
 	Insert(ctx context.Context, memberID, projectID uuid.UUID) (*ProjectMember, error)
 	// Delete is a method for deleting project member by memberID and projectID from the database.
