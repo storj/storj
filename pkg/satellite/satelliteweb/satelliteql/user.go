@@ -15,16 +15,17 @@ const (
 	userType      = "user"
 	userInputType = "userInput"
 
-	fieldID        = "id"
-	fieldEmail     = "email"
-	fieldPassword  = "password"
-	fieldFirstName = "firstName"
-	fieldLastName  = "lastName"
-	fieldCreatedAt = "createdAt"
+	fieldID           = "id"
+	fieldEmail        = "email"
+	fieldPassword     = "password"
+	fieldFirstName    = "firstName"
+	fieldLastName     = "lastName"
+	fieldCreatedAt    = "createdAt"
+	fieldHasOwnership = "hasOwnership"
 )
 
 // base graphql config for user
-func baseUserConfig() graphql.ObjectConfig {
+func baseUserConfig(service *satellite.Service, ) graphql.ObjectConfig {
 	return graphql.ObjectConfig{
 		Name: userType,
 		Fields: graphql.Fields{
@@ -43,13 +44,19 @@ func baseUserConfig() graphql.ObjectConfig {
 			fieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
 			},
+			fieldHasOwnership: &graphql.Field{
+				Type: graphql.DateTime,
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					return service.CheckOwnership(p.Context)
+				},
+			},
 		},
 	}
 }
 
 // graphqlUser creates *graphql.Object type representation of satellite.User
 func graphqlUser(service *satellite.Service, types Types) *graphql.Object {
-	config := baseUserConfig()
+	config := baseUserConfig(service)
 
 	config.Fields.(graphql.Fields)[companyType] = &graphql.Field{
 		Type: types.Company(),

@@ -140,7 +140,6 @@ export async function createUser(user: User, password: string): Promise<any> {
     return response;
 }
 
-
 // Performs graqhQL request.
 // Returns Token, User objects.
 // Throws an exception if error occurs
@@ -166,6 +165,29 @@ export async function login(email: string, password: string): Promise<any> {
                                     postalCode
                                 }
                             }
+                    }
+                }`),
+            fetchPolicy: "no-cache",
+        }
+    );
+
+    if (!response) {
+        return null;
+    }
+
+    return response;
+}
+
+// Performs graqhQL request.
+// Returns Token, User objects.
+// Throws an exception if error occurs
+export async function checkOwnership(email: string, password: string): Promise<any> {
+    let response = await apolloManager.query(
+        {
+            query: gql(`
+                query {
+                    user {
+                        hasOwnership
                     }
                 }`),
             fetchPolicy: "no-cache",

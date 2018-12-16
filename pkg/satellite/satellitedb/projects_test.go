@@ -65,7 +65,6 @@ func TestProjectsRepository(t *testing.T) {
 		}
 
 		createdProject, err := projects.Insert(ctx, project)
-
 		assert.NotNil(t, createdProject)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
@@ -78,7 +77,6 @@ func TestProjectsRepository(t *testing.T) {
 			Email:        email,
 			PasswordHash: []byte(pass),
 		})
-
 		assert.NoError(t, err)
 		assert.NotNil(t, owner)
 
@@ -92,10 +90,21 @@ func TestProjectsRepository(t *testing.T) {
 		}
 
 		createdProject, err := projects.Insert(ctx, project)
-
 		assert.NotNil(t, createdProject)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
+	})
+
+	t.Run("Count projects ownership successfully", func(t *testing.T) {
+		owner, err := users.GetByEmail(ctx, email)
+		assert.Nil(t, err)
+		assert.NoError(t, err)
+		assert.NotNil(t, owner)
+
+		projectsCount, err := projects.CountProjectsByOwnerID(ctx, owner.ID)
+		assert.Nil(t, err)
+		assert.NoError(t, err)
+		assert.Equal(t, int64(1), projectsCount)
 	})
 
 	t.Run("Get project success", func(t *testing.T) {

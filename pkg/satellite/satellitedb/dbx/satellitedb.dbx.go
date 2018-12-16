@@ -1397,6 +1397,34 @@ func (obj *sqlite3Impl) All_Project_By_ProjectMember_MemberId(ctx context.Contex
 
 }
 
+func (obj *sqlite3Impl) Count_Project_By_OwnerId(ctx context.Context,
+	project_owner_id Project_OwnerId_Field) (
+	count int64, err error) {
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "projects.owner_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT COUNT(*) FROM projects WHERE "), __cond_0}}
+
+	var __values []interface{}
+	__values = append(__values)
+
+	if !project_owner_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_owner_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *sqlite3Impl) All_ProjectMember_By_ProjectId(ctx context.Context,
 	project_member_project_id ProjectMember_ProjectId_Field) (
 	rows []*ProjectMember, err error) {
@@ -1994,6 +2022,16 @@ func (rx *Rx) All_Project_By_ProjectMember_MemberId(ctx context.Context,
 	return tx.All_Project_By_ProjectMember_MemberId(ctx, project_member_member_id)
 }
 
+func (rx *Rx) Count_Project_By_OwnerId(ctx context.Context,
+	project_owner_id Project_OwnerId_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Count_Project_By_OwnerId(ctx, project_owner_id)
+}
+
 func (rx *Rx) Create_Company(ctx context.Context,
 	company_user_id Company_UserId_Field,
 	company_name Company_Name_Field,
@@ -2193,6 +2231,10 @@ type Methods interface {
 	All_Project_By_ProjectMember_MemberId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*Project, err error)
+
+	Count_Project_By_OwnerId(ctx context.Context,
+		project_owner_id Project_OwnerId_Field) (
+		count int64, err error)
 
 	Create_Company(ctx context.Context,
 		company_user_id Company_UserId_Field,

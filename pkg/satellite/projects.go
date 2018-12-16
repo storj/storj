@@ -18,6 +18,8 @@ type Projects interface {
 	GetByOwnerID(ctx context.Context, ownerID uuid.UUID) ([]Project, error)
 	// GetByUserID is a method for querying all projects from the database by userID.
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]Project, error)
+	// CountProjectsByOwnerId is a method for counting projects by ownerID
+	CountProjectsByOwnerID(ctx context.Context, ownerID uuid.UUID) (int64, error)
 	// Get is a method for querying project from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*Project, error)
 	// Insert is a method for inserting project into the database.
