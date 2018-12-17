@@ -5,21 +5,14 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-// newTestCA returns a ca with a default difficulty and concurrency for use in tests
-func newTestCA(ctx context.Context) (*FullCertificateAuthority, error) {
-	return NewCA(ctx, NewCAOptions{
-		Difficulty:  12,
-		Concurrency: 4,
-	})
-}
-
 func TestNewCA(t *testing.T) {
-	expectedDifficulty := uint16(4)
+	const expectedDifficulty = 4
 
 	ca, err := NewCA(context.Background(), NewCAOptions{
 		Difficulty:  expectedDifficulty,
@@ -34,16 +27,21 @@ func TestNewCA(t *testing.T) {
 }
 
 func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
-	check := func(err error, v interface{}) {
-		if !assert.NoError(t, err) || !assert.NotEmpty(t, v) {
-			t.Fail()
-		}
-	}
+	ca, err := NewCA(context.Background(), NewCAOptions{
+		Difficulty:  12,
+		Concurrency: 4,
+	})
 
-	ca, err := newTestCA(context.Background())
-	check(err, ca)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.NotEmpty(t, ca)
+
 	fi, err := ca.NewIdentity()
-	check(err, fi)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.NotEmpty(t, fi)
 
 	assert.Equal(t, ca.Cert, fi.CA)
 	assert.Equal(t, ca.ID, fi.ID)
@@ -54,27 +52,19 @@ func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func NewCABenchmark(b *testing.B, difficulty uint16, concurrency uint) {
-	for i := 0; i < b.N; i++ {
-		_, _ = NewCA(context.Background(), NewCAOptions{
-			Difficulty:  difficulty,
-			Concurrency: concurrency,
-		})
+func BenchmarkNewCA(b *testing.B) {
+	ctx := context.Background()
+	for _, difficulty := range []uint16{8, 12} {
+		for _, concurrency := range []uint{1, 2, 5, 10} {
+			test := fmt.Sprintf("%d/%d", difficulty, concurrency)
+			b.Run(test, func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					_, _ = NewCA(ctx, NewCAOptions{
+						Difficulty:  difficulty,
+						Concurrency: concurrency,
+					})
+				}
+			})
+		}
 	}
-}
-
-func BenchmarkNewCA_Difficulty8_Concurrency1(b *testing.B) {
-	NewCABenchmark(b, 8, 1)
-}
-
-func BenchmarkNewCA_Difficulty8_Concurrency2(b *testing.B) {
-	NewCABenchmark(b, 8, 2)
-}
-
-func BenchmarkNewCA_Difficulty8_Concurrency5(b *testing.B) {
-	NewCABenchmark(b, 8, 5)
-}
-
-func BenchmarkNewCA_Difficulty8_Concurrency10(b *testing.B) {
-	NewCABenchmark(b, 8, 10)
 }
