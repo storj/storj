@@ -20,6 +20,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/mattn/go-sqlite3"
+	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
@@ -298,6 +299,12 @@ CREATE TABLE nodes (
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE overlay_cache_nodes (
+	key text NOT NULL,
+	value bytea NOT NULL,
+	PRIMARY KEY ( key ),
+	UNIQUE ( key )
+);
 CREATE TABLE raws (
 	id bigserial NOT NULL,
 	node_id text NOT NULL,
@@ -412,6 +419,12 @@ CREATE TABLE nodes (
 	updated_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE overlay_cache_nodes (
+	key TEXT NOT NULL,
+	value BLOB NOT NULL,
+	PRIMARY KEY ( key ),
+	UNIQUE ( key )
+);
 CREATE TABLE raws (
 	id INTEGER NOT NULL,
 	node_id TEXT NOT NULL,
@@ -512,6 +525,7 @@ type Bwagreement_Update_Fields struct {
 
 type Bwagreement_Signature_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -520,7 +534,7 @@ func Bwagreement_Signature(v []byte) Bwagreement_Signature_Field {
 }
 
 func (f Bwagreement_Signature_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -530,6 +544,7 @@ func (Bwagreement_Signature_Field) _Column() string { return "signature" }
 
 type Bwagreement_Data_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -538,7 +553,7 @@ func Bwagreement_Data(v []byte) Bwagreement_Data_Field {
 }
 
 func (f Bwagreement_Data_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -548,6 +563,7 @@ func (Bwagreement_Data_Field) _Column() string { return "data" }
 
 type Bwagreement_CreatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -556,7 +572,7 @@ func Bwagreement_CreatedAt(v time.Time) Bwagreement_CreatedAt_Field {
 }
 
 func (f Bwagreement_CreatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -583,6 +599,7 @@ type Irreparabledb_Update_Fields struct {
 
 type Irreparabledb_Segmentpath_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -591,7 +608,7 @@ func Irreparabledb_Segmentpath(v []byte) Irreparabledb_Segmentpath_Field {
 }
 
 func (f Irreparabledb_Segmentpath_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -601,6 +618,7 @@ func (Irreparabledb_Segmentpath_Field) _Column() string { return "segmentpath" }
 
 type Irreparabledb_Segmentdetail_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -609,7 +627,7 @@ func Irreparabledb_Segmentdetail(v []byte) Irreparabledb_Segmentdetail_Field {
 }
 
 func (f Irreparabledb_Segmentdetail_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -619,6 +637,7 @@ func (Irreparabledb_Segmentdetail_Field) _Column() string { return "segmentdetai
 
 type Irreparabledb_PiecesLostCount_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -627,7 +646,7 @@ func Irreparabledb_PiecesLostCount(v int64) Irreparabledb_PiecesLostCount_Field 
 }
 
 func (f Irreparabledb_PiecesLostCount_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -637,6 +656,7 @@ func (Irreparabledb_PiecesLostCount_Field) _Column() string { return "pieces_los
 
 type Irreparabledb_SegDamagedUnixSec_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -645,7 +665,7 @@ func Irreparabledb_SegDamagedUnixSec(v int64) Irreparabledb_SegDamagedUnixSec_Fi
 }
 
 func (f Irreparabledb_SegDamagedUnixSec_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -655,6 +675,7 @@ func (Irreparabledb_SegDamagedUnixSec_Field) _Column() string { return "seg_dama
 
 type Irreparabledb_RepairAttemptCount_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -663,7 +684,7 @@ func Irreparabledb_RepairAttemptCount(v int64) Irreparabledb_RepairAttemptCount_
 }
 
 func (f Irreparabledb_RepairAttemptCount_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -696,6 +717,7 @@ type Node_Update_Fields struct {
 
 type Node_Id_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -704,7 +726,7 @@ func Node_Id(v []byte) Node_Id_Field {
 }
 
 func (f Node_Id_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -714,6 +736,7 @@ func (Node_Id_Field) _Column() string { return "id" }
 
 type Node_AuditSuccessCount_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -722,7 +745,7 @@ func Node_AuditSuccessCount(v int64) Node_AuditSuccessCount_Field {
 }
 
 func (f Node_AuditSuccessCount_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -732,6 +755,7 @@ func (Node_AuditSuccessCount_Field) _Column() string { return "audit_success_cou
 
 type Node_TotalAuditCount_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -740,7 +764,7 @@ func Node_TotalAuditCount(v int64) Node_TotalAuditCount_Field {
 }
 
 func (f Node_TotalAuditCount_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -750,6 +774,7 @@ func (Node_TotalAuditCount_Field) _Column() string { return "total_audit_count" 
 
 type Node_AuditSuccessRatio_Field struct {
 	_set   bool
+	_null  bool
 	_value float64
 }
 
@@ -758,7 +783,7 @@ func Node_AuditSuccessRatio(v float64) Node_AuditSuccessRatio_Field {
 }
 
 func (f Node_AuditSuccessRatio_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -768,6 +793,7 @@ func (Node_AuditSuccessRatio_Field) _Column() string { return "audit_success_rat
 
 type Node_UptimeSuccessCount_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -776,7 +802,7 @@ func Node_UptimeSuccessCount(v int64) Node_UptimeSuccessCount_Field {
 }
 
 func (f Node_UptimeSuccessCount_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -786,6 +812,7 @@ func (Node_UptimeSuccessCount_Field) _Column() string { return "uptime_success_c
 
 type Node_TotalUptimeCount_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -794,7 +821,7 @@ func Node_TotalUptimeCount(v int64) Node_TotalUptimeCount_Field {
 }
 
 func (f Node_TotalUptimeCount_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -804,6 +831,7 @@ func (Node_TotalUptimeCount_Field) _Column() string { return "total_uptime_count
 
 type Node_UptimeRatio_Field struct {
 	_set   bool
+	_null  bool
 	_value float64
 }
 
@@ -812,7 +840,7 @@ func Node_UptimeRatio(v float64) Node_UptimeRatio_Field {
 }
 
 func (f Node_UptimeRatio_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -822,6 +850,7 @@ func (Node_UptimeRatio_Field) _Column() string { return "uptime_ratio" }
 
 type Node_CreatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -830,7 +859,7 @@ func Node_CreatedAt(v time.Time) Node_CreatedAt_Field {
 }
 
 func (f Node_CreatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -840,6 +869,7 @@ func (Node_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Node_UpdatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -848,13 +878,62 @@ func Node_UpdatedAt(v time.Time) Node_UpdatedAt_Field {
 }
 
 func (f Node_UpdatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
 func (Node_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type OverlayCacheNode struct {
+	Key   string
+	Value []byte
+}
+
+func (OverlayCacheNode) _Table() string { return "overlay_cache_nodes" }
+
+type OverlayCacheNode_Update_Fields struct {
+	Value OverlayCacheNode_Value_Field
+}
+
+type OverlayCacheNode_Key_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func OverlayCacheNode_Key(v string) OverlayCacheNode_Key_Field {
+	return OverlayCacheNode_Key_Field{_set: true, _value: v}
+}
+
+func (f OverlayCacheNode_Key_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OverlayCacheNode_Key_Field) _Column() string { return "key" }
+
+type OverlayCacheNode_Value_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func OverlayCacheNode_Value(v []byte) OverlayCacheNode_Value_Field {
+	return OverlayCacheNode_Value_Field{_set: true, _value: v}
+}
+
+func (f OverlayCacheNode_Value_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OverlayCacheNode_Value_Field) _Column() string { return "value" }
 
 type Raw struct {
 	Id              int64
@@ -873,6 +952,7 @@ type Raw_Update_Fields struct {
 
 type Raw_Id_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -881,7 +961,7 @@ func Raw_Id(v int64) Raw_Id_Field {
 }
 
 func (f Raw_Id_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -891,6 +971,7 @@ func (Raw_Id_Field) _Column() string { return "id" }
 
 type Raw_NodeId_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -899,7 +980,7 @@ func Raw_NodeId(v string) Raw_NodeId_Field {
 }
 
 func (f Raw_NodeId_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -909,6 +990,7 @@ func (Raw_NodeId_Field) _Column() string { return "node_id" }
 
 type Raw_IntervalEndTime_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -917,7 +999,7 @@ func Raw_IntervalEndTime(v time.Time) Raw_IntervalEndTime_Field {
 }
 
 func (f Raw_IntervalEndTime_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -927,6 +1009,7 @@ func (Raw_IntervalEndTime_Field) _Column() string { return "interval_end_time" }
 
 type Raw_DataTotal_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -935,7 +1018,7 @@ func Raw_DataTotal(v int64) Raw_DataTotal_Field {
 }
 
 func (f Raw_DataTotal_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -945,6 +1028,7 @@ func (Raw_DataTotal_Field) _Column() string { return "data_total" }
 
 type Raw_DataType_Field struct {
 	_set   bool
+	_null  bool
 	_value int
 }
 
@@ -953,7 +1037,7 @@ func Raw_DataType(v int) Raw_DataType_Field {
 }
 
 func (f Raw_DataType_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -963,6 +1047,7 @@ func (Raw_DataType_Field) _Column() string { return "data_type" }
 
 type Raw_CreatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -971,7 +1056,7 @@ func Raw_CreatedAt(v time.Time) Raw_CreatedAt_Field {
 }
 
 func (f Raw_CreatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -981,6 +1066,7 @@ func (Raw_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Raw_UpdatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -989,7 +1075,7 @@ func Raw_UpdatedAt(v time.Time) Raw_UpdatedAt_Field {
 }
 
 func (f Raw_UpdatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1014,6 +1100,7 @@ type Rollup_Update_Fields struct {
 
 type Rollup_Id_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -1022,7 +1109,7 @@ func Rollup_Id(v int64) Rollup_Id_Field {
 }
 
 func (f Rollup_Id_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1032,6 +1119,7 @@ func (Rollup_Id_Field) _Column() string { return "id" }
 
 type Rollup_NodeId_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -1040,7 +1128,7 @@ func Rollup_NodeId(v string) Rollup_NodeId_Field {
 }
 
 func (f Rollup_NodeId_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1050,6 +1138,7 @@ func (Rollup_NodeId_Field) _Column() string { return "node_id" }
 
 type Rollup_StartTime_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -1058,7 +1147,7 @@ func Rollup_StartTime(v time.Time) Rollup_StartTime_Field {
 }
 
 func (f Rollup_StartTime_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1068,6 +1157,7 @@ func (Rollup_StartTime_Field) _Column() string { return "start_time" }
 
 type Rollup_Interval_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -1076,7 +1166,7 @@ func Rollup_Interval(v int64) Rollup_Interval_Field {
 }
 
 func (f Rollup_Interval_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1086,6 +1176,7 @@ func (Rollup_Interval_Field) _Column() string { return "interval" }
 
 type Rollup_DataType_Field struct {
 	_set   bool
+	_null  bool
 	_value int
 }
 
@@ -1094,7 +1185,7 @@ func Rollup_DataType(v int) Rollup_DataType_Field {
 }
 
 func (f Rollup_DataType_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1104,6 +1195,7 @@ func (Rollup_DataType_Field) _Column() string { return "data_type" }
 
 type Rollup_CreatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -1112,7 +1204,7 @@ func Rollup_CreatedAt(v time.Time) Rollup_CreatedAt_Field {
 }
 
 func (f Rollup_CreatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1122,6 +1214,7 @@ func (Rollup_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Rollup_UpdatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -1130,7 +1223,7 @@ func Rollup_UpdatedAt(v time.Time) Rollup_UpdatedAt_Field {
 }
 
 func (f Rollup_UpdatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1151,6 +1244,7 @@ type Timestamps_Update_Fields struct {
 
 type Timestamps_Name_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -1159,7 +1253,7 @@ func Timestamps_Name(v string) Timestamps_Name_Field {
 }
 
 func (f Timestamps_Name_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1169,6 +1263,7 @@ func (Timestamps_Name_Field) _Column() string { return "name" }
 
 type Timestamps_Value_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -1177,7 +1272,7 @@ func Timestamps_Value(v time.Time) Timestamps_Value_Field {
 }
 
 func (f Timestamps_Value_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1522,6 +1617,27 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_OverlayCacheNode(ctx context.Context,
+	overlay_cache_node_key OverlayCacheNode_Key_Field,
+	overlay_cache_node_value OverlayCacheNode_Value_Field) (
+	overlay_cache_node *OverlayCacheNode, err error) {
+	__key_val := overlay_cache_node_key.value()
+	__value_val := overlay_cache_node_value.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO overlay_cache_nodes ( key, value ) VALUES ( ?, ? ) RETURNING overlay_cache_nodes.key, overlay_cache_nodes.value")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __key_val, __value_val)
+
+	overlay_cache_node = &OverlayCacheNode{}
+	err = obj.driver.QueryRow(__stmt, __key_val, __value_val).Scan(&overlay_cache_node.Key, &overlay_cache_node.Value)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return overlay_cache_node, nil
+
+}
+
 func (obj *postgresImpl) Get_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	bwagreement *Bwagreement, err error) {
@@ -1817,6 +1933,94 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Get_OverlayCacheNode_By_Key(ctx context.Context,
+	overlay_cache_node_key OverlayCacheNode_Key_Field) (
+	overlay_cache_node *OverlayCacheNode, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes WHERE overlay_cache_nodes.key = ?")
+
+	var __values []interface{}
+	__values = append(__values, overlay_cache_node_key.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	overlay_cache_node = &OverlayCacheNode{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&overlay_cache_node.Key, &overlay_cache_node.Value)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return overlay_cache_node, nil
+
+}
+
+func (obj *postgresImpl) All_OverlayCacheNode(ctx context.Context) (
+	rows []*OverlayCacheNode, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		overlay_cache_node := &OverlayCacheNode{}
+		err = __rows.Scan(&overlay_cache_node.Key, &overlay_cache_node.Value)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, overlay_cache_node)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_OverlayCacheNode(ctx context.Context,
+	limit int, offset int64) (
+	rows []*OverlayCacheNode, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		overlay_cache_node := &OverlayCacheNode{}
+		err = __rows.Scan(&overlay_cache_node.Key, &overlay_cache_node.Value)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, overlay_cache_node)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -2050,6 +2254,46 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	return node, nil
 }
 
+func (obj *postgresImpl) Update_OverlayCacheNode_By_Key(ctx context.Context,
+	overlay_cache_node_key OverlayCacheNode_Key_Field,
+	update OverlayCacheNode_Update_Fields) (
+	overlay_cache_node *OverlayCacheNode, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE overlay_cache_nodes SET "), __sets, __sqlbundle_Literal(" WHERE overlay_cache_nodes.key = ? RETURNING overlay_cache_nodes.key, overlay_cache_nodes.value")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Value._set {
+		__values = append(__values, update.Value.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("value = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, overlay_cache_node_key.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	overlay_cache_node = &OverlayCacheNode{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&overlay_cache_node.Key, &overlay_cache_node.Value)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return overlay_cache_node, nil
+}
+
 func (obj *postgresImpl) Delete_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	deleted bool, err error) {
@@ -2180,6 +2424,32 @@ func (obj *postgresImpl) Delete_Node_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Delete_OverlayCacheNode_By_Key(ctx context.Context,
+	overlay_cache_node_key OverlayCacheNode_Key_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM overlay_cache_nodes WHERE overlay_cache_nodes.key = ?")
+
+	var __values []interface{}
+	__values = append(__values, overlay_cache_node_key.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -2214,6 +2484,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM raws;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM overlay_cache_nodes;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -2438,6 +2718,30 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastNode(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_OverlayCacheNode(ctx context.Context,
+	overlay_cache_node_key OverlayCacheNode_Key_Field,
+	overlay_cache_node_value OverlayCacheNode_Value_Field) (
+	overlay_cache_node *OverlayCacheNode, err error) {
+	__key_val := overlay_cache_node_key.value()
+	__value_val := overlay_cache_node_value.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO overlay_cache_nodes ( key, value ) VALUES ( ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __key_val, __value_val)
+
+	__res, err := obj.driver.Exec(__stmt, __key_val, __value_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastOverlayCacheNode(ctx, __pk)
 
 }
 
@@ -2736,6 +3040,94 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Get_OverlayCacheNode_By_Key(ctx context.Context,
+	overlay_cache_node_key OverlayCacheNode_Key_Field) (
+	overlay_cache_node *OverlayCacheNode, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes WHERE overlay_cache_nodes.key = ?")
+
+	var __values []interface{}
+	__values = append(__values, overlay_cache_node_key.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	overlay_cache_node = &OverlayCacheNode{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&overlay_cache_node.Key, &overlay_cache_node.Value)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return overlay_cache_node, nil
+
+}
+
+func (obj *sqlite3Impl) All_OverlayCacheNode(ctx context.Context) (
+	rows []*OverlayCacheNode, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		overlay_cache_node := &OverlayCacheNode{}
+		err = __rows.Scan(&overlay_cache_node.Key, &overlay_cache_node.Value)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, overlay_cache_node)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_OverlayCacheNode(ctx context.Context,
+	limit int, offset int64) (
+	rows []*OverlayCacheNode, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		overlay_cache_node := &OverlayCacheNode{}
+		err = __rows.Scan(&overlay_cache_node.Key, &overlay_cache_node.Value)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, overlay_cache_node)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -3019,6 +3411,56 @@ func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 	return node, nil
 }
 
+func (obj *sqlite3Impl) Update_OverlayCacheNode_By_Key(ctx context.Context,
+	overlay_cache_node_key OverlayCacheNode_Key_Field,
+	update OverlayCacheNode_Update_Fields) (
+	overlay_cache_node *OverlayCacheNode, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE overlay_cache_nodes SET "), __sets, __sqlbundle_Literal(" WHERE overlay_cache_nodes.key = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Value._set {
+		__values = append(__values, update.Value.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("value = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, overlay_cache_node_key.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	overlay_cache_node = &OverlayCacheNode{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes WHERE overlay_cache_nodes.key = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&overlay_cache_node.Key, &overlay_cache_node.Value)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return overlay_cache_node, nil
+}
+
 func (obj *sqlite3Impl) Delete_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	deleted bool, err error) {
@@ -3149,6 +3591,32 @@ func (obj *sqlite3Impl) Delete_Node_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_OverlayCacheNode_By_Key(ctx context.Context,
+	overlay_cache_node_key OverlayCacheNode_Key_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM overlay_cache_nodes WHERE overlay_cache_nodes.key = ?")
+
+	var __values []interface{}
+	__values = append(__values, overlay_cache_node_key.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) getLastBwagreement(ctx context.Context,
 	pk int64) (
 	bwagreement *Bwagreement, err error) {
@@ -3257,6 +3725,24 @@ func (obj *sqlite3Impl) getLastNode(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastOverlayCacheNode(ctx context.Context,
+	pk int64) (
+	overlay_cache_node *OverlayCacheNode, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	overlay_cache_node = &OverlayCacheNode{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&overlay_cache_node.Key, &overlay_cache_node.Value)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return overlay_cache_node, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -3296,6 +3782,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM raws;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM overlay_cache_nodes;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -3401,6 +3897,15 @@ func (rx *Rx) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
 	return tx.All_Bwagreement_By_CreatedAt_Greater(ctx, bwagreement_created_at_greater)
 }
 
+func (rx *Rx) All_OverlayCacheNode(ctx context.Context) (
+	rows []*OverlayCacheNode, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_OverlayCacheNode(ctx)
+}
+
 func (rx *Rx) All_Raw_By_NodeId(ctx context.Context,
 	raw_node_id Raw_NodeId_Field) (
 	rows []*Raw, err error) {
@@ -3462,6 +3967,18 @@ func (rx *Rx) Create_Node(ctx context.Context,
 		return
 	}
 	return tx.Create_Node(ctx, node_id, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio)
+
+}
+
+func (rx *Rx) Create_OverlayCacheNode(ctx context.Context,
+	overlay_cache_node_key OverlayCacheNode_Key_Field,
+	overlay_cache_node_value OverlayCacheNode_Value_Field) (
+	overlay_cache_node *OverlayCacheNode, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_OverlayCacheNode(ctx, overlay_cache_node_key, overlay_cache_node_value)
 
 }
 
@@ -3535,6 +4052,16 @@ func (rx *Rx) Delete_Node_By_Id(ctx context.Context,
 	return tx.Delete_Node_By_Id(ctx, node_id)
 }
 
+func (rx *Rx) Delete_OverlayCacheNode_By_Key(ctx context.Context,
+	overlay_cache_node_key OverlayCacheNode_Key_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_OverlayCacheNode_By_Key(ctx, overlay_cache_node_key)
+}
+
 func (rx *Rx) Delete_Raw_By_Id(ctx context.Context,
 	raw_id Raw_Id_Field) (
 	deleted bool, err error) {
@@ -3595,6 +4122,16 @@ func (rx *Rx) Get_Node_By_Id(ctx context.Context,
 	return tx.Get_Node_By_Id(ctx, node_id)
 }
 
+func (rx *Rx) Get_OverlayCacheNode_By_Key(ctx context.Context,
+	overlay_cache_node_key OverlayCacheNode_Key_Field) (
+	overlay_cache_node *OverlayCacheNode, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_OverlayCacheNode_By_Key(ctx, overlay_cache_node_key)
+}
+
 func (rx *Rx) Get_Raw_By_Id(ctx context.Context,
 	raw_id Raw_Id_Field) (
 	raw *Raw, err error) {
@@ -3625,6 +4162,16 @@ func (rx *Rx) Limited_Bwagreement(ctx context.Context,
 	return tx.Limited_Bwagreement(ctx, limit, offset)
 }
 
+func (rx *Rx) Limited_OverlayCacheNode(ctx context.Context,
+	limit int, offset int64) (
+	rows []*OverlayCacheNode, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_OverlayCacheNode(ctx, limit, offset)
+}
+
 func (rx *Rx) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -3645,6 +4192,17 @@ func (rx *Rx) Update_Node_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Update_Node_By_Id(ctx, node_id, update)
+}
+
+func (rx *Rx) Update_OverlayCacheNode_By_Key(ctx context.Context,
+	overlay_cache_node_key OverlayCacheNode_Key_Field,
+	update OverlayCacheNode_Update_Fields) (
+	overlay_cache_node *OverlayCacheNode, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_OverlayCacheNode_By_Key(ctx, overlay_cache_node_key, update)
 }
 
 func (rx *Rx) Update_Raw_By_Id(ctx context.Context,
@@ -3688,6 +4246,9 @@ type Methods interface {
 		bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
 		rows []*Bwagreement, err error)
 
+	All_OverlayCacheNode(ctx context.Context) (
+		rows []*OverlayCacheNode, err error)
+
 	All_Raw_By_NodeId(ctx context.Context,
 		raw_node_id Raw_NodeId_Field) (
 		rows []*Raw, err error)
@@ -3718,6 +4279,11 @@ type Methods interface {
 		node_total_uptime_count Node_TotalUptimeCount_Field,
 		node_uptime_ratio Node_UptimeRatio_Field) (
 		node *Node, err error)
+
+	Create_OverlayCacheNode(ctx context.Context,
+		overlay_cache_node_key OverlayCacheNode_Key_Field,
+		overlay_cache_node_value OverlayCacheNode_Value_Field) (
+		overlay_cache_node *OverlayCacheNode, err error)
 
 	Create_Raw(ctx context.Context,
 		raw_node_id Raw_NodeId_Field,
@@ -3750,6 +4316,10 @@ type Methods interface {
 		node_id Node_Id_Field) (
 		deleted bool, err error)
 
+	Delete_OverlayCacheNode_By_Key(ctx context.Context,
+		overlay_cache_node_key OverlayCacheNode_Key_Field) (
+		deleted bool, err error)
+
 	Delete_Raw_By_Id(ctx context.Context,
 		raw_id Raw_Id_Field) (
 		deleted bool, err error)
@@ -3774,6 +4344,10 @@ type Methods interface {
 		node_id Node_Id_Field) (
 		node *Node, err error)
 
+	Get_OverlayCacheNode_By_Key(ctx context.Context,
+		overlay_cache_node_key OverlayCacheNode_Key_Field) (
+		overlay_cache_node *OverlayCacheNode, err error)
+
 	Get_Raw_By_Id(ctx context.Context,
 		raw_id Raw_Id_Field) (
 		raw *Raw, err error)
@@ -3786,6 +4360,10 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*Bwagreement, err error)
 
+	Limited_OverlayCacheNode(ctx context.Context,
+		limit int, offset int64) (
+		rows []*OverlayCacheNode, err error)
+
 	Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 		update Irreparabledb_Update_Fields) (
@@ -3795,6 +4373,11 @@ type Methods interface {
 		node_id Node_Id_Field,
 		update Node_Update_Fields) (
 		node *Node, err error)
+
+	Update_OverlayCacheNode_By_Key(ctx context.Context,
+		overlay_cache_node_key OverlayCacheNode_Key_Field,
+		update OverlayCacheNode_Update_Fields) (
+		overlay_cache_node *OverlayCacheNode, err error)
 
 	Update_Raw_By_Id(ctx context.Context,
 		raw_id Raw_Id_Field,
@@ -3845,7 +4428,11 @@ func openpostgres(source string) (*sql.DB, error) {
 	return sql.Open("postgres", source)
 }
 
-var sqlite3DriverName = "sqlite3_" + fmt.Sprint(time.Now().UnixNano())
+var sqlite3DriverName = func() string {
+	var id [16]byte
+	rand.Read(id[:])
+	return fmt.Sprintf("sqlite3_%x", string(id[:]))
+}()
 
 func init() {
 	sql.Register(sqlite3DriverName, &sqlite3.SQLiteDriver{

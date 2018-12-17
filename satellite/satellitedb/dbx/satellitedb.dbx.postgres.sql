@@ -26,6 +26,12 @@ CREATE TABLE nodes (
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE overlay_cache_nodes (
+	key text NOT NULL,
+	value bytea NOT NULL,
+	PRIMARY KEY ( key ),
+	UNIQUE ( key )
+);
 CREATE TABLE raws (
 	id bigserial NOT NULL,
 	node_id text NOT NULL,

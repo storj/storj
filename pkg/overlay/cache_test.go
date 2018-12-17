@@ -17,10 +17,8 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
-	"storj.io/storj/storage/redis"
-	"storj.io/storj/storage/redis/redisserver"
 	"storj.io/storj/storage/teststore"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 var (
@@ -88,7 +86,7 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, s
 	}
 }
 
-func TestCache_Redis(t *testing.T) {
+func TestCache_Masterdb(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -100,40 +98,9 @@ func TestCache_Redis(t *testing.T) {
 	planet.Start(ctx)
 	sdb := planet.Satellites[0].StatDB
 
-	redisAddr, cleanup, err := redisserver.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cleanup()
-
-	store, err := redis.NewClient(redisAddr, "", 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(store.Close)
-
-	testCache(ctx, t, store, sdb)
-}
-
-func TestCache_Bolt(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet, err := testplanet.New(t, 1, 4, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(planet.Shutdown)
-	planet.Start(ctx)
-	sdb := planet.Satellites[0].StatDB
-
-	client, err := boltdb.New(ctx.File("overlay.db"), "overlay")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(client.Close)
-
-	testCache(ctx, t, client, sdb)
+	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+		testCache(ctx, t, db.OverlayCache(), sdb)
+	})
 }
 
 func TestCache_Store(t *testing.T) {

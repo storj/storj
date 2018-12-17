@@ -19,8 +19,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
-	"storj.io/storj/storage/redis"
 )
 
 var (
@@ -32,7 +30,6 @@ var (
 // Config is a configuration struct for everything you need to start the
 // Overlay cache responsibility.
 type Config struct {
-	DatabaseURL     string        `help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
 	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
 }
 
@@ -63,36 +60,13 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	sdb, ok := ctx.Value("masterdb").(interface {
 		StatDB() statdb.DB
+		OverlayCache() storage.KeyValueStore
 	})
 	if !ok {
-		return Error.New("unable to get master db instance")
+		return Error.Wrap(errs.New("unable to get master db instance"))
 	}
 
-	driver, source, err := utils.SplitDBURL(c.DatabaseURL)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	var db storage.KeyValueStore
-
-	switch driver {
-	case "bolt":
-		db, err = boltdb.New(source, OverlayBucket)
-		if err != nil {
-			return err
-		}
-		zap.S().Info("Starting overlay cache with BoltDB")
-	case "redis":
-		db, err = redis.NewClientFrom(c.DatabaseURL)
-		if err != nil {
-			return err
-		}
-		zap.S().Info("Starting overlay cache with Redis")
-	default:
-		return Error.New("database scheme not supported: %s", driver)
-	}
-
-	cache := NewOverlayCache(db, kad, sdb.StatDB())
+	cache := NewOverlayCache(sdb.OverlayCache(), kad, sdb.StatDB())
 	srv := NewServer(zap.L(), cache, kad)
 	pb.RegisterOverlayServer(server.GRPC(), srv)
 
