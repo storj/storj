@@ -107,7 +107,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	//check if the expected segments were added to the queue
 	dequeued := []*pb.InjuredSegment{}
 	for i := 0; i < len(segs); i++ {
-		injSeg, err := repairQueue.Dequeue(ctx)
+		injSeg, err := repairQueue.Dequeue()
 		assert.NoError(t, err)
 		dequeued = append(dequeued, &injSeg)
 	}
@@ -243,7 +243,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 		//check if the expected segments were added to the queue
 		dequeued := []*pb.InjuredSegment{}
 		for i := 0; i < len(segs); i++ {
-			injSeg, err := repairQueue.Dequeue(ctx)
+			injSeg, err := repairQueue.Dequeue()
 			assert.NoError(b, err)
 			dequeued = append(dequeued, &injSeg)
 		}

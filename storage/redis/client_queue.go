@@ -4,8 +4,6 @@
 package redis
 
 import (
-	"context"
-
 	"github.com/go-redis/redis"
 
 	"storj.io/storj/storage"
@@ -34,7 +32,7 @@ func (client *Queue) Close() error {
 }
 
 //Enqueue add a FIFO element, for the storage.Queue interface
-func (client *Queue) Enqueue(_ context.Context, value storage.Value) error {
+func (client *Queue) Enqueue(value storage.Value) error {
 	err := client.db.LPush(queueKey, []byte(value)).Err()
 	if err != nil {
 		return Error.New("enqueue error: %v", err)
@@ -43,7 +41,7 @@ func (client *Queue) Enqueue(_ context.Context, value storage.Value) error {
 }
 
 //Dequeue removes a FIFO element, for the storage.Queue interface
-func (client *Queue) Dequeue(_ context.Context) (storage.Value, error) {
+func (client *Queue) Dequeue() (storage.Value, error) {
 	out, err := client.db.RPop(queueKey).Bytes()
 	if err != nil {
 		if err == redis.Nil {
@@ -55,7 +53,7 @@ func (client *Queue) Dequeue(_ context.Context) (storage.Value, error) {
 }
 
 // Peekqueue returns upto 1000 entries in the queue without removing
-func (client *Queue) Peekqueue(_ context.Context, limit int) ([]storage.Value, error) {
+func (client *Queue) Peekqueue(limit int) ([]storage.Value, error) {
 	cmd := client.db.LRange(queueKey, 0, int64(limit))
 	items, err := cmd.Result()
 	if err != nil {

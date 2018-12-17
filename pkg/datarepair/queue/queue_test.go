@@ -12,7 +12,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage/redis"
 	"storj.io/storj/storage/redis/redisserver"
@@ -20,33 +19,27 @@ import (
 )
 
 func TestEnqueueDequeue(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
 	q := NewQueue(testqueue.New())
 	seg := &pb.InjuredSegment{
 		Path:       "abc",
 		LostPieces: []int32{int32(1), int32(3)},
 	}
-	err := q.Enqueue(ctx, seg)
+	err := q.Enqueue(seg)
 	assert.NoError(t, err)
 
-	s, err := q.Dequeue(ctx)
+	s, err := q.Dequeue()
 	assert.NoError(t, err)
 	assert.True(t, proto.Equal(&s, seg))
 }
 
 func TestDequeueEmptyQueue(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
 	q := NewQueue(testqueue.New())
-	s, err := q.Dequeue(ctx)
+	s, err := q.Dequeue()
 	assert.Error(t, err)
 	assert.Equal(t, pb.InjuredSegment{}, s)
 }
 
 func TestSequential(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
 	q := NewQueue(testqueue.New())
 	const N = 100
 	var addSegs []*pb.InjuredSegment
@@ -55,25 +48,23 @@ func TestSequential(t *testing.T) {
 			Path:       strconv.Itoa(i),
 			LostPieces: []int32{int32(i)},
 		}
-		err := q.Enqueue(ctx, seg)
+		err := q.Enqueue(seg)
 		assert.NoError(t, err)
 		addSegs = append(addSegs, seg)
 	}
-	list, err := q.Peekqueue(ctx, 100)
+	list, err := q.Peekqueue(100)
 	assert.NoError(t, err)
 	for i := 0; i < N; i++ {
 		assert.True(t, proto.Equal(addSegs[i], &list[i]))
 	}
 	for i := 0; i < N; i++ {
-		dqSeg, err := q.Dequeue(ctx)
+		dqSeg, err := q.Dequeue()
 		assert.NoError(t, err)
 		assert.True(t, proto.Equal(addSegs[i], &dqSeg))
 	}
 }
 
 func TestParallel(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
 	queue := NewQueue(testqueue.New())
 	const N = 100
 	errs := make(chan error, N*2)
@@ -85,7 +76,7 @@ func TestParallel(t *testing.T) {
 	for i := 0; i < N; i++ {
 		go func(i int) {
 			defer wg.Done()
-			err := queue.Enqueue(ctx, &pb.InjuredSegment{
+			err := queue.Enqueue(&pb.InjuredSegment{
 				Path:       strconv.Itoa(i),
 				LostPieces: []int32{int32(i)},
 			})
@@ -101,7 +92,7 @@ func TestParallel(t *testing.T) {
 	for i := 0; i < N; i++ {
 		go func(i int) {
 			defer wg.Done()
-			segment, err := queue.Dequeue(ctx)
+			segment, err := queue.Dequeue()
 			if err != nil {
 				errs <- err
 			}
@@ -144,8 +135,6 @@ func BenchmarkTeststoreSequential(b *testing.B) {
 }
 
 func benchmarkSequential(b *testing.B, q RepairQueue) {
-	ctx := testcontext.New(b)
-	defer ctx.Cleanup()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		const N = 100
@@ -155,12 +144,12 @@ func benchmarkSequential(b *testing.B, q RepairQueue) {
 				Path:       strconv.Itoa(i),
 				LostPieces: []int32{int32(i)},
 			}
-			err := q.Enqueue(ctx, seg)
+			err := q.Enqueue(seg)
 			assert.NoError(b, err)
 			addSegs = append(addSegs, seg)
 		}
 		for i := 0; i < N; i++ {
-			dqSeg, err := q.Dequeue(ctx)
+			dqSeg, err := q.Dequeue()
 			assert.NoError(b, err)
 			assert.True(b, proto.Equal(addSegs[i], &dqSeg))
 		}
@@ -183,8 +172,6 @@ func BenchmarkTeststoreParallel(b *testing.B) {
 }
 
 func benchmarkParallel(b *testing.B, q RepairQueue) {
-	ctx := testcontext.New(b)
-	defer ctx.Cleanup()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		const N = 100
@@ -197,7 +184,7 @@ func benchmarkParallel(b *testing.B, q RepairQueue) {
 		for i := 0; i < N; i++ {
 			go func(i int) {
 				defer wg.Done()
-				err := q.Enqueue(ctx, &pb.InjuredSegment{
+				err := q.Enqueue(&pb.InjuredSegment{
 					Path:       strconv.Itoa(i),
 					LostPieces: []int32{int32(i)},
 				})
@@ -213,7 +200,7 @@ func benchmarkParallel(b *testing.B, q RepairQueue) {
 		for i := 0; i < N; i++ {
 			go func(i int) {
 				defer wg.Done()
-				segment, err := q.Dequeue(ctx)
+				segment, err := q.Dequeue()
 				if err != nil {
 					errs <- err
 				}
