@@ -45,14 +45,14 @@ func (db *accountingDB) SaveBWRaw(ctx context.Context, logger *zap.Logger, lates
 	//insert all records in a transaction so if we fail, we don't have partial info stored
 	tx, err := db.db.Open(ctx)
 	if err != nil {
-		logger.DPanic("Failed to create DB txn in tally query")
+		logger.DPanic("Failed to create DB txn in SaveBWRaw")
 		return err
 	}
 	defer func() {
 		if err == nil {
 			err = tx.Commit()
 		} else {
-			logger.Warn("DB txn was rolled back in tally query")
+			logger.Warn("DB txn was rolled back in SaveBWRaw")
 			err = tx.Rollback()
 		}
 	}()
@@ -64,7 +64,7 @@ func (db *accountingDB) SaveBWRaw(ctx context.Context, logger *zap.Logger, lates
 		dataType := dbx.Raw_DataType(accounting.Bandwith)
 		_, err = tx.Create_Raw(ctx, nID, end, total, dataType)
 		if err != nil {
-			logger.DPanic("Create granular SQL failed in tally query")
+			logger.DPanic("Create raw SQL failed in SaveBWRaw")
 			return err
 		}
 	}
@@ -76,5 +76,37 @@ func (db *accountingDB) SaveBWRaw(ctx context.Context, logger *zap.Logger, lates
 
 // SaveAtRestRaw records raw tallies of at rest data to the database
 func (db *accountingDB) SaveAtRestRaw(ctx context.Context, logger *zap.Logger, nodeData map[storj.NodeID]int64) error {
+	if len(nodeData) == 0 {
+		logger.Warn("In SaveAtRestRaw with empty nodeData")
+		return nil
+	}
+	tx, err := db.db.Open(ctx)
+	if err != nil {
+		logger.DPanic("Failed to create DB txn in SaveAtRestRaw")
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		} else {
+			logger.Warn("DB txn was rolled back in SaveAtRestRaw")
+			err = tx.Rollback()
+		}
+	}()
+	for k, v := range nodeData {
+		nID := dbx.Raw_NodeId(k.String())
+		end := dbx.Raw_IntervalEndTime() //TODO
+		total := dbx.Raw_DataTotal(v)
+		dataType := dbx.Raw_DataType(accounting.AtRest)
+		_, err = tx.Create_Raw(ctx, nID, end, total, dataType)
+		if err != nil {
+			logger.DPanic("Create raw SQL failed in SaveAtRestRaw")
+			return err
+		}
+	}
+	//	update := dbx.Timestamps_Update_Fields{Value: dbx.Timestamps_Value(latestBwa)}
+	//_, err = tx.Update_Timestamps_By_Name(ctx, dbx.Timestamps_Name("LastBandwidthTally"), update)
+	//return err
+
 	return nil
 }
