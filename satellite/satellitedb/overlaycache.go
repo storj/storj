@@ -12,8 +12,6 @@ import (
 	"storj.io/storj/storage"
 )
 
-var fullEmpty = make([]byte, 32)
-
 type overlaycache struct {
 	db  *dbx.DB
 	ctx context.Context
