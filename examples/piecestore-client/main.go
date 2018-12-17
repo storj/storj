@@ -40,12 +40,12 @@ func main() {
 
 	// Set up connection with rpc server
 	n := &pb.Node{
-		// TODO: NodeType is missing
 		Address: &pb.NodeAddress{
 			Address:   ":7777",
 			Transport: 0,
 		},
 		Id: serverIdent.ID,
+		NodeType: pb.NodeType_UPLINK,
 	}
 	tc := transport.NewClient(clientIdent)
 	psClient, err := psclient.NewPSClient(ctx, tc, n, 0)

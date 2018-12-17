@@ -103,7 +103,6 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Infof("adding node ID: %s; Address: %s", i, a)
 		err = c.Put(process.Ctx(cmd), id, pb.Node{
 			Id: id,
-			// TODO: NodeType is missing
 			Address: &pb.NodeAddress{
 				Transport: 0,
 				Address:   a,
@@ -112,7 +111,7 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 				FreeBandwidth: 2000000000,
 				FreeDisk:      2000000000,
 			},
-			Type: 1,
+			NodeType: pb.NodeType_STORAGE,
 		})
 		if err != nil {
 			return err
