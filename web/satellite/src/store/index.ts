@@ -18,7 +18,7 @@ const store = new Vuex.Store({
 		usersModule,
 		projectsModule,
 		projectMembersModule,
-    notificationsModule,
+		notificationsModule,
 	}
 });
 

@@ -11,29 +11,30 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import NewProjectPopup from "./NewProjectPopup.vue"
+	import { Component, Vue } from 'vue-property-decorator';
+	import NewProjectPopup from './NewProjectPopup.vue';
 
-// Button and popup for adding new Project
-@Component(
-    { 
-        data: function() {
-            return {
-                isPopupShown: false
-            }
-        },
-        methods: {
-            toggleSelection: function () {
-                this.$data.isPopupShown = !this.$data.isPopupShown;
-            }
-        },
-        components: {
-            NewProjectPopup
-        }
-    }
-)
+	// Button and popup for adding new Project
+	@Component(
+		{
+			data: function () {
+				return {
+					isPopupShown: false
+				};
+			},
+			methods: {
+				toggleSelection: function () {
+					this.$data.isPopupShown = !this.$data.isPopupShown;
+				}
+			},
+			components: {
+				NewProjectPopup
+			}
+		}
+	)
 
-export default class NewProjectArea extends Vue {}
+	export default class NewProjectArea extends Vue {
+	}
 </script>
 
 <style scoped lang="scss">
@@ -43,6 +44,7 @@ export default class NewProjectArea extends Vue {}
         background-color: #FFFFFF;
         cursor: pointer;
     }
+
     .new-project-button-container {
         margin-right: 50px;
         display: flex;
@@ -54,8 +56,8 @@ export default class NewProjectArea extends Vue {}
         border-radius: 6px;
         border: 1px solid #AFB7C1;
         background-color: white;
-        
-        
+
+
         h1 {
             font-family: 'montserrat_medium';
             font-size: 16px;

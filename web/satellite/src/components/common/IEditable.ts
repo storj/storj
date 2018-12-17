@@ -2,6 +2,5 @@
 // See LICENSE for copying information.
 
 interface IEditable {
-    setValue(value: string): void;
-
+	setValue(value: string): void;
 }

@@ -8,23 +8,23 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import Notification from '@/components/notifications/Notification.vue';
-import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
+	import { Component, Vue } from 'vue-property-decorator';
+	import Notification from '@/components/notifications/Notification.vue';
 
-@Component({
-    computed: {
-        // Computed value for current notification depends on store.state value
-        currentNotification: function(): Notification {
-            return this.$store.getters.currentNotification;
-        }
-    },
-    components: {
-        Notification,
-    }
-})
+	@Component({
+		computed: {
+			// Computed value for current notification depends on store.state value
+			currentNotification: function (): Notification {
+				return this.$store.getters.currentNotification;
+			}
+		},
+		components: {
+			Notification,
+		}
+	})
 
-export default class NotificationArea extends Vue {}
+	export default class NotificationArea extends Vue {
+	}
 </script>
 
 <style scoped lang="scss">

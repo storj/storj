@@ -28,41 +28,42 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import Button from '@/components/common/Button.vue';
+	import { Component, Vue } from 'vue-property-decorator';
+	import Button from '@/components/common/Button.vue';
 
-@Component({
-    methods: {
-    	onDelete: async function () {
-    		const projectMemberIds = this.$store.getters.selectedProjectMembers.map((member:TeamMemberModel) => {
-    			return member.user.id;
-            });
+	@Component({
+		methods: {
+			onDelete: async function () {
+				const projectMemberIds = this.$store.getters.selectedProjectMembers.map((member: TeamMemberModel) => {
+					return member.user.id;
+				});
 
-    		const isSuccess = await this.$store.dispatch("deleteProjectMembers", projectMemberIds);
+				const isSuccess = await this.$store.dispatch('deleteProjectMembers', projectMemberIds);
 
-    		if (!isSuccess) {
-    			console.error("Error while deleting users from team");
-            }
+				if (!isSuccess) {
+					console.error('Error while deleting users from team');
+				}
+			},
+			onClearSelection: function () {
+				this.$store.dispatch('clearProjectMemberSelection');
+			}
+
 		},
-        onClearSelection: function () {
-    		this.$store.dispatch("clearProjectMemberSelection");
-		}
-
-    },
-    computed: {
-        selectedProjectMembersCount: function () {
-        	return this.$store.getters.selectedProjectMembers.length
+		computed: {
+			selectedProjectMembersCount: function () {
+				return this.$store.getters.selectedProjectMembers.length;
+			},
+			projectMembersCount: function () {
+				return this.$store.getters.projectMembers.length;
+			}
 		},
-        projectMembersCount: function () {
-            return this.$store.getters.projectMembers.length;
+		components: {
+			Button
 		}
-    },
-    components: {
-        Button
-    }
-})
+	})
 
-export default class DeleteUserArea extends Vue {}
+	export default class DeleteUserArea extends Vue {
+	}
 </script>
 
 <style scoped lang="scss">
