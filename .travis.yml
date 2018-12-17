@@ -73,6 +73,14 @@ matrix:
       script:
         - make test-captplanet
     
+    ### docker build test ###
+    - env: MODE=docker
+      services:
+        - docker
+      install:
+      script:
+        - make all-in-one
+    
     ### windows tests ###
     - env: MODE=windows-tests
       if: commit_message =~ /(?i:windows)/
