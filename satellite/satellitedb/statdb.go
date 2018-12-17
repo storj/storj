@@ -184,23 +184,26 @@ func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (s
 	totalUptimeCount := dbNode.TotalUptimeCount
 	var uptimeRatio float64
 
-	updateFields := dbx.Node_Update_Fields{}
-
 	auditSuccessCount, totalAuditCount, auditSuccessRatio = updateRatioVars(
 		updateReq.AuditSuccess,
 		auditSuccessCount,
 		totalAuditCount,
 	)
 
-	updateFields.AuditSuccessCount = dbx.Node_AuditSuccessCount(auditSuccessCount)
-	updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(totalAuditCount)
-	updateFields.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(auditSuccessRatio)
-
 	uptimeSuccessCount, totalUptimeCount, uptimeRatio = updateRatioVars(
 		updateReq.IsUp,
 		uptimeSuccessCount,
 		totalUptimeCount,
 	)
+
+	updateFields := dbx.Node_Update_Fields{
+		AuditSuccessCount:  dbx.Node_AuditSuccessCount(auditSuccessCount),
+		TotalAuditCount:    dbx.Node_TotalAuditCount(totalAuditCount),
+		AuditSuccessRatio:  dbx.Node_AuditSuccessRatio(auditSuccessRatio),
+		UptimeSuccessCount: dbx.Node_UptimeSuccessCount(uptimeSuccessCount),
+		TotalUptimeCount:   dbx.Node_TotalUptimeCount(totalUptimeCount),
+		UptimeRatio:        dbx.Node_UptimeRatio(uptimeRatio),
+	}
 
 	updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(uptimeSuccessCount)
 	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
