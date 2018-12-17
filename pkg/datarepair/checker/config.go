@@ -15,13 +15,13 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
-	"storj.io/storj/storage/redis"
 )
 
 // Config contains configurable values for checker
 type Config struct {
-	QueueAddress string        `help:"data checker queue address" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
-	Interval     time.Duration `help:"how frequently checker should audit segments" default:"30s"`
+	QueueAddress     string        `help:"data checker queue address" default:"sqlite3://$CONFDIR/repairqueue.db"`
+	Interval         time.Duration `help:"how frequently checker should audit segments" default:"30s"`
+	IrreparabledbURL string        `help:"the database connection string to use" default:"sqlite3://$CONFDIR/irreparable.db"`
 }
 
 // Initialize a Checker struct
@@ -38,19 +38,22 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 		return nil, Error.New("unable to get master db instance")
 	}
 
-	db, ok := ctx.Value("masterdb").(interface {
+	irdb, ok := ctx.Value("masterdb").(interface {
 		Irreparable() irreparable.DB
 	})
 	if !ok {
 		return nil, Error.New("unable to get master db instance")
 	}
-	o := overlay.LoadServerFromContext(ctx)
-	redisQ, err := redis.NewQueueFrom(c.QueueAddress)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	qdb, ok := ctx.Value("masterdb").(interface {
+		RepairQueueDB() queue.RepairQueue
+	})
+	if !ok {
+		return nil, Error.New("unable to get master db instance")
 	}
-	repairQueue := queue.NewQueue(redisQ)
-	return newChecker(pdb, sdb.StatDB(), repairQueue, o, db.Irreparable(), 0, zap.L(), c.Interval), nil
+
+	o := overlay.LoadServerFromContext(ctx)
+	
+	return newChecker(pdb, sdb.StatDB(), qdb.RepairQueueDB(), o, irdb.Irreparable(), 0, zap.L(), c.Interval), nil
 }
 
 // Run runs the checker with configured values
