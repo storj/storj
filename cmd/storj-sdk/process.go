@@ -34,12 +34,15 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 		storageNodePort = 11000
 	)
 
-	arguments := func(name, command string, rest ...string) []string {
+	defaultSatellite := net.JoinHostPort(host, strconv.Itoa(satellitePort+0))
+
+	arguments := func(name, command string, port int, rest ...string) []string {
 		return append([]string{
 			"--log.level", "debug",
 			"--log.prefix", name,
 			"--config-dir", ".",
 			command,
+			"--identity.server.address", net.JoinHostPort(host, strconv.Itoa(port)),
 		}, rest...)
 	}
 
@@ -57,10 +60,11 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 		}
 		processes.List = append(processes.List, process)
 
-		process.Arguments["setup"] = arguments(name, "setup",
-			"--identity.server.address", net.JoinHostPort(host, strconv.Itoa(storageNodePort+i)),
+		process.Arguments["setup"] = arguments(name, "setup", satellitePort+i)
+		process.Arguments["run"] = arguments(name,
+			"run", satellitePort+i,
+			"--kademlia.bootstrap-addr", defaultSatellite,
 		)
-		process.Arguments["run"] = arguments(name, "run")
 	}
 
 	for i := 0; i < storageNodeCount; i++ {
@@ -77,10 +81,13 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 		}
 		processes.List = append(processes.List, process)
 
-		process.Arguments["setup"] = arguments(name, "setup",
-			"--identity.server.address", net.JoinHostPort(host, strconv.Itoa(storageNodePort+i)),
+		process.Arguments["setup"] = arguments(name, "setup", storageNodePort+i,
+			"--piecestore.agreementsender.overlay-addr", defaultSatellite,
 		)
-		process.Arguments["run"] = arguments(name, "run")
+		process.Arguments["run"] = arguments(name, "run", storageNodePort+i,
+			"--piecestore.agreementsender.overlay-addr", defaultSatellite,
+			"--kademlia.bootstrap-addr", defaultSatellite,
+		)
 	}
 
 	return processes, nil
