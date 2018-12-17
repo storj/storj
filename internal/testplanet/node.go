@@ -122,9 +122,9 @@ func (node *Node) Shutdown() error {
 }
 
 // NewNodeClient creates a node client for this node
-func (node *Node) NewNodeClient() (node.Client, error) { //nolint renaming to node would conflict with package name; rename Node to Peer to resolve
+func (n *Node) NewNodeClient() (node.Client, error) { //nolint renaming to node would conflict with package name; rename Node to Peer to resolve
 	// TODO: handle disconnect verification
-	return node.NewNodeClient()
+	return node.NewNodeClient(n.Identity, n.Info, n.Kademlia)
 }
 
 // DialPointerDB dials destination with apikey and returns pointerdb Client
