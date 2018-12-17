@@ -5,7 +5,6 @@ package testqueue
 
 import (
 	"container/list"
-	"context"
 	"sync"
 
 	"storj.io/storj/storage"
@@ -23,7 +22,7 @@ func New() *Queue {
 }
 
 //Enqueue add a FIFO element
-func (q *Queue) Enqueue(_ context.Context, value storage.Value) error {
+func (q *Queue) Enqueue(value storage.Value) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.s.PushBack(value)
@@ -31,7 +30,7 @@ func (q *Queue) Enqueue(_ context.Context, value storage.Value) error {
 }
 
 //Dequeue removes a FIFO element
-func (q *Queue) Dequeue(_ context.Context) (storage.Value, error) {
+func (q *Queue) Dequeue() (storage.Value, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	for q.s.Len() > 0 {
@@ -43,7 +42,7 @@ func (q *Queue) Dequeue(_ context.Context) (storage.Value, error) {
 }
 
 //Peekqueue gets upto 'limit' entries from the list queue
-func (q *Queue) Peekqueue(_ context.Context, limit int) ([]storage.Value, error) {
+func (q *Queue) Peekqueue(limit int) ([]storage.Value, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if limit < 0 || limit > storage.LookupLimit {
