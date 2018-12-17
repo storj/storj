@@ -34,6 +34,15 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 		storageNodePort = 11000
 	)
 
+	arguments := func(name, command string, rest ...string) []string {
+		return append([]string{
+			"--log.level", "debug",
+			"--log.prefix", name,
+			"--config-dir", ".",
+			command,
+		}, rest...)
+	}
+
 	for i := 0; i < satelliteCount; i++ {
 		name := fmt.Sprintf("satellite/%d", i)
 
@@ -48,13 +57,10 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 		}
 		processes.List = append(processes.List, process)
 
-		process.Arguments["setup"] = []string{
-			"--log.prefix", name,
-			"--config-dir", ".", "setup",
-			// "--kademlia.bootstrap-addr", "",
-			"--identity.server.address", net.JoinHostPort(host, strconv.Itoa(satellitePort+i)),
-		}
-		process.Arguments["run"] = []string{"--config-dir", ".", "run"}
+		process.Arguments["setup"] = arguments(name, "setup",
+			"--identity.server.address", net.JoinHostPort(host, strconv.Itoa(storageNodePort+i)),
+		)
+		process.Arguments["run"] = arguments(name, "run")
 	}
 
 	for i := 0; i < storageNodeCount; i++ {
@@ -71,14 +77,10 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 		}
 		processes.List = append(processes.List, process)
 
-		process.Arguments["setup"] = []string{
-			"--log.prefix", name,
-			"--config-dir", ".",
-			"setup",
+		process.Arguments["setup"] = arguments(name, "setup",
 			"--identity.server.address", net.JoinHostPort(host, strconv.Itoa(storageNodePort+i)),
-			//"--kademlia.bootstrap-addr", net.JoinHostPort(host, strconv.Itoa(satellitePort+0)),
-		}
-		process.Arguments["run"] = []string{"--config-dir", ".", "run"}
+		)
+		process.Arguments["run"] = arguments(name, "run")
 	}
 
 	return processes, nil
