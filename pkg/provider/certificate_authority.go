@@ -149,35 +149,28 @@ func (fc FullCAConfig) PeerConfig() PeerCAConfig {
 
 // Load loads a CA from the given configuration
 func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
-	cd, err := ioutil.ReadFile(pc.CertPath)
+	chainPEM, err := ioutil.ReadFile(pc.CertPath)
 	if err != nil {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
 
-	var cb [][]byte
-	for {
-		var cp *pem.Block
-		cp, cd = pem.Decode(cd)
-		if cp == nil {
-			break
-		}
-		cb = append(cb, cp.Bytes)
-	}
-	c, err := ParseCertChain(cb)
+	chain, err := decodeAndParseChainPEM(chainPEM)
 	if err != nil {
 		return nil, errs.New("failed to load identity %#v: %v",
 			pc.CertPath, err)
 	}
 
-	i, err := NodeIDFromKey(c[0].PublicKey)
+	nodeID, err := NodeIDFromKey(chain[0].PublicKey)
 	if err != nil {
 		return nil, err
 	}
 
 	return &PeerCertificateAuthority{
-		RestChain: c[1:],
-		Cert:      c[0],
-		ID:        i,
+		// NB: `CAIndex` is in the context of a complete chain (incl. leaf).
+		// Here we're loading the CA chain (nodeID.e. without leaf).
+		RestChain: chain[peertls.CAIndex:],
+		Cert:      chain[peertls.CAIndex-1],
+		ID:        nodeID,
 	}, nil
 }
 
@@ -207,8 +200,8 @@ func NewCA(ctx context.Context, opts NewCAOptions) (*FullCertificateAuthority, e
 // Save saves a CA with the given configuration
 func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	var (
-		certData, keyData          bytes.Buffer
-		writeChainErr, writeKeyErr error
+		certData, keyData                                              bytes.Buffer
+		writeChainErr, writeChainDataErr, writeKeyErr, writeKeyDataErr error
 	)
 
 	chain := []*x509.Certificate{ca.Cert}
@@ -216,10 +209,12 @@ func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 
 	if fc.CertPath != "" {
 		writeChainErr = peertls.WriteChain(&certData, chain...)
+		writeChainDataErr = writeChainData(fc.CertPath, certData.Bytes())
 	}
 
 	if fc.KeyPath != "" {
 		writeKeyErr = peertls.WriteKey(&keyData, ca.Key)
+		writeKeyDataErr = writeKeyData(fc.KeyPath, keyData.Bytes())
 	}
 
 	writeErr := utils.CombineErrors(writeChainErr, writeKeyErr)
@@ -228,8 +223,8 @@ func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	}
 
 	return utils.CombineErrors(
-		writeCertData(fc.CertPath, certData.Bytes()),
-		writeKeyData(fc.KeyPath, keyData.Bytes()),
+		writeChainDataErr,
+		writeKeyDataErr,
 	)
 }
 

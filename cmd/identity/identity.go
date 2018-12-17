@@ -4,8 +4,8 @@
 package main
 
 import (
+	"fmt"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"time"
 
@@ -27,6 +27,13 @@ var (
 		Short: "Creates a new identity from an existing certificate authority",
 		RunE:  cmdNewID,
 	}
+
+	leafExtCmd = &cobra.Command{
+		Use:   "extensions",
+		Short: "Prints the extensions attached to the identity leaf certificate",
+		RunE:  cmdLeafExtensions,
+	}
+
 	revokeLeafCmd = &cobra.Command{
 		Use:   "revoke",
 		Short: "Revoke the identity's leaf certificate (creates backup)",
@@ -36,6 +43,10 @@ var (
 	newIDCfg struct {
 		CA       provider.FullCAConfig
 		Identity provider.IdentitySetupConfig
+	}
+
+	leafExtCfg struct {
+		Identity provider.IdentityConfig
 	}
 
 	revokeLeafCfg struct {
@@ -49,6 +60,8 @@ func init() {
 	rootCmd.AddCommand(idCmd)
 	idCmd.AddCommand(newIDCmd)
 	cfgstruct.Bind(newIDCmd.Flags(), &newIDCfg, cfgstruct.ConfDir(defaultConfDir))
+	idCmd.AddCommand(leafExtCmd)
+	cfgstruct.Bind(leafExtCmd.Flags(), &leafExtCfg, cfgstruct.ConfDir(defaultConfDir))
 	idCmd.AddCommand(revokeLeafCmd)
 	cfgstruct.Bind(revokeLeafCmd.Flags(), &revokeLeafCfg, cfgstruct.ConfDir(defaultConfDir))
 }
@@ -65,6 +78,15 @@ func cmdNewID(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	return provider.ErrSetup.New("identity file(s) exist: %s", s)
+}
+
+func cmdLeafExtensions(cmd *cobra.Command, args []string) (err error) {
+	fi, err := leafExtCfg.Identity.Load()
+	if err != nil {
+		return err
+	}
+
+	return printExtensions(fi.Leaf.Raw, fi.Leaf.ExtraExtensions)
 }
 
 func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
@@ -88,15 +110,20 @@ func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
 
 	// NB: backup original cert
 	var backupCfg provider.IdentityConfig
-	extRegex, err := regexp.Compile(filepath.Ext(revokeLeafCfg.Identity.CertPath) + "$")
+	certPathExt := filepath.Ext(revokeLeafCfg.Identity.CertPath)
+	certPath := revokeLeafCfg.Identity.CertPath
+	certBase := certPath[:len(certPath)-len(certPathExt)]
 	if err != nil {
 		return err
 	}
-	backupCfg.CertPath = extRegex.ReplaceAllString(
-		revokeLeafCfg.Identity.CertPath,
-		strconv.Itoa(int(time.Now().Unix()))+".bak$1",
+	backupCfg.CertPath = fmt.Sprintf(
+		"%s.%s%s",
+		certBase,
+		strconv.Itoa(int(time.Now().Unix())),
+		certPathExt,
 	)
-	if err := backupCfg.Save(updatedIdent); err != nil {
+	fmt.Println(backupCfg.CertPath)
+	if err := backupCfg.Save(originalIdent); err != nil {
 		return err
 	}
 

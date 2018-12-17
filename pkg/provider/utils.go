@@ -8,6 +8,8 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/pem"
 	"io/ioutil"
 	"os"
@@ -17,6 +19,7 @@ import (
 
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 )
 
 // TLSFilesStatus is the status of keys
@@ -35,8 +38,32 @@ var (
 	ErrZeroBytes = errs.New("byte slice was unexpectedly empty")
 )
 
+type encodedChain struct {
+	chain      [][]byte
+	extensions [][][]byte
+}
+
+func decodeAndParseChainPEM(PEMBytes []byte) ([]*x509.Certificate, error) {
+	var encChain encodedChain
+	for {
+		var pemBlock *pem.Block
+		pemBlock, PEMBytes = pem.Decode(PEMBytes)
+		if pemBlock == nil {
+			break
+		}
+		switch pemBlock.Type {
+		case peertls.BlockTypeCertificate:
+			encChain.AddCert(pemBlock.Bytes)
+		case peertls.BlockTypeExtension:
+			encChain.AddExtension(pemBlock.Bytes)
+		}
+	}
+
+	return encChain.Parse()
+}
+
 func decodePEM(PEMBytes []byte) ([][]byte, error) {
-	DERBytes := [][]byte{}
+	var DERBytes [][]byte
 
 	for {
 		var DERBlock *pem.Block
@@ -118,8 +145,8 @@ func newCAWorker(ctx context.Context, difficulty uint16, parentCert *x509.Certif
 	caC <- ca
 }
 
-// writeCertData writes data to path ensuring permissions are appropriate for a cert
-func writeCertData(path string, data []byte) error {
+// writeChainData writes data to path ensuring permissions are appropriate for a cert
+func writeChainData(path string, data []byte) error {
 	err := writeFile(path, 0744, 0644, data)
 	if err != nil {
 		return errs.New("unable to write certificate to \"%s\": %v", path, err)
@@ -177,4 +204,38 @@ func (t TLSFilesStatus) String() string {
 		return "key"
 	}
 	return ""
+}
+
+func (e *encodedChain) AddCert(b []byte) {
+	e.chain = append(e.chain, b)
+	e.extensions = append(e.extensions, [][]byte{})
+}
+
+func (e *encodedChain) AddExtension(b []byte) {
+	i := len(e.chain) - 1
+	e.extensions[i] = append(e.extensions[i], b)
+}
+
+func (e *encodedChain) Parse() ([]*x509.Certificate, error) {
+	chain, err := ParseCertChain(e.chain)
+	if err != nil {
+		return nil, err
+	}
+
+	var extErrs []error
+	for i, cert := range chain {
+		for _, ee := range e.extensions[i] {
+			ext := pkix.Extension{}
+			_, err := asn1.Unmarshal(ee, &ext)
+			if err != nil {
+				extErrs = append(extErrs, err)
+			}
+			cert.ExtraExtensions = append(cert.ExtraExtensions, ext)
+		}
+	}
+	if err := utils.CombineErrors(extErrs...); err != nil {
+		return nil, err
+	}
+
+	return chain, nil
 }
