@@ -99,7 +99,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	// start satellite
 	go func() {
-		_, _ = fmt.Printf("starting satellite on %s\n",
+		_, _ = fmt.Printf("Starting satellite on %s\n",
 			runCfg.Satellite.Identity.Server.Address)
 
 		if runCfg.Satellite.Audit.SatelliteAddr == "" {
@@ -157,7 +157,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			address := v.Identity.Server.Address
 			storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
 
-			_, _ = fmt.Printf("starting storage node %d %s (kad on %s)\n", i, storagenode, address)
+			_, _ = fmt.Printf("Starting storage node %d %s (kad on %s)\n", i, storagenode, address)
 			errch <- v.Identity.Run(ctx, nil, v.Kademlia, v.Storage)
 		}(i, v)
 	}
