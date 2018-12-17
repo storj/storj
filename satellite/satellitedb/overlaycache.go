@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 
 	"storj.io/storj/pkg/utils"
@@ -65,6 +66,9 @@ func (o *overlaycache) Get(key storage.Key) (storage.Value, error) {
 	}
 
 	node, err := o.db.Get_OverlayCacheNode_By_Key(o.ctx, dbx.OverlayCacheNode_Key(key))
+	if err == sql.ErrNoRows {
+		return nil, storage.ErrKeyNotFound.New(key.String())
+	}
 	if err != nil {
 		return nil, err
 	}
