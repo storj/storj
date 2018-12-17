@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/storage"
 )
 
 var (
@@ -59,10 +60,10 @@ func (db *DB) StatDB() statdb.DB {
 	return &statDB{db: db.db}
 }
 
-// // OverlayCacheDB is a getter for OverlayCacheDB repository
-// func (db *DB) OverlayCacheDB() overlay.DB {
-// 	return &overlayCacheDB{db: db.db}
-// }
+// OverlayCache is a getter for overlay cache repository
+func (db *DB) OverlayCache() storage.KeyValueStore {
+	return newOverlaycache(db.db)
+}
 
 // // RepairQueueDB is a getter for RepairQueueDB repository
 // func (db *DB) RepairQueueDB() queue.DB {
