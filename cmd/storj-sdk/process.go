@@ -49,6 +49,7 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 		processes.List = append(processes.List, process)
 
 		process.Arguments["setup"] = []string{
+			"--log.prefix", name,
 			"--config-dir", ".", "setup",
 			// "--kademlia.bootstrap-addr", "",
 			"--identity.server.address", net.JoinHostPort(host, strconv.Itoa(satellitePort+i)),
@@ -71,6 +72,7 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 		processes.List = append(processes.List, process)
 
 		process.Arguments["setup"] = []string{
+			"--log.prefix", name,
 			"--config-dir", ".",
 			"setup",
 			"--identity.server.address", net.JoinHostPort(host, strconv.Itoa(storageNodePort+i)),
@@ -144,7 +146,7 @@ func NewProcess(name, executable, directory string) (*Process, error) {
 
 // Exec runs the process using the arguments for a given command
 func (process *Process) Exec(ctx context.Context, command string) error {
-	cmd := exec.Command(process.Executable, process.Arguments[command]...)
+	cmd := exec.CommandContext(ctx, process.Executable, process.Arguments[command]...)
 	cmd.Dir = process.Directory
 	cmd.Stdout, cmd.Stderr = process.Stdout, process.Stderr
 

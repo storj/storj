@@ -20,12 +20,12 @@ var (
 	logCaller   = flag.Bool("log.caller", false, "if true, log function filename and line number")
 	logStack    = flag.Bool("log.stack", false, "if true, log stack traces")
 	logEncoding = flag.String("log.encoding", "console", "configures log encoding. can either be 'console' or 'json'")
-	logOutput   = flag.String("log.output", "stderr",
-		"can be stdout, stderr, or a filename")
+	logOutput   = flag.String("log.output", "stderr", "can be stdout, stderr, or a filename")
+	logPrefix   = flag.String("log.prefix", "", "log lines using prefix")
 )
 
 func newLogger() (*zap.Logger, error) {
-	return zap.Config{
+	logger, err := zap.Config{
 		Level:             zap.NewAtomicLevelAt(*logLevel),
 		Development:       *logDev,
 		DisableCaller:     !*logCaller,
@@ -47,4 +47,10 @@ func newLogger() (*zap.Logger, error) {
 		OutputPaths:      []string{*logOutput},
 		ErrorOutputPaths: []string{*logOutput},
 	}.Build()
+
+	if err != nil {
+		return logger, err
+	}
+
+	return logger.Named(*logPrefix), err
 }
