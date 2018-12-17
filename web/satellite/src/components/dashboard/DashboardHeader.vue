@@ -33,22 +33,23 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import ProjectSelectionArea from "./projectSelection/ProjectSelectionArea.vue";
-import NewProjectArea from "./newProject/NewProjectArea.vue";
-import AccountButton from "./account/AccountButton.vue"
+	import { Component, Vue } from 'vue-property-decorator';
+	import ProjectSelectionArea from './projectSelection/ProjectSelectionArea.vue';
+	import NewProjectArea from './newProject/NewProjectArea.vue';
+	import AccountButton from './account/AccountButton.vue';
 
-@Component(
-    {
-		components: {
-            ProjectSelectionArea,
-            NewProjectArea,
-            AccountButton
-        }
-    }
-)
+	@Component(
+		{
+			components: {
+				ProjectSelectionArea,
+				NewProjectArea,
+				AccountButton
+			}
+		}
+	)
 
-export default class DashboardHeader extends Vue {}
+	export default class DashboardHeader extends Vue {
+	}
 </script>
 
 <style scoped lang="scss">
@@ -103,7 +104,7 @@ export default class DashboardHeader extends Vue {}
             &__account-button {
                 margin-right: 3vw;
             }
-            
+
             &__new-project {
                 margin-right: 60px;
             }

@@ -1,8 +1,5 @@
 {
   "defaultSeverity": "warning",
-  "extends": [
-    "tslint:recommended"
-  ],
   "rulesDirectory": [
     "tslint-consistent-codestyle"
   ],
@@ -12,8 +9,6 @@
     ]
   },
   "rules": {
-    // Enforces function overloads to be consecutive.
-    "adjacent-overload-signatures": true,
     // Enforces vertical alignment.
     "align": [true, "parameters", "statements"],
     // Enforces use of T[] if T is a simple type.
@@ -22,7 +17,7 @@
     "class-name": true,
     // Enforces formatting rules for single-line comments.
     "comment-format": [true, "check-space"],
-    "quotemark": [true, "single"],
+    "quotemark": [true, "single", "avoid-escape"],
     "indent": [true, "tabs", 4],
     // Ensures the file ends with a newline.
     "eofline": true,
@@ -39,10 +34,6 @@
     // Disallows multiple variable definitions in the same declaration statement.(Exception for loops)
     "one-variable-per-declaration": [true, "ignore-for-loop"],
     "object-literal-sort-keys": false,
-    // Enforces whitespace style conventions.
-    "file-header": [true,
-      "// Copyright (C) 2018 Storj Labs, Inc.\n// See LICENSE for copying information.\n"
-    ],
     "whitespace": [
       true,
       "check-branch", // checks branching statements (if/else/for/while) are followed by whitespace.
@@ -57,15 +48,13 @@
     "early-exit": true,
     // Bans the use of specified console methods.
     "no-console": [true, "log"],
-    "no-default-export": true,
+    "no-default-export": false,
     // Ban the use of this in static methods.
     "no-static-this": true,
     // Warns if ‘super()’ appears twice in a constructor.
     "no-duplicate-super": true,
     // Disallows any type of assignment in conditionals.
     "no-conditional-assignment": true,
-    // Disallows the use constant number values outside of variable assignments.
-    "no-magic-numbers": true,
     // Prevents duplicate cases in switch statements.
     "no-duplicate-switch-case": true,
     // Disallows empty blocks.

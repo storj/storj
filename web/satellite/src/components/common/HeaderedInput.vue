@@ -38,76 +38,77 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+	import { Component, Vue } from 'vue-property-decorator';
 
-    // Custom input component with labeled header
-    @Component(
-        {
-            data: function() {
-                return {
-                    value: this.$props.initValue ? this.$props.initValue : "",
-                }
-            },
-            methods: {
-                //emits data to parent component
-                onInput () {
-                    this.$emit('setData', this.$data.value)
-                },
-                setValue(value: string) {
-                    this.$data.value = value
-                }
-            },
-            props: {
-                initValue: {
-                    type: String,
-                },
-                label: {
-                    type: String,
-                    default: ""
-                },
-                additionalLabel: {
-                    type: String,
-                    default: ""
-                },
-                error: {
-                    type: String
-                },
-                placeholder: {
-                    type: String,
-                    default: "default"
-                },
-                isOptional: {
-                    type: Boolean,
-                    default: false
-                },
-                isMultiline: {
-                    type: Boolean,
-                    default: false
-                },
-                isPassword: {
-                    type: Boolean,
-                    default: false
-                },
-                height: {
-                    type: String,
-                    default: "48px"
-                },
-                width: {
-                    type: String,
-                    default: "100%"
-                },
-            },
-            computed: {
-                style: function() {
-                    return { width: this.$props.width, height: this.$props.height }
-                },
-            },
-        },
-    )
-    export default class HeaderedInput extends Vue implements IEditable{
-        setValue(value: string): void {
-            this.setValue(value);
-        } }
+	// Custom input component with labeled header
+	@Component(
+		{
+			data: function () {
+				return {
+					value: this.$props.initValue ? this.$props.initValue : '',
+				};
+			},
+			methods: {
+				// Emits data to parent component
+				onInput() {
+					this.$emit('setData', this.$data.value);
+				},
+				setValue(value: string) {
+					this.$data.value = value;
+				}
+			},
+			props: {
+				initValue: {
+					type: String,
+				},
+				label: {
+					type: String,
+					default: ''
+				},
+				additionalLabel: {
+					type: String,
+					default: ''
+				},
+				error: {
+					type: String
+				},
+				placeholder: {
+					type: String,
+					default: 'default'
+				},
+				isOptional: {
+					type: Boolean,
+					default: false
+				},
+				isMultiline: {
+					type: Boolean,
+					default: false
+				},
+				isPassword: {
+					type: Boolean,
+					default: false
+				},
+				height: {
+					type: String,
+					default: '48px'
+				},
+				width: {
+					type: String,
+					default: '100%'
+				},
+			},
+			computed: {
+				style: function () {
+					return {width: this.$props.width, height: this.$props.height};
+				},
+			},
+		},
+	)
+	export default class HeaderedInput extends Vue implements IEditable {
+		setValue(value: string): void {
+			this.setValue(value);
+		}
+	}
 
 </script>
 

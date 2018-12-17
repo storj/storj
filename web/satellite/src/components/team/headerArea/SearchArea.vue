@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="search-container" >
+    <div class="search-container">
         <div class="search-container__wrap">
             <label class="search-container__wrap__input">
                 <input placeholder="Search Users" type="text">
@@ -12,11 +12,12 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+	import { Component, Vue } from 'vue-property-decorator';
 
-@Component({})
+	@Component({})
 
-export default class SearchArea extends Vue {}
+	export default class SearchArea extends Vue {
+	}
 </script>
 
 <style scoped lang="scss">

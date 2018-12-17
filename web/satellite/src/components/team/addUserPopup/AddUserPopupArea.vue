@@ -39,87 +39,89 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import HeaderlessInput from "@/components/common/HeaderlessInput.vue";
-import Checkbox from "@/components/common/Checkbox.vue";
-import Button from "@/components/common/Button.vue";
+	import { Component, Vue } from 'vue-property-decorator';
+	import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+	import Checkbox from '@/components/common/Checkbox.vue';
+	import Button from '@/components/common/Button.vue';
 
-@Component(
-    { 
-        props: {
-            onClose: {
-                type: Function
-            },
-            onCreate: {
-                type: Function
-            }
-        },
-        data: function() {
-            return {
-                name: "",
-                description: "",
-                isTermsAccepted: false,
-                termsAcceptedError: false,
-                nameError: "",
-            }
-        },
-        methods: {
-            setProjectName: function(value: string) : void {
-                this.$data.name = value;
-                this.$data.nameError = "";
-            },
-            setProjectDescription: function(value: string) : void {
-                this.$data.description = value;
-            },
-            setTermsAccepted: function(value: boolean) : void {
-                this.$data.isTermsAccepted = value;
-                this.$data.termsAcceptedError = false;
-            },
-            onCloseClick: function() : void {
-                // TODO: save popup states in store
-                this.$emit("onClose");
-            },
-            createProject: async function() : Promise<any> {
-                if (!this.$data.isTermsAccepted) {
-                    this.$data.termsAcceptedError = true;
-                }
+	@Component(
+		{
+			props: {
+				onClose: {
+					type: Function
+				},
+				onCreate: {
+					type: Function
+				}
+			},
+			data: function () {
+				return {
+					name: '',
+					description: '',
+					isTermsAccepted: false,
+					termsAcceptedError: false,
+					nameError: '',
+				};
+			},
+			methods: {
+				setProjectName: function (value: string): void {
+					this.$data.name = value;
+					this.$data.nameError = '';
+				},
+				setProjectDescription: function (value: string): void {
+					this.$data.description = value;
+				},
+				setTermsAccepted: function (value: boolean): void {
+					this.$data.isTermsAccepted = value;
+					this.$data.termsAcceptedError = false;
+				},
+				onCloseClick: function (): void {
+					// TODO: save popup states in store
+					this.$emit('onClose');
+				},
+				createProject: async function (): Promise<any> {
+					if (!this.$data.isTermsAccepted) {
+						this.$data.termsAcceptedError = true;
+					}
 
-                if (!this.$data.name) {
-                    this.$data.nameError = "Name is required!";
-                }
+					if (!this.$data.name) {
+						this.$data.nameError = 'Name is required!';
+					}
 
-                if (this.$data.name.length > 20) {
-                    this.$data.nameError = "Name should be less than 21 character!";
-                }
+					if (this.$data.name.length > 20) {
+						this.$data.nameError = 'Name should be less than 21 character!';
+					}
 
-                if (this.$data.nameError || this.$data.termsAcceptedError) {
-                    return;
-                }
+					if (this.$data.nameError || this.$data.termsAcceptedError) {
+						return;
+					}
 
-                let isSuccess = this.$store.dispatch("createProject", {
-                    name: this.$data.name,
-                    description: this.$data.description,
-                    isTermsAccepted: this.$data.isTermsAccepted,
-                });
+					let isSuccess = this.$store.dispatch('createProject', {
+						name: this.$data.name,
+						description: this.$data.description,
+						isTermsAccepted: this.$data.isTermsAccepted,
+					});
 
-                if (!isSuccess) {
-                    // TODO: show popup here
-                    console.log("error during project creation!");
-                    return;
-                }
+					if (!isSuccess) {
+						// TODO: show popup here
+						console.error('error during project creation!');
 
-                this.$emit("onClose");
-            }
-        },
-        components: {
-            HeaderlessInput,
-            Checkbox,
-            Button
-        }
-    }
-)
+						return;
+					}
 
-export default class AddUserPopup extends Vue {}
+					this.$emit('onClose');
+				}
+			},
+			components: {
+				HeaderlessInput,
+				Checkbox,
+				Button
+			}
+		}
+	)
+
+	export default class AddUserPopup extends Vue {
+	}
 </script>
 
 <style scoped lang="scss">

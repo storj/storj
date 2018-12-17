@@ -11,7 +11,7 @@ import AccountArea from '@/components/dashboard/account/AccountArea.vue';
 import ProjectDetails from '@/components/projectDetails/ProjectDetailsArea.vue';
 import TeamArea from '@/components/team/TeamArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
-import { getToken } from "@/utils/tokenManager";
+import { getToken } from '@/utils/tokenManager';
 
 Vue.use(Router);
 
@@ -63,11 +63,10 @@ let router = new Router({
 
 // Makes check that Token exist at session storage before any route except Login and Register
 router.beforeEach((to, from, next) => {
-
-	if (to.matched.some(record => record.meta.requiresAuth)) {
+	if (to.matched.some(route => route.meta.requiresAuth)) {
 		if (!getToken()) {
-
 			next(ROUTES.LOGIN);
+
 			return;
 		}
 	}
@@ -76,4 +75,3 @@ router.beforeEach((to, from, next) => {
 });
 
 export default router;
-

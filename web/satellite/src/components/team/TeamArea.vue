@@ -29,43 +29,42 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import TeamMemberItem from '@/components/team/TeamMemberItem.vue';
-import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
-import Footer from '@/components/team/footerArea/Footer.vue';
-import EmptyState from '@/components/common/EmptyStateArea.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+	import { Component, Vue } from 'vue-property-decorator';
+	import TeamMemberItem from '@/components/team/TeamMemberItem.vue';
+	import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
+	import Footer from '@/components/team/footerArea/Footer.vue';
+	import EmptyState from '@/components/common/EmptyStateArea.vue';
+	import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
-@Component({
-    data: function() {
-            return {
-                emptyImage: EMPTY_STATE_IMAGES.TEAM
-            }
-        },
-    methods: {
-    	onMemberClick: function (member: any) {
-    		this.$store.dispatch('toggleProjectMemberSelection', member.user.id);
+	@Component({
+		data: function () {
+			return {
+				emptyImage: EMPTY_STATE_IMAGES.TEAM
+			};
 		},
-    },
-    computed: {
-        projectMembers: function () {
-            return this.$store.getters.projectMembers;
+		methods: {
+			onMemberClick: function (member: any) {
+				this.$store.dispatch('toggleProjectMemberSelection', member.user.id);
+			},
 		},
-        selectedProjectMembers: function () {
-            return this.$store.getters.selectedProjectMembers;
+		computed: {
+			projectMembers: function () {
+				return this.$store.getters.projectMembers;
+			},
+			selectedProjectMembers: function () {
+				return this.$store.getters.selectedProjectMembers;
+			}
+		},
+		components: {
+			TeamMemberItem,
+			HeaderArea,
+			Footer,
+			EmptyState,
 		}
-    },
-    components: {
-        TeamMemberItem,
-        HeaderArea,
-        Footer,
-        EmptyState,
-    }
-})
+	})
 
-
-
-export default class TeamArea extends Vue {}
+	export default class TeamArea extends Vue {
+	}
 </script>
 
 <style scoped lang="scss">
