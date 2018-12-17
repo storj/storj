@@ -7,9 +7,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	"golang.org/x/sync/errgroup"
 
@@ -26,6 +28,12 @@ type Processes struct {
 func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes, error) {
 	processes := &Processes{}
 
+	const (
+		host            = "127.0.0.1"
+		satellitePort   = 10000
+		storageNodePort = 11000
+	)
+
 	for i := 0; i < satelliteCount; i++ {
 		name := fmt.Sprintf("satellite/%d", i)
 
@@ -40,7 +48,11 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 		}
 		processes.List = append(processes.List, process)
 
-		process.Arguments["setup"] = []string{"--config-dir", ".", "setup"}
+		process.Arguments["setup"] = []string{
+			"--config-dir", ".", "setup",
+			// "--kademlia.bootstrap-addr", "",
+			"--identity.server.address", net.JoinHostPort(host, strconv.Itoa(satellitePort+i)),
+		}
 		process.Arguments["run"] = []string{"--config-dir", ".", "run"}
 	}
 
@@ -58,7 +70,12 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 		}
 		processes.List = append(processes.List, process)
 
-		process.Arguments["setup"] = []string{"--config-dir", ".", "setup"}
+		process.Arguments["setup"] = []string{
+			"--config-dir", ".",
+			"setup",
+			"--identity.server.address", net.JoinHostPort(host, strconv.Itoa(storageNodePort+i)),
+			//"--kademlia.bootstrap-addr", net.JoinHostPort(host, strconv.Itoa(satellitePort+0)),
+		}
 		process.Arguments["run"] = []string{"--config-dir", ".", "run"}
 	}
 
