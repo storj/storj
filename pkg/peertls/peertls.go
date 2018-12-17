@@ -4,13 +4,12 @@
 package peertls
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/asn1"
 	"encoding/pem"
 	"io"
 
@@ -27,23 +26,7 @@ const (
 	BlockTypeIDOptions = "ID OPTIONS"
 )
 
-const (
-	// SignedCertExtID is the asn1 object ID for a pkix extension holding a signature of the cert it's extending, signed by some CA (e.g. the root cert chain).
-	// This extension allows for an additional signature per certificate.
-	SignedCertExtID = iota
-	// RevocationExtID is the asn1 object ID for a pkix extension containing the most recent certificate revocation data
-	// for the current TLS cert chain.
-	RevocationExtID
-)
-
 var (
-	// ExtensionIDs is a map from an enum to extension object identifiers.
-	ExtensionIDs = map[int]asn1.ObjectIdentifier{
-		SignedCertExtID: {2, 999, 1, 1},
-		RevocationExtID: {2, 999, 2, 1},
-	}
-	// ErrExtension is used when an error occurs while processing an extension.
-	ErrExtension = errs.Class("extension error")
 	// ErrNotExist is used when a file or directory doesn't exist.
 	ErrNotExist = errs.Class("file or directory not found error")
 	// ErrGenerate is used when an error occurred during cert/key generation.
@@ -61,7 +44,7 @@ var (
 	// ErrVerifyCertificateChain is used when a certificate chain can't be verified from leaf to root
 	// (i.e.: each cert in the chain should be signed by the preceding cert and the root should be self-signed).
 	ErrVerifyCertificateChain = errs.Class("certificate chain signature verification failed")
-	// ErrVerifyCAWhitelist is used when the leaf of a peer certificate isn't signed by any CA in the whitelist.
+	// ErrVerifyCAWhitelist is used when a signature wasn't produced by any CA in the whitelist.
 	ErrVerifyCAWhitelist = errs.Class("not signed by any CA in the whitelist")
 	// ErrSign is used when something goes wrong while generating a signature.
 	ErrSign = errs.Class("unable to generate signature")
@@ -107,20 +90,20 @@ func VerifyPeerCertChains(_ [][]byte, parsedChains [][]*x509.Certificate) error 
 	return verifyChainSignatures(parsedChains[0])
 }
 
-// VerifyCAWhitelist verifies that the peer identity's CA and leaf-extension was signed
-// by any one of the (certificate authority) certificates in the provided whitelist.
+// VerifyCAWhitelist verifies that the peer identity's CA was signed by any one
+// of the (certificate authority) certificates in the provided whitelist.
 func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
 	if cas == nil {
 		return nil
 	}
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
 		for _, ca := range cas {
-			err := verifyCertSignature(ca, parsedChains[0][1])
+			err := verifyCertSignature(ca, parsedChains[0][CAIndex])
 			if err == nil {
 				return nil
 			}
 		}
-		return ErrVerifyCAWhitelist.New("extension signature doesn't match any CA in the whitelist")
+		return ErrVerifyCAWhitelist.New("CA cert")
 	}
 }
 
@@ -167,6 +150,13 @@ func WriteChain(w io.Writer, chain ...*x509.Certificate) error {
 	return nil
 }
 
+// ChainBytes returns bytes of the certificate chain (leaf-first) to the writer, PEM-encoded.
+func ChainBytes(chain ...*x509.Certificate) ([]byte, error) {
+	var data bytes.Buffer
+	err := WriteChain(&data, chain...)
+	return data.Bytes(), err
+}
+
 // WriteKey writes the private key to the writer, PEM-encoded.
 func WriteKey(w io.Writer, key crypto.PrivateKey) error {
 	var (
@@ -188,6 +178,13 @@ func WriteKey(w io.Writer, key crypto.PrivateKey) error {
 		return errs.Wrap(err)
 	}
 	return nil
+}
+
+// KeyBytes returns bytes of the private key to the writer, PEM-encoded.
+func KeyBytes(key crypto.PrivateKey) ([]byte, error) {
+	var data bytes.Buffer
+	err := WriteKey(&data, key)
+	return data.Bytes(), err
 }
 
 // NewCert returns a new x509 certificate using the provided templates and key,
@@ -227,32 +224,28 @@ func NewCert(key, parentKey crypto.PrivateKey, template, parent *x509.Certificat
 	return cert, nil
 }
 
-// AddSignedLeafExt adds a "signed certificate extension" to the passed cert,
-// using the passed private key.
-func AddSignedLeafExt(key crypto.PrivateKey, cert *x509.Certificate) error {
-	ecKey, ok := key.(*ecdsa.PrivateKey)
-	if !ok {
-		return ErrUnsupportedKey.New("%T", key)
-	}
+// VerifyUnrevokedChainFunc returns a peer certificate verification function which
+// returns an error if the incoming cert chain contains a revoked CA or leaf.
+func VerifyUnrevokedChainFunc(revDB *RevocationDB) PeerCertVerificationFunc {
+	return func(_ [][]byte, chains [][]*x509.Certificate) error {
+		leaf := chains[0][LeafIndex]
+		ca := chains[0][CAIndex]
+		lastRev, lastRevErr := revDB.Get(chains[0])
+		if lastRevErr != nil {
+			return ErrExtension.Wrap(lastRevErr)
+		}
+		if lastRev == nil {
+			return nil
+		}
 
-	hash := crypto.SHA256.New()
-	_, err := hash.Write(cert.RawTBSCertificate)
-	if err != nil {
-		return ErrSign.Wrap(err)
-	}
-	r, s, err := ecdsa.Sign(rand.Reader, ecKey, hash.Sum(nil))
-	if err != nil {
-		return ErrSign.Wrap(err)
-	}
+		if bytes.Equal(lastRev.CertHash, ca.Raw) || bytes.Equal(lastRev.CertHash, leaf.Raw) {
+			lastRevErr := lastRev.Verify(ca)
+			if lastRevErr != nil {
+				return ErrExtension.Wrap(lastRevErr)
+			}
+			return ErrRevokedCert
+		}
 
-	signature, err := asn1.Marshal(ECDSASignature{R: r, S: s})
-	if err != nil {
-		return ErrSign.Wrap(err)
+		return nil
 	}
-
-	cert.ExtraExtensions = append(cert.ExtraExtensions, pkix.Extension{
-		Id:    ExtensionIDs[SignedCertExtID],
-		Value: signature,
-	})
-	return nil
 }

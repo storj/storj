@@ -20,6 +20,9 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
+// TODO: Use maxLimit in future.
+//const maxLimit = 50
+
 // Service is handling accounts related logic
 type Service struct {
 	Signer
@@ -151,10 +154,19 @@ func (s *Service) ChangeUserPassword(ctx context.Context, id uuid.UUID, pass, ne
 }
 
 // DeleteUser deletes User by id
-func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID) error {
-	_, err := GetAuth(ctx)
+func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string) error {
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
+	}
+
+	if auth.User.ID != id {
+		return ErrUnauthorized.New("user has no rights")
+	}
+
+	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(password))
+	if err != nil {
+		return ErrUnauthorized.New("origin password is incorrect")
 	}
 
 	return s.store.Users().Delete(ctx, id)
@@ -317,12 +329,16 @@ func (s *Service) DeleteProjectMember(ctx context.Context, projectID, userID uui
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
+// TODO: add limit and offset parameters
 func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID) ([]ProjectMember, error) {
 	_, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	// TODO: check if limit < maxLimit const
+
+	// TODO: replace GetByProjectID with GetByProjectIDPaged and remove GetByProjectID as redundant
 	return s.store.ProjectMembers().GetByProjectID(ctx, projectID)
 }
 

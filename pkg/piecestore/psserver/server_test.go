@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"net"
 	"os"
 	"path"
@@ -23,6 +24,7 @@ import (
 	"github.com/gtank/cryptopasta"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
@@ -496,7 +498,14 @@ func newTestServerStruct(t *testing.T) (*Server, func()) {
 	verifier := func(authorization *pb.SignedMessage) error {
 		return nil
 	}
-	server := &Server{DataDir: tempDir, DB: psDB, verifier: verifier}
+	server := &Server{
+		log:              zaptest.NewLogger(t),
+		DataDir:          tempDir,
+		DB:               psDB,
+		verifier:         verifier,
+		totalAllocated:   math.MaxInt64,
+		totalBwAllocated: math.MaxInt64,
+	}
 	return server, func() {
 		if serr := server.Stop(ctx); serr != nil {
 			t.Fatal(serr)

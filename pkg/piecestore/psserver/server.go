@@ -9,6 +9,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha512"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -26,7 +27,7 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
 	as "storj.io/storj/pkg/piecestore/psserver/agreementsender"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/provider"
@@ -52,7 +53,12 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	s, err := Initialize(ctx, c, server.Identity().Key)
+	db, err := psdb.Open(ctx, filepath.Join(c.Path, "piece-store-data"), filepath.Join(c.Path, "piecestore.db"))
+	if err != nil {
+		return ServerError.Wrap(err)
+	}
+
+	s, err := NewEndpoint(zap.L(), c, db, server.Identity().Key)
 	if err != nil {
 		return err
 	}
@@ -74,6 +80,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		log.Fatal(s.Stop(ctx))
 	}()
 
+	s.log.Info("Started Node", zap.String("ID", fmt.Sprint(server.Identity().ID)))
 	return server.Run(ctx)
 }
 
@@ -97,6 +104,7 @@ func DirSize(path string) (int64, error) {
 
 // Server -- GRPC server meta data used in route calls
 type Server struct {
+	log              *zap.Logger
 	DataDir          string
 	DB               *psdb.DB
 	pkey             crypto.PrivateKey
@@ -105,10 +113,8 @@ type Server struct {
 	verifier         auth.SignedMessageVerifier
 }
 
-// Initialize -- initializes a server struct
-func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Server, error) {
-	dbPath := filepath.Join(config.Path, "piecestore.db")
-	dataDir := filepath.Join(config.Path, "piece-store-data")
+// NewEndpoint -- initializes a new endpoint for a piecestore server
+func NewEndpoint(log *zap.Logger, config Config, db *psdb.DB, pkey crypto.PrivateKey) (*Server, error) {
 
 	// read the allocated disk space from the config file
 	allocatedDiskSpace := config.AllocatedDiskSpace
@@ -123,11 +129,6 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	}
 	freeDiskSpace := int64(diskSpace.Free)
 
-	db, err := psdb.Open(ctx, dataDir, dbPath)
-	if err != nil {
-		return nil, ServerError.Wrap(err)
-	}
-
 	// get how much is currently used, if for the first time totalUsed = 0
 	totalUsed, err := db.SumTTLSizes()
 	if err != nil {
@@ -135,41 +136,41 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 		totalUsed = 0x00
 	}
 
-	// get used bandwidth from the beginning of the month to till date
 	usedBandwidth, err := db.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
 	if err != nil {
 		return nil, ServerError.Wrap(err)
 	}
 
 	if usedBandwidth > allocatedBandwidth {
-		zap.S().Warnf("Exceed the allowed Bandwidth setting")
+		log.Warn("Exceed the allowed Bandwidth setting")
 	} else {
-		zap.S().Info("Remaining Bandwidth ", allocatedBandwidth-usedBandwidth)
+		log.Info("Remaining Bandwidth", zap.Int64("bytes", allocatedBandwidth-usedBandwidth))
 	}
 
 	// check your hard drive is big enough
 	// first time setup as a piece node server
 	if (totalUsed == 0x00) && (freeDiskSpace < allocatedDiskSpace) {
 		allocatedDiskSpace = freeDiskSpace
-		zap.S().Warnf("Disk space is less than requested allocated space, allocating = %d Bytes", allocatedDiskSpace)
+		log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", allocatedDiskSpace))
 	}
 
 	// on restarting the Piece node server, assuming already been working as a node
 	// used above the alloacated space, user changed the allocation space setting
 	// before restarting
 	if totalUsed >= allocatedDiskSpace {
-		zap.S().Warnf("Used more space then allocated, allocating = %d Bytes", allocatedDiskSpace)
+		log.Warn("Used more space than allocated. Allocating space", zap.Int64("bytes", allocatedDiskSpace))
 	}
 
 	// the available diskspace is less than remaining allocated space,
 	// due to change of setting before restarting
 	if freeDiskSpace < (allocatedDiskSpace - totalUsed) {
 		allocatedDiskSpace = freeDiskSpace
-		zap.S().Warnf("Disk space is less than requested allocated space, allocating = %d Bytes", allocatedDiskSpace)
+		log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", allocatedDiskSpace))
 	}
 
 	return &Server{
-		DataDir:          dataDir,
+		log:              log,
+		DataDir:          filepath.Join(config.Path, "piece-store-data"),
 		DB:               db,
 		pkey:             pkey,
 		totalAllocated:   allocatedDiskSpace,
@@ -179,8 +180,9 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 }
 
 // New creates a Server with custom db
-func New(dataDir string, db *psdb.DB, config Config, pkey crypto.PrivateKey) *Server {
+func New(log *zap.Logger, dataDir string, db *psdb.DB, config Config, pkey crypto.PrivateKey) *Server {
 	return &Server{
+		log:              log,
 		DataDir:          dataDir,
 		DB:               db,
 		pkey:             pkey,
@@ -197,7 +199,7 @@ func (s *Server) Stop(ctx context.Context) (err error) {
 
 // Piece -- Send meta data about a stored by by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
-	zap.S().Infof("Getting Meta for %s...", in.GetId())
+	s.log.Debug("Getting Meta", zap.String("Piece ID", in.GetId()))
 
 	authorization := in.GetAuthorization()
 	if err := s.verifier(authorization); err != nil {
@@ -234,13 +236,13 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 		return nil, err
 	}
 
-	zap.S().Infof("Successfully retrieved meta for %s.", in.GetId())
+	s.log.Debug("Successfully retrieved meta", zap.String("Piece ID", in.GetId()))
 	return &pb.PieceSummary{Id: in.GetId(), PieceSize: fileInfo.Size(), ExpirationUnixSec: ttl}, nil
 }
 
 // Stats will return statistics about the Server
 func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, error) {
-	zap.S().Infof("Getting Stats...\n")
+	s.log.Debug("Getting Stats...")
 
 	totalUsed, err := s.DB.SumTTLSizes()
 	if err != nil {
@@ -257,7 +259,7 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, e
 
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
-	zap.S().Infof("Deleting %s...", in.GetId())
+	s.log.Debug("Deleting", zap.String("Piece ID", fmt.Sprint(in.GetId())))
 
 	authorization := in.GetAuthorization()
 	if err := s.verifier(authorization); err != nil {
@@ -272,7 +274,6 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 		return nil, err
 	}
 
-	zap.S().Infof("Successfully deleted %s.", in.GetId())
 	return &pb.PieceDeleteSummary{Message: OK}, nil
 }
 
@@ -285,7 +286,7 @@ func (s *Server) deleteByID(id string) error {
 		return err
 	}
 
-	zap.S().Infof("Deleted data of id (%s)\n", id)
+	s.log.Debug("Deleted", zap.String("Piece ID", id))
 
 	return nil
 }

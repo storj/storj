@@ -173,6 +173,7 @@
         <div class="account-area-button-area">
             <Button label="Delete account" width="140px" height="50px" :onPress="onDeleteAccountClick" isWhite/>
         </div>
+        <!-- <DeleteAccontPopup /> -->
     </div>
 </template>
 
@@ -453,6 +454,7 @@
 						return;
 					}
 
+					// TODO navigate to start route
 					this.$router.push(ROUTES.LOGIN.path);
 				}
 			},

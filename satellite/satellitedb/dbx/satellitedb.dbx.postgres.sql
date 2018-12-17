@@ -14,3 +14,40 @@ CREATE TABLE irreparabledbs (
 	repair_attempt_count bigint NOT NULL,
 	PRIMARY KEY ( segmentpath )
 );
+CREATE TABLE nodes (
+	id bytea NOT NULL,
+	audit_success_count bigint NOT NULL,
+	total_audit_count bigint NOT NULL,
+	audit_success_ratio double precision NOT NULL,
+	uptime_success_count bigint NOT NULL,
+	total_uptime_count bigint NOT NULL,
+	uptime_ratio double precision NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE raws (
+	id bigserial NOT NULL,
+	node_id text NOT NULL,
+	interval_end_time timestamp with time zone NOT NULL,
+	data_total bigint NOT NULL,
+	data_type integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE rollups (
+	id bigserial NOT NULL,
+	node_id text NOT NULL,
+	start_time timestamp with time zone NOT NULL,
+	interval bigint NOT NULL,
+	data_type integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE timestamps (
+	name text NOT NULL,
+	value timestamp with time zone NOT NULL,
+	PRIMARY KEY ( name )
+);
