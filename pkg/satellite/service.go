@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/satellite/satelliteauth"
 	"storj.io/storj/pkg/utils"
 )
+
 // TODO: Use maxLimit in future.
 //const maxLimit = 50
 
