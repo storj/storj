@@ -36,9 +36,9 @@ var (
 		RunE:  cmdRun,
 	}
 	setupCmd = &cobra.Command{
-		Use:         "setup",
-		Short:       "Create config files",
-		RunE:        cmdSetup,
+		Use:   "setup",
+		Short: "Create config files",
+		// RunE: cmdSetup, // initialized in init() to avoid circular dependency
 		Annotations: map[string]string{"type": "setup"},
 	}
 	diagCmd = &cobra.Command{
@@ -75,6 +75,9 @@ func init() {
 	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for storagenode configuration")
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
+
+	setupCmd.RunE = cmdSetup
+
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
@@ -114,7 +117,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"storage.path":       filepath.Join(setupDir, "storage"),
 	}
 
-	return process.SaveConfig(runCmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfig(setupCmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {

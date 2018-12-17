@@ -46,9 +46,9 @@ var (
 		RunE:  cmdRun,
 	}
 	setupCmd = &cobra.Command{
-		Use:         "setup",
-		Short:       "Create config files",
-		RunE:        cmdSetup,
+		Use:   "setup",
+		Short: "Create config files",
+		// RunE: cmdSetup, // initialized in init() to avoid circular dependency
 		Annotations: map[string]string{"type": "setup"},
 	}
 	diagCmd = &cobra.Command{
@@ -101,10 +101,13 @@ func init() {
 
 	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for satellite configuration")
 
+	setupCmd.RunE = cmdSetup // initialized here to avoid circular dependency
+
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(qdiagCmd)
+
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir))
@@ -182,8 +185,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"identity.key-path":  setupCfg.Identity.KeyPath,
 	}
 
-	return process.SaveConfig(runCmd.Flags(),
-		filepath.Join(setupDir, "config.yaml"), o)
+	return process.SaveConfig(setupCmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
