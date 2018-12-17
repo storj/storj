@@ -21,13 +21,13 @@ const (
 	OverlayBucket = "overlay"
 )
 
-// ErrEmptyNode error standardization
+// ErrEmptyNode is returned when the nodeID is empty
 var ErrEmptyNode = errs.New("empty node ID")
 
-// ErrNodeNotFound error standardization
+// ErrNodeNotFound is returned if a node does not exist in database
 var ErrNodeNotFound = errs.New("Node not found")
 
-// ErrBucketNotFound returns if a bucket is unable to be found in the routing table
+// ErrBucketNotFound is returned if a bucket is unable to be found in the routing table
 var ErrBucketNotFound = errs.New("Bucket not found")
 
 // OverlayError creates class of errors for stack traces
