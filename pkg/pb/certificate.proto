@@ -1,0 +1,21 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package node;
+
+import "gogo.proto";
+
+service Certificates {
+    rpc Signing(SigningRequest) returns (SigningResponse);
+}
+
+message SigningRequest {
+    bytes cert = 1;
+}
+
+message SigningResponse {
+    bytes signature = 1;
+}
