@@ -59,7 +59,7 @@ var (
 	}
 
 	revokeCACfg struct {
-		CA       provider.FullCAConfig
+		CA provider.FullCAConfig
 		// TODO: add "broadcast" option to send revocation to network nodes
 	}
 )
