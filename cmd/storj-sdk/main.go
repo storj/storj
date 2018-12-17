@@ -46,13 +46,13 @@ func main() {
 	networkCmd.AddCommand(
 		&cobra.Command{
 			Use:   "run",
-			Short: "run peers",
+			Short: "run network",
 			RunE: func(cmd *cobra.Command, args []string) (err error) {
 				return runProcesses(&flags, args, "run")
 			},
 		}, &cobra.Command{
 			Use:   "setup",
-			Short: "setup peers",
+			Short: "setup network",
 			RunE: func(cmd *cobra.Command, args []string) (err error) {
 				return runProcesses(&flags, args, "setup")
 			},
@@ -61,7 +61,7 @@ func main() {
 
 	testCmd := &cobra.Command{
 		Use:   "test <command>",
-		Short: "run command with a in-memory network",
+		Short: "run command with an in-memory network",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			return runTestPlanet(&flags, args[0], args[1:])

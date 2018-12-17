@@ -40,8 +40,8 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 		}
 		processes.List = append(processes.List, process)
 
-		process.Arguments["run"] = []string{"--config-dir", ".", "run"}
 		process.Arguments["setup"] = []string{"--config-dir", ".", "setup"}
+		process.Arguments["run"] = []string{"--config-dir", ".", "run"}
 	}
 
 	for i := 0; i < storageNodeCount; i++ {
@@ -58,8 +58,8 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 		}
 		processes.List = append(processes.List, process)
 
-		process.Arguments["run"] = []string{"--config-dir", ".", "run"}
 		process.Arguments["setup"] = []string{"--config-dir", ".", "setup"}
+		process.Arguments["run"] = []string{"--config-dir", ".", "run"}
 	}
 
 	return processes, nil
@@ -107,8 +107,8 @@ type Process struct {
 
 // NewProcess creates a process which can be run in the specified directory
 func NewProcess(name, executable, directory string) (*Process, error) {
-	stdout, err1 := os.OpenFile(filepath.Join(directory, "stderr.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-	stderr, err2 := os.OpenFile(filepath.Join(directory, "stdout.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	stdout, err1 := os.OpenFile(filepath.Join(directory, "stderr.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	stderr, err2 := os.OpenFile(filepath.Join(directory, "stdout.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
 	return &Process{
 		Name:       name,

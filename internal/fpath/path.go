@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"storj.io/storj/pkg/utils"
 )
 
 // Create a set
@@ -162,8 +164,8 @@ func ApplicationDir(subdir ...string) string {
 }
 
 // IsValidSetupDir checks if directory is valid for setup configuration
-func IsValidSetupDir(name string) (bool, error) {
-	_, err := os.Stat(name)
+func IsValidSetupDir(name string) (ok bool, err error) {
+	_, err = os.Stat(name)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return true, err
@@ -175,12 +177,26 @@ func IsValidSetupDir(name string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer func() { _ = f.Close() }()
+	defer func() {
+		err = utils.CombineErrors(err, f.Close())
+	}()
 
-	_, err = f.Readdir(1)
-	if err == io.EOF {
-		// is empty
-		return true, nil
+	for {
+		var filenames []string
+		filenames, err = f.Readdirnames(100)
+		if err == io.EOF {
+			// nothing more
+			return true, nil
+		} else if err != nil {
+			// something went wrong
+			return false, err
+		}
+
+		for _, filename := range filenames {
+			if strings.EqualFold(filepath.Ext(filename), ".log") {
+				continue
+			}
+			return false, nil
+		}
 	}
-	return false, err
 }
