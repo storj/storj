@@ -20,7 +20,7 @@ type accountingDB struct {
 
 // LastRawTime records the greatest last tallied time
 func (db *accountingDB) LastRawTime(ctx context.Context, timestampType string) (time.Time, bool, error) {
-	lastTally, err := db.db.Find_Timestamps_Value_By_Name(ctx, dbx.Timestamps_Name(timestampType))
+	lastTally, err := db.db.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
 	if lastTally == nil {
 		return time.Time{}, true, err
 	}
@@ -54,18 +54,18 @@ func (db *accountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTo
 	}()
 	//create a granular record per node id
 	for k, v := range bwTotals {
-		nID := dbx.Raw_NodeId(k)
-		end := dbx.Raw_IntervalEndTime(latestBwa)
-		total := dbx.Raw_DataTotal(v)
-		dataType := dbx.Raw_DataType(accounting.Bandwith)
-		_, err = tx.Create_Raw(ctx, nID, end, total, dataType)
+		nID := dbx.AccountingRaw_NodeId(k)
+		end := dbx.AccountingRaw_IntervalEndTime(latestBwa)
+		total := dbx.AccountingRaw_DataTotal(v)
+		dataType := dbx.AccountingRaw_DataType(accounting.Bandwith)
+		_, err = tx.Create_AccountingRaw(ctx, nID, end, total, dataType)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 	}
 	//save this batch's greatest time
-	update := dbx.Timestamps_Update_Fields{Value: dbx.Timestamps_Value(latestBwa)}
-	_, err = tx.Update_Timestamps_By_Name(ctx, dbx.Timestamps_Name("LastBandwidthTally"), update)
+	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestBwa)}
+	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name("LastBandwidthTally"), update)
 	return err
 }
 
@@ -86,18 +86,16 @@ func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time
 		}
 	}()
 	for k, v := range nodeData {
-		nID := dbx.Raw_NodeId(k.String())
-		end := dbx.Raw_IntervalEndTime(latestTally)
-		total := dbx.Raw_DataTotal(v)
-		dataType := dbx.Raw_DataType(accounting.AtRest)
-		_, err = tx.Create_Raw(ctx, nID, end, total, dataType)
+		nID := dbx.AccountingRaw_NodeId(k.String())
+		end := dbx.AccountingRaw_IntervalEndTime(latestTally)
+		total := dbx.AccountingRaw_DataTotal(v)
+		dataType := dbx.AccountingRaw_DataType(accounting.AtRest)
+		_, err = tx.Create_AccountingRaw(ctx, nID, end, total, dataType)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 	}
-	//	update := dbx.Timestamps_Update_Fields{Value: dbx.Timestamps_Value(latestBwa)}
-	//_, err = tx.Update_Timestamps_By_Name(ctx, dbx.Timestamps_Name("LastBandwidthTally"), update)
-	//return err
-
-	return nil
+	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestTally)}
+	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name("LastAtRestTally"), update)
+	return Error.Wrap(err)
 }
