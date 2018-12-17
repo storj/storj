@@ -112,13 +112,23 @@ func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	return Error.Wrap(t.accountingDB.SaveAtRestRaw(ctx, t.logger, nodeData))
+	latestTally, isNil, err := t.accountingDB.LastRawTime(ctx, "LastAtRestTally")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if isNil {
+		latestTally = time.Now().UTC()
+	}
+	return Error.Wrap(t.accountingDB.SaveAtRestRaw(ctx, latestTally, nodeData))
 }
 
 // queryBW queries bandwidth allocation database, selecting all new contracts since the last collection run time.
 // Grouping by storage node ID and adding total of bandwidth to granular data table.
 func (t *tally) queryBW(ctx context.Context) error {
-	lastBwTally, isNil, err := t.accountingDB.LastBWGranularTime(ctx)
+	lastBwTally, isNil, err := t.accountingDB.LastRawTime(ctx, "LastBandwidthTally")
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -152,5 +162,5 @@ func (t *tally) queryBW(ctx context.Context) error {
 		bwTotals[rbad.StorageNodeId.String()] += rbad.GetTotal() // todo: check for overflow?
 	}
 
-	return Error.Wrap(t.accountingDB.SaveBWRaw(ctx, t.logger, lastBwTally, bwTotals))
+	return Error.Wrap(t.accountingDB.SaveBWRaw(ctx, lastBwTally, bwTotals))
 }
