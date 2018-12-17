@@ -112,7 +112,7 @@ func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	latestTally, isNil, err := t.accountingDB.LastRawTime(ctx, "LastAtRestTally")
+	latestTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastAtRestTally)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -128,7 +128,7 @@ func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 // queryBW queries bandwidth allocation database, selecting all new contracts since the last collection run time.
 // Grouping by storage node ID and adding total of bandwidth to granular data table.
 func (t *tally) queryBW(ctx context.Context) error {
-	lastBwTally, isNil, err := t.accountingDB.LastRawTime(ctx, "LastBandwidthTally")
+	lastBwTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastBandwidthTally)
 	if err != nil {
 		return Error.Wrap(err)
 	}

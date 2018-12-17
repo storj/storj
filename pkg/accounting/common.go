@@ -3,14 +3,14 @@
 
 package accounting
 
-// Constants for accounting_raw and accounting_rollup
+// Constants for accounting_raw, accounting_rollup, and accounting_timestamps
 const (
 	// AtRest is the data_type representing at-rest data calculated from pointerdb
 	AtRest = iota
 	// Bandwidth is the data_type representing bandwidth allocation.
 	Bandwith = iota
-	// LastAtRestTally
+	// LastAtRestTally represents the accounting timestamp for at rest data calculation 
 	LastAtRestTally = "LastAtRestTally"
-	// LastBandwidthTally
+	// LastBandwidthTally represents the accounting timestamp for at rest bandwidth allocation query
 	LastBandwidthTally = "LastBandwidthTally"
 )

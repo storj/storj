@@ -65,7 +65,7 @@ func (db *accountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTo
 	}
 	//save this batch's greatest time
 	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestBwa)}
-	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name("LastBandwidthTally"), update)
+	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
 	return err
 }
 
@@ -96,6 +96,6 @@ func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time
 		}
 	}
 	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestTally)}
-	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name("LastAtRestTally"), update)
+	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastAtRestTally), update)
 	return Error.Wrap(err)
 }
