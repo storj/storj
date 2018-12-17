@@ -58,7 +58,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return ServerError.Wrap(err)
 	}
 
-	s, err := NewEndpoint(ctx, c, db, server.Identity().Key, zap.L())
+	s, err := NewEndpoint(zap.L(), c, db, server.Identity().Key)
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ type Server struct {
 }
 
 // NewEndpoint -- initializes a new endpoint for a piecestore server
-func NewEndpoint(ctx context.Context, config Config, db *psdb.DB, pkey crypto.PrivateKey, log *zap.Logger) (*Server, error) {
+func NewEndpoint(log *zap.Logger, config Config, db *psdb.DB, pkey crypto.PrivateKey) (*Server, error) {
 
 	// read the allocated disk space from the config file
 	allocatedDiskSpace := config.AllocatedDiskSpace
@@ -180,7 +180,7 @@ func NewEndpoint(ctx context.Context, config Config, db *psdb.DB, pkey crypto.Pr
 }
 
 // New creates a Server with custom db
-func New(dataDir string, db *psdb.DB, config Config, pkey crypto.PrivateKey, log *zap.Logger) *Server {
+func New(log *zap.Logger, dataDir string, db *psdb.DB, config Config, pkey crypto.PrivateKey) *Server {
 	return &Server{
 		log:              log,
 		DataDir:          dataDir,
