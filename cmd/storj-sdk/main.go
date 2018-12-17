@@ -22,6 +22,8 @@ type Flags struct {
 	Identities       int
 }
 
+var printCommands bool
+
 func main() {
 	cobra.EnableCommandSorting = false
 
@@ -37,6 +39,8 @@ func main() {
 	rootCmd.PersistentFlags().IntVarP(&flags.SatelliteCount, "satellites", "", 1, "number of satellites to start")
 	rootCmd.PersistentFlags().IntVarP(&flags.StorageNodeCount, "storage-nodes", "", 10, "number of storage nodes to start")
 	rootCmd.PersistentFlags().IntVarP(&flags.Identities, "identities", "", 10, "number of identities to create")
+
+	rootCmd.PersistentFlags().BoolVarP(&printCommands, "", "x", false, "print commands as they are run")
 
 	networkCmd := &cobra.Command{
 		Use:   "network",

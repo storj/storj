@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"golang.org/x/sync/errgroup"
 
@@ -161,6 +162,9 @@ func (process *Process) Exec(ctx context.Context, command string) error {
 
 	processgroup.Setup(cmd)
 
+	if printCommands {
+		fmt.Println("exec: ", strings.Join(cmd.Args, " "))
+	}
 	return cmd.Run()
 }
 
