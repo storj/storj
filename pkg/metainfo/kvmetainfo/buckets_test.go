@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
