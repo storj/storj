@@ -193,9 +193,11 @@ func IsValidSetupDir(name string) (ok bool, err error) {
 		}
 
 		for _, filename := range filenames {
+			// allow log files to exist in the folder
 			if strings.EqualFold(filepath.Ext(filename), ".log") {
 				continue
 			}
+
 			return false, nil
 		}
 	}
