@@ -88,6 +88,10 @@ func (o *overlaycache) Delete(key storage.Key) error {
 }
 
 func (o *overlaycache) List(start storage.Key, limit int) (keys storage.Keys, err error) {
+	if limit <= 0 || limit > storage.LookupLimit {
+		limit = storage.LookupLimit
+	}
+
 	rows, err := o.db.Limited_OverlayCacheNode_By_Key_GreaterOrEqual(o.ctx, dbx.OverlayCacheNode_Key(start), limit, 0)
 	if err != nil {
 		return []storage.Key{}, err
