@@ -37,7 +37,7 @@ func TestQueryNoAgreements(t *testing.T) {
 
 	tally := newTally(zap.NewNop(), db.Accounting(), db.BandwidthAgreement(), pointerdb, overlayServer, 0, time.Second)
 
-	err = tally.Query(ctx)
+	err = tally.queryBW(ctx)
 	assert.NoError(t, err)
 }
 
@@ -71,6 +71,6 @@ func TestQueryWithBw(t *testing.T) {
 	assert.NoError(t, err)
 
 	//check the db
-	err = tally.Query(ctx)
+	err = tally.queryBW(ctx)
 	assert.NoError(t, err)
 }

@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -18,8 +19,8 @@ type accountingDB struct {
 	db *dbx.DB
 }
 
-// LastGranularTime records the greatest last tallied bandwidth agreement time
-func (db *accountingDB) LastGranularTime(ctx context.Context) (time.Time, bool, error) {
+// LastBWGranularTime records the greatest last tallied bandwidth agreement time
+func (db *accountingDB) LastBWGranularTime(ctx context.Context) (time.Time, bool, error) {
 	lastBwTally, err := db.db.Find_Timestamps_Value_By_Name(ctx, dbx.Timestamps_Name("LastBandwidthTally"))
 	if lastBwTally == nil {
 		return time.Time{}, true, err
@@ -27,9 +28,9 @@ func (db *accountingDB) LastGranularTime(ctx context.Context) (time.Time, bool, 
 	return lastBwTally.Value, false, err
 }
 
-// SaveGranulars records granular tallies (sums of bw agreement values) to the database
-// and updates the LastGranularTime
-func (db *accountingDB) SaveGranulars(ctx context.Context, logger *zap.Logger, latestBwa time.Time, bwTotals map[string]int64) (err error) {
+// SaveBWRaw records granular tallies (sums of bw agreement values) to the database
+// and updates the LastBWGranularTime
+func (db *accountingDB) SaveBWRaw(ctx context.Context, logger *zap.Logger, latestBwa time.Time, bwTotals map[string]int64) (err error) {
 	// We use the latest bandwidth agreement value of a batch of records as the start of the next batch
 	// This enables us to not use:
 	// 1) local time (which may deviate from DB time)
@@ -38,7 +39,7 @@ func (db *accountingDB) SaveGranulars(ctx context.Context, logger *zap.Logger, l
 	// Any change in these assumptions would result in a change to this function
 	// in particular, we should consider finding the sum of bwagreements using SQL sum() direct against the bwa table
 	if len(bwTotals) == 0 {
-		logger.Warn("In SaveGranulars with empty bwtotals")
+		logger.Warn("In SaveBWRaw with empty bwtotals")
 		return nil
 	}
 	//insert all records in a transaction so if we fail, we don't have partial info stored
@@ -71,4 +72,9 @@ func (db *accountingDB) SaveGranulars(ctx context.Context, logger *zap.Logger, l
 	update := dbx.Timestamps_Update_Fields{Value: dbx.Timestamps_Value(latestBwa)}
 	_, err = tx.Update_Timestamps_By_Name(ctx, dbx.Timestamps_Name("LastBandwidthTally"), update)
 	return err
+}
+
+// SaveAtRestRaw records raw tallies of at rest data to the database
+func (db *accountingDB) SaveAtRestRaw(ctx context.Context, logger *zap.Logger, nodeData map[storj.NodeID]int64) error {
+	return nil
 }
