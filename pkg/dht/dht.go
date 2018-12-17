@@ -44,12 +44,3 @@ type RoutingTable interface {
 	SetBucketTimestamp(id []byte, now time.Time) error
 	GetBucketTimestamp(id []byte, bucket Bucket) (time.Time, error)
 }
-
-// Bucket is a set of methods to act on kademlia k buckets
-type Bucket interface {
-	Routing() []pb.Node
-	Cache() []pb.Node
-	// TODO: should this be a NodeID?
-	Midpoint() string
-	Nodes() []*pb.Node
-}
