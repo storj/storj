@@ -41,7 +41,7 @@ func TestNewSegmentStore(t *testing.T) {
 		ErasureScheme: mock_eestream.NewMockErasureScheme(ctrl),
 	}
 
-	ss := NewSegmentStore(mockOC, mockEC, mockPDB, rs, 10, &pb.NodeStats{})
+	ss := NewSegmentStore(mockOC, mockEC, mockPDB, rs, 10)
 	assert.NotNil(t, ss)
 }
 
@@ -56,7 +56,7 @@ func TestSegmentStoreMeta(t *testing.T) {
 		ErasureScheme: mock_eestream.NewMockErasureScheme(ctrl),
 	}
 
-	ss := segmentStore{mockOC, mockEC, mockPDB, rs, 10, &pb.NodeStats{}}
+	ss := segmentStore{mockOC, mockEC, mockPDB, rs, 10}
 	assert.NotNil(t, ss)
 
 	var mExp time.Time
@@ -105,7 +105,7 @@ func TestSegmentStorePutRemote(t *testing.T) {
 			ErasureScheme: mockES,
 		}
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize, &pb.NodeStats{}}
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
 		assert.NotNil(t, ss)
 
 		calls := []*gomock.Call{
@@ -161,7 +161,7 @@ func TestSegmentStorePutInline(t *testing.T) {
 			ErasureScheme: mockES,
 		}
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize, &pb.NodeStats{}}
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
 		assert.NotNil(t, ss)
 
 		calls := []*gomock.Call{
@@ -207,7 +207,7 @@ func TestSegmentStoreGetInline(t *testing.T) {
 			ErasureScheme: mockES,
 		}
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize, &pb.NodeStats{}}
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
 		assert.NotNil(t, ss)
 
 		calls := []*gomock.Call{
@@ -254,7 +254,7 @@ func TestSegmentStoreGetRemote(t *testing.T) {
 			ErasureScheme: mockES,
 		}
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize, &pb.NodeStats{}}
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
 		assert.NotNil(t, ss)
 
 		calls := []*gomock.Call{
@@ -317,7 +317,7 @@ func TestSegmentStoreDeleteInline(t *testing.T) {
 			ErasureScheme: mockES,
 		}
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize, &pb.NodeStats{}}
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
 		assert.NotNil(t, ss)
 
 		calls := []*gomock.Call{
@@ -367,7 +367,7 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 			ErasureScheme: mockES,
 		}
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize, &pb.NodeStats{}}
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
 		assert.NotNil(t, ss)
 
 		calls := []*gomock.Call{
@@ -429,7 +429,7 @@ func TestSegmentStoreList(t *testing.T) {
 			ErasureScheme: mockES,
 		}
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize, &pb.NodeStats{}}
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
 		assert.NotNil(t, ss)
 
 		ti := time.Unix(0, 0).UTC()

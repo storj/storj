@@ -31,12 +31,22 @@ var (
 // Overlay cache responsibility.
 type Config struct {
 	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
+	Node            NodeSelectionConfig
 }
 
 // LookupConfig is a configuration struct for querying the overlay cache with one or more node IDs
 type LookupConfig struct {
 	NodeIDsString string `help:"one or more string-encoded node IDs, delimited by Delimiter"`
 	Delimiter     string `help:"delimiter used for parsing node IDs" default:","`
+}
+
+// NodeSelectionConfig is a configuration struct to determine the minimum
+// values for nodes to select
+type NodeSelectionConfig struct {
+	UptimeRatio       float64 `help:"a node's ratio of being up/online vs. down/offline" default:"0"`
+	UptimeCount       int64   `help:"the number of times a node's uptime has been checked" default:"0"`
+	AuditSuccessRatio float64 `help:"a node's ratio of successful audits" default:"0"`
+	AuditCount        int64   `help:"the number of times a node has been audited" default:"0"`
 }
 
 // CtxKey used for assigning cache and server
@@ -67,7 +77,15 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	}
 
 	cache := NewOverlayCache(sdb.OverlayCache(), kad, sdb.StatDB())
-	srv := NewServer(zap.L(), cache, kad)
+
+	ns := &pb.NodeStats{
+		UptimeCount:       c.Node.UptimeCount,
+		UptimeRatio:       c.Node.UptimeRatio,
+		AuditSuccessRatio: c.Node.AuditSuccessRatio,
+		AuditCount:        c.Node.AuditCount,
+	}
+	
+	srv := NewServer(zap.L(), cache, kad, ns)
 	pb.RegisterOverlayServer(server.GRPC(), srv)
 
 	ctx2 := context.WithValue(ctx, ctxKeyOverlay, cache)
