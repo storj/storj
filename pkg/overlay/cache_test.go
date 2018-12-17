@@ -114,10 +114,6 @@ func TestCache_Store(t *testing.T) {
 	defer ctx.Check(planet.Shutdown)
 	planet.Start(ctx)
 
-	sdb, err := satellitedb.NewInMemory()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	testCache(ctx, t, teststore.New(), sdb.StatDB())
+	sdb := planet.Satellites[0].StatDB
+	testCache(ctx, t, teststore.New(), sdb)
 }
