@@ -62,7 +62,6 @@ require (
 	github.com/lib/pq v1.0.0
 	github.com/loov/hrtime v0.0.0-20180911122900-a9e82bc6c180
 	github.com/loov/plot v0.0.0-20180510142208-e59891ae1271
-	github.com/mailru/easyjson v0.0.0-20180823135443-60711f1a8329 // indirect
 	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/mattn/go-runewidth v0.0.3 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0
