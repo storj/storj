@@ -5,14 +5,15 @@ package overlay_test
 
 import (
 	"context"
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/satellitedb"
@@ -23,34 +24,47 @@ import (
 	"storj.io/storj/storage/teststore"
 )
 
-var (
-	valid1ID   = teststorj.NodeIDFromString("valid1")
-	valid2ID   = teststorj.NodeIDFromString("valid2")
-	invalid1ID = teststorj.NodeIDFromString("invalid1")
-	invalid2ID = teststorj.NodeIDFromString("invalid2")
-)
-
 func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, sdb statdb.DB) {
+	valid1ID := storj.NodeID{}
+	valid2ID := storj.NodeID{}
+	missingID := storj.NodeID{}
+
+	_, _ = rand.Read(valid1ID[:])
+	_, _ = rand.Read(valid2ID[:])
+	_, _ = rand.Read(missingID[:])
+
 	cache := overlay.Cache{DB: store, StatDB: sdb}
 
 	{ // Put
-		err := cache.Put(ctx, valid1ID, *teststorj.MockNode("valid1"))
+		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID})
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = cache.Put(ctx, valid2ID, *teststorj.MockNode("valid2"))
+
+		err = cache.Put(ctx, valid2ID, pb.Node{Id: valid2ID})
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	{ // Get
-		valid2, err := cache.Get(ctx, valid2ID)
-		assert.NoError(t, err)
-		assert.Equal(t, valid2.Id, valid2ID)
-
-		invalid2, err := cache.Get(ctx, invalid2ID)
+		_, err := cache.Get(ctx, storj.NodeID{})
 		assert.Error(t, err)
+		assert.True(t, err == overlay.ErrEmptyNode)
+
+		valid1, err := cache.Get(ctx, valid1ID)
+		if assert.NoError(t, err) {
+			assert.Equal(t, valid1.Id, valid1ID)
+		}
+
+		valid2, err := cache.Get(ctx, valid2ID)
+		if assert.NoError(t, err) {
+			assert.Equal(t, valid2.Id, valid2ID)
+		}
+
+		invalid2, err := cache.Get(ctx, missingID)
+		assert.Error(t, err)
+		assert.True(t, err == overlay.ErrNodeNotFound)
 		assert.Nil(t, invalid2)
 
 		if storeClient, ok := store.(*teststore.Client); ok {
@@ -67,7 +81,7 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, s
 		assert.Equal(t, nodes[1].Id, valid1ID)
 		assert.Equal(t, nodes[2].Id, valid2ID)
 
-		nodes, err = cache.GetAll(ctx, storj.NodeIDList{valid1ID, invalid1ID})
+		nodes, err = cache.GetAll(ctx, storj.NodeIDList{valid1ID, missingID})
 		assert.NoError(t, err)
 		assert.Equal(t, nodes[0].Id, valid1ID)
 		assert.Nil(t, nodes[1])
