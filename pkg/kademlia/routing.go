@@ -91,10 +91,11 @@ func (rt *RoutingTable) CacheSize() int {
 
 // GetBucket retrieves the corresponding kbucket from node id
 // Note: id doesn't need to be stored at time of search
+// TODO (jj): Update this - maybe return kbucketID as well as the nodes in it
 func (rt *RoutingTable) GetBucket(id storj.NodeID) (bucket dht.Bucket, ok bool) {
 	bID, err := rt.getKBucketID(id)
 	if err != nil {
-		return &KBucket{}, false
+		return &KBucket{}, false // change KBucket to []*pb.Node
 	}
 	if bID == (bucketID{}) {
 		return &KBucket{}, false
@@ -103,10 +104,11 @@ func (rt *RoutingTable) GetBucket(id storj.NodeID) (bucket dht.Bucket, ok bool) 
 	if err != nil {
 		return &KBucket{}, false
 	}
-	return &KBucket{nodes: unmarshaledNodes}, true
+	return &KBucket{nodes: unmarshaledNodes}, true // TODO (jj): Update this
 }
 
 // GetBuckets retrieves all buckets from the local node
+// TODO (jj): Update this - maybe rename to GetNodes or something
 func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 	bs := []dht.Bucket{}
 	kbuckets, err := rt.kadBucketDB.List(nil, 0)
@@ -118,7 +120,7 @@ func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 		if err != nil {
 			return bs, err
 		}
-		bs = append(bs, &KBucket{nodes: unmarshaledNodes})
+		bs = append(bs, &KBucket{nodes: unmarshaledNodes}) // TODO (jj): Update this
 	}
 	return bs, nil
 }

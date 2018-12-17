@@ -84,14 +84,14 @@ func (srv *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb
 		return nil, err
 	}
 	// TODO(bryanchriswhite): should use bucketID type
-	bucket, ok := rt.GetBucket(req.Id)
+	bucket, ok := rt.GetBucket(req.Id) // TODO (jj): Update this
 	if !ok {
 		return &pb.GetBucketResponse{}, ServerError.New("GetBuckets returned non-OK response")
 	}
 
 	return &pb.GetBucketResponse{
 		Id:    req.Id,
-		Nodes: bucket.Nodes(),
+		Nodes: bucket.Nodes(), // TODO (jj): Update this
 	}, nil
 }
 

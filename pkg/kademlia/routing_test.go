@@ -62,9 +62,9 @@ func TestGetBucket(t *testing.T) {
 		},
 	}
 	for i, v := range cases {
-		b, e := rt.GetBucket(node2.Id)
+		b, e := rt.GetBucket(node2.Id) // TODO (jj): Update this
 		for j, w := range v.expected.nodes {
-			if !assert.True(t, bytes.Equal(w.Id.Bytes(), b.Nodes()[j].Id.Bytes())) {
+			if !assert.True(t, bytes.Equal(w.Id.Bytes(), b.Nodes()[j].Id.Bytes())) { // TODO (jj): Update this
 				t.Logf("case %v failed expected: ", i)
 			}
 		}
@@ -83,10 +83,10 @@ func TestGetBuckets(t *testing.T) {
 	assert.True(t, ok)
 	assert.NoError(t, err)
 	expected := []*pb.Node{node, node2}
-	buckets, err := rt.GetBuckets()
+	buckets, err := rt.GetBuckets() // TODO (jj): Update this
 	assert.NoError(t, err)
-	for _, v := range buckets {
-		for j, w := range v.Nodes() {
+	for _, v := range buckets { 
+		for j, w := range v.Nodes() { // TODO (jj): Update this
 			assert.True(t, bytes.Equal(expected[j].Id.Bytes(), w.Id.Bytes()))
 		}
 	}
