@@ -98,6 +98,10 @@ read one (
     select project_member
     where project_member.member_id = ?
 )
+read limitoffset (
+    select project_member
+    where project_member.project_id = ?
+)
 create project_member ( )
 delete project_member (
     where project_member.member_id = ?
