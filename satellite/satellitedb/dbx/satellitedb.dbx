@@ -144,7 +144,7 @@ model overlay_cache_node (
 	key key
 	unique key
 
-	field key text
+	field key blob
 	field value blob (updatable)
 )
 
@@ -155,12 +155,9 @@ read one (
   where  overlay_cache_node.key = ?
 )
 
-read all (
-	select overlay_cache_node
-)
-
 read limitoffset (
 	select overlay_cache_node
+  where  overlay_cache_node.key >= ?
 )
 
 update overlay_cache_node ( where overlay_cache_node.key = ? )

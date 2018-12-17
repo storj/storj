@@ -27,7 +27,7 @@ CREATE TABLE nodes (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE overlay_cache_nodes (
-	key TEXT NOT NULL,
+	key BLOB NOT NULL,
 	value BLOB NOT NULL,
 	PRIMARY KEY ( key ),
 	UNIQUE ( key )

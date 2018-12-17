@@ -300,7 +300,7 @@ CREATE TABLE nodes (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE overlay_cache_nodes (
-	key text NOT NULL,
+	key bytea NOT NULL,
 	value bytea NOT NULL,
 	PRIMARY KEY ( key ),
 	UNIQUE ( key )
@@ -420,7 +420,7 @@ CREATE TABLE nodes (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE overlay_cache_nodes (
-	key TEXT NOT NULL,
+	key BLOB NOT NULL,
 	value BLOB NOT NULL,
 	PRIMARY KEY ( key ),
 	UNIQUE ( key )
@@ -887,7 +887,7 @@ func (f Node_UpdatedAt_Field) value() interface{} {
 func (Node_UpdatedAt_Field) _Column() string { return "updated_at" }
 
 type OverlayCacheNode struct {
-	Key   string
+	Key   []byte
 	Value []byte
 }
 
@@ -900,10 +900,10 @@ type OverlayCacheNode_Update_Fields struct {
 type OverlayCacheNode_Key_Field struct {
 	_set   bool
 	_null  bool
-	_value string
+	_value []byte
 }
 
-func OverlayCacheNode_Key(v string) OverlayCacheNode_Key_Field {
+func OverlayCacheNode_Key(v []byte) OverlayCacheNode_Key_Field {
 	return OverlayCacheNode_Key_Field{_set: true, _value: v}
 }
 
@@ -1954,46 +1954,15 @@ func (obj *postgresImpl) Get_OverlayCacheNode_By_Key(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) All_OverlayCacheNode(ctx context.Context) (
-	rows []*OverlayCacheNode, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		overlay_cache_node := &OverlayCacheNode{}
-		err = __rows.Scan(&overlay_cache_node.Key, &overlay_cache_node.Value)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, overlay_cache_node)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *postgresImpl) Limited_OverlayCacheNode(ctx context.Context,
+func (obj *postgresImpl) Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx context.Context,
+	overlay_cache_node_key_greater_or_equal OverlayCacheNode_Key_Field,
 	limit int, offset int64) (
 	rows []*OverlayCacheNode, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes WHERE overlay_cache_nodes.key >= ? LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values)
+	__values = append(__values, overlay_cache_node_key_greater_or_equal.value())
 
 	__values = append(__values, limit, offset)
 
@@ -3061,46 +3030,15 @@ func (obj *sqlite3Impl) Get_OverlayCacheNode_By_Key(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) All_OverlayCacheNode(ctx context.Context) (
-	rows []*OverlayCacheNode, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		overlay_cache_node := &OverlayCacheNode{}
-		err = __rows.Scan(&overlay_cache_node.Key, &overlay_cache_node.Value)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, overlay_cache_node)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Limited_OverlayCacheNode(ctx context.Context,
+func (obj *sqlite3Impl) Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx context.Context,
+	overlay_cache_node_key_greater_or_equal OverlayCacheNode_Key_Field,
 	limit int, offset int64) (
 	rows []*OverlayCacheNode, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes WHERE overlay_cache_nodes.key >= ? LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values)
+	__values = append(__values, overlay_cache_node_key_greater_or_equal.value())
 
 	__values = append(__values, limit, offset)
 
@@ -3897,15 +3835,6 @@ func (rx *Rx) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
 	return tx.All_Bwagreement_By_CreatedAt_Greater(ctx, bwagreement_created_at_greater)
 }
 
-func (rx *Rx) All_OverlayCacheNode(ctx context.Context) (
-	rows []*OverlayCacheNode, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_OverlayCacheNode(ctx)
-}
-
 func (rx *Rx) All_Raw_By_NodeId(ctx context.Context,
 	raw_node_id Raw_NodeId_Field) (
 	rows []*Raw, err error) {
@@ -4162,14 +4091,15 @@ func (rx *Rx) Limited_Bwagreement(ctx context.Context,
 	return tx.Limited_Bwagreement(ctx, limit, offset)
 }
 
-func (rx *Rx) Limited_OverlayCacheNode(ctx context.Context,
+func (rx *Rx) Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx context.Context,
+	overlay_cache_node_key_greater_or_equal OverlayCacheNode_Key_Field,
 	limit int, offset int64) (
 	rows []*OverlayCacheNode, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Limited_OverlayCacheNode(ctx, limit, offset)
+	return tx.Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx, overlay_cache_node_key_greater_or_equal, limit, offset)
 }
 
 func (rx *Rx) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -4245,9 +4175,6 @@ type Methods interface {
 	All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
 		bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
 		rows []*Bwagreement, err error)
-
-	All_OverlayCacheNode(ctx context.Context) (
-		rows []*OverlayCacheNode, err error)
 
 	All_Raw_By_NodeId(ctx context.Context,
 		raw_node_id Raw_NodeId_Field) (
@@ -4360,7 +4287,8 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*Bwagreement, err error)
 
-	Limited_OverlayCacheNode(ctx context.Context,
+	Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx context.Context,
+		overlay_cache_node_key_greater_or_equal OverlayCacheNode_Key_Field,
 		limit int, offset int64) (
 		rows []*OverlayCacheNode, err error)
 

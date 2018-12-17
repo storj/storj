@@ -4,11 +4,8 @@
 package satellitedb
 
 import (
-	"bytes"
 	"context"
-	"encoding/hex"
-
-	"github.com/zeebo/errs"
+	"errors"
 
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -39,12 +36,11 @@ func (o *overlaycache) Put(key storage.Key, value storage.Value) error {
 		return Error.Wrap(err)
 	}
 
-	keyValue := hex.EncodeToString(key)
 	_, err = o.Get(key)
 	if err != nil {
 		_, err = o.db.Create_OverlayCacheNode(
 			o.ctx,
-			dbx.OverlayCacheNode_Key(keyValue),
+			dbx.OverlayCacheNode_Key(key),
 			dbx.OverlayCacheNode_Value(value),
 		)
 		if err != nil {
@@ -55,7 +51,7 @@ func (o *overlaycache) Put(key storage.Key, value storage.Value) error {
 		updateFields.Value = dbx.OverlayCacheNode_Value(value)
 		_, err := o.db.Update_OverlayCacheNode_By_Key(
 			o.ctx,
-			dbx.OverlayCacheNode_Key(keyValue),
+			dbx.OverlayCacheNode_Key(key),
 			updateFields,
 		)
 		if err != nil {
@@ -70,8 +66,7 @@ func (o *overlaycache) Get(key storage.Key) (storage.Value, error) {
 		return nil, storage.ErrEmptyKey.New("")
 	}
 
-	keyValue := hex.EncodeToString(key)
-	node, err := o.db.Get_OverlayCacheNode_By_Key(o.ctx, dbx.OverlayCacheNode_Key(keyValue))
+	node, err := o.db.Get_OverlayCacheNode_By_Key(o.ctx, dbx.OverlayCacheNode_Key(key))
 	if err != nil {
 		return nil, err
 	}
@@ -90,49 +85,19 @@ func (o *overlaycache) GetAll(keys storage.Keys) (storage.Values, error) {
 }
 
 func (o *overlaycache) Delete(key storage.Key) error {
-	keyValue := hex.EncodeToString(key)
-	_, err := o.db.Delete_OverlayCacheNode_By_Key(o.ctx, dbx.OverlayCacheNode_Key(keyValue))
+	_, err := o.db.Delete_OverlayCacheNode_By_Key(o.ctx, dbx.OverlayCacheNode_Key(key))
 	return err
 }
 
 func (o *overlaycache) List(start storage.Key, limit int) (keys storage.Keys, err error) {
-	// workaround for start key filled with zeros
-	if bytes.Equal(start, fullEmpty) {
-		start = storage.Key("")
+	rows, err := o.db.Limited_OverlayCacheNode_By_Key_GreaterOrEqual(o.ctx, dbx.OverlayCacheNode_Key(start), limit, 0)
+	if err != nil {
+		return []storage.Key{}, err
 	}
 
-	if start.IsZero() {
-		rows, err := o.db.Limited_OverlayCacheNode(o.ctx, limit, 0)
-		if err != nil {
-			return []storage.Key{}, err
-		}
-
-		keys = make([]storage.Key, len(rows))
-		for _, row := range rows {
-			decoded, err := hex.DecodeString(row.Key)
-			if err != nil {
-				return []storage.Key{}, err
-			}
-			keys = append(keys, decoded)
-		}
-	} else {
-		prefixValue := hex.EncodeToString(start)
-		rows, err := o.db.Query("SELECT key FROM overlay_cache_nodes n WHERE n.key LIKE $1 LIMIT $2", prefixValue+"%", limit)
-		if err != nil {
-			return []storage.Key{}, err
-		}
-		keys = make([]storage.Key, 0)
-		for rows.Next() {
-			var value string
-			if err := rows.Scan(&value); err != nil {
-				return nil, errs.Wrap(utils.CombineErrors(err, rows.Close()))
-			}
-			decoded, err := hex.DecodeString(value)
-			if err != nil {
-				return []storage.Key{}, err
-			}
-			keys = append(keys, decoded)
-		}
+	keys = make([]storage.Key, len(rows))
+	for i, row := range rows {
+		keys[i] = row.Key
 	}
 
 	return keys, nil
@@ -140,15 +105,15 @@ func (o *overlaycache) List(start storage.Key, limit int) (keys storage.Keys, er
 
 // ReverseList lists all keys in revers order
 func (o *overlaycache) ReverseList(start storage.Key, limit int) (storage.Keys, error) {
-	return nil, nil
+	return nil, errors.New("not implemented")
 }
 
 // Iterate iterates over items based on opts
 func (o *overlaycache) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
-	return nil
+	return errors.New("not implemented")
 }
 
 // Close closes the store
 func (o *overlaycache) Close() error {
-	return nil
+	return errors.New("not implemented")
 }
