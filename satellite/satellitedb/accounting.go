@@ -11,6 +11,7 @@ import (
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -53,7 +54,7 @@ func (db *accountingDB) SaveBWRaw(ctx context.Context, logger *zap.Logger, lates
 			err = tx.Commit()
 		} else {
 			logger.Warn("DB txn was rolled back in SaveBWRaw")
-			err = tx.Rollback()
+			err = utils.CombineErrors(err, tx.Rollback())
 		}
 	}()
 	//create a granular record per node id
@@ -90,7 +91,7 @@ func (db *accountingDB) SaveAtRestRaw(ctx context.Context, logger *zap.Logger, n
 			err = tx.Commit()
 		} else {
 			logger.Warn("DB txn was rolled back in SaveAtRestRaw")
-			err = tx.Rollback()
+			err = utils.CombineErrors(err, tx.Rollback())
 		}
 	}()
 	for k, v := range nodeData {
