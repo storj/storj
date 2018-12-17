@@ -19,7 +19,8 @@ var (
 	Error = errs.Class("redis error")
 )
 
-const defaultNodeExpiration = 61 * time.Minute
+// TODO(coyle): this should be set to 61 * time.Minute after we implement Ping and Refresh on Overlay Cache
+const defaultNodeExpiration = 0 * time.Minute
 
 // Client is the entrypoint into Redis
 type Client struct {
