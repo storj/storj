@@ -160,7 +160,7 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string)
 		return err
 	}
 
-	if !uuid.Equal(auth.User.ID, id ){
+	if !uuid.Equal(auth.User.ID, id) {
 		return ErrUnauthorized.New("user has no rights")
 	}
 
