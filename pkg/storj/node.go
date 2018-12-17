@@ -71,6 +71,11 @@ func (id NodeID) String() string {
 	return base58.CheckEncode(id[:], IDVersion)
 }
 
+// IsZero returns whether NodeID is unassigned
+func (id NodeID) IsZero() bool {
+	return id == NodeID{}
+}
+
 // Bytes returns raw bytes of the id
 func (id NodeID) Bytes() []byte { return id[:] }
 

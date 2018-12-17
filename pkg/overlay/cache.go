@@ -21,6 +21,9 @@ const (
 	OverlayBucket = "overlay"
 )
 
+// ErrEmptyNode error standardization
+var ErrEmptyNode = errs.New("empty node ID")
+
 // ErrNodeNotFound error standardization
 var ErrNodeNotFound = errs.New("Node not found")
 
@@ -44,14 +47,21 @@ func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT, sdb statdb.DB) *Cach
 
 // Get looks up the provided nodeID from the overlay cache
 func (o *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
+	if nodeID.IsZero() {
+		return nil, ErrEmptyNode
+	}
+
 	b, err := o.DB.Get(nodeID.Bytes())
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, ErrNodeNotFound
+		}
 		return nil, err
 	}
-	if b.IsZero() {
-		// TODO: log? return an error?
-		return nil, nil
+	if b == nil {
+		return nil, ErrNodeNotFound
 	}
+
 	na := &pb.Node{}
 	if err := proto.Unmarshal(b, na); err != nil {
 		return nil, err
@@ -92,7 +102,7 @@ func (o *Cache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Nod
 func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) error {
 	// If we get a Node without an ID (i.e. bootstrap node)
 	// we don't want to add to the routing tbale
-	if nodeID == (storj.NodeID{}) {
+	if nodeID.IsZero() {
 		return nil
 	}
 
