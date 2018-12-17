@@ -31,14 +31,14 @@ func (o *overlaycache) Put(key storage.Key, value storage.Value) error {
 		return storage.ErrEmptyKey.New("")
 	}
 
-	tx, err := o.db.Begin()
+	tx, err := o.db.Open(o.ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	_, err = o.Get(key)
+	_, err = tx.Get_OverlayCacheNode_By_Key(o.ctx, dbx.OverlayCacheNode_Key(key))
 	if err != nil {
-		_, err = o.db.Create_OverlayCacheNode(
+		_, err = tx.Create_OverlayCacheNode(
 			o.ctx,
 			dbx.OverlayCacheNode_Key(key),
 			dbx.OverlayCacheNode_Value(value),
@@ -49,7 +49,7 @@ func (o *overlaycache) Put(key storage.Key, value storage.Value) error {
 	} else {
 		updateFields := dbx.OverlayCacheNode_Update_Fields{}
 		updateFields.Value = dbx.OverlayCacheNode_Value(value)
-		_, err := o.db.Update_OverlayCacheNode_By_Key(
+		_, err := tx.Update_OverlayCacheNode_By_Key(
 			o.ctx,
 			dbx.OverlayCacheNode_Key(key),
 			updateFields,
@@ -70,7 +70,7 @@ func (o *overlaycache) Get(key storage.Key) (storage.Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []byte(node.Value), nil
+	return node.Value, nil
 }
 
 func (o *overlaycache) GetAll(keys storage.Keys) (storage.Values, error) {
