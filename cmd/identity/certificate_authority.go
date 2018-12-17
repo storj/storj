@@ -42,7 +42,7 @@ var (
 	}
 	revokeCACmd = &cobra.Command{
 		Use:   "revoke",
-		Short: "Revoke the identity's leaf certificate (creates backup)",
+		Short: "Revoke the identity's CA certificate (creates backup)",
 		RunE:  cmdRevokeCA,
 	}
 
