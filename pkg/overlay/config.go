@@ -84,7 +84,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		AuditSuccessRatio: c.Node.AuditSuccessRatio,
 		AuditCount:        c.Node.AuditCount,
 	}
-	
+
 	srv := NewServer(zap.L(), cache, kad, ns)
 	pb.RegisterOverlayServer(server.GRPC(), srv)
 
