@@ -39,8 +39,8 @@ func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUI
 	return projectMembersFromDbxSlice(projectMembersDbx)
 }
 
-// GetPaged is a method for querying project members from the database by projectID, offset and limit.
-func (pm *projectMembers) GetPaged(ctx context.Context, projectID uuid.UUID, limit, offset int64) ([]satellite.ProjectMember, error) {
+// GetByProjectIDPaged is a method for querying project members from the database by projectID, offset and limit.
+func (pm *projectMembers) GetByProjectIDPaged(ctx context.Context, projectID uuid.UUID, limit, offset int64) ([]satellite.ProjectMember, error) {
 	projectMembersDbx, err := pm.db.Limited_ProjectMember_By_ProjectId(
 		ctx,
 		dbx.ProjectMember_ProjectId(projectID[:]),

@@ -19,6 +19,8 @@ import (
 	"storj.io/storj/pkg/satellite/satelliteauth"
 	"storj.io/storj/pkg/utils"
 )
+// TODO: Use maxLimit in future.
+//const maxLimit = 50
 
 // Service is handling accounts related logic
 type Service struct {
@@ -317,12 +319,16 @@ func (s *Service) DeleteProjectMember(ctx context.Context, projectID, userID uui
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
+// TODO: add limit and offset parameters
 func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID) ([]ProjectMember, error) {
 	_, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	// TODO: check if limit < maxLimit const
+
+	// TODO: replace GetByProjectID with GetByProjectIDPaged and remove GetByProjectID as redundant
 	return s.store.ProjectMembers().GetByProjectID(ctx, projectID)
 }
 
