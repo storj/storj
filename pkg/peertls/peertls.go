@@ -150,6 +150,13 @@ func WriteChain(w io.Writer, chain ...*x509.Certificate) error {
 	return nil
 }
 
+// ChainBytes returns bytes of the certificate chain (leaf-first) to the writer, PEM-encoded.
+func ChainBytes(chain ...*x509.Certificate) ([]byte, error) {
+	var data bytes.Buffer
+	err := WriteChain(&data, chain...)
+	return data.Bytes(), err
+}
+
 // WriteKey writes the private key to the writer, PEM-encoded.
 func WriteKey(w io.Writer, key crypto.PrivateKey) error {
 	var (
@@ -171,6 +178,13 @@ func WriteKey(w io.Writer, key crypto.PrivateKey) error {
 		return errs.Wrap(err)
 	}
 	return nil
+}
+
+// KeyBytes returns bytes of the private key to the writer, PEM-encoded.
+func KeyBytes(key crypto.PrivateKey) ([]byte, error) {
+	var data bytes.Buffer
+	err := WriteKey(&data, key)
+	return data.Bytes(), err
 }
 
 // NewCert returns a new x509 certificate using the provided templates and key,
