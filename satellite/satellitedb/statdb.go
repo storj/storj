@@ -167,11 +167,6 @@ func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (s
 
 	nodeID := updateReq.NodeID
 
-	_, err = s.CreateEntryIfNotExists(ctx, nodeID)
-	if err != nil {
-		return nil, err
-	}
-
 	dbNode, err := s.db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
