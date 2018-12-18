@@ -241,6 +241,9 @@ func (rt RoutingTable) ConnFailure(node *pb.Node, err error) {
 
 // ConnSuccess implements the Transport success function
 func (rt RoutingTable) ConnSuccess(node *pb.Node) {
-	rt.ConnectionSuccess(node)
+	err := rt.ConnectionSuccess(node)
+	if err != nil {
+		zap.L().Debug("connection success error:", zap.Error(err))
+	}
 	return
 }
