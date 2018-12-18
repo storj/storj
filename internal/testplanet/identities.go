@@ -25,6 +25,19 @@ func NewIdentities(list ...*provider.FullIdentity) *Identities {
 	}
 }
 
+// PregeneratedIdentity returns a pregenerated identity from a list
+func PregeneratedIdentity(index int) (*provider.FullIdentity, error) {
+	if pregeneratedIdentities.next >= len(pregeneratedIdentities.list) {
+		return nil, errors.New("out of pregenerated identities")
+	}
+	return pregeneratedIdentities.list[index], nil
+}
+
+// NewPregeneratedIdentities retruns a new table from provided identities.
+func NewPregeneratedIdentities() *Identities {
+	return pregeneratedIdentities.Clone()
+}
+
 // Clone creates a shallow clone of the table.
 func (identities *Identities) Clone() *Identities {
 	return NewIdentities(identities.list...)

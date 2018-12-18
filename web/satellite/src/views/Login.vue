@@ -39,55 +39,55 @@
 </template>
 
 <script lang="ts">
-    import {Component, Vue} from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-    import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-    import Button from '@/components/common/Button.vue';
-    import {setToken} from "../utils/tokenManager";
-    import ROUTES from "../utils/constants/routerConstants";
-    import {login} from "@/api/users";
+import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import Button from '@/components/common/Button.vue';
+import { setToken } from '@/utils/tokenManager';
+import ROUTES from '../utils/constants/routerConstants';
+import { getTokenRequest } from '@/api/users';
 
-    @Component({
-        data: function () {
+@Component({
+    data: function () {
 
-            return {
-                email: '',
-                password: '',
-                token: ''
-            }
+        return {
+            email: '',
+            password: '',
+            token: ''
+        };
+    },
+    methods: {
+        setEmail: function (value: string) {
+            this.$data.email = value;
         },
-        methods: {
-            setEmail: function (value: string) {
-                this.$data.email = value;
-            },
-            setPassword: function (value: string) {
-                this.$data.password = value;
-            },
-            onLogin: async function () {
-                try {
-                    let loginData = await login(this.$data.email, this.$data.password);
-
-                    setToken(loginData.data.token.token);
-                    this.$store.dispatch("setUserInfo", loginData.data.token.user)
-                        .then(() => {
-                            this.$router.push(ROUTES.DASHBOARD.path);
-                        }).catch((error) => {
-                        console.log(error);
-                    });
-                } catch (error) {
-                   console.log(error)
-                }
-            }
-
+        setPassword: function (value: string) {
+            this.$data.password = value;
         },
-        components: {
-            HeaderlessInput,
-            Button
+        onLogin: async function () {
+            try {
+                let loginData = await getTokenRequest(this.$data.email, this.$data.password);
+
+                setToken(loginData.data.token.token);
+                this.$store.dispatch('setUserInfo', loginData.data.token.user)
+                    .then(() => {
+                        this.$router.push(ROUTES.DASHBOARD.path);
+                    }).catch((error) => {
+                    console.error(error);
+                });
+            } catch (error) {
+                console.error(error);
+            }
         }
-    })
 
-    export default class Login extends Vue {
+    },
+    components: {
+        HeaderlessInput,
+        Button
     }
+})
+
+export default class Login extends Vue {
+}
 </script>
 
 <style scoped lang="scss">
@@ -109,8 +109,8 @@
         padding: 60px 0px 190px 104px;
 
         &__logo {
-             width: 139px;
-             height: 62px;
+            width: 139px;
+            height: 62px;
         }
     }
 
@@ -125,12 +125,14 @@
         justify-content: center;
         flex-direction: column;
         align-items: flex-start;
+
         &__title-container {
-             height: 48px;
-             display: flex;
-             justify-content: flex-start;
-             align-items: flex-start;
-             margin-bottom: 32px;
+            height: 48px;
+            display: flex;
+            justify-content: flex-start;
+            align-items: flex-start;
+            margin-bottom: 32px;
+
             h1 {
                 font-family: 'montserrat_bold';
                 font-size: 32px;
@@ -140,39 +142,46 @@
                 margin-block-end: 0;
             }
         }
+
         &__password-input {
-             margin-top: 22px;
+            margin-top: 22px;
         }
+
         &__login-button {
-             margin-top: 22px;
-             align-self: center;
+            margin-top: 22px;
+            align-self: center;
         }
+
         &__login-button.container {
-             display: block;
-             text-align: center;
+            display: block;
+            text-align: center;
         }
+
         &__navigation-area {
-             margin-top: 24px;
-             width: 100%;
-             height: 48px;
-             display: flex;
-             justify-content: center;
-             flex-direction: row;
-             align-items: center;
+            margin-top: 24px;
+            width: 100%;
+            height: 48px;
+            display: flex;
+            justify-content: center;
+            flex-direction: row;
+            align-items: center;
+
             &__nav-link {
-                 font-family: 'montserrat_regular';
-                 font-size: 14px;
-                 line-height: 20px;
-                 color: #2683FF;
-                 height: 48px;
-                 text-align: center;
-                 text-justify: center;
-                 padding-left: 15px;
-                 padding-right: 15px;
-                 min-width: 140px;
+                font-family: 'montserrat_regular';
+                font-size: 14px;
+                line-height: 20px;
+                color: #2683FF;
+                height: 48px;
+                text-align: center;
+                text-justify: center;
+                padding-left: 15px;
+                padding-right: 15px;
+                min-width: 140px;
+
                 &:hover {
-                     text-decoration: underline;
+                    text-decoration: underline;
                 }
+
                 .bold {
                     font-family: 'montserrat_medium';
                 }
@@ -215,9 +224,10 @@
             width: auto;
             height: 1450px;
             position: relative;
+
             &__wrapper {
-                 margin: 0 auto;
-                 max-width: 600px;
+                margin: 0 auto;
+                max-width: 600px;
             }
         }
         .login-area {

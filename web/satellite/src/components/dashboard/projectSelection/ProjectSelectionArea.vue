@@ -6,8 +6,8 @@
         <div class="project-selection-toggle-container" v-on:click="toggleSelection">
             <h1>{{name}}</h1>
             <div class="project-selection-toggle-container__expander-area">
-                <img v-if="!isChoiceShown" src="../../../../static/images/register/BlueExpand.svg" />
-                <img v-if="isChoiceShown" src="../../../../static/images/register/BlueHide.svg" />
+                <img v-if="!isChoiceShown" src="../../../../static/images/register/BlueExpand.svg"/>
+                <img v-if="isChoiceShown" src="../../../../static/images/register/BlueHide.svg"/>
             </div>
         </div>
         <ProjectSelectionDropdown v-if="isChoiceShown" @onClose="toggleSelection"/>
@@ -16,42 +16,43 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import ProjectSelectionDropdown from "./ProjectSelectionDropdown.vue"
+import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
 
 @Component(
-    { 
-        data: function() {
+    {
+        data: function () {
             return {
                 isChoiceShown: false,
-            }
+            };
         },
         methods: {
             toggleSelection: async function (): Promise<any> {
-                //TODO: add progress indicator while fetching
-                let isFetchSuccess = await this.$store.dispatch("fetchProjects");
+                // TODO: add progress indicator while fetching
+                let isFetchSuccess = await this.$store.dispatch('fetchProjects');
 
                 if (!isFetchSuccess || this.$store.getters.projects.length === 0) {
-                    //TODO: popup error here
-                    console.log("error during project fetching!");
+                    // TODO: popup error here
+                    console.error('error during project fetching!');
+
                     return;
                 }
-                if(this.$store.getters.selectedProject.id) {
-					const isFetchProjectMemberSuccess = await this.$store.dispatch("fetchProjectMembers");
+                if (this.$store.getters.selectedProject.id) {
+                    const isFetchProjectMemberSuccess = await this.$store.dispatch('fetchProjectMembers');
 
-					if(!isFetchProjectMemberSuccess) {
-						// TODO: Replace with popup
-						console.error("Unable to fetch project members");
+                    if (!isFetchProjectMemberSuccess) {
+                        // TODO: Replace with popup
+                        console.error('Unable to fetch project members');
                     }
                 }
-
 
                 this.$data.isChoiceShown = !this.$data.isChoiceShown;
             }
         },
         computed: {
-            name: function(): string {
+            name: function (): string {
                 let selectedProject = this.$store.getters.selectedProject;
-                return selectedProject.id ? selectedProject.name : "Choose project";
+
+                return selectedProject.id ? selectedProject.name : 'Choose project';
             }
         },
         components: {
@@ -60,7 +61,8 @@ import ProjectSelectionDropdown from "./ProjectSelectionDropdown.vue"
     }
 )
 
-export default class ProjectSelectionArea extends Vue {}
+export default class ProjectSelectionArea extends Vue {
+}
 </script>
 
 <style scoped lang="scss">
@@ -70,6 +72,7 @@ export default class ProjectSelectionArea extends Vue {}
         padding-right: 10px;
         background-color: #FFFFFF;
         cursor: pointer;
+
         h1 {
             font-family: 'montserrat_medium';
             font-size: 16px;
@@ -77,6 +80,7 @@ export default class ProjectSelectionArea extends Vue {}
             color: #354049;
         }
     }
+
     .project-selection-toggle-container {
         display: flex;
         flex-direction: row;

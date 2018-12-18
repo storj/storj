@@ -2,13 +2,13 @@
 // See LICENSE for copying information.
 
 import apollo from '@/utils/apolloManager';
-import gql from "graphql-tag";
+import gql from 'graphql-tag';
 
 // Performs graqhQL request.
 // Throws an exception if error occurs
 export async function addProjectMember(userID: string, projectID: string): Promise<any> {
-    let response = null;
-    try{
+	let response: any = null;
+	try {
 		response = await apollo.mutate(
 			{
 				mutation: gql(`
@@ -19,23 +19,23 @@ export async function addProjectMember(userID: string, projectID: string): Promi
                     ) {id}
                 }`
 				),
-				fetchPolicy: "no-cache",
+				fetchPolicy: 'no-cache',
 			}
 		);
-    }catch (e) {
+	} catch (e) {
 		// TODO: replace with popup in future
-        console.error(e);
+		console.error(e);
 	}
 
-    return response;
+	return response;
 }
 
 // Performs graqhQL request.
 // Throws an exception if error occurs
 export async function deleteProjectMember(userID: string, projectID: string): Promise<any> {
-    let response = null;
-    try {
-    	response = await apollo.mutate(
+	let response: any = null;
+	try {
+		response = await apollo.mutate(
 			{
 				mutation: gql(`
                 mutation {
@@ -45,7 +45,7 @@ export async function deleteProjectMember(userID: string, projectID: string): Pr
                     ) {id}
                 }`
 				),
-				fetchPolicy: "no-cache",
+				fetchPolicy: 'no-cache',
 			}
 		);
 	} catch (e) {
@@ -53,15 +53,15 @@ export async function deleteProjectMember(userID: string, projectID: string): Pr
 		console.error(e);
 	}
 
-    return response;
+	return response;
 }
 
 // Performs graqhQL request.
 // Throws an exception if error occurs
 export async function fetchProjectMembers(projectID: string): Promise<any> {
-    let response = null;
-    try {
-    	response = await apollo.query(
+	let response: any = null;
+	try {
+		response = await apollo.query(
 			{
 				query: gql(`
                 query {
@@ -83,7 +83,7 @@ export async function fetchProjectMembers(projectID: string): Promise<any> {
                     }
                 }`
 				),
-				fetchPolicy: "no-cache",
+				fetchPolicy: 'no-cache',
 			}
 		);
 	} catch (e) {
@@ -91,5 +91,5 @@ export async function fetchProjectMembers(projectID: string): Promise<any> {
 		console.error(e);
 	}
 
-    return response;
+	return response;
 }

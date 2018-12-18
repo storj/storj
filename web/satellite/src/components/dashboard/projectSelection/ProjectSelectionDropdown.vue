@@ -23,16 +23,16 @@ import { Component, Vue } from 'vue-property-decorator';
 
 @Component(
     {
-        updated: function() {
+        updated: function () {
             this.$data.projects = this.$store.getters.projects;
         },
-        data: function() {
+        data: function () {
             return {
                 // TODO: format project names ( n symbols + ...)
                 // Projects is [project]
                 // Project here is object with name and selected properties
-                //projects: this.$store.getters.projects
-            }
+                // projects: this.$store.getters.projects
+            };
         },
         computed: {
             projects: function () {
@@ -45,15 +45,16 @@ import { Component, Vue } from 'vue-property-decorator';
             }
         },
         methods: {
-            onProjectSelected: function(projectID: string) :void {
-                this.$store.dispatch("selectProject", projectID);
-                this.$emit("onClose");
+            onProjectSelected: function (projectID: string): void {
+                this.$store.dispatch('selectProject', projectID);
+                this.$emit('onClose');
             }
         },
     }
 )
 
-export default class ProjectSelectionDropdown extends Vue {}
+export default class ProjectSelectionDropdown extends Vue {
+}
 </script>
 
 <style scoped lang="scss">
@@ -85,7 +86,7 @@ export default class ProjectSelectionDropdown extends Vue {}
             padding-right: 20px;
 
             h2{
-                margin-left: 20px; 
+                margin-left: 20px;
                 font-size: 14px;
                 line-height: 20px;
                 color: #354049;
@@ -111,7 +112,7 @@ export default class ProjectSelectionDropdown extends Vue {}
             }
         }
     }
-    
+
     /* width */
     ::-webkit-scrollbar {
         width: 4px;
@@ -119,12 +120,12 @@ export default class ProjectSelectionDropdown extends Vue {}
 
     /* Track */
     ::-webkit-scrollbar-track {
-        box-shadow: inset 0 0 5px #fff; 
+        box-shadow: inset 0 0 5px #fff;
     }
-    
+
     /* Handle */
     ::-webkit-scrollbar-thumb {
-        background: #AFB7C1; 
+        background: #AFB7C1;
         border-radius: 6px;
         height: 5px;
     }

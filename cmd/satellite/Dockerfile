@@ -6,8 +6,7 @@ FROM storjlabs/golang as build-env
 # final stage
 FROM alpine
 ENV API_KEY= \
-    CONF_PATH=/root/.local/share/storj/satellite/config.yaml \
-    OVERLAY_URL=redis://redis:6379/?db=0 \
+    CONF_PATH=/root/.local/share/storj/satellite \
     BOOTSTRAP_ADDR=bootstrap.storj.io:8080
 EXPOSE 7776/udp \
        7777 \

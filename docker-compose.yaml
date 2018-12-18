@@ -21,13 +21,16 @@ services:
     - API_KEY=abc123
     - BOOTSTRAP_ADDR=localhost:8080
     - STORJ_LOG_LEVEL=debug
-    - STORJ_CHECKER_QUEUE_ADDRESS=redis://redis:6379/?db=1
-    - STORJ_REPAIRER_QUEUE_ADDRESS=redis://redis:6379/?db=1
+    - STORJ_CHECKER_QUEUE_ADDRESS=redis://redis:6379/?db=0
+    - STORJ_REPAIRER_QUEUE_ADDRESS=redis://redis:6379/?db=0
+    - STORJ_DATABASE=postgres://postgres:postgres@postgres/satellite?sslmode=disable
     restart: always
     links:
     - redis
+    - postgres
     depends_on:
     - redis
+    - postgres
   storagenode:
     image: storjlabs/storagenode:${VERSION}
     environment:
@@ -52,3 +55,9 @@ services:
     - storagenode
   redis:
     image: redis
+  postgres:
+    image: postgres:11.1
+    environment:
+    - POSTGRES_PASSWORD=postgres
+    - POSTGRES_USER=postgres
+    - POSTGRES_DB=satellite
