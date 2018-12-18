@@ -4,7 +4,6 @@
 package queue_test
 
 import (
-	"context"
 	"sort"
 	"strconv"
 	"sync"
@@ -22,42 +21,6 @@ import (
 	"storj.io/storj/storage/redis/redisserver"
 	"storj.io/storj/storage/testqueue"
 )
-
-func TestRepairQueueDB(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		testDatabase(ctx, t, db.RepairQueueDB())
-	})
-}
-
-func testDatabase(ctx context.Context, t *testing.T, q queue.RepairQueue) {
-	//testing variables
-	seg := pb.InjuredSegment{
-		Path:       "this/is/my/path",
-		LostPieces: []int32{0, 1, 2, 3, 4, 5},
-	}
-
-	{ // Enqueue
-		err := q.Enqueue(ctx, &seg)
-		assert.NoError(t, err)
-
-		segs, err := q.Peekqueue(ctx, 1)
-		assert.NoError(t, err)
-		assert.True(t, proto.Equal(&seg, &segs[0]))
-	}
-
-	{ //Dequeue
-		entry, err := q.Dequeue(ctx)
-		assert.NoError(t, err)
-		assert.True(t, proto.Equal(&seg, &entry))
-
-		segs, err := q.Peekqueue(ctx, 1)
-		assert.NoError(t, err)
-		assert.Equal(t, 0, len(segs))
-	}
-}
 
 func TestEnqueueDequeue(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {

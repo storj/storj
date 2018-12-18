@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -29,31 +30,36 @@ func (r *repairQueueDB) Enqueue(ctx context.Context, seg *pb.InjuredSegment) err
 }
 
 func (r *repairQueueDB) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
-	res, err := r.db.First_Injuredsegment(ctx)
+	tx, err := r.db.Open(ctx)
 	if err != nil {
-		return pb.InjuredSegment{}, err
-	}
-	if res == nil {
-		return pb.InjuredSegment{}, Error.New("Empty queue")
+		return pb.InjuredSegment{}, Error.Wrap(err)
 	}
 
-	deleted, err := r.db.Delete_Injuredsegment_By_Info(
+	res, err := tx.First_Injuredsegment(ctx)
+	if err != nil {
+		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+	}
+	if res == nil {
+		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(Error.New("Empty queue"), tx.Rollback()))
+	}
+
+	deleted, err := tx.Delete_Injuredsegment_By_Info(
 		ctx,
 		dbx.Injuredsegment_Info(res.Info),
 	)
 	if err != nil {
-		return pb.InjuredSegment{}, err
+		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 	}
 	if !deleted {
-		return pb.InjuredSegment{}, Error.New("Injured segment not deleted")
+		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(Error.New("Injured segment not deleted"), tx.Rollback()))
 	}
 
 	seg := &pb.InjuredSegment{}
 	err = proto.Unmarshal(res.Info, seg)
 	if err != nil {
-		return pb.InjuredSegment{}, err
+		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 	}
-	return *seg, nil
+	return *seg, Error.Wrap(tx.Commit())
 }
 
 func (r *repairQueueDB) Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
