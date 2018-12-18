@@ -235,7 +235,7 @@ func isFarmerWalletValid(wallet string) error {
 	if wallet == "" {
 		return fmt.Errorf("Farmer wallet address isn't specified")
 	}
-	r := regexp.MustCompile("^(0x[a-fA-F0-9]{40})$")
+	r := regexp.MustCompile("^0x[a-fA-F0-9]{40}$")
 	if match := r.MatchString(wallet); !match {
 		return fmt.Errorf("Farmer wallet address isn't valid")
 	}
