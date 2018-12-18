@@ -37,23 +37,23 @@ import EmptyState from '@/components/common/EmptyStateArea.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 @Component({
-    data: function() {
-            return {
-                emptyImage: EMPTY_STATE_IMAGES.TEAM
-            }
-        },
+    data: function () {
+        return {
+            emptyImage: EMPTY_STATE_IMAGES.TEAM
+        };
+    },
     methods: {
-    	onMemberClick: function (member: any) {
-    		this.$store.dispatch('toggleProjectMemberSelection', member.user.id);
-		},
+        onMemberClick: function (member: any) {
+            this.$store.dispatch('toggleProjectMemberSelection', member.user.id);
+        },
     },
     computed: {
         projectMembers: function () {
             return this.$store.getters.projectMembers;
-		},
+        },
         selectedProjectMembers: function () {
             return this.$store.getters.selectedProjectMembers;
-		}
+        }
     },
     components: {
         TeamMemberItem,
@@ -63,9 +63,8 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     }
 })
 
-
-
-export default class TeamArea extends Vue {}
+export default class TeamArea extends Vue {
+}
 </script>
 
 <style scoped lang="scss">
