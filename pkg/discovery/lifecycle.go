@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package discovery
 
 import (
@@ -32,15 +35,12 @@ func (d *Discovery) ConnectionFailure(id storj.NodeID) {
 // GracefulDisconnect is called when a node alerts the network they're
 // going offline for a short period of time with intent to come back
 func (d *Discovery) GracefulDisconnect(id storj.NodeID) {
-
 }
 
 // ConnFailure implements the Transport failure function
 func (d *Discovery) ConnFailure(node *pb.Node, err error) {
-	return
 }
 
 // ConnSuccess implements the Transport success function
 func (d *Discovery) ConnSuccess(node *pb.Node) {
-	return
 }

@@ -5,10 +5,10 @@ package overlay
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
@@ -127,7 +127,8 @@ func (o *Cache) ConnFailure(node *pb.Node, err error) {
 
 // ConnSuccess implements the Transport success function
 func (o *Cache) ConnSuccess(node *pb.Node) {
-	fmt.Printf("CONN SUCCESS %+v\n", node)
-	o.Put(context.Background(), node.Id, *node)
-	return
+	err := o.Put(context.Background(), node.Id, *node)
+	if err != nil {
+		zap.L().Debug("error putting node to cache:", zap.Error(err))
+	}
 }
