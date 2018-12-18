@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -40,7 +41,7 @@ func NewFilePipe(tempdir string) (PipeReader, PipeWriter, error) {
 	pipe := &filepipe{
 		file:     tempfile,
 		refcount: 2,
-		limit:    0xFFFFFFFF,
+		limit:    math.MaxInt64,
 	}
 	pipe.nodata.L = &pipe.mu
 
