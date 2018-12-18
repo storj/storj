@@ -261,7 +261,7 @@ func (k *Kademlia) ListenAndServe() error {
 	}
 
 	grpcServer := grpc.NewServer(identOpt)
-	mn := node.NewServer(zap.L(), k)
+	mn := node.NewServer(k.log, k)
 
 	pb.RegisterNodesServer(grpcServer, mn)
 	lis, err := net.Listen("tcp", k.address)
