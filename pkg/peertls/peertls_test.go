@@ -254,7 +254,7 @@ func TestRevocation_Sign(t *testing.T) {
 	assert.NoError(t, err)
 	leafCert, caKey := chain[0], keys[0]
 
-	leafHash, err := hashBytes(leafCert.Raw)
+	leafHash, err := SHA256Hash(leafCert.Raw)
 	assert.NoError(t, err)
 
 	rev := Revocation{
@@ -272,7 +272,7 @@ func TestRevocation_Verify(t *testing.T) {
 	assert.NoError(t, err)
 	leafCert, caCert, caKey := chain[0], chain[1], keys[0]
 
-	leafHash, err := hashBytes(leafCert.Raw)
+	leafHash, err := SHA256Hash(leafCert.Raw)
 	assert.NoError(t, err)
 
 	rev := Revocation{
@@ -293,7 +293,7 @@ func TestRevocation_Marshal(t *testing.T) {
 	assert.NoError(t, err)
 	leafCert, caKey := chain[0], keys[0]
 
-	leafHash, err := hashBytes(leafCert.Raw)
+	leafHash, err := SHA256Hash(leafCert.Raw)
 	assert.NoError(t, err)
 
 	rev := Revocation{
@@ -321,7 +321,7 @@ func TestRevocation_Unmarshal(t *testing.T) {
 	assert.NoError(t, err)
 	leafCert, caKey := chain[0], keys[0]
 
-	leafHash, err := hashBytes(leafCert.Raw)
+	leafHash, err := SHA256Hash(leafCert.Raw)
 	assert.NoError(t, err)
 
 	rev := Revocation{
@@ -386,7 +386,7 @@ func TestRevocationDB_Get(t *testing.T) {
 		assert.Nil(t, rev)
 	})
 
-	caHash, err := hashBytes(chain[1].Raw)
+	caHash, err := SHA256Hash(chain[1].Raw)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
@@ -479,7 +479,7 @@ func TestRevocationDB_Put(t *testing.T) {
 					t.FailNow()
 				}
 				func(t2 *testing.T, ext pkix.Extension) {
-					caHash, err := hashBytes(chain[1].Raw)
+					caHash, err := SHA256Hash(chain[1].Raw)
 					if !assert.NoError(t2, err) {
 						t2.FailNow()
 					}
