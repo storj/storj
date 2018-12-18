@@ -138,3 +138,28 @@ read one (
   select node
   where  node.id = ?
 )
+
+//--- overlaycache ---//
+
+model overlay_cache_node (
+	key key
+	unique key
+
+	field key blob
+	field value blob (updatable)
+)
+
+create overlay_cache_node ( )
+
+read one (
+  select overlay_cache_node 
+  where  overlay_cache_node.key = ?
+)
+
+read limitoffset (
+	select overlay_cache_node
+  where  overlay_cache_node.key >= ?
+)
+
+update overlay_cache_node ( where overlay_cache_node.key = ? )
+delete overlay_cache_node ( where overlay_cache_node.key = ? )

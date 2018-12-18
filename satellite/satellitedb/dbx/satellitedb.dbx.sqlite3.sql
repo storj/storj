@@ -51,3 +51,9 @@ CREATE TABLE nodes (
 	updated_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE overlay_cache_nodes (
+	key BLOB NOT NULL,
+	value BLOB NOT NULL,
+	PRIMARY KEY ( key ),
+	UNIQUE ( key )
+);
