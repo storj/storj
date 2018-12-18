@@ -166,6 +166,11 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 		return nil
 	}
 
+	// Add self to routing table
+	if node.Id == rt.Local().Id {
+		rt.self = *node
+	}
+
 	rt.mutex.Lock()
 	rt.seen[node.Id] = node
 	rt.mutex.Unlock()
