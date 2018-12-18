@@ -75,17 +75,19 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		addr = c.ExternalAddress
 	}
 
-	kad, err := NewKademlia(server.Identity().ID, nodeType, []pb.Node{*in}, addr, metadata, server.Identity(), c.DBPath, c.Alpha)
+	logger := zap.L()
+
+	kad, err := NewKademlia(logger, server.Identity().ID, nodeType, []pb.Node{*in}, addr, metadata, server.Identity(), c.DBPath, c.Alpha)
 	if err != nil {
 		return err
 	}
 	defer func() { err = utils.CombineErrors(err, kad.Disconnect()) }()
 
-	pb.RegisterNodesServer(server.GRPC(), node.NewServer(zap.L(), kad))
+	pb.RegisterNodesServer(server.GRPC(), node.NewServer(logger, kad))
 
 	go func() {
 		if err = kad.Bootstrap(ctx); err != nil {
-			zap.L().Error("Failed to bootstrap Kademlia", zap.String("ID", server.Identity().ID.String()))
+			logger.Error("Failed to bootstrap Kademlia", zap.Any("ID", server.Identity().ID))
 		}
 	}()
 
