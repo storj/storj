@@ -12,12 +12,12 @@
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-	@Component({})
+@Component({})
 
-	export default class SearchArea extends Vue {
-	}
+export default class SearchArea extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

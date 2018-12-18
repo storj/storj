@@ -39,55 +39,55 @@
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-	import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-	import Button from '@/components/common/Button.vue';
-	import { setToken } from '@/utils/tokenManager';
-	import ROUTES from '../utils/constants/routerConstants';
-	import { getTokenRequest } from '@/api/users';
+import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import Button from '@/components/common/Button.vue';
+import { setToken } from '@/utils/tokenManager';
+import ROUTES from '../utils/constants/routerConstants';
+import { getTokenRequest } from '@/api/users';
 
-	@Component({
-		data: function () {
+@Component({
+    data: function () {
 
-			return {
-				email: '',
-				password: '',
-				token: ''
-			};
-		},
-		methods: {
-			setEmail: function (value: string) {
-				this.$data.email = value;
-			},
-			setPassword: function (value: string) {
-				this.$data.password = value;
-			},
-			onLogin: async function () {
-				try {
-					let loginData = await getTokenRequest(this.$data.email, this.$data.password);
+        return {
+            email: '',
+            password: '',
+            token: ''
+        };
+    },
+    methods: {
+        setEmail: function (value: string) {
+            this.$data.email = value;
+        },
+        setPassword: function (value: string) {
+            this.$data.password = value;
+        },
+        onLogin: async function () {
+            try {
+                let loginData = await getTokenRequest(this.$data.email, this.$data.password);
 
-					setToken(loginData.data.token.token);
-					this.$store.dispatch('setUserInfo', loginData.data.token.user)
-						.then(() => {
-							this.$router.push(ROUTES.DASHBOARD.path);
-						}).catch((error) => {
-						console.error(error);
-					});
-				} catch (error) {
-					console.error(error);
-				}
-			}
+                setToken(loginData.data.token.token);
+                this.$store.dispatch('setUserInfo', loginData.data.token.user)
+                    .then(() => {
+                        this.$router.push(ROUTES.DASHBOARD.path);
+                    }).catch((error) => {
+                    console.error(error);
+                });
+            } catch (error) {
+                console.error(error);
+            }
+        }
 
-		},
-		components: {
-			HeaderlessInput,
-			Button
-		}
-	})
+    },
+    components: {
+        HeaderlessInput,
+        Button
+    }
+})
 
-	export default class Login extends Vue {
-	}
+export default class Login extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

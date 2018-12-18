@@ -17,31 +17,31 @@
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-	@Component(
-		{
-			data: function () {
-				return {};
-			},
-			props: {
-				onClose: {
-					type: Function
-				}
-			},
-			methods: {
-				onCloseClick: function (): void {
-					this.$emit('onClose');
-				},
-				onSortUsersClick: function (): void {
-					this.$emit('onClose');
-				}
-			},
-		}
-	)
+@Component(
+    {
+        data: function () {
+            return {};
+        },
+        props: {
+            onClose: {
+                type: Function
+            }
+        },
+        methods: {
+            onCloseClick: function (): void {
+                this.$emit('onClose');
+            },
+            onSortUsersClick: function (): void {
+                this.$emit('onClose');
+            }
+        },
+    }
+)
 
-	export default class SortDropdown extends Vue {
-	}
+export default class SortDropdown extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

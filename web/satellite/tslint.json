@@ -18,7 +18,6 @@
     // Enforces formatting rules for single-line comments.
     "comment-format": [true, "check-space"],
     "quotemark": [true, "single", "avoid-escape"],
-    "indent": [true, "tabs", 4],
     // Ensures the file ends with a newline.
     "eofline": true,
     // Ensures proper spacing between import statement keywords.

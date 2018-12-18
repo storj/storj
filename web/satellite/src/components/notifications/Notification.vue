@@ -14,64 +14,64 @@
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
-	import { NOTIFICATION_IMAGES, NOTIFICATION_TYPES } from '@/utils/constants/notification';
+import { Component, Vue } from 'vue-property-decorator';
+import { NOTIFICATION_IMAGES, NOTIFICATION_TYPES } from '@/utils/constants/notification';
 
-	@Component({
-		props: {
-			type: String,
-			message: String,
-		},
-		methods: {
-			// Force delete notification
-			onCloseClick: function (): void {
-				this.$store.dispatch('deleteNotification');
-			},
-			// Force notification to stay on page on mouse over it
-			onMouseOver: function (): void {
-				this.$store.dispatch('pauseNotification');
-			},
-			// Resume notification flow when mouse leaves notification
-			onMouseLeave: function (): void {
-				this.$store.dispatch('resumeNotification');
-			},
-		},
-		computed: {
-			configuration: function () {
-				let backgroundColor;
-				let imageSource;
+@Component({
+    props: {
+        type: String,
+        message: String,
+    },
+    methods: {
+        // Force delete notification
+        onCloseClick: function (): void {
+            this.$store.dispatch('deleteNotification');
+        },
+        // Force notification to stay on page on mouse over it
+        onMouseOver: function (): void {
+            this.$store.dispatch('pauseNotification');
+        },
+        // Resume notification flow when mouse leaves notification
+        onMouseLeave: function (): void {
+            this.$store.dispatch('resumeNotification');
+        },
+    },
+    computed: {
+        configuration: function () {
+            let backgroundColor;
+            let imageSource;
 
-				// Switch for choosing notification style depends on notification type
-				switch (this.$props.type) {
-					case NOTIFICATION_TYPES.SUCCESS:
-						backgroundColor = 'rgba(214, 235, 208, 0.4)';
-						imageSource = NOTIFICATION_IMAGES.SUCCESS;
-						break;
+            // Switch for choosing notification style depends on notification type
+            switch (this.$props.type) {
+                case NOTIFICATION_TYPES.SUCCESS:
+                    backgroundColor = 'rgba(214, 235, 208, 0.4)';
+                    imageSource = NOTIFICATION_IMAGES.SUCCESS;
+                    break;
 
-					case NOTIFICATION_TYPES.ERROR:
-						backgroundColor = 'rgba(246, 205, 204, 0.4)';
-						imageSource = NOTIFICATION_IMAGES.ERROR;
-						break;
-					case NOTIFICATION_TYPES.NOTIFICATION:
-					default:
-						backgroundColor = 'rgba(219, 225, 232, 0.4)';
-						imageSource = NOTIFICATION_IMAGES.NOTIFICATION;
-						break;
-				}
+                case NOTIFICATION_TYPES.ERROR:
+                    backgroundColor = 'rgba(246, 205, 204, 0.4)';
+                    imageSource = NOTIFICATION_IMAGES.ERROR;
+                    break;
+                case NOTIFICATION_TYPES.NOTIFICATION:
+                default:
+                    backgroundColor = 'rgba(219, 225, 232, 0.4)';
+                    imageSource = NOTIFICATION_IMAGES.NOTIFICATION;
+                    break;
+            }
 
-				return {
-					style: {
-						backgroundColor
-					},
-					imageSource,
-					closeImage: NOTIFICATION_IMAGES.CLOSE
-				};
-			},
-		}
-	})
+            return {
+                style: {
+                    backgroundColor
+                },
+                imageSource,
+                closeImage: NOTIFICATION_IMAGES.CLOSE
+            };
+        },
+    }
+})
 
-	export default class Notification extends Vue {
-	}
+export default class Notification extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

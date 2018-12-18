@@ -29,57 +29,57 @@
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-	// Custom input component for login page
-	@Component(
-		{
-			data: () => {
-				return {
-					value: '',
-					textType: 'text',
-					passwordType: 'password',
-					isPasswordShown: false
-				};
-			},
-			methods: {
-				// Emits data to parent component
-				onInput() {
-					this.$emit('setData', this.$data.value);
-				},
-				// Change condition of password visibility
-				changeVision() {
-					this.$data.isPasswordShown = !this.$data.isPasswordShown;
-					if (this.$props.isPassword) this.$data.passwordType = this.$data.passwordType == 'password' ? 'text' : 'password';
-				}
-			},
-			props: {
-				placeholder: {
-					type: String,
-					default: 'default'
-				},
-				isPassword: {
-					type: Boolean,
-					default: false
-				},
-				height: {
-					type: String,
-					default: '48px'
-				},
-				width: {
-					type: String,
-					default: '100%'
-				}
-			},
-			computed: {
-				style: function () {
-					return {width: this.$props.width, height: this.$props.height};
-				}
-			}
-		},
-	)
-	export default class HeaderlessInput extends Vue {
-	}
+// Custom input component for login page
+@Component(
+    {
+        data: () => {
+            return {
+                value: '',
+                textType: 'text',
+                passwordType: 'password',
+                isPasswordShown: false
+            };
+        },
+        methods: {
+            // Emits data to parent component
+            onInput() {
+                this.$emit('setData', this.$data.value);
+            },
+            // Change condition of password visibility
+            changeVision() {
+                this.$data.isPasswordShown = !this.$data.isPasswordShown;
+                if (this.$props.isPassword) this.$data.passwordType = this.$data.passwordType == 'password' ? 'text' : 'password';
+            }
+        },
+        props: {
+            placeholder: {
+                type: String,
+                default: 'default'
+            },
+            isPassword: {
+                type: Boolean,
+                default: false
+            },
+            height: {
+                type: String,
+                default: '48px'
+            },
+            width: {
+                type: String,
+                default: '100%'
+            }
+        },
+        computed: {
+            style: function () {
+                return {width: this.$props.width, height: this.$props.height};
+            }
+        }
+    },
+)
+export default class HeaderlessInput extends Vue {
+}
 
 </script>
 

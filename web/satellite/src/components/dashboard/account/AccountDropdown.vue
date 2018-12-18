@@ -44,38 +44,38 @@
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
-	import { removeToken } from '@/utils/tokenManager';
-	import ROUTES from '@/utils/constants/routerConstants';
+import { Component, Vue } from 'vue-property-decorator';
+import { removeToken } from '@/utils/tokenManager';
+import ROUTES from '@/utils/constants/routerConstants';
 
-	@Component(
-		{
-			data: function () {
-				return {};
-			},
-			props: {
-				onClose: {
-					type: Function
-				}
-			},
-			methods: {
-				onCloseClick: function (): void {
-					this.$emit('onClose');
-				},
-				onAccountSettingsClick: function (): void {
-					this.$router.push('/account-settings');
-					this.$emit('onClose');
-				},
-				onLogoutClick: function () {
-					removeToken();
-					this.$router.push(ROUTES.LOGIN.path);
-				}
-			},
-		}
-	)
+@Component(
+    {
+        data: function () {
+            return {};
+        },
+        props: {
+            onClose: {
+                type: Function
+            }
+        },
+        methods: {
+            onCloseClick: function (): void {
+                this.$emit('onClose');
+            },
+            onAccountSettingsClick: function (): void {
+                this.$router.push('/account-settings');
+                this.$emit('onClose');
+            },
+            onLogoutClick: function () {
+                removeToken();
+                this.$router.push(ROUTES.LOGIN.path);
+            }
+        },
+    }
+)
 
-	export default class ProjectSelectionDropdown extends Vue {
-	}
+export default class ProjectSelectionDropdown extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

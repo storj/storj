@@ -15,54 +15,54 @@
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
-	import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
+import { Component, Vue } from 'vue-property-decorator';
+import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
 
-	@Component(
-		{
-			data: function () {
-				return {
-					isChoiceShown: false,
-				};
-			},
-			methods: {
-				toggleSelection: async function (): Promise<any> {
-					// TODO: add progress indicator while fetching
-					let isFetchSuccess = await this.$store.dispatch('fetchProjects');
+@Component(
+    {
+        data: function () {
+            return {
+                isChoiceShown: false,
+            };
+        },
+        methods: {
+            toggleSelection: async function (): Promise<any> {
+                // TODO: add progress indicator while fetching
+                let isFetchSuccess = await this.$store.dispatch('fetchProjects');
 
-					if (!isFetchSuccess || this.$store.getters.projects.length === 0) {
-						// TODO: popup error here
-						console.error('error during project fetching!');
+                if (!isFetchSuccess || this.$store.getters.projects.length === 0) {
+                    // TODO: popup error here
+                    console.error('error during project fetching!');
 
-						return;
-					}
-					if (this.$store.getters.selectedProject.id) {
-						const isFetchProjectMemberSuccess = await this.$store.dispatch('fetchProjectMembers');
+                    return;
+                }
+                if (this.$store.getters.selectedProject.id) {
+                    const isFetchProjectMemberSuccess = await this.$store.dispatch('fetchProjectMembers');
 
-						if (!isFetchProjectMemberSuccess) {
-							// TODO: Replace with popup
-							console.error('Unable to fetch project members');
-						}
-					}
+                    if (!isFetchProjectMemberSuccess) {
+                        // TODO: Replace with popup
+                        console.error('Unable to fetch project members');
+                    }
+                }
 
-					this.$data.isChoiceShown = !this.$data.isChoiceShown;
-				}
-			},
-			computed: {
-				name: function (): string {
-					let selectedProject = this.$store.getters.selectedProject;
+                this.$data.isChoiceShown = !this.$data.isChoiceShown;
+            }
+        },
+        computed: {
+            name: function (): string {
+                let selectedProject = this.$store.getters.selectedProject;
 
-					return selectedProject.id ? selectedProject.name : 'Choose project';
-				}
-			},
-			components: {
-				ProjectSelectionDropdown
-			}
-		}
-	)
+                return selectedProject.id ? selectedProject.name : 'Choose project';
+            }
+        },
+        components: {
+            ProjectSelectionDropdown
+        }
+    }
+)
 
-	export default class ProjectSelectionArea extends Vue {
-	}
+export default class ProjectSelectionArea extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

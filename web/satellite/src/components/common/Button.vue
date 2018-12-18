@@ -12,56 +12,56 @@
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-	// Custom button component with label
-	@Component(
-		{
-			props: {
-				label: {
-					type: String,
-					default: 'Default'
-				},
-				width: {
-					type: String,
-					default: 'inherit'
-				},
-				height: {
-					type: String,
-					default: 'inherit'
-				},
-				isWhite: {
-					type: Boolean,
-					default: false
-				},
-				isDisabled: {
-					type: Boolean,
-					default: false
-				},
-				onPress: {
-					type: Function,
-					default: () => {
-						console.error('onPress is not reinitialized');
-					}
-				}
-			},
-			computed: {
-				style: function () {
-					return {width: this.$props.width, height: this.$props.height};
-				},
-				containerClassName: function () {
-					if (this.$props.isDisabled) {
-						return 'container disabled';
-					}
+// Custom button component with label
+@Component(
+    {
+        props: {
+            label: {
+                type: String,
+                default: 'Default'
+            },
+            width: {
+                type: String,
+                default: 'inherit'
+            },
+            height: {
+                type: String,
+                default: 'inherit'
+            },
+            isWhite: {
+                type: Boolean,
+                default: false
+            },
+            isDisabled: {
+                type: Boolean,
+                default: false
+            },
+            onPress: {
+                type: Function,
+                default: () => {
+                    console.error('onPress is not reinitialized');
+                }
+            }
+        },
+        computed: {
+            style: function () {
+                return {width: this.$props.width, height: this.$props.height};
+            },
+            containerClassName: function () {
+                if (this.$props.isDisabled) {
+                    return 'container disabled';
+                }
 
-					return this.$props.isWhite ? 'container white' : 'container';
-				}
-			}
-		}
-	)
+                return this.$props.isWhite ? 'container white' : 'container';
+            }
+        }
+    }
+)
 
-	export default class Button extends Vue {
-	}
+export default class Button extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

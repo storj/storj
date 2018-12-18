@@ -14,18 +14,18 @@
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
-	import DashboardHeader from '@/components/dashboard/DashboardHeader.vue';
-	import NavigationArea from '@/components/navigation/NavigationArea.vue';
+import { Component, Vue } from 'vue-property-decorator';
+import DashboardHeader from '@/components/dashboard/DashboardHeader.vue';
+import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
-	@Component({
-		components: {
-			NavigationArea,
-			DashboardHeader
-		}
-	})
-	export default class Dashboard extends Vue {
-	}
+@Component({
+    components: {
+        NavigationArea,
+        DashboardHeader
+    }
+})
+export default class Dashboard extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

@@ -10,21 +10,21 @@
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
-	import SortUsersDropdown from '@/components/team/headerArea/SortUsersDropdown.vue';
-	import SearchArea from './SearchArea.vue';
-	import Button from '@/components/common/Button.vue';
+import { Component, Vue } from 'vue-property-decorator';
+import SortUsersDropdown from '@/components/team/headerArea/SortUsersDropdown.vue';
+import SearchArea from './SearchArea.vue';
+import Button from '@/components/common/Button.vue';
 
-	@Component({
-		components: {
-			SortUsersDropdown,
-			SearchArea,
-			Button
-		}
-	})
+@Component({
+    components: {
+        SortUsersDropdown,
+        SearchArea,
+        Button
+    }
+})
 
-	export default class HeaderArea extends Vue {
-	}
+export default class HeaderArea extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

@@ -16,30 +16,30 @@
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
-	import SortDropdown from './SortDropdown.vue';
+import { Component, Vue } from 'vue-property-decorator';
+import SortDropdown from './SortDropdown.vue';
 
-	@Component(
-		{
-			data: function () {
-				return {
-					userName: this.$store.getters.userName,
-					isChoiceShown: false
-				};
-			},
-			methods: {
-				toggleSelection: function (): void {
-					this.$data.isChoiceShown = !this.$data.isChoiceShown;
-				}
-			},
-			components: {
-				SortDropdown
-			}
-		}
-	)
+@Component(
+    {
+        data: function () {
+            return {
+                userName: this.$store.getters.userName,
+                isChoiceShown: false
+            };
+        },
+        methods: {
+            toggleSelection: function (): void {
+                this.$data.isChoiceShown = !this.$data.isChoiceShown;
+            }
+        },
+        components: {
+            SortDropdown
+        }
+    }
+)
 
-	export default class SortUsersDropdown extends Vue {
-	}
+export default class SortUsersDropdown extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

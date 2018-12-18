@@ -19,42 +19,42 @@
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-	@Component(
-		{
-			updated: function () {
-				this.$data.projects = this.$store.getters.projects;
-			},
-			data: function () {
-				return {
-					// TODO: format project names ( n symbols + ...)
-					// Projects is [project]
-					// Project here is object with name and selected properties
-					// projects: this.$store.getters.projects
-				};
-			},
-			computed: {
-				projects: function () {
-					return this.$store.getters.projects;
-				}
-			},
-			props: {
-				onClose: {
-					type: Function
-				}
-			},
-			methods: {
-				onProjectSelected: function (projectID: string): void {
-					this.$store.dispatch('selectProject', projectID);
-					this.$emit('onClose');
-				}
-			},
-		}
-	)
+@Component(
+    {
+        updated: function () {
+            this.$data.projects = this.$store.getters.projects;
+        },
+        data: function () {
+            return {
+                // TODO: format project names ( n symbols + ...)
+                // Projects is [project]
+                // Project here is object with name and selected properties
+                // projects: this.$store.getters.projects
+            };
+        },
+        computed: {
+            projects: function () {
+                return this.$store.getters.projects;
+            }
+        },
+        props: {
+            onClose: {
+                type: Function
+            }
+        },
+        methods: {
+            onProjectSelected: function (projectID: string): void {
+                this.$store.dispatch('selectProject', projectID);
+                this.$emit('onClose');
+            }
+        },
+    }
+)
 
-	export default class ProjectSelectionDropdown extends Vue {
-	}
+export default class ProjectSelectionDropdown extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

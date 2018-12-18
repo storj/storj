@@ -10,17 +10,17 @@
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
-	import NotificationArea from '@/components/notifications/NotificationArea.vue';
+import { Component, Vue } from 'vue-property-decorator';
+import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
-	@Component({
-		components: {
-			NotificationArea
-		}
-	})
+@Component({
+    components: {
+        NotificationArea
+    }
+})
 
-	export default class App extends Vue {
-	}
+export default class App extends Vue {
+}
 </script>
 
 <style lang="scss">
