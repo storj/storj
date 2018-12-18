@@ -14,6 +14,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
@@ -92,10 +93,10 @@ func init() {
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	farmerConfig := runCfg.Kademlia.Farmer
 	if err := isFarmerEmailValid(farmerConfig.Email); err != nil {
-		fmt.Println("Warning!", err)
+		zap.S().Warn(err)
 	}
 	if err := isFarmerWalletValid(farmerConfig.Wallet); err != nil {
-		return err
+		zap.S().Fatal(err)
 	}
 	return runCfg.Identity.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
 }
