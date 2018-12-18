@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/satellitedb"
@@ -42,7 +41,7 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 		auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
 		uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
 
-		nodeStats := &pb.NodeStats{
+		nodeStats := &statdb.NodeStats{
 			AuditSuccessRatio:  auditSuccessRatio,
 			UptimeRatio:        uptimeRatio,
 			AuditCount:         currAuditCount,
@@ -59,7 +58,7 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 		stats, err = sdb.Get(ctx, nodeID)
 		assert.NoError(t, err)
 
-		assert.EqualValues(t, nodeID, stats.NodeId)
+		assert.EqualValues(t, nodeID, stats.NodeID)
 		assert.EqualValues(t, currAuditCount, stats.AuditCount)
 		assert.EqualValues(t, currAuditSuccess, stats.AuditSuccessCount)
 		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
@@ -72,7 +71,7 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 		auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
 		uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
 
-		nodeStats := &pb.NodeStats{
+		nodeStats := &statdb.NodeStats{
 			AuditSuccessRatio:  auditSuccessRatio,
 			UptimeRatio:        uptimeRatio,
 			AuditCount:         currAuditCount,
@@ -109,7 +108,7 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 			{storj.NodeID{6}, 0, 1, 0, 5, 5, 1},       // bad audit success exactly one audit
 			{storj.NodeID{7}, 0, 20, 0, 20, 20, 1},    // bad ratios, excluded from query
 		} {
-			nodeStats := &pb.NodeStats{
+			nodeStats := &statdb.NodeStats{
 				AuditSuccessRatio:  tt.auditSuccessRatio,
 				UptimeRatio:        tt.uptimeRatio,
 				AuditCount:         tt.auditCount,
@@ -127,7 +126,7 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 			storj.NodeID{3}, storj.NodeID{4},
 			storj.NodeID{5}, storj.NodeID{6},
 		}
-		maxStats := &pb.NodeStats{
+		maxStats := &statdb.NodeStats{
 			AuditSuccessRatio: 0.5,
 			UptimeRatio:       0.5,
 		}
@@ -148,7 +147,7 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 		stats, err := sdb.Get(ctx, nodeID)
 		assert.NoError(t, err)
 
-		assert.EqualValues(t, nodeID, stats.NodeId)
+		assert.EqualValues(t, nodeID, stats.NodeID)
 		assert.EqualValues(t, currAuditCount, stats.AuditCount)
 		assert.EqualValues(t, currAuditSuccess, stats.AuditSuccessCount)
 		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
@@ -181,7 +180,7 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 		stats, err := sdb.Get(ctx, nodeID)
 		assert.NoError(t, err)
 
-		assert.EqualValues(t, nodeID, stats.NodeId)
+		assert.EqualValues(t, nodeID, stats.NodeID)
 		assert.EqualValues(t, currAuditCount, stats.AuditCount)
 		assert.EqualValues(t, currAuditSuccess, stats.AuditSuccessCount)
 		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
@@ -206,7 +205,7 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 		stats, err := sdb.Get(ctx, nodeID)
 		assert.NoError(t, err)
 
-		assert.EqualValues(t, nodeID, stats.NodeId)
+		assert.EqualValues(t, nodeID, stats.NodeID)
 		assert.EqualValues(t, currAuditCount, stats.AuditCount)
 		assert.EqualValues(t, currAuditSuccess, stats.AuditSuccessCount)
 		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
@@ -236,7 +235,7 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 		uptimeCount1 := int64(25)
 		uptimeRatio1 := getRatio(uptimeSuccessCount1, uptimeCount1)
 
-		nodeStats := &pb.NodeStats{
+		nodeStats := &statdb.NodeStats{
 			AuditSuccessCount:  auditSuccessCount1,
 			AuditCount:         auditCount1,
 			AuditSuccessRatio:  auditRatio1,
@@ -258,7 +257,7 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 		uptimeCount2 := int64(20)
 		uptimeRatio2 := getRatio(uptimeSuccessCount2, uptimeCount2)
 
-		nodeStats = &pb.NodeStats{
+		nodeStats = &statdb.NodeStats{
 			AuditSuccessCount:  auditSuccessCount2,
 			AuditCount:         auditCount2,
 			AuditSuccessRatio:  auditRatio2,

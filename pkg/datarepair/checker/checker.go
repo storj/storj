@@ -166,7 +166,7 @@ func (c *checker) offlineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (o
 // Find invalidNodes by checking the audit results that are place in statdb
 func (c *checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (invalidNodes []int32, err error) {
 	// filter if nodeIDs have invalid pieces from auditing results
-	maxStats := &pb.NodeStats{
+	maxStats := &statdb.NodeStats{
 		AuditSuccessRatio: 0, // TODO: update when we have stats added to statdb
 		UptimeRatio:       0, // TODO: update when we have stats added to statdb
 	}

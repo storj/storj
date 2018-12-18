@@ -111,7 +111,14 @@ func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) err
 	if err != nil {
 		return err
 	}
-	value.Reputation = stats
+	value.Reputation = &pb.NodeStats{
+		AuditSuccessRatio:  stats.AuditSuccessRatio,
+		AuditSuccessCount:  stats.AuditSuccessCount,
+		AuditCount:         stats.AuditCount,
+		UptimeRatio:        stats.UptimeRatio,
+		UptimeSuccessCount: stats.UptimeSuccessCount,
+		UptimeCount:        stats.UptimeCount,
+	}
 
 	data, err := proto.Marshal(&value)
 	if err != nil {
