@@ -98,6 +98,13 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, s
 			assert.Error(t, err)
 		}
 	}
+
+	{ // Delete
+		err := cache.Delete(ctx, valid1ID)
+		assert.NoError(t, err)
+		err = cache.Delete(ctx, storj.NodeID{})
+		assert.Error(t, err)
+	}
 }
 
 func TestCache_Masterdb(t *testing.T) {
