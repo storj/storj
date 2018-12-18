@@ -1,11 +1,16 @@
-package certfiicates
+package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/utils"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/certificates"
@@ -13,6 +18,11 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 )
+
+type batchCfg struct {
+	EmailsPath string `help:"optional path to a list of emails, delimited by <delimiter>, for batch processing"`
+	Delimiter  string `help:"delimiter to split emails loaded from <emails-path> on (e.g. comma, new-line)" default:"\n"`
+}
 
 var (
 	rootCmd = &cobra.Command{
@@ -38,8 +48,16 @@ var (
 	}
 
 	authAddCmd = &cobra.Command{
-		Use: "add",
-		Short: "Add authorizations from a list of emails",
+		Use:   "add <auth_increment_count> [<email>, ...]",
+		Short: "Create authorizations from a list of emails",
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  cmdAddAuth,
+	}
+
+	authGetCmd = &cobra.Command{
+		Use:   "get [<email>, ...]",
+		Short: "Get authorization(s) info from CSR authorization DB",
+		RunE:  cmdGetAuth,
 	}
 
 	setupCfg struct {
@@ -51,9 +69,19 @@ var (
 	}
 
 	runCfg struct {
-		CA       provider.FullCAConfig
-		Identity provider.IdentityConfig
 		CertSigner certificates.CertSignerConfig
+		CA         provider.FullCAConfig
+		Identity   provider.IdentityConfig
+	}
+
+	authAddCfg struct {
+		certificates.CertSignerConfig
+		batchCfg
+	}
+
+	authGetCfg struct {
+		certificates.CertSignerConfig
+		batchCfg
 	}
 
 	defaultConfDir = fpath.ApplicationDir("storj", "cert-signing")
@@ -64,6 +92,10 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 	cfgstruct.Bind(setupCmd.Flags(), &setupCfg)
 	rootCmd.AddCommand(authCmd)
+	authCmd.AddCommand(authAddCmd)
+	cfgstruct.Bind(authAddCmd.Flags(), &authAddCfg)
+	authCmd.AddCommand(authGetCmd)
+	cfgstruct.Bind(authGetCmd.Flags(), &authGetCfg)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) error {
@@ -107,6 +139,83 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
 	return runCfg.Identity.Run(ctx, nil, runCfg.CertSigner)
+}
+
+func cmdAddAuth(cmd *cobra.Command, args []string) error {
+	count := args[0]
+	authDB, err := authAddCfg.NewAuthDB()
+	if err != nil {
+		return err
+	}
+
+	var emails []string
+	if len(args) > 1 {
+		if authAddCfg.EmailsPath != "" {
+			return errs.New("Either use `--emails-path` or positional args, not both.")
+		}
+		emails = args[1:]
+	} else {
+		list, err := ioutil.ReadFile(authAddCfg.EmailsPath)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		emails = strings.Split(string(list), authAddCfg.Delimiter)
+	}
+
+	var incErrs utils.ErrorGroup
+	for _, email := range emails {
+		if err := authDB.Create(email, count); err != nil {
+			incErrs.Add(err)
+		}
+	}
+	return incErrs.Finish()
+}
+
+func cmdGetAuth(cmd *cobra.Command, args []string) error {
+	authDB, err := authGetCfg.NewAuthDB()
+	if err != nil {
+		return err
+	}
+
+	var emails []string
+	if len(args) > 1 {
+		if authAddCfg.EmailsPath != "" {
+			return errs.New("Either use `--emails-path` or positional args, not both.")
+		}
+		emails = args[1:]
+	} else {
+		list, err := ioutil.ReadFile(authAddCfg.EmailsPath)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		emails = strings.Split(string(list), authAddCfg.Delimiter)
+	}
+
+	var emailErrs, printErrs utils.ErrorGroup
+	w := tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0)
+	if _, err := fmt.Fprintln(w, "Email\tClaimed\tAvail.\t"); err != nil {
+		return err
+	}
+
+	for _, email := range emails {
+		auths, err := authDB.Get(email)
+		if err != nil {
+			emailErrs.Add(err)
+			continue
+		}
+
+
+		if _, err := fmt.Fprintf(w,
+			"%s\t%d\t%d\t\n",
+			email,
+			len(auths.claimed()),
+			len(auths.avail()),
+		); err != nil {
+			printErrs.Add(err)
+		}
+	}
+
+	return utils.CombineErrors(emailErrs.Finish(), printErrs.Finish())
 }
 
 func main() {
