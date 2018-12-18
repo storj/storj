@@ -48,6 +48,7 @@ type discoveryOptions struct {
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
 type Kademlia struct {
+	log             *zap.Logger
 	alpha           int // alpha is a system wide concurrency parameter
 	routingTable    *RoutingTable
 	bootstrapNodes  []pb.Node
@@ -58,7 +59,7 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(id storj.NodeID, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
+func NewKademlia(log *zap.Logger, id storj.NodeID, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
 	self := pb.Node{
 		Id:       id,
 		Type:     nodeType,
@@ -86,12 +87,13 @@ func NewKademlia(id storj.NodeID, nodeType pb.NodeType, bootstrapNodes []pb.Node
 		return nil, BootstrapErr.Wrap(err)
 	}
 
-	return NewKademliaWithRoutingTable(self, bootstrapNodes, identity, alpha, rt)
+	return NewKademliaWithRoutingTable(log, self, bootstrapNodes, identity, alpha, rt)
 }
 
 // NewKademliaWithRoutingTable returns a newly configured Kademlia instance
-func NewKademliaWithRoutingTable(self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
+func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
 	k := &Kademlia{
+		log:            log,
 		alpha:          alpha,
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
@@ -203,11 +205,11 @@ func (k *Kademlia) lookup(ctx context.Context, target storj.NodeID, opts discove
 		}
 	}
 
-	lookup := newPeerDiscovery(nodes, k.nodeClient, target, opts)
+	lookup := newPeerDiscovery(k.log, nodes, k.nodeClient, target, opts)
 	_, err = lookup.Run(ctx)
 
 	if err != nil {
-		zap.L().Warn("lookup failed", zap.Error(err))
+		k.log.Warn("lookup failed", zap.Error(err))
 		return err
 	}
 
@@ -237,7 +239,7 @@ func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, erro
 		return pb.Node{}, err
 	}
 
-	lookup := newPeerDiscovery(nodes, k.nodeClient, ID, discoveryOptions{
+	lookup := newPeerDiscovery(k.log, nodes, k.nodeClient, ID, discoveryOptions{
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: false, bootstrapNodes: k.bootstrapNodes,
 	})
 
