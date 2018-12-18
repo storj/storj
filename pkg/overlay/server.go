@@ -25,19 +25,24 @@ var ServerError = errs.Class("Server Error")
 
 // Server implements our overlay RPC service
 type Server struct {
-	log       *zap.Logger
-	cache     *Cache
-	metrics   *monkit.Registry
-	nodeStats *pb.NodeStats
+	log                   *zap.Logger
+	cache                 *Cache
+	metrics               *monkit.Registry
+	minStats              *pb.NodeStats
+	newNodeAuditThreshold int64
+	newNodePercentage     float64
 }
 
 // NewServer creates a new Overlay Server
-func NewServer(log *zap.Logger, cache *Cache, nodeStats *pb.NodeStats) *Server {
+func NewServer(log *zap.Logger, cache *Cache, minStats *pb.NodeStats, newNodeAuditThreshold int64,
+	newNodePercentage float64) *Server {
 	return &Server{
-		cache:     cache,
-		log:       log,
-		metrics:   monkit.Default,
-		nodeStats: nodeStats,
+		cache:                 cache,
+		log:                   log,
+		metrics:               monkit.Default,
+		minStats:              minStats,
+		newNodeAuditThreshold: newNodeAuditThreshold,
+		newNodePercentage:     newNodePercentage,
 	}
 }
 
@@ -74,32 +79,82 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 
 	excluded := opts.ExcludedNodes
 	restrictions := opts.GetRestrictions()
-	reputation := server.nodeStats
 
 	var startID storj.NodeID
-	result := []*pb.Node{}
+	var result []*pb.Node
+
 	for {
-		var nodes []*pb.Node
-		nodes, startID, err = server.populate(ctx, req.Start, maxNodes, restrictions, reputation, excluded)
+		var reputableNodes []*pb.Node
+		reputableNodes, startID, err = o.getReputableNodes(ctx, req.Start, maxNodes, restrictions, excluded)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
-		resultNodes := []*pb.Node{}
+		var newNodes []*pb.Node
+		newNodes, startID, err = o.getNewNodes(ctx, req.Start, maxNodes, restrictions, excluded)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		requiredReputableNodes := int64(maxNodes) * int64(100-o.newNodePercentage)
+		var resultReputableNodes []*pb.Node
 		usedAddrs := make(map[string]bool)
-		for _, n := range nodes {
+		for _, n := range reputableNodes {
 			addr := n.Address.GetAddress()
 			excluded = append(excluded, n.Id) // exclude all nodes on next iteration
 			if !usedAddrs[addr] {
-				resultNodes = append(resultNodes, n)
+				resultReputableNodes = append(resultReputableNodes, n)
 				usedAddrs[addr] = true
 			}
 		}
-		if len(resultNodes) <= 0 {
-			break
+
+		for int64(len(resultReputableNodes)) < requiredReputableNodes {
+			nodeDifference := requiredReputableNodes - int64(len(resultReputableNodes))
+			reputableNodes, startID, err = o.getReputableNodes(ctx, startID, nodeDifference, restrictions, excluded)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+
+			for _, n := range reputableNodes {
+				addr := n.Address.GetAddress()
+				excluded = append(excluded, n.Id)
+				if !usedAddrs[addr] {
+					resultReputableNodes = append(resultReputableNodes, n)
+					usedAddrs[addr] = true
+				}
+			}
 		}
 
-		result = append(result, resultNodes...)
+		requiredNewNodes := maxNodes * int64(o.newNodePercentage)
+		var resultNewNodes []*pb.Node
+		for _, n := range newNodes {
+			addr := n.Address.GetAddress()
+			excluded = append(excluded, n.Id) // exclude all nodes on next iteration
+			if !usedAddrs[addr] {
+				resultNewNodes = append(resultNewNodes, n)
+				usedAddrs[addr] = true
+			}
+		}
+
+		for int64(len(resultNewNodes)) < requiredNewNodes {
+			nodeDifference := requiredNewNodes - int64(len(resultNewNodes))
+			newNodes, startID, err = o.getNewNodes(ctx, startID, nodeDifference, restrictions, excluded)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+
+			for _, n := range newNodes {
+				addr := n.Address.GetAddress()
+				excluded = append(excluded, n.Id)
+				if !usedAddrs[addr] {
+					resultReputableNodes = append(resultReputableNodes, n)
+					usedAddrs[addr] = true
+				}
+			}
+		}
+
+		result = append(result, resultReputableNodes...)
+		result = append(result, resultNewNodes...)
 
 		if len(result) >= int(maxNodes) || startID == (storj.NodeID{}) {
 			break
@@ -140,12 +195,13 @@ func (server *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.No
 
 }
 
-func (server *Server) populate(ctx context.Context, startID storj.NodeID, maxNodes int64,
-	minRestrictions *pb.NodeRestrictions, minReputation *pb.NodeStats,
-	excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
+func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeID, maxNodes int64,
+	minRestrictions *pb.NodeRestrictions, excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
 
 	limit := int(maxNodes * 2)
-	keys, err := server.cache.db.List(startID.Bytes(), limit)
+	minReputation := server.minStats
+
+	keys, err := server.cache.DB.List(startID.Bytes(), limit)
 	if err != nil {
 		server.log.Error("Error listing nodes", zap.Error(err))
 		return nil, storj.NodeID{}, Error.Wrap(err)
@@ -156,8 +212,6 @@ func (server *Server) populate(ctx context.Context, startID storj.NodeID, maxNod
 		return []*pb.Node{}, startID, nil
 	}
 
-	// TODO: should this be `var result []*pb.Node` ?
-	result := []*pb.Node{}
 	nodes, err := server.getNodes(ctx, keys)
 	if err != nil {
 		server.log.Error("Error getting nodes", zap.Error(err))
@@ -181,7 +235,7 @@ func (server *Server) populate(ctx context.Context, startID storj.NodeID, maxNod
 			contains(excluded, v.Id) {
 			continue
 		}
-		result = append(result, v)
+		nodes = append(nodes, v)
 	}
 
 	var nextStart storj.NodeID
@@ -194,7 +248,61 @@ func (server *Server) populate(ctx context.Context, startID storj.NodeID, maxNod
 		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
-	return result, nextStart, nil
+	return nodes, nextStart, nil
+}
+
+func (o *Server) getNewNodes(ctx context.Context, startID storj.NodeID, maxNodes int64,
+	minRestrictions *pb.NodeRestrictions, excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
+
+	limit := int(maxNodes * 2)
+
+	keys, err := o.cache.DB.List(startID.Bytes(), limit)
+	if err != nil {
+		o.logger.Error("Error listing nodes", zap.Error(err))
+		return nil, storj.NodeID{}, Error.Wrap(err)
+	}
+
+	if len(keys) <= 0 {
+		o.logger.Info("No Keys returned from List operation")
+		return []*pb.Node{}, startID, nil
+	}
+
+	nodes, err := o.getNodes(ctx, keys)
+	if err != nil {
+		o.logger.Error("Error getting nodes", zap.Error(err))
+		return nil, storj.NodeID{}, Error.Wrap(err)
+	}
+
+	for _, v := range nodes {
+		if v.Type != pb.NodeType_STORAGE {
+			continue
+		}
+
+		nodeRestrictions := v.GetRestrictions()
+		nodeReputation := v.GetReputation()
+
+		if nodeRestrictions.GetFreeBandwidth() < minRestrictions.GetFreeBandwidth() ||
+			nodeRestrictions.GetFreeDisk() < minRestrictions.GetFreeDisk() ||
+			contains(excluded, v.Id) {
+			continue
+
+		} else if nodeReputation.GetAuditCount() < o.newNodeAuditThreshold {
+			nodes = append(nodes, v)
+		}
+
+	}
+
+	var nextStart storj.NodeID
+	if len(keys) < limit {
+		nextStart = storj.NodeID{}
+	} else {
+		nextStart, err = storj.NodeIDFromBytes(keys[len(keys)-1])
+	}
+	if err != nil {
+		return nil, storj.NodeID{}, Error.Wrap(err)
+	}
+
+	return nodes, nextStart, nil
 }
 
 // contains checks if item exists in list

@@ -46,6 +46,9 @@ type NodeSelectionConfig struct {
 	UptimeCount       int64   `help:"the number of times a node's uptime has been checked" default:"0"`
 	AuditSuccessRatio float64 `help:"a node's ratio of successful audits" default:"0"`
 	AuditCount        int64   `help:"the number of times a node has been audited" default:"0"`
+
+	NewNodeAuditThreshold int64   `help:"the number of audits a node must have to not be considered a New Node" default:"0"`
+	NewNodePercentage     float64 `help:"the percentage of new nodes allowed per request" default:"0.05"`
 }
 
 // CtxKey used for assigning cache and server
@@ -79,7 +82,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		AuditCount:        c.Node.AuditCount,
 	}
 
-	srv := NewServer(zap.L(), cache, ns)
+	srv := NewServer(zap.L(), cache, kad, ns, c.Node.NewNodeAuditThreshold, c.Node.NewNodePercentage)
 	pb.RegisterOverlayServer(server.GRPC(), srv)
 
 	ctx2 := context.WithValue(ctx, ctxKeyOverlay, cache)

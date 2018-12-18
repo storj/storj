@@ -148,7 +148,7 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 			AuditCount:        0,
 		}
 
-		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, ns)
+		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, node.Kademlia, ns, 0, 0)
 		pb.RegisterOverlayServer(node.Provider.GRPC(), overlayServer)
 
 		node.Dependencies = append(node.Dependencies,
