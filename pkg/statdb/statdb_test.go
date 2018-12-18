@@ -19,7 +19,7 @@ import (
 
 func getRatio(s, t int64) (success, total int64, ratio float64) {
 	ratio = float64(s) / float64(t)
-	return int64(s), int64(t), ratio
+	return s, t, ratio
 }
 
 func TestStatdb(t *testing.T) {
@@ -162,9 +162,6 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 			IsUp:         false,
 		}
 		stats, err := sdb.Update(ctx, updateReq)
-		assert.NoError(t, err)
-
-		s, err = sdb.Get(ctx, nodeID)
 		assert.NoError(t, err)
 
 		currAuditSuccess = auditSuccessCount + 1
