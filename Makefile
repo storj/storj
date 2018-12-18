@@ -90,6 +90,14 @@ all-in-one: ## Deploy docker images with one storagenode locally
 	fi \
 	&& docker-compose up storagenode satellite gateway
 
+.PHONY: test-all-in-one
+test-all-in-one: ## Test docker images locally
+	if [ -z "${VERSION}" ]; then \
+		$(MAKE) satellite-image storagenode-image gateway-image -j 3 \
+		&& export VERSION="${TAG}"; \
+	fi \
+	&& ./scripts/test-aio.sh
+
 ##@ Build
 
 .PHONY: images
