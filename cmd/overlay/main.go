@@ -21,7 +21,6 @@ import (
 )
 
 var (
-	// Error is the error class for overlays
 	rootCmd = &cobra.Command{
 		Use:   "overlay",
 		Short: "Overlay cache management",
