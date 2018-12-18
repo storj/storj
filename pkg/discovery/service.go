@@ -71,7 +71,7 @@ func (d *Discovery) Discovery(ctx context.Context) error {
 		return DiscoveryError.Wrap(err)
 	}
 	_, err = d.kad.FindNode(ctx, r)
-	if err != nil {
+	if err != nil && !kademlia.NodeNotFound.Has(err) {
 		return DiscoveryError.Wrap(err)
 	}
 	return nil
