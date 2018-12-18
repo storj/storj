@@ -23,24 +23,24 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type NodeType int32
 
 const (
-	NodeType_ADMIN     NodeType = 0
-	NodeType_STORAGE   NodeType = 1
-	NodeType_INVALID   NodeType = 2
+	NodeType_INVALID   NodeType = 0
+	NodeType_ADMIN     NodeType = 1
+	NodeType_STORAGE   NodeType = 2
 	NodeType_SATELLITE NodeType = 3
 	NodeType_UPLINK    NodeType = 4
 )
 
 var NodeType_name = map[int32]string{
-	0: "ADMIN",
-	1: "STORAGE",
-	2: "INVALID",
+	0: "INVALID",
+	1: "ADMIN",
+	2: "STORAGE",
 	3: "SATELLITE",
 	4: "UPLINK",
 }
 var NodeType_value = map[string]int32{
-	"ADMIN":     0,
-	"STORAGE":   1,
-	"INVALID":   2,
+	"INVALID":   0,
+	"ADMIN":     1,
+	"STORAGE":   2,
 	"SATELLITE": 3,
 	"UPLINK":    4,
 }
@@ -49,7 +49,7 @@ func (x NodeType) String() string {
 	return proto.EnumName(NodeType_name, int32(x))
 }
 func (NodeType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_node_b060a10dfc6678e2, []int{0}
+	return fileDescriptor_node_c496f6e12aa77427, []int{0}
 }
 
 // NodeTransport is an enum of possible transports for the overlay network
@@ -70,7 +70,7 @@ func (x NodeTransport) String() string {
 	return proto.EnumName(NodeTransport_name, int32(x))
 }
 func (NodeTransport) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_node_b060a10dfc6678e2, []int{1}
+	return fileDescriptor_node_c496f6e12aa77427, []int{1}
 }
 
 //  NodeRestrictions contains all relevant data about a nodes ability to store data
@@ -86,7 +86,7 @@ func (m *NodeRestrictions) Reset()         { *m = NodeRestrictions{} }
 func (m *NodeRestrictions) String() string { return proto.CompactTextString(m) }
 func (*NodeRestrictions) ProtoMessage()    {}
 func (*NodeRestrictions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_b060a10dfc6678e2, []int{0}
+	return fileDescriptor_node_c496f6e12aa77427, []int{0}
 }
 func (m *NodeRestrictions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeRestrictions.Unmarshal(m, b)
@@ -145,7 +145,7 @@ func (m *Node) Reset()         { *m = Node{} }
 func (m *Node) String() string { return proto.CompactTextString(m) }
 func (*Node) ProtoMessage()    {}
 func (*Node) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_b060a10dfc6678e2, []int{1}
+	return fileDescriptor_node_c496f6e12aa77427, []int{1}
 }
 func (m *Node) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Node.Unmarshal(m, b)
@@ -176,7 +176,7 @@ func (m *Node) GetType() NodeType {
 	if m != nil {
 		return m.Type
 	}
-	return NodeType_ADMIN
+	return NodeType_INVALID
 }
 
 func (m *Node) GetRestrictions() *NodeRestrictions {
@@ -255,7 +255,7 @@ func (m *NodeAddress) Reset()         { *m = NodeAddress{} }
 func (m *NodeAddress) String() string { return proto.CompactTextString(m) }
 func (*NodeAddress) ProtoMessage()    {}
 func (*NodeAddress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_b060a10dfc6678e2, []int{2}
+	return fileDescriptor_node_c496f6e12aa77427, []int{2}
 }
 func (m *NodeAddress) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeAddress.Unmarshal(m, b)
@@ -308,7 +308,7 @@ func (m *NodeStats) Reset()         { *m = NodeStats{} }
 func (m *NodeStats) String() string { return proto.CompactTextString(m) }
 func (*NodeStats) ProtoMessage()    {}
 func (*NodeStats) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_b060a10dfc6678e2, []int{3}
+	return fileDescriptor_node_c496f6e12aa77427, []int{3}
 }
 func (m *NodeStats) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeStats.Unmarshal(m, b)
@@ -389,7 +389,7 @@ func (m *NodeMetadata) Reset()         { *m = NodeMetadata{} }
 func (m *NodeMetadata) String() string { return proto.CompactTextString(m) }
 func (*NodeMetadata) ProtoMessage()    {}
 func (*NodeMetadata) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_b060a10dfc6678e2, []int{4}
+	return fileDescriptor_node_c496f6e12aa77427, []int{4}
 }
 func (m *NodeMetadata) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeMetadata.Unmarshal(m, b)
@@ -433,10 +433,10 @@ func init() {
 	proto.RegisterEnum("node.NodeTransport", NodeTransport_name, NodeTransport_value)
 }
 
-func init() { proto.RegisterFile("node.proto", fileDescriptor_node_b060a10dfc6678e2) }
+func init() { proto.RegisterFile("node.proto", fileDescriptor_node_c496f6e12aa77427) }
 
-var fileDescriptor_node_b060a10dfc6678e2 = []byte{
-	// 652 bytes of a gzipped FileDescriptorProto
+var fileDescriptor_node_c496f6e12aa77427 = []byte{
+	// 651 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x94, 0xc1, 0x4e, 0xdb, 0x4e,
 	0x10, 0xc6, 0x49, 0xec, 0x38, 0xf1, 0xd8, 0xc9, 0xdf, 0x0c, 0x08, 0x59, 0xff, 0xaa, 0x25, 0x04,
 	0x55, 0x8d, 0xa8, 0x94, 0x52, 0x7a, 0xa2, 0xea, 0x25, 0x10, 0x84, 0xdc, 0x9a, 0x14, 0x6d, 0x02,
@@ -471,11 +471,11 @@ var fileDescriptor_node_b060a10dfc6678e2 = []byte{
 	0x68, 0x48, 0xb0, 0xd2, 0x53, 0xf1, 0xeb, 0x9e, 0x0a, 0x6c, 0x4a, 0xb0, 0xe8, 0xa9, 0x10, 0x99,
 	0xa7, 0x44, 0xaa, 0x35, 0x5b, 0x12, 0x45, 0xe5, 0x95, 0x8b, 0xf6, 0x3e, 0x81, 0x5d, 0xde, 0x4f,
 	0xdc, 0x86, 0x06, 0x7d, 0x08, 0xd9, 0x5c, 0x8e, 0xd3, 0x24, 0xea, 0x80, 0x3b, 0x60, 0x3c, 0x86,
-	0xf3, 0x39, 0xe5, 0x45, 0x1a, 0xc5, 0xe9, 0xe0, 0x33, 0xb4, 0x96, 0x7f, 0x39, 0x34, 0xa1, 0x31,
-	0x1c, 0x5d, 0x78, 0x63, 0x67, 0x03, 0x2d, 0x68, 0x4e, 0xa6, 0x5f, 0xc9, 0xf0, 0xfc, 0xcc, 0xa9,
-	0x89, 0x83, 0x37, 0xbe, 0x1e, 0xfa, 0xde, 0xc8, 0xa9, 0x63, 0x1b, 0xcc, 0xc9, 0x70, 0x7a, 0xe6,
-	0xfb, 0xde, 0xf4, 0xcc, 0xd1, 0x10, 0xc0, 0xb8, 0xba, 0xf4, 0xbd, 0xf1, 0x17, 0x47, 0x3f, 0xd8,
-	0x83, 0x76, 0x65, 0x1d, 0xd0, 0x01, 0x7b, 0x7a, 0x7a, 0x19, 0x4c, 0xfd, 0x49, 0x70, 0x4e, 0x2e,
-	0x4f, 0x9d, 0x8d, 0x13, 0xfd, 0xa6, 0x9e, 0xdc, 0xde, 0x1a, 0xf2, 0x73, 0xf5, 0xe1, 0x4f, 0x00,
-	0x00, 0x00, 0xff, 0xff, 0x46, 0x4b, 0xfc, 0xd1, 0xce, 0x04, 0x00, 0x00,
+	0xf3, 0x39, 0xe5, 0x45, 0x1a, 0xc5, 0xe9, 0xe0, 0x33, 0xb4, 0x96, 0x7f, 0x39, 0xb4, 0xa0, 0xe9,
+	0x8d, 0xaf, 0x87, 0xbe, 0x37, 0x72, 0x36, 0xd0, 0x84, 0xc6, 0x70, 0x74, 0xe1, 0x8d, 0x9d, 0x9a,
+	0xd0, 0x27, 0xd3, 0xaf, 0x64, 0x78, 0x7e, 0xe6, 0xd4, 0xb1, 0x0d, 0xe6, 0x64, 0x38, 0x3d, 0xf3,
+	0x7d, 0x6f, 0x7a, 0xe6, 0x68, 0x08, 0x60, 0x5c, 0x5d, 0xfa, 0xde, 0xf8, 0x8b, 0xa3, 0x1f, 0xec,
+	0x41, 0xbb, 0xb2, 0x0e, 0xe8, 0x80, 0x3d, 0x3d, 0xbd, 0x0c, 0xa6, 0xfe, 0x24, 0x38, 0x27, 0x97,
+	0xa7, 0xce, 0xc6, 0x89, 0x7e, 0x53, 0x4f, 0x6e, 0x6f, 0x0d, 0xf9, 0xb9, 0xfa, 0xf0, 0x27, 0x00,
+	0x00, 0xff, 0xff, 0x1d, 0xd4, 0x96, 0x65, 0xce, 0x04, 0x00, 0x00,
 }
