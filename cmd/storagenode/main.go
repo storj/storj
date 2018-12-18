@@ -94,10 +94,15 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	farmerConfig := runCfg.Kademlia.Farmer
 	if err := isFarmerEmailValid(farmerConfig.Email); err != nil {
 		zap.S().Warn(err)
+	} else {
+		zap.S().Info("Farmer email: ", farmerConfig.Email)
 	}
 	if err := isFarmerWalletValid(farmerConfig.Wallet); err != nil {
 		zap.S().Fatal(err)
+	} else {
+		zap.S().Info("Farmer wallet: ", farmerConfig.Wallet)
 	}
+
 	return runCfg.Identity.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
 }
 
