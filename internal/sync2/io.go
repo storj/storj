@@ -5,6 +5,7 @@ package sync2
 
 import "io"
 
+// ReadWriteCloserAt implements all io.ReaderAt, io.WriterAt and io.Closer
 type ReadWriteCloserAt interface {
 	io.ReaderAt
 	io.WriterAt

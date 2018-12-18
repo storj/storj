@@ -128,7 +128,7 @@ func (pipe filePipeWriter) Write(data []byte) (n int, err error) {
 	pipe.mu.Unlock()
 
 	// write data to file
-	writeAmount, err := pipe.file.WriteAt(data[:toWrite], int64(writeAt))
+	writeAmount, err := pipe.file.WriteAt(data[:toWrite], writeAt)
 
 	pipe.mu.Lock()
 	// update writing head
@@ -183,7 +183,7 @@ func (pipe filePipeReader) Read(data []byte) (n int, err error) {
 	pipe.mu.Unlock()
 
 	// read data
-	readAmount, err := pipe.file.ReadAt(data[:toRead], int64(readAt))
+	readAmount, err := pipe.file.ReadAt(data[:toRead], readAt)
 
 	pipe.mu.Lock()
 	// update info on how much we have read
