@@ -17,7 +17,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func getRatio(s, t int) (success, total int64, ratio float64) {
+func getRatio(s, t int64) (success, total int64, ratio float64) {
 	ratio = float64(s) / float64(t)
 	return int64(s), int64(t), ratio
 }
@@ -33,10 +33,15 @@ func TestStatdb(t *testing.T) {
 
 func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 	nodeID := storj.NodeID{1, 2, 3, 4, 5}
+	currAuditSuccess := int64(4)
+	currAuditCount := int64(10)
+	currUptimeSuccess := int64(8)
+	currUptimeCount := int64(25)
 
 	{ // TestCreateNewAndWithStats
-		auditSuccessCount, auditCount, auditSuccessRatio := getRatio(4, 10)
-		uptimeSuccessCount, uptimeCount, uptimeRatio := getRatio(8, 25)
+		auditSuccessCount, auditCount, auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
+		uptimeSuccessCount, uptimeCount, uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
+
 		nodeStats := &pb.NodeStats{
 			AuditSuccessRatio:  auditSuccessRatio,
 			UptimeRatio:        uptimeRatio,
@@ -64,8 +69,9 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 	}
 
 	{ // TestCreateExists
-		auditSuccessCount, auditCount, auditSuccessRatio := getRatio(4, 10)
-		uptimeSuccessCount, uptimeCount, uptimeRatio := getRatio(8, 25)
+		auditSuccessCount, auditCount, auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
+		uptimeSuccessCount, uptimeCount, uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
+
 		nodeStats := &pb.NodeStats{
 			AuditSuccessRatio:  auditSuccessRatio,
 			UptimeRatio:        uptimeRatio,
@@ -136,8 +142,8 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 	}
 
 	{ // TestUpdateExists
-		auditSuccessCount, auditCount, auditSuccessRatio := getRatio(4, 10)
-		uptimeSuccessCount, uptimeCount, uptimeRatio := getRatio(8, 25)
+		auditSuccessCount, auditCount, auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
+		uptimeSuccessCount, uptimeCount, uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
 
 		s, err := sdb.Get(ctx, nodeID)
 		assert.NoError(t, err)
@@ -151,22 +157,30 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 		assert.EqualValues(t, uptimeRatio, s.UptimeRatio)
 
 		updateReq := &statdb.UpdateRequest{
+			NodeID:       nodeID,
 			AuditSuccess: true,
 			IsUp:         false,
 		}
 		stats, err := sdb.Update(ctx, updateReq)
 		assert.NoError(t, err)
 
-		_, _, newAuditRatio := getRatio(int(auditSuccessCount+1), int(auditCount+1))
-		_, _, newUptimeRatio := getRatio(int(uptimeSuccessCount), int(uptimeCount+1))
+		s, err = sdb.Get(ctx, nodeID)
+		assert.NoError(t, err)
+
+		currAuditSuccess = auditSuccessCount + 1
+		currAuditCount = auditCount + 1
+		currUptimeSuccess = uptimeSuccessCount
+		currUptimeCount = uptimeCount + 1
+		_, _, newAuditRatio := getRatio(currAuditSuccess, currAuditCount)
+		_, _, newUptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
 
 		assert.EqualValues(t, newAuditRatio, stats.AuditSuccessRatio)
 		assert.EqualValues(t, newUptimeRatio, stats.UptimeRatio)
 	}
 
 	{ // TestUpdateUptimeExists
-		auditSuccessCount, auditCount, auditSuccessRatio := getRatio(5, 11)
-		uptimeSuccessCount, uptimeCount, uptimeRatio := getRatio(8, 26)
+		auditSuccessCount, auditCount, auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
+		uptimeSuccessCount, uptimeCount, uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
 
 		s, err := sdb.Get(ctx, nodeID)
 		assert.NoError(t, err)
@@ -182,15 +196,17 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 		stats, err := sdb.UpdateUptime(ctx, nodeID, false)
 		assert.NoError(t, err)
 
-		_, _, newUptimeRatio := getRatio(int(uptimeSuccessCount), int(uptimeCount+1))
+		currUptimeSuccess = uptimeSuccessCount
+		currUptimeCount = uptimeCount + 1
+		_, _, newUptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
 		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
 		assert.EqualValues(t, auditCount, stats.AuditCount)
 		assert.EqualValues(t, newUptimeRatio, stats.UptimeRatio)
 	}
 
 	{ // TestUpdateAuditSuccessExists
-		auditSuccessCount, auditCount, auditSuccessRatio := getRatio(5, 11)
-		uptimeSuccessCount, uptimeCount, uptimeRatio := getRatio(8, 27)
+		auditSuccessCount, auditCount, auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
+		uptimeSuccessCount, uptimeCount, uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
 
 		stats, err := sdb.Get(ctx, nodeID)
 		assert.NoError(t, err)
@@ -206,7 +222,9 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 		stats, err = sdb.UpdateAuditSuccess(ctx, nodeID, false)
 		assert.NoError(t, err)
 
-		_, _, newAuditRatio := getRatio(int(auditSuccessCount), int(auditCount+1))
+		currAuditSuccess = auditSuccessCount
+		currAuditCount = auditCount + 1
+		_, _, newAuditRatio := getRatio(currAuditSuccess, currAuditCount)
 		assert.EqualValues(t, newAuditRatio, stats.AuditSuccessRatio)
 		assert.EqualValues(t, auditCount+1, stats.AuditCount)
 		assert.EqualValues(t, uptimeRatio, stats.UptimeRatio)
@@ -263,14 +281,15 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 		statsList, _, err := sdb.UpdateBatch(ctx, updateReqList)
 		assert.NoError(t, err)
 
-		_, _, newAuditRatio1 := getRatio(int(auditSuccessCount1+1), int(auditCount1+1))
-		_, _, newUptimeRatio1 := getRatio(int(uptimeSuccessCount1), int(uptimeCount1+1))
-		_, _, newAuditRatio2 := getRatio(int(auditSuccessCount2+1), int(auditCount2+1))
+		_, _, newAuditRatio1 := getRatio(auditSuccessCount1+1, auditCount1+1)
+		_, _, newUptimeRatio1 := getRatio(uptimeSuccessCount1, uptimeCount1+1)
+		_, _, newAuditRatio2 := getRatio(auditSuccessCount2+1, auditCount2+1)
+		_, _, newUptimeRatio2 := getRatio(uptimeSuccessCount2+1, uptimeCount2+1)
 		stats1 := statsList[0]
 		stats2 := statsList[1]
 		assert.EqualValues(t, newAuditRatio1, stats1.AuditSuccessRatio)
 		assert.EqualValues(t, newUptimeRatio1, stats1.UptimeRatio)
 		assert.EqualValues(t, newAuditRatio2, stats2.AuditSuccessRatio)
-		assert.EqualValues(t, uptimeRatio2, stats2.UptimeRatio)
+		assert.EqualValues(t, newUptimeRatio2, stats2.UptimeRatio)
 	}
 }
