@@ -5,7 +5,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"os"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -49,10 +52,11 @@ func init() {
 
 func cmdList(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
-	c, err := cacheCfg.open(ctx)
+	c, dbClose, err := cacheCfg.open(ctx)
 	if err != nil {
 		return err
 	}
+	defer dbClose()
 
 	keys, err := c.DB.List(nil, 0)
 	if err != nil {
@@ -63,26 +67,31 @@ func cmdList(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
+
+	const padding = 3
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.Debug)
+	fmt.Fprintln(w, "Node ID\t Address")
+
 	for _, id := range nodeIDs {
 		n, err := c.Get(process.Ctx(cmd), id)
 		if err != nil {
-			zap.S().Infof("ID: %s; error getting value\n", id.String())
+			fmt.Fprintln(w, id.String(), "\t", "error getting value")
 		}
 		if n != nil {
-			zap.S().Infof("ID: %s; Address: %s\n", id.String(), n.Address.Address)
+			fmt.Fprintln(w, id.String(), "\t", n.Address.Address)
 			continue
 		}
-		zap.S().Infof("ID: %s: nil\n", id.String())
+		fmt.Fprintln(w, id.String(), "\tnil")
 	}
 
-	return nil
+	return w.Flush()
 }
 
 func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
 	j, err := ioutil.ReadFile(cacheCfg.NodesPath)
 	if err != nil {
-		return errs.Wrap(err)
+		return errs.New("Unable to read file with nodes: %+v", err)
 	}
 
 	var nodes map[string]string
@@ -90,17 +99,18 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 		return errs.Wrap(err)
 	}
 
-	c, err := cacheCfg.open(ctx)
+	c, dbClose, err := cacheCfg.open(ctx)
 	if err != nil {
 		return err
 	}
+	defer dbClose()
 
 	for i, a := range nodes {
 		id, err := storj.NodeIDFromString(i)
 		if err != nil {
 			zap.S().Error(err)
 		}
-		zap.S().Infof("adding node ID: %s; Address: %s", i, a)
+		fmt.Printf("adding node ID: %s; Address: %s", i, a)
 		err = c.Put(process.Ctx(cmd), id, pb.Node{
 			Id: id,
 			// TODO: NodeType is missing

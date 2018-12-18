@@ -96,7 +96,12 @@ func (o *overlaycache) List(start storage.Key, limit int) (keys storage.Keys, er
 		limit = storage.LookupLimit
 	}
 
-	rows, err := o.db.Limited_OverlayCacheNode_By_Key_GreaterOrEqual(o.ctx, dbx.OverlayCacheNode_Key(start), limit, 0)
+	var rows []*dbx.OverlayCacheNode
+	if start == nil {
+		rows, err = o.db.Limited_OverlayCacheNode(o.ctx, limit, 0)
+	} else {
+		rows, err = o.db.Limited_OverlayCacheNode_By_Key_GreaterOrEqual(o.ctx, dbx.OverlayCacheNode_Key(start), limit, 0)
+	}
 	if err != nil {
 		return []storage.Key{}, err
 	}

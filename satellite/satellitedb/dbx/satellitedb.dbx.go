@@ -1954,6 +1954,41 @@ func (obj *postgresImpl) Get_OverlayCacheNode_By_Key(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Limited_OverlayCacheNode(ctx context.Context,
+	limit int, offset int64) (
+	rows []*OverlayCacheNode, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		overlay_cache_node := &OverlayCacheNode{}
+		err = __rows.Scan(&overlay_cache_node.Key, &overlay_cache_node.Value)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, overlay_cache_node)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx context.Context,
 	overlay_cache_node_key_greater_or_equal OverlayCacheNode_Key_Field,
 	limit int, offset int64) (
@@ -3030,6 +3065,41 @@ func (obj *sqlite3Impl) Get_OverlayCacheNode_By_Key(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Limited_OverlayCacheNode(ctx context.Context,
+	limit int, offset int64) (
+	rows []*OverlayCacheNode, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		overlay_cache_node := &OverlayCacheNode{}
+		err = __rows.Scan(&overlay_cache_node.Key, &overlay_cache_node.Value)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, overlay_cache_node)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *sqlite3Impl) Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx context.Context,
 	overlay_cache_node_key_greater_or_equal OverlayCacheNode_Key_Field,
 	limit int, offset int64) (
@@ -4091,6 +4161,16 @@ func (rx *Rx) Limited_Bwagreement(ctx context.Context,
 	return tx.Limited_Bwagreement(ctx, limit, offset)
 }
 
+func (rx *Rx) Limited_OverlayCacheNode(ctx context.Context,
+	limit int, offset int64) (
+	rows []*OverlayCacheNode, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_OverlayCacheNode(ctx, limit, offset)
+}
+
 func (rx *Rx) Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx context.Context,
 	overlay_cache_node_key_greater_or_equal OverlayCacheNode_Key_Field,
 	limit int, offset int64) (
@@ -4286,6 +4366,10 @@ type Methods interface {
 	Limited_Bwagreement(ctx context.Context,
 		limit int, offset int64) (
 		rows []*Bwagreement, err error)
+
+	Limited_OverlayCacheNode(ctx context.Context,
+		limit int, offset int64) (
+		rows []*OverlayCacheNode, err error)
 
 	Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx context.Context,
 		overlay_cache_node_key_greater_or_equal OverlayCacheNode_Key_Field,
