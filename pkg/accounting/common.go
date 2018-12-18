@@ -9,8 +9,8 @@ const (
 	AtRest = iota
 	// Bandwidth is the data_type representing bandwidth allocation.
 	Bandwith = iota
-	// LastAtRestTally represents the accounting timestamp for at rest data calculation 
+	// LastAtRestTally represents the accounting timestamp for the at-rest data calculation
 	LastAtRestTally = "LastAtRestTally"
-	// LastBandwidthTally represents the accounting timestamp for at rest bandwidth allocation query
+	// LastBandwidthTally represents the accounting timestamp for the bandwidth allocation query
 	LastBandwidthTally = "LastBandwidthTally"
 )
