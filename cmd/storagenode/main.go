@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"text/tabwriter"
 
@@ -89,6 +90,13 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	farmerConfig := runCfg.Kademlia.Farmer
+	if err := isFarmerEmailValid(farmerConfig.Email); err != nil {
+		fmt.Println("Warning!", err)
+	}
+	if err := isFarmerWalletValid(farmerConfig.Wallet); err != nil {
+		return err
+	}
 	return runCfg.Identity.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
 }
 
@@ -119,7 +127,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"identity.server.address":                 defaultServerAddr,
 		"storage.path":                            filepath.Join(setupDir, "storage"),
 		"kademlia.bootstrap-addr":                 defaultSatteliteAddr,
-		"piecestore.agreementsender.overlay_addr": defaultSatteliteAddr,
+		"piecestore.agreementsender.overlay-addr": defaultSatteliteAddr,
 	}
 
 	return process.SaveConfig(runCmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
@@ -214,6 +222,24 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	// display the data
 	err = w.Flush()
 	return err
+}
+
+func isFarmerEmailValid(email string) error {
+	if email == "" {
+		return fmt.Errorf("Farmer mail address isn't specified")
+	}
+	return nil
+}
+
+func isFarmerWalletValid(wallet string) error {
+	if wallet == "" {
+		return fmt.Errorf("Farmer wallet address isn't specified")
+	}
+	r := regexp.MustCompile("^(0x[a-fA-F0-9]{40})$")
+	if match := r.MatchString(wallet); !match {
+		return fmt.Errorf("Farmer wallet address isn't valid")
+	}
+	return nil
 }
 
 func main() {
