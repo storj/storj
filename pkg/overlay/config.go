@@ -19,8 +19,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
-	"storj.io/storj/storage/redis"
 )
 
 var (
@@ -32,14 +30,23 @@ var (
 // Config is a configuration struct for everything you need to start the
 // Overlay cache responsibility.
 type Config struct {
-	DatabaseURL     string        `help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
 	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
+	Node            NodeSelectionConfig
 }
 
 // LookupConfig is a configuration struct for querying the overlay cache with one or more node IDs
 type LookupConfig struct {
 	NodeIDsString string `help:"one or more string-encoded node IDs, delimited by Delimiter"`
 	Delimiter     string `help:"delimiter used for parsing node IDs" default:","`
+}
+
+// NodeSelectionConfig is a configuration struct to determine the minimum
+// values for nodes to select
+type NodeSelectionConfig struct {
+	UptimeRatio       float64 `help:"a node's ratio of being up/online vs. down/offline" default:"0"`
+	UptimeCount       int64   `help:"the number of times a node's uptime has been checked" default:"0"`
+	AuditSuccessRatio float64 `help:"a node's ratio of successful audits" default:"0"`
+	AuditCount        int64   `help:"the number of times a node has been audited" default:"0"`
 }
 
 // CtxKey used for assigning cache and server
@@ -63,37 +70,22 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	sdb, ok := ctx.Value("masterdb").(interface {
 		StatDB() statdb.DB
+		OverlayCache() storage.KeyValueStore
 	})
 	if !ok {
-		return Error.New("unable to get master db instance")
+		return Error.Wrap(errs.New("unable to get master db instance"))
 	}
 
-	driver, source, err := utils.SplitDBURL(c.DatabaseURL)
-	if err != nil {
-		return Error.Wrap(err)
+	cache := NewOverlayCache(sdb.OverlayCache(), kad, sdb.StatDB())
+
+	ns := &pb.NodeStats{
+		UptimeCount:       c.Node.UptimeCount,
+		UptimeRatio:       c.Node.UptimeRatio,
+		AuditSuccessRatio: c.Node.AuditSuccessRatio,
+		AuditCount:        c.Node.AuditCount,
 	}
 
-	var db storage.KeyValueStore
-
-	switch driver {
-	case "bolt":
-		db, err = boltdb.New(source, OverlayBucket)
-		if err != nil {
-			return err
-		}
-		zap.S().Info("Starting overlay cache with BoltDB")
-	case "redis":
-		db, err = redis.NewClientFrom(c.DatabaseURL)
-		if err != nil {
-			return err
-		}
-		zap.S().Info("Starting overlay cache with Redis")
-	default:
-		return Error.New("database scheme not supported: %s", driver)
-	}
-
-	cache := NewOverlayCache(db, kad, sdb.StatDB())
-	srv := NewServer(zap.L(), cache, kad)
+	srv := NewServer(zap.L(), cache, kad, ns)
 	pb.RegisterOverlayServer(server.GRPC(), srv)
 
 	ctx2 := context.WithValue(ctx, ctxKeyOverlay, cache)

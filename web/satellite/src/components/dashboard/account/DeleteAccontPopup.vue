@@ -10,8 +10,8 @@
             </div>
             <div class="delete-account__form-container">
                 <p>Are you sure that you want to delete your account?  All your information, projects, API Keys will be deleted from the Satellite forever.</p>
-                <HeaderedInput 
-                    label="Enter your password" 
+                <HeaderedInput
+                    label="Enter your password"
                     placeholder="Your Password"
                     class="full-input"
                     width="100%"
@@ -53,16 +53,16 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import HeaderedInput from "@/components/common/HeaderedInput.vue";
-import Button from "@/components/common/Button.vue";
+import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import Button from '@/components/common/Button.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 @Component(
     {
-        data: function() {
+        data: function () {
             return {
                 imageSource: EMPTY_STATE_IMAGES.DELETE_ACCOUNT,
-            }
+            };
         },
         components: {
             HeaderedInput,
@@ -71,7 +71,8 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     }
 )
 
-export default class DeleteAccontPopup extends Vue {}
+export default class DeleteAccontPopup extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

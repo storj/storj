@@ -5,7 +5,7 @@ FROM storjlabs/golang as build-env
 
 # final stage
 FROM alpine
-ENV CONF_PATH=/root/.local/share/storj/uplink/config.yaml \
+ENV CONF_PATH=/root/.local/share/storj/uplink \
     API_KEY= \
     SATELLITE_ADDR=
 EXPOSE 7776/udp \

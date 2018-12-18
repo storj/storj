@@ -22,19 +22,20 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import NAVIGATION_ITEMS from "@/utils/constants/navigationLinks";
+import NAVIGATION_ITEMS from '@/utils/constants/navigationLinks';
 
 @Component(
-    { 
-        data: function() {
+    {
+        data: function () {
             return {
                 navigation: NAVIGATION_ITEMS
-            }
+            };
         }
     }
 )
 
-export default class NavigationArea extends Vue {}
+export default class NavigationArea extends Vue {
+}
 </script>
 
 <style lang="scss">

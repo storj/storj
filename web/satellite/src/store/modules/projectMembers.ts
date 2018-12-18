@@ -31,6 +31,7 @@ export const projectMembersModule = {
 				if (projectMember.user.id === projectMemberId) {
 					projectMember.isSelected = !projectMember.isSelected;
 				}
+
 				return projectMember;
 			});
 		},
@@ -55,6 +56,7 @@ export const projectMembersModule = {
 			}
 
 			commit(PROJECT_MEMBER_MUTATIONS.ADD, response.data);
+
 			return true;
 		},
 		deleteProjectMembers: async function ({commit, rootGetters}: any, projectMemberIds: string[]): Promise<boolean> {
@@ -88,6 +90,7 @@ export const projectMembersModule = {
 			}
 
 			commit(PROJECT_MEMBER_MUTATIONS.FETCH, response.data.project.members);
+
 			return true;
 		},
 	},

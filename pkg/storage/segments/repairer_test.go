@@ -27,7 +27,7 @@ func TestNewSegmentRepairer(t *testing.T) {
 	mockEC := mock_ecclient.NewMockClient(ctrl)
 	mockPDB := mock_pointerdb.NewMockClient(ctrl)
 
-	ss := NewSegmentRepairer(mockOC, mockEC, mockPDB, &pb.NodeStats{})
+	ss := NewSegmentRepairer(mockOC, mockEC, mockPDB)
 	assert.NotNil(t, ss)
 }
 
