@@ -47,17 +47,18 @@ func NewFilePipe(tempdir string) (PipeReader, PipeWriter, error) {
 	return filePipeReader{pipe}, filePipeWriter{pipe}, nil
 }
 
-type filePipeReader struct{ *filepipe }
-type filePipeWriter struct{ *filepipe }
+type filePipeReader struct{ pipe *filepipe }
+type filePipeWriter struct{ pipe *filepipe }
 
 // Close implements io.Reader Close
-func (pipe filePipeReader) Close() error { return pipe.CloseWithError(io.EOF) }
+func (reader filePipeReader) Close() error { return reader.CloseWithError(io.EOF) }
 
 // Close implements io.Writer Close
-func (pipe filePipeWriter) Close() error { return pipe.CloseWithError(io.EOF) }
+func (writer filePipeWriter) Close() error { return writer.CloseWithError(io.EOF) }
 
 // CloseWithError implements closing with error
-func (pipe filePipeReader) CloseWithError(err error) error {
+func (reader filePipeReader) CloseWithError(err error) error {
+	pipe := reader.pipe
 	pipe.mu.Lock()
 	if pipe.readerDone {
 		pipe.mu.Unlock()
@@ -71,7 +72,8 @@ func (pipe filePipeReader) CloseWithError(err error) error {
 }
 
 // CloseWithError implements closing with error
-func (pipe filePipeWriter) CloseWithError(err error) error {
+func (writer filePipeWriter) CloseWithError(err error) error {
+	pipe := writer.pipe
 	pipe.mu.Lock()
 	if pipe.writerDone {
 		pipe.mu.Unlock()
@@ -94,7 +96,8 @@ func (pipe *filepipe) closeFile() error {
 }
 
 // Write writes to the pipe returning io.EOF when blockSize is reached
-func (pipe filePipeWriter) Write(data []byte) (n int, err error) {
+func (writer filePipeWriter) Write(data []byte) (n int, err error) {
+	pipe := writer.pipe
 	pipe.mu.Lock()
 
 	// has the reader finished?
@@ -146,7 +149,8 @@ func (pipe filePipeWriter) Write(data []byte) (n int, err error) {
 }
 
 // Read reads from the pipe returning io.EOF when writer is closed or blockSize is reached
-func (pipe filePipeReader) Read(data []byte) (n int, err error) {
+func (reader filePipeReader) Read(data []byte) (n int, err error) {
+	pipe := reader.pipe
 	pipe.mu.Lock()
 	// wait until we have something to read
 	for pipe.read >= pipe.write {
