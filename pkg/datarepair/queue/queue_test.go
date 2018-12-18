@@ -36,7 +36,7 @@ func testDatabase(ctx context.Context, t *testing.T, q queue.RepairQueue) {
 	//testing variables
 	seg := pb.InjuredSegment{
 		Path:       "this/is/my/path",
-		LostPieces: []int32{0,1,2,3,4,5},
+		LostPieces: []int32{0, 1, 2, 3, 4, 5},
 	}
 
 	{ // Enqueue
@@ -72,7 +72,7 @@ func TestEnqueueDequeue(t *testing.T) {
 		}
 		err := q.Enqueue(ctx, seg)
 		assert.NoError(t, err)
-	
+
 		s, err := q.Dequeue(ctx)
 		assert.NoError(t, err)
 		assert.True(t, proto.Equal(&s, seg))
@@ -98,7 +98,7 @@ func TestSequential(t *testing.T) {
 		defer ctx.Cleanup()
 
 		q := db.RepairQueueDB()
-		
+
 		const N = 100
 		var addSegs []*pb.InjuredSegment
 		for i := 0; i < N; i++ {

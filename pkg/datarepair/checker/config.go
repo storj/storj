@@ -52,7 +52,7 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 	}
 
 	o := overlay.LoadServerFromContext(ctx)
-	
+
 	return newChecker(pdb, sdb.StatDB(), qdb.RepairQueueDB(), o, irdb.Irreparable(), 0, zap.L(), c.Interval), nil
 }
 
