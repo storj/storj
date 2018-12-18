@@ -18,8 +18,9 @@ type filepipe struct {
 
 	mu     sync.Mutex
 	nodata sync.Cond
-	read   uint32
-	write  uint32
+	read   int64
+	write  int64
+	limit  int64
 
 	writerDone bool
 	writerErr  error
@@ -38,7 +39,9 @@ func NewFilePipe(tempdir string) (PipeReader, PipeWriter, error) {
 	pipe := &filepipe{
 		file:     tempfile,
 		refcount: 2,
+		limit:    0xFFFFFFFF,
 	}
+	pipe.nodata.L = &pipe.mu
 
 	return filePipeReader{pipe}, filePipeWriter{pipe}, nil
 }
@@ -106,7 +109,20 @@ func (pipe filePipeWriter) Write(data []byte) (n int, err error) {
 	}
 
 	// check how much do they want to write
-	toWrite := uint32(len(data))
+	canWrite := pipe.limit - pipe.write
+
+	// no more room to write
+	if canWrite == 0 {
+		pipe.mu.Unlock()
+		return 0, io.EOF
+	}
+
+	// figure out how much to write
+	toWrite := int64(len(data))
+	if toWrite > canWrite {
+		toWrite = canWrite
+	}
+
 	writeAt := pipe.write
 	pipe.mu.Unlock()
 
@@ -115,12 +131,16 @@ func (pipe filePipeWriter) Write(data []byte) (n int, err error) {
 
 	pipe.mu.Lock()
 	// update writing head
-	pipe.write += uint32(writeAmount)
+	pipe.write += int64(writeAmount)
 	// wake up reader
 	pipe.nodata.Broadcast()
 	// check whether we have finished
+	done := pipe.write >= pipe.limit
 	pipe.mu.Unlock()
 
+	if err == nil && done {
+		err = io.EOF
+	}
 	return writeAmount, err
 }
 
@@ -141,6 +161,12 @@ func (pipe filePipeReader) Read(data []byte) (n int, err error) {
 			return 0, os.ErrClosed
 		}
 
+		// have we run out of the limit
+		if pipe.read >= pipe.limit {
+			pipe.mu.Unlock()
+			return 0, io.EOF
+		}
+
 		// ok, lets wait
 		pipe.nodata.Wait()
 	}
@@ -148,7 +174,7 @@ func (pipe filePipeReader) Read(data []byte) (n int, err error) {
 	// how much there's available for reading
 	canRead := pipe.write - pipe.read
 	// how much do they want to read?
-	toRead := uint32(len(data))
+	toRead := int64(len(data))
 	if toRead > canRead {
 		toRead = canRead
 	}
@@ -160,8 +186,12 @@ func (pipe filePipeReader) Read(data []byte) (n int, err error) {
 
 	pipe.mu.Lock()
 	// update info on how much we have read
-	pipe.read += uint32(readAmount)
+	pipe.read += int64(readAmount)
+	done := pipe.read >= pipe.limit
 	pipe.mu.Unlock()
 
+	if err == nil && done {
+		err = io.EOF
+	}
 	return readAmount, err
 }
