@@ -19,8 +19,9 @@ import (
 
 	"github.com/lib/pq"
 
-	"github.com/mattn/go-sqlite3"
 	"math/rand"
+
+	"github.com/mattn/go-sqlite3"
 )
 
 // Prevent conditional imports from causing build failures
@@ -590,44 +591,7 @@ func (f AccountingRaw_IntervalEndTime_Field) value() interface{} {
 	return f._value
 }
 
-func (Bwagreement_CreatedAt_Field) _Column() string { return "created_at" }
-
-type Injuredsegment struct {
-	Info []byte
-}
-
-func (Injuredsegment) _Table() string { return "injuredsegments" }
-
-type Injuredsegment_Update_Fields struct {
-}
-
-type Injuredsegment_Info_Field struct {
-	_set   bool
-	_value []byte
-}
-
-func Injuredsegment_Info(v []byte) Injuredsegment_Info_Field {
-	return Injuredsegment_Info_Field{_set: true, _value: v}
-}
-
-func (f Injuredsegment_Info_Field) value() interface{} {
-	if !f._set {
-		return nil
-	}
-	return f._value
-}
-
-func (Injuredsegment_Info_Field) _Column() string { return "info" }
-
-type Irreparabledb struct {
-	Segmentpath        []byte
-	Segmentdetail      []byte
-	PiecesLostCount    int64
-	SegDamagedUnixSec  int64
-	RepairAttemptCount int64
-}
-
-func (Irreparabledb) _Table() string { return "irreparabledbs" }
+func (AccountingRaw_IntervalEndTime_Field) _Column() string { return "interval_end_time" }
 
 type AccountingRaw_DataTotal_Field struct {
 	_set   bool
@@ -969,6 +933,34 @@ func (f Bwagreement_CreatedAt_Field) value() interface{} {
 }
 
 func (Bwagreement_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Injuredsegment struct {
+	Info []byte
+}
+
+func (Injuredsegment) _Table() string { return "injuredsegments" }
+
+type Injuredsegment_Update_Fields struct {
+}
+
+type Injuredsegment_Info_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Injuredsegment_Info(v []byte) Injuredsegment_Info_Field {
+	return Injuredsegment_Info_Field{_set: true, _value: v}
+}
+
+func (f Injuredsegment_Info_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Injuredsegment_Info_Field) _Column() string { return "info" }
 
 type Irreparabledb struct {
 	Segmentpath        []byte
@@ -1683,6 +1675,25 @@ func (obj *postgresImpl) Create_OverlayCacheNode(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_Injuredsegment(ctx context.Context,
+	injuredsegment_info Injuredsegment_Info_Field) (
+	injuredsegment *Injuredsegment, err error) {
+	__info_val := injuredsegment_info.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO injuredsegments ( info ) VALUES ( ? ) RETURNING injuredsegments.info")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __info_val)
+
+	injuredsegment = &Injuredsegment{}
+	err = obj.driver.QueryRow(__stmt, __info_val).Scan(&injuredsegment.Info)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return injuredsegment, nil
+
+}
+
 func (obj *postgresImpl) Get_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	bwagreement *Bwagreement, err error) {
@@ -2062,6 +2073,75 @@ func (obj *postgresImpl) Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx cont
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, overlay_cache_node)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) First_Injuredsegment(ctx context.Context) (
+	injuredsegment *Injuredsegment, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT injuredsegments.info FROM injuredsegments LIMIT 1 OFFSET 0")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, nil
+	}
+
+	injuredsegment = &Injuredsegment{}
+	err = __rows.Scan(&injuredsegment.Info)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return injuredsegment, nil
+
+}
+
+func (obj *postgresImpl) Limited_Injuredsegment(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Injuredsegment, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT injuredsegments.info FROM injuredsegments LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		injuredsegment := &Injuredsegment{}
+		err = __rows.Scan(&injuredsegment.Info)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, injuredsegment)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -2499,6 +2579,32 @@ func (obj *postgresImpl) Delete_OverlayCacheNode_By_Key(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Delete_Injuredsegment_By_Info(ctx context.Context,
+	injuredsegment_info Injuredsegment_Info_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM injuredsegments WHERE injuredsegments.info = ?")
+
+	var __values []interface{}
+	__values = append(__values, injuredsegment_info.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -2533,6 +2639,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM irreparabledbs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM injuredsegments;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -2791,6 +2907,28 @@ func (obj *sqlite3Impl) Create_OverlayCacheNode(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastOverlayCacheNode(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_Injuredsegment(ctx context.Context,
+	injuredsegment_info Injuredsegment_Info_Field) (
+	injuredsegment *Injuredsegment, err error) {
+	__info_val := injuredsegment_info.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO injuredsegments ( info ) VALUES ( ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __info_val)
+
+	__res, err := obj.driver.Exec(__stmt, __info_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastInjuredsegment(ctx, __pk)
 
 }
 
@@ -3173,6 +3311,75 @@ func (obj *sqlite3Impl) Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx conte
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, overlay_cache_node)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) First_Injuredsegment(ctx context.Context) (
+	injuredsegment *Injuredsegment, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT injuredsegments.info FROM injuredsegments LIMIT 1 OFFSET 0")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, nil
+	}
+
+	injuredsegment = &Injuredsegment{}
+	err = __rows.Scan(&injuredsegment.Info)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return injuredsegment, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Injuredsegment(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Injuredsegment, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT injuredsegments.info FROM injuredsegments LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		injuredsegment := &Injuredsegment{}
+		err = __rows.Scan(&injuredsegment.Info)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, injuredsegment)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -3670,6 +3877,32 @@ func (obj *sqlite3Impl) Delete_OverlayCacheNode_By_Key(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_Injuredsegment_By_Info(ctx context.Context,
+	injuredsegment_info Injuredsegment_Info_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM injuredsegments WHERE injuredsegments.info = ?")
+
+	var __values []interface{}
+	__values = append(__values, injuredsegment_info.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) getLastBwagreement(ctx context.Context,
 	pk int64) (
 	bwagreement *Bwagreement, err error) {
@@ -3862,6 +4095,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM injuredsegments;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bwagreements;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -3892,17 +4135,7 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM injuredsegments;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bwagreements;")
+	__res, err = obj.driver.Exec("DELETE FROM accounting_raws;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -4185,6 +4418,15 @@ func (rx *Rx) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 	return tx.Find_AccountingTimestamps_Value_By_Name(ctx, accounting_timestamps_name)
 }
 
+func (rx *Rx) First_Injuredsegment(ctx context.Context) (
+	injuredsegment *Injuredsegment, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.First_Injuredsegment(ctx)
+}
+
 func (rx *Rx) Get_AccountingRaw_By_Id(ctx context.Context,
 	accounting_raw_id AccountingRaw_Id_Field) (
 	accounting_raw *AccountingRaw, err error) {
@@ -4255,14 +4497,14 @@ func (rx *Rx) Limited_Bwagreement(ctx context.Context,
 	return tx.Limited_Bwagreement(ctx, limit, offset)
 }
 
-func (rx *Rx) Limited_OverlayCacheNode(ctx context.Context,
+func (rx *Rx) Limited_Injuredsegment(ctx context.Context,
 	limit int, offset int64) (
-	rows []*OverlayCacheNode, err error) {
+	rows []*Injuredsegment, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Limited_OverlayCacheNode(ctx, limit, offset)
+	return tx.Limited_Injuredsegment(ctx, limit, offset)
 }
 
 func (rx *Rx) Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx context.Context,
@@ -4441,6 +4683,9 @@ type Methods interface {
 		accounting_timestamps_name AccountingTimestamps_Name_Field) (
 		row *Value_Row, err error)
 
+	First_Injuredsegment(ctx context.Context) (
+		injuredsegment *Injuredsegment, err error)
+
 	Get_AccountingRaw_By_Id(ctx context.Context,
 		accounting_raw_id AccountingRaw_Id_Field) (
 		accounting_raw *AccountingRaw, err error)
@@ -4469,9 +4714,9 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*Bwagreement, err error)
 
-	Limited_OverlayCacheNode(ctx context.Context,
+	Limited_Injuredsegment(ctx context.Context,
 		limit int, offset int64) (
-		rows []*OverlayCacheNode, err error)
+		rows []*Injuredsegment, err error)
 
 	Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx context.Context,
 		overlay_cache_node_key_greater_or_equal OverlayCacheNode_Key_Field,
