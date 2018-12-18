@@ -31,8 +31,7 @@ type statDB struct {
 }
 
 // Create a db entry for the provided storagenode
-func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID,
-	startingStats *pb.NodeStats) (stats *pb.NodeStats, err error) {
+func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats *pb.NodeStats) (stats *pb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var (
