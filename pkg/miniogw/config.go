@@ -146,7 +146,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *provider.FullIdentity
 		return nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, c.Client.MaxInlineSize)
+	segments := segments.NewSegmentStore(oc, ec, pdb, rs, c.Client.MaxInlineSize, c.Client.SegmentSize)
 
 	if c.RS.ErasureShareSize*c.RS.MinThreshold%c.Enc.BlockSize != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")

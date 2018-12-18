@@ -81,18 +81,15 @@ func TestPut(t *testing.T) {
 
 TestLoop:
 	for i, tt := range []struct {
-		nodes     []*pb.Node
-		min       int
-		mbm       int
-		badInput  bool
-		errs      []error
-		errString string
+		nodes              []*pb.Node
+		min                int
+		expectedReaderSize int
+		badInput           bool
+		errs               []error
+		errString          string
 	}{
 		{[]*pb.Node{}, 0, 0, true, []error{},
 			fmt.Sprintf("ecclient error: size of nodes slice (0) does not match total count (%v) of erasure scheme", n)},
-		{[]*pb.Node{node0, node1, node2, node3}, 0, -1, true,
-			[]error{nil, nil, nil, nil},
-			"eestream error: negative max buffer memory"},
 		{[]*pb.Node{node0, node1, node0, node3}, 0, 0, true,
 			[]error{nil, nil, nil, nil},
 			"ecclient error: duplicated nodes are not allowed"},
@@ -148,9 +145,9 @@ TestLoop:
 			continue
 		}
 		r := io.LimitReader(rand.Reader, int64(size))
-		ec := ecClient{newPSClientFunc: mockNewPSClient(clients), memoryLimit: tt.mbm}
+		ec := ecClient{newPSClientFunc: mockNewPSClient(clients)}
 
-		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, nil, nil)
+		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, int64(size), ttl, nil, nil)
 
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)

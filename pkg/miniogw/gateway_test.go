@@ -677,17 +677,17 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 		return nil, nil, nil, err
 	}
 
-	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, int(1*memory.KB)), 3, 4)
+	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KB.Int()), 3, 4)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, int(8*memory.KB))
+	segments := segments.NewSegmentStore(oc, ec, pdb, rs, 8*memory.KB.Int(), 32*memory.KB.Int64())
 
 	key := new(storj.Key)
 	copy(key[:], TestEncKey)
 
-	streams, err := streams.NewStreamStore(segments, int64(64*memory.MB), key, int(1*memory.KB), storj.AESGCM)
+	streams, err := streams.NewStreamStore(segments, 64*memory.MB.Int64(), key, 1*memory.KB.Int(), storj.AESGCM)
 	if err != nil {
 		return nil, nil, nil, err
 	}

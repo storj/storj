@@ -210,3 +210,10 @@ func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (io.Re
 	// length might not have included all of the blocks, limit what we return
 	return readcloser.LimitReadCloser(r, length), nil
 }
+
+func checkMBM(mbm int) error {
+	if mbm < 0 {
+		return Error.New("negative max buffer memory")
+	}
+	return nil
+}

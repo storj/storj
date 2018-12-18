@@ -141,14 +141,6 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	bufw := bufio.NewWriterSize(writer, 32*1024)
 
 	_, err = io.Copy(bufw, data)
-	if err == io.ErrUnexpectedEOF {
-		_ = writer.Close()
-		zap.S().Infof("Node cut from upload due to slow connection. Deleting piece %s...", id)
-		deleteErr := ps.Delete(ctx, id, authorization)
-		if deleteErr != nil {
-			return deleteErr
-		}
-	}
 	if err != nil {
 		return err
 	}

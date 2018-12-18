@@ -191,11 +191,11 @@ func TestNewRedundancyStrategy(t *testing.T) {
 
 func TestRSEncoderInputParams(t *testing.T) {
 	for i, tt := range []struct {
-		mbm       int
-		errString string
+		expectedReaderSize int64
+		errString          string
 	}{
 		{0, ""},
-		{-1, "eestream error: negative max buffer memory"},
+		{-1, "eestream error: negative expected reader size"},
 		{1024, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
@@ -210,7 +210,7 @@ func TestRSEncoderInputParams(t *testing.T) {
 		if !assert.NoError(t, err, errTag) {
 			continue
 		}
-		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.mbm)
+		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.expectedReaderSize)
 		if tt.errString == "" {
 			assert.NoError(t, err, errTag)
 		} else {
@@ -221,11 +221,11 @@ func TestRSEncoderInputParams(t *testing.T) {
 
 func TestRSRangerInputParams(t *testing.T) {
 	for i, tt := range []struct {
-		mbm       int
-		errString string
+		expectedReaderSize int64
+		errString          string
 	}{
 		{0, ""},
-		{-1, "eestream error: negative max buffer memory"},
+		{-1, "eestream error: negative expected reader size"},
 		{1024, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
@@ -240,7 +240,7 @@ func TestRSRangerInputParams(t *testing.T) {
 		if !assert.NoError(t, err, errTag) {
 			continue
 		}
-		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.mbm)
+		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.expectedReaderSize)
 		if tt.errString == "" {
 			assert.NoError(t, err, errTag)
 		} else {
