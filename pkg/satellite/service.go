@@ -15,9 +15,15 @@ import (
 
 	"go.uber.org/zap"
 
+	"gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/satellite/satelliteauth"
 	"storj.io/storj/pkg/utils"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // TODO: Use maxLimit in future.
@@ -49,7 +55,8 @@ func NewService(log *zap.Logger, signer Signer, store DB) (*Service, error) {
 }
 
 // CreateUser gets password hash value and creates new User
-func (s *Service) CreateUser(ctx context.Context, user CreateUser) (*User, error) {
+func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if err := user.IsValid(); err != nil {
 		return nil, err
 	}
@@ -68,7 +75,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (*User, error
 }
 
 // Token authenticates User by credentials and returns auth token
-func (s *Service) Token(ctx context.Context, email, password string) (string, error) {
+func (s *Service) Token(ctx context.Context, email, password string) (token string, err error) {
+	defer mon.Task()(&ctx)(&err)
 	user, err := s.store.Users().GetByEmail(ctx, email)
 	if err != nil {
 		return "", err
@@ -85,7 +93,7 @@ func (s *Service) Token(ctx context.Context, email, password string) (string, er
 		Expiration: time.Now().Add(time.Minute * 15),
 	}
 
-	token, err := s.createToken(&claims)
+	token, err = s.createToken(&claims)
 	if err != nil {
 		return "", err
 	}
@@ -94,8 +102,9 @@ func (s *Service) Token(ctx context.Context, email, password string) (string, er
 }
 
 // GetUser returns User by id
-func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*User, error) {
-	_, err := GetAuth(ctx)
+func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -104,8 +113,9 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*User, error) {
 }
 
 // UpdateUser updates User with given id
-func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) error {
-	_, err := GetAuth(ctx)
+func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return err
 	}
@@ -124,8 +134,9 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) e
 }
 
 // ChangeUserPassword updates password for a given user
-func (s *Service) ChangeUserPassword(ctx context.Context, id uuid.UUID, pass, newPass string) error {
-	_, err := GetAuth(ctx)
+func (s *Service) ChangeUserPassword(ctx context.Context, id uuid.UUID, pass, newPass string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return err
 	}
@@ -154,7 +165,8 @@ func (s *Service) ChangeUserPassword(ctx context.Context, id uuid.UUID, pass, ne
 }
 
 // DeleteUser deletes User by id
-func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string) error {
+func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
@@ -182,8 +194,9 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string)
 }
 
 // CreateCompany creates Company for User with given id
-func (s *Service) CreateCompany(ctx context.Context, userID uuid.UUID, info CompanyInfo) (*Company, error) {
-	_, err := GetAuth(ctx)
+func (s *Service) CreateCompany(ctx context.Context, userID uuid.UUID, info CompanyInfo) (c *Company, err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -200,8 +213,9 @@ func (s *Service) CreateCompany(ctx context.Context, userID uuid.UUID, info Comp
 }
 
 // GetCompany returns Company by userID
-func (s *Service) GetCompany(ctx context.Context, userID uuid.UUID) (*Company, error) {
-	_, err := GetAuth(ctx)
+func (s *Service) GetCompany(ctx context.Context, userID uuid.UUID) (c *Company, err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -210,8 +224,9 @@ func (s *Service) GetCompany(ctx context.Context, userID uuid.UUID) (*Company, e
 }
 
 // UpdateCompany updates Company with given userID
-func (s *Service) UpdateCompany(ctx context.Context, userID uuid.UUID, info CompanyInfo) error {
-	_, err := GetAuth(ctx)
+func (s *Service) UpdateCompany(ctx context.Context, userID uuid.UUID, info CompanyInfo) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return err
 	}
@@ -228,8 +243,9 @@ func (s *Service) UpdateCompany(ctx context.Context, userID uuid.UUID, info Comp
 }
 
 // GetProject is a method for querying project by id
-func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (*Project, error) {
-	_, err := GetAuth(ctx)
+func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +254,8 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (*Project
 }
 
 // GetUsersProjects is a method for querying all projects
-func (s *Service) GetUsersProjects(ctx context.Context) ([]Project, error) {
+func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error) {
+	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
@@ -248,7 +265,8 @@ func (s *Service) GetUsersProjects(ctx context.Context) ([]Project, error) {
 }
 
 // CreateProject is a method for creating new project
-func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*Project, error) {
+func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p *Project, err error) {
+	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
@@ -285,7 +303,8 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 }
 
 // DeleteProject is a method for deleting project by id
-func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) error {
+func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
@@ -304,8 +323,9 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) error 
 }
 
 // UpdateProject is a method for updating project description by id
-func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, description string) (*Project, error) {
-	_, err := GetAuth(ctx)
+func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, description string) (p *Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -326,8 +346,9 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, descri
 }
 
 // AddProjectMember adds User as member of given Project
-func (s *Service) AddProjectMember(ctx context.Context, projectID, userID uuid.UUID) error {
-	_, err := GetAuth(ctx)
+func (s *Service) AddProjectMember(ctx context.Context, projectID, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return err
 	}
@@ -337,8 +358,9 @@ func (s *Service) AddProjectMember(ctx context.Context, projectID, userID uuid.U
 }
 
 // DeleteProjectMember removes user membership for given project
-func (s *Service) DeleteProjectMember(ctx context.Context, projectID, userID uuid.UUID) error {
-	_, err := GetAuth(ctx)
+func (s *Service) DeleteProjectMember(ctx context.Context, projectID, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return err
 	}
@@ -348,8 +370,9 @@ func (s *Service) DeleteProjectMember(ctx context.Context, projectID, userID uui
 
 // GetProjectMembers returns ProjectMembers for given Project
 // TODO: add limit and offset parameters
-func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID) ([]ProjectMember, error) {
-	_, err := GetAuth(ctx)
+func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID) (pms []ProjectMember, err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -361,7 +384,8 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID) ([
 }
 
 // Authorize validates token from context and returns authorized Authorization
-func (s *Service) Authorize(ctx context.Context) (Authorization, error) {
+func (s *Service) Authorize(ctx context.Context) (a Authorization, err error) {
+	defer mon.Task()(&ctx)(&err)
 	tokenS, ok := auth.GetAPIKey(ctx)
 	if !ok {
 		return Authorization{}, ErrUnauthorized.New("no api key was provided")
@@ -438,3 +462,4 @@ func (s *Service) authorize(ctx context.Context, claims *satelliteauth.Claims) (
 
 	return user, nil
 }
+
