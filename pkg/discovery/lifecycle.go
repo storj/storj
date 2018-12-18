@@ -34,3 +34,13 @@ func (d *Discovery) ConnectionFailure(id storj.NodeID) {
 func (d *Discovery) GracefulDisconnect(id storj.NodeID) {
 
 }
+
+// ConnFailure implements the Transport failure function
+func (d *Discovery) ConnFailure(node *pb.Node, err error) {
+	return
+}
+
+// ConnSuccess implements the Transport success function
+func (d *Discovery) ConnSuccess(node *pb.Node) {
+	return
+}

@@ -5,6 +5,7 @@ package overlay
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -117,4 +118,16 @@ func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) err
 	}
 
 	return o.DB.Put(nodeID.Bytes(), data)
+}
+
+// ConnFailure implements the Transport failure function
+func (o *Cache) ConnFailure(node *pb.Node, err error) {
+	return
+}
+
+// ConnSuccess implements the Transport success function
+func (o *Cache) ConnSuccess(node *pb.Node) {
+	fmt.Printf("CONN SUCCESS %+v\n", node)
+	o.Put(context.Background(), node.Id, *node)
+	return
 }

@@ -5,10 +5,12 @@ package kademlia
 
 import (
 	"encoding/binary"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
@@ -226,4 +228,19 @@ func (rt *RoutingTable) GetBucketTimestamp(bIDBytes []byte, bucket dht.Bucket) (
 
 func (rt *RoutingTable) iterate(opts storage.IterateOptions, f func(it storage.Iterator) error) error {
 	return rt.nodeBucketDB.Iterate(opts, f)
+}
+
+// ConnFailure implements the Transport failure function
+func (rt RoutingTable) ConnFailure(node *pb.Node, err error) {
+	err2 := rt.ConnectionFailed(node)
+	if err2 != nil {
+		zap.L().Debug(fmt.Sprintf("error removing node from routing table: %+v : %+v", err, err2))
+	}
+	return
+}
+
+// ConnSuccess implements the Transport success function
+func (rt RoutingTable) ConnSuccess(node *pb.Node) {
+	rt.ConnectionSuccess(node)
+	return
 }

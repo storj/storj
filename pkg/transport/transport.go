@@ -111,5 +111,3 @@ func alertSuccess(obs []Observer, node *pb.Node) {
 		o.ConnSuccess(node)
 	}
 }
-
-// Close implements io.closer, closing the transport connection(s)
