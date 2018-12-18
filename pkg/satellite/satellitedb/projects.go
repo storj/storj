@@ -46,7 +46,15 @@ func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) ([]
 		return nil, err
 	}
 
-	return projectsFromDbxSlice(projectsDbx)
+	// TODO: temporary solution, cause there is no way to use OR in dbx 'where' statement
+	projectsByOwnerID, ownershipErr := projects.GetByOwnerID(ctx, userID)
+	projectsByUserID, membershipErr := projectsFromDbxSlice(projectsDbx)
+
+	if ownershipErr != nil && membershipErr != nil {
+		return nil, utils.CombineErrors(membershipErr, ownershipErr)
+	}
+
+	return combineProjectsDistinct(projectsByUserID, projectsByOwnerID), nil
 }
 
 // Get is a method for querying project from the database by id.
@@ -167,4 +175,30 @@ func projectsFromDbxSlice(projectsDbx []*dbx.Project) ([]satellite.Project, erro
 	}
 
 	return projects, utils.CombineErrors(errors...)
+}
+
+// combineProjectsDistinct is used to combine two []satellite.Project slices without repeating elements
+func combineProjectsDistinct(projectsByUserID []satellite.Project, projectsByOwnerID []satellite.Project) (result []satellite.Project) {
+	membershipLength := len(projectsByUserID)
+	ownershipLength := len(projectsByOwnerID)
+	totalLength := ownershipLength + membershipLength
+	tempSlice := projectsByUserID
+
+	keys := make(map[string]bool)
+
+	for i := 0; i < totalLength; i++ {
+		iterator := i
+
+		if i >= membershipLength {
+			tempSlice = projectsByOwnerID
+			iterator = i - membershipLength
+		}
+
+		if _, value := keys[tempSlice[iterator].Name]; !value {
+			keys[tempSlice[iterator].Name] = true
+			result = append(result, tempSlice[iterator])
+		}
+	}
+
+	return result
 }

@@ -58,21 +58,29 @@ func TestProjectMembersRepository(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("Insert  success", func(t *testing.T) {
-		projMember1, err := projectMembers.Insert(ctx, createdUsers[0].ID, createdProjects[0].ID)
+	t.Run("Insert success", func(t *testing.T) {
+		projMember1, err := projectMembers.Insert(ctx, createdUsers[0].ID, createdProjects[1].ID)
 		assert.NotNil(t, projMember1)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 
-		projMember2, err := projectMembers.Insert(ctx, createdUsers[1].ID, createdProjects[0].ID)
-		assert.NotNil(t, projMember2)
-		assert.Nil(t, err)
-		assert.NoError(t, err)
-
-		projMember3, err := projectMembers.Insert(ctx, createdUsers[2].ID, createdProjects[1].ID)
+		projMember3, err := projectMembers.Insert(ctx, createdUsers[1].ID, createdProjects[0].ID)
 		assert.NotNil(t, projMember3)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
+
+		projMember4, err := projectMembers.Insert(ctx, createdUsers[2].ID, createdProjects[1].ID)
+		assert.NotNil(t, projMember4)
+		assert.Nil(t, err)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Get users projects", func(t *testing.T) {
+		projects, err := projects.GetByUserID(ctx, createdUsers[0].ID)
+		assert.Nil(t, err)
+		assert.NoError(t, err)
+		assert.NotNil(t, projects)
+		assert.Equal(t, 2, len(projects))
 	})
 
 	t.Run("Get paged", func(t *testing.T) {
@@ -83,12 +91,6 @@ func TestProjectMembersRepository(t *testing.T) {
 		assert.Equal(t, 1, len(members))
 
 		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, 2, 0)
-		assert.Nil(t, err)
-		assert.NoError(t, err)
-		assert.NotNil(t, members)
-		assert.Equal(t, 2, len(members))
-
-		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, 1, 1)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
@@ -111,6 +113,23 @@ func TestProjectMembersRepository(t *testing.T) {
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.Equal(t, originalMember2.ID, selectedMember2.MemberID)
+	})
+
+	t.Run("Delete success", func(t *testing.T) {
+		members, err := projectMembers.GetByProjectID(ctx, createdProjects[1].ID, 2, 0)
+		assert.NotNil(t, members)
+		assert.Equal(t, 2, len(members))
+		assert.Nil(t, err)
+		assert.NoError(t, err)
+
+		err = projectMembers.Delete(ctx, members[0].MemberID, members[0].ProjectID)
+		assert.Nil(t, err)
+		assert.NoError(t, err)
+
+		members, err = projectMembers.GetByProjectID(ctx, createdProjects[1].ID, 2, 0)
+		assert.Equal(t, 1, len(members))
+		assert.Nil(t, err)
+		assert.NoError(t, err)
 	})
 }
 
