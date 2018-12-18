@@ -4,6 +4,7 @@
 package sync2
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -31,8 +32,8 @@ type blockPipe struct {
 	read   uint32
 	write  uint32
 
-	writerDone bool
-	writerErr  error
+	halfDone  bool
+	halfError error
 
 	streamDone   *int32
 	streamClosed *sync.WaitGroup
@@ -48,6 +49,10 @@ func NewBlockStream(tempdir string, blockCount, blockSize int64) (*BlockStream, 
 
 	err = tempfile.Truncate(blockCount * blockSize)
 	if err != nil {
+		closeErr := tempfile.Close()
+		if closeErr != nil {
+			return nil, fmt.Errorf("%v/%v", err, closeErr)
+		}
 		return nil, err
 	}
 
@@ -91,28 +96,11 @@ func (stream *BlockStream) Close() error {
 	return stream.file.Close()
 }
 
-// WriteCloserWithError allows closing the Writer with an error
-type WriteCloserWithError interface {
-	io.WriteCloser
-	CloseWithError(reason error) error
-}
-
 // Pipe returns the two ends of a block stream pipe
-func (stream *BlockStream) Pipe(index int) (io.ReadCloser, WriteCloserWithError) {
+func (stream *BlockStream) Pipe(index int) (PipeReader, PipeWriter) {
 	stream.streamClosed.Add(2)
 	pipe := &stream.pipes[index]
-	return blockPipeReader{pipe}, pipe
-}
-
-type blockPipeReader struct{ *blockPipe }
-
-// Close implements io.Reader Close
-func (pipe blockPipeReader) Close() error {
-	pipe.mu.Lock()
-	err := pipe.writerErr
-	pipe.mu.Unlock()
-	pipe.streamClosed.Done()
-	return err
+	return pipe, pipe
 }
 
 // Close implementation for io.WriteCloser
@@ -124,12 +112,10 @@ func (pipe *blockPipe) Close() error {
 func (pipe *blockPipe) CloseWithError(reason error) error {
 	// set us as finished writing
 	pipe.mu.Lock()
-	if pipe.writerDone {
-		pipe.mu.Unlock()
-		return os.ErrClosed
+	pipe.halfDone = true
+	if pipe.halfError != nil {
+		pipe.halfError = reason
 	}
-	pipe.writerDone = true
-	pipe.writerErr = reason
 	pipe.nodata.Broadcast()
 	pipe.mu.Unlock()
 
@@ -141,7 +127,7 @@ func (pipe *blockPipe) CloseWithError(reason error) error {
 func (pipe *blockPipe) Write(data []byte) (n int, err error) {
 	pipe.mu.Lock()
 	// have we closed already
-	if pipe.writerDone {
+	if pipe.halfDone {
 		pipe.mu.Unlock()
 		return 0, os.ErrClosed
 	}
@@ -186,8 +172,8 @@ func (pipe *blockPipe) Read(data []byte) (n int, err error) {
 	// wait until we have something to read
 	for pipe.read >= pipe.write {
 		// has the writer finished for some reason?
-		if pipe.writerDone {
-			err := pipe.writerErr
+		if pipe.halfDone {
+			err := pipe.halfError
 			if err == nil {
 				err = io.EOF
 			}
