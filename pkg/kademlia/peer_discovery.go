@@ -97,7 +97,12 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (target *pb.Node, err erro
 					// ok := lookup.queue.Reinsert(lookup.target, next, lookup.opts.retries)
 					ok := false
 					if !ok {
-						lookup.log.Debug("connecting to node failed", zap.Any("target", lookup.target), zap.Any("dial", next.Id), zap.Error(err))
+						lookup.log.Debug("connecting to node failed",
+							zap.Any("target", lookup.target),
+							zap.Any("dial", next.Id),
+							zap.Any("dial-address", next.Address.Address),
+							zap.Error(err),
+						)
 					}
 				}
 
