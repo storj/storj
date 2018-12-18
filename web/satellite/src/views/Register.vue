@@ -140,163 +140,163 @@
 </template>
 
 <script lang="ts">
-    import {Component, Vue} from 'vue-property-decorator';
-    import HeaderedInput from '@/components/common/HeaderedInput.vue';
-    import Checkbox from '@/components/common/Checkbox.vue';
-    import Button from '@/components/common/Button.vue';
-    import {validateEmail} from "@/utils/validation"
-    import ROUTES from "../utils/constants/routerConstants";
-    import {createUser} from "@/api/users";
+import { Component, Vue } from 'vue-property-decorator';
+import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import Checkbox from '@/components/common/Checkbox.vue';
+import Button from '@/components/common/Button.vue';
+import { validateEmail } from '@/utils/validation';
+import ROUTES from '../utils/constants/routerConstants';
+import { createUserRequest } from '@/api/users';
 
-    @Component(
-        {
-            methods: {
-                setEmail: function (value: string) {
-                    this.$data.email = value;
-                    this.$data.emailError = "";
-                },
-                setFirstName: function (value: string) {
-                    this.$data.firstName = value;
-                    this.$data.firstNameError = "";
-                },
-                setLastName: function (value: string) {
-                    this.$data.lastName = value;
-                    this.$data.lastNameError = "";
-                },
-                setPassword: function (value: string) {
-                    this.$data.password = value;
-                    this.$data.passwordError = "";
-                },
-                setRepeatedPassword: function (value: string) {
-                    this.$data.repeatedPassword = value;
-                    this.$data.repeatedPasswordError = "";
-                },
-                setCompanyName: function (value: string) {
-                    this.$data.companyName = value;
-                },
-                setCompanyAddress: function (value: string) {
-                    this.$data.companyAddress = value;
-                },
-                setCountry: function (value: string) {
-                    this.$data.country = value;
-                },
-                setCity: function (value: string) {
-                    this.$data.city = value;
-                },
-                setState: function (value: string) {
-                    this.$data.state = value;
-                },
-                setPostalCode: function (value: string) {
-                    this.$data.postalCode = value;
-                },
-                setTermsAccepted: function (value: boolean) {
-                    this.$data.isTermsAccepted = value;
-                    this.$data.isTermsAcceptedError = false;
-                },
-                showOptional: function () {
-                    let scrollableDiv = document.querySelector(".register-area__scrollable");
+@Component(
+    {
+        methods: {
+            setEmail: function (value: string) {
+                this.$data.email = value;
+                this.$data.emailError = '';
+            },
+            setFirstName: function (value: string) {
+                this.$data.firstName = value;
+                this.$data.firstNameError = '';
+            },
+            setLastName: function (value: string) {
+                this.$data.lastName = value;
+                this.$data.lastNameError = '';
+            },
+            setPassword: function (value: string) {
+                this.$data.password = value;
+                this.$data.passwordError = '';
+            },
+            setRepeatedPassword: function (value: string) {
+                this.$data.repeatedPassword = value;
+                this.$data.repeatedPasswordError = '';
+            },
+            setCompanyName: function (value: string) {
+                this.$data.companyName = value;
+            },
+            setCompanyAddress: function (value: string) {
+                this.$data.companyAddress = value;
+            },
+            setCountry: function (value: string) {
+                this.$data.country = value;
+            },
+            setCity: function (value: string) {
+                this.$data.city = value;
+            },
+            setState: function (value: string) {
+                this.$data.state = value;
+            },
+            setPostalCode: function (value: string) {
+                this.$data.postalCode = value;
+            },
+            setTermsAccepted: function (value: boolean) {
+                this.$data.isTermsAccepted = value;
+                this.$data.isTermsAcceptedError = false;
+            },
+            showOptional: function () {
+                let scrollableDiv = document.querySelector('.register-area__scrollable');
 
-                    if (this.$data.optionalAreaShown == false) {
-                        setTimeout(() => {
-                            if (scrollableDiv) {
-                                scrollableDiv.scroll(0, window.innerHeight - 200);
-                            }
-                        }, 10)
-                    }
-
-                    this.$data.optionalAreaShown = !this.$data.optionalAreaShown;
-                },
-                onCreateClick: async function () {
-                    let hasError = false;
-
-                    if (!this.$data.firstName) {
-                        this.$data.firstNameError = "Invalid First Name";
-                        hasError = true;
-                    }
-
-                    if (!this.$data.lastName) {
-                        this.$data.lastNameError = "Invalid Last Name";
-                        hasError = true;
-                    }
-
-                    if (!this.$data.email || !validateEmail(this.$data.email)) {
-                        this.$data.emailError = "Invalid Email";
-                        hasError = true;
-                    }
-
-                    if (!this.$data.password) {
-                        this.$data.passwordError = "Invalid Password";
-                        hasError = true;
-                    }
-
-                    if (this.$data.repeatedPassword !== this.$data.password) {
-                        this.$data.repeatedPasswordError = "Password doesn't match";
-                        hasError = true;
-                    }
-
-                    if (!this.$data.isTermsAccepted) {
-                        this.$data.isTermsAcceptedError = true;
-                        hasError = true;
-                    }
-
-                    if (hasError) return;
-
-                    let user = {
-                        id: "",
-                        email: this.$data.email,
-                        firstName: this.$data.firstName,
-                        lastName: this.$data.lastName,
-                        company: {
-                            name: this.$data.companyName,
-                            address: this.$data.companyAddress,
-                            city: this.$data.companyCity,
-                            country: this.$data.companyCountry,
-                            postalCode: this.$data.companyPostalCode,
-                            state: this.$data.companyState
+                if (this.$data.optionalAreaShown == false) {
+                    setTimeout(() => {
+                        if (scrollableDiv) {
+                            scrollableDiv.scroll(0, window.innerHeight - 200);
                         }
-                    };
-                    try {
-                        await createUser(user, this.$data.password);
-                        this.$router.push(ROUTES.LOGIN.path);
-                    } catch (error) {
-                        console.log(error)
+                    }, 10);
+                }
+
+                this.$data.optionalAreaShown = !this.$data.optionalAreaShown;
+            },
+            onCreateClick: async function () {
+                let hasError = false;
+
+                if (!this.$data.firstName) {
+                    this.$data.firstNameError = 'Invalid First Name';
+                    hasError = true;
+                }
+
+                if (!this.$data.lastName) {
+                    this.$data.lastNameError = 'Invalid Last Name';
+                    hasError = true;
+                }
+
+                if (!this.$data.email || !validateEmail(this.$data.email)) {
+                    this.$data.emailError = 'Invalid Email';
+                    hasError = true;
+                }
+
+                if (!this.$data.password) {
+                    this.$data.passwordError = 'Invalid Password';
+                    hasError = true;
+                }
+
+                if (this.$data.repeatedPassword !== this.$data.password) {
+                    this.$data.repeatedPasswordError = 'Password doesn\'t match';
+                    hasError = true;
+                }
+
+                if (!this.$data.isTermsAccepted) {
+                    this.$data.isTermsAcceptedError = true;
+                    hasError = true;
+                }
+
+                if (hasError) return;
+
+                let user = {
+                    id: '',
+                    email: this.$data.email,
+                    firstName: this.$data.firstName,
+                    lastName: this.$data.lastName,
+                    company: {
+                        name: this.$data.companyName,
+                        address: this.$data.companyAddress,
+                        city: this.$data.companyCity,
+                        country: this.$data.companyCountry,
+                        postalCode: this.$data.companyPostalCode,
+                        state: this.$data.companyState
                     }
+                };
+                try {
+                    await createUserRequest(user, this.$data.password);
+                    this.$router.push(ROUTES.LOGIN.path);
+                } catch (error) {
+                    console.error(error);
                 }
-            },
-            data: function (): RegisterData {
-
-                return {
-                    firstName: '',
-                    firstNameError: '',
-                    lastName: '',
-                    lastNameError: '',
-                    email: '',
-                    emailError: '',
-                    password: '',
-                    passwordError: '',
-                    repeatedPassword: '',
-                    repeatedPasswordError: '',
-                    companyName: '',
-                    companyAddress: '',
-                    country: '',
-                    city: '',
-                    state: '',
-                    postalCode: '',
-                    isTermsAccepted: false,
-                    isTermsAcceptedError: false,
-                    optionalAreaShown: false
-                }
-            },
-            computed: {},
-            components: {
-                HeaderedInput,
-                Checkbox,
-                Button
             }
-        })
+        },
+        data: function (): RegisterData {
 
-    export default class Register extends Vue {
-    }
+            return {
+                firstName: '',
+                firstNameError: '',
+                lastName: '',
+                lastNameError: '',
+                email: '',
+                emailError: '',
+                password: '',
+                passwordError: '',
+                repeatedPassword: '',
+                repeatedPasswordError: '',
+                companyName: '',
+                companyAddress: '',
+                country: '',
+                city: '',
+                state: '',
+                postalCode: '',
+                isTermsAccepted: false,
+                isTermsAcceptedError: false,
+                optionalAreaShown: false
+            };
+        },
+        computed: {},
+        components: {
+            HeaderedInput,
+            Checkbox,
+            Button
+        }
+    })
+
+export default class Register extends Vue {
+}
 </script>
 
 
