@@ -4,11 +4,6 @@
 package main
 
 import (
-	"fmt"
-	"path/filepath"
-	"strconv"
-	"time"
-
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
@@ -110,19 +105,7 @@ func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
 
 	// NB: backup original cert
 	var backupCfg provider.IdentityConfig
-	certPathExt := filepath.Ext(revokeLeafCfg.Identity.CertPath)
-	certPath := revokeLeafCfg.Identity.CertPath
-	certBase := certPath[:len(certPath)-len(certPathExt)]
-	if err != nil {
-		return err
-	}
-	backupCfg.CertPath = fmt.Sprintf(
-		"%s.%s%s",
-		certBase,
-		strconv.Itoa(int(time.Now().Unix())),
-		certPathExt,
-	)
-	fmt.Println(backupCfg.CertPath)
+	backupCfg.CertPath = backupPath(revokeLeafCfg.Identity.CertPath)
 	if err := backupCfg.Save(originalIdent); err != nil {
 		return err
 	}

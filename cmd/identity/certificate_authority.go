@@ -5,9 +5,6 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
-	"strconv"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -99,18 +96,7 @@ func cmdRevokeCA(cmd *cobra.Command, args []string) (err error) {
 
 	// NB: backup original cert
 	var backupCfg provider.FullCAConfig
-	certPathExt := filepath.Ext(revokeCACfg.CA.CertPath)
-	certPath := revokeCACfg.CA.CertPath
-	certBase := certPath[:len(certPath)-len(certPathExt)]
-	if err != nil {
-		return err
-	}
-	backupCfg.CertPath = fmt.Sprintf(
-		"%s.%s%s",
-		certBase,
-		strconv.Itoa(int(time.Now().Unix())),
-		certPathExt,
-	)
+	backupCfg.CertPath = backupPath(revokeCACfg.CA.CertPath)
 	if err := backupCfg.Save(ca); err != nil {
 		return err
 	}

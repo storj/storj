@@ -7,6 +7,10 @@ import (
 	"crypto/x509/pkix"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -58,4 +62,15 @@ func printExtensions(cert []byte, exts []pkix.Extension) error {
 		fmt.Printf("\t%s: %s\n", e.Id, out)
 	}
 	return nil
+}
+
+func backupPath(path string) string {
+	pathExt := filepath.Ext(path)
+	base := strings.TrimSuffix(path, pathExt)
+	return fmt.Sprintf(
+		"%s.%s%s",
+		base,
+		strconv.Itoa(int(time.Now().Unix())),
+		pathExt,
+	)
 }

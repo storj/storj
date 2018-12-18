@@ -160,7 +160,7 @@ func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
 			pc.CertPath, err)
 	}
 
-	nodeID, err := NodeIDFromKey(chain[0].PublicKey)
+	nodeID, err := NodeIDFromKey(chain[peertls.LeafIndex].PublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -200,32 +200,36 @@ func NewCA(ctx context.Context, opts NewCAOptions) (*FullCertificateAuthority, e
 // Save saves a CA with the given configuration
 func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	var (
-		certData, keyData                                              bytes.Buffer
-		writeChainErr, writeChainDataErr, writeKeyErr, writeKeyDataErr error
+		certData, keyData bytes.Buffer
+		writeErrs         utils.ErrorGroup
 	)
 
 	chain := []*x509.Certificate{ca.Cert}
 	chain = append(chain, ca.RestChain...)
 
 	if fc.CertPath != "" {
-		writeChainErr = peertls.WriteChain(&certData, chain...)
-		writeChainDataErr = writeChainData(fc.CertPath, certData.Bytes())
+		if err := peertls.WriteChain(&certData, chain...); err != nil {
+			writeErrs.Add(err)
+			return writeErrs.Finish()
+		}
+		if err := writeChainData(fc.CertPath, certData.Bytes()); err != nil {
+			writeErrs.Add(err)
+			return writeErrs.Finish()
+		}
 	}
 
 	if fc.KeyPath != "" {
-		writeKeyErr = peertls.WriteKey(&keyData, ca.Key)
-		writeKeyDataErr = writeKeyData(fc.KeyPath, keyData.Bytes())
+		if err := peertls.WriteKey(&keyData, ca.Key); err != nil {
+			writeErrs.Add(err)
+			return writeErrs.Finish()
+		}
+		if err := writeKeyData(fc.KeyPath, keyData.Bytes()); err != nil {
+			writeErrs.Add(err)
+			return writeErrs.Finish()
+		}
 	}
 
-	writeErr := utils.CombineErrors(writeChainErr, writeKeyErr)
-	if writeErr != nil {
-		return writeErr
-	}
-
-	return utils.CombineErrors(
-		writeChainDataErr,
-		writeKeyDataErr,
-	)
+	return writeErrs.Finish()
 }
 
 // NewIdentity generates a new `FullIdentity` based on the CA. The CA

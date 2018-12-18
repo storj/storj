@@ -150,7 +150,7 @@ func WriteChain(w io.Writer, chain ...*x509.Certificate) error {
 		return errs.New("expected at least one certificate for writing")
 	}
 
-	var extErrs []error
+	var extErrs utils.ErrorGroup
 	for _, c := range chain {
 		if err := pem.Encode(w, NewCertBlock(c.Raw)); err != nil {
 			return errs.Wrap(err)
@@ -159,14 +159,14 @@ func WriteChain(w io.Writer, chain ...*x509.Certificate) error {
 		for _, e := range c.ExtraExtensions {
 			extBytes, err := asn1.Marshal(e)
 			if err != nil {
-				extErrs = append(extErrs, errs.Wrap(err))
+				extErrs.Add(errs.Wrap(err))
 			}
 			if err := pem.Encode(w, NewExtensionBlock(extBytes)); err != nil {
-				extErrs = append(extErrs, errs.Wrap(err))
+				extErrs.Add(errs.Wrap(err))
 			}
 		}
 	}
-	return utils.CombineErrors(extErrs...)
+	return extErrs.Finish()
 }
 
 // ChainBytes returns bytes of the certificate chain (leaf-first) to the writer, PEM-encoded.

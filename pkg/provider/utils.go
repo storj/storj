@@ -34,6 +34,8 @@ const (
 )
 
 var (
+	// ErrChainLength is used when the length of a cert chain isn't what was expected
+	ErrChainLength = errs.Class("cert chain length error")
 	// ErrZeroBytes is returned for zero slice
 	ErrZeroBytes = errs.New("byte slice was unexpectedly empty")
 )
@@ -44,7 +46,10 @@ type encodedChain struct {
 }
 
 func decodeAndParseChainPEM(PEMBytes []byte) ([]*x509.Certificate, error) {
-	var encChain encodedChain
+	var (
+		encChain  encodedChain
+		blockErrs utils.ErrorGroup
+	)
 	for {
 		var pemBlock *pem.Block
 		pemBlock, PEMBytes = pem.Decode(PEMBytes)
@@ -55,8 +60,13 @@ func decodeAndParseChainPEM(PEMBytes []byte) ([]*x509.Certificate, error) {
 		case peertls.BlockTypeCertificate:
 			encChain.AddCert(pemBlock.Bytes)
 		case peertls.BlockTypeExtension:
-			encChain.AddExtension(pemBlock.Bytes)
+			if err := encChain.AddExtension(pemBlock.Bytes); err != nil {
+				blockErrs.Add(err)
+			}
 		}
+	}
+	if err := blockErrs.Finish(); err != nil {
+		return nil, err
 	}
 
 	return encChain.Parse()
@@ -211,9 +221,15 @@ func (e *encodedChain) AddCert(b []byte) {
 	e.extensions = append(e.extensions, [][]byte{})
 }
 
-func (e *encodedChain) AddExtension(b []byte) {
-	i := len(e.chain) - 1
+func (e *encodedChain) AddExtension(b []byte) error {
+	chainLen := len(e.chain)
+	if chainLen < 1 {
+		return ErrChainLength.New("expected: >= 1; actual: %d", chainLen)
+	}
+
+	i := chainLen - 1
 	e.extensions[i] = append(e.extensions[i], b)
+	return nil
 }
 
 func (e *encodedChain) Parse() ([]*x509.Certificate, error) {
@@ -222,18 +238,18 @@ func (e *encodedChain) Parse() ([]*x509.Certificate, error) {
 		return nil, err
 	}
 
-	var extErrs []error
+	var extErrs utils.ErrorGroup
 	for i, cert := range chain {
 		for _, ee := range e.extensions[i] {
 			ext := pkix.Extension{}
 			_, err := asn1.Unmarshal(ee, &ext)
 			if err != nil {
-				extErrs = append(extErrs, err)
+				extErrs.Add(err)
 			}
 			cert.ExtraExtensions = append(cert.ExtraExtensions, ext)
 		}
 	}
-	if err := utils.CombineErrors(extErrs...); err != nil {
+	if err := extErrs.Finish(); err != nil {
 		return nil, err
 	}
 
