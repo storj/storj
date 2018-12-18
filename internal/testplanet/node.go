@@ -171,7 +171,7 @@ func (node *Node) initOverlay(planet *Planet) error {
 		return err
 	}
 
-	kad, err := kademlia.NewKademliaWithRoutingTable(node.Info, planet.nodeInfos, node.Identity, 5, routing)
+	kad, err := kademlia.NewKademliaWithRoutingTable(node.Log.Named("kademlia"), node.Info, planet.nodeInfos, node.Identity, 5, routing)
 	if err != nil {
 		return utils.CombineErrors(err, routing.Close())
 	}

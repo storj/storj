@@ -16,7 +16,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 
 	testidentity "storj.io/storj/internal/identity"
@@ -68,7 +68,7 @@ func TestNewKademlia(t *testing.T) {
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
 
-		kad, err := NewKademlia(v.id, pb.NodeType_STORAGE, v.bn, v.addr, nil, identity, dir, defaultAlpha)
+		kad, err := NewKademlia(zaptest.NewLogger(t), v.id, pb.NodeType_STORAGE, v.bn, v.addr, nil, identity, dir, defaultAlpha)
 		assert.NoError(t, err)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
@@ -95,7 +95,7 @@ func TestPeerDiscovery(t *testing.T) {
 		Email:  "foo@bar.com",
 		Wallet: "FarmerWallet",
 	}
-	k, err := NewKademlia(testID.ID, pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
+	k, err := NewKademlia(zaptest.NewLogger(t), testID.ID, pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
 	assert.NoError(t, err)
 	rt, err := k.GetRoutingTable(context.Background())
 	assert.NoError(t, err)
@@ -169,9 +169,10 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	// new kademlia
 	dir, cleanup := mktempdir(t, "kademlia")
 
-	k, err := NewKademlia(fid.ID, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, dir, defaultAlpha)
+	logger := zaptest.NewLogger(t)
+	k, err := NewKademlia(logger, fid.ID, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
-	s := node.NewServer(zap.L(), k)
+	s := node.NewServer(logger, k)
 	// new ident opts
 	identOpt, err := fid.ServerOption()
 	assert.NoError(t, err)
@@ -215,7 +216,7 @@ func TestGetNodes(t *testing.T) {
 	assert.NotEqual(t, fid.ID, fid2.ID)
 	dir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()
-	k, err := NewKademlia(fid.ID, pb.NodeType_STORAGE, []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), nil, fid, dir, defaultAlpha)
+	k, err := NewKademlia(zaptest.NewLogger(t), fid.ID, pb.NodeType_STORAGE, []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
 	defer func() {
 		assert.NoError(t, k.Disconnect())
