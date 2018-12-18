@@ -147,19 +147,16 @@ func (srv *Server) LookupNode(ctx context.Context, req *pb.LookupNodeRequest) (*
 
 // GetStats returns the stats for a particular node ID
 func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.GetStatsResponse, error) {
-	getReq := &statdb.GetRequest{
-		Node: req.NodeId,
-	}
-	res, err := srv.statdb.Get(ctx, getReq)
+	stats, err := srv.statdb.Get(ctx, req.NodeId)
 	if err != nil {
 		return nil, err
 	}
 
 	return &pb.GetStatsResponse{
-		AuditCount:  res.Stats.AuditCount,
-		AuditRatio:  res.Stats.AuditSuccessRatio,
-		UptimeCount: res.Stats.UptimeCount,
-		UptimeRatio: res.Stats.UptimeRatio,
+		AuditCount:  stats.AuditCount,
+		AuditRatio:  stats.AuditSuccessRatio,
+		UptimeCount: stats.UptimeCount,
+		UptimeRatio: stats.UptimeRatio,
 	}, nil
 }
 
@@ -171,11 +168,8 @@ func (srv *Server) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) 
 		UptimeCount:        req.UptimeCount,
 		UptimeSuccessCount: req.UptimeSuccessCount,
 	}
-	createReq := &statdb.CreateRequest{
-		Node:  req.NodeId,
-		Stats: stats,
-	}
-	_, err := srv.statdb.Create(ctx, createReq)
+
+	_, err := srv.statdb.Create(ctx, req.NodeId, stats)
 	if err != nil {
 		return nil, err
 	}
