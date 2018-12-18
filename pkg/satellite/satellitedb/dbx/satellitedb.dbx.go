@@ -1473,6 +1473,42 @@ func (obj *sqlite3Impl) Get_ProjectMember_By_MemberId(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Limited_ProjectMember_By_ProjectId(ctx context.Context,
+	project_member_project_id ProjectMember_ProjectId_Field,
+	limit int, offset int64) (
+	rows []*ProjectMember, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.project_id = ? LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, project_member_project_id.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project_member := &ProjectMember{}
+		err = __rows.Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project_member)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 	user_id User_Id_Field,
 	update User_Update_Fields) (
@@ -2145,6 +2181,17 @@ func (rx *Rx) Get_User_By_Id(ctx context.Context,
 	return tx.Get_User_By_Id(ctx, user_id)
 }
 
+func (rx *Rx) Limited_ProjectMember_By_ProjectId(ctx context.Context,
+	project_member_project_id ProjectMember_ProjectId_Field,
+	limit int, offset int64) (
+	rows []*ProjectMember, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_ProjectMember_By_ProjectId(ctx, project_member_project_id, limit, offset)
+}
+
 func (rx *Rx) Update_Company_By_UserId(ctx context.Context,
 	company_user_id Company_UserId_Field,
 	update Company_Update_Fields) (
@@ -2262,6 +2309,11 @@ type Methods interface {
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		user *User, err error)
+
+	Limited_ProjectMember_By_ProjectId(ctx context.Context,
+		project_member_project_id ProjectMember_ProjectId_Field,
+		limit int, offset int64) (
+		rows []*ProjectMember, err error)
 
 	Update_Company_By_UserId(ctx context.Context,
 		company_user_id Company_UserId_Field,

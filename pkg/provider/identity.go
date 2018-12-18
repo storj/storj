@@ -102,40 +102,33 @@ func NewServerOptions(i *FullIdentity, c ServerConfig) (*ServerOptions, error) {
 }
 
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and
-// private key file
+// private key PEM-encoded bytes
 func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
-	cb, err := decodePEM(chainPEM)
+	chain, err := decodeAndParseChainPEM(chainPEM)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	if len(cb) < 2 {
-		return nil, errs.New("too few certificates in chain")
-	}
-	kb, err := decodePEM(keyPEM)
+	keysBytes, err := decodePEM(keyPEM)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 	// NB: there shouldn't be multiple keys in the key file but if there
 	// are, this uses the first one
-	k, err := x509.ParseECPrivateKey(kb[0])
+	key, err := x509.ParseECPrivateKey(keysBytes[0])
 	if err != nil {
 		return nil, errs.New("unable to parse EC private key: %v", err)
 	}
-	ch, err := ParseCertChain(cb)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	i, err := NodeIDFromKey(ch[1].PublicKey)
+	nodeID, err := NodeIDFromKey(chain[peertls.CAIndex].PublicKey)
 	if err != nil {
 		return nil, err
 	}
 
 	return &FullIdentity{
-		RestChain: ch[2:],
-		CA:        ch[1],
-		Leaf:      ch[0],
-		Key:       k,
-		ID:        i,
+		RestChain: chain[peertls.CAIndex+1:],
+		CA:        chain[peertls.CAIndex],
+		Leaf:      chain[peertls.LeafIndex],
+		Key:       key,
+		ID:        nodeID,
 	}, nil
 }
 
@@ -258,22 +251,32 @@ func (ic IdentityConfig) Load() (*FullIdentity, error) {
 
 // Save saves a FullIdentity according to the config
 func (ic IdentityConfig) Save(fi *FullIdentity) error {
-	var certData, keyData bytes.Buffer
+	var (
+		certData, keyData                                              bytes.Buffer
+		writeChainErr, writeChainDataErr, writeKeyErr, writeKeyDataErr error
+	)
 
 	chain := []*x509.Certificate{fi.Leaf, fi.CA}
 	chain = append(chain, fi.RestChain...)
 
-	writeErr := utils.CombineErrors(
-		peertls.WriteChain(&certData, chain...),
-		peertls.WriteKey(&keyData, fi.Key),
-	)
+	if ic.CertPath != "" {
+		writeChainErr = peertls.WriteChain(&certData, chain...)
+		writeChainDataErr = writeChainData(ic.CertPath, certData.Bytes())
+	}
+
+	if ic.KeyPath != "" {
+		writeKeyErr = peertls.WriteKey(&keyData, fi.Key)
+		writeKeyDataErr = writeKeyData(ic.KeyPath, keyData.Bytes())
+	}
+
+	writeErr := utils.CombineErrors(writeChainErr, writeKeyErr)
 	if writeErr != nil {
 		return writeErr
 	}
 
 	return utils.CombineErrors(
-		writeCertData(ic.CertPath, certData.Bytes()),
-		writeKeyData(ic.KeyPath, keyData.Bytes()),
+		writeChainDataErr,
+		writeKeyDataErr,
 	)
 }
 
@@ -460,16 +463,9 @@ func loadWhitelist(path string) ([]*x509.Certificate, error) {
 		return nil, err
 	}
 
-	var (
-		wb        [][]byte
-		whitelist []*x509.Certificate
-	)
+	var whitelist []*x509.Certificate
 	if w != nil {
-		wb, err = decodePEM(w)
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-		whitelist, err = ParseCertChain(wb)
+		whitelist, err = decodeAndParseChainPEM(w)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
