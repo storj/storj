@@ -31,6 +31,7 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 
 	const (
 		host            = "127.0.0.1"
+		gatewayPort     = 9000
 		satellitePort   = 10000
 		storageNodePort = 11000
 	)
@@ -66,6 +67,35 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 			"run", satellitePort+i,
 			"--kademlia.bootstrap-addr", defaultSatellite,
 		)
+	}
+
+	gatewayArguments := func(name, command string, index int, rest ...string) []string {
+		return append([]string{
+			"--log.level", "debug",
+			"--log.prefix", name,
+			"--config-dir", ".",
+			command,
+			// "--satellite-addr", net.JoinHostPort(host, strconv.Itoa(satellitePort+index)),
+			"--identity.server.address", net.JoinHostPort(host, strconv.Itoa(gatewayPort+index)),
+		}, rest...)
+	}
+
+	for i := 0; i < satelliteCount; i++ {
+		name := fmt.Sprintf("gateway/%d", i)
+
+		dir := filepath.Join(dir, "gateway", fmt.Sprint(i))
+		if err := os.MkdirAll(dir, 0644); err != nil {
+			return nil, err
+		}
+
+		process, err := NewProcess(name, "gateway", dir)
+		if err != nil {
+			return nil, utils.CombineErrors(err, processes.Close())
+		}
+		processes.List = append(processes.List, process)
+
+		process.Arguments["setup"] = gatewayArguments(name, "setup", i)
+		process.Arguments["run"] = gatewayArguments(name, "run", i)
 	}
 
 	for i := 0; i < storageNodeCount; i++ {
