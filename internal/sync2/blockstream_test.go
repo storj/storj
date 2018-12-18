@@ -64,19 +64,21 @@ func TestBlockStream(t *testing.T) {
 		group.Go(func() error {
 			read := make([]byte, 1024)
 			n, err := reader.Read(read[:])
+			closeErr := reader.Close()
 			if n >= 1024 {
 				if err != io.EOF {
 					return fmt.Errorf("expected io.EOF got %v", err)
 				}
 			} else if len(block) == 0 && err == io.EOF {
-				return nil
+				return closeErr
 			} else if err != nil {
-				return fmt.Errorf("reading %v got %v", n, err)
+				return fmt.Errorf("reading %v got %v (closeErr %v)", n, err, closeErr)
 			}
 			if !bytes.Equal(read[:n], block[:n]) {
-				return fmt.Errorf("different content")
+				return fmt.Errorf("different content (closeErr %v)", closeErr)
 			}
-			return nil
+
+			return closeErr
 		})
 	}
 
@@ -108,11 +110,15 @@ func TestBlockStream_CloseWithError(t *testing.T) {
 
 	group.Go(func() error {
 		_, err := reader.Read([]byte{})
-		if err != failure {
-			return fmt.Errorf("got %v", err)
+		closeErr := reader.Close()
+		if err != failure || closeErr != failure {
+			return fmt.Errorf("got %v (closeErr %v)", err, closeErr)
 		}
 		return nil
 	})
 
-	group.Wait()
+	err = group.Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
 }

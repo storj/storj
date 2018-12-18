@@ -98,10 +98,21 @@ type WriteCloserWithError interface {
 }
 
 // Pipe returns the two ends of a block stream pipe
-func (stream *BlockStream) Pipe(index int) (io.Reader, WriteCloserWithError) {
-	stream.streamClosed.Add(1)
+func (stream *BlockStream) Pipe(index int) (io.ReadCloser, WriteCloserWithError) {
+	stream.streamClosed.Add(2)
 	pipe := &stream.pipes[index]
-	return pipe, pipe
+	return blockPipeReader{pipe}, pipe
+}
+
+type blockPipeReader struct{ *blockPipe }
+
+// Close implements io.Reader Close
+func (pipe blockPipeReader) Close() error {
+	pipe.mu.Lock()
+	err := pipe.writerErr
+	pipe.mu.Unlock()
+	pipe.streamClosed.Done()
+	return err
 }
 
 // Close implementation for io.WriteCloser
