@@ -24,8 +24,7 @@ RUN go install ./cmd/...
 
 # Satellite
 FROM alpine as storj-satellite
-ENV CONF_PATH=/root/.local/share/storj/satellite \
-    SATELLITE_ADDR=
+ENV SATELLITE_ADDR=
 EXPOSE 7776/udp 7777 8080
 WORKDIR /app
 COPY --from=build-env /app/satellite /app/satellite
@@ -34,8 +33,7 @@ ENTRYPOINT ["/entrypoint"]
 
 # Storage Node
 FROM alpine as storj-storagenode
-ENV CONF_PATH=/root/.local/share/storj/storagenode \
-    SATELLITE_ADDR=
+ENV SATELLITE_ADDR=
 EXPOSE 7776/udp 7777
 WORKDIR /app
 COPY --from=build-env /app/storagenode /app/storagenode
@@ -44,8 +42,7 @@ ENTRYPOINT ["/entrypoint"]
 
 # Uplink
 FROM alpine as storj-uplink
-ENV CONF_PATH=/root/.storj/uplink/config.yaml \
-    API_KEY= \
+ENV API_KEY= \
     SATELLITE_ADDR=
 EXPOSE 7776/udp 7777
 WORKDIR /app
