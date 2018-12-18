@@ -28,8 +28,8 @@ ENV SATELLITE_ADDR=
 EXPOSE 7776/udp 7777 8080
 WORKDIR /app
 COPY --from=build-env /app/satellite /app/satellite
-COPY --from=build-env /storj.io/storj/cmd/satellite/entrypoint /entrypoint
-ENTRYPOINT ["/entrypoint"]
+RUN /app/satellite setup
+ENTRYPOINT ["/app/satellite", "run"]
 
 # Storage Node
 FROM alpine as storj-storagenode
@@ -37,8 +37,8 @@ ENV SATELLITE_ADDR=
 EXPOSE 7776/udp 7777
 WORKDIR /app
 COPY --from=build-env /app/storagenode /app/storagenode
-COPY --from=build-env /storj.io/storj/cmd/storagenode/entrypoint /entrypoint
-ENTRYPOINT ["/entrypoint"]
+RUN /app/storagenode setup
+ENTRYPOINT ["/app/storagenode", "run"]
 
 # Uplink
 FROM alpine as storj-uplink
@@ -47,5 +47,5 @@ ENV API_KEY= \
 EXPOSE 7776/udp 7777
 WORKDIR /app
 COPY --from=build-env /app/uplink /app/uplink
-COPY --from=build-env /storj.io/storj/cmd/uplink/entrypoint /entrypoint
-ENTRYPOINT ["/entrypoint"]
+RUN /app/uplink setup
+ENTRYPOINT ["/app/uplink", "run"]
