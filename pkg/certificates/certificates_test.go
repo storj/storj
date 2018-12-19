@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
@@ -132,7 +133,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	var expectedAuths Authorizations
 	for i := 0; i < 5; i++ {
 		expectedAuths = append(expectedAuths, &Authorization{
-			Token: [256]byte{1, 2, 3},
+			Token: [tokenLength]byte{1, 2, 3},
 		})
 	}
 	authsBytes, err := expectedAuths.Marshal()
@@ -183,8 +184,8 @@ func TestNewAuthorization(t *testing.T) {
 }
 
 func TestAuthorizations_Marshal(t *testing.T) {
-	t1 := [256]byte{1, 2, 3}
-	t2 := [256]byte{4, 5, 6}
+	t1 := [tokenLength]byte{1, 2, 3}
+	t2 := [tokenLength]byte{4, 5, 6}
 	expectedAuths := Authorizations{
 		{Token: t1},
 		{Token: t2},
@@ -203,8 +204,8 @@ func TestAuthorizations_Marshal(t *testing.T) {
 }
 
 func TestAuthorizations_Unmarshal(t *testing.T) {
-	t1 := [256]byte{1, 2, 3}
-	t2 := [256]byte{4, 5, 6}
+	t1 := [tokenLength]byte{1, 2, 3}
+	t2 := [tokenLength]byte{4, 5, 6}
 	expectedAuths := Authorizations{
 		{Token: t1},
 		{Token: t2},
@@ -219,6 +220,34 @@ func TestAuthorizations_Unmarshal(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, actualAuths)
 	assert.Equal(t, expectedAuths, actualAuths)
+}
+
+func TestAuthorizations_Group(t *testing.T) {
+	t1 := [tokenLength]byte{1, 2, 3}
+	t2 := [tokenLength]byte{4, 5, 6}
+	auths := make(Authorizations, 10)
+	for i := 0; i < 10; i++ {
+		if i%2 == 0 {
+			auths[i] = &Authorization{
+				Token: t1,
+				Claim: &Claim{
+					Timestamp: time.Now().Unix(),
+				},
+			}
+		} else {
+			auths[i] = &Authorization{
+				Token: t2,
+			}
+		}
+	}
+
+	claimed, open := auths.Group()
+	for _, a := range claimed {
+		assert.NotNil(t, a.Claim)
+	}
+	for _, a := range open {
+		assert.Nil(t, a.Claim)
+	}
 }
 
 func newTestAuthDB(ctx *testcontext.Context) (*AuthorizationDB, error) {

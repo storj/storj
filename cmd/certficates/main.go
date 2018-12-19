@@ -5,14 +5,15 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/utils"
 
-	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
@@ -47,11 +48,11 @@ var (
 		Short: "CSR authorization management",
 	}
 
-	authAddCmd = &cobra.Command{
-		Use:   "add <auth_increment_count> [<email>, ...]",
+	authCreateCmd = &cobra.Command{
+		Use:   "create <auth_increment_count> [<email>, ...]",
 		Short: "Create authorizations from a list of emails",
 		Args:  cobra.MinimumNArgs(1),
-		RunE:  cmdAddAuth,
+		RunE:  cmdCreateAuth,
 	}
 
 	authGetCmd = &cobra.Command{
@@ -61,7 +62,7 @@ var (
 	}
 
 	setupCfg struct {
-		Overwrite bool
+		Overwrite bool `default:"false"`
 		// NB: cert and key paths overridden in setup
 		CA provider.CASetupConfig
 		// NB: cert and key paths overridden in setup
@@ -74,7 +75,7 @@ var (
 		Identity   provider.IdentityConfig
 	}
 
-	authAddCfg struct {
+	authCreateCfg struct {
 		certificates.CertSignerConfig
 		batchCfg
 	}
@@ -85,21 +86,20 @@ var (
 	}
 
 	defaultConfDir = fpath.ApplicationDir("storj", "cert-signing")
-	confDir        = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for certificate request signing configuration")
 )
 
 func init() {
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(setupCmd.Flags(), &setupCfg)
+	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	rootCmd.AddCommand(authCmd)
-	authCmd.AddCommand(authAddCmd)
-	cfgstruct.Bind(authAddCmd.Flags(), &authAddCfg)
+	authCmd.AddCommand(authCreateCmd)
+	cfgstruct.Bind(authCreateCmd.Flags(), &authCreateCfg, cfgstruct.ConfDir(defaultConfDir))
 	authCmd.AddCommand(authGetCmd)
-	cfgstruct.Bind(authGetCmd.Flags(), &authGetCfg)
+	cfgstruct.Bind(authGetCmd.Flags(), &authGetCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) error {
-	setupDir, err := filepath.Abs(*confDir)
+	setupDir, err := filepath.Abs(defaultConfDir)
 	if err != nil {
 		return err
 	}
@@ -141,30 +141,33 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 	return runCfg.Identity.Run(ctx, nil, runCfg.CertSigner)
 }
 
-func cmdAddAuth(cmd *cobra.Command, args []string) error {
-	count := args[0]
-	authDB, err := authAddCfg.NewAuthDB()
+func cmdCreateAuth(cmd *cobra.Command, args []string) error {
+	count, err := strconv.Atoi(args[0])
+	if err != nil {
+		return errs.New("Count couldn't be parsed: %s", args[0])
+	}
+	authDB, err := authCreateCfg.NewAuthDB()
 	if err != nil {
 		return err
 	}
 
 	var emails []string
 	if len(args) > 1 {
-		if authAddCfg.EmailsPath != "" {
+		if authCreateCfg.EmailsPath != "" {
 			return errs.New("Either use `--emails-path` or positional args, not both.")
 		}
 		emails = args[1:]
 	} else {
-		list, err := ioutil.ReadFile(authAddCfg.EmailsPath)
+		list, err := ioutil.ReadFile(authCreateCfg.EmailsPath)
 		if err != nil {
 			return errs.Wrap(err)
 		}
-		emails = strings.Split(string(list), authAddCfg.Delimiter)
+		emails = strings.Split(string(list), authCreateCfg.Delimiter)
 	}
 
 	var incErrs utils.ErrorGroup
 	for _, email := range emails {
-		if err := authDB.Create(email, count); err != nil {
+		if _, err := authDB.Create(email, count); err != nil {
 			incErrs.Add(err)
 		}
 	}
@@ -178,43 +181,54 @@ func cmdGetAuth(cmd *cobra.Command, args []string) error {
 	}
 
 	var emails []string
-	if len(args) > 1 {
-		if authAddCfg.EmailsPath != "" {
+	if len(args) > 0 {
+		if authCreateCfg.EmailsPath != "" {
 			return errs.New("Either use `--emails-path` or positional args, not both.")
 		}
-		emails = args[1:]
+		emails = args
 	} else {
-		list, err := ioutil.ReadFile(authAddCfg.EmailsPath)
+		list, err := ioutil.ReadFile(authCreateCfg.EmailsPath)
 		if err != nil {
 			return errs.Wrap(err)
 		}
-		emails = strings.Split(string(list), authAddCfg.Delimiter)
+		emails = strings.Split(string(list), authCreateCfg.Delimiter)
 	}
 
 	var emailErrs, printErrs utils.ErrorGroup
-	w := tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0)
+	w := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
 	if _, err := fmt.Fprintln(w, "Email\tClaimed\tAvail.\t"); err != nil {
 		return err
 	}
 
-	for _, email := range emails {
+	for i, email := range emails {
 		auths, err := authDB.Get(email)
 		if err != nil {
 			emailErrs.Add(err)
 			continue
 		}
+		if len(auths) < 1 {
+			if i == len(emails)-1 {
+				if _, err := fmt.Fprintln(w, "No authorizations for requested email(s)"); err != nil {
+					return errs.Wrap(err)
+				}
+			}
+			continue
+		}
 
-
+		claimed, open := auths.Group()
 		if _, err := fmt.Fprintf(w,
 			"%s\t%d\t%d\t\n",
 			email,
-			len(auths.claimed()),
-			len(auths.avail()),
+			len(claimed),
+			len(open),
 		); err != nil {
 			printErrs.Add(err)
 		}
 	}
 
+	if err := w.Flush(); err != nil {
+		return errs.Wrap(err)
+	}
 	return utils.CombineErrors(emailErrs.Finish(), printErrs.Finish())
 }
 

@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/x509"
 	"encoding/gob"
 	"fmt"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
@@ -21,8 +23,7 @@ import (
 
 const (
 	AuthorizationsBucket = "authorizations"
-	// TODO: too large?
-	tokenLength = 256
+	tokenLength = 64 // 2^(64*8) =~ 1.34E+154
 )
 
 var (
@@ -46,15 +47,17 @@ type AuthorizationDB struct {
 type Authorizations []*Authorization
 
 type Authorization struct {
-	Token [tokenLength]byte
-	Claim Claim
+	Token Token
+	Claim *Claim
 }
+
+type Token [tokenLength]byte
 
 type Claim struct {
 	IP string
-	Timestamp uint
+	Timestamp int64
 	Identity *provider.PeerIdentity
-	Signature []byte
+	SignedCert *x509.Certificate
 }
 
 var (
@@ -71,7 +74,7 @@ func NewServer(log *zap.Logger) pb.CertificatesServer {
 }
 
 func NewAuthorization() (*Authorization, error) {
-	var token [tokenLength]byte
+	var token Token
 	i, err := rand.Read(token[:])
 	if err != nil {
 		return nil, ErrAuthorization.Wrap(err)
@@ -205,8 +208,24 @@ func (a Authorizations) Marshal() ([]byte, error) {
 	return data.Bytes(), nil
 }
 
+func (a Authorizations) Group() (claimed, open Authorizations) {
+	for _, auth := range a {
+		if auth.Claim != nil {
+			// TODO: check if claim is valid? what if not?
+			claimed = append(claimed, auth)
+		} else {
+			open = append(open, auth)
+		}
+	}
+	return claimed, open
+}
+
 // String implements the stringer interface and prevents authorization data
 // from completely leaking into logs.
 func (a Authorization) String() string {
-	return fmt.Sprintf("% .5x...", a.Token)
+	return fmt.Sprintf("%.5s..", a.Token.String())
+}
+
+func (t *Token) String() string {
+	return base58.CheckEncode(t[:], 0)
 }
