@@ -1,5 +1,7 @@
 FROM golang:1.11.4-stretch AS compiler
 
+#TODO: use storjlabs/golang as base
+
 RUN apt update && apt install time
 
 ###
@@ -19,6 +21,7 @@ RUN go mod download
 # Compile large dependencies up-front for caching
 COPY scripts/deps.go scripts/deps.go
 
+#TODO: specify -race from Makefile rather than always
 ARG BUILDFLAGS="-race"
 RUN go build ${BUILDFLAGS} -v ./scripts/deps.go
 

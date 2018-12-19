@@ -80,8 +80,10 @@ matrix:
       before_script:
       before_install:
       install:
-      script:
+        - source scripts/install-awscli.sh
         - make images
+      script:
+        - ./scripts/test-docker.sh
     
     ### windows tests ###
     - env: MODE=windows-tests
