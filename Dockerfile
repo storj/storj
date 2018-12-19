@@ -9,7 +9,7 @@ FROM compiler AS build
 ###
 # Download modules
 
-WORKDIR /io/storj
+WORKDIR /storj.io/storj
 COPY go.mod go.mod
 COPY go.sum go.sum
 
