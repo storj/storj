@@ -45,7 +45,7 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 		return nil, Error.New("unable to get master db instance")
 	}
 	qdb, ok := ctx.Value("masterdb").(interface {
-		RepairQueueDB() queue.RepairQueue
+		RepairQueue() queue.RepairQueue
 	})
 	if !ok {
 		return nil, Error.New("unable to get master db instance")
@@ -53,7 +53,7 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 
 	o := overlay.LoadServerFromContext(ctx)
 
-	return newChecker(pdb, sdb.StatDB(), qdb.RepairQueueDB(), o, irdb.Irreparable(), 0, zap.L(), c.Interval), nil
+	return newChecker(pdb, sdb.StatDB(), qdb.RepairQueue(), o, irdb.Irreparable(), 0, zap.L(), c.Interval), nil
 }
 
 // Run runs the checker with configured values

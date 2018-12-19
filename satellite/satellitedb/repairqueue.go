@@ -12,11 +12,11 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-type repairQueueDB struct {
+type repairQueue struct {
 	db *dbx.DB
 }
 
-func (r *repairQueueDB) Enqueue(ctx context.Context, seg *pb.InjuredSegment) error {
+func (r *repairQueue) Enqueue(ctx context.Context, seg *pb.InjuredSegment) error {
 	val, err := proto.Marshal(seg)
 	if err != nil {
 		return err
@@ -29,7 +29,7 @@ func (r *repairQueueDB) Enqueue(ctx context.Context, seg *pb.InjuredSegment) err
 	return err
 }
 
-func (r *repairQueueDB) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
+func (r *repairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
 	tx, err := r.db.Open(ctx)
 	if err != nil {
 		return pb.InjuredSegment{}, Error.Wrap(err)
@@ -62,7 +62,7 @@ func (r *repairQueueDB) Dequeue(ctx context.Context) (pb.InjuredSegment, error) 
 	return *seg, Error.Wrap(tx.Commit())
 }
 
-func (r *repairQueueDB) Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
+func (r *repairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
 	rows, err := r.db.Limited_Injuredsegment(ctx, limit, 0)
 	if err != nil {
 		return nil, err

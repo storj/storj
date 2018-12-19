@@ -278,7 +278,7 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 		}
 	}()
 
-	list, err := database.RepairQueueDB().Peekqueue(ctx, qdiagCfg.QListLimit)
+	list, err := database.RepairQueue().Peekqueue(ctx, qdiagCfg.QListLimit)
 	if err != nil {
 		return err
 	}

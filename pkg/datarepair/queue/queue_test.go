@@ -27,7 +27,7 @@ func TestEnqueueDequeue(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		q := db.RepairQueueDB()
+		q := db.RepairQueue()
 
 		seg := &pb.InjuredSegment{
 			Path:       "abc",
@@ -47,7 +47,7 @@ func TestDequeueEmptyQueue(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		q := db.RepairQueueDB()
+		q := db.RepairQueue()
 
 		s, err := q.Dequeue(ctx)
 		assert.Error(t, err)
@@ -60,7 +60,7 @@ func TestSequential(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		q := db.RepairQueueDB()
+		q := db.RepairQueue()
 
 		const N = 100
 		var addSegs []*pb.InjuredSegment
