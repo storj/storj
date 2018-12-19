@@ -20,8 +20,7 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
-// TODO: Use maxLimit in future.
-//const maxLimit = 50
+const maxLimit = 50
 
 // Service is handling accounts related logic
 type Service struct {
@@ -347,17 +346,21 @@ func (s *Service) DeleteProjectMember(ctx context.Context, projectID, userID uui
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
-// TODO: add limit and offset parameters
-func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID) ([]ProjectMember, error) {
+func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, limit int, offset int64) ([]ProjectMember, error) {
 	_, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: check if limit < maxLimit const
+	if limit < 0 || offset < 0 {
+		return nil, errs.New("invalid pagination argument")
+	}
 
-	// TODO: replace GetByProjectID with GetByProjectIDPaged and remove GetByProjectID as redundant
-	return s.store.ProjectMembers().GetByProjectID(ctx, projectID)
+	if limit > maxLimit {
+		limit = maxLimit
+	}
+
+	return s.store.ProjectMembers().GetByProjectIDPaged(ctx, projectID, limit, offset)
 }
 
 // Authorize validates token from context and returns authorized Authorization
