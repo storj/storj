@@ -15,6 +15,7 @@ import (
 
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -71,7 +72,11 @@ func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats 
 		}
 	}
 
-	dbNode, err := s.db.Create_Node(
+	tx, err := s.db.Open(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	dbNode, err := tx.Create_Node(
 		ctx,
 		dbx.Node_Id(nodeID.Bytes()),
 		dbx.Node_AuditSuccessCount(auditSuccessCount),
@@ -82,7 +87,7 @@ func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats 
 		dbx.Node_UptimeRatio(uptimeRatio),
 	)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 	}
 
 	nodeStats := getNodeStats(nodeID, dbNode)
@@ -201,9 +206,13 @@ func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (s
 	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
 	updateFields.UptimeRatio = dbx.Node_UptimeRatio(uptimeRatio)
 
-	dbNode, err = s.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	tx, err := s.db.Open(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, Error.Wrap(err)
+	}
+	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	if err != nil {
+		return nil, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 	}
 
 	nodeStats := getNodeStats(nodeID, dbNode)
@@ -235,9 +244,13 @@ func (s *statDB) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp boo
 	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
 	updateFields.UptimeRatio = dbx.Node_UptimeRatio(uptimeRatio)
 
-	dbNode, err = s.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	tx, err := s.db.Open(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, Error.Wrap(err)
+	}
+	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	if err != nil {
+		return nil, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 	}
 
 	nodeStats := getNodeStats(nodeID, dbNode)
@@ -269,9 +282,13 @@ func (s *statDB) UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, au
 	updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(totalAuditCount)
 	updateFields.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(auditRatio)
 
-	dbNode, err = s.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	tx, err := s.db.Open(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, Error.Wrap(err)
+	}
+	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	if err != nil {
+		return nil, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 	}
 
 	nodeStats := getNodeStats(nodeID, dbNode)
