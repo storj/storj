@@ -11,4 +11,12 @@ if [ -n "${SATELLITE_ADDR:-}" ]; then
 	RUN_PARAMS="${RUN_PARAMS} --kademlia.bootstrap-addr $SATELLITE_ADDR"
 fi
 
+if [ -n "${KADEMLIA_FARMER_EMAIL:-}" ]; then
+	RUN_PARAMS="${RUN_PARAMS} --kademlia.farmer.email $KADEMLIA_FARMER_EMAIL"
+fi
+if [ -n "${KADEMLIA_FARMER_WALLET:-}" ]; then
+	RUN_PARAMS="${RUN_PARAMS} --kademlia.farmer.wallet $KADEMLIA_FARMER_WALLET"
+fi
+
 exec ./storagenode run $RUN_PARAMS "$@"
+

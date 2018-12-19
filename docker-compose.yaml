@@ -37,6 +37,8 @@ services:
     - SATELLITE_ADDR=satellite:7777
     - STORJ_LOG_LEVEL=debug
     - STORJ_IDENTITY_SERVER_ADDRESS=storagenode:7777
+    - KADEMLIA_FARMER_EMAIL=alpha@example.com
+    - KADEMLIA_FARMER_WALLET=0x0123456789012345678901234567890123456789
     restart: always
     links:
     - satellite
