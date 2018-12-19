@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
+// maxLimit specifies the limit for all paged queries
 const maxLimit = 50
 
 // Service is handling accounts related logic
