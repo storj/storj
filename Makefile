@@ -96,18 +96,21 @@ all-in-one: ## Deploy docker images with one storagenode locally
 images: satellite-image storagenode-image uplink-image gateway-image ## Build gateway, satellite, storagenode, and uplink Docker images
 	echo Built version: ${TAG}
 
+binaries-image: ## build binaries image
+	${DOCKER_BUILD} -t storjlabs-binaries .
+
 .PHONY: gateway-image
-gateway-image: ## Build gateway Docker image
-	${DOCKER_BUILD} -t storjlabs/gateway:${TAG}${CUSTOMTAG} -f cmd/gateway/Dockerfile .
+gateway-image: binaries-image ## Build gateway Docker image
+	${DOCKER_BUILD} --pull=false -t storjlabs/gateway:${TAG}${CUSTOMTAG} -f cmd/gateway/Dockerfile .
 .PHONY: satellite-image
-satellite-image: ## Build satellite Docker image
-	${DOCKER_BUILD} -t storjlabs/satellite:${TAG}${CUSTOMTAG} -f cmd/satellite/Dockerfile .
+satellite-image: binaries-image ## Build satellite Docker image
+	${DOCKER_BUILD} --pull=false -t storjlabs/satellite:${TAG}${CUSTOMTAG} -f cmd/satellite/Dockerfile .
 .PHONY: storagenode-image
-storagenode-image: ## Build storagenode Docker image
-	${DOCKER_BUILD} -t storjlabs/storagenode:${TAG}${CUSTOMTAG} -f cmd/storagenode/Dockerfile .
+storagenode-image:  binaries-image ## Build storagenode Docker image
+	${DOCKER_BUILD} --pull=false -t storjlabs/storagenode:${TAG}${CUSTOMTAG} -f cmd/storagenode/Dockerfile .
 .PHONY: uplink-image
-uplink-image: ## Build uplink Docker image
-	${DOCKER_BUILD} -t storjlabs/uplink:${TAG}${CUSTOMTAG} -f cmd/uplink/Dockerfile .
+uplink-image: binaries-image ## Build uplink Docker image
+	${DOCKER_BUILD} --pull=false -t storjlabs/uplink:${TAG}${CUSTOMTAG} -f cmd/uplink/Dockerfile .
 
 .PHONY: binary
 binary: CUSTOMTAG = -${GOOS}-${GOARCH}

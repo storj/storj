@@ -1,51 +1,39 @@
-FROM golang:1.11.3 as build-env
+FROM golang:1.11.4-stretch AS compiler
 
-WORKDIR /storj.io/storj
-# add module information for caching
+RUN apt update && apt install time
+
+###
+# Setup build environment
+FROM compiler AS build
+
+###
+# Download modules
+
+WORKDIR /io/storj
 COPY go.mod go.mod
-# COPY go.sum go.sum
+COPY go.sum go.sum
 
-# get and build dependencies
-RUN  go mod download
+RUN go mod download
 
-# setup environment
-ENV GOOS=linux GOARCH=amd64
+###
+# Compile large dependencies up-front for caching
+COPY scripts/deps.go scripts/deps.go
 
-# build dependencies
-COPY scripts/build-mod.go scripts/build-mod.go
-RUN go run scripts/build-mod.go
+ARG BUILDFLAGS="-race"
+RUN go build ${BUILDFLAGS} -v ./scripts/deps.go
 
-# copy source
+###
+# Compile binaries
 COPY . .
+RUN go install ${BUILDFLAGS} -v ./cmd/storagenode ./cmd/satellite ./cmd/gateway
 
-# build the source
-ENV GOBIN=/app
-RUN go install ./cmd/...
+###
+# Setup binaries base image
+FROM alpine
 
-# Satellite
-FROM alpine as storj-satellite
-ENV SATELLITE_ADDR=
-EXPOSE 7776/udp 7777 8080
+COPY --from=build /go/bin/ /app/
+COPY cmd/gateway/entrypoint     /entrypoint/gateway
+COPY cmd/satellite/entrypoint   /entrypoint/satellite
+COPY cmd/storagenode/entrypoint /entrypoint/storagenode
+COPY cmd/uplink/entrypoint      /entrypoint/uplink
 WORKDIR /app
-COPY --from=build-env /app/satellite /app/satellite
-RUN /app/satellite setup
-ENTRYPOINT ["/app/satellite", "run"]
-
-# Storage Node
-FROM alpine as storj-storagenode
-ENV SATELLITE_ADDR=
-EXPOSE 7776/udp 7777
-WORKDIR /app
-COPY --from=build-env /app/storagenode /app/storagenode
-RUN /app/storagenode setup
-ENTRYPOINT ["/app/storagenode", "run"]
-
-# Uplink
-FROM alpine as storj-uplink
-ENV API_KEY= \
-    SATELLITE_ADDR=
-EXPOSE 7776/udp 7777
-WORKDIR /app
-COPY --from=build-env /app/uplink /app/uplink
-RUN /app/uplink setup
-ENTRYPOINT ["/app/uplink", "run"]
