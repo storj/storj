@@ -81,8 +81,8 @@ var (
 		Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	}
 	qdiagCfg struct {
-		DatabaseURL string `help:"the database connection string to use" default:"sqlite3://$CONFDIR/master.db"`
-		QListLimit  int    `help:"maximum segments that can be requested" default:"1000"`
+		Database   string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+		QListLimit int    `help:"maximum segments that can be requested" default:"1000"`
 	}
 
 	defaultConfDir string
@@ -267,7 +267,7 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
 
 	// open the master db
-	database, err := satellitedb.New(qdiagCfg.DatabaseURL)
+	database, err := satellitedb.New(qdiagCfg.Database)
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
