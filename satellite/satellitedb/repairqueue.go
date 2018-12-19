@@ -10,6 +10,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/storage"
 )
 
 type repairQueue struct {
@@ -63,6 +64,9 @@ func (r *repairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
 }
 
 func (r *repairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
+	if limit <= 0 || limit > storage.LookupLimit {
+		limit = storage.LookupLimit
+	}
 	rows, err := r.db.Limited_Injuredsegment(ctx, limit, 0)
 	if err != nil {
 		return nil, err
