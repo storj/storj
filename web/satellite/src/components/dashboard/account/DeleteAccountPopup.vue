@@ -3,7 +3,7 @@
 
 <template>
     <div class='delete-account-container'>
-        <div class='delete-account' v-if="!isOwner">
+        <div class='delete-account' >
             <div class='delete-account__info-panel-container'>
                 <h2 class='delete-account__info-panel-container__main-label-text'>Delete account</h2>
                 <div v-html='imageSource'></div>
@@ -22,25 +22,6 @@
                 <div class='delete-account__form-container__button-container'>
                     <Button label='Cancel' width='205px' height='48px' :onPress='onClose' isWhite/>
                     <Button label='Delete' width='205px' height='48px' class='red' :onPress='onDeleteAccountClick'/>
-                </div>
-            </div>
-            <div class='delete-account__close-cross-container'>
-                <svg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg' v-on:click='onClose'>
-                    <path d='M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z' fill='#384B65'/>
-                </svg>
-            </div>
-        </div>
-        <div class='delete-account' v-if="isOwner">
-            <div class='delete-account__info-panel-container'>
-                <h2 class='delete-account__info-panel-container__main-label-text'>Delete account</h2>
-                <div v-html='imageSource'></div>
-            </div>
-            <div class='delete-account__form-container'>
-                <p class='text'>Sorry, we can’t delete your account form the Satellite because it seems that you are the main person in one or few projects created on Satellite. Please check all your projects where you are an administrator and reassign it to another account with another valid Payment details. Or just simply pay all fees you still need to pay into all your projects where you are an administrator and then delete each of those projects. Then you will be able to delete your account.</p>
-                <p class='text'>If you still have any questions on this please contact us:</p>
-                <a href='mailto:support@storj.io'>support@storj.io</a>
-                <div class='delete-account__form-container__button-container'>
-                    <Button label='Back to Settings' width='100%' height='48px' :onPress='onClose' isWhite/>
                 </div>
             </div>
             <div class='delete-account__close-cross-container'>
@@ -69,7 +50,6 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
                 password: '',
                 passwordError: '',
                 imageSource: EMPTY_STATE_IMAGES.DELETE_ACCOUNT,
-                isOwner: false,
             };
         },
         methods: {
@@ -80,8 +60,8 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
                 let isSuccessDeletion = await this.$store.dispatch('deleteUserAccount', this.$data.password);
 
                 if (!isSuccessDeletion) {
-                    this.$data.isOwner = true;
-                    
+                    this.$store.dispatch('error', 'Error during account deletion');
+
                     return;
                 }
 
