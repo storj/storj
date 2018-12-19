@@ -72,18 +72,18 @@ var (
 
 	runCfg struct {
 		CertSigner certificates.CertSignerConfig
-		CA         provider.FullCAConfig
+		// CA         provider.FullCAConfig
 		Identity   provider.IdentityConfig
 	}
 
 	authCreateCfg struct {
 		certificates.CertSignerConfig
-		batchCfg
+		batchCfg batchCfg
 	}
 
 	authGetCfg struct {
 		certificates.CertSignerConfig
-		batchCfg
+		batchCfg batchCfg
 	}
 
 	defaultConfDir = fpath.ApplicationDir("storj", "cert-signing")
@@ -157,16 +157,16 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 
 	var emails []string
 	if len(args) > 1 {
-		if authCreateCfg.EmailsPath != "" {
+		if authCreateCfg.batchCfg.EmailsPath != "" {
 			return errs.New("Either use `--emails-path` or positional args, not both.")
 		}
 		emails = args[1:]
 	} else {
-		list, err := ioutil.ReadFile(authCreateCfg.EmailsPath)
+		list, err := ioutil.ReadFile(authCreateCfg.batchCfg.EmailsPath)
 		if err != nil {
 			return errs.Wrap(err)
 		}
-		emails = strings.Split(string(list), authCreateCfg.Delimiter)
+		emails = strings.Split(string(list), authCreateCfg.batchCfg.Delimiter)
 	}
 
 	var incErrs utils.ErrorGroup
@@ -186,16 +186,16 @@ func cmdGetAuth(cmd *cobra.Command, args []string) error {
 
 	var emails []string
 	if len(args) > 0 {
-		if authCreateCfg.batchCfg.EmailsPath != "" {
+		if authGetCfg.batchCfg.EmailsPath != "" {
 			return errs.New("Either use `--emails-path` or positional args, not both.")
 		}
 		emails = args
 	} else {
-		list, err := ioutil.ReadFile(authCreateCfg.batchCfg.EmailsPath)
+		list, err := ioutil.ReadFile(authGetCfg.batchCfg.EmailsPath)
 		if err != nil {
 			return errs.Wrap(err)
 		}
-		emails = strings.Split(string(list), authCreateCfg.Delimiter)
+		emails = strings.Split(string(list), authGetCfg.batchCfg.Delimiter)
 	}
 
 	var emailErrs, printErrs utils.ErrorGroup
