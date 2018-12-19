@@ -93,7 +93,7 @@ all-in-one: ## Deploy docker images with one storagenode locally
 .PHONY: test-all-in-one
 test-all-in-one:
 	export VERSION="${TAG}${CUSTOMTAG}" \
-	&& $(make) satellite-image storagenode-image gateway-image \
+	&& $(MAKE) satellite-image storagenode-image gateway-image \
 	&& ./scripts/test-docker.sh
 
 ##@ Build
