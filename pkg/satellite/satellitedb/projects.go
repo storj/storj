@@ -197,6 +197,10 @@ func uniqueProjects(projects []satellite.Project) []satellite.Project {
 
 // checkNoRowsErr checks if err has ErrorCode_NoRows
 func checkNoRowsErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	
 	noRowsErr, ok := err.(*dbx.Error)
 	if !ok {
 		return false
