@@ -100,8 +100,15 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, s
 	}
 
 	{ // Delete
+		// Test standard delete
 		err := cache.Delete(ctx, valid1ID)
 		assert.NoError(t, err)
+
+		// Test idempotent delete / non existent key delete
+		err = cache.Delete(ctx, valid1ID)
+		assert.NoError(t, err)
+
+		// Test empty key delete
 		err = cache.Delete(ctx, storj.NodeID{})
 		assert.Error(t, err)
 	}
