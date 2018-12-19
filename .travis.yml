@@ -81,7 +81,7 @@ matrix:
       before_install:
       install:
       script:
-        - make all-in-one
+        - make images
     
     ### windows tests ###
     - env: MODE=windows-tests
