@@ -90,11 +90,18 @@ all-in-one: ## Deploy docker images with one storagenode locally
 	fi \
 	&& docker-compose up storagenode satellite gateway
 
+.PHONY: test-all-in-one
+test-all-in-one:
+	export VERSION="${TAG}${CUSTOMTAG}" \
+	&& $(make) satellite-image storagenode-image gateway-image \
+	&& ./scripts/test-docker.sh
+
 ##@ Build
 
 .PHONY: images
 images: satellite-image storagenode-image uplink-image gateway-image ## Build gateway, satellite, storagenode, and uplink Docker images
-	echo Built version: ${TAG}
+	echo Built version: ${TAG} \
+	&& export VERSION="${TAG}"
 
 binaries-image: ## build binaries image
 	${DOCKER_BUILD} -t storjlabs-binaries .

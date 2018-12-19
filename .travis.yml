@@ -74,19 +74,16 @@ matrix:
         - make test-captplanet
     
     ### docker build test ###
-    - env: 
-        - MODE=docker
-        - TAG=travis
-        - VERSION=travis
+    - env: MODE=docker
       services:
         - docker
       before_script:
       before_install:
       install:
         - source scripts/install-awscli.sh
-        - make images
+        - make binaries-image
       script:
-        - ./scripts/test-docker.sh
+        - make test-all-in-one
     
     ### windows tests ###
     - env: MODE=windows-tests
