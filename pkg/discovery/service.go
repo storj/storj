@@ -5,10 +5,18 @@ package discovery
 
 import (
 	"context"
+	"crypto/rand"
 
+	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
+	"storj.io/storj/pkg/storj"
+)
+
+var (
+	// DiscoveryError is a general error class of this package
+	DiscoveryError = errs.Class("discovery error")
 )
 
 // Discovery struct loads on cache, kad, and statdb
@@ -54,4 +62,32 @@ func (d *Discovery) Bootstrap(ctx context.Context) error {
 	// for each newly known node, ask those nodes for every node they know about
 	// continue until no new nodes are found
 	return nil
+}
+
+// Discovery runs lookups for random node ID's to find new nodes in the network
+func (d *Discovery) Discovery(ctx context.Context) error {
+	r, err := randomID()
+	if err != nil {
+		return DiscoveryError.Wrap(err)
+	}
+	_, err = d.kad.FindNode(ctx, r)
+	if err != nil && !kademlia.NodeNotFound.Has(err) {
+		return DiscoveryError.Wrap(err)
+	}
+	return nil
+}
+
+// Walk iterates over each node in each bucket to traverse the network
+func (d *Discovery) Walk(ctx context.Context) error {
+	// TODO: This should walk the cache, rather than be a duplicate of refresh
+	return nil
+}
+
+func randomID() (storj.NodeID, error) {
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
+	if err != nil {
+		return storj.NodeID{}, DiscoveryError.Wrap(err)
+	}
+	return storj.NodeIDFromBytes(b)
 }

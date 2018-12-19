@@ -64,7 +64,6 @@ message Pointer {
 
   bytes inline_segment = 3;
   RemoteSegment remote = 4;
-  // TODO: rename
   int64 segment_size = 5;
 
   google.protobuf.Timestamp creation_date = 6;

@@ -51,21 +51,21 @@ read one (
 
 //--- accounting ---//
 
-// timestamps just allows us to save the last time/thing that happened
-model timestamps (
+// accounting_timestamps just allows us to save the last time/thing that happened
+model accounting_timestamps (
   key name
 
   field name            text
   field value timestamp ( updatable )
 )
-create timestamps ( )
-update timestamps ( where timestamps.name = ? )
+create accounting_timestamps ( )
+update accounting_timestamps ( where accounting_timestamps.name = ? )
 read scalar (
-  select timestamps.value
-  where  timestamps.name = ?
+  select accounting_timestamps.value
+  where  accounting_timestamps.name = ?
 )
 
-model rollup (
+model accounting_rollup (
   key id
   
   field id         serial64
@@ -77,20 +77,19 @@ model rollup (
 	field updated_at timestamp ( autoinsert, autoupdate )
 )
 
-create rollup ( )
-update rollup ( where rollup.id = ? )
-delete rollup ( where rollup.id = ? )
+create accounting_rollup ( )
+update accounting_rollup ( where accounting_rollup.id = ? )
+delete accounting_rollup ( where accounting_rollup.id = ? )
 read one (
-  select rollup
-  where  rollup.id = ?
+  select accounting_rollup
+  where  accounting_rollup.id = ?
 )
 read all (
-  select rollup
-  where rollup.node_id = ?
+  select accounting_rollup
+  where accounting_rollup.node_id = ?
 )
 
-
-model raw (
+model accounting_raw (
   key id
 
   field id serial64
@@ -102,18 +101,20 @@ model raw (
   field updated_at timestamp ( autoinsert, autoupdate )
 )
 
-create raw ( )
-update raw ( where raw.id = ? )
-delete raw ( where raw.id = ? )
+create accounting_raw ( )
+update accounting_raw ( where accounting_raw.id = ? )
+delete accounting_raw ( where accounting_raw.id = ? )
 read one (
-  select raw
-  where  raw.id = ?
+  select accounting_raw
+  where  accounting_raw.id = ?
 )
 read all (
-  select raw
-  where raw.node_id = ?
+  select accounting_raw
+  where accounting_raw.node_id = ?
 )
-// dbx.v1 golang statdb.dbx .
+
+//--- statdb ---//
+
 model node (
 	key id
 
@@ -137,3 +138,32 @@ read one (
   select node
   where  node.id = ?
 )
+
+//--- overlaycache ---//
+
+model overlay_cache_node (
+	key key
+	unique key
+
+	field key blob
+	field value blob (updatable)
+)
+
+create overlay_cache_node ( )
+
+read one (
+  select overlay_cache_node 
+  where  overlay_cache_node.key = ?
+)
+
+read limitoffset (
+	select overlay_cache_node
+)
+
+read limitoffset (
+	select overlay_cache_node
+  where  overlay_cache_node.key >= ?
+)
+
+update overlay_cache_node ( where overlay_cache_node.key = ? )
+delete overlay_cache_node ( where overlay_cache_node.key = ? )

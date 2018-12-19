@@ -18,11 +18,12 @@ import { Component, Vue } from 'vue-property-decorator';
 
 @Component({
     props: {
-    	projectMember: Object,
+        projectMember: Object,
     },
 })
 
-export default class TeamMemberItem extends Vue {}
+export default class TeamMemberItem extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

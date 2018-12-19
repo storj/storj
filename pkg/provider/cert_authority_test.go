@@ -52,6 +52,13 @@ func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestFullCAConfig_Save(t *testing.T) {
+	// TODO(bryanchriswhite): test with both
+	// TODO(bryanchriswhite): test with only cert path
+	// TODO(bryanchriswhite): test with only key path
+	t.SkipNow()
+}
+
 func BenchmarkNewCA(b *testing.B) {
 	ctx := context.Background()
 	for _, difficulty := range []uint16{8, 12} {

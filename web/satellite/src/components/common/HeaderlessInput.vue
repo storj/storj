@@ -3,10 +3,10 @@
 
 <template>
     <div class="input-wrap">
-        <input 
-            @input="onInput"  
+        <input
+            @input="onInput"
             :placeholder="this.$props.placeholder"
-            v-model="value" 
+            v-model="value"
             v-bind:type="[isPassword ? passwordType : textType]"
             :style="style"/>
         <!--2 conditions of eye image (crossed or not) -->
@@ -29,56 +29,57 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
 // Custom input component for login page
 @Component(
-    { 
-		data: () => {
-			return {
-				value: "",
-				textType: "text",
-                passwordType: "password",
+    {
+        data: () => {
+            return {
+                value: '',
+                textType: 'text',
+                passwordType: 'password',
                 isPasswordShown: false
-			}
-		},
-		methods: {
-            //emits data to parent component
-			onInput () {
-				this.$emit('setData', this.$data.value)
+            };
+        },
+        methods: {
+            // Emits data to parent component
+            onInput() {
+                this.$emit('setData', this.$data.value);
             },
-            //change condition of password visibility
-            changeVision () {
+            // Change condition of password visibility
+            changeVision() {
                 this.$data.isPasswordShown = !this.$data.isPasswordShown;
-                if (this.$props.isPassword) this.$data.passwordType = this.$data.passwordType == "password" ? "text" : "password";
+                if (this.$props.isPassword) this.$data.passwordType = this.$data.passwordType == 'password' ? 'text' : 'password';
             }
-		},
-		props: {
-			placeholder: {
-				type: String,
-				default: "default"
-			},
-			isPassword: {
-				type: Boolean,
-				default: false
-			},
-			height: {
-				type: String,
-				default: "48px"
-			},
-			width: {
-				type: String,
-				default: "100%"
-			}
-		},
-		computed: {
-			style: function() {
-				return { width: this.$props.width, height: this.$props.height }
-			}
-		}
+        },
+        props: {
+            placeholder: {
+                type: String,
+                default: 'default'
+            },
+            isPassword: {
+                type: Boolean,
+                default: false
+            },
+            height: {
+                type: String,
+                default: '48px'
+            },
+            width: {
+                type: String,
+                default: '100%'
+            }
+        },
+        computed: {
+            style: function () {
+                return {width: this.$props.width, height: this.$props.height};
+            }
+        }
     },
 )
-export default class HeaderlessInput extends Vue { }
+export default class HeaderlessInput extends Vue {
+}
 
 </script>
 
@@ -94,7 +95,7 @@ input {
 	text-indent: 20px;
 	border-color: rgba(56, 75, 101, 0.4);
 	border-radius: 6px;
-    
+
 }
 .error {
 	color: #FF5560;

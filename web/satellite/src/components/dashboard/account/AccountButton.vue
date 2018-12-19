@@ -22,23 +22,23 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import AccountDropdown from "./AccountDropdown.vue";
+import AccountDropdown from './AccountDropdown.vue';
 
 @Component(
-    { 
-        data: function() {
+    {
+        data: function () {
             return {
                 isChoiceShown: false
-            }
+            };
         },
         computed: {
-            style: function() : object {
-                //color from $store
-				return { background: "#95D486" }
+            style: function (): object {
+                // Color from $store
+                return {background: '#95D486'};
             },
-            // may change later
-            avatarLetter: function() : string {
-                return this.$store.getters.userName.slice(0,1).toUpperCase();
+            // May change later
+            avatarLetter: function (): string {
+                return this.$store.getters.userName.slice(0, 1).toUpperCase();
             },
             userName: function (): string {
                 return this.$store.getters.userName;
@@ -46,7 +46,7 @@ import AccountDropdown from "./AccountDropdown.vue";
             }
         },
         methods: {
-            toggleSelection: function() : void {
+            toggleSelection: function (): void {
                 this.$data.isChoiceShown = !this.$data.isChoiceShown;
             }
         },
@@ -56,7 +56,8 @@ import AccountDropdown from "./AccountDropdown.vue";
     }
 )
 
-export default class AccountButton extends Vue {}
+export default class AccountButton extends Vue {
+}
 </script>
 
 <style scoped lang="scss">
@@ -71,7 +72,7 @@ export default class AccountButton extends Vue {}
         background-color: #FFFFFF;
         cursor: pointer;
     }
-    
+
     .account-button-toggle-container {
         display: flex;
         flex-direction: row;
