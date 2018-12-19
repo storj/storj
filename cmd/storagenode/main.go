@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"text/tabwriter"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
@@ -89,6 +91,18 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	farmerConfig := runCfg.Kademlia.Farmer
+	if err := isFarmerEmailValid(farmerConfig.Email); err != nil {
+		zap.S().Warn(err)
+	} else {
+		zap.S().Info("Farmer email: ", farmerConfig.Email)
+	}
+	if err := isFarmerWalletValid(farmerConfig.Wallet); err != nil {
+		zap.S().Fatal(err)
+	} else {
+		zap.S().Info("Farmer wallet: ", farmerConfig.Wallet)
+	}
+
 	return runCfg.Identity.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
 }
 
@@ -119,7 +133,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"identity.server.address":                 defaultServerAddr,
 		"storage.path":                            filepath.Join(setupDir, "storage"),
 		"kademlia.bootstrap-addr":                 defaultSatteliteAddr,
-		"piecestore.agreementsender.overlay_addr": defaultSatteliteAddr,
+		"piecestore.agreementsender.overlay-addr": defaultSatteliteAddr,
 	}
 
 	return process.SaveConfig(runCmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
@@ -214,6 +228,24 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	// display the data
 	err = w.Flush()
 	return err
+}
+
+func isFarmerEmailValid(email string) error {
+	if email == "" {
+		return fmt.Errorf("Farmer mail address isn't specified")
+	}
+	return nil
+}
+
+func isFarmerWalletValid(wallet string) error {
+	if wallet == "" {
+		return fmt.Errorf("Farmer wallet address isn't specified")
+	}
+	r := regexp.MustCompile("^0x[a-fA-F0-9]{40}$")
+	if match := r.MatchString(wallet); !match {
+		return fmt.Errorf("Farmer wallet address isn't valid")
+	}
+	return nil
 }
 
 func main() {
