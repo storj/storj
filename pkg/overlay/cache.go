@@ -131,7 +131,7 @@ func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) err
 
 // ConnFailure implements the Transport Observer `ConnFailure` function
 func (o *Cache) ConnFailure(ctx context.Context, node *pb.Node, err error) {
-	return
+	// noop until we figure out what to do on ConnFailure
 }
 
 // ConnSuccess implements the Transport Observer `ConnSuccess` function

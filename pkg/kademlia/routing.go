@@ -220,7 +220,6 @@ func (rt RoutingTable) ConnFailure(ctx context.Context, node *pb.Node, err error
 	if err2 != nil {
 		zap.L().Debug(fmt.Sprintf("error removing node from routing table: %+v : %+v", err, err2))
 	}
-	return
 }
 
 // ConnSuccess implements the Transport success function
@@ -229,5 +228,4 @@ func (rt RoutingTable) ConnSuccess(ctx context.Context, node *pb.Node) {
 	if err != nil {
 		zap.L().Debug("connection success error:", zap.Error(err))
 	}
-	return
 }
