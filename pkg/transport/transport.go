@@ -27,8 +27,8 @@ var (
 // Observer implements the ConnSuccess and ConnFailure methods
 // for Discovery and other services to use
 type Observer interface {
-	ConnSuccess(node *pb.Node)
-	ConnFailure(node *pb.Node, err error)
+	ConnSuccess(ctx context.Context, node *pb.Node)
+	ConnFailure(ctx context.Context, node *pb.Node, err error)
 }
 
 // Client defines the interface to an transport client.
@@ -73,11 +73,11 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 
 	conn, err = grpc.DialContext(ctx, node.GetAddress().Address, options...)
 	if err != nil {
-		alertFail(transport.observers, node, err)
+		alertFail(ctx, transport.observers, node, err)
 		return nil, Error.Wrap(err)
 	}
 
-	alertSuccess(transport.observers, node)
+	alertSuccess(ctx, transport.observers, node)
 
 	return conn, err
 }
@@ -100,14 +100,14 @@ func (transport *Transport) Identity() *provider.FullIdentity {
 	return transport.identity
 }
 
-func alertFail(obs []Observer, node *pb.Node, err error) {
+func alertFail(ctx context.Context, obs []Observer, node *pb.Node, err error) {
 	for _, o := range obs {
-		o.ConnFailure(node, err)
+		o.ConnFailure(ctx, node, err)
 	}
 }
 
-func alertSuccess(obs []Observer, node *pb.Node) {
+func alertSuccess(ctx context.Context, obs []Observer, node *pb.Node) {
 	for _, o := range obs {
-		o.ConnSuccess(node)
+		o.ConnSuccess(ctx, node)
 	}
 }

@@ -4,6 +4,7 @@
 package kademlia
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"sync"
@@ -214,7 +215,7 @@ func (rt *RoutingTable) iterate(opts storage.IterateOptions, f func(it storage.I
 }
 
 // ConnFailure implements the Transport failure function
-func (rt RoutingTable) ConnFailure(node *pb.Node, err error) {
+func (rt RoutingTable) ConnFailure(ctx context.Context, node *pb.Node, err error) {
 	err2 := rt.ConnectionFailed(node)
 	if err2 != nil {
 		zap.L().Debug(fmt.Sprintf("error removing node from routing table: %+v : %+v", err, err2))
@@ -223,7 +224,7 @@ func (rt RoutingTable) ConnFailure(node *pb.Node, err error) {
 }
 
 // ConnSuccess implements the Transport success function
-func (rt RoutingTable) ConnSuccess(node *pb.Node) {
+func (rt RoutingTable) ConnSuccess(ctx context.Context, node *pb.Node) {
 	err := rt.ConnectionSuccess(node)
 	if err != nil {
 		zap.L().Debug("connection success error:", zap.Error(err))

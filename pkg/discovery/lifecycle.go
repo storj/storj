@@ -12,7 +12,7 @@ import (
 )
 
 // ConnectionSuccess is called when a node is connected to
-func (d *Discovery) ConnectionSuccess(address string, id storj.NodeID) {
+func (d *Discovery) ConnectionSuccess(ctx context.Context, address string, id storj.NodeID) {
 	err := d.cache.Put(context.Background(), id, pb.Node{
 		Address: &pb.NodeAddress{
 			Address: address,
@@ -25,8 +25,8 @@ func (d *Discovery) ConnectionSuccess(address string, id storj.NodeID) {
 }
 
 // ConnectionFailure gets called when a node fails to be connected to
-func (d *Discovery) ConnectionFailure(id storj.NodeID) {
-	err := d.cache.Put(context.Background(), id, pb.Node{})
+func (d *Discovery) ConnectionFailure(ctx context.Context, id storj.NodeID) {
+	err := d.cache.Put(ctx, id, pb.Node{})
 	if err != nil {
 		zap.S().Error("error removing node from cache")
 	}
@@ -37,10 +37,10 @@ func (d *Discovery) ConnectionFailure(id storj.NodeID) {
 func (d *Discovery) GracefulDisconnect(id storj.NodeID) {
 }
 
-// ConnFailure implements the Transport failure function
-func (d *Discovery) ConnFailure(node *pb.Node, err error) {
+// ConnFailure implements the Transport Observer interface `ConnFailure` function
+func (d *Discovery) ConnFailure(ctx context.Context, node *pb.Node, err error) {
 }
 
-// ConnSuccess implements the Transport success function
-func (d *Discovery) ConnSuccess(node *pb.Node) {
+// ConnSuccess implements the Transport Observer interface `ConnSuccess` function
+func (d *Discovery) ConnSuccess(ctx context.Context, node *pb.Node) {
 }

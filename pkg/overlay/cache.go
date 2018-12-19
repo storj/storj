@@ -131,13 +131,13 @@ func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) err
 }
 
 // ConnFailure implements the Transport failure function
-func (o *Cache) ConnFailure(node *pb.Node, err error) {
+func (o *Cache) ConnFailure(ctx context.Context, node *pb.Node, err error) {
 	return
 }
 
 // ConnSuccess implements the Transport success function
-func (o *Cache) ConnSuccess(node *pb.Node) {
-	err := o.Put(context.Background(), node.Id, *node)
+func (o *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
+	err := o.Put(ctx, node.Id, *node)
 	if err != nil {
 		zap.L().Debug("error putting node to cache:", zap.Error(err))
 	}
