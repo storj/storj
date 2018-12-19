@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -248,6 +249,33 @@ func TestAuthorizations_Group(t *testing.T) {
 	for _, a := range open {
 		assert.Nil(t, a.Claim)
 	}
+}
+
+func TestAuthorizationDB_Emails(t *testing.T) {
+	ctx := testcontext.New(t)
+	authDB, err := newTestAuthDB(ctx)
+	if !assert.NoError(t, err) {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = authDB.Close()
+		ctx.Cleanup()
+	}()
+
+	var authErrs utils.ErrorGroup
+	for i := 0; i < 5; i++ {
+		_, err := authDB.Create("user%s@example.com", 1)
+		if err != nil {
+			authErrs.Add(err)
+		}
+	}
+	if err = authErrs.Finish(); !assert.NoError(t, err) {
+		t.Fatal(err)
+	}
+
+	emails, err := authDB.Emails()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, emails)
 }
 
 func newTestAuthDB(ctx *testcontext.Context) (*AuthorizationDB, error) {

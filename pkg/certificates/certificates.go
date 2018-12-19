@@ -23,30 +23,41 @@ import (
 )
 
 const (
+	// AuthorizationsBucket is the bucket used with a bolt-backed authorizations DB.
 	AuthorizationsBucket = "authorizations"
 	tokenLength          = 64 // 2^(64*8) =~ 1.34E+154
 )
 
 var (
-	ErrAuthorization      = errs.Class("authorization error")
-	ErrNotEnoughRandom    = ErrAuthorization.New("unable to read enough random bytes")
+	// ErrAuthorization is used when something goes wrong involving an authorization.
+	ErrAuthorization = errs.Class("authorization error")
+	// ErrNotEnoughRandom is used when the number of bytes read from a random source are insufficient.
+	ErrNotEnoughRandom = ErrAuthorization.New("unable to read enough random bytes")
+	// ErrAuthorizationCount is used when attempting to create an invalid number of authorizations.
 	ErrAuthorizationCount = ErrAuthorizationDB.New("cannot add less than one authorizations")
 )
 
+// CertSignerConfig is a config struct for use with a certificate signing service
 type CertSignerConfig struct {
 	AuthorizationDBURL string `help:"url to the certificate signing authorization database" default:"bolt://$CONFDIR/authorizations.db"`
 }
 
+// CertificateSigner implements pb.CertificatesServer
 type CertificateSigner struct {
 	Log *zap.Logger
 }
 
+// AuthorizationDB stores authorizations which may be claimed in exchange for a
+// certificate signature.
 type AuthorizationDB struct {
 	DB storage.KeyValueStore
 }
 
+// Authorizations is a slice of authorizations for convenient de/serialization
+// and grouping
 type Authorizations []*Authorization
 
+// Authorization represents
 type Authorization struct {
 	Token Token
 	Claim *Claim
@@ -188,6 +199,14 @@ func (a *AuthorizationDB) Get(email string) (Authorizations, error) {
 		return nil, ErrAuthorizationDB.Wrap(err)
 	}
 	return auths, nil
+}
+
+func (a *AuthorizationDB) Emails() ([]string, error) {
+	keys, err := a.DB.List([]byte{}, 0)
+	if err != nil {
+		return nil, ErrAuthorizationDB.Wrap(err)
+	}
+	return keys.Strings(), nil
 }
 
 func (a *Authorizations) Unmarshal(data []byte) error {

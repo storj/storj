@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/csv"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -13,12 +15,11 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/utils"
-
 	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/utils"
 )
 
 type batchCfg struct {
@@ -56,10 +57,16 @@ var (
 		RunE:  cmdCreateAuth,
 	}
 
-	authGetCmd = &cobra.Command{
-		Use:   "get [<email>, ...]",
+	authInfoCmd = &cobra.Command{
+		Use:   "info [<email>, ...]",
 		Short: "Get authorization(s) info from CSR authorization DB",
-		RunE:  cmdGetAuth,
+		RunE:  cmdInfoAuth,
+	}
+
+	authExportCmd = &cobra.Command{
+		Use:   "export [<email>, ...]",
+		Short: "Get authorization(s) info from CSR authorization DB",
+		RunE:  cmdExportAuth,
 	}
 
 	setupCfg struct {
@@ -73,17 +80,25 @@ var (
 	runCfg struct {
 		CertSigner certificates.CertSignerConfig
 		// CA         provider.FullCAConfig
-		Identity   provider.IdentityConfig
+		Identity provider.IdentityConfig
 	}
 
 	authCreateCfg struct {
 		certificates.CertSignerConfig
-		batchCfg batchCfg
+		batchCfg
 	}
 
-	authGetCfg struct {
+	authInfoCfg struct {
+		ShowTokens bool `help:"if true, token strings will be printed" default:"false"`
 		certificates.CertSignerConfig
-		batchCfg batchCfg
+		batchCfg
+	}
+
+	authExportCfg struct {
+		All bool   `help:"export all authorizations" default:"false"`
+		Out string `help:"output file path; if \"-\", will use STDOUT" default:"$CONFDIR/authorizations.csv"`
+		certificates.CertSignerConfig
+		batchCfg
 	}
 
 	defaultConfDir = fpath.ApplicationDir("storj", "cert-signing")
@@ -95,8 +110,10 @@ func init() {
 	rootCmd.AddCommand(authCmd)
 	authCmd.AddCommand(authCreateCmd)
 	cfgstruct.Bind(authCreateCmd.Flags(), &authCreateCfg, cfgstruct.ConfDir(defaultConfDir))
-	authCmd.AddCommand(authGetCmd)
-	cfgstruct.Bind(authGetCmd.Flags(), &authGetCfg, cfgstruct.ConfDir(defaultConfDir))
+	authCmd.AddCommand(authInfoCmd)
+	cfgstruct.Bind(authInfoCmd.Flags(), &authInfoCfg, cfgstruct.ConfDir(defaultConfDir))
+	authCmd.AddCommand(authExportCmd)
+	cfgstruct.Bind(authExportCmd.Flags(), &authExportCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) error {
@@ -157,16 +174,16 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 
 	var emails []string
 	if len(args) > 1 {
-		if authCreateCfg.batchCfg.EmailsPath != "" {
+		if authCreateCfg.EmailsPath != "" {
 			return errs.New("Either use `--emails-path` or positional args, not both.")
 		}
 		emails = args[1:]
 	} else {
-		list, err := ioutil.ReadFile(authCreateCfg.batchCfg.EmailsPath)
+		list, err := ioutil.ReadFile(authCreateCfg.EmailsPath)
 		if err != nil {
 			return errs.Wrap(err)
 		}
-		emails = strings.Split(string(list), authCreateCfg.batchCfg.Delimiter)
+		emails = strings.Split(string(list), authCreateCfg.Delimiter)
 	}
 
 	var incErrs utils.ErrorGroup
@@ -178,24 +195,26 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 	return incErrs.Finish()
 }
 
-func cmdGetAuth(cmd *cobra.Command, args []string) error {
-	authDB, err := authGetCfg.NewAuthDB()
+func cmdInfoAuth(cmd *cobra.Command, args []string) error {
+	authDB, err := authInfoCfg.NewAuthDB()
 	if err != nil {
 		return err
 	}
 
 	var emails []string
 	if len(args) > 0 {
-		if authGetCfg.batchCfg.EmailsPath != "" {
+		if authInfoCfg.EmailsPath != "" {
 			return errs.New("Either use `--emails-path` or positional args, not both.")
 		}
 		emails = args
+	} else if _, err := os.Stat(authInfoCfg.EmailsPath); err != nil {
+		return errs.New("Emails path error: %s", err)
 	} else {
-		list, err := ioutil.ReadFile(authGetCfg.batchCfg.EmailsPath)
+		list, err := ioutil.ReadFile(authInfoCfg.EmailsPath)
 		if err != nil {
 			return errs.Wrap(err)
 		}
-		emails = strings.Split(string(list), authGetCfg.batchCfg.Delimiter)
+		emails = strings.Split(string(list), authInfoCfg.Delimiter)
 	}
 
 	var emailErrs, printErrs utils.ErrorGroup
@@ -204,18 +223,13 @@ func cmdGetAuth(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	for i, email := range emails {
+	for _, email := range emails {
 		auths, err := authDB.Get(email)
 		if err != nil {
 			emailErrs.Add(err)
 			continue
 		}
 		if len(auths) < 1 {
-			if i == len(emails)-1 {
-				if _, err := fmt.Fprintln(w, "No authorizations for requested email(s)"); err != nil {
-					return errs.Wrap(err)
-				}
-			}
 			continue
 		}
 
@@ -228,12 +242,96 @@ func cmdGetAuth(cmd *cobra.Command, args []string) error {
 		); err != nil {
 			printErrs.Add(err)
 		}
+
+		if authInfoCfg.ShowTokens {
+			groups := map[string]certificates.Authorizations{
+				"Claimed": claimed,
+				"Open":    open,
+			}
+			for label, group := range groups {
+				if _, err := fmt.Fprintf(w, "%s:\n", label); err != nil {
+					printErrs.Add(err)
+				}
+				if len(group) > 0 {
+					for _, auth := range group {
+						if _, err := fmt.Fprintf(w, "\t%s\n", auth.Token.String()); err != nil {
+							printErrs.Add(err)
+						}
+					}
+				} else {
+					if _, err := fmt.Fprintln(w, "\tnone"); err != nil {
+						printErrs.Add(err)
+					}
+				}
+			}
+		}
 	}
 
 	if err := w.Flush(); err != nil {
 		return errs.Wrap(err)
 	}
 	return utils.CombineErrors(emailErrs.Finish(), printErrs.Finish())
+}
+
+func cmdExportAuth(cmd *cobra.Command, args []string) error {
+	authDB, err := authExportCfg.NewAuthDB()
+	if err != nil {
+		return err
+	}
+
+	var emails []string
+	if len(args) > 0 && !authExportCfg.All {
+		if authExportCfg.EmailsPath != "" {
+			return errs.New("Either use `--emails-path` or positional args, not both.")
+		}
+		emails = args
+	} else if authExportCfg.All {
+		emails, err = authDB.Emails()
+		if err != nil {
+			return err
+		}
+	} else {
+		list, err := ioutil.ReadFile(authExportCfg.EmailsPath)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		emails = strings.Split(string(list), authExportCfg.Delimiter)
+	}
+
+	var (
+		emailErrs, csvErrs utils.ErrorGroup
+		output             io.Writer
+	)
+	switch authExportCfg.Out {
+	case "-":
+		output = os.Stdout
+	default:
+		output, err = os.OpenFile(authExportCfg.Out, os.O_CREATE, 0600)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+	}
+	csvWriter := csv.NewWriter(output)
+
+	for _, email := range emails {
+		auths, err := authDB.Get(email)
+		if err != nil {
+			emailErrs.Add(err)
+			continue
+		}
+		if len(auths) < 1 {
+			continue
+		}
+
+		for _, auth := range auths {
+			if err := csvWriter.Write([]string{email, auth.Token.String()}); err != nil {
+				csvErrs.Add(err)
+			}
+		}
+	}
+
+	csvWriter.Flush()
+	return utils.CombineErrors(emailErrs.Finish(), csvErrs.Finish())
 }
 
 func main() {
