@@ -200,7 +200,7 @@ func checkNoRowsErr(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	noRowsErr, ok := err.(*dbx.Error)
 	if !ok {
 		return false
