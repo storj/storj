@@ -19,9 +19,8 @@ import (
 
 	"github.com/lib/pq"
 
-	"math/rand"
-
 	"github.com/mattn/go-sqlite3"
+	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
@@ -4507,6 +4506,16 @@ func (rx *Rx) Limited_Injuredsegment(ctx context.Context,
 	return tx.Limited_Injuredsegment(ctx, limit, offset)
 }
 
+func (rx *Rx) Limited_OverlayCacheNode(ctx context.Context,
+	limit int, offset int64) (
+	rows []*OverlayCacheNode, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_OverlayCacheNode(ctx, limit, offset)
+}
+
 func (rx *Rx) Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx context.Context,
 	overlay_cache_node_key_greater_or_equal OverlayCacheNode_Key_Field,
 	limit int, offset int64) (
@@ -4717,6 +4726,10 @@ type Methods interface {
 	Limited_Injuredsegment(ctx context.Context,
 		limit int, offset int64) (
 		rows []*Injuredsegment, err error)
+
+	Limited_OverlayCacheNode(ctx context.Context,
+		limit int, offset int64) (
+		rows []*OverlayCacheNode, err error)
 
 	Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx context.Context,
 		overlay_cache_node_key_greater_or_equal OverlayCacheNode_Key_Field,
