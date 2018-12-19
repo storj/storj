@@ -26,19 +26,21 @@ var ServerError = errs.Class("Server Error")
 
 // Server implements our overlay RPC service
 type Server struct {
-	logger  *zap.Logger
-	dht     dht.DHT
-	cache   *Cache
-	metrics *monkit.Registry
+	logger    *zap.Logger
+	dht       dht.DHT
+	cache     *Cache
+	metrics   *monkit.Registry
+	nodeStats *pb.NodeStats
 }
 
 // NewServer creates a new Overlay Server
-func NewServer(log *zap.Logger, cache *Cache, dht dht.DHT) *Server {
+func NewServer(log *zap.Logger, cache *Cache, dht dht.DHT, nodeStats *pb.NodeStats) *Server {
 	return &Server{
-		dht:     dht,
-		cache:   cache,
-		logger:  log,
-		metrics: monkit.Default,
+		dht:       dht,
+		cache:     cache,
+		logger:    log,
+		metrics:   monkit.Default,
+		nodeStats: nodeStats,
 	}
 }
 
@@ -75,7 +77,7 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 
 	excluded := opts.ExcludedNodes
 	restrictions := opts.GetRestrictions()
-	reputation := opts.GetMinStats()
+	reputation := o.nodeStats
 
 	var startID storj.NodeID
 	result := []*pb.Node{}

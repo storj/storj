@@ -10,12 +10,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import Notification from '@/components/notifications/Notification.vue';
-import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
 
 @Component({
     computed: {
         // Computed value for current notification depends on store.state value
-        currentNotification: function(): Notification {
+        currentNotification: function (): Notification {
             return this.$store.getters.currentNotification;
         }
     },
@@ -24,7 +23,8 @@ import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
     }
 })
 
-export default class NotificationArea extends Vue {}
+export default class NotificationArea extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

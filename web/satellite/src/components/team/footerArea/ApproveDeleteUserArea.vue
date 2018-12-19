@@ -37,7 +37,8 @@ import Button from '@/components/common/Button.vue';
     }
 })
 
-export default class ApproveDeleteUserArea extends Vue {}
+export default class ApproveDeleteUserArea extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

@@ -1,5 +1,5 @@
 node('node') {
-  disableConcurrentBuilds()
+  properties([disableConcurrentBuilds()])
   try {
     currentBuild.result = "SUCCESS"
 

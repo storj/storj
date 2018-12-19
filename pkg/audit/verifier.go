@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
@@ -208,7 +207,7 @@ func calcPadded(size int64, blockSize int) int64 {
 }
 
 // verify downloads shares then verifies the data correctness at the given stripe
-func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *pb.Pointer, authorization *pb.SignedMessage) (verifiedNodes []*statdb.UpdateRequest, err error) {
+func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *pb.Pointer, authorization *pb.SignedMessage) (verifiedNodes *RecordAuditsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	shares, nodes, err := verifier.downloader.DownloadShares(ctx, pointer, stripeIndex, authorization)
@@ -236,9 +235,12 @@ func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *
 	}
 
 	successNodes := getSuccessNodes(ctx, nodes, failedNodes, offlineNodes)
-	verifiedNodes = setVerifiedNodes(ctx, offlineNodes, failedNodes, successNodes)
 
-	return verifiedNodes, nil
+	return &RecordAuditsInfo{
+		SuccessNodeIDs: successNodes,
+		FailNodeIDs:    failedNodes,
+		OfflineNodeIDs: offlineNodes,
+	}, nil
 }
 
 // getSuccessNodes uses the failed nodes and offline nodes arrays to determine which nodes passed the audit
@@ -257,17 +259,4 @@ func getSuccessNodes(ctx context.Context, nodes map[int]*pb.Node, failedNodes, o
 		}
 	}
 	return successNodes
-}
-
-// setVerifiedNodes creates a combined array of offline nodes, failed audit nodes, and success nodes with their stats set to the statdb proto Node type
-func setVerifiedNodes(ctx context.Context, offlineNodes, failedNodes, successNodes storj.NodeIDList) (verifiedNodes []*statdb.UpdateRequest) {
-	offlineStatusNodes := setOfflineStatus(ctx, offlineNodes)
-	failStatusNodes := setAuditFailStatus(ctx, failedNodes)
-	successStatusNodes := setSuccessStatus(ctx, successNodes)
-
-	verifiedNodes = append(verifiedNodes, offlineStatusNodes...)
-	verifiedNodes = append(verifiedNodes, failStatusNodes...)
-	verifiedNodes = append(verifiedNodes, successStatusNodes...)
-
-	return verifiedNodes
 }

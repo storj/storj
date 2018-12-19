@@ -15,17 +15,17 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import DashboardHeader from "@/components/dashboard/DashboardHeader.vue";
-import NavigationArea from "@/components/navigation/NavigationArea.vue";
-import NAVIGATION_ITEMS from "@/utils/constants/navigationLinks";
+import DashboardHeader from '@/components/dashboard/DashboardHeader.vue';
+import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
 @Component({
-	components: {
+    components: {
         NavigationArea,
-		DashboardHeader
-	}
+        DashboardHeader
+    }
 })
-export default class Dashboard extends Vue {}
+export default class Dashboard extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

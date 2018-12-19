@@ -48,8 +48,9 @@ func TestPassingAudit(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(verifiedNodes) == 0 {
-			t.Fatal("expected there to be verified nodes")
+
+		if len(verifiedNodes.SuccessNodeIDs) == 0 {
+			t.Fatal("expected there to be passing nodes")
 		}
 	}
 }
@@ -91,13 +92,8 @@ func TestSomeNodesPassAudit(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var nodesDown int
-		for _, node := range verifiedNodes {
-			if !node.IsUp {
-				nodesDown++
-			}
-		}
-		assert.Equal(t, nodesDown, 10)
+
+		assert.Equal(t, len(verifiedNodes.OfflineNodeIDs), 10)
 	}
 }
 
