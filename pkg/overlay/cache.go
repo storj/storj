@@ -22,7 +22,7 @@ const (
 )
 
 // ErrDelete is returned when there was an error deleting something
-var ErrDelete = errs.New("error deleting key:")
+var ErrDelete = errs.New("error deleting key")
 
 // ErrEmptyNode is returned when the nodeID is empty
 var ErrEmptyNode = errs.New("empty node ID")
@@ -135,7 +135,7 @@ func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) err
 // to pass a PING multiple times.
 func (o *Cache) Delete(ctx context.Context, id storj.NodeID) error {
 	if id.IsZero() {
-		return ErrDelete
+		return ErrEmptyNode
 	}
 
 	err := o.DB.Delete(id.Bytes())
