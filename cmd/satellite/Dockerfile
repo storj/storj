@@ -5,4 +5,6 @@ ENV API_KEY= \
 EXPOSE 7776/udp \
        7777 \
        8080
+
+WORKDIR /app
 ENTRYPOINT ["/entrypoint/satellite"]

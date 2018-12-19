@@ -32,7 +32,7 @@ RUN go install ${BUILDFLAGS} -v ./cmd/storagenode ./cmd/satellite ./cmd/gateway 
 
 ###
 # Setup binaries base image
-FROM alpine
+FROM debian:stretch
 
 COPY --from=build /go/bin/* /app/
 COPY cmd/gateway/entrypoint     /entrypoint/gateway
