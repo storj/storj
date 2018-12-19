@@ -60,7 +60,7 @@ func (service *refreshService) Run(ctx context.Context) (err error) {
 func (service *refreshService) process(ctx context.Context) error {
 	stats, err := service.server.Stats(ctx, nil)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	self := service.rt.Local()
@@ -72,7 +72,9 @@ func (service *refreshService) process(ctx context.Context) error {
 
 	// Update the routing table with latest restrictions
 	// TODO (aleitner): Do we want to change the name of ConnectionSuccess?
-	service.rt.ConnectionSuccess(&self)
+	if err := service.rt.ConnectionSuccess(&self); err != nil {
+		return Error.Wrap(err)
+	}
 
 	return nil
 }
