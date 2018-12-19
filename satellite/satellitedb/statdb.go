@@ -89,7 +89,7 @@ func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats 
 	}
 
 	nodeStats := getNodeStats(nodeID, dbNode)
-	return nodeStats, nil
+	return nodeStats, Error.Wrap(tx.Commit())
 }
 
 // Get a storagenode's stats from the db
@@ -214,7 +214,7 @@ func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (s
 	}
 
 	nodeStats := getNodeStats(nodeID, dbNode)
-	return nodeStats, nil
+	return nodeStats, Error.Wrap(tx.Commit())
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db
@@ -252,7 +252,7 @@ func (s *statDB) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp boo
 	}
 
 	nodeStats := getNodeStats(nodeID, dbNode)
-	return nodeStats, nil
+	return nodeStats, Error.Wrap(tx.Commit())
 }
 
 // UpdateAuditSuccess updates a single storagenode's uptime stats in the db
@@ -290,7 +290,7 @@ func (s *statDB) UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, au
 	}
 
 	nodeStats := getNodeStats(nodeID, dbNode)
-	return nodeStats, nil
+	return nodeStats, Error.Wrap(tx.Commit())
 }
 
 // UpdateBatch for updating multiple farmers' stats in the db
