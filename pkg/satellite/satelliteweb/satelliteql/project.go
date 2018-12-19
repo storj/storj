@@ -19,6 +19,9 @@ const (
 	// Used in input model
 	fieldIsTermsAccepted = "isTermsAccepted"
 	fieldMembers         = "members"
+
+	limit  = "limit"
+	offset = "offset"
 )
 
 // graphqlProject creates *graphql.Object type representation of satellite.ProjectInfo
@@ -63,10 +66,21 @@ func graphqlProject(service *satellite.Service, types Types) *graphql.Object {
 			},
 			fieldMembers: &graphql.Field{
 				Type: graphql.NewList(types.ProjectMember()),
+				Args: graphql.FieldConfigArgument{
+					offset: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.Int),
+					},
+					limit: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.Int),
+					},
+				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*satellite.Project)
 
-					members, err := service.GetProjectMembers(p.Context, project.ID)
+					offs, _ := p.Args[offset].(int64)
+					lim, _ := p.Args[limit].(int)
+
+					members, err := service.GetProjectMembers(p.Context, project.ID, lim, offs)
 					if err != nil {
 						return nil, err
 					}
