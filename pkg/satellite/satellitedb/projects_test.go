@@ -263,11 +263,11 @@ func TestCheckNoRowsErr(t *testing.T) {
 		error  error
 		result bool
 	}{
-
 		0: {&dbx.Error{Code: dbx.ErrorCode_NoRows}, true},
 		1: {&dbx.Error{Code: dbx.ErrorCode_ConstraintViolation}, false},
 		2: {errs.New("some error"), false},
 		3: {&dbx.Error{Code: dbx.ErrorCode_TooManyRows}, false},
+		4: {nil, false},
 	}
 
 	for _, tc := range mustErrTestCases {

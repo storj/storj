@@ -42,18 +42,14 @@ func (projects *projects) GetByOwnerID(ctx context.Context, ownerID uuid.UUID) (
 // GetByUserID is a method for querying all projects from the database by userID.
 func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) ([]satellite.Project, error) {
 	projectsDbx, err := projects.db.All_Project_By_ProjectMember_MemberId(ctx, dbx.ProjectMember_MemberId(userID[:]))
-	if err != nil {
-		if checkNoRowsErr(err) {
-			err = nil
-		}
+	if checkNoRowsErr(err) {
+		err = nil
 	}
 
 	// TODO: temporary solution, cause there is no way to use OR in dbx 'where' statement
 	projectsByOwnerID, ownershipErr := projects.GetByOwnerID(ctx, userID)
-	if ownershipErr != nil {
-		if checkNoRowsErr(ownershipErr) {
-			ownershipErr = nil
-		}
+	if checkNoRowsErr(ownershipErr) {
+		ownershipErr = nil
 	}
 
 	projectsByUserID, membershipErr := projectsFromDbxSlice(projectsDbx)
