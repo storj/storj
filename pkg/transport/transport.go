@@ -44,7 +44,9 @@ func NewClient(identity *provider.FullIdentity) Client {
 // DialNode returns a grpc connection with tls to a node
 func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
-
+	if node.Type == pb.NodeType_INVALID {
+		panic("invalid node type")
+	}
 	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")
 	}
@@ -79,5 +81,3 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 func (transport *Transport) Identity() *provider.FullIdentity {
 	return transport.identity
 }
-
-// Close implements io.closer, closing the transport connection(s)

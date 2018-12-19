@@ -44,8 +44,8 @@ func main() {
 			Address:   ":7777",
 			Transport: 0,
 		},
-		Id: serverIdent.ID,
-		NodeType: pb.NodeType_UPLINK,
+		Id:       serverIdent.ID,
+		Type: pb.NodeType_STORAGE,
 	}
 	tc := transport.NewClient(clientIdent)
 	psClient, err := psclient.NewPSClient(ctx, tc, n, 0)

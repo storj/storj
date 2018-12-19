@@ -29,7 +29,7 @@ func TestQueryNoAgreements(t *testing.T) {
 
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
-
+	
 	db, err := satellitedb.NewInMemory()
 	assert.NoError(t, err)
 	defer ctx.Check(db.Close)

@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	pdb "storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/pointerdb/pdbclient/mocks"
-	"storj.io/storj/pkg/storage/ec/mocks"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 )
@@ -113,7 +112,9 @@ func TestSegmentStorePutRemote(t *testing.T) {
 			mockOC.EXPECT().Choose(
 				gomock.Any(), gomock.Any(),
 			).Return([]*pb.Node{
-				{Id: teststorj.NodeIDFromString("im-a-node")},
+				{Id: teststorj.NodeIDFromString("im-a-node"),
+					Type: pb.NodeType_STORAGE,
+				},
 			}, nil),
 			mockPDB.EXPECT().SignedMessage(),
 			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any()),

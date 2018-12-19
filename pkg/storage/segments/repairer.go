@@ -49,6 +49,12 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	for i, v := range originalNodes {
+		if v.Type == pb.NodeType_INVALID {
+			panic("invalid node type")
+		}
+	}
+
 
 	// Get the nodes list that needs to be excluded
 	var excludeNodeIDs storj.NodeIDList
@@ -101,6 +107,11 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 			// Assign the item in repairNodes list with an item from the newNode list
 			totalRepairCount--
 			repairNodes[i] = newNodes[totalRepairCount]
+		}
+	}
+	for i, v := range repairNodes {
+		if v.Type == pb.NodeType_INVALID {
+			panic("invalid node type")
 		}
 	}
 

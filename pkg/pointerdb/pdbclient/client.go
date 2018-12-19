@@ -90,7 +90,11 @@ func (pdb *PointerDB) Put(ctx context.Context, path storj.Path, pointer *pb.Poin
 // Get is the interface to make a GET request, needs PATH and APIKey
 func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Pointer, nodes []*pb.Node, pba *pb.PayerBandwidthAllocation, err error) {
 	defer mon.Task()(&ctx)(&err)
-
+	for _, v := range nodes {
+		if v.Type == pb.NodeType_INVALID {
+			panic("invalid node type")
+		}
+	}
 	res, err := pdb.client.Get(ctx, &pb.GetRequest{Path: path})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {

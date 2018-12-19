@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -128,6 +127,12 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
+		for i, v := range nodes {
+			if v.Type == pb.NodeType_INVALID {
+				panic("invalid node type")
+			}
+		}
+
 		pieceID := psclient.NewPieceID()
 
 		authorization := s.pdb.SignedMessage()
@@ -209,6 +214,11 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 				break
 			}
 		}
+		for i, v := range nodes {
+			if v.Type == pb.NodeType_INVALID {
+				panic("invalid node type")
+			}
+		}
 
 		authorization := s.pdb.SignedMessage()
 		rr, err = s.ec.Get(ctx, selected, rs, pid, pr.GetSegmentSize(), pba, authorization)
@@ -228,6 +238,9 @@ func makeRemotePointer(nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID
 	for i := range nodes {
 		if nodes[i] == nil {
 			continue
+		}
+		if nodes[i].Type == pb.NodeType_INVALID {
+			panic("invalid node type")
 		}
 		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int32(i),
@@ -273,6 +286,12 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 		if err != nil {
 			return Error.Wrap(err)
 		}
+		for i, v := range nodes {
+			if v.Type == pb.NodeType_INVALID {
+				panic("invalid node type")
+			}
+		}
+
 
 		authorization := s.pdb.SignedMessage()
 		// ecclient sends delete request
@@ -354,6 +373,11 @@ func lookupAndAlignNodes(ctx context.Context, oc overlay.Client, nodes []*pb.Nod
 		nodes, err = oc.BulkLookup(ctx, nodeIds)
 		if err != nil {
 			return nil, Error.Wrap(err)
+		}
+	}
+	for i, v := range nodes {
+		if v.Type == pb.NodeType_INVALID {
+			panic("invalid node type")
 		}
 	}
 

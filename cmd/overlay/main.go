@@ -111,7 +111,7 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 				FreeBandwidth: 2000000000,
 				FreeDisk:      2000000000,
 			},
-			NodeType: pb.NodeType_STORAGE,
+			Type: pb.NodeType_STORAGE,
 		})
 		if err != nil {
 			return err

@@ -83,6 +83,9 @@ func TestPieceRanger(t *testing.T) {
 			},
 			Id: teststorj.NodeIDFromString("test-node-id-1234567"),
 		}
+		if target.Type == pb.NodeType_INVALID {
+			panic("invalid node type")
+		}
 		c, err := NewCustomRoute(route, target, 32*1024, priv)
 		assert.NoError(t, err)
 		rr, err := PieceRanger(ctx, c, stream, pid, &pb.PayerBandwidthAllocation{}, nil)
@@ -160,6 +163,9 @@ func TestPieceRangerSize(t *testing.T) {
 				Transport: 0,
 			},
 			Id: teststorj.NodeIDFromString("test-node-id-1234567"),
+		}
+		if target.Type == pb.NodeType_INVALID {
+			panic("invalid node type")
 		}
 		c, err := NewCustomRoute(route, target, 32*1024, priv)
 		assert.NoError(t, err)
