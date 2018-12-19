@@ -8,9 +8,12 @@ import (
 	"io"
 	"io/ioutil"
 
+	"go.uber.org/zap"
+
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/utils"
 )
 
 // ErasureScheme represents the general format of any erasure scheme algorithm.
@@ -96,6 +99,10 @@ func (rs *RedundancyStrategy) OptimalThreshold() int {
 	return rs.optimalThreshold
 }
 
+// SyncBuffer is a synchronized variable-sized buffer used to buffer the
+// generated pieces by erasure coding. Read will block until new data is added
+// or the buffer is closed. If the buffer is closed, Read will continue
+// reading as long as there is data in the buffer.
 type SyncBuffer interface {
 	io.Reader
 	io.Writer
@@ -155,10 +162,12 @@ func (er *encodedReader) fillBuffer(ctx context.Context) {
 			break
 		}
 
+		var writeErr error
 		err = er.rs.Encode(er.inbuf, func(num int, data []byte) {
-			er.eps[num].Write(data)
+			_, writeErr = er.eps[num].Write(data)
 		})
 
+		err = utils.CombineErrors(err, writeErr)
 		if err != nil {
 			break
 		}
@@ -168,8 +177,14 @@ func (er *encodedReader) fillBuffer(ctx context.Context) {
 		err = nil
 	}
 
+	var errGroup utils.ErrorGroup
 	for _, buf := range er.eps {
-		buf.CloseWithError(err)
+		errGroup.Add(buf.CloseWithError(err))
+	}
+
+	err = errGroup.Finish()
+	if err != nil {
+		zap.S().Errorf("Error closing buffers: %v", err)
 	}
 }
 
