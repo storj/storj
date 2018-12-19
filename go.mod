@@ -100,7 +100,7 @@ require (
 	github.com/vivint/infectious v0.0.0-20180906161625-e155e6eb3575
 	github.com/yuin/gopher-lua v0.0.0-20180918061612-799fa34954fb // indirect
 	github.com/zeebo/admission v0.0.0-20180821192747-f24f2a94a40c
-	github.com/zeebo/errs v1.0.0
+	github.com/zeebo/errs v1.1.0
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	go.uber.org/atomic v1.3.2 // indirect
