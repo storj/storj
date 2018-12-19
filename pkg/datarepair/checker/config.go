@@ -19,7 +19,7 @@ import (
 
 // Config contains configurable values for checker
 type Config struct {
-	Interval         time.Duration `help:"how frequently checker should audit segments" default:"30s"`
+	Interval time.Duration `help:"how frequently checker should audit segments" default:"30s"`
 }
 
 // Initialize a Checker struct
