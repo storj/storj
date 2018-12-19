@@ -75,14 +75,8 @@ func (o *Overlay) Choose(ctx context.Context, op Options) ([]*pb.Node, error) {
 	// TODO(coyle): We will also need to communicate with the reputation service here
 	resp, err := o.client.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{
 		Opts: &pb.OverlayOptions{
-			Amount:       int64(op.Amount),
-			Restrictions: &pb.NodeRestrictions{FreeDisk: op.Space, FreeBandwidth: op.Bandwidth},
-			MinStats: &pb.NodeStats{
-				UptimeRatio:       op.Uptime,
-				UptimeCount:       op.UptimeCount,
-				AuditSuccessRatio: op.AuditSuccess,
-				AuditCount:        op.AuditCount,
-			},
+			Amount:        int64(op.Amount),
+			Restrictions:  &pb.NodeRestrictions{FreeDisk: op.Space, FreeBandwidth: op.Bandwidth},
 			ExcludedNodes: exIDs,
 		},
 	})

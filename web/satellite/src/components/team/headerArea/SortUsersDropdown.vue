@@ -17,18 +17,18 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import SortDropdown from "./SortDropdown.vue";
+import SortDropdown from './SortDropdown.vue';
 
 @Component(
-    { 
-        data: function() {
+    {
+        data: function () {
             return {
                 userName: this.$store.getters.userName,
                 isChoiceShown: false
-            }
+            };
         },
         methods: {
-            toggleSelection: function() : void {
+            toggleSelection: function (): void {
                 this.$data.isChoiceShown = !this.$data.isChoiceShown;
             }
         },
@@ -38,7 +38,8 @@ import SortDropdown from "./SortDropdown.vue";
     }
 )
 
-export default class SortUsersDropdown extends Vue {}
+export default class SortUsersDropdown extends Vue {
+}
 </script>
 
 <style scoped lang="scss">
@@ -58,7 +59,7 @@ export default class SortUsersDropdown extends Vue {}
         box-shadow: 0px 4px 4px rgba(231, 232, 238, 0.6);
         border-radius: 6px;
     }
-    
+
     .sort-toggle-container {
         display: flex;
         flex-direction: row;

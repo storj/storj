@@ -33,7 +33,8 @@ import { Component, Vue } from 'vue-property-decorator';
 @Component({})
 
 // Page for server errors
-export default class Page50X extends Vue {}
+export default class Page50X extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

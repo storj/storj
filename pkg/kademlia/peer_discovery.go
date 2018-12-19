@@ -17,6 +17,8 @@ import (
 )
 
 type peerDiscovery struct {
+	log *zap.Logger
+
 	client node.Client
 	target storj.NodeID
 	opts   discoveryOptions
@@ -28,8 +30,9 @@ type peerDiscovery struct {
 // ErrMaxRetries is used when a lookup has been retried the max number of times
 var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 
-func newPeerDiscovery(nodes []*pb.Node, client node.Client, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
+func newPeerDiscovery(log *zap.Logger, nodes []*pb.Node, client node.Client, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
 	discovery := &peerDiscovery{
+		log:    log,
 		client: client,
 		target: target,
 		opts:   opts,
@@ -94,12 +97,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (target *pb.Node, err erro
 					// ok := lookup.queue.Reinsert(lookup.target, next, lookup.opts.retries)
 					ok := false
 					if !ok {
-						zap.S().Errorf(
-							"Error occurred during lookup of %s :: %s :: error = %s",
-							lookup.target,
-							ErrMaxRetries.New("%s", next.Id),
-							err.Error(),
-						)
+						lookup.log.Debug("connecting to node failed", zap.Any("target", lookup.target), zap.Any("dial", next.Id), zap.Error(err))
 					}
 				}
 

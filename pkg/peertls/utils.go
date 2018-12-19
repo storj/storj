@@ -32,6 +32,15 @@ type ECDSASignature struct {
 
 var authECCurve = elliptic.P256()
 
+// SHA256Hash calculates the SHA256 hash of the input data
+func SHA256Hash(data []byte) ([]byte, error) {
+	hash := crypto.SHA256.New()
+	if _, err := hash.Write(data); err != nil {
+		return nil, err
+	}
+	return hash.Sum(nil), nil
+}
+
 func parseCertificateChains(rawCerts [][]byte) ([]*x509.Certificate, error) {
 	parsedCerts, err := parseCerts(rawCerts)
 	if err != nil {
@@ -91,7 +100,7 @@ func VerifySignature(signedData []byte, data []byte, pubKey crypto.PublicKey) er
 		return ErrVerifySignature.New("unable to unmarshal ecdsa signature: %v", err)
 	}
 
-	digest, err := hashBytes(data)
+	digest, err := SHA256Hash(data)
 	if err != nil {
 		return ErrVerifySignature.Wrap(err)
 	}
@@ -123,7 +132,7 @@ func uniqueExts(exts []pkix.Extension) bool {
 	return true
 }
 func signHashOf(key crypto.PrivateKey, data []byte) ([]byte, error) {
-	hash, err := hashBytes(data)
+	hash, err := SHA256Hash(data)
 	if err != nil {
 		return nil, ErrSign.Wrap(err)
 	}
@@ -146,12 +155,4 @@ func signBytes(key crypto.PrivateKey, data []byte) ([]byte, error) {
 	}
 
 	return asn1.Marshal(ECDSASignature{R: r, S: s})
-}
-
-func hashBytes(data []byte) ([]byte, error) {
-	hash := crypto.SHA256.New()
-	if _, err := hash.Write(data); err != nil {
-		return nil, err
-	}
-	return hash.Sum(nil), nil
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	"storj.io/storj/pkg/kademlia"
 )
 
@@ -26,13 +27,4 @@ func TestRun(t *testing.T) {
 	err = Config{}.Run(ctx, nil)
 	assert.Error(t, err)
 	assert.Equal(t, "overlay error: unable to get master db instance", err.Error())
-
-	// db scheme redis conn fail
-	err = Config{DatabaseURL: "redis://somedir/overlay.db/?db=1"}.Run(ctx, nil)
-
-	assert.Error(t, err)
-
-	// db scheme bolt conn fail
-	err = Config{DatabaseURL: "bolt://somedir/overlay.db"}.Run(ctx, nil)
-	assert.Error(t, err)
 }
