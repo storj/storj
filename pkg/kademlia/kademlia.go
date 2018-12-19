@@ -312,16 +312,15 @@ func (k *Kademlia) refresh(ctx context.Context) error {
 	now := time.Now()
 	startID := bucketID{}
 	for _, bID := range bIDs {
-		ts, err := k.routingTable.GetBucketTimestamp(bID)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		if now.After(ts.Add(time.Hour)) {
+		ts, tErr := k.routingTable.GetBucketTimestamp(bID)
+		if tErr != nil {
+			err = utils.CombineErrors(tErr)
+		} else if now.After(ts.Add(time.Hour)) {
 			rID, _ := randomIDInRange(startID, keyToBucketID(bID))
-			k.FindNode(ctx, rID)
+			k.FindNode(ctx, rID) // ignore node not found
 		}
 	}
-	return nil
+	return Error.Wrap(err)
 }
 
 // randomIDInRange finds a random node ID with a range (start..end]

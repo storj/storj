@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zaptest"
@@ -198,6 +199,32 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 		assert.NoError(t, k.Disconnect())
 	}
 
+}
+
+func TestRefresh(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	k, s, clean := testNode(t, []pb.Node{})
+	defer clean()
+	defer s.Stop()
+	//turn back time for only bucket
+	rt := k.routingTable
+	now := time.Now().UTC()
+	bID := rt.createFirstBucketID() //always exists
+	err := rt.SetBucketTimestamp(bID[:], now.Add(-2*time.Hour))
+	assert.NoError(t, err)
+	//refresh should  call FindNode, updating the time
+	err = k.refresh(ctx)
+	assert.NoError(t, err)
+	ts1, err := rt.GetBucketTimestamp(bID[:])
+	assert.NoError(t, err)
+	assert.True(t, now.Add(-5*time.Minute).Before(ts1))
+	//refresh should not call FindNode, leaving the previous time
+	err = k.refresh(ctx)
+	assert.NoError(t, err)
+	ts2, err := rt.GetBucketTimestamp(bID[:])
+	assert.NoError(t, err)
+	assert.True(t, ts1.Equal(ts2))
 }
 
 func TestGetNodes(t *testing.T) {
