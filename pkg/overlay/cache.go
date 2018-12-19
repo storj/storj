@@ -130,12 +130,12 @@ func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) err
 	return o.DB.Put(nodeID.Bytes(), data)
 }
 
-// ConnFailure implements the Transport failure function
+// ConnFailure implements the Transport Observer `ConnFailure` function
 func (o *Cache) ConnFailure(ctx context.Context, node *pb.Node, err error) {
 	return
 }
 
-// ConnSuccess implements the Transport success function
+// ConnSuccess implements the Transport Observer `ConnSuccess` function
 func (o *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 	err := o.Put(ctx, node.Id, *node)
 	if err != nil {

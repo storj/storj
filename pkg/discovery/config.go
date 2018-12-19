@@ -51,7 +51,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	if !ok {
 		return Error.New("unable to get master db instance")
 	}
-	discovery := NewDiscovery(ol, kad, stat.StatDB())
+	discovery := NewDiscovery(ol, kad, stat.StatDB(), zap.L())
 
 	zap.L().Debug("Starting discovery")
 
