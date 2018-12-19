@@ -1,39 +1,36 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package refresher
+package psserver
 
 import (
 	"context"
+	"flag"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/psserver"
 )
 
 // Error is a standard error class for this package.
 var (
-	Error = errs.Class("kademlia bucket refresher error")
-	mon   = monkit.Package()
+	Error                = errs.Class("kademlia bucket refresher error")
+	defaultCheckInterval = flag.Duration("piecestore.kbucket-refresher.check-interval", time.Hour, "number of seconds to sleep between updating the kademlia bucket")
 )
 
 // refreshService contains the information needed to run the bucket refresher service
 type refreshService struct {
 	logger *zap.Logger
-	ticker *time.Ticker
-	rt     *kademlia.RoutingTable
-	server *psserver.Server
+	rt     dht.RoutingTable
+	server *Server
 }
 
-func newService(logger *zap.Logger, interval time.Duration, rt *kademlia.RoutingTable, server *psserver.Server) *refreshService {
+func newService(logger *zap.Logger, rt dht.RoutingTable, server *Server) *refreshService {
 	return &refreshService{
 		logger: logger,
-		ticker: time.NewTicker(interval),
 		rt:     rt,
 		server: server,
 	}
@@ -43,6 +40,8 @@ func newService(logger *zap.Logger, interval time.Duration, rt *kademlia.Routing
 func (service *refreshService) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	ticker := time.NewTicker(*defaultCheckInterval)
+
 	for {
 		err := service.process(ctx)
 		if err != nil {
@@ -50,7 +49,7 @@ func (service *refreshService) Run(ctx context.Context) (err error) {
 		}
 
 		select {
-		case <-service.ticker.C: // wait for the next interval to happen
+		case <-ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the bucket refresher service is canceled via context
 			return ctx.Err()
 		}

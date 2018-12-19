@@ -10,7 +10,6 @@ import (
 	"crypto/sha512"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -22,67 +21,19 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	pstore "storj.io/storj/pkg/piecestore"
-	as "storj.io/storj/pkg/piecestore/psserver/agreementsender"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/provider"
 )
 
 var (
-	mon = monkit.Package()
-
 	// ServerError wraps errors returned from Server struct methods
 	ServerError = errs.Class("PSServer error")
 )
-
-// Config contains everything necessary for a server
-type Config struct {
-	Path               string `help:"path to store data in" default:"$CONFDIR"`
-	AllocatedDiskSpace int64  `help:"total allocated disk space, default(1GB)" default:"1073741824"`
-	AllocatedBandwidth int64  `help:"total allocated bandwidth, default(100GB)" default:"107374182400"`
-}
-
-// Run implements provider.Responsibility
-func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	ctx, cancel := context.WithCancel(ctx)
-
-	db, err := psdb.Open(ctx, filepath.Join(c.Path, "piece-store-data"), filepath.Join(c.Path, "piecestore.db"))
-	if err != nil {
-		return ServerError.Wrap(err)
-	}
-
-	s, err := NewEndpoint(zap.L(), c, db, server.Identity().Key)
-	if err != nil {
-		return err
-	}
-
-	pb.RegisterPieceStoreRoutesServer(server.GRPC(), s)
-
-	// Run the agreement sender process
-	asProcess, err := as.Initialize(s.DB, server.Identity())
-	if err != nil {
-		return err
-	}
-	go func() {
-		if err := asProcess.Run(ctx); err != nil {
-			cancel()
-		}
-	}()
-
-	defer func() {
-		log.Fatal(s.Stop(ctx))
-	}()
-
-	s.log.Info("Started Node", zap.String("ID", fmt.Sprint(server.Identity().ID)))
-	return server.Run(ctx)
-}
 
 //DirSize returns the total size of the files in that directory
 func DirSize(path string) (int64, error) {
