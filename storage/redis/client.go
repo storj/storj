@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-redis/redis"
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/storage"
 )
 
@@ -181,6 +182,12 @@ func (client *Client) Iterate(opts storage.IterateOptions, fn func(it storage.It
 	return fn(&storage.StaticIterator{
 		Items: all,
 	})
+}
+
+// FlushDB deletes all keys in the currently selected DB.
+func (client *Client) FlushDB() error {
+	_, err := client.db.FlushDB().Result()
+	return err
 }
 
 func (client *Client) allPrefixedItems(prefix, first, last storage.Key) (storage.Items, error) {

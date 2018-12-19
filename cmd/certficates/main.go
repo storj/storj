@@ -73,11 +73,11 @@ var (
 	}
 
 	setupCfg struct {
-		Overwrite bool `default:"false"`
 		// NB: cert and key paths overridden in setup
 		CA provider.CASetupConfig
 		// NB: cert and key paths overridden in setup
 		Identity provider.IdentitySetupConfig
+		certificates.CertSignerConfig
 	}
 
 	runCfg struct {
@@ -226,46 +226,9 @@ func cmdInfoAuth(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, email := range emails {
-		auths, err := authDB.Get(email)
-		if err != nil {
+		if err := writeAuthInfo(authDB, email, w); err != nil {
 			emailErrs.Add(err)
 			continue
-		}
-		if len(auths) < 1 {
-			continue
-		}
-
-		claimed, open := auths.Group()
-		if _, err := fmt.Fprintf(w,
-			"%s\t%d\t%d\t\n",
-			email,
-			len(claimed),
-			len(open),
-		); err != nil {
-			printErrs.Add(err)
-		}
-
-		if authInfoCfg.ShowTokens {
-			groups := map[string]certificates.Authorizations{
-				"Claimed": claimed,
-				"Open":    open,
-			}
-			for label, group := range groups {
-				if _, err := fmt.Fprintf(w, "%s:\n", label); err != nil {
-					printErrs.Add(err)
-				}
-				if len(group) > 0 {
-					for _, auth := range group {
-						if _, err := fmt.Fprintf(w, "\t%s\n", auth.Token.String()); err != nil {
-							printErrs.Add(err)
-						}
-					}
-				} else {
-					if _, err := fmt.Fprintln(w, "\tnone"); err != nil {
-						printErrs.Add(err)
-					}
-				}
-			}
 		}
 	}
 
@@ -273,6 +236,57 @@ func cmdInfoAuth(cmd *cobra.Command, args []string) error {
 		return errs.Wrap(err)
 	}
 	return utils.CombineErrors(emailErrs.Finish(), printErrs.Finish())
+}
+
+func writeAuthInfo(authDB *certificates.AuthorizationDB, email string, w io.Writer) error {
+	auths, err := authDB.Get(email)
+	if err != nil {
+		return err
+	}
+	if len(auths) < 1 {
+		return nil
+	}
+
+	claimed, open := auths.Group()
+	if _, err := fmt.Fprintf(w,
+		"%s\t%d\t%d\t\n",
+		email,
+		len(claimed),
+		len(open),
+	); err != nil {
+		return err
+	}
+
+	if authInfoCfg.ShowTokens {
+		if err := writeTokenInfo(claimed, open, w); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeTokenInfo(claimed, open certificates.Authorizations, w io.Writer) error {
+	groups := map[string]certificates.Authorizations{
+		"Claimed": claimed,
+		"Open":    open,
+	}
+	for label, group := range groups {
+		if _, err := fmt.Fprintf(w, "%s:\n", label); err != nil {
+			return err
+		}
+		if len(group) > 0 {
+			for _, auth := range group {
+				if _, err := fmt.Fprintf(w, "\t%s\n", auth.Token.String()); err != nil {
+					return err
+				}
+			}
+		} else {
+			if _, err := fmt.Fprintln(w, "\tnone"); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func cmdExportAuth(cmd *cobra.Command, args []string) error {
@@ -316,24 +330,31 @@ func cmdExportAuth(cmd *cobra.Command, args []string) error {
 	csvWriter := csv.NewWriter(output)
 
 	for _, email := range emails {
-		auths, err := authDB.Get(email)
-		if err != nil {
+		if err := writeAuthExport(authDB, email, csvWriter); err != nil {
 			emailErrs.Add(err)
-			continue
-		}
-		if len(auths) < 1 {
-			continue
-		}
-
-		for _, auth := range auths {
-			if err := csvWriter.Write([]string{email, auth.Token.String()}); err != nil {
-				csvErrs.Add(err)
-			}
 		}
 	}
 
 	csvWriter.Flush()
 	return utils.CombineErrors(emailErrs.Finish(), csvErrs.Finish())
+}
+
+func writeAuthExport(authDB *certificates.AuthorizationDB, email string, w *csv.Writer) error {
+	auths, err := authDB.Get(email)
+	if err != nil {
+		return err
+	}
+	if len(auths) < 1 {
+		return nil
+	}
+
+	var authErrs utils.ErrorGroup
+	for _, auth := range auths {
+		if err := w.Write([]string{email, auth.Token.String()}); err != nil {
+			authErrs.Add(err)
+		}
+	}
+	return authErrs.Finish()
 }
 
 func main() {

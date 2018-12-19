@@ -10,6 +10,7 @@ import (
 	"crypto/x509"
 	"encoding/gob"
 	"fmt"
+	"os"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
@@ -45,6 +46,7 @@ var (
 
 // CertSignerConfig is a config struct for use with a certificate signing service
 type CertSignerConfig struct {
+	Overwrite          bool   `help:"if true, authorization db is truncated" default:"false"`
 	AuthorizationDBURL string `help:"url to the certificate signing authorization database" default:"bolt://$CONFDIR/authorizations.db"`
 }
 
@@ -118,15 +120,29 @@ func (c CertSignerConfig) NewAuthDB() (*AuthorizationDB, error) {
 	authDB := new(AuthorizationDB)
 	switch driver {
 	case "bolt":
+		if c.Overwrite {
+			if err := os.Remove(source); err != nil {
+				return nil, err
+			}
+		}
+
 		authDB.DB, err = boltdb.New(source, AuthorizationsBucket)
 		if err != nil {
 			return nil, ErrAuthorizationDB.Wrap(err)
 		}
 	case "redis":
-		authDB.DB, err = redis.NewClientFrom(c.AuthorizationDBURL)
+		redisClient, err := redis.NewClientFrom(c.AuthorizationDBURL)
 		if err != nil {
 			return nil, ErrAuthorizationDB.Wrap(err)
 		}
+
+		if c.Overwrite {
+			if err := redisClient.FlushDB(); err != nil {
+				return nil, err
+			}
+		}
+
+		authDB.DB = redisClient
 	default:
 		return nil, ErrAuthorizationDB.New("database scheme not supported: %s", driver)
 	}
