@@ -169,19 +169,19 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string)
 	return s.store.Users().Delete(ctx, id)
 }
 
-// CheckOwnership checks if user owns projects
-func (s *Service) CheckOwnership(ctx context.Context) (bool, error) {
+// GetOwnProjects returns all projects which user owns
+func (s *Service) GetOwnProjects(ctx context.Context) ([]Project, error) {
 	auth, err := GetAuth(ctx)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
-	projectsCount, err := s.store.Projects().CountProjectsByOwnerID(ctx, auth.User.ID)
+	projects, err := s.store.Projects().GetByOwnerID(ctx, auth.User.ID)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
-	return projectsCount > 0, nil
+	return projects, nil
 }
 
 // CreateCompany creates Company for User with given id

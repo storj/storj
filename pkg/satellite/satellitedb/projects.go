@@ -59,16 +59,6 @@ func (projects *projects) Get(ctx context.Context, id uuid.UUID) (*satellite.Pro
 	return projectFromDBX(project)
 }
 
-// CountProjectsByOwnerId is a method for counting projects by ownerID
-func (projects *projects) CountProjectsByOwnerID(ctx context.Context, ownerID uuid.UUID) (int64, error) {
-	count, err := projects.db.Count_Project_By_OwnerId(ctx, dbx.Project_OwnerId(ownerID[:]))
-	if err != nil {
-		return 0, err
-	}
-
-	return count, nil
-}
-
 // Insert is a method for inserting project into the database.
 func (projects *projects) Insert(ctx context.Context, project *satellite.Project) (*satellite.Project, error) {
 	projectID, err := uuid.New()

@@ -45,9 +45,15 @@ func baseUserConfig(service *satellite.Service) graphql.ObjectConfig {
 				Type: graphql.DateTime,
 			},
 			fieldHasOwnership: &graphql.Field{
-				Type: graphql.DateTime,
+				Type: graphql.Boolean,
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					return service.CheckOwnership(p.Context)
+					_, err := service.GetOwnProjects(p.Context)
+					if err != nil {
+						return false, err
+					}
+
+					// TODO: return list of projects names in future, when UI will be updated
+					return true, nil
 				},
 			},
 		},

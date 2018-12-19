@@ -95,18 +95,6 @@ func TestProjectsRepository(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("Count projects ownership successfully", func(t *testing.T) {
-		owner, err := users.GetByEmail(ctx, email)
-		assert.Nil(t, err)
-		assert.NoError(t, err)
-		assert.NotNil(t, owner)
-
-		projectsCount, err := projects.CountProjectsByOwnerID(ctx, owner.ID)
-		assert.Nil(t, err)
-		assert.NoError(t, err)
-		assert.Equal(t, int64(1), projectsCount)
-	})
-
 	t.Run("Get project success", func(t *testing.T) {
 		projectsByOwnerID, err := projects.GetByOwnerID(ctx, owner.ID)
 
