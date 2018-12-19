@@ -82,7 +82,6 @@ var (
 
 	runCfg struct {
 		CertSigner certificates.CertSignerConfig
-		// CA         provider.FullCAConfig
 		Identity provider.IdentityConfig
 	}
 
