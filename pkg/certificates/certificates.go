@@ -29,8 +29,11 @@ const (
 )
 
 var (
-	// ErrAuthorization is used when something goes wrong involving an authorization.
+	mon = monkit.Package()
+	// ErrAuthorization is used when an error occurs involving an authorization.
 	ErrAuthorization = errs.Class("authorization error")
+	// ErrAuthorizationDB is used when an error occurs involving the authorization database.
+	ErrAuthorizationDB = errs.Class("authorization db error")
 	// ErrNotEnoughRandom is used when the number of bytes read from a random source are insufficient.
 	ErrNotEnoughRandom = ErrAuthorization.New("unable to read enough random bytes")
 	// ErrAuthorizationCount is used when attempting to create an invalid number of authorizations.
@@ -54,17 +57,21 @@ type AuthorizationDB struct {
 }
 
 // Authorizations is a slice of authorizations for convenient de/serialization
-// and grouping
+// and grouping.
 type Authorizations []*Authorization
 
-// Authorization represents
+// Authorization represents a single-use authorization token and it's status
 type Authorization struct {
 	Token Token
 	Claim *Claim
 }
 
+// Token is a random byte array to be used like a pre-shared key for claiming
+// certificate signatures.
 type Token [tokenLength]byte
 
+// Claim holds information about the circumstances under which an authorization
+// token was claimed.
 type Claim struct {
 	IP         string
 	Timestamp  int64
@@ -72,11 +79,7 @@ type Claim struct {
 	SignedCert *x509.Certificate
 }
 
-var (
-	mon                = monkit.Package()
-	ErrAuthorizationDB = errs.Class("authorization db error")
-)
-
+// NewServer creates a new certificate signing grpc server
 func NewServer(log *zap.Logger) pb.CertificatesServer {
 	srv := CertificateSigner{
 		Log: log,
@@ -85,6 +88,7 @@ func NewServer(log *zap.Logger) pb.CertificatesServer {
 	return &srv
 }
 
+// NewAuthorization creates a new, unclaimed authorization with a random token value
 func NewAuthorization() (*Authorization, error) {
 	var token Token
 	i, err := rand.Read(token[:])
@@ -100,6 +104,7 @@ func NewAuthorization() (*Authorization, error) {
 	}, nil
 }
 
+// NewAuthDB creates or opens the authorization database specified by the config
 func (c CertSignerConfig) NewAuthDB() (*AuthorizationDB, error) {
 	// TODO: refactor db selection logic?
 	driver, source, err := utils.SplitDBURL(c.AuthorizationDBURL)
@@ -126,6 +131,7 @@ func (c CertSignerConfig) NewAuthDB() (*AuthorizationDB, error) {
 	return authDB, nil
 }
 
+// Run implements the responsibility interface, starting a certificate signing server.
 func (c CertSignerConfig) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -135,6 +141,7 @@ func (c CertSignerConfig) Run(ctx context.Context, server *provider.Provider) (e
 	return server.Run(ctx)
 }
 
+// Sign signs a valid certificate signing request's cert.
 func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (*pb.SigningResponse, error) {
 	// lookup authtoken
 	// sign cert
@@ -142,10 +149,12 @@ func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (*p
 	return &pb.SigningResponse{}, nil
 }
 
+// Close closes the authorization database's underlying store.
 func (a *AuthorizationDB) Close() error {
 	return ErrAuthorizationDB.Wrap(a.DB.Close())
 }
 
+// Create creates a new authorization and adds it to the authorization database.
 func (a *AuthorizationDB) Create(email string, count int) (Authorizations, error) {
 	if count < 1 {
 		return nil, ErrAuthorizationCount
@@ -185,6 +194,7 @@ func (a *AuthorizationDB) Create(email string, count int) (Authorizations, error
 	return newAuths, nil
 }
 
+// Get retrieves authorizations by email.
 func (a *AuthorizationDB) Get(email string) (Authorizations, error) {
 	authsBytes, err := a.DB.Get(storage.Key(email))
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
@@ -201,6 +211,7 @@ func (a *AuthorizationDB) Get(email string) (Authorizations, error) {
 	return auths, nil
 }
 
+// Emails returns a list of all emails present in the authorization database.
 func (a *AuthorizationDB) Emails() ([]string, error) {
 	keys, err := a.DB.List([]byte{}, 0)
 	if err != nil {
@@ -209,6 +220,7 @@ func (a *AuthorizationDB) Emails() ([]string, error) {
 	return keys.Strings(), nil
 }
 
+// Unmarshal deserializes a set of authorizations
 func (a *Authorizations) Unmarshal(data []byte) error {
 	decoder := gob.NewDecoder(bytes.NewBuffer(data))
 	if err := decoder.Decode(a); err != nil {
@@ -217,6 +229,7 @@ func (a *Authorizations) Unmarshal(data []byte) error {
 	return nil
 }
 
+// Marshal serializes a set of authorizations
 func (a Authorizations) Marshal() ([]byte, error) {
 	data := new(bytes.Buffer)
 	encoder := gob.NewEncoder(data)
@@ -228,6 +241,7 @@ func (a Authorizations) Marshal() ([]byte, error) {
 	return data.Bytes(), nil
 }
 
+// Group separates a set of authorizations into a set of claimed and a set of open authorizations.
 func (a Authorizations) Group() (claimed, open Authorizations) {
 	for _, auth := range a {
 		if auth.Claim != nil {
@@ -246,6 +260,8 @@ func (a Authorization) String() string {
 	return fmt.Sprintf("%.5s..", a.Token.String())
 }
 
+// String implements the stringer interface. Base68 w/ version and checksum bytes
+// are used for easy and reliable human transport.
 func (t *Token) String() string {
 	return base58.CheckEncode(t[:], 0)
 }

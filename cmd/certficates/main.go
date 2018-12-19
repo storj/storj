@@ -65,7 +65,7 @@ var (
 
 	authExportCmd = &cobra.Command{
 		Use:   "export [<email>, ...]",
-		Short: "Get authorization(s) info from CSR authorization DB",
+		Short: "Export authorization(s) from CSR authorization DB to a CSV file (or stdout)",
 		RunE:  cmdExportAuth,
 	}
 
