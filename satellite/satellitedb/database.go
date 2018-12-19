@@ -68,7 +68,7 @@ func (db *DB) OverlayCache() storage.KeyValueStore {
 
 // RepairQueue is a getter for RepairQueue repository
 func (db *DB) RepairQueue() queue.RepairQueue {
-	return &repairQueue{db: db.db}
+	return newRepairQueue(db.db)
 }
 
 // Accounting returns database for tracking bandwidth agreements over time

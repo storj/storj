@@ -118,7 +118,7 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 
 				numHealthy := len(nodeIDs) - len(missingPieces)
 				if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) < pointer.Remote.Redundancy.RepairThreshold) {
-					err = c.repairQueue.Enqueue(ctx, &pb.InjuredSegment{
+					err = c.repairQueue.Enqueue(&pb.InjuredSegment{
 						Path:       string(item.Key),
 						LostPieces: missingPieces,
 					})

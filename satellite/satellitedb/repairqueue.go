@@ -14,29 +14,37 @@ import (
 )
 
 type repairQueue struct {
-	db *dbx.DB
+	db  *dbx.DB
+	ctx context.Context
 }
 
-func (r *repairQueue) Enqueue(ctx context.Context, seg *pb.InjuredSegment) error {
+func newRepairQueue(db *dbx.DB) *repairQueue {
+	return &repairQueue{
+		db:  db,
+		ctx: context.Background(),
+	}
+}
+
+func (r *repairQueue) Enqueue(seg *pb.InjuredSegment) error {
 	val, err := proto.Marshal(seg)
 	if err != nil {
 		return err
 	}
 
 	_, err = r.db.Create_Injuredsegment(
-		ctx,
+		r.ctx,
 		dbx.Injuredsegment_Info(val),
 	)
 	return err
 }
 
-func (r *repairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
-	tx, err := r.db.Open(ctx)
+func (r *repairQueue) Dequeue() (pb.InjuredSegment, error) {
+	tx, err := r.db.Open(r.ctx)
 	if err != nil {
 		return pb.InjuredSegment{}, Error.Wrap(err)
 	}
 
-	res, err := tx.First_Injuredsegment(ctx)
+	res, err := tx.First_Injuredsegment(r.ctx)
 	if err != nil {
 		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 	}
@@ -45,7 +53,7 @@ func (r *repairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
 	}
 
 	deleted, err := tx.Delete_Injuredsegment_By_Info(
-		ctx,
+		r.ctx,
 		dbx.Injuredsegment_Info(res.Info),
 	)
 	if err != nil {
@@ -63,11 +71,11 @@ func (r *repairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
 	return *seg, Error.Wrap(tx.Commit())
 }
 
-func (r *repairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
+func (r *repairQueue) Peekqueue(limit int) ([]pb.InjuredSegment, error) {
 	if limit <= 0 || limit > storage.LookupLimit {
 		limit = storage.LookupLimit
 	}
-	rows, err := r.db.Limited_Injuredsegment(ctx, limit, 0)
+	rows, err := r.db.Limited_Injuredsegment(r.ctx, limit, 0)
 	if err != nil {
 		return nil, err
 	}

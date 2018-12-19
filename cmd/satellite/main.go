@@ -264,7 +264,6 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
 
 	// open the master db
 	database, err := satellitedb.New(qdiagCfg.Database)
@@ -278,7 +277,7 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 		}
 	}()
 
-	list, err := database.RepairQueue().Peekqueue(ctx, qdiagCfg.QListLimit)
+	list, err := database.RepairQueue().Peekqueue(qdiagCfg.QListLimit)
 	if err != nil {
 		return err
 	}

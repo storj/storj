@@ -24,8 +24,6 @@ import (
 
 func TestEnqueueDequeue(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
 
 		q := db.RepairQueue()
 
@@ -33,10 +31,10 @@ func TestEnqueueDequeue(t *testing.T) {
 			Path:       "abc",
 			LostPieces: []int32{int32(1), int32(3)},
 		}
-		err := q.Enqueue(ctx, seg)
+		err := q.Enqueue(seg)
 		assert.NoError(t, err)
 
-		s, err := q.Dequeue(ctx)
+		s, err := q.Dequeue()
 		assert.NoError(t, err)
 		assert.True(t, proto.Equal(&s, seg))
 	})
@@ -44,12 +42,10 @@ func TestEnqueueDequeue(t *testing.T) {
 
 func TestDequeueEmptyQueue(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
 
 		q := db.RepairQueue()
 
-		s, err := q.Dequeue(ctx)
+		s, err := q.Dequeue()
 		assert.Error(t, err)
 		assert.Equal(t, pb.InjuredSegment{}, s)
 	})
@@ -57,8 +53,6 @@ func TestDequeueEmptyQueue(t *testing.T) {
 
 func TestSequential(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
 
 		q := db.RepairQueue()
 
@@ -69,17 +63,17 @@ func TestSequential(t *testing.T) {
 				Path:       strconv.Itoa(i),
 				LostPieces: []int32{int32(i)},
 			}
-			err := q.Enqueue(ctx, seg)
+			err := q.Enqueue(seg)
 			assert.NoError(t, err)
 			addSegs = append(addSegs, seg)
 		}
-		list, err := q.Peekqueue(ctx, 100)
+		list, err := q.Peekqueue(100)
 		assert.NoError(t, err)
 		for i := 0; i < N; i++ {
 			assert.True(t, proto.Equal(addSegs[i], &list[i]))
 		}
 		for i := 0; i < N; i++ {
-			dqSeg, err := q.Dequeue(ctx)
+			dqSeg, err := q.Dequeue()
 			assert.NoError(t, err)
 			assert.True(t, proto.Equal(addSegs[i], &dqSeg))
 		}
@@ -101,7 +95,7 @@ func TestParallel(t *testing.T) {
 	for i := 0; i < N; i++ {
 		go func(i int) {
 			defer wg.Done()
-			err := queue.Enqueue(ctx, &pb.InjuredSegment{
+			err := queue.Enqueue(&pb.InjuredSegment{
 				Path:       strconv.Itoa(i),
 				LostPieces: []int32{int32(i)},
 			})
@@ -117,7 +111,7 @@ func TestParallel(t *testing.T) {
 	for i := 0; i < N; i++ {
 		go func(i int) {
 			defer wg.Done()
-			segment, err := queue.Dequeue(ctx)
+			segment, err := queue.Dequeue()
 			if err != nil {
 				errs <- err
 			}
@@ -160,8 +154,6 @@ func BenchmarkTeststoreSequential(b *testing.B) {
 }
 
 func benchmarkSequential(b *testing.B, q queue.RepairQueue) {
-	ctx := testcontext.New(b)
-	defer ctx.Cleanup()
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
@@ -172,12 +164,12 @@ func benchmarkSequential(b *testing.B, q queue.RepairQueue) {
 				Path:       strconv.Itoa(i),
 				LostPieces: []int32{int32(i)},
 			}
-			err := q.Enqueue(ctx, seg)
+			err := q.Enqueue(seg)
 			assert.NoError(b, err)
 			addSegs = append(addSegs, seg)
 		}
 		for i := 0; i < N; i++ {
-			dqSeg, err := q.Dequeue(ctx)
+			dqSeg, err := q.Dequeue()
 			assert.NoError(b, err)
 			assert.True(b, proto.Equal(addSegs[i], &dqSeg))
 		}
@@ -200,8 +192,6 @@ func BenchmarkTeststoreParallel(b *testing.B) {
 }
 
 func benchmarkParallel(b *testing.B, q queue.RepairQueue) {
-	ctx := testcontext.New(b)
-	defer ctx.Cleanup()
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
@@ -215,7 +205,7 @@ func benchmarkParallel(b *testing.B, q queue.RepairQueue) {
 		for i := 0; i < N; i++ {
 			go func(i int) {
 				defer wg.Done()
-				err := q.Enqueue(ctx, &pb.InjuredSegment{
+				err := q.Enqueue(&pb.InjuredSegment{
 					Path:       strconv.Itoa(i),
 					LostPieces: []int32{int32(i)},
 				})
@@ -231,7 +221,7 @@ func benchmarkParallel(b *testing.B, q queue.RepairQueue) {
 		for i := 0; i < N; i++ {
 			go func(i int) {
 				defer wg.Done()
-				segment, err := q.Dequeue(ctx)
+				segment, err := q.Dequeue()
 				if err != nil {
 					errs <- err
 				}
