@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/utils"
 
@@ -105,6 +106,9 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 	}
 
 	valid, err := fpath.IsValidSetupDir(setupDir)
+	if err != nil {
+		return err
+	}
 	if !setupCfg.Overwrite && !valid {
 		fmt.Printf("certificate signer configuration already exists (%v). rerun with --overwrite\n", setupDir)
 		return nil
@@ -182,12 +186,12 @@ func cmdGetAuth(cmd *cobra.Command, args []string) error {
 
 	var emails []string
 	if len(args) > 0 {
-		if authCreateCfg.EmailsPath != "" {
+		if authCreateCfg.batchCfg.EmailsPath != "" {
 			return errs.New("Either use `--emails-path` or positional args, not both.")
 		}
 		emails = args
 	} else {
-		list, err := ioutil.ReadFile(authCreateCfg.EmailsPath)
+		list, err := ioutil.ReadFile(authCreateCfg.batchCfg.EmailsPath)
 		if err != nil {
 			return errs.Wrap(err)
 		}

@@ -23,7 +23,7 @@ func ToAESGCMNonce(nonce *storj.Nonce) *AESGCMNonce {
 	return aes
 }
 
-// Add increments the nonce with the given amount
+// Increment increments the nonce with the given amount
 func Increment(nonce *storj.Nonce, amount int64) (truncated bool, err error) {
 	return incrementBytes(nonce[:], amount)
 }

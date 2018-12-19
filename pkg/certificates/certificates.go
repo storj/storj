@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/provider"
@@ -23,12 +24,12 @@ import (
 
 const (
 	AuthorizationsBucket = "authorizations"
-	tokenLength = 64 // 2^(64*8) =~ 1.34E+154
+	tokenLength          = 64 // 2^(64*8) =~ 1.34E+154
 )
 
 var (
-	ErrAuthorization = errs.Class("authorization error")
-	ErrNotEnoughRandom = ErrAuthorization.New("unable to read enough random bytes")
+	ErrAuthorization      = errs.Class("authorization error")
+	ErrNotEnoughRandom    = ErrAuthorization.New("unable to read enough random bytes")
 	ErrAuthorizationCount = ErrAuthorizationDB.New("cannot add less than one authorizations")
 )
 
@@ -54,14 +55,14 @@ type Authorization struct {
 type Token [tokenLength]byte
 
 type Claim struct {
-	IP string
-	Timestamp int64
-	Identity *provider.PeerIdentity
+	IP         string
+	Timestamp  int64
+	Identity   *provider.PeerIdentity
 	SignedCert *x509.Certificate
 }
 
 var (
-	mon = monkit.Package()
+	mon                = monkit.Package()
 	ErrAuthorizationDB = errs.Class("authorization db error")
 )
 
@@ -146,7 +147,7 @@ func (a *AuthorizationDB) Create(email string, count int) (Authorizations, error
 
 	var (
 		newAuths Authorizations
-		authErrs      utils.ErrorGroup
+		authErrs utils.ErrorGroup
 	)
 	for i := 0; i < count; i++ {
 		auth, err := NewAuthorization()
