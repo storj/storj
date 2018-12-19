@@ -43,18 +43,24 @@ func (projects *projects) GetByOwnerID(ctx context.Context, ownerID uuid.UUID) (
 func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) ([]satellite.Project, error) {
 	projectsDbx, err := projects.db.All_Project_By_ProjectMember_MemberId(ctx, dbx.ProjectMember_MemberId(userID[:]))
 	if err != nil {
-		return nil, err
+		if checkNoRowsErr(err) {
+			err = nil
+		}
 	}
 
 	// TODO: temporary solution, cause there is no way to use OR in dbx 'where' statement
 	projectsByOwnerID, ownershipErr := projects.GetByOwnerID(ctx, userID)
-	projectsByUserID, membershipErr := projectsFromDbxSlice(projectsDbx)
-
-	if ownershipErr != nil && membershipErr != nil {
-		return nil, utils.CombineErrors(membershipErr, ownershipErr)
+	if ownershipErr != nil {
+		if checkNoRowsErr(ownershipErr) {
+			ownershipErr = nil
+		}
 	}
 
-	return combineProjectsDistinct(projectsByUserID, projectsByOwnerID), nil
+	projectsByUserID, membershipErr := projectsFromDbxSlice(projectsDbx)
+
+	result := uniqueProjects(append(projectsByUserID, projectsByOwnerID...))
+
+	return result, utils.CombineErrors(err, ownershipErr, membershipErr)
 }
 
 // Get is a method for querying project from the database by id.
@@ -177,28 +183,28 @@ func projectsFromDbxSlice(projectsDbx []*dbx.Project) ([]satellite.Project, erro
 	return projects, utils.CombineErrors(errors...)
 }
 
-// combineProjectsDistinct is used to combine two []satellite.Project slices without repeating elements
-func combineProjectsDistinct(projectsByUserID []satellite.Project, projectsByOwnerID []satellite.Project) (result []satellite.Project) {
-	membershipLength := len(projectsByUserID)
-	ownershipLength := len(projectsByOwnerID)
-	totalLength := ownershipLength + membershipLength
-	tempSlice := projectsByUserID
-
-	keys := make(map[string]bool)
-
-	for i := 0; i < totalLength; i++ {
-		iterator := i
-
-		if i >= membershipLength {
-			tempSlice = projectsByOwnerID
-			iterator = i - membershipLength
+// uniqueProjects preserves unique projects by ID
+// modifies project slice
+func uniqueProjects(projects []satellite.Project) []satellite.Project {
+	seen := map[uuid.UUID]struct{}{}
+	unique := projects[:0]
+	for _, project := range projects {
+		if _, ok := seen[project.ID]; ok {
+			continue
 		}
 
-		if _, value := keys[tempSlice[iterator].Name]; !value {
-			keys[tempSlice[iterator].Name] = true
-			result = append(result, tempSlice[iterator])
-		}
+		unique = append(unique, project)
+		seen[project.ID] = struct{}{}
+	}
+	return unique
+}
+
+// checkNoRowsErr checks if err has ErrorCode_NoRows
+func checkNoRowsErr(err error) bool {
+	noRowsErr, ok := err.(*dbx.Error)
+	if !ok {
+		return false
 	}
 
-	return result
+	return noRowsErr.Code == dbx.ErrorCode_NoRows
 }

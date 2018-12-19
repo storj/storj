@@ -76,11 +76,11 @@ func TestProjectMembersRepository(t *testing.T) {
 	})
 
 	t.Run("Get users projects", func(t *testing.T) {
-		projects, err := projects.GetByUserID(ctx, createdUsers[0].ID)
+		myProjects, err := projects.GetByUserID(ctx, createdUsers[0].ID)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
-		assert.NotNil(t, projects)
-		assert.Equal(t, 2, len(projects))
+		assert.NotNil(t, myProjects)
+		assert.Equal(t, 2, len(myProjects))
 	})
 
 	t.Run("Get paged", func(t *testing.T) {
@@ -146,6 +146,11 @@ func prepareUsersAndProjects(ctx context.Context, t *testing.T, users satellite.
 		FirstName:    "FirstName",
 	}, {
 		Email:        "email3@ukr.net",
+		PasswordHash: []byte("some_readable_hash"),
+		LastName:     "LastName",
+		FirstName:    "FirstName",
+	}, {
+		Email:        "email4@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
 		LastName:     "LastName",
 		FirstName:    "FirstName",

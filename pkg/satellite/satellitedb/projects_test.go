@@ -6,6 +6,8 @@ package satellitedb
 import (
 	"testing"
 
+	"github.com/zeebo/errs"
+
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 
@@ -254,4 +256,21 @@ func TestProjectFromDbx(t *testing.T) {
 		assert.NotNil(t, err)
 		assert.Error(t, err)
 	})
+}
+
+func TestCheckNoRowsErr(t *testing.T) {
+	mustErrTestCases := [...]struct {
+		error error
+		result bool
+	}{
+
+		0: {&dbx.Error{Code: dbx.ErrorCode_NoRows}, true},
+		1: {&dbx.Error{Code: dbx.ErrorCode_ConstraintViolation}, false},
+		2: {errs.New("some error"), false},
+		3: {&dbx.Error{Code: dbx.ErrorCode_TooManyRows}, false},
+	}
+
+	for _, tc := range mustErrTestCases {
+		assert.Equal(t, tc.result, checkNoRowsErr(tc.error))
+	}
 }
