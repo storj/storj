@@ -180,7 +180,7 @@ func (node *Node) initOverlay(planet *Planet) error {
 	node.StatDB = node.Database.StatDB()
 
 	node.Overlay = overlay.NewOverlayCache(teststore.New(), node.Kademlia, node.StatDB)
-	node.Discovery = discovery.NewDiscovery(node.Overlay, node.Kademlia, node.StatDB)
+	node.Discovery = discovery.NewDiscovery(node.Overlay, node.Kademlia, node.StatDB, zap.L())
 
 	return nil
 }
