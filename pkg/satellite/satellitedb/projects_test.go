@@ -260,7 +260,7 @@ func TestProjectFromDbx(t *testing.T) {
 
 func TestCheckNoRowsErr(t *testing.T) {
 	mustErrTestCases := [...]struct {
-		error error
+		error  error
 		result bool
 	}{
 
