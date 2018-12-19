@@ -41,7 +41,7 @@ func (r *repairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
 		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 	}
 	if res == nil {
-		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(Error.New("Empty queue"), tx.Rollback()))
+		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(storage.ErrEmptyQueue, tx.Rollback()))
 	}
 
 	deleted, err := tx.Delete_Injuredsegment_By_Info(
