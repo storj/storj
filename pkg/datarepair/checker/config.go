@@ -19,9 +19,7 @@ import (
 
 // Config contains configurable values for checker
 type Config struct {
-	QueueAddress     string        `help:"data checker queue address" default:"sqlite3://$CONFDIR/repairqueue.db"`
 	Interval         time.Duration `help:"how frequently checker should audit segments" default:"30s"`
-	IrreparabledbURL string        `help:"the database connection string to use" default:"sqlite3://$CONFDIR/irreparable.db"`
 }
 
 // Initialize a Checker struct

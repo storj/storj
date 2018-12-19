@@ -15,12 +15,10 @@ import (
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
-	"storj.io/storj/storage/redis"
 )
 
 // Config contains configurable values for repairer
 type Config struct {
-	QueueAddress  string        `help:"data repair queue address" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
 	MaxRepair     int           `help:"maximum segments that can be repaired concurrently" default:"100"`
 	Interval      time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
 	OverlayAddr   string        `help:"Address to contact overlay server through"`
@@ -31,19 +29,19 @@ type Config struct {
 
 // Run runs the repair service with configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	redisQ, err := redis.NewQueueFrom(c.QueueAddress)
-	if err != nil {
-		return Error.Wrap(err)
+	q, ok := ctx.Value("masterdb").(interface {
+		RepairQueue() queue.RepairQueue
+	})
+	if !ok {
+		return Error.New("unable to get master db instance")
 	}
-
-	queue := queue.NewQueue(redisQ)
 
 	repairer, err := c.getSegmentRepairer(ctx, server.Identity())
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	service := newService(queue, repairer, c.Interval, c.MaxRepair)
+	service := newService(q.RepairQueue(), repairer, c.Interval, c.MaxRepair)
 
 	ctx, cancel := context.WithCancel(ctx)
 
