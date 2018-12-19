@@ -82,7 +82,7 @@ var (
 
 	runCfg struct {
 		CertSigner certificates.CertSignerConfig
-		Identity provider.IdentityConfig
+		Identity   provider.IdentityConfig
 	}
 
 	authCreateCfg struct {
