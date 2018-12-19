@@ -133,6 +133,10 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	if _, err := setupCfg.NewAuthDB(); err != nil {
+		return err
+	}
+
 	err = os.MkdirAll(setupDir, 0700)
 	if err != nil {
 		return err

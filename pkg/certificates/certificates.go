@@ -46,7 +46,7 @@ var (
 
 // CertSignerConfig is a config struct for use with a certificate signing service
 type CertSignerConfig struct {
-	Overwrite          bool   `help:"if true, authorization db is truncated" default:"false"`
+	Overwrite          bool   `help:"if true, overwrites config AND authorization db is truncated" default:"false"`
 	AuthorizationDBURL string `help:"url to the certificate signing authorization database" default:"bolt://$CONFDIR/authorizations.db"`
 }
 
