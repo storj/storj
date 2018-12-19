@@ -74,7 +74,10 @@ matrix:
         - make test-captplanet
     
     ### docker build test ###
-    - env: MODE=docker
+    - env: 
+        - MODE=docker
+        - TAG=travis
+        - VERSION=travis
       services:
         - docker
       before_script:

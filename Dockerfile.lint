@@ -1,0 +1,37 @@
+FROM golang:1.11.4-stretch AS compiler
+
+#TODO: use storjlabs/golang as base
+
+RUN apt update && apt install time
+
+###
+# Setup build environment
+FROM compiler AS build
+
+###
+# Download modules
+
+WORKDIR /storj.io/storj
+COPY go.mod go.mod
+COPY go.sum go.sum
+
+RUN go mod download
+
+###
+RUN    wget -O /go/bin/gospace https://github.com/storj/gospace/releases/download/v0.0.5/gospace_linux_amd64 \
+    && curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $GOPATH/bin v1.12.2
+RUN chmod +x /go/bin/gospace
+
+ENV GOSPACE_ROOT=/go \
+    GOSPACE_PKG=storj.io/storj \
+    GOSPACE_REPO=git@github.com:storj/storj.git 
+
+RUN rm -rf /go/src
+COPY . /go/src/storj.io/storj
+
+WORKDIR /go/src/storj.io/storj
+RUN gospace update
+
+RUN go run ./scripts/check-copyright.go
+RUN golangci-lint run
+RUN gospace istidy
