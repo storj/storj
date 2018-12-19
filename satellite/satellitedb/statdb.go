@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/statdb"
@@ -100,7 +98,7 @@ func (s *statDB) Get(ctx context.Context, nodeID storj.NodeID) (stats *statdb.No
 
 	dbNode, err := s.db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, Error.Wrap(err)
 	}
 
 	nodeStats := getNodeStats(nodeID, dbNode)
@@ -171,7 +169,7 @@ func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (s
 
 	dbNode, err := s.db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, Error.Wrap(err)
 	}
 
 	auditSuccessCount := dbNode.AuditSuccessCount
@@ -225,7 +223,7 @@ func (s *statDB) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp boo
 
 	dbNode, err := s.db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, Error.Wrap(err)
 	}
 
 	uptimeSuccessCount := dbNode.UptimeSuccessCount
@@ -263,7 +261,7 @@ func (s *statDB) UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, au
 
 	dbNode, err := s.db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, Error.Wrap(err)
 	}
 
 	auditSuccessCount := dbNode.AuditSuccessCount
@@ -301,19 +299,23 @@ func (s *statDB) UpdateBatch(ctx context.Context, updateReqList []*statdb.Update
 	defer mon.Task()(&ctx)(&err)
 
 	var nodeStatsList []*statdb.NodeStats
+	var allErrors []error
 	failedUpdateReqs = []*statdb.UpdateRequest{}
 	for _, updateReq := range updateReqList {
 
 		nodeStats, err := s.Update(ctx, updateReq)
 		if err != nil {
-			//@TODO ASK s.log.Error(err.Error())
+			allErrors = append(allErrors, err)
 			failedUpdateReqs = append(failedUpdateReqs, updateReq)
 		} else {
 			nodeStatsList = append(nodeStatsList, nodeStats)
 		}
 	}
 
-	return nodeStatsList, failedUpdateReqs, nil
+	if len(allErrors) > 0 {
+		return nodeStatsList, failedUpdateReqs, Error.Wrap(utils.CombineErrors(allErrors...))
+	}
+	return nodeStatsList, nil, nil
 }
 
 // CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist
