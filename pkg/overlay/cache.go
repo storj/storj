@@ -107,18 +107,17 @@ func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) err
 	}
 
 	// get existing node rep, or create a new statdb node with 0 rep
-	res, err := o.StatDB.CreateEntryIfNotExists(ctx, &statdb.CreateEntryIfNotExistsRequest{
-		Node: nodeID,
-	})
+	stats, err := o.StatDB.CreateEntryIfNotExists(ctx, nodeID)
 	if err != nil {
 		return err
 	}
-	stats := res.Stats
 	value.Reputation = &pb.NodeStats{
-		AuditSuccessRatio: stats.AuditSuccessRatio,
-		AuditCount:        stats.AuditCount,
-		UptimeRatio:       stats.UptimeRatio,
-		UptimeCount:       stats.UptimeCount,
+		AuditSuccessRatio:  stats.AuditSuccessRatio,
+		AuditSuccessCount:  stats.AuditSuccessCount,
+		AuditCount:         stats.AuditCount,
+		UptimeRatio:        stats.UptimeRatio,
+		UptimeSuccessCount: stats.UptimeSuccessCount,
+		UptimeCount:        stats.UptimeCount,
 	}
 
 	data, err := proto.Marshal(&value)
