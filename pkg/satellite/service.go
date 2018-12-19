@@ -360,7 +360,7 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, li
 		limit = maxLimit
 	}
 
-	return s.store.ProjectMembers().GetByProjectIDPaged(ctx, projectID, limit, offset)
+	return s.store.ProjectMembers().GetByProjectID(ctx, projectID, limit, offset)
 }
 
 // Authorize validates token from context and returns authorized Authorization

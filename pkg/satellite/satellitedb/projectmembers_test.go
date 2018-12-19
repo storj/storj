@@ -76,19 +76,19 @@ func TestProjectMembersRepository(t *testing.T) {
 	})
 
 	t.Run("Get paged", func(t *testing.T) {
-		members, err := projectMembers.GetByProjectIDPaged(ctx, createdProjects[0].ID, 1, 0)
+		members, err := projectMembers.GetByProjectID(ctx, createdProjects[0].ID, 1, 0)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
 		assert.Equal(t, 1, len(members))
 
-		members, err = projectMembers.GetByProjectIDPaged(ctx, createdProjects[0].ID, 2, 0)
+		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, 2, 0)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
 		assert.Equal(t, 2, len(members))
 
-		members, err = projectMembers.GetByProjectIDPaged(ctx, createdProjects[0].ID, 1, 1)
+		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, 1, 1)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
