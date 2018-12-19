@@ -116,7 +116,7 @@ func (s *statDB) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList,
 		return nil, err
 	}
 	defer func() {
-		_ = rows.Close()
+		err = utils.CombineErrors(err, rows.Close())
 	}()
 
 	for rows.Next() {
