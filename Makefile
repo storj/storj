@@ -103,6 +103,7 @@ images: satellite-image storagenode-image uplink-image gateway-image ## Build ga
 	echo Built version: ${TAG} \
 	&& export VERSION="${TAG}"
 
+.PHONE: binaries-image
 binaries-image: ## build binaries image
 	${DOCKER_BUILD} -t storjlabs-binaries .
 

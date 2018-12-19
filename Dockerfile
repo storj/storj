@@ -28,15 +28,17 @@ RUN go build ${BUILDFLAGS} -v ./scripts/deps.go
 ###
 # Compile binaries
 COPY . .
-RUN go install ${BUILDFLAGS} -v ./cmd/storagenode ./cmd/satellite ./cmd/gateway
+RUN go install ${BUILDFLAGS} -v ./cmd/storagenode ./cmd/satellite ./cmd/gateway ./cmd/uplink
 
 ###
 # Setup binaries base image
 FROM alpine
 
-COPY --from=build /go/bin/ /app/
+COPY --from=build /go/bin/* /app/
 COPY cmd/gateway/entrypoint     /entrypoint/gateway
 COPY cmd/satellite/entrypoint   /entrypoint/satellite
 COPY cmd/storagenode/entrypoint /entrypoint/storagenode
 COPY cmd/uplink/entrypoint      /entrypoint/uplink
 WORKDIR /app
+
+RUN ls /app
