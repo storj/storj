@@ -97,8 +97,13 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 
 	// init Satellites
 	for _, node := range planet.Satellites {
+		// err = node.initOverlay(planet)
+		// if err != nil {
+		// 	return nil, utils.CombineErrors(err, planet.Shutdown())
+		// }
 		pointerServer := pointerdb.NewServer(
-			teststore.New(), node.Overlay,
+			teststore.New(),
+			node.Overlay,
 			node.Log.Named("pdb"),
 			pointerdb.Config{
 				MinRemoteSegmentSize: 1240,

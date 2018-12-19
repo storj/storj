@@ -52,8 +52,7 @@ type Config struct {
 }
 
 // Run implements provider.Responsibility
-func (c Config) Run(ctx context.Context, server *provider.Provider) (
-	err error) {
+func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 
 	defer mon.Task()(&ctx)(&err)
 
@@ -77,7 +76,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	logger := zap.L()
 
-	kad, err := NewKademlia(logger, server.Identity().ID, nodeType, []pb.Node{*in}, addr, metadata, server.Identity(), c.DBPath, c.Alpha)
+	kad, err := NewKademlia(ctx, logger, server.Identity().ID, nodeType, []pb.Node{*in}, addr, metadata, server.Identity(), c.DBPath, c.Alpha)
 	if err != nil {
 		return err
 	}
