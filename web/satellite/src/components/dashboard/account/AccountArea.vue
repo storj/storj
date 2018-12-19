@@ -102,9 +102,9 @@
         </div>
         <!--end of Password area -->
         <div class="account-area-button-area">
-            <Button label="Delete account" width="140px" height="50px" :onPress="onDeleteAccountClick" isWhite/>
+            <Button label="Delete account" width="140px" height="50px" :onPress="togglePopup" isWhite/>
         </div>
-        <!-- <DeleteAccontPopup /> -->
+        <DeleteAccountPopup v-if="isPopupShown" :onClose="togglePopup" />
     </div>
 </template>
 
@@ -114,6 +114,7 @@ import Button from '@/components/common/Button.vue';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
 import ROUTES from '@/utils/constants/routerConstants';
+import DeleteAccountPopup from '@/components/dashboard/account/DeleteAccountPopup.vue';
 
 @Component(
     {
@@ -144,7 +145,9 @@ import ROUTES from '@/utils/constants/routerConstants';
                 oldPasswordError: '',
                 newPasswordError: '',
                 confirmationPasswordError: '',
-                isPasswordEditing: false
+                isPasswordEditing: false,
+
+                isPopupShown: false
             };
         },
         methods: {
@@ -295,26 +298,16 @@ import ROUTES from '@/utils/constants/routerConstants';
 
                 this.$data.isPasswordEditing = false;
             },
-            onDeleteAccountClick: async function () {
-                // TODO show popup with user confirmation
-                let isSuccess = await this.$store.dispatch('deleteUserAccount');
-                if (!isSuccess) {
-                    // TODO Change to popup
-                    console.error('error while deleting user account');
-
-                    return;
-                }
-
-                // TODO navigate to start route
-                this.$router.push(ROUTES.LOGIN.path);
-            }
+            togglePopup: function(): void {
+                this.$data.isPopupShown = ! this.$data.isPopupShown;
+            },
         },
         components: {
             Button,
             HeaderedInput,
-            Checkbox
+            Checkbox,
+            DeleteAccountPopup
         },
-        computed: {}
     }
 )
 

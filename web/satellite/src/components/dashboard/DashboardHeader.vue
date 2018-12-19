@@ -43,8 +43,8 @@ import AccountButton from './account/AccountButton.vue';
         components: {
             ProjectSelectionArea,
             NewProjectArea,
-            AccountButton
-        }
+            AccountButton,
+        },
     }
 )
 

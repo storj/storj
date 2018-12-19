@@ -179,5 +179,5 @@ export async function deleteUserAccountRequest(password: string): Promise<any> {
         console.error(e);
     }
 
-	return response;
+    return response;
 }
