@@ -518,7 +518,7 @@ func TestRandomIds(t *testing.T) {
 		}
 		id, err = randomIDInRange(start, end)
 		assert.NoError(t, err, "Unexpected err in randomIDInRange")
-		assert.True(t, bytes.Compare(id[:], end[:]) == 0, "Not-so-random id was incorrect")
+		assert.True(t, bytes.Equal(id[:], end[:]), "Not-so-random id was incorrect")
 	}
 }
 
