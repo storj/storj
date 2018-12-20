@@ -49,7 +49,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	for i, v := range originalNodes {
+	for _, v := range originalNodes {
 		if v.Type == pb.NodeType_INVALID {
 			panic("invalid node type")
 		}
@@ -109,7 +109,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 			repairNodes[i] = newNodes[totalRepairCount]
 		}
 	}
-	for i, v := range repairNodes {
+	for _, v := range repairNodes {
 		if v.Type == pb.NodeType_INVALID {
 			panic("invalid node type")
 		}

@@ -82,6 +82,7 @@ func TestPieceRanger(t *testing.T) {
 				Transport: 0,
 			},
 			Id: teststorj.NodeIDFromString("test-node-id-1234567"),
+			Type: pb.NodeType_STORAGE,
 		}
 		if target.Type == pb.NodeType_INVALID {
 			panic("invalid node type")
@@ -163,6 +164,7 @@ func TestPieceRangerSize(t *testing.T) {
 				Transport: 0,
 			},
 			Id: teststorj.NodeIDFromString("test-node-id-1234567"),
+			Type: pb.NodeType_STORAGE,
 		}
 		if target.Type == pb.NodeType_INVALID {
 			panic("invalid node type")

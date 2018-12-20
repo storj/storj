@@ -234,6 +234,7 @@ func TestGetNodes(t *testing.T) {
 				FreeBandwidth: bw[i],
 				FreeDisk:      disk[i],
 			},
+			Type: pb.NodeType_STORAGE,
 		}
 		nodes = append(nodes, n)
 		err = k.routingTable.ConnectionSuccess(n)

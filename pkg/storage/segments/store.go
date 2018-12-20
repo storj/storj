@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/ranger"
+	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -122,7 +123,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
-		for i, v := range nodes {
+		for _, v := range nodes {
 			if v.Type == pb.NodeType_INVALID {
 				panic("invalid node type")
 			}
@@ -209,7 +210,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 				break
 			}
 		}
-		for i, v := range nodes {
+		for _, v := range nodes {
 			if v.Type == pb.NodeType_INVALID {
 				panic("invalid node type")
 			}
@@ -281,12 +282,11 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		for i, v := range nodes {
+		for _, v := range nodes {
 			if v.Type == pb.NodeType_INVALID {
 				panic("invalid node type")
 			}
 		}
-
 
 		authorization := s.pdb.SignedMessage()
 		// ecclient sends delete request
@@ -370,7 +370,7 @@ func lookupAndAlignNodes(ctx context.Context, oc overlay.Client, nodes []*pb.Nod
 			return nil, Error.Wrap(err)
 		}
 	}
-	for i, v := range nodes {
+	for _, v := range nodes {
 		if v.Type == pb.NodeType_INVALID {
 			panic("invalid node type")
 		}

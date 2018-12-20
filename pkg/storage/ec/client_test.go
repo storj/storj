@@ -127,6 +127,9 @@ TestLoop:
 			if n == nil || tt.badInput {
 				continue
 			}
+			if n.Type == pb.NodeType_INVALID {
+				panic("invalid node type")
+			}
 			derivedID, err := id.Derive(n.Id.Bytes())
 			if !assert.NoError(t, err, errTag) {
 				continue TestLoop
@@ -170,6 +173,9 @@ TestLoop:
 
 func mockNewPSClient(clients map[*pb.Node]psclient.Client) psClientFunc {
 	return func(_ context.Context, _ transport.Client, n *pb.Node, _ int) (psclient.Client, error) {
+		if n.Type == pb.NodeType_INVALID {
+			panic("invalid node type")
+		}
 		c, ok := clients[n]
 		if !ok {
 			return nil, ErrDialFailed
