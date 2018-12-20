@@ -8,13 +8,14 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
+	"os"
 	"sync"
 	"sync/atomic"
 )
 
-// pipe is a io.Reader/io.Writer pipe backed by ReadWriteCloserAt
+// pipe is a io.Reader/io.Writer pipe backed by ReadAtWriteAtCloser
 type pipe struct {
-	buffer   ReadWriteCloserAt
+	buffer   ReadAtWriteAtCloser
 	refcount int32
 
 	mu     sync.Mutex
@@ -208,7 +209,7 @@ type MultiFilePipe struct {
 }
 
 type offsetFile struct {
-	file     ReadWriteCloserAt
+	file     *os.File
 	offset   int64
 	refcount *int64
 }
