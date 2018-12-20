@@ -119,7 +119,7 @@ func (writer pipeWriter) Write(data []byte) (n int, err error) {
 	// no more room to write
 	if canWrite == 0 {
 		pipe.mu.Unlock()
-		return 0, io.EOF
+		return 0, io.ErrClosedPipe
 	}
 
 	// figure out how much to write
@@ -144,7 +144,7 @@ func (writer pipeWriter) Write(data []byte) (n int, err error) {
 	pipe.mu.Unlock()
 
 	if err == nil && done {
-		err = io.EOF
+		err = io.ErrClosedPipe
 	}
 	return writeAmount, err
 }
