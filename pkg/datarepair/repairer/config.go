@@ -10,12 +10,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/storage/ec"
+	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/storage/redis"
 )
@@ -29,8 +27,6 @@ type Config struct {
 	PointerDBAddr string        `help:"Address to contact pointerdb server through"`
 	MaxBufferMem  int           `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"0x400000"`
 	APIKey        string        `help:"repairer-specific pointerdb access credential"`
-
-	miniogw.NodeSelectionConfig
 }
 
 // Run runs the repair service with configured values
@@ -67,7 +63,7 @@ func (c Config) getSegmentRepairer(ctx context.Context, identity *provider.FullI
 	defer mon.Task()(&ctx)(&err)
 
 	var oc overlay.Client
-	oc, err = overlay.NewOverlayClient(identity, c.OverlayAddr)
+	oc, err = overlay.NewClient(identity, c.OverlayAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -79,12 +75,5 @@ func (c Config) getSegmentRepairer(ctx context.Context, identity *provider.FullI
 
 	ec := ecclient.NewClient(identity, c.MaxBufferMem)
 
-	ns := &pb.NodeStats{
-		UptimeRatio:       c.UptimeRatio,
-		AuditSuccessRatio: c.AuditSuccessRatio,
-		UptimeCount:       c.UptimeCount,
-		AuditCount:        c.AuditCount,
-	}
-
-	return segments.NewSegmentRepairer(oc, ec, pdb, ns), nil
+	return segments.NewSegmentRepairer(oc, ec, pdb), nil
 }

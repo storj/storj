@@ -114,7 +114,14 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 			}
 		}(node)
 
-		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, node.Kademlia)
+		ns := &pb.NodeStats{
+			UptimeCount:       0,
+			UptimeRatio:       0,
+			AuditSuccessRatio: 0,
+			AuditCount:        0,
+		}
+
+		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, ns)
 		pb.RegisterOverlayServer(node.Provider.GRPC(), overlayServer)
 
 		node.Dependencies = append(node.Dependencies,

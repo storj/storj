@@ -163,8 +163,6 @@ github.com/jtolds/gls v4.2.1+incompatible h1:fSuqC+Gmlu6l/ZYAoZzx2pyucC8Xza35fpR
 github.com/jtolds/gls v4.2.1+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
 github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0 h1:UyVaeqfY1fLPMt1iUTaWsxUNxYAzZVyK+7G+a3sRfhk=
 github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0/go.mod h1:OtVLEpPHGJkn8jgGrHlYELCA3uXLU0YSfNN0faeDM2M=
-github.com/jtolds/monkit-hw v0.0.0-20180827162413-5a254051f35d h1:+TWXq24sHXNI6DVobckzgJCbCvb4bYjDZuKRR+d/Nuw=
-github.com/jtolds/monkit-hw v0.0.0-20180827162413-5a254051f35d/go.mod h1:1liUiYZzx8ZoPTfZrBE2q8DFRDPafts0GGjslOtcZcw=
 github.com/jtolds/monkit-hw v0.0.0-20181213143340-df8ef2bea56c h1:N/A0UrhPBdHMU22x3cF/6WY5FSAo13bKr9GyXe98duA=
 github.com/jtolds/monkit-hw v0.0.0-20181213143340-df8ef2bea56c/go.mod h1:1liUiYZzx8ZoPTfZrBE2q8DFRDPafts0GGjslOtcZcw=
 github.com/kisielk/gotool v1.0.0 h1:AV2c/EiW3KqPNT9ZKl07ehoAGi4C5/01Cfbblndcapg=
@@ -326,6 +324,8 @@ github.com/zeebo/admission v0.0.0-20180821192747-f24f2a94a40c h1:WoYvMZp+keiJz+Z
 github.com/zeebo/admission v0.0.0-20180821192747-f24f2a94a40c/go.mod h1:Aq7yiXoKLFIDzh4eR6EG4owIO9alpttZ0XJ5c/z/QrE=
 github.com/zeebo/errs v1.0.0 h1:uPx2/S2dQn9npw2Y9AKTae12AHkHSqk1WiaRiBNguFA=
 github.com/zeebo/errs v1.0.0/go.mod h1:Yj8dHrUQwls1bF3dr/vcSIu+qf4mI7idnTcHfoACc6I=
+github.com/zeebo/errs v1.1.0 h1:4dNyQKsWPyBDqLzZUpx+QMP0Qil9STQPdBsKk6+O2qA=
+github.com/zeebo/errs v1.1.0/go.mod h1:Yj8dHrUQwls1bF3dr/vcSIu+qf4mI7idnTcHfoACc6I=
 github.com/zeebo/float16 v0.1.0 h1:kRqxv5og6z1emEyz5FpW0/BVHe5VfxEAw6b1ljCZlUc=
 github.com/zeebo/float16 v0.1.0/go.mod h1:fssGvvXu+XS8MH57cKmyrLB/cqioYeYX/2mXCN3a5wo=
 github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 h1:+cwNE5KJ3pika4HuzmDHkDlK5myo0G9Sv+eO7WWxnUQ=
@@ -358,8 +358,6 @@ golang.org/x/sys v0.0.0-20180824143301-4910a1d54f87/go.mod h1:STP8DvDyc/dI5b8T5h
 golang.org/x/sys v0.0.0-20180830151530-49385e6e1522/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20180906133057-8cf3aee42992/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20180909124046-d0be0721c37e/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
-golang.org/x/sys v0.0.0-20181011152604-fa43e7bc11ba h1:nZJIJPGow0Kf9bU9QTc1U6OXbs/7Hu4e+cNv+hxH+Zc=
-golang.org/x/sys v0.0.0-20181011152604-fa43e7bc11ba/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20181213081344-73d4af5aa059 h1:dpoPtGwlE4qn2foaFdJVk6ab5yxp7pnyiKlpLgQyMkk=
 golang.org/x/sys v0.0.0-20181213081344-73d4af5aa059/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=

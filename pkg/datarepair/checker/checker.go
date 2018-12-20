@@ -166,21 +166,18 @@ func (c *checker) offlineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (o
 // Find invalidNodes by checking the audit results that are place in statdb
 func (c *checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (invalidNodes []int32, err error) {
 	// filter if nodeIDs have invalid pieces from auditing results
-	findInvalidNodesReq := &statdb.FindInvalidNodesRequest{
-		NodeIds: nodeIDs,
-		MaxStats: &pb.NodeStats{
-			AuditSuccessRatio: 0, // TODO: update when we have stats added to statdb
-			UptimeRatio:       0, // TODO: update when we have stats added to statdb
-		},
+	maxStats := &statdb.NodeStats{
+		AuditSuccessRatio: 0, // TODO: update when we have stats added to statdb
+		UptimeRatio:       0, // TODO: update when we have stats added to statdb
 	}
 
-	resp, err := c.statdb.FindInvalidNodes(ctx, findInvalidNodesReq)
+	invalidIDs, err := c.statdb.FindInvalidNodes(ctx, nodeIDs, maxStats)
 	if err != nil {
 		return nil, Error.New("error getting valid nodes from statdb %s", err)
 	}
 
 	invalidNodesMap := make(map[storj.NodeID]bool)
-	for _, invalidID := range resp.InvalidIds {
+	for _, invalidID := range invalidIDs {
 		invalidNodesMap[invalidID] = true
 	}
 

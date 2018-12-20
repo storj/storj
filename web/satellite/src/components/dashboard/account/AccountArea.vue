@@ -182,28 +182,28 @@ import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
-import DeleteAccontPopup from '@/components/dashboard/account/DeleteAccontPopup.vue';
+import ROUTES from '@/utils/constants/routerConstants';
 
 @Component(
     {
-        data: function() {
+        data: function () {
             return {
                 originalFirstName: this.$store.getters.user.firstName,
                 originalLastName: this.$store.getters.user.lastName,
-                originalEmail:this.$store.getters.user.email,
+                originalEmail: this.$store.getters.user.email,
 
                 firstName: this.$store.getters.user.firstName,
                 lastName: this.$store.getters.user.lastName,
                 email: this.$store.getters.user.email,
                 isTermsAccepted: false,
 
-                firstNameError: "",
-                lastNameError: "",
-                emailError: "",
+                firstNameError: '',
+                lastNameError: '',
+                emailError: '',
                 isTermsAcceptedError: false,
 
-                newLastName: "",
-                newEmail: "",
+                newLastName: '',
+                newEmail: '',
                 isAccountSettingsEditing: false,
 
                 originalCompanyName: this.$store.getters.user.company.name,
@@ -222,30 +222,30 @@ import DeleteAccontPopup from '@/components/dashboard/account/DeleteAccontPopup.
 
                 isCompanyEditing: false,
 
-                oldPassword: "",
-                newPassword: "",
-                confirmationPassword: "",
+                oldPassword: '',
+                newPassword: '',
+                confirmationPassword: '',
 
-                oldPasswordError: "",
-                newPasswordError: "",
-                confirmationPasswordError: "",
+                oldPasswordError: '',
+                newPasswordError: '',
+                confirmationPasswordError: '',
                 isPasswordEditing: false
-            }
+            };
         },
         methods: {
             setFirstName: function (value: string) {
                 this.$data.firstName = value;
-                this.$data.firstNameError = "";
+                this.$data.firstNameError = '';
                 this.$data.isAccountSettingsEditing = true;
             },
             setLastName: function (value: string) {
                 this.$data.lastName = value;
-                this.$data.lastNameError = "";
+                this.$data.lastNameError = '';
                 this.$data.isAccountSettingsEditing = true;
             },
             setEmail: function (value: string) {
                 this.$data.email = value;
-                this.$data.emailError = "";
+                this.$data.emailError = '';
                 this.$data.isAccountSettingsEditing = true;
             },
             setTermsAccepted: function (value: boolean) {
@@ -254,15 +254,15 @@ import DeleteAccontPopup from '@/components/dashboard/account/DeleteAccontPopup.
             },
             onCancelAccountSettingsButtonClick: function () {
                 this.$data.firstName = this.$data.originalFirstName;
-                this.$data.firstNameError = "";
+                this.$data.firstNameError = '';
                 this.$data.lastName = this.$store.getters.user.lastName;
-                this.$data.lastNameError = "";
+                this.$data.lastNameError = '';
                 this.$data.email = this.$data.originalEmail;
-                this.$data.emailError = "";
+                this.$data.emailError = '';
 
-                (this.$refs["firstNameInput"] as HeaderedInput).setValue(this.$data.originalFirstName);
-                (this.$refs["lastNameInput"] as HeaderedInput).setValue(this.$data.originalLastName);
-                (this.$refs["emailInput"] as HeaderedInput).setValue(this.$data.originalEmail);
+                (this.$refs['firstNameInput'] as HeaderedInput).setValue(this.$data.originalFirstName);
+                (this.$refs['lastNameInput'] as HeaderedInput).setValue(this.$data.originalLastName);
+                (this.$refs['emailInput'] as HeaderedInput).setValue(this.$data.originalEmail);
 
                 this.$data.isAccountSettingsEditing = false;
             },
@@ -270,17 +270,17 @@ import DeleteAccontPopup from '@/components/dashboard/account/DeleteAccontPopup.
                 let hasError = false;
 
                 if (!this.$data.firstName) {
-                    this.$data.firstNameError = "First name expected";
+                    this.$data.firstNameError = 'First name expected';
                     hasError = true;
                 }
 
                 if (!this.$data.lastName) {
-                    this.$data.lastNameError = "Last name expected";
+                    this.$data.lastNameError = 'Last name expected';
                     hasError = true;
                 }
 
                 if (!this.$data.email) {
-                    this.$data.emailError = "Email expected";
+                    this.$data.emailError = 'Email expected';
                     hasError = true;
                 }
 
@@ -299,21 +299,21 @@ import DeleteAccontPopup from '@/components/dashboard/account/DeleteAccontPopup.
                     firstName: this.$data.firstName,
                     lastName: this.$data.lastName,
                 };
-                let isSuccess = await this.$store.dispatch("updateBasicUserInfo", user);
+                let isSuccess = await this.$store.dispatch('updateBasicUserInfo', user);
                 if (!isSuccess) {
-                    //TODO Change to popup
-                    console.log("error while changing basic user info");
+                    // TODO Change to popup
+                    console.error('error while changing basic user info');
 
                     return;
                 }
                 this.$data.isAccountSettingsEditing = false;
             },
 
-            setCompanyName:function (value: string) {
+            setCompanyName: function (value: string) {
                 this.$data.companyName = value;
                 this.$data.isCompanyEditing = true;
             },
-            setCompanyAddress:function (value: string) {
+            setCompanyAddress: function (value: string) {
                 this.$data.companyAddress = value;
                 this.$data.isCompanyEditing = true;
             },
@@ -321,39 +321,39 @@ import DeleteAccontPopup from '@/components/dashboard/account/DeleteAccontPopup.
                 this.$data.companyCountry = value;
                 this.$data.isCompanyEditing = true;
             },
-            setCompanyCity:function (value: string) {
+            setCompanyCity: function (value: string) {
                 this.$data.companyCity = value;
                 this.$data.isCompanyEditing = true;
             },
-            setCompanyState:function (value: string) {
+            setCompanyState: function (value: string) {
                 this.$data.companyState = value;
                 this.$data.isCompanyEditing = true;
             },
-            setCompanyPostalCode:function (value: string) {
+            setCompanyPostalCode: function (value: string) {
                 this.$data.companyPostalCode = value;
                 this.$data.isCompanyEditing = true;
             },
             onCancelCompanyButtonClick: function () {
-                this.$data.companyName=this.$data.originalCompanyName;
-                this.$data.companyAddress=this.$data.originalCompanyAddress;
-                this.$data.companyCountry=this.$data.originalCompanyCountry;
-                this.$data.companyCity=this.$data.originalCompanyCity;
-                this.$data.companyState=this.$data.originalCompanyState;
-                this.$data.companyPostalCode=this.$data.originalCompanyPostalCode;
+                this.$data.companyName = this.$data.originalCompanyName;
+                this.$data.companyAddress = this.$data.originalCompanyAddress;
+                this.$data.companyCountry = this.$data.originalCompanyCountry;
+                this.$data.companyCity = this.$data.originalCompanyCity;
+                this.$data.companyState = this.$data.originalCompanyState;
+                this.$data.companyPostalCode = this.$data.originalCompanyPostalCode;
 
-                (this.$refs["companyNameInput"] as HeaderedInput).setValue(this.$data.originalCompanyName);
-                (this.$refs["companyAddressInput"] as HeaderedInput).setValue(this.$data.originalCompanyAddress);
-                (this.$refs["companyCountryInput"] as HeaderedInput).setValue(this.$data.originalCompanyCountry);
-                (this.$refs["companyCityInput"] as HeaderedInput).setValue(this.$data.originalCompanyCity);
-                (this.$refs["companyStateInput"] as HeaderedInput).setValue(this.$data.originalCompanyState);
-                (this.$refs["companyPostalCodeInput"] as HeaderedInput).setValue(this.$data.originalCompanyPostalCode);
+                (this.$refs['companyNameInput'] as HeaderedInput).setValue(this.$data.originalCompanyName);
+                (this.$refs['companyAddressInput'] as HeaderedInput).setValue(this.$data.originalCompanyAddress);
+                (this.$refs['companyCountryInput'] as HeaderedInput).setValue(this.$data.originalCompanyCountry);
+                (this.$refs['companyCityInput'] as HeaderedInput).setValue(this.$data.originalCompanyCity);
+                (this.$refs['companyStateInput'] as HeaderedInput).setValue(this.$data.originalCompanyState);
+                (this.$refs['companyPostalCodeInput'] as HeaderedInput).setValue(this.$data.originalCompanyPostalCode);
 
-                this.$data.isCompanyEditing= false;
+                this.$data.isCompanyEditing = false;
             },
             onSaveCompanySettingsButtonClick: async function () {
                 let user = {
                     id: this.$store.getters.user.id,
-                    company : {
+                    company: {
                         name: this.$data.companyName,
                         address: this.$data.companyAddress,
                         country: this.$data.companyCountry,
@@ -363,10 +363,10 @@ import DeleteAccontPopup from '@/components/dashboard/account/DeleteAccontPopup.
                     }
                 };
 
-                let isSuccess = await this.$store.dispatch("updateCompanyInfo", user)
+                let isSuccess = await this.$store.dispatch('updateCompanyInfo', user);
                 if (!isSuccess) {
-                    //TODO Change to popup
-                    console.log("error while changing company info");
+                    // TODO Change to popup
+                    console.error('error while changing company info');
 
                     return;
                 }
@@ -375,31 +375,31 @@ import DeleteAccontPopup from '@/components/dashboard/account/DeleteAccontPopup.
 
             setOldPassword: function (value: string) {
                 this.$data.oldPassword = value;
-                this.$data.oldPasswordError = "";
+                this.$data.oldPasswordError = '';
                 this.$data.isPasswordEditing = true;
             },
             setNewPassword: function (value: string) {
                 this.$data.newPassword = value;
-                this.$data.newPasswordError = "";
+                this.$data.newPasswordError = '';
                 this.$data.isPasswordEditing = true;
             },
             setPasswordConfirmation: function (value: string) {
                 this.$data.confirmationPassword = value;
-                this.$data.confirmationPasswordError = "";
+                this.$data.confirmationPasswordError = '';
                 this.$data.isPasswordEditing = true;
             },
             onCancelPasswordEditButtonClick: function () {
-                this.$data.oldPassword = "";
-                this.$data.newPassword = "";
-                this.$data.confirmationPassword = "";
+                this.$data.oldPassword = '';
+                this.$data.newPassword = '';
+                this.$data.confirmationPassword = '';
 
-                this.$data.oldPasswordError = "";
-                this.$data.newPasswordError = "";
-                this.$data.confirmationPasswordError = "";
+                this.$data.oldPasswordError = '';
+                this.$data.newPasswordError = '';
+                this.$data.confirmationPasswordError = '';
 
-                (this.$refs["oldPasswordInput"] as HeaderedInput).setValue("");
-                (this.$refs["newPasswordInput"] as HeaderedInput).setValue("");
-                (this.$refs["confirmationPasswordInput"] as HeaderedInput).setValue("");
+                (this.$refs['oldPasswordInput'] as HeaderedInput).setValue('');
+                (this.$refs['newPasswordInput'] as HeaderedInput).setValue('');
+                (this.$refs['confirmationPasswordInput'] as HeaderedInput).setValue('');
 
                 this.$data.isPasswordEditing = false;
             },
@@ -407,22 +407,22 @@ import DeleteAccontPopup from '@/components/dashboard/account/DeleteAccontPopup.
                 let hasError = false;
 
                 if (!this.$data.oldPassword) {
-                    this.$data.oldPasswordError = "Password required";
+                    this.$data.oldPasswordError = 'Password required';
                     hasError = true;
                 }
 
-                if(!this.$data.newPassword) {
-                    this.$data.newPasswordError = "Password required";
+                if (!this.$data.newPassword) {
+                    this.$data.newPasswordError = 'Password required';
                     hasError = true;
                 }
 
                 if (!this.$data.confirmationPassword) {
-                    this.$data.confirmationPasswordError = "Password required";
+                    this.$data.confirmationPasswordError = 'Password required';
                     hasError = true;
                 }
 
-                if(this.$data.newPassword !== this.$data.confirmationPassword) {
-                    this.$data.confirmationPasswordError = "Password not match to new one";
+                if (this.$data.newPassword !== this.$data.confirmationPassword) {
+                    this.$data.confirmationPasswordError = 'Password not match to new one';
                     hasError = true;
                 }
 
@@ -430,45 +430,45 @@ import DeleteAccontPopup from '@/components/dashboard/account/DeleteAccontPopup.
                     return;
                 }
 
-                let isSuccess = await this.$store.dispatch("updatePassword",this.$data.newPassword);
+                let isSuccess = await this.$store.dispatch('updatePassword', this.$data.newPassword);
                 if (!isSuccess) {
-                    //TODO Change to popup
-                    console.log("error while updating user password");
+                    // TODO Change to popup
+                    console.error('error while updating user password');
 
                     return;
                 }
 
-                (this.$refs["oldPasswordInput"] as HeaderedInput).setValue("");
-                (this.$refs["newPasswordInput"] as HeaderedInput).setValue("");
-                (this.$refs["confirmationPasswordInput"] as HeaderedInput).setValue("");
+                (this.$refs['oldPasswordInput'] as HeaderedInput).setValue('');
+                (this.$refs['newPasswordInput'] as HeaderedInput).setValue('');
+                (this.$refs['confirmationPasswordInput'] as HeaderedInput).setValue('');
 
                 this.$data.isPasswordEditing = false;
             },
             onDeleteAccountClick: async function () {
                 // TODO show popup with user confirmation
-                let isSuccess = await this.$store.dispatch("deleteUserAccount");
+                let isSuccess = await this.$store.dispatch('deleteUserAccount');
                 if (!isSuccess) {
-                   //TODO  Change to popup
-                    console.log("error while deleting user account");
+                    // TODO Change to popup
+                    console.error('error while deleting user account');
 
                     return;
                 }
 
                 // TODO navigate to start route
+                this.$router.push(ROUTES.LOGIN.path);
             }
         },
         components: {
             Button,
             HeaderedInput,
-            Checkbox,
-            DeleteAccontPopup
+            Checkbox
         },
-        computed: {
-        }
+        computed: {}
     }
 )
 
-export default class AccountArea extends Vue {}
+export default class AccountArea extends Vue {
+}
 
 </script>
 

@@ -149,35 +149,28 @@ func (fc FullCAConfig) PeerConfig() PeerCAConfig {
 
 // Load loads a CA from the given configuration
 func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
-	cd, err := ioutil.ReadFile(pc.CertPath)
+	chainPEM, err := ioutil.ReadFile(pc.CertPath)
 	if err != nil {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
 
-	var cb [][]byte
-	for {
-		var cp *pem.Block
-		cp, cd = pem.Decode(cd)
-		if cp == nil {
-			break
-		}
-		cb = append(cb, cp.Bytes)
-	}
-	c, err := ParseCertChain(cb)
+	chain, err := decodeAndParseChainPEM(chainPEM)
 	if err != nil {
 		return nil, errs.New("failed to load identity %#v: %v",
 			pc.CertPath, err)
 	}
 
-	i, err := NodeIDFromKey(c[0].PublicKey)
+	nodeID, err := NodeIDFromKey(chain[peertls.LeafIndex].PublicKey)
 	if err != nil {
 		return nil, err
 	}
 
 	return &PeerCertificateAuthority{
-		RestChain: c[1:],
-		Cert:      c[0],
-		ID:        i,
+		// NB: `CAIndex` is in the context of a complete chain (incl. leaf).
+		// Here we're loading the CA chain (nodeID.e. without leaf).
+		RestChain: chain[peertls.CAIndex:],
+		Cert:      chain[peertls.CAIndex-1],
+		ID:        nodeID,
 	}, nil
 }
 
@@ -206,23 +199,37 @@ func NewCA(ctx context.Context, opts NewCAOptions) (*FullCertificateAuthority, e
 
 // Save saves a CA with the given configuration
 func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
-	var certData, keyData bytes.Buffer
+	var (
+		certData, keyData bytes.Buffer
+		writeErrs         utils.ErrorGroup
+	)
 
 	chain := []*x509.Certificate{ca.Cert}
 	chain = append(chain, ca.RestChain...)
 
-	writeErr := utils.CombineErrors(
-		peertls.WriteChain(&certData, chain...),
-		peertls.WriteKey(&keyData, ca.Key),
-	)
-	if writeErr != nil {
-		return writeErr
+	if fc.CertPath != "" {
+		if err := peertls.WriteChain(&certData, chain...); err != nil {
+			writeErrs.Add(err)
+			return writeErrs.Finish()
+		}
+		if err := writeChainData(fc.CertPath, certData.Bytes()); err != nil {
+			writeErrs.Add(err)
+			return writeErrs.Finish()
+		}
 	}
 
-	return utils.CombineErrors(
-		writeCertData(fc.CertPath, certData.Bytes()),
-		writeKeyData(fc.KeyPath, keyData.Bytes()),
-	)
+	if fc.KeyPath != "" {
+		if err := peertls.WriteKey(&keyData, ca.Key); err != nil {
+			writeErrs.Add(err)
+			return writeErrs.Finish()
+		}
+		if err := writeKeyData(fc.KeyPath, keyData.Bytes()); err != nil {
+			writeErrs.Add(err)
+			return writeErrs.Finish()
+		}
+	}
+
+	return writeErrs.Finish()
 }
 
 // NewIdentity generates a new `FullIdentity` based on the CA. The CA

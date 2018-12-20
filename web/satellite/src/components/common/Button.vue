@@ -3,10 +3,10 @@
 
 <template>
     <!-- if isDisabled check onPress in parent element -->
-    <div 
-        v-bind:class="containerClassName" 
-        :style="style" 
-        v-on:click="onPress"> 
+    <div
+        v-bind:class="containerClassName"
+        :style="style"
+        v-on:click="onPress">
             <h1 v-bind:class="[isWhite ? 'label white' : 'label']">{{label}}</h1>
     </div>
 </template>
@@ -16,8 +16,8 @@ import { Component, Vue } from 'vue-property-decorator';
 
 // Custom button component with label
 @Component(
-    { 
-		props: {
+    {
+        props: {
             label: {
                 type: String,
                 default: 'Default'
@@ -40,12 +40,14 @@ import { Component, Vue } from 'vue-property-decorator';
             },
             onPress: {
                 type: Function,
-                default: () => {}
+                default: () => {
+                    console.error('onPress is not reinitialized');
+                }
             }
         },
         computed: {
             style: function () {
-                return { width: this.$props.width, height: this.$props.height }
+                return {width: this.$props.width, height: this.$props.height};
             },
             containerClassName: function () {
                 if (this.$props.isDisabled) {
@@ -58,7 +60,8 @@ import { Component, Vue } from 'vue-property-decorator';
     }
 )
 
-export default class Button extends Vue {}
+export default class Button extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

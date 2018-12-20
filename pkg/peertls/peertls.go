@@ -10,20 +10,22 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/pem"
 	"io"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/pkg/utils"
 )
 
 const (
 	// BlockTypeEcPrivateKey is the value to define a block type of private key
 	BlockTypeEcPrivateKey = "EC PRIVATE KEY"
-	// BlockTypeCertificate is the value to define a block type of certificate
+	// BlockTypeCertificate is the value to define a block type of certificates
 	BlockTypeCertificate = "CERTIFICATE"
-	// BlockTypeIDOptions is the value to define a block type of id options
-	// (e.g. `version`)
-	BlockTypeIDOptions = "ID OPTIONS"
+	// BlockTypeExtension is the value to define a block type of certificate extensions
+	BlockTypeExtension = "EXTENSION"
 )
 
 var (
@@ -119,6 +121,12 @@ func NewCertBlock(b []byte) *pem.Block {
 	return &pem.Block{Type: BlockTypeCertificate, Bytes: b}
 }
 
+// NewExtensionBlock converts an ASN1/DER-encoded byte-slice of a tls certificate
+// extension into a `pem.Block` pointer.
+func NewExtensionBlock(b []byte) *pem.Block {
+	return &pem.Block{Type: BlockTypeExtension, Bytes: b}
+}
+
 // TLSCert creates a tls.Certificate from chains, key and leaf.
 func TLSCert(chain [][]byte, leaf *x509.Certificate, key crypto.PrivateKey) (*tls.Certificate, error) {
 	var err error
@@ -142,12 +150,23 @@ func WriteChain(w io.Writer, chain ...*x509.Certificate) error {
 		return errs.New("expected at least one certificate for writing")
 	}
 
+	var extErrs utils.ErrorGroup
 	for _, c := range chain {
 		if err := pem.Encode(w, NewCertBlock(c.Raw)); err != nil {
 			return errs.Wrap(err)
 		}
+
+		for _, e := range c.ExtraExtensions {
+			extBytes, err := asn1.Marshal(e)
+			if err != nil {
+				extErrs.Add(errs.Wrap(err))
+			}
+			if err := pem.Encode(w, NewExtensionBlock(extBytes)); err != nil {
+				extErrs.Add(errs.Wrap(err))
+			}
+		}
 	}
-	return nil
+	return extErrs.Finish()
 }
 
 // ChainBytes returns bytes of the certificate chain (leaf-first) to the writer, PEM-encoded.

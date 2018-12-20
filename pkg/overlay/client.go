@@ -32,9 +32,9 @@ type Client interface {
 	BulkLookup(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
 }
 
-// Overlay is the overlay concrete implementation of the client interface
-type Overlay struct {
-	client pb.OverlayClient
+// client is the overlay concrete implementation of the client interface
+type client struct {
+	conn pb.OverlayClient
 }
 
 // Options contains parameters for selecting nodes
@@ -49,40 +49,34 @@ type Options struct {
 	Excluded     storj.NodeIDList
 }
 
-// NewOverlayClient returns a new intialized Overlay Client
-func NewOverlayClient(identity *provider.FullIdentity, address string) (Client, error) {
+// NewClient returns a new intialized Overlay Client
+func NewClient(identity *provider.FullIdentity, address string) (Client, error) {
 	tc := transport.NewClient(identity)
 	conn, err := tc.DialAddress(context.Background(), address)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Overlay{
-		client: pb.NewOverlayClient(conn),
+	return &client{
+		conn: pb.NewOverlayClient(conn),
 	}, nil
 }
 
 // NewClientFrom returns a new overlay.Client from a connection
-func NewClientFrom(conn pb.OverlayClient) Client { return &Overlay{conn} }
+func NewClientFrom(conn pb.OverlayClient) Client { return &client{conn} }
 
-// a compiler trick to make sure *Overlay implements Client
-var _ Client = (*Overlay)(nil)
+// a compiler trick to make sure *client implements Client
+var _ Client = (*client)(nil)
 
-// Choose implements the client.Choose interface
-func (o *Overlay) Choose(ctx context.Context, op Options) ([]*pb.Node, error) {
+// Choose returns nodes based on Options
+func (client *client) Choose(ctx context.Context, op Options) ([]*pb.Node, error) {
 	var exIDs storj.NodeIDList
 	exIDs = append(exIDs, op.Excluded...)
 	// TODO(coyle): We will also need to communicate with the reputation service here
-	resp, err := o.client.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{
+	resp, err := client.conn.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{
 		Opts: &pb.OverlayOptions{
-			Amount:       int64(op.Amount),
-			Restrictions: &pb.NodeRestrictions{FreeDisk: op.Space, FreeBandwidth: op.Bandwidth},
-			MinStats: &pb.NodeStats{
-				UptimeRatio:       op.Uptime,
-				UptimeCount:       op.UptimeCount,
-				AuditSuccessRatio: op.AuditSuccess,
-				AuditCount:        op.AuditCount,
-			},
+			Amount:        int64(op.Amount),
+			Restrictions:  &pb.NodeRestrictions{FreeDisk: op.Space, FreeBandwidth: op.Bandwidth},
 			ExcludedNodes: exIDs,
 		},
 	})
@@ -94,8 +88,8 @@ func (o *Overlay) Choose(ctx context.Context, op Options) ([]*pb.Node, error) {
 }
 
 // Lookup provides a Node with the given ID
-func (o *Overlay) Lookup(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
-	resp, err := o.client.Lookup(ctx, &pb.LookupRequest{NodeId: nodeID})
+func (client *client) Lookup(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
+	resp, err := client.conn.Lookup(ctx, &pb.LookupRequest{NodeId: nodeID})
 	if err != nil {
 		return nil, err
 	}
@@ -104,12 +98,12 @@ func (o *Overlay) Lookup(ctx context.Context, nodeID storj.NodeID) (*pb.Node, er
 }
 
 // BulkLookup provides a list of Nodes with the given IDs
-func (o *Overlay) BulkLookup(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error) {
+func (client *client) BulkLookup(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error) {
 	var reqs pb.LookupRequests
 	for _, v := range nodeIDs {
 		reqs.LookupRequest = append(reqs.LookupRequest, &pb.LookupRequest{NodeId: v})
 	}
-	resp, err := o.client.BulkLookup(ctx, &reqs)
+	resp, err := client.conn.BulkLookup(ctx, &reqs)
 
 	if err != nil {
 		return nil, ClientError.Wrap(err)
