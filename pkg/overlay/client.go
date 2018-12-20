@@ -49,8 +49,8 @@ type Options struct {
 	Excluded     storj.NodeIDList
 }
 
-// NewOverlayClient returns a new intialized Overlay Client
-func NewOverlayClient(identity *provider.FullIdentity, address string) (Client, error) {
+// NewClient returns a new intialized Overlay Client
+func NewClient(identity *provider.FullIdentity, address string) (Client, error) {
 	tc := transport.NewClient(identity)
 	conn, err := tc.DialAddress(context.Background(), address)
 	if err != nil {
@@ -68,7 +68,7 @@ func NewClientFrom(conn pb.OverlayClient) Client { return &Overlay{conn} }
 // a compiler trick to make sure *Overlay implements Client
 var _ Client = (*Overlay)(nil)
 
-// Choose implements the client.Choose interface
+// Choose returns nodes based on Options
 func (client *Overlay) Choose(ctx context.Context, op Options) ([]*pb.Node, error) {
 	var exIDs storj.NodeIDList
 	exIDs = append(exIDs, op.Excluded...)

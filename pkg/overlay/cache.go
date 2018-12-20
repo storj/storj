@@ -43,6 +43,11 @@ func NewOverlayCache(db storage.KeyValueStore, sdb statdb.DB) *Cache {
 	return &Cache{db: db, statDB: sdb}
 }
 
+// Inspect lists limited number of items in the cache
+func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
+	return cache.db.List(nil, 0)
+}
+
 // Get looks up the provided nodeID from the overlay cache
 func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
 	if nodeID.IsZero() {

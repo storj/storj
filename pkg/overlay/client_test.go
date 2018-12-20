@@ -17,7 +17,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-func TestNewOverlayClient(t *testing.T) {
+func TestNewClient(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -35,7 +35,7 @@ func TestNewOverlayClient(t *testing.T) {
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
 
-		oc, err := overlay.NewOverlayClient(identity, v.address)
+		oc, err := overlay.NewClient(identity, v.address)
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)

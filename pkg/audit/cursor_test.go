@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/internal/identity"
+	testidentity "storj.io/storj/internal/identity"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/overlay"
@@ -129,7 +129,7 @@ func TestAuditSegment(t *testing.T) {
 	db := teststore.New()
 	c := pointerdb.Config{MaxInlineSegmentSize: 8000}
 
-	cache := overlay.NewOverlayCache(teststore.New(), nil, nil)
+	cache := overlay.NewOverlayCache(teststore.New(), nil)
 
 	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c, identity))
 	pointers := pdbclient.New(pdbw)

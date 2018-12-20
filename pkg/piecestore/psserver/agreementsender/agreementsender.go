@@ -38,7 +38,7 @@ type AgreementSender struct {
 
 // Initialize the Agreement Sender
 func Initialize(DB *psdb.DB, identity *provider.FullIdentity) (*AgreementSender, error) {
-	overlay, err := overlay.NewOverlayClient(identity, *defaultOverlayAddr)
+	overlay, err := overlay.NewClient(identity, *defaultOverlayAddr)
 	if err != nil {
 		return nil, err
 	}
