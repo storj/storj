@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"net"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -18,7 +17,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
@@ -54,7 +52,6 @@ type Kademlia struct {
 	alpha           int // alpha is a system wide concurrency parameter
 	routingTable    *RoutingTable
 	bootstrapNodes  []pb.Node
-	address         string
 	nodeClient      node.Client
 	identity        *provider.FullIdentity
 	bootstrapCancel unsafe.Pointer // context.CancelFunc
@@ -99,7 +96,6 @@ func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes [
 		alpha:          alpha,
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
-		address:        self.Address.Address,
 		identity:       identity,
 	}
 	nc, err := node.NewNodeClient(identity, self, k)
@@ -108,25 +104,6 @@ func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes [
 	}
 	k.nodeClient = nc
 	return k, nil
-}
-
-//StartRefresh occasionally refreshes stale kad buckets
-func (k *Kademlia) StartRefresh(ctx context.Context) {
-	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
-		time.Sleep(time.Duration(rand.Intn(300)) * time.Second) //stagger
-		for {
-			if err := k.refresh(ctx); err != nil {
-				k.log.Warn("bucket refresh failed", zap.Error(err))
-			}
-			select {
-			case <-ticker.C:
-			case <-ctx.Done():
-				ticker.Stop()
-				return
-			}
-		}
-	}()
 }
 
 // Disconnect safely closes connections to the Kademlia network
@@ -261,26 +238,6 @@ func (k *Kademlia) lookup(ctx context.Context, ID storj.NodeID, isBootstrap bool
 	return *target, nil
 }
 
-// ListenAndServe connects the kademlia node to the network and listens for incoming requests
-func (k *Kademlia) ListenAndServe() error {
-	identOpt, err := k.identity.ServerOption()
-	if err != nil {
-		return err
-	}
-	grpcServer := grpc.NewServer(identOpt)
-	mn := node.NewServer(k.log, k)
-	pb.RegisterNodesServer(grpcServer, mn)
-	lis, err := net.Listen("tcp", k.address)
-	if err != nil {
-		return err
-	}
-	if err := grpcServer.Serve(lis); err != nil {
-		return err
-	}
-	defer grpcServer.Stop()
-	return nil
-}
-
 // Seen returns all nodes that this kademlia instance has successfully communicated with
 func (k *Kademlia) Seen() []*pb.Node {
 	nodes := []*pb.Node{}
@@ -305,6 +262,25 @@ func GetIntroNode(addr string) (*pb.Node, error) {
 	}, nil
 }
 
+//StartRefresh occasionally refreshes stale kad buckets
+func (k *Kademlia) StartRefresh(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		time.Sleep(time.Duration(rand.Intn(300)) * time.Second) //stagger
+		for {
+			if err := k.refresh(ctx); err != nil {
+				k.log.Warn("bucket refresh failed", zap.Error(err))
+			}
+			select {
+			case <-ticker.C:
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+}
+
 //refresh updates each Kademlia bucket not contacted in the last hour
 func (k *Kademlia) refresh(ctx context.Context) error {
 	bIDs, err := k.routingTable.GetBucketIds()
@@ -313,16 +289,17 @@ func (k *Kademlia) refresh(ctx context.Context) error {
 	}
 	now := time.Now()
 	startID := bucketID{}
+	var errors errs.Group
 	for _, bID := range bIDs {
 		ts, tErr := k.routingTable.GetBucketTimestamp(bID)
 		if tErr != nil {
-			err = errs.Combine(tErr)
+			errors.Add(tErr)
 		} else if now.After(ts.Add(time.Hour)) {
 			rID, _ := randomIDInRange(startID, keyToBucketID(bID))
 			_, _ = k.FindNode(ctx, rID) // ignore node not found
 		}
 	}
-	return Error.Wrap(err)
+	return Error.Wrap(errors.Err())
 }
 
 // randomIDInRange finds a random node ID with a range (start..end]

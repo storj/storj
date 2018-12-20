@@ -195,7 +195,6 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 		defer cleanup()
 		assert.NoError(t, k.Disconnect())
 	}
-
 }
 
 func TestRefresh(t *testing.T) {
