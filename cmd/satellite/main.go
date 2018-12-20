@@ -147,7 +147,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	valid, _ := fpath.IsValidSetupDir(setupDir)
+	valid, err := fpath.IsValidSetupDir(setupDir)
 	if !setupCfg.Overwrite && !valid {
 		return fmt.Errorf("satellite configuration already exists (%v). Rerun with --overwrite", setupDir)
 	} else if setupCfg.Overwrite && err == nil {
