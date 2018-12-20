@@ -29,18 +29,14 @@ type RoutingTable interface {
 	Local() pb.Node
 	K() int
 	CacheSize() int
-
 	GetNodes(id storj.NodeID) (nodes []*pb.Node, ok bool)
 	GetBucketIds() (storage.Keys, error)
-
 	FindNear(id storj.NodeID, limit int) ([]*pb.Node, error)
-
 	ConnectionSuccess(node *pb.Node) error
 	ConnectionFailed(node *pb.Node) error
-
 	// these are for refreshing
 	SetBucketTimestamp(id []byte, now time.Time) error
-	GetBucketTimestamp(id []byte, bucket Bucket) (time.Time, error)
+	GetBucketTimestamp(id []byte) (time.Time, error)
 }
 
 // Bucket is a set of methods to act on kademlia k buckets
