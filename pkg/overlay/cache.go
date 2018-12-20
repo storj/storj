@@ -20,6 +20,9 @@ const (
 	OverlayBucket = "overlay"
 )
 
+// ErrDelete is returned when there is a problem deleting a node from the cache
+var ErrDelete = errs.New("error deleting node")
+
 // ErrEmptyNode is returned when the nodeID is empty
 var ErrEmptyNode = errs.New("empty node ID")
 
@@ -129,4 +132,19 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	}
 
 	return cache.db.Put(nodeID.Bytes(), data)
+}
+
+// Delete will remove the node from the cache. Used when a node hard disconnects or fails
+// to pass a PING multiple times.
+func (cache *Cache) Delete(ctx context.Context, id storj.NodeID) error {
+	if id.IsZero() {
+		return ErrEmptyNode
+	}
+
+	err := cache.db.Delete(id.Bytes())
+	if err != nil {
+		return ErrDelete
+	}
+
+	return nil
 }
