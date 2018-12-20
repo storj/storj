@@ -23,3 +23,8 @@ There are a number of types of objects involved in making this work:
    relational database, stdout, a metric filterer, etc.
 
 Please see example.lua for a good example of using this pipeline.
+
+## Setup
+
+If you use a relational database metric destination, make sure to instantiate
+the schema provided in schema.sql first.
