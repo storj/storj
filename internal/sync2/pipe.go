@@ -254,8 +254,7 @@ func NewMultiPipeFile(tempdir string, blockCount, blockSize int64) (*MultiPipe, 
 	return multipipe, nil
 }
 
-// NewMultiPipeMemory returns a new MultiPipe that is created in tempdir
-// if tempdir == "" the fill will be created it into os.TempDir
+// NewMultiPipeMemory returns a new MultiPipe that is using a memory buffer
 func NewMultiPipeMemory(blockCount, blockSize int64) (*MultiPipe, error) {
 	buffer := make(memory, blockCount*blockSize)
 
