@@ -269,24 +269,43 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						Type: graphql.NewNonNull(graphql.String),
 					},
 					fieldUserID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type: graphql.NewNonNull(graphql.NewList(graphql.String)),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					pID, _ := p.Args[fieldProjectID].(string)
-					uID, _ := p.Args[fieldUserID].(string)
+					uID, _ := p.Args[fieldUserID].([]interface{})
 
 					projectID, pErr := uuid.Parse(pID)
-					userID, uErr := uuid.Parse(uID)
 
-					err := utils.CombineErrors(pErr, uErr)
+					var userIDs []*uuid.UUID
+					var userErr error
+
+					for _, userID := range uID {
+						id, err := uuid.Parse(userID.(string))
+						if err != nil {
+							userErr = utils.CombineErrors(userErr, err)
+							continue
+						}
+
+						userIDs = append(userIDs, id)
+					}
+
+					err := utils.CombineErrors(pErr, userErr)
 					if err != nil {
 						return nil, err
 					}
 
-					err = service.AddProjectMember(p.Context, *projectID, *userID)
+					var addMemberErr error
+					for _, userID := range userIDs {
+						err = service.AddProjectMember(p.Context, *projectID, *userID)
+						if err != nil {
+							addMemberErr = utils.CombineErrors(addMemberErr, err)
+						}
+					}
+
 					project, getErr := service.GetProject(p.Context, *projectID)
-					return project, utils.CombineErrors(err, getErr)
+					return project, utils.CombineErrors(addMemberErr, getErr)
 				},
 			},
 			// delete user membership for given project
@@ -297,24 +316,43 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						Type: graphql.NewNonNull(graphql.String),
 					},
 					fieldUserID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type: graphql.NewNonNull(graphql.NewList(graphql.String)),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					pID, _ := p.Args[fieldProjectID].(string)
-					uID, _ := p.Args[fieldUserID].(string)
+					uID, _ := p.Args[fieldUserID].([]interface{})
 
 					projectID, pErr := uuid.Parse(pID)
-					userID, uErr := uuid.Parse(uID)
 
-					err := utils.CombineErrors(pErr, uErr)
+					var userIDs []*uuid.UUID
+					var userErr error
+
+					for _, userID := range uID {
+						id, err := uuid.Parse(userID.(string))
+						if err != nil {
+							userErr = utils.CombineErrors(userErr, err)
+							continue
+						}
+
+						userIDs = append(userIDs, id)
+					}
+
+					err := utils.CombineErrors(pErr, userErr)
 					if err != nil {
 						return nil, err
 					}
 
-					err = service.DeleteProjectMember(p.Context, *projectID, *userID)
+					var deleteMemberErr error
+					for _, userID := range userIDs {
+						err = service.DeleteProjectMember(p.Context, *projectID, *userID)
+						if err != nil {
+							deleteMemberErr = utils.CombineErrors(deleteMemberErr, err)
+						}
+					}
+
 					project, getErr := service.GetProject(p.Context, *projectID)
-					return project, utils.CombineErrors(err, getErr)
+					return project, utils.CombineErrors(deleteMemberErr, getErr)
 				},
 			},
 		},
