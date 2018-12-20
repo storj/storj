@@ -80,33 +80,18 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 	excluded := opts.ExcludedNodes
 	restrictions := opts.GetRestrictions()
 
-	var startID storj.NodeID
 	var result []*pb.Node
 
 	for {
-		var reputableNodes []*pb.Node
-		reputableNodes, startID, err = server.getReputableNodes(ctx, req.Start, maxNodes, restrictions, excluded)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		var newNodes []*pb.Node
-		newNodes, startID, err = server.getNewNodes(ctx, req.Start, maxNodes, restrictions, excluded)
+		reputableNodes, startID, err := server.getReputableNodes(ctx, req.Start, maxNodes, restrictions, excluded)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
 		requiredReputableNodes := int64(maxNodes) * int64(100-server.newNodePercentage)
-		var resultReputableNodes []*pb.Node
 		usedAddrs := make(map[string]bool)
-		for _, n := range reputableNodes {
-			addr := n.Address.GetAddress()
-			excluded = append(excluded, n.Id) // exclude all nodes on next iteration
-			if !usedAddrs[addr] {
-				resultReputableNodes = append(resultReputableNodes, n)
-				usedAddrs[addr] = true
-			}
-		}
+
+		resultReputableNodes, excluded, usedAddrs := server.fillNodeRequirement(ctx, reputableNodes, requiredReputableNodes, usedAddrs, excluded)
 
 		for int64(len(resultReputableNodes)) < requiredReputableNodes {
 			nodeDifference := requiredReputableNodes - int64(len(resultReputableNodes))
@@ -114,27 +99,16 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
-
-			for _, n := range reputableNodes {
-				addr := n.Address.GetAddress()
-				excluded = append(excluded, n.Id)
-				if !usedAddrs[addr] {
-					resultReputableNodes = append(resultReputableNodes, n)
-					usedAddrs[addr] = true
-				}
-			}
+			resultReputableNodes, excluded, usedAddrs = server.fillNodeRequirement(ctx, reputableNodes, requiredReputableNodes, usedAddrs, excluded)
 		}
 
+		newNodes, startID, err := server.getNewNodes(ctx, req.Start, maxNodes, restrictions, excluded)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 		requiredNewNodes := maxNodes * int64(server.newNodePercentage)
-		var resultNewNodes []*pb.Node
-		for _, n := range newNodes {
-			addr := n.Address.GetAddress()
-			excluded = append(excluded, n.Id) // exclude all nodes on next iteration
-			if !usedAddrs[addr] {
-				resultNewNodes = append(resultNewNodes, n)
-				usedAddrs[addr] = true
-			}
-		}
+
+		resultNewNodes, excluded, usedAddrs := server.fillNodeRequirement(ctx, newNodes, requiredNewNodes, usedAddrs, excluded)
 
 		for int64(len(resultNewNodes)) < requiredNewNodes {
 			nodeDifference := requiredNewNodes - int64(len(resultNewNodes))
@@ -143,14 +117,7 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 				return nil, Error.Wrap(err)
 			}
 
-			for _, n := range newNodes {
-				addr := n.Address.GetAddress()
-				excluded = append(excluded, n.Id)
-				if !usedAddrs[addr] {
-					resultReputableNodes = append(resultReputableNodes, n)
-					usedAddrs[addr] = true
-				}
-			}
+			resultNewNodes, excluded, usedAddrs = server.fillNodeRequirement(ctx, newNodes, requiredNewNodes, usedAddrs, excluded)
 		}
 
 		result = append(result, resultReputableNodes...)
@@ -159,7 +126,6 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 		if len(result) >= int(maxNodes) || startID == (storj.NodeID{}) {
 			break
 		}
-
 	}
 
 	if len(result) < int(maxNodes) {
@@ -173,6 +139,20 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 	return &pb.FindStorageNodesResponse{
 		Nodes: result,
 	}, nil
+}
+
+func (server *Server) fillNodeRequirement(ctx context.Context, nodes []*pb.Node, nodeRequirement int64, usedAddrs map[string]bool,
+	excluded storj.NodeIDList) (resultNodes []*pb.Node, updatedExcluded storj.NodeIDList, updatedUsed map[string]bool) {
+
+	for _, n := range nodes {
+		addr := n.Address.GetAddress()
+		excluded = append(excluded, n.Id) // exclude all nodes on next iteration
+		if !usedAddrs[addr] {
+			resultNodes = append(resultNodes, n)
+			usedAddrs[addr] = true
+		}
+	}
+	return resultNodes, updatedExcluded, usedAddrs
 }
 
 func (server *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.Node, error) {
