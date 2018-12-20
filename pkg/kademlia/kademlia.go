@@ -245,10 +245,17 @@ func (k *Kademlia) lookup(ctx context.Context, ID storj.NodeID, isBootstrap bool
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: isBootstrap, bootstrapNodes: k.bootstrapNodes,
 	})
 	target, err := lookup.Run(ctx)
-	bucket, err := k.routingTable.getKBucketID(ID)
-	k.routingTable.SetBucketTimestamp(bucket[:], time.Now())
 	if err != nil {
 		return pb.Node{}, err
+	}
+	bucket, err := k.routingTable.getKBucketID(ID)
+	if err != nil {
+		k.log.Warn("Error getting getKBucketID in kad lookup")
+	} else {
+		err = k.routingTable.SetBucketTimestamp(bucket[:], time.Now())
+		if err != nil {
+			k.log.Warn("Error updating bucket timestamp in kad lookup")
+		}
 	}
 	if target == nil {
 		if isBootstrap {
@@ -317,7 +324,7 @@ func (k *Kademlia) refresh(ctx context.Context) error {
 			err = utils.CombineErrors(tErr)
 		} else if now.After(ts.Add(time.Hour)) {
 			rID, _ := randomIDInRange(startID, keyToBucketID(bID))
-			k.FindNode(ctx, rID) // ignore node not found
+			_, _ = k.FindNode(ctx, rID) // ignore node not found
 		}
 	}
 	return Error.Wrap(err)
