@@ -209,9 +209,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 			if needed <= 0 {
 				break
 			}
-		}
-		for _, v := range nodes {
-			if v.Type == pb.NodeType_INVALID {
+			if node.Type == pb.NodeType_INVALID {
 				panic("invalid node type")
 			}
 		}
@@ -283,7 +281,7 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 			return Error.Wrap(err)
 		}
 		for _, v := range nodes {
-			if v.Type == pb.NodeType_INVALID {
+			if v != nil && v.Type == pb.NodeType_INVALID {
 				panic("invalid node type")
 			}
 		}
