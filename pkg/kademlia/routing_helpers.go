@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -225,7 +225,7 @@ func keysToNodeIDs(keys storage.Keys) (ids storj.NodeIDList, err error) {
 		}
 		ids = append(ids, id)
 	}
-	if err := utils.CombineErrors(idErrs...); err != nil {
+	if err := errs.Combine(idErrs...); err != nil {
 		return nil, err
 	}
 

@@ -76,10 +76,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 	logger := zap.L()
 
-	kad, err := NewKademlia(ctx, logger, server.Identity().ID, nodeType, []pb.Node{*in}, addr, metadata, server.Identity(), c.DBPath, c.Alpha)
+	kad, err := NewKademlia(logger, server.Identity().ID, nodeType, []pb.Node{*in}, addr, metadata, server.Identity(), c.DBPath, c.Alpha)
 	if err != nil {
 		return err
 	}
+	kad.StartRefresh(ctx)
 	defer func() { err = utils.CombineErrors(err, kad.Disconnect()) }()
 
 	pb.RegisterNodesServer(server.GRPC(), node.NewServer(logger, kad))

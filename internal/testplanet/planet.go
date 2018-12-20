@@ -185,6 +185,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 func (planet *Planet) Start(ctx context.Context) {
 	for _, node := range planet.nodes {
 		go func(node *Node) {
+			node.Kademlia.StartRefresh(ctx)
 			err := node.Provider.Run(ctx)
 			if err == grpc.ErrServerStopped {
 				err = nil

@@ -25,7 +25,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 )
@@ -62,7 +61,7 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(ctx context.Context, log *zap.Logger, id storj.NodeID, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
+func NewKademlia(log *zap.Logger, id storj.NodeID, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
 	self := pb.Node{
 		Id:       id,
 		Type:     nodeType,
@@ -90,11 +89,11 @@ func NewKademlia(ctx context.Context, log *zap.Logger, id storj.NodeID, nodeType
 		return nil, BootstrapErr.Wrap(err)
 	}
 
-	return NewKademliaWithRoutingTable(ctx, log, self, bootstrapNodes, identity, alpha, rt)
+	return NewKademliaWithRoutingTable(log, self, bootstrapNodes, identity, alpha, rt)
 }
 
 // NewKademliaWithRoutingTable returns a newly configured Kademlia instance
-func NewKademliaWithRoutingTable(ctx context.Context, log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
+func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
 	k := &Kademlia{
 		log:            log,
 		alpha:          alpha,
@@ -108,12 +107,11 @@ func NewKademliaWithRoutingTable(ctx context.Context, log *zap.Logger, self pb.N
 		return nil, BootstrapErr.Wrap(err)
 	}
 	k.nodeClient = nc
-	k.kickOffRefresh(ctx)
 	return k, nil
 }
 
-func (k *Kademlia) kickOffRefresh(ctx context.Context) {
-	//occasionally refresh stale buckets
+//StartRefresh occasionally refreshes stale kad buckets
+func (k *Kademlia) StartRefresh(ctx context.Context) {
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
 		time.Sleep(time.Duration(rand.Intn(300)) * time.Second) //stagger
@@ -138,7 +136,7 @@ func (k *Kademlia) Disconnect() error {
 	if ptr != nil {
 		(*(*context.CancelFunc)(ptr))()
 	}
-	return utils.CombineErrors(
+	return errs.Combine(
 		k.nodeClient.Disconnect(),
 		k.routingTable.Close(),
 	)
@@ -195,15 +193,12 @@ func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
 func (k *Kademlia) Bootstrap(ctx context.Context) error {
-	// What I want to do here is do a normal lookup for myself
-	// so call lookup(ctx, nodeImLookingFor)
 	if len(k.bootstrapNodes) == 0 {
 		return BootstrapErr.New("no bootstrap nodes provided")
 	}
-
 	bootstrapContext, bootstrapCancel := context.WithCancel(ctx)
 	atomic.StorePointer(&k.bootstrapCancel, unsafe.Pointer(&bootstrapCancel))
-
+	//find nodes most similar to self
 	_, err := k.lookup(bootstrapContext, k.routingTable.self.Id, true)
 	return err
 }
@@ -321,7 +316,7 @@ func (k *Kademlia) refresh(ctx context.Context) error {
 	for _, bID := range bIDs {
 		ts, tErr := k.routingTable.GetBucketTimestamp(bID)
 		if tErr != nil {
-			err = utils.CombineErrors(tErr)
+			err = errs.Combine(tErr)
 		} else if now.After(ts.Add(time.Hour)) {
 			rID, _ := randomIDInRange(startID, keyToBucketID(bID))
 			_, _ = k.FindNode(ctx, rID) // ignore node not found
