@@ -30,7 +30,7 @@ func TestServer(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	satellite := planet.Satellites[0]
-	server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay, satellite.Kademlia, &pb.NodeStats{}, 0, 0)
+	server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay, &pb.NodeStats{}, 0, 0)
 	// TODO: handle cleanup
 
 	{ // FindStorageNodes
@@ -81,7 +81,7 @@ func TestNewNodes(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	satellite := planet.Satellites[0]
-	server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay, satellite.Kademlia, &pb.NodeStats{}, 0, 0.5)
+	server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay, &pb.NodeStats{}, 0, 0.5)
 	// TODO: handle cleanup
 
 	{ // FindStorageNodes

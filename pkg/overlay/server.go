@@ -85,18 +85,18 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 
 	for {
 		var reputableNodes []*pb.Node
-		reputableNodes, startID, err = o.getReputableNodes(ctx, req.Start, maxNodes, restrictions, excluded)
+		reputableNodes, startID, err = server.getReputableNodes(ctx, req.Start, maxNodes, restrictions, excluded)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
 		var newNodes []*pb.Node
-		newNodes, startID, err = o.getNewNodes(ctx, req.Start, maxNodes, restrictions, excluded)
+		newNodes, startID, err = server.getNewNodes(ctx, req.Start, maxNodes, restrictions, excluded)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
-		requiredReputableNodes := int64(maxNodes) * int64(100-o.newNodePercentage)
+		requiredReputableNodes := int64(maxNodes) * int64(100-server.newNodePercentage)
 		var resultReputableNodes []*pb.Node
 		usedAddrs := make(map[string]bool)
 		for _, n := range reputableNodes {
@@ -110,7 +110,7 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 
 		for int64(len(resultReputableNodes)) < requiredReputableNodes {
 			nodeDifference := requiredReputableNodes - int64(len(resultReputableNodes))
-			reputableNodes, startID, err = o.getReputableNodes(ctx, startID, nodeDifference, restrictions, excluded)
+			reputableNodes, startID, err = server.getReputableNodes(ctx, startID, nodeDifference, restrictions, excluded)
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
@@ -125,7 +125,7 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 			}
 		}
 
-		requiredNewNodes := maxNodes * int64(o.newNodePercentage)
+		requiredNewNodes := maxNodes * int64(server.newNodePercentage)
 		var resultNewNodes []*pb.Node
 		for _, n := range newNodes {
 			addr := n.Address.GetAddress()
@@ -138,7 +138,7 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 
 		for int64(len(resultNewNodes)) < requiredNewNodes {
 			nodeDifference := requiredNewNodes - int64(len(resultNewNodes))
-			newNodes, startID, err = o.getNewNodes(ctx, startID, nodeDifference, restrictions, excluded)
+			newNodes, startID, err = server.getNewNodes(ctx, startID, nodeDifference, restrictions, excluded)
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
@@ -201,7 +201,7 @@ func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeI
 	limit := int(maxNodes * 2)
 	minReputation := server.minStats
 
-	keys, err := server.cache.DB.List(startID.Bytes(), limit)
+	keys, err := server.cache.db.List(startID.Bytes(), limit)
 	if err != nil {
 		server.log.Error("Error listing nodes", zap.Error(err))
 		return nil, storj.NodeID{}, Error.Wrap(err)
@@ -251,25 +251,25 @@ func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeI
 	return nodes, nextStart, nil
 }
 
-func (o *Server) getNewNodes(ctx context.Context, startID storj.NodeID, maxNodes int64,
+func (server *Server) getNewNodes(ctx context.Context, startID storj.NodeID, maxNodes int64,
 	minRestrictions *pb.NodeRestrictions, excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
 
 	limit := int(maxNodes * 2)
 
-	keys, err := o.cache.DB.List(startID.Bytes(), limit)
+	keys, err := server.cache.db.List(startID.Bytes(), limit)
 	if err != nil {
-		o.logger.Error("Error listing nodes", zap.Error(err))
+		server.log.Error("Error listing nodes", zap.Error(err))
 		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
 	if len(keys) <= 0 {
-		o.logger.Info("No Keys returned from List operation")
+		server.log.Info("No Keys returned from List operation")
 		return []*pb.Node{}, startID, nil
 	}
 
-	nodes, err := o.getNodes(ctx, keys)
+	nodes, err := server.getNodes(ctx, keys)
 	if err != nil {
-		o.logger.Error("Error getting nodes", zap.Error(err))
+		server.log.Error("Error getting nodes", zap.Error(err))
 		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
@@ -286,10 +286,9 @@ func (o *Server) getNewNodes(ctx context.Context, startID storj.NodeID, maxNodes
 			contains(excluded, v.Id) {
 			continue
 
-		} else if nodeReputation.GetAuditCount() < o.newNodeAuditThreshold {
+		} else if nodeReputation.GetAuditCount() < server.newNodeAuditThreshold {
 			nodes = append(nodes, v)
 		}
-
 	}
 
 	var nextStart storj.NodeID

@@ -75,14 +75,14 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	cache := NewCache(sdb.OverlayCache(), sdb.StatDB())
 
-	ns := &pb.NodeStats{
+	minStats := &pb.NodeStats{
 		UptimeCount:       c.Node.UptimeCount,
 		UptimeRatio:       c.Node.UptimeRatio,
 		AuditSuccessRatio: c.Node.AuditSuccessRatio,
 		AuditCount:        c.Node.AuditCount,
 	}
 
-	srv := NewServer(zap.L(), cache, kad, ns, c.Node.NewNodeAuditThreshold, c.Node.NewNodePercentage)
+	srv := NewServer(zap.L(), cache, minStats, c.Node.NewNodeAuditThreshold, c.Node.NewNodePercentage)
 	pb.RegisterOverlayServer(server.GRPC(), srv)
 
 	ctx2 := context.WithValue(ctx, ctxKeyOverlay, cache)
