@@ -81,7 +81,7 @@ matrix:
       install:
         - source scripts/install-awscli.sh
         - mkdir bin
-        - CD=bin go build storj.io/storj/cmd/{captplanet,storagenode,uplink,gateway}
+        - GOBIN=`pwd`/bin go install ./cmd/{satellite,storagenode,uplink,gateway}
         - make binaries-image
       script:
         - make test-all-in-one
