@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
-	"os"
 	"sync"
 	"sync/atomic"
 )
@@ -52,7 +51,7 @@ type pipeReader struct{ pipe *pipe }
 type pipeWriter struct{ pipe *pipe }
 
 // Close implements io.Reader Close
-func (reader pipeReader) Close() error { return reader.CloseWithError(io.EOF) }
+func (reader pipeReader) Close() error { return reader.CloseWithError(io.ErrClosedPipe) }
 
 // Close implements io.Writer Close
 func (writer pipeWriter) Close() error { return writer.CloseWithError(io.EOF) }
@@ -63,7 +62,7 @@ func (reader pipeReader) CloseWithError(err error) error {
 	pipe.mu.Lock()
 	if pipe.readerDone {
 		pipe.mu.Unlock()
-		return os.ErrClosed
+		return io.ErrClosedPipe
 	}
 	pipe.readerDone = true
 	pipe.readerErr = err
@@ -78,7 +77,7 @@ func (writer pipeWriter) CloseWithError(err error) error {
 	pipe.mu.Lock()
 	if pipe.writerDone {
 		pipe.mu.Unlock()
-		return os.ErrClosed
+		return io.ErrClosedPipe
 	}
 	pipe.writerDone = true
 	pipe.writerErr = err
@@ -110,7 +109,7 @@ func (writer pipeWriter) Write(data []byte) (n int, err error) {
 	// have we closed already
 	if pipe.writerDone {
 		pipe.mu.Unlock()
-		return 0, os.ErrClosed
+		return 0, io.ErrClosedPipe
 	}
 
 	// check how much do they want to write
@@ -164,7 +163,7 @@ func (reader pipeReader) Read(data []byte) (n int, err error) {
 		// have we closed already
 		if pipe.readerDone {
 			pipe.mu.Unlock()
-			return 0, os.ErrClosed
+			return 0, io.ErrClosedPipe
 		}
 
 		// have we run out of the limit
