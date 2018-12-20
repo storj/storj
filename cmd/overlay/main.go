@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2018 Storj Labs, Incache.
 // See LICENSE for copying information.
 
 package main
@@ -50,13 +50,13 @@ func init() {
 
 func cmdList(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
-	c, dbClose, err := cacheCfg.open(ctx)
+	cache, dbClose, err := cacheCfg.open(ctx)
 	if err != nil {
 		return err
 	}
 	defer dbClose()
 
-	keys, err := c.DB.List(nil, 0)
+	keys, err := cache.Inspect(ctx)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func cmdList(cmd *cobra.Command, args []string) (err error) {
 	fmt.Fprintln(w, "Node ID\t Address")
 
 	for _, id := range nodeIDs {
-		n, err := c.Get(process.Ctx(cmd), id)
+		n, err := cache.Get(process.Ctx(cmd), id)
 		if err != nil {
 			fmt.Fprintln(w, id.String(), "\t", "error getting value")
 		}
@@ -97,7 +97,7 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 		return errs.Wrap(err)
 	}
 
-	c, dbClose, err := cacheCfg.open(ctx)
+	cache, dbClose, err := cacheCfg.open(ctx)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 			zap.S().Error(err)
 		}
 		fmt.Printf("adding node ID: %s; Address: %s", i, a)
-		err = c.Put(process.Ctx(cmd), id, pb.Node{
+		err = cache.Put(process.Ctx(cmd), id, pb.Node{
 			Id: id,
 			// TODO: NodeType is missing
 			Address: &pb.NodeAddress{

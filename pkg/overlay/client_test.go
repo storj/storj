@@ -39,8 +39,6 @@ func TestNewClient(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
-		_, ok := oc.(*overlay.Overlay)
-		assert.True(t, ok)
 	}
 }
 
