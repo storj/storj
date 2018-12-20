@@ -15,7 +15,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/satellite/satelliteauth"
@@ -398,4 +398,3 @@ func (s *Service) authorize(ctx context.Context, claims *satelliteauth.Claims) (
 
 	return user, nil
 }
-
