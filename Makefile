@@ -85,13 +85,13 @@ test-docker: ## Run tests in Docker
 .PHONY: all-in-one
 all-in-one: ## Deploy docker images with one storagenode locally
 	export VERSION="${TAG}${CUSTOMTAG}" \
-	&& $(MAKE) satellite-image storagenode-image gateway-image -j 3 \
+	&& $(MAKE) satellite-image storagenode-image gateway-image \
 	&& docker-compose up storagenode satellite gateway
 
 .PHONY: test-all-in-one
 test-all-in-one: ## Test docker images locally
 	export VERSION="${TAG}${CUSTOMTAG}" \
-	&& $(MAKE) satellite-image storagenode-image gateway-image -j 3 \
+	&& $(MAKE) satellite-image storagenode-image gateway-image \
 	&& ./scripts/test-aio.sh
 
 ##@ Build
@@ -177,6 +177,9 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 	docker tag storjlabs/uplink:${TAG} storjlabs/uplink:latest
 	docker push storjlabs/uplink:${TAG}
 	docker push storjlabs/uplink:latest
+	docker tag storjlabs/gateway:${TAG} storjlabs/gateway:latest
+	docker push storjlabs/gateway:${TAG}
+	docker push storjlabs/gateway:latest
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
@@ -194,11 +197,13 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 .PHONY: clean-images
 ifeq (${BRANCH},master)
 clean-images: ## Remove Docker images from local engine
+	-docker rmi storjlabs/gateway:${TAG} storjlabs/gateway:latest
 	-docker rmi storjlabs/satellite:${TAG} storjlabs/satellite:latest
 	-docker rmi storjlabs/storagenode:${TAG} storjlabs/storagenode:latest
 	-docker rmi storjlabs/uplink:${TAG} storjlabs/uplink:latest
 else
 clean-images:
+	-docker rmi storjlabs/gateway:${TAG}
 	-docker rmi storjlabs/satellite:${TAG}
 	-docker rmi storjlabs/storagenode:${TAG}
 	-docker rmi storjlabs/uplink:${TAG}
