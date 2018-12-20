@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
@@ -14,7 +15,7 @@ import (
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
-	as "storj.io/storj/pkg/piecestore/psserver/agreementsender"
+	"storj.io/storj/pkg/piecestore/psserver/agreementsender"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/provider"
 )
@@ -25,9 +26,10 @@ var (
 
 // Config contains everything necessary for a server
 type Config struct {
-	Path               string `help:"path to store data in" default:"$CONFDIR"`
-	AllocatedDiskSpace int64  `help:"total allocated disk space, default(1GB)" default:"1073741824"`
-	AllocatedBandwidth int64  `help:"total allocated bandwidth, default(100GB)" default:"107374182400"`
+	Path                   string        `help:"path to store data in" default:"$CONFDIR"`
+	AllocatedDiskSpace     int64         `help:"total allocated disk space, default(1GB)" default:"1073741824"`
+	AllocatedBandwidth     int64         `help:"total allocated bandwidth, default(100GB)" default:"107374182400"`
+	KBucketRefreshInterval time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
 }
 
 // Run implements provider.Responsibility
@@ -49,7 +51,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	pb.RegisterPieceStoreRoutesServer(server.GRPC(), s)
 
 	// Run the agreement sender process
-	asProcess, err := as.Initialize(s.DB, server.Identity())
+	asProcess, err := agreementsender.Initialize(s.DB, server.Identity())
 	if err != nil {
 		return err
 	}
@@ -70,7 +72,12 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return ServerError.Wrap(err)
 	}
 
-	refreshProcess := newService(zap.L(), rt, s)
+	krt, ok := rt.(*kademlia.RoutingTable)
+	if !ok {
+		return ServerError.New("Could not convert dht.RoutingTable to *kademlia.RoutingTable")
+	}
+
+	refreshProcess := newService(zap.L(), c.KBucketRefreshInterval, krt, s)
 
 	go func() {
 		if err := refreshProcess.Run(ctx); err != nil {

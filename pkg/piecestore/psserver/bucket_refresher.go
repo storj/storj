@@ -5,32 +5,32 @@ package psserver
 
 import (
 	"context"
-	"flag"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 )
 
-// Error is a standard error class for this package.
 var (
-	Error                = errs.Class("kademlia bucket refresher error")
-	defaultCheckInterval = flag.Duration("piecestore.kbucket-refresher.check-interval", time.Hour, "number of seconds to sleep between updating the kademlia bucket")
+	// Error is a standard error class for this package.
+	Error = errs.Class("kademlia bucket refresher error")
 )
 
 // refreshService contains the information needed to run the bucket refresher service
 type refreshService struct {
-	logger *zap.Logger
-	rt     dht.RoutingTable
+	log    *zap.Logger
+	ticker *time.Ticker
+	rt     *kademlia.RoutingTable
 	server *Server
 }
 
-func newService(logger *zap.Logger, rt dht.RoutingTable, server *Server) *refreshService {
+func newService(log *zap.Logger, interval time.Duration, rt *kademlia.RoutingTable, server *Server) *refreshService {
 	return &refreshService{
-		logger: logger,
+		log:    log,
+		ticker: time.NewTicker(interval),
 		rt:     rt,
 		server: server,
 	}
@@ -40,16 +40,14 @@ func newService(logger *zap.Logger, rt dht.RoutingTable, server *Server) *refres
 func (service *refreshService) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ticker := time.NewTicker(*defaultCheckInterval)
-
 	for {
 		err := service.process(ctx)
 		if err != nil {
-			service.logger.Error("process", zap.Error(err))
+			service.log.Error("process", zap.Error(err))
 		}
 
 		select {
-		case <-ticker.C: // wait for the next interval to happen
+		case <-service.ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the bucket refresher service is canceled via context
 			return ctx.Err()
 		}
@@ -72,7 +70,7 @@ func (service *refreshService) process(ctx context.Context) error {
 
 	// Update the routing table with latest restrictions
 	// TODO (aleitner): Do we want to change the name of ConnectionSuccess?
-	if err := service.rt.ConnectionSuccess(&self); err != nil {
+	if err := service.rt.UpdateSelf(&self); err != nil {
 		return Error.Wrap(err)
 	}
 

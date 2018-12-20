@@ -141,6 +141,26 @@ func (rt *RoutingTable) FindNear(id storj.NodeID, limit int) (nodes []*pb.Node, 
 	return nodes, nil
 }
 
+func (rt *RoutingTable) UpdateSelf(node *pb.Node) error {
+	if node.Id != rt.Local().Id {
+		return RoutingErr.New("self does not have a matching node id")
+	}
+
+	rt.mutex.Lock()
+	rt.self = *node
+	rt.mutex.Unlock()
+
+	rt.mutex.Lock()
+	rt.seen[node.Id] = node
+	rt.mutex.Unlock()
+
+	if err := rt.updateNode(node); err != nil {
+		return RoutingErr.New("could not update node %s", err)
+	}
+
+	return nil
+}
+
 // ConnectionSuccess updates or adds a node to the routing table when
 // a successful connection is made to the node on the network
 func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
@@ -148,13 +168,6 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 	if node.Id == (storj.NodeID{}) {
 		return nil
 	}
-
-	// Add self to routing table
-	rt.mutex.Lock()
-	if node.Id == rt.Local().Id {
-		rt.self = *node
-	}
-	rt.mutex.Unlock()
 
 	rt.mutex.Lock()
 	rt.seen[node.Id] = node
