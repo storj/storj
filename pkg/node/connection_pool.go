@@ -100,7 +100,9 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 		pool.items[id] = conn
 	}
 	pool.mu.Unlock()
-
+	if n.Type == pb.NodeType_INVALID {
+		panic("invalid node type - DIAL")
+	}
 	conn.dial.Do(func() {
 		grpc, err := pool.tc.DialNode(ctx, n, grpc.WithBlock())
 		conn.err = err

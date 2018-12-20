@@ -44,7 +44,7 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 func (m *MockClient) DialNode(arg0 context.Context, arg1 *pb.Node) (*grpc.ClientConn, error) {
 
 	if arg1.Type == pb.NodeType_INVALID {
-		panic("invalid node type")
+		panic("invalid node type - MOCK")
 	}
 
 	ret := m.ctrl.Call(m, "DialNode", arg0, arg1)

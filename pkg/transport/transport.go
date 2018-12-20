@@ -45,7 +45,7 @@ func NewClient(identity *provider.FullIdentity) Client {
 func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if node.Type == pb.NodeType_INVALID {
-		panic("invalid node type")
+		panic("invalid node type - dial node")
 	}
 	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")
