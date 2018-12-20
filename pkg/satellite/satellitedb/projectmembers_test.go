@@ -146,13 +146,11 @@ func prepareUsersAndProjects(ctx context.Context, t *testing.T, users satellite.
 			Name:          "projName1",
 			TermsAccepted: 1,
 			Description:   "Test project 1",
-			OwnerID:       &usersList[0].ID,
 		},
 		{
 			Name:          "projName2",
 			TermsAccepted: 1,
 			Description:   "Test project 1",
-			OwnerID:       &usersList[1].ID,
 		},
 	}
 

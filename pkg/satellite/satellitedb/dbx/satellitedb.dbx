@@ -25,37 +25,12 @@ update user ( where user.id = ? )
 delete user ( where user.id = ? )
 
 
-model company (
-    key user_id
-
-    field user_id     user.id   cascade
-
-    field name        text      ( updatable )
-    field address     text      ( updatable )
-    field country     text      ( updatable )
-    field city        text      ( updatable )
-    field state       text      ( updatable )
-    field postal_code text      ( updatable )
-
-    field created_at  timestamp ( autoinsert )
-)
-read one (
-    select company
-    where company.user_id = ?
-)
-create company ( )
-update company ( where company.user_id = ? )
-delete company ( where company.user_id = ? )
-
-
 model project (
     key id
 
     field id             blob
-    field owner_id       user.id   setnull ( nullable, updatable )
 
     field name           text
-    field company_name   text
     field description    text      ( updatable )
     // stores last accepted version of terms of use
     field terms_accepted int       ( updatable )
@@ -66,10 +41,6 @@ read all ( select project)
 read one (
     select project
     where project.id = ?
-)
-read all (
-    select project
-    where project.owner_id = ?
 )
 read all (
     select project

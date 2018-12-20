@@ -47,11 +47,6 @@ func (db *Database) Users() satellite.Users {
 	return &users{db.methods}
 }
 
-// Companies is a getter for Companies repository
-func (db *Database) Companies() satellite.Companies {
-	return &companies{db.methods}
-}
-
 // Projects is a getter for Projects repository
 func (db *Database) Projects() satellite.Projects {
 	return &projects{db.methods}

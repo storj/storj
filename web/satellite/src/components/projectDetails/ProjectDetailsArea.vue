@@ -10,10 +10,6 @@
                     <h2>Project Name</h2>
                     <h3>{{name}}</h3>
                 </div>
-                <div class="project-details-info-container__name-container">
-                    <h2>Company / Organization</h2>
-                    <h3>{{companyName}}</h3>
-                </div>
             </div>
             <div class="project-details-info-container">
                 <div class="project-details-info-container__description-container" v-if="!isEditing">
@@ -54,10 +50,6 @@
                         <Button label="Import" width="10vw" height="5vh" :onPress="onImportClick"/>
                     </div>
                 </div>
-            </div>
-            <div class="project-details__terms-area">
-                <img src="static/images/projectDetails/checked.svg" alt="">
-                <h2>{{projectApproval}}</h2>
             </div>
             <div class="project-details__button-area">
                 <!-- TODO: change vw to px -->
@@ -132,14 +124,6 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
             },
             description: function (): string {
                 return this.$store.getters.selectedProject.description;
-            },
-            companyName: function (): string {
-                return this.$store.getters.selectedProject.companyName;
-            },
-            projectApproval: function (): string {
-                let date = new Date(this.$store.getters.selectedProject.createdAt);
-
-                return `Project Approval ${date.toLocaleDateString()} by ${this.$store.getters.selectedProject.ownerName}`;
             },
             // this computed is used to indicate if project is selected.
             // if false - we should change UI

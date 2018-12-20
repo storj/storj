@@ -19,13 +19,6 @@
                     @setData="setProjectName">
                 </HeaderedInput>
                 <HeaderedInput
-                    label="Company Name"
-                    placeholder="Enter Company Name"
-                    class="full-input"
-                    width="100%"
-                    @setData="setCompanyName">
-                </HeaderedInput>
-                <HeaderedInput
                     label="Description"
                     placeholder="Enter Project Description"
                     class="full-input"
@@ -73,7 +66,6 @@ import Button from '@/components/common/Button.vue';
         data: function () {
             return {
                 name: '',
-                companyName: '',
                 description: '',
                 isTermsAccepted: false,
                 termsAcceptedError: false,
@@ -84,9 +76,6 @@ import Button from '@/components/common/Button.vue';
             setProjectName: function (value: string): void {
                 this.$data.name = value;
                 this.$data.nameError = '';
-            },
-            setCompanyName: function (value: string): void {
-                this.$data.companyName = value;
             },
             setProjectDescription: function (value: string): void {
                 this.$data.description = value;
@@ -119,7 +108,6 @@ import Button from '@/components/common/Button.vue';
                 let isSuccess = this.$store.dispatch('createProject', {
                     name: this.$data.name,
                     description: this.$data.description,
-                    companyName: this.$data.companyName,
                     isTermsAccepted: this.$data.isTermsAccepted,
 
                 });
