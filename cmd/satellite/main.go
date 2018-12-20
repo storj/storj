@@ -131,8 +131,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		ctx,
 		grpcauth.NewAPIKeyInterceptor(),
 		runCfg.Kademlia,
-		runCfg.PointerDB,
 		runCfg.Overlay,
+		runCfg.PointerDB,
 		runCfg.Checker,
 		runCfg.Repairer,
 		runCfg.Audit,
@@ -149,8 +149,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	valid, err := fpath.IsValidSetupDir(setupDir)
 	if !setupCfg.Overwrite && !valid {
-		fmt.Printf("satellite configuration already exists (%v). rerun with --overwrite\n", setupDir)
-		return nil
+		return fmt.Errorf("satellite configuration already exists (%v). Rerun with --overwrite", setupDir)
 	} else if setupCfg.Overwrite && err == nil {
 		fmt.Println("overwriting existing satellite config")
 		err = os.RemoveAll(setupDir)

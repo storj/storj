@@ -92,38 +92,21 @@ func (rt *RoutingTable) CacheSize() int {
 	return rt.rcBucketSize
 }
 
-// GetBucket retrieves the corresponding kbucket from node id
+// GetNodes retrieves nodes within the same kbucket as the given node id
 // Note: id doesn't need to be stored at time of search
-func (rt *RoutingTable) GetBucket(id storj.NodeID) (bucket dht.Bucket, ok bool) {
+func (rt *RoutingTable) GetNodes(id storj.NodeID) ([]*pb.Node, bool) {
 	bID, err := rt.getKBucketID(id)
 	if err != nil {
-		return &KBucket{}, false
+		return nil, false
 	}
 	if bID == (bucketID{}) {
-		return &KBucket{}, false
+		return nil, false
 	}
 	unmarshaledNodes, err := rt.getUnmarshaledNodesFromBucket(bID)
 	if err != nil {
-		return &KBucket{}, false
+		return nil, false
 	}
-	return &KBucket{nodes: unmarshaledNodes}, true
-}
-
-// GetBuckets retrieves all buckets from the local node
-func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
-	bs := []dht.Bucket{}
-	kbuckets, err := rt.kadBucketDB.List(nil, 0)
-	if err != nil {
-		return bs, RoutingErr.New("could not get bucket ids %s", err)
-	}
-	for _, v := range kbuckets {
-		unmarshaledNodes, err := rt.getUnmarshaledNodesFromBucket(keyToBucketID(v))
-		if err != nil {
-			return bs, err
-		}
-		bs = append(bs, &KBucket{nodes: unmarshaledNodes})
-	}
-	return bs, nil
+	return unmarshaledNodes, true
 }
 
 // GetBucketIds returns a storage.Keys type of bucket ID's in the Kademlia instance

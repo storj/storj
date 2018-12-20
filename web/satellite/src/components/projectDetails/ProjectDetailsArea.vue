@@ -10,10 +10,6 @@
                     <h2>Project Name</h2>
                     <h3>{{name}}</h3>
                 </div>
-                <div class="project-details-info-container__name-container">
-                    <h2>Company / Organization</h2>
-                    <h3>{{companyName}}</h3>
-                </div>
             </div>
             <div class="project-details-info-container">
                 <div class="project-details-info-container__description-container" v-if="!isEditing">
@@ -55,10 +51,6 @@
                     </div>
                 </div>
             </div>
-            <div class="project-details__terms-area">
-                <img src="static/images/projectDetails/checked.svg" alt="">
-                <h2>{{projectApproval}}</h2>
-            </div>
             <div class="project-details__button-area">
                 <!-- TODO: change vw to px -->
                 <Button label="Delete project" width="10vw" height="5vh" :onPress="onDeleteButtonClick" isWhite/>
@@ -77,29 +69,29 @@ import Button from '@/components/common/Button.vue';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages'
+import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 @Component(
-    { 
-        data: function() {
+    {
+        data: function () {
             return {
                 isEditing: false,
-                newDescription: "",
+                newDescription: '',
                 emptyImage: EMPTY_STATE_IMAGES.PROJECT
-            }
+            };
         },
         methods: {
-            toggleEditing: function() : void {
+            toggleEditing: function (): void {
                 this.$data.isEditing = !this.$data.isEditing;
                 // TODO: cache this value in future
-                this.$data.newDescription = "";
+                this.$data.newDescription = '';
             },
-            setNewDescription: function(value: string): void {
+            setNewDescription: function (value: string): void {
                 this.$data.newDescription = value;
             },
-            onSaveButtonClick: async function(): Promise<any> {
+            onSaveButtonClick: async function (): Promise<any> {
                 let isUpdateSuccess = await this.$store.dispatch(
-                    "updateProjectDescription", {
+                    'updateProjectDescription', {
                         id: this.$store.getters.selectedProject.id,
                         description: this.$data.newDescription,
                     }
@@ -107,44 +99,36 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages'
 
                 isUpdateSuccess
                     // TODO: call toggleEditing method instead of this IIF
-                    ? (()=>{
+                    ? (() => {
                         this.$data.isEditing = !this.$data.isEditing;
-                        this.$data.newDescription = "";
+                        this.$data.newDescription = '';
                     })()
-                    //TODO: popup error here
-                    : console.log("error during project updating!");
+                    // TODO: popup error here
+                    : console.error('error during project updating!');
             },
-            onDeleteButtonClick: async function(): Promise<any> {
+            onDeleteButtonClick: async function (): Promise<any> {
                 let isDeleteSuccess = await this.$store.dispatch(
-                    "deleteProject",
+                    'deleteProject',
                     this.$store.getters.selectedProject.id,
                 );
 
                 if (!isDeleteSuccess) {
-                    //TODO: popup error here
-                    console.log("error during project deletion!");
+                    // TODO: popup error here
+                    console.error('error during project deletion!');
                 }
             }
         },
         computed: {
-            name: function(): string {
+            name: function (): string {
                 return this.$store.getters.selectedProject.name;
             },
-            description: function(): string {
+            description: function (): string {
                 return this.$store.getters.selectedProject.description;
-            },
-            companyName: function(): string {
-                return this.$store.getters.selectedProject.companyName;
-            },
-            projectApproval: function(): string {
-                let date = new Date(this.$store.getters.selectedProject.createdAt);
-
-                return `Project Approval ${date.toLocaleDateString()} by ${this.$store.getters.selectedProject.ownerName}`;
             },
             // this computed is used to indicate if project is selected.
             // if false - we should change UI
-            isProjectSelected: function(): boolean {
-                return this.$store.getters.selectedProject.id !== ""
+            isProjectSelected: function (): boolean {
+                return this.$store.getters.selectedProject.id !== '';
             },
         },
         components: {
@@ -156,7 +140,8 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages'
     }
 )
 
-export default class ProjectDetailsArea extends Vue {}
+export default class ProjectDetailsArea extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

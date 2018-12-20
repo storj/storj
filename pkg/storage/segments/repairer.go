@@ -24,8 +24,8 @@ type Repairer struct {
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer
-func NewSegmentRepairer(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, nodeStats *pb.NodeStats) *Repairer {
-	return &Repairer{oc: oc, ec: ec, pdb: pdb, nodeStats: nodeStats}
+func NewSegmentRepairer(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client) *Repairer {
+	return &Repairer{oc: oc, ec: ec, pdb: pdb}
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes

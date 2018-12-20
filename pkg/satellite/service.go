@@ -20,6 +20,9 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
+// maxLimit specifies the limit for all paged queries
+const maxLimit = 50
+
 // Service is handling accounts related logic
 type Service struct {
 	Signer
@@ -73,7 +76,7 @@ func (s *Service) Token(ctx context.Context, email, password string) (string, er
 
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))
 	if err != nil {
-		return "", ErrUnauthorized.New("password is incorrect")
+		return "", ErrUnauthorized.New("password is incorrect: %s", err.Error())
 	}
 
 	// TODO: move expiration time to constants
@@ -134,7 +137,7 @@ func (s *Service) ChangeUserPassword(ctx context.Context, id uuid.UUID, pass, ne
 
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(pass))
 	if err != nil {
-		return ErrUnauthorized.New("origin password is incorrect")
+		return ErrUnauthorized.New("origin password is incorrect: %s", err.Error())
 	}
 
 	if err := validatePassword(newPass); err != nil {
@@ -157,7 +160,7 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string)
 		return err
 	}
 
-	if auth.User.ID != id {
+	if !uuid.Equal(auth.User.ID, id) {
 		return ErrUnauthorized.New("user has no rights")
 	}
 
@@ -167,52 +170,6 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string)
 	}
 
 	return s.store.Users().Delete(ctx, id)
-}
-
-// CreateCompany creates Company for User with given id
-func (s *Service) CreateCompany(ctx context.Context, userID uuid.UUID, info CompanyInfo) (*Company, error) {
-	_, err := GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.store.Companies().Insert(ctx, &Company{
-		UserID:     userID,
-		Name:       info.Name,
-		Address:    info.Address,
-		Country:    info.Country,
-		City:       info.City,
-		State:      info.State,
-		PostalCode: info.PostalCode,
-	})
-}
-
-// GetCompany returns Company by userID
-func (s *Service) GetCompany(ctx context.Context, userID uuid.UUID) (*Company, error) {
-	_, err := GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.store.Companies().GetByUserID(ctx, userID)
-}
-
-// UpdateCompany updates Company with given userID
-func (s *Service) UpdateCompany(ctx context.Context, userID uuid.UUID, info CompanyInfo) error {
-	_, err := GetAuth(ctx)
-	if err != nil {
-		return err
-	}
-
-	return s.store.Companies().Update(ctx, &Company{
-		UserID:     userID,
-		Name:       info.Name,
-		Address:    info.Address,
-		Country:    info.Country,
-		City:       info.City,
-		State:      info.State,
-		PostalCode: info.PostalCode,
-	})
 }
 
 // GetProject is a method for querying project by id
@@ -243,13 +200,11 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 	}
 
 	if !projectInfo.IsTermsAccepted {
-		return nil, errs.New("Terms of use should be accepted!")
+		return nil, errs.New("terms of use should be accepted!")
 	}
 
 	project := &Project{
-		OwnerID:       &auth.User.ID,
 		Description:   projectInfo.Description,
-		CompanyName:   projectInfo.CompanyName,
 		Name:          projectInfo.Name,
 		TermsAccepted: 1, //TODO: get lat version of Term of Use
 	}
@@ -279,6 +234,7 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) error 
 		return err
 	}
 
+	// TODO: before deletion we should check if user is a project member
 	return s.store.Projects().Delete(ctx, projectID)
 }
 
@@ -326,35 +282,43 @@ func (s *Service) DeleteProjectMember(ctx context.Context, projectID, userID uui
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
-func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID) ([]ProjectMember, error) {
+func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, limit int, offset int64) ([]ProjectMember, error) {
 	_, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.store.ProjectMembers().GetByProjectID(ctx, projectID)
+	if limit < 0 || offset < 0 {
+		return nil, errs.New("invalid pagination argument")
+	}
+
+	if limit > maxLimit {
+		limit = maxLimit
+	}
+
+	return s.store.ProjectMembers().GetByProjectID(ctx, projectID, limit, offset)
 }
 
 // Authorize validates token from context and returns authorized Authorization
 func (s *Service) Authorize(ctx context.Context) (Authorization, error) {
 	tokenS, ok := auth.GetAPIKey(ctx)
 	if !ok {
-		return Authorization{}, errs.New("no api key was provided")
+		return Authorization{}, ErrUnauthorized.New("no api key was provided")
 	}
 
 	token, err := satelliteauth.FromBase64URLString(string(tokenS))
 	if err != nil {
-		return Authorization{}, err
+		return Authorization{}, ErrUnauthorized.Wrap(err)
 	}
 
 	claims, err := s.authenticate(token)
 	if err != nil {
-		return Authorization{}, err
+		return Authorization{}, ErrUnauthorized.Wrap(err)
 	}
 
 	user, err := s.authorize(ctx, claims)
 	if err != nil {
-		return Authorization{}, err
+		return Authorization{}, ErrUnauthorized.Wrap(err)
 	}
 
 	return Authorization{

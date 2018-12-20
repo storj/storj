@@ -1,11 +1,11 @@
 #!/bin/sh
 set -euo pipefail
 
-if [[ ! -f "${CONF_PATH}" ]]; then
+if [[ ! -d "${CONF_PATH}" ]]; then
 	./gateway setup
 fi
 
-RUN_PARAMS="${RUN_PARAMS:-} --config ${CONF_PATH}"
+RUN_PARAMS="${RUN_PARAMS:-} --config-dir ${CONF_PATH}"
 
 if [[ -n "${API_KEY}" ]]; then
 	RUN_PARAMS="${RUN_PARAMS} --client.api-key ${API_KEY}"

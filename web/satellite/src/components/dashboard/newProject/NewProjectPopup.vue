@@ -9,8 +9,8 @@
                 <img src="@/../static/images/dashboard/CreateNewProject.png" alt="">
             </div>
             <div class="new-project-popup__form-container">
-                <HeaderedInput 
-                    label="Project Name" 
+                <HeaderedInput
+                    label="Project Name"
                     additionalLabel="Up To 20 Characters"
                     placeholder="Enter Project Name"
                     class="full-input"
@@ -18,15 +18,8 @@
                     :error="nameError"
                     @setData="setProjectName">
                 </HeaderedInput>
-                <HeaderedInput 
-                    label="Company Name" 
-                    placeholder="Enter Company Name"
-                    class="full-input"
-                    width="100%"
-                    @setData="setCompanyName">
-                </HeaderedInput>
-                <HeaderedInput 
-                    label="Description" 
+                <HeaderedInput
+                    label="Description"
                     placeholder="Enter Project Description"
                     class="full-input"
                     isMultiline
@@ -56,12 +49,12 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import HeaderedInput from "@/components/common/HeaderedInput.vue";
-import Checkbox from "@/components/common/Checkbox.vue";
-import Button from "@/components/common/Button.vue";
+import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import Checkbox from '@/components/common/Checkbox.vue';
+import Button from '@/components/common/Button.vue';
 
 @Component(
-    { 
+    {
         props: {
             onClose: {
                 type: Function
@@ -70,67 +63,63 @@ import Button from "@/components/common/Button.vue";
                 type: Function
             }
         },
-        data: function() {
+        data: function () {
             return {
-                name: "",
-                companyName: "",
-                description: "",
+                name: '',
+                description: '',
                 isTermsAccepted: false,
                 termsAcceptedError: false,
-                nameError: "",
-            }
+                nameError: '',
+            };
         },
         methods: {
-            setProjectName: function(value: string) : void {
+            setProjectName: function (value: string): void {
                 this.$data.name = value;
-                this.$data.nameError = "";
+                this.$data.nameError = '';
             },
-            setCompanyName: function(value: string) : void {
-                this.$data.companyName = value;
-            },
-            setProjectDescription: function(value: string) : void {
+            setProjectDescription: function (value: string): void {
                 this.$data.description = value;
             },
-            setTermsAccepted: function(value: boolean) : void {
+            setTermsAccepted: function (value: boolean): void {
                 this.$data.isTermsAccepted = value;
                 this.$data.termsAcceptedError = false;
             },
-            onCloseClick: function() : void {
+            onCloseClick: function (): void {
                 // TODO: save popup states in store
-                this.$emit("onClose");
+                this.$emit('onClose');
             },
-            createProject: async function() : Promise<any> {
+            createProject: async function (): Promise<any> {
                 if (!this.$data.isTermsAccepted) {
                     this.$data.termsAcceptedError = true;
                 }
 
                 if (!this.$data.name) {
-                    this.$data.nameError = "Name is required!";
+                    this.$data.nameError = 'Name is required!';
                 }
 
                 if (this.$data.name.length > 20) {
-                    this.$data.nameError = "Name should be less than 21 character!";
+                    this.$data.nameError = 'Name should be less than 21 character!';
                 }
 
                 if (this.$data.nameError || this.$data.termsAcceptedError) {
                     return;
                 }
 
-                let isSuccess = this.$store.dispatch("createProject", {
+                let isSuccess = this.$store.dispatch('createProject', {
                     name: this.$data.name,
                     description: this.$data.description,
-                    companyName: this.$data.companyName,
                     isTermsAccepted: this.$data.isTermsAccepted,
 
                 });
 
                 if (!isSuccess) {
                     // TODO: show popup here
-                    console.log("error during project creation!");
+                    console.error('error during project creation!');
+
                     return;
                 }
 
-                this.$emit("onClose");
+                this.$emit('onClose');
             }
         },
         components: {
@@ -141,7 +130,8 @@ import Button from "@/components/common/Button.vue";
     }
 )
 
-export default class NewProjectPopup extends Vue {}
+export default class NewProjectPopup extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

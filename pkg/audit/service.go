@@ -38,7 +38,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	if err != nil {
 		return err
 	}
-	overlay, err := overlay.NewOverlayClient(identity, c.SatelliteAddr)
+	overlay, err := overlay.NewClient(identity, c.SatelliteAddr)
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,8 @@ func (service *Service) process(ctx context.Context) error {
 		return err
 	}
 
-	err = service.Reporter.RecordAudits(ctx, verifiedNodes)
+	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
+	_, err = service.Reporter.RecordAudits(ctx, verifiedNodes)
 	if err != nil {
 		return err
 	}
