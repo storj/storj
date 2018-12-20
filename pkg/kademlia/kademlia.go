@@ -307,7 +307,7 @@ func randomIDInRange(start, end bucketID) (storj.NodeID, error) {
 	randID := storj.NodeID{}
 	divergedHigh := false
 	divergedLow := false
-	for x := 0; x < 32; x++ {
+	for x := 0; x < len(randID); x++ {
 		s := byte(0)
 		if !divergedLow {
 			s = start[x]
@@ -335,8 +335,8 @@ func randomIDInRange(start, end bucketID) (storj.NodeID, error) {
 	if !divergedLow {
 		if !divergedHigh { // start == end
 			return storj.NodeID{}, errs.New("Random id range was invalid")
-		} else if randID[31] == start[31] { // start == randID
-			randID[31] = start[31] + 1
+		} else if randID[len(randID)-1] == start[len(randID)-1] { // start == randID
+			randID[len(randID)-1] = start[len(randID)-1] + 1
 		}
 	}
 	return randID, nil
