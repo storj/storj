@@ -57,9 +57,9 @@ func (memory memory) Close() error { return nil }
 
 // offsetFile implements ReadAt, WriteAt offset to the file with reference counting
 type offsetFile struct {
-	file     *os.File
-	offset   int64
-	refcount *int64
+	file   *os.File
+	offset int64
+	open   *int64 // pointer to MultiPipe.open
 }
 
 // ReadAt implements io.ReaderAt methods
@@ -74,7 +74,7 @@ func (file offsetFile) WriteAt(data []byte, at int64) (amount int, err error) {
 
 // Close implements io.Closer methods
 func (file offsetFile) Close() error {
-	if atomic.AddInt64(file.refcount, -1) == 0 {
+	if atomic.AddInt64(file.open, -1) == 0 {
 		return file.Close()
 	}
 	return nil

@@ -14,8 +14,8 @@ import (
 
 // pipe is a io.Reader/io.Writer pipe backed by ReadAtWriteAtCloser
 type pipe struct {
-	buffer   ReadAtWriteAtCloser
-	refcount int32
+	buffer ReadAtWriteAtCloser
+	open   int32 // number of halves open (starts at 2)
 
 	mu     sync.Mutex
 	nodata sync.Cond
@@ -38,9 +38,9 @@ func NewPipeFile(tempdir string) (PipeReader, PipeWriter, error) {
 	}
 
 	pipe := &pipe{
-		buffer:   tempfile,
-		refcount: 2,
-		limit:    math.MaxInt64,
+		buffer: tempfile,
+		open:   2,
+		limit:  math.MaxInt64,
 	}
 	pipe.nodata.L = &pipe.mu
 
@@ -48,11 +48,11 @@ func NewPipeFile(tempdir string) (PipeReader, PipeWriter, error) {
 }
 
 // NewPipeMemory returns a pipe that uses an inmemory buffer
-func NewPipeMemory(size int64) (PipeReader, PipeWriter, error) {
+func NewPipeMemory(pipeSize int64) (PipeReader, PipeWriter, error) {
 	pipe := &pipe{
-		buffer:   make(memory, size),
-		refcount: 2,
-		limit:    size,
+		buffer: make(memory, pipeSize),
+		open:   2,
+		limit:  pipeSize,
 	}
 	pipe.nodata.L = &pipe.mu
 	return pipeReader{pipe}, pipeWriter{pipe}, nil
@@ -100,13 +100,13 @@ func (writer pipeWriter) CloseWithError(err error) error {
 
 // closeHalf closes one side of the pipe
 func (pipe *pipe) closeHalf() error {
-	if atomic.AddInt32(&pipe.refcount, -1) == 0 {
+	if atomic.AddInt32(&pipe.open, -1) == 0 {
 		return pipe.buffer.Close()
 	}
 	return nil
 }
 
-// Write writes to the pipe returning io.ErrClosedPipe when blockSize is reached
+// Write writes to the pipe returning io.ErrClosedPipe when pipeSize is reached
 func (writer pipeWriter) Write(data []byte) (n int, err error) {
 	pipe := writer.pipe
 	pipe.mu.Lock()
@@ -159,7 +159,7 @@ func (writer pipeWriter) Write(data []byte) (n int, err error) {
 	return writeAmount, err
 }
 
-// Read reads from the pipe returning io.EOF when writer is closed or blockSize is reached
+// Read reads from the pipe returning io.EOF when writer is closed or pipeSize is reached
 func (reader pipeReader) Read(data []byte) (n int, err error) {
 	pipe := reader.pipe
 	pipe.mu.Lock()
@@ -214,19 +214,19 @@ func (reader pipeReader) Read(data []byte) (n int, err error) {
 
 // MultiPipe is a multipipe backed by a single file
 type MultiPipe struct {
-	pipes    []pipe
-	refcount int64
+	pipes []pipe
+	open  int64 // number of pipes open
 }
 
 // NewMultiPipeFile returns a new MultiPipe that is created in tempdir
 // if tempdir == "" the fill will be created it into os.TempDir
-func NewMultiPipeFile(tempdir string, blockCount, blockSize int64) (*MultiPipe, error) {
+func NewMultiPipeFile(tempdir string, pipeCount, pipeSize int64) (*MultiPipe, error) {
 	tempfile, err := ioutil.TempFile(tempdir, "multifilepipe")
 	if err != nil {
 		return nil, err
 	}
 
-	err = tempfile.Truncate(blockCount * blockSize)
+	err = tempfile.Truncate(pipeCount * pipeSize)
 	if err != nil {
 		closeErr := tempfile.Close()
 		if closeErr != nil {
@@ -236,18 +236,18 @@ func NewMultiPipeFile(tempdir string, blockCount, blockSize int64) (*MultiPipe, 
 	}
 
 	multipipe := &MultiPipe{
-		pipes:    make([]pipe, blockCount),
-		refcount: blockCount,
+		pipes: make([]pipe, pipeCount),
+		open:  pipeCount,
 	}
 
 	for i := range multipipe.pipes {
 		pipe := &multipipe.pipes[i]
 		pipe.buffer = offsetFile{
-			file:     tempfile,
-			offset:   int64(i) * blockSize,
-			refcount: &multipipe.refcount,
+			file:   tempfile,
+			offset: int64(i) * pipeSize,
+			open:   &multipipe.open,
 		}
-		pipe.limit = blockSize
+		pipe.limit = pipeSize
 		pipe.nodata.L = &pipe.mu
 	}
 
@@ -255,18 +255,18 @@ func NewMultiPipeFile(tempdir string, blockCount, blockSize int64) (*MultiPipe, 
 }
 
 // NewMultiPipeMemory returns a new MultiPipe that is using a memory buffer
-func NewMultiPipeMemory(blockCount, blockSize int64) (*MultiPipe, error) {
-	buffer := make(memory, blockCount*blockSize)
+func NewMultiPipeMemory(pipeCount, pipeSize int64) (*MultiPipe, error) {
+	buffer := make(memory, pipeCount*pipeSize)
 
 	multipipe := &MultiPipe{
-		pipes:    make([]pipe, blockCount),
-		refcount: blockCount,
+		pipes: make([]pipe, pipeCount),
+		open:  pipeCount,
 	}
 
 	for i := range multipipe.pipes {
 		pipe := &multipipe.pipes[i]
-		pipe.buffer = buffer[i*int(blockSize) : (i+1)*int(blockSize)]
-		pipe.limit = blockSize
+		pipe.buffer = buffer[i*int(pipeSize) : (i+1)*int(pipeSize)]
+		pipe.limit = pipeSize
 		pipe.nodata.L = &pipe.mu
 	}
 
