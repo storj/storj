@@ -96,7 +96,7 @@ func (pipe *pipe) closeHalf() error {
 	return nil
 }
 
-// Write writes to the pipe returning io.EOF when blockSize is reached
+// Write writes to the pipe returning io.ErrClosedPipe when blockSize is reached
 func (writer pipeWriter) Write(data []byte) (n int, err error) {
 	pipe := writer.pipe
 	pipe.mu.Lock()
