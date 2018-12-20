@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 )
 
-// filepipe is a file backed pipe
-type filepipe struct {
-	file     ReadWriteCloserAt
+// pipe is a io.Reader/io.Writer pipe backed by ReadWriteCloserAt
+type pipe struct {
+	buffer   ReadWriteCloserAt
 	refcount int32
 
 	mu     sync.Mutex
@@ -38,27 +38,27 @@ func NewFilePipe(tempdir string) (PipeReader, PipeWriter, error) {
 		return nil, nil, err
 	}
 
-	pipe := &filepipe{
-		file:     tempfile,
+	pipe := &pipe{
+		buffer:   tempfile,
 		refcount: 2,
 		limit:    math.MaxInt64,
 	}
 	pipe.nodata.L = &pipe.mu
 
-	return filePipeReader{pipe}, filePipeWriter{pipe}, nil
+	return pipeReader{pipe}, pipeWriter{pipe}, nil
 }
 
-type filePipeReader struct{ pipe *filepipe }
-type filePipeWriter struct{ pipe *filepipe }
+type pipeReader struct{ pipe *pipe }
+type pipeWriter struct{ pipe *pipe }
 
 // Close implements io.Reader Close
-func (reader filePipeReader) Close() error { return reader.CloseWithError(io.EOF) }
+func (reader pipeReader) Close() error { return reader.CloseWithError(io.EOF) }
 
 // Close implements io.Writer Close
-func (writer filePipeWriter) Close() error { return writer.CloseWithError(io.EOF) }
+func (writer pipeWriter) Close() error { return writer.CloseWithError(io.EOF) }
 
 // CloseWithError implements closing with error
-func (reader filePipeReader) CloseWithError(err error) error {
+func (reader pipeReader) CloseWithError(err error) error {
 	pipe := reader.pipe
 	pipe.mu.Lock()
 	if pipe.readerDone {
@@ -69,11 +69,11 @@ func (reader filePipeReader) CloseWithError(err error) error {
 	pipe.readerErr = err
 	pipe.mu.Unlock()
 
-	return pipe.closeFile()
+	return pipe.closeHalf()
 }
 
 // CloseWithError implements closing with error
-func (writer filePipeWriter) CloseWithError(err error) error {
+func (writer pipeWriter) CloseWithError(err error) error {
 	pipe := writer.pipe
 	pipe.mu.Lock()
 	if pipe.writerDone {
@@ -85,19 +85,19 @@ func (writer filePipeWriter) CloseWithError(err error) error {
 	pipe.nodata.Broadcast()
 	pipe.mu.Unlock()
 
-	return pipe.closeFile()
+	return pipe.closeHalf()
 }
 
-// closeFile closes one side of the pipe
-func (pipe *filepipe) closeFile() error {
+// closeHalf closes one side of the pipe
+func (pipe *pipe) closeHalf() error {
 	if atomic.AddInt32(&pipe.refcount, -1) == 0 {
-		return pipe.file.Close()
+		return pipe.buffer.Close()
 	}
 	return nil
 }
 
 // Write writes to the pipe returning io.EOF when blockSize is reached
-func (writer filePipeWriter) Write(data []byte) (n int, err error) {
+func (writer pipeWriter) Write(data []byte) (n int, err error) {
 	pipe := writer.pipe
 	pipe.mu.Lock()
 
@@ -131,8 +131,8 @@ func (writer filePipeWriter) Write(data []byte) (n int, err error) {
 	writeAt := pipe.write
 	pipe.mu.Unlock()
 
-	// write data to file
-	writeAmount, err := pipe.file.WriteAt(data[:toWrite], writeAt)
+	// write data to buffer
+	writeAmount, err := pipe.buffer.WriteAt(data[:toWrite], writeAt)
 
 	pipe.mu.Lock()
 	// update writing head
@@ -150,7 +150,7 @@ func (writer filePipeWriter) Write(data []byte) (n int, err error) {
 }
 
 // Read reads from the pipe returning io.EOF when writer is closed or blockSize is reached
-func (reader filePipeReader) Read(data []byte) (n int, err error) {
+func (reader pipeReader) Read(data []byte) (n int, err error) {
 	pipe := reader.pipe
 	pipe.mu.Lock()
 	// wait until we have something to read
@@ -188,7 +188,7 @@ func (reader filePipeReader) Read(data []byte) (n int, err error) {
 	pipe.mu.Unlock()
 
 	// read data
-	readAmount, err := pipe.file.ReadAt(data[:toRead], readAt)
+	readAmount, err := pipe.buffer.ReadAt(data[:toRead], readAt)
 
 	pipe.mu.Lock()
 	// update info on how much we have read
@@ -204,7 +204,7 @@ func (reader filePipeReader) Read(data []byte) (n int, err error) {
 
 // MultiFilePipe is a multipipe backed by a single file
 type MultiFilePipe struct {
-	pipes    []filepipe
+	pipes    []pipe
 	refcount int64
 }
 
@@ -232,13 +232,13 @@ func NewMultiPipeFile(tempdir string, blockCount, blockSize int64) (*MultiFilePi
 	}
 
 	multipipe := &MultiFilePipe{
-		pipes:    make([]filepipe, blockCount),
+		pipes:    make([]pipe, blockCount),
 		refcount: blockCount,
 	}
 
 	for i := range multipipe.pipes {
 		pipe := &multipipe.pipes[i]
-		pipe.file = offsetFile{
+		pipe.buffer = offsetFile{
 			file:     tempfile,
 			offset:   int64(i) * blockSize,
 			refcount: &multipipe.refcount,
@@ -271,5 +271,5 @@ func (file offsetFile) Close() error {
 // Pipe returns the two ends of a block stream pipe
 func (multipipe *MultiFilePipe) Pipe(index int) (PipeReader, PipeWriter) {
 	pipe := &multipipe.pipes[index]
-	return filePipeReader{pipe}, filePipeWriter{pipe}
+	return pipeReader{pipe}, pipeWriter{pipe}
 }
