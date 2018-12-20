@@ -62,13 +62,17 @@ type pipeReader struct{ pipe *pipe }
 type pipeWriter struct{ pipe *pipe }
 
 // Close implements io.Reader Close
-func (reader pipeReader) Close() error { return reader.CloseWithError(io.ErrClosedPipe) }
+func (reader pipeReader) Close() error { return reader.CloseWithError(nil) }
 
 // Close implements io.Writer Close
-func (writer pipeWriter) Close() error { return writer.CloseWithError(io.EOF) }
+func (writer pipeWriter) Close() error { return writer.CloseWithError(nil) }
 
 // CloseWithError implements closing with error
 func (reader pipeReader) CloseWithError(err error) error {
+	if err == nil {
+		err = io.ErrClosedPipe
+	}
+
 	pipe := reader.pipe
 	pipe.mu.Lock()
 	if pipe.readerDone {
@@ -84,6 +88,10 @@ func (reader pipeReader) CloseWithError(err error) error {
 
 // CloseWithError implements closing with error
 func (writer pipeWriter) CloseWithError(err error) error {
+	if err == nil {
+		err = io.EOF
+	}
+
 	pipe := writer.pipe
 	pipe.mu.Lock()
 	if pipe.writerDone {

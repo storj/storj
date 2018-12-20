@@ -682,7 +682,7 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 		return nil, nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, 8*memory.KB.Int(), 32*memory.KB.Int64())
+	segments := segments.NewSegmentStore(oc, ec, pdb, rs, 8*memory.KB.Int(), 64*memory.MB.Int64())
 
 	key := new(storj.Key)
 	copy(key[:], TestEncKey)

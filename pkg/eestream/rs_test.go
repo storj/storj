@@ -45,7 +45,7 @@ func TestRS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 32*1024)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestRSUnexpectedEOF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 32*1024)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestRSRanger(t *testing.T) {
 		t.Fatal(err)
 	}
 	readers, err := EncodeReader(ctx, encryption.TransformReader(PadReader(ioutil.NopCloser(
-		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0), rs, 0)
+		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0), rs, 48*1024)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,11 +191,11 @@ func TestNewRedundancyStrategy(t *testing.T) {
 
 func TestRSEncoderInputParams(t *testing.T) {
 	for i, tt := range []struct {
-		expectedReaderSize int64
-		errString          string
+		maxSize   int64
+		errString string
 	}{
 		{0, ""},
-		{-1, "eestream error: negative expected reader size"},
+		{-1, "eestream error: negative max size"},
 		{1024, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
@@ -210,7 +210,7 @@ func TestRSEncoderInputParams(t *testing.T) {
 		if !assert.NoError(t, err, errTag) {
 			continue
 		}
-		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.expectedReaderSize)
+		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.maxSize)
 		if tt.errString == "" {
 			assert.NoError(t, err, errTag)
 		} else {
@@ -221,11 +221,11 @@ func TestRSEncoderInputParams(t *testing.T) {
 
 func TestRSRangerInputParams(t *testing.T) {
 	for i, tt := range []struct {
-		expectedReaderSize int64
-		errString          string
+		maxSize   int64
+		errString string
 	}{
 		{0, ""},
-		{-1, "eestream error: negative expected reader size"},
+		{-1, "eestream error: negative max size"},
 		{1024, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
@@ -240,7 +240,7 @@ func TestRSRangerInputParams(t *testing.T) {
 		if !assert.NoError(t, err, errTag) {
 			continue
 		}
-		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.expectedReaderSize)
+		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.maxSize)
 		if tt.errString == "" {
 			assert.NoError(t, err, errTag)
 		} else {
@@ -448,7 +448,7 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 	if !assert.NoError(t, err, errTag) {
 		return
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 3*1024)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, int64(tt.dataSize))
 	if !assert.NoError(t, err, errTag) {
 		return
 	}
@@ -524,7 +524,7 @@ func TestEncoderStalledReaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 120*1024)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -567,7 +567,7 @@ func TestDecoderErrorWithStalledReaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 10*1024)
 	if err != nil {
 		t.Fatal(err)
 	}

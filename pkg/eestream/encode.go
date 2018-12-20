@@ -99,48 +99,38 @@ func (rs *RedundancyStrategy) OptimalThreshold() int {
 	return rs.optimalThreshold
 }
 
-// SyncBuffer is a synchronized variable-sized buffer used to buffer the
-// generated pieces by erasure coding. Read will block until new data is added
-// or the buffer is closed. If the buffer is closed, Read will continue
-// reading as long as there is data in the buffer.
-type SyncBuffer interface {
-	io.Reader
-	io.Writer
-	io.Closer
-	CloseWithError(err error) error
-}
-
 type encodedReader struct {
-	r     io.Reader
-	rs    RedundancyStrategy
-	inbuf []byte
-	eps   map[int]SyncBuffer
+	r        io.Reader
+	rs       RedundancyStrategy
+	inbuf    []byte
+	pieceBuf *sync2.MultiPipe
 }
 
 // EncodeReader takes a Reader and a RedundancyStrategy and returns a slice of
 // Readers.
 //
-// expectedReaderSize is the size of the expected data in the r reader. It will
-// be used to allocate the necessary internal buffers and avoid unnecessary
-// buffer resizing. Set to 0 if not known.
-func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy, expectedReaderSize int64) ([]io.Reader, error) {
-	if err := checkExpectedReaderSize(expectedReaderSize); err != nil {
+// maxSize is the maximum number of bytes expected to be returned by the Reader.
+func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy, maxSize int64) ([]io.Reader, error) {
+	err := checkMaxSize(maxSize)
+	if err != nil {
 		return nil, err
 	}
 
-	pieceSize := expectedReaderSize / int64(rs.RequiredCount())
+	pieceSize := maxSize / int64(rs.RequiredCount())
 
 	er := &encodedReader{
 		r:     r,
 		rs:    rs,
 		inbuf: make([]byte, rs.StripeSize()),
-		eps:   make(map[int]SyncBuffer, rs.TotalCount()),
 	}
+
+	// TODO: make it configurable between file pipe and memory pipe
+	er.pieceBuf, err = sync2.NewMultiPipeMemory(int64(rs.TotalCount()), pieceSize)
 
 	readers := make([]io.Reader, 0, rs.TotalCount())
 	for i := 0; i < rs.TotalCount(); i++ {
-		er.eps[i] = sync2.NewMemoryBuffer(make([]byte, 0, pieceSize))
-		readers = append(readers, er.eps[i])
+		reader, _ := er.pieceBuf.Pipe(i)
+		readers = append(readers, reader)
 	}
 
 	go er.fillBuffer(ctx)
@@ -164,7 +154,8 @@ func (er *encodedReader) fillBuffer(ctx context.Context) {
 
 		var writeErr error
 		err = er.rs.Encode(er.inbuf, func(num int, data []byte) {
-			_, writeErr = er.eps[num].Write(data)
+			_, writer := er.pieceBuf.Pipe(num)
+			_, writeErr = writer.Write(data)
 		})
 
 		err = utils.CombineErrors(err, writeErr)
@@ -178,13 +169,14 @@ func (er *encodedReader) fillBuffer(ctx context.Context) {
 	}
 
 	var errGroup utils.ErrorGroup
-	for _, buf := range er.eps {
-		errGroup.Add(buf.CloseWithError(err))
+	for i := 0; i < er.rs.TotalCount(); i++ {
+		_, writer := er.pieceBuf.Pipe(i)
+		errGroup.Add(writer.CloseWithError(err))
 	}
 
 	err = errGroup.Finish()
 	if err != nil {
-		zap.S().Errorf("Error closing buffers: %v", err)
+		zap.S().Errorf("Error closing pipe writers: %v", err)
 	}
 }
 
@@ -192,26 +184,26 @@ func (er *encodedReader) fillBuffer(ctx context.Context) {
 // multiple Ranged sub-Readers. EncodedRanger does not match the normal Ranger
 // interface.
 type EncodedRanger struct {
-	rr                 ranger.Ranger
-	rs                 RedundancyStrategy
-	expectedReaderSize int64
+	rr      ranger.Ranger
+	rs      RedundancyStrategy
+	maxSize int64
 }
 
 // NewEncodedRanger from the given Ranger and RedundancyStrategy. See the
 // comments for EncodeReader about the repair and optimal thresholds, and the
 // max buffer memory.
-func NewEncodedRanger(rr ranger.Ranger, rs RedundancyStrategy, expectedReaderSize int64) (*EncodedRanger, error) {
+func NewEncodedRanger(rr ranger.Ranger, rs RedundancyStrategy, maxSize int64) (*EncodedRanger, error) {
 	if rr.Size()%int64(rs.StripeSize()) != 0 {
 		return nil, Error.New("invalid erasure encoder and range reader combo. " +
 			"range reader size must be a multiple of erasure encoder block size")
 	}
-	if err := checkExpectedReaderSize(expectedReaderSize); err != nil {
+	if err := checkMaxSize(maxSize); err != nil {
 		return nil, err
 	}
 	return &EncodedRanger{
-		rs:                 rs,
-		rr:                 rr,
-		expectedReaderSize: expectedReaderSize,
+		rs:      rs,
+		rr:      rr,
+		maxSize: maxSize,
 	}, nil
 }
 
@@ -235,7 +227,7 @@ func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.
 	if err != nil {
 		return nil, err
 	}
-	readers, err := EncodeReader(ctx, r, er.rs, er.expectedReaderSize)
+	readers, err := EncodeReader(ctx, r, er.rs, er.maxSize)
 	if err != nil {
 		return nil, err
 	}
@@ -254,9 +246,9 @@ func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.
 	return readers, nil
 }
 
-func checkExpectedReaderSize(size int64) error {
+func checkMaxSize(size int64) error {
 	if size < 0 {
-		return Error.New("negative expected reader size")
+		return Error.New("negative max size")
 	}
 	return nil
 }
