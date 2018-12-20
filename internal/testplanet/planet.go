@@ -98,7 +98,8 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 	// init Satellites
 	for _, node := range planet.Satellites {
 		pointerServer := pointerdb.NewServer(
-			teststore.New(), node.Overlay,
+			teststore.New(),
+			node.Overlay,
 			node.Log.Named("pdb"),
 			pointerdb.Config{
 				MinRemoteSegmentSize: 1240,
@@ -121,7 +122,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 			AuditCount:        0,
 		}
 
-		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, node.Kademlia, ns)
+		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, ns)
 		pb.RegisterOverlayServer(node.Provider.GRPC(), overlayServer)
 
 		node.Dependencies = append(node.Dependencies,
@@ -184,6 +185,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 func (planet *Planet) Start(ctx context.Context) {
 	for _, node := range planet.nodes {
 		go func(node *Node) {
+			node.Kademlia.StartRefresh(ctx)
 			err := node.Provider.Run(ctx)
 			if err == grpc.ErrServerStopped {
 				err = nil

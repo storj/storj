@@ -162,6 +162,8 @@ export default class HeaderedInput extends Vue implements IEditable {
 		text-indent: 20px;
 		border-color: rgba(56, 75, 101, 0.4);
 		border-radius: 6px;
+		outline: none;
+		box-shadow: none;
 	}
 	textarea {
 		padding-top: 20px;

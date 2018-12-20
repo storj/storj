@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/storage/ec"
+	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/storage/redis"
 )
@@ -63,7 +63,7 @@ func (c Config) getSegmentRepairer(ctx context.Context, identity *provider.FullI
 	defer mon.Task()(&ctx)(&err)
 
 	var oc overlay.Client
-	oc, err = overlay.NewOverlayClient(identity, c.OverlayAddr)
+	oc, err = overlay.NewClient(identity, c.OverlayAddr)
 	if err != nil {
 		return nil, err
 	}

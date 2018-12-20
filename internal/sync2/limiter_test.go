@@ -1,19 +1,21 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package sync2
+package sync2_test
 
 import (
 	"context"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"storj.io/storj/internal/sync2"
 )
 
 func TestLimiterLimiting(t *testing.T) {
 	const N, Limit = 1000, 10
 	ctx := context.Background()
-	limiter := NewLimiter(Limit)
+	limiter := sync2.NewLimiter(Limit)
 	counter := int32(0)
 	for i := 0; i < N; i++ {
 		limiter.Go(ctx, func() {
@@ -29,7 +31,7 @@ func TestLimiterLimiting(t *testing.T) {
 
 func TestLimiterCancelling(t *testing.T) {
 	const N, Limit = 1000, 10
-	limiter := NewLimiter(Limit)
+	limiter := sync2.NewLimiter(Limit)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
