@@ -4,11 +4,9 @@
 // Project is a type, used for creating new project in backend
 declare type Project = {
 	id: string,
-	ownerName: string,
 
 	name: string,
 	description: string,
-	companyName: string,
 	isTermsAccepted: boolean,
 	createdAt: string,
 
@@ -28,9 +26,6 @@ declare type TeamMemberModel = {
 		email: string,
 		firstName: string,
 		lastName: string,
-		company: {
-			companyName: string,
-		}
 	}
 	joinedAt: string,
 }

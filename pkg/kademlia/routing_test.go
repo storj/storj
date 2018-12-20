@@ -142,7 +142,7 @@ func TestConnectionSuccess(t *testing.T) {
 			id:      id,
 			address: address1,
 		},
-		{testID: "Add Node",
+		{testID: "Create Node",
 			node:    node2,
 			id:      id2,
 			address: address2,

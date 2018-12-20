@@ -6,6 +6,7 @@ package satelliteql
 import (
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/pkg/utils"
@@ -19,9 +20,6 @@ const (
 	updateUserMutation         = "updateUser"
 	deleteUserMutation         = "deleteUser"
 	changeUserPasswordMutation = "changeUserPassword"
-
-	createCompanyMutation = "createCompany"
-	updateCompanyMutation = "updateCompany"
 
 	createProjectMutation            = "createProject"
 	deleteProjectMutation            = "deleteProject"
@@ -150,62 +148,6 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					return user, err
 				},
 			},
-			createCompanyMutation: &graphql.Field{
-				Type: types.Company(),
-				Args: graphql.FieldConfigArgument{
-					fieldUserID: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-					input: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(types.CompanyInput()),
-					},
-				},
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					id, err := uuidIDAuthFallback(p, fieldUserID)
-					if err != nil {
-						return nil, err
-					}
-
-					input, _ := p.Args[input].(map[string]interface{})
-
-					info := fromMapCompanyInfo(input)
-					return service.CreateCompany(p.Context, *id, info)
-				},
-			},
-			updateCompanyMutation: &graphql.Field{
-				Type: types.Company(),
-				Args: graphql.FieldConfigArgument{
-					fieldUserID: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-					input: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(types.CompanyInput()),
-					},
-				},
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					id, err := uuidIDAuthFallback(p, fieldUserID)
-					if err != nil {
-						return nil, err
-					}
-
-					input, _ := p.Args[input].(map[string]interface{})
-
-					company, err := service.GetCompany(p.Context, *id)
-					if err != nil {
-						return nil, err
-					}
-
-					updatedCompany := *company
-					info := fillCompanyInfo(&updatedCompany, input)
-
-					err = service.UpdateCompany(p.Context, *id, info)
-					if err != nil {
-						return company, err
-					}
-
-					return &updatedCompany, nil
-				},
-			},
 			// creates project from input params
 			createProjectMutation: &graphql.Field{
 				Type: types.Project(),
@@ -269,24 +211,44 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						Type: graphql.NewNonNull(graphql.String),
 					},
 					fieldUserID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type: graphql.NewNonNull(graphql.NewList(graphql.String)),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					pID, _ := p.Args[fieldProjectID].(string)
-					uID, _ := p.Args[fieldUserID].(string)
+					uID, _ := p.Args[fieldUserID].([]interface{})
 
 					projectID, pErr := uuid.Parse(pID)
-					userID, uErr := uuid.Parse(uID)
 
-					err := utils.CombineErrors(pErr, uErr)
+					var userIDs []*uuid.UUID
+					var userErr errs.Group
+
+					for _, userID := range uID {
+						id, err := uuid.Parse(userID.(string))
+						if err != nil {
+							userErr.Add(err)
+							continue
+						}
+
+						userIDs = append(userIDs, id)
+					}
+
+					err := errs.Combine(pErr, userErr.Err())
 					if err != nil {
 						return nil, err
 					}
 
-					err = service.AddProjectMember(p.Context, *projectID, *userID)
-					project, getErr := service.GetProject(p.Context, *projectID)
-					return project, utils.CombineErrors(err, getErr)
+					var addMemberErr errs.Group
+					for _, userID := range userIDs {
+						err = service.AddProjectMember(p.Context, *projectID, *userID)
+						addMemberErr.Add(err)
+					}
+
+					if err = addMemberErr.Err(); err != nil {
+						return nil, err
+					}
+
+					return service.GetProject(p.Context, *projectID)
 				},
 			},
 			// delete user membership for given project
@@ -297,24 +259,44 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						Type: graphql.NewNonNull(graphql.String),
 					},
 					fieldUserID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type: graphql.NewNonNull(graphql.NewList(graphql.String)),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					pID, _ := p.Args[fieldProjectID].(string)
-					uID, _ := p.Args[fieldUserID].(string)
+					uID, _ := p.Args[fieldUserID].([]interface{})
 
 					projectID, pErr := uuid.Parse(pID)
-					userID, uErr := uuid.Parse(uID)
 
-					err := utils.CombineErrors(pErr, uErr)
+					var userIDs []*uuid.UUID
+					var userErr errs.Group
+
+					for _, userID := range uID {
+						id, err := uuid.Parse(userID.(string))
+						if err != nil {
+							userErr.Add(err)
+							continue
+						}
+
+						userIDs = append(userIDs, id)
+					}
+
+					err := errs.Combine(pErr, userErr.Err())
 					if err != nil {
 						return nil, err
 					}
 
-					err = service.DeleteProjectMember(p.Context, *projectID, *userID)
-					project, getErr := service.GetProject(p.Context, *projectID)
-					return project, utils.CombineErrors(err, getErr)
+					var deleteMemberErr errs.Group
+					for _, userID := range userIDs {
+						err = service.DeleteProjectMember(p.Context, *projectID, *userID)
+						deleteMemberErr.Add(err)
+					}
+
+					if err = deleteMemberErr.Err(); err != nil {
+						return nil, err
+					}
+
+					return service.GetProject(p.Context, *projectID)
 				},
 			},
 		},

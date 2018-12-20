@@ -65,7 +65,7 @@ func NewProvider(opts *ServerOptions, lis net.Listener, interceptor grpc.UnarySe
 	}, nil
 }
 
-// SetupIdentity ensures a CA and identity exist and returns a config overrides map
+// SetupIdentity ensures a CA and identity exist
 func SetupIdentity(ctx context.Context, c CASetupConfig, i IdentitySetupConfig) error {
 	if s := c.Status(); s != NoCertNoKey && !c.Overwrite {
 		return ErrSetup.New("certificate authority file(s) exist: %s", s)
@@ -78,18 +78,36 @@ func SetupIdentity(ctx context.Context, c CASetupConfig, i IdentitySetupConfig) 
 	ctx, cancel := context.WithTimeout(ctx, t)
 	defer cancel()
 
-	// Load or create a certificate authority
+	// Create a new certificate authority
 	ca, err := c.Create(ctx)
 	if err != nil {
 		return err
 	}
 
-	if s := c.Status(); s != NoCertNoKey && !c.Overwrite {
+	if s := i.Status(); s != NoCertNoKey && !i.Overwrite {
 		return ErrSetup.New("identity file(s) exist: %s", s)
 	}
 
 	// Create identity from new CA
 	_, err = i.Create(ca)
+	return err
+}
+
+// SetupCA ensures a CA exists
+func SetupCA(ctx context.Context, c CASetupConfig) error {
+	if s := c.Status(); s != NoCertNoKey && !c.Overwrite {
+		return ErrSetup.New("certificate authority file(s) exist: %s", s)
+	}
+
+	t, err := time.ParseDuration(c.Timeout)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	ctx, cancel := context.WithTimeout(ctx, t)
+	defer cancel()
+
+	// Create a new certificate authority
+	_, err = c.Create(ctx)
 	return err
 }
 
