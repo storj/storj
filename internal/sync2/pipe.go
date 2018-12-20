@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
-	"os"
 	"sync"
 	"sync/atomic"
 )
@@ -31,8 +30,8 @@ type pipe struct {
 	readerErr  error
 }
 
-// NewFilePipe returns a pipe that uses file-system to offload memory
-func NewFilePipe(tempdir string) (PipeReader, PipeWriter, error) {
+// NewPipeFile returns a pipe that uses file-system to offload memory
+func NewPipeFile(tempdir string) (PipeReader, PipeWriter, error) {
 	tempfile, err := ioutil.TempFile(tempdir, "filepipe")
 	if err != nil {
 		return nil, nil, err
@@ -45,6 +44,17 @@ func NewFilePipe(tempdir string) (PipeReader, PipeWriter, error) {
 	}
 	pipe.nodata.L = &pipe.mu
 
+	return pipeReader{pipe}, pipeWriter{pipe}, nil
+}
+
+// NewPipeMemory returns a pipe that uses an inmemory buffer
+func NewPipeMemory(size int64) (PipeReader, PipeWriter, error) {
+	pipe := &pipe{
+		buffer:   make(memory, size),
+		refcount: 2,
+		limit:    size,
+	}
+	pipe.nodata.L = &pipe.mu
 	return pipeReader{pipe}, pipeWriter{pipe}, nil
 }
 
@@ -202,21 +212,15 @@ func (reader pipeReader) Read(data []byte) (n int, err error) {
 	return readAmount, err
 }
 
-// MultiFilePipe is a multipipe backed by a single file
-type MultiFilePipe struct {
+// MultiPipe is a multipipe backed by a single file
+type MultiPipe struct {
 	pipes    []pipe
 	refcount int64
 }
 
-type offsetFile struct {
-	file     *os.File
-	offset   int64
-	refcount *int64
-}
-
-// NewMultiPipeFile returns a new MultiFilePipe that is created in tempdir
+// NewMultiPipeFile returns a new MultiPipe that is created in tempdir
 // if tempdir == "" the fill will be created it into os.TempDir
-func NewMultiPipeFile(tempdir string, blockCount, blockSize int64) (*MultiFilePipe, error) {
+func NewMultiPipeFile(tempdir string, blockCount, blockSize int64) (*MultiPipe, error) {
 	tempfile, err := ioutil.TempFile(tempdir, "multifilepipe")
 	if err != nil {
 		return nil, err
@@ -231,7 +235,7 @@ func NewMultiPipeFile(tempdir string, blockCount, blockSize int64) (*MultiFilePi
 		return nil, err
 	}
 
-	multipipe := &MultiFilePipe{
+	multipipe := &MultiPipe{
 		pipes:    make([]pipe, blockCount),
 		refcount: blockCount,
 	}
@@ -250,26 +254,28 @@ func NewMultiPipeFile(tempdir string, blockCount, blockSize int64) (*MultiFilePi
 	return multipipe, nil
 }
 
-// ReadAt implements io.ReaderAt methods
-func (file offsetFile) ReadAt(data []byte, at int64) (amount int, err error) {
-	return file.file.ReadAt(data, file.offset+at)
-}
+// NewMultiPipeMemory returns a new MultiPipe that is created in tempdir
+// if tempdir == "" the fill will be created it into os.TempDir
+func NewMultiPipeMemory(blockCount, blockSize int64) (*MultiPipe, error) {
+	buffer := make(memory, blockCount*blockSize)
 
-// WriteAt implements io.WriterAt methods
-func (file offsetFile) WriteAt(data []byte, at int64) (amount int, err error) {
-	return file.file.WriteAt(data, file.offset+at)
-}
-
-// Close implements io.Closer methods
-func (file offsetFile) Close() error {
-	if atomic.AddInt64(file.refcount, -1) == 0 {
-		return file.Close()
+	multipipe := &MultiPipe{
+		pipes:    make([]pipe, blockCount),
+		refcount: blockCount,
 	}
-	return nil
+
+	for i := range multipipe.pipes {
+		pipe := &multipipe.pipes[i]
+		pipe.buffer = buffer[i*int(blockSize) : (i+1)*int(blockSize)]
+		pipe.limit = blockSize
+		pipe.nodata.L = &pipe.mu
+	}
+
+	return multipipe, nil
 }
 
 // Pipe returns the two ends of a block stream pipe
-func (multipipe *MultiFilePipe) Pipe(index int) (PipeReader, PipeWriter) {
+func (multipipe *MultiPipe) Pipe(index int) (PipeReader, PipeWriter) {
 	pipe := &multipipe.pipes[index]
 	return pipeReader{pipe}, pipeWriter{pipe}
 }
