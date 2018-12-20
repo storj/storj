@@ -75,7 +75,7 @@ func TestHappyPath(t *testing.T) {
 		{ID: "test", Expiration: 666},
 	}
 
-	t.Run("Add", func(t *testing.T) {
+	t.Run("Create", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
