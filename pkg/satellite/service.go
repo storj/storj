@@ -169,62 +169,7 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string)
 		return ErrUnauthorized.New("origin password is incorrect")
 	}
 
-	projects, err := s.store.Projects().GetByOwnerID(ctx, auth.User.ID)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	if len(projects) > 0 {
-		return errs.New("can't delete account with project ownership")
-	}
-
 	return s.store.Users().Delete(ctx, id)
-}
-
-// CreateCompany creates Company for User with given id
-func (s *Service) CreateCompany(ctx context.Context, userID uuid.UUID, info CompanyInfo) (*Company, error) {
-	_, err := GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.store.Companies().Insert(ctx, &Company{
-		UserID:     userID,
-		Name:       info.Name,
-		Address:    info.Address,
-		Country:    info.Country,
-		City:       info.City,
-		State:      info.State,
-		PostalCode: info.PostalCode,
-	})
-}
-
-// GetCompany returns Company by userID
-func (s *Service) GetCompany(ctx context.Context, userID uuid.UUID) (*Company, error) {
-	_, err := GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.store.Companies().GetByUserID(ctx, userID)
-}
-
-// UpdateCompany updates Company with given userID
-func (s *Service) UpdateCompany(ctx context.Context, userID uuid.UUID, info CompanyInfo) error {
-	_, err := GetAuth(ctx)
-	if err != nil {
-		return err
-	}
-
-	return s.store.Companies().Update(ctx, &Company{
-		UserID:     userID,
-		Name:       info.Name,
-		Address:    info.Address,
-		Country:    info.Country,
-		City:       info.City,
-		State:      info.State,
-		PostalCode: info.PostalCode,
-	})
 }
 
 // GetProject is a method for querying project by id
@@ -259,9 +204,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 	}
 
 	project := &Project{
-		OwnerID:       &auth.User.ID,
 		Description:   projectInfo.Description,
-		CompanyName:   projectInfo.CompanyName,
 		Name:          projectInfo.Name,
 		TermsAccepted: 1, //TODO: get lat version of Term of Use
 	}
@@ -286,20 +229,12 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 
 // DeleteProject is a method for deleting project by id
 func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) error {
-	auth, err := GetAuth(ctx)
+	_, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	project, err := s.store.Projects().Get(ctx, projectID)
-	if err != nil {
-		return err
-	}
-
-	if !uuid.Equal(auth.User.ID, *project.OwnerID) {
-		return ErrUnauthorized.New("only owner can delete the project")
-	}
-
+	// TODO: before deletion we should check if user is a project member
 	return s.store.Projects().Delete(ctx, projectID)
 }
 

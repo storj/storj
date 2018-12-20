@@ -21,9 +21,6 @@ const (
 	deleteUserMutation         = "deleteUser"
 	changeUserPasswordMutation = "changeUserPassword"
 
-	createCompanyMutation = "createCompany"
-	updateCompanyMutation = "updateCompany"
-
 	createProjectMutation            = "createProject"
 	deleteProjectMutation            = "deleteProject"
 	updateProjectDescriptionMutation = "updateProjectDescription"
@@ -149,62 +146,6 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 
 					err = service.DeleteUser(p.Context, *id, password)
 					return user, err
-				},
-			},
-			createCompanyMutation: &graphql.Field{
-				Type: types.Company(),
-				Args: graphql.FieldConfigArgument{
-					fieldUserID: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-					input: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(types.CompanyInput()),
-					},
-				},
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					id, err := uuidIDAuthFallback(p, fieldUserID)
-					if err != nil {
-						return nil, err
-					}
-
-					input, _ := p.Args[input].(map[string]interface{})
-
-					info := fromMapCompanyInfo(input)
-					return service.CreateCompany(p.Context, *id, info)
-				},
-			},
-			updateCompanyMutation: &graphql.Field{
-				Type: types.Company(),
-				Args: graphql.FieldConfigArgument{
-					fieldUserID: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-					input: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(types.CompanyInput()),
-					},
-				},
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					id, err := uuidIDAuthFallback(p, fieldUserID)
-					if err != nil {
-						return nil, err
-					}
-
-					input, _ := p.Args[input].(map[string]interface{})
-
-					company, err := service.GetCompany(p.Context, *id)
-					if err != nil {
-						return nil, err
-					}
-
-					updatedCompany := *company
-					info := fillCompanyInfo(&updatedCompany, input)
-
-					err = service.UpdateCompany(p.Context, *id, info)
-					if err != nil {
-						return company, err
-					}
-
-					return &updatedCompany, nil
 				},
 			},
 			// creates project from input params

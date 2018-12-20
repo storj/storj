@@ -81,9 +81,9 @@ export const projectMembersModule = {
 		clearProjectMemberSelection: function ({commit}: any) {
 			commit(PROJECT_MEMBER_MUTATIONS.CLEAR_SELECTION);
 		},
-		fetchProjectMembers: async function ({commit, rootGetters}: any): Promise<boolean> {
+		fetchProjectMembers: async function ({commit, rootGetters}: any, limitoffset: any): Promise<boolean> {
 			const projectId = rootGetters.selectedProject.id;
-			const response = await fetchProjectMembers(projectId);
+			const response = await fetchProjectMembers(projectId, limitoffset.limit, limitoffset.offset);
 
 			if (!response || !response.data) {
 				return false;
