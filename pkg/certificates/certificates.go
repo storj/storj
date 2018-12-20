@@ -38,8 +38,6 @@ var (
 	ErrAuthorization = errs.Class("authorization error")
 	// ErrAuthorizationDB is used when an error occurs involving the authorization database.
 	ErrAuthorizationDB = errs.Class("authorization db error")
-	// ErrNotEnoughRandom is used when the number of bytes read from a random source are insufficient.
-	ErrNotEnoughRandom = ErrAuthorization.New("unable to read enough random bytes")
 	// ErrAuthorizationCount is used when attempting to create an invalid number of authorizations.
 	ErrAuthorizationCount = ErrAuthorizationDB.New("cannot add less than one authorizations")
 )
@@ -65,7 +63,7 @@ type AuthorizationDB struct {
 // and grouping.
 type Authorizations []*Authorization
 
-// Authorization represents a single-use authorization token and it's status
+// Authorization represents a single-use authorization token and its status
 type Authorization struct {
 	Token Token
 	Claim *Claim
@@ -96,12 +94,9 @@ func NewServer(log *zap.Logger) pb.CertificatesServer {
 // NewAuthorization creates a new, unclaimed authorization with a random token value
 func NewAuthorization() (*Authorization, error) {
 	var token Token
-	i, err := rand.Read(token[:])
+	_, err := rand.Read(token[:])
 	if err != nil {
 		return nil, ErrAuthorization.Wrap(err)
-	}
-	if i != tokenLength {
-		return nil, ErrNotEnoughRandom
 	}
 
 	return &Authorization{
@@ -175,6 +170,9 @@ func (a *AuthorizationDB) Close() error {
 
 // Create creates a new authorization and adds it to the authorization database.
 func (a *AuthorizationDB) Create(email string, count int) (Authorizations, error) {
+	if len(email) == 0 {
+		return nil, ErrAuthorizationDB.New("email cannot be empty")
+	}
 	if count < 1 {
 		return nil, ErrAuthorizationCount
 	}

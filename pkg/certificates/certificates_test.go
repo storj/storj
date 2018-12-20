@@ -6,12 +6,14 @@ package certificates
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
@@ -267,12 +269,13 @@ func TestAuthorizationDB_Emails(t *testing.T) {
 
 	var authErrs utils.ErrorGroup
 	for i := 0; i < 5; i++ {
-		_, err := authDB.Create("user%s@example.com", 1)
+		_, err := authDB.Create(fmt.Sprintf("user%d@example.com", i), 1)
 		if err != nil {
 			authErrs.Add(err)
 		}
 	}
-	if err = authErrs.Finish(); !assert.NoError(t, err) {
+	err = authErrs.Finish()
+	if !assert.NoError(t, err) {
 		t.Fatal(err)
 	}
 
