@@ -6,7 +6,7 @@ package satelliteql
 import (
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
-
+	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/pkg/utils"
 )
@@ -279,33 +279,37 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					projectID, pErr := uuid.Parse(pID)
 
 					var userIDs []*uuid.UUID
-					var userErr error
+					var userErr errs.Group
 
 					for _, userID := range uID {
 						id, err := uuid.Parse(userID.(string))
 						if err != nil {
-							userErr = utils.CombineErrors(userErr, err)
+							userErr.Add(err)
 							continue
 						}
 
 						userIDs = append(userIDs, id)
 					}
 
-					err := utils.CombineErrors(pErr, userErr)
+					err := utils.CombineErrors(pErr, userErr.Err())
 					if err != nil {
 						return nil, err
 					}
 
-					var addMemberErr error
+					var addMemberErr errs.Group
 					for _, userID := range userIDs {
 						err = service.AddProjectMember(p.Context, *projectID, *userID)
-						if err != nil {
-							addMemberErr = utils.CombineErrors(addMemberErr, err)
-						}
+						addMemberErr.Add(err)
 					}
 
 					project, getErr := service.GetProject(p.Context, *projectID)
-					return project, utils.CombineErrors(addMemberErr, getErr)
+
+					err = utils.CombineErrors(getErr, addMemberErr.Err())
+					if err != nil {
+						project = nil
+					}
+
+					return project, err
 				},
 			},
 			// delete user membership for given project
@@ -326,33 +330,37 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					projectID, pErr := uuid.Parse(pID)
 
 					var userIDs []*uuid.UUID
-					var userErr error
+					var userErr errs.Group
 
 					for _, userID := range uID {
 						id, err := uuid.Parse(userID.(string))
 						if err != nil {
-							userErr = utils.CombineErrors(userErr, err)
+							userErr.Add(err)
 							continue
 						}
 
 						userIDs = append(userIDs, id)
 					}
 
-					err := utils.CombineErrors(pErr, userErr)
+					err := utils.CombineErrors(pErr, userErr.Err())
 					if err != nil {
 						return nil, err
 					}
 
-					var deleteMemberErr error
+					var deleteMemberErr errs.Group
 					for _, userID := range userIDs {
 						err = service.DeleteProjectMember(p.Context, *projectID, *userID)
-						if err != nil {
-							deleteMemberErr = utils.CombineErrors(deleteMemberErr, err)
-						}
+						deleteMemberErr.Add(err)
 					}
 
 					project, getErr := service.GetProject(p.Context, *projectID)
-					return project, utils.CombineErrors(deleteMemberErr, getErr)
+
+					err = utils.CombineErrors(getErr, deleteMemberErr.Err())
+					if err != nil {
+						project = nil
+					}
+
+					return project, err
 				},
 			},
 		},
