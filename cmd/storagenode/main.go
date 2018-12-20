@@ -118,8 +118,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	if !setupCfg.Overwrite && !valid {
-		fmt.Printf("storagenode configuration already exists (%v). rerun with --overwrite\n", setupDir)
-		return nil
+		return fmt.Errorf("storagenode configuration already exists (%v). Rerun with --overwrite\n", setupDir)
 	} else if setupCfg.Overwrite && err == nil {
 		fmt.Println("overwriting existing satellite config")
 		err = os.RemoveAll(setupDir)
