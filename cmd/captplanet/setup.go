@@ -55,6 +55,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	valid, err := fpath.IsValidSetupDir(setupDir)
+	if err != nil {
+		return err
+	}
 	if !setupCfg.Overwrite && !valid {
 		fmt.Printf("captplanet configuration already exists (%v). rerun with --overwrite\n", setupDir)
 		return nil
