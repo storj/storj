@@ -160,7 +160,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 	setupDir, err := filepath.Abs(*confDir)
 	if err != nil {
-		fmt.Println("HERE")
 		return err
 	}
 	//run setup if it hasn't been run yet
@@ -168,7 +167,6 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 	if valid {
 		err = cmdSetup(cmd, args)
 		if err != nil {
-			fmt.Println("HERE2")
 			return err
 		}
 	}
