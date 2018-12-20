@@ -29,12 +29,12 @@ type Discovery struct {
 }
 
 // NewDiscovery Returns a new Discovery instance with cache, kad, and statdb loaded on
-func NewDiscovery(ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB, logger *zap.Logger) *Discovery {
+func NewDiscovery(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB) *Discovery {
 	return &Discovery{
+		log:    logger,
 		cache:  ol,
 		kad:    kad,
 		statdb: stat,
-		log:    logger,
 	}
 }
 

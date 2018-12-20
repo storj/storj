@@ -218,7 +218,7 @@ func (rt *RoutingTable) iterate(opts storage.IterateOptions, f func(it storage.I
 func (rt RoutingTable) ConnFailure(ctx context.Context, node *pb.Node, err error) {
 	err2 := rt.ConnectionFailed(node)
 	if err2 != nil {
-		zap.L().Debug(fmt.Sprintf("error removing node from routing table: %+v : %+v", err, err2))
+		zap.L().Debug(fmt.Sprintf("error with ConnFailure hook  %+v : %+v", err, err2))
 	}
 }
 
