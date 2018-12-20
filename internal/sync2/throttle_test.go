@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package sync2
+package sync2_test
 
 import (
 	"fmt"
@@ -11,10 +11,12 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"storj.io/storj/internal/sync2"
 )
 
 func ExampleThrottle() {
-	throttle := NewThrottle()
+	throttle := sync2.NewThrottle()
 	var wg sync.WaitGroup
 
 	// consumer
@@ -58,7 +60,7 @@ func ExampleThrottle() {
 }
 
 func TestThrottleBasic(t *testing.T) {
-	throttle := NewThrottle()
+	throttle := sync2.NewThrottle()
 	var stage int64
 	c := make(chan error, 1)
 

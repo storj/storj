@@ -287,7 +287,8 @@ func (r RevocationDB) Put(chain []*x509.Certificate, revExt pkix.Extension) erro
 		return err
 	}
 
-	// TODO: what happens if cert/timestamp/sig is empty/garbage?
+	// TODO: do we care if cert/timestamp/sig is empty/garbage?
+	// TODO(bryanchriswhite): test empty/garbage cert/timestamp/sig
 
 	if err := rev.Verify(ca); err != nil {
 		return err

@@ -55,8 +55,9 @@ var (
 		Storage  psserver.Config
 	}
 	setupCfg struct {
-		CA       provider.CASetupConfig
-		Identity provider.IdentitySetupConfig
+		CA        provider.CASetupConfig
+		Identity  provider.IdentitySetupConfig
+		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 	diagCfg struct {
 	}
@@ -110,6 +111,17 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	setupDir, err := filepath.Abs(*confDir)
 	if err != nil {
 		return err
+	}
+
+	valid, err := fpath.IsValidSetupDir(setupDir)
+	if !setupCfg.Overwrite && !valid {
+		return fmt.Errorf("storagenode configuration already exists (%v). Rerun with --overwrite", setupDir)
+	} else if setupCfg.Overwrite && err == nil {
+		fmt.Println("overwriting existing satellite config")
+		err = os.RemoveAll(setupDir)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = os.MkdirAll(setupDir, 0700)

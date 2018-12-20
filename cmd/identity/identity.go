@@ -67,7 +67,7 @@ func cmdNewID(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	s := newIDCfg.Identity.Stat()
+	s := newIDCfg.Identity.Status()
 	if s == provider.NoCertNoKey || newIDCfg.Identity.Overwrite {
 		_, err := newIDCfg.Identity.Create(ca)
 		return err

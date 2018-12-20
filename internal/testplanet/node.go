@@ -175,11 +175,10 @@ func (node *Node) initOverlay(planet *Planet) error {
 	if err != nil {
 		return utils.CombineErrors(err, routing.Close())
 	}
+
 	node.Kademlia = kad
-
 	node.StatDB = node.Database.StatDB()
-
-	node.Overlay = overlay.NewOverlayCache(teststore.New(), node.Kademlia, node.StatDB)
+	node.Overlay = overlay.NewCache(teststore.New(), node.StatDB)
 	node.Discovery = discovery.NewDiscovery(node.Overlay, node.Kademlia, node.StatDB, zap.L())
 
 	return nil
