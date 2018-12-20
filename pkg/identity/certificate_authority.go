@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"io/ioutil"
+	"log"
 
 	"github.com/zeebo/errs"
 
@@ -178,16 +179,20 @@ func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
 func NewCA(ctx context.Context, opts NewCAOptions) (
 	rv *FullCertificateAuthority, err error) {
 	defer mon.Task()(&ctx)(&err)
+	var (
+		highscore uint32
+	)
 
 	if opts.Concurrency < 1 {
 		opts.Concurrency = 1
 	}
 	ctx, cancel := context.WithCancel(ctx)
 
+	log.Printf("Generating a certificate matching a difficulty of %d\n", opts.Difficulty)
 	eC := make(chan error)
 	caC := make(chan FullCertificateAuthority, 1)
 	for i := 0; i < int(opts.Concurrency); i++ {
-		go newCAWorker(ctx, opts.Difficulty, opts.ParentCert, opts.ParentKey, caC, eC)
+		go newCAWorker(ctx, i, &highscore, opts.Difficulty, opts.ParentCert, opts.ParentKey, caC, eC)
 	}
 
 	select {
@@ -197,6 +202,9 @@ func NewCA(ctx context.Context, opts NewCAOptions) (
 	case err := <-eC:
 		cancel()
 		return nil, err
+	case <-ctx.Done():
+		cancel()
+		return nil, ctx.Err()
 	}
 }
 
