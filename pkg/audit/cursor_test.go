@@ -129,7 +129,7 @@ func TestAuditSegment(t *testing.T) {
 	db := teststore.New()
 	c := pointerdb.Config{MaxInlineSegmentSize: 8000}
 
-	cache := overlay.NewOverlayCache(teststore.New(), nil)
+	cache := overlay.NewCache(teststore.New(), nil)
 
 	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c, identity))
 	pointers := pdbclient.New(pdbw)

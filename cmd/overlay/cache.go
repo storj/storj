@@ -30,5 +30,5 @@ func (c cacheConfig) open(ctx context.Context) (cache *overlay.Cache, dbClose fu
 		}
 	}
 
-	return overlay.NewOverlayCache(database.OverlayCache(), nil, database.StatDB()), dbClose, nil
+	return overlay.NewCache(database.OverlayCache(), nil, database.StatDB()), dbClose, nil
 }

@@ -38,8 +38,8 @@ type Cache struct {
 	statDB statdb.DB
 }
 
-// NewOverlayCache returns a new Cache
-func NewOverlayCache(db storage.KeyValueStore, sdb statdb.DB) *Cache {
+// NewCache returns a new Cache
+func NewCache(db storage.KeyValueStore, sdb statdb.DB) *Cache {
 	return &Cache{db: db, statDB: sdb}
 }
 

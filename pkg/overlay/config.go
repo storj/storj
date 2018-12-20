@@ -70,7 +70,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return Error.Wrap(errs.New("unable to get master db instance"))
 	}
 
-	cache := NewOverlayCache(sdb.OverlayCache(), sdb.StatDB())
+	cache := NewCache(sdb.OverlayCache(), sdb.StatDB())
 
 	ns := &pb.NodeStats{
 		UptimeCount:       c.Node.UptimeCount,
