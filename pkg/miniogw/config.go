@@ -126,7 +126,7 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context, identity *provi
 func (c Config) GetMetainfo(ctx context.Context, identity *provider.FullIdentity) (db storj.Metainfo, ss streams.Store, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	oc, err := overlay.NewOverlayClient(identity, c.Client.OverlayAddr)
+	oc, err := overlay.NewClient(identity, c.Client.OverlayAddr)
 	if err != nil {
 		return nil, nil, err
 	}
