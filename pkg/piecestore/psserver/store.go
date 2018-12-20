@@ -5,6 +5,7 @@ package psserver
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -45,7 +46,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("PieceStore message is nil")
 	}
 
-	zap.S().Infof("Storing %s...", pd.GetId())
+	s.log.Debug("Storing", zap.String("Piece ID", fmt.Sprint(pd.GetId())))
 
 	if pd.GetId() == "" {
 		return StoreError.New("piece ID not specified")
@@ -68,7 +69,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	if err = s.DB.AddBandwidthUsed(total); err != nil {
 		return StoreError.New("failed to write bandwidth info to database: %v", err)
 	}
-	zap.S().Infof("Successfully stored %s.", pd.GetId())
+	s.log.Debug("Successfully stored", zap.String("Piece ID", fmt.Sprint(pd.GetId())))
 
 	return reqStream.SendAndClose(&pb.PieceStoreSummary{Message: OK, TotalReceived: total})
 }
@@ -80,7 +81,7 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	defer func() {
 		if err != nil && err != io.EOF {
 			if deleteErr := s.deleteByID(id); deleteErr != nil {
-				zap.S().Errorf("Failed on deleteByID in Store: %s", deleteErr.Error())
+				s.log.Error("Failed on deleteByID in Store", zap.Error(deleteErr))
 			}
 		}
 	}()
@@ -105,18 +106,13 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	spaceLeft := s.totalAllocated - spaceUsed
 	reader := NewStreamReader(s, stream, bwLeft, spaceLeft)
 
-	defer func() {
-		baWriteErr := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
-		if baWriteErr != nil {
-			zap.S().Errorf("Error while writing Bandwidth Alloc to DB: %s\n", baWriteErr.Error())
-		}
-	}()
-
 	total, err = io.Copy(storeFile, reader)
 
 	if err != nil && err != io.EOF {
 		return 0, err
 	}
 
-	return total, nil
+	err = s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
+
+	return total, err
 }

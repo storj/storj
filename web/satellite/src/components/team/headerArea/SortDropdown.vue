@@ -3,13 +3,13 @@
 
 <template>
     <!-- To close popup we need to use method onCloseClick -->
-    <div class="sort-dropdown-choice-container" >
+    <div class="sort-dropdown-choice-container">
         <div class="sort-dropdown-overflow-container">
             <!-- TODO: add selection logic onclick -->
-            <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick" >
+            <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick">
                 <h2>Sort by company</h2>
             </div>
-            <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick" >
+            <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick">
                 <h2>Sort by date</h2>
             </div>
         </div>
@@ -20,11 +20,9 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 @Component(
-    { 
-        data: function() {
-            return {
-               
-            }
+    {
+        data: function () {
+            return {};
         },
         props: {
             onClose: {
@@ -32,17 +30,18 @@ import { Component, Vue } from 'vue-property-decorator';
             }
         },
         methods: {
-            onCloseClick: function() : void {
-                this.$emit("onClose");
+            onCloseClick: function (): void {
+                this.$emit('onClose');
             },
-            onSortUsersClick: function() : void {
-                this.$emit("onClose");
+            onSortUsersClick: function (): void {
+                this.$emit('onClose');
             }
         },
     }
 )
 
-export default class SortDropdown extends Vue {}
+export default class SortDropdown extends Vue {
+}
 </script>
 
 <style scoped lang="scss">
@@ -56,12 +55,14 @@ export default class SortDropdown extends Vue {}
         background-color: #FFFFFF;
         z-index: 800;
     }
+
     .sort-dropdown-overflow-container {
         position: relative;
         width: 260px;
         height: auto;
         background-color: #FFFFFF;
     }
+
     .sort-dropdown-item-container {
         display: flex;
         flex-direction: row;
@@ -70,9 +71,9 @@ export default class SortDropdown extends Vue {}
         padding-left: 20px;
         padding-right: 20px;
 
-        h2{
+        h2 {
             font-family: 'montserrat_regular';
-            margin-left: 20px; 
+            margin-left: 20px;
             font-size: 14px;
             line-height: 20px;
             color: #354049;
@@ -80,13 +81,14 @@ export default class SortDropdown extends Vue {}
 
         &:hover {
             background-color: #F2F2F6;
+
             path {
                 fill: #2683FF !important;
             }
         }
 
     }
-    
+
     a {
         text-decoration: none;
         outline: none;

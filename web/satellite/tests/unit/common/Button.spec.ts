@@ -1,22 +1,22 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { shallowMount, mount } from '@vue/test-utils';
-import Button from "@/components/common/Button.vue";
+import { mount, shallowMount } from '@vue/test-utils';
+import Button from '@/components/common/Button.vue';
 import * as sinon from 'sinon';
 
 describe('Button.vue', () => {
 
 	it('renders correctly', () => {
 
-    	const wrapper = shallowMount(Button);
+		const wrapper = shallowMount(Button);
 
 		expect(wrapper).toMatchSnapshot();
 	});
 
 	it('renders correctly with isWhite prop', () => {
 
-    	const wrapper = shallowMount(Button, {
+		const wrapper = shallowMount(Button, {
 			propsData: {
 				isWhite: true
 			}
@@ -27,7 +27,7 @@ describe('Button.vue', () => {
 
 	it('renders correctly with isDisabled prop', () => {
 
-    	const wrapper = shallowMount(Button, {
+		const wrapper = shallowMount(Button, {
 			propsData: {
 				isDisabled: true
 			}
@@ -35,14 +35,14 @@ describe('Button.vue', () => {
 
 		expect(wrapper).toMatchSnapshot();
 	});
-	  
+
 	it('renders correctly with size and label props', () => {
-		let label = "testLabel";
-		let width = "30px";
-		let height = "20px";
+		let label = 'testLabel';
+		let width = '30px';
+		let height = '20px';
 
 		const wrapper = shallowMount(Button, {
-			propsData: { label, width, height },
+			propsData: {label, width, height},
 		});
 
 		expect(wrapper.element.style.width).toMatch(width);
@@ -54,9 +54,9 @@ describe('Button.vue', () => {
 
 		const wrapper = shallowMount(Button);
 
-		expect(wrapper.element.style.width).toMatch("inherit");
-		expect(wrapper.element.style.height).toMatch("inherit");
-		expect(wrapper.text()).toMatch("Default");
+		expect(wrapper.element.style.width).toMatch('inherit');
+		expect(wrapper.element.style.height).toMatch('inherit');
+		expect(wrapper.text()).toMatch('Default');
 	});
 
 	it('trigger onPress correctly', () => {
@@ -70,7 +70,7 @@ describe('Button.vue', () => {
 		});
 
 		wrapper.find('div.container').trigger('click');
-		
+
 		expect(onPressSpy.callCount).toBe(1);
 	});
 });

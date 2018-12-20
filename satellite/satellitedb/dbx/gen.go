@@ -3,14 +3,20 @@
 
 package satellitedb
 
-//go:generate dbx.v1 golang -d postgres -d sqlite3 satellitedb.dbx .
-
 import (
 	"github.com/zeebo/errs"
 )
 
+//go:generate dbx.v1 schema -d postgres -d sqlite3 satellitedb.dbx .
+//go:generate dbx.v1 golang -d postgres -d sqlite3 satellitedb.dbx .
+
 func init() {
 	// catch dbx errors
 	c := errs.Class("satellitedb")
-	WrapErr = func(e *Error) error { return c.Wrap(e) }
+	WrapErr = func(e *Error) error {
+		if e.Code == ErrorCode_NoRows {
+			return e.Err
+		}
+		return c.Wrap(e)
+	}
 }

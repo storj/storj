@@ -4,19 +4,19 @@
 package provider
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
 	"io/ioutil"
-	"os"
 
 	"github.com/zeebo/errs"
-	"storj.io/storj/pkg/utils"
 
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 )
 
 // PeerCertificateAuthority represents the CA which is used to validate peer identities
@@ -149,35 +149,28 @@ func (fc FullCAConfig) PeerConfig() PeerCAConfig {
 
 // Load loads a CA from the given configuration
 func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
-	cd, err := ioutil.ReadFile(pc.CertPath)
+	chainPEM, err := ioutil.ReadFile(pc.CertPath)
 	if err != nil {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
 
-	var cb [][]byte
-	for {
-		var cp *pem.Block
-		cp, cd = pem.Decode(cd)
-		if cp == nil {
-			break
-		}
-		cb = append(cb, cp.Bytes)
-	}
-	c, err := ParseCertChain(cb)
+	chain, err := decodeAndParseChainPEM(chainPEM)
 	if err != nil {
 		return nil, errs.New("failed to load identity %#v: %v",
 			pc.CertPath, err)
 	}
 
-	i, err := NodeIDFromKey(c[0].PublicKey)
+	nodeID, err := NodeIDFromKey(chain[peertls.LeafIndex].PublicKey)
 	if err != nil {
 		return nil, err
 	}
 
 	return &PeerCertificateAuthority{
-		RestChain: c[1:],
-		Cert:      c[0],
-		ID:        i,
+		// NB: `CAIndex` is in the context of a complete chain (incl. leaf).
+		// Here we're loading the CA chain (nodeID.e. without leaf).
+		RestChain: chain[peertls.CAIndex:],
+		Cert:      chain[peertls.CAIndex-1],
+		ID:        nodeID,
 	}, nil
 }
 
@@ -206,23 +199,37 @@ func NewCA(ctx context.Context, opts NewCAOptions) (*FullCertificateAuthority, e
 
 // Save saves a CA with the given configuration
 func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
-	mode := os.O_WRONLY | os.O_CREATE
-	certFile, err := openCert(fc.CertPath, mode)
-	if err != nil {
-		return err
-	}
-
-	keyFile, err := openKey(fc.KeyPath, mode)
-	if err != nil {
-		return utils.CombineErrors(err, certFile.Close())
-	}
+	var (
+		certData, keyData bytes.Buffer
+		writeErrs         utils.ErrorGroup
+	)
 
 	chain := []*x509.Certificate{ca.Cert}
 	chain = append(chain, ca.RestChain...)
-	certWriteErr := peertls.WriteChain(certFile, chain...)
-	keyWriteErr := peertls.WriteKey(keyFile, ca.Key)
 
-	return utils.CombineErrors(certWriteErr, keyWriteErr, certFile.Close(), keyFile.Close())
+	if fc.CertPath != "" {
+		if err := peertls.WriteChain(&certData, chain...); err != nil {
+			writeErrs.Add(err)
+			return writeErrs.Finish()
+		}
+		if err := writeChainData(fc.CertPath, certData.Bytes()); err != nil {
+			writeErrs.Add(err)
+			return writeErrs.Finish()
+		}
+	}
+
+	if fc.KeyPath != "" {
+		if err := peertls.WriteKey(&keyData, ca.Key); err != nil {
+			writeErrs.Add(err)
+			return writeErrs.Finish()
+		}
+		if err := writeKeyData(fc.KeyPath, keyData.Bytes()); err != nil {
+			writeErrs.Add(err)
+			return writeErrs.Finish()
+		}
+	}
+
+	return writeErrs.Finish()
 }
 
 // NewIdentity generates a new `FullIdentity` based on the CA. The CA
@@ -247,7 +254,7 @@ func (ca FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 	}
 
 	if ca.RestChain != nil && len(ca.RestChain) > 0 {
-		err := peertls.AddSignedLeafExt(ca.Key, leafCert)
+		err := peertls.AddSignedCertExt(ca.Key, leafCert)
 		if err != nil {
 			return nil, err
 		}

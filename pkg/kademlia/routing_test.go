@@ -49,45 +49,27 @@ func TestGetBucket(t *testing.T) {
 
 	cases := []struct {
 		nodeID   storj.NodeID
-		expected *KBucket
+		expected []*pb.Node
 		ok       bool
 	}{
 		{nodeID: node.Id,
-			expected: &KBucket{nodes: []*pb.Node{node, node2}},
+			expected: []*pb.Node{node, node2},
 			ok:       true,
 		},
 		{nodeID: node2.Id,
-			expected: &KBucket{nodes: []*pb.Node{node, node2}},
+			expected: []*pb.Node{node, node2},
 			ok:       true,
 		},
 	}
 	for i, v := range cases {
-		b, e := rt.GetBucket(node2.Id)
-		for j, w := range v.expected.nodes {
-			if !assert.True(t, bytes.Equal(w.Id.Bytes(), b.Nodes()[j].Id.Bytes())) {
+		b, e := rt.GetNodes(node2.Id)
+		for j, w := range v.expected {
+			if !assert.True(t, bytes.Equal(w.Id.Bytes(), b[j].Id.Bytes())) {
 				t.Logf("case %v failed expected: ", i)
 			}
 		}
 		if !assert.Equal(t, v.ok, e) {
 			t.Logf("case %v failed ok: ", i)
-		}
-	}
-}
-
-func TestGetBuckets(t *testing.T) {
-	rt, cleanup := createRoutingTable(t, teststorj.NodeIDFromString("AA"))
-	defer cleanup()
-	node := teststorj.MockNode("AA")
-	node2 := teststorj.MockNode("BB")
-	ok, err := rt.addNode(node2)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-	expected := []*pb.Node{node, node2}
-	buckets, err := rt.GetBuckets()
-	assert.NoError(t, err)
-	for _, v := range buckets {
-		for j, w := range v.Nodes() {
-			assert.True(t, bytes.Equal(expected[j].Id.Bytes(), w.Id.Bytes()))
 		}
 	}
 }

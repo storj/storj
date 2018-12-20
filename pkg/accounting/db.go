@@ -4,36 +4,19 @@
 package accounting
 
 import (
-	"github.com/zeebo/errs"
+	"context"
+	"time"
 
-	"storj.io/storj/internal/migrate"
-	dbx "storj.io/storj/pkg/accounting/dbx"
-	"storj.io/storj/pkg/utils"
+	"storj.io/storj/pkg/storj"
 )
 
-var (
-	// Error is the default accountingdb errs class
-	Error = errs.Class("accountingdb")
-
-	// LastBandwidthTally is a name in the accounting timestamps database
-	LastBandwidthTally = dbx.Timestamps_Name("LastBandwidthTally")
-)
-
-// NewDb - constructor for DB
-func NewDb(databaseURL string) (*dbx.DB, error) {
-	driver, source, err := utils.SplitDBURL(databaseURL)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	db, err := dbx.Open(driver, source)
-	if err != nil {
-		return nil, Error.New("failed opening database %q, %q: %v",
-			driver, source, err)
-	}
-	err = migrate.Create("accounting", db)
-	if err != nil {
-		_ = db.Close()
-		return nil, Error.Wrap(err)
-	}
-	return db, nil
+//DB is an interface for interacting with accounting stuff
+type DB interface {
+	// LastRawTime records the greatest last tallied time
+	LastRawTime(ctx context.Context, timestampType string) (time.Time, bool, error)
+	// SaveBWRaw records raw sums of bw agreement values to the database
+	// and updates the LastRawTime
+	SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTotals map[string]int64) error
+	// SaveAtRestRaw records raw tallies of at rest data to the database
+	SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]int64) error
 }

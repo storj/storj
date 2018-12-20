@@ -5,7 +5,7 @@ package pb
 
 import "storj.io/storj/pkg/storj"
 
-// NodeIDsToLookupRequests ...
+// NodeIDsToLookupRequests converts NodeIDs to LookupRequests
 func NodeIDsToLookupRequests(nodeIDs storj.NodeIDList) *LookupRequests {
 	var rq []*LookupRequest
 	for _, v := range nodeIDs {
@@ -15,11 +15,11 @@ func NodeIDsToLookupRequests(nodeIDs storj.NodeIDList) *LookupRequests {
 	return &LookupRequests{LookupRequest: rq}
 }
 
-// LookupResponsesToNodes ...
+// LookupResponsesToNodes converts LookupResponses to Nodes
 func LookupResponsesToNodes(responses *LookupResponses) []*Node {
 	var nodes []*Node
 	for _, v := range responses.LookupResponse {
-		n := v.Node
+		n := v.GetNode()
 		nodes = append(nodes, n)
 	}
 	return nodes
@@ -62,13 +62,7 @@ func CopyNode(src *Node) (dst *Node) {
 		}
 	}
 
-	node.AuditSuccess = src.AuditSuccess
-	node.IsUp = src.IsUp
-	node.LatencyList = src.LatencyList
 	node.Type = src.Type
-	node.UpdateAuditSuccess = src.UpdateAuditSuccess
-	node.UpdateLatency = src.UpdateLatency
-	node.UpdateUptime = src.UpdateUptime
 
 	return &node
 }

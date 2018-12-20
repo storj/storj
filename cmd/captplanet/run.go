@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
@@ -19,6 +20,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
+	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/inspector"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
@@ -28,7 +30,6 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/satellite/satelliteweb"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -47,11 +48,12 @@ type Satellite struct {
 	Checker     checker.Config
 	Repairer    repairer.Config
 	Audit       audit.Config
-	StatDB      statdb.Config
 	BwAgreement bwagreement.Config
 	Web         satelliteweb.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+	Discovery   discovery.Config
 	Tally       tally.Config
+	Rollup      rollup.Config
 }
 
 // StorageNode is for configuring storage nodes
@@ -97,7 +99,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	// start satellite
 	go func() {
-		_, _ = fmt.Printf("starting satellite on %s\n",
+		_, _ = fmt.Printf("Starting satellite on %s\n",
 			runCfg.Satellite.Identity.Server.Address)
 
 		if runCfg.Satellite.Audit.SatelliteAddr == "" {
@@ -127,15 +129,16 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			grpcauth.NewAPIKeyInterceptor(),
 			runCfg.Satellite.Kademlia,
-			runCfg.Satellite.StatDB,
 			runCfg.Satellite.Audit,
 			runCfg.Satellite.Overlay,
+			runCfg.Satellite.Discovery,
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Checker,
 			runCfg.Satellite.Repairer,
 			runCfg.Satellite.BwAgreement,
 			runCfg.Satellite.Web,
 			runCfg.Satellite.Tally,
+			runCfg.Satellite.Rollup,
 
 			// NB(dylan): Inspector is only used for local development and testing.
 			// It should not be added to the Satellite startup
@@ -154,7 +157,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			address := v.Identity.Server.Address
 			storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
 
-			_, _ = fmt.Printf("starting storage node %d %s (kad on %s)\n", i, storagenode, address)
+			_, _ = fmt.Printf("Starting storage node %d %s (kad on %s)\n", i, storagenode, address)
 			errch <- v.Identity.Run(ctx, nil, v.Kademlia, v.Storage)
 		}(i, v)
 	}

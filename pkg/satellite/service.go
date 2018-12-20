@@ -20,6 +20,9 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
+// maxLimit specifies the limit for all paged queries
+const maxLimit = 50
+
 // Service is handling accounts related logic
 type Service struct {
 	Signer
@@ -73,7 +76,7 @@ func (s *Service) Token(ctx context.Context, email, password string) (string, er
 
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))
 	if err != nil {
-		return "", ErrUnauthorized.New("password is incorrect")
+		return "", ErrUnauthorized.New("password is incorrect: %s", err.Error())
 	}
 
 	// TODO: move expiration time to constants
@@ -134,7 +137,7 @@ func (s *Service) ChangeUserPassword(ctx context.Context, id uuid.UUID, pass, ne
 
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(pass))
 	if err != nil {
-		return ErrUnauthorized.New("origin password is incorrect")
+		return ErrUnauthorized.New("origin password is incorrect: %s", err.Error())
 	}
 
 	if err := validatePassword(newPass); err != nil {
@@ -151,10 +154,28 @@ func (s *Service) ChangeUserPassword(ctx context.Context, id uuid.UUID, pass, ne
 }
 
 // DeleteUser deletes User by id
-func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID) error {
-	_, err := GetAuth(ctx)
+func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string) error {
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
+	}
+
+	if !uuid.Equal(auth.User.ID, id) {
+		return ErrUnauthorized.New("user has no rights")
+	}
+
+	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(password))
+	if err != nil {
+		return ErrUnauthorized.New("origin password is incorrect")
+	}
+
+	projects, err := s.store.Projects().GetByOwnerID(ctx, auth.User.ID)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	if len(projects) > 0 {
+		return errs.New("can't delete account with project ownership")
 	}
 
 	return s.store.Users().Delete(ctx, id)
@@ -234,7 +255,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 	}
 
 	if !projectInfo.IsTermsAccepted {
-		return nil, errs.New("Terms of use should be accepted!")
+		return nil, errs.New("terms of use should be accepted!")
 	}
 
 	project := &Project{
@@ -265,9 +286,18 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 
 // DeleteProject is a method for deleting project by id
 func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) error {
-	_, err := GetAuth(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
+	}
+
+	project, err := s.store.Projects().Get(ctx, projectID)
+	if err != nil {
+		return err
+	}
+
+	if !uuid.Equal(auth.User.ID, *project.OwnerID) {
+		return ErrUnauthorized.New("only owner can delete the project")
 	}
 
 	return s.store.Projects().Delete(ctx, projectID)
@@ -317,35 +347,43 @@ func (s *Service) DeleteProjectMember(ctx context.Context, projectID, userID uui
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
-func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID) ([]ProjectMember, error) {
+func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, limit int, offset int64) ([]ProjectMember, error) {
 	_, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.store.ProjectMembers().GetByProjectID(ctx, projectID)
+	if limit < 0 || offset < 0 {
+		return nil, errs.New("invalid pagination argument")
+	}
+
+	if limit > maxLimit {
+		limit = maxLimit
+	}
+
+	return s.store.ProjectMembers().GetByProjectID(ctx, projectID, limit, offset)
 }
 
 // Authorize validates token from context and returns authorized Authorization
 func (s *Service) Authorize(ctx context.Context) (Authorization, error) {
 	tokenS, ok := auth.GetAPIKey(ctx)
 	if !ok {
-		return Authorization{}, errs.New("no api key was provided")
+		return Authorization{}, ErrUnauthorized.New("no api key was provided")
 	}
 
 	token, err := satelliteauth.FromBase64URLString(string(tokenS))
 	if err != nil {
-		return Authorization{}, err
+		return Authorization{}, ErrUnauthorized.Wrap(err)
 	}
 
 	claims, err := s.authenticate(token)
 	if err != nil {
-		return Authorization{}, err
+		return Authorization{}, ErrUnauthorized.Wrap(err)
 	}
 
 	user, err := s.authorize(ctx, claims)
 	if err != nil {
-		return Authorization{}, err
+		return Authorization{}, ErrUnauthorized.Wrap(err)
 	}
 
 	return Authorization{

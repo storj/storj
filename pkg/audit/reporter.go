@@ -6,85 +6,140 @@ package audit
 import (
 	"context"
 
-	"storj.io/storj/pkg/pb"
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/statdb"
-	statsproto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/storj"
 )
 
 type reporter interface {
-	RecordAudits(ctx context.Context, failedNodes []*pb.Node) (err error)
+	RecordAudits(ctx context.Context, req *RecordAuditsInfo) (failed *RecordAuditsInfo, err error)
 }
 
 // Reporter records audit reports in statdb and implements the reporter interface
 type Reporter struct {
-	statdb     *statdb.StatDB
+	statdb     statdb.DB
 	maxRetries int
+}
+
+// RecordAuditsInfo is a struct containing arguments/return values for RecordAudits()
+type RecordAuditsInfo struct {
+	SuccessNodeIDs storj.NodeIDList
+	FailNodeIDs    storj.NodeIDList
+	OfflineNodeIDs storj.NodeIDList
 }
 
 // NewReporter instantiates a reporter
 func NewReporter(ctx context.Context, statDBPort string, maxRetries int, apiKey string) (reporter *Reporter, err error) {
-	sdb := statdb.LoadFromContext(ctx)
-
-	return &Reporter{statdb: sdb, maxRetries: maxRetries}, nil
+	sdb, ok := ctx.Value("masterdb").(interface {
+		StatDB() statdb.DB
+	})
+	if !ok {
+		return nil, errs.New("unable to get master db instance")
+	}
+	return &Reporter{statdb: sdb.StatDB(), maxRetries: maxRetries}, nil
 }
 
 // RecordAudits saves failed audit details to statdb
-func (reporter *Reporter) RecordAudits(ctx context.Context, nodes []*pb.Node) (err error) {
+func (reporter *Reporter) RecordAudits(ctx context.Context, req *RecordAuditsInfo) (failed *RecordAuditsInfo, err error) {
+	successNodeIDs := req.SuccessNodeIDs
+	failNodeIDs := req.FailNodeIDs
+	offlineNodeIDs := req.OfflineNodeIDs
+
+	var errNodeIDs storj.NodeIDList
+
 	retries := 0
-	for len(nodes) > 0 && retries < reporter.maxRetries {
-		res, err := reporter.statdb.UpdateBatch(ctx, &statsproto.UpdateBatchRequest{
-			NodeList: nodes,
-		})
-		if err != nil {
-			return err
+	for retries < reporter.maxRetries {
+		if len(successNodeIDs) == 0 && len(failNodeIDs) == 0 && len(offlineNodeIDs) == 0 {
+			return nil, nil
 		}
-		nodes = res.GetFailedNodes()
+
+		errNodeIDs = storj.NodeIDList{}
+
+		if len(successNodeIDs) > 0 {
+			successNodeIDs, err = reporter.recordAuditSuccessStatus(ctx, successNodeIDs)
+			if err != nil {
+				errNodeIDs = append(errNodeIDs, successNodeIDs...)
+			}
+		}
+		if len(failNodeIDs) > 0 {
+			failNodeIDs, err = reporter.recordAuditFailStatus(ctx, failNodeIDs)
+			if err != nil {
+				errNodeIDs = append(errNodeIDs, failNodeIDs...)
+			}
+		}
+		if len(offlineNodeIDs) > 0 {
+			offlineNodeIDs, err = reporter.recordOfflineStatus(ctx, offlineNodeIDs)
+			if err != nil {
+				errNodeIDs = append(errNodeIDs, offlineNodeIDs...)
+			}
+		}
+
 		retries++
 	}
-	if retries >= reporter.maxRetries && len(nodes) > 0 {
-		return Error.New("some nodes who failed the audit also failed to be updated in statdb")
+	if retries >= reporter.maxRetries && len(errNodeIDs) > 0 {
+		return &RecordAuditsInfo{
+			SuccessNodeIDs: successNodeIDs,
+			FailNodeIDs:    failNodeIDs,
+			OfflineNodeIDs: offlineNodeIDs,
+		}, Error.New("some nodes failed to be updated in statdb")
 	}
-	return nil
+	return nil, nil
 }
 
-func setAuditFailStatus(ctx context.Context, failedNodes storj.NodeIDList) (failStatusNodes []*pb.Node) {
-	for i := range failedNodes {
-		setNode := &pb.Node{
-			Id:                 failedNodes[i],
-			AuditSuccess:       false,
-			IsUp:               true,
-			UpdateAuditSuccess: true,
-			UpdateUptime:       true,
+// recordAuditFailStatus updates nodeIDs in statdb with isup=true, auditsuccess=false
+func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+	failedIDs := storj.NodeIDList{}
+
+	for _, nodeID := range failedAuditNodeIDs {
+		_, err := reporter.statdb.Update(ctx, &statdb.UpdateRequest{
+			NodeID:       nodeID,
+			IsUp:         true,
+			AuditSuccess: false,
+		})
+		if err != nil {
+			failedIDs = append(failedIDs, nodeID)
 		}
-		failStatusNodes = append(failStatusNodes, setNode)
 	}
-	return failStatusNodes
+	if len(failedIDs) > 0 {
+		return failedIDs, Error.New("failed to record some audit fail statuses in statdb")
+	}
+	return nil, nil
 }
 
+// recordOfflineStatus updates nodeIDs in statdb with isup=false
 // TODO: offline nodes should maybe be marked as failing the audit in the future
-func setOfflineStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (offlineStatusNodes []*pb.Node) {
-	for i := range offlineNodeIDs {
-		setNode := &pb.Node{
-			Id:           offlineNodeIDs[i],
-			IsUp:         false,
-			UpdateUptime: true,
+func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+	failedIDs := storj.NodeIDList{}
+
+	for _, nodeID := range offlineNodeIDs {
+		_, err := reporter.statdb.UpdateUptime(ctx, nodeID, false)
+		if err != nil {
+			failedIDs = append(failedIDs, nodeID)
 		}
-		offlineStatusNodes = append(offlineStatusNodes, setNode)
 	}
-	return offlineStatusNodes
+	if len(failedIDs) > 0 {
+		return failedIDs, Error.New("failed to record some audit offline statuses in statdb")
+	}
+	return nil, nil
 }
 
-func setSuccessStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (successStatusNodes []*pb.Node) {
-	for i := range offlineNodeIDs {
-		setNode := &pb.Node{
-			Id:                 offlineNodeIDs[i],
-			AuditSuccess:       true,
-			IsUp:               true,
-			UpdateAuditSuccess: true,
-			UpdateUptime:       true,
+// recordAuditSuccessStatus updates nodeIDs in statdb with isup=true, auditsuccess=true
+func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+	failedIDs := storj.NodeIDList{}
+
+	for _, nodeID := range successNodeIDs {
+		_, err := reporter.statdb.Update(ctx, &statdb.UpdateRequest{
+			NodeID:       nodeID,
+			IsUp:         true,
+			AuditSuccess: true,
+		})
+		if err != nil {
+			failedIDs = append(failedIDs, nodeID)
 		}
-		successStatusNodes = append(successStatusNodes, setNode)
 	}
-	return successStatusNodes
+	if len(failedIDs) > 0 {
+		return failedIDs, Error.New("failed to record some audit success statuses in statdb")
+	}
+	return nil, nil
 }

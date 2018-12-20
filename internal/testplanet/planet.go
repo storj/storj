@@ -58,7 +58,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 
 	planet := &Planet{
 		log:        log,
-		identities: pregeneratedIdentities.Clone(),
+		identities: NewPregeneratedIdentities(),
 	}
 
 	var err error
@@ -114,7 +114,14 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 			}
 		}(node)
 
-		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, node.Kademlia)
+		ns := &pb.NodeStats{
+			UptimeCount:       0,
+			UptimeRatio:       0,
+			AuditSuccessRatio: 0,
+			AuditCount:        0,
+		}
+
+		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, ns)
 		pb.RegisterOverlayServer(node.Provider.GRPC(), overlayServer)
 
 		node.Dependencies = append(node.Dependencies,
@@ -128,7 +135,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 			t := time.NewTicker(500 * time.Millisecond).C
 			for {
 				<-t
-				if err := n.Overlay.Refresh(context.Background()); err != nil {
+				if err := n.Discovery.Refresh(context.Background()); err != nil {
 					log.Error(err.Error())
 				}
 			}
@@ -144,7 +151,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 			return nil, utils.CombineErrors(err, planet.Shutdown())
 		}
 
-		server := pieceserver.New(storageDir, serverdb, pieceserver.Config{
+		server := pieceserver.New(node.Log, storageDir, serverdb, pieceserver.Config{
 			Path:               storageDir,
 			AllocatedDiskSpace: memory.GB.Int64(),
 			AllocatedBandwidth: 100 * memory.GB.Int64(),

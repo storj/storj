@@ -7,10 +7,13 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/migrate"
+	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/irreparable"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/storage"
 )
 
 var (
@@ -52,25 +55,25 @@ func (db *DB) BandwidthAgreement() bwagreement.DB {
 // 	return &pointerDB{db: db.db}
 // }
 
-// // StatDB is a getter for StatDB repository
-// func (db *DB) StatDB() statdb.DB {
-// 	return &statDB{db: db.db}
-// }
+// StatDB is a getter for StatDB repository
+func (db *DB) StatDB() statdb.DB {
+	return &statDB{db: db.db}
+}
 
-// // OverlayCacheDB is a getter for OverlayCacheDB repository
-// func (db *DB) OverlayCacheDB() overlay.DB {
-// 	return &overlayCacheDB{db: db.db}
-// }
+// OverlayCache is a getter for overlay cache repository
+func (db *DB) OverlayCache() storage.KeyValueStore {
+	return newOverlaycache(db.db)
+}
 
 // // RepairQueueDB is a getter for RepairQueueDB repository
 // func (db *DB) RepairQueueDB() queue.DB {
 // 	return &repairQueueDB{db: db.db}
 // }
 
-// // AccountingDB is a getter for AccountingDB repository
-// func (db *DB) AccountingDB() accounting.DB {
-// 	return &accountingDB{db: db.db}
-// }
+// Accounting returns database for tracking bandwidth agreements over time
+func (db *DB) Accounting() accounting.DB {
+	return &accountingDB{db: db.db}
+}
 
 // Irreparable returns database for storing segments that failed repair
 func (db *DB) Irreparable() irreparable.DB {

@@ -56,13 +56,12 @@ require (
 	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf // indirect
 	github.com/jbenet/go-base58 v0.0.0-20150317085156-6237cf65f3a6
 	github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0
-	github.com/jtolds/monkit-hw v0.0.0-20180827162413-5a254051f35d
+	github.com/jtolds/monkit-hw v0.0.0-20181213143340-df8ef2bea56c
 	github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e // indirect
 	github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510 // indirect
 	github.com/lib/pq v1.0.0
-	github.com/loov/hrtime v0.0.0-20180911122900-a9e82bc6c180
+	github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e
 	github.com/loov/plot v0.0.0-20180510142208-e59891ae1271
-	github.com/mailru/easyjson v0.0.0-20180823135443-60711f1a8329 // indirect
 	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/mattn/go-runewidth v0.0.3 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0
@@ -94,13 +93,14 @@ require (
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.2.1
 	github.com/streadway/amqp v0.0.0-20180806233856-70e15c650864 // indirect
+	github.com/stretchr/objx v0.1.1 // indirect
 	github.com/stretchr/testify v1.2.2
 	github.com/tidwall/gjson v1.1.3 // indirect
 	github.com/tidwall/match v0.0.0-20171002075945-1731857f09b1 // indirect
 	github.com/vivint/infectious v0.0.0-20180906161625-e155e6eb3575
 	github.com/yuin/gopher-lua v0.0.0-20180918061612-799fa34954fb // indirect
 	github.com/zeebo/admission v0.0.0-20180821192747-f24f2a94a40c
-	github.com/zeebo/errs v1.0.0
+	github.com/zeebo/errs v1.1.0
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	go.uber.org/atomic v1.3.2 // indirect
@@ -109,7 +109,7 @@ require (
 	golang.org/x/crypto v0.0.0-20181009213950-7c1a557ab941
 	golang.org/x/net v0.0.0-20181003013248-f5e5bdd77824
 	golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f
-	golang.org/x/sys v0.0.0-20181011152604-fa43e7bc11ba
+	golang.org/x/sys v0.0.0-20181213081344-73d4af5aa059
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect
 	google.golang.org/grpc v1.15.0
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect

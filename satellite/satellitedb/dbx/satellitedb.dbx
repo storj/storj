@@ -1,5 +1,7 @@
 // dbx.v1 golang satellitedb.dbx .
 
+//--- bwagreement ---//
+
 model bwagreement (
 	key signature 
 
@@ -27,7 +29,8 @@ read all (
 	where  bwagreement.created_at > ?
 )
 
-// datarepair.irreparableDB
+//--- datarepair.irreparableDB ---//
+
 model irreparabledb (
 	key segmentpath
 
@@ -45,3 +48,122 @@ read one (
   select irreparabledb 
   where  irreparabledb.segmentpath = ?
 )
+
+//--- accounting ---//
+
+// accounting_timestamps just allows us to save the last time/thing that happened
+model accounting_timestamps (
+  key name
+
+  field name            text
+  field value timestamp ( updatable )
+)
+create accounting_timestamps ( )
+update accounting_timestamps ( where accounting_timestamps.name = ? )
+read scalar (
+  select accounting_timestamps.value
+  where  accounting_timestamps.name = ?
+)
+
+model accounting_rollup (
+  key id
+  
+  field id         serial64
+  field node_id    text
+  field start_time timestamp
+  field interval   int64
+  field data_type  int
+  field created_at timestamp ( autoinsert )
+	field updated_at timestamp ( autoinsert, autoupdate )
+)
+
+create accounting_rollup ( )
+update accounting_rollup ( where accounting_rollup.id = ? )
+delete accounting_rollup ( where accounting_rollup.id = ? )
+read one (
+  select accounting_rollup
+  where  accounting_rollup.id = ?
+)
+read all (
+  select accounting_rollup
+  where accounting_rollup.node_id = ?
+)
+
+model accounting_raw (
+  key id
+
+  field id serial64
+  field node_id    text
+  field interval_end_time   timestamp
+  field data_total int64
+  field data_type  int
+  field created_at timestamp ( autoinsert )
+  field updated_at timestamp ( autoinsert, autoupdate )
+)
+
+create accounting_raw ( )
+update accounting_raw ( where accounting_raw.id = ? )
+delete accounting_raw ( where accounting_raw.id = ? )
+read one (
+  select accounting_raw
+  where  accounting_raw.id = ?
+)
+read all (
+  select accounting_raw
+  where accounting_raw.node_id = ?
+)
+
+//--- statdb ---//
+
+model node (
+	key id
+
+	field id blob
+	field audit_success_count int64 (updatable)
+	field total_audit_count int64 (updatable)
+	field audit_success_ratio float64 (updatable)
+
+	field uptime_success_count int64 (updatable)
+	field total_uptime_count int64 (updatable)
+	field uptime_ratio float64 (updatable)
+
+	field created_at timestamp ( autoinsert )
+	field updated_at timestamp ( autoinsert, autoupdate )
+)
+
+create node ( )
+update node ( where node.id = ? )
+delete node ( where node.id = ? )
+read one (
+  select node
+  where  node.id = ?
+)
+
+//--- overlaycache ---//
+
+model overlay_cache_node (
+	key key
+	unique key
+
+	field key blob
+	field value blob (updatable)
+)
+
+create overlay_cache_node ( )
+
+read one (
+  select overlay_cache_node 
+  where  overlay_cache_node.key = ?
+)
+
+read limitoffset (
+	select overlay_cache_node
+)
+
+read limitoffset (
+	select overlay_cache_node
+  where  overlay_cache_node.key >= ?
+)
+
+update overlay_cache_node ( where overlay_cache_node.key = ? )
+delete overlay_cache_node ( where overlay_cache_node.key = ? )

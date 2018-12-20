@@ -2,15 +2,15 @@
 // See LICENSE for copying information.
 
 import apollo from '../apolloManager';
-import gql from "graphql-tag";
+import gql from 'graphql-tag';
 
 // TODO: all graphql queries should be totally refactored
 // Performs graqhQL request.
 // Throws an exception if error occurs
 export async function createProject(project: Project): Promise<any> {
-    let response = apollo.mutate(
-        {
-            mutation: gql(`
+	let response = apollo.mutate(
+		{
+			mutation: gql(`
                 mutation {
                     createProject(
                         input: {
@@ -20,18 +20,17 @@ export async function createProject(project: Project): Promise<any> {
                         }
                     )
                 }`
-            ),
-            fetchPolicy: "no-cache",
-        }
-    );
+			),
+			fetchPolicy: 'no-cache',
+		}
+	);
 
-    if(!response){
-        // TODO: replace with popup in future
-        console.log("cannot create user");
+	if (!response) {
+		// TODO: replace with popup in future
+		console.error('cannot create user');
 
-        return null;
-    }
+		return null;
+	}
 
-    return response;
+	return response;
 }
-

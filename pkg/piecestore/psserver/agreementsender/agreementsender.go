@@ -21,8 +21,8 @@ import (
 )
 
 var (
-	defaultCheckInterval = flag.Duration("piecestore.agreementsender.check_interval", time.Hour, "number of seconds to sleep between agreement checks")
-	defaultOverlayAddr   = flag.String("piecestore.agreementsender.overlay_addr", "127.0.0.1:7777", "Overlay Address")
+	defaultCheckInterval = flag.Duration("piecestore.agreementsender.check-interval", time.Hour, "number of seconds to sleep between agreement checks")
+	defaultOverlayAddr   = flag.String("piecestore.agreementsender.overlay-addr", "127.0.0.1:7777", "Overlay Address")
 
 	// ASError wraps errors returned from agreementsender package
 	ASError = errs.Class("agreement sender error")
@@ -38,7 +38,7 @@ type AgreementSender struct {
 
 // Initialize the Agreement Sender
 func Initialize(DB *psdb.DB, identity *provider.FullIdentity) (*AgreementSender, error) {
-	overlay, err := overlay.NewOverlayClient(identity, *defaultOverlayAddr)
+	overlay, err := overlay.NewClient(identity, *defaultOverlayAddr)
 	if err != nil {
 		return nil, err
 	}
