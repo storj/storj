@@ -38,7 +38,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	if err != nil {
 		return err
 	}
-	overlay, err := overlay.NewOverlayClient(identity, c.SatelliteAddr)
+	overlay, err := overlay.NewClient(identity, c.SatelliteAddr)
 	if err != nil {
 		return err
 	}

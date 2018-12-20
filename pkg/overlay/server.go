@@ -13,9 +13,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -26,30 +25,28 @@ var ServerError = errs.Class("Server Error")
 
 // Server implements our overlay RPC service
 type Server struct {
-	logger    *zap.Logger
-	dht       dht.DHT
+	log       *zap.Logger
 	cache     *Cache
 	metrics   *monkit.Registry
 	nodeStats *pb.NodeStats
 }
 
 // NewServer creates a new Overlay Server
-func NewServer(log *zap.Logger, cache *Cache, dht dht.DHT, nodeStats *pb.NodeStats) *Server {
+func NewServer(log *zap.Logger, cache *Cache, nodeStats *pb.NodeStats) *Server {
 	return &Server{
-		dht:       dht,
 		cache:     cache,
-		logger:    log,
+		log:       log,
 		metrics:   monkit.Default,
 		nodeStats: nodeStats,
 	}
 }
 
 // Lookup finds the address of a node in our overlay network
-func (o *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (*pb.LookupResponse, error) {
-	na, err := o.cache.Get(ctx, req.NodeId)
+func (server *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (*pb.LookupResponse, error) {
+	na, err := server.cache.Get(ctx, req.NodeId)
 
 	if err != nil {
-		o.logger.Error("Error looking up node", zap.Error(err), zap.String("nodeID", req.NodeId.String()))
+		server.log.Error("Error looking up node", zap.Error(err), zap.String("nodeID", req.NodeId.String()))
 		return nil, err
 	}
 
@@ -59,8 +56,8 @@ func (o *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (*pb.LookupR
 }
 
 // BulkLookup finds the addresses of nodes in our overlay network
-func (o *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (*pb.LookupResponses, error) {
-	ns, err := o.cache.GetAll(ctx, lookupRequestsToNodeIDs(reqs))
+func (server *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (*pb.LookupResponses, error) {
+	ns, err := server.cache.GetAll(ctx, lookupRequestsToNodeIDs(reqs))
 	if err != nil {
 		return nil, ServerError.New("could not get nodes requested %s\n", err)
 	}
@@ -68,7 +65,7 @@ func (o *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (*pb.L
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
-func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
+func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
 	opts := req.GetOpts()
 	maxNodes := req.GetMaxNodes()
 	if maxNodes <= 0 {
@@ -77,13 +74,13 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 
 	excluded := opts.ExcludedNodes
 	restrictions := opts.GetRestrictions()
-	reputation := o.nodeStats
+	reputation := server.nodeStats
 
 	var startID storj.NodeID
 	result := []*pb.Node{}
 	for {
 		var nodes []*pb.Node
-		nodes, startID, err = o.populate(ctx, req.Start, maxNodes, restrictions, reputation, excluded)
+		nodes, startID, err = server.populate(ctx, req.Start, maxNodes, restrictions, reputation, excluded)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -123,8 +120,8 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 	}, nil
 }
 
-func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.Node, error) {
-	values, err := o.cache.DB.GetAll(keys)
+func (server *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.Node, error) {
+	values, err := server.cache.db.GetAll(keys)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -143,27 +140,27 @@ func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.Node, e
 
 }
 
-func (o *Server) populate(ctx context.Context, startID storj.NodeID, maxNodes int64,
+func (server *Server) populate(ctx context.Context, startID storj.NodeID, maxNodes int64,
 	minRestrictions *pb.NodeRestrictions, minReputation *pb.NodeStats,
 	excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
 
 	limit := int(maxNodes * 2)
-	keys, err := o.cache.DB.List(startID.Bytes(), limit)
+	keys, err := server.cache.db.List(startID.Bytes(), limit)
 	if err != nil {
-		o.logger.Error("Error listing nodes", zap.Error(err))
+		server.log.Error("Error listing nodes", zap.Error(err))
 		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
 	if len(keys) <= 0 {
-		o.logger.Info("No Keys returned from List operation")
+		server.log.Info("No Keys returned from List operation")
 		return []*pb.Node{}, startID, nil
 	}
 
 	// TODO: should this be `var result []*pb.Node` ?
 	result := []*pb.Node{}
-	nodes, err := o.getNodes(ctx, keys)
+	nodes, err := server.getNodes(ctx, keys)
 	if err != nil {
-		o.logger.Error("Error getting nodes", zap.Error(err))
+		server.log.Error("Error getting nodes", zap.Error(err))
 		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
@@ -172,15 +169,15 @@ func (o *Server) populate(ctx context.Context, startID storj.NodeID, maxNodes in
 			continue
 		}
 
-		nodeRestrictions := v.GetRestrictions()
-		nodeReputation := v.GetReputation()
+		restrictions := v.GetRestrictions()
+		reputation := v.GetReputation()
 
-		if nodeRestrictions.GetFreeBandwidth() < minRestrictions.GetFreeBandwidth() ||
-			nodeRestrictions.GetFreeDisk() < minRestrictions.GetFreeDisk() ||
-			nodeReputation.GetUptimeRatio() < minReputation.GetUptimeRatio() ||
-			nodeReputation.GetUptimeCount() < minReputation.GetUptimeCount() ||
-			nodeReputation.GetAuditSuccessRatio() < minReputation.GetAuditSuccessRatio() ||
-			nodeReputation.GetAuditCount() < minReputation.GetAuditCount() ||
+		if restrictions.GetFreeBandwidth() < minRestrictions.GetFreeBandwidth() ||
+			restrictions.GetFreeDisk() < minRestrictions.GetFreeDisk() ||
+			reputation.GetUptimeRatio() < minReputation.GetUptimeRatio() ||
+			reputation.GetUptimeCount() < minReputation.GetUptimeCount() ||
+			reputation.GetAuditSuccessRatio() < minReputation.GetAuditSuccessRatio() ||
+			reputation.GetAuditCount() < minReputation.GetAuditCount() ||
 			contains(excluded, v.Id) {
 			continue
 		}

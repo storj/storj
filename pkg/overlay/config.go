@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
@@ -63,11 +62,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	kad := kademlia.LoadFromContext(ctx)
-	if kad == nil {
-		return Error.New("programmer error: kademlia responsibility unstarted")
-	}
-
 	sdb, ok := ctx.Value("masterdb").(interface {
 		StatDB() statdb.DB
 		OverlayCache() storage.KeyValueStore
@@ -76,7 +70,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return Error.Wrap(errs.New("unable to get master db instance"))
 	}
 
-	cache := NewOverlayCache(sdb.OverlayCache(), kad, sdb.StatDB())
+	cache := NewCache(sdb.OverlayCache(), sdb.StatDB())
 
 	ns := &pb.NodeStats{
 		UptimeCount:       c.Node.UptimeCount,
@@ -85,7 +79,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		AuditCount:        c.Node.AuditCount,
 	}
 
-	srv := NewServer(zap.L(), cache, kad, ns)
+	srv := NewServer(zap.L(), cache, ns)
 	pb.RegisterOverlayServer(server.GRPC(), srv)
 
 	ctx2 := context.WithValue(ctx, ctxKeyOverlay, cache)
