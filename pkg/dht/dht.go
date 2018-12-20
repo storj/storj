@@ -30,9 +30,7 @@ type RoutingTable interface {
 	K() int
 	CacheSize() int
 
-	// Bucket methods
-	GetBucket(id storj.NodeID) (bucket Bucket, ok bool)
-	GetBuckets() ([]Bucket, error)
+	GetNodes(id storj.NodeID) (nodes []*pb.Node, ok bool)
 	GetBucketIds() (storage.Keys, error)
 
 	FindNear(id storj.NodeID, limit int) ([]*pb.Node, error)

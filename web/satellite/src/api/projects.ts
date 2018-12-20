@@ -2,16 +2,14 @@
 // See LICENSE for copying information.
 
 import apollo from '@/utils/apolloManager';
-import gql from "graphql-tag";
+import gql from 'graphql-tag';
 
 // Performs graqhQL request.
 // Throws an exception if error occurs
 export async function createProject(project: Project): Promise<any> {
-    console.log("in api", project);
-
-    let response = await apollo.mutate(
-        {
-            mutation: gql(`
+	let response = await apollo.mutate(
+		{
+			mutation: gql(`
                 mutation {
                     createProject(
                         input: {
@@ -22,26 +20,26 @@ export async function createProject(project: Project): Promise<any> {
                         }
                     ) {id}
                 }`
-            ),
-            fetchPolicy: "no-cache",
-        }
-    );
+			),
+			fetchPolicy: 'no-cache',
+		}
+	);
 
-    if(!response){
-        // TODO: replace with popup in future
-        console.log("cannot create project");
+	if (!response) {
+		// TODO: replace with popup in future
+		console.error('cannot create project');
 
-        return null;
-    }
+		return null;
+	}
 
-    return response;
+	return response;
 }
 
 // Performs graqhQL request for fetching all projects of current user.
 export async function fetchProjects(): Promise<any> {
-    let response = await apollo.query(
-        {
-            query: gql(`
+	let response = await apollo.query(
+		{
+			query: gql(`
                 query {
                     myProjects{
                         name
@@ -53,67 +51,68 @@ export async function fetchProjects(): Promise<any> {
                         isTermsAccepted
                     }
                 }`
-            ),
-            fetchPolicy: "no-cache",
-        }
-    );
+			),
+			fetchPolicy: 'no-cache',
+		}
+	);
 
-    if(!response){
-        // TODO: replace with popup in future
-        console.log("cannot fetch projects");
+	if (!response) {
+		// TODO: replace with popup in future
+		console.error('cannot fetch projects');
 
-        return null;
-    }
+		return null;
+	}
 
-    return response;
+	return response;
 }
 
 // Performs graqhQL request for updating selected project description
 export async function updateProject(projectID: string, description: string): Promise<any> {
-    let response = await apollo.mutate(
-        {
-            mutation: gql(`
+	let response = await apollo.mutate(
+		{
+			mutation: gql(`
                 mutation {
                     updateProjectDescription(
                         id: "${projectID}",
                         description: "${description}"
                     )
                 }`
-            ),
-            fetchPolicy: "no-cache",
-        }
-    );
+			),
+			fetchPolicy: 'no-cache',
+		}
+	);
 
-    if(!response){
-        // TODO: replace with popup in future
-        console.log("cannot update project");
+	if (!response) {
+		// TODO: replace with popup in future
+		console.error('cannot update project');
 
-        return null;
-    }
+		return null;
+	}
 
-    return response;
+	return response;
 }
 
 // Performs graqhQL request for deleting selected project
 export async function deleteProject(projectID: string): Promise<any> {
-    let response = await apollo.mutate(
-        {
-            mutation: gql(`
+	let response = await apollo.mutate(
+		{
+			mutation: gql(`
                 mutation {
                     deleteProject(
                         id: "${projectID}"
                     )
                 }`
-            ),
-            fetchPolicy: "no-cache",
-        }
-    );
+			),
+			fetchPolicy: 'no-cache',
+		}
+	);
 
-    if(!response){
-        // TODO: replace with popup in future
-        console.log("cannot delete project");
-        return null;
-    }
+	if (!response) {
+		// TODO: replace with popup in future
+		console.error('cannot delete project');
 
-    return response;
+		return null;
+	}
+
+	return response;
 }

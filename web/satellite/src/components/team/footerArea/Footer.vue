@@ -11,7 +11,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'; 
+import { Component, Vue } from 'vue-property-decorator';
 import ApproveDeleteUserArea from './ApproveDeleteUserArea.vue';
 import DeleteUserArea from './DeleteUserArea.vue';
 
@@ -22,7 +22,8 @@ import DeleteUserArea from './DeleteUserArea.vue';
     }
 })
 
-export default class TeamFooter extends Vue {}
+export default class TeamFooter extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

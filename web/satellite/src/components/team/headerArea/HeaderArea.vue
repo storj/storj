@@ -23,7 +23,8 @@ import Button from '@/components/common/Button.vue';
     }
 })
 
-export default class HeaderArea extends Vue {}
+export default class HeaderArea extends Vue {
+}
 </script>
 
 <style scoped lang="scss">

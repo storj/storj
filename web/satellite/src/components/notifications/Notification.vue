@@ -15,7 +15,7 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import { NOTIFICATION_TYPES, NOTIFICATION_IMAGES } from '@/utils/constants/notification';
+import { NOTIFICATION_IMAGES, NOTIFICATION_TYPES } from '@/utils/constants/notification';
 
 @Component({
     props: {
@@ -24,25 +24,26 @@ import { NOTIFICATION_TYPES, NOTIFICATION_IMAGES } from '@/utils/constants/notif
     },
     methods: {
         // Force delete notification
-        onCloseClick: function(): void {
+        onCloseClick: function (): void {
             this.$store.dispatch('deleteNotification');
         },
-        // Force notification to stay on page on mouse over it 
-        onMouseOver: function(): void {
+        // Force notification to stay on page on mouse over it
+        onMouseOver: function (): void {
             this.$store.dispatch('pauseNotification');
         },
         // Resume notification flow when mouse leaves notification
-        onMouseLeave: function(): void {
+        onMouseLeave: function (): void {
             this.$store.dispatch('resumeNotification');
         },
     },
     computed: {
-        configuration: function() {
-            let backgroundColor, imageSource;
+        configuration: function () {
+            let backgroundColor;
+            let imageSource;
 
             // Switch for choosing notification style depends on notification type
             switch (this.$props.type) {
-                case NOTIFICATION_TYPES.SUCCESS: 
+                case NOTIFICATION_TYPES.SUCCESS:
                     backgroundColor = 'rgba(214, 235, 208, 0.4)';
                     imageSource = NOTIFICATION_IMAGES.SUCCESS;
                     break;
@@ -58,18 +59,19 @@ import { NOTIFICATION_TYPES, NOTIFICATION_IMAGES } from '@/utils/constants/notif
                     break;
             }
 
-            return { 
+            return {
                 style: {
                     backgroundColor
                 },
                 imageSource,
                 closeImage: NOTIFICATION_IMAGES.CLOSE
-            }
+            };
         },
     }
 })
 
-export default class Notification extends Vue {}
+export default class Notification extends Vue {
+}
 </script>
 
 <style scoped lang="scss">
