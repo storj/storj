@@ -9,7 +9,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
@@ -35,23 +34,22 @@ var OverlayError = errs.Class("Overlay Error")
 
 // Cache is used to store overlay data in Redis
 type Cache struct {
-	DB     storage.KeyValueStore
-	DHT    dht.DHT
-	StatDB statdb.DB
+	db     storage.KeyValueStore
+	statDB statdb.DB
 }
 
 // NewOverlayCache returns a new Cache
-func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT, sdb statdb.DB) *Cache {
-	return &Cache{DB: db, DHT: dht, StatDB: sdb}
+func NewOverlayCache(db storage.KeyValueStore, sdb statdb.DB) *Cache {
+	return &Cache{db: db, statDB: sdb}
 }
 
 // Get looks up the provided nodeID from the overlay cache
-func (o *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
+func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
 	if nodeID.IsZero() {
 		return nil, ErrEmptyNode
 	}
 
-	b, err := o.DB.Get(nodeID.Bytes())
+	b, err := cache.db.Get(nodeID.Bytes())
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, ErrNodeNotFound
@@ -70,7 +68,7 @@ func (o *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) 
 }
 
 // GetAll looks up the provided nodeIDs from the overlay cache
-func (o *Cache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error) {
+func (cache *Cache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error) {
 	if len(nodeIDs) == 0 {
 		return nil, OverlayError.New("no nodeIDs provided")
 	}
@@ -78,7 +76,7 @@ func (o *Cache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Nod
 	for _, v := range nodeIDs {
 		ks = append(ks, v.Bytes())
 	}
-	vs, err := o.DB.GetAll(ks)
+	vs, err := cache.db.GetAll(ks)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +97,7 @@ func (o *Cache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Nod
 }
 
 // Put adds a nodeID to the redis cache with a binary representation of proto defined Node
-func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) error {
+func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) error {
 	// If we get a Node without an ID (i.e. bootstrap node)
 	// we don't want to add to the routing tbale
 	if nodeID.IsZero() {
@@ -107,7 +105,7 @@ func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) err
 	}
 
 	// get existing node rep, or create a new statdb node with 0 rep
-	stats, err := o.StatDB.CreateEntryIfNotExists(ctx, nodeID)
+	stats, err := cache.statDB.CreateEntryIfNotExists(ctx, nodeID)
 	if err != nil {
 		return err
 	}
@@ -125,5 +123,5 @@ func (o *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) err
 		return err
 	}
 
-	return o.DB.Put(nodeID.Bytes(), data)
+	return cache.db.Put(nodeID.Bytes(), data)
 }

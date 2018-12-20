@@ -34,7 +34,7 @@ type Client interface {
 
 // Overlay is the overlay concrete implementation of the client interface
 type Overlay struct {
-	client pb.OverlayClient
+	conn pb.OverlayClient
 }
 
 // Options contains parameters for selecting nodes
@@ -58,7 +58,7 @@ func NewOverlayClient(identity *provider.FullIdentity, address string) (Client, 
 	}
 
 	return &Overlay{
-		client: pb.NewOverlayClient(conn),
+		conn: pb.NewOverlayClient(conn),
 	}, nil
 }
 
@@ -69,11 +69,11 @@ func NewClientFrom(conn pb.OverlayClient) Client { return &Overlay{conn} }
 var _ Client = (*Overlay)(nil)
 
 // Choose implements the client.Choose interface
-func (o *Overlay) Choose(ctx context.Context, op Options) ([]*pb.Node, error) {
+func (client *Overlay) Choose(ctx context.Context, op Options) ([]*pb.Node, error) {
 	var exIDs storj.NodeIDList
 	exIDs = append(exIDs, op.Excluded...)
 	// TODO(coyle): We will also need to communicate with the reputation service here
-	resp, err := o.client.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{
+	resp, err := client.conn.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{
 		Opts: &pb.OverlayOptions{
 			Amount:        int64(op.Amount),
 			Restrictions:  &pb.NodeRestrictions{FreeDisk: op.Space, FreeBandwidth: op.Bandwidth},
@@ -88,8 +88,8 @@ func (o *Overlay) Choose(ctx context.Context, op Options) ([]*pb.Node, error) {
 }
 
 // Lookup provides a Node with the given ID
-func (o *Overlay) Lookup(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
-	resp, err := o.client.Lookup(ctx, &pb.LookupRequest{NodeId: nodeID})
+func (client *Overlay) Lookup(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
+	resp, err := client.conn.Lookup(ctx, &pb.LookupRequest{NodeId: nodeID})
 	if err != nil {
 		return nil, err
 	}
@@ -98,12 +98,12 @@ func (o *Overlay) Lookup(ctx context.Context, nodeID storj.NodeID) (*pb.Node, er
 }
 
 // BulkLookup provides a list of Nodes with the given IDs
-func (o *Overlay) BulkLookup(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error) {
+func (client *Overlay) BulkLookup(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error) {
 	var reqs pb.LookupRequests
 	for _, v := range nodeIDs {
 		reqs.LookupRequest = append(reqs.LookupRequest, &pb.LookupRequest{NodeId: v})
 	}
-	resp, err := o.client.BulkLookup(ctx, &reqs)
+	resp, err := client.conn.BulkLookup(ctx, &reqs)
 
 	if err != nil {
 		return nil, ClientError.Wrap(err)

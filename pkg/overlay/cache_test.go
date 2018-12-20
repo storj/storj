@@ -31,7 +31,7 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, s
 	_, _ = rand.Read(valid2ID[:])
 	_, _ = rand.Read(missingID[:])
 
-	cache := overlay.Cache{DB: store, StatDB: sdb}
+	cache := overlay.NewOverlayCache(store, sdb)
 
 	{ // Put
 		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID})
