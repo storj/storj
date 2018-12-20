@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -173,7 +173,6 @@ func (rt *RoutingTable) getKBucketID(nodeID storj.NodeID) (bucketID, error) {
 			return keys[i+1], nil
 		}
 	}
-
 	// shouldn't happen BUT return error if no matching kbucket...
 	return bucketID{}, RoutingErr.New("could not find k bucket")
 }
@@ -226,7 +225,7 @@ func keysToNodeIDs(keys storage.Keys) (ids storj.NodeIDList, err error) {
 		}
 		ids = append(ids, id)
 	}
-	if err := utils.CombineErrors(idErrs...); err != nil {
+	if err := errs.Combine(idErrs...); err != nil {
 		return nil, err
 	}
 
@@ -398,11 +397,10 @@ func (rt *RoutingTable) getKBucketRange(bID bucketID) ([]bucketID, error) {
 }
 
 // createFirstBucketID creates byte slice representing 11..11
-func (rt *RoutingTable) createFirstBucketID() bucketID {
-	var id bucketID
-	x := byte(255)
+// bucket IDs are the highest address which that bucket contains
+func (rt *RoutingTable) createFirstBucketID() (id bucketID) {
 	for i := 0; i < len(id); i++ {
-		id[i] = x
+		id[i] = 255
 	}
 	return id
 }
