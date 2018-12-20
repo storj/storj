@@ -126,6 +126,9 @@ func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy, maxSi
 
 	// TODO: make it configurable between file pipe and memory pipe
 	er.pieceBuf, err = sync2.NewMultiPipeMemory(int64(rs.TotalCount()), pieceSize)
+	if err != nil {
+		return nil, err
+	}
 
 	readers := make([]io.Reader, 0, rs.TotalCount())
 	for i := 0; i < rs.TotalCount(); i++ {
