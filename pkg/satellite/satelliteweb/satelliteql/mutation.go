@@ -7,6 +7,7 @@ import (
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/pkg/utils"
 )
@@ -291,7 +292,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						userIDs = append(userIDs, id)
 					}
 
-					err := utils.CombineErrors(pErr, userErr.Err())
+					err := errs.Combine(pErr, userErr.Err())
 					if err != nil {
 						return nil, err
 					}
@@ -339,7 +340,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						userIDs = append(userIDs, id)
 					}
 
-					err := utils.CombineErrors(pErr, userErr.Err())
+					err := errs.Combine(pErr, userErr.Err())
 					if err != nil {
 						return nil, err
 					}
