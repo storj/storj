@@ -10,10 +10,6 @@
                     <h2>Project Name</h2>
                     <h3>{{name}}</h3>
                 </div>
-                <div class="project-details-info-container__name-container">
-                    <h2>Company / Organization</h2>
-                    <h3>{{companyName}}</h3>
-                </div>
             </div>
             <div class="project-details-info-container">
                 <div class="project-details-info-container__description-container" v-if="!isEditing">
@@ -55,19 +51,18 @@
                     </div>
                 </div>
             </div>
-            <div class="project-details__terms-area">
-                <img src="static/images/projectDetails/checked.svg" alt="">
-                <h2>{{projectApproval}}</h2>
-            </div>
             <div class="project-details__button-area">
                 <!-- TODO: change vw to px -->
-                <Button label="Delete project" width="10vw" height="5vh" :onPress="onDeleteButtonClick" isWhite/>
+                <Button label="Delete project" width="10vw" height="5vh" :onPress="toggleDeleteDialog" isWhite/>
             </div>
         </div>
         <EmptyState 
             v-if="!isProjectSelected"
             mainTitle="Choose or Create new project"
             :imageSource="emptyImage" />
+        <DeleteProjectPopup 
+            v-if="isDeleteDialogShown"
+            :onClose="toggleDeleteDialog" />
     </div>
 </template>
 
@@ -78,6 +73,7 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+import DeleteProjectPopup from '@/components/projectDetails/DeleteProjectPopup.vue';
 
 @Component(
     {
@@ -85,7 +81,8 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
             return {
                 isEditing: false,
                 newDescription: '',
-                emptyImage: EMPTY_STATE_IMAGES.PROJECT
+                emptyImage: EMPTY_STATE_IMAGES.PROJECT,
+                isDeleteDialogShown: false,
             };
         },
         methods: {
@@ -114,16 +111,8 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
                     // TODO: popup error here
                     : console.error('error during project updating!');
             },
-            onDeleteButtonClick: async function (): Promise<any> {
-                let isDeleteSuccess = await this.$store.dispatch(
-                    'deleteProject',
-                    this.$store.getters.selectedProject.id,
-                );
-
-                if (!isDeleteSuccess) {
-                    // TODO: popup error here
-                    console.error('error during project deletion!');
-                }
+            toggleDeleteDialog: function (): void {
+                this.$data.isDeleteDialogShown = !this.$data.isDeleteDialogShown;
             }
         },
         computed: {
@@ -132,14 +121,6 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
             },
             description: function (): string {
                 return this.$store.getters.selectedProject.description;
-            },
-            companyName: function (): string {
-                return this.$store.getters.selectedProject.companyName;
-            },
-            projectApproval: function (): string {
-                let date = new Date(this.$store.getters.selectedProject.createdAt);
-
-                return `Project Approval ${date.toLocaleDateString()} by ${this.$store.getters.selectedProject.ownerName}`;
             },
             // this computed is used to indicate if project is selected.
             // if false - we should change UI
@@ -152,6 +133,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
             HeaderedInput,
             Checkbox,
             EmptyState,
+            DeleteProjectPopup,
         }
     }
 )
