@@ -302,14 +302,11 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						addMemberErr.Add(err)
 					}
 
-					project, getErr := service.GetProject(p.Context, *projectID)
-
-					err = utils.CombineErrors(getErr, addMemberErr.Err())
-					if err != nil {
-						project = nil
+					if err = addMemberErr.Err(); err != nil {
+						return nil, err
 					}
 
-					return project, err
+					return service.GetProject(p.Context, *projectID)
 				},
 			},
 			// delete user membership for given project
@@ -353,14 +350,11 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						deleteMemberErr.Add(err)
 					}
 
-					project, getErr := service.GetProject(p.Context, *projectID)
-
-					err = utils.CombineErrors(getErr, deleteMemberErr.Err())
-					if err != nil {
-						project = nil
+					if err = deleteMemberErr.Err(); err != nil {
+						return nil, err
 					}
 
-					return project, err
+					return service.GetProject(p.Context, *projectID)
 				},
 			},
 		},
