@@ -78,9 +78,10 @@ matrix:
       services:
         - docker
       before_script:
-      before_install:
       install:
         - source scripts/install-awscli.sh
+        - mkdir bin
+        - CD=bin go build ../cmd/...
         - make binaries-image
       script:
         - make test-all-in-one
