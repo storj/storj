@@ -26,8 +26,8 @@ var (
 	mon = monkit.Package()
 )
 
-// TODO: Use maxLimit in future.
-//const maxLimit = 50
+// maxLimit specifies the limit for all paged queries
+const maxLimit = 50
 
 // Service is handling accounts related logic
 type Service struct {
@@ -181,65 +181,7 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string)
 		return ErrUnauthorized.New("origin password is incorrect")
 	}
 
-	projects, err := s.store.Projects().GetByOwnerID(ctx, auth.User.ID)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	if len(projects) > 0 {
-		return errs.New("can't delete account with project ownership")
-	}
-
 	return s.store.Users().Delete(ctx, id)
-}
-
-// CreateCompany creates Company for User with given id
-func (s *Service) CreateCompany(ctx context.Context, userID uuid.UUID, info CompanyInfo) (c *Company, err error) {
-	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.store.Companies().Insert(ctx, &Company{
-		UserID:     userID,
-		Name:       info.Name,
-		Address:    info.Address,
-		Country:    info.Country,
-		City:       info.City,
-		State:      info.State,
-		PostalCode: info.PostalCode,
-	})
-}
-
-// GetCompany returns Company by userID
-func (s *Service) GetCompany(ctx context.Context, userID uuid.UUID) (c *Company, err error) {
-	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.store.Companies().GetByUserID(ctx, userID)
-}
-
-// UpdateCompany updates Company with given userID
-func (s *Service) UpdateCompany(ctx context.Context, userID uuid.UUID, info CompanyInfo) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
-	if err != nil {
-		return err
-	}
-
-	return s.store.Companies().Update(ctx, &Company{
-		UserID:     userID,
-		Name:       info.Name,
-		Address:    info.Address,
-		Country:    info.Country,
-		City:       info.City,
-		State:      info.State,
-		PostalCode: info.PostalCode,
-	})
 }
 
 // GetProject is a method for querying project by id
@@ -277,9 +219,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 	}
 
 	project := &Project{
-		OwnerID:       &auth.User.ID,
 		Description:   projectInfo.Description,
-		CompanyName:   projectInfo.CompanyName,
 		Name:          projectInfo.Name,
 		TermsAccepted: 1, //TODO: get lat version of Term of Use
 	}
@@ -305,20 +245,12 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 // DeleteProject is a method for deleting project by id
 func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	auth, err := GetAuth(ctx)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	project, err := s.store.Projects().Get(ctx, projectID)
-	if err != nil {
-		return err
-	}
-
-	if !uuid.Equal(auth.User.ID, *project.OwnerID) {
-		return ErrUnauthorized.New("only owner can delete the project")
-	}
-
+	// TODO: before deletion we should check if user is a project member
 	return s.store.Projects().Delete(ctx, projectID)
 }
 
@@ -369,18 +301,22 @@ func (s *Service) DeleteProjectMember(ctx context.Context, projectID, userID uui
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
-// TODO: add limit and offset parameters
-func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID) (pms []ProjectMember, err error) {
+func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, limit int, offset int64) (pm []ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: check if limit < maxLimit const
+	if limit < 0 || offset < 0 {
+		return nil, errs.New("invalid pagination argument")
+	}
 
-	// TODO: replace GetByProjectID with GetByProjectIDPaged and remove GetByProjectID as redundant
-	return s.store.ProjectMembers().GetByProjectID(ctx, projectID)
+	if limit > maxLimit {
+		limit = maxLimit
+	}
+
+	return s.store.ProjectMembers().GetByProjectID(ctx, projectID, limit, offset)
 }
 
 // Authorize validates token from context and returns authorized Authorization

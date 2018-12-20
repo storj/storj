@@ -40,7 +40,7 @@ type Server struct {
 
 // CountNodes returns the number of nodes in the cache and in kademlia
 func (srv *Server) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*pb.CountNodesResponse, error) {
-	overlayKeys, err := srv.cache.DB.List(nil, 0)
+	overlayKeys, err := srv.cache.Inspect(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -147,35 +147,29 @@ func (srv *Server) LookupNode(ctx context.Context, req *pb.LookupNodeRequest) (*
 
 // GetStats returns the stats for a particular node ID
 func (srv *Server) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.GetStatsResponse, error) {
-	getReq := &statdb.GetRequest{
-		Node: req.NodeId,
-	}
-	res, err := srv.statdb.Get(ctx, getReq)
+	stats, err := srv.statdb.Get(ctx, req.NodeId)
 	if err != nil {
 		return nil, err
 	}
 
 	return &pb.GetStatsResponse{
-		AuditCount:  res.Stats.AuditCount,
-		AuditRatio:  res.Stats.AuditSuccessRatio,
-		UptimeCount: res.Stats.UptimeCount,
-		UptimeRatio: res.Stats.UptimeRatio,
+		AuditCount:  stats.AuditCount,
+		AuditRatio:  stats.AuditSuccessRatio,
+		UptimeCount: stats.UptimeCount,
+		UptimeRatio: stats.UptimeRatio,
 	}, nil
 }
 
 // CreateStats creates a node with specified stats
 func (srv *Server) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) (*pb.CreateStatsResponse, error) {
-	stats := &pb.NodeStats{
+	stats := &statdb.NodeStats{
 		AuditCount:         req.AuditCount,
 		AuditSuccessCount:  req.AuditSuccessCount,
 		UptimeCount:        req.UptimeCount,
 		UptimeSuccessCount: req.UptimeSuccessCount,
 	}
-	createReq := &statdb.CreateRequest{
-		Node:  req.NodeId,
-		Stats: stats,
-	}
-	_, err := srv.statdb.Create(ctx, createReq)
+
+	_, err := srv.statdb.Create(ctx, req.NodeId, stats)
 	if err != nil {
 		return nil, err
 	}

@@ -41,6 +41,6 @@ export default class NotificationArea extends Vue {
         justify-content: space-between;
         box-shadow: 0px 12px 24px rgba(175, 183, 193, 0.4);
         border-radius: 6px;
-        z-index: 999;
+        z-index: 9999;
     }
 </style>

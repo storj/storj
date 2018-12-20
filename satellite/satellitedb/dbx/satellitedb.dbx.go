@@ -20,6 +20,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/mattn/go-sqlite3"
+	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
@@ -528,6 +529,7 @@ type AccountingRaw_Update_Fields struct {
 
 type AccountingRaw_Id_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -536,7 +538,7 @@ func AccountingRaw_Id(v int64) AccountingRaw_Id_Field {
 }
 
 func (f AccountingRaw_Id_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -546,6 +548,7 @@ func (AccountingRaw_Id_Field) _Column() string { return "id" }
 
 type AccountingRaw_NodeId_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -554,7 +557,7 @@ func AccountingRaw_NodeId(v string) AccountingRaw_NodeId_Field {
 }
 
 func (f AccountingRaw_NodeId_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -564,6 +567,7 @@ func (AccountingRaw_NodeId_Field) _Column() string { return "node_id" }
 
 type AccountingRaw_IntervalEndTime_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -572,7 +576,7 @@ func AccountingRaw_IntervalEndTime(v time.Time) AccountingRaw_IntervalEndTime_Fi
 }
 
 func (f AccountingRaw_IntervalEndTime_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -582,6 +586,7 @@ func (AccountingRaw_IntervalEndTime_Field) _Column() string { return "interval_e
 
 type AccountingRaw_DataTotal_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -590,7 +595,7 @@ func AccountingRaw_DataTotal(v int64) AccountingRaw_DataTotal_Field {
 }
 
 func (f AccountingRaw_DataTotal_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -600,6 +605,7 @@ func (AccountingRaw_DataTotal_Field) _Column() string { return "data_total" }
 
 type AccountingRaw_DataType_Field struct {
 	_set   bool
+	_null  bool
 	_value int
 }
 
@@ -608,7 +614,7 @@ func AccountingRaw_DataType(v int) AccountingRaw_DataType_Field {
 }
 
 func (f AccountingRaw_DataType_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -618,6 +624,7 @@ func (AccountingRaw_DataType_Field) _Column() string { return "data_type" }
 
 type AccountingRaw_CreatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -626,7 +633,7 @@ func AccountingRaw_CreatedAt(v time.Time) AccountingRaw_CreatedAt_Field {
 }
 
 func (f AccountingRaw_CreatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -636,6 +643,7 @@ func (AccountingRaw_CreatedAt_Field) _Column() string { return "created_at" }
 
 type AccountingRaw_UpdatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -644,7 +652,7 @@ func AccountingRaw_UpdatedAt(v time.Time) AccountingRaw_UpdatedAt_Field {
 }
 
 func (f AccountingRaw_UpdatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -669,6 +677,7 @@ type AccountingRollup_Update_Fields struct {
 
 type AccountingRollup_Id_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -677,7 +686,7 @@ func AccountingRollup_Id(v int64) AccountingRollup_Id_Field {
 }
 
 func (f AccountingRollup_Id_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -687,6 +696,7 @@ func (AccountingRollup_Id_Field) _Column() string { return "id" }
 
 type AccountingRollup_NodeId_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -695,7 +705,7 @@ func AccountingRollup_NodeId(v string) AccountingRollup_NodeId_Field {
 }
 
 func (f AccountingRollup_NodeId_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -705,6 +715,7 @@ func (AccountingRollup_NodeId_Field) _Column() string { return "node_id" }
 
 type AccountingRollup_StartTime_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -713,7 +724,7 @@ func AccountingRollup_StartTime(v time.Time) AccountingRollup_StartTime_Field {
 }
 
 func (f AccountingRollup_StartTime_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -723,6 +734,7 @@ func (AccountingRollup_StartTime_Field) _Column() string { return "start_time" }
 
 type AccountingRollup_Interval_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -731,7 +743,7 @@ func AccountingRollup_Interval(v int64) AccountingRollup_Interval_Field {
 }
 
 func (f AccountingRollup_Interval_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -741,6 +753,7 @@ func (AccountingRollup_Interval_Field) _Column() string { return "interval" }
 
 type AccountingRollup_DataType_Field struct {
 	_set   bool
+	_null  bool
 	_value int
 }
 
@@ -749,7 +762,7 @@ func AccountingRollup_DataType(v int) AccountingRollup_DataType_Field {
 }
 
 func (f AccountingRollup_DataType_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -759,6 +772,7 @@ func (AccountingRollup_DataType_Field) _Column() string { return "data_type" }
 
 type AccountingRollup_CreatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -767,7 +781,7 @@ func AccountingRollup_CreatedAt(v time.Time) AccountingRollup_CreatedAt_Field {
 }
 
 func (f AccountingRollup_CreatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -777,6 +791,7 @@ func (AccountingRollup_CreatedAt_Field) _Column() string { return "created_at" }
 
 type AccountingRollup_UpdatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -785,7 +800,7 @@ func AccountingRollup_UpdatedAt(v time.Time) AccountingRollup_UpdatedAt_Field {
 }
 
 func (f AccountingRollup_UpdatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -806,6 +821,7 @@ type AccountingTimestamps_Update_Fields struct {
 
 type AccountingTimestamps_Name_Field struct {
 	_set   bool
+	_null  bool
 	_value string
 }
 
@@ -814,7 +830,7 @@ func AccountingTimestamps_Name(v string) AccountingTimestamps_Name_Field {
 }
 
 func (f AccountingTimestamps_Name_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -824,6 +840,7 @@ func (AccountingTimestamps_Name_Field) _Column() string { return "name" }
 
 type AccountingTimestamps_Value_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -832,7 +849,7 @@ func AccountingTimestamps_Value(v time.Time) AccountingTimestamps_Value_Field {
 }
 
 func (f AccountingTimestamps_Value_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -853,6 +870,7 @@ type Bwagreement_Update_Fields struct {
 
 type Bwagreement_Signature_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -861,7 +879,7 @@ func Bwagreement_Signature(v []byte) Bwagreement_Signature_Field {
 }
 
 func (f Bwagreement_Signature_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -871,6 +889,7 @@ func (Bwagreement_Signature_Field) _Column() string { return "signature" }
 
 type Bwagreement_Data_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -879,7 +898,7 @@ func Bwagreement_Data(v []byte) Bwagreement_Data_Field {
 }
 
 func (f Bwagreement_Data_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -889,6 +908,7 @@ func (Bwagreement_Data_Field) _Column() string { return "data" }
 
 type Bwagreement_CreatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -897,7 +917,7 @@ func Bwagreement_CreatedAt(v time.Time) Bwagreement_CreatedAt_Field {
 }
 
 func (f Bwagreement_CreatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -924,6 +944,7 @@ type Irreparabledb_Update_Fields struct {
 
 type Irreparabledb_Segmentpath_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -932,7 +953,7 @@ func Irreparabledb_Segmentpath(v []byte) Irreparabledb_Segmentpath_Field {
 }
 
 func (f Irreparabledb_Segmentpath_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -942,6 +963,7 @@ func (Irreparabledb_Segmentpath_Field) _Column() string { return "segmentpath" }
 
 type Irreparabledb_Segmentdetail_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -950,7 +972,7 @@ func Irreparabledb_Segmentdetail(v []byte) Irreparabledb_Segmentdetail_Field {
 }
 
 func (f Irreparabledb_Segmentdetail_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -960,6 +982,7 @@ func (Irreparabledb_Segmentdetail_Field) _Column() string { return "segmentdetai
 
 type Irreparabledb_PiecesLostCount_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -968,7 +991,7 @@ func Irreparabledb_PiecesLostCount(v int64) Irreparabledb_PiecesLostCount_Field 
 }
 
 func (f Irreparabledb_PiecesLostCount_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -978,6 +1001,7 @@ func (Irreparabledb_PiecesLostCount_Field) _Column() string { return "pieces_los
 
 type Irreparabledb_SegDamagedUnixSec_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -986,7 +1010,7 @@ func Irreparabledb_SegDamagedUnixSec(v int64) Irreparabledb_SegDamagedUnixSec_Fi
 }
 
 func (f Irreparabledb_SegDamagedUnixSec_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -996,6 +1020,7 @@ func (Irreparabledb_SegDamagedUnixSec_Field) _Column() string { return "seg_dama
 
 type Irreparabledb_RepairAttemptCount_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -1004,7 +1029,7 @@ func Irreparabledb_RepairAttemptCount(v int64) Irreparabledb_RepairAttemptCount_
 }
 
 func (f Irreparabledb_RepairAttemptCount_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1037,6 +1062,7 @@ type Node_Update_Fields struct {
 
 type Node_Id_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -1045,7 +1071,7 @@ func Node_Id(v []byte) Node_Id_Field {
 }
 
 func (f Node_Id_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1055,6 +1081,7 @@ func (Node_Id_Field) _Column() string { return "id" }
 
 type Node_AuditSuccessCount_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -1063,7 +1090,7 @@ func Node_AuditSuccessCount(v int64) Node_AuditSuccessCount_Field {
 }
 
 func (f Node_AuditSuccessCount_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1073,6 +1100,7 @@ func (Node_AuditSuccessCount_Field) _Column() string { return "audit_success_cou
 
 type Node_TotalAuditCount_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -1081,7 +1109,7 @@ func Node_TotalAuditCount(v int64) Node_TotalAuditCount_Field {
 }
 
 func (f Node_TotalAuditCount_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1091,6 +1119,7 @@ func (Node_TotalAuditCount_Field) _Column() string { return "total_audit_count" 
 
 type Node_AuditSuccessRatio_Field struct {
 	_set   bool
+	_null  bool
 	_value float64
 }
 
@@ -1099,7 +1128,7 @@ func Node_AuditSuccessRatio(v float64) Node_AuditSuccessRatio_Field {
 }
 
 func (f Node_AuditSuccessRatio_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1109,6 +1138,7 @@ func (Node_AuditSuccessRatio_Field) _Column() string { return "audit_success_rat
 
 type Node_UptimeSuccessCount_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -1117,7 +1147,7 @@ func Node_UptimeSuccessCount(v int64) Node_UptimeSuccessCount_Field {
 }
 
 func (f Node_UptimeSuccessCount_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1127,6 +1157,7 @@ func (Node_UptimeSuccessCount_Field) _Column() string { return "uptime_success_c
 
 type Node_TotalUptimeCount_Field struct {
 	_set   bool
+	_null  bool
 	_value int64
 }
 
@@ -1135,7 +1166,7 @@ func Node_TotalUptimeCount(v int64) Node_TotalUptimeCount_Field {
 }
 
 func (f Node_TotalUptimeCount_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1145,6 +1176,7 @@ func (Node_TotalUptimeCount_Field) _Column() string { return "total_uptime_count
 
 type Node_UptimeRatio_Field struct {
 	_set   bool
+	_null  bool
 	_value float64
 }
 
@@ -1153,7 +1185,7 @@ func Node_UptimeRatio(v float64) Node_UptimeRatio_Field {
 }
 
 func (f Node_UptimeRatio_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1163,6 +1195,7 @@ func (Node_UptimeRatio_Field) _Column() string { return "uptime_ratio" }
 
 type Node_CreatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -1171,7 +1204,7 @@ func Node_CreatedAt(v time.Time) Node_CreatedAt_Field {
 }
 
 func (f Node_CreatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1181,6 +1214,7 @@ func (Node_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Node_UpdatedAt_Field struct {
 	_set   bool
+	_null  bool
 	_value time.Time
 }
 
@@ -1189,7 +1223,7 @@ func Node_UpdatedAt(v time.Time) Node_UpdatedAt_Field {
 }
 
 func (f Node_UpdatedAt_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1210,6 +1244,7 @@ type OverlayCacheNode_Update_Fields struct {
 
 type OverlayCacheNode_Key_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -1218,7 +1253,7 @@ func OverlayCacheNode_Key(v []byte) OverlayCacheNode_Key_Field {
 }
 
 func (f OverlayCacheNode_Key_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1228,6 +1263,7 @@ func (OverlayCacheNode_Key_Field) _Column() string { return "key" }
 
 type OverlayCacheNode_Value_Field struct {
 	_set   bool
+	_null  bool
 	_value []byte
 }
 
@@ -1236,7 +1272,7 @@ func OverlayCacheNode_Value(v []byte) OverlayCacheNode_Value_Field {
 }
 
 func (f OverlayCacheNode_Value_Field) value() interface{} {
-	if !f._set {
+	if !f._set || f._null {
 		return nil
 	}
 	return f._value
@@ -1915,6 +1951,41 @@ func (obj *postgresImpl) Get_OverlayCacheNode_By_Key(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return overlay_cache_node, nil
+
+}
+
+func (obj *postgresImpl) Limited_OverlayCacheNode(ctx context.Context,
+	limit int, offset int64) (
+	rows []*OverlayCacheNode, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		overlay_cache_node := &OverlayCacheNode{}
+		err = __rows.Scan(&overlay_cache_node.Key, &overlay_cache_node.Value)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, overlay_cache_node)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -2994,6 +3065,41 @@ func (obj *sqlite3Impl) Get_OverlayCacheNode_By_Key(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Limited_OverlayCacheNode(ctx context.Context,
+	limit int, offset int64) (
+	rows []*OverlayCacheNode, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.key, overlay_cache_nodes.value FROM overlay_cache_nodes LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		overlay_cache_node := &OverlayCacheNode{}
+		err = __rows.Scan(&overlay_cache_node.Key, &overlay_cache_node.Value)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, overlay_cache_node)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *sqlite3Impl) Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx context.Context,
 	overlay_cache_node_key_greater_or_equal OverlayCacheNode_Key_Field,
 	limit int, offset int64) (
@@ -4055,6 +4161,16 @@ func (rx *Rx) Limited_Bwagreement(ctx context.Context,
 	return tx.Limited_Bwagreement(ctx, limit, offset)
 }
 
+func (rx *Rx) Limited_OverlayCacheNode(ctx context.Context,
+	limit int, offset int64) (
+	rows []*OverlayCacheNode, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_OverlayCacheNode(ctx, limit, offset)
+}
+
 func (rx *Rx) Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx context.Context,
 	overlay_cache_node_key_greater_or_equal OverlayCacheNode_Key_Field,
 	limit int, offset int64) (
@@ -4251,6 +4367,10 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*Bwagreement, err error)
 
+	Limited_OverlayCacheNode(ctx context.Context,
+		limit int, offset int64) (
+		rows []*OverlayCacheNode, err error)
+
 	Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx context.Context,
 		overlay_cache_node_key_greater_or_equal OverlayCacheNode_Key_Field,
 		limit int, offset int64) (
@@ -4320,7 +4440,11 @@ func openpostgres(source string) (*sql.DB, error) {
 	return sql.Open("postgres", source)
 }
 
-var sqlite3DriverName = "sqlite3_" + fmt.Sprint(time.Now().UnixNano())
+var sqlite3DriverName = func() string {
+	var id [16]byte
+	rand.Read(id[:])
+	return fmt.Sprintf("sqlite3_%x", string(id[:]))
+}()
 
 func init() {
 	sql.Register(sqlite3DriverName, &sqlite3.SQLiteDriver{
