@@ -161,6 +161,43 @@ func TestConnectionSuccess(t *testing.T) {
 	}
 }
 
+func TestUpdateSelf(t *testing.T) {
+	id := teststorj.NodeIDFromString("AA")
+	rt, cleanup := createRoutingTable(t, id)
+	defer cleanup()
+	address := &pb.NodeAddress{Address: "a"}
+	node := &pb.Node{Id: id, Address: address}
+	cases := []struct {
+		testID  string
+		node    *pb.Node
+		id      storj.NodeID
+		address *pb.NodeAddress
+	}{
+		{testID: "Update Node",
+			node:    node,
+			id:      id,
+			address: address,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			newNode := c.node
+			restrictions := &pb.NodeRestrictions{
+				FreeBandwidth: 10,
+			}
+			newNode.Restrictions = restrictions
+			err := rt.UpdateSelf(newNode)
+			assert.NoError(t, err)
+			v, err := rt.nodeBucketDB.Get(c.id.Bytes())
+			assert.NoError(t, err)
+			n, err := unmarshalNodes([]storage.Value{v})
+			assert.NoError(t, err)
+			assert.Equal(t, c.address.Address, n[0].Address.Address)
+			assert.Equal(t, newNode.Restrictions.GetFreeBandwidth(), n[0].Restrictions.GetFreeBandwidth())
+		})
+	}
+}
+
 func TestConnectionFailed(t *testing.T) {
 	id := teststorj.NodeIDFromString("AA")
 	node := &pb.Node{Id: id}

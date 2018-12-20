@@ -141,6 +141,7 @@ func (rt *RoutingTable) FindNear(id storj.NodeID, limit int) (nodes []*pb.Node, 
 	return nodes, nil
 }
 
+// UpdateSelf updates a node on the routing table
 func (rt *RoutingTable) UpdateSelf(node *pb.Node) error {
 	if node.Id != rt.Local().Id {
 		return RoutingErr.New("self does not have a matching node id")
