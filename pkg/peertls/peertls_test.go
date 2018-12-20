@@ -457,6 +457,7 @@ func TestRevocationDB_Put(t *testing.T) {
 			nil,
 			nil,
 		},
+		// TODO(bryanchriswhite): test empty/garbage cert/timestamp/sig
 	}
 
 	for _, c := range cases {
