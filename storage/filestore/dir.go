@@ -12,7 +12,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"storj.io/storj/pkg/utils"
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/storage"
 )
 
@@ -35,7 +36,7 @@ func NewDir(path string) (*Dir, error) {
 		path: path,
 	}
 
-	return dir, utils.CombineErrors(
+	return dir, errs.Combine(
 		os.MkdirAll(dir.blobdir(), dirPermission),
 		os.MkdirAll(dir.tempdir(), dirPermission),
 		os.MkdirAll(dir.trashdir(), dirPermission),
@@ -64,7 +65,7 @@ func (dir *Dir) CreateTemporaryFile(prealloc int64) (*os.File, error) {
 
 	if prealloc >= 0 {
 		if err := file.Truncate(prealloc); err != nil {
-			return nil, utils.CombineErrors(err, file.Close())
+			return nil, errs.Combine(err, file.Close())
 		}
 	}
 	return file, nil
@@ -73,7 +74,7 @@ func (dir *Dir) CreateTemporaryFile(prealloc int64) (*os.File, error) {
 // DeleteTemporary deletes a temporary file
 func (dir *Dir) DeleteTemporary(file *os.File) error {
 	closeErr := file.Close()
-	return utils.CombineErrors(closeErr, os.Remove(file.Name()))
+	return errs.Combine(closeErr, os.Remove(file.Name()))
 }
 
 // refToPath converts blob reference to a filepath
@@ -92,7 +93,7 @@ func (dir *Dir) Commit(file *os.File, ref storage.BlobRef) error {
 
 	if seekErr != nil || truncErr != nil || syncErr != nil || chmodErr != nil || closeErr != nil {
 		removeErr := os.Remove(file.Name())
-		return utils.CombineErrors(seekErr, truncErr, syncErr, chmodErr, closeErr, removeErr)
+		return errs.Combine(seekErr, truncErr, syncErr, chmodErr, closeErr, removeErr)
 	}
 
 	path := dir.refToPath(ref)
@@ -102,13 +103,13 @@ func (dir *Dir) Commit(file *os.File, ref storage.BlobRef) error {
 	}
 	if mkdirErr != nil {
 		removeErr := os.Remove(file.Name())
-		return utils.CombineErrors(mkdirErr, removeErr)
+		return errs.Combine(mkdirErr, removeErr)
 	}
 
 	renameErr := os.Rename(file.Name(), path)
 	if renameErr != nil {
 		removeErr := os.Remove(file.Name())
-		return utils.CombineErrors(renameErr, removeErr)
+		return errs.Combine(renameErr, removeErr)
 	}
 
 	return nil
