@@ -5,7 +5,6 @@ package tally
 
 import (
 	"crypto/ecdsa"
-	"fmt"
 	"testing"
 	"time"
 
@@ -52,7 +51,6 @@ func TestQueryWithBw(t *testing.T) {
 	db, err := satellitedb.NewInMemory()
 	assert.NoError(t, err)
 	defer ctx.Check(db.Close)
-	defer fmt.Println("clkos")
 
 	assert.NoError(t, db.CreateTables())
 
