@@ -5,10 +5,8 @@
 model bwagreement (
 	key signature
 
-	field signature blob
-
-	field data blob
-
+	field signature  blob
+	field data       blob
 	field created_at timestamp ( autoinsert )
 )
 
