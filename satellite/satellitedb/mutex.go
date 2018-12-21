@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
@@ -33,6 +34,16 @@ func (db *Mutex) locked() func() {
 	db.mu.Lock()
 	return db.mu.Unlock
 }
+
+// BandwidthAgreement is a getter for bandwidth agreement repository
+func (db *Mutex) BandwidthAgreement() bwagreement.DB {
+	return &bandwidthagreement{mu: db, db: db.db.BandwidthAgreement()}
+}
+
+// // PointerDB is a getter for PointerDB repository
+// func (db *Mutex) PointerDB() pointerdb.DB {
+// 	return &pointerDB{db: db.db}
+// }
 
 // StatDB is a getter for StatDB repository
 func (db *Mutex) StatDB() statdb.DB {
@@ -67,6 +78,26 @@ func (db *Mutex) CreateTables() error {
 // Close is used to close db connection
 func (db *Mutex) Close() error {
 	return db.db.Close()
+}
+
+type muBandwidthAgreement struct {
+	mu *Mutex
+	db bwagreement.DB
+}
+
+func (mu *muBandwidthAgreement) CreateAgreement(ctx context.Context, agreement bwagreement.Agreement) error {
+	defer mu.mu.locked()
+	return mu.db.CreateAgreement(ctx, agreement)
+}
+
+func (mu *muBandwidthAgreement) GetAgreements(ctx context.Context) ([]bwagreement.Agreement, error) {
+	defer mu.mu.locked()
+	return mu.db.GetAgreements(ctx)
+}
+
+func (mu *muBandwidthAgreement) GetAgreementsSince(ctx context.Context, since time.Time) ([]bwagreement.Agreement, error) {
+	defer mu.mu.locked()
+	return mu.db.GetAgreementsSince(ctx, since)
 }
 
 // muStatDB implements mutex around statdb.DB

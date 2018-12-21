@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/satellite"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )
@@ -42,8 +43,9 @@ func New(databaseURL string) (*DB, error) {
 }
 
 // NewInMemory creates instance of Sqlite in memory satellite database
-func NewInMemory() (*DB, error) {
-	return New("sqlite3://file::memory:?mode=memory&cache=shared")
+func NewInMemory() (satellite.DB, error) {
+	db, err := New("sqlite3://file::memory:?mode=memory&cache=shared")
+	return NewMutex(db), err
 }
 
 // BandwidthAgreement is a getter for bandwidth agreement repository
