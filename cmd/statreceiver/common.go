@@ -14,27 +14,26 @@ type closerfunc func() error
 
 func (f closerfunc) Close() error { return f() }
 
-// Deliver kicks off a goroutine that reads packets from s and delivers them
-// to p. To stop delivery, call Close on the return value then close the source.
-func Deliver(s Source, p PacketDest) io.Closer {
+// Deliver kicks off a goroutine that reads packets from source and delivers them
+// to destination. To stop delivery, call Close on the return value then close the source.
+func Deliver(source Source, destination PacketDest) io.Closer {
 	done := new(uint32)
+
 	go func() {
-		for {
-			data, ts, err := s.Next()
-			if atomic.LoadUint32(done) == 1 {
-				return
-			}
+		for atomic.LoadUint32(done) == 0 {
+			data, ts, err := source.Next()
 			if err != nil {
 				log.Printf("failed getting packet: %v", err)
 				continue
 			}
-			err = p.Packet(data, ts)
+			err = destination.Packet(data, ts)
 			if err != nil {
 				log.Printf("failed delivering packet: %v", err)
 				continue
 			}
 		}
 	}()
+
 	return closerfunc(func() error {
 		atomic.StoreUint32(done, 1)
 		return nil
@@ -53,6 +52,5 @@ type PacketDest interface {
 
 // MetricDest handles metrics
 type MetricDest interface {
-	Metric(application, instance string, key []byte, val float64, ts time.Time) (
-		err error)
+	Metric(application, instance string, key []byte, val float64, ts time.Time) error
 }

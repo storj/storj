@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"storj.io/storj/internal/fpath"
+
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/cmd/statreceiver/luacfg"
@@ -22,17 +24,17 @@ var Config struct {
 	Input string `default:"" help:"path to configuration file"`
 }
 
-const defaultConfDir = "$HOME/.storj/statreceiver"
-
 func main() {
+	defaultConfDir := fpath.ApplicationDir("storj", "statreceiver")
+
 	cmd := &cobra.Command{
 		Use:   os.Args[0],
 		Short: "stat receiving",
 		RunE:  Main,
 	}
+
 	cfgstruct.Bind(cmd.Flags(), &Config, cfgstruct.ConfDir(defaultConfDir))
-	cmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"),
-		"path to configuration")
+	cmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	process.Exec(cmd)
 }
 
