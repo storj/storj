@@ -63,12 +63,12 @@ func (db *DB) StatDB() statdb.DB {
 
 // OverlayCache is a getter for overlay cache repository
 func (db *DB) OverlayCache() storage.KeyValueStore {
-	return newOverlaycache(db.db)
+	return &overlaycache{db: db.db}
 }
 
 // RepairQueue is a getter for RepairQueue repository
 func (db *DB) RepairQueue() queue.RepairQueue {
-	return newRepairQueue(db.db)
+	return &repairQueue{db: db.db}
 }
 
 // Accounting returns database for tracking bandwidth agreements over time

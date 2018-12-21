@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"storj.io/storj/pkg/accounting"
@@ -82,8 +83,7 @@ func (mu *muStatDB) Create(ctx context.Context, nodeID storj.NodeID, startingSta
 // Get a storagenode's stats from the db
 func (mu *muStatDB) Get(ctx context.Context, nodeID storj.NodeID) (stats *statdb.NodeStats, err error) {
 	defer mu.mu.locked()()
-	stats, err = mu.db.Get(ctx, nodeID)
-	return
+	return mu.db.Get(ctx, nodeID)
 }
 
 // FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements
@@ -96,29 +96,25 @@ func (mu *muStatDB) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDLi
 // Update all parts of single storagenode's stats in the db
 func (mu *muStatDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (stats *statdb.NodeStats, err error) {
 	defer mu.mu.locked()()
-	stats, err = mu.db.Update(ctx, updateReq)
-	return
+	return mu.db.Update(ctx, updateReq)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db
 func (mu *muStatDB) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *statdb.NodeStats, err error) {
 	defer mu.mu.locked()()
-	stats, err = mu.db.UpdateUptime(ctx, nodeID, isUp)
-	return
+	return mu.db.UpdateUptime(ctx, nodeID, isUp)
 }
 
 // UpdateAuditSuccess updates a single storagenode's audit stats in the db
 func (mu *muStatDB) UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, auditSuccess bool) (stats *statdb.NodeStats, err error) {
 	defer mu.mu.locked()()
-	stats, err = mu.db.UpdateAuditSuccess(ctx, nodeID, auditSuccess)
-	return
+	return mu.db.UpdateAuditSuccess(ctx, nodeID, auditSuccess)
 }
 
 // UpdateBatch for updating multiple farmers' stats in the db
 func (mu *muStatDB) UpdateBatch(ctx context.Context, updateReqList []*statdb.UpdateRequest) (statsList []*statdb.NodeStats, failedUpdateReqs []*statdb.UpdateRequest, err error) {
 	defer mu.mu.locked()()
-	statsList, failedUpdateReqs, err = mu.db.UpdateBatch(ctx, updateReqList)
-	return
+	return mu.db.UpdateBatch(ctx, updateReqList)
 }
 
 // CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist
@@ -126,4 +122,51 @@ func (mu *muStatDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.Nod
 	defer mu.mu.locked()()
 	stats, err = mu.db.CreateEntryIfNotExists(ctx, nodeID)
 	return
+}
+
+type muOverlayCache struct {
+	mu *Mutex
+	db storage.KeyValueStore
+}
+
+func (db *muOverlayCache) Put(key storage.Key, value storage.Value) error {
+	defer db.mu.locked()()
+	return db.db.Put(key, value)
+}
+
+func (db *muOverlayCache) Get(key storage.Key) (storage.Value, error) {
+	defer db.mu.locked()()
+	return db.db.Get(key)
+}
+
+func (db *muOverlayCache) GetAll(keys storage.Keys) (storage.Values, error) {
+	defer db.mu.locked()()
+	return db.db.GetAll(keys)
+}
+
+func (db *muOverlayCache) Delete(key storage.Key) error {
+	defer db.mu.locked()()
+	return db.db.Delete(key)
+}
+
+func (db *muOverlayCache) List(start storage.Key, limit int) (keys storage.Keys, err error) {
+	defer db.mu.locked()()
+	return db.db.List(start, limit)
+}
+
+// ReverseList lists all keys in revers order
+func (db *muOverlayCache) ReverseList(start storage.Key, limit int) (storage.Keys, error) {
+	defer db.mu.locked()()
+	return db.db.ReverseList(start, limit)
+}
+
+// Iterate iterates over items based on opts
+func (db *muOverlayCache) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
+	return errors.New("not implemented")
+}
+
+// Close closes the store
+func (db *muOverlayCache) Close() error {
+	defer db.mu.locked()()
+	return db.db.Close()
 }
