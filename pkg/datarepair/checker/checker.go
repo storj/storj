@@ -28,7 +28,7 @@ type Checker interface {
 type checker struct {
 	statdb      statdb.DB
 	pointerdb   *pointerdb.Server
-	repairQueue *queue.Queue
+	repairQueue queue.RepairQueue
 	overlay     pb.OverlayServer
 	irrdb       irreparable.DB
 	limit       int
@@ -37,7 +37,7 @@ type checker struct {
 }
 
 // newChecker creates a new instance of checker
-func newChecker(pointerdb *pointerdb.Server, sdb statdb.DB, repairQueue *queue.Queue, overlay pb.OverlayServer, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *checker {
+func newChecker(pointerdb *pointerdb.Server, sdb statdb.DB, repairQueue queue.RepairQueue, overlay pb.OverlayServer, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *checker {
 	return &checker{
 		statdb:      sdb,
 		pointerdb:   pointerdb,
