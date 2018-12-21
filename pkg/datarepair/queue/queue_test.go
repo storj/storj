@@ -4,7 +4,6 @@
 package queue_test
 
 import (
-	"fmt"
 	"sort"
 	"strconv"
 	"sync"
@@ -109,7 +108,6 @@ func TestParallel(t *testing.T) {
 					Path:       strconv.Itoa(i),
 					LostPieces: []int32{int32(i)},
 				})
-				fmt.Println(err)
 				if err != nil {
 					errs <- err
 				}
@@ -117,13 +115,13 @@ func TestParallel(t *testing.T) {
 
 		}
 		wg.Wait()
+
 		wg.Add(N)
 		// Remove from queue concurrently
 		for i := 0; i < N; i++ {
 			go func(i int) {
 				defer wg.Done()
 				segment, err := q.Dequeue(ctx)
-				fmt.Println(segment, err)
 				if err != nil {
 					errs <- err
 				}
