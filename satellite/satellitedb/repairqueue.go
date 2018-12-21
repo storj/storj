@@ -32,6 +32,7 @@ func (r *repairQueue) Enqueue(ctx context.Context, seg *pb.InjuredSegment) error
 }
 
 func (r *repairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
+	// TODO: fix out of order issue
 	tx, err := r.db.Open(ctx)
 	if err != nil {
 		return pb.InjuredSegment{}, Error.Wrap(err)
@@ -40,8 +41,7 @@ func (r *repairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
 	res, err := tx.First_Injuredsegment(ctx)
 	if err != nil {
 		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
-	}
-	if res == nil {
+	} else if res == nil {
 		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(storage.ErrEmptyQueue, tx.Rollback()))
 	}
 
@@ -51,17 +51,18 @@ func (r *repairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
 	)
 	if err != nil {
 		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
-	}
-	if !deleted {
+	} else if !deleted {
 		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(Error.New("Injured segment not deleted"), tx.Rollback()))
+	}
+	if err := tx.Commit(); err != nil {
+		return pb.InjuredSegment{}, Error.Wrap(err)
 	}
 
 	seg := &pb.InjuredSegment{}
-	err = proto.Unmarshal(res.Info, seg)
-	if err != nil {
-		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+	if err = proto.Unmarshal(res.Info, seg); err != nil {
+		return pb.InjuredSegment{}, Error.Wrap(err)
 	}
-	return *seg, Error.Wrap(tx.Commit())
+	return *seg, nil
 }
 
 func (r *repairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
