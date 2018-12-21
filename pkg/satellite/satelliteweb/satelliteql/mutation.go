@@ -6,7 +6,6 @@ package satelliteql
 import (
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/pkg/utils"
@@ -210,41 +209,26 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					fieldProjectID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
-					fieldUserID: &graphql.ArgumentConfig{
+					fieldEmail: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.NewList(graphql.String)),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					pID, _ := p.Args[fieldProjectID].(string)
-					uID, _ := p.Args[fieldUserID].([]interface{})
+					emails, _ := p.Args[fieldEmail].([]interface{})
 
 					projectID, pErr := uuid.Parse(pID)
-
-					var userIDs []*uuid.UUID
-					var userErr errs.Group
-
-					for _, userID := range uID {
-						id, err := uuid.Parse(userID.(string))
-						if err != nil {
-							userErr.Add(err)
-							continue
-						}
-
-						userIDs = append(userIDs, id)
+					if pErr != nil {
+						return nil, pErr
 					}
 
-					err := errs.Combine(pErr, userErr.Err())
+					var userEmails []string
+					for _, email := range emails {
+						userEmails = append(userEmails, email.(string))
+					}
+
+					err := service.AddProjectMembers(p.Context, *projectID, userEmails)
 					if err != nil {
-						return nil, err
-					}
-
-					var addMemberErr errs.Group
-					for _, userID := range userIDs {
-						err = service.AddProjectMember(p.Context, *projectID, *userID)
-						addMemberErr.Add(err)
-					}
-
-					if err = addMemberErr.Err(); err != nil {
 						return nil, err
 					}
 
@@ -258,41 +242,26 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					fieldProjectID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
-					fieldUserID: &graphql.ArgumentConfig{
+					fieldEmail: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.NewList(graphql.String)),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					pID, _ := p.Args[fieldProjectID].(string)
-					uID, _ := p.Args[fieldUserID].([]interface{})
+					emails, _ := p.Args[fieldEmail].([]interface{})
 
 					projectID, pErr := uuid.Parse(pID)
-
-					var userIDs []*uuid.UUID
-					var userErr errs.Group
-
-					for _, userID := range uID {
-						id, err := uuid.Parse(userID.(string))
-						if err != nil {
-							userErr.Add(err)
-							continue
-						}
-
-						userIDs = append(userIDs, id)
+					if pErr != nil {
+						return nil, pErr
 					}
 
-					err := errs.Combine(pErr, userErr.Err())
+					var userEmails []string
+					for _, email := range emails {
+						userEmails = append(userEmails, email.(string))
+					}
+
+					err := service.DeleteProjectMembers(p.Context, *projectID, userEmails)
 					if err != nil {
-						return nil, err
-					}
-
-					var deleteMemberErr errs.Group
-					for _, userID := range userIDs {
-						err = service.DeleteProjectMember(p.Context, *projectID, *userID)
-						deleteMemberErr.Add(err)
-					}
-
-					if err = deleteMemberErr.Err(); err != nil {
 						return nil, err
 					}
 
