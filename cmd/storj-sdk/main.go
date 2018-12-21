@@ -5,6 +5,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -52,13 +54,19 @@ func main() {
 			Use:   "run",
 			Short: "run network",
 			RunE: func(cmd *cobra.Command, args []string) (err error) {
-				return runProcesses(&flags, args, "run")
+				return networkExec(&flags, args, "run")
 			},
 		}, &cobra.Command{
 			Use:   "setup",
 			Short: "setup network",
 			RunE: func(cmd *cobra.Command, args []string) (err error) {
-				return runProcesses(&flags, args, "setup")
+				return networkExec(&flags, args, "setup")
+			},
+		}, &cobra.Command{
+			Use:   "destroy",
+			Short: "destroys network if it exists",
+			RunE: func(cmd *cobra.Command, args []string) (err error) {
+				return networkDestroy(&flags, args)
 			},
 		},
 	)
@@ -77,13 +85,14 @@ func main() {
 		testCmd,
 	)
 
+	rootCmd.SilenceUsage = true
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
 	}
 }
 
-func runProcesses(flags *Flags, args []string, command string) error {
+func networkExec(flags *Flags, args []string, command string) error {
 	processes, err := NewProcesses(flags.Directory, flags.SatelliteCount, flags.StorageNodeCount)
 	if err != nil {
 		return err
@@ -96,4 +105,13 @@ func runProcesses(flags *Flags, args []string, command string) error {
 	closeErr := processes.Close()
 
 	return utils.CombineErrors(err, closeErr)
+}
+
+func networkDestroy(flags *Flags, args []string) error {
+	if fpath.IsRoot(flags.Directory) {
+		return errors.New("safety check: disallowed to remove root directory " + flags.Directory)
+	}
+
+	fmt.Println("exec: rm -rf", flags.Directory)
+	return os.RemoveAll(flags.Directory)
 }
