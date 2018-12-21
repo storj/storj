@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"
 )
@@ -128,7 +127,7 @@ func BenchmarkSuiteLong(b *testing.B) {
 		b.Fatalf("failed to create db: %v", err)
 	}
 	defer func() {
-		if err := utils.CombineErrors(store.Close(), os.RemoveAll(tempdir)); err != nil {
+		if err := errs.Combine(store.Close(), os.RemoveAll(tempdir)); err != nil {
 			b.Fatalf("failed to close db: %v", err)
 		}
 	}()

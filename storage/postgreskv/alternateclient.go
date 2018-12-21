@@ -7,7 +7,6 @@ package postgreskv
 import (
 	"database/sql"
 
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -94,7 +93,7 @@ func AltNew(dbURL string) (*AlternateClient, error) {
 	}
 	_, err = client.pgConn.Exec(alternateSQLSetup)
 	if err != nil {
-		return nil, utils.CombineErrors(err, client.Close())
+		return nil, errs.Combine(err, client.Close())
 	}
 	return &AlternateClient{Client: client}, nil
 }
@@ -102,7 +101,7 @@ func AltNew(dbURL string) (*AlternateClient, error) {
 // Close closes an AlternateClient and frees its resources.
 func (altClient *AlternateClient) Close() error {
 	_, err := altClient.pgConn.Exec(alternateSQLTeardown)
-	return utils.CombineErrors(err, altClient.Client.Close())
+	return errs.Combine(err, altClient.Client.Close())
 }
 
 type alternateOrderedPostgresIterator struct {
@@ -158,7 +157,7 @@ func (altClient *AlternateClient) Iterate(opts storage.IterateOptions, fn func(s
 		return err
 	}
 	defer func() {
-		err = utils.CombineErrors(err, opi.Close())
+		err = errs.Combine(err, opi.Close())
 	}()
 
 	return fn(opi)
