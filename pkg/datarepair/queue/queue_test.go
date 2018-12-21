@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/satellite"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage/redis"
 	"storj.io/storj/storage/redis/redisserver"
@@ -25,7 +25,7 @@ import (
 
 func TestEnqueueDequeue(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New()
+		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
 		q := db.RepairQueue()
@@ -45,7 +45,7 @@ func TestEnqueueDequeue(t *testing.T) {
 
 func TestDequeueEmptyQueue(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New()
+		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
 		q := db.RepairQueue()
@@ -58,7 +58,7 @@ func TestDequeueEmptyQueue(t *testing.T) {
 
 func TestSequential(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New()
+		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
 		q := db.RepairQueue()
@@ -91,7 +91,7 @@ func TestSequential(t *testing.T) {
 
 func TestParallel(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New()
+		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
 		q := db.RepairQueue()
@@ -170,6 +170,9 @@ func BenchmarkTeststoreSequential(b *testing.B) {
 }
 
 func benchmarkSequential(b *testing.B, q queue.RepairQueue) {
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		const N = 100
@@ -207,6 +210,9 @@ func BenchmarkTeststoreParallel(b *testing.B) {
 }
 
 func benchmarkParallel(b *testing.B, q queue.RepairQueue) {
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		const N = 100

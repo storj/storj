@@ -12,7 +12,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/datarepair/irreparable"
-	"storj.io/storj/pkg/satellite"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
