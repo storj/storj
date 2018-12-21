@@ -12,12 +12,12 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/datarepair/irreparable"
-	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestIrreparable(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 

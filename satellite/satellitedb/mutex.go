@@ -37,7 +37,7 @@ func (db *Mutex) locked() func() {
 
 // BandwidthAgreement is a getter for bandwidth agreement repository
 func (db *Mutex) BandwidthAgreement() bwagreement.DB {
-	return &bandwidthagreement{mu: db, db: db.db.BandwidthAgreement()}
+	return &muBandwidthAgreement{mu: db, db: db.db.BandwidthAgreement()}
 }
 
 // // PointerDB is a getter for PointerDB repository
@@ -52,22 +52,22 @@ func (db *Mutex) StatDB() statdb.DB {
 
 // OverlayCache is a getter for overlay cache repository
 func (db *Mutex) OverlayCache() storage.KeyValueStore {
-	return muOverlayCache{mu: db, db: db.db.OverlayCache()}
+	return &muOverlayCache{mu: db, db: db.db.OverlayCache()}
 }
 
 // RepairQueue is a getter for RepairQueue repository
 func (db *Mutex) RepairQueue() queue.RepairQueue {
-	return muRepairQueue{mu: db, db: db.db.RepairQueue()}
+	return &muRepairQueue{mu: db, db: db.db.RepairQueue()}
 }
 
 // Accounting returns database for tracking bandwidth agreements over time
 func (db *Mutex) Accounting() accounting.DB {
-	return muAccounting{mu: db, db: db.db.Accounting()}
+	return &muAccounting{mu: db, db: db.db.Accounting()}
 }
 
 // Irreparable returns database for storing segments that failed repair
 func (db *Mutex) Irreparable() irreparable.DB {
-	return muIrreparable{mu: db, db: db.db.Irreparable()}
+	return &muIrreparable{mu: db, db: db.db.Irreparable()}
 }
 
 // CreateTables is a method for creating all tables for database
@@ -85,19 +85,19 @@ type muBandwidthAgreement struct {
 	db bwagreement.DB
 }
 
-func (mu *muBandwidthAgreement) CreateAgreement(ctx context.Context, agreement bwagreement.Agreement) error {
-	defer mu.mu.locked()
-	return mu.db.CreateAgreement(ctx, agreement)
+func (db *muBandwidthAgreement) CreateAgreement(ctx context.Context, agreement bwagreement.Agreement) error {
+	defer db.mu.locked()
+	return db.db.CreateAgreement(ctx, agreement)
 }
 
-func (mu *muBandwidthAgreement) GetAgreements(ctx context.Context) ([]bwagreement.Agreement, error) {
-	defer mu.mu.locked()
-	return mu.db.GetAgreements(ctx)
+func (db *muBandwidthAgreement) GetAgreements(ctx context.Context) ([]bwagreement.Agreement, error) {
+	defer db.mu.locked()
+	return db.db.GetAgreements(ctx)
 }
 
-func (mu *muBandwidthAgreement) GetAgreementsSince(ctx context.Context, since time.Time) ([]bwagreement.Agreement, error) {
-	defer mu.mu.locked()
-	return mu.db.GetAgreementsSince(ctx, since)
+func (db *muBandwidthAgreement) GetAgreementsSince(ctx context.Context, since time.Time) ([]bwagreement.Agreement, error) {
+	defer db.mu.locked()
+	return db.db.GetAgreementsSince(ctx, since)
 }
 
 // muStatDB implements mutex around statdb.DB
@@ -107,54 +107,51 @@ type muStatDB struct {
 }
 
 // Create a db entry for the provided storagenode
-func (mu *muStatDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats *statdb.NodeStats) (stats *statdb.NodeStats, err error) {
-	defer mu.mu.locked()()
-	stats, err = mu.db.Create(ctx, nodeID, startingStats)
-	return
+func (db *muStatDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats *statdb.NodeStats) (stats *statdb.NodeStats, err error) {
+	defer db.mu.locked()()
+	return db.db.Create(ctx, nodeID, startingStats)
 }
 
 // Get a storagenode's stats from the db
-func (mu *muStatDB) Get(ctx context.Context, nodeID storj.NodeID) (stats *statdb.NodeStats, err error) {
-	defer mu.mu.locked()()
-	return mu.db.Get(ctx, nodeID)
+func (db *muStatDB) Get(ctx context.Context, nodeID storj.NodeID) (stats *statdb.NodeStats, err error) {
+	defer db.mu.locked()()
+	return db.db.Get(ctx, nodeID)
 }
 
 // FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements
-func (mu *muStatDB) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *statdb.NodeStats) (invalidIDs storj.NodeIDList, err error) {
-	defer mu.mu.locked()()
-	invalidIDs, err = mu.db.FindInvalidNodes(ctx, nodeIDs, maxStats)
-	return
+func (db *muStatDB) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *statdb.NodeStats) (invalidIDs storj.NodeIDList, err error) {
+	defer db.mu.locked()()
+	return db.db.FindInvalidNodes(ctx, nodeIDs, maxStats)
 }
 
 // Update all parts of single storagenode's stats in the db
-func (mu *muStatDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (stats *statdb.NodeStats, err error) {
-	defer mu.mu.locked()()
-	return mu.db.Update(ctx, updateReq)
+func (db *muStatDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (stats *statdb.NodeStats, err error) {
+	defer db.mu.locked()()
+	return db.db.Update(ctx, updateReq)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db
-func (mu *muStatDB) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *statdb.NodeStats, err error) {
-	defer mu.mu.locked()()
-	return mu.db.UpdateUptime(ctx, nodeID, isUp)
+func (db *muStatDB) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *statdb.NodeStats, err error) {
+	defer db.mu.locked()()
+	return db.db.UpdateUptime(ctx, nodeID, isUp)
 }
 
 // UpdateAuditSuccess updates a single storagenode's audit stats in the db
-func (mu *muStatDB) UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, auditSuccess bool) (stats *statdb.NodeStats, err error) {
-	defer mu.mu.locked()()
-	return mu.db.UpdateAuditSuccess(ctx, nodeID, auditSuccess)
+func (db *muStatDB) UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, auditSuccess bool) (stats *statdb.NodeStats, err error) {
+	defer db.mu.locked()()
+	return db.db.UpdateAuditSuccess(ctx, nodeID, auditSuccess)
 }
 
 // UpdateBatch for updating multiple farmers' stats in the db
-func (mu *muStatDB) UpdateBatch(ctx context.Context, updateReqList []*statdb.UpdateRequest) (statsList []*statdb.NodeStats, failedUpdateReqs []*statdb.UpdateRequest, err error) {
-	defer mu.mu.locked()()
-	return mu.db.UpdateBatch(ctx, updateReqList)
+func (db *muStatDB) UpdateBatch(ctx context.Context, updateReqList []*statdb.UpdateRequest) (statsList []*statdb.NodeStats, failedUpdateReqs []*statdb.UpdateRequest, err error) {
+	defer db.mu.locked()()
+	return db.db.UpdateBatch(ctx, updateReqList)
 }
 
 // CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist
-func (mu *muStatDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID) (stats *statdb.NodeStats, err error) {
-	defer mu.mu.locked()()
-	stats, err = mu.db.CreateEntryIfNotExists(ctx, nodeID)
-	return
+func (db *muStatDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID) (stats *statdb.NodeStats, err error) {
+	defer db.mu.locked()()
+	return db.db.CreateEntryIfNotExists(ctx, nodeID)
 }
 
 // muOverlayCache implements a mutex around overlay cache

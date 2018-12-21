@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage/redis"
 	"storj.io/storj/storage/redis/redisserver"
@@ -24,7 +24,7 @@ import (
 )
 
 func TestEnqueueDequeue(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New()
 		defer ctx.Cleanup()
 
@@ -44,7 +44,7 @@ func TestEnqueueDequeue(t *testing.T) {
 }
 
 func TestDequeueEmptyQueue(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New()
 		defer ctx.Cleanup()
 
@@ -57,7 +57,7 @@ func TestDequeueEmptyQueue(t *testing.T) {
 }
 
 func TestSequential(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New()
 		defer ctx.Cleanup()
 
@@ -90,7 +90,7 @@ func TestSequential(t *testing.T) {
 }
 
 func TestParallel(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New()
 		defer ctx.Cleanup()
 
