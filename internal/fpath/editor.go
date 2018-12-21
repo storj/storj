@@ -21,8 +21,7 @@ func EditFile(fileToEdit string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
-	cmd.Run()
-	return nil
+	return cmd.Run()
 }
 
 func getEditorPath() string {

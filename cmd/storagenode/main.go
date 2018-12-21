@@ -162,15 +162,13 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	//run setup if it hasn't been run yet
-	valid, err := fpath.IsValidSetupDir(setupDir)
-	if valid {
-		err = cmdSetup(cmd, args)
-		if err != nil {
+	//run setup if we can't access the config file
+	conf := filepath.Join(setupDir, "config.yaml")
+	if _, err := os.Stat(conf); err != nil {
+		if err = cmdSetup(cmd, args); err != nil {
 			return err
 		}
 	}
-	conf := filepath.Join(setupDir, "config.yaml")
 	return fpath.EditFile(conf)
 }
 
