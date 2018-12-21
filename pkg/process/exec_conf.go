@@ -7,9 +7,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -52,89 +55,57 @@ var (
 // SaveConfig will save all flags with default values to outfilewith specific
 // values specified in 'overrides' overridden.
 func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}) error {
-
-	// vip := viper.New()
-	// err := vip.BindPFlags(pflag.CommandLine)
-	// if err != nil {
-	// 	return err
-	// }
-	cmd := pflag.CommandLine
+	// we previously used Viper here, but switched to a custom serializer to allow comments
 	comments := map[string]string{}
 	flags := map[string]interface{}{}
-	flagset.VisitAll(func(f *pflag.Flag) {
-		// stop processing if we hit an error on a BindPFlag call
-		if f.Name == "config" {
-			return
-		}
+	pflag.CommandLine.VisitAll(func(f *pflag.Flag) {
 		comments[f.Name] = f.Usage
-		flags[f.Name] = f.DefValue
-		cmdFlag := cmd.Lookup(f.Name)
-		if cmdFlag != nil {
-			flags[f.Name] = f.Value
-		}
-		if v, ok := overrides[f.Name]; ok {
-			flags[f.Name] = v
-		}
+		flags[f.Name] = f.Value
 	})
-
-	for k, v := range flags {
-		if comment, ok := comments[k]; ok {
-			fmt.Printf("# %s\n", comment)
+	flagset.VisitAll(func(f *pflag.Flag) {
+		comments[f.Name] = f.Usage
+		flags[f.Name] = f.Value
+	})
+	for k := range flags {
+		if o, ok := overrides[k]; ok {
+			flags[k] = o
 		}
-		fmt.Printf("%s: ", k)
+	}
+	var sb strings.Builder
+	if err := yamlMarshall(&sb, flags, comments); err != nil {
+		return err
+	}
+	return ioutil.WriteFile(outfile, []byte(sb.String()), os.FileMode(0644))
+}
+
+func yamlMarshall(w io.Writer, flags map[string]interface{}, comments map[string]string) error {
+	var keys []string
+	for k := range flags {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := flags[k]
+
+		if comment, ok := comments[k]; ok {
+			fmt.Fprintf(w, "# %s\n", comment)
+		}
+		fmt.Fprintf(w, "%s: ", k)
 		switch t := v.(type) {
 		case fmt.Stringer:
-			fmt.Printf("\"%s\"\n", t.String())
+			fmt.Fprintf(w, "\"%s\"\n", t.String())
 		case int:
-			fmt.Printf("%d\n", t)
+			fmt.Fprintf(w, "%d\n", t)
 		case string:
-			fmt.Printf("\"%s\"\n", t)
+			fmt.Fprintf(w, "\"%s\"\n", t)
 		case bool:
-			fmt.Printf("%t\n", t)
+			fmt.Fprintf(w, "%t\n", t)
 		default:
-			fmt.Printf("I don't know about type %T!\n", v)
+			return fmt.Errorf("yaml writer could not serialize type %T", v)
 		}
-		fmt.Printf("\n")
+		fmt.Fprintf(w, "\n")
 	}
 	return nil
-
-	//return vip.WriteConfigAs(os.ExpandEnv(outfile))
-	//return writeConfig(outfile, true, vip)
-}
-
-func WriteConfig(filename string, force bool, v *viper.Viper) error {
-	c := v.AllSettings()
-	yamlMarshall(c, 0)
-	// yamlStr, err := yaml.Marshal(c)
-	// if err != nil {
-	// 	return err
-	// }
-	// return ioutil.WriteFile(filename, yamlStr, os.FileMode(0644))
-	return nil
-}
-
-func yamlMarshall(m map[string]interface{}, indent int) {
-	for k, v := range m {
-		fmt.Printf("%s%s: ", strings.Repeat("  ", indent), k)
-
-		if t := fmt.Sprintf("%T", v); t == "map[string]interface {}" {
-			fmt.Printf("\n")
-			yamlMarshall(v.(map[string]interface{}), indent+1)
-		} else {
-			switch t := v.(type) {
-			case fmt.Stringer:
-				fmt.Printf("\"%s\"\n", t.String())
-			case int:
-				fmt.Printf("%d\n", t)
-			case string:
-				fmt.Printf("\"%s\"\n", t)
-			case bool:
-				fmt.Printf("%t\n", t)
-			default:
-				fmt.Printf("I don't know about type %T!\n", v)
-			}
-		}
-	}
 }
 
 // Ctx returns the appropriate context.Context for ExecuteWithConfig commands
