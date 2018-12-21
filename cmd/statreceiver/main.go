@@ -11,8 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/cmd/statreceiver/luacfg"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/luacfg"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/utils"
 )
