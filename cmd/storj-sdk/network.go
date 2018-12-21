@@ -72,7 +72,7 @@ func networkDestroy(flags *Flags, args []string) error {
 
 // newNetwork creates a default network
 func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, error) {
-	processes := &Processes{}
+	processes := NewProcesses()
 
 	const (
 		host            = "127.0.0.1"
@@ -101,11 +101,10 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 			return nil, err
 		}
 
-		process, err := NewProcess(name, "satellite", dir)
+		process, err := processes.New(name, "satellite", dir)
 		if err != nil {
 			return nil, utils.CombineErrors(err, processes.Close())
 		}
-		processes.List = append(processes.List, process)
 
 		process.Arguments["setup"] = arguments(name, "setup", satellitePort+i)
 		process.Arguments["run"] = arguments(name,
@@ -133,11 +132,10 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 			return nil, err
 		}
 
-		process, err := NewProcess(name, "gateway", dir)
+		process, err := processes.New(name, "gateway", dir)
 		if err != nil {
 			return nil, utils.CombineErrors(err, processes.Close())
 		}
-		processes.List = append(processes.List, process)
 
 		process.Arguments["setup"] = gatewayArguments(name, "setup", i)
 		process.Arguments["run"] = gatewayArguments(name, "run", i)
@@ -151,11 +149,10 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 			return nil, err
 		}
 
-		process, err := NewProcess(name, "storagenode", dir)
+		process, err := processes.New(name, "storagenode", dir)
 		if err != nil {
 			return nil, utils.CombineErrors(err, processes.Close())
 		}
-		processes.List = append(processes.List, process)
 
 		process.Arguments["setup"] = arguments(name, "setup", storageNodePort+i,
 			"--piecestore.agreementsender.overlay-addr", defaultSatellite,

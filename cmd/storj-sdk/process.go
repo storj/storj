@@ -20,7 +20,15 @@ import (
 
 // Processes contains list of processes
 type Processes struct {
-	List []*Process
+	Output *PrefixWriter
+	List   []*Process
+}
+
+func NewProcesses() *Processes {
+	return &Processes{
+		Output: NewPrefixWriter("sdk", os.Stdout),
+		List:   nil,
+	}
 }
 
 // Exec executes a command on all processes
@@ -101,6 +109,8 @@ func (info *ProcessInfo) Env() []string {
 
 // Process is a type for monitoring the process
 type Process struct {
+	processes *Processes
+
 	Name       string
 	Directory  string
 	Executable string
@@ -109,19 +119,28 @@ type Process struct {
 
 	Arguments map[string][]string
 
-	Stdout io.Writer
-	Stderr io.Writer
+	stdout io.Writer
+	stderr io.Writer
 
-	stdout *os.File
-	stderr *os.File
+	outfile *os.File
+	errfile *os.File
 }
 
-// NewProcess creates a process which can be run in the specified directory
-func NewProcess(name, executable, directory string) (*Process, error) {
-	stdout, err1 := os.OpenFile(filepath.Join(directory, "stderr.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	stderr, err2 := os.OpenFile(filepath.Join(directory, "stdout.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+// New creates a process which can be run in the specified directory
+func (processes *Processes) New(name, executable, directory string) (*Process, error) {
+	outfile, err1 := os.OpenFile(filepath.Join(directory, "stderr.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	errfile, err2 := os.OpenFile(filepath.Join(directory, "stdout.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
-	return &Process{
+	err := utils.CombineErrors(err1, err2)
+	if err != nil {
+		return nil, err
+	}
+
+	output := processes.Output.Prefixed(name)
+
+	process := &Process{
+		processes: processes,
+
 		Name:       name,
 		Directory:  directory,
 		Executable: executable,
@@ -132,24 +151,28 @@ func NewProcess(name, executable, directory string) (*Process, error) {
 		},
 		Arguments: map[string][]string{},
 
-		Stdout: io.MultiWriter(os.Stdout, stdout),
-		Stderr: io.MultiWriter(os.Stderr, stderr),
+		stdout: io.MultiWriter(output, outfile),
+		stderr: io.MultiWriter(output, errfile),
 
-		stdout: stdout,
-		stderr: stderr,
-	}, utils.CombineErrors(err1, err2)
+		outfile: outfile,
+		errfile: errfile,
+	}
+
+	processes.List = append(processes.List, process)
+
+	return process, nil
 }
 
 // Exec runs the process using the arguments for a given command
 func (process *Process) Exec(ctx context.Context, command string) error {
 	cmd := exec.CommandContext(ctx, process.Executable, process.Arguments[command]...)
 	cmd.Dir = process.Directory
-	cmd.Stdout, cmd.Stderr = process.Stdout, process.Stderr
+	cmd.Stdout, cmd.Stderr = process.stdout, process.stderr
 
 	processgroup.Setup(cmd)
 
 	if printCommands {
-		fmt.Println("exec: ", strings.Join(cmd.Args, " "))
+		fmt.Fprintf(process.processes.Output, "exec: %v\n", strings.Join(cmd.Args, " "))
 	}
 	return cmd.Run()
 }
@@ -157,7 +180,7 @@ func (process *Process) Exec(ctx context.Context, command string) error {
 // Close closes process resources
 func (process *Process) Close() error {
 	return utils.CombineErrors(
-		process.stdout.Close(),
-		process.stderr.Close(),
+		process.outfile.Close(),
+		process.errfile.Close(),
 	)
 }

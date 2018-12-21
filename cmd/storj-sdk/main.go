@@ -32,7 +32,13 @@ func main() {
 		Short: "Storj SDK",
 	}
 
-	rootCmd.PersistentFlags().StringVarP(&flags.Directory, "config-dir", "", fpath.ApplicationDir("storj", "local-network"), "base project directory")
+	defaultConfigDir := fpath.ApplicationDir("storj", "local-network")
+	configDir := defaultConfigDir
+	if os.Getenv("STORJ_NETWORK_DIR") != "" {
+		configDir = os.Getenv("STORJ_NETWORK_DIR")
+	}
+
+	rootCmd.PersistentFlags().StringVarP(&flags.Directory, "config-dir", "", configDir, "base project directory")
 
 	rootCmd.PersistentFlags().IntVarP(&flags.SatelliteCount, "satellites", "", 1, "number of satellites to start")
 	rootCmd.PersistentFlags().IntVarP(&flags.StorageNodeCount, "storage-nodes", "", 10, "number of storage nodes to start")
