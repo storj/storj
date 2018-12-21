@@ -288,6 +288,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	var userIDs []uuid.UUID
 	var userErr errs.Group
 
+	// collect user querying errors
 	for _, email := range emails {
 		user, err := s.store.Users().GetByEmail(ctx, email)
 
@@ -303,6 +304,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		return err
 	}
 
+	// add project members in transaction scope
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
 		return err
@@ -346,6 +348,7 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		return err
 	}
 
+	// delete project members in transaction scope
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
 		return err
