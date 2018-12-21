@@ -198,22 +198,42 @@ func (db *muRepairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.Injured
 	return db.db.Peekqueue(ctx, limit)
 }
 
-type muAccountingDB struct {
+type muAccounting struct {
 	mu *Mutex
 	db accounting.DB
 }
 
-func (db *muAccountingDB) LastRawTime(ctx context.Context, timestampType string) (time.Time, bool, error) {
+func (db *muAccounting) LastRawTime(ctx context.Context, timestampType string) (time.Time, bool, error) {
 	defer db.mu.locked()()
 	return db.db.LastRawTime(ctx, timestampType)
 }
 
-func (db *muAccountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTotals map[string]int64) (err error) {
+func (db *muAccounting) SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTotals map[string]int64) (err error) {
 	defer db.mu.locked()()
 	return db.db.SaveBWRaw(ctx, latestBwa, bwTotals)
 }
 
-func (db *muAccountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]int64) error {
+func (db *muAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]int64) error {
 	defer db.mu.locked()()
 	return db.db.SaveAtRestRaw(ctx, latestTally, nodeData)
+}
+
+type muIrreparable struct {
+	mu *Mutex
+	db irreparable.DB
+}
+
+func (db *muIrreparable) IncrementRepairAttempts(ctx context.Context, segmentInfo *irreparable.RemoteSegmentInfo) (err error) {
+	defer db.mu.locked()()
+	return db.db.IncrementRepairAttempts(ctx, segmentInfo)
+}
+
+func (db *muIrreparable) Get(ctx context.Context, segmentPath []byte) (resp *irreparable.RemoteSegmentInfo, err error) {
+	defer db.mu.locked()()
+	return db.db.Get(ctx, segmentPath)
+}
+
+func (db *muIrreparable) Delete(ctx context.Context, segmentPath []byte) (err error) {
+	defer db.mu.locked()()
+	return db.db.Delete(ctx, segmentPath)
 }
