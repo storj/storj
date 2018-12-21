@@ -217,9 +217,9 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					pID, _ := p.Args[fieldProjectID].(string)
 					emails, _ := p.Args[fieldEmail].([]interface{})
 
-					projectID, pErr := uuid.Parse(pID)
-					if pErr != nil {
-						return nil, pErr
+					projectID, err := uuid.Parse(pID)
+					if err != nil {
+						return nil, err
 					}
 
 					var userEmails []string
@@ -227,7 +227,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						userEmails = append(userEmails, email.(string))
 					}
 
-					err := service.AddProjectMembers(p.Context, *projectID, userEmails)
+					err = service.AddProjectMembers(p.Context, *projectID, userEmails)
 					if err != nil {
 						return nil, err
 					}
@@ -250,9 +250,9 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					pID, _ := p.Args[fieldProjectID].(string)
 					emails, _ := p.Args[fieldEmail].([]interface{})
 
-					projectID, pErr := uuid.Parse(pID)
-					if pErr != nil {
-						return nil, pErr
+					projectID, err := uuid.Parse(pID)
+					if err != nil {
+						return nil, err
 					}
 
 					var userEmails []string
@@ -260,7 +260,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						userEmails = append(userEmails, email.(string))
 					}
 
-					err := service.DeleteProjectMembers(p.Context, *projectID, userEmails)
+					err = service.DeleteProjectMembers(p.Context, *projectID, userEmails)
 					if err != nil {
 						return nil, err
 					}
