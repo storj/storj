@@ -227,8 +227,6 @@ github.com/mitchellh/mapstructure v1.0.0 h1:vVpGvMXJPqSDh2VYHF7gsfQj8Ncx+Xw5Y1KH
 github.com/mitchellh/mapstructure v1.0.0/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
 github.com/mitchellh/mapstructure v1.1.1 h1:0fcGQkeJPHl7DauilpdNG27ZxXHDSg+rbbTpfpniZd8=
 github.com/mitchellh/mapstructure v1.1.1/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
-github.com/mitchellh/prefixedio v0.0.0-20151214002211-6e6954073784 h1:+DAetXqxv/mSyCkE9KBIYOZs9b68y7SUaDCxQMRjA68=
-github.com/mitchellh/prefixedio v0.0.0-20151214002211-6e6954073784/go.mod h1:kB1naBgV9ORnkiTVeyJOI1DavaJkG4oNIq0Af6ZVKUo=
 github.com/mr-tron/base58 v0.0.0-20180922112544-9ad991d48a42 h1:/H+QBVxPZWp7WG8dBXXP/qCWP8QU0YczIvvKes/bNpk=
 github.com/mr-tron/base58 v0.0.0-20180922112544-9ad991d48a42/go.mod h1:xcD2VGqlgYjBdcBLw+TuYLr8afG+Hj8g2eTVqeSzSU8=
 github.com/nats-io/gnatsd v1.3.0 h1:+5d80klu3QaJgNbdavVBjWJP7cHd11U2CLnRTFM9ICI=
