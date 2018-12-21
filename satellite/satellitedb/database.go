@@ -10,6 +10,7 @@ import (
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/irreparable"
+	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -65,10 +66,10 @@ func (db *DB) OverlayCache() storage.KeyValueStore {
 	return newOverlaycache(db.db)
 }
 
-// // RepairQueueDB is a getter for RepairQueueDB repository
-// func (db *DB) RepairQueueDB() queue.DB {
-// 	return &repairQueueDB{db: db.db}
-// }
+// RepairQueue is a getter for RepairQueue repository
+func (db *DB) RepairQueue() queue.RepairQueue {
+	return newRepairQueue(db.db)
+}
 
 // Accounting returns database for tracking bandwidth agreements over time
 func (db *DB) Accounting() accounting.DB {

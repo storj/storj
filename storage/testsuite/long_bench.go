@@ -19,7 +19,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -104,11 +103,11 @@ func newKVInputIterator(pathToFile string) (*KVInputIterator, error) {
 	if strings.HasSuffix(pathToFile, ".gz") {
 		gzReader, err := gzip.NewReader(pathData)
 		if err != nil {
-			return nil, utils.CombineErrors(
+			return nil, errs.Combine(
 				errs.New("Failed to create gzip reader: %v", err),
 				pathData.Close())
 		}
-		kvi.closeFunc = func() error { return utils.CombineErrors(gzReader.Close(), pathData.Close()) }
+		kvi.closeFunc = func() error { return errs.Combine(gzReader.Close(), pathData.Close()) }
 		reader = gzReader
 	} else {
 		kvi.closeFunc = pathData.Close

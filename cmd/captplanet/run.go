@@ -146,6 +146,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		)
 	}()
 
+	// hack-fix t oensure that satellite gets up and running before starting storage nodes
+	time.Sleep(2 * time.Second)
+
 	// start the storagenodes
 	for i, v := range runCfg.StorageNodes {
 		go func(i int, v StorageNode) {
