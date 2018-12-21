@@ -54,41 +54,41 @@ func Main(cmd *cobra.Command, args []string) error {
 		}
 		defer func() {
 			if err := inputFile.Close(); err != nil {
-				log.Printf("Failed to close input: %s", err)
+				log.Printf("Failed to close input: %scope", err)
 			}
 		}()
 
 		input = inputFile
 	}
 
-	s := luacfg.NewScope()
+	scope := luacfg.NewScope()
 	err := errs.Combine(
-		s.RegisterVal("deliver", Deliver),
-		s.RegisterVal("filein", NewFileSource),
-		s.RegisterVal("fileout", NewFileDest),
-		s.RegisterVal("udpin", NewUDPSource),
-		s.RegisterVal("udpout", NewUDPDest),
-		s.RegisterVal("parse", NewParser),
-		s.RegisterVal("print", NewPrinter),
-		s.RegisterVal("pcopy", NewPacketCopier),
-		s.RegisterVal("mcopy", NewMetricCopier),
-		s.RegisterVal("pbuf", NewPacketBuffer),
-		s.RegisterVal("mbuf", NewMetricBuffer),
-		s.RegisterVal("packetfilter", NewPacketFilter),
-		s.RegisterVal("appfilter", NewApplicationFilter),
-		s.RegisterVal("instfilter", NewInstanceFilter),
-		s.RegisterVal("keyfilter", NewKeyFilter),
-		s.RegisterVal("sanitize", NewSanitizer),
-		s.RegisterVal("graphite", NewGraphiteDest),
-		s.RegisterVal("db", NewDBDest),
-		s.RegisterVal("pbufprep", NewPacketBufPrep),
-		s.RegisterVal("mbufprep", NewMetricBufPrep),
+		scope.RegisterVal("deliver", Deliver),
+		scope.RegisterVal("filein", NewFileSource),
+		scope.RegisterVal("fileout", NewFileDest),
+		scope.RegisterVal("udpin", NewUDPSource),
+		scope.RegisterVal("udpout", NewUDPDest),
+		scope.RegisterVal("parse", NewParser),
+		scope.RegisterVal("print", NewPrinter),
+		scope.RegisterVal("pcopy", NewPacketCopier),
+		scope.RegisterVal("mcopy", NewMetricCopier),
+		scope.RegisterVal("pbuf", NewPacketBuffer),
+		scope.RegisterVal("mbuf", NewMetricBuffer),
+		scope.RegisterVal("packetfilter", NewPacketFilter),
+		scope.RegisterVal("appfilter", NewApplicationFilter),
+		scope.RegisterVal("instfilter", NewInstanceFilter),
+		scope.RegisterVal("keyfilter", NewKeyFilter),
+		scope.RegisterVal("sanitize", NewSanitizer),
+		scope.RegisterVal("graphite", NewGraphiteDest),
+		scope.RegisterVal("db", NewDBDest),
+		scope.RegisterVal("pbufprep", NewPacketBufPrep),
+		scope.RegisterVal("mbufprep", NewMetricBufPrep),
 	)
 	if err != nil {
 		return err
 	}
 
-	err = s.Run(input)
+	err = scope.Run(input)
 	if err != nil {
 		return err
 	}

@@ -11,10 +11,10 @@ import (
 )
 
 func Example() {
-	s := luacfg.NewScope()
-	s.RegisterVal("print", fmt.Println)
+	scope := luacfg.NewScope()
+	scope.RegisterVal("print", fmt.Println)
 
-	err := s.Run(bytes.NewBufferString(`print "hello"`))
+	err := scope.Run(bytes.NewBufferString(`print "hello"`))
 	if err != nil {
 		panic(err)
 	}

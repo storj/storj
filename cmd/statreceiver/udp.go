@@ -109,6 +109,7 @@ func (d *UDPDest) Packet(data []byte, ts time.Time) error {
 func (d *UDPDest) Close() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+
 	d.closed = true
 	if d.conn != nil {
 		return d.conn.Close()
