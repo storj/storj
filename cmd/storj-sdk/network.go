@@ -113,14 +113,13 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 		)
 	}
 
-	gatewayArguments := func(name, command string, satelliteAddr, addr string, rest ...string) []string {
+	gatewayArguments := func(name, command string, addr string, rest ...string) []string {
 		return append([]string{
 			"--log.level", "debug",
 			"--log.prefix", name,
 			"--config-dir", ".",
 			command,
-			// "--satellite-addr", net.JoinHostPort(host, strconv.Itoa(satellitePort+index)),
-			"--identity.server.address", satelliteAddr,
+			"--identity.server.address", addr,
 		}, rest...)
 	}
 
@@ -140,8 +139,10 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 		}
 		process.Info.Address = net.JoinHostPort(host, strconv.Itoa(gatewayPort+i))
 
-		process.Arguments["setup"] = gatewayArguments(name, "setup", satellite.Info.Address, process.Info.Address)
-		process.Arguments["run"] = gatewayArguments(name, "run", satellite.Info.Address, process.Info.Address)
+		process.Arguments["setup"] = gatewayArguments(name, "setup", process.Info.Address,
+			"--satellite-addr", satellite.Info.Address,
+		)
+		process.Arguments["run"] = gatewayArguments(name, "run", process.Info.Address)
 	}
 
 	for i := 0; i < storageNodeCount; i++ {
