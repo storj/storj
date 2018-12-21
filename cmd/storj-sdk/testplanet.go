@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -38,18 +39,20 @@ func runTestPlanet(flags *Flags, command string, args []string) error {
 
 	// add satellites to environment
 	for i, satellite := range planet.Satellites {
-		env = append(env,
-			fmt.Sprintf("SATELLITE%d_ID=%v", i, satellite.ID().String()),
-			fmt.Sprintf("SATELLITE%d_ADDR=%v", i, satellite.Addr()),
-		)
+		env = append(env, (&ProcessInfo{
+			Name:    "SATELLITE" + strconv.Itoa(i),
+			ID:      satellite.ID().String(),
+			Address: satellite.Addr(),
+		}).Env()...)
 	}
 
 	// add storage nodes to environment
 	for i, storage := range planet.StorageNodes {
-		env = append(env,
-			fmt.Sprintf("STORAGE%d_ID=%v", i, storage.ID().String()),
-			fmt.Sprintf("STORAGE%d_ADDR=%v", i, storage.Addr()),
-		)
+		env = append(env, (&ProcessInfo{
+			Name:    "STORAGE" + strconv.Itoa(i),
+			ID:      storage.ID().String(),
+			Address: storage.Addr(),
+		}).Env()...)
 	}
 
 	// add additional identities to the environment

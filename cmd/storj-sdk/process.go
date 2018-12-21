@@ -143,7 +143,11 @@ func (processes *Processes) Start(ctx context.Context, group *errgroup.Group, co
 
 // Env returns environment flags for other nodes
 func (processes *Processes) Env() []string {
-	return []string{} //TODO:
+	var env []string
+	for _, process := range processes.List {
+		env = append(env, process.Info.Env()...)
+	}
+	return env
 }
 
 // Close closes all the processes and their resources
@@ -158,11 +162,38 @@ func (processes *Processes) Close() error {
 	return utils.CombineErrors(errs...)
 }
 
+// ProcessInfo represents public information about the process
+type ProcessInfo struct {
+	Name      string
+	ID        string
+	Address   string
+	Directory string
+}
+
+// Env returns process flags
+func (info *ProcessInfo) Env() []string {
+	name := strings.ToUpper(info.Name)
+
+	var env []string
+	if info.ID != "" {
+		env = append(env, name+"_ID", info.ID)
+	}
+	if info.Address != "" {
+		env = append(env, name+"_ADDR", info.Address)
+	}
+	if info.Directory != "" {
+		env = append(env, name+"_DIR", info.Directory)
+	}
+	return env
+}
+
 // Process is a type for monitoring the process
 type Process struct {
 	Name       string
 	Directory  string
 	Executable string
+
+	Info ProcessInfo
 
 	Arguments map[string][]string
 
