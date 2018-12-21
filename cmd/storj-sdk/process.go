@@ -96,13 +96,13 @@ func (info *ProcessInfo) Env() []string {
 
 	var env []string
 	if info.ID != "" {
-		env = append(env, name+"_ID", info.ID)
+		env = append(env, name+"_ID="+info.ID)
 	}
 	if info.Address != "" {
-		env = append(env, name+"_ADDR", info.Address)
+		env = append(env, name+"_ADDR="+info.Address)
 	}
 	if info.Directory != "" {
-		env = append(env, name+"_DIR", info.Directory)
+		env = append(env, name+"_DIR="+info.Directory)
 	}
 	return env
 }

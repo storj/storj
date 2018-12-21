@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -46,15 +47,20 @@ func networkTest(flags *Flags, command string, args []string) error {
 	ctx, cancel := NewCLIContext(context.Background())
 
 	var group errgroup.Group
-	processes.Start(ctx, &group, command)
+	processes.Start(ctx, &group, "run")
 
 	time.Sleep(2 * time.Second)
 
 	cmd := exec.CommandContext(ctx, command, args...)
-	cmd.Env = processes.Env()
-	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	cmd.Env = append(os.Environ(), processes.Env()...)
+	stdout := processes.Output.Prefixed("test:out")
+	stderr := processes.Output.Prefixed("test:err")
+	cmd.Stdout, cmd.Stderr = stdout, stderr
 	processgroup.Setup(cmd)
 
+	if printCommands {
+		fmt.Fprintf(processes.Output, "exec: %v\n", strings.Join(cmd.Args, " "))
+	}
 	errRun := cmd.Run()
 
 	cancel()
@@ -65,8 +71,9 @@ func networkDestroy(flags *Flags, args []string) error {
 	if fpath.IsRoot(flags.Directory) {
 		return errors.New("safety check: disallowed to remove root directory " + flags.Directory)
 	}
-
-	fmt.Println("exec: rm -rf", flags.Directory)
+	if printCommands {
+		fmt.Println("sdk | exec: rm -rf", flags.Directory)
+	}
 	return os.RemoveAll(flags.Directory)
 }
 
