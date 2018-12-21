@@ -10,6 +10,7 @@ import (
 	"sync"
 )
 
+// PrefixWriter writes to the specified output with prefixes.
 type PrefixWriter struct {
 	root    *prefixWriter
 	maxline int
@@ -19,21 +20,24 @@ type PrefixWriter struct {
 	dst io.Writer
 }
 
-func NewPrefixWriter(prefix string, dst io.Writer) *PrefixWriter {
+// NewPrefixWriter creates a writer than can prefix all lines written to it.
+func NewPrefixWriter(defaultPrefix string, dst io.Writer) *PrefixWriter {
 	writer := &PrefixWriter{
 		maxline: 10000, // disable maxline cutting
 		dst:     dst,
 	}
-	writer.root = writer.Prefixed(prefix).(*prefixWriter)
+	writer.root = writer.Prefixed(defaultPrefix).(*prefixWriter)
 	return writer
 }
 
+// prefixWriter is the implementation that handles buffering and prefixing.
 type prefixWriter struct {
 	*PrefixWriter
 	prefix string
 	buffer []byte
 }
 
+// Prefixed returns a new writer that has writes with specified prefix.
 func (writer *PrefixWriter) Prefixed(prefix string) io.Writer {
 	writer.mu.Lock()
 	if len(prefix) > writer.len {
@@ -44,10 +48,12 @@ func (writer *PrefixWriter) Prefixed(prefix string) io.Writer {
 	return &prefixWriter{writer, prefix, make([]byte, 0, writer.maxline)}
 }
 
+// Write implements io.Writer that prefixes lines.
 func (writer *PrefixWriter) Write(data []byte) (int, error) {
 	return writer.root.Write(data)
 }
 
+// Write implements io.Writer that prefixes lines
 func (writer *prefixWriter) Write(data []byte) (int, error) {
 	if len(data) == 0 {
 		return 0, nil
