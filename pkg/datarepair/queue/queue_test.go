@@ -4,6 +4,7 @@
 package queue_test
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"sync"
@@ -12,7 +13,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/satellitedb"
@@ -42,7 +42,6 @@ func TestEnqueueDequeue(t *testing.T) {
 
 func TestDequeueEmptyQueue(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
-
 		q := db.RepairQueue()
 
 		s, err := q.Dequeue()
@@ -53,7 +52,6 @@ func TestDequeueEmptyQueue(t *testing.T) {
 
 func TestSequential(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
-
 		q := db.RepairQueue()
 
 		const N = 100
@@ -81,61 +79,66 @@ func TestSequential(t *testing.T) {
 }
 
 func TestParallel(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+		q := db.RepairQueue()
+		const N = 100
+		errs := make(chan error, N*2)
+		entries := make(chan *pb.InjuredSegment, N*2)
+		var wg sync.WaitGroup
 
-	queue := queue.NewQueue(testqueue.New())
-	const N = 100
-	errs := make(chan error, N*2)
-	entries := make(chan *pb.InjuredSegment, N*2)
-	var wg sync.WaitGroup
+		wg.Add(N)
+		// Add to queue concurrently
+		for i := 0; i < N; i++ {
+			go func(i int) {
+				defer wg.Done()
+				err := q.Enqueue(&pb.InjuredSegment{
+					Path:       strconv.Itoa(i),
+					LostPieces: []int32{int32(i)},
+				})
+				fmt.Println(err)
+				if err != nil {
+					errs <- err
+				}
+			}(i)
 
-	wg.Add(N)
-	// Add to queue concurrently
-	for i := 0; i < N; i++ {
-		go func(i int) {
-			defer wg.Done()
-			err := queue.Enqueue(&pb.InjuredSegment{
-				Path:       strconv.Itoa(i),
-				LostPieces: []int32{int32(i)},
-			})
-			if err != nil {
-				errs <- err
-			}
-		}(i)
+		}
+		wg.Wait()
+		wg.Add(N)
+		// Remove from queue concurrently
+		for i := 0; i < N; i++ {
+			go func(i int) {
+				defer wg.Done()
+				segment, err := q.Dequeue()
+				fmt.Println(segment, err)
+				if err != nil {
+					errs <- err
+				}
+				entries <- &segment
+			}(i)
+		}
+		wg.Wait()
+		close(errs)
+		close(entries)
 
-	}
-	wg.Wait()
-	wg.Add(N)
-	// Remove from queue concurrently
-	for i := 0; i < N; i++ {
-		go func(i int) {
-			defer wg.Done()
-			segment, err := queue.Dequeue()
-			if err != nil {
-				errs <- err
-			}
-			entries <- &segment
-		}(i)
-	}
-	wg.Wait()
-	close(errs)
-	close(entries)
+		for err := range errs {
+			t.Error(err)
+		}
 
-	for err := range errs {
-		t.Error(err)
-	}
+		var items []*pb.InjuredSegment
+		for segment := range entries {
+			items = append(items, segment)
+		}
 
-	var items []*pb.InjuredSegment
-	for segment := range entries {
-		items = append(items, segment)
-	}
+		sort.Slice(items, func(i, k int) bool {
+			t.Log(len(items[i].LostPieces), len(items[k].LostPieces))
+			return items[i].LostPieces[0] < items[k].LostPieces[0]
+		})
 
-	sort.Slice(items, func(i, k int) bool { return items[i].LostPieces[0] < items[k].LostPieces[0] })
-	// check if the enqueued and dequeued elements match
-	for i := 0; i < N; i++ {
-		assert.Equal(t, items[i].LostPieces[0], int32(i))
-	}
+		// check if the enqueued and dequeued elements match
+		for i := 0; i < N; i++ {
+			assert.Equal(t, items[i].LostPieces[0], int32(i))
+		}
+	})
 }
 
 func BenchmarkRedisSequential(b *testing.B) {
@@ -154,7 +157,6 @@ func BenchmarkTeststoreSequential(b *testing.B) {
 }
 
 func benchmarkSequential(b *testing.B, q queue.RepairQueue) {
-
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		const N = 100
@@ -192,7 +194,6 @@ func BenchmarkTeststoreParallel(b *testing.B) {
 }
 
 func benchmarkParallel(b *testing.B, q queue.RepairQueue) {
-
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		const N = 100
