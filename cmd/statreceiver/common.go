@@ -15,8 +15,8 @@ type closerfunc func() error
 func (f closerfunc) Close() error { return f() }
 
 // Deliver kicks off a goroutine that reads packets from source and delivers them
-// to destination. To stop delivery, call Close on the return value then close the source.
-func Deliver(source Source, destination PacketDest) io.Closer {
+// to dest. To stop delivery, call Close on the return value then close the source.
+func Deliver(source Source, dest PacketDest) io.Closer {
 	done := new(uint32)
 
 	go func() {
@@ -26,7 +26,7 @@ func Deliver(source Source, destination PacketDest) io.Closer {
 				log.Printf("failed getting packet: %v", err)
 				continue
 			}
-			err = destination.Packet(data, ts)
+			err = dest.Packet(data, ts)
 			if err != nil {
 				log.Printf("failed delivering packet: %v", err)
 				continue
