@@ -127,14 +127,23 @@ func NewProcesses(dir string, satelliteCount, storageNodeCount int) (*Processes,
 // Exec executes a command on all processes
 func (processes *Processes) Exec(ctx context.Context, command string) error {
 	var group errgroup.Group
+	processes.Start(ctx, &group, command)
+	return group.Wait()
+}
+
+// Start executes all processes using specified errgroup.Group
+func (processes *Processes) Start(ctx context.Context, group *errgroup.Group, command string) {
 	for _, p := range processes.List {
 		process := p
 		group.Go(func() error {
 			return process.Exec(ctx, command)
 		})
 	}
+}
 
-	return group.Wait()
+// Env returns environment flags for other nodes
+func (processes *Processes) Env() []string {
+	return []string{} //TODO:
 }
 
 // Close closes all the processes and their resources
