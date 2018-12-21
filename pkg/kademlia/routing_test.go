@@ -218,13 +218,13 @@ func TestSetBucketTimestamp(t *testing.T) {
 
 	err := rt.createOrUpdateKBucket(keyToBucketID(id.Bytes()), now)
 	assert.NoError(t, err)
-	ti, err := rt.GetBucketTimestamp(id.Bytes(), nil)
+	ti, err := rt.GetBucketTimestamp(id.Bytes())
 	assert.Equal(t, now, ti)
 	assert.NoError(t, err)
 	now = time.Now().UTC()
 	err = rt.SetBucketTimestamp(id.Bytes(), now)
 	assert.NoError(t, err)
-	ti, err = rt.GetBucketTimestamp(id.Bytes(), nil)
+	ti, err = rt.GetBucketTimestamp(id.Bytes())
 	assert.Equal(t, now, ti)
 	assert.NoError(t, err)
 }
@@ -236,7 +236,7 @@ func TestGetBucketTimestamp(t *testing.T) {
 	now := time.Now().UTC()
 	err := rt.createOrUpdateKBucket(keyToBucketID(id.Bytes()), now)
 	assert.NoError(t, err)
-	ti, err := rt.GetBucketTimestamp(id.Bytes(), nil)
+	ti, err := rt.GetBucketTimestamp(id.Bytes())
 	assert.Equal(t, now, ti)
 	assert.NoError(t, err)
 }
