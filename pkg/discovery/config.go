@@ -51,7 +51,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	if !ok {
 		return Error.New("unable to get master db instance")
 	}
-	discovery := NewDiscovery(ol, kad, stat.StatDB())
+	discovery := NewDiscovery(zap.L().Named("discovery"), ol, kad, stat.StatDB())
 
 	zap.L().Debug("Starting discovery")
 
@@ -62,15 +62,15 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		for {
 			select {
 			case <-ticker.C:
-				zap.L().Debug("Kicking off refresh")
+				discovery.log.Debug("Kicking off refresh")
 				err := discovery.Refresh(ctx)
 				if err != nil {
-					zap.L().Error("Error with cache refresh: ", zap.Error(err))
+					discovery.log.Error("Error with cache refresh: ", zap.Error(err))
 				}
 
 				err = discovery.Discovery(ctx)
 				if err != nil {
-					zap.L().Error("Error with cache discovery: ", zap.Error(err))
+					discovery.log.Error("Error with cache discovery: ", zap.Error(err))
 				}
 			case <-ctx.Done():
 				return
