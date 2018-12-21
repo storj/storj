@@ -80,8 +80,8 @@ type Authorization struct {
 	Claim *Claim
 }
 
-// Token is a random byte array to be used like a pre-shared key for claiming
-// certificate signatures.
+// Token is a userID and a random byte array, when serialized, can be used like
+// a pre-shared key for claiming certificate signatures.
 type Token struct {
 	// NB: currently email address for convenience
 	UserID string
@@ -142,7 +142,6 @@ func ParseToken(tokenString string) (*Token, error) {
 	}
 	t := &Token{
 		UserID: userID,
-		Data:   [tokenDataLength]byte{},
 	}
 	copy(t.Data[:], data)
 	return t, nil
@@ -272,7 +271,7 @@ func (a *AuthorizationDB) Get(email string) (Authorizations, error) {
 	return auths, nil
 }
 
-// UserIDs returns a list of all emails present in the authorization database.
+// UserIDs returns a list of all userIDs present in the authorization database.
 func (a *AuthorizationDB) UserIDs() ([]string, error) {
 	keys, err := a.DB.List([]byte{}, 0)
 	if err != nil {

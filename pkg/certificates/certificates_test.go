@@ -195,10 +195,15 @@ func TestAuthorizationDB_Get(t *testing.T) {
 }
 
 func TestNewAuthorization(t *testing.T) {
-	auth, err := NewAuthorization("user@example.com")
+	userID := "user@example.com"
+	auth, err := NewAuthorization(userID)
 	assert.NoError(t, err)
-	assert.NotNil(t, auth)
+	if !assert.NotNil(t, auth) {
+		t.FailNow()
+	}
 	assert.NotZero(t, auth.Token)
+	assert.Equal(t, userID, auth.Token.UserID)
+	assert.NotEmpty(t, auth.Token.Data)
 }
 
 func TestAuthorizations_Marshal(t *testing.T) {
@@ -285,9 +290,9 @@ func TestAuthorizationDB_Emails(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	emails, err := authDB.UserIDs()
+	userIDs, err := authDB.UserIDs()
 	assert.NoError(t, err)
-	assert.NotEmpty(t, emails)
+	assert.NotEmpty(t, userIDs)
 }
 
 func TestParseToken(t *testing.T) {
