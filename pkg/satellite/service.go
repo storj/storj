@@ -277,27 +277,92 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, descri
 	return project, nil
 }
 
-// AddProjectMember adds User as member of given Project
-func (s *Service) AddProjectMember(ctx context.Context, projectID, userID uuid.UUID) (err error) {
+// AddProjectMembers adds users by email to given project
+func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	_, err = s.store.ProjectMembers().Insert(ctx, userID, projectID)
-	return err
+	var userIDs []uuid.UUID
+	var userErr errs.Group
+
+	// collect user querying errors
+	for _, email := range emails {
+		user, err := s.store.Users().GetByEmail(ctx, email)
+
+		if err != nil {
+			userErr.Add(err)
+			continue
+		}
+
+		userIDs = append(userIDs, user.ID)
+	}
+
+	if err := userErr.Err(); err != nil {
+		return err
+	}
+
+	// add project members in transaction scope
+	tx, err := s.store.BeginTx(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, uID := range userIDs {
+		_, err := tx.ProjectMembers().Insert(ctx, uID, projectID)
+
+		if err != nil {
+			return errs.Combine(err, tx.Rollback())
+		}
+	}
+
+	return tx.Commit()
 }
 
-// DeleteProjectMember removes user membership for given project
-func (s *Service) DeleteProjectMember(ctx context.Context, projectID, userID uuid.UUID) (err error) {
+// DeleteProjectMembers removes users by email from given project
+func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	return s.store.ProjectMembers().Delete(ctx, userID, projectID)
+	var userIDs []uuid.UUID
+	var userErr errs.Group
+
+	// collect user querying errors
+	for _, email := range emails {
+		user, err := s.store.Users().GetByEmail(ctx, email)
+
+		if err != nil {
+			userErr.Add(err)
+			continue
+		}
+
+		userIDs = append(userIDs, user.ID)
+	}
+
+	if err := userErr.Err(); err != nil {
+		return err
+	}
+
+	// delete project members in transaction scope
+	tx, err := s.store.BeginTx(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, uID := range userIDs {
+		err := tx.ProjectMembers().Delete(ctx, uID, projectID)
+
+		if err != nil {
+			return errs.Combine(err, tx.Rollback())
+		}
+	}
+
+	return tx.Commit()
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
