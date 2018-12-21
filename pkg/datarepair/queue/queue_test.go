@@ -13,6 +13,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/satellitedb"
@@ -24,6 +25,8 @@ import (
 
 func TestEnqueueDequeue(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+		ctx := testcontext.New()
+		defer ctx.Cleanup()
 
 		q := db.RepairQueue()
 
@@ -31,10 +34,10 @@ func TestEnqueueDequeue(t *testing.T) {
 			Path:       "abc",
 			LostPieces: []int32{int32(1), int32(3)},
 		}
-		err := q.Enqueue(seg)
+		err := q.Enqueue(ctx, seg)
 		assert.NoError(t, err)
 
-		s, err := q.Dequeue()
+		s, err := q.Dequeue(ctx)
 		assert.NoError(t, err)
 		assert.True(t, proto.Equal(&s, seg))
 	})
@@ -42,9 +45,12 @@ func TestEnqueueDequeue(t *testing.T) {
 
 func TestDequeueEmptyQueue(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+		ctx := testcontext.New()
+		defer ctx.Cleanup()
+
 		q := db.RepairQueue()
 
-		s, err := q.Dequeue()
+		s, err := q.Dequeue(ctx)
 		assert.Error(t, err)
 		assert.Equal(t, pb.InjuredSegment{}, s)
 	})
@@ -52,6 +58,9 @@ func TestDequeueEmptyQueue(t *testing.T) {
 
 func TestSequential(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+		ctx := testcontext.New()
+		defer ctx.Cleanup()
+
 		q := db.RepairQueue()
 
 		const N = 100
@@ -61,17 +70,19 @@ func TestSequential(t *testing.T) {
 				Path:       strconv.Itoa(i),
 				LostPieces: []int32{int32(i)},
 			}
-			err := q.Enqueue(seg)
+			err := q.Enqueue(ctx, seg)
 			assert.NoError(t, err)
 			addSegs = append(addSegs, seg)
 		}
-		list, err := q.Peekqueue(100)
+
+		list, err := q.Peekqueue(ctx, 100)
 		assert.NoError(t, err)
 		for i := 0; i < N; i++ {
 			assert.True(t, proto.Equal(addSegs[i], &list[i]))
 		}
+
 		for i := 0; i < N; i++ {
-			dqSeg, err := q.Dequeue()
+			dqSeg, err := q.Dequeue(ctx)
 			assert.NoError(t, err)
 			assert.True(t, proto.Equal(addSegs[i], &dqSeg))
 		}
@@ -80,6 +91,9 @@ func TestSequential(t *testing.T) {
 
 func TestParallel(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+		ctx := testcontext.New()
+		defer ctx.Cleanup()
+
 		q := db.RepairQueue()
 		const N = 100
 		errs := make(chan error, N*2)
@@ -91,7 +105,7 @@ func TestParallel(t *testing.T) {
 		for i := 0; i < N; i++ {
 			go func(i int) {
 				defer wg.Done()
-				err := q.Enqueue(&pb.InjuredSegment{
+				err := q.Enqueue(ctx, &pb.InjuredSegment{
 					Path:       strconv.Itoa(i),
 					LostPieces: []int32{int32(i)},
 				})
@@ -108,7 +122,7 @@ func TestParallel(t *testing.T) {
 		for i := 0; i < N; i++ {
 			go func(i int) {
 				defer wg.Done()
-				segment, err := q.Dequeue()
+				segment, err := q.Dequeue(ctx)
 				fmt.Println(segment, err)
 				if err != nil {
 					errs <- err
@@ -130,7 +144,6 @@ func TestParallel(t *testing.T) {
 		}
 
 		sort.Slice(items, func(i, k int) bool {
-			t.Log(len(items[i].LostPieces), len(items[k].LostPieces))
 			return items[i].LostPieces[0] < items[k].LostPieces[0]
 		})
 
@@ -166,12 +179,12 @@ func benchmarkSequential(b *testing.B, q queue.RepairQueue) {
 				Path:       strconv.Itoa(i),
 				LostPieces: []int32{int32(i)},
 			}
-			err := q.Enqueue(seg)
+			err := q.Enqueue(ctx, seg)
 			assert.NoError(b, err)
 			addSegs = append(addSegs, seg)
 		}
 		for i := 0; i < N; i++ {
-			dqSeg, err := q.Dequeue()
+			dqSeg, err := q.Dequeue(ctx)
 			assert.NoError(b, err)
 			assert.True(b, proto.Equal(addSegs[i], &dqSeg))
 		}
@@ -206,7 +219,7 @@ func benchmarkParallel(b *testing.B, q queue.RepairQueue) {
 		for i := 0; i < N; i++ {
 			go func(i int) {
 				defer wg.Done()
-				err := q.Enqueue(&pb.InjuredSegment{
+				err := q.Enqueue(ctx, &pb.InjuredSegment{
 					Path:       strconv.Itoa(i),
 					LostPieces: []int32{int32(i)},
 				})
@@ -222,7 +235,7 @@ func benchmarkParallel(b *testing.B, q queue.RepairQueue) {
 		for i := 0; i < N; i++ {
 			go func(i int) {
 				defer wg.Done()
-				segment, err := q.Dequeue()
+				segment, err := q.Dequeue(ctx)
 				if err != nil {
 					errs <- err
 				}
