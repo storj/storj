@@ -6,10 +6,9 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
-
-	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 
@@ -55,7 +54,7 @@ func Main(cmd *cobra.Command, args []string) error {
 		}
 		defer func() {
 			if err := inputFile.Close(); err != nil {
-				zap.S().Errorf("Failed to close input: %s", err)
+				log.Printf("Failed to close input: %s", err)
 			}
 		}()
 
