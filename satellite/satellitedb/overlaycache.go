@@ -17,12 +17,6 @@ type overlaycache struct {
 	db *dbx.DB
 }
 
-func newOverlaycache(db *dbx.DB) *overlaycache {
-	return &overlaycache{
-		db: db,
-	}
-}
-
 func (o *overlaycache) Put(key storage.Key, value storage.Value) error {
 	if key.IsZero() {
 		return storage.ErrEmptyKey.New("")

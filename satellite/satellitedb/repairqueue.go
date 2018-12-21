@@ -18,12 +18,6 @@ type repairQueue struct {
 	db *dbx.DB
 }
 
-func newRepairQueue(db *dbx.DB) *repairQueue {
-	return &repairQueue{
-		db: db,
-	}
-}
-
 func (r *repairQueue) Enqueue(ctx context.Context, seg *pb.InjuredSegment) error {
 	val, err := proto.Marshal(seg)
 	if err != nil {
