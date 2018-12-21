@@ -24,6 +24,7 @@ type Processes struct {
 	List   []*Process
 }
 
+// NewProcesses returns a group of processes
 func NewProcesses() *Processes {
 	return &Processes{
 		Output: NewPrefixWriter("sdk", os.Stdout),
