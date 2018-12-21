@@ -7,10 +7,12 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -39,22 +41,22 @@ func (db *Mutex) StatDB() statdb.DB {
 
 // OverlayCache is a getter for overlay cache repository
 func (db *Mutex) OverlayCache() storage.KeyValueStore {
-	return db.db.OverlayCache()
+	return muOverlayCache{mu: db, db: db.db.OverlayCache()}
 }
 
 // RepairQueue is a getter for RepairQueue repository
 func (db *Mutex) RepairQueue() queue.RepairQueue {
-	return db.db.RepairQueue()
+	return muRepairQueue{mu: db, db: db.db.RepairQueue()}
 }
 
 // Accounting returns database for tracking bandwidth agreements over time
 func (db *Mutex) Accounting() accounting.DB {
-	return db.db.Accounting()
+	return muAccounting{mu: db, db: db.db.Accounting()}
 }
 
 // Irreparable returns database for storing segments that failed repair
 func (db *Mutex) Irreparable() irreparable.DB {
-	return db.db.Irreparable()
+	return muIrreparable{mu: db, db: db.db.Irreparable()}
 }
 
 // CreateTables is a method for creating all tables for database
@@ -124,31 +126,37 @@ func (mu *muStatDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.Nod
 	return
 }
 
+// muOverlayCache implements a mutex around overlay cache
 type muOverlayCache struct {
 	mu *Mutex
 	db storage.KeyValueStore
 }
 
+// Put adds a value to store
 func (db *muOverlayCache) Put(key storage.Key, value storage.Value) error {
 	defer db.mu.locked()()
 	return db.db.Put(key, value)
 }
 
+// Get gets a value to store
 func (db *muOverlayCache) Get(key storage.Key) (storage.Value, error) {
 	defer db.mu.locked()()
 	return db.db.Get(key)
 }
 
+// GetAll gets all values from the store
 func (db *muOverlayCache) GetAll(keys storage.Keys) (storage.Values, error) {
 	defer db.mu.locked()()
 	return db.db.GetAll(keys)
 }
 
+// Delete deletes key and the value
 func (db *muOverlayCache) Delete(key storage.Key) error {
 	defer db.mu.locked()()
 	return db.db.Delete(key)
 }
 
+// List lists all keys starting from start and upto limit items
 func (db *muOverlayCache) List(start storage.Key, limit int) (keys storage.Keys, err error) {
 	defer db.mu.locked()()
 	return db.db.List(start, limit)
@@ -169,4 +177,43 @@ func (db *muOverlayCache) Iterate(opts storage.IterateOptions, fn func(storage.I
 func (db *muOverlayCache) Close() error {
 	defer db.mu.locked()()
 	return db.db.Close()
+}
+
+// muRepairQueue implements mutex around repair queue
+type muRepairQueue struct {
+	mu *Mutex
+	db queue.RepairQueue
+}
+
+func (db *muRepairQueue) Enqueue(ctx context.Context, seg *pb.InjuredSegment) error {
+	defer db.mu.locked()()
+	return db.db.Enqueue(ctx, seg)
+}
+func (db *muRepairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
+	defer db.mu.locked()()
+	return db.db.Dequeue(ctx)
+}
+func (db *muRepairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
+	defer db.mu.locked()()
+	return db.db.Peekqueue(ctx, limit)
+}
+
+type muAccountingDB struct {
+	mu *Mutex
+	db accounting.DB
+}
+
+func (db *muAccountingDB) LastRawTime(ctx context.Context, timestampType string) (time.Time, bool, error) {
+	defer db.mu.locked()()
+	return db.db.LastRawTime(ctx, timestampType)
+}
+
+func (db *muAccountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTotals map[string]int64) (err error) {
+	defer db.mu.locked()()
+	return db.db.SaveBWRaw(ctx, latestBwa, bwTotals)
+}
+
+func (db *muAccountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]int64) error {
+	defer db.mu.locked()()
+	return db.db.SaveAtRestRaw(ctx, latestTally, nodeData)
 }
