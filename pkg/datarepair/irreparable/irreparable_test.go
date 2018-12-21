@@ -40,7 +40,7 @@ func testDatabase(ctx context.Context, t *testing.T, irrdb irreparable.DB) {
 		assert.NoError(t, err)
 	}
 
-	{ //Increment the already existing entry
+	{ //Create the already existing entry
 		err := irrdb.IncrementRepairAttempts(ctx, segmentInfo)
 		assert.NoError(t, err)
 		segmentInfo.RepairAttemptCount++
