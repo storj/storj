@@ -83,13 +83,13 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 
 	defaultSatellite := net.JoinHostPort(host, strconv.Itoa(satellitePort+0))
 
-	arguments := func(name, command string, port int, rest ...string) []string {
+	arguments := func(name, command, addr string, rest ...string) []string {
 		return append([]string{
 			"--log.level", "debug",
 			"--log.prefix", name,
 			"--config-dir", ".",
 			command,
-			"--identity.server.address", net.JoinHostPort(host, strconv.Itoa(port)),
+			"--identity.server.address", addr,
 		}, rest...)
 	}
 
@@ -105,22 +105,22 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 		if err != nil {
 			return nil, utils.CombineErrors(err, processes.Close())
 		}
+		process.Info.Address = net.JoinHostPort(host, strconv.Itoa(satellitePort+i))
 
-		process.Arguments["setup"] = arguments(name, "setup", satellitePort+i)
-		process.Arguments["run"] = arguments(name,
-			"run", satellitePort+i,
+		process.Arguments["setup"] = arguments(name, "setup", process.Info.Address)
+		process.Arguments["run"] = arguments(name, "run", process.Info.Address,
 			"--kademlia.bootstrap-addr", defaultSatellite,
 		)
 	}
 
-	gatewayArguments := func(name, command string, index int, rest ...string) []string {
+	gatewayArguments := func(name, command string, satelliteAddr, addr string, rest ...string) []string {
 		return append([]string{
 			"--log.level", "debug",
 			"--log.prefix", name,
 			"--config-dir", ".",
 			command,
 			// "--satellite-addr", net.JoinHostPort(host, strconv.Itoa(satellitePort+index)),
-			"--identity.server.address", net.JoinHostPort(host, strconv.Itoa(gatewayPort+index)),
+			"--identity.server.address", satelliteAddr,
 		}, rest...)
 	}
 
@@ -132,19 +132,22 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 			return nil, err
 		}
 
+		satellite := processes.List[i]
+
 		process, err := processes.New(name, "gateway", dir)
 		if err != nil {
 			return nil, utils.CombineErrors(err, processes.Close())
 		}
+		process.Info.Address = net.JoinHostPort(host, strconv.Itoa(gatewayPort+i))
 
-		process.Arguments["setup"] = gatewayArguments(name, "setup", i)
-		process.Arguments["run"] = gatewayArguments(name, "run", i)
+		process.Arguments["setup"] = gatewayArguments(name, "setup", satellite.Info.Address, process.Info.Address)
+		process.Arguments["run"] = gatewayArguments(name, "run", satellite.Info.Address, process.Info.Address)
 	}
 
 	for i := 0; i < storageNodeCount; i++ {
 		name := fmt.Sprintf("storage/%d", i)
 
-		dir := filepath.Join(dir, "storagenode", fmt.Sprint(i))
+		dir := filepath.Join(dir, "storage", fmt.Sprint(i))
 		if err := os.MkdirAll(dir, 0644); err != nil {
 			return nil, err
 		}
@@ -153,13 +156,16 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 		if err != nil {
 			return nil, utils.CombineErrors(err, processes.Close())
 		}
+		process.Info.Address = net.JoinHostPort(host, strconv.Itoa(storageNodePort+i))
 
-		process.Arguments["setup"] = arguments(name, "setup", storageNodePort+i,
+		process.Arguments["setup"] = arguments(name, "setup", process.Info.Address,
 			"--piecestore.agreementsender.overlay-addr", defaultSatellite,
 		)
-		process.Arguments["run"] = arguments(name, "run", storageNodePort+i,
+		process.Arguments["run"] = arguments(name, "run", process.Info.Address,
 			"--piecestore.agreementsender.overlay-addr", defaultSatellite,
 			"--kademlia.bootstrap-addr", defaultSatellite,
+			"--kademlia.farmer.email", fmt.Sprintf("storage%d@example.com", i),
+			"--kademlia.farmer.wallet", "0x0123456789012345678901234567890123456789",
 		)
 	}
 
