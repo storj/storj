@@ -93,7 +93,6 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 	arguments := func(name, command, addr string, rest ...string) []string {
 		return append([]string{
 			"--log.level", "debug",
-			"--log.prefix", name,
 			"--config-dir", ".",
 			command,
 			"--identity.server.address", addr,
@@ -123,7 +122,6 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 	gatewayArguments := func(name, command string, addr string, rest ...string) []string {
 		return append([]string{
 			"--log.level", "debug",
-			"--log.prefix", name,
 			"--config-dir", ".",
 			command,
 			"--identity.server.address", addr,
