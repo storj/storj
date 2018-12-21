@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/storage"
 )
 

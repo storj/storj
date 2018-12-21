@@ -7,6 +7,8 @@ package postgreskv
 import (
 	"database/sql"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/storage"
 )
 

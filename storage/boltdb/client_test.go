@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"
 )

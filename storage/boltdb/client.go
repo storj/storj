@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/storage"
 )
