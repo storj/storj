@@ -10,7 +10,6 @@ export const projectsModule = {
 		selectedProject: {
 			name: 'Choose Project',
 			id: '',
-			ownerName: '',
 			companyName: '',
 			description: '',
 			isTermsAccepted: false,

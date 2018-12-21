@@ -10,7 +10,6 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
@@ -148,7 +147,6 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 	if node.Id == (storj.NodeID{}) {
 		return nil
 	}
-
 	rt.mutex.Lock()
 	rt.seen[node.Id] = node
 	rt.mutex.Unlock()
@@ -156,21 +154,17 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return RoutingErr.New("could not get node %s", err)
 	}
-
 	if v != nil {
 		err = rt.updateNode(node)
 		if err != nil {
 			return RoutingErr.New("could not update node %s", err)
 		}
-
 		return nil
 	}
-
 	_, err = rt.addNode(node)
 	if err != nil {
 		return RoutingErr.New("could not add node %s", err)
 	}
-
 	return nil
 }
 
@@ -184,7 +178,7 @@ func (rt *RoutingTable) ConnectionFailed(node *pb.Node) error {
 	return nil
 }
 
-// SetBucketTimestamp updates the last updated time for a bucket
+// SetBucketTimestamp records the time of the last node lookup for a bucket
 func (rt *RoutingTable) SetBucketTimestamp(bIDBytes []byte, now time.Time) error {
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
@@ -195,15 +189,13 @@ func (rt *RoutingTable) SetBucketTimestamp(bIDBytes []byte, now time.Time) error
 	return nil
 }
 
-// GetBucketTimestamp retrieves the last updated time for a bucket
-func (rt *RoutingTable) GetBucketTimestamp(bIDBytes []byte, bucket dht.Bucket) (time.Time, error) {
+// GetBucketTimestamp retrieves time of the last node lookup for a bucket
+func (rt *RoutingTable) GetBucketTimestamp(bIDBytes []byte) (time.Time, error) {
 	t, err := rt.kadBucketDB.Get(bIDBytes)
 	if err != nil {
 		return time.Now(), RoutingErr.New("could not get bucket timestamp %s", err)
 	}
-
 	timestamp, _ := binary.Varint(t)
-
 	return time.Unix(0, timestamp).UTC(), nil
 }
 

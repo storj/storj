@@ -37,7 +37,7 @@ import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
                     return;
                 }
                 if (this.$store.getters.selectedProject.id) {
-                    const isFetchProjectMemberSuccess = await this.$store.dispatch('fetchProjectMembers');
+                    const isFetchProjectMemberSuccess = await this.$store.dispatch('fetchProjectMembers', {limit: 20, offset: 0});
 
                     if (!isFetchProjectMemberSuccess) {
                         // TODO: Replace with popup

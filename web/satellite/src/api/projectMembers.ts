@@ -58,7 +58,7 @@ export async function deleteProjectMember(userID: string, projectID: string): Pr
 
 // Performs graqhQL request.
 // Throws an exception if error occurs
-export async function fetchProjectMembers(projectID: string): Promise<any> {
+export async function fetchProjectMembers(projectID: string, limit: string, offset: string): Promise<any> {
 	let response: any = null;
 	try {
 		response = await apollo.query(
@@ -68,15 +68,12 @@ export async function fetchProjectMembers(projectID: string): Promise<any> {
                     project(
                         id: "${projectID}",
                     ) {
-                        members {
+                        members(limit: ${limit}, offset: ${offset}) {
                             user {
                                 id,
                                 firstName,
                                 lastName,
                                 email,
-                                company {
-                                    name
-                                }
                             },
                             joinedAt
                         }
