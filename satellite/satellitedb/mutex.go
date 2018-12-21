@@ -86,17 +86,17 @@ type muBandwidthAgreement struct {
 }
 
 func (db *muBandwidthAgreement) CreateAgreement(ctx context.Context, agreement bwagreement.Agreement) error {
-	defer db.mu.locked()
+	defer db.mu.locked()()
 	return db.db.CreateAgreement(ctx, agreement)
 }
 
 func (db *muBandwidthAgreement) GetAgreements(ctx context.Context) ([]bwagreement.Agreement, error) {
-	defer db.mu.locked()
+	defer db.mu.locked()()
 	return db.db.GetAgreements(ctx)
 }
 
 func (db *muBandwidthAgreement) GetAgreementsSince(ctx context.Context, since time.Time) ([]bwagreement.Agreement, error) {
-	defer db.mu.locked()
+	defer db.mu.locked()()
 	return db.db.GetAgreementsSince(ctx, since)
 }
 
