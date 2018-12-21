@@ -45,9 +45,9 @@ func (r *repairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
 		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(storage.ErrEmptyQueue, tx.Rollback()))
 	}
 
-	deleted, err := tx.Delete_Injuredsegment_By_Info(
+	deleted, err := tx.Delete_Injuredsegment_By_Id(
 		ctx,
-		dbx.Injuredsegment_Info(res.Info),
+		dbx.Injuredsegment_Id(res.Id),
 	)
 	if err != nil {
 		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
