@@ -13,7 +13,7 @@ service Certificates {
 }
 
 message SigningRequest {
-    bytes auth_token = 1;
+    string auth_token = 1;
     int64 timestamp = 2;
 }
 

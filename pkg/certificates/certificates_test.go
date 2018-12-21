@@ -11,12 +11,24 @@ import (
 	"testing"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
+)
+
+var (
+	t1 = Token{
+		UserID: "user@example.com",
+		Data:   [tokenDataLength]byte{1, 2, 3},
+	}
+	t2 = Token{
+		UserID: "user2@example.com",
+		Data:   [tokenDataLength]byte{4, 5, 6},
+	}
 )
 
 func TestCertSignerConfig_NewAuthDB(t *testing.T) {
@@ -139,7 +151,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	var expectedAuths Authorizations
 	for i := 0; i < 5; i++ {
 		expectedAuths = append(expectedAuths, &Authorization{
-			Token: [tokenLength]byte{1, 2, 3},
+			Token: t1,
 		})
 	}
 	authsBytes, err := expectedAuths.Marshal()
@@ -183,15 +195,13 @@ func TestAuthorizationDB_Get(t *testing.T) {
 }
 
 func TestNewAuthorization(t *testing.T) {
-	auth, err := NewAuthorization()
+	auth, err := NewAuthorization("user@example.com")
 	assert.NoError(t, err)
 	assert.NotNil(t, auth)
 	assert.NotZero(t, auth.Token)
 }
 
 func TestAuthorizations_Marshal(t *testing.T) {
-	t1 := [tokenLength]byte{1, 2, 3}
-	t2 := [tokenLength]byte{4, 5, 6}
 	expectedAuths := Authorizations{
 		{Token: t1},
 		{Token: t2},
@@ -210,8 +220,6 @@ func TestAuthorizations_Marshal(t *testing.T) {
 }
 
 func TestAuthorizations_Unmarshal(t *testing.T) {
-	t1 := [tokenLength]byte{1, 2, 3}
-	t2 := [tokenLength]byte{4, 5, 6}
 	expectedAuths := Authorizations{
 		{Token: t1},
 		{Token: t2},
@@ -229,8 +237,6 @@ func TestAuthorizations_Unmarshal(t *testing.T) {
 }
 
 func TestAuthorizations_Group(t *testing.T) {
-	t1 := [tokenLength]byte{1, 2, 3}
-	t2 := [tokenLength]byte{4, 5, 6}
 	auths := make(Authorizations, 10)
 	for i := 0; i < 10; i++ {
 		if i%2 == 0 {
@@ -279,9 +285,117 @@ func TestAuthorizationDB_Emails(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	emails, err := authDB.Emails()
+	emails, err := authDB.UserIDs()
 	assert.NoError(t, err)
 	assert.NotEmpty(t, emails)
+}
+
+func TestParseToken(t *testing.T) {
+	defaultUserID := "user@example.com"
+	defaultData := [tokenDataLength]byte{1, 2, 3}
+	defaultRun := func(userID string, data []byte) (*Token, error) {
+		b58Data := base58.CheckEncode(data, tokenVersion)
+		tokenString := userID + tokenDelimiter + b58Data
+		return ParseToken(tokenString)
+	}
+
+	cases := []struct {
+		testID   string
+		userID   string
+		run      func(string, []byte) (*Token, error)
+		errClass *errs.Class
+		err      error
+	}{
+		{
+			"valid token",
+			defaultUserID,
+			defaultRun,
+			nil,
+			nil,
+		},
+		{
+			"multiple delimiters",
+			"us" + tokenDelimiter + "er@example.com",
+			defaultRun,
+			nil,
+			nil,
+		},
+		{
+			"no delimiter",
+			defaultUserID,
+			func(userID string, data []byte) (*Token, error) {
+				b58Data := base58.CheckEncode(data, tokenVersion)
+				tokenString := userID + b58Data
+				return ParseToken(tokenString)
+			},
+			&ErrToken,
+			ErrTokenDelimiter,
+		},
+		{
+			"missing userID",
+			"",
+			defaultRun,
+			&ErrToken,
+			ErrTokenUserID,
+		},
+		{
+			"not enough data",
+			defaultUserID,
+			func(userID string, data []byte) (*Token, error) {
+				b58Data := base58.CheckEncode(data[:len(data)-10], tokenVersion)
+				tokenString := userID + tokenDelimiter + b58Data
+				return ParseToken(tokenString)
+			},
+			&ErrToken,
+			ErrTokenData,
+		},
+		{
+			"too much data",
+			defaultUserID,
+			func(userID string, data []byte) (*Token, error) {
+				var extra [10]byte
+				b58Data := base58.CheckEncode(append(data, extra[:]...), tokenVersion)
+				tokenString := userID + tokenDelimiter + b58Data
+				return ParseToken(tokenString)
+			},
+			&ErrToken,
+			ErrTokenData,
+		},
+		{
+			"data checksum/format error",
+			defaultUserID,
+			func(userID string, data []byte) (*Token, error) {
+				b58Data := base58.CheckEncode(data, tokenVersion)
+				tokenString := userID + tokenDelimiter + b58Data[:len(b58Data)-4] + "0000"
+				return ParseToken(tokenString)
+			},
+			&ErrToken,
+			ErrToken.Wrap(base58.ErrInvalidFormat),
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			token, err := c.run(c.userID, defaultData[:])
+			if c.errClass != nil {
+				assert.True(t, c.errClass.Has(err))
+			}
+			if c.err != nil {
+				if !assert.Error(t, err) {
+					t.FailNow()
+				}
+				assert.Equal(t, c.err.Error(), err.Error())
+			}
+			if c.errClass == nil && c.err == nil {
+				assert.NoError(t, err)
+				if !assert.NotNil(t, token) {
+					t.FailNow()
+				}
+				assert.Equal(t, c.userID, token.UserID)
+				assert.Equal(t, defaultData[:], token.Data[:])
+			}
+		})
+	}
 }
 
 func newTestAuthDB(ctx *testcontext.Context) (*AuthorizationDB, error) {
