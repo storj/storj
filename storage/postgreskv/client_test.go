@@ -13,7 +13,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/storelogger"
 	"storj.io/storj/storage/testsuite"
@@ -67,9 +66,9 @@ func bulkImport(db *sql.DB, iter storage.Iterator) (err error) {
 	}
 	defer func() {
 		if err == nil {
-			err = utils.CombineErrors(err, txn.Commit())
+			err = errs.Combine(err, txn.Commit())
 		} else {
-			err = utils.CombineErrors(err, txn.Rollback())
+			err = errs.Combine(err, txn.Rollback())
 		}
 	}()
 
@@ -80,7 +79,7 @@ func bulkImport(db *sql.DB, iter storage.Iterator) (err error) {
 	defer func() {
 		err2 := stmt.Close()
 		if err2 != nil {
-			err = utils.CombineErrors(err, errs.New("Failed to close COPY FROM statement: %v", err2))
+			err = errs.Combine(err, errs.New("Failed to close COPY FROM statement: %v", err2))
 		}
 	}()
 

@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
-	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/kademlia"
@@ -32,7 +31,6 @@ import (
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/storage/redis"
 )
 
 var (
@@ -83,8 +81,8 @@ var (
 		Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	}
 	qdiagCfg struct {
-		DatabaseURL string `help:"the database connection string to use" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
-		QListLimit  int    `help:"maximum segments that can be requested" default:"1000"`
+		Database   string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+		QListLimit int    `help:"maximum segments that can be requested" default:"1000"`
 	}
 
 	defaultConfDir string
@@ -265,16 +263,20 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
-	// open the redis db
-	dbpath := qdiagCfg.DatabaseURL
 
-	redisQ, err := redis.NewQueueFrom(dbpath)
+	// open the master db
+	database, err := satellitedb.New(qdiagCfg.Database)
 	if err != nil {
-		return err
+		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
+	defer func() {
+		err := database.Close()
+		if err != nil {
+			fmt.Printf("error closing connection to master database on satellite: %+v\n", err)
+		}
+	}()
 
-	queue := queue.NewQueue(redisQ)
-	list, err := queue.Peekqueue(qdiagCfg.QListLimit)
+	list, err := database.RepairQueue().Peekqueue(qdiagCfg.QListLimit)
 	if err != nil {
 		return err
 	}

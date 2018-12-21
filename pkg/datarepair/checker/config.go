@@ -15,13 +15,11 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
-	"storj.io/storj/storage/redis"
 )
 
 // Config contains configurable values for checker
 type Config struct {
-	QueueAddress string        `help:"data checker queue address" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
-	Interval     time.Duration `help:"how frequently checker should audit segments" default:"30s"`
+	Interval time.Duration `help:"how frequently checker should audit segments" default:"30s"`
 }
 
 // Initialize a Checker struct
@@ -31,26 +29,18 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 		return nil, Error.New("failed to load pointerdb from context")
 	}
 
-	sdb, ok := ctx.Value("masterdb").(interface {
+	db, ok := ctx.Value("masterdb").(interface {
 		StatDB() statdb.DB
+		Irreparable() irreparable.DB
+		RepairQueue() queue.RepairQueue
 	})
 	if !ok {
 		return nil, Error.New("unable to get master db instance")
 	}
 
-	db, ok := ctx.Value("masterdb").(interface {
-		Irreparable() irreparable.DB
-	})
-	if !ok {
-		return nil, Error.New("unable to get master db instance")
-	}
 	o := overlay.LoadServerFromContext(ctx)
-	redisQ, err := redis.NewQueueFrom(c.QueueAddress)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	repairQueue := queue.NewQueue(redisQ)
-	return newChecker(pdb, sdb.StatDB(), repairQueue, o, db.Irreparable(), 0, zap.L(), c.Interval), nil
+
+	return newChecker(pdb, db.StatDB(), db.RepairQueue(), o, db.Irreparable(), 0, zap.L(), c.Interval), nil
 }
 
 // Run runs the checker with configured values

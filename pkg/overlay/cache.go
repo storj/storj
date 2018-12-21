@@ -21,6 +21,9 @@ const (
 	OverlayBucket = "overlay"
 )
 
+// ErrDelete is returned when there is a problem deleting a node from the cache
+var ErrDelete = errs.New("error deleting node")
+
 // ErrEmptyNode is returned when the nodeID is empty
 var ErrEmptyNode = errs.New("empty node ID")
 
@@ -132,9 +135,27 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	return cache.db.Put(nodeID.Bytes(), data)
 }
 
+// Delete will remove the node from the cache. Used when a node hard disconnects or fails
+// to pass a PING multiple times.
+func (cache *Cache) Delete(ctx context.Context, id storj.NodeID) error {
+	if id.IsZero() {
+		return ErrEmptyNode
+	}
+
+	err := cache.db.Delete(id.Bytes())
+	if err != nil {
+		return ErrDelete
+	}
+
+	return nil
+}
+
 // ConnFailure implements the Transport Observer `ConnFailure` function
 func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, err error) {
-	// noop until we figure out what to do on ConnFailure
+	// TODO: noop until we figure out what to do on ConnFailure
+	// Kademlia paper specifies 5 unsuccessful PINGs before removing the node
+	// from our routing table, but this is the cache so maybe we want to treat
+	// it differently.
 }
 
 // ConnSuccess implements the Transport Observer `ConnSuccess` function
@@ -142,5 +163,9 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 	err := cache.Put(ctx, node.Id, *node)
 	if err != nil {
 		zap.L().Debug("error putting node o cache:", zap.Error(err))
+	}
+	_, err = cache.statDB.UpdateUptime(ctx, node.Id, true)
+	if err != nil {
+		zap.L().Debug("error updating statdDB with node connection info", zap.Error(err))
 	}
 }
