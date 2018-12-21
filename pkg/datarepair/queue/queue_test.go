@@ -109,6 +109,7 @@ func TestParallel(t *testing.T) {
 					LostPieces: []int32{int32(i)},
 				})
 				if err != nil {
+					t.Log(err)
 					errs <- err
 				}
 			}(i)
@@ -123,6 +124,7 @@ func TestParallel(t *testing.T) {
 				defer wg.Done()
 				segment, err := q.Dequeue(ctx)
 				if err != nil {
+					t.Log(err)
 					errs <- err
 				}
 				entries <- &segment
