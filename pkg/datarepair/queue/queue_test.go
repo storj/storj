@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package queue
+package queue_test
 
 import (
 	"sort"
@@ -12,60 +12,79 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage/redis"
 	"storj.io/storj/storage/redis/redisserver"
 	"storj.io/storj/storage/testqueue"
 )
 
 func TestEnqueueDequeue(t *testing.T) {
-	q := NewQueue(testqueue.New())
-	seg := &pb.InjuredSegment{
-		Path:       "abc",
-		LostPieces: []int32{int32(1), int32(3)},
-	}
-	err := q.Enqueue(seg)
-	assert.NoError(t, err)
+	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
 
-	s, err := q.Dequeue()
-	assert.NoError(t, err)
-	assert.True(t, proto.Equal(&s, seg))
-}
+		q := db.RepairQueue()
 
-func TestDequeueEmptyQueue(t *testing.T) {
-	q := NewQueue(testqueue.New())
-	s, err := q.Dequeue()
-	assert.Error(t, err)
-	assert.Equal(t, pb.InjuredSegment{}, s)
-}
-
-func TestSequential(t *testing.T) {
-	q := NewQueue(testqueue.New())
-	const N = 100
-	var addSegs []*pb.InjuredSegment
-	for i := 0; i < N; i++ {
 		seg := &pb.InjuredSegment{
-			Path:       strconv.Itoa(i),
-			LostPieces: []int32{int32(i)},
+			Path:       "abc",
+			LostPieces: []int32{int32(1), int32(3)},
 		}
 		err := q.Enqueue(seg)
 		assert.NoError(t, err)
-		addSegs = append(addSegs, seg)
-	}
-	list, err := q.Peekqueue(100)
-	assert.NoError(t, err)
-	for i := 0; i < N; i++ {
-		assert.True(t, proto.Equal(addSegs[i], &list[i]))
-	}
-	for i := 0; i < N; i++ {
-		dqSeg, err := q.Dequeue()
+
+		s, err := q.Dequeue()
 		assert.NoError(t, err)
-		assert.True(t, proto.Equal(addSegs[i], &dqSeg))
-	}
+		assert.True(t, proto.Equal(&s, seg))
+	})
+}
+
+func TestDequeueEmptyQueue(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+
+		q := db.RepairQueue()
+
+		s, err := q.Dequeue()
+		assert.Error(t, err)
+		assert.Equal(t, pb.InjuredSegment{}, s)
+	})
+}
+
+func TestSequential(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+
+		q := db.RepairQueue()
+
+		const N = 100
+		var addSegs []*pb.InjuredSegment
+		for i := 0; i < N; i++ {
+			seg := &pb.InjuredSegment{
+				Path:       strconv.Itoa(i),
+				LostPieces: []int32{int32(i)},
+			}
+			err := q.Enqueue(seg)
+			assert.NoError(t, err)
+			addSegs = append(addSegs, seg)
+		}
+		list, err := q.Peekqueue(100)
+		assert.NoError(t, err)
+		for i := 0; i < N; i++ {
+			assert.True(t, proto.Equal(addSegs[i], &list[i]))
+		}
+		for i := 0; i < N; i++ {
+			dqSeg, err := q.Dequeue()
+			assert.NoError(t, err)
+			assert.True(t, proto.Equal(addSegs[i], &dqSeg))
+		}
+	})
 }
 
 func TestParallel(t *testing.T) {
-	queue := NewQueue(testqueue.New())
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	queue := queue.NewQueue(testqueue.New())
 	const N = 100
 	errs := make(chan error, N*2)
 	entries := make(chan *pb.InjuredSegment, N*2)
@@ -125,16 +144,17 @@ func BenchmarkRedisSequential(b *testing.B) {
 	assert.NoError(b, err)
 	client, err := redis.NewQueue(addr, "", 1)
 	assert.NoError(b, err)
-	q := NewQueue(client)
+	q := queue.NewQueue(client)
 	benchmarkSequential(b, q)
 }
 
 func BenchmarkTeststoreSequential(b *testing.B) {
-	q := NewQueue(testqueue.New())
+	q := queue.NewQueue(testqueue.New())
 	benchmarkSequential(b, q)
 }
 
-func benchmarkSequential(b *testing.B, q RepairQueue) {
+func benchmarkSequential(b *testing.B, q queue.RepairQueue) {
+
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		const N = 100
@@ -162,16 +182,17 @@ func BenchmarkRedisParallel(b *testing.B) {
 	assert.NoError(b, err)
 	client, err := redis.NewQueue(addr, "", 1)
 	assert.NoError(b, err)
-	q := NewQueue(client)
+	q := queue.NewQueue(client)
 	benchmarkParallel(b, q)
 }
 
 func BenchmarkTeststoreParallel(b *testing.B) {
-	q := NewQueue(testqueue.New())
+	q := queue.NewQueue(testqueue.New())
 	benchmarkParallel(b, q)
 }
 
-func benchmarkParallel(b *testing.B, q RepairQueue) {
+func benchmarkParallel(b *testing.B, q queue.RepairQueue) {
+
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		const N = 100

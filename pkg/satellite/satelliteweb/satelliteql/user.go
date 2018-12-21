@@ -13,7 +13,6 @@ const (
 	userType      = "user"
 	userInputType = "userInput"
 
-	fieldUserID    = "userID"
 	fieldID        = "id"
 	fieldEmail     = "email"
 	fieldPassword  = "password"
