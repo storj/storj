@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
+	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -42,7 +42,7 @@ func New(path, bucket string) (*Client, error) {
 	}))
 	if err != nil {
 		if closeErr := Error.Wrap(db.Close()); closeErr != nil {
-			return nil, utils.CombineErrors(err, closeErr)
+			return nil, errs.Combine(err, closeErr)
 		}
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func NewShared(path string, buckets ...string) ([]*Client, error) {
 	}))
 	if err != nil {
 		if closeErr := Error.Wrap(db.Close()); closeErr != nil {
-			return nil, utils.CombineErrors(err, closeErr)
+			return nil, errs.Combine(err, closeErr)
 		}
 		return nil, err
 	}
