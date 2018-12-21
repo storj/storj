@@ -53,30 +53,88 @@ var (
 // values specified in 'overrides' overridden.
 func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}) error {
 
-	vip := viper.New()
-	err := vip.BindPFlags(pflag.CommandLine)
-	if err != nil {
-		return err
-	}
+	// vip := viper.New()
+	// err := vip.BindPFlags(pflag.CommandLine)
+	// if err != nil {
+	// 	return err
+	// }
+	cmd := pflag.CommandLine
+	comments := map[string]string{}
+	flags := map[string]interface{}{}
 	flagset.VisitAll(func(f *pflag.Flag) {
 		// stop processing if we hit an error on a BindPFlag call
-		if err != nil {
-			return
-		}
 		if f.Name == "config" {
 			return
 		}
-		err = vip.BindPFlag(f.Name, f)
+		comments[f.Name] = f.Usage
+		flags[f.Name] = f.DefValue
+		cmdFlag := cmd.Lookup(f.Name)
+		if cmdFlag != nil {
+			flags[f.Name] = f.Value
+		}
+		if v, ok := overrides[f.Name]; ok {
+			flags[f.Name] = v
+		}
 	})
-	if err != nil {
-		return err
-	}
 
-	for key, val := range overrides {
-		vip.Set(key, val)
+	for k, v := range flags {
+		if comment, ok := comments[k]; ok {
+			fmt.Printf("# %s\n", comment)
+		}
+		fmt.Printf("%s: ", k)
+		switch t := v.(type) {
+		case fmt.Stringer:
+			fmt.Printf("\"%s\"\n", t.String())
+		case int:
+			fmt.Printf("%d\n", t)
+		case string:
+			fmt.Printf("\"%s\"\n", t)
+		case bool:
+			fmt.Printf("%t\n", t)
+		default:
+			fmt.Printf("I don't know about type %T!\n", v)
+		}
+		fmt.Printf("\n")
 	}
+	return nil
 
-	return vip.WriteConfigAs(os.ExpandEnv(outfile))
+	//return vip.WriteConfigAs(os.ExpandEnv(outfile))
+	//return writeConfig(outfile, true, vip)
+}
+
+func WriteConfig(filename string, force bool, v *viper.Viper) error {
+	c := v.AllSettings()
+	yamlMarshall(c, 0)
+	// yamlStr, err := yaml.Marshal(c)
+	// if err != nil {
+	// 	return err
+	// }
+	// return ioutil.WriteFile(filename, yamlStr, os.FileMode(0644))
+	return nil
+}
+
+func yamlMarshall(m map[string]interface{}, indent int) {
+	for k, v := range m {
+		fmt.Printf("%s%s: ", strings.Repeat("  ", indent), k)
+
+		if t := fmt.Sprintf("%T", v); t == "map[string]interface {}" {
+			fmt.Printf("\n")
+			yamlMarshall(v.(map[string]interface{}), indent+1)
+		} else {
+			switch t := v.(type) {
+			case fmt.Stringer:
+				fmt.Printf("\"%s\"\n", t.String())
+			case int:
+				fmt.Printf("%d\n", t)
+			case string:
+				fmt.Printf("\"%s\"\n", t)
+			case bool:
+				fmt.Printf("%t\n", t)
+			default:
+				fmt.Printf("I don't know about type %T!\n", v)
+			}
+		}
+	}
 }
 
 // Ctx returns the appropriate context.Context for ExecuteWithConfig commands
