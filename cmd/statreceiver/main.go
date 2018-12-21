@@ -9,14 +9,16 @@ import (
 	"os"
 	"path/filepath"
 
+	"go.uber.org/zap"
+
 	"storj.io/storj/internal/fpath"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/statreceiver/luacfg"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/utils"
 )
 
 // Config is the set of configuration values we care about
@@ -47,16 +49,21 @@ func Main(cmd *cobra.Command, args []string) error {
 	case "stdin":
 		input = os.Stdin
 	default:
-		fh, err := os.Open(Config.Input)
+		inputFile, err := os.Open(Config.Input)
 		if err != nil {
 			return err
 		}
-		defer utils.LogClose(fh)
-		input = fh
+		defer func() {
+			if err := inputFile.Close(); err != nil {
+				zap.S().Errorf("Failed to close input: %s", err)
+			}
+		}()
+
+		input = inputFile
 	}
 
 	s := luacfg.NewScope()
-	err := utils.CombineErrors(
+	err := errs.Combine(
 		s.RegisterVal("deliver", Deliver),
 		s.RegisterVal("filein", NewFileSource),
 		s.RegisterVal("fileout", NewFileDest),
@@ -81,6 +88,7 @@ func Main(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
 	err = s.Run(input)
 	if err != nil {
 		return err
