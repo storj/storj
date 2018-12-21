@@ -40,7 +40,7 @@ func runTestPlanet(flags *Flags, command string, args []string) error {
 	// add satellites to environment
 	for i, satellite := range planet.Satellites {
 		env = append(env, (&ProcessInfo{
-			Name:    "SATELLITE" + strconv.Itoa(i),
+			Name:    "satellite/" + strconv.Itoa(i),
 			ID:      satellite.ID().String(),
 			Address: satellite.Addr(),
 		}).Env()...)
@@ -49,7 +49,7 @@ func runTestPlanet(flags *Flags, command string, args []string) error {
 	// add storage nodes to environment
 	for i, storage := range planet.StorageNodes {
 		env = append(env, (&ProcessInfo{
-			Name:    "STORAGE" + strconv.Itoa(i),
+			Name:    "storage/" + strconv.Itoa(i),
 			ID:      storage.ID().String(),
 			Address: storage.Addr(),
 		}).Env()...)
@@ -76,9 +76,9 @@ func runTestPlanet(flags *Flags, command string, args []string) error {
 		}
 
 		env = append(env,
-			fmt.Sprintf("IDENTITY%d_ID=%v", i, identity.ID.String()),
-			fmt.Sprintf("IDENTITY%d_KEY=%v", i, base64.StdEncoding.EncodeToString(key.Bytes())),
-			fmt.Sprintf("IDENTITY%d_CHAIN=%v", i, base64.StdEncoding.EncodeToString(chainPEM.Bytes())),
+			fmt.Sprintf("IDENTITY_%d_ID=%v", i, identity.ID.String()),
+			fmt.Sprintf("IDENTITY_%d_KEY=%v", i, base64.StdEncoding.EncodeToString(key.Bytes())),
+			fmt.Sprintf("IDENTITY_%d_CHAIN=%v", i, base64.StdEncoding.EncodeToString(chainPEM.Bytes())),
 		)
 	}
 

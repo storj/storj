@@ -73,6 +73,19 @@ type ProcessInfo struct {
 func (info *ProcessInfo) Env() []string {
 	name := strings.ToUpper(info.Name)
 
+	name = strings.Map(func(r rune) rune {
+		switch {
+		case '0' <= r && r <= '9':
+			return r
+		case 'a' <= r && r <= 'z':
+			return r
+		case 'A' <= r && r <= 'Z':
+			return r
+		default:
+			return '_'
+		}
+	}, name)
+
 	var env []string
 	if info.ID != "" {
 		env = append(env, name+"_ID", info.ID)
@@ -113,6 +126,10 @@ func NewProcess(name, executable, directory string) (*Process, error) {
 		Directory:  directory,
 		Executable: executable,
 
+		Info: ProcessInfo{
+			Name:      name,
+			Directory: directory,
+		},
 		Arguments: map[string][]string{},
 
 		Stdout: io.MultiWriter(os.Stdout, stdout),
