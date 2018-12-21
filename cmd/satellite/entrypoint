@@ -1,7 +1,7 @@
 #!/bin/sh
 set -euo pipefail
 
-if [[ ! -d "${CONF_PATH}" ]]; then
+if [[ ! -f "${CONF_PATH}/config.yaml" ]]; then
 	./satellite setup
 fi
 
