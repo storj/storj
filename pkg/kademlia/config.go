@@ -52,8 +52,7 @@ type Config struct {
 }
 
 // Run implements provider.Responsibility
-func (c Config) Run(ctx context.Context, server *provider.Provider) (
-	err error) {
+func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 
 	defer mon.Task()(&ctx)(&err)
 
@@ -81,6 +80,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	if err != nil {
 		return err
 	}
+	kad.StartRefresh(ctx)
 	defer func() { err = utils.CombineErrors(err, kad.Disconnect()) }()
 
 	pb.RegisterNodesServer(server.GRPC(), node.NewServer(logger, kad))

@@ -11,9 +11,8 @@ import (
 const (
 	projectType      = "project"
 	projectInputType = "projectInput"
+	fieldName        = "name"
 
-	fieldOwnerName   = "ownerName"
-	fieldCompanyName = "companyName"
 	fieldDescription = "description"
 	// Indicates if user accepted Terms & Conditions during project creation
 	// Used in input model
@@ -35,9 +34,6 @@ func graphqlProject(service *satellite.Service, types Types) *graphql.Object {
 			fieldName: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldCompanyName: &graphql.Field{
-				Type: graphql.String,
-			},
 			fieldDescription: &graphql.Field{
 				Type: graphql.String,
 			},
@@ -46,23 +42,6 @@ func graphqlProject(service *satellite.Service, types Types) *graphql.Object {
 			},
 			fieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
-			},
-			fieldOwnerName: &graphql.Field{
-				Type: graphql.String,
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					// TODO: return owner (user) instead of ownerName
-					project, _ := p.Source.(satellite.Project)
-					if project.OwnerID == nil {
-						return "", nil
-					}
-
-					user, err := service.GetUser(p.Context, *project.OwnerID)
-					if err != nil {
-						return "", nil
-					}
-
-					return user.FirstName + " " + user.LastName, nil
-				},
 			},
 			fieldMembers: &graphql.Field{
 				Type: graphql.NewList(types.ProjectMember()),
@@ -113,9 +92,6 @@ func graphqlProjectInput() *graphql.InputObject {
 			fieldName: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
-			fieldCompanyName: &graphql.InputObjectFieldConfig{
-				Type: graphql.String,
-			},
 			fieldDescription: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
@@ -131,7 +107,6 @@ func fromMapProjectInfo(args map[string]interface{}) (project satellite.ProjectI
 	project.Name, _ = args[fieldName].(string)
 	project.Description, _ = args[fieldDescription].(string)
 	project.IsTermsAccepted, _ = args[fieldIsTermsAccepted].(bool)
-	project.CompanyName, _ = args[fieldCompanyName].(string)
 
 	return
 }

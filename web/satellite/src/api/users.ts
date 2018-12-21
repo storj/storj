@@ -7,68 +7,33 @@ import gql from 'graphql-tag';
 // Performs update user info graphQL mutation request.
 // Returns User object if succeed, null otherwise
 export async function updateBasicUserInfoRequest(user: User) {
-	let response = await apolloManager.mutate(
-		{
-			mutation: gql(`
-                mutation {
-                    updateUser (
-                        id: "${user.id}",
-                        input: {
-                            email: "${user.email}",
-                            firstName: "${user.firstName}",
-                            lastName: "${user.lastName}"
+    let response: any = null;
+
+    try {
+        response = await apolloManager.mutate(
+            {
+                mutation: gql(`
+                    mutation {
+                        updateUser (
+                            id: "${user.id}",
+                            input: {
+                                email: "${user.email}",
+                                firstName: "${user.firstName}",
+                                lastName: "${user.lastName}"
+                            }
+                        ) {
+                            email,
+                            firstName,
+                            lastName
                         }
-                    ) {
-		                email,
-		                firstName,
-		                lastName
-                    }
-                }
-            `),
-			fetchPolicy: 'no-cache',
-		}
-	);
-
-	if (!response) {
-		return null;
-	}
-
-	return response;
-}
-
-// Performs update company info graphQL mutation request.
-// Returns Company object if succeed, null otherwise
-export async function updateCompanyInfoRequest(userId: string, company: Company) {
-	let response = await apolloManager.mutate(
-		{
-			mutation: gql(`
-                mutation {
-	                updateCompany(
-                        userID:"${userId}",
-                        input:{
-                            name:"${company.name}",
-                            address:"${company.address}",
-                            country:"${company.country}",
-                            city:"${company.city}",
-                            state:"${company.state}",
-                            postalCode:"${company.postalCode}"
-                        }
-                    ){
-                        name,
-                        address,
-                        country,
-                        city,
-                        state,
-                        postalCode
-                    }
-                }
-           `)
-		}
-	);
-
-	if (!response) {
-		return null;
-	}
+                    }`
+                ),
+                fetchPolicy: 'no-cache',
+            }
+        );
+    } catch (e) {
+        console.error(e);
+    }
 
 	return response;
 }
@@ -76,29 +41,31 @@ export async function updateCompanyInfoRequest(userId: string, company: Company)
 // Performs change password graphQL mutation
 // Returns base user fields
 export async function updatePasswordRequest(userId: string, password: string) {
-	let response = await apolloManager.mutate(
-		{
-			mutation: gql(`
-                mutation {
-                    updateUser (
-                        id: "${userId}",
-                        input: {
-                            password: "${password}"
-                        }
-                    ) {
-		                email,
-		                firstName,
-		                lastName
-                    }
-                }
-            `),
-			fetchPolicy: 'no-cache',
-		}
-	);
+    let response: any = null;
 
-	if (!response) {
-		return null;
-	}
+    try {
+        response = await apolloManager.mutate(
+            {
+                mutation: gql(`
+                    mutation {
+                        updateUser (
+                            id: "${userId}",
+                            input: {
+                                password: "${password}"
+                            }
+                        ) {
+                            email,
+                            firstName,
+                            lastName
+                        }
+                    }`
+                ),
+                fetchPolicy: 'no-cache',
+            }
+        );
+    } catch (e) {
+        console.error(e);
+    }
 
 	return response;
 }
@@ -107,98 +74,110 @@ export async function updatePasswordRequest(userId: string, password: string) {
 // Throws an exception if error occurs
 // Returns object with newly created user
 export async function createUserRequest(user: User, password: string): Promise<any> {
-	let response = await apolloManager.mutate(
-		{
-			mutation: gql(`
-                mutation {
-                    createUser(
-                        input:{
-                            email: "${user.email}",
-                            password: "${password}",
-                            firstName: "${user.firstName}",
-                            lastName: "${user.lastName}",
-                            company: {
-                                name: "${user.company.name}",
-                                address: "${user.company.address}",
-                                country: "${user.company.country}",
-                                city: "${user.company.city}",
-                                state: "${user.company.state}",
-                                postalCode: "${user.company.postalCode}"
-                            }
-                        }
-                    )
-                }
-           `),
-			fetchPolicy: 'no-cache',
-		}
-	);
+    let response: any = null;
 
-	if (!response) {
-		return null;
-	}
+    try {
+        response = await apolloManager.mutate(
+            {
+                mutation: gql(`
+                    mutation {
+                        createUser(
+                            input:{
+                                email: "${user.email}",
+                                password: "${password}",
+                                firstName: "${user.firstName}",
+                                lastName: "${user.lastName}",
+                            }
+                        )
+                    }`
+                ),
+                fetchPolicy: 'no-cache',
+            }
+        );
+    } catch (e) {
+        console.error(e);
+    }
 
 	return response;
 }
-
 
 // Performs graqhQL request.
 // Returns Token, User objects.
 // Throws an exception if error occurs
 export async function getTokenRequest(email: string, password: string): Promise<any> {
-	let response = await apolloManager.query(
-		{
-			query: gql(`
-                query {
-                    token(email: "${email}",
-                        password: "${password}") {
-                            token,
-                            user{
-                                id,
-                                firstName,
-                                lastName,
-                                email,
-                                company{
-                                    name,
-                                    address,
-                                    country,
-                                    city,
-                                    state,
-                                    postalCode
-                                }
-                            }
-                    }
-                }`),
-			fetchPolicy: 'no-cache',
-		}
-	);
+    let response: any = null;
 
-	if (!response) {
-		return null;
-	}
+    try {
+        response = await apolloManager.query(
+            {
+                query: gql(`
+                    query {
+                        token(email: "${email}",
+                              password: "${password}") {
+                                  token
+                        }
+                    }`
+                ),
+                fetchPolicy: 'no-cache',
+            }
+        );
+    } catch (e) {
+        console.error(e);
+    }
 
-	return response;
+    return response;
+}
+
+// Performs graqhQL request.
+// Returns Token, User objects.
+// Throws an exception if error occurs
+export async function getUserRequest(): Promise<any> {
+    let response: any = null;
+
+    try {
+        response = await apolloManager.query(
+            {
+                query: gql(`
+                    query {
+                        user {
+                            firstName,
+                            lastName,
+                            email,
+                        }
+                    }`
+                ),
+                fetchPolicy: 'no-cache',
+            }
+        );
+    } catch (e) {
+        console.error(e);
+    }
+
+    return response;
 }
 
 // Performs graqhQL request.
 // User object.
 // Throws an exception if error occurs
-export async function deleteUserAccountRequest(userId: string): Promise<any> {
-	let response = await apolloManager.mutate(
-		{
-			mutation: gql(`
-                mutation {
-                    deleteUser(id: "${userId}") {
-                        id
-                    }
-                }
-            `),
-			fetchPolicy: 'no-cache'
-		}
-	);
+export async function deleteUserAccountRequest(password: string): Promise<any> {
+    let response: any = null;
 
-	if (!response) {
-		return null;
-	}
+    try {
+        response = await apolloManager.mutate(
+            {
+                mutation: gql(`
+                    mutation {
+                        deleteUser(password: "${password}") {
+                            id
+                        }
+                    }`
+                ),
+                fetchPolicy: 'no-cache'
+            }
+        );
+    } catch (e) {
+        console.error(e);
+    }
 
-	return response;
+    return response;
 }
