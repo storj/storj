@@ -12,13 +12,6 @@ declare type RegisterData = {
 	passwordError: string,
 	repeatedPassword: string,
 	repeatedPasswordError: string,
-	companyName: string,
-	companyAddress: string,
-	country: string,
-	city: string,
-	state: string,
-	postalCode: string,
 	isTermsAccepted: boolean,
 	isTermsAcceptedError: boolean,
-	optionalAreaShown: boolean
 }

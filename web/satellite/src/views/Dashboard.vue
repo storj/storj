@@ -19,6 +19,10 @@ import DashboardHeader from '@/components/dashboard/DashboardHeader.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
 @Component({
+    beforeMount: async function() {
+        // TODO: check error and show notification
+        this.$store.dispatch('getUser');
+    },
     components: {
         NavigationArea,
         DashboardHeader

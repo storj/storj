@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"

@@ -212,8 +212,8 @@ func NewFullIdentity(ctx context.Context, difficulty uint16, concurrency uint) (
 	return identity, err
 }
 
-// Stat returns the status of the identity cert/key files for the config
-func (is IdentitySetupConfig) Stat() TLSFilesStatus {
+// Status returns the status of the identity cert/key files for the config
+func (is IdentitySetupConfig) Status() TLSFilesStatus {
 	return statTLSFiles(is.CertPath, is.KeyPath)
 }
 
