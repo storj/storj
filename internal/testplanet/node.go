@@ -166,7 +166,7 @@ func (node *Node) initOverlay(planet *Planet) error {
 		return err
 	}
 
-	routing, err := kademlia.NewRoutingTable(node.Info, teststore.New(), teststore.New())
+	routing, err := kademlia.NewRoutingTable(node.Log.Named("routing"), node.Info, teststore.New(), teststore.New())
 	if err != nil {
 		return err
 	}
@@ -179,7 +179,7 @@ func (node *Node) initOverlay(planet *Planet) error {
 	node.Kademlia = kad
 	node.StatDB = node.Database.StatDB()
 	node.Overlay = overlay.NewCache(teststore.New(), node.StatDB)
-	node.Discovery = discovery.NewDiscovery(zap.L(), node.Overlay, node.Kademlia, node.StatDB)
+	node.Discovery = discovery.NewDiscovery(node.Log.Named("discovery"), node.Overlay, node.Kademlia, node.StatDB)
 
 	return nil
 }

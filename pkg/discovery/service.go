@@ -23,10 +23,10 @@ var (
 
 // Discovery struct loads on cache, kad, and statdb
 type Discovery struct {
+	log    *zap.Logger
 	cache  *overlay.Cache
 	kad    *kademlia.Kademlia
 	statdb statdb.DB
-	log    *zap.Logger
 }
 
 // NewDiscovery Returns a new Discovery instance with cache, kad, and statdb loaded on
