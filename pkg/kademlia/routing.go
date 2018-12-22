@@ -4,7 +4,9 @@
 package kademlia
 
 import (
+	"context"
 	"encoding/binary"
+	"fmt"
 	"sync"
 	"time"
 
@@ -204,4 +206,20 @@ func (rt *RoutingTable) GetBucketTimestamp(bIDBytes []byte) (time.Time, error) {
 
 func (rt *RoutingTable) iterate(opts storage.IterateOptions, f func(it storage.Iterator) error) error {
 	return rt.nodeBucketDB.Iterate(opts, f)
+}
+
+// ConnFailure implements the Transport failure function
+func (rt *RoutingTable) ConnFailure(ctx context.Context, node *pb.Node, err error) {
+	err2 := rt.ConnectionFailed(node)
+	if err2 != nil {
+		zap.L().Debug(fmt.Sprintf("error with ConnFailure hook  %+v : %+v", err, err2))
+	}
+}
+
+// ConnSuccess implements the Transport success function
+func (rt *RoutingTable) ConnSuccess(ctx context.Context, node *pb.Node) {
+	err := rt.ConnectionSuccess(node)
+	if err != nil {
+		zap.L().Debug("connection success error:", zap.Error(err))
+	}
 }

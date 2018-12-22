@@ -8,6 +8,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
@@ -147,4 +148,27 @@ func (cache *Cache) Delete(ctx context.Context, id storj.NodeID) error {
 	}
 
 	return nil
+}
+
+// ConnFailure implements the Transport Observer `ConnFailure` function
+func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError error) {
+	// TODO: Kademlia paper specifies 5 unsuccessful PINGs before removing the node
+	// from our routing table, but this is the cache so maybe we want to treat
+	// it differently.
+	_, err := cache.statDB.UpdateUptime(ctx, node.Id, false)
+	if err != nil {
+		zap.L().Debug("error updating uptime for node in statDB", zap.Error(err))
+	}
+}
+
+// ConnSuccess implements the Transport Observer `ConnSuccess` function
+func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
+	err := cache.Put(ctx, node.Id, *node)
+	if err != nil {
+		zap.L().Debug("error updating uptime for node in statDB", zap.Error(err))
+	}
+	_, err = cache.statDB.UpdateUptime(ctx, node.Id, true)
+	if err != nil {
+		zap.L().Debug("error updating statdDB with node connection info", zap.Error(err))
+	}
 }

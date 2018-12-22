@@ -98,7 +98,8 @@ func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes [
 		bootstrapNodes: bootstrapNodes,
 		identity:       identity,
 	}
-	nc, err := node.NewNodeClient(identity, self, k)
+
+	nc, err := node.NewNodeClient(identity, self, k, rt)
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
 	}
