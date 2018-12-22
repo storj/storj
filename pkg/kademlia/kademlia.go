@@ -81,7 +81,7 @@ func NewKademlia(log *zap.Logger, id storj.NodeID, nodeType pb.NodeType, bootstr
 	}
 	kdb, ndb := dbs[0], dbs[1]
 
-	rt, err := NewRoutingTable(self, kdb, ndb)
+	rt, err := NewRoutingTable(log, self, kdb, ndb)
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
 	}

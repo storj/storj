@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -31,6 +32,7 @@ type bucketID [len(storj.NodeID{})]byte
 
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
+	log              *zap.Logger
 	self             pb.Node
 	kadBucketDB      storage.KeyValueStore
 	nodeBucketDB     storage.KeyValueStore
@@ -44,8 +46,9 @@ type RoutingTable struct {
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
+func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
 	rt := &RoutingTable{
+		log:          logger,
 		self:         localNode,
 		kadBucketDB:  kdb,
 		nodeBucketDB: ndb,
