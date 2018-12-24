@@ -74,6 +74,8 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		nodeType = pb.NodeType_STORAGE
 	case "SATELLITE":
 		nodeType = pb.NodeType_SATELLITE
+	case "ADMIN":
+		nodeType = pb.NodeType_ADMIN
 	}
 
 	addr := server.Addr().String()
