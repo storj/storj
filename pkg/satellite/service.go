@@ -315,15 +315,24 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		return err
 	}
 
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+
 	for _, uID := range userIDs {
-		_, err := tx.ProjectMembers().Insert(ctx, uID, projectID)
+		_, err = tx.ProjectMembers().Insert(ctx, uID, projectID)
 
 		if err != nil {
-			return errs.Combine(err, tx.Rollback())
+			return err
 		}
 	}
 
-	return tx.Commit()
+	return nil
 }
 
 // DeleteProjectMembers removes users by email from given project
@@ -359,15 +368,24 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		return err
 	}
 
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+
 	for _, uID := range userIDs {
-		err := tx.ProjectMembers().Delete(ctx, uID, projectID)
+		err = tx.ProjectMembers().Delete(ctx, uID, projectID)
 
 		if err != nil {
-			return errs.Combine(err, tx.Rollback())
+			return err
 		}
 	}
 
-	return tx.Commit()
+	return nil
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
@@ -395,9 +413,10 @@ type apiKey [24]byte
 // createAPIKey creates new mock api key
 func createAPIKey() (*apiKey, error) {
 	key := new(apiKey)
+
 	n, err := io.ReadFull(rand.Reader, key[:])
 	if err != nil || n != 24 {
-		return nil, errs.New("error creating apikey")
+		return nil, errs.New("error creating api key")
 	}
 
 	return key, nil
@@ -405,7 +424,10 @@ func createAPIKey() (*apiKey, error) {
 
 // CreateAPIKey creates new api key
 func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (*APIKey, error) {
-	_, err := GetAuth(ctx)
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -420,6 +442,55 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		Key:       key[:],
 		ProjectID: projectID,
 	})
+}
+
+// GetAPIKey retrieves api key by id
+func (s *Service) GetAPIKey(ctx context.Context, id uuid.UUID) (key *APIKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err = s.store.APIKeys().Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// key itself can be queried only during creation
+	key.Key = nil
+	return key, nil
+}
+
+// DeleteAPIKey deletes api key by id
+func (s *Service) DeleteAPIKey(ctx context.Context, id uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return s.store.APIKeys().Delete(ctx, id)
+}
+
+// GetAPIKeysByProjectID retrieves all api keys for a given project
+func (s *Service) GetAPIKeysByProjectID(ctx context.Context, projectID uuid.UUID) (keys []APIKey, err error) {
+	_, err = GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	keys, err = s.store.APIKeys().GetByProjectID(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	// erase key from every entry
+	for _, key := range keys {
+		key.Key = nil
+	}
+
+	return keys, err
 }
 
 // Authorize validates token from context and returns authorized Authorization

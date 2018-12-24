@@ -10,7 +10,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 )
 
-// APIKeys is interface for working with apikeys store
+// APIKeys is interface for working with api keys store
 type APIKeys interface {
 	// GetByProjectID retrieves list of APIKeys for given projectID
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]APIKey, error)
@@ -24,7 +24,7 @@ type APIKeys interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
-// APIKey describing apikey model in the database
+// APIKey describing api key model in the database
 type APIKey struct {
 	ID uuid.UUID `json:"id"`
 
