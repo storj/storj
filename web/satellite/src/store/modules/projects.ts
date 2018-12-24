@@ -35,7 +35,6 @@ export const projectsModule = {
 		[PROJECTS_MUTATIONS.UPDATE](state: any, updateProjectModel: UpdateProjectModel): void {
 			const selected = state.projects.find((project: any) => project.id === updateProjectModel.id);
 			if (!selected) {
-				// TODO: notify about error
 				return;
 			}
 
@@ -52,53 +51,44 @@ export const projectsModule = {
 		},
 	},
 	actions: {
-		fetchProjects: async function ({commit}: any): Promise<boolean> {
-			let response = await fetchProjects();
+		fetchProjects: async function ({commit}: any): Promise<RequestResponse<Project[]>> {
+			let response: RequestResponse<Project[]> = await fetchProjects();
 
-			if (!response || !response.data) {
-				return false;
+			if (response.isSuccess) {
+                commit(PROJECTS_MUTATIONS.FETCH, response.data);
 			}
 
-			commit(PROJECTS_MUTATIONS.FETCH, response.data.myProjects);
-
-			return true;
+			return response;
 		},
-		createProject: async function ({commit}: any, project: Project): Promise<boolean> {
+		createProject: async function ({commit}: any, project: Project): Promise<RequestResponse<Project>> {
 			let response = await createProject(project);
 
-			if (!response || response.errors) {
-				return false;
+			if (response.isSuccess) {
+                commit(PROJECTS_MUTATIONS.CREATE, response.data);
 			}
 
-			commit(PROJECTS_MUTATIONS.CREATE, response);
-
-			return true;
+			return response;
 		},
 		selectProject: function ({commit}: any, projectID: string) {
 			commit(PROJECTS_MUTATIONS.SELECT, projectID);
 		},
-		updateProjectDescription: async function ({commit}: any, updateProjectModel: UpdateProjectModel): Promise<boolean> {
+		updateProjectDescription: async function ({commit}: any, updateProjectModel: UpdateProjectModel): Promise<RequestResponse<null>> {
 			let response = await updateProject(updateProjectModel.id, updateProjectModel.description);
 
-			if (!response || response.errors) {
-				return false;
+			if (response.isSuccess) {
+                commit(PROJECTS_MUTATIONS.UPDATE, updateProjectModel);
 			}
 
-			commit(PROJECTS_MUTATIONS.UPDATE, updateProjectModel);
-
-			return true;
+			return response;
 		},
-		deleteProject: async function ({commit}: any, projectID: string): Promise<boolean> {
+		deleteProject: async function ({commit}: any, projectID: string): Promise<RequestResponse<null>> {
 			let response = await deleteProject(projectID);
 
-			if (!response || response.errors) {
-				return false;
+			if (response.isSuccess) {
+                commit(PROJECTS_MUTATIONS.DELETE, projectID);
 			}
 
-			commit(PROJECTS_MUTATIONS.FETCH);
-			commit(PROJECTS_MUTATIONS.DELETE, projectID);
-
-			return true;
+			return response;
 		},
 	},
 	getters: {

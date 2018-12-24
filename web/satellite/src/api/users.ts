@@ -6,16 +6,23 @@ import gql from 'graphql-tag';
 
 // Performs update user info graphQL mutation request.
 // Returns User object if succeed, null otherwise
-export async function updateBasicUserInfoRequest(user: User) {
-    let response: any = null;
+export async function updateAccountRequest(user: User): Promise<RequestResponse<User>> {
+    let result: RequestResponse<User> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: {
+            firstName: '',
+            lastName: '',
+            email: ''
+        }
+    };
 
     try {
-        response = await apolloManager.mutate(
+        let response: any = await apolloManager.mutate(
             {
                 mutation: gql(`
                     mutation {
-                        updateUser (
-                            id: "${user.id}",
+                        updateAccount (
                             input: {
                                 email: "${user.email}",
                                 firstName: "${user.firstName}",
@@ -31,53 +38,70 @@ export async function updateBasicUserInfoRequest(user: User) {
                 fetchPolicy: 'no-cache',
             }
         );
+
+        if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+            result.data = response.data.updateAccount;
+        }
     } catch (e) {
-        console.error(e);
+        result.errorMessage = e.message;
     }
 
-	return response;
+	return result;
 }
 
 // Performs change password graphQL mutation
 // Returns base user fields
-export async function updatePasswordRequest(userId: string, password: string) {
-    let response: any = null;
+export async function changePasswordRequest(password: string, newPassword: string): Promise<RequestResponse<null>> {
+    let result: RequestResponse<null> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: null
+    };
 
     try {
-        response = await apolloManager.mutate(
+        let response: any = await apolloManager.mutate(
             {
                 mutation: gql(`
                     mutation {
-                        updateUser (
-                            id: "${userId}",
-                            input: {
-                                password: "${password}"
-                            }
+                        changePassword (
+                            password: "${password}",
+                            newPassword: "${newPassword}"
                         ) {
-                            email,
-                            firstName,
-                            lastName
+                           email 
                         }
                     }`
                 ),
                 fetchPolicy: 'no-cache',
             }
         );
+
+        if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+        }
     } catch (e) {
-        console.error(e);
+        result.errorMessage = e.message;
     }
 
-	return response;
+	return result;
 }
 
 // Performs Create user graqhQL request.
 // Throws an exception if error occurs
 // Returns object with newly created user
-export async function createUserRequest(user: User, password: string): Promise<any> {
-    let response: any = null;
+export async function createUserRequest(user: User, password: string): Promise<RequestResponse<null>> {
+    let result: RequestResponse<null> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: null
+    };
 
     try {
-        response = await apolloManager.mutate(
+        let response = await apolloManager.mutate(
             {
                 mutation: gql(`
                     mutation {
@@ -94,21 +118,31 @@ export async function createUserRequest(user: User, password: string): Promise<a
                 fetchPolicy: 'no-cache',
             }
         );
+
+        if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+        }
     } catch (e) {
-        console.error(e);
+        result.errorMessage = e.message;
     }
 
-	return response;
+	return result;
 }
 
 // Performs graqhQL request.
 // Returns Token, User objects.
 // Throws an exception if error occurs
-export async function getTokenRequest(email: string, password: string): Promise<any> {
-    let response: any = null;
+export async function getTokenRequest(email: string, password: string): Promise<RequestResponse<string>> {
+    let result: RequestResponse<string> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: ''
+    };
 
     try {
-        response = await apolloManager.query(
+        let response: any = await apolloManager.query(
             {
                 query: gql(`
                     query {
@@ -121,21 +155,36 @@ export async function getTokenRequest(email: string, password: string): Promise<
                 fetchPolicy: 'no-cache',
             }
         );
+
+        if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+            result.data = response.data.token.token;
+        }
     } catch (e) {
-        console.error(e);
+        result.errorMessage = e.message;
     }
 
-    return response;
+    return result;
 }
 
 // Performs graqhQL request.
 // Returns Token, User objects.
 // Throws an exception if error occurs
-export async function getUserRequest(): Promise<any> {
-    let response: any = null;
+export async function getUserRequest(): Promise<RequestResponse<User>> {
+    let result: RequestResponse<User> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: {
+            firstName: '',
+            lastName: '',
+            email: ''
+        }
+    };
 
     try {
-        response = await apolloManager.query(
+        let response: any = await apolloManager.query(
             {
                 query: gql(`
                     query {
@@ -149,35 +198,52 @@ export async function getUserRequest(): Promise<any> {
                 fetchPolicy: 'no-cache',
             }
         );
+
+        if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+            result.data = response.data.user;
+        }
     } catch (e) {
-        console.error(e);
+        result.errorMessage = e.message;
     }
 
-    return response;
+    return result;
 }
 
 // Performs graqhQL request.
 // User object.
 // Throws an exception if error occurs
-export async function deleteUserAccountRequest(password: string): Promise<any> {
-    let response: any = null;
+export async function deleteAccountRequest(password: string): Promise<RequestResponse<null>> {
+    let result: RequestResponse<null> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: null
+    };
 
     try {
-        response = await apolloManager.mutate(
+        let response = await apolloManager.mutate(
             {
                 mutation: gql(`
                     mutation {
-                        deleteUser(password: "${password}") {
-                            id
+                        deleteAccount(password: "${password}") {
+                            email
                         }
                     }`
                 ),
                 fetchPolicy: 'no-cache'
             }
         );
+
+        if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+        }
     } catch (e) {
-        console.error(e);
+        result.errorMessage = e.message;
     }
 
-    return response;
+    return result;
 }

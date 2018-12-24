@@ -27,22 +27,11 @@ import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
         },
         methods: {
             toggleSelection: async function (): Promise<any> {
-                // TODO: add progress indicator while fetching
-                let isFetchSuccess = await this.$store.dispatch('fetchProjects');
-
-                if (!isFetchSuccess || this.$store.getters.projects.length === 0) {
-                    // TODO: popup error here
-                    console.error('error during project fetching!');
+                const response = await this.$store.dispatch('fetchProjects');
+                if (!response.isSuccess) {
+                    this.$store.dispatch('error', response.errorMessage);
 
                     return;
-                }
-                if (this.$store.getters.selectedProject.id) {
-                    const isFetchProjectMemberSuccess = await this.$store.dispatch('fetchProjectMembers', {limit: 20, offset: 0});
-
-                    if (!isFetchProjectMemberSuccess) {
-                        // TODO: Replace with popup
-                        console.error('Unable to fetch project members');
-                    }
                 }
 
                 this.$data.isChoiceShown = !this.$data.isChoiceShown;
