@@ -19,10 +19,11 @@ type Node struct {
 
 // Lookup queries nodes looking for a particular node in the network
 func (node *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node, error) {
-	if find.Type == pb.NodeType_INVALID {
-		panic("invalid node type - lookup find")
+	if to.Type == pb.NodeType_INVALID {
+		panic("invalid node type - dial TO")
 	}
 	conn, err := node.pool.Dial(ctx, &to)
+
 	if err != nil {
 		return nil, NodeClientErr.Wrap(err)
 	}

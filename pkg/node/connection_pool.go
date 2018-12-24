@@ -5,6 +5,7 @@ package node
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -100,7 +101,8 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 		pool.items[id] = conn
 	}
 	pool.mu.Unlock()
-	if n.Type == pb.NodeType_INVALID {
+	if n != nil && n.Type == pb.NodeType_INVALID {
+		fmt.Println(n)
 		panic("invalid node type - DIAL")
 	}
 	conn.dial.Do(func() {

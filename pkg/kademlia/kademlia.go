@@ -100,7 +100,8 @@ func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes [
 		address:        self.Address.Address,
 		identity:       identity,
 	}
-
+	fmt.Println(self)
+	fmt.Println(self.Type)
 	nc, err := node.NewNodeClient(identity, self, k)
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
@@ -235,6 +236,7 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error) {
 	kb := k.routingTable.K()
 	nodes, err := k.routingTable.FindNear(ID, kb)
+	fmt.Println(nodes)
 	if err != nil {
 		return pb.Node{}, err
 	}

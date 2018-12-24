@@ -5,6 +5,7 @@ package kademlia
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -84,15 +85,17 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (target *pb.Node, err erro
 						working++
 						break
 					}
-					if target.Type == pb.NodeType_INVALID {
-						panic("invalid node type - RUN")
-					}
 					// no work, wait until some other routine inserts into the queue
 					lookup.cond.Wait()
 				}
 				lookup.cond.L.Unlock()
-
-				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target, Type: target.Type})
+				var nodeType pb.NodeType
+				if target != nil {
+					nodeType = target.Type
+				}
+				fmt.Printf("next %v \n", *next)
+				
+				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target, Type: nodeType})
 
 				if err != nil {
 					// TODO: reenable retry after fixing logic

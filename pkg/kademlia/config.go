@@ -49,6 +49,7 @@ type Config struct {
 	Alpha           int    `help:"alpha is a system wide concurrency parameter." default:"5"`
 	ExternalAddress string `help:"the public address of the kademlia node; defaults to the gRPC server address." default:""`
 	Farmer          FarmerConfig
+	NodeType        string `default:"STORAGE"`
 }
 
 // Run implements provider.Responsibility
@@ -67,8 +68,13 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		Email:  c.Farmer.Email,
 		Wallet: c.Farmer.Wallet,
 	}
-
-	nodeType := pb.NodeType_STORAGE
+	var nodeType pb.NodeType
+	switch c.NodeType {
+	case "STORAGE":
+		nodeType = pb.NodeType_STORAGE
+	case "SATELLITE":
+		nodeType = pb.NodeType_SATELLITE
+	}
 
 	addr := server.Addr().String()
 	if c.ExternalAddress != "" {

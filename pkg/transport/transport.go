@@ -44,7 +44,7 @@ func NewClient(identity *provider.FullIdentity) Client {
 // DialNode returns a grpc connection with tls to a node
 func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if node.Type == pb.NodeType_INVALID {
+	if node != nil && node.Type == pb.NodeType_INVALID {
 		panic("invalid node type - dial node")
 	}
 	if node.Address == nil || node.Address.Address == "" {
