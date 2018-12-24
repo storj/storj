@@ -203,9 +203,7 @@ export async function getUserRequest(): Promise<RequestResponse<User>> {
             result.errorMessage = response.errors[0].message;
         } else {
             result.isSuccess = true;
-            result.data.email = response.data.user.email;
-            result.data.lastName = response.data.user.lastName;
-            result.data.firstName = response.data.user.firstName;
+            result.data = response.data.user;
         }
     } catch (e) {
         result.errorMessage = e.message;
