@@ -107,7 +107,7 @@ import DeleteProjectPopup from '@/components/projectDetails/DeleteProjectPopup.v
                     ? (() => {
                         this.$data.isEditing = !this.$data.isEditing;
                         this.$data.newDescription = '';
-                        this.$store.dispatch('success', 'Project updated successfully!')
+                        this.$store.dispatch('success', 'Project updated successfully!');
                     })()
                     : this.$store.dispatch('error', response.errorMessage);
             },

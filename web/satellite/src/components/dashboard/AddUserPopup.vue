@@ -76,17 +76,24 @@ import { validateEmail } from '@/utils/validation';
             };
         },
         methods: {
-            onAddUsersClick: function() {
+            onAddUsersClick: async function() {
                 let length = this.$data.inputs.length;
                 let newInputsArray: any[] = [];
                 let areAllEmailsValid = true;
+                let emailArray: string[] = [];
 
                 for (let i = 0; i < length; i++) {
                     let element = this.$data.inputs[i];
+                    let isEmail = validateEmail(element.value);
 
-                    if (validateEmail(element.value) || element.value === '') {
+                    if (isEmail) {
+                        emailArray.push(element.value);
+                    }
+
+                    if (isEmail || element.value === '') {
                         element.setError(false);
                         newInputsArray.push(element);
+
                         continue;
                     }
 
@@ -109,7 +116,22 @@ import { validateEmail } from '@/utils/validation';
                 this.$data.inputs = newInputsArray;
 
                 if (areAllEmailsValid) {
-                    // request
+                    console.log("TRY ADDING", emailArray);
+                    let result = await this.$store.dispatch('addProjectMembers', emailArray);
+                    console.log("addProjectMembers resp ", result);
+                    
+                    if (result.isSuccess) {
+                        const response = await this.$store.dispatch('fetchProjectMembers', { limit: 20, offset: 0 });
+
+                        if (!response.isSuccess) {
+                            this.$store.dispatch('error', 'Unable to fetch project members');
+                            console.log("fetchProjectMembers resp ", response);
+                    
+                            return;
+                        }
+
+                        this.$store.dispatch('success', 'Members successfully added to project!');
+                    }
                 }
             },
             addInput: function() {

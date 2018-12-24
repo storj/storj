@@ -23,8 +23,8 @@ const (
 	deleteProjectMutation            = "deleteProject"
 	updateProjectDescriptionMutation = "updateProjectDescription"
 
-	addProjectMemberMutation    = "addProjectMember"
-	deleteProjectMemberMutation = "deleteProjectMember"
+	addProjectMemberMutation    = "addProjectMembers"
+	deleteProjectMemberMutation = "deleteProjectMembers"
 
 	input = "input"
 
