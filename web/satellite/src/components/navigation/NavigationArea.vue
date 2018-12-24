@@ -8,29 +8,40 @@
                 <div v-html="navItem.svg"></div>
                 <h1>{{navItem.label}}</h1>
                 <div class="navigation-area__item-container__link-container__add-button" v-if="navItem.label == 'Team'">
-                    <router-link to="/team/add_new">
+                    <div v-on:click="togglePopup">
                         <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <rect width="40" height="40" rx="20" fill="#2683FF"/>
                             <path d="M25 18.977V21.046H20.9722V25H19.0046V21.046H15V18.977H19.0046V15H20.9722V18.977H25Z" fill="white"/>
                         </svg>
-                    </router-link>
+                    </div>
                 </div>
             </div>
         </router-link>
+        <AddUserPopup v-if="isPopupShown" :onClose="togglePopup"/>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import NAVIGATION_ITEMS from '@/utils/constants/navigationLinks';
+import AddUserPopup from '@/components/dashboard/AddUserPopup.vue';
 
 @Component(
     {
         data: function () {
             return {
-                navigation: NAVIGATION_ITEMS
+                navigation: NAVIGATION_ITEMS,
+                isPopupShown: false,
             };
-        }
+        },
+        components: {
+            AddUserPopup,
+        },
+        methods: {
+            togglePopup: function(): void {
+                this.$data.isPopupShown = ! this.$data.isPopupShown;
+            },
+        },
     }
 )
 

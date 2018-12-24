@@ -73,7 +73,7 @@ export async function fetchProjectMembers(projectID: string, limit: string, offs
                                 id,
                                 firstName,
                                 lastName,
-                                email,
+                                email
                             },
                             joinedAt
                         }

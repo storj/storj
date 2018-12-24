@@ -8,10 +8,10 @@
         </div>
         <div v-if="projectMembers.length > 0" class="team-container">
             <div class="team-container__content">
-                <div v-for="member in projectMembers" v-on:click="onMemberClick(member)">
+                <div v-for="(member, index) in projectMembers" v-on:click="onMemberClick(member)" v-bind:key="index">
                     <TeamMemberItem
-                            :projectMember = "member"
-                            v-bind:class = "[member.isSelected ? 'selected' : 'xxx']"
+                        :projectMember = "member"
+                        v-bind:class = "[member.isSelected ? 'selected' : 'xxx']"
                     />
                 </div>
             </div>
