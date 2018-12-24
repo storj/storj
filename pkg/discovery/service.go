@@ -8,6 +8,8 @@ import (
 	"crypto/rand"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
@@ -21,14 +23,16 @@ var (
 
 // Discovery struct loads on cache, kad, and statdb
 type Discovery struct {
+	log    *zap.Logger
 	cache  *overlay.Cache
 	kad    *kademlia.Kademlia
 	statdb statdb.DB
 }
 
 // NewDiscovery Returns a new Discovery instance with cache, kad, and statdb loaded on
-func NewDiscovery(ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB) *Discovery {
+func NewDiscovery(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB) *Discovery {
 	return &Discovery{
+		log:    logger,
 		cache:  ol,
 		kad:    kad,
 		statdb: stat,

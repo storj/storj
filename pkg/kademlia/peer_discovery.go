@@ -39,7 +39,6 @@ func newPeerDiscovery(log *zap.Logger, nodes []*pb.Node, client node.Client, tar
 		cond:   sync.Cond{L: &sync.Mutex{}},
 		queue:  *newDiscoveryQueue(opts.concurrency),
 	}
-
 	discovery.queue.Insert(target, nodes...)
 	return discovery
 }

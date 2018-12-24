@@ -11,17 +11,18 @@ import (
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/transport"
 )
 
 //NodeClientErr is the class for all errors pertaining to node client operations
 var NodeClientErr = errs.Class("node client error")
 
 // NewNodeClient instantiates a node client
-func NewNodeClient(identity *provider.FullIdentity, self pb.Node, dht dht.DHT) (Client, error) {
+func NewNodeClient(identity *provider.FullIdentity, self pb.Node, dht dht.DHT, obs ...transport.Observer) (Client, error) {
 	node := &Node{
 		dht:  dht,
 		self: self,
-		pool: NewConnectionPool(identity),
+		pool: NewConnectionPool(identity, obs...),
 	}
 
 	node.pool.Init()

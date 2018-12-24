@@ -13,7 +13,6 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -60,7 +59,7 @@ func (store *Store) Load(ctx context.Context, hash storage.BlobRef) (storage.Rea
 
 	bodyReader, err := newBlobBodyReader(file)
 	if err != nil {
-		return nil, Error.Wrap(utils.CombineErrors(err, file.Close()))
+		return nil, Error.Wrap(errs.Combine(err, file.Close()))
 	}
 
 	return bodyReader, nil
@@ -106,11 +105,11 @@ func (store *Store) Store(ctx context.Context, r io.Reader, size int64) (storage
 	// copy data to disk
 	if size >= 0 {
 		if _, err = io.CopyN(writer, r, size); err != nil && err != io.EOF {
-			return storage.BlobRef{}, Error.Wrap(utils.CombineErrors(err, store.dir.DeleteTemporary(file)))
+			return storage.BlobRef{}, Error.Wrap(errs.Combine(err, store.dir.DeleteTemporary(file)))
 		}
 	} else {
 		if _, err = io.Copy(writer, r); err != nil && err != io.EOF {
-			return storage.BlobRef{}, Error.Wrap(utils.CombineErrors(err, store.dir.DeleteTemporary(file)))
+			return storage.BlobRef{}, Error.Wrap(errs.Combine(err, store.dir.DeleteTemporary(file)))
 		}
 	}
 

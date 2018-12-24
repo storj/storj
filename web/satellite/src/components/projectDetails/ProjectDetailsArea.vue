@@ -53,13 +53,16 @@
             </div>
             <div class="project-details__button-area">
                 <!-- TODO: change vw to px -->
-                <Button label="Delete project" width="10vw" height="5vh" :onPress="onDeleteButtonClick" isWhite/>
+                <Button label="Delete project" width="10vw" height="5vh" :onPress="toggleDeleteDialog" isWhite/>
             </div>
         </div>
         <EmptyState 
             v-if="!isProjectSelected"
             mainTitle="Choose or Create new project"
             :imageSource="emptyImage" />
+        <DeleteProjectPopup 
+            v-if="isDeleteDialogShown"
+            :onClose="toggleDeleteDialog" />
     </div>
 </template>
 
@@ -70,6 +73,7 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+import DeleteProjectPopup from '@/components/projectDetails/DeleteProjectPopup.vue';
 
 @Component(
     {
@@ -77,7 +81,8 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
             return {
                 isEditing: false,
                 newDescription: '',
-                emptyImage: EMPTY_STATE_IMAGES.PROJECT
+                emptyImage: EMPTY_STATE_IMAGES.PROJECT,
+                isDeleteDialogShown: false,
             };
         },
         methods: {
@@ -106,16 +111,8 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
                     // TODO: popup error here
                     : console.error('error during project updating!');
             },
-            onDeleteButtonClick: async function (): Promise<any> {
-                let isDeleteSuccess = await this.$store.dispatch(
-                    'deleteProject',
-                    this.$store.getters.selectedProject.id,
-                );
-
-                if (!isDeleteSuccess) {
-                    // TODO: popup error here
-                    console.error('error during project deletion!');
-                }
+            toggleDeleteDialog: function (): void {
+                this.$data.isDeleteDialogShown = !this.$data.isDeleteDialogShown;
             }
         },
         computed: {
@@ -136,6 +133,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
             HeaderedInput,
             Checkbox,
             EmptyState,
+            DeleteProjectPopup,
         }
     }
 )
