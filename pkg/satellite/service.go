@@ -285,9 +285,13 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, descri
 // AddProjectMembers adds users by email to given project
 func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
+	}
+
+	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
+		return ErrUnauthorized.Wrap(err)
 	}
 
 	var userIDs []uuid.UUID
@@ -305,7 +309,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		userIDs = append(userIDs, user.ID)
 	}
 
-	if err := userErr.Err(); err != nil {
+	if err = userErr.Err(); err != nil {
 		return err
 	}
 
@@ -338,9 +342,13 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 // DeleteProjectMembers removes users by email from given project
 func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
+	}
+
+	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
+		return ErrUnauthorized.Wrap(err)
 	}
 
 	var userIDs []uuid.UUID
@@ -358,7 +366,7 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		userIDs = append(userIDs, user.ID)
 	}
 
-	if err := userErr.Err(); err != nil {
+	if err = userErr.Err(); err != nil {
 		return err
 	}
 
@@ -427,9 +435,14 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = GetAuth(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	key, err := createAPIKey()
@@ -447,7 +460,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 // GetAPIKey retrieves api key by id
 func (s *Service) GetAPIKey(ctx context.Context, id uuid.UUID) (key *APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -455,6 +468,11 @@ func (s *Service) GetAPIKey(ctx context.Context, id uuid.UUID) (key *APIKey, err
 	key, err = s.store.APIKeys().Get(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, key.ProjectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	// key itself can be queried only during creation
@@ -465,9 +483,19 @@ func (s *Service) GetAPIKey(ctx context.Context, id uuid.UUID) (key *APIKey, err
 // DeleteAPIKey deletes api key by id
 func (s *Service) DeleteAPIKey(ctx context.Context, id uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
+	}
+
+	key, err := s.store.APIKeys().Get(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, key.ProjectID)
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
 	}
 
 	return s.store.APIKeys().Delete(ctx, id)
@@ -475,9 +503,14 @@ func (s *Service) DeleteAPIKey(ctx context.Context, id uuid.UUID) (err error) {
 
 // GetAPIKeysByProjectID retrieves all api keys for a given project
 func (s *Service) GetAPIKeysByProjectID(ctx context.Context, projectID uuid.UUID) (keys []APIKey, err error) {
-	_, err = GetAuth(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	keys, err = s.store.APIKeys().GetByProjectID(ctx, projectID)
@@ -571,4 +604,36 @@ func (s *Service) authorize(ctx context.Context, claims *satelliteauth.Claims) (
 	}
 
 	return user, nil
+}
+
+// isProjectMember is return type of isProjectMember service method
+type isProjectMember struct {
+	project    *Project
+	membership *ProjectMember
+}
+
+// ErrNoMembership is error type of not belonging to a specific project
+var ErrNoMembership = errs.Class("no membership error")
+
+// isProjectMember checks if the user is a member of given project
+func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (result isProjectMember, err error) {
+	project, err := s.store.Projects().Get(ctx, projectID)
+	if err != nil {
+		return
+	}
+
+	memberships, err := s.store.ProjectMembers().GetByMemberID(ctx, userID)
+	if err != nil {
+		return
+	}
+
+	for _, membership := range memberships {
+		if membership.ProjectID == projectID {
+			result.membership = &membership
+			result.project = project
+			return
+		}
+	}
+
+	return isProjectMember{}, ErrNoMembership.New("user % is not a member of project %s", userID, project.ID)
 }
