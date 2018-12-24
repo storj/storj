@@ -8,17 +8,16 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/pkg/satellite"
-	"storj.io/storj/pkg/utils"
 )
 
 const (
 	// Mutation is graphql request that modifies data
 	Mutation = "mutation"
 
-	createUserMutation         = "createUser"
-	updateUserMutation         = "updateUser"
-	deleteUserMutation         = "deleteUser"
-	changeUserPasswordMutation = "changeUserPassword"
+	createUserMutation     = "createUser"
+	updateAccountMutation  = "updateAccount"
+	deleteAccountMutation  = "deleteAccount"
+	changePasswordMutation = "changePassword"
 
 	createProjectMutation            = "createProject"
 	deleteProjectMutation            = "deleteProject"
@@ -59,46 +58,34 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					return user.ID.String(), nil
 				},
 			},
-			updateUserMutation: &graphql.Field{
+			updateAccountMutation: &graphql.Field{
 				Type: types.User(),
 				Args: graphql.FieldConfigArgument{
-					fieldID: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
 					input: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(types.UserInput()),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					id, err := uuidIDAuthFallback(p, fieldID)
-					if err != nil {
-						return nil, err
-					}
-
 					input, _ := p.Args[input].(map[string]interface{})
 
-					user, err := service.GetUser(p.Context, *id)
+					auth, err := satellite.GetAuth(p.Context)
 					if err != nil {
 						return nil, err
 					}
 
-					updatedUser := *user
-					info := fillUserInfo(&updatedUser, input)
+					info := fillUserInfo(&auth.User, input)
 
-					err = service.UpdateUser(p.Context, *id, info)
+					err = service.UpdateAccount(p.Context, info)
 					if err != nil {
-						return user, err
+						return nil, err
 					}
 
-					return &updatedUser, nil
+					return auth.User, nil
 				},
 			},
-			changeUserPasswordMutation: &graphql.Field{
+			changePasswordMutation: &graphql.Field{
 				Type: types.User(),
 				Args: graphql.FieldConfigArgument{
-					fieldID: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
 					fieldPassword: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
@@ -107,44 +94,43 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					id, err := uuidIDAuthFallback(p, fieldID)
+					pass, _ := p.Args[fieldPassword].(string)
+					newPass, _ := p.Args[fieldNewPassword].(string)
+
+					auth, err := satellite.GetAuth(p.Context)
 					if err != nil {
 						return nil, err
 					}
 
-					pass, _ := p.Args[fieldPassword].(string)
-					newPass, _ := p.Args[fieldNewPassword].(string)
+					err = service.ChangePassword(p.Context, pass, newPass)
+					if err != nil {
+						return nil, err
+					}
 
-					err = service.ChangeUserPassword(p.Context, *id, pass, newPass)
-					user, getErr := service.GetUser(p.Context, *id)
-					return user, utils.CombineErrors(err, getErr)
+					return auth.User, nil
 				},
 			},
-			deleteUserMutation: &graphql.Field{
+			deleteAccountMutation: &graphql.Field{
 				Type: types.User(),
 				Args: graphql.FieldConfigArgument{
-					fieldID: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
 					fieldPassword: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					id, err := uuidIDAuthFallback(p, fieldID)
-					if err != nil {
-						return nil, err
-					}
-
 					password, _ := p.Args[fieldPassword].(string)
 
-					user, err := service.GetUser(p.Context, *id)
+					auth, err := satellite.GetAuth(p.Context)
 					if err != nil {
 						return nil, err
 					}
 
-					err = service.DeleteUser(p.Context, *id, password)
-					return user, err
+					err = service.DeleteAccount(p.Context, password)
+					if err != nil {
+						return nil, err
+					}
+
+					return auth.User, nil
 				},
 			},
 			// creates project from input params
