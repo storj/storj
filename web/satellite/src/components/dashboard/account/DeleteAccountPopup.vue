@@ -57,10 +57,10 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
                 this.$data.password = value;
             },
             onDeleteAccountClick: async function() {
-                let isSuccessDeletion = await this.$store.dispatch('deleteUserAccount', this.$data.password);
+                let response = await this.$store.dispatch('deleteAccount', this.$data.password);
 
-                if (!isSuccessDeletion) {
-                    this.$store.dispatch('error', 'Error during account deletion');
+                if (!response.isSuccess) {
+                    this.$store.dispatch('error', response.errorMessage);
 
                     return;
                 }

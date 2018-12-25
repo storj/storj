@@ -14,15 +14,15 @@
                     width="100%"
                     ref="firstNameInput"
                     :error="firstNameError"
-                    :init-value="originalFirstName"
+                    :init-value="user.firstName"
                     @setData="setFirstName" />
                 <HeaderedInput
                     label="Last Name"
-                    placeholder="LastNameEdit"
+                    placeholder="Enter Last Name"
                     width="100%"
                     ref="lastNameInput"
                     :error="lastNameError"
-                    :initValue="originalLastName"
+                    :initValue="user.lastName"
                     @setData="setLastName"/>
             </div>
             <div class="account-area-row-container">
@@ -33,7 +33,7 @@
                     width="100%"
                     ref="emailInput"
                     :error="emailError"
-                    :initValue="originalEmail"
+                    :initValue="user.email"
                     @setData="setEmail" />
             </div>
             <div v-if="isAccountSettingsEditing" class="account-area-save-button-area" >
@@ -212,18 +212,20 @@ import DeleteAccountPopup from '@/components/dashboard/account/DeleteAccountPopu
                 }
 
                 let user = {
-                    id: this.$store.getters.user.id,
                     email: this.$data.email,
                     firstName: this.$data.firstName,
                     lastName: this.$data.lastName,
                 };
-                let isSuccess = await this.$store.dispatch('updateBasicUserInfo', user);
-                if (!isSuccess) {
-                    // TODO Change to popup
-                    console.error('error while changing basic user info');
+
+                let response = await this.$store.dispatch('updateAccount', user);
+                if (!response.isSuccess) {
+                    this.$store.dispatch('error', response.errorMessage);
 
                     return;
                 }
+
+                this.$store.dispatch('success', 'Account info successfully updated!');
+
                 this.$data.isAccountSettingsEditing = false;
             },
 
@@ -284,14 +286,19 @@ import DeleteAccountPopup from '@/components/dashboard/account/DeleteAccountPopu
                     return;
                 }
 
-                let isSuccess = await this.$store.dispatch('updatePassword', this.$data.newPassword);
-                if (!isSuccess) {
-                    // TODO Change to popup
-                    console.error('error while updating user password');
+                let response = await this.$store.dispatch('changePassword',
+                    {
+                        oldPassword: this.$data.oldPassword,
+                        newPassword: this.$data.newPassword
+                    }
+                );
+                if (!response.isSuccess) {
+                    this.$store.dispatch('error', response.errorMessage);
 
                     return;
                 }
 
+                this.$store.dispatch('success', 'Password successfully changed!');
                 (this.$refs['oldPasswordInput'] as HeaderedInput).setValue('');
                 (this.$refs['newPasswordInput'] as HeaderedInput).setValue('');
                 (this.$refs['confirmationPasswordInput'] as HeaderedInput).setValue('');
@@ -301,6 +308,15 @@ import DeleteAccountPopup from '@/components/dashboard/account/DeleteAccountPopu
             togglePopup: function(): void {
                 this.$data.isPopupShown = ! this.$data.isPopupShown;
             },
+        },
+        computed: {
+            user: function() {
+                return {
+                    firstName: this.$store.getters.user.firstName,
+                    lastName: this.$store.getters.user.lastName,
+                    email: this.$store.getters.user.email,
+                };
+            }
         },
         components: {
             Button,

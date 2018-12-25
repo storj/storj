@@ -112,10 +112,11 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error
 	return s.store.Users().Get(ctx, id)
 }
 
-// UpdateUser updates User with given id
-func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) (err error) {
+// UpdateAccount updates User
+func (s *Service) UpdateAccount(ctx context.Context, info UserInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = GetAuth(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
@@ -125,7 +126,7 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) (
 	}
 
 	return s.store.Users().Update(ctx, &User{
-		ID:           id,
+		ID:           auth.User.ID,
 		FirstName:    info.FirstName,
 		LastName:     info.LastName,
 		Email:        info.Email,
@@ -133,20 +134,15 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) (
 	})
 }
 
-// ChangeUserPassword updates password for a given user
-func (s *Service) ChangeUserPassword(ctx context.Context, id uuid.UUID, pass, newPass string) (err error) {
+// ChangePassword updates password for a given user
+func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	user, err := s.store.Users().Get(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(pass))
+	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(pass))
 	if err != nil {
 		return ErrUnauthorized.New("origin password is incorrect: %s", err.Error())
 	}
@@ -160,20 +156,16 @@ func (s *Service) ChangeUserPassword(ctx context.Context, id uuid.UUID, pass, ne
 		return err
 	}
 
-	user.PasswordHash = hash
-	return s.store.Users().Update(ctx, user)
+	auth.User.PasswordHash = hash
+	return s.store.Users().Update(ctx, &auth.User)
 }
 
-// DeleteUser deletes User by id
-func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string) (err error) {
+// DeleteAccount deletes User
+func (s *Service) DeleteAccount(ctx context.Context, password string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
-	}
-
-	if !uuid.Equal(auth.User.ID, id) {
-		return ErrUnauthorized.New("user has no rights")
 	}
 
 	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(password))
@@ -181,7 +173,7 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string)
 		return ErrUnauthorized.New("origin password is incorrect")
 	}
 
-	return s.store.Users().Delete(ctx, id)
+	return s.store.Users().Delete(ctx, auth.User.ID)
 }
 
 // GetProject is a method for querying project by id

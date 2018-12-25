@@ -17,11 +17,21 @@
 import { Component, Vue } from 'vue-property-decorator';
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
+import { removeToken } from '@/utils/tokenManager';
 
 @Component({
     beforeMount: async function() {
-        // TODO: check error and show notification
-        this.$store.dispatch('getUser');
+        let response: RequestResponse<User> = await this.$store.dispatch('getUser');
+
+        if (response.isSuccess) {
+
+            return;
+        }
+
+        this.$store.dispatch('error', response.errorMessage);
+        this.$router.push('/login');
+        removeToken();
+
     },
     components: {
         NavigationArea,

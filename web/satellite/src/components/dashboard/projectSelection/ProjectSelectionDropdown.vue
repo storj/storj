@@ -48,6 +48,16 @@ import { Component, Vue } from 'vue-property-decorator';
             onProjectSelected: function (projectID: string): void {
                 this.$store.dispatch('selectProject', projectID);
                 this.$emit('onClose');
+
+                // TODO: uncomment after updating proj members api
+                // if (this.$store.getters.selectedProject.id) {
+                //     const response = await this.$store.dispatch('fetchProjectMembers', {limit: 20, offset: 0});
+                //     if (!response.isSuccess) {
+                //         this.$store.dispatch('error', 'Unable to fetch project members');
+                //
+                //         return;
+                //     }
+                // }
             }
         },
     }
