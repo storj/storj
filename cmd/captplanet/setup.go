@@ -140,7 +140,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"satellite.pointer-db.database-url":          "bolt://" + filepath.Join(setupDir, "satellite", "pointerdb.db"),
 		"satellite.overlay.database-url":             "bolt://" + filepath.Join(setupDir, "satellite", "overlay.db"),
 		"satellite.kademlia.alpha":                   3,
-		"satellite.kademlia.node-type":               "SATELLITE",
 		"satellite.repairer.queue-address":           "redis://127.0.0.1:6378?db=1&password=abc123",
 		"satellite.repairer.overlay-addr":            overlayAddr,
 		"satellite.repairer.pointer-db-addr":         joinHostPort(setupCfg.ListenHost, startingPort+1),

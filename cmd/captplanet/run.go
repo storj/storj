@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
@@ -123,11 +124,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		//nolint ignoring context rules to not create cyclic dependency, will be removed later
-		ctx = context.WithValue(ctx, "masterdb", database)
+		ctx = context.WithValue(ctx,  "masterdb", database)
 
 		// Run satellite
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			grpcauth.NewAPIKeyInterceptor(),
+			pb.NodeType_SATELLITE,
 			runCfg.Satellite.Kademlia,
 			runCfg.Satellite.Audit,
 			runCfg.Satellite.Overlay,
@@ -161,7 +163,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
 
 			_, _ = fmt.Printf("Starting storage node %d %s (kad on %s)\n", i, storagenode, address)
-			errch <- v.Identity.Run(ctx, nil, v.Kademlia, v.Storage)
+			errch <- v.Identity.Run(ctx, nil, pb.NodeType_STORAGE, v.Kademlia, v.Storage)
 		}(i, v)
 	}
 	// start s3 uplink

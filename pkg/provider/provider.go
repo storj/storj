@@ -14,7 +14,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
+	
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 )
 
@@ -31,17 +32,18 @@ type Responsibility interface {
 }
 
 // Provider represents a bundle of responsibilities defined by a specific ID.
-// Examples of providers are the heavy client, the storagenode, and the gateway.
+// Examples of providers are the satellite, the storagenode, and the uplink.
 type Provider struct {
 	lis      net.Listener
 	grpc     *grpc.Server
 	next     []Responsibility
 	identity *FullIdentity
+	nodeType pb.NodeType
 }
 
 // NewProvider creates a Provider out of an Identity, a net.Listener, a UnaryInterceptorProvider and
 // a set of responsibilities.
-func NewProvider(opts *ServerOptions, lis net.Listener, interceptor grpc.UnaryServerInterceptor,
+func NewProvider(opts *ServerOptions, lis net.Listener, interceptor grpc.UnaryServerInterceptor, nodeType pb.NodeType,
 	responsibilities ...Responsibility) (*Provider, error) {
 	grpcOpts, err := opts.grpcOpts()
 	if err != nil {
@@ -62,6 +64,7 @@ func NewProvider(opts *ServerOptions, lis net.Listener, interceptor grpc.UnarySe
 		),
 		next:     responsibilities,
 		identity: opts.Ident,
+		nodeType: nodeType,
 	}, nil
 }
 
@@ -119,6 +122,9 @@ func (p *Provider) Addr() net.Addr { return p.lis.Addr() }
 
 // GRPC returns the provider's gRPC server for registration purposes
 func (p *Provider) GRPC() *grpc.Server { return p.grpc }
+
+// NodeType returns 
+func (p *Provider) NodeType() pb.NodeType { return p.nodeType }
 
 // Close shuts down the provider
 func (p *Provider) Close() error {
