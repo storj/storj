@@ -4,6 +4,11 @@
 declare type User = {
 	firstName: string,
 	lastName: string,
-	email: string,
-	id: string,
+	email: string
+}
+
+// Used in users module to pass parameters to action
+declare type UpdatePasswordModel = {
+    oldPassword: string,
+	newPassword: string
 }
