@@ -5,6 +5,7 @@ package node
 
 import (
 	"context"
+	"fmt"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
