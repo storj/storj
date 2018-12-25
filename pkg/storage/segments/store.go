@@ -124,9 +124,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			return Meta{}, Error.Wrap(err)
 		}
 		for _, v := range nodes {
-			if v.Type == pb.NodeType_INVALID {
-				panic("invalid node type")
-			}
+			v.Type.PanicOnInvalid()
 		}
 
 		pieceID := psclient.NewPieceID()
@@ -209,9 +207,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 			if needed <= 0 {
 				break
 			}
-			if node.Type == pb.NodeType_INVALID {
-				panic("invalid node type")
-			}
+			node.Type.PanicOnInvalid()
 		}
 
 		authorization := s.pdb.SignedMessage()
@@ -233,9 +229,7 @@ func makeRemotePointer(nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID
 		if nodes[i] == nil {
 			continue
 		}
-		if nodes[i].Type == pb.NodeType_INVALID {
-			panic("invalid node type")
-		}
+		nodes[i].Type.PanicOnInvalid()
 		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   nodes[i].Id,
@@ -281,8 +275,8 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 			return Error.Wrap(err)
 		}
 		for _, v := range nodes {
-			if v != nil && v.Type == pb.NodeType_INVALID {
-				panic("invalid node type")
+			if v != nil {
+				v.Type.PanicOnInvalid()
 			}
 		}
 
@@ -369,9 +363,7 @@ func lookupAndAlignNodes(ctx context.Context, oc overlay.Client, nodes []*pb.Nod
 		}
 	}
 	for _, v := range nodes {
-		if v.Type == pb.NodeType_INVALID {
-			panic("invalid node type")
-		}
+		v.Type.PanicOnInvalid()
 	}
 
 	// Realign the nodes

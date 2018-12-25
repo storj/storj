@@ -54,9 +54,7 @@ func NewClient(identity *provider.FullIdentity, memoryLimit int) Client {
 }
 
 func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (psclient.Client, error) {
-	if n.Type == pb.NodeType_INVALID {
-		panic("invalid node type")
-	}
+	n.Type.PanicOnInvalid()
 	return ec.newPSClientFunc(ctx, ec.transport, n, 0)
 }
 
@@ -89,8 +87,8 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 
 	for i, n := range nodes {
 
-		if n != nil && n.Type == pb.NodeType_INVALID {
-			panic("invalid node type")
+		if n != nil {
+			n.Type.PanicOnInvalid()
 		}
 
 		go func(i int, n *pb.Node) {
@@ -181,8 +179,8 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 
 	for i, n := range nodes {
 
-		if n != nil && n.Type == pb.NodeType_INVALID {
-			panic("invalid node type")
+		if n != nil {
+			n.Type.PanicOnInvalid()
 		}
 
 		if n == nil {
@@ -231,8 +229,8 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclie
 
 	errs := make(chan error, len(nodes))
 	for _, v := range nodes {
-		if v != nil && v.Type == pb.NodeType_INVALID {
-			panic("invalid node type")
+		if v != nil {
+			v.Type.PanicOnInvalid()
 		}
 	}
 	for _, n := range nodes {
@@ -269,8 +267,8 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclie
 
 	allerrs := collectErrors(errs, len(nodes))
 	for _, v := range nodes {
-		if v != nil && v.Type == pb.NodeType_INVALID {
-			panic("invalid node type")
+		if v != nil {
+			v.Type.PanicOnInvalid()
 		}
 	}
 	if len(allerrs) > 0 && len(allerrs) == len(nodes) {
@@ -299,9 +297,7 @@ func unique(nodes []*pb.Node) bool {
 	for i, n := range nodes {
 		if n != nil {
 			ids[i] = n.Id
-			if n.Type == pb.NodeType_INVALID {
-				panic("invalid node type")
-			}
+			n.Type.PanicOnInvalid()
 		}
 
 	}
@@ -343,9 +339,7 @@ func (lr *lazyPieceRanger) Size() int64 {
 
 // Range implements Ranger.Range to be lazily connected
 func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
-	if lr.node.Type == pb.NodeType_INVALID {
-		panic("invalid node type")
-	}
+	lr.node.Type.PanicOnInvalid()
 	if lr.ranger == nil {
 		ps, err := lr.newPSClientHelper(ctx, lr.node)
 		if err != nil {
@@ -365,9 +359,7 @@ func nonNilCount(nodes []*pb.Node) int {
 	for _, node := range nodes {
 		if node != nil {
 			total++
-			if node.Type == pb.NodeType_INVALID {
-				panic("invalid node type")
-			}
+			node.Type.PanicOnInvalid()
 		}
 	}
 	return total

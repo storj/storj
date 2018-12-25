@@ -98,7 +98,6 @@ func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes [
 		identity:       identity,
 	}
 
-
 	nc, err := node.NewNodeClient(identity, self, k, rt)
 
 	if err != nil {
@@ -261,7 +260,7 @@ func GetIntroNode(addr string) (*pb.Node, error) {
 			Transport: defaultTransport,
 			Address:   addr,
 		},
-		Type: pb.NodeType_ADMIN,
+		Type: pb.NodeType_UNKNOWN,
 	}, nil
 }
 

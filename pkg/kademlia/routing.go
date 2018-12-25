@@ -49,10 +49,10 @@ type RoutingTable struct {
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
 func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
-	if localNode.Type == pb.NodeType_INVALID {
-		panic("invalid node type")
-	}
-  rt := &RoutingTable{
+
+	localNode.Type.PanicOnInvalid()
+
+	rt := &RoutingTable{
 		log:          logger,
 		self:         localNode,
 		kadBucketDB:  kdb,
@@ -156,9 +156,7 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 		return nil
 	}
 
-	if node.Type == pb.NodeType_INVALID {
-		panic("invalid node type")
-	}
+	node.Type.PanicOnInvalid()
 
 	rt.mutex.Lock()
 	rt.seen[node.Id] = node
@@ -184,9 +182,7 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 // ConnectionFailed removes a node from the routing table when
 // a connection fails for the node on the network
 func (rt *RoutingTable) ConnectionFailed(node *pb.Node) error {
-	if node.Type == pb.NodeType_INVALID {
-		panic("invalid node type")
-	}
+	node.Type.PanicOnInvalid()
 	err := rt.removeNode(node.Id)
 	if err != nil {
 		return RoutingErr.New("could not remove node %s", err)

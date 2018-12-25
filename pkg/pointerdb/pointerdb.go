@@ -167,11 +167,9 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		nodes = append(nodes, node)
 	}
 
-	// for _, v := range nodes {
-	// 	if v.Type == pb.NodeType_INVALID {
-	// 		panic("invalid node type")
-	// 	}
-	// }
+	for _, v := range nodes {
+		v.Type.PanicOnInvalid()
+	}
 	r = &pb.GetResponse{
 		Pointer:       pointer,
 		Nodes:         nodes,

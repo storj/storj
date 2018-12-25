@@ -71,7 +71,7 @@ func (planet *Planet) newNode(name string, nodeType pb.NodeType) (*Node, error) 
 	if err != nil {
 		return nil, err
 	}
-	node.Provider, err = provider.NewProvider(opts, node.Listener, nodeType, grpcauth.NewAPIKeyInterceptor())
+	node.Provider, err = provider.NewProvider(opts, node.Listener, grpcauth.NewAPIKeyInterceptor(), nodeType)
 	if err != nil {
 		return nil, utils.CombineErrors(err, listener.Close())
 	}

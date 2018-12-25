@@ -57,9 +57,7 @@ type PieceStore struct {
 
 // NewPSClient initilizes a piecestore client
 func NewPSClient(ctx context.Context, tc transport.Client, n *pb.Node, bandwidthMsgSize int) (Client, error) {
-	if n.Type == pb.NodeType_INVALID {
-		panic("invalid node type")
-	}
+	n.Type.PanicOnInvalid()
 	conn, err := tc.DialNode(ctx, n)
 	if err != nil {
 		return nil, err
@@ -84,9 +82,7 @@ func NewPSClient(ctx context.Context, tc transport.Client, n *pb.Node, bandwidth
 
 // NewCustomRoute creates new PieceStore with custom client interface
 func NewCustomRoute(client pb.PieceStoreRoutesClient, target *pb.Node, bandwidthMsgSize int, prikey crypto.PrivateKey) (*PieceStore, error) {
-	if target.Type == pb.NodeType_INVALID {
-		panic("invalid node type")
-	}
+	target.Type.PanicOnInvalid()
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New("invalid Bandwidth Message Size: %v", bandwidthMsgSize)
 	}

@@ -70,12 +70,8 @@ func TestClient(t *testing.T) {
 			group.Go(func() error {
 				for _, target := range peers {
 					errTag := fmt.Errorf("lookup peer:%s target:%s", peer.ID(), target.ID())
-					if peer.Info.Type == pb.NodeType_INVALID {
-						panic("invalid node type - peer")
-					}
-					if target.Info.Type == pb.NodeType_INVALID {
-						panic("invalid node type - target")
-					}
+					peer.Info.Type.PanicOnInvalid()
+					target.Info.Type.PanicOnInvalid()
 					results, err := client.Lookup(ctx, peer.Info, target.Info)
 					if err != nil {
 						return utils.CombineErrors(errTag, err)
@@ -117,9 +113,7 @@ func TestClient(t *testing.T) {
 				peer := peers[i]
 				group.Go(func() error {
 					errTag := fmt.Errorf("invalid lookup peer:%s target:%s", peer.ID(), target)
-					if peer.Info.Type == pb.NodeType_INVALID {
-						panic("invalid node type - peer 2")
-					}
+					peer.Info.Type.PanicOnInvalid()
 					results, err := client.Lookup(ctx, peer.Info, pb.Node{Id: target, Type: pb.NodeType_STORAGE})
 					if err != nil {
 						return utils.CombineErrors(errTag, err)

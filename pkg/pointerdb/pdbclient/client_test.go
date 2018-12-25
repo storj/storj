@@ -157,9 +157,7 @@ func TestGet(t *testing.T) {
 
 		pointer, nodes, pba, err := pdb.Get(ctx, tt.path)
 		for _, v := range nodes {
-			if v.Type == pb.NodeType_INVALID {
-				panic("invalid node type")
-			}
+			v.Type.PanicOnInvalid()
 		}
 		if err != nil {
 			assert.True(t, strings.Contains(err.Error(), tt.errString), errTag)

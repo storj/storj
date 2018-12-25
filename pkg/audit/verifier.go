@@ -61,9 +61,7 @@ func NewVerifier(transport transport.Client, overlay overlay.Client, id provider
 func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize, pieceNumber int,
 	id psclient.PieceID, pieceSize int64, fromNode *pb.Node, authorization *pb.SignedMessage) (s share, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if fromNode.Type == pb.NodeType_INVALID {
-		panic("invalid node type")
-	}
+	fromNode.Type.PanicOnInvalid()
 	ps, err := psclient.NewPSClient(ctx, d.transport, fromNode, 0)
 	if err != nil {
 		return s, err

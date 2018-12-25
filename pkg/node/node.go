@@ -19,9 +19,7 @@ type Node struct {
 
 // Lookup queries nodes looking for a particular node in the network
 func (node *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node, error) {
-	if to.Type == pb.NodeType_INVALID {
-		panic("invalid node type - dial TO")
-	}
+	to.Type.PanicOnInvalid()
 	conn, err := node.pool.Dial(ctx, &to)
 
 	if err != nil {
@@ -48,9 +46,7 @@ func (node *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.N
 
 // Ping attempts to establish a connection with a node to verify it is alive
 func (node *Node) Ping(ctx context.Context, to pb.Node) (bool, error) {
-	if to.Type == pb.NodeType_INVALID {
-		panic("invalid node type - ping TO")
-	}
+	to.Type.PanicOnInvalid()
 	conn, err := node.pool.Dial(ctx, &to)
 	if err != nil {
 		return false, NodeClientErr.Wrap(err)

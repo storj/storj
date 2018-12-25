@@ -39,6 +39,7 @@ enum NodeType {
     STORAGE = 2;
     SATELLITE = 3;
     UPLINK = 4;
+    UNKNOWN = 5;
 }
 
 // NodeAddress contains the information needed to communicate with a node on the network

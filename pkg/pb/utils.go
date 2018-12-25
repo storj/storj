@@ -41,9 +41,7 @@ func NodesToIDs(nodes []*Node) storj.NodeIDList {
 // with gogo's customtype extension.
 // (see https://github.com/gogo/protobuf/issues/147)
 func CopyNode(src *Node) (dst *Node) {
-	if src.Type == NodeType_INVALID {
-		panic("invalid node type")
-	}
+	src.Type.PanicOnInvalid()
 	node := Node{Id: storj.NodeID{}}
 	copy(node.Id[:], src.Id[:])
 	if src.Address != nil {
@@ -68,4 +66,12 @@ func CopyNode(src *Node) (dst *Node) {
 	node.Type = src.Type
 
 	return &node
+}
+
+// PanicOnInvalid panics if NodeType is invalid
+func (nt NodeType) PanicOnInvalid() {
+	// TODO: Remove all references
+	if nt == NodeType_INVALID {
+		panic("INVALID NODE TYPE")
+	}
 }
