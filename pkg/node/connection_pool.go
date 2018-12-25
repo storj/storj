@@ -43,9 +43,9 @@ type Conn struct {
 func NewConn(addr string) *Conn { return &Conn{addr: addr} }
 
 // NewConnectionPool initializes a new in memory pool
-func NewConnectionPool(identity *provider.FullIdentity) *ConnectionPool {
+func NewConnectionPool(identity *provider.FullIdentity, obs ...transport.Observer) *ConnectionPool {
 	return &ConnectionPool{
-		tc:    transport.NewClient(identity),
+		tc:    transport.NewClient(identity, obs...),
 		items: make(map[storj.NodeID]*Conn),
 		mu:    sync.RWMutex{},
 	}
