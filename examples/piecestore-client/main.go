@@ -44,7 +44,7 @@ func main() {
 			Address:   ":7777",
 			Transport: 0,
 		},
-		Id:       serverIdent.ID,
+		Id:   serverIdent.ID,
 		Type: pb.NodeType_STORAGE,
 	}
 	tc := transport.NewClient(clientIdent)

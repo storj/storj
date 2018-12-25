@@ -71,7 +71,6 @@ var (
 		BwAgreement bwagreement.Config
 		Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 		Discovery   discovery.Config
-		NodeType pb.NodeType
 	}
 	setupCfg struct {
 		CA        provider.CASetupConfig
@@ -129,7 +128,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	return runCfg.Identity.Run(
 		ctx,
 		grpcauth.NewAPIKeyInterceptor(),
-		runCfg.NodeType,
+		pb.NodeType_SATELLITE,
 		runCfg.Kademlia,
 		runCfg.Overlay,
 		runCfg.PointerDB,
