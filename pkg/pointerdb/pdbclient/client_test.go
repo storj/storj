@@ -157,7 +157,7 @@ func TestGet(t *testing.T) {
 
 		pointer, nodes, pba, err := pdb.Get(ctx, tt.path)
 		for _, v := range nodes {
-			v.Type.PanicOnInvalid()
+			v.Type.PanicOnInvalid("client test")
 		}
 		if err != nil {
 			assert.True(t, strings.Contains(err.Error(), tt.errString), errTag)

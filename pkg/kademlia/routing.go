@@ -50,7 +50,7 @@ type RoutingTable struct {
 // NewRoutingTable returns a newly configured instance of a RoutingTable
 func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
 
-	localNode.Type.PanicOnInvalid()
+	localNode.Type.PanicOnInvalid("new routing table")
 
 	rt := &RoutingTable{
 		log:          logger,
@@ -156,7 +156,7 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 		return nil
 	}
 
-	node.Type.PanicOnInvalid()
+	node.Type.PanicOnInvalid("connection success")
 
 	rt.mutex.Lock()
 	rt.seen[node.Id] = node
@@ -182,7 +182,7 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 // ConnectionFailed removes a node from the routing table when
 // a connection fails for the node on the network
 func (rt *RoutingTable) ConnectionFailed(node *pb.Node) error {
-	node.Type.PanicOnInvalid()
+	node.Type.PanicOnInvalid("connection failed")
 	err := rt.removeNode(node.Id)
 	if err != nil {
 		return RoutingErr.New("could not remove node %s", err)

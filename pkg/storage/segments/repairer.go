@@ -64,7 +64,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 			totalNilNodes++
 			continue
 		}
-		v.Type.PanicOnInvalid()
+		v.Type.PanicOnInvalid("repair")
 		excludeNodeIDs = append(excludeNodeIDs, v.Id)
 
 		// If node index exists in lostPieces, skip adding it to healthyNodes
@@ -104,7 +104,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 		}
 	}
 	for _, v := range repairNodes {
-		v.Type.PanicOnInvalid()
+		v.Type.PanicOnInvalid("repair 2")
 	}
 
 	// Check that all nil nodes have a replacement prepared

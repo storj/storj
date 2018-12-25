@@ -122,7 +122,7 @@ func TestPeerDiscovery(t *testing.T) {
 	}{
 		{target: func() storj.NodeID {
 			// this is what the bootstrap node returns
-			mockBootServer.returnValue = []*pb.Node{{Id: targetID.ID, Address: &pb.NodeAddress{Address: targetAddress}}}
+			mockBootServer.returnValue = []*pb.Node{{Id: targetID.ID, Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: targetAddress}}}
 			return targetID.ID
 		}(),
 			expected:    &pb.Node{},

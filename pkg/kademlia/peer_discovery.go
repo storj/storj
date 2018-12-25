@@ -90,8 +90,9 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (target *pb.Node, err erro
 				var nodeType pb.NodeType
 				if target != nil {
 					nodeType = target.Type
-					nodeType.PanicOnInvalid()
+					nodeType.PanicOnInvalid("Peer Discovery Run")
 				}
+				next.Type.PanicOnInvalid("next")
 				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target, Type: nodeType})
 
 				if err != nil {

@@ -56,7 +56,7 @@ func NewClient(identity *provider.FullIdentity, obs ...Observer) Client {
 func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if node != nil {
-		node.Type.PanicOnInvalid()
+		node.Type.PanicOnInvalid("transport dial node")
 	}
 	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")

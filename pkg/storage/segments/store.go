@@ -124,7 +124,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			return Meta{}, Error.Wrap(err)
 		}
 		for _, v := range nodes {
-			v.Type.PanicOnInvalid()
+			v.Type.PanicOnInvalid("ss put")
 		}
 
 		pieceID := psclient.NewPieceID()
@@ -207,7 +207,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 			if needed <= 0 {
 				break
 			}
-			node.Type.PanicOnInvalid()
+			node.Type.PanicOnInvalid("ss get")
 		}
 
 		authorization := s.pdb.SignedMessage()
@@ -229,7 +229,7 @@ func makeRemotePointer(nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID
 		if nodes[i] == nil {
 			continue
 		}
-		nodes[i].Type.PanicOnInvalid()
+		nodes[i].Type.PanicOnInvalid("makeremotepointer")
 		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   nodes[i].Id,
@@ -276,7 +276,7 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 		}
 		for _, v := range nodes {
 			if v != nil {
-				v.Type.PanicOnInvalid()
+				v.Type.PanicOnInvalid("ss delete")
 			}
 		}
 
@@ -363,7 +363,7 @@ func lookupAndAlignNodes(ctx context.Context, oc overlay.Client, nodes []*pb.Nod
 		}
 	}
 	for _, v := range nodes {
-		v.Type.PanicOnInvalid()
+		v.Type.PanicOnInvalid("lookup and align nodes")
 	}
 
 	// Realign the nodes

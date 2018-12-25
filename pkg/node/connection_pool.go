@@ -102,7 +102,7 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 	pool.mu.Unlock()
 
 	if n != nil {
-		n.Type.PanicOnInvalid()
+		n.Type.PanicOnInvalid("connection pool dial")
 	}
 
 	conn.dial.Do(func() {
