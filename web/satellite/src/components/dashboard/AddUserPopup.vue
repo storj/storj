@@ -101,54 +101,59 @@ import { validateEmail } from '@/utils/validation';
                     newInputsArray.unshift(element);
                     areAllEmailsValid = false;
 
-                    if (length > 3) {
-                        let scrollableDiv: any = document.querySelector('.add-user__form-container__inputs-group');
-
-                        if (scrollableDiv) {
-                            let scrollableDivHeight = scrollableDiv.offsetHeight;
-                            scrollableDiv.scroll(0, -scrollableDivHeight);
-                        }
-                    }
-
                     this.$data.formError = 'Field is required. Please enter a valid email address';
                 }
 
                 this.$data.inputs = newInputsArray;
 
-                if (areAllEmailsValid) {
-                    console.log("TRY ADDING", emailArray);
-                    let result = await this.$store.dispatch('addProjectMembers', emailArray);
-                    console.log("addProjectMembers resp ", result);
-                    
-                    if (result.isSuccess) {
-                        const response = await this.$store.dispatch('fetchProjectMembers', { limit: 20, offset: 0 });
+                if (length > 3) {
+                    let scrollableDiv: any = document.querySelector('.add-user__form-container__inputs-group');
 
-                        if (!response.isSuccess) {
-                            this.$store.dispatch('error', 'Unable to fetch project members');
-                            console.log("fetchProjectMembers resp ", response);
-                    
-                            return;
-                        }
-
-                        this.$store.dispatch('success', 'Members successfully added to project!');
+                    if (scrollableDiv) {
+                        let scrollableDivHeight = scrollableDiv.offsetHeight;
+                        scrollableDiv.scroll(0, -scrollableDivHeight);
                     }
                 }
+
+                if (!areAllEmailsValid) return;
+                
+                let result = await this.$store.dispatch('addProjectMembers', emailArray);
+                
+                if (!result.isSuccess) {
+                    this.$store.dispatch('error', 'Error during adding team members!');
+
+                    return;
+                }
+
+                const response = await this.$store.dispatch('fetchProjectMembers', { limit: 20, offset: 0 });
+
+                if (!response.isSuccess) {
+                    this.$store.dispatch('error', 'Unable to fetch project members');
+            
+                    return;
+                }
+
+                this.$store.dispatch('success', 'Members successfully added to project!');
+                this.$store.dispatch('setAddTeamMembersPopup', false);
             },
-            addInput: function() {
+            addInput: function(): void {
                 let inputsLength = this.$data.inputs.length;
 
                 if (inputsLength < 10) {
                     this.$data.inputs.push(new EmailInput());
                 }
             },
-            deleteInput: function(index) {
+            deleteInput: function(index): void {
                 if (this.$data.inputs.length === 1) return;
 
                 this.$delete(this.$data.inputs, index);
             },
-            resetFormErrors: function(index) {
+            resetFormErrors: function(index): void {
                 this.$data.formError = '';
                 this.$data.inputs[index].setError(false);
+            },
+            onClose: function(): void {
+                this.$store.dispatch('setAddTeamMembersPopup', false);
             },
          },
         computed: {

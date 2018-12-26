@@ -17,12 +17,13 @@
                 </div>
             </div>
         </router-link>
-        <AddUserPopup v-if="isPopupShown" :onClose="togglePopup"/>
+        <AddUserPopup v-if="isAddTeamMembersPopupShown"/>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import { mapState } from 'vuex';
 import NAVIGATION_ITEMS from '@/utils/constants/navigationLinks';
 import AddUserPopup from '@/components/dashboard/AddUserPopup.vue';
 
@@ -39,9 +40,14 @@ import AddUserPopup from '@/components/dashboard/AddUserPopup.vue';
         },
         methods: {
             togglePopup: function(): void {
-                this.$data.isPopupShown = ! this.$data.isPopupShown;
+                if (!this.$store.getters.selectedProject.id) return;
+
+                this.$store.dispatch('setAddTeamMembersPopup', true);
             },
         },
+        computed: mapState({
+            isAddTeamMembersPopupShown: (state: any) => state.appStateModule.currentAppState.isAddTeamMembersPopupShown,
+        }),
     }
 )
 

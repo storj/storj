@@ -14,7 +14,7 @@ export const projectMembersModule = {
 
 			for (let j = 0; j < emailsCount; j++) {
 				state.projectMembers = state.projectMembers.filter((element: any) => {
-					return element.email !== projectMemberEmails[j];
+					return element.user.email !== projectMemberEmails[j];
 				});
 			}
 		},
@@ -54,7 +54,6 @@ export const projectMembersModule = {
 			if (response.isSuccess) {
 				commit(PROJECT_MEMBER_MUTATIONS.DELETE, projectMemberEmails);
 			}
-
 
 			return response;
 		},
