@@ -5,7 +5,9 @@ package satellite
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/subtle"
+	"io"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -15,11 +17,10 @@ import (
 
 	"go.uber.org/zap"
 
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/satellite/satelliteauth"
-	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -27,7 +28,10 @@ var (
 )
 
 // maxLimit specifies the limit for all paged queries
-const maxLimit = 50
+const (
+	// maxLimit specifies the limit for all paged queries
+	maxLimit = 50
+)
 
 // Service is handling accounts related logic
 type Service struct {
@@ -221,17 +225,26 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, err
 	}
 
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, transaction.Rollback())
+			return
+		}
+
+		err = transaction.Commit()
+	}()
+
 	prj, err := transaction.Projects().Insert(ctx, project)
 	if err != nil {
-		return nil, utils.CombineErrors(err, transaction.Rollback())
+		return nil, err
 	}
 
 	_, err = transaction.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
 	if err != nil {
-		return nil, utils.CombineErrors(err, transaction.Rollback())
+		return nil, err
 	}
 
-	return prj, transaction.Commit()
+	return prj, nil
 }
 
 // DeleteProject is a method for deleting project by id
@@ -374,6 +387,39 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, li
 	}
 
 	return s.store.ProjectMembers().GetByProjectID(ctx, projectID, limit, offset)
+}
+
+// apiKey is a mock api key type
+type apiKey [24]byte
+
+// createAPIKey creates new mock api key
+func createAPIKey() (*apiKey, error) {
+	key := new(apiKey)
+	n, err := io.ReadFull(rand.Reader, key[:])
+	if err != nil || n != 24 {
+		return nil, errs.New("error creating apikey")
+	}
+
+	return key, nil
+}
+
+// CreateAPIKey creates new api key
+func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (*APIKey, error) {
+	_, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := createAPIKey()
+	if err != nil {
+		return nil, err
+	}
+
+	return s.store.APIKeys().Create(ctx, APIKey{
+		Name:      name,
+		Key:       key[:],
+		ProjectID: projectID,
+	})
 }
 
 // Authorize validates token from context and returns authorized Authorization
