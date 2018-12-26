@@ -285,6 +285,16 @@ CREATE TABLE users (
 	PRIMARY KEY ( id ),
 	UNIQUE ( email )
 );
+CREATE TABLE api_keys (
+	id BLOB NOT NULL,
+	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	key BLOB NOT NULL,
+	name TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( key ),
+	UNIQUE ( name, project_id )
+);
 CREATE TABLE project_members (
 	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -594,6 +604,115 @@ func (f User_CreatedAt_Field) value() interface{} {
 }
 
 func (User_CreatedAt_Field) _Column() string { return "created_at" }
+
+type ApiKey struct {
+	Id        []byte
+	ProjectId []byte
+	Key       []byte
+	Name      string
+	CreatedAt time.Time
+}
+
+func (ApiKey) _Table() string { return "api_keys" }
+
+type ApiKey_Update_Fields struct {
+	Name ApiKey_Name_Field
+}
+
+type ApiKey_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ApiKey_Id(v []byte) ApiKey_Id_Field {
+	return ApiKey_Id_Field{_set: true, _value: v}
+}
+
+func (f ApiKey_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ApiKey_Id_Field) _Column() string { return "id" }
+
+type ApiKey_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ApiKey_ProjectId(v []byte) ApiKey_ProjectId_Field {
+	return ApiKey_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f ApiKey_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ApiKey_ProjectId_Field) _Column() string { return "project_id" }
+
+type ApiKey_Key_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ApiKey_Key(v []byte) ApiKey_Key_Field {
+	return ApiKey_Key_Field{_set: true, _value: v}
+}
+
+func (f ApiKey_Key_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ApiKey_Key_Field) _Column() string { return "key" }
+
+type ApiKey_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ApiKey_Name(v string) ApiKey_Name_Field {
+	return ApiKey_Name_Field{_set: true, _value: v}
+}
+
+func (f ApiKey_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ApiKey_Name_Field) _Column() string { return "name" }
+
+type ApiKey_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ApiKey_CreatedAt(v time.Time) ApiKey_CreatedAt_Field {
+	return ApiKey_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f ApiKey_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ApiKey_CreatedAt_Field) _Column() string { return "created_at" }
 
 type ProjectMember struct {
 	MemberId  []byte
@@ -922,6 +1041,37 @@ func (obj *sqlite3Impl) Create_ProjectMember(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
+	api_key_id ApiKey_Id_Field,
+	api_key_project_id ApiKey_ProjectId_Field,
+	api_key_key ApiKey_Key_Field,
+	api_key_name ApiKey_Name_Field) (
+	api_key *ApiKey, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := api_key_id.value()
+	__project_id_val := api_key_project_id.value()
+	__key_val := api_key_key.value()
+	__name_val := api_key_name.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_keys ( id, project_id, key, name, created_at ) VALUES ( ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __key_val, __name_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __id_val, __project_id_val, __key_val, __name_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastApiKey(ctx, __pk)
+
+}
+
 func (obj *sqlite3Impl) Get_User_By_Email(ctx context.Context,
 	user_email User_Email_Field) (
 	user *User, err error) {
@@ -1162,6 +1312,60 @@ func (obj *sqlite3Impl) Limited_ProjectMember_By_ProjectId(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Get_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field) (
+	api_key *ApiKey, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	api_key = &ApiKey{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key, nil
+
+}
+
+func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
+	api_key_project_id ApiKey_ProjectId_Field) (
+	rows []*ApiKey, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.project_id = ? ORDER BY api_keys.name")
+
+	var __values []interface{}
+	__values = append(__values, api_key_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		api_key := &ApiKey{}
+		err = __rows.Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, api_key)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 	user_id User_Id_Field,
 	update User_Update_Fields) (
@@ -1282,6 +1486,56 @@ func (obj *sqlite3Impl) Update_Project_By_Id(ctx context.Context,
 	return project, nil
 }
 
+func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field,
+	update ApiKey_Update_Fields) (
+	api_key *ApiKey, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_keys SET "), __sets, __sqlbundle_Literal(" WHERE api_keys.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, api_key_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	api_key = &ApiKey{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key, nil
+}
+
 func (obj *sqlite3Impl) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -1361,6 +1615,32 @@ func (obj *sqlite3Impl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx conte
 
 }
 
+func (obj *sqlite3Impl) Delete_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) getLastUser(ctx context.Context,
 	pk int64) (
 	user *User, err error) {
@@ -1415,6 +1695,24 @@ func (obj *sqlite3Impl) getLastProjectMember(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastApiKey(ctx context.Context,
+	pk int64) (
+	api_key *ApiKey, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	api_key = &ApiKey{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -1434,6 +1732,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	var __res sql.Result
 	var __count int64
 	__res, err = obj.driver.Exec("DELETE FROM project_members;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM api_keys;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -1510,6 +1818,16 @@ func (rx *Rx) Rollback() (err error) {
 	return err
 }
 
+func (rx *Rx) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
+	api_key_project_id ApiKey_ProjectId_Field) (
+	rows []*ApiKey, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx, api_key_project_id)
+}
+
 func (rx *Rx) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 	var tx *Tx
@@ -1537,6 +1855,20 @@ func (rx *Rx) All_Project_By_ProjectMember_MemberId(ctx context.Context,
 		return
 	}
 	return tx.All_Project_By_ProjectMember_MemberId(ctx, project_member_member_id)
+}
+
+func (rx *Rx) Create_ApiKey(ctx context.Context,
+	api_key_id ApiKey_Id_Field,
+	api_key_project_id ApiKey_ProjectId_Field,
+	api_key_key ApiKey_Key_Field,
+	api_key_name ApiKey_Name_Field) (
+	api_key *ApiKey, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_ApiKey(ctx, api_key_id, api_key_project_id, api_key_key, api_key_name)
+
 }
 
 func (rx *Rx) Create_Project(ctx context.Context,
@@ -1580,6 +1912,16 @@ func (rx *Rx) Create_User(ctx context.Context,
 
 }
 
+func (rx *Rx) Delete_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_ApiKey_By_Id(ctx, api_key_id)
+}
+
 func (rx *Rx) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -1609,6 +1951,16 @@ func (rx *Rx) Delete_User_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_User_By_Id(ctx, user_id)
+}
+
+func (rx *Rx) Get_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field) (
+	api_key *ApiKey, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_ApiKey_By_Id(ctx, api_key_id)
 }
 
 func (rx *Rx) Get_ProjectMember_By_MemberId(ctx context.Context,
@@ -1662,6 +2014,17 @@ func (rx *Rx) Limited_ProjectMember_By_ProjectId(ctx context.Context,
 	return tx.Limited_ProjectMember_By_ProjectId(ctx, project_member_project_id, limit, offset)
 }
 
+func (rx *Rx) Update_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field,
+	update ApiKey_Update_Fields) (
+	api_key *ApiKey, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_ApiKey_By_Id(ctx, api_key_id, update)
+}
+
 func (rx *Rx) Update_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field,
 	update Project_Update_Fields) (
@@ -1685,6 +2048,10 @@ func (rx *Rx) Update_User_By_Id(ctx context.Context,
 }
 
 type Methods interface {
+	All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
+		api_key_project_id ApiKey_ProjectId_Field) (
+		rows []*ApiKey, err error)
+
 	All_Project(ctx context.Context) (
 		rows []*Project, err error)
 
@@ -1695,6 +2062,13 @@ type Methods interface {
 	All_Project_By_ProjectMember_MemberId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*Project, err error)
+
+	Create_ApiKey(ctx context.Context,
+		api_key_id ApiKey_Id_Field,
+		api_key_project_id ApiKey_ProjectId_Field,
+		api_key_key ApiKey_Key_Field,
+		api_key_name ApiKey_Name_Field) (
+		api_key *ApiKey, err error)
 
 	Create_Project(ctx context.Context,
 		project_id Project_Id_Field,
@@ -1716,6 +2090,10 @@ type Methods interface {
 		user_password_hash User_PasswordHash_Field) (
 		user *User, err error)
 
+	Delete_ApiKey_By_Id(ctx context.Context,
+		api_key_id ApiKey_Id_Field) (
+		deleted bool, err error)
+
 	Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field,
 		project_member_project_id ProjectMember_ProjectId_Field) (
@@ -1728,6 +2106,10 @@ type Methods interface {
 	Delete_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		deleted bool, err error)
+
+	Get_ApiKey_By_Id(ctx context.Context,
+		api_key_id ApiKey_Id_Field) (
+		api_key *ApiKey, err error)
 
 	Get_ProjectMember_By_MemberId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field) (
@@ -1749,6 +2131,11 @@ type Methods interface {
 		project_member_project_id ProjectMember_ProjectId_Field,
 		limit int, offset int64) (
 		rows []*ProjectMember, err error)
+
+	Update_ApiKey_By_Id(ctx context.Context,
+		api_key_id ApiKey_Id_Field,
+		update ApiKey_Update_Fields) (
+		api_key *ApiKey, err error)
 
 	Update_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field,
