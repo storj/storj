@@ -4,9 +4,6 @@
 package satelliteql
 
 import (
-	"encoding/base64"
-	"time"
-
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 
@@ -285,21 +282,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						return nil, err
 					}
 
-					// encode key to base64 URL encoded string
-					encodedKey := base64.URLEncoding.EncodeToString(key.Key)
-					return struct {
-						ID        uuid.UUID `json:"id"`
-						ProjectID uuid.UUID `json:"projectId"`
-						Key       string    `json:"key"`
-						Name      string    `json:"name"`
-						CreatedAt time.Time `json:"createdAt"`
-					}{
-						ID:        key.ID,
-						ProjectID: key.ProjectID,
-						Key:       encodedKey,
-						Name:      key.Name,
-						CreatedAt: key.CreatedAt,
-					}, nil
+					return key, nil
 				},
 			},
 			// deletes api key

@@ -4,8 +4,14 @@
 package satellite
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"io"
 	"time"
+
+	"github.com/zeebo/errs"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 )
@@ -31,8 +37,40 @@ type APIKey struct {
 	// Fk on project
 	ProjectID uuid.UUID `json:"projectId"`
 
-	Key  []byte `json:"key"`
-	Name string `json:"name"`
+	Key  MockKey `json:"key"`
+	Name string  `json:"name"`
 
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+// MockKey is a mock api key type
+type MockKey [24]byte
+
+// String implements Stringer
+func (key MockKey) String() string {
+	emptyKey := MockKey{}
+	if bytes.Equal(key[:], emptyKey[:]) {
+		return ""
+	}
+
+	return base64.URLEncoding.EncodeToString(key[:])
+}
+
+// MockKeyFromBytes creates new key from byte slice
+func MockKeyFromBytes(b []byte) *MockKey {
+	key := new(MockKey)
+	copy(key[:], b)
+	return key
+}
+
+// createMockKey creates new mock api key
+func createMockKey() (*MockKey, error) {
+	key := new(MockKey)
+
+	n, err := io.ReadFull(rand.Reader, key[:])
+	if err != nil || n != 24 {
+		return nil, errs.New("error creating api key")
+	}
+
+	return key, nil
 }

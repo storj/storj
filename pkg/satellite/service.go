@@ -5,9 +5,7 @@ package satellite
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/subtle"
-	"io"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -415,21 +413,6 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, li
 	return s.store.ProjectMembers().GetByProjectID(ctx, projectID, limit, offset)
 }
 
-// apiKey is a mock api key type
-type apiKey [24]byte
-
-// createAPIKey creates new mock api key
-func createAPIKey() (*apiKey, error) {
-	key := new(apiKey)
-
-	n, err := io.ReadFull(rand.Reader, key[:])
-	if err != nil || n != 24 {
-		return nil, errs.New("error creating api key")
-	}
-
-	return key, nil
-}
-
 // CreateAPIKey creates new api key
 func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (*APIKey, error) {
 	var err error
@@ -445,14 +428,14 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	key, err := createAPIKey()
+	key, err := createMockKey()
 	if err != nil {
 		return nil, err
 	}
 
 	return s.store.APIKeys().Create(ctx, APIKey{
 		Name:      name,
-		Key:       key[:],
+		Key:       *key,
 		ProjectID: projectID,
 	})
 }
@@ -476,7 +459,7 @@ func (s *Service) GetAPIKey(ctx context.Context, id uuid.UUID) (key *APIKey, err
 	}
 
 	// key itself can be queried only during creation
-	key.Key = nil
+	key.Key = MockKey{}
 	return key, nil
 }
 
@@ -519,8 +502,8 @@ func (s *Service) GetAPIKeysByProjectID(ctx context.Context, projectID uuid.UUID
 	}
 
 	// erase key from every entry
-	for _, key := range keys {
-		key.Key = nil
+	for i := 0; i < len(keys); i++ {
+		keys[i].Key = MockKey{}
 	}
 
 	return keys, err

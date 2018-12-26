@@ -66,7 +66,7 @@ func (keys *apikeys) Create(ctx context.Context, key satellite.APIKey) (*satelli
 		ctx,
 		dbx.ApiKey_Id(id[:]),
 		dbx.ApiKey_ProjectId(key.ProjectID[:]),
-		dbx.ApiKey_Key(key.Key),
+		dbx.ApiKey_Key(key.Key[:]),
 		dbx.ApiKey_Name(key.Name),
 	)
 
@@ -112,7 +112,7 @@ func toAPIKey(key *dbx.ApiKey) (*satellite.APIKey, error) {
 		ID:        id,
 		ProjectID: projectID,
 		Name:      key.Name,
-		Key:       key.Key,
+		Key:       *satellite.MockKeyFromBytes(key.Key),
 		CreatedAt: key.CreatedAt,
 	}, nil
 }
