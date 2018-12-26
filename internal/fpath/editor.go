@@ -46,7 +46,7 @@ func getEditorPath() string {
 		}
 	}
 	//heck, just try a bunch of options
-	for _, exe := range [...]string{"nvim", "vim", "emacs", "nano", "pico"} {
+	for _, exe := range [...]string{"nvim", "vim", "vi", "emacs", "nano", "pico"} {
 		path, err := exec.LookPath(exe)
 		if err == nil {
 			return path

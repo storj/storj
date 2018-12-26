@@ -7,7 +7,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -56,56 +55,35 @@ var (
 // values specified in 'overrides' overridden.
 func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}) error {
 	// we previously used Viper here, but switched to a custom serializer to allow comments
-	comments := map[string]string{}
-	flags := map[string]interface{}{}
-	pflag.CommandLine.VisitAll(func(f *pflag.Flag) {
-		comments[f.Name] = f.Usage
-		flags[f.Name] = f.Value
-	})
-	flagset.VisitAll(func(f *pflag.Flag) {
-		comments[f.Name] = f.Usage
-		flags[f.Name] = f.Value
-	})
-	for k := range flags {
-		if o, ok := overrides[k]; ok {
-			flags[k] = o
-		}
-	}
-	var sb strings.Builder
-	if err := yamlMarshall(&sb, flags, comments); err != nil {
-		return err
-	}
-	return ioutil.WriteFile(outfile, []byte(sb.String()), os.FileMode(0644))
-}
-
-func yamlMarshall(w io.Writer, flags map[string]interface{}, comments map[string]string) error {
+	//todo:  switch back to Viper once go-yaml v3 is released and its supports writing comments?
+	flagset.AddFlagSet(pflag.CommandLine)
+	//sort keys
 	var keys []string
-	for k := range flags {
-		keys = append(keys, k)
-	}
+	flagset.VisitAll(func(f *pflag.Flag) { keys = append(keys, f.Name) })
 	sort.Strings(keys)
+	//serialize
+	var sb strings.Builder
+	w := &sb
 	for _, k := range keys {
-		v := flags[k]
-
-		if comment, ok := comments[k]; ok {
-			fmt.Fprintf(w, "# %s\n", comment)
+		f := flagset.Lookup(k)
+		value := f.Value.String()
+		if v, ok := overrides[k]; ok {
+			value = fmt.Sprintf("%v", v)
+		}
+		if f.Usage != "" {
+			fmt.Fprintf(w, "# %s\n", f.Usage)
 		}
 		fmt.Fprintf(w, "%s: ", k)
-		switch t := v.(type) {
-		case fmt.Stringer:
-			fmt.Fprintf(w, "\"%s\"\n", t.String())
-		case int:
-			fmt.Fprintf(w, "%d\n", t)
-		case string:
-			fmt.Fprintf(w, "\"%s\"\n", t)
-		case bool:
-			fmt.Fprintf(w, "%t\n", t)
+		switch f.Value.Type() {
+		case "string":
+			// save ourselves 250+ lines of code and just double quote strings
+			fmt.Fprintf(w, "\"%s\"\n", value)
 		default:
-			return fmt.Errorf("yaml writer could not serialize type %T", v)
+			//assume that everything else doesn't have fancy control characters
+			fmt.Fprintf(w, "%s\n", value)
 		}
-		fmt.Fprintf(w, "\n")
 	}
-	return nil
+	return ioutil.WriteFile(outfile, []byte(sb.String()), os.FileMode(0644))
 }
 
 // Ctx returns the appropriate context.Context for ExecuteWithConfig commands
