@@ -57,6 +57,11 @@ func (db *Database) ProjectMembers() satellite.ProjectMembers {
 	return &projectMembers{db.methods}
 }
 
+// APIKeys is a getter for APIKeys repository
+func (db *Database) APIKeys() satellite.APIKeys {
+	return &apikeys{db.methods}
+}
+
 // CreateTables is a method for creating all tables for satellitedb
 func (db *Database) CreateTables() error {
 	if db.db == nil {
