@@ -31,6 +31,10 @@ CREATE TABLE bwagreements (
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( signature )
 );
+CREATE TABLE injuredsegments (
+	info BLOB NOT NULL,
+	PRIMARY KEY ( info )
+);
 CREATE TABLE irreparabledbs (
 	segmentpath BLOB NOT NULL,
 	segmentdetail BLOB NOT NULL,
