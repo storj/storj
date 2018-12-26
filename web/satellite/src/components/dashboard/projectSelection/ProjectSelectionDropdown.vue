@@ -23,17 +23,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 @Component(
     {
-        updated: function () {
-            this.$data.projects = this.$store.getters.projects;
-        },
-        data: function () {
-            return {
-                // TODO: format project names ( n symbols + ...)
-                // Projects is [project]
-                // Project here is object with name and selected properties
-                // projects: this.$store.getters.projects
-            };
-        },
         computed: {
             projects: function () {
                 return this.$store.getters.projects;
@@ -45,19 +34,17 @@ import { Component, Vue } from 'vue-property-decorator';
             }
         },
         methods: {
-            onProjectSelected: function (projectID: string): void {
+            onProjectSelected: async function (projectID: string): Promise<void> {
                 this.$store.dispatch('selectProject', projectID);
                 this.$emit('onClose');
 
-                // TODO: uncomment after updating proj members api
-                // if (this.$store.getters.selectedProject.id) {
-                //     const response = await this.$store.dispatch('fetchProjectMembers', {limit: 20, offset: 0});
-                //     if (!response.isSuccess) {
-                //         this.$store.dispatch('error', 'Unable to fetch project members');
-                //
-                //         return;
-                //     }
-                // }
+                if (!this.$store.getters.selectedProject.id) return;
+
+                const response = await this.$store.dispatch('fetchProjectMembers', {limit: 20, offset: 0});
+
+                if (response.isSuccess) return;
+
+                this.$store.dispatch('error', 'Unable to fetch project members');
             }
         },
     }
