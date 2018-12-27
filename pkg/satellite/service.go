@@ -503,8 +503,7 @@ func (s *Service) GetAPIKeysInfoByProjectID(ctx context.Context, projectID uuid.
 	if err != nil {
 		return nil, err
 	}
-
-	// erase key from every entry
+	
 	for _, key := range keys {
 		info = append(info, key.APIKeyInfo)
 	}
