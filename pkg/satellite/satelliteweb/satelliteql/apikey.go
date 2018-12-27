@@ -3,17 +3,23 @@
 
 package satelliteql
 
-import "github.com/graphql-go/graphql"
+import (
+	"github.com/graphql-go/graphql"
+
+	"storj.io/storj/pkg/satellite"
+)
 
 const (
-	apiKeyType = "apiKey"
+	apiKeyInfoType   = "keyInfo"
+	createAPIKeyType = "graphqlCreateAPIKey"
 
 	fieldKey = "key"
 )
 
-func graphqlAPIKey() *graphql.Object {
+// graphqlAPIKeyInfo creates satellite.APIKeyInfo graphql object
+func graphqlAPIKeyInfo() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
-		Name: apiKeyType,
+		Name: apiKeyInfoType,
 		Fields: graphql.Fields{
 			fieldID: &graphql.Field{
 				Type: graphql.String,
@@ -24,12 +30,30 @@ func graphqlAPIKey() *graphql.Object {
 			fieldName: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldKey: &graphql.Field{
-				Type: graphql.String,
-			},
 			fieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
 			},
 		},
 	})
+}
+
+// graphqlCreateAPIKey creates createAPIKey graphql object
+func graphqlCreateAPIKey(types Types) *graphql.Object {
+	return graphql.NewObject(graphql.ObjectConfig{
+		Name: createAPIKeyType,
+		Fields: graphql.Fields{
+			fieldKey: &graphql.Field{
+				Type: graphql.String,
+			},
+			apiKeyInfoType: &graphql.Field{
+				Type: types.APIKeyInfo(),
+			},
+		},
+	})
+}
+
+// createAPIKey holds satellite.APIKey and satellite.APIKeyInfo
+type createAPIKey struct {
+	Key  *satellite.APIKey
+	Info *satellite.APIKeyInfo
 }

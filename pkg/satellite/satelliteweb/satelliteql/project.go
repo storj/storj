@@ -82,7 +82,7 @@ func graphqlProject(service *satellite.Service, types Types) *graphql.Object {
 				},
 			},
 			fieldAPIKeys: &graphql.Field{
-				Type: graphql.NewList(types.APIKey()),
+				Type: graphql.NewList(types.APIKeyInfo()),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*satellite.Project)
 

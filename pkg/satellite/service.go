@@ -414,32 +414,30 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, li
 }
 
 // CreateAPIKey creates new api key
-func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (*APIKey, error) {
+func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (*APIKeyInfo, *APIKey, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
 	if err != nil {
-		return nil, ErrUnauthorized.Wrap(err)
+		return nil, nil, ErrUnauthorized.Wrap(err)
 	}
 
-	key, err := createMockKey()
+	key, err := createAPIKey()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return s.store.APIKeys().Create(ctx, APIKey{
-		APIKeyInfo: APIKeyInfo{
-			Name:      name,
-			ProjectID: projectID,
-		},
-		Key: *key,
+	info, err := s.store.APIKeys().Create(ctx, *key, APIKeyInfo{
+		Name:      name,
+		ProjectID: projectID,
 	})
+	return info, key, err
 }
 
 // GetAPIKeyInfo retrieves api key by id
@@ -462,7 +460,7 @@ func (s *Service) GetAPIKeyInfo(ctx context.Context, id uuid.UUID) (*APIKeyInfo,
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	return &key.APIKeyInfo, nil
+	return key, nil
 }
 
 // DeleteAPIKey deletes api key by id
@@ -499,16 +497,7 @@ func (s *Service) GetAPIKeysInfoByProjectID(ctx context.Context, projectID uuid.
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	keys, err := s.store.APIKeys().GetByProjectID(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-	
-	for _, key := range keys {
-		info = append(info, key.APIKeyInfo)
-	}
-
-	return info, nil
+	return s.store.APIKeys().GetByProjectID(ctx, projectID)
 }
 
 // Authorize validates token from context and returns authorized Authorization
