@@ -12,7 +12,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -22,7 +22,7 @@ func getRatio(success, total int64) (ratio float64) {
 }
 
 func TestStatdb(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
