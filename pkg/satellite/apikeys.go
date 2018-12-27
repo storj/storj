@@ -42,7 +42,7 @@ type APIKeyInfo struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-// APIKey is a mock api key type
+// APIKey is an api key type
 type APIKey [24]byte
 
 // String implements Stringer
@@ -62,7 +62,7 @@ func APIKeyFromBytes(b []byte) *APIKey {
 	return key
 }
 
-// createAPIKey creates new mock api key
+// createAPIKey creates new api key
 func createAPIKey() (*APIKey, error) {
 	key := new(APIKey)
 
