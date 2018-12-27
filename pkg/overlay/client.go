@@ -51,7 +51,7 @@ type Options struct {
 
 // NewClient returns a new intialized Overlay Client
 func NewClient(identity *provider.FullIdentity, address string) (Client, error) {
-	tc := transport.NewClient(identity)
+	tc := transport.NewClient(identity, &Cache{}) // add overlay to transport client as observer
 	conn, err := tc.DialAddress(context.Background(), address)
 	if err != nil {
 		return nil, err

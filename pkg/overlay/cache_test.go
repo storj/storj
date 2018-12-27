@@ -98,6 +98,27 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, s
 			assert.Error(t, err)
 		}
 	}
+
+	{ // Delete
+		// Test standard delete
+		err := cache.Delete(ctx, valid1ID)
+		assert.NoError(t, err)
+
+		// Check that it was deleted
+		deleted, err := cache.Get(ctx, valid1ID)
+		assert.Error(t, err)
+		assert.Nil(t, deleted)
+		assert.True(t, err == overlay.ErrNodeNotFound)
+
+		// Test idempotent delete / non existent key delete
+		err = cache.Delete(ctx, valid1ID)
+		assert.NoError(t, err)
+
+		// Test empty key delete
+		err = cache.Delete(ctx, storj.NodeID{})
+		assert.Error(t, err)
+		assert.True(t, err == overlay.ErrEmptyNode)
+	}
 }
 
 func TestCache_Masterdb(t *testing.T) {

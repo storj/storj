@@ -5,7 +5,9 @@ package satellite
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/subtle"
+	"io"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -15,11 +17,10 @@ import (
 
 	"go.uber.org/zap"
 
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/satellite/satelliteauth"
-	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -27,7 +28,10 @@ var (
 )
 
 // maxLimit specifies the limit for all paged queries
-const maxLimit = 50
+const (
+	// maxLimit specifies the limit for all paged queries
+	maxLimit = 50
+)
 
 // Service is handling accounts related logic
 type Service struct {
@@ -112,10 +116,11 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error
 	return s.store.Users().Get(ctx, id)
 }
 
-// UpdateUser updates User with given id
-func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) (err error) {
+// UpdateAccount updates User
+func (s *Service) UpdateAccount(ctx context.Context, info UserInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = GetAuth(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
@@ -125,7 +130,7 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) (
 	}
 
 	return s.store.Users().Update(ctx, &User{
-		ID:           id,
+		ID:           auth.User.ID,
 		FirstName:    info.FirstName,
 		LastName:     info.LastName,
 		Email:        info.Email,
@@ -133,20 +138,15 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) (
 	})
 }
 
-// ChangeUserPassword updates password for a given user
-func (s *Service) ChangeUserPassword(ctx context.Context, id uuid.UUID, pass, newPass string) (err error) {
+// ChangePassword updates password for a given user
+func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	user, err := s.store.Users().Get(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(pass))
+	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(pass))
 	if err != nil {
 		return ErrUnauthorized.New("origin password is incorrect: %s", err.Error())
 	}
@@ -160,20 +160,16 @@ func (s *Service) ChangeUserPassword(ctx context.Context, id uuid.UUID, pass, ne
 		return err
 	}
 
-	user.PasswordHash = hash
-	return s.store.Users().Update(ctx, user)
+	auth.User.PasswordHash = hash
+	return s.store.Users().Update(ctx, &auth.User)
 }
 
-// DeleteUser deletes User by id
-func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string) (err error) {
+// DeleteAccount deletes User
+func (s *Service) DeleteAccount(ctx context.Context, password string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
-	}
-
-	if !uuid.Equal(auth.User.ID, id) {
-		return ErrUnauthorized.New("user has no rights")
 	}
 
 	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(password))
@@ -181,7 +177,7 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string)
 		return ErrUnauthorized.New("origin password is incorrect")
 	}
 
-	return s.store.Users().Delete(ctx, id)
+	return s.store.Users().Delete(ctx, auth.User.ID)
 }
 
 // GetProject is a method for querying project by id
@@ -229,17 +225,26 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, err
 	}
 
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, transaction.Rollback())
+			return
+		}
+
+		err = transaction.Commit()
+	}()
+
 	prj, err := transaction.Projects().Insert(ctx, project)
 	if err != nil {
-		return nil, utils.CombineErrors(err, transaction.Rollback())
+		return nil, err
 	}
 
 	_, err = transaction.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
 	if err != nil {
-		return nil, utils.CombineErrors(err, transaction.Rollback())
+		return nil, err
 	}
 
-	return prj, transaction.Commit()
+	return prj, nil
 }
 
 // DeleteProject is a method for deleting project by id
@@ -382,6 +387,39 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, li
 	}
 
 	return s.store.ProjectMembers().GetByProjectID(ctx, projectID, limit, offset)
+}
+
+// apiKey is a mock api key type
+type apiKey [24]byte
+
+// createAPIKey creates new mock api key
+func createAPIKey() (*apiKey, error) {
+	key := new(apiKey)
+	n, err := io.ReadFull(rand.Reader, key[:])
+	if err != nil || n != 24 {
+		return nil, errs.New("error creating apikey")
+	}
+
+	return key, nil
+}
+
+// CreateAPIKey creates new api key
+func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (*APIKey, error) {
+	_, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := createAPIKey()
+	if err != nil {
+		return nil, err
+	}
+
+	return s.store.APIKeys().Create(ctx, APIKey{
+		Name:      name,
+		Key:       key[:],
+		ProjectID: projectID,
+	})
 }
 
 // Authorize validates token from context and returns authorized Authorization

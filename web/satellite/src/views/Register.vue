@@ -152,8 +152,9 @@ import { createUserRequest } from '@/api/users';
                 };
 
                 let response = await createUserRequest(user, this.$data.password);
-                if (!response) {
-                    // TODO: show popup here
+                if (!response.isSuccess) {
+                    this.$store.dispatch('error', response.errorMessage);
+
                     return;
                 }
 
