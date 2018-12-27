@@ -97,20 +97,20 @@ func TestProjectMembersRepository(t *testing.T) {
 
 	t.Run("Get member by memberID success", func(t *testing.T) {
 		originalMember1 := createdUsers[0]
-		selectedMember1, err := projectMembers.GetByMemberID(ctx, originalMember1.ID)
+		selectedMembers1, err := projectMembers.GetByMemberID(ctx, originalMember1.ID)
 
-		assert.NotNil(t, selectedMember1)
+		assert.NotNil(t, selectedMembers1)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
-		assert.Equal(t, originalMember1.ID, selectedMember1.MemberID)
+		assert.Equal(t, originalMember1.ID, selectedMembers1[0].MemberID)
 
 		originalMember2 := createdUsers[1]
-		selectedMember2, err := projectMembers.GetByMemberID(ctx, originalMember2.ID)
+		selectedMembers2, err := projectMembers.GetByMemberID(ctx, originalMember2.ID)
 
-		assert.NotNil(t, selectedMember2)
+		assert.NotNil(t, selectedMembers2)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
-		assert.Equal(t, originalMember2.ID, selectedMember2.MemberID)
+		assert.Equal(t, originalMember2.ID, selectedMembers2[0].MemberID)
 	})
 }
 

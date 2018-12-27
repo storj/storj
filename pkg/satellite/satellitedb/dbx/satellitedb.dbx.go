@@ -1200,14 +1200,14 @@ func (obj *sqlite3Impl) All_Project_By_ProjectMember_MemberId(ctx context.Contex
 
 }
 
-func (obj *sqlite3Impl) All_ProjectMember_By_ProjectId(ctx context.Context,
-	project_member_project_id ProjectMember_ProjectId_Field) (
+func (obj *sqlite3Impl) All_ProjectMember_By_MemberId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field) (
 	rows []*ProjectMember, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.member_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, project_member_project_id.value())
+	__values = append(__values, project_member_member_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -1230,49 +1230,6 @@ func (obj *sqlite3Impl) All_ProjectMember_By_ProjectId(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Get_ProjectMember_By_MemberId(ctx context.Context,
-	project_member_member_id ProjectMember_MemberId_Field) (
-	project_member *ProjectMember, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.member_id = ? LIMIT 2")
-
-	var __values []interface{}
-	__values = append(__values, project_member_member_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
-			return nil, obj.makeErr(err)
-		}
-		return nil, makeErr(sql.ErrNoRows)
-	}
-
-	project_member = &ProjectMember{}
-	err = __rows.Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	if __rows.Next() {
-		return nil, tooManyRows("ProjectMember_By_MemberId")
-	}
-
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	return project_member, nil
 
 }
 
@@ -1837,14 +1794,14 @@ func (rx *Rx) All_Project(ctx context.Context) (
 	return tx.All_Project(ctx)
 }
 
-func (rx *Rx) All_ProjectMember_By_ProjectId(ctx context.Context,
-	project_member_project_id ProjectMember_ProjectId_Field) (
+func (rx *Rx) All_ProjectMember_By_MemberId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field) (
 	rows []*ProjectMember, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.All_ProjectMember_By_ProjectId(ctx, project_member_project_id)
+	return tx.All_ProjectMember_By_MemberId(ctx, project_member_member_id)
 }
 
 func (rx *Rx) All_Project_By_ProjectMember_MemberId(ctx context.Context,
@@ -1963,16 +1920,6 @@ func (rx *Rx) Get_ApiKey_By_Id(ctx context.Context,
 	return tx.Get_ApiKey_By_Id(ctx, api_key_id)
 }
 
-func (rx *Rx) Get_ProjectMember_By_MemberId(ctx context.Context,
-	project_member_member_id ProjectMember_MemberId_Field) (
-	project_member *ProjectMember, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_ProjectMember_By_MemberId(ctx, project_member_member_id)
-}
-
 func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
@@ -2055,8 +2002,8 @@ type Methods interface {
 	All_Project(ctx context.Context) (
 		rows []*Project, err error)
 
-	All_ProjectMember_By_ProjectId(ctx context.Context,
-		project_member_project_id ProjectMember_ProjectId_Field) (
+	All_ProjectMember_By_MemberId(ctx context.Context,
+		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*ProjectMember, err error)
 
 	All_Project_By_ProjectMember_MemberId(ctx context.Context,
@@ -2110,10 +2057,6 @@ type Methods interface {
 	Get_ApiKey_By_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field) (
 		api_key *ApiKey, err error)
-
-	Get_ProjectMember_By_MemberId(ctx context.Context,
-		project_member_member_id ProjectMember_MemberId_Field) (
-		project_member *ProjectMember, err error)
 
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
