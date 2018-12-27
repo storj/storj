@@ -24,11 +24,11 @@ func NewPacketCopier(dest ...PacketDest) *PacketCopier {
 
 // Packet implements the PacketDest interface
 func (p *PacketCopier) Packet(data []byte, ts time.Time) (ferr error) {
-	var errs errs.Group
+	var errlist errs.Group
 	for _, dest := range p.dest {
-		errs.Add(dest.Packet(data, ts))
+		errlist.Add(dest.Packet(data, ts))
 	}
-	return errs.Err()
+	return errlist.Err()
 }
 
 // MetricCopier sends the same metric to multiple destinations
@@ -45,11 +45,11 @@ func NewMetricCopier(dest ...MetricDest) *MetricCopier {
 // Metric implements the MetricDest interface
 func (m *MetricCopier) Metric(application, instance string,
 	key []byte, val float64, ts time.Time) (ferr error) {
-	var errs errs.Group
+	var errlist errs.Group
 	for _, dest := range m.dest {
-		errs.Add(dest.Metric(application, instance, key, val, ts))
+		errlist.Add(dest.Metric(application, instance, key, val, ts))
 	}
-	return errs.Err()
+	return errlist.Err()
 }
 
 // Packet represents a single packet
