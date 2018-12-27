@@ -122,8 +122,6 @@ func cleanup(cmd *cobra.Command) {
 		vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 		vip.AutomaticEnv()
 
-		logger, err := newLogger()
-
 		cfgFlag := cmd.Flags().Lookup("config-dir")
 		if cfgFlag != nil && cfgFlag.Value.String() != "" {
 			path := filepath.Join(os.ExpandEnv(cfgFlag.Value.String()), "config.yaml")
@@ -134,7 +132,6 @@ func cleanup(cmd *cobra.Command) {
 					return err
 				}
 
-				logger.Sugar().Debug("Configuration loaded from: ", vip.ConfigFileUsed())
 			}
 		}
 
@@ -154,9 +151,13 @@ func cleanup(cmd *cobra.Command) {
 			}
 		}
 
+		logger, err := newLogger()
 		if err != nil {
 			return err
 		}
+
+		logger.Sugar().Debug("Configuration loaded from: ", vip.ConfigFileUsed())
+
 		defer func() { _ = logger.Sync() }()
 		defer zap.ReplaceGlobals(logger)()
 		defer zap.RedirectStdLog(logger)()
