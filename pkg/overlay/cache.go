@@ -8,6 +8,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
@@ -19,6 +20,9 @@ const (
 	// OverlayBucket is the string representing the bucket used for a bolt-backed overlay dht cache
 	OverlayBucket = "overlay"
 )
+
+// ErrDelete is returned when there is a problem deleting a node from the cache
+var ErrDelete = errs.New("error deleting node")
 
 // ErrEmptyNode is returned when the nodeID is empty
 var ErrEmptyNode = errs.New("empty node ID")
@@ -129,4 +133,42 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	}
 
 	return cache.db.Put(nodeID.Bytes(), data)
+}
+
+// Delete will remove the node from the cache. Used when a node hard disconnects or fails
+// to pass a PING multiple times.
+func (cache *Cache) Delete(ctx context.Context, id storj.NodeID) error {
+	if id.IsZero() {
+		return ErrEmptyNode
+	}
+
+	err := cache.db.Delete(id.Bytes())
+	if err != nil {
+		return ErrDelete
+	}
+
+	return nil
+}
+
+// ConnFailure implements the Transport Observer `ConnFailure` function
+func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError error) {
+	// TODO: Kademlia paper specifies 5 unsuccessful PINGs before removing the node
+	// from our routing table, but this is the cache so maybe we want to treat
+	// it differently.
+	_, err := cache.statDB.UpdateUptime(ctx, node.Id, false)
+	if err != nil {
+		zap.L().Debug("error updating uptime for node in statDB", zap.Error(err))
+	}
+}
+
+// ConnSuccess implements the Transport Observer `ConnSuccess` function
+func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
+	err := cache.Put(ctx, node.Id, *node)
+	if err != nil {
+		zap.L().Debug("error updating uptime for node in statDB", zap.Error(err))
+	}
+	_, err = cache.statDB.UpdateUptime(ctx, node.Id, true)
+	if err != nil {
+		zap.L().Debug("error updating statdDB with node connection info", zap.Error(err))
+	}
 }

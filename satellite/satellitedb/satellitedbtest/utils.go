@@ -10,6 +10,7 @@ import (
 	"os"
 	"testing"
 
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -25,7 +26,7 @@ var (
 
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
-func Run(t *testing.T, test func(t *testing.T, db *satellitedb.DB)) {
+func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 	for _, dbInfo := range []struct {
 		dbName    string
 		dbURL     string

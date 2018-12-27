@@ -4,13 +4,16 @@
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
 
-// Performs graqhQL request.
-// Throws an exception if error occurs
-export async function createProject(project: Project): Promise<any> {
-    let response: any = null;
+// Performs graqhQL request for project creation.
+export async function createProject(project: Project): Promise<RequestResponse<Project>> {
+    let result: RequestResponse<Project> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: project
+    };
 
     try {
-        response = await apollo.mutate(
+        let response: any = await apollo.mutate(
             {
                 mutation: gql(`
 					mutation {
@@ -26,19 +29,30 @@ export async function createProject(project: Project): Promise<any> {
                 fetchPolicy: 'no-cache',
             }
         );
+
+        if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+            result.data.id = response.data.createProject.id;
+        }
     } catch (e) {
-		console.error(e);
+        result.errorMessage = e.message;
     }
 
-    return response;
+    return result;
 }
 
 // Performs graqhQL request for fetching all projects of current user.
-export async function fetchProjects(): Promise<any> {
-    let response: any = null;
+export async function fetchProjects(): Promise<RequestResponse<Project[]>> {
+    let result: RequestResponse<Project[]> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: []
+    };
 
-	try {
-        response = await apollo.query(
+    try {
+        let response: any = await apollo.query(
             {
                 query: gql(`
 					query {
@@ -46,8 +60,7 @@ export async function fetchProjects(): Promise<any> {
 							name
 							id
 							description
-							createdAt            
-							isTermsAccepted
+							createdAt
 						}
 					}`
                 ),
@@ -55,19 +68,29 @@ export async function fetchProjects(): Promise<any> {
             }
         );
 
+        if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+            result.data = response.data.myProjects;
+        }
     } catch (e) {
-		console.error(e);
+        result.errorMessage = e.message;
 	}
 
-    return response;
+    return result;
 }
 
 // Performs graqhQL request for updating selected project description
-export async function updateProject(projectID: string, description: string): Promise<any> {
-    let response: any = null;
+export async function updateProject(projectID: string, description: string): Promise<RequestResponse<null>> {
+    let result: RequestResponse<null> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: null
+    };
 
     try {
-        response = await apollo.mutate(
+        let response: any = await apollo.mutate(
             {
                 mutation: gql(`
 					mutation {
@@ -80,19 +103,29 @@ export async function updateProject(projectID: string, description: string): Pro
                 fetchPolicy: 'no-cache',
             }
         );
+
+        if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+        }
     } catch (e) {
-		console.error(e);
+        result.errorMessage = e.message;
     }
 
-    return response;
+    return result;
 }
 
 // Performs graqhQL request for deleting selected project
-export async function deleteProject(projectID: string): Promise<any> {
-    let response: any = null;
+export async function deleteProject(projectID: string): Promise<RequestResponse<null>> {
+    let result: RequestResponse<null> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: null
+    };
 
     try {
-        response = await apollo.mutate(
+        let response = await apollo.mutate(
             {
                 mutation: gql(`
 					mutation {
@@ -104,9 +137,15 @@ export async function deleteProject(projectID: string): Promise<any> {
                 fetchPolicy: 'no-cache',
             }
         );
+
+        if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+        }
     } catch (e) {
-		console.error(e);
+        result.errorMessage = e.message;
     }
 
-    return response;
+    return result;
 }

@@ -5,7 +5,6 @@ declare type RegisterData = {
 	firstName: string,
 	firstNameError: string,
 	lastName: string,
-	lastNameError: string,
 	email: string,
 	emailError: string,
 	password: string,

@@ -19,6 +19,8 @@ type Types interface {
 	User() *graphql.Object
 	Project() *graphql.Object
 	ProjectMember() *graphql.Object
+	APIKeyInfo() *graphql.Object
+	CreateAPIKey() *graphql.Object
 
 	UserInput() *graphql.InputObject
 	ProjectInput() *graphql.InputObject
@@ -34,6 +36,8 @@ type TypeCreator struct {
 	user          *graphql.Object
 	project       *graphql.Object
 	projectMember *graphql.Object
+	apiKeyInfo    *graphql.Object
+	createAPIKey  *graphql.Object
 
 	userInput    *graphql.InputObject
 	projectInput *graphql.InputObject
@@ -55,6 +59,16 @@ func (c *TypeCreator) Create(service *satellite.Service) error {
 	// entities
 	c.user = graphqlUser()
 	if err := c.user.Error(); err != nil {
+		return err
+	}
+
+	c.apiKeyInfo = graphqlAPIKeyInfo()
+	if err := c.apiKeyInfo.Error(); err != nil {
+		return err
+	}
+
+	c.createAPIKey = graphqlCreateAPIKey(c)
+	if err := c.createAPIKey.Error(); err != nil {
 		return err
 	}
 
@@ -105,6 +119,17 @@ func (c *TypeCreator) Token() *graphql.Object {
 // User returns instance of satellite.User *graphql.Object
 func (c *TypeCreator) User() *graphql.Object {
 	return c.user
+}
+
+// APIKeyInfo returns instance of satellite.APIKeyInfo *graphql.Object
+func (c *TypeCreator) APIKeyInfo() *graphql.Object {
+	return c.apiKeyInfo
+}
+
+// CreateAPIKey encapsulates api key and key info
+// returns *graphql.Object
+func (c *TypeCreator) CreateAPIKey() *graphql.Object {
+	return c.createAPIKey
 }
 
 // Project returns instance of satellite.Project *graphql.Object
