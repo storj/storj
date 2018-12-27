@@ -171,8 +171,9 @@ delete overlay_cache_node ( where overlay_cache_node.key = ? )
 //--- repairqueue ---//
 
 model injuredsegment (
-	key info
+  key id
 
+  field id   serial64
 	field info blob
 )
 
@@ -183,4 +184,4 @@ read first (
 read limitoffset (
 	select injuredsegment
 )
-delete injuredsegment ( where injuredsegment.info = ? )
+delete injuredsegment ( where injuredsegment.id = ? )
