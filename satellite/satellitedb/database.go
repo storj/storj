@@ -23,6 +23,8 @@ var (
 	Error = errs.Class("satellitedb")
 )
 
+//go:generate go run mutex_gen.go
+
 // DB contains access to different database tables
 type DB struct {
 	db *dbx.DB
