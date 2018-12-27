@@ -23,8 +23,6 @@ func main() {
 		Mode: packages.LoadAllSyntax,
 	}
 
-	finalPkg := types.NewPackage("storj.io/satellite/satellitedb", "satellitedb")
-
 	roots, err := packages.Load(cfg, "storj.io/storj/satellite")
 	if err != nil {
 		panic(err)
@@ -39,22 +37,23 @@ func main() {
 	}
 
 	var mutexDecl bytes.Buffer
+	var wrapperDecl bytes.Buffer
 
 	fmt.Fprintf(&mutexDecl, "type Mutex struct {\n")
-	fmt.Fprintf(&mutexDecl, "	db satellite.DB\n")
 	fmt.Fprintf(&mutexDecl, "	mu sync.Mutex\n")
+	fmt.Fprintf(&mutexDecl, "	db satellite.DB\n")
 	fmt.Fprintf(&mutexDecl, "}\n\n")
 
 	for methodIndex := 0; methodIndex < db.NumMethods(); methodIndex++ {
 		method := db.Method(methodIndex)
-		if writeWrappingFunc(finalPkg, imports, &mutexDecl, method) {
-
+		if writeWrappingFunc("Mutex", imports, &mutexDecl, method, true) {
+			writeWrapperDecl(imports, &wrapperDecl, method)
 		}
-		writeWrapperType(imports, &mutexDecl, method)
 	}
 
 	fmt.Println(imports)
 	fmt.Println(mutexDecl.String())
+	fmt.Println(wrapperDecl.String())
 }
 
 var ignoreTypes = map[string]bool{
@@ -69,16 +68,18 @@ func includeSignatureImports(imports map[string]bool, sig *types.Signature) {
 	})
 }
 
-func writeWrappingFunc(finalPkg *types.Package, imports map[string]bool, body *bytes.Buffer, method *types.Func) bool {
+func writeWrappingFunc(receiver string, imports map[string]bool, body *bytes.Buffer, method *types.Func, nested bool) bool {
 	sig := method.Type().Underlying().(*types.Signature)
 	includeSignatureImports(imports, sig)
 
-	needsWrapper := sig.Results().Len() == 1 && !ignoreTypes[sig.Results().At(0).Type().String()]
+	needsWrapper := nested && sig.Results().Len() == 1 && !ignoreTypes[sig.Results().At(0).Type().String()]
 
-	fmt.Fprintf(body, "func (mu *Mutex) %s", method.Name())
+	fmt.Fprintf(body, "func (mu *%s) %s", receiver, method.Name())
 	types.WriteSignature(body, sig, (*types.Package).Name)
 	fmt.Fprintf(body, " {\n")
-	fmt.Fprintf(body, "\tmu.mu.Lock(); defer mu.mu.Unlock()\n")
+	if !needsWrapper {
+		fmt.Fprintf(body, "\tmu.mu.Lock(); defer mu.mu.Unlock()\n")
+	}
 	fmt.Fprintf(body, "\treturn ")
 	if needsWrapper {
 		fmt.Fprintf(body, "&mu%s{mu:&mu.mu, db:", method.Name())
@@ -91,7 +92,7 @@ func writeWrappingFunc(finalPkg *types.Package, imports map[string]bool, body *b
 	}
 	fmt.Fprintf(body, "\n}\n\n")
 
-	return true
+	return needsWrapper
 }
 
 func writeCallSignature(body *bytes.Buffer, sig *types.Signature) {
@@ -106,98 +107,28 @@ func writeCallSignature(body *bytes.Buffer, sig *types.Signature) {
 	fmt.Fprintf(body, ")")
 }
 
-func writeWrapperType(imports map[string]bool, body *bytes.Buffer, method *types.Func) {
-}
+func writeWrapperDecl(imports map[string]bool, body *bytes.Buffer, method *types.Func) {
+	sig := method.Type().Underlying().(*types.Signature)
+	results := sig.Results()
+	result := results.At(0).Type()
 
-/*
-func fqn(t reflect.Type) string {
-	if t.Kind() == reflect.Array {
-		return "[]" + fqn(t.Elem())
-	}
-	if t.Kind() == reflect.Ptr {
-		return "*" + fqn(t.Elem())
-	}
+	recvName := fmt.Sprintf("mu%s", method.Name())
 
-	pkg := t.PkgPath()
-	if pkg == "" {
-		return t.Name()
-	}
+	fmt.Fprintf(body, "// %s implements locking wrapper for %s\n", recvName, typeName(result))
+	fmt.Fprintf(body, "type %s struct {\n", recvName)
+	fmt.Fprintf(body, "\tmu *sync.Mutex\n")
+	fmt.Fprintf(body, "\tdb %s\n", typeName(result))
+	fmt.Fprintf(body, "}\n\n")
 
-	p := strings.LastIndexByte(pkg, '/')
-	pkg = pkg[p+1:]
-	return pkg + "." + t.Name()
-}
-
-func generateFunc(databaseName string, iface reflect.Type) {
-	if iface.PkgPath() == "" {
-		return
-	}
-
-	fmt.Println(`import "` + iface.PkgPath() + `"`)
-
-	fmt.Println()
-	fmt.Println("func (mu *Mutex) " + databaseName + "() " + fqn(iface) + " {")
-	defer fmt.Println("}")
-
-	fmt.Println("\treturn mu" + databaseName + "{mu: mu, db: mu.db." + databaseName + "()}")
-}
-
-func generateWrapper(databaseName string, iface reflect.Type) {
-	if iface.PkgPath() == "" {
-		return
-	}
-
-	fmt.Println(`type mu` + databaseName + " struct {")
-	fmt.Println(`	mu *Mutex`)
-	fmt.Println(`	db ` + fqn(iface))
-	fmt.Println(`}`)
-	fmt.Println()
-
-	for methodIndex := 0; methodIndex < iface.NumMethod(); methodIndex++ {
-		method := iface.Method(methodIndex)
-
-		fmt.Print(`func (mu *mu` + databaseName + `) ` + method.Name + `(`)
-		for inIndex := 0; inIndex < method.Type.NumIn(); inIndex++ {
-			if inIndex > 0 {
-				fmt.Print(`, `)
-			}
-
-			inType := method.Type.In(inIndex)
-			fmt.Print(`v`, inIndex, ` `)
-
-			if method.Type.IsVariadic() && inIndex == iface.NumIn()-1 {
-				fmt.Print(`...`, fqn(inType.Elem()))
-			} else {
-				fmt.Print(fqn(inType))
-			}
-		}
-		fmt.Print(`) `)
-
-		if method.Type.NumOut() > 0 {
-			fmt.Print(`(`)
-			for outIndex := 0; outIndex < method.Type.NumOut(); outIndex++ {
-				if outIndex > 0 {
-					fmt.Print(`, `)
-				}
-				outType := method.Type.Out(outIndex)
-				fmt.Print(fqn(outType))
-			}
-			fmt.Print(`)`)
-		}
-
-		fmt.Println(`{`)
-		fmt.Println(`	defer mu.mu.locked()()`)
-
-		fmt.Print(`	return mu.db.` + method.Name + `(`)
-		for inIndex := 0; inIndex < method.Type.NumIn(); inIndex++ {
-			if inIndex > 0 {
-				fmt.Print(`, `)
-			}
-			fmt.Print(`v`, inIndex)
-		}
-		fmt.Println(`)`)
-		fmt.Println(`}`)
-		fmt.Println()
+	methodSet := result.Underlying().(Methods)
+	for i := 0; i < methodSet.NumMethods(); i++ {
+		method := methodSet.Method(i)
+		writeWrappingFunc(recvName, imports, body, method, false)
 	}
 }
-*/
+
+func typeName(typ types.Type) string {
+	var body bytes.Buffer
+	types.WriteType(&body, typ, (*types.Package).Name)
+	return body.String()
+}
