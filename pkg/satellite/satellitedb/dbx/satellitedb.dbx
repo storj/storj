@@ -78,3 +78,32 @@ delete project_member (
     where project_member.member_id = ?
     where project_member.project_id = ?
 )
+
+model api_key (
+    key id
+    unique key
+    unique name project_id
+
+    field id blob
+    field project_id project.id cascade
+
+    field key blob
+
+    field name text (updatable)
+
+    field created_at    timestamp ( autoinsert )
+)
+
+create api_key ()
+update api_key ( where api_key.id = ? )
+delete api_key ( where api_key.id = ? )
+
+read one (
+    select api_key
+    where api_key.id = ?
+)
+read all (
+    select api_key
+    where api_key.project_id = ?
+    orderby asc api_key.name
+)

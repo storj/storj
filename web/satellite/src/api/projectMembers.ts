@@ -6,87 +6,118 @@ import gql from 'graphql-tag';
 
 // Performs graqhQL request.
 // Throws an exception if error occurs
-export async function addProjectMember(userID: string, projectID: string): Promise<any> {
-	let response: any = null;
+export async function addProjectMembers(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
+	let result: RequestResponse<null> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: null
+	};
+	
 	try {
-		response = await apollo.mutate(
+		let response: any = await apollo.mutate(
 			{
 				mutation: gql(`
                 mutation {
-                    addProjectMember(
+                    addProjectMembers(
                         projectID: "${projectID}",
-                        userID: "${userID}"
+                        email: "${emails}"
                     ) {id}
                 }`
 				),
 				fetchPolicy: 'no-cache',
 			}
 		);
+
+		if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+			result.isSuccess = true;
+        }
 	} catch (e) {
-		// TODO: replace with popup in future
-		console.error(e);
+		result.errorMessage = e.message;
 	}
 
-	return response;
+	return result;
 }
 
 // Performs graqhQL request.
 // Throws an exception if error occurs
-export async function deleteProjectMember(userID: string, projectID: string): Promise<any> {
-	let response: any = null;
+export async function deleteProjectMembers(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
+	let result: RequestResponse<null> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: null
+	};
+
 	try {
-		response = await apollo.mutate(
+		let response: any = await apollo.mutate(
 			{
 				mutation: gql(`
                 mutation {
-                    deleteProjectMember(
+                    deleteProjectMembers(
                         projectID: "${projectID}",
-                        userID: "${userID}"
+                        email: "${emails}"
                     ) {id}
                 }`
 				),
 				fetchPolicy: 'no-cache',
 			}
 		);
+
+		if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+        }
 	} catch (e) {
-		// TODO: replace with popup in future
-		console.error(e);
+		result.errorMessage = e.message;
 	}
 
-	return response;
+	return result;
 }
 
 // Performs graqhQL request.
 // Throws an exception if error occurs
-export async function fetchProjectMembers(projectID: string, limit: string, offset: string): Promise<any> {
-	let response: any = null;
+export async function fetchProjectMembers(projectID: string, limit: string, offset: string): Promise<RequestResponse<TeamMemberModel[]>> {
+	let result: RequestResponse<TeamMemberModel[]> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: []
+	};
+
 	try {
-		response = await apollo.query(
+		let response: any = await apollo.query(
 			{
 				query: gql(`
-                query {
-                    project(
-                        id: "${projectID}",
-                    ) {
-                        members(limit: ${limit}, offset: ${offset}) {
-                            user {
-                                id,
-                                firstName,
-                                lastName,
-                                email,
-                            },
-                            joinedAt
-                        }
-                    }
-                }`
+					query {
+						project(
+							id: "${projectID}",
+						) {
+							members(limit: ${limit}, offset: ${offset}) {
+								user {
+									id,
+									firstName,
+									lastName,
+									email
+								},
+								joinedAt
+							}
+						}
+					}`
 				),
 				fetchPolicy: 'no-cache',
 			}
 		);
+
+		if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+            result.data = response.data.project.members;
+        }
 	} catch (e) {
-		// TODO: replace with popup in future
-		console.error(e);
+		result.errorMessage = e.message;
 	}
 
-	return response;
+	return result;
 }
