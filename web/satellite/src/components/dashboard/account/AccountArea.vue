@@ -96,13 +96,13 @@
             </div>
             <div v-if="!isPasswordEditing" class="account-area-save-button-area" >
                 <div class="account-area-save-button-area__btn">
-                    <Button label="Save" width="140px" height="50px" isWhite isDisabled/>
+                    <Button label="Save" width="140px" height="50px" isDisabled/>
                 </div>
             </div>
         </div>
         <!--end of Password area -->
         <div class="account-area-button-area">
-            <Button label="Delete account" width="140px" height="50px" :onPress="togglePopup" isWhite/>
+            <Button label="Delete account" width="140px" height="50px" :onPress="togglePopup" isDeletion/>
         </div>
         <DeleteAccountPopup v-if="isPopupShown" :onClose="togglePopup" />
     </div>
