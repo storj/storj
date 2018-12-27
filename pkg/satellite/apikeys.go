@@ -30,17 +30,22 @@ type APIKeys interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
-// APIKey describing api key model in the database
-type APIKey struct {
+// APIKeyInfo describing api key model in the database
+type APIKeyInfo struct {
 	ID uuid.UUID `json:"id"`
 
 	// Fk on project
 	ProjectID uuid.UUID `json:"projectId"`
 
-	Key  MockKey `json:"key"`
-	Name string  `json:"name"`
+	Name string `json:"name"`
 
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+// APIKey describing api key model in the database
+type APIKey struct {
+	APIKeyInfo
+	Key  MockKey `json:"key"`
 }
 
 // MockKey is a mock api key type

@@ -20,7 +20,7 @@ func WithAPIKey(ctx context.Context, key []byte) context.Context {
 	return context.WithValue(ctx, apiKey, key)
 }
 
-// GetAPIKey returns api key from context is exists
+// GetAPIKeyInfo returns api key from context is exists
 func GetAPIKey(ctx context.Context) ([]byte, bool) {
 	key, ok := ctx.Value(apiKey).([]byte)
 	return key, ok

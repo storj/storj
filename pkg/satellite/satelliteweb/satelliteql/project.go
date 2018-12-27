@@ -86,7 +86,7 @@ func graphqlProject(service *satellite.Service, types Types) *graphql.Object {
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*satellite.Project)
 
-					return service.GetAPIKeysByProjectID(p.Context, project.ID)
+					return service.GetAPIKeysInfoByProjectID(p.Context, project.ID)
 				},
 			},
 		},

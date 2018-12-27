@@ -301,7 +301,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						return nil, err
 					}
 
-					key, err := service.GetAPIKey(p.Context, *id)
+					key, err := service.GetAPIKeyInfo(p.Context, *id)
 					if err != nil {
 						return nil, err
 					}

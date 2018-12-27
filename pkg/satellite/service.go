@@ -434,21 +434,25 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 	}
 
 	return s.store.APIKeys().Create(ctx, APIKey{
-		Name:      name,
-		Key:       *key,
-		ProjectID: projectID,
+		APIKeyInfo: APIKeyInfo{
+			Name:      name,
+			ProjectID: projectID,
+		},
+		Key: *key,
 	})
 }
 
-// GetAPIKey retrieves api key by id
-func (s *Service) GetAPIKey(ctx context.Context, id uuid.UUID) (key *APIKey, err error) {
+// GetAPIKeyInfo retrieves api key by id
+func (s *Service) GetAPIKeyInfo(ctx context.Context, id uuid.UUID) (*APIKeyInfo, error) {
+	var err error
 	defer mon.Task()(&ctx)(&err)
+
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	key, err = s.store.APIKeys().Get(ctx, id)
+	key, err := s.store.APIKeys().Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -458,9 +462,7 @@ func (s *Service) GetAPIKey(ctx context.Context, id uuid.UUID) (key *APIKey, err
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	// key itself can be queried only during creation
-	key.Key = MockKey{}
-	return key, nil
+	return &key.APIKeyInfo, nil
 }
 
 // DeleteAPIKey deletes api key by id
@@ -484,8 +486,9 @@ func (s *Service) DeleteAPIKey(ctx context.Context, id uuid.UUID) (err error) {
 	return s.store.APIKeys().Delete(ctx, id)
 }
 
-// GetAPIKeysByProjectID retrieves all api keys for a given project
-func (s *Service) GetAPIKeysByProjectID(ctx context.Context, projectID uuid.UUID) (keys []APIKey, err error) {
+// GetAPIKeysInfoByProjectID retrieves all api keys for a given project
+func (s *Service) GetAPIKeysInfoByProjectID(ctx context.Context, projectID uuid.UUID) (info []APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
@@ -496,17 +499,17 @@ func (s *Service) GetAPIKeysByProjectID(ctx context.Context, projectID uuid.UUID
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	keys, err = s.store.APIKeys().GetByProjectID(ctx, projectID)
+	keys, err := s.store.APIKeys().GetByProjectID(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
 
 	// erase key from every entry
-	for i := 0; i < len(keys); i++ {
-		keys[i].Key = MockKey{}
+	for _, key := range keys {
+		info = append(info, key.APIKeyInfo)
 	}
 
-	return keys, err
+	return info, nil
 }
 
 // Authorize validates token from context and returns authorized Authorization

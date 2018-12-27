@@ -109,10 +109,12 @@ func toAPIKey(key *dbx.ApiKey) (*satellite.APIKey, error) {
 	}
 
 	return &satellite.APIKey{
-		ID:        id,
-		ProjectID: projectID,
-		Name:      key.Name,
-		Key:       *satellite.MockKeyFromBytes(key.Key),
-		CreatedAt: key.CreatedAt,
+		APIKeyInfo: satellite.APIKeyInfo{
+			ID:        id,
+			ProjectID: projectID,
+			Name:      key.Name,
+			CreatedAt: key.CreatedAt,
+		},
+		Key: *satellite.MockKeyFromBytes(key.Key),
 	}, nil
 }
