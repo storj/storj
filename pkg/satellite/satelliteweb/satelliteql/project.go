@@ -22,6 +22,8 @@ const (
 
 	limit  = "limit"
 	offset = "offset"
+	search = "search"
+	order  = "order"
 )
 
 // graphqlProject creates *graphql.Object type representation of satellite.ProjectInfo
@@ -53,14 +55,29 @@ func graphqlProject(service *satellite.Service, types Types) *graphql.Object {
 					limit: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.Int),
 					},
+					search: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					order: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*satellite.Project)
 
 					offs, _ := p.Args[offset].(int64)
 					lim, _ := p.Args[limit].(int)
+					search, _ := p.Args[search].(string)
+					order, _ := p.Args[order].(satellite.ProjectMemberOrder)
 
-					members, err := service.GetProjectMembers(p.Context, project.ID, lim, offs)
+					pagination := satellite.Pagination{
+						Limit:  lim,
+						Offset: offs,
+						Search: search,
+						Order:  order,
+					}
+
+					members, err := service.GetProjectMembers(p.Context, project.ID, pagination)
 					if err != nil {
 						return nil, err
 					}

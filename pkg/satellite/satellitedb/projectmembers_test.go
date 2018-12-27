@@ -69,30 +69,51 @@ func TestProjectMembersRepository(t *testing.T) {
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 
-		projMember3, err := projectMembers.Insert(ctx, createdUsers[2].ID, createdProjects[1].ID)
+		projMember3, err := projectMembers.Insert(ctx, createdUsers[3].ID, createdProjects[0].ID)
 		assert.NotNil(t, projMember3)
+		assert.Nil(t, err)
+		assert.NoError(t, err)
+
+		projMember4, err := projectMembers.Insert(ctx, createdUsers[4].ID, createdProjects[0].ID)
+		assert.NotNil(t, projMember4)
+		assert.Nil(t, err)
+		assert.NoError(t, err)
+
+		projMember5, err := projectMembers.Insert(ctx, createdUsers[5].ID, createdProjects[0].ID)
+		assert.NotNil(t, projMember5)
+		assert.Nil(t, err)
+		assert.NoError(t, err)
+
+		projMember6, err := projectMembers.Insert(ctx, createdUsers[2].ID, createdProjects[1].ID)
+		assert.NotNil(t, projMember6)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 	})
 
 	t.Run("Get paged", func(t *testing.T) {
-		members, err := projectMembers.GetByProjectID(ctx, createdProjects[0].ID, 1, 0)
+		members, err := projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit:3, Offset:0, Search:"", Order:1})
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
-		assert.Equal(t, 1, len(members))
+		assert.Equal(t, 3, len(members))
 
-		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, 2, 0)
+		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit:2, Offset:0, Search:"Liam", Order:5})
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
 		assert.Equal(t, 2, len(members))
 
-		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, 1, 1)
+		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit:6, Offset:0, Search:"son", Order:123})
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
-		assert.Equal(t, 1, len(members))
+		assert.Equal(t, 5, len(members))
+
+		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit:6, Offset:3, Search:"son", Order:2})
+		assert.Nil(t, err)
+		assert.NoError(t, err)
+		assert.NotNil(t, members)
+		assert.Equal(t, 2, len(members))
 	})
 
 	t.Run("Get member by memberID success", func(t *testing.T) {
@@ -118,18 +139,33 @@ func prepareUsersAndProjects(ctx context.Context, t *testing.T, users satellite.
 	usersList := []*satellite.User{{
 		Email:        "email1@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
-		LastName:     "LastName",
-		FirstName:    "FirstName",
+		LastName:     "Liam",
+		FirstName:    "Noahson",
 	}, {
 		Email:        "email2@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
-		LastName:     "LastName",
-		FirstName:    "FirstName",
+		LastName:     "William",
+		FirstName:    "Jameson",
 	}, {
 		Email:        "email3@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
-		LastName:     "LastName",
-		FirstName:    "FirstName",
+		LastName:     "Mason",
+		FirstName:    "Elijahson",
+	}, {
+		Email:        "email4@ukr.net",
+		PasswordHash: []byte("some_readable_hash"),
+		LastName:     "Oliver",
+		FirstName:    "Jacobson",
+	}, {
+		Email:        "email5@ukr.net",
+		PasswordHash: []byte("some_readable_hash"),
+		LastName:     "Lucas",
+		FirstName:    "Michaelson",
+	}, {
+		Email:        "email6@ukr.net",
+		PasswordHash: []byte("some_readable_hash"),
+		LastName:     "Alexander",
+		FirstName:    "Ethanson",
 	},
 	}
 
