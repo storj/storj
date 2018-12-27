@@ -129,7 +129,7 @@ func (c *TypeCreator) APIKeyInfo() *graphql.Object {
 // CreateAPIKey encapsulates api key and key info
 // returns *graphql.Object
 func (c *TypeCreator) CreateAPIKey() *graphql.Object {
-	return c.apiKeyInfo
+	return c.createAPIKey
 }
 
 // Project returns instance of satellite.Project *graphql.Object

@@ -26,7 +26,7 @@ const (
 	addProjectMembersMutation    = "addProjectMembers"
 	deleteProjectMembersMutation = "deleteProjectMembers"
 
-	createAPIKeyMutation = "graphqlCreateAPIKey"
+	createAPIKeyMutation = "createAPIKey"
 	deleteAPIKeyMutation = "deleteAPIKey"
 
 	input = "input"
@@ -259,7 +259,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 			},
 			// creates new api key
 			createAPIKeyMutation: &graphql.Field{
-				Type: types.APIKeyInfo(),
+				Type: types.CreateAPIKey(),
 				Args: graphql.FieldConfigArgument{
 					fieldProjectID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -283,8 +283,8 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					}
 
 					return createAPIKey{
-						Key:  key,
-						Info: info,
+						Key:     key,
+						KeyInfo: info,
 					}, nil
 				},
 			},

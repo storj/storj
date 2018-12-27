@@ -54,6 +54,6 @@ func graphqlCreateAPIKey(types Types) *graphql.Object {
 
 // createAPIKey holds satellite.APIKey and satellite.APIKeyInfo
 type createAPIKey struct {
-	Key  *satellite.APIKey
-	Info *satellite.APIKeyInfo
+	Key     *satellite.APIKey
+	KeyInfo *satellite.APIKeyInfo
 }
