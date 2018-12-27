@@ -34,10 +34,10 @@ type ProjectMember struct {
 
 // Pagination defines pagination, filtering and sorting rules
 type Pagination struct {
-	Limit int
+	Limit  int
 	Offset int64
 	Search string
-	Order ProjectMemberOrder
+	Order  ProjectMemberOrder
 }
 
 // ProjectMemberOrder is used for querying project members in specified order
@@ -45,9 +45,9 @@ type ProjectMemberOrder int8
 
 const (
 	// Name indicates that we should order by first name
-	Name    ProjectMemberOrder = 1
+	Name ProjectMemberOrder = 1
 	// Email indicates that we should order by email
-	Email   ProjectMemberOrder = 2
+	Email ProjectMemberOrder = 2
 	// Created indicates that we should order by created date
 	Created ProjectMemberOrder = 3
 )
