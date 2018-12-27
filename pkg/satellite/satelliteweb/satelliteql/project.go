@@ -56,10 +56,10 @@ func graphqlProject(service *satellite.Service, types Types) *graphql.Object {
 						Type: graphql.NewNonNull(graphql.Int),
 					},
 					search: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type: graphql.String,
 					},
 					order: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type: graphql.Int,
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
@@ -68,13 +68,13 @@ func graphqlProject(service *satellite.Service, types Types) *graphql.Object {
 					offs, _ := p.Args[offset].(int64)
 					lim, _ := p.Args[limit].(int)
 					search, _ := p.Args[search].(string)
-					order, _ := p.Args[order].(satellite.ProjectMemberOrder)
+					order, _ := p.Args[order].(int8)
 
 					pagination := satellite.Pagination{
 						Limit:  lim,
 						Offset: offs,
 						Search: search,
-						Order:  order,
+						Order:  satellite.ProjectMemberOrder(order),
 					}
 
 					members, err := service.GetProjectMembers(p.Context, project.ID, pagination)

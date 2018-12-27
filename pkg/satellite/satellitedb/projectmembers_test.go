@@ -91,25 +91,25 @@ func TestProjectMembersRepository(t *testing.T) {
 	})
 
 	t.Run("Get paged", func(t *testing.T) {
-		members, err := projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit:3, Offset:0, Search:"", Order:1})
+		members, err := projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: 3, Offset: 0, Search: "", Order: 1})
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
 		assert.Equal(t, 3, len(members))
 
-		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit:2, Offset:0, Search:"Liam", Order:5})
+		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: 2, Offset: 0, Search: "Liam", Order: 5})
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
 		assert.Equal(t, 2, len(members))
 
-		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit:6, Offset:0, Search:"son", Order:123})
+		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: 6, Offset: 0, Search: "son", Order: 123})
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
 		assert.Equal(t, 5, len(members))
 
-		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit:6, Offset:3, Search:"son", Order:2})
+		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: 6, Offset: 3, Search: "son", Order: 2})
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
