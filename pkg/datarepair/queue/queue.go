@@ -49,7 +49,7 @@ func (q *Queue) Enqueue(ctx context.Context, qi *pb.InjuredSegment) error {
 func (q *Queue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
 	val, err := q.db.Dequeue()
 	if err != nil {
-		if err == storage.ErrEmptyQueue {
+		if storage.ErrEmptyQueue.Has(err) {
 			return pb.InjuredSegment{}, err
 		}
 		return pb.InjuredSegment{}, Error.New("error obtaining item from repair queue %s", err)
