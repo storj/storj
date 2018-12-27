@@ -11,25 +11,6 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-// Methods is the common interface for types having methods.
-type Methods interface {
-	Method(i int) *types.Func
-	NumMethods() int
-}
-
-// Code is the information for generating the code.
-type Code struct {
-	Config  *packages.Config
-	Package string
-	Roots   []*packages.Package
-
-	Imports map[string]bool
-	Ignore  map[string]bool
-
-	Preamble bytes.Buffer
-	Source   bytes.Buffer
-}
-
 func main() {
 	flag.Parse()
 
@@ -61,6 +42,25 @@ func main() {
 		panic(err)
 	}
 	fmt.Println(string(source))
+}
+
+// Methods is the common interface for types having methods.
+type Methods interface {
+	Method(i int) *types.Func
+	NumMethods() int
+}
+
+// Code is the information for generating the code.
+type Code struct {
+	Config  *packages.Config
+	Package string
+	Roots   []*packages.Package
+
+	Imports map[string]bool
+	Ignore  map[string]bool
+
+	Preamble bytes.Buffer
+	Source   bytes.Buffer
 }
 
 func (code *Code) Bytes() []byte {
