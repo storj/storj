@@ -18,6 +18,7 @@ const (
 	// Used in input model
 	fieldIsTermsAccepted = "isTermsAccepted"
 	fieldMembers         = "members"
+	fieldAPIKeys         = "apiKeys"
 
 	limit  = "limit"
 	offset = "offset"
@@ -78,6 +79,14 @@ func graphqlProject(service *satellite.Service, types Types) *graphql.Object {
 					}
 
 					return users, nil
+				},
+			},
+			fieldAPIKeys: &graphql.Field{
+				Type: graphql.NewList(types.APIKeyInfo()),
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					project, _ := p.Source.(*satellite.Project)
+
+					return service.GetAPIKeysInfoByProjectID(p.Context, project.ID)
 				},
 			},
 		},

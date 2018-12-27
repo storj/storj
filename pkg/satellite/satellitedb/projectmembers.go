@@ -20,13 +20,13 @@ type projectMembers struct {
 }
 
 // GetByMemberID is a method for querying project member from the database by memberID.
-func (pm *projectMembers) GetByMemberID(ctx context.Context, memberID uuid.UUID) (*satellite.ProjectMember, error) {
-	projectMemberDbx, err := pm.db.Get_ProjectMember_By_MemberId(ctx, dbx.ProjectMember_MemberId(memberID[:]))
+func (pm *projectMembers) GetByMemberID(ctx context.Context, memberID uuid.UUID) ([]satellite.ProjectMember, error) {
+	projectMembersDbx, err := pm.db.All_ProjectMember_By_MemberId(ctx, dbx.ProjectMember_MemberId(memberID[:]))
 	if err != nil {
 		return nil, err
 	}
 
-	return projectMemberFromDBX(projectMemberDbx)
+	return projectMembersFromDbxSlice(projectMembersDbx)
 }
 
 // GetByProjectID is a method for querying project members from the database by projectID, offset and limit.
