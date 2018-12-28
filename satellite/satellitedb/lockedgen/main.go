@@ -116,15 +116,15 @@ func (code *Code) PrintLocked() {
 	code.Imports["sync"] = true
 	code.Imports["storj.io/statellite"] = true
 
-	code.Printf("// Locked implements a locking wrapper around satellite.DB.\n")
-	code.Printf("type Locked struct {\n")
+	code.Printf("// locked implements a locking wrapper around satellite.DB.\n")
+	code.Printf("type locked struct {\n")
 	code.Printf("	sync.Locker\n")
 	code.Printf("	db satellite.DB\n")
 	code.Printf("}\n\n")
 
-	code.Printf("// NewLocked returns database wrapped with locker.\n")
-	code.Printf("func NewLocked(db satellite.DB) satellite.DB {\n")
-	code.Printf("	return &Locked{&sync.Mutex{}, db}\n")
+	code.Printf("// newLocked returns database wrapped with locker.\n")
+	code.Printf("func newLocked(db satellite.DB) satellite.DB {\n")
+	code.Printf("	return &locked{&sync.Mutex{}, db}\n")
 	code.Printf("}\n\n")
 
 	// find the satellite.DB type info
@@ -132,7 +132,7 @@ func (code *Code) PrintLocked() {
 	methods := dbObject.Type().Underlying().(Methods)
 
 	for i := 0; i < methods.NumMethods(); i++ {
-		code.PrintLockedFunc("Locked", methods.Method(i), true)
+		code.PrintLockedFunc("locked", methods.Method(i), true)
 	}
 
 	for i := 0; i < methods.NumMethods(); i++ {

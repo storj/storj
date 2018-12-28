@@ -21,68 +21,68 @@ import (
 	"storj.io/storj/storage"
 )
 
-// Locked implements a locking wrapper around satellite.DB.
-type Locked struct {
+// locked implements a locking wrapper around satellite.DB.
+type locked struct {
 	sync.Locker
 	db satellite.DB
 }
 
-// NewLocked returns database wrapped with locker.
-func NewLocked(db satellite.DB) satellite.DB {
-	return &Locked{&sync.Mutex{}, db}
+// newLocked returns database wrapped with locker.
+func newLocked(db satellite.DB) satellite.DB {
+	return &locked{&sync.Mutex{}, db}
 }
 
 // Accounting returns database for storing information about data use
-func (m *Locked) Accounting() accounting.DB {
+func (m *locked) Accounting() accounting.DB {
 	m.Lock()
 	defer m.Unlock()
 	return &lockedAccounting{m.Locker, m.db.Accounting()}
 }
 
 // BandwidthAgreement returns database for storing bandwidth agreements
-func (m *Locked) BandwidthAgreement() bwagreement.DB {
+func (m *locked) BandwidthAgreement() bwagreement.DB {
 	m.Lock()
 	defer m.Unlock()
 	return &lockedBandwidthAgreement{m.Locker, m.db.BandwidthAgreement()}
 }
 
 // Close closes the database
-func (m *Locked) Close() error {
+func (m *locked) Close() error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Close()
 }
 
 // CreateTables initializes the database
-func (m *Locked) CreateTables() error {
+func (m *locked) CreateTables() error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateTables()
 }
 
 // Irreparable returns database for failed repairs
-func (m *Locked) Irreparable() irreparable.DB {
+func (m *locked) Irreparable() irreparable.DB {
 	m.Lock()
 	defer m.Unlock()
 	return &lockedIrreparable{m.Locker, m.db.Irreparable()}
 }
 
 // OverlayCache returns database for caching overlay information
-func (m *Locked) OverlayCache() storage.KeyValueStore {
+func (m *locked) OverlayCache() storage.KeyValueStore {
 	m.Lock()
 	defer m.Unlock()
 	return &lockedOverlayCache{m.Locker, m.db.OverlayCache()}
 }
 
 // RepairQueue returns queue for segments that need repairing
-func (m *Locked) RepairQueue() queue.RepairQueue {
+func (m *locked) RepairQueue() queue.RepairQueue {
 	m.Lock()
 	defer m.Unlock()
 	return &lockedRepairQueue{m.Locker, m.db.RepairQueue()}
 }
 
 // StatDB returns database for storing node statistics
-func (m *Locked) StatDB() statdb.DB {
+func (m *locked) StatDB() statdb.DB {
 	m.Lock()
 	defer m.Unlock()
 	return &lockedStatDB{m.Locker, m.db.StatDB()}
