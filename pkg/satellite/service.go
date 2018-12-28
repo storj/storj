@@ -395,22 +395,18 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
-func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, limit int, offset int64) (pm []ProjectMember, err error) {
+func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, pagination Pagination) (pm []ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if limit < 0 || offset < 0 {
-		return nil, errs.New("invalid pagination argument")
+	if pagination.Limit > maxLimit {
+		pagination.Limit = maxLimit
 	}
 
-	if limit > maxLimit {
-		limit = maxLimit
-	}
-
-	return s.store.ProjectMembers().GetByProjectID(ctx, projectID, limit, offset)
+	return s.store.ProjectMembers().GetByProjectID(ctx, projectID, pagination)
 }
 
 // CreateAPIKey creates new api key
@@ -609,5 +605,5 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 		}
 	}
 
-	return isProjectMember{}, ErrNoMembership.New("user % is not a member of project %s", userID, project.ID)
+	return isProjectMember{}, ErrNoMembership.New("user %s is not a member of project %s", userID, project.ID)
 }
