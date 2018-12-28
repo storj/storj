@@ -9,41 +9,34 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// DB interface for database operations
+// DB stores node statistics
 type DB interface {
-	// Create a db entry for the provided storagenode
-	Create(ctx context.Context, nodeID storj.NodeID, startingStats *NodeStats) (stats *NodeStats, err error)
-
-	// Get a storagenode's stats from the db
+	// Create adds a new stats entry for node.
+	Create(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
+	// Get returns node stats.
 	Get(ctx context.Context, nodeID storj.NodeID) (stats *NodeStats, err error)
-
-	// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements
-	FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *NodeStats) (invalidIDs storj.NodeIDList, err error)
-
-	// Update all parts of single storagenode's stats in the db
-	Update(ctx context.Context, updateReq *UpdateRequest) (stats *NodeStats, err error)
-
-	// UpdateUptime updates a single storagenode's uptime stats in the db
+	// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
+	FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *NodeStats) (invalid storj.NodeIDList, err error)
+	// Update all parts of single storagenode's stats.
+	Update(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
+	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
-
-	// UpdateAuditSuccess updates a single storagenode's audit stats in the db
+	// UpdateAuditSuccess updates a single storagenode's audit stats.
 	UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, auditSuccess bool) (stats *NodeStats, err error)
-
-	// UpdateBatch for updating multiple farmers' stats in the db
-	UpdateBatch(ctx context.Context, updateReqList []*UpdateRequest) (statsList []*NodeStats, failedUpdateReqs []*UpdateRequest, err error)
-
-	// CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist
+	// UpdateBatch for updating multiple storagenodes stats.
+	UpdateBatch(ctx context.Context, requests []*UpdateRequest) (statslist []*NodeStats, failed []*UpdateRequest, err error)
+	// CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
 	CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID) (stats *NodeStats, err error)
 }
 
-// UpdateRequest is a statdb update request message
+// UpdateRequest is used to update a node status.
 type UpdateRequest struct {
 	NodeID       storj.NodeID
 	AuditSuccess bool
 	IsUp         bool
 }
 
-// NodeStats is a statdb node stats message
+// NodeStats contains statistics abot a node.
 type NodeStats struct {
 	NodeID             storj.NodeID
 	AuditSuccessRatio  float64

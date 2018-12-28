@@ -50,7 +50,7 @@ type ListItem struct {
 	IsPrefix bool
 }
 
-// KeyValueStore is an interface describing key/value stores like redis and boltdb
+// KeyValueStore describes key/value stores like redis and boltdb
 type KeyValueStore interface {
 	// Put adds a value to store
 	Put(Key, Value) error
