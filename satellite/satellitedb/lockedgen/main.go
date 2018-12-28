@@ -251,7 +251,7 @@ func (code *Code) PrintLockedFunc(receiverType string, method *types.Func, allow
 
 	code.Printf("	m.Lock(); defer m.Unlock()\n")
 	if code.NeedsWrapper(method) {
-		code.Printf("	return &%s{m.lock, ", code.WrapperTypeName(method))
+		code.Printf("	return &%s{m.Locker, ", code.WrapperTypeName(method))
 		code.Printf("m.db.%s", method.Name())
 		code.PrintCall(sig)
 		code.Printf("}\n")

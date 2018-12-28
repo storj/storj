@@ -36,14 +36,14 @@ func NewLocked(db satellite.DB) satellite.DB {
 func (m *Locked) Accounting() accounting.DB {
 	m.Lock()
 	defer m.Unlock()
-	return &lockedAccounting{m.lock, m.db.Accounting()}
+	return &lockedAccounting{m.Locker, m.db.Accounting()}
 }
 
 // BandwidthAgreement returns database for storing bandwidth agreements
 func (m *Locked) BandwidthAgreement() bwagreement.DB {
 	m.Lock()
 	defer m.Unlock()
-	return &lockedBandwidthAgreement{m.lock, m.db.BandwidthAgreement()}
+	return &lockedBandwidthAgreement{m.Locker, m.db.BandwidthAgreement()}
 }
 
 // Close closes the database
@@ -64,28 +64,28 @@ func (m *Locked) CreateTables() error {
 func (m *Locked) Irreparable() irreparable.DB {
 	m.Lock()
 	defer m.Unlock()
-	return &lockedIrreparable{m.lock, m.db.Irreparable()}
+	return &lockedIrreparable{m.Locker, m.db.Irreparable()}
 }
 
 // OverlayCache returns database for caching overlay information
 func (m *Locked) OverlayCache() storage.KeyValueStore {
 	m.Lock()
 	defer m.Unlock()
-	return &lockedOverlayCache{m.lock, m.db.OverlayCache()}
+	return &lockedOverlayCache{m.Locker, m.db.OverlayCache()}
 }
 
 // RepairQueue returns queue for segments that need repairing
 func (m *Locked) RepairQueue() queue.RepairQueue {
 	m.Lock()
 	defer m.Unlock()
-	return &lockedRepairQueue{m.lock, m.db.RepairQueue()}
+	return &lockedRepairQueue{m.Locker, m.db.RepairQueue()}
 }
 
 // StatDB returns database for storing node statistics
 func (m *Locked) StatDB() statdb.DB {
 	m.Lock()
 	defer m.Unlock()
-	return &lockedStatDB{m.lock, m.db.StatDB()}
+	return &lockedStatDB{m.Locker, m.db.StatDB()}
 }
 
 // lockedAccounting implements locking wrapper for accounting.DB
