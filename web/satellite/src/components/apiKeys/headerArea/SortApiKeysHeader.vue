@@ -7,7 +7,7 @@
             <p>Name</p>
             <div class="sort-header-container__item__arrows">
                 <span v-html="arrowUp"></span>
-                <span v-html="arrowDown"></span>
+                <span class="selected" v-html="arrowDown"></span>
             </div>
         </div>
         <div class="sort-header-container__item">
@@ -60,12 +60,10 @@ export default class SortApiKeysHeader extends Vue {
 
 <style scoped lang="scss">
     .sort-header-container {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: flex-start;
+        display: grid;
+        grid-template-columns: 24% 29% 19% 19% 14%;
         width: 100%;
-        height: 90px;
+        height: 80px;
         transition: box-shadow .2s ease-out;
         padding-left: 20px;
 
@@ -75,6 +73,7 @@ export default class SortApiKeysHeader extends Vue {
             align-items: center;
             margin: 0;
             cursor: pointer;
+            margin-left: 6px;
 
             &__arrows {
                 display: flex;
@@ -82,6 +81,16 @@ export default class SortApiKeysHeader extends Vue {
                 justify-content: flex-start;
                 padding-bottom: 12px;
                 margin-left: 10px;
+
+                span.selected {
+                    
+                    svg {
+
+                        path {
+                            fill: #2683FF !important;
+                        }
+                    }
+                }
 
                 span {
                     height: 10px;
@@ -93,9 +102,17 @@ export default class SortApiKeysHeader extends Vue {
                 font-size: 16px;
             }
             
-            &:nth-child(2) {
-                margin-left: 58px;
+            &:nth-child(1) {
+                margin-left: 0px;
             }
+        }
+    }
+
+    @media screen and (max-width: 1600px) {
+
+        .sort-header-container {
+            grid-template-columns: 25% 28% 19% 15% 14%;
+            height: 65px;
         }
     }
 </style>

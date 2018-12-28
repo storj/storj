@@ -14,11 +14,8 @@
                 <ApiKeysItem />
                 <ApiKeysItem />
                 <ApiKeysItem />
-                <ApiKeysItem />
-                <ApiKeysItem />
-                <ApiKeysItem />
-                <ApiKeysItem />
             </div>
+            <PaginationArea />
         </div>
         <EmptyState
             v-if="apiKeyItems === 0"
@@ -35,6 +32,7 @@ import EmptyState from '@/components/common/EmptyStateArea.vue';
 import HeaderArea from '@/components/apiKeys/headerArea/HeaderArea.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
+import PaginationArea from '@/components/apiKeys/PaginationArea.vue';
 
 @Component({
     data: function () {
@@ -49,6 +47,7 @@ import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
         EmptyState,
         HeaderArea,
         ApiKeysItem,
+        PaginationArea,
     }
 })
 
@@ -63,6 +62,5 @@ export default class ApiKeysArea extends Vue {
 
     .api-keys-container {
         padding: 0px 40px 0 60px;
-
     }
 </style>

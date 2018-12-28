@@ -5,11 +5,12 @@
     <div class="api-keys-header-container">
         <div class="api-keys-header-container__item">
             <SearchArea />
-            <Button label="New API Key" width="240px" height="58px" :onPress="onDeleteButtonClick" />
+            <Button label="New API Key" width="240px" height="54px" :onPress="toggleSelection" />
         </div>
         <div class="api-keys-header-container__item">
             <SortApiKeysHeader />
         </div>
+        <AddApiKeyPopup v-if="isPopupShown" @onClose="toggleSelection" />
     </div>
 </template>
 
@@ -18,12 +19,24 @@ import { Component, Vue } from 'vue-property-decorator';
 import SearchArea from './SearchArea.vue';
 import Button from '@/components/common/Button.vue';
 import SortApiKeysHeader from '@/components/apiKeys/headerArea/SortApiKeysHeader.vue';
+import AddApiKeyPopup from '@/components/apiKeys/AddApiKeyPopup.vue';
 
 @Component({
+    data: function() {
+        return {
+            isPopupShown: true,
+        }
+    },
     components: {
         SearchArea,
         Button,
         SortApiKeysHeader,
+        AddApiKeyPopup,
+    },
+    methods: {
+        toggleSelection: function () {
+            this.$data.isPopupShown = !this.$data.isPopupShown;
+        }
     }
 })
 
