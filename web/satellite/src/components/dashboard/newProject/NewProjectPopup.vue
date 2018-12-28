@@ -105,20 +105,19 @@ import Button from '@/components/common/Button.vue';
                     return;
                 }
 
-                let isSuccess = this.$store.dispatch('createProject', {
+                let response = await this.$store.dispatch('createProject', {
                     name: this.$data.name,
                     description: this.$data.description,
-                    isTermsAccepted: this.$data.isTermsAccepted,
-
+                    isTermsAccepted: this.$data.isTermsAccepted
                 });
 
-                if (!isSuccess) {
-                    // TODO: show popup here
-                    console.error('error during project creation!');
+                if (!response.isSuccess) {
+                    this.$store.dispatch('error', response.errorMessage);
 
                     return;
                 }
 
+                this.$store.dispatch('success', 'Project created successfully!');
                 this.$emit('onClose');
             }
         },

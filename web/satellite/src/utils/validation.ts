@@ -2,7 +2,13 @@
 // See LICENSE for copying information.
 
 export function validateEmail(email: string): boolean {
-	const rgx = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    const rgx = /.*@.*\..*$/;
 
-	return rgx.test(email);
+    return rgx.test(email);
+}
+
+export function validatePassword(password: string): boolean {
+    const rgx = /^(?=.*[0-9])(?=.*[a-zA-Z])([a-zA-Z0-9]+){6,}$/;
+
+    return rgx.test(password);
 }

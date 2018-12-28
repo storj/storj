@@ -31,6 +31,11 @@ CREATE TABLE bwagreements (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( signature )
 );
+CREATE TABLE injuredsegments (
+	id bigserial NOT NULL,
+	info bytea NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE irreparabledbs (
 	segmentpath bytea NOT NULL,
 	segmentdetail bytea NOT NULL,
