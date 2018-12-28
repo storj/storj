@@ -34,15 +34,19 @@ import Button from '@/components/common/Button.vue';
 @Component({
     methods: {
         onDelete: async function () {
-            const projectMemberIds = this.$store.getters.selectedProjectMembers.map((member: TeamMemberModel) => {
-                return member.user.id;
+            const projectMemberEmails = this.$store.getters.selectedProjectMembers.map((member: TeamMemberModel) => {
+                return member.user.email;
             });
 
-            const isSuccess = await this.$store.dispatch('deleteProjectMembers', projectMemberIds);
+            const isSuccess = await this.$store.dispatch('deleteProjectMembers', projectMemberEmails);
 
             if (!isSuccess) {
-                console.error('Error while deleting users from team');
+                this.$store.dispatch('error', 'Error while deleting users from team');
+
+                return;
             }
+
+            this.$store.dispatch('error', 'Members was successfully removed from project');
         },
         onClearSelection: function () {
             this.$store.dispatch('clearProjectMemberSelection');

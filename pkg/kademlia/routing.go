@@ -4,11 +4,14 @@
 package kademlia
 
 import (
+	"context"
 	"encoding/binary"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -31,6 +34,7 @@ type bucketID [len(storj.NodeID{})]byte
 
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
+	log              *zap.Logger
 	self             pb.Node
 	kadBucketDB      storage.KeyValueStore
 	nodeBucketDB     storage.KeyValueStore
@@ -44,8 +48,9 @@ type RoutingTable struct {
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
+func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
 	rt := &RoutingTable{
+		log:          logger,
 		self:         localNode,
 		kadBucketDB:  kdb,
 		nodeBucketDB: ndb,
@@ -201,4 +206,20 @@ func (rt *RoutingTable) GetBucketTimestamp(bIDBytes []byte) (time.Time, error) {
 
 func (rt *RoutingTable) iterate(opts storage.IterateOptions, f func(it storage.Iterator) error) error {
 	return rt.nodeBucketDB.Iterate(opts, f)
+}
+
+// ConnFailure implements the Transport failure function
+func (rt *RoutingTable) ConnFailure(ctx context.Context, node *pb.Node, err error) {
+	err2 := rt.ConnectionFailed(node)
+	if err2 != nil {
+		zap.L().Debug(fmt.Sprintf("error with ConnFailure hook  %+v : %+v", err, err2))
+	}
+}
+
+// ConnSuccess implements the Transport success function
+func (rt *RoutingTable) ConnSuccess(ctx context.Context, node *pb.Node) {
+	err := rt.ConnectionSuccess(node)
+	if err != nil {
+		zap.L().Debug("connection success error:", zap.Error(err))
+	}
 }

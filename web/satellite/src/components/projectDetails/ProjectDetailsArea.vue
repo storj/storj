@@ -95,21 +95,21 @@ import DeleteProjectPopup from '@/components/projectDetails/DeleteProjectPopup.v
                 this.$data.newDescription = value;
             },
             onSaveButtonClick: async function (): Promise<any> {
-                let isUpdateSuccess = await this.$store.dispatch(
+                let response = await this.$store.dispatch(
                     'updateProjectDescription', {
                         id: this.$store.getters.selectedProject.id,
                         description: this.$data.newDescription,
                     }
                 );
 
-                isUpdateSuccess
+                response.isSuccess
                     // TODO: call toggleEditing method instead of this IIF
                     ? (() => {
                         this.$data.isEditing = !this.$data.isEditing;
                         this.$data.newDescription = '';
+                        this.$store.dispatch('success', 'Project updated successfully!');
                     })()
-                    // TODO: popup error here
-                    : console.error('error during project updating!');
+                    : this.$store.dispatch('error', response.errorMessage);
             },
             toggleDeleteDialog: function (): void {
                 this.$data.isDeleteDialogShown = !this.$data.isDeleteDialogShown;

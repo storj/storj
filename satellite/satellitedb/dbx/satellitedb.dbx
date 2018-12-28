@@ -3,27 +3,29 @@
 //--- bwagreement ---//
 
 model bwagreement (
-	key signature 
+	key signature
 
-	field signature blob 
-
-	field data blob
-	
+	field signature  blob
+	field data       blob
 	field created_at timestamp ( autoinsert )
 )
 
 create bwagreement ( )
 delete bwagreement ( where bwagreement.signature = ? )
+
 read one (
-  select bwagreement 
-  where  bwagreement.signature = ?
+	select bwagreement
+	where  bwagreement.signature = ?
 )
+
 read limitoffset (
 	select bwagreement
 )
+
 read all (
 	select bwagreement
 )
+
 read all (
 	select bwagreement
 	where  bwagreement.created_at > ?
@@ -34,83 +36,90 @@ read all (
 model irreparabledb (
 	key segmentpath
 
-	field segmentpath blob
-	field segmentdetail blob (updatable)
-	field pieces_lost_count int64 (updatable)
-	field seg_damaged_unix_sec int64 (updatable)
-	field repair_attempt_count int64 (updatable)
+	field segmentpath          blob
+	field segmentdetail        blob  ( updatable )
+	field pieces_lost_count    int64 ( updatable )
+	field seg_damaged_unix_sec int64 ( updatable )
+	field repair_attempt_count int64 ( updatable )
 )
 
 create irreparabledb ( )
 update irreparabledb ( where irreparabledb.segmentpath = ? )
 delete irreparabledb ( where irreparabledb.segmentpath = ? )
+
 read one (
-  select irreparabledb 
-  where  irreparabledb.segmentpath = ?
+	select irreparabledb
+	where  irreparabledb.segmentpath = ?
 )
 
 //--- accounting ---//
 
 // accounting_timestamps just allows us to save the last time/thing that happened
 model accounting_timestamps (
-  key name
+	key name
 
-  field name            text
-  field value timestamp ( updatable )
+	field name  text
+	field value timestamp ( updatable )
 )
+
 create accounting_timestamps ( )
 update accounting_timestamps ( where accounting_timestamps.name = ? )
+
 read scalar (
-  select accounting_timestamps.value
-  where  accounting_timestamps.name = ?
+	select accounting_timestamps.value
+	where  accounting_timestamps.name  = ?
 )
 
 model accounting_rollup (
-  key id
-  
-  field id         serial64
-  field node_id    text
-  field start_time timestamp
-  field interval   int64
-  field data_type  int
-  field created_at timestamp ( autoinsert )
+	key id
+
+	field id         serial64
+	field node_id    text
+	field start_time timestamp
+	field interval   int64
+	field data_type  int
+	field created_at timestamp ( autoinsert )
 	field updated_at timestamp ( autoinsert, autoupdate )
 )
 
 create accounting_rollup ( )
 update accounting_rollup ( where accounting_rollup.id = ? )
 delete accounting_rollup ( where accounting_rollup.id = ? )
+
 read one (
-  select accounting_rollup
-  where  accounting_rollup.id = ?
+	select accounting_rollup
+	where  accounting_rollup.id = ?
 )
+
 read all (
-  select accounting_rollup
-  where accounting_rollup.node_id = ?
+	select accounting_rollup
+	where  accounting_rollup.node_id = ?
 )
 
 model accounting_raw (
-  key id
+	key id
 
-  field id serial64
-  field node_id    text
-  field interval_end_time   timestamp
-  field data_total int64
-  field data_type  int
-  field created_at timestamp ( autoinsert )
-  field updated_at timestamp ( autoinsert, autoupdate )
+	field id                serial64
+	field node_id           text
+	field interval_end_time timestamp
+	field data_total        int64
+	field data_type         int
+	field created_at        timestamp ( autoinsert )
+	field updated_at        timestamp ( autoinsert, autoupdate )
 )
 
 create accounting_raw ( )
 update accounting_raw ( where accounting_raw.id = ? )
 delete accounting_raw ( where accounting_raw.id = ? )
+
 read one (
-  select accounting_raw
-  where  accounting_raw.id = ?
+	select accounting_raw
+	where  accounting_raw.id = ?
 )
+
 read all (
-  select accounting_raw
-  where accounting_raw.node_id = ?
+	select accounting_raw
+	where  accounting_raw.node_id = ?
 )
 
 //--- statdb ---//
@@ -118,14 +127,14 @@ read all (
 model node (
 	key id
 
-	field id blob
-	field audit_success_count int64 (updatable)
-	field total_audit_count int64 (updatable)
-	field audit_success_ratio float64 (updatable)
+	field id                  blob
+	field audit_success_count int64   ( updatable )
+	field total_audit_count   int64   ( updatable )
+	field audit_success_ratio float64 ( updatable )
 
-	field uptime_success_count int64 (updatable)
-	field total_uptime_count int64 (updatable)
-	field uptime_ratio float64 (updatable)
+	field uptime_success_count int64   ( updatable )
+	field total_uptime_count   int64   ( updatable )
+	field uptime_ratio         float64 ( updatable )
 
 	field created_at timestamp ( autoinsert )
 	field updated_at timestamp ( autoinsert, autoupdate )
@@ -134,26 +143,27 @@ model node (
 create node ( )
 update node ( where node.id = ? )
 delete node ( where node.id = ? )
+
 read one (
-  select node
-  where  node.id = ?
+	select node
+	where  node.id = ?
 )
 
 //--- overlaycache ---//
 
 model overlay_cache_node (
-	key key
+	key    key
 	unique key
 
-	field key blob
-	field value blob (updatable)
+	field key   blob
+	field value blob ( updatable )
 )
 
 create overlay_cache_node ( )
 
 read one (
-  select overlay_cache_node 
-  where  overlay_cache_node.key = ?
+	select overlay_cache_node
+	where  overlay_cache_node.key = ?
 )
 
 read limitoffset (
@@ -162,7 +172,7 @@ read limitoffset (
 
 read limitoffset (
 	select overlay_cache_node
-  where  overlay_cache_node.key >= ?
+	where  overlay_cache_node.key >= ?
 )
 
 update overlay_cache_node ( where overlay_cache_node.key = ? )
@@ -171,16 +181,18 @@ delete overlay_cache_node ( where overlay_cache_node.key = ? )
 //--- repairqueue ---//
 
 model injuredsegment (
-  key id
+	key id
 
-  field id   serial64
+	field id   serial64
 	field info blob
 )
 
 create injuredsegment ( )
+
 read first (
 	select injuredsegment
 )
+
 read limitoffset (
 	select injuredsegment
 )

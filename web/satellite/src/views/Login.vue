@@ -64,14 +64,14 @@ import { getTokenRequest } from '@/api/users';
             this.$data.password = value;
         },
         onLogin: async function () {
-            let loginData = await getTokenRequest(this.$data.email, this.$data.password);
+            let loginResponse = await getTokenRequest(this.$data.email, this.$data.password);
+            if (!loginResponse.isSuccess) {
+                this.$store.dispatch('error', loginResponse.errorMessage);
 
-            if (!loginData) {
-                // TODO: show popup here
                 return;
             }
 
-            setToken(loginData.data.token.token);
+            setToken(loginResponse.data);
             this.$router.push(ROUTES.DASHBOARD.path);
         }
 
