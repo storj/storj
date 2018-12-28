@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package main
 
 import (
@@ -91,9 +94,9 @@ func (code *Code) PrintMutex() {
 	code.Imports["sync"] = true
 	code.Imports["storj.io/statellite"] = true
 
-	code.Printf("// Mutex implements a locking wrapper around satellite.DB\n")
-	code.Printf("type Mutex struct {\n")
-	code.Printf("	mu sync.Mutex\n")
+	code.Printf("// Locked implements a locking wrapper around satellite.DB\n")
+	code.Printf("type Locked struct {\n")
+	code.Printf("	sync.Locker\n")
 	code.Printf("	db satellite.DB\n")
 	code.Printf("}\n\n")
 
@@ -102,7 +105,7 @@ func (code *Code) PrintMutex() {
 	methods := dbObject.Type().Underlying().(Methods)
 
 	for i := 0; i < methods.NumMethods(); i++ {
-		code.PrintLockedFunc("Mutex", methods.Method(i), true)
+		code.PrintLockedFunc("Locked", methods.Method(i), true)
 	}
 
 	for i := 0; i < methods.NumMethods(); i++ {
@@ -187,26 +190,26 @@ func (code *Code) NeedsWrapper(method *types.Func) bool {
 }
 
 func (code *Code) WrapperTypeName(method *types.Func) string {
-	return "mu" + method.Name()
+	return "locked" + method.Name()
 }
 
 func (code *Code) PrintLockedFunc(receiverType string, method *types.Func, allowNesting bool) {
 	sig := method.Type().Underlying().(*types.Signature)
 	code.IncludeImports(sig)
 
-	code.Printf("func (mu *%s) %s", receiverType, method.Name())
+	code.Printf("func (m *%s) %s", receiverType, method.Name())
 	code.PrintSignature(sig)
 	code.Printf(" {\n")
 	defer code.Printf("}\n\n")
 
-	code.Printf("	mu.mu.Lock(); defer mu.mu.Unlock()\n")
+	code.Printf("	m.Lock(); defer m.Unlock()\n")
 	if code.NeedsWrapper(method) {
-		code.Printf("	return &%s{&mu.mu, ", code.WrapperTypeName(method))
-		code.Printf("mu.db.%s", method.Name())
+		code.Printf("	return &%s{m.lock, ", code.WrapperTypeName(method))
+		code.Printf("m.db.%s", method.Name())
 		code.PrintCall(sig)
 		code.Printf("}\n")
 	} else {
-		code.Printf("	return mu.db.%s", method.Name())
+		code.Printf("	return m.db.%s", method.Name())
 		code.PrintCall(sig)
 		code.Printf("\n")
 	}
@@ -220,7 +223,7 @@ func (code *Code) PrintWrapper(method *types.Func) {
 	receiverType := code.WrapperTypeName(method)
 	code.Printf("// %s implements locking wrapper for %s\n", receiverType, typeName(result))
 	code.Printf("type %s struct {\n", receiverType)
-	code.Printf("	mu *sync.Mutex\n")
+	code.Printf("	sync.Locker\n")
 	code.Printf("	db %s\n", typeName(result))
 	code.Printf("}\n\n")
 
