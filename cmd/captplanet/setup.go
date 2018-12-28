@@ -138,9 +138,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"satellite.identity.server.revocation-dburl": "redis://127.0.0.1:6378?db=2&password=abc123",
 		"satellite.kademlia.bootstrap-addr":          joinHostPort(setupCfg.ListenHost, startingPort+1),
 		"satellite.pointer-db.database-url":          "bolt://" + filepath.Join(setupDir, "satellite", "pointerdb.db"),
-		"satellite.overlay.database-url":             "bolt://" + filepath.Join(setupDir, "satellite", "overlay.db"),
 		"satellite.kademlia.alpha":                   3,
-		"satellite.repairer.queue-address":           "redis://127.0.0.1:6378?db=1&password=abc123",
 		"satellite.repairer.overlay-addr":            overlayAddr,
 		"satellite.repairer.pointer-db-addr":         joinHostPort(setupCfg.ListenHost, startingPort+1),
 		"satellite.repairer.api-key":                 setupCfg.APIKey,
@@ -165,7 +163,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 		// TODO: this is a source of bugs. this value should be pulled from
 		// kademlia instead
-		"piecestore.agreementsender.overlay_addr": overlayAddr,
+		"piecestore.agreementsender.overlay-addr": overlayAddr,
 
 		"log.development": true,
 		"log.level":       "debug",
