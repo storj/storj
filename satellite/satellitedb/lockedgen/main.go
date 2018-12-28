@@ -310,8 +310,10 @@ func (code *Code) MethodDoc(method *types.Func) string {
 // FindASTFile finds the *ast.File at the specified position.
 func (code *Code) FindASTFile(pos token.Pos) *ast.File {
 	seen := map[*packages.Package]bool{}
-	var findASTFile func(p *packages.Package) *ast.File
-	findASTFile = func(p *packages.Package) *ast.File {
+
+	// find searches pos recursively from p and its dependencies.
+	var find func(p *packages.Package) *ast.File
+	find = func(p *packages.Package) *ast.File {
 		if seen[p] {
 			return nil
 		}
@@ -324,8 +326,7 @@ func (code *Code) FindASTFile(pos token.Pos) *ast.File {
 		}
 
 		for _, dep := range p.Imports {
-			file := findASTFile(dep)
-			if file != nil {
+			if file := find(dep); file != nil {
 				return file
 			}
 		}
@@ -334,8 +335,7 @@ func (code *Code) FindASTFile(pos token.Pos) *ast.File {
 	}
 
 	for _, root := range code.Roots {
-		file := findASTFile(root)
-		if file != nil {
+		if file := find(root); file != nil {
 			return file
 		}
 	}
