@@ -148,6 +148,7 @@ func (code *Code) Printf(format string, a ...interface{}) {
 	fmt.Fprintf(&code.Source, format, a...)
 }
 
+// PrintSignature prints method signature.
 func (code *Code) PrintSignature(sig *types.Signature) {
 	code.PrintSignatureTuple(sig.Params(), true)
 	if sig.Results().Len() > 0 {
@@ -156,6 +157,7 @@ func (code *Code) PrintSignature(sig *types.Signature) {
 	}
 }
 
+// PrintSignatureTuple prints method tuple, params or results.
 func (code *Code) PrintSignatureTuple(tuple *types.Tuple, needsNames bool) {
 	code.Printf("(")
 	defer code.Printf(")")
@@ -173,6 +175,7 @@ func (code *Code) PrintSignatureTuple(tuple *types.Tuple, needsNames bool) {
 	}
 }
 
+// PrintCall prints a call using the specified signature.
 func (code *Code) PrintCall(sig *types.Signature) {
 	code.Printf("(")
 	defer code.Printf(")")
@@ -186,6 +189,7 @@ func (code *Code) PrintCall(sig *types.Signature) {
 	}
 }
 
+// PrintName prints an appropriate name from signature tuple.
 func (code *Code) PrintName(v *types.Var, index int, needsNames bool) bool {
 	name := v.Name()
 	if needsNames && name == "" {
@@ -200,10 +204,18 @@ func (code *Code) PrintName(v *types.Var, index int, needsNames bool) bool {
 	return name != ""
 }
 
+// PrintType prints short form of type t.
 func (code *Code) PrintType(t types.Type) {
 	types.WriteType(&code.Source, t, (*types.Package).Name)
 }
 
+func typeName(typ types.Type) string {
+	var body bytes.Buffer
+	types.WriteType(&body, typ, (*types.Package).Name)
+	return body.String()
+}
+
+// IncludeImports imports all types referenced in the signature.
 func (code *Code) IncludeImports(sig *types.Signature) {
 	var tmp bytes.Buffer
 	types.WriteSignature(&tmp, sig, func(p *types.Package) string {
@@ -212,15 +224,18 @@ func (code *Code) IncludeImports(sig *types.Signature) {
 	})
 }
 
+// NeedsWrapper checks whether method result needs a wrapper type.
 func (code *Code) NeedsWrapper(method *types.Func) bool {
 	sig := method.Type().Underlying().(*types.Signature)
 	return sig.Results().Len() == 1 && !code.Ignore[sig.Results().At(0).Type().String()]
 }
 
+// WrapperTypeName returns an appropariate name for the wrapper type.
 func (code *Code) WrapperTypeName(method *types.Func) string {
 	return "locked" + method.Name()
 }
 
+// PrintLockedFunc prints a method with locking and defers the actual logic to method.
 func (code *Code) PrintLockedFunc(receiverType string, method *types.Func, allowNesting bool) {
 	sig := method.Type().Underlying().(*types.Signature)
 	code.IncludeImports(sig)
@@ -247,6 +262,52 @@ func (code *Code) PrintLockedFunc(receiverType string, method *types.Func, allow
 	}
 }
 
+// PrintWrapper prints wrapper for the result type of method.
+func (code *Code) PrintWrapper(method *types.Func) {
+	sig := method.Type().Underlying().(*types.Signature)
+	results := sig.Results()
+	result := results.At(0).Type()
+
+	receiverType := code.WrapperTypeName(method)
+	code.Printf("// %s implements locking wrapper for %s\n", receiverType, typeName(result))
+	code.Printf("type %s struct {\n", receiverType)
+	code.Printf("	sync.Locker\n")
+	code.Printf("	db %s\n", typeName(result))
+	code.Printf("}\n\n")
+
+	methods := result.Underlying().(Methods)
+	for i := 0; i < methods.NumMethods(); i++ {
+		code.PrintLockedFunc(receiverType, methods.Method(i), false)
+	}
+}
+
+// MethodDoc finds documentation for the specified method.
+func (code *Code) MethodDoc(method *types.Func) string {
+	file := code.FindASTFile(method.Pos())
+	if file == nil {
+		return ""
+	}
+
+	path, exact := astutil.PathEnclosingInterval(file, method.Pos(), method.Pos())
+	if !exact {
+		return ""
+	}
+
+	for _, p := range path {
+		switch decl := p.(type) {
+		case *ast.Field:
+			return decl.Doc.Text()
+		case *ast.GenDecl:
+			return decl.Doc.Text()
+		case *ast.FuncDecl:
+			return decl.Doc.Text()
+		}
+	}
+
+	return ""
+}
+
+// FindASTFile finds the *ast.File at the specified position.
 func (code *Code) FindASTFile(pos token.Pos) *ast.File {
 	seen := map[*packages.Package]bool{}
 	var findASTFile func(p *packages.Package) *ast.File
@@ -279,53 +340,4 @@ func (code *Code) FindASTFile(pos token.Pos) *ast.File {
 		}
 	}
 	return nil
-}
-
-func (code *Code) MethodDoc(method *types.Func) string {
-	file := code.FindASTFile(method.Pos())
-	if file == nil {
-		return ""
-	}
-
-	path, exact := astutil.PathEnclosingInterval(file, method.Pos(), method.Pos())
-	if !exact {
-		return ""
-	}
-
-	for _, p := range path {
-		switch decl := p.(type) {
-		case *ast.Field:
-			return decl.Doc.Text()
-		case *ast.GenDecl:
-			return decl.Doc.Text()
-		case *ast.FuncDecl:
-			return decl.Doc.Text()
-		}
-	}
-
-	return ""
-}
-
-func (code *Code) PrintWrapper(method *types.Func) {
-	sig := method.Type().Underlying().(*types.Signature)
-	results := sig.Results()
-	result := results.At(0).Type()
-
-	receiverType := code.WrapperTypeName(method)
-	code.Printf("// %s implements locking wrapper for %s\n", receiverType, typeName(result))
-	code.Printf("type %s struct {\n", receiverType)
-	code.Printf("	sync.Locker\n")
-	code.Printf("	db %s\n", typeName(result))
-	code.Printf("}\n\n")
-
-	methods := result.Underlying().(Methods)
-	for i := 0; i < methods.NumMethods(); i++ {
-		code.PrintLockedFunc(receiverType, methods.Method(i), false)
-	}
-}
-
-func typeName(typ types.Type) string {
-	var body bytes.Buffer
-	types.WriteType(&body, typ, (*types.Package).Name)
-	return body.String()
 }
