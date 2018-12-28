@@ -6,6 +6,10 @@ TMP_DIR=$(mktemp -d -t tmp.XXXXXXXXXX)
 CMP_DIR=$(mktemp -d -t tmp.XXXXXXXXXX)
 # Clean up what we might have done
 cleanup(){
+	echo ""
+	echo ""
+	echo ""
+	echo "=> Testing finished, logs to follow"
 	echo "=> Satellite logs"
 	docker logs storj_satellite_1
 	echo "=> Storagenode logs"

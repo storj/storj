@@ -86,7 +86,7 @@ test-docker: ## Run tests in Docker
 all-in-one: ## Deploy docker images with one storagenode locally
 	export VERSION="${TAG}${CUSTOMTAG}" \
 	&& $(MAKE) satellite-image storagenode-image gateway-image \
-	&& docker-compose up storagenode satellite gateway
+	&& docker-compose up --scale storagenode=1 satellite gateway
 
 .PHONY: test-all-in-one
 test-all-in-one: ## Test docker images locally

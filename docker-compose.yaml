@@ -16,7 +16,7 @@ services:
     - POSTGRES_PASSWORD=storj-pass
 
   satellite:
-    image: storjlabs/satellite:${VERSION}
+    image: storjlabs/satellite:${VERSION:-latest}
     environment:
     - API_KEY=abc123
     - BOOTSTRAP_ADDR=localhost:8080
@@ -24,6 +24,7 @@ services:
     - STORJ_DATABASE=postgres://postgres:postgres@postgres/satellite?sslmode=disable
     - STORJ_LOG_LEVEL=debug
     - STORJ_REPAIRER_QUEUE_ADDRESS=redis://redis:6379/?db=0
+    - STORJ_IDENTITY_SERVER_ADDRESS=satellite:7777
     restart: always
     links:
     - redis
@@ -32,7 +33,7 @@ services:
     - redis
     - postgres
   storagenode:
-    image: storjlabs/storagenode:${VERSION}
+    image: storjlabs/storagenode:${VERSION:-latest}
     environment:
     - SATELLITE_ADDR=satellite:7777
     - STORJ_IDENTITY_SERVER_ADDRESS=storagenode:7777
@@ -43,7 +44,7 @@ services:
     links:
     - satellite
   gateway:
-    image: storjlabs/gateway:${VERSION}
+    image: storjlabs/gateway:${VERSION:-latest}
     command: --rs.min-threshold 1 --rs.max-threshold 2 --rs.repair-threshold 1 --rs.success-threshold 1
     environment:
     - API_KEY=abc123
