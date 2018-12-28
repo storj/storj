@@ -23,7 +23,7 @@ var (
 	Error = errs.Class("satellitedb")
 )
 
-//go:generate go run mutexgen/main.go
+//go:generate go run lockedgen/main.go -o locked.go
 
 // DB contains access to different database tables
 type DB struct {
