@@ -37,19 +37,22 @@ func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUI
 	}
 
 	var projectMembers []satellite.ProjectMember
-	searchSubQuery := "'%" + pagination.Search + "%'"
+	searchSubQuery := "%" + pagination.Search + "%"
+	//`+getOrder(pagination.Order)+`
 
-	rows, err := pm.db.Query(pm.db.Rebind(`
+	rebindedQuery := pm.db.Rebind(`
 		SELECT pm.*
 			FROM project_members pm
 				INNER JOIN users u ON pm.member_id = u.id
 					WHERE pm.project_id = ?
-					AND ( u.email LIKE `+searchSubQuery+` OR 
-						  u.first_name LIKE `+searchSubQuery+` OR 
-						  u.last_name LIKE `+searchSubQuery+` )
-						ORDER BY u.`+getOrder(pagination.Order)+` ASC
+					AND ( u.email LIKE ? OR 
+						  u.first_name LIKE ? OR 
+						  u.last_name LIKE ? )
+						ORDER BY ` + getOrder(pagination.Order) + ` ASC
 						LIMIT ? OFFSET ?
-					`), projectID[:], pagination.Limit, pagination.Offset)
+					`)
+
+	rows, err := pm.db.Query(rebindedQuery, projectID[:], searchSubQuery, searchSubQuery, searchSubQuery, pagination.Limit, pagination.Offset)
 
 	defer func() {
 		err = errs.Combine(err, rows.Close())
@@ -141,11 +144,11 @@ func projectMemberFromDBX(projectMember *dbx.ProjectMember) (*satellite.ProjectM
 func getOrder(pmo satellite.ProjectMemberOrder) string {
 	switch pmo {
 	case 2:
-		return "email"
+		return "u.email"
 	case 3:
-		return "created_at"
+		return "u.created_at"
 	default:
-		return "first_name"
+		return "u.first_name"
 	}
 }
 

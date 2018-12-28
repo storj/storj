@@ -91,13 +91,26 @@ func TestProjectMembersRepository(t *testing.T) {
 	})
 
 	t.Run("Get paged", func(t *testing.T) {
-		members, err := projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: 3, Offset: 0, Search: "", Order: 1})
+		// sql injection test. F.E '%SomeText%' = > ''%SomeText%' OR 'x' != '%'' will be true
+		members, err := projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: 6, Offset: 0, Search: "son%' OR 'x' != '", Order: 2})
+		assert.Nil(t, err)
+		assert.NoError(t, err)
+		assert.Nil(t, members)
+		assert.Equal(t, 0, len(members))
+
+		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: 3, Offset: 0, Search: "", Order: 1})
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
 		assert.Equal(t, 3, len(members))
 
-		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: 2, Offset: 0, Search: "Liam", Order: 5})
+		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: 2, Offset: 0, Search: "Liam", Order: 2})
+		assert.Nil(t, err)
+		assert.NoError(t, err)
+		assert.NotNil(t, members)
+		assert.Equal(t, 2, len(members))
+
+		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: 2, Offset: 0, Search: "Liam", Order: 1})
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
@@ -114,6 +127,12 @@ func TestProjectMembersRepository(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
 		assert.Equal(t, 2, len(members))
+
+		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: -123, Offset: -14, Search: "son", Order: 2})
+		assert.NotNil(t, err)
+		assert.Error(t, err)
+		assert.Nil(t, members)
+		assert.Equal(t, 0, len(members))
 	})
 
 	t.Run("Get member by memberID success", func(t *testing.T) {
@@ -137,15 +156,15 @@ func TestProjectMembersRepository(t *testing.T) {
 
 func prepareUsersAndProjects(ctx context.Context, t *testing.T, users satellite.Users, projects satellite.Projects) ([]*satellite.User, []*satellite.Project) {
 	usersList := []*satellite.User{{
-		Email:        "email1@ukr.net",
+		Email:        "2email2@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
 		LastName:     "Liam",
-		FirstName:    "Noahson",
+		FirstName:    "Jameson",
 	}, {
-		Email:        "email2@ukr.net",
+		Email:        "1email1@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
 		LastName:     "William",
-		FirstName:    "Jameson",
+		FirstName:    "Noahson",
 	}, {
 		Email:        "email3@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
