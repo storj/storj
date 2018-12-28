@@ -7,14 +7,16 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"go/format"
 	"go/types"
 	"sort"
 
 	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/imports"
 )
 
 func main() {
+	var outputPath string
+	flag.StringVar(&outputPath, "o", "locked.go", "output file name")
 	flag.Parse()
 
 	var code Code
@@ -39,12 +41,13 @@ func main() {
 
 	unformatted := code.Bytes()
 
-	source, err := format.Source(unformatted)
+	imports.LocalPrefix = "storj.io"
+	formatted, err := imports.Process(outputPath, unformatted, nil)
 	if err != nil {
 		fmt.Println(string(unformatted))
 		panic(err)
 	}
-	fmt.Println(string(source))
+	fmt.Println(string(formatted))
 }
 
 // Methods is the common interface for types having methods.
