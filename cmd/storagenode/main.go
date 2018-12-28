@@ -148,7 +148,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"piecestore.agreementsender.overlay-addr": defaultSatteliteAddr,
 	}
 
-	return process.SaveConfig(runCmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {

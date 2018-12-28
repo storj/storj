@@ -174,22 +174,17 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	for i := 0; i < len(runCfg.StorageNodes); i++ {
 		storagenodePath := filepath.Join(setupDir, fmt.Sprintf("f%d", i))
 		storagenode := fmt.Sprintf("storage-nodes.%02d.", i)
-		overrides[storagenode+"identity.cert-path"] = filepath.Join(
-			storagenodePath, "identity.cert")
-		overrides[storagenode+"identity.key-path"] = filepath.Join(
-			storagenodePath, "identity.key")
-		overrides[storagenode+"identity.server.address"] = joinHostPort(
-			setupCfg.ListenHost, startingPort+i*2+3)
-		overrides[storagenode+"identity.server.revocation-dburl"] = "bolt://" + filepath.Join(
-			storagenodePath, "revocations.db")
+		overrides[storagenode+"identity.cert-path"] = filepath.Join(storagenodePath, "identity.cert")
+		overrides[storagenode+"identity.key-path"] = filepath.Join(storagenodePath, "identity.key")
+		overrides[storagenode+"identity.server.address"] = joinHostPort(setupCfg.ListenHost, startingPort+i*2+3)
+		overrides[storagenode+"identity.server.revocation-dburl"] = "bolt://" + filepath.Join(storagenodePath, "revocations.db")
 		overrides[storagenode+"identity.server.revocation-dburl"] = "redis://127.0.0.1:6378?db=2&password=abc123"
-		overrides[storagenode+"kademlia.bootstrap-addr"] = joinHostPort(
-			setupCfg.ListenHost, startingPort+1)
+		overrides[storagenode+"kademlia.bootstrap-addr"] = joinHostPort(setupCfg.ListenHost, startingPort+1)
 		overrides[storagenode+"storage.path"] = filepath.Join(storagenodePath, "data")
 		overrides[storagenode+"kademlia.alpha"] = 3
 	}
 
-	return process.SaveConfig(runCmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 }
 
 func joinHostPort(host string, port int) string {
