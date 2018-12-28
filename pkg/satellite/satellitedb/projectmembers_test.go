@@ -218,3 +218,20 @@ func prepareUsersAndProjects(ctx context.Context, t *testing.T, users satellite.
 
 	return usersList, projectList
 }
+
+func TestSanitizedOrderColumnName(t *testing.T) {
+	testCases := [...]struct {
+		orderNumber int8
+		orderColumn string
+	}{
+		0: {0, "u.first_name"},
+		1: {1, "u.first_name"},
+		2: {2, "u.email"},
+		3: {3, "u.created_at"},
+		4: {4, "u.first_name"},
+	}
+
+	for _, tc := range testCases {
+		assert.Equal(t, tc.orderColumn, sanitizedOrderColumnName(satellite.ProjectMemberOrder(tc.orderNumber)))
+	}
+}

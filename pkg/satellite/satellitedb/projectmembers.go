@@ -48,7 +48,7 @@ func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUI
 					AND ( u.email LIKE ? OR 
 						  u.first_name LIKE ? OR 
 						  u.last_name LIKE ? )
-						ORDER BY ` + getOrder(pagination.Order) + ` ASC
+						ORDER BY ` + sanitizedOrderColumnName(pagination.Order) + ` ASC
 						LIMIT ? OFFSET ?
 					`)
 
@@ -140,8 +140,8 @@ func projectMemberFromDBX(projectMember *dbx.ProjectMember) (*satellite.ProjectM
 	}, nil
 }
 
-// getOrder return valid order by column
-func getOrder(pmo satellite.ProjectMemberOrder) string {
+// sanitizedOrderColumnName return valid order by column
+func sanitizedOrderColumnName(pmo satellite.ProjectMemberOrder) string {
 	switch pmo {
 	case 2:
 		return "u.email"
