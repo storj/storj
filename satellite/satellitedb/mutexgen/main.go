@@ -100,6 +100,11 @@ func (code *Code) PrintMutex() {
 	code.Printf("	db satellite.DB\n")
 	code.Printf("}\n\n")
 
+	code.Printf("// NewLocked returns database wrapped with locker\n")
+	code.Printf("func NewLocked(db satellite.DB) satellite.DB {\n")
+	code.Printf("	return &Locked{&sync.Mutex{}, db}\n")
+	code.Printf("}\n\n")
+
 	// find the satellite.DB type info
 	dbObject := code.Roots[0].Types.Scope().Lookup("DB")
 	methods := dbObject.Type().Underlying().(Methods)
