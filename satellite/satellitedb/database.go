@@ -45,7 +45,7 @@ func New(databaseURL string) (satellite.DB, error) {
 
 	core := &DB{db: db}
 	if driver == "sqlite3" {
-		return NewMutex(core), nil
+		return NewLocked(core), nil
 	}
 	return core, nil
 }
