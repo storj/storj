@@ -29,15 +29,17 @@ type Server struct {
 	cache     *Cache
 	metrics   *monkit.Registry
 	nodeStats *pb.NodeStats
+	self      storj.NodeID
 }
 
 // NewServer creates a new Overlay Server
-func NewServer(log *zap.Logger, cache *Cache, nodeStats *pb.NodeStats) *Server {
+func NewServer(log *zap.Logger, cache *Cache, nodeStats *pb.NodeStats, self storj.NodeID) *Server {
 	return &Server{
 		cache:     cache,
 		log:       log,
 		metrics:   monkit.Default,
 		nodeStats: nodeStats,
+		self:      self,
 	}
 }
 
@@ -73,6 +75,9 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 	}
 
 	excluded := opts.ExcludedNodes
+	// exclude non storage node from results
+	excluded = append(excluded, server.self)
+
 	restrictions := opts.GetRestrictions()
 	reputation := server.nodeStats
 

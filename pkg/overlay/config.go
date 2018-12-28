@@ -79,7 +79,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		AuditCount:        c.Node.AuditCount,
 	}
 
-	srv := NewServer(zap.L(), cache, ns)
+	srv := NewServer(zap.L(), cache, ns, server.Identity().ID)
 	pb.RegisterOverlayServer(server.GRPC(), srv)
 
 	ctx2 := context.WithValue(ctx, ctxKeyOverlay, cache)
