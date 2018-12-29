@@ -5,7 +5,7 @@ import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
 
 // Performs graqhQL request for project creation.
-export async function createProject(project: Project): Promise<RequestResponse<Project>> {
+export async function createProjectRequest(project: Project): Promise<RequestResponse<Project>> {
     let result: RequestResponse<Project> = {
         errorMessage: '',
         isSuccess: false,
@@ -44,7 +44,7 @@ export async function createProject(project: Project): Promise<RequestResponse<P
 }
 
 // Performs graqhQL request for fetching all projects of current user.
-export async function fetchProjects(): Promise<RequestResponse<Project[]>> {
+export async function fetchProjectsRequest(): Promise<RequestResponse<Project[]>> {
     let result: RequestResponse<Project[]> = {
         errorMessage: '',
         isSuccess: false,
@@ -82,7 +82,7 @@ export async function fetchProjects(): Promise<RequestResponse<Project[]>> {
 }
 
 // Performs graqhQL request for updating selected project description
-export async function updateProject(projectID: string, description: string): Promise<RequestResponse<null>> {
+export async function updateProjectRequest(projectID: string, description: string): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = {
         errorMessage: '',
         isSuccess: false,
@@ -117,7 +117,7 @@ export async function updateProject(projectID: string, description: string): Pro
 }
 
 // Performs graqhQL request for deleting selected project
-export async function deleteProject(projectID: string): Promise<RequestResponse<null>> {
+export async function deleteProjectRequest(projectID: string): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = {
         errorMessage: '',
         isSuccess: false,

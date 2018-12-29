@@ -27,7 +27,6 @@ export const usersModule = {
 			state.user.firstName = '';
 			state.user.lastName = '';
 			state.user.email = '';
-			state.user.id = '';
 		},
 
 		[USER_MUTATIONS.UPDATE_USER_INFO](state: any, user: User): void {
