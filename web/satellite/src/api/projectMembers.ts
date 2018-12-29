@@ -6,7 +6,7 @@ import gql from 'graphql-tag';
 
 // Performs graqhQL request.
 // Throws an exception if error occurs
-export async function addProjectMembers(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
+export async function addProjectMembersRequest(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
 	let result: RequestResponse<null> = {
         errorMessage: '',
         isSuccess: false,
@@ -42,7 +42,7 @@ export async function addProjectMembers(projectID: string, emails: string[]): Pr
 
 // Performs graqhQL request.
 // Throws an exception if error occurs
-export async function deleteProjectMembers(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
+export async function deleteProjectMembersRequest(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
 	let result: RequestResponse<null> = {
         errorMessage: '',
         isSuccess: false,
@@ -78,7 +78,7 @@ export async function deleteProjectMembers(projectID: string, emails: string[]):
 
 // Performs graqhQL request.
 // Throws an exception if error occurs
-export async function fetchProjectMembers(projectID: string, limit: string, offset: string): Promise<RequestResponse<TeamMemberModel[]>> {
+export async function fetchProjectMembersRequest(projectID: string, limit: string, offset: string): Promise<RequestResponse<TeamMemberModel[]>> {
 	let result: RequestResponse<TeamMemberModel[]> = {
         errorMessage: '',
         isSuccess: false,

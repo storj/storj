@@ -2,7 +2,11 @@
 // See LICENSE for copying information.
 
 import { PROJECT_MEMBER_MUTATIONS } from '../mutationConstants';
-import { addProjectMembers, deleteProjectMembers, fetchProjectMembers } from '@/api/projectMembers';
+import {
+	addProjectMembersRequest,
+	deleteProjectMembersRequest,
+	fetchProjectMembersRequest
+} from '@/api/projectMembers';
 
 export const projectMembersModule = {
 	state: {
@@ -42,14 +46,12 @@ export const projectMembersModule = {
 		addProjectMembers: async function ({rootGetters}: any, emails: string[]): Promise<RequestResponse<null>> {
 			const projectId = rootGetters.selectedProject.id;
 			
-			const response = await addProjectMembers(projectId, emails);
-
-			return response;
+			return await addProjectMembersRequest(projectId, emails);
 		},
 		deleteProjectMembers: async function ({commit, rootGetters}: any, projectMemberEmails: string[]): Promise<RequestResponse<null>> {
 			const projectId = rootGetters.selectedProject.id;
 
-			const response = await deleteProjectMembers(projectId, projectMemberEmails);
+			const response = await deleteProjectMembersRequest(projectId, projectMemberEmails);
 
 			if (response.isSuccess) {
 				commit(PROJECT_MEMBER_MUTATIONS.DELETE, projectMemberEmails);
@@ -65,7 +67,7 @@ export const projectMembersModule = {
 		},
 		fetchProjectMembers: async function ({commit, rootGetters}: any, limitoffset: any): Promise<RequestResponse<TeamMemberModel[]>> {
 			const projectId = rootGetters.selectedProject.id;
-			const response = await fetchProjectMembers(projectId, limitoffset.limit, limitoffset.offset);
+			const response = await fetchProjectMembersRequest(projectId, limitoffset.limit, limitoffset.offset);
 
 			if (response.isSuccess) {
 				commit(PROJECT_MEMBER_MUTATIONS.FETCH, response.data);
