@@ -2,10 +2,6 @@ import { usersModule } from '@/store/modules/users';
 import { changePasswordRequest, deleteAccountRequest, getUserRequest, updateAccountRequest } from '@/api/users';
 import { USER_MUTATIONS } from '@/store/mutationConstants';
 
-const { SET_USER_INFO, REVERT_TO_DEFAULT_USER_INFO, UPDATE_USER_INFO } = usersModule.mutations;
-const { updateAccount, changePassword, deleteAccount, getUser } = usersModule.actions;
-const { user, userName } = usersModule.getters;
-
 describe('mutations', () => {
 	it('Set user info', () => {
 		const state = {
@@ -22,7 +18,7 @@ describe('mutations', () => {
 			email: 'email'
 		};
 
-		SET_USER_INFO(state, user);
+		usersModule.mutations.SET_USER_INFO(state, user);
 
 		expect(state.user.email).toBe('email');
 		expect(state.user.firstName).toBe('firstName');
@@ -38,7 +34,7 @@ describe('mutations', () => {
 			}
 		};
 
-		REVERT_TO_DEFAULT_USER_INFO(state);
+		usersModule.mutations.REVERT_TO_DEFAULT_USER_INFO(state);
 
 		expect(state.user.email).toBe('');
 		expect(state.user.firstName).toBe('');
@@ -53,14 +49,13 @@ describe('mutations', () => {
 				email: ''
 			}
 		};
-
 		const user = {
 			firstName: 'firstName',
 			lastName: 'lastName',
 			email: 'email'
 		};
 
-		UPDATE_USER_INFO(state, user);
+		usersModule.mutations.UPDATE_USER_INFO(state, user);
 
 		expect(state.user.email).toBe('email');
 		expect(state.user.firstName).toBe('firstName');
@@ -83,7 +78,8 @@ describe('actions', () => {
 			lastName: '',
 			email: ''
 		};
-		await updateAccount({commit}, user);
+
+		await usersModule.actions.updateAccount({commit}, user);
 
 		expect(commit).toHaveBeenCalledWith(USER_MUTATIONS.UPDATE_USER_INFO, {
 			firstName: 'firstName',
@@ -102,7 +98,8 @@ describe('actions', () => {
 			lastName: '',
 			email: ''
 		};
-		await updateAccount({commit}, user);
+
+		await usersModule.actions.updateAccount({commit}, user);
 
 		expect(commit).toHaveBeenCalledTimes(0);
 	});
@@ -111,7 +108,8 @@ describe('actions', () => {
 		changePasswordRequest = jest.fn().mockReturnValue({isSuccess: true});
 		const commit = jest.fn();
 		const updatePasswordModel = {oldPassword: 'o', newPassword: 'n'};
-		const requestResponse = await changePassword({commit}, updatePasswordModel);
+
+		const requestResponse = await usersModule.actions.changePassword({commit}, updatePasswordModel);
 
 		expect(requestResponse.isSuccess).toBeTruthy();
 	});
@@ -121,7 +119,8 @@ describe('actions', () => {
 		const commit = jest.fn();
 		const password = '';
 
-		const requestResponse = await deleteAccount(commit, password);
+		const requestResponse = await usersModule.actions.deleteAccount(commit, password);
+
 		expect(requestResponse.isSuccess).toBeTruthy();
 	});
 
@@ -134,17 +133,19 @@ describe('actions', () => {
 				email: ''
 			}
 		});
-
 		const commit = jest.fn();
-		const requestResponse = await getUser({commit});
+
+		const requestResponse = await usersModule.actions.getUser({commit});
+
 		expect(requestResponse.isSuccess).toBeTruthy();
 	});
 
 	it('error get user', async () => {
 		getUserRequest = jest.fn().mockReturnValue({isSuccess: false});
-
 		const commit = jest.fn();
-		const requestResponse = await getUser({commit});
+
+		const requestResponse = await usersModule.actions.getUser({commit});
+
 		expect(requestResponse.isSuccess).toBeFalsy();
 	});
 });
@@ -159,12 +160,13 @@ describe('getters', () => {
 			}
 		};
 
-		const retrievedUser = user(state);
+		const retrievedUser = usersModule.getters.user(state);
 
 		expect(retrievedUser.firstName).toBe('firstName');
 		expect(retrievedUser.lastName).toBe('lastName');
 		expect(retrievedUser.email).toBe('email');
 	});
+
 	it('user name', function () {
 		const state = {
 			user: {
@@ -173,7 +175,7 @@ describe('getters', () => {
 			}
 		};
 
-		const retrievedUserName = userName(state);
+		const retrievedUserName = usersModule.getters.userName(state);
 
 		expect(retrievedUserName).toBe('John Doe');
 	});
