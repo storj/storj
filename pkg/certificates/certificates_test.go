@@ -295,110 +295,75 @@ func TestAuthorizationDB_Emails(t *testing.T) {
 	assert.NotEmpty(t, userIDs)
 }
 
-func TestParseToken(t *testing.T) {
-	defaultUserID := "user@example.com"
-	defaultData := [tokenDataLength]byte{1, 2, 3}
-	defaultRun := func(userID string, data []byte) (*Token, error) {
-		b58Data := base58.CheckEncode(data, tokenVersion)
-		tokenString := userID + tokenDelimiter + b58Data
-		return ParseToken(tokenString)
-	}
+func TestParseToken_Valid(t *testing.T) {
+	userID := "user@example.com"
+	data := [tokenDataLength]byte{1, 2, 3}
 
 	cases := []struct {
-		testID   string
-		userID   string
-		run      func(string, []byte) (*Token, error)
-		errClass *errs.Class
-		err      error
+		testID string
+		userID string
 	}{
 		{
 			"valid token",
-			defaultUserID,
-			defaultRun,
-			nil,
-			nil,
+			userID,
 		},
 		{
 			"multiple delimiters",
 			"us" + tokenDelimiter + "er@example.com",
-			defaultRun,
-			nil,
-			nil,
-		},
-		{
-			"no delimiter",
-			defaultUserID,
-			func(userID string, data []byte) (*Token, error) {
-				b58Data := base58.CheckEncode(data, tokenVersion)
-				tokenString := userID + b58Data
-				return ParseToken(tokenString)
-			},
-			&ErrToken,
-			ErrTokenDelimiter,
-		},
-		{
-			"missing userID",
-			"",
-			defaultRun,
-			&ErrToken,
-			ErrTokenUserID,
-		},
-		{
-			"not enough data",
-			defaultUserID,
-			func(userID string, data []byte) (*Token, error) {
-				b58Data := base58.CheckEncode(data[:len(data)-10], tokenVersion)
-				tokenString := userID + tokenDelimiter + b58Data
-				return ParseToken(tokenString)
-			},
-			&ErrToken,
-			ErrTokenData,
-		},
-		{
-			"too much data",
-			defaultUserID,
-			func(userID string, data []byte) (*Token, error) {
-				var extra [10]byte
-				b58Data := base58.CheckEncode(append(data, extra[:]...), tokenVersion)
-				tokenString := userID + tokenDelimiter + b58Data
-				return ParseToken(tokenString)
-			},
-			&ErrToken,
-			ErrTokenData,
-		},
-		{
-			"data checksum/format error",
-			defaultUserID,
-			func(userID string, data []byte) (*Token, error) {
-				b58Data := base58.CheckEncode(data, tokenVersion)
-				tokenString := userID + tokenDelimiter + b58Data[:len(b58Data)-4] + "0000"
-				return ParseToken(tokenString)
-			},
-			&ErrToken,
-			ErrToken.Wrap(base58.ErrInvalidFormat),
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
-			token, err := c.run(c.userID, defaultData[:])
-			if c.errClass != nil {
-				assert.True(t, c.errClass.Has(err))
+			b58Data := base58.CheckEncode(data[:], tokenVersion)
+			tokenString := c.userID + tokenDelimiter + b58Data
+			token, err := ParseToken(tokenString)
+
+			assert.NoError(t, err)
+			if !assert.NotNil(t, token) {
+				t.FailNow()
 			}
-			if c.err != nil {
-				if !assert.Error(t, err) {
-					t.FailNow()
-				}
-				assert.Equal(t, c.err.Error(), err.Error())
-			}
-			if c.errClass == nil && c.err == nil {
-				assert.NoError(t, err)
-				if !assert.NotNil(t, token) {
-					t.FailNow()
-				}
-				assert.Equal(t, c.userID, token.UserID)
-				assert.Equal(t, defaultData[:], token.Data[:])
-			}
+			assert.Equal(t, c.userID, token.UserID)
+			assert.Equal(t, data[:], token.Data[:])
+		})
+	}
+}
+
+func TestParseToken_Invalid(t *testing.T) {
+	userID := "user@example.com"
+	data := [tokenDataLength]byte{1, 2, 3}
+
+	cases := []struct {
+		testID      string
+		tokenString string
+	}{
+		{
+			"no delimiter",
+			userID + base58.CheckEncode(data[:], tokenVersion),
+		},
+		{
+			"missing userID",
+			tokenDelimiter + base58.CheckEncode(data[:], tokenVersion),
+		},
+		{
+			"not enough data",
+			userID + tokenDelimiter + base58.CheckEncode(data[:len(data)-10], tokenVersion),
+		},
+		{
+			"too much data",
+			userID + tokenDelimiter + base58.CheckEncode(append(data[:], []byte{0, 0, 0}...), tokenVersion),
+		},
+		{
+			"data checksum/format error",
+			userID + tokenDelimiter + base58.CheckEncode(data[:], tokenVersion)[:len(base58.CheckEncode(data[:], tokenVersion))-4] + "0000",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			token, err := ParseToken(c.tokenString)
+			assert.Nil(t, token)
+			assert.True(t, ErrInvalidToken.Has(err))
 		})
 	}
 }
