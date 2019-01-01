@@ -18,5 +18,5 @@ message SigningRequest {
 }
 
 message SigningResponse {
-    bytes cert = 1;
+    repeated bytes chain = 1;
 }

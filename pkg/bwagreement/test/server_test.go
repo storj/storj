@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
-	testidentity "storj.io/storj/internal/identity"
 	"storj.io/storj/internal/testcontext"
+	testidentity "storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
@@ -41,7 +41,7 @@ func TestBandwidthAgreements(t *testing.T) {
 }
 
 func generateKeys(ctx context.Context, t *testing.T) (satellitePubKey *ecdsa.PublicKey, satellitePrivKey *ecdsa.PrivateKey, uplinkPrivKey *ecdsa.PrivateKey) {
-	fiS, err := testidentity.NewTestIdentity()
+	fiS, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
 
 	satellitePubKey, ok := fiS.Leaf.PublicKey.(*ecdsa.PublicKey)
@@ -50,7 +50,7 @@ func generateKeys(ctx context.Context, t *testing.T) (satellitePubKey *ecdsa.Pub
 	satellitePrivKey, ok = fiS.Key.(*ecdsa.PrivateKey)
 	assert.True(t, ok)
 
-	fiU, err := testidentity.NewTestIdentity()
+	fiU, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
 
 	uplinkPrivKey, ok = fiU.Key.(*ecdsa.PrivateKey)
