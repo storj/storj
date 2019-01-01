@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/pkg/server"
 )
 
-func TestNewServerOptions(t *testing.T) {
+func TestNewOptions(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -32,16 +32,16 @@ func TestNewServerOptions(t *testing.T) {
 
 	cases := []struct {
 		testID      string
-		config      server.ServerConfig
+		config      server.Config
 		pcvFuncsLen int
 	}{
 		{
 			"default",
-			server.ServerConfig{},
+			server.Config{},
 			0,
 		}, {
 			"revocation processing",
-			server.ServerConfig{
+			server.Config{
 				RevocationDBURL: "bolt://" + ctx.File("revocation1.db"),
 				Extensions: peertls.TLSExtConfig{
 					Revocation: true,
@@ -50,13 +50,13 @@ func TestNewServerOptions(t *testing.T) {
 			2,
 		}, {
 			"ca whitelist verification",
-			server.ServerConfig{
+			server.Config{
 				PeerCAWhitelistPath: whitelistPath,
 			},
 			1,
 		}, {
 			"ca whitelist verification and whitelist signed leaf verification",
-			server.ServerConfig{
+			server.Config{
 				// NB: file doesn't actually exist
 				PeerCAWhitelistPath: whitelistPath,
 				Extensions: peertls.TLSExtConfig{
@@ -66,7 +66,7 @@ func TestNewServerOptions(t *testing.T) {
 			2,
 		}, {
 			"revocation processing and whitelist verification",
-			server.ServerConfig{
+			server.Config{
 				// NB: file doesn't actually exist
 				PeerCAWhitelistPath: whitelistPath,
 				RevocationDBURL:     "bolt://" + ctx.File("revocation2.db"),
@@ -77,7 +77,7 @@ func TestNewServerOptions(t *testing.T) {
 			3,
 		}, {
 			"revocation processing, whitelist, and signed leaf verification",
-			server.ServerConfig{
+			server.Config{
 				// NB: file doesn't actually exist
 				PeerCAWhitelistPath: whitelistPath,
 				RevocationDBURL:     "bolt://" + ctx.File("revocation3.db"),
@@ -92,7 +92,7 @@ func TestNewServerOptions(t *testing.T) {
 
 	for _, c := range cases {
 		t.Log(c.testID)
-		opts, err := server.NewServerOptions(fi, c.config)
+		opts, err := server.NewOptions(fi, c.config)
 		assert.NoError(t, err)
 		assert.True(t, reflect.DeepEqual(fi, opts.Ident))
 		assert.Equal(t, c.config, opts.Config)

@@ -90,11 +90,11 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	assert.Equal(t, leafKey, fullIdent.Key)
 }
 
-func TestIdentityConfig_SaveIdentity(t *testing.T) {
+func TestConfig_SaveIdentity(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	ic := &identity.IdentityConfig{
+	ic := &identity.Config{
 		CertPath: ctx.File("chain.pem"),
 		KeyPath:  ctx.File("key.pem"),
 	}

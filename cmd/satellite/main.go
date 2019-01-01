@@ -62,7 +62,7 @@ var (
 	}
 
 	runCfg struct {
-		Server      server.ServerConfig
+		Server      server.Config
 		Kademlia    kademlia.Config
 		PointerDB   pointerdb.Config
 		Overlay     overlay.Config
@@ -75,7 +75,7 @@ var (
 	}
 	setupCfg struct {
 		CA        identity.CASetupConfig
-		Identity  identity.IdentitySetupConfig
+		Identity  identity.SetupConfig
 		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 	diagCfg struct {

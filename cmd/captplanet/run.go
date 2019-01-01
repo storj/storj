@@ -40,7 +40,7 @@ const (
 
 // Satellite is for configuring client
 type Satellite struct {
-	Server      server.ServerConfig
+	Server      server.Config
 	Kademlia    kademlia.Config
 	PointerDB   pointerdb.Config
 	Overlay     overlay.Config
@@ -58,7 +58,7 @@ type Satellite struct {
 
 // StorageNode is for configuring storage nodes
 type StorageNode struct {
-	Server   server.ServerConfig
+	Server   server.Config
 	Kademlia kademlia.Config
 	Storage  psserver.Config
 }

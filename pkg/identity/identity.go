@@ -49,18 +49,18 @@ type FullIdentity struct {
 	Key crypto.PrivateKey
 }
 
-// IdentitySetupConfig allows you to run a set of Responsibilities with the given
+// SetupConfig allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
-type IdentitySetupConfig struct {
+type SetupConfig struct {
 	CertPath  string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`
 	KeyPath   string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
 	Overwrite bool   `help:"if true, existing identity certs AND keys will overwritten for" default:"false"`
 	Version   string `help:"semantic version of identity storage format" default:"0"`
 }
 
-// IdentityConfig allows you to run a set of Responsibilities with the given
+// Config allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
-type IdentityConfig struct {
+type Config struct {
 	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`
 	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
 }
@@ -177,18 +177,18 @@ func NewFullIdentity(ctx context.Context, difficulty uint16, concurrency uint) (
 }
 
 // Status returns the status of the identity cert/key files for the config
-func (is IdentitySetupConfig) Status() TLSFilesStatus {
+func (is SetupConfig) Status() TLSFilesStatus {
 	return statTLSFiles(is.CertPath, is.KeyPath)
 }
 
 // Create generates and saves a CA using the config
-func (is IdentitySetupConfig) Create(ca *FullCertificateAuthority) (*FullIdentity, error) {
+func (is SetupConfig) Create(ca *FullCertificateAuthority) (*FullIdentity, error) {
 	fi, err := ca.NewIdentity()
 	if err != nil {
 		return nil, err
 	}
 	fi.CA = ca.Cert
-	ic := IdentityConfig{
+	ic := Config{
 		CertPath: is.CertPath,
 		KeyPath:  is.KeyPath,
 	}
@@ -196,7 +196,7 @@ func (is IdentitySetupConfig) Create(ca *FullCertificateAuthority) (*FullIdentit
 }
 
 // Load loads a FullIdentity from the config
-func (ic IdentityConfig) Load() (*FullIdentity, error) {
+func (ic Config) Load() (*FullIdentity, error) {
 	c, err := ioutil.ReadFile(ic.CertPath)
 	if err != nil {
 		return nil, peertls.ErrNotExist.Wrap(err)
@@ -214,7 +214,7 @@ func (ic IdentityConfig) Load() (*FullIdentity, error) {
 }
 
 // Save saves a FullIdentity according to the config
-func (ic IdentityConfig) Save(fi *FullIdentity) error {
+func (ic Config) Save(fi *FullIdentity) error {
 	var (
 		certData, keyData                                              bytes.Buffer
 		writeChainErr, writeChainDataErr, writeKeyErr, writeKeyDataErr error
@@ -303,7 +303,8 @@ func (fi *FullIdentity) DialOption(id storj.NodeID) (grpc.DialOption, error) {
 }
 
 func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
-	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
+	return func(_ [][]byte, parsedChains [][]*x509.Certificate) (err error) {
+		defer mon.TaskNamed("verifyIdentity")(nil)(&err)
 		if id == (storj.NodeID{}) {
 			return nil
 		}

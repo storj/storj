@@ -77,13 +77,13 @@ var (
 		// NB: cert and key paths overridden in setup
 		CA identity.CASetupConfig
 		// NB: cert and key paths overridden in setup
-		Identity identity.IdentitySetupConfig
+		Identity identity.SetupConfig
 		certificates.CertSignerConfig
 	}
 
 	runCfg struct {
 		CertSigner certificates.CertSignerConfig
-		Server     server.ServerConfig
+		Server     server.Config
 	}
 
 	authCreateCfg struct {

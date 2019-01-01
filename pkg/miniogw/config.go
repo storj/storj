@@ -73,7 +73,7 @@ type ServerConfig struct {
 // Config is a general miniogw configuration struct. This should be everything
 // one needs to start a minio gateway.
 type Config struct {
-	Identity identity.IdentityConfig
+	Identity identity.Config
 	Server   ServerConfig
 	Minio    MinioConfig
 	Client   ClientConfig

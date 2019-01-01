@@ -9,30 +9,49 @@ import (
 )
 
 type (
-	Provider     = server.Server
-	ServerConfig = server.ServerConfig
-
-	FullIdentity             = identity.FullIdentity
-	PeerIdentity             = identity.PeerIdentity
-	CASetupConfig            = identity.CASetupConfig
-	PeerCAConfig             = identity.PeerCAConfig
-	FullCAConfig             = identity.FullCAConfig
-	IdentitySetupConfig      = identity.IdentitySetupConfig
-	IdentityConfig           = identity.IdentityConfig
-	NewCAOptions             = identity.NewCAOptions
+	// Provider Transition: pkg/provider is going away.
+	Provider = server.Server
+	// ServerConfig Transition: pkg/provider is going away.
+	ServerConfig = server.Config
+	// FullIdentity Transition: pkg/provider is going away.
+	FullIdentity = identity.FullIdentity
+	// PeerIdentity Transition: pkg/provider is going away.
+	PeerIdentity = identity.PeerIdentity
+	// CASetupConfig Transition: pkg/provider is going away.
+	CASetupConfig = identity.CASetupConfig
+	// PeerCAConfig Transition: pkg/provider is going away.
+	PeerCAConfig = identity.PeerCAConfig
+	// FullCAConfig Transition: pkg/provider is going away.
+	FullCAConfig = identity.FullCAConfig
+	// IdentitySetupConfig Transition: pkg/provider is going away.
+	IdentitySetupConfig = identity.SetupConfig
+	// IdentityConfig Transition: pkg/provider is going away.
+	IdentityConfig = identity.Config
+	// NewCAOptions Transition: pkg/provider is going away.
+	NewCAOptions = identity.NewCAOptions
+	// FullCertificateAuthority Transition: pkg/provider is going away.
 	FullCertificateAuthority = identity.FullCertificateAuthority
 )
 
 var (
-	NewServerOptions = server.NewServerOptions
-	NewProvider      = server.NewServer
-
+	// NewServerOptions Transition: pkg/provider is going away.
+	NewServerOptions = server.NewOptions
+	// NewProvider Transition: pkg/provider is going away.
+	NewProvider = server.NewServer
+	// PeerIdentityFromContext Transition: pkg/provider is going away.
 	PeerIdentityFromContext = identity.PeerIdentityFromContext
-	NewFullIdentity         = identity.NewFullIdentity
-	SetupIdentity           = identity.SetupIdentity
-	SetupCA                 = identity.SetupCA
-	NewCA                   = identity.NewCA
-	ErrSetup                = identity.ErrSetup
-	NoCertNoKey             = identity.NoCertNoKey
-	FullIdentityFromPEM     = identity.FullIdentityFromPEM
+	// NewFullIdentity Transition: pkg/provider is going away.
+	NewFullIdentity = identity.NewFullIdentity
+	// SetupIdentity Transition: pkg/provider is going away.
+	SetupIdentity = identity.SetupIdentity
+	// SetupCA Transition: pkg/provider is going away.
+	SetupCA = identity.SetupCA
+	// NewCA Transition: pkg/provider is going away.
+	NewCA = identity.NewCA
+	// ErrSetup Transition: pkg/provider is going away.
+	ErrSetup = identity.ErrSetup
+	// NoCertNoKey Transition: pkg/provider is going away.
+	NoCertNoKey = identity.NoCertNoKey
+	// FullIdentityFromPEM Transition: pkg/provider is going away.
+	FullIdentityFromPEM = identity.FullIdentityFromPEM
 )

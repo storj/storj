@@ -175,7 +175,10 @@ func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
 }
 
 // NewCA creates a new full identity with the given difficulty
-func NewCA(ctx context.Context, opts NewCAOptions) (*FullCertificateAuthority, error) {
+func NewCA(ctx context.Context, opts NewCAOptions) (
+	rv *FullCertificateAuthority, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if opts.Concurrency < 1 {
 		opts.Concurrency = 1
 	}

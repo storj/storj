@@ -16,7 +16,7 @@ var (
 )
 
 // SetupIdentity ensures a CA and identity exist
-func SetupIdentity(ctx context.Context, c CASetupConfig, i IdentitySetupConfig) error {
+func SetupIdentity(ctx context.Context, c CASetupConfig, i SetupConfig) error {
 	if s := c.Status(); s != NoCertNoKey && !c.Overwrite {
 		return ErrSetup.New("certificate authority file(s) exist: %s", s)
 	}
