@@ -62,9 +62,9 @@ var _Discovery_serviceDesc = grpc.ServiceDesc{
 	Metadata:    "discovery.proto",
 }
 
-func init() { proto.RegisterFile("discovery.proto", fileDescriptor_discovery_38baf63dfe55b3f3) }
+func init() { proto.RegisterFile("discovery.proto", fileDescriptor_discovery_dad7ee7ef07fc70d) }
 
-var fileDescriptor_discovery_38baf63dfe55b3f3 = []byte{
+var fileDescriptor_discovery_dad7ee7ef07fc70d = []byte{
 	// 71 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x4f, 0xc9, 0x2c, 0x4e,
 	0xce, 0x2f, 0x4b, 0x2d, 0xaa, 0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x84, 0x0b, 0x48,

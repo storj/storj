@@ -35,11 +35,9 @@ message Node {
 // NodeType is an enum of possible node types
 enum NodeType {
     INVALID = 0;
-    ADMIN = 1;
+    SATELLITE = 1;
     STORAGE = 2;
-    SATELLITE = 3;
-    UPLINK = 4;
-    UNKNOWN = 5;
+    UPLINK = 3;
 }
 
 // NodeAddress contains the information needed to communicate with a node on the network
