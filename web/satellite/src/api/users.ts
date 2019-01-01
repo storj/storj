@@ -49,7 +49,7 @@ export async function updateAccountRequest(user: User): Promise<RequestResponse<
         result.errorMessage = e.message;
     }
 
-	return result;
+    return result;
 }
 
 // Performs change password graphQL mutation
@@ -87,7 +87,7 @@ export async function changePasswordRequest(password: string, newPassword: strin
         result.errorMessage = e.message;
     }
 
-	return result;
+    return result;
 }
 
 // Performs Create user graqhQL request.
@@ -128,7 +128,7 @@ export async function createUserRequest(user: User, password: string): Promise<R
         result.errorMessage = e.message;
     }
 
-	return result;
+    return result;
 }
 
 // Performs graqhQL request.

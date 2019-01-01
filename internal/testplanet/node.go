@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storage/teststore"
 )
@@ -39,7 +40,7 @@ type Node struct {
 	Discovery *discovery.Discovery
 	StatDB    statdb.DB
 	Overlay   *overlay.Cache
-	Database  *satellitedb.DB
+	Database  satellite.DB
 
 	Dependencies []io.Closer
 }

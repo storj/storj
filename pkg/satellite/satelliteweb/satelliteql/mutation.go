@@ -23,8 +23,11 @@ const (
 	deleteProjectMutation            = "deleteProject"
 	updateProjectDescriptionMutation = "updateProjectDescription"
 
-	addProjectMemberMutation    = "addProjectMember"
-	deleteProjectMemberMutation = "deleteProjectMember"
+	addProjectMembersMutation    = "addProjectMembers"
+	deleteProjectMembersMutation = "deleteProjectMembers"
+
+	createAPIKeyMutation = "createAPIKey"
+	deleteAPIKeyMutation = "deleteAPIKey"
 
 	input = "input"
 
@@ -189,7 +192,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 				},
 			},
 			// add user as member of given project
-			addProjectMemberMutation: &graphql.Field{
+			addProjectMembersMutation: &graphql.Field{
 				Type: types.Project(),
 				Args: graphql.FieldConfigArgument{
 					fieldProjectID: &graphql.ArgumentConfig{
@@ -222,7 +225,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 				},
 			},
 			// delete user membership for given project
-			deleteProjectMemberMutation: &graphql.Field{
+			deleteProjectMembersMutation: &graphql.Field{
 				Type: types.Project(),
 				Args: graphql.FieldConfigArgument{
 					fieldProjectID: &graphql.ArgumentConfig{
@@ -252,6 +255,66 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 					}
 
 					return service.GetProject(p.Context, *projectID)
+				},
+			},
+			// creates new api key
+			createAPIKeyMutation: &graphql.Field{
+				Type: types.CreateAPIKey(),
+				Args: graphql.FieldConfigArgument{
+					fieldProjectID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					fieldName: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					projectID, _ := p.Args[fieldProjectID].(string)
+					name, _ := p.Args[fieldName].(string)
+
+					pID, err := uuid.Parse(projectID)
+					if err != nil {
+						return nil, err
+					}
+
+					info, key, err := service.CreateAPIKey(p.Context, *pID, name)
+					if err != nil {
+						return nil, err
+					}
+
+					return createAPIKey{
+						Key:     key,
+						KeyInfo: info,
+					}, nil
+				},
+			},
+			// deletes api key
+			deleteAPIKeyMutation: &graphql.Field{
+				Type: types.APIKeyInfo(),
+				Args: graphql.FieldConfigArgument{
+					fieldID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					keyID, _ := p.Args[fieldID].(string)
+
+					id, err := uuid.Parse(keyID)
+					if err != nil {
+						return nil, err
+					}
+
+					key, err := service.GetAPIKeyInfo(p.Context, *id)
+					if err != nil {
+						return nil, err
+					}
+
+					err = service.DeleteAPIKey(p.Context, *id)
+					if err != nil {
+						return nil, err
+					}
+
+					return key, nil
 				},
 			},
 		},

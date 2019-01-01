@@ -17,22 +17,24 @@ const (
 
 // Parser is a PacketDest that sends data to a MetricDest
 type Parser struct {
-	d       MetricDest
-	f       []*PacketFilter
+	dest    MetricDest
+	filters []*PacketFilter
 	scratch sync.Pool
 }
 
-// NewParser creates a Parser. It sends metrics to d, provided they pass all
+// NewParser creates a Parser. It sends metrics to dest, provided they pass all
 // of the provided PacketFilters
-func NewParser(d MetricDest, f ...*PacketFilter) *Parser {
+func NewParser(dest MetricDest, filters ...*PacketFilter) *Parser {
 	return &Parser{
-		d: d, f: f,
+		dest:    dest,
+		filters: filters,
 		scratch: sync.Pool{
 			New: func() interface{} {
 				var x [10 * kb]byte
 				return &x
 			},
-		}}
+		},
+	}
 }
 
 // Packet implements PacketDest
@@ -41,19 +43,23 @@ func (p *Parser) Packet(data []byte, ts time.Time) (err error) {
 	if err != nil {
 		return err
 	}
+
 	scratch := p.scratch.Get().(*[10 * kb]byte)
 	defer p.scratch.Put(scratch)
+
 	r := admproto.NewReaderWith((*scratch)[:])
 	data, appb, instb, err := r.Begin(data)
 	if err != nil {
 		return err
 	}
+
 	app, inst := string(appb), string(instb)
-	for _, f := range p.f {
-		if !f.Filter(app, inst) {
+	for _, filter := range p.filters {
+		if !filter.Filter(app, inst) {
 			return nil
 		}
 	}
+
 	var key []byte
 	var value float64
 	for len(data) > 0 {
@@ -61,11 +67,12 @@ func (p *Parser) Packet(data []byte, ts time.Time) (err error) {
 		if err != nil {
 			return err
 		}
-		err = p.d.Metric(app, inst, key, value, ts)
+		err = p.dest.Metric(app, inst, key, value, ts)
 		if err != nil {
 			log.Printf("failed to write metric: %v", err)
 			continue
 		}
 	}
+
 	return nil
 }

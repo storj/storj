@@ -15,8 +15,9 @@ import (
 // GraphiteDest is a MetricDest that sends data with the Graphite TCP wire
 // protocol
 type GraphiteDest struct {
-	mtx     sync.Mutex
 	address string
+
+	mu      sync.Mutex
 	conn    net.Conn
 	buf     *bufio.Writer
 	stopped bool
@@ -33,11 +34,9 @@ func NewGraphiteDest(address string) *GraphiteDest {
 }
 
 // Metric implements MetricDest
-func (d *GraphiteDest) Metric(application, instance string,
-	key []byte, val float64, ts time.Time) error {
-
-	d.mtx.Lock()
-	defer d.mtx.Unlock()
+func (d *GraphiteDest) Metric(application, instance string, key []byte, val float64, ts time.Time) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
 	if d.conn == nil {
 		conn, err := net.Dial("tcp", d.address)
@@ -48,32 +47,31 @@ func (d *GraphiteDest) Metric(application, instance string,
 		d.buf = bufio.NewWriter(conn)
 	}
 
-	_, err := fmt.Fprintf(d.buf, "%s.%s.%s %v %d\n", application, string(key),
-		instance, val, ts.Unix())
+	_, err := fmt.Fprintf(d.buf, "%s.%s.%s %v %d\n", application, string(key), instance, val, ts.Unix())
 	return err
 }
 
 // Close stops the flushing goroutine
 func (d *GraphiteDest) Close() error {
-	d.mtx.Lock()
+	d.mu.Lock()
 	d.stopped = true
-	d.mtx.Unlock()
+	d.mu.Unlock()
 	return nil
 }
 
 func (d *GraphiteDest) flush() {
 	for {
 		time.Sleep(5 * time.Second)
-		d.mtx.Lock()
+		d.mu.Lock()
 		if d.stopped {
-			d.mtx.Unlock()
+			d.mu.Unlock()
 			return
 		}
 		var err error
 		if d.buf != nil {
 			err = d.buf.Flush()
 		}
-		d.mtx.Unlock()
+		d.mu.Unlock()
 		if err != nil {
 			log.Printf("failed flushing: %v", err)
 		}
