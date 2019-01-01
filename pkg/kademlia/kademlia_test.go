@@ -99,7 +99,7 @@ func TestPeerDiscovery(t *testing.T) {
 	targetServer, _, targetID, targetAddress := startTestNodeServer(ctx)
 	defer targetServer.Stop()
 
-	bootstrapNodes := []pb.Node{{Id: bootID.ID, Address: &pb.NodeAddress{Address: bootAddress}, Type: pb.NodeType_UNKNOWN}}
+	bootstrapNodes := []pb.Node{{Id: bootID.ID, Address: &pb.NodeAddress{Address: bootAddress}, Type: pb.NodeType_STORAGE}}
 	metadata := &pb.NodeMetadata{
 		Email:  "foo@bar.com",
 		Wallet: "FarmerWallet",
@@ -121,7 +121,7 @@ func TestPeerDiscovery(t *testing.T) {
 		expectedErr error
 	}{
 		{target: func() storj.NodeID {
-			mockBootServer.returnValue = []*pb.Node{{Id: targetID.ID, Type: pb.NodeType_UNKNOWN, Address: &pb.NodeAddress{Address: targetAddress}}}
+			mockBootServer.returnValue = []*pb.Node{{Id: targetID.ID, Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: targetAddress}}}
 			return targetID.ID
 		}(),
 			expected:    &pb.Node{},

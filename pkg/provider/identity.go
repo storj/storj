@@ -20,7 +20,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
@@ -282,7 +281,7 @@ func (ic IdentityConfig) Save(fi *FullIdentity) error {
 }
 
 // Run will run the given responsibilities with the configured identity.
-func (ic IdentityConfig) Run(ctx context.Context, interceptor grpc.UnaryServerInterceptor, nodeType pb.NodeType, responsibilities ...Responsibility) (err error) {
+func (ic IdentityConfig) Run(ctx context.Context, interceptor grpc.UnaryServerInterceptor, responsibilities ...Responsibility) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ident, err := ic.Load()
@@ -302,7 +301,7 @@ func (ic IdentityConfig) Run(ctx context.Context, interceptor grpc.UnaryServerIn
 	}
 	defer func() { err = utils.CombineErrors(err, opts.RevDB.Close()) }()
 
-	s, err := NewProvider(opts, lis, interceptor, nodeType, responsibilities...)
+	s, err := NewProvider(opts, lis, interceptor, responsibilities...)
 	if err != nil {
 		return err
 	}

@@ -51,7 +51,7 @@ var (
 
 	runCfg struct {
 		Identity provider.IdentityConfig
-		Kademlia kademlia.Config
+		Kademlia kademlia.StorageNodeConfig
 		Storage  psserver.Config
 	}
 	setupCfg struct {
@@ -104,7 +104,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Info("Farmer wallet: ", farmerConfig.Wallet)
 	}
 
-	return runCfg.Identity.Run(process.Ctx(cmd), nil, pb.NodeType_STORAGE, runCfg.Kademlia, runCfg.Storage)
+	return runCfg.Identity.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

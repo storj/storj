@@ -25,7 +25,6 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
@@ -42,7 +41,7 @@ const (
 // Satellite is for configuring client
 type Satellite struct {
 	Identity    provider.IdentityConfig
-	Kademlia    kademlia.Config
+	Kademlia    kademlia.SatelliteConfig
 	PointerDB   pointerdb.Config
 	Overlay     overlay.Config
 	Inspector   inspector.Config
@@ -60,7 +59,7 @@ type Satellite struct {
 // StorageNode is for configuring storage nodes
 type StorageNode struct {
 	Identity provider.IdentityConfig
-	Kademlia kademlia.Config
+	Kademlia kademlia.StorageNodeConfig
 	Storage  psserver.Config
 }
 
@@ -129,7 +128,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		// Run satellite
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			grpcauth.NewAPIKeyInterceptor(),
-			pb.NodeType_SATELLITE,
 			runCfg.Satellite.Kademlia,
 			runCfg.Satellite.Audit,
 			runCfg.Satellite.Overlay,
@@ -163,7 +161,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
 
 			_, _ = fmt.Printf("Starting storage node %d %s (kad on %s)\n", i, storagenode, address)
-			errch <- v.Identity.Run(ctx, nil, pb.NodeType_STORAGE, v.Kademlia, v.Storage)
+			errch <- v.Identity.Run(ctx, nil, v.Kademlia, v.Storage)
 		}(i, v)
 	}
 	// start s3 uplink

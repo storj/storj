@@ -260,7 +260,9 @@ func GetIntroNode(addr string) (*pb.Node, error) {
 			Transport: defaultTransport,
 			Address:   addr,
 		},
-		Type: pb.NodeType_UNKNOWN,
+		// TODO: nodetype is an assumption for now, but we shouldn't need to know
+		// or care for bootstrapping
+		Type: pb.NodeType_SATELLITE,
 	}, nil
 }
 

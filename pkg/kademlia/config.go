@@ -51,9 +51,28 @@ type Config struct {
 	Farmer          FarmerConfig
 }
 
-// Run implements provider.Responsibility
-func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
+// StorageNodeConfig is a Config that implements provider.Responsibility as
+// a storage node
+type StorageNodeConfig Config
 
+// Run implements provider.Responsibility
+func (c StorageNodeConfig) Run(ctx context.Context, server *provider.Provider) error {
+	return Config(c).Run(ctx, server, pb.NodeType_STORAGE)
+}
+
+// SatelliteConfig is a Config that implements provider.Responsibility as
+// a satellite
+type SatelliteConfig Config
+
+// Run implements provider.Responsibility
+func (c SatelliteConfig) Run(ctx context.Context, server *provider.Provider) error {
+	return Config(c).Run(ctx, server, pb.NodeType_SATELLITE)
+}
+
+// Run does not implement provider.Responsibility. Please use a specific
+// SatelliteConfig or StorageNodeConfig
+func (c Config) Run(ctx context.Context, server *provider.Provider,
+	nodeType pb.NodeType) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO(coyle): I'm thinking we just remove  this function and grab from the config.
@@ -73,7 +92,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	}
 
 	logger := zap.L()
-	kad, err := NewKademlia(logger, server.Identity().ID, server.NodeType(), []pb.Node{*in}, addr, metadata, server.Identity(), c.DBPath, c.Alpha)
+	kad, err := NewKademlia(logger, server.Identity().ID, nodeType, []pb.Node{*in}, addr, metadata, server.Identity(), c.DBPath, c.Alpha)
 	if err != nil {
 		return err
 	}

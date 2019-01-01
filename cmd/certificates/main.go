@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
@@ -166,7 +165,7 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 func cmdRun(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	return runCfg.Identity.Run(ctx, nil, pb.NodeType_ADMIN, runCfg.CertSigner)
+	return runCfg.Identity.Run(ctx, nil, runCfg.CertSigner)
 }
 
 func cmdCreateAuth(cmd *cobra.Command, args []string) error {

@@ -62,7 +62,7 @@ var (
 
 	runCfg struct {
 		Identity    provider.IdentityConfig
-		Kademlia    kademlia.Config
+		Kademlia    kademlia.SatelliteConfig
 		PointerDB   pointerdb.Config
 		Overlay     overlay.Config
 		Checker     checker.Config
@@ -128,7 +128,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	return runCfg.Identity.Run(
 		ctx,
 		grpcauth.NewAPIKeyInterceptor(),
-		pb.NodeType_SATELLITE,
 		runCfg.Kademlia,
 		runCfg.Overlay,
 		runCfg.PointerDB,
