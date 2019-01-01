@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package provider
+package identity
 
 import (
 	"bytes"
@@ -154,7 +154,7 @@ func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
 
-	chain, err := decodeAndParseChainPEM(chainPEM)
+	chain, err := DecodeAndParseChainPEM(chainPEM)
 	if err != nil {
 		return nil, errs.New("failed to load identity %#v: %v",
 			pc.CertPath, err)

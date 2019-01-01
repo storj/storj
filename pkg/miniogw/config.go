@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
@@ -64,10 +65,16 @@ type ClientConfig struct {
 	SegmentSize   int64  `help:"the size of a segment in bytes" default:"64000000"`
 }
 
+// ServerConfig determines how minio listens for requests
+type ServerConfig struct {
+	Address string `help:"address to serve S3 api over" default:"localhost:7777"`
+}
+
 // Config is a general miniogw configuration struct. This should be everything
 // one needs to start a minio gateway.
 type Config struct {
-	Identity provider.IdentityConfig
+	Identity identity.IdentityConfig
+	Server   ServerConfig
 	Minio    MinioConfig
 	Client   ClientConfig
 	RS       RSConfig
@@ -106,7 +113,7 @@ func (c Config) Run(ctx context.Context) (err error) {
 	}
 
 	minio.Main([]string{"storj", "gateway", "storj",
-		"--address", c.Identity.Server.Address, "--config-dir", c.Minio.Dir, "--quiet"})
+		"--address", c.Server.Address, "--config-dir", c.Minio.Dir, "--quiet"})
 	return Error.New("unexpected minio exit")
 }
 

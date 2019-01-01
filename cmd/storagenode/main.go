@@ -18,12 +18,13 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -50,13 +51,13 @@ var (
 	}
 
 	runCfg struct {
-		Identity provider.IdentityConfig
+		Server   server.ServerConfig
 		Kademlia kademlia.Config
 		Storage  psserver.Config
 	}
 	setupCfg struct {
-		CA        provider.CASetupConfig
-		Identity  provider.IdentitySetupConfig
+		CA        identity.CASetupConfig
+		Identity  identity.IdentitySetupConfig
 		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 	diagCfg struct {
@@ -104,7 +105,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Info("Farmer wallet: ", farmerConfig.Wallet)
 	}
 
-	return runCfg.Identity.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
+	return runCfg.Server.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -134,7 +135,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
 	setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 
-	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
+	err = identity.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
 		return err
 	}

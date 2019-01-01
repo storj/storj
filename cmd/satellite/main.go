@@ -23,12 +23,13 @@ import (
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/discovery"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -61,7 +62,7 @@ var (
 	}
 
 	runCfg struct {
-		Identity    provider.IdentityConfig
+		Server      server.ServerConfig
 		Kademlia    kademlia.Config
 		PointerDB   pointerdb.Config
 		Overlay     overlay.Config
@@ -73,8 +74,8 @@ var (
 		Discovery   discovery.Config
 	}
 	setupCfg struct {
-		CA        provider.CASetupConfig
-		Identity  provider.IdentitySetupConfig
+		CA        identity.CASetupConfig
+		Identity  identity.IdentitySetupConfig
 		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 	diagCfg struct {
@@ -125,7 +126,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	//nolint ignoring context rules to not create cyclic dependency, will be removed later
 	ctx = context.WithValue(ctx, "masterdb", database)
 
-	return runCfg.Identity.Run(
+	return runCfg.Server.Run(
 		ctx,
 		grpcauth.NewAPIKeyInterceptor(),
 		runCfg.Kademlia,
@@ -169,7 +170,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
 		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 	}
-	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
+	err = identity.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
 		return err
 	}

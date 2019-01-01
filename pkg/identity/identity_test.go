@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package provider_test
+package identity_test
 
 import (
 	"bytes"
@@ -9,17 +9,15 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
-	"io/ioutil"
 	"os"
-	"reflect"
 	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/provider"
 )
 
 func TestPeerIdentityFromCertChain(t *testing.T) {
@@ -41,7 +39,7 @@ func TestPeerIdentityFromCertChain(t *testing.T) {
 	leafCert, err := peertls.NewCert(leafKey, caKey, leafTemplate, caTemplate)
 	assert.NoError(t, err)
 
-	peerIdent, err := provider.PeerIdentityFromCerts(leafCert, caCert, nil)
+	peerIdent, err := identity.PeerIdentityFromCerts(leafCert, caCert, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, caCert, peerIdent.CA)
 	assert.Equal(t, leafCert, peerIdent.Leaf)
@@ -85,7 +83,7 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	keyPEM := bytes.NewBuffer([]byte{})
 	assert.NoError(t, pem.Encode(keyPEM, peertls.NewKeyBlock(leafKeyBytes)))
 
-	fullIdent, err := provider.FullIdentityFromPEM(chainPEM.Bytes(), keyPEM.Bytes())
+	fullIdent, err := identity.FullIdentityFromPEM(chainPEM.Bytes(), keyPEM.Bytes())
 	assert.NoError(t, err)
 	assert.Equal(t, leafCert.Raw, fullIdent.Leaf.Raw)
 	assert.Equal(t, caCert.Raw, fullIdent.CA.Raw)
@@ -96,7 +94,7 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	ic := &provider.IdentityConfig{
+	ic := &identity.IdentityConfig{
 		CertPath: ctx.File("chain.pem"),
 		KeyPath:  ctx.File("key.pem"),
 	}
@@ -145,7 +143,7 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 }
 
 func TestVerifyPeer(t *testing.T) {
-	ca, err := provider.NewCA(context.Background(), provider.NewCAOptions{
+	ca, err := identity.NewCA(context.Background(), identity.NewCAOptions{
 		Difficulty:  12,
 		Concurrency: 4,
 	})
@@ -158,91 +156,7 @@ func TestVerifyPeer(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestNewServerOptions(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	fi := pregeneratedIdentity(t)
-
-	whitelistPath := ctx.File("whitelist.pem")
-
-	chainData, err := peertls.ChainBytes(fi.CA)
-	assert.NoError(t, err)
-
-	err = ioutil.WriteFile(whitelistPath, chainData, 0644)
-	assert.NoError(t, err)
-
-	cases := []struct {
-		testID      string
-		config      provider.ServerConfig
-		pcvFuncsLen int
-	}{
-		{
-			"default",
-			provider.ServerConfig{},
-			0,
-		}, {
-			"revocation processing",
-			provider.ServerConfig{
-				RevocationDBURL: "bolt://" + ctx.File("revocation1.db"),
-				Extensions: peertls.TLSExtConfig{
-					Revocation: true,
-				},
-			},
-			2,
-		}, {
-			"ca whitelist verification",
-			provider.ServerConfig{
-				PeerCAWhitelistPath: whitelistPath,
-			},
-			1,
-		}, {
-			"ca whitelist verification and whitelist signed leaf verification",
-			provider.ServerConfig{
-				// NB: file doesn't actually exist
-				PeerCAWhitelistPath: whitelistPath,
-				Extensions: peertls.TLSExtConfig{
-					WhitelistSignedLeaf: true,
-				},
-			},
-			2,
-		}, {
-			"revocation processing and whitelist verification",
-			provider.ServerConfig{
-				// NB: file doesn't actually exist
-				PeerCAWhitelistPath: whitelistPath,
-				RevocationDBURL:     "bolt://" + ctx.File("revocation2.db"),
-				Extensions: peertls.TLSExtConfig{
-					Revocation: true,
-				},
-			},
-			3,
-		}, {
-			"revocation processing, whitelist, and signed leaf verification",
-			provider.ServerConfig{
-				// NB: file doesn't actually exist
-				PeerCAWhitelistPath: whitelistPath,
-				RevocationDBURL:     "bolt://" + ctx.File("revocation3.db"),
-				Extensions: peertls.TLSExtConfig{
-					Revocation:          true,
-					WhitelistSignedLeaf: true,
-				},
-			},
-			3,
-		},
-	}
-
-	for _, c := range cases {
-		t.Log(c.testID)
-		opts, err := provider.NewServerOptions(fi, c.config)
-		assert.NoError(t, err)
-		assert.True(t, reflect.DeepEqual(fi, opts.Ident))
-		assert.Equal(t, c.config, opts.Config)
-		assert.Len(t, opts.PCVFuncs, c.pcvFuncsLen)
-	}
-}
-
-func pregeneratedIdentity(t *testing.T) *provider.FullIdentity {
+func pregeneratedIdentity(t *testing.T) *identity.FullIdentity {
 	const chain = `-----BEGIN CERTIFICATE-----
 MIIBQDCB56ADAgECAhB+u3d03qyW/ROgwy/ZsPccMAoGCCqGSM49BAMCMAAwIhgP
 MDAwMTAxMDEwMDAwMDBaGA8wMDAxMDEwMTAwMDAwMFowADBZMBMGByqGSM49AgEG
@@ -268,7 +182,7 @@ AwEHoUQDQgAEoLy/0hs5deTXZunRumsMkiHpF0g8wAc58aXANmr7Mxx9tzoIYFnx
 0YN4VDKdCtUJa29yA6TIz1MiIDUAcB5YCA==
 -----END EC PRIVATE KEY-----`
 
-	fi, err := provider.FullIdentityFromPEM([]byte(chain), []byte(key))
+	fi, err := identity.FullIdentityFromPEM([]byte(chain), []byte(key))
 	assert.NoError(t, err)
 
 	return fi
