@@ -3,6 +3,11 @@
 
 <template>
     <div class="input-wrap">
+        <div class="label-container">
+			<img v-if="error" src="../../../static/images/register/ErrorInfo.svg"/>
+			<h3 v-if="!error && label">{{label}}</h3>
+			<h3 class="label-container__error" v-if="error">{{error}}</h3>
+		</div>
         <input
             @input="onInput"
             :placeholder="this.$props.placeholder"
@@ -44,11 +49,11 @@ import { Component, Vue } from 'vue-property-decorator';
         },
         methods: {
             // Emits data to parent component
-            onInput() {
+            onInput: function(): void {
                 this.$emit('setData', this.$data.value);
             },
             // Change condition of password visibility
-            changeVision() {
+            changeVision: function(): void {
                 this.$data.isPasswordShown = !this.$data.isPasswordShown;
                 if (this.$props.isPassword) this.$data.passwordType = this.$data.passwordType == 'password' ? 'text' : 'password';
             }
@@ -69,7 +74,9 @@ import { Component, Vue } from 'vue-property-decorator';
             width: {
                 type: String,
                 default: '100%'
-            }
+            },
+            label: String,
+            error: String
         },
         computed: {
             style: function () {
@@ -85,12 +92,14 @@ export default class HeaderlessInput extends Vue {
 
 <style scoped lang="scss">
 
+
 input {
 	font-family: 'montserrat_regular';
 	font-size: 16px;
 	line-height: 21px;
 	resize: none;
-	height: 48px;
+	height: 46px;
+	padding: 0;
 	width: 100%;
 	text-indent: 20px;
 	border-color: rgba(56, 75, 101, 0.4);
@@ -99,6 +108,30 @@ input {
 input::placeholder {
     color: #384B65;
     opacity: 0.4;
+}
+h3 {
+	font-family: 'montserrat_regular';
+	font-size: 16px;
+	line-height: 21px;
+	color: #354049;
+}
+.label-container {
+    display: flex;
+    justify-content: flex-start;
+    flex-direction: row;
+
+    &__add-label {
+        margin-left: 5px;
+        font-family: 'montserrat_regular';
+        font-size: 16px;
+        line-height: 21px;
+        color: rgba(56, 75, 101, 0.4);
+    }
+
+    &__error {
+        color: #FF5560;
+        margin-left: 10px;
+    }
 }
 .error {
 	color: #FF5560;
@@ -111,7 +144,7 @@ input::placeholder {
 	svg {
 		position: absolute;
 		right: 15px;
-		top: 50%;
+		bottom: 5px;
 		transform: translateY(-50%);
 		z-index: 20;
 		cursor: pointer;
