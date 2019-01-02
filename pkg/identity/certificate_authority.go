@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
 	"io/ioutil"
