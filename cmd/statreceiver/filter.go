@@ -11,7 +11,8 @@ import (
 // PacketFilter is used during Packet parsing to determine if the Packet should
 // continue to be parsed.
 type PacketFilter struct {
-	appRegex, instRegex *regexp.Regexp
+	application *regexp.Regexp
+	instance    *regexp.Regexp
 }
 
 // NewPacketFilter creates a PacketFilter. It takes an application regular
@@ -19,37 +20,36 @@ type PacketFilter struct {
 // is matched, the packet will be parsed.
 func NewPacketFilter(applicationRegex, instanceRegex string) *PacketFilter {
 	return &PacketFilter{
-		appRegex:  regexp.MustCompile(applicationRegex),
-		instRegex: regexp.MustCompile(instanceRegex),
+		application: regexp.MustCompile(applicationRegex),
+		instance:    regexp.MustCompile(instanceRegex),
 	}
 }
 
 // Filter returns true if the application and instance match the filter.
 func (a *PacketFilter) Filter(application, instance string) bool {
-	return a.appRegex.MatchString(application) && a.instRegex.MatchString(instance)
+	return a.application.MatchString(application) && a.instance.MatchString(instance)
 }
 
 // KeyFilter is a MetricDest that only passes along metrics that pass the key
 // filter
 type KeyFilter struct {
-	re *regexp.Regexp
-	m  MetricDest
+	pattern *regexp.Regexp
+	dest    MetricDest
 }
 
-// NewKeyFilter creates a KeyFilter. regex is the regular expression that must
-// match, and m is the MetricDest to send matching metrics to.
-func NewKeyFilter(regex string, m MetricDest) *KeyFilter {
+// NewKeyFilter creates a KeyFilter. pattern is the regular expression that must
+// match, and dest is the MetricDest to send matching metrics to.
+func NewKeyFilter(pattern string, dest MetricDest) *KeyFilter {
 	return &KeyFilter{
-		re: regexp.MustCompile(regex),
-		m:  m,
+		pattern: regexp.MustCompile(pattern),
+		dest:    dest,
 	}
 }
 
 // Metric implements MetricDest
-func (k *KeyFilter) Metric(application, instance string,
-	key []byte, val float64, ts time.Time) error {
-	if k.re.Match(key) {
-		return k.m.Metric(application, instance, key, val, ts)
+func (k *KeyFilter) Metric(application, instance string, key []byte, val float64, ts time.Time) error {
+	if k.pattern.Match(key) {
+		return k.dest.Metric(application, instance, key, val, ts)
 	}
 	return nil
 }
@@ -57,25 +57,24 @@ func (k *KeyFilter) Metric(application, instance string,
 // ApplicationFilter is a MetricDest that only passes along metrics that pass
 // the application filter
 type ApplicationFilter struct {
-	re *regexp.Regexp
-	m  MetricDest
+	pattern *regexp.Regexp
+	dest    MetricDest
 }
 
-// NewApplicationFilter creates an ApplicationFilter. regex is the regular
-// expression that must match, and m is the MetricDest to send matching metrics
+// NewApplicationFilter creates an ApplicationFilter. pattern is the regular
+// expression that must match, and dest is the MetricDest to send matching metrics
 // to.
-func NewApplicationFilter(regex string, m MetricDest) *ApplicationFilter {
+func NewApplicationFilter(regex string, dest MetricDest) *ApplicationFilter {
 	return &ApplicationFilter{
-		re: regexp.MustCompile(regex),
-		m:  m,
+		pattern: regexp.MustCompile(regex),
+		dest:    dest,
 	}
 }
 
 // Metric implements MetricDest
-func (k *ApplicationFilter) Metric(application, instance string,
-	key []byte, val float64, ts time.Time) error {
-	if k.re.MatchString(application) {
-		return k.m.Metric(application, instance, key, val, ts)
+func (k *ApplicationFilter) Metric(application, instance string, key []byte, val float64, ts time.Time) error {
+	if k.pattern.MatchString(application) {
+		return k.dest.Metric(application, instance, key, val, ts)
 	}
 	return nil
 }
@@ -83,25 +82,24 @@ func (k *ApplicationFilter) Metric(application, instance string,
 // InstanceFilter is a MetricDest that only passes along metrics that pass
 // the instance filter
 type InstanceFilter struct {
-	re *regexp.Regexp
-	m  MetricDest
+	pattern *regexp.Regexp
+	dest    MetricDest
 }
 
-// NewInstanceFilter creates an InstanceFilter. regex is the regular
-// expression that must match, and m is the MetricDest to send matching metrics
+// NewInstanceFilter creates an InstanceFilter. pattern is the regular
+// expression that must match, and dest is the MetricDest to send matching metrics
 // to.
-func NewInstanceFilter(regex string, m MetricDest) *InstanceFilter {
+func NewInstanceFilter(regex string, dest MetricDest) *InstanceFilter {
 	return &InstanceFilter{
-		re: regexp.MustCompile(regex),
-		m:  m,
+		pattern: regexp.MustCompile(regex),
+		dest:    dest,
 	}
 }
 
 // Metric implements MetricDest
-func (k *InstanceFilter) Metric(application, instance string,
-	key []byte, val float64, ts time.Time) error {
-	if k.re.MatchString(instance) {
-		return k.m.Metric(application, instance, key, val, ts)
+func (k *InstanceFilter) Metric(application, instance string, key []byte, val float64, ts time.Time) error {
+	if k.pattern.MatchString(instance) {
+		return k.dest.Metric(application, instance, key, val, ts)
 	}
 	return nil
 }

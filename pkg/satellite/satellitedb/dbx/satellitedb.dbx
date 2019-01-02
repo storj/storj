@@ -63,10 +63,6 @@ model project_member (
 
 read all (
     select project_member
-    where project_member.project_id = ?
-)
-read one (
-    select project_member
     where project_member.member_id = ?
 )
 read limitoffset (

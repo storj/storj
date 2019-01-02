@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package provider
+package identity
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"io/ioutil"
+	"log"
 
 	"github.com/zeebo/errs"
 
@@ -154,7 +155,7 @@ func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
 
-	chain, err := decodeAndParseChainPEM(chainPEM)
+	chain, err := DecodeAndParseChainPEM(chainPEM)
 	if err != nil {
 		return nil, errs.New("failed to load identity %#v: %v",
 			pc.CertPath, err)
@@ -175,16 +176,23 @@ func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
 }
 
 // NewCA creates a new full identity with the given difficulty
-func NewCA(ctx context.Context, opts NewCAOptions) (*FullCertificateAuthority, error) {
+func NewCA(ctx context.Context, opts NewCAOptions) (
+	rv *FullCertificateAuthority, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var (
+		highscore uint32
+	)
+
 	if opts.Concurrency < 1 {
 		opts.Concurrency = 1
 	}
 	ctx, cancel := context.WithCancel(ctx)
 
+	log.Printf("Generating a certificate matching a difficulty of %d\n", opts.Difficulty)
 	eC := make(chan error)
 	caC := make(chan FullCertificateAuthority, 1)
 	for i := 0; i < int(opts.Concurrency); i++ {
-		go newCAWorker(ctx, opts.Difficulty, opts.ParentCert, opts.ParentKey, caC, eC)
+		go newCAWorker(ctx, i, &highscore, opts.Difficulty, opts.ParentCert, opts.ParentKey, caC, eC)
 	}
 
 	select {
@@ -194,6 +202,9 @@ func NewCA(ctx context.Context, opts NewCAOptions) (*FullCertificateAuthority, e
 	case err := <-eC:
 		cancel()
 		return nil, err
+	case <-ctx.Done():
+		cancel()
+		return nil, ctx.Err()
 	}
 }
 

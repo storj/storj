@@ -31,8 +31,8 @@
                         isMultiline
                         @setData="setNewDescription" />
                     <div class="project-details-info-container__description-container__buttons-area">
-                        <Button label="Cancel" width="10vw" height="5vh" :onPress="toggleEditing" isWhite/>
-                        <Button label="Save" width="10vw" height="5vh" :onPress="onSaveButtonClick"/>
+                        <Button label="Cancel" width="180px" height="48px" :onPress="toggleEditing" isWhite/>
+                        <Button label="Save" width="180px" height="48px" :onPress="onSaveButtonClick"/>
                     </div>
                 </div>
             </div>
@@ -46,14 +46,13 @@
                         </div>
                     </div>
                     <div class="project-details-info-container__portability-container__buttons-area">
-                        <Button label="Export" width="10vw" height="5vh" :onPress="onExportClick" isWhite/>
-                        <Button label="Import" width="10vw" height="5vh" :onPress="onImportClick"/>
+                        <Button label="Export" width="180px" height="48px" :onPress="onExportClick" isWhite/>
+                        <Button label="Import" width="180px" height="48px" :onPress="onImportClick"/>
                     </div>
                 </div>
             </div>
             <div class="project-details__button-area">
-                <!-- TODO: change vw to px -->
-                <Button label="Delete project" width="10vw" height="5vh" :onPress="toggleDeleteDialog" isWhite/>
+                <Button class="delete-project" label="Delete project" width="180px" height="48px" :onPress="toggleDeleteDialog" isDeletion/>
             </div>
         </div>
         <EmptyState 
@@ -120,7 +119,9 @@ import DeleteProjectPopup from '@/components/projectDetails/DeleteProjectPopup.v
                 return this.$store.getters.selectedProject.name;
             },
             description: function (): string {
-                return this.$store.getters.selectedProject.description;
+                return this.$store.getters.selectedProject.description ? 
+                    this.$store.getters.selectedProject.description :
+                    'No description yet. Please enter some information about the project if any.';
             },
             // this computed is used to indicate if project is selected.
             // if false - we should change UI
@@ -214,7 +215,7 @@ export default class ProjectDetailsArea extends Vue {
 
         &__name-container {
             height: 10vh;
-            width: 33vw;
+            width: 72vw;
             border-radius: 6px;
             display: flex;
             flex-direction: column;
@@ -257,7 +258,7 @@ export default class ProjectDetailsArea extends Vue {
                 display: flex;
                 flex-direction: row;
                 align-items: center;
-                width: 22vw;
+                width: 380px;
                 justify-content: space-between;
             }
 
@@ -281,7 +282,7 @@ export default class ProjectDetailsArea extends Vue {
 
             &__buttons-area {
                 @extend .project-details-info-container__portability-container__info;
-                width: 22vw;
+                width: 380px;
                 justify-content: space-between;
             }
 
