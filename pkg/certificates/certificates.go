@@ -20,7 +20,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/peer"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -122,6 +122,11 @@ type Claim struct {
 // Client implements pb.CertificateClient
 type Client struct {
 	client pb.CertificatesClient
+}
+
+func init() {
+	gob.Register(&ecdsa.PublicKey{})
+	gob.Register(elliptic.P256())
 }
 
 // NewClient creates a new certificate signing grpc client
@@ -462,8 +467,6 @@ func (a *Authorizations) Unmarshal(data []byte) error {
 // Marshal serializes a set of authorizations
 func (a Authorizations) Marshal() ([]byte, error) {
 	data := new(bytes.Buffer)
-	gob.Register(&ecdsa.PublicKey{})
-	gob.Register(elliptic.P256())
 	encoder := gob.NewEncoder(data)
 	err := encoder.Encode(a)
 	if err != nil {

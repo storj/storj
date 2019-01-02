@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	testidentity "storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/overlay"

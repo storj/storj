@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -25,9 +24,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/internal/testpeertls"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/certificates/mocks"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -35,13 +32,6 @@ import (
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
-
-type signingReqMatcher struct {
-	timestamp gomock.Matcher
-	authToken gomock.Matcher
-}
-
-type unixSecondsAgoMatcher int
 
 var (
 	idents = testplanet.NewPregeneratedIdentities()
@@ -57,15 +47,12 @@ var (
 
 func TestCertSignerConfig_NewAuthDB(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 	authDB, err := newTestAuthDB(ctx)
 	if !assert.NoError(t, err) {
 		t.Fatal(err)
 	}
-	defer func() {
-		err := authDB.Close()
-		assert.NoError(t, err)
-		ctx.Cleanup()
-	}()
+	defer ctx.Check(authDB.Close)
 
 	assert.NotNil(t, authDB)
 	assert.NotNil(t, authDB.DB)
@@ -73,15 +60,12 @@ func TestCertSignerConfig_NewAuthDB(t *testing.T) {
 
 func TestAuthorizationDB_Create(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 	authDB, err := newTestAuthDB(ctx)
 	if !assert.NoError(t, err) {
 		t.Fatal(err)
 	}
-	defer func() {
-		err := authDB.Close()
-		assert.NoError(t, err)
-		ctx.Cleanup()
-	}()
+	defer ctx.Check(authDB.Close)
 
 	cases := []struct {
 		testID,
@@ -820,39 +804,6 @@ func TestNewClientFrom(t *testing.T) {
 	assert.NotNil(t, client)
 }
 
-// TODO: test sad path
-func TestClient_Sign(t *testing.T) {
-	ctx := testcontext.New(t)
-	ctrl := gomock.NewController(t)
-	mockClient := mocks.NewMockCertificatesClient(ctrl)
-	_, expectedChain, err := testpeertls.NewCertChain(1)
-	if !assert.NoError(t, err) || !assert.NotEmpty(t, expectedChain) {
-		t.Fatal(err)
-	}
-
-	tokenStr := "abc123"
-	expectedRes := &pb.SigningResponse{
-		Chain: [][]byte{expectedChain[0].Raw},
-	}
-
-	mockClient.EXPECT().Sign(
-		gomock.Eq(ctx),
-		signingReqMatcher{
-			timestamp: unixSecondsAgoMatcher(1),
-			authToken: gomock.Eq(tokenStr),
-		},
-	).Return(expectedRes, nil)
-
-	client, err := NewClientFrom(mockClient)
-	if !assert.NoError(t, err) || !assert.NotNil(t, client) {
-		t.Fatal(err)
-	}
-
-	actualCert, err := client.Sign(ctx, tokenStr)
-	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{expectedChain[0].Raw}, actualCert)
-}
-
 func TestCertificateSigner_Sign(t *testing.T) {
 	ctx := testcontext.New(t)
 	tmp := ctx.Dir()
@@ -970,39 +921,4 @@ func newTestAuthDB(ctx *testcontext.Context) (*AuthorizationDB, error) {
 		AuthorizationDBURL: dbPath,
 	}
 	return config.NewAuthDB()
-}
-
-func (m signingReqMatcher) Matches(x interface{}) bool {
-	req, ok := x.(*pb.SigningRequest)
-	if !ok {
-		return false
-	}
-
-	if !m.timestamp.Matches(req.Timestamp) {
-		return false
-	}
-
-	if !m.authToken.Matches(req.AuthToken) {
-		return false
-	}
-
-	return true
-}
-
-func (m signingReqMatcher) String() string {
-	return fmt.Sprintf("%s; authToken %s", m.timestamp.String(), m.authToken.String())
-}
-
-func (w unixSecondsAgoMatcher) Matches(x interface{}) bool {
-	timestamp, ok := x.(int64)
-	if !ok {
-		return false
-	}
-
-	return time.Now().Unix()+int64(w) > timestamp
-}
-
-func (w unixSecondsAgoMatcher) String() string {
-	now := time.Now().Unix()
-	return fmt.Sprintf("timestamp is between %d and %d", now, now+int64(w))
 }
