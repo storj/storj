@@ -168,7 +168,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 	}
 
 	for _, v := range nodes {
-		v.Type.PanicOnInvalid("pdb server Get")
+		v.Type.DPanicOnInvalid("pdb server Get")
 	}
 	r = &pb.GetResponse{
 		Pointer:       pointer,

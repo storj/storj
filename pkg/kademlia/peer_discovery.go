@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"sync"
 
@@ -91,10 +90,9 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (target *pb.Node, err erro
 				var nodeType pb.NodeType
 				if target != nil {
 					nodeType = target.Type
-					nodeType.PanicOnInvalid("Peer Discovery Run")
+					nodeType.DPanicOnInvalid("Peer Discovery Run")
 				}
-				fmt.Println(next)
-				next.Type.PanicOnInvalid("next")
+				next.Type.DPanicOnInvalid("next")
 				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target, Type: nodeType})
 
 				if err != nil {

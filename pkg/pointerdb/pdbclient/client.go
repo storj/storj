@@ -91,7 +91,7 @@ func (pdb *PointerDB) Put(ctx context.Context, path storj.Path, pointer *pb.Poin
 func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Pointer, nodes []*pb.Node, pba *pb.PayerBandwidthAllocation, err error) {
 	defer mon.Task()(&ctx)(&err)
 	for _, v := range nodes {
-		v.Type.PanicOnInvalid("pdb Get")
+		v.Type.DPanicOnInvalid("pdb Get")
 	}
 	res, err := pdb.client.Get(ctx, &pb.GetRequest{Path: path})
 	if err != nil {
