@@ -58,21 +58,20 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(log *zap.Logger, id storj.NodeID, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
+func NewKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
 	self := pb.Node{
-		Id:       id,
+		Id:       identity.ID,
 		Type:     nodeType,
 		Address:  &pb.NodeAddress{Address: address},
 		Metadata: metadata,
 	}
-
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		if err := os.MkdirAll(path, 0777); err != nil {
 			return nil, err
 		}
 	}
 
-	bucketIdentifier := id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
+	bucketIdentifier := self.Id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
 	dbpath := filepath.Join(path, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
 
 	dbs, err := boltdb.NewShared(dbpath, KademliaBucket, NodeBucket)
@@ -81,7 +80,7 @@ func NewKademlia(log *zap.Logger, id storj.NodeID, nodeType pb.NodeType, bootstr
 	}
 	kdb, ndb := dbs[0], dbs[1]
 
-	rt, err := NewRoutingTable(self, kdb, ndb)
+	rt, err := NewRoutingTable(log, self, kdb, ndb)
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
 	}
@@ -98,7 +97,9 @@ func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes [
 		bootstrapNodes: bootstrapNodes,
 		identity:       identity,
 	}
-	nc, err := node.NewNodeClient(identity, self, k)
+
+	nc, err := node.NewNodeClient(identity, self, k, rt)
+
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
 	}
@@ -259,6 +260,9 @@ func GetIntroNode(addr string) (*pb.Node, error) {
 			Transport: defaultTransport,
 			Address:   addr,
 		},
+		// TODO: nodetype is an assumption for now, but we shouldn't need to know
+		// or care for bootstrapping
+		Type: pb.NodeType_SATELLITE,
 	}, nil
 }
 

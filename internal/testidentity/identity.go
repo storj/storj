@@ -11,8 +11,8 @@ import (
 
 // NewTestIdentity is a helper function to generate new node identities with
 // correct difficulty and concurrency
-func NewTestIdentity() (*provider.FullIdentity, error) {
-	ca, err := provider.NewCA(context.Background(), provider.NewCAOptions{
+func NewTestIdentity(ctx context.Context) (*provider.FullIdentity, error) {
+	ca, err := provider.NewCA(ctx, provider.NewCAOptions{
 		Difficulty:  12,
 		Concurrency: 4,
 	})

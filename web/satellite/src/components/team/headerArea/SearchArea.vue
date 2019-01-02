@@ -49,9 +49,9 @@ export default class SearchArea extends Vue {
                 input {
                     box-sizing: border-box;
                     position: relative;
-                    box-shadow: 0px 4px 4px rgba(231, 232, 238, 0.6);
+                    border: none;
+                    outline: none;
                     border-radius: 6px;
-                    border: 1px solid #F2F2F2;
                     width: 100%;
                     height: 56px;
                     padding-right: 20px;
@@ -59,7 +59,19 @@ export default class SearchArea extends Vue {
                     font-family: 'montserrat_regular';
                     font-size: 16px;
                     color: #AFB7C1;
+                    transition: all .2s ease-in-out;
 
+                    &:hover {
+                        box-shadow: 0px 4px 4px rgba(231, 232, 238, 0.6);
+                        border: none;
+                        outline: none;
+                    }
+
+                    &:focus {
+                        box-shadow: 0px 4px 4px rgba(231, 232, 238, 0.6);
+                        border: none;
+                        outline: none;
+                    }
                 }
             }
         }

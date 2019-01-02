@@ -27,22 +27,11 @@ import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
         },
         methods: {
             toggleSelection: async function (): Promise<any> {
-                // TODO: add progress indicator while fetching
-                let isFetchSuccess = await this.$store.dispatch('fetchProjects');
-
-                if (!isFetchSuccess || this.$store.getters.projects.length === 0) {
-                    // TODO: popup error here
-                    console.error('error during project fetching!');
+                const response = await this.$store.dispatch('fetchProjects');
+                if (!response.isSuccess) {
+                    this.$store.dispatch('error', response.errorMessage);
 
                     return;
-                }
-                if (this.$store.getters.selectedProject.id) {
-                    const isFetchProjectMemberSuccess = await this.$store.dispatch('fetchProjectMembers', {limit: 20, offset: 0});
-
-                    if (!isFetchProjectMemberSuccess) {
-                        // TODO: Replace with popup
-                        console.error('Unable to fetch project members');
-                    }
                 }
 
                 this.$data.isChoiceShown = !this.$data.isChoiceShown;
@@ -79,6 +68,13 @@ export default class ProjectSelectionArea extends Vue {
             line-height: 23px;
             color: #354049;
         }
+
+        &:hover {
+
+            h1 {
+                opacity: 0.7;
+            }
+        }
     }
 
     .project-selection-toggle-container {
@@ -88,6 +84,10 @@ export default class ProjectSelectionArea extends Vue {
         justify-content: flex-start;
         width: 100%;
         height: 50px;
+
+        h1 {
+            transition: opacity .2s ease-in-out;
+        }
 
         &__expander-area {
             margin-left: 12px;

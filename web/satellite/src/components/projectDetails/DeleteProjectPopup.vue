@@ -73,18 +73,19 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
                     return;
                 }
 
-                let isDeleteSuccess = await this.$store.dispatch(
+                let response = await this.$store.dispatch(
                     'deleteProject',
                     this.$store.getters.selectedProject.id,
                 );
 
-                if (!isDeleteSuccess) {
+                if (!response.isSuccess) {
                     this.$store.dispatch('error', 'Error during project deletion');
 
                     return;
                 }
 
                 this.$store.dispatch('success', 'Project was successfully deleted');
+                this.$store.dispatch('fetchProjects');
                 this.$router.push('/');
             }
         },

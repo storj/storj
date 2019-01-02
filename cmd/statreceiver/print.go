@@ -11,7 +11,7 @@ import (
 
 // Printer is a MetricDest that writes to stdout
 type Printer struct {
-	mtx sync.Mutex
+	mu sync.Mutex
 }
 
 // NewPrinter creates a Printer
@@ -20,10 +20,10 @@ func NewPrinter() *Printer {
 }
 
 // Metric implements MetricDest
-func (p *Printer) Metric(application, instance string, key []byte, val float64,
-	ts time.Time) error {
-	p.mtx.Lock()
-	defer p.mtx.Unlock()
+func (p *Printer) Metric(application, instance string, key []byte, val float64, ts time.Time) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	_, err := fmt.Println(application, instance, string(key), val, ts.Unix())
 	return err
 }

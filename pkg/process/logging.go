@@ -20,8 +20,7 @@ var (
 	logCaller   = flag.Bool("log.caller", false, "if true, log function filename and line number")
 	logStack    = flag.Bool("log.stack", false, "if true, log stack traces")
 	logEncoding = flag.String("log.encoding", "console", "configures log encoding. can either be 'console' or 'json'")
-	logOutput   = flag.String("log.output", "stderr",
-		"can be stdout, stderr, or a filename")
+	logOutput   = flag.String("log.output", "stderr", "can be stdout, stderr, or a filename")
 )
 
 func newLogger() (*zap.Logger, error) {

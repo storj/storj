@@ -129,8 +129,8 @@ func TestConnectionSuccess(t *testing.T) {
 	id2 := teststorj.NodeIDFromString("BB")
 	address1 := &pb.NodeAddress{Address: "a"}
 	address2 := &pb.NodeAddress{Address: "b"}
-	node1 := &pb.Node{Id: id, Address: address1}
-	node2 := &pb.Node{Id: id2, Address: address2}
+	node1 := &pb.Node{Id: id, Address: address1, Type: pb.NodeType_STORAGE}
+	node2 := &pb.Node{Id: id2, Address: address2, Type: pb.NodeType_STORAGE}
 	cases := []struct {
 		testID  string
 		node    *pb.Node
@@ -200,7 +200,7 @@ func TestUpdateSelf(t *testing.T) {
 
 func TestConnectionFailed(t *testing.T) {
 	id := teststorj.NodeIDFromString("AA")
-	node := &pb.Node{Id: id}
+	node := &pb.Node{Id: id, Type: pb.NodeType_STORAGE}
 	rt, cleanup := createRoutingTable(t, id)
 	defer cleanup()
 	err := rt.ConnectionFailed(node)

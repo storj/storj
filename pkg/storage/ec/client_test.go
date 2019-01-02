@@ -127,6 +127,7 @@ TestLoop:
 			if n == nil || tt.badInput {
 				continue
 			}
+			n.Type.DPanicOnInvalid("ec client test 1")
 			derivedID, err := id.Derive(n.Id.Bytes())
 			if !assert.NoError(t, err, errTag) {
 				continue TestLoop
@@ -170,6 +171,7 @@ TestLoop:
 
 func mockNewPSClient(clients map[*pb.Node]psclient.Client) psClientFunc {
 	return func(_ context.Context, _ transport.Client, n *pb.Node, _ int) (psclient.Client, error) {
+		n.Type.DPanicOnInvalid("mock new ps client")
 		c, ok := clients[n]
 		if !ok {
 			return nil, ErrDialFailed

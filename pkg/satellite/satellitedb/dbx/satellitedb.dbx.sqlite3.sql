@@ -18,6 +18,16 @@ CREATE TABLE users (
 	PRIMARY KEY ( id ),
 	UNIQUE ( email )
 );
+CREATE TABLE api_keys (
+	id BLOB NOT NULL,
+	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	key BLOB NOT NULL,
+	name TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( key ),
+	UNIQUE ( name, project_id )
+);
 CREATE TABLE project_members (
 	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,

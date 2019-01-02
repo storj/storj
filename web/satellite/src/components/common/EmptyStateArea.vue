@@ -49,11 +49,14 @@ export default class EmptyStateProjectArea extends Vue {
         margin-top: 120px;
 
         &__wrap {
-             text-align: center;
-             margin-top: 30px;
+            text-align: center;
+            margin-top: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
 
              &__img {
-                 margin-top: 90px;
+                margin-top: 90px;
              }
 
             h1 {
@@ -75,7 +78,7 @@ export default class EmptyStateProjectArea extends Vue {
         }
     }
 
-    @media screen and (max-width: 14400px) {
+    @media screen and (max-width: 1440px) {
         .empty-state {
             margin-top: 60px;
         }

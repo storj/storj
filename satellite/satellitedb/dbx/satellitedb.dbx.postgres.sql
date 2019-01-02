@@ -32,8 +32,9 @@ CREATE TABLE bwagreements (
 	PRIMARY KEY ( signature )
 );
 CREATE TABLE injuredsegments (
+	id bigserial NOT NULL,
 	info bytea NOT NULL,
-	PRIMARY KEY ( info )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE irreparabledbs (
 	segmentpath bytea NOT NULL,

@@ -7,9 +7,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -52,31 +55,36 @@ var (
 // SaveConfig will save all flags with default values to outfilewith specific
 // values specified in 'overrides' overridden.
 func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}) error {
-
-	vip := viper.New()
-	err := vip.BindPFlags(pflag.CommandLine)
-	if err != nil {
-		return err
-	}
-	flagset.VisitAll(func(f *pflag.Flag) {
-		// stop processing if we hit an error on a BindPFlag call
-		if err != nil {
-			return
+	// we previously used Viper here, but switched to a custom serializer to allow comments
+	//todo:  switch back to Viper once go-yaml v3 is released and its supports writing comments?
+	flagset.AddFlagSet(pflag.CommandLine)
+	//sort keys
+	var keys []string
+	flagset.VisitAll(func(f *pflag.Flag) { keys = append(keys, f.Name) })
+	sort.Strings(keys)
+	//serialize
+	var sb strings.Builder
+	w := &sb
+	for _, k := range keys {
+		f := flagset.Lookup(k)
+		value := f.Value.String()
+		if v, ok := overrides[k]; ok {
+			value = fmt.Sprintf("%v", v)
 		}
-		if f.Name == "config" {
-			return
+		if f.Usage != "" {
+			fmt.Fprintf(w, "# %s\n", f.Usage)
 		}
-		err = vip.BindPFlag(f.Name, f)
-	})
-	if err != nil {
-		return err
+		fmt.Fprintf(w, "%s: ", k)
+		switch f.Value.Type() {
+		case "string":
+			// save ourselves 250+ lines of code and just double quote strings
+			fmt.Fprintf(w, "\"%s\"\n", value)
+		default:
+			//assume that everything else doesn't have fancy control characters
+			fmt.Fprintf(w, "%s\n", value)
+		}
 	}
-
-	for key, val := range overrides {
-		vip.Set(key, val)
-	}
-
-	return vip.WriteConfigAs(os.ExpandEnv(outfile))
+	return ioutil.WriteFile(outfile, []byte(sb.String()), os.FileMode(0644))
 }
 
 // Ctx returns the appropriate context.Context for ExecuteWithConfig commands
@@ -91,7 +99,8 @@ func Ctx(cmd *cobra.Command) context.Context {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-c
+		sig := <-c
+		log.Printf("Got a signal from the OS: %q", sig)
 		signal.Stop(c)
 		cancel()
 	}()
@@ -122,8 +131,6 @@ func cleanup(cmd *cobra.Command) {
 		vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 		vip.AutomaticEnv()
 
-		logger, err := newLogger()
-
 		cfgFlag := cmd.Flags().Lookup("config-dir")
 		if cfgFlag != nil && cfgFlag.Value.String() != "" {
 			path := filepath.Join(os.ExpandEnv(cfgFlag.Value.String()), "config.yaml")
@@ -134,7 +141,6 @@ func cleanup(cmd *cobra.Command) {
 					return err
 				}
 
-				logger.Sugar().Debug("Configuration loaded from: ", vip.ConfigFileUsed())
 			}
 		}
 
@@ -154,9 +160,13 @@ func cleanup(cmd *cobra.Command) {
 			}
 		}
 
+		logger, err := newLogger()
 		if err != nil {
 			return err
 		}
+
+		logger.Sugar().Debug("Configuration loaded from: ", vip.ConfigFileUsed())
+
 		defer func() { _ = logger.Sync() }()
 		defer zap.ReplaceGlobals(logger)()
 		defer zap.RedirectStdLog(logger)()

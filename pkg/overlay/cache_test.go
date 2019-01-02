@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
@@ -98,6 +98,27 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, s
 			assert.Error(t, err)
 		}
 	}
+
+	{ // Delete
+		// Test standard delete
+		err := cache.Delete(ctx, valid1ID)
+		assert.NoError(t, err)
+
+		// Check that it was deleted
+		deleted, err := cache.Get(ctx, valid1ID)
+		assert.Error(t, err)
+		assert.Nil(t, deleted)
+		assert.True(t, err == overlay.ErrNodeNotFound)
+
+		// Test idempotent delete / non existent key delete
+		err = cache.Delete(ctx, valid1ID)
+		assert.NoError(t, err)
+
+		// Test empty key delete
+		err = cache.Delete(ctx, storj.NodeID{})
+		assert.Error(t, err)
+		assert.True(t, err == overlay.ErrEmptyNode)
+	}
 }
 
 func TestCache_Masterdb(t *testing.T) {
@@ -111,7 +132,7 @@ func TestCache_Masterdb(t *testing.T) {
 	defer ctx.Check(planet.Shutdown)
 	planet.Start(ctx)
 
-	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		testCache(ctx, t, db.OverlayCache(), db.StatDB())
 	})
 }
