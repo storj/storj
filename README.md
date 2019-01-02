@@ -96,12 +96,12 @@ Use Github to open a pull request!
 
 # Start using Storj
 
-We have another repository dedicated to [documentation and tutorials](https://github.com/storj/docs).
+Our wiki has [documentation and tutorials](https://github.com/storj/storj/wiki).
 Check out these three tutorials:
 
- * [Using the Storj Test Network](https://github.com/storj/docs/blob/master/test-network.md)
- * [Using the Uplink CLI](https://github.com/storj/docs/blob/master/uplink-cli.md)
- * [Using the S3 Gateway](https://github.com/storj/docs/blob/master/s3-gateway.md)
+ * [Using the Storj Test Network](https://github.com/storj/storj/wiki/Test-network)
+ * [Using the Uplink CLI](https://github.com/storj/storj/wiki/Uplink-CLI)
+ * [Using the S3 Gateway](https://github.com/storj/storj/wiki/S3-Gateway)
 
 # License
 

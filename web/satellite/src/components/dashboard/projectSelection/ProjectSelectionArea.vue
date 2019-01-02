@@ -68,6 +68,13 @@ export default class ProjectSelectionArea extends Vue {
             line-height: 23px;
             color: #354049;
         }
+
+        &:hover {
+
+            h1 {
+                opacity: 0.7;
+            }
+        }
     }
 
     .project-selection-toggle-container {
@@ -77,6 +84,10 @@ export default class ProjectSelectionArea extends Vue {
         justify-content: flex-start;
         width: 100%;
         height: 50px;
+
+        h1 {
+            transition: opacity .2s ease-in-out;
+        }
 
         &__expander-area {
             margin-left: 12px;

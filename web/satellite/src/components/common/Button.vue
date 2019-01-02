@@ -34,6 +34,10 @@ import { Component, Vue } from 'vue-property-decorator';
                 type: Boolean,
                 default: false
             },
+            isDeletion: {
+                type: Boolean,
+                default: false
+            },
             isDisabled: {
                 type: Boolean,
                 default: false
@@ -50,12 +54,14 @@ import { Component, Vue } from 'vue-property-decorator';
                 return {width: this.$props.width, height: this.$props.height};
             },
             containerClassName: function () {
-                if (this.$props.isDisabled) {
-                    return 'container disabled';
-                }
+                if (this.$props.isDisabled) return 'container disabled';
 
-                return this.$props.isWhite ? 'container white' : 'container';
-            }
+                if (this.$props.isWhite) return 'container white';
+
+                if (this.$props.isDeletion) return 'container red';
+                
+                return 'container';
+            },
         }
     }
 )
@@ -73,20 +79,48 @@ export default class Button extends Vue {
         border-radius: 6px;
         cursor: pointer;
 
+        &:hover {
+            box-shadow: 0px 4px 20px rgba(35, 121, 236, 0.4);
+
+            &.white {
+                box-shadow: none;
+                background-color: #2683FF;
+                border: 1px solid #2683FF;
+
+                .label {
+                    color: white;
+                }
+            }
+
+            &.red {
+                box-shadow: none;
+                background-color: transparent;
+
+                .label {
+                    color: #EB5757;
+                }
+            }
+
+            &.disabled {
+                box-shadow: none;
+            }
+        }
+
         .label {
             font-family: 'montserrat_medium';
 			font-size: 16px;
 			line-height: 23px;
             color: #fff;
         }
-
-        .label.white {
-            color: #354049;
-        }
     }
-    .container.white {
+    .container.white,
+    .container.red {
         background-color: transparent;
         border: 1px solid #AFB7C1;
+
+        .label {
+            color: #354049;
+        }
     }
     .container.disabled {
         background-color: #DADDE5;

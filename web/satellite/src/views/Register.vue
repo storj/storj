@@ -28,7 +28,6 @@
                             class="full-input"
                             label="Last Name"
                             placeholder="Enter Last Name"
-                            :error="lastNameError"
                             @setData="setLastName">
                     </HeaderedInput>
                     <HeaderedInput
@@ -78,7 +77,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
 import Button from '@/components/common/Button.vue';
-import { validateEmail } from '@/utils/validation';
+import { validateEmail, validatePassword } from '@/utils/validation';
 import ROUTES from '../utils/constants/routerConstants';
 import { createUserRequest } from '@/api/users';
 
@@ -95,7 +94,6 @@ import { createUserRequest } from '@/api/users';
             },
             setLastName: function (value: string) {
                 this.$data.lastName = value;
-                this.$data.lastNameError = '';
             },
             setPassword: function (value: string) {
                 this.$data.password = value;
@@ -111,23 +109,21 @@ import { createUserRequest } from '@/api/users';
             },
             onCreateClick: async function () {
                 let hasError = false;
+                const firstName = this.$data.firstName.trim();
+                const email = this.$data.email.trim();
+                const lastName = this.$data.lastName.trim();
 
-                if (!this.$data.firstName) {
+                if (!firstName) {
                     this.$data.firstNameError = 'Invalid First Name';
                     hasError = true;
                 }
 
-                if (!this.$data.lastName) {
-                    this.$data.lastNameError = 'Invalid Last Name';
-                    hasError = true;
-                }
-
-                if (!this.$data.email || !validateEmail(this.$data.email)) {
+                if (!validateEmail(email)) {
                     this.$data.emailError = 'Invalid Email';
                     hasError = true;
                 }
 
-                if (!this.$data.password) {
+                if (!validatePassword(this.$data.password)) {
                     this.$data.passwordError = 'Invalid Password';
                     hasError = true;
                 }
@@ -145,10 +141,9 @@ import { createUserRequest } from '@/api/users';
                 if (hasError) return;
 
                 let user = {
-                    id: '',
-                    email: this.$data.email,
-                    firstName: this.$data.firstName,
-                    lastName: this.$data.lastName,
+                    email,
+                    firstName,
+                    lastName,
                 };
 
                 let response = await createUserRequest(user, this.$data.password);
@@ -167,7 +162,6 @@ import { createUserRequest } from '@/api/users';
                 firstName: '',
                 firstNameError: '',
                 lastName: '',
-                lastNameError: '',
                 email: '',
                 emailError: '',
                 password: '',

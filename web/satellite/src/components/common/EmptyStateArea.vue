@@ -75,7 +75,7 @@ export default class EmptyStateProjectArea extends Vue {
         }
     }
 
-    @media screen and (max-width: 14400px) {
+    @media screen and (max-width: 1440px) {
         .empty-state {
             margin-top: 60px;
         }

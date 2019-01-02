@@ -54,7 +54,7 @@ func (db *Database) Projects() satellite.Projects {
 
 // ProjectMembers is a getter for ProjectMembers repository
 func (db *Database) ProjectMembers() satellite.ProjectMembers {
-	return &projectMembers{db.methods}
+	return &projectMembers{db.methods, db.db}
 }
 
 // APIKeys is a getter for APIKeys repository

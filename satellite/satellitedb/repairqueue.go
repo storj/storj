@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/golang/protobuf/proto"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -14,68 +15,61 @@ import (
 )
 
 type repairQueue struct {
-	db  *dbx.DB
-	ctx context.Context
+	db *dbx.DB
 }
 
-func newRepairQueue(db *dbx.DB) *repairQueue {
-	return &repairQueue{
-		db:  db,
-		ctx: context.Background(),
-	}
-}
-
-func (r *repairQueue) Enqueue(seg *pb.InjuredSegment) error {
+func (r *repairQueue) Enqueue(ctx context.Context, seg *pb.InjuredSegment) error {
 	val, err := proto.Marshal(seg)
 	if err != nil {
 		return err
 	}
 
 	_, err = r.db.Create_Injuredsegment(
-		r.ctx,
+		ctx,
 		dbx.Injuredsegment_Info(val),
 	)
 	return err
 }
 
-func (r *repairQueue) Dequeue() (pb.InjuredSegment, error) {
-	tx, err := r.db.Open(r.ctx)
+func (r *repairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
+	// TODO: fix out of order issue
+	tx, err := r.db.Open(ctx)
 	if err != nil {
 		return pb.InjuredSegment{}, Error.Wrap(err)
 	}
 
-	res, err := tx.First_Injuredsegment(r.ctx)
+	res, err := tx.First_Injuredsegment(ctx)
 	if err != nil {
 		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
-	}
-	if res == nil {
+	} else if res == nil {
 		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(storage.ErrEmptyQueue, tx.Rollback()))
 	}
 
-	deleted, err := tx.Delete_Injuredsegment_By_Info(
-		r.ctx,
-		dbx.Injuredsegment_Info(res.Info),
+	deleted, err := tx.Delete_Injuredsegment_By_Id(
+		ctx,
+		dbx.Injuredsegment_Id(res.Id),
 	)
 	if err != nil {
 		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
-	}
-	if !deleted {
+	} else if !deleted {
 		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(Error.New("Injured segment not deleted"), tx.Rollback()))
+	}
+	if err := tx.Commit(); err != nil {
+		return pb.InjuredSegment{}, Error.Wrap(err)
 	}
 
 	seg := &pb.InjuredSegment{}
-	err = proto.Unmarshal(res.Info, seg)
-	if err != nil {
-		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+	if err = proto.Unmarshal(res.Info, seg); err != nil {
+		return pb.InjuredSegment{}, Error.Wrap(err)
 	}
-	return *seg, Error.Wrap(tx.Commit())
+	return *seg, nil
 }
 
-func (r *repairQueue) Peekqueue(limit int) ([]pb.InjuredSegment, error) {
+func (r *repairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
 	if limit <= 0 || limit > storage.LookupLimit {
 		limit = storage.LookupLimit
 	}
-	rows, err := r.db.Limited_Injuredsegment(r.ctx, limit, 0)
+	rows, err := r.db.Limited_Injuredsegment(ctx, limit, 0)
 	if err != nil {
 		return nil, err
 	}

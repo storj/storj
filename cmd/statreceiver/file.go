@@ -14,8 +14,9 @@ import (
 
 // FileSource reads packets from a file
 type FileSource struct {
-	mtx     sync.Mutex
-	path    string
+	path string
+
+	mu      sync.Mutex
 	decoder *gob.Decoder
 }
 
@@ -26,14 +27,14 @@ func NewFileSource(path string) *FileSource {
 
 // Next implements the Source interface
 func (f *FileSource) Next() ([]byte, time.Time, error) {
-	f.mtx.Lock()
-	defer f.mtx.Unlock()
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	if f.decoder == nil {
-		fh, err := os.Open(f.path)
+		file, err := os.Open(f.path)
 		if err != nil {
 			return nil, time.Time{}, err
 		}
-		f.decoder = gob.NewDecoder(bufio.NewReader(fh))
+		f.decoder = gob.NewDecoder(bufio.NewReader(file))
 	}
 
 	var p Packet
@@ -47,9 +48,10 @@ func (f *FileSource) Next() ([]byte, time.Time, error) {
 // FileDest sends packets to a file for later processing. FileDest preserves
 // the timestamps.
 type FileDest struct {
-	mtx     sync.Mutex
-	path    string
-	fh      io.Closer
+	path string
+
+	mu      sync.Mutex
+	file    io.Closer
 	encoder *gob.Encoder
 }
 
@@ -60,16 +62,17 @@ func NewFileDest(path string) *FileDest {
 
 // Packet implements PacketDest
 func (f *FileDest) Packet(data []byte, ts time.Time) error {
-	f.mtx.Lock()
-	defer f.mtx.Unlock()
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
 	if f.encoder == nil {
-		fh, err := os.Create(f.path)
+		file, err := os.Create(f.path)
 		if err != nil {
 			return err
 		}
-		f.fh = fh
-		f.encoder = gob.NewEncoder(bufio.NewWriter(fh))
+		f.file = file
+		f.encoder = gob.NewEncoder(bufio.NewWriter(file))
 	}
+
 	return f.encoder.Encode(Packet{Data: data, TS: ts})
 }
