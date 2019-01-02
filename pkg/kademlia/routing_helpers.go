@@ -185,21 +185,6 @@ func (rt *RoutingTable) determineFurthestIDWithinK(nodeIDs storj.NodeIDList) sto
 	return nodeIDs[rt.bucketSize]
 }
 
-// xorTwoIds: helper, finds the xor distance between two byte slices
-func xorTwoIds(id, comparisonID []byte) []byte {
-	var xorArr []byte
-	s := len(id)
-	if s > len(comparisonID) {
-		s = len(comparisonID)
-	}
-
-	for i := 0; i < s; i++ {
-		xor := id[i] ^ comparisonID[i]
-		xorArr = append(xorArr, xor)
-	}
-	return xorArr
-}
-
 // nodeIsWithinNearestK: helper, returns true if the node in question is within the nearest k from local node
 func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storj.NodeID) (bool, error) {
 	nodeKeys, err := rt.nodeBucketDB.List(nil, 0)
