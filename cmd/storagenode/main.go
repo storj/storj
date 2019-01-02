@@ -44,9 +44,10 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 	configCmd = &cobra.Command{
-		Use:   "config",
-		Short: "Edit config files",
-		RunE:  cmdConfig,
+		Use:         "config",
+		Short:       "Edit config files",
+		RunE:        cmdConfig,
+		Annotations: map[string]string{"type": "setup"},
 	}
 	diagCmd = &cobra.Command{
 		Use:   "diag",
