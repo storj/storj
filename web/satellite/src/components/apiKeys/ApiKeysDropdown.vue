@@ -2,28 +2,26 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="sort-container" >
-        <!-- TODO: fix dd styles on hover -->
-        <div class="sort-toggle-container" v-on:click="toggleSelection" >
-            <h1 class="sort-toggle-container__sort-name">Sort by name</h1>
-            <div class="sort-toggle-container__expander-area">
-                <img v-if="!isChoiceShown" src="../../../../static/images/register/BlueExpand.svg" />
-                <img v-if="isChoiceShown" src="../../../../static/images/register/BlueHide.svg" />
+    <div class="dropdown-container" >
+        <div class="dropdown-toggle-container" v-on:click="toggleSelection" >
+            <h1 class="dropdown-toggle-container__dropdown-name">Read / Write</h1>
+            <div class="dropdown-toggle-container__expander-area">
+                <img v-if="!isChoiceShown" src="../../../static/images/register/BlueExpand.svg" />
+                <img v-if="isChoiceShown" src="../../../static/images/register/BlueHide.svg" />
             </div>
         </div>
-        <SortDropdown v-if="isChoiceShown" @onClose="toggleSelection" />
+        <Dropdown v-if="isChoiceShown" @onClose="toggleSelection" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import SortDropdown from './SortDropdown.vue';
+import Dropdown from './Dropdown.vue';
 
 @Component(
     {
         data: function () {
             return {
-                userName: this.$store.getters.userName,
                 isChoiceShown: false
             };
         },
@@ -33,12 +31,12 @@ import SortDropdown from './SortDropdown.vue';
             }
         },
         components: {
-            SortDropdown
+            Dropdown
         }
     }
 )
 
-export default class SortUsersDropdown extends Vue {
+export default class ApiKeysDropdown extends Vue {
 }
 </script>
 
@@ -47,45 +45,38 @@ export default class SortUsersDropdown extends Vue {
         text-decoration: none;
         outline: none;
     }
-    .sort-container {
+    .dropdown-container {
         position: relative;
-        padding-right: 10px;
         background-color: #FFFFFF;
         cursor: pointer;
+        font-family: 'montserrat_regular';
+        font-size: 16px;
+        resize: none;
+        height: 50px;
         width: 100%;
-        max-width: 260px;
-        height: 56px;
-        box-sizing: border-box;
+        border: 1px solid rgba(56, 75, 101, 0.4);
         border-radius: 6px;
-        transition: all .2s ease-in-out;
-
-        &:hover {
-            box-shadow: 0px 4px rgba(231, 232, 238, 0.6);
-        }
-
-        &:focus {
-            box-shadow: 0px 4px rgba(231, 232, 238, 0.6);
-        }
     }
 
-    .sort-toggle-container {
+    .dropdown-toggle-container {
         display: flex;
         flex-direction: row;
         align-items: center;
         justify-content: space-between;
         width: 100%;
-        height: 56px;
+        height: 50px;
 
-        &__sort-name {
+        &__dropdown-name {
             margin-left: 20px;
             font-family: 'montserrat_medium';
             font-size: 16px;
-            line-height: 23px;
-            color: #AFB7C1;
+            color: #384B65;
+            opacity: 0.4;
         }
 
         &__expander-area {
             margin-left: 12px;
+            margin-right: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -96,8 +87,8 @@ export default class SortUsersDropdown extends Vue {
 
     @media screen and (max-width: 720px) {
 
-        .sort-toggle-container {
-            &__sort-name {
+        .dropdown-toggle-container {
+            &__dropdown-name {
                 display: none;
             }
         }

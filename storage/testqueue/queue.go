@@ -38,7 +38,7 @@ func (q *Queue) Dequeue() (storage.Value, error) {
 		q.s.Remove(e)    // Dequeue
 		return e.Value.(storage.Value), nil
 	}
-	return nil, storage.ErrEmptyQueue
+	return nil, storage.ErrEmptyQueue.New("")
 }
 
 //Peekqueue gets upto 'limit' entries from the list queue

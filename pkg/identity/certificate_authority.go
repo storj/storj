@@ -8,9 +8,11 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
 	"io/ioutil"
+	"log"
 
 	"github.com/zeebo/errs"
 
@@ -72,6 +74,38 @@ type PeerCAConfig struct {
 type FullCAConfig struct {
 	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
 	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
+}
+
+// NewCA creates a new full identity with the given difficulty
+func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var (
+		highscore uint32
+	)
+
+	if opts.Concurrency < 1 {
+		opts.Concurrency = 1
+	}
+	ctx, cancel := context.WithCancel(ctx)
+
+	log.Printf("Generating a certificate matching a difficulty of %d\n", opts.Difficulty)
+	eC := make(chan error)
+	caC := make(chan FullCertificateAuthority, 1)
+	for i := 0; i < int(opts.Concurrency); i++ {
+		go newCAWorker(ctx, i, &highscore, opts.Difficulty, opts.ParentCert, opts.ParentKey, caC, eC)
+	}
+
+	select {
+	case ca := <-caC:
+		cancel()
+		return &ca, nil
+	case err := <-eC:
+		cancel()
+		return nil, err
+	case <-ctx.Done():
+		cancel()
+		return nil, ctx.Err()
+	}
 }
 
 // Status returns the status of the CA cert/key files for the config
@@ -174,32 +208,6 @@ func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
 	}, nil
 }
 
-// NewCA creates a new full identity with the given difficulty
-func NewCA(ctx context.Context, opts NewCAOptions) (
-	rv *FullCertificateAuthority, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if opts.Concurrency < 1 {
-		opts.Concurrency = 1
-	}
-	ctx, cancel := context.WithCancel(ctx)
-
-	eC := make(chan error)
-	caC := make(chan FullCertificateAuthority, 1)
-	for i := 0; i < int(opts.Concurrency); i++ {
-		go newCAWorker(ctx, opts.Difficulty, opts.ParentCert, opts.ParentKey, caC, eC)
-	}
-
-	select {
-	case ca := <-caC:
-		cancel()
-		return &ca, nil
-	case err := <-eC:
-		cancel()
-		return nil, err
-	}
-}
-
 // Save saves a CA with the given configuration
 func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	var (
@@ -238,7 +246,7 @@ func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 // NewIdentity generates a new `FullIdentity` based on the CA. The CA
 // cert is included in the identity's cert chain and the identity's leaf cert
 // is signed by the CA.
-func (ca FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
+func (ca *FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 	leafTemplate, err := peertls.LeafTemplate()
 	if err != nil {
 		return nil, err
@@ -270,4 +278,29 @@ func (ca FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 		Key:       leafKey,
 		ID:        ca.ID,
 	}, nil
+
+}
+
+// RestChainRaw returns the rest (excluding leaf and CA) of the certificate chain as a 2d byte slice
+func (ca *FullCertificateAuthority) RestChainRaw() [][]byte {
+	var chain [][]byte
+	for _, cert := range ca.RestChain {
+		chain = append(chain, cert.Raw)
+	}
+	return chain
+}
+
+// Sign signs the passed certificate with ca certificate
+func (ca *FullCertificateAuthority) Sign(cert *x509.Certificate) (*x509.Certificate, error) {
+	signedCertBytes, err := x509.CreateCertificate(rand.Reader, cert, ca.Cert, cert.PublicKey, ca.Key)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	signedCert, err := x509.ParseCertificate(signedCertBytes)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return signedCert, nil
 }

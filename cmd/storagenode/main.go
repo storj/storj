@@ -44,6 +44,12 @@ var (
 		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
+	configCmd = &cobra.Command{
+		Use:         "config",
+		Short:       "Edit config files",
+		RunE:        cmdConfig,
+		Annotations: map[string]string{"type": "setup"},
+	}
 	diagCmd = &cobra.Command{
 		Use:   "diag",
 		Short: "Diagnostic Tool support",
@@ -86,6 +92,7 @@ func init() {
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
+	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
@@ -150,6 +157,21 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return process.SaveConfig(runCmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+}
+
+func cmdConfig(cmd *cobra.Command, args []string) (err error) {
+	setupDir, err := filepath.Abs(*confDir)
+	if err != nil {
+		return err
+	}
+	//run setup if we can't access the config file
+	conf := filepath.Join(setupDir, "config.yaml")
+	if _, err := os.Stat(conf); err != nil {
+		if err = cmdSetup(cmd, args); err != nil {
+			return err
+		}
+	}
+	return fpath.EditFile(conf)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {

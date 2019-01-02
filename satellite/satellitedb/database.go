@@ -23,6 +23,8 @@ var (
 	Error = errs.Class("satellitedb")
 )
 
+//go:generate go run lockedgen/main.go -o locked.go
+
 // DB contains access to different database tables
 type DB struct {
 	db *dbx.DB
@@ -43,7 +45,7 @@ func New(databaseURL string) (satellite.DB, error) {
 
 	core := &DB{db: db}
 	if driver == "sqlite3" {
-		return NewMutex(core), nil
+		return newLocked(core), nil
 	}
 	return core, nil
 }

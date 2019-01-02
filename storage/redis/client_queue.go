@@ -45,7 +45,7 @@ func (client *Queue) Dequeue() (storage.Value, error) {
 	out, err := client.db.RPop(queueKey).Bytes()
 	if err != nil {
 		if err == redis.Nil {
-			return nil, storage.ErrEmptyQueue
+			return nil, storage.ErrEmptyQueue.New("")
 		}
 		return nil, Error.New("dequeue error: %v", err)
 	}

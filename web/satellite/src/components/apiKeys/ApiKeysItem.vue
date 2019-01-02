@@ -2,9 +2,16 @@
 // See LICENSE for copying information.
 
 <template>
-    <label class="container">
-        <input type="checkbox" v-model="checked" @change="onChange">
-        <span v-bind:class="[isCheckboxError ? 'checkmark error': 'checkmark']"></span>
+    <label v-bind:class="checked ? 'container selected' : 'container'">
+        <div>
+            <input type="checkbox" v-model="checked" @change="onChange">
+            <span v-bind:class="[isCheckboxError ? 'checkmark error': 'checkmark']"></span>
+        </div>
+        <p class="container__item">test</p>
+        <p class="container__item">test</p>
+        <p class="container__item">test</p>
+        <p class="container__item">test</p>
+        <p class="container__item">test</p>
     </label>
 </template>
 
@@ -33,25 +40,46 @@ import { Component, Vue } from 'vue-property-decorator';
         },
     }
 )
-export default class Checkbox extends Vue {
-
-}
+export default class ApiKeysItem extends Vue {}
 </script>
 
 <style scoped lang="scss">
     .container {
-        display: block;
-        position: relative;
-        padding-left: 35px;
-        height: 25px;
-        width: 25px;
+        display: grid;
+        grid-template-columns: 2% 20% 30% 20% 20% 8%;
         cursor: pointer;
-        font-size: 22px;
+        position: relative;
+        transition: box-shadow .2s ease-out;
+        padding: 35px 0px 35px 70px;
+        transition: all .2s ease;
+        margin-bottom: 10px;
+        border-radius: 6px;
         -webkit-user-select: none;
         -moz-user-select: none;
         -ms-user-select: none;
         user-select: none;
         outline: none;
+
+        &:hover {
+            background: #fff;
+            box-shadow: 0px 4px 4px rgba(231, 232, 238, 0.6);
+        }
+
+        &__item {
+            width: 20%;
+            font-family: 'montserrat_medium';
+            font-size: 16px;
+            margin: 0;
+        }
+    }
+
+    .container.selected {
+        background: #2379EC;
+        box-shadow: 0px 6px 20px rgba(39, 132, 255, 0.4);
+
+        p {
+            color: #fff;
+        }
     }
 
     .container input {
@@ -64,21 +92,22 @@ export default class Checkbox extends Vue {
 
     .checkmark {
         position: absolute;
-        top: 0;
-        left: 0;
+        left: 25px;
+        top: 50%;
+        transform: translateY(-50%);
         height: 25px;
         width: 25px;
-        border: 2px solid rgba(56, 75, 101, 0.4);
+        border: 1px solid rgba(56, 75, 101, 0.4);
         border-radius: 4px;
     }
 
     .container:hover input ~ .checkmark {
-        background-color: #ccc;
+        background-color: #fff;
     }
 
     .container input:checked ~ .checkmark {
-        border: 2px solid #2196F3;
-        background-color: #2196F3;
+        border: 1px solid #fff;
+        background-color: #fff;
     }
 
     .checkmark:after {
@@ -100,10 +129,18 @@ export default class Checkbox extends Vue {
         top: 5px;
         width: 5px;
         height: 10px;
-        border: solid white;
+        border: solid #2379EC;
         border-width: 0 3px 3px 0;
         -webkit-transform: rotate(45deg);
         -ms-transform: rotate(45deg);
         transform: rotate(45deg);
+    }
+
+    @media screen and (max-width: 1600px) {
+
+        .container {
+            grid-template-columns: 2% 20% 30% 20% 15% 13%;
+            padding: 20px 0px 20px 70px;
+        }
     }
 </style>
