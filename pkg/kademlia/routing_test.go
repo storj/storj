@@ -166,7 +166,7 @@ func TestUpdateSelf(t *testing.T) {
 	rt, cleanup := createRoutingTable(t, id)
 	defer cleanup()
 	address := &pb.NodeAddress{Address: "a"}
-	node := &pb.Node{Id: id, Address: address}
+	node := &pb.Node{Id: id, Address: address, Type: pb.NodeType_STORAGE}
 	cases := []struct {
 		testID  string
 		node    *pb.Node
