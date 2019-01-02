@@ -29,7 +29,7 @@ type DB interface {
 	// UpdateAuditSuccess updates a single storagenode's audit stats in the db
 	UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, auditSuccess bool) (stats *NodeStats, err error)
 
-	// UpdateBatch for updating multiple farmers' stats in the db
+	// UpdateBatch for updating multiple storage nodes' stats in the db
 	UpdateBatch(ctx context.Context, updateReqList []*UpdateRequest) (statsList []*NodeStats, failedUpdateReqs []*UpdateRequest, err error)
 
 	// CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist

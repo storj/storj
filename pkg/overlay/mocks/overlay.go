@@ -44,7 +44,7 @@ func (mo *Overlay) FindStorageNodes(ctx context.Context, req *pb.FindStorageNode
 		nodes = append(nodes, node)
 	}
 	if int64(len(nodes)) < req.Opts.GetAmount() {
-		return nil, errs.New("not enough farmers exist")
+		return nil, errs.New("not enough storage nodes exist")
 	}
 	nodes = nodes[:req.Opts.GetAmount()]
 	return &pb.FindStorageNodesResponse{Nodes: nodes}, nil

@@ -58,9 +58,9 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(log *zap.Logger, id storj.NodeID, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
+func NewKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
 	self := pb.Node{
-		Id:       id,
+		Id:       identity.ID,
 		Type:     nodeType,
 		Address:  &pb.NodeAddress{Address: address},
 		Metadata: metadata,
@@ -71,7 +71,7 @@ func NewKademlia(log *zap.Logger, id storj.NodeID, nodeType pb.NodeType, bootstr
 		}
 	}
 
-	bucketIdentifier := id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
+	bucketIdentifier := self.Id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
 	dbpath := filepath.Join(path, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
 
 	dbs, err := boltdb.NewShared(dbpath, KademliaBucket, NodeBucket)

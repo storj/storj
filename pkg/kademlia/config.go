@@ -35,10 +35,10 @@ const (
 	ctxKeyKad CtxKey = iota
 )
 
-// FarmerConfig defines properties related to farmer metadata
-type FarmerConfig struct {
-	Email  string `help:"Farmer email address" default:""`
-	Wallet string `help:"Farmer wallet adress" default:""`
+// OperatorConfig defines properties related to storage node operator metadata
+type OperatorConfig struct {
+	Email  string `help:"Operator email address" default:""`
+	Wallet string `help:"Operator wallet adress" default:""`
 }
 
 // Config defines all of the things that are needed to start up Kademlia
@@ -48,7 +48,7 @@ type Config struct {
 	DBPath          string `help:"the path for our db services to be created on" default:"$CONFDIR/kademlia"`
 	Alpha           int    `help:"alpha is a system wide concurrency parameter." default:"5"`
 	ExternalAddress string `help:"the public address of the kademlia node; defaults to the gRPC server address." default:""`
-	Farmer          FarmerConfig
+	Operator        OperatorConfig
 }
 
 // StorageNodeConfig is a Config that implements provider.Responsibility as
@@ -75,15 +75,15 @@ func (c Config) Run(ctx context.Context, server *provider.Provider,
 	nodeType pb.NodeType) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO(coyle): I'm thinking we just remove  this function and grab from the config.
+	// TODO(coyle): I'm thinking we just remove this function and grab from the config.
 	in, err := GetIntroNode(c.BootstrapAddr)
 	if err != nil {
 		return err
 	}
 
 	metadata := &pb.NodeMetadata{
-		Email:  c.Farmer.Email,
-		Wallet: c.Farmer.Wallet,
+		Email:  c.Operator.Email,
+		Wallet: c.Operator.Wallet,
 	}
 
 	addr := server.Addr().String()
@@ -92,7 +92,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider,
 	}
 
 	logger := zap.L()
-	kad, err := NewKademlia(logger, server.Identity().ID, nodeType, []pb.Node{*in}, addr, metadata, server.Identity(), c.DBPath, c.Alpha)
+	kad, err := NewKademlia(logger, nodeType, []pb.Node{*in}, addr, metadata, server.Identity(), c.DBPath, c.Alpha)
 	if err != nil {
 		return err
 	}
