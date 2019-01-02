@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/zeebo/errs"
 )
 
 // GetBytes transforms an empty interface type into a byte slice
@@ -36,59 +38,21 @@ func SplitDBURL(s string) (string, string, error) {
 }
 
 // CombineErrors combines multiple errors to a single error
-func CombineErrors(errs ...error) error {
-	var errlist ErrorGroup
-	errlist.Add(errs...)
-	return errlist.Finish()
-}
-
-type combinedError []error
-
-func (errs combinedError) Cause() error {
-	if len(errs) > 0 {
-		return errs[0]
-	}
-	return nil
-}
-
-func (errs combinedError) Error() string {
-	if len(errs) > 0 {
-		limit := 5
-		if len(errs) < limit {
-			limit = len(errs)
-		}
-		allErrors := errs[0].Error()
-		for _, err := range errs[1:limit] {
-			allErrors += "\n" + err.Error()
-		}
-		return allErrors
-	}
-	return ""
-}
+var CombineErrors = errs.Combine
 
 // ErrorGroup contains a set of non-nil errors
-type ErrorGroup []error
-
-// Add adds an error to the ErrorGroup if it is non-nil
-func (e *ErrorGroup) Add(errs ...error) {
-	for _, err := range errs {
-		if err != nil {
-			*e = append(*e, err)
-		}
-	}
+type ErrorGroup struct {
+	e errs.Group
 }
 
-// Finish returns nil if there were no non-nil errors, the first error if there
-// was only one non-nil error, or the result of CombineErrors if there was more
-// than one non-nil error.
-func (e ErrorGroup) Finish() error {
-	if len(e) == 0 {
-		return nil
-	}
-	if len(e) == 1 {
-		return e[0]
-	}
-	return combinedError(e)
+// Add add errs to ErrorGroup
+func (e *ErrorGroup) Add(err ...error) {
+	e.e.Add(err...)
+}
+
+// Add add errs to ErrorGroup
+func (e *ErrorGroup) Finish() error {
+	return e.e.Err()
 }
 
 // CollectErrors returns first error from channel and all errors that happen within duration
@@ -119,4 +83,47 @@ func discardNil(ch chan error) chan error {
 		close(r)
 	}()
 	return r
+}
+
+// RunJointly runs the given jobs concurrently. As soon as one finishes,
+// the timeout begins ticking. If all jobs finish before the deadline
+// RunJointly returns the combined errors. If some jobs time out, a timeout
+// error is returned for them.
+func RunJointly(timeout time.Duration, jobs ...func() error) error {
+	ch := make(chan error, len(jobs))
+
+	for _, job := range jobs {
+		go func(job func() error) {
+			// run the job but turn panics into errors
+			err := func() (err error) {
+				defer func() {
+					if rec := recover(); rec != nil {
+						err = errs.New("panic: %+v", rec)
+					}
+				}()
+				return job()
+			}()
+			// send the error
+			ch <- err
+		}(job)
+	}
+
+	errgroup := make([]error, 0, len(jobs))
+	errgroup = append(errgroup, <-ch)
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+loop:
+	for len(errgroup) < len(jobs) {
+		select {
+		case err := <-ch:
+			errgroup = append(errgroup, err)
+		case <-timer.C:
+			errgroup = append(errgroup,
+				errs.New("%d jobs timed out", len(jobs)-len(errgroup)))
+			break loop
+		}
+	}
+
+	return errs.Combine(errgroup...)
 }

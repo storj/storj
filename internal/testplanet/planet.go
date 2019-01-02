@@ -19,13 +19,13 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	pieceserver "storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage/teststore"
 )
@@ -96,7 +96,7 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 	for _, n := range planet.nodes {
 		server := node.NewServer(n.Log.Named("node"), n.Kademlia)
-		pb.RegisterNodesServer(n.Provider.GRPC(), server)
+		pb.RegisterNodesServer(n.Server.PublicRPC(), server)
 		// TODO: shutdown
 	}
 
@@ -112,7 +112,7 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 				Overlay:              true,
 			},
 			node.Identity)
-		pb.RegisterPointerDBServer(node.Provider.GRPC(), pointerServer)
+		pb.RegisterPointerDBServer(node.Server.PublicRPC(), pointerServer)
 		// bootstrap satellite kademlia node
 		go func(n *Node) {
 			if err := n.Kademlia.Bootstrap(context.Background()); err != nil {
@@ -128,7 +128,7 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 		}
 
 		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, ns)
-		pb.RegisterOverlayServer(node.Provider.GRPC(), overlayServer)
+		pb.RegisterOverlayServer(node.Server.PublicRPC(), overlayServer)
 
 		node.Dependencies = append(node.Dependencies,
 			closerFunc(func() error {
@@ -163,7 +163,7 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 			AllocatedBandwidth: 100 * memory.GB.Int64(),
 		}, node.Identity.Key)
 
-		pb.RegisterPieceStoreRoutesServer(node.Provider.GRPC(), server)
+		pb.RegisterPieceStoreRoutesServer(node.Server.PublicRPC(), server)
 
 		node.Dependencies = append(node.Dependencies,
 			closerFunc(func() error {
@@ -191,7 +191,7 @@ func (planet *Planet) Start(ctx context.Context) {
 	for _, node := range planet.nodes {
 		go func(node *Node) {
 			node.Kademlia.StartRefresh(ctx)
-			err := node.Provider.Run(ctx)
+			err := node.Server.Run(ctx)
 			if err == grpc.ErrServerStopped {
 				err = nil
 			}
@@ -238,7 +238,7 @@ func (planet *Planet) newNodes(prefix string, count int, nodeType pb.NodeType) (
 }
 
 // NewIdentity creates a new identity for a node
-func (planet *Planet) NewIdentity() (*provider.FullIdentity, error) {
+func (planet *Planet) NewIdentity() (*identity.FullIdentity, error) {
 	return planet.identities.NewIdentity()
 }
 

@@ -95,7 +95,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 			}})
 	}
 	srv := NewOverlay(nodes)
-	pb.RegisterOverlayServer(server.GRPC(), srv)
+	pb.RegisterOverlayServer(server.PublicRPC(), srv)
 	ctx = context.WithValue(ctx, ctxKeyMockOverlay, srv)
 	return server.Run(ctx)
 }

@@ -132,30 +132,30 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	overlayAddr := joinHostPort(setupCfg.ListenHost, startingPort+1)
 
 	overrides := map[string]interface{}{
-		"satellite.server.identity.cert-path": setupCfg.SatelliteIdentity.CertPath,
-		"satellite.server.identity.key-path":  setupCfg.SatelliteIdentity.KeyPath,
-		"satellite.server.address":            joinHostPort(setupCfg.ListenHost, startingPort+1),
-		"satellite.server.revocation-dburl":   "redis://127.0.0.1:6378?db=2&password=abc123",
-		"satellite.kademlia.bootstrap-addr":   joinHostPort(setupCfg.ListenHost, startingPort+1),
-		"satellite.pointer-db.database-url":   "bolt://" + filepath.Join(setupDir, "satellite", "pointerdb.db"),
-		"satellite.kademlia.alpha":            3,
-		"satellite.repairer.overlay-addr":     overlayAddr,
-		"satellite.repairer.pointer-db-addr":  joinHostPort(setupCfg.ListenHost, startingPort+1),
-		"satellite.repairer.api-key":          setupCfg.APIKey,
-		"uplink.identity.cert-path":           setupCfg.UplinkIdentity.CertPath,
-		"uplink.identity.key-path":            setupCfg.UplinkIdentity.KeyPath,
-		"uplink.server.address":               joinHostPort(setupCfg.ListenHost, startingPort),
-		"uplink.client.overlay-addr":          joinHostPort(setupCfg.ListenHost, startingPort+1),
-		"uplink.client.pointer-db-addr":       joinHostPort(setupCfg.ListenHost, startingPort+1),
-		"uplink.minio.dir":                    filepath.Join(setupDir, "uplink", "minio"),
-		"uplink.enc.key":                      setupCfg.EncKey,
-		"uplink.client.api-key":               setupCfg.APIKey,
-		"uplink.rs.min-threshold":             1 * len(runCfg.StorageNodes) / 5,
-		"uplink.rs.repair-threshold":          2 * len(runCfg.StorageNodes) / 5,
-		"uplink.rs.success-threshold":         3 * len(runCfg.StorageNodes) / 5,
-		"uplink.rs.max-threshold":             4 * len(runCfg.StorageNodes) / 5,
-		"kademlia.bucket-size":                4,
-		"kademlia.replacement-cache-size":     1,
+		"satellite.server.identity.cert-path":                 setupCfg.SatelliteIdentity.CertPath,
+		"satellite.server.identity.key-path":                  setupCfg.SatelliteIdentity.KeyPath,
+		"satellite.server.public-address":                     joinHostPort(setupCfg.ListenHost, startingPort+1),
+		"satellite.server.cert-verification.revocation-dburl": "redis://127.0.0.1:6378?db=2&password=abc123",
+		"satellite.kademlia.bootstrap-addr":                   joinHostPort(setupCfg.ListenHost, startingPort+1),
+		"satellite.pointer-db.database-url":                   "bolt://" + filepath.Join(setupDir, "satellite", "pointerdb.db"),
+		"satellite.kademlia.alpha":                            3,
+		"satellite.repairer.overlay-addr":                     overlayAddr,
+		"satellite.repairer.pointer-db-addr":                  joinHostPort(setupCfg.ListenHost, startingPort+1),
+		"satellite.repairer.api-key":                          setupCfg.APIKey,
+		"uplink.identity.cert-path":                           setupCfg.UplinkIdentity.CertPath,
+		"uplink.identity.key-path":                            setupCfg.UplinkIdentity.KeyPath,
+		"uplink.server.address":                               joinHostPort(setupCfg.ListenHost, startingPort),
+		"uplink.client.overlay-addr":                          joinHostPort(setupCfg.ListenHost, startingPort+1),
+		"uplink.client.pointer-db-addr":                       joinHostPort(setupCfg.ListenHost, startingPort+1),
+		"uplink.minio.dir":                                    filepath.Join(setupDir, "uplink", "minio"),
+		"uplink.enc.key":                                      setupCfg.EncKey,
+		"uplink.client.api-key":                               setupCfg.APIKey,
+		"uplink.rs.min-threshold":                             1 * len(runCfg.StorageNodes) / 5,
+		"uplink.rs.repair-threshold":                          2 * len(runCfg.StorageNodes) / 5,
+		"uplink.rs.success-threshold":                         3 * len(runCfg.StorageNodes) / 5,
+		"uplink.rs.max-threshold":                             4 * len(runCfg.StorageNodes) / 5,
+		"kademlia.bucket-size":                                4,
+		"kademlia.replacement-cache-size":                     1,
 
 		// TODO: this will eventually go away
 		"pointer-db.auth.api-key": setupCfg.APIKey,
@@ -175,9 +175,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			storagenodePath, "identity.cert")
 		overrides[storagenode+"server.identity.key-path"] = filepath.Join(
 			storagenodePath, "identity.key")
-		overrides[storagenode+"server.address"] = joinHostPort(
+		overrides[storagenode+"server.public-address"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+i*2+3)
-		overrides[storagenode+"server.revocation-dburl"] = "redis://127.0.0.1:6378?db=2&password=abc123"
+		overrides[storagenode+"server.cert-verification.revocation-dburl"] = "redis://127.0.0.1:6378?db=2&password=abc123"
 		overrides[storagenode+"kademlia.bootstrap-addr"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+1)
 		overrides[storagenode+"storage.path"] = filepath.Join(storagenodePath, "data")

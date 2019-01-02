@@ -112,7 +112,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Info("Operator wallet: ", operatorConfig.Wallet)
 	}
 
-	return runCfg.Server.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
+	return runCfg.Server.Run(process.Ctx(cmd), runCfg.Kademlia, runCfg.Storage)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -148,9 +148,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	overrides := map[string]interface{}{
-		"identity.cert-path":                      setupCfg.Identity.CertPath,
-		"identity.key-path":                       setupCfg.Identity.KeyPath,
-		"identity.server.address":                 defaultServerAddr,
+		"server.identity.cert-path":               setupCfg.Identity.CertPath,
+		"server.identity.key-path":                setupCfg.Identity.KeyPath,
+		"server.public-address":                   defaultServerAddr,
 		"storage.path":                            filepath.Join(setupDir, "storage"),
 		"kademlia.bootstrap-addr":                 defaultSatteliteAddr,
 		"piecestore.agreementsender.overlay-addr": defaultSatteliteAddr,

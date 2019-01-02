@@ -25,9 +25,11 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
@@ -44,6 +46,27 @@ var (
 		Data:   [tokenDataLength]byte{4, 5, 6},
 	}
 )
+
+type noListener struct {
+	event utils.Event
+}
+
+func (l *noListener) Accept() (net.Conn, error) {
+	l.event.Wait()
+	return nil, fmt.Errorf("closed")
+}
+
+func (l *noListener) Addr() net.Addr {
+	return &net.TCPAddr{
+		IP:   net.IPv4(127, 0, 0, 1),
+		Port: 1,
+	}
+}
+
+func (l *noListener) Close() error {
+	l.event.Fire()
+	return nil
+}
 
 func TestCertSignerConfig_NewAuthDB(t *testing.T) {
 	ctx := testcontext.New(t)
@@ -288,7 +311,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 	if !assert.NoError(t, err) || !assert.NotNil(t, ident1) {
 		t.Fatal(err)
 	}
-	claimedIdent := &provider.PeerIdentity{
+	claimedIdent := &identity.PeerIdentity{
 		CA:   ident1.CA,
 		Leaf: ident1.Leaf,
 	}
@@ -612,11 +635,11 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 	caCert := filepath.Join(tmp, "ca.cert")
 	caKey := filepath.Join(tmp, "ca.key")
 	userID := "user@example.com"
-	caSetupConfig := provider.CASetupConfig{
+	caSetupConfig := identity.CASetupConfig{
 		CertPath: caCert,
 		KeyPath:  caKey,
 	}
-	caConfig := provider.FullCAConfig{
+	caConfig := identity.FullCAConfig{
 		CertPath: caCert,
 		KeyPath:  caKey,
 	}
@@ -668,16 +691,14 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	serverConfig := provider.ServerConfig{Address: listener.Addr().String()}
-	opts, err := provider.NewServerOptions(serverIdent, serverConfig)
-	if !assert.NoError(t, err) || !assert.NotNil(t, opts) {
+	var ext peertls.TLSExtConfig
+	cfgstruct.SetStructDefaults(&ext)
+	pubSrv, privSrv, err := server.SetupRPCs(serverIdent, server.PCVs(nil, nil, ext))
+	if !assert.NoError(t, err) {
 		t.Fatal(err)
 	}
 
-	service, err := provider.NewProvider(opts, listener, nil, config)
-	if !assert.NoError(t, err) || !assert.NotNil(t, service) {
-		t.Fatal(err)
-	}
+	service := server.NewServer(serverIdent, pubSrv, listener, privSrv, &noListener{}, config)
 
 	ctx.Go(func() error {
 		err := service.Run(ctx)
@@ -811,7 +832,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 	caCert := filepath.Join(tmp, "ca.cert")
 	caKey := filepath.Join(tmp, "ca.key")
 	userID := "user@example.com"
-	caSetupConfig := provider.CASetupConfig{
+	caSetupConfig := identity.CASetupConfig{
 		CertPath: caCert,
 		KeyPath:  caKey,
 	}

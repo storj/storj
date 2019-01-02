@@ -58,7 +58,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		metrics:  monkit.Default,
 	}
 
-	pb.RegisterInspectorServer(server.GRPC(), srv)
+	pb.RegisterInspectorServer(server.PublicRPC(), srv)
 
 	return server.Run(ctx)
 }

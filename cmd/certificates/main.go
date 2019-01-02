@@ -166,7 +166,7 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 func cmdRun(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	return runCfg.Server.Run(ctx, nil, runCfg.CertSigner)
+	return runCfg.Server.Run(ctx, runCfg.CertSigner)
 }
 
 func cmdCreateAuth(cmd *cobra.Command, args []string) error {

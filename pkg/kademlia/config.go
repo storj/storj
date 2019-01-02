@@ -86,7 +86,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider,
 		Wallet: c.Operator.Wallet,
 	}
 
-	addr := server.Addr().String()
+	addr := server.PublicAddr().String()
 	if c.ExternalAddress != "" {
 		addr = c.ExternalAddress
 	}
@@ -99,7 +99,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider,
 	kad.StartRefresh(ctx)
 	defer func() { err = utils.CombineErrors(err, kad.Disconnect()) }()
 
-	pb.RegisterNodesServer(server.GRPC(), node.NewServer(logger, kad))
+	pb.RegisterNodesServer(server.PublicRPC(), node.NewServer(logger, kad))
 
 	go func() {
 		if err = kad.Bootstrap(ctx); err != nil {

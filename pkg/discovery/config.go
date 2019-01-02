@@ -41,7 +41,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	defer mon.Task()(&ctx)(&err)
 
 	srv := NewServer(zap.L())
-	pb.RegisterDiscoveryServer(server.GRPC(), srv)
+	pb.RegisterDiscoveryServer(server.PublicRPC(), srv)
 
 	ol := overlay.LoadFromContext(ctx)
 	kad := kademlia.LoadFromContext(ctx)

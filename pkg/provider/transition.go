@@ -34,8 +34,6 @@ type (
 )
 
 var (
-	// NewServerOptions Transition: pkg/provider is going away.
-	NewServerOptions = server.NewOptions
 	// NewProvider Transition: pkg/provider is going away.
 	NewProvider = server.NewServer
 	// PeerIdentityFromContext Transition: pkg/provider is going away.
