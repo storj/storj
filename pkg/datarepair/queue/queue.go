@@ -13,10 +13,13 @@ import (
 	"storj.io/storj/storage"
 )
 
-// RepairQueue is the interface for the data repair queue
+// RepairQueue implements queueing for segments that need repairing.
 type RepairQueue interface {
+	// Enqueue adds an injured segment.
 	Enqueue(ctx context.Context, qi *pb.InjuredSegment) error
+	// Dequeue removes an injured segment.
 	Dequeue(ctx context.Context) (pb.InjuredSegment, error)
+	// Peekqueue lists limit amount of injured segments.
 	Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error)
 }
 

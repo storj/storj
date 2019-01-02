@@ -7,17 +7,17 @@ import (
 	"context"
 )
 
-// DB interface for database operations
+// DB stores information about repairs that have failed.
 type DB interface {
-	// IncrementRepairAttempts increments the repair attempt
+	// IncrementRepairAttempts increments the repair attempts.
 	IncrementRepairAttempts(ctx context.Context, segmentInfo *RemoteSegmentInfo) error
-	// Get a irreparable's segment info from the db
+	// Get returns irreparable segment info based on segmentPath.
 	Get(ctx context.Context, segmentPath []byte) (*RemoteSegmentInfo, error)
-	// Delete a irreparable's segment info from the db
+	// Delete removes irreparable segment info based on segmentPath.
 	Delete(ctx context.Context, segmentPath []byte) error
 }
 
-// RemoteSegmentInfo is info about a single entry stored in the irreparable
+// RemoteSegmentInfo is information about failed repairs.
 type RemoteSegmentInfo struct {
 	EncryptedSegmentPath   []byte
 	EncryptedSegmentDetail []byte //contains marshaled info of pb.Pointer
