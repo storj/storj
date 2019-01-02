@@ -18,12 +18,13 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -50,13 +51,13 @@ var (
 	}
 
 	runCfg struct {
-		Identity provider.IdentityConfig
+		Server   server.Config
 		Kademlia kademlia.Config
 		Storage  psserver.Config
 	}
 	setupCfg struct {
-		CA        provider.CASetupConfig
-		Identity  provider.IdentitySetupConfig
+		CA        identity.CASetupConfig
+		Identity  identity.SetupConfig
 		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 	diagCfg struct {
@@ -92,19 +93,19 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	farmerConfig := runCfg.Kademlia.Farmer
-	if err := isFarmerEmailValid(farmerConfig.Email); err != nil {
+	operatorConfig := runCfg.Kademlia.Operator
+	if err := isOperatorEmailValid(operatorConfig.Email); err != nil {
 		zap.S().Warn(err)
 	} else {
-		zap.S().Info("Farmer email: ", farmerConfig.Email)
+		zap.S().Info("Operator email: ", operatorConfig.Email)
 	}
-	if err := isFarmerWalletValid(farmerConfig.Wallet); err != nil {
+	if err := isOperatorWalletValid(operatorConfig.Wallet); err != nil {
 		zap.S().Fatal(err)
 	} else {
-		zap.S().Info("Farmer wallet: ", farmerConfig.Wallet)
+		zap.S().Info("Operator wallet: ", operatorConfig.Wallet)
 	}
 
-	return runCfg.Identity.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
+	return runCfg.Server.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -134,7 +135,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
 	setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 
-	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
+	err = identity.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
 		return err
 	}
@@ -165,7 +166,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// open the sql db
-	dbpath := filepath.Join(diagDir, "piecestore.db")
+	dbpath := filepath.Join(diagDir, "storage", "piecestore.db")
 	db, err := psdb.Open(context.Background(), "", dbpath)
 	if err != nil {
 		fmt.Println("Storagenode database couldnt open:", dbpath)
@@ -242,20 +243,20 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	return err
 }
 
-func isFarmerEmailValid(email string) error {
+func isOperatorEmailValid(email string) error {
 	if email == "" {
-		return fmt.Errorf("Farmer mail address isn't specified")
+		return fmt.Errorf("Operator mail address isn't specified")
 	}
 	return nil
 }
 
-func isFarmerWalletValid(wallet string) error {
+func isOperatorWalletValid(wallet string) error {
 	if wallet == "" {
-		return fmt.Errorf("Farmer wallet address isn't specified")
+		return fmt.Errorf("Operator wallet address isn't specified")
 	}
 	r := regexp.MustCompile("^0x[a-fA-F0-9]{40}$")
 	if match := r.MatchString(wallet); !match {
-		return fmt.Errorf("Farmer wallet address isn't valid")
+		return fmt.Errorf("Operator wallet address isn't valid")
 	}
 	return nil
 }

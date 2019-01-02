@@ -11,12 +11,24 @@ import (
 	"testing"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
+)
+
+var (
+	t1 = Token{
+		UserID: "user@example.com",
+		Data:   [tokenDataLength]byte{1, 2, 3},
+	}
+	t2 = Token{
+		UserID: "user2@example.com",
+		Data:   [tokenDataLength]byte{4, 5, 6},
+	}
 )
 
 func TestCertSignerConfig_NewAuthDB(t *testing.T) {
@@ -139,7 +151,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	var expectedAuths Authorizations
 	for i := 0; i < 5; i++ {
 		expectedAuths = append(expectedAuths, &Authorization{
-			Token: [tokenLength]byte{1, 2, 3},
+			Token: t1,
 		})
 	}
 	authsBytes, err := expectedAuths.Marshal()
@@ -183,15 +195,18 @@ func TestAuthorizationDB_Get(t *testing.T) {
 }
 
 func TestNewAuthorization(t *testing.T) {
-	auth, err := NewAuthorization()
+	userID := "user@example.com"
+	auth, err := NewAuthorization(userID)
 	assert.NoError(t, err)
-	assert.NotNil(t, auth)
+	if !assert.NotNil(t, auth) {
+		t.FailNow()
+	}
 	assert.NotZero(t, auth.Token)
+	assert.Equal(t, userID, auth.Token.UserID)
+	assert.NotEmpty(t, auth.Token.Data)
 }
 
 func TestAuthorizations_Marshal(t *testing.T) {
-	t1 := [tokenLength]byte{1, 2, 3}
-	t2 := [tokenLength]byte{4, 5, 6}
 	expectedAuths := Authorizations{
 		{Token: t1},
 		{Token: t2},
@@ -210,8 +225,6 @@ func TestAuthorizations_Marshal(t *testing.T) {
 }
 
 func TestAuthorizations_Unmarshal(t *testing.T) {
-	t1 := [tokenLength]byte{1, 2, 3}
-	t2 := [tokenLength]byte{4, 5, 6}
 	expectedAuths := Authorizations{
 		{Token: t1},
 		{Token: t2},
@@ -229,8 +242,6 @@ func TestAuthorizations_Unmarshal(t *testing.T) {
 }
 
 func TestAuthorizations_Group(t *testing.T) {
-	t1 := [tokenLength]byte{1, 2, 3}
-	t2 := [tokenLength]byte{4, 5, 6}
 	auths := make(Authorizations, 10)
 	for i := 0; i < 10; i++ {
 		if i%2 == 0 {
@@ -279,9 +290,82 @@ func TestAuthorizationDB_Emails(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	emails, err := authDB.Emails()
+	userIDs, err := authDB.UserIDs()
 	assert.NoError(t, err)
-	assert.NotEmpty(t, emails)
+	assert.NotEmpty(t, userIDs)
+}
+
+func TestParseToken_Valid(t *testing.T) {
+	userID := "user@example.com"
+	data := [tokenDataLength]byte{1, 2, 3}
+
+	cases := []struct {
+		testID string
+		userID string
+	}{
+		{
+			"valid token",
+			userID,
+		},
+		{
+			"multiple delimiters",
+			"us" + tokenDelimiter + "er@example.com",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			b58Data := base58.CheckEncode(data[:], tokenVersion)
+			tokenString := c.userID + tokenDelimiter + b58Data
+			token, err := ParseToken(tokenString)
+
+			assert.NoError(t, err)
+			if !assert.NotNil(t, token) {
+				t.FailNow()
+			}
+			assert.Equal(t, c.userID, token.UserID)
+			assert.Equal(t, data[:], token.Data[:])
+		})
+	}
+}
+
+func TestParseToken_Invalid(t *testing.T) {
+	userID := "user@example.com"
+	data := [tokenDataLength]byte{1, 2, 3}
+
+	cases := []struct {
+		testID      string
+		tokenString string
+	}{
+		{
+			"no delimiter",
+			userID + base58.CheckEncode(data[:], tokenVersion),
+		},
+		{
+			"missing userID",
+			tokenDelimiter + base58.CheckEncode(data[:], tokenVersion),
+		},
+		{
+			"not enough data",
+			userID + tokenDelimiter + base58.CheckEncode(data[:len(data)-10], tokenVersion),
+		},
+		{
+			"too much data",
+			userID + tokenDelimiter + base58.CheckEncode(append(data[:], []byte{0, 0, 0}...), tokenVersion),
+		},
+		{
+			"data checksum/format error",
+			userID + tokenDelimiter + base58.CheckEncode(data[:], tokenVersion)[:len(base58.CheckEncode(data[:], tokenVersion))-4] + "0000",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			token, err := ParseToken(c.tokenString)
+			assert.Nil(t, token)
+			assert.True(t, ErrInvalidToken.Has(err))
+		})
+	}
 }
 
 func newTestAuthDB(ctx *testcontext.Context) (*AuthorizationDB, error) {

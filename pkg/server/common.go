@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package provider
+package server
 
 import (
 	"github.com/zeebo/errs"
@@ -11,6 +11,6 @@ import (
 var (
 	mon = monkit.Package()
 
-	// Error is a provider error
-	Error = errs.Class("provider error")
+	// Error is a pkg/server error
+	Error = errs.Class("pkg/server error")
 )
