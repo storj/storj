@@ -12,7 +12,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/teststorj"
@@ -245,7 +244,7 @@ func TestUpdateNode(t *testing.T) {
 func TestRemoveNode(t *testing.T) {
 	rt, cleanup := createRoutingTable(t, teststorj.NodeIDFromString("AA"))
 	defer cleanup()
-	kadBucketID := rt.createFirstBucketID()
+	kadBucketID := firstBucketID
 	node := teststorj.MockNode("BB")
 	ok, err := rt.addNode(node)
 	assert.True(t, ok)
@@ -377,7 +376,7 @@ func TestKadBucketContainsLocalNode(t *testing.T) {
 	nodeIDA := teststorj.NodeIDFromBytes([]byte{183, 255}) //[10110111, 1111111]
 	rt, cleanup := createRoutingTable(t, nodeIDA)
 	defer cleanup()
-	kadIDA := rt.createFirstBucketID()
+	kadIDA := firstBucketID
 	var kadIDB bucketID
 	copy(kadIDB[:], kadIDA[:])
 	kadIDB[0] = 127
@@ -396,7 +395,7 @@ func TestKadBucketHasRoom(t *testing.T) {
 	node1 := teststorj.NodeIDFromBytes([]byte{255, 255})
 	rt, cleanup := createRoutingTable(t, node1)
 	defer cleanup()
-	kadIDA := rt.createFirstBucketID()
+	kadIDA := firstBucketID
 	node2 := teststorj.NodeIDFromBytes([]byte{191, 255})
 	node3 := teststorj.NodeIDFromBytes([]byte{127, 255})
 	node4 := teststorj.NodeIDFromBytes([]byte{63, 255})
@@ -419,7 +418,7 @@ func TestGetNodeIDsWithinKBucket(t *testing.T) {
 	nodeIDA := teststorj.NodeIDFromBytes([]byte{183, 255}) //[10110111, 1111111]
 	rt, cleanup := createRoutingTable(t, nodeIDA)
 	defer cleanup()
-	kadIDA := rt.createFirstBucketID()
+	kadIDA := firstBucketID
 	var kadIDB bucketID
 	copy(kadIDB[:], kadIDA[:])
 	kadIDB[0] = 127
@@ -513,7 +512,7 @@ func TestUnmarshalNodes(t *testing.T) {
 func TestGetUnmarshaledNodesFromBucket(t *testing.T) {
 	nodeA := teststorj.MockNode("AA")
 	rt, cleanup := createRoutingTable(t, nodeA.Id)
-	bucketID := rt.createFirstBucketID()
+	bucketID := firstBucketID
 	defer cleanup()
 	nodeB := teststorj.MockNode("BB")
 	nodeC := teststorj.MockNode("CC")
@@ -566,14 +565,6 @@ func TestGetKBucketRange(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestCreateFirstBucketID(t *testing.T) {
-	rt, cleanup := createRoutingTable(t, storj.NodeID{})
-	defer cleanup()
-	x := rt.createFirstBucketID()
-	expected := []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
-	assert.Equal(t, x[:], expected)
 }
 
 func TestBucketIDZeroValue(t *testing.T) {
@@ -687,14 +678,5 @@ func TestSplitBucket(t *testing.T) {
 			newID := rt.splitBucket(keyToBucketID(c.idA), c.depth)
 			assert.Equal(t, c.idB, newID[:2])
 		})
-	}
-}
-
-func assertErrClass(t *testing.T, class *errs.Class, err error) {
-	t.Helper()
-	if class != nil {
-		assert.True(t, class.Has(err))
-	} else {
-		assert.NoError(t, err)
 	}
 }

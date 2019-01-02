@@ -24,7 +24,7 @@ func (rt *RoutingTable) addNode(node *pb.Node) (bool, error) {
 	nodeIDBytes := node.Id.Bytes()
 
 	if bytes.Equal(nodeIDBytes, rt.self.Id.Bytes()) {
-		err := rt.createOrUpdateKBucket(rt.createFirstBucketID(), time.Now())
+		err := rt.createOrUpdateKBucket(firstBucketID, time.Now())
 		if err != nil {
 			return false, RoutingErr.New("could not create initial K bucket: %s", err)
 		}
@@ -327,15 +327,6 @@ func (rt *RoutingTable) getKBucketRange(bID bucketID) ([]bucketID, error) {
 	}
 	copy(coords[1][:], kadIDs[0])
 	return coords, nil
-}
-
-// createFirstBucketID creates byte slice representing 11..11
-// bucket IDs are the highest address which that bucket contains
-func (rt *RoutingTable) createFirstBucketID() (id bucketID) {
-	for i := 0; i < len(id); i++ {
-		id[i] = 255
-	}
-	return id
 }
 
 // determineLeafDepth determines the level of the bucket id in question.
