@@ -20,7 +20,7 @@ var ErrKeyNotFound = errs.Class("key not found")
 var ErrEmptyKey = errs.Class("empty key")
 
 // ErrEmptyQueue is returned when attempting to Dequeue from an empty queue
-var ErrEmptyQueue = errors.New("empty queue")
+var ErrEmptyQueue = errs.Class("empty queue")
 
 // ErrLimitExceeded is returned when request limit is exceeded
 var ErrLimitExceeded = errors.New("limit exceeded")
