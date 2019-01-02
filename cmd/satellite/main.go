@@ -63,7 +63,7 @@ var (
 
 	runCfg struct {
 		Server      server.Config
-		Kademlia    kademlia.Config
+		Kademlia    kademlia.SatelliteConfig
 		PointerDB   pointerdb.Config
 		Overlay     overlay.Config
 		Checker     checker.Config

@@ -34,14 +34,26 @@ func TestDialNode(t *testing.T) {
 
 	{ // DialNode with invalid targets
 		targets := []*pb.Node{
-			{Id: storj.NodeID{}, Address: nil},
-			{Id: storj.NodeID{}, Address: &pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-			}},
-			{Id: storj.NodeID{123}, Address: &pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   "127.0.0.1:100",
-			}},
+			{
+				Id:      storj.NodeID{},
+				Address: nil,
+				Type:    pb.NodeType_STORAGE,
+			},
+			{
+				Id: storj.NodeID{},
+				Address: &pb.NodeAddress{
+					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				},
+				Type: pb.NodeType_STORAGE,
+			},
+			{
+				Id: storj.NodeID{123},
+				Address: &pb.NodeAddress{
+					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+					Address:   "127.0.0.1:100",
+				},
+				Type: pb.NodeType_STORAGE,
+			},
 		}
 
 		for _, target := range targets {
@@ -63,6 +75,7 @@ func TestDialNode(t *testing.T) {
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   planet.StorageNodes[1].Addr(),
 			},
+			Type: pb.NodeType_STORAGE,
 		}, grpc.WithBlock())
 		cancel()
 

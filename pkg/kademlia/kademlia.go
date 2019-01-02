@@ -65,7 +65,6 @@ func NewKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node
 		Address:  &pb.NodeAddress{Address: address},
 		Metadata: metadata,
 	}
-
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		if err := os.MkdirAll(path, 0777); err != nil {
 			return nil, err
@@ -100,6 +99,7 @@ func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes [
 	}
 
 	nc, err := node.NewNodeClient(identity, self, k, rt)
+
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
 	}
@@ -260,6 +260,9 @@ func GetIntroNode(addr string) (*pb.Node, error) {
 			Transport: defaultTransport,
 			Address:   addr,
 		},
+		// TODO: nodetype is an assumption for now, but we shouldn't need to know
+		// or care for bootstrapping
+		Type: pb.NodeType_SATELLITE,
 	}, nil
 }
 
