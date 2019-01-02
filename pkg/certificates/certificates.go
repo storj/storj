@@ -292,7 +292,7 @@ func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (*p
 			signedPeerCA.Raw,
 			c.Signer.Cert.Raw,
 		},
-		c.Signer.RestChainRaw()...
+		c.Signer.RestChainRaw()...,
 	)
 	err = c.AuthDB.Claim(&ClaimOpts{
 		Req:           req,

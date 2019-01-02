@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
-	testidentity "storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"

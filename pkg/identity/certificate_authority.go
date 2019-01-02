@@ -76,8 +76,7 @@ type FullCAConfig struct {
 }
 
 // NewCA creates a new full identity with the given difficulty
-func NewCA(ctx context.Context, opts NewCAOptions) (
-	rv *FullCertificateAuthority, err error) {
+func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var (
 		highscore uint32

@@ -15,14 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/pkg/identity"
-
-	"go.uber.org/zap"
-
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
@@ -31,6 +28,7 @@ import (
 	"storj.io/storj/internal/testpeertls"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/certificates/mocks"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/transport"
