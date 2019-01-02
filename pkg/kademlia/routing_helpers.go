@@ -216,12 +216,9 @@ func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storj.NodeID) (bool, error) 
 	}
 
 	furthestIDWithinK := rt.determineFurthestIDWithinK(nodeIDs)
-	existingXor := xorTwoIds(furthestIDWithinK.Bytes(), rt.self.Id.Bytes())
-	newXor := xorTwoIds(nodeID.Bytes(), rt.self.Id.Bytes())
-	if bytes.Compare(newXor, existingXor) < 0 {
-		return true, nil
-	}
-	return false, nil
+	existingXor := xorNodeID(furthestIDWithinK, rt.self.Id)
+	newXor := xorNodeID(nodeID, rt.self.Id)
+	return newXor.Less(existingXor), nil
 }
 
 // kadBucketContainsLocalNode returns true if the kbucket in question contains the local node

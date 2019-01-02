@@ -6,7 +6,6 @@ package kademlia
 import (
 	"bytes"
 	"fmt"
-	"math/rand"
 	"sync"
 	"testing"
 	"time"
@@ -291,44 +290,6 @@ func TestGetKBucketID(t *testing.T) {
 	keyA, err := rt.getKBucketID(nodeIDA)
 	assert.NoError(t, err)
 	assert.Equal(t, kadIDA[:2], keyA[:2])
-}
-
-func TestXorTwoIds(t *testing.T) {
-	x := xorTwoIds([]byte{191}, []byte{159})
-	assert.Equal(t, []byte{32}, x) //00100000
-}
-
-func TestSortByXOR(t *testing.T) {
-	n1 := storj.NodeID{127, 255} //xor 0
-	n2 := storj.NodeID{143, 255} //xor 240
-	n3 := storj.NodeID{255, 255} //xor 128
-	n4 := storj.NodeID{191, 255} //xor 192
-	n5 := storj.NodeID{133, 255} //xor 250
-	unsorted := storj.NodeIDList{n1, n5, n2, n4, n3}
-	sortByXOR(unsorted, n1)
-	sorted := storj.NodeIDList{n1, n3, n4, n2, n5}
-	assert.Equal(t, sorted, unsorted)
-}
-
-func BenchmarkSortByXOR(b *testing.B) {
-	newNodeID := func() storj.NodeID {
-		var id storj.NodeID
-		rand.Read(id[:])
-		return id
-	}
-
-	nodes := []storj.NodeID{}
-	for k := 0; k < 1000; k++ {
-		nodes = append(nodes, newNodeID())
-	}
-
-	b.ResetTimer()
-	for m := 0; m < b.N; m++ {
-		rand.Shuffle(len(nodes), func(i, k int) {
-			nodes[i], nodes[k] = nodes[k], nodes[i]
-		})
-		sortByXOR(nodes, newNodeID())
-	}
 }
 
 func TestDetermineFurthestIDWithinK(t *testing.T) {
