@@ -12,7 +12,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"os"
-	"storj.io/storj/pkg/identity"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +22,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/provider"
