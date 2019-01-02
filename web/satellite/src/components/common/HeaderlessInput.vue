@@ -105,6 +105,10 @@ input {
 	border-color: rgba(56, 75, 101, 0.4);
 	border-radius: 6px;
 }
+input::placeholder {
+    color: #384B65;
+    opacity: 0.4;
+}
 h3 {
 	font-family: 'montserrat_regular';
 	font-size: 16px;
