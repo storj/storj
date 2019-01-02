@@ -696,20 +696,16 @@ func TestDetermineLeafDepth(t *testing.T) {
 	}
 }
 
-func padBucketID(b []byte, p byte) (bID bucketID) {
-	for i := range bID {
-		if len(b) > i {
-			bID[i] = b[i]
-			continue
-		}
-		bID[i] = p
-	}
-	return bID
-}
-
 func TestDetermineDifferingBitIndex(t *testing.T) {
+	filledID := func(a byte) bucketID {
+		id := firstBucketID
+		id[0] = a
+		return id
+	}
+
 	rt, cleanup := createRoutingTable(t, storj.NodeID{})
 	defer cleanup()
+
 	cases := []struct {
 		testID   string
 		bucketID bucketID
@@ -718,80 +714,70 @@ func TestDetermineDifferingBitIndex(t *testing.T) {
 		err      *errs.Class
 	}{
 		{testID: "A",
-			bucketID: padBucketID([]byte{191, 255}, 255),
-			key:      padBucketID([]byte{255, 255}, 255),
+			bucketID: filledID(191),
+			key:      filledID(255),
 			expected: 1,
-			err:      nil,
 		},
 		{testID: "B",
-			bucketID: padBucketID([]byte{255, 255}, 255),
-			key:      padBucketID([]byte{191, 255}, 255),
+			bucketID: filledID(255),
+			key:      filledID(191),
 			expected: 1,
-			err:      nil,
 		},
 		{testID: "C",
-			bucketID: padBucketID([]byte{95, 255}, 255),
-			key:      padBucketID([]byte{127, 255}, 255),
+			bucketID: filledID(95),
+			key:      filledID(127),
 			expected: 2,
-			err:      nil,
 		},
 		{testID: "D",
-			bucketID: padBucketID([]byte{95, 255}, 255),
-			key:      padBucketID([]byte{79, 255}, 255),
+			bucketID: filledID(95),
+			key:      filledID(79),
 			expected: 3,
-			err:      nil,
 		},
 		{testID: "E",
-			bucketID: padBucketID([]byte{95, 255}, 255),
-			key:      padBucketID([]byte{63, 255}, 255),
+			bucketID: filledID(95),
+			key:      filledID(63),
 			expected: 2,
-			err:      nil,
 		},
 		{testID: "F",
-			bucketID: padBucketID([]byte{95, 255}, 255),
-			key:      padBucketID([]byte{79, 255}, 255),
+			bucketID: filledID(95),
+			key:      filledID(79),
 			expected: 3,
-			err:      nil,
 		},
 		{testID: "G",
-			bucketID: padBucketID([]byte{255, 255}, 255),
-			key:      padBucketID([]byte{255, 255}, 255),
+			bucketID: filledID(255),
+			key:      filledID(255),
 			expected: -2,
 			err:      &RoutingErr,
 		},
 		{testID: "H",
-			bucketID: padBucketID([]byte{255, 255}, 255),
-			key:      padBucketID([]byte{0, 0}, 0),
+			bucketID: filledID(255),
+			key:      bucketID{0, 0},
 			expected: -1,
-			err:      nil,
 		},
 		{testID: "I",
-			bucketID: padBucketID([]byte{127, 255}, 255),
-			key:      padBucketID([]byte{0, 0}, 0),
+			bucketID: filledID(127),
+			key:      bucketID{0, 0},
 			expected: 0,
-			err:      nil,
 		},
 		{testID: "J",
-			bucketID: padBucketID([]byte{63, 255}, 255),
-			key:      padBucketID([]byte{0, 0}, 0),
+			bucketID: filledID(63),
+			key:      bucketID{0, 0},
 			expected: 1,
-			err:      nil,
 		},
 		{testID: "K",
-			bucketID: padBucketID([]byte{31, 255}, 255),
-			key:      padBucketID([]byte{0, 0}, 0),
+			bucketID: filledID(31),
+			key:      bucketID{0, 0},
 			expected: 2,
-			err:      nil,
 		},
 		{testID: "L",
-			bucketID: padBucketID([]byte{95, 255}, 255),
-			key:      padBucketID([]byte{63, 255}, 255),
+			bucketID: filledID(95),
+			key:      filledID(63),
 			expected: 2,
-			err:      nil,
 		},
 	}
 
 	for _, c := range cases {
+		t.Logf("%b\n")
 		t.Run(c.testID, func(t *testing.T) {
 			diff, err := rt.determineDifferingBitIndex(c.bucketID, c.key)
 			assertErrClass(t, c.err, err)
