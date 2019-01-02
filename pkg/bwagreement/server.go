@@ -18,13 +18,13 @@ import (
 	"storj.io/storj/pkg/peertls"
 )
 
-// DB interface for database operations
+// DB stores bandwidth agreements.
 type DB interface {
-	// CreateAgreement creates bandwidth agreement in database
+	// CreateAgreement adds a new bandwidth agreement.
 	CreateAgreement(context.Context, Agreement) error
-	// GetAgreements gets all bandwidth agreements
+	// GetAgreements gets all bandwidth agreements.
 	GetAgreements(context.Context) ([]Agreement, error)
-	// GetAgreementsSince gets all bandwidth agreements since specific time
+	// GetAgreementsSince gets all bandwidth agreements since specific time.
 	GetAgreementsSince(context.Context, time.Time) ([]Agreement, error)
 }
 

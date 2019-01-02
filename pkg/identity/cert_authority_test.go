@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"storj.io/storj/internal/testcontext"
 )
 
 func TestNewCA(t *testing.T) {
@@ -27,21 +29,19 @@ func TestNewCA(t *testing.T) {
 }
 
 func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
-	ca, err := NewCA(context.Background(), NewCAOptions{
+	ctx := testcontext.New(t)
+	ca, err := NewCA(ctx, NewCAOptions{
 		Difficulty:  12,
 		Concurrency: 4,
 	})
-
-	if err != nil {
+	if !assert.NoError(t, err) || !assert.NotNil(t, ca) {
 		t.Fatal(err)
 	}
-	assert.NotEmpty(t, ca)
 
 	fi, err := ca.NewIdentity()
-	if err != nil {
+	if !assert.NoError(t, err) || !assert.NotNil(t, fi) {
 		t.Fatal(err)
 	}
-	assert.NotEmpty(t, fi)
 
 	assert.Equal(t, ca.Cert, fi.CA)
 	assert.Equal(t, ca.ID, fi.ID)
@@ -49,6 +49,36 @@ func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 	assert.NotEqual(t, ca.Cert, fi.Leaf)
 
 	err = fi.Leaf.CheckSignatureFrom(ca.Cert)
+	assert.NoError(t, err)
+}
+
+func TestFullCertificateAuthority_Sign(t *testing.T) {
+	ctx := testcontext.New(t)
+	caOpts := NewCAOptions{
+		Difficulty:  12,
+		Concurrency: 4,
+	}
+
+	ca, err := NewCA(ctx, caOpts)
+	if !assert.NoError(t, err) || !assert.NotNil(t, ca) {
+		t.Fatal(err)
+	}
+
+	toSign, err := NewCA(ctx, caOpts)
+	if !assert.NoError(t, err) || !assert.NotNil(t, toSign) {
+		t.Fatal(err)
+	}
+
+	signed, err := ca.Sign(toSign.Cert)
+	if !assert.NoError(t, err) || !assert.NotNil(t, signed) {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, toSign.Cert.RawTBSCertificate, signed.RawTBSCertificate)
+	assert.NotEqual(t, toSign.Cert.Signature, signed.Signature)
+	assert.NotEqual(t, toSign.Cert.Raw, signed.Raw)
+
+	err = signed.CheckSignatureFrom(ca.Cert)
 	assert.NoError(t, err)
 }
 
