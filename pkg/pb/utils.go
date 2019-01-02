@@ -3,7 +3,11 @@
 
 package pb
 
-import "storj.io/storj/pkg/storj"
+import (
+	"go.uber.org/zap"
+
+	"storj.io/storj/pkg/storj"
+)
 
 // NodeIDsToLookupRequests converts NodeIDs to LookupRequests
 func NodeIDsToLookupRequests(nodeIDs storj.NodeIDList) *LookupRequests {
@@ -72,6 +76,6 @@ func CopyNode(src *Node) (dst *Node) {
 func (nt NodeType) PanicOnInvalid(from string) {
 	// TODO: Remove all references
 	if nt == NodeType_INVALID {
-		panic("INVALID NODE TYPE: " + from)
+		zap.L().DPanic("INVALID NODE TYPE: " + from)
 	}
 }
