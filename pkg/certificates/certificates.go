@@ -11,6 +11,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
@@ -29,7 +30,9 @@ import (
 const (
 	// AuthorizationsBucket is the bucket used with a bolt-backed authorizations DB.
 	AuthorizationsBucket = "authorizations"
-	tokenLength          = 64 // 2^(64*8) =~ 1.34E+154
+	tokenDataLength      = 64 // 2^(64*8) =~ 1.34E+154
+	tokenDelimiter       = ":"
+	tokenVersion         = 0
 )
 
 var (
@@ -38,6 +41,8 @@ var (
 	ErrAuthorization = errs.Class("authorization error")
 	// ErrAuthorizationDB is used when an error occurs involving the authorization database.
 	ErrAuthorizationDB = errs.Class("authorization db error")
+	// ErrInvalidToken is used when a token is invalid
+	ErrInvalidToken = errs.Class("invalid token error")
 	// ErrAuthorizationCount is used when attempting to create an invalid number of authorizations.
 	ErrAuthorizationCount = ErrAuthorizationDB.New("cannot add less than one authorizations")
 )
@@ -69,9 +74,13 @@ type Authorization struct {
 	Claim *Claim
 }
 
-// Token is a random byte array to be used like a pre-shared key for claiming
-// certificate signatures.
-type Token [tokenLength]byte
+// Token is a userID and a random byte array, when serialized, can be used like
+// a pre-shared key for claiming certificate signatures.
+type Token struct {
+	// NB: currently email address for convenience
+	UserID string
+	Data   [tokenDataLength]byte
+}
 
 // Claim holds information about the circumstances under which an authorization
 // token was claimed.
@@ -92,9 +101,9 @@ func NewServer(log *zap.Logger) pb.CertificatesServer {
 }
 
 // NewAuthorization creates a new, unclaimed authorization with a random token value
-func NewAuthorization() (*Authorization, error) {
-	var token Token
-	_, err := rand.Read(token[:])
+func NewAuthorization(userID string) (*Authorization, error) {
+	token := Token{UserID: userID}
+	_, err := rand.Read(token.Data[:])
 	if err != nil {
 		return nil, ErrAuthorization.Wrap(err)
 	}
@@ -102,6 +111,34 @@ func NewAuthorization() (*Authorization, error) {
 	return &Authorization{
 		Token: token,
 	}, nil
+}
+
+// ParseToken splits the token string on the delimiter to get a userID and data
+// for a token and base58 decodes the data.
+func ParseToken(tokenString string) (*Token, error) {
+	splitAt := strings.LastIndex(tokenString, tokenDelimiter)
+	if splitAt == -1 {
+		return nil, ErrInvalidToken.New("delimiter missing")
+	}
+
+	userID, b58Data := tokenString[:splitAt], tokenString[splitAt+1:]
+	if len(userID) == 0 {
+		return nil, ErrInvalidToken.New("user ID missing")
+	}
+
+	data, _, err := base58.CheckDecode(b58Data)
+	if err != nil {
+		return nil, ErrInvalidToken.Wrap(err)
+	}
+
+	if len(data) != tokenDataLength {
+		return nil, ErrInvalidToken.New("data size mismatch")
+	}
+	t := &Token{
+		UserID: userID,
+	}
+	copy(t.Data[:], data)
+	return t, nil
 }
 
 // NewAuthDB creates or opens the authorization database specified by the config
@@ -169,15 +206,15 @@ func (a *AuthorizationDB) Close() error {
 }
 
 // Create creates a new authorization and adds it to the authorization database.
-func (a *AuthorizationDB) Create(email string, count int) (Authorizations, error) {
-	if len(email) == 0 {
-		return nil, ErrAuthorizationDB.New("email cannot be empty")
+func (a *AuthorizationDB) Create(userID string, count int) (Authorizations, error) {
+	if len(userID) == 0 {
+		return nil, ErrAuthorizationDB.New("userID cannot be empty")
 	}
 	if count < 1 {
 		return nil, ErrAuthorizationCount
 	}
 
-	existingAuths, err := a.Get(email)
+	existingAuths, err := a.Get(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +224,7 @@ func (a *AuthorizationDB) Create(email string, count int) (Authorizations, error
 		authErrs utils.ErrorGroup
 	)
 	for i := 0; i < count; i++ {
-		auth, err := NewAuthorization()
+		auth, err := NewAuthorization(userID)
 		if err != nil {
 			authErrs.Add(err)
 			continue
@@ -204,7 +241,7 @@ func (a *AuthorizationDB) Create(email string, count int) (Authorizations, error
 		return nil, ErrAuthorizationDB.Wrap(err)
 	}
 
-	if err := a.DB.Put(storage.Key(email), authsBytes); err != nil {
+	if err := a.DB.Put(storage.Key(userID), authsBytes); err != nil {
 		return nil, ErrAuthorizationDB.Wrap(err)
 	}
 
@@ -228,8 +265,8 @@ func (a *AuthorizationDB) Get(email string) (Authorizations, error) {
 	return auths, nil
 }
 
-// Emails returns a list of all emails present in the authorization database.
-func (a *AuthorizationDB) Emails() ([]string, error) {
+// UserIDs returns a list of all userIDs present in the authorization database.
+func (a *AuthorizationDB) UserIDs() ([]string, error) {
 	keys, err := a.DB.List([]byte{}, 0)
 	if err != nil {
 		return nil, ErrAuthorizationDB.Wrap(err)
@@ -280,5 +317,5 @@ func (a Authorization) String() string {
 // String implements the stringer interface. Base68 w/ version and checksum bytes
 // are used for easy and reliable human transport.
 func (t *Token) String() string {
-	return base58.CheckEncode(t[:], 0)
+	return fmt.Sprintf("%s:%s", t.UserID, base58.CheckEncode(t.Data[:], tokenVersion))
 }
