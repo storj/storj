@@ -6,11 +6,9 @@ package kademlia
 import (
 	"bytes"
 	"encoding/binary"
-	"sort"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -23,10 +21,9 @@ import (
 func (rt *RoutingTable) addNode(node *pb.Node) (bool, error) {
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
-	nodeIDBytes := node.Id.Bytes()
 
-	if bytes.Equal(nodeIDBytes, rt.self.Id.Bytes()) {
-		err := rt.createOrUpdateKBucket(rt.createFirstBucketID(), time.Now())
+	if node.Id == rt.self.Id {
+		err := rt.createOrUpdateKBucket(firstBucketID, time.Now())
 		if err != nil {
 			return false, RoutingErr.New("could not create initial K bucket: %s", err)
 		}
@@ -177,89 +174,14 @@ func (rt *RoutingTable) getKBucketID(nodeID storj.NodeID) (bucketID, error) {
 	return bucketID{}, RoutingErr.New("could not find k bucket")
 }
 
-// compareByXor compares left, right xorred by reference
-func compareByXor(left, right, reference storage.Key) int {
-	n := len(reference)
-	if n > len(left) {
-		n = len(left)
-	}
-	if n > len(right) {
-		n = len(right)
-	}
-	left = left[:n]
-	right = right[:n]
-	reference = reference[:n]
-
-	for i, r := range reference {
-		a, b := left[i]^r, right[i]^r
-		if a != b {
-			if a < b {
-				return -1
-			}
-			return 1
-		}
-	}
-
-	return 0
-}
-
-func sortByXOR(nodeIDs storage.Keys, ref storage.Key) {
-	sort.Slice(nodeIDs, func(i, k int) bool {
-		return compareByXor(nodeIDs[i], nodeIDs[k], ref) < 0
-	})
-}
-
-func nodeIDsToKeys(ids storj.NodeIDList) (nodeIDKeys storage.Keys) {
-	for _, n := range ids {
-		nodeIDKeys = append(nodeIDKeys, n.Bytes())
-	}
-	return nodeIDKeys
-}
-
-func keysToNodeIDs(keys storage.Keys) (ids storj.NodeIDList, err error) {
-	var idErrs []error
-	for _, k := range keys {
-		id, err := storj.NodeIDFromBytes(k[:])
-		if err != nil {
-			idErrs = append(idErrs, err)
-		}
-		ids = append(ids, id)
-	}
-	if err := errs.Combine(idErrs...); err != nil {
-		return nil, err
-	}
-
-	return ids, nil
-}
-
-func keyToBucketID(key storage.Key) (bID bucketID) {
-	copy(bID[:], key)
-	return bID
-}
-
 // determineFurthestIDWithinK: helper, determines the furthest node within the k closest to local node
-func (rt *RoutingTable) determineFurthestIDWithinK(nodeIDs storj.NodeIDList) (storj.NodeID, error) {
-	nodeIDKeys := nodeIDsToKeys(nodeIDs)
-	sortByXOR(nodeIDKeys, rt.self.Id.Bytes())
+func (rt *RoutingTable) determineFurthestIDWithinK(nodeIDs storj.NodeIDList) storj.NodeID {
+	nodeIDs = cloneNodeIDs(nodeIDs)
+	sortByXOR(nodeIDs, rt.self.Id)
 	if len(nodeIDs) < rt.bucketSize+1 { //adding 1 since we're not including local node in closest k
-		return storj.NodeIDFromBytes(nodeIDKeys[len(nodeIDKeys)-1])
+		return nodeIDs[len(nodeIDs)-1]
 	}
-	return storj.NodeIDFromBytes(nodeIDKeys[rt.bucketSize])
-}
-
-// xorTwoIds: helper, finds the xor distance between two byte slices
-func xorTwoIds(id, comparisonID []byte) []byte {
-	var xorArr []byte
-	s := len(id)
-	if s > len(comparisonID) {
-		s = len(comparisonID)
-	}
-
-	for i := 0; i < s; i++ {
-		xor := id[i] ^ comparisonID[i]
-		xorArr = append(xorArr, xor)
-	}
-	return xorArr
+	return nodeIDs[rt.bucketSize]
 }
 
 // nodeIsWithinNearestK: helper, returns true if the node in question is within the nearest k from local node
@@ -276,16 +198,11 @@ func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storj.NodeID) (bool, error) 
 	if err != nil {
 		return false, RoutingErr.Wrap(err)
 	}
-	furthestIDWithinK, err := rt.determineFurthestIDWithinK(nodeIDs)
-	if err != nil {
-		return false, RoutingErr.New("could not determine furthest id within k: %s", err)
-	}
-	existingXor := xorTwoIds(furthestIDWithinK.Bytes(), rt.self.Id.Bytes())
-	newXor := xorTwoIds(nodeID.Bytes(), rt.self.Id.Bytes())
-	if bytes.Compare(newXor, existingXor) < 0 {
-		return true, nil
-	}
-	return false, nil
+
+	furthestIDWithinK := rt.determineFurthestIDWithinK(nodeIDs)
+	existingXor := xorNodeID(furthestIDWithinK, rt.self.Id)
+	newXor := xorNodeID(nodeID, rt.self.Id)
+	return newXor.Less(existingXor), nil
 }
 
 // kadBucketContainsLocalNode returns true if the kbucket in question contains the local node
@@ -294,7 +211,7 @@ func (rt *RoutingTable) kadBucketContainsLocalNode(queryID bucketID) (bool, erro
 	if err != nil {
 		return false, err
 	}
-	return bytes.Equal(queryID[:], bID[:]), nil
+	return queryID == bID, nil
 }
 
 // kadBucketHasRoom: helper, returns true if it has fewer than k nodes
@@ -396,15 +313,6 @@ func (rt *RoutingTable) getKBucketRange(bID bucketID) ([]bucketID, error) {
 	return coords, nil
 }
 
-// createFirstBucketID creates byte slice representing 11..11
-// bucket IDs are the highest address which that bucket contains
-func (rt *RoutingTable) createFirstBucketID() (id bucketID) {
-	for i := 0; i < len(id); i++ {
-		id[i] = 255
-	}
-	return id
-}
-
 // determineLeafDepth determines the level of the bucket id in question.
 // Eg level 0 means there is only 1 bucket, level 1 means the bucket has been split once, and so on
 func (rt *RoutingTable) determineLeafDepth(bID bucketID) (int, error) {
@@ -413,55 +321,11 @@ func (rt *RoutingTable) determineLeafDepth(bID bucketID) (int, error) {
 		return -1, RoutingErr.New("could not get k bucket range %s", err)
 	}
 	smaller := bucketRange[0]
-	diffBit, err := rt.determineDifferingBitIndex(bID, smaller)
+	diffBit, err := determineDifferingBitIndex(bID, smaller)
 	if err != nil {
 		return diffBit + 1, RoutingErr.New("could not determine differing bit %s", err)
 	}
 	return diffBit + 1, nil
-}
-
-// determineDifferingBitIndex: helper, returns the last bit differs starting from prefix to suffix
-func (rt *RoutingTable) determineDifferingBitIndex(bID, comparisonID bucketID) (int, error) {
-	if bytes.Equal(bID[:], comparisonID[:]) {
-		return -2, RoutingErr.New("compared two equivalent k bucket ids")
-	}
-	emptyBID := bucketID{}
-	if bytes.Equal(comparisonID[:], emptyBID[:]) {
-		comparisonID = rt.createFirstBucketID()
-	}
-
-	var differingByteIndex int
-	var differingByteXor byte
-	xorArr := xorTwoIds(bID[:], comparisonID[:])
-
-	firstBID := rt.createFirstBucketID()
-	if bytes.Equal(xorArr, firstBID[:]) {
-		return -1, nil
-	}
-
-	for j, v := range xorArr {
-		if v != byte(0) {
-			differingByteIndex = j
-			differingByteXor = v
-			break
-		}
-	}
-
-	h := 0
-	for ; h < 8; h++ {
-		toggle := byte(1 << uint(h))
-		tempXor := differingByteXor
-		tempXor ^= toggle
-		if tempXor < differingByteXor {
-			break
-		}
-
-	}
-	bitInByteIndex := 7 - h
-	byteIndex := differingByteIndex
-	bitIndex := byteIndex*8 + bitInByteIndex
-
-	return bitIndex, nil
 }
 
 // splitBucket: helper, returns the smaller of the two new bucket ids

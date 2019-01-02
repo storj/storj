@@ -32,6 +32,20 @@ var RoutingErr = errs.Class("routing table error")
 // Bucket IDs exist in the same address space as node IDs
 type bucketID [len(storj.NodeID{})]byte
 
+var firstBucketID = bucketID{
+	0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF,
+
+	0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF,
+}
+
+var emptyBucketID = bucketID{}
+
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
 	log              *zap.Logger
@@ -130,13 +144,13 @@ func (rt *RoutingTable) FindNear(id storj.NodeID, limit int) (nodes []*pb.Node, 
 	if err != nil {
 		return nodes, RoutingErr.New("could not get node ids %s", err)
 	}
-	sortByXOR(nodeIDsKeys, id.Bytes())
-	if len(nodeIDsKeys) >= limit {
-		nodeIDsKeys = nodeIDsKeys[:limit]
-	}
 	nodeIDs, err := storj.NodeIDsFromBytes(nodeIDsKeys.ByteSlices())
 	if err != nil {
 		return nodes, RoutingErr.Wrap(err)
+	}
+	sortByXOR(nodeIDs, id)
+	if len(nodeIDs) >= limit {
+		nodeIDs = nodeIDs[:limit]
 	}
 
 	nodes, err = rt.getNodesFromIDsBytes(nodeIDs)

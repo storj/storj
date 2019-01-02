@@ -201,7 +201,7 @@ func TestRefresh(t *testing.T) {
 	//turn back time for only bucket
 	rt := k.routingTable
 	now := time.Now().UTC()
-	bID := rt.createFirstBucketID() //always exists
+	bID := firstBucketID //always exists
 	err := rt.SetBucketTimestamp(bID[:], now.Add(-2*time.Hour))
 	assert.NoError(t, err)
 	//refresh should  call FindNode, updating the time

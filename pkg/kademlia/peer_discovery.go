@@ -231,12 +231,3 @@ func (queue *discoveryQueue) Len() int {
 
 	return len(queue.items)
 }
-
-// xorNodeID returns the xor of each byte in NodeID
-func xorNodeID(a, b storj.NodeID) storj.NodeID {
-	r := storj.NodeID{}
-	for i, av := range a {
-		r[i] = av ^ b[i]
-	}
-	return r
-}
