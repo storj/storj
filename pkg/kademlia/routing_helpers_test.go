@@ -299,38 +299,25 @@ func TestXorTwoIds(t *testing.T) {
 }
 
 func TestSortByXOR(t *testing.T) {
-	node1 := teststorj.NodeIDFromBytes([]byte{127, 255}) //xor 0
-	rt, cleanup := createRoutingTable(t, node1)
-	defer cleanup()
-	node2 := teststorj.NodeIDFromBytes([]byte{143, 255}) //xor 240
-	assert.NoError(t, rt.nodeBucketDB.Put(node2.Bytes(), []byte("")))
-	node3 := teststorj.NodeIDFromBytes([]byte{255, 255}) //xor 128
-	assert.NoError(t, rt.nodeBucketDB.Put(node3.Bytes(), []byte("")))
-	node4 := teststorj.NodeIDFromBytes([]byte{191, 255}) //xor 192
-	assert.NoError(t, rt.nodeBucketDB.Put(node4.Bytes(), []byte("")))
-	node5 := teststorj.NodeIDFromBytes([]byte{133, 255}) //xor 250
-	assert.NoError(t, rt.nodeBucketDB.Put(node5.Bytes(), []byte("")))
-	nodes, err := rt.nodeBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	expectedNodes := storage.Keys{node1.Bytes(), node5.Bytes(), node2.Bytes(), node4.Bytes(), node3.Bytes()}
-	assert.Equal(t, expectedNodes, nodes)
-	sortByXOR(nodes, node1.Bytes())
-	expectedSorted := storage.Keys{node1.Bytes(), node3.Bytes(), node4.Bytes(), node2.Bytes(), node5.Bytes()}
-	assert.Equal(t, expectedSorted, nodes)
-	nodes, err = rt.nodeBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedNodes, nodes)
+	n1 := storj.NodeID{127, 255} //xor 0
+	n2 := storj.NodeID{143, 255} //xor 240
+	n3 := storj.NodeID{255, 255} //xor 128
+	n4 := storj.NodeID{191, 255} //xor 192
+	n5 := storj.NodeID{133, 255} //xor 250
+	unsorted := storj.NodeIDList{n1, n5, n2, n4, n3}
+	sortByXOR(unsorted, n1)
+	sorted := storj.NodeIDList{n1, n3, n4, n2, n5}
+	assert.Equal(t, sorted, unsorted)
 }
 
 func BenchmarkSortByXOR(b *testing.B) {
-	nodes := []storage.Key{}
-
-	newNodeID := func() storage.Key {
-		id := make(storage.Key, 32)
+	newNodeID := func() storj.NodeID {
+		var id storj.NodeID
 		rand.Read(id[:])
 		return id
 	}
 
+	nodes := []storj.NodeID{}
 	for k := 0; k < 1000; k++ {
 		nodes = append(nodes, newNodeID())
 	}
@@ -340,7 +327,6 @@ func BenchmarkSortByXOR(b *testing.B) {
 		rand.Shuffle(len(nodes), func(i, k int) {
 			nodes[i], nodes[k] = nodes[k], nodes[i]
 		})
-
 		sortByXOR(nodes, newNodeID())
 	}
 }
@@ -379,8 +365,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 			assert.NoError(t, rt.nodeBucketDB.Put(teststorj.NodeIDFromBytes(c.nodeID).Bytes(), []byte("")))
 			nodes, err := rt.nodeBucketDB.List(nil, 0)
 			assert.NoError(t, err)
-			furthest, err := rt.determineFurthestIDWithinK(teststorj.NodeIDsFromBytes(nodes.ByteSlices()...))
-			assert.NoError(t, err)
+			furthest := rt.determineFurthestIDWithinK(teststorj.NodeIDsFromBytes(nodes.ByteSlices()...))
 			fmt.Println(furthest.Bytes())
 			assert.Equal(t, c.expectedFurthest, furthest[:2])
 		})

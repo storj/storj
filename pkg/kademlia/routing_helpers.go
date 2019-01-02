@@ -6,11 +6,9 @@ package kademlia
 import (
 	"bytes"
 	"encoding/binary"
-	"sort"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -177,74 +175,14 @@ func (rt *RoutingTable) getKBucketID(nodeID storj.NodeID) (bucketID, error) {
 	return bucketID{}, RoutingErr.New("could not find k bucket")
 }
 
-// compareByXor compares left, right xorred by reference
-func compareByXor(left, right, reference storage.Key) int {
-	n := len(reference)
-	if n > len(left) {
-		n = len(left)
-	}
-	if n > len(right) {
-		n = len(right)
-	}
-	left = left[:n]
-	right = right[:n]
-	reference = reference[:n]
-
-	for i, r := range reference {
-		a, b := left[i]^r, right[i]^r
-		if a != b {
-			if a < b {
-				return -1
-			}
-			return 1
-		}
-	}
-
-	return 0
-}
-
-func sortByXOR(nodeIDs storage.Keys, ref storage.Key) {
-	sort.Slice(nodeIDs, func(i, k int) bool {
-		return compareByXor(nodeIDs[i], nodeIDs[k], ref) < 0
-	})
-}
-
-func nodeIDsToKeys(ids storj.NodeIDList) (nodeIDKeys storage.Keys) {
-	for _, n := range ids {
-		nodeIDKeys = append(nodeIDKeys, n.Bytes())
-	}
-	return nodeIDKeys
-}
-
-func keysToNodeIDs(keys storage.Keys) (ids storj.NodeIDList, err error) {
-	var idErrs []error
-	for _, k := range keys {
-		id, err := storj.NodeIDFromBytes(k[:])
-		if err != nil {
-			idErrs = append(idErrs, err)
-		}
-		ids = append(ids, id)
-	}
-	if err := errs.Combine(idErrs...); err != nil {
-		return nil, err
-	}
-
-	return ids, nil
-}
-
-func keyToBucketID(key storage.Key) (bID bucketID) {
-	copy(bID[:], key)
-	return bID
-}
-
 // determineFurthestIDWithinK: helper, determines the furthest node within the k closest to local node
-func (rt *RoutingTable) determineFurthestIDWithinK(nodeIDs storj.NodeIDList) (storj.NodeID, error) {
-	nodeIDKeys := nodeIDsToKeys(nodeIDs)
-	sortByXOR(nodeIDKeys, rt.self.Id.Bytes())
+func (rt *RoutingTable) determineFurthestIDWithinK(nodeIDs storj.NodeIDList) storj.NodeID {
+	nodeIDs = cloneNodeIDs(nodeIDs)
+	sortByXOR(nodeIDs, rt.self.Id)
 	if len(nodeIDs) < rt.bucketSize+1 { //adding 1 since we're not including local node in closest k
-		return storj.NodeIDFromBytes(nodeIDKeys[len(nodeIDKeys)-1])
+		return nodeIDs[len(nodeIDs)-1]
 	}
-	return storj.NodeIDFromBytes(nodeIDKeys[rt.bucketSize])
+	return nodeIDs[rt.bucketSize]
 }
 
 // xorTwoIds: helper, finds the xor distance between two byte slices
@@ -276,10 +214,8 @@ func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storj.NodeID) (bool, error) 
 	if err != nil {
 		return false, RoutingErr.Wrap(err)
 	}
-	furthestIDWithinK, err := rt.determineFurthestIDWithinK(nodeIDs)
-	if err != nil {
-		return false, RoutingErr.New("could not determine furthest id within k: %s", err)
-	}
+
+	furthestIDWithinK := rt.determineFurthestIDWithinK(nodeIDs)
 	existingXor := xorTwoIds(furthestIDWithinK.Bytes(), rt.self.Id.Bytes())
 	newXor := xorTwoIds(nodeID.Bytes(), rt.self.Id.Bytes())
 	if bytes.Compare(newXor, existingXor) < 0 {

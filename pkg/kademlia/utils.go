@@ -5,9 +5,67 @@ package kademlia
 
 import (
 	"math/bits"
+	"sort"
+
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storage"
 )
+
+func cloneNodeIDs(ids storj.NodeIDList) storj.NodeIDList {
+	clone := make(storj.NodeIDList, len(ids))
+	copy(clone, ids)
+	return clone
+}
+
+// compareByXor compares left, right xorred by reference
+func compareByXor(left, right, reference storj.NodeID) int {
+	for i, r := range reference {
+		a, b := left[i]^r, right[i]^r
+		if a != b {
+			if a < b {
+				return -1
+			}
+			return 1
+		}
+	}
+	return 0
+}
+
+func sortByXOR(nodeIDs storj.NodeIDList, ref storj.NodeID) {
+	sort.Slice(nodeIDs, func(i, k int) bool {
+		return compareByXor(nodeIDs[i], nodeIDs[k], ref) < 0
+	})
+}
+
+func nodeIDsToKeys(ids storj.NodeIDList) (nodeIDKeys storage.Keys) {
+	for _, n := range ids {
+		nodeIDKeys = append(nodeIDKeys, n.Bytes())
+	}
+	return nodeIDKeys
+}
+
+func keysToNodeIDs(keys storage.Keys) (ids storj.NodeIDList, err error) {
+	var idErrs []error
+	for _, k := range keys {
+		id, err := storj.NodeIDFromBytes(k[:])
+		if err != nil {
+			idErrs = append(idErrs, err)
+		}
+		ids = append(ids, id)
+	}
+	if err := errs.Combine(idErrs...); err != nil {
+		return nil, err
+	}
+
+	return ids, nil
+}
+
+func keyToBucketID(key storage.Key) (bID bucketID) {
+	copy(bID[:], key)
+	return bID
+}
 
 // xorNodeID returns the xor of each byte in NodeID
 func xorNodeID(a, b storj.NodeID) storj.NodeID {
