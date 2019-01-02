@@ -47,7 +47,7 @@ type Node struct {
 
 // newNode creates a new node.
 func (planet *Planet) newNode(name string, nodeType pb.NodeType) (*Node, error) {
-	identity, err := planet.newIdentity()
+	identity, err := planet.NewIdentity()
 	if err != nil {
 		return nil, err
 	}
