@@ -50,6 +50,7 @@ services:
     - API_KEY=abc123
     - SATELLITE_ADDR=satellite:7777
     - STORJ_LOG_LEVEL=debug
+    - STORJ_SERVER_ADDRESS=0.0.0.0:7777
     ports:
     - 7777:7777
     restart: always

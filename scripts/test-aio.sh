@@ -18,7 +18,9 @@ cleanup(){
 	docker logs storj_gateway_1
 	echo "=> Cleaning up"
 	rm -rf "$TMP_DIR" "$CMP_DIR"
-	docker-compose down --rmi all
+	# Hide any ERRORs and Faileds here as they are not relevant to the actual
+	# errors and failures of this test.
+	docker-compose down --rmi all 2>&1 | grep -v ERROR | grep -v Failed
 }
 trap cleanup EXIT
 
