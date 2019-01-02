@@ -21,9 +21,8 @@ import (
 func (rt *RoutingTable) addNode(node *pb.Node) (bool, error) {
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
-	nodeIDBytes := node.Id.Bytes()
 
-	if bytes.Equal(nodeIDBytes, rt.self.Id.Bytes()) {
+	if node.Id == rt.self.Id {
 		err := rt.createOrUpdateKBucket(firstBucketID, time.Now())
 		if err != nil {
 			return false, RoutingErr.New("could not create initial K bucket: %s", err)
@@ -212,7 +211,7 @@ func (rt *RoutingTable) kadBucketContainsLocalNode(queryID bucketID) (bool, erro
 	if err != nil {
 		return false, err
 	}
-	return bytes.Equal(queryID[:], bID[:]), nil
+	return queryID == bID, nil
 }
 
 // kadBucketHasRoom: helper, returns true if it has fewer than k nodes
