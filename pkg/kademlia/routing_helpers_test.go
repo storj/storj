@@ -270,19 +270,19 @@ func TestRemoveNode(t *testing.T) {
 }
 
 func TestCreateOrUpdateKBucket(t *testing.T) {
-	id := teststorj.NodeIDFromBytes([]byte{255, 255})
+	id := bucketID{255, 255}
 	rt, cleanup := createRoutingTable(t, storj.NodeID{})
 	defer cleanup()
-	err := rt.createOrUpdateKBucket(keyToBucketID(id.Bytes()), time.Now())
+	err := rt.createOrUpdateKBucket(id, time.Now())
 	assert.NoError(t, err)
-	val, e := rt.kadBucketDB.Get(id.Bytes())
+	val, e := rt.kadBucketDB.Get(id[:])
 	assert.NotNil(t, val)
 	assert.NoError(t, e)
 
 }
 
 func TestGetKBucketID(t *testing.T) {
-	kadIDA := keyToBucketID([]byte{255, 255})
+	kadIDA := bucketID{255, 255}
 	nodeIDA := teststorj.NodeIDFromString("AA")
 	rt, cleanup := createRoutingTable(t, nodeIDA)
 	defer cleanup()
@@ -292,7 +292,7 @@ func TestGetKBucketID(t *testing.T) {
 }
 
 func TestDetermineFurthestIDWithinK(t *testing.T) {
-	rt, cleanup := createRoutingTable(t, teststorj.NodeIDFromBytes([]byte{127, 255}))
+	rt, cleanup := createRoutingTable(t, storj.NodeID{127, 255})
 	defer cleanup()
 	cases := []struct {
 		testID           string
@@ -333,47 +333,49 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 }
 
 func TestNodeIsWithinNearestK(t *testing.T) {
-	rt, cleanup := createRoutingTable(t, teststorj.NodeIDFromBytes([]byte{127, 255}))
+	rt, cleanup := createRoutingTable(t, storj.NodeID{127, 255})
 	defer cleanup()
 	rt.bucketSize = 2
+
 	cases := []struct {
 		testID  string
-		nodeID  []byte
+		nodeID  storj.NodeID
 		closest bool
 	}{
 		{testID: "A",
-			nodeID:  []byte{127, 255},
+			nodeID:  storj.NodeID{127, 255},
 			closest: true,
 		},
 		{testID: "B",
-			nodeID:  []byte{143, 255},
+			nodeID:  storj.NodeID{143, 255},
 			closest: true,
 		},
 		{testID: "C",
-			nodeID:  []byte{255, 255},
+			nodeID:  storj.NodeID{255, 255},
 			closest: true,
 		},
 		{testID: "D",
-			nodeID:  []byte{191, 255},
+			nodeID:  storj.NodeID{191, 255},
 			closest: true,
 		},
 		{testID: "E",
-			nodeID:  []byte{133, 255},
+			nodeID:  storj.NodeID{133, 255},
 			closest: false,
 		},
 	}
+
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
-			result, err := rt.nodeIsWithinNearestK(teststorj.NodeIDFromBytes(c.nodeID))
+			result, err := rt.nodeIsWithinNearestK(c.nodeID)
 			assert.NoError(t, err)
 			assert.Equal(t, c.closest, result)
-			assert.NoError(t, rt.nodeBucketDB.Put(teststorj.NodeIDFromBytes(c.nodeID).Bytes(), []byte("")))
+			assert.NoError(t, rt.nodeBucketDB.Put(c.nodeID.Bytes(), []byte("")))
 		})
 	}
 }
 
 func TestKadBucketContainsLocalNode(t *testing.T) {
-	nodeIDA := teststorj.NodeIDFromBytes([]byte{183, 255}) //[10110111, 1111111]
+	nodeIDA := storj.NodeID{183, 255} //[10110111, 1111111]
 	rt, cleanup := createRoutingTable(t, nodeIDA)
 	defer cleanup()
 	kadIDA := firstBucketID
@@ -392,15 +394,15 @@ func TestKadBucketContainsLocalNode(t *testing.T) {
 }
 
 func TestKadBucketHasRoom(t *testing.T) {
-	node1 := teststorj.NodeIDFromBytes([]byte{255, 255})
+	node1 := storj.NodeID{255, 255}
 	rt, cleanup := createRoutingTable(t, node1)
 	defer cleanup()
 	kadIDA := firstBucketID
-	node2 := teststorj.NodeIDFromBytes([]byte{191, 255})
-	node3 := teststorj.NodeIDFromBytes([]byte{127, 255})
-	node4 := teststorj.NodeIDFromBytes([]byte{63, 255})
-	node5 := teststorj.NodeIDFromBytes([]byte{159, 255})
-	node6 := teststorj.NodeIDFromBytes([]byte{0, 127})
+	node2 := storj.NodeID{191, 255}
+	node3 := storj.NodeID{127, 255}
+	node4 := storj.NodeID{63, 255}
+	node5 := storj.NodeID{159, 255}
+	node6 := storj.NodeID{0, 127}
 	resultA, err := rt.kadBucketHasRoom(kadIDA)
 	assert.NoError(t, err)
 	assert.True(t, resultA)
@@ -415,7 +417,7 @@ func TestKadBucketHasRoom(t *testing.T) {
 }
 
 func TestGetNodeIDsWithinKBucket(t *testing.T) {
-	nodeIDA := teststorj.NodeIDFromBytes([]byte{183, 255}) //[10110111, 1111111]
+	nodeIDA := storj.NodeID{183, 255} //[10110111, 1111111]
 	rt, cleanup := createRoutingTable(t, nodeIDA)
 	defer cleanup()
 	kadIDA := firstBucketID
@@ -425,8 +427,8 @@ func TestGetNodeIDsWithinKBucket(t *testing.T) {
 	now := time.Now()
 	assert.NoError(t, rt.createOrUpdateKBucket(kadIDB, now))
 
-	nodeIDB := teststorj.NodeIDFromBytes([]byte{111, 255}) //[01101111, 1111111]
-	nodeIDC := teststorj.NodeIDFromBytes([]byte{47, 255})  //[00101111, 1111111]
+	nodeIDB := storj.NodeID{111, 255} //[01101111, 1111111]
+	nodeIDC := storj.NodeID{47, 255}  //[00101111, 1111111]
 
 	assert.NoError(t, rt.nodeBucketDB.Put(nodeIDB.Bytes(), []byte("")))
 	assert.NoError(t, rt.nodeBucketDB.Put(nodeIDC.Bytes(), []byte("")))
@@ -532,9 +534,9 @@ func TestGetUnmarshaledNodesFromBucket(t *testing.T) {
 func TestGetKBucketRange(t *testing.T) {
 	rt, cleanup := createRoutingTable(t, storj.NodeID{})
 	defer cleanup()
-	idA := teststorj.NodeIDFromBytes([]byte{255, 255})
-	idB := teststorj.NodeIDFromBytes([]byte{127, 255})
-	idC := teststorj.NodeIDFromBytes([]byte{63, 255})
+	idA := storj.NodeID{255, 255}
+	idB := storj.NodeID{127, 255}
+	idC := storj.NodeID{63, 255}
 	assert.NoError(t, rt.kadBucketDB.Put(idA.Bytes(), []byte("")))
 	assert.NoError(t, rt.kadBucketDB.Put(idB.Bytes(), []byte("")))
 	assert.NoError(t, rt.kadBucketDB.Put(idC.Bytes(), []byte("")))
@@ -578,9 +580,10 @@ func TestBucketIDZeroValue(t *testing.T) {
 func TestDetermineLeafDepth(t *testing.T) {
 	rt, cleanup := createRoutingTable(t, storj.NodeID{})
 	defer cleanup()
-	idA := teststorj.NodeIDFromBytes([]byte{255, 255})
-	idB := teststorj.NodeIDFromBytes([]byte{127, 255})
-	idC := teststorj.NodeIDFromBytes([]byte{63, 255})
+	idA, idB, idC := storj.NodeID(firstBucketID), storj.NodeID(firstBucketID), storj.NodeID(firstBucketID)
+	idA[0] = 255
+	idB[0] = 127
+	idC[0] = 63
 
 	cases := []struct {
 		testID  string
@@ -626,7 +629,7 @@ func TestDetermineLeafDepth(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
 			c.addNode()
-			d, err := rt.determineLeafDepth(keyToBucketID(c.id.Bytes()))
+			d, err := rt.determineLeafDepth(bucketID(c.id))
 			assert.NoError(t, err)
 			assert.Equal(t, c.depth, d)
 		})
