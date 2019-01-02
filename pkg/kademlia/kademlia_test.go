@@ -97,14 +97,14 @@ func TestPeerDiscovery(t *testing.T) {
 	bootstrapNodes := []pb.Node{{Id: bootID.ID, Address: &pb.NodeAddress{Address: bootAddress}}}
 	metadata := &pb.NodeMetadata{
 		Email:  "foo@bar.com",
-		Wallet: "FarmerWallet",
+		Wallet: "OperatorWallet",
 	}
 	k, err := NewKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
 	assert.NoError(t, err)
 	rt, err := k.GetRoutingTable(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, rt.Local().Metadata.Email, "foo@bar.com")
-	assert.Equal(t, rt.Local().Metadata.Wallet, "FarmerWallet")
+	assert.Equal(t, rt.Local().Metadata.Wallet, "OperatorWallet")
 
 	defer func() {
 		assert.NoError(t, k.Disconnect())

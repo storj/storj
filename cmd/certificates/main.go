@@ -20,8 +20,9 @@ import (
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -74,15 +75,15 @@ var (
 
 	setupCfg struct {
 		// NB: cert and key paths overridden in setup
-		CA provider.CASetupConfig
+		CA identity.CASetupConfig
 		// NB: cert and key paths overridden in setup
-		Identity provider.IdentitySetupConfig
+		Identity identity.SetupConfig
 		certificates.CertSignerConfig
 	}
 
 	runCfg struct {
 		CertSigner certificates.CertSignerConfig
-		Identity   provider.IdentityConfig
+		Server     server.Config
 	}
 
 	authCreateCfg struct {
@@ -147,7 +148,7 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 	setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
 	setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 
-	err = provider.SetupCA(process.Ctx(cmd), setupCfg.CA)
+	err = identity.SetupCA(process.Ctx(cmd), setupCfg.CA)
 	if err != nil {
 		return err
 	}
@@ -165,7 +166,7 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 func cmdRun(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	return runCfg.Identity.Run(ctx, nil, runCfg.CertSigner)
+	return runCfg.Server.Run(ctx, nil, runCfg.CertSigner)
 }
 
 func cmdCreateAuth(cmd *cobra.Command, args []string) error {

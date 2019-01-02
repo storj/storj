@@ -142,7 +142,7 @@ func (db *muStatDB) UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID,
 	return db.statdb.UpdateAuditSuccess(ctx, nodeID, auditSuccess)
 }
 
-// UpdateBatch for updating multiple farmers' stats in the db
+// UpdateBatch for updating multiple storage nodes' stats in the db
 func (db *muStatDB) UpdateBatch(ctx context.Context, updateReqList []*statdb.UpdateRequest) (statsList []*statdb.NodeStats, failedUpdateReqs []*statdb.UpdateRequest, err error) {
 	defer db.mu.locked()()
 	return db.statdb.UpdateBatch(ctx, updateReqList)
