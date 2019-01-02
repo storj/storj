@@ -93,16 +93,16 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	farmerConfig := runCfg.Kademlia.Farmer
-	if err := isFarmerEmailValid(farmerConfig.Email); err != nil {
+	operatorConfig := runCfg.Kademlia.Operator
+	if err := isOperatorEmailValid(operatorConfig.Email); err != nil {
 		zap.S().Warn(err)
 	} else {
-		zap.S().Info("Farmer email: ", farmerConfig.Email)
+		zap.S().Info("Operator email: ", operatorConfig.Email)
 	}
-	if err := isFarmerWalletValid(farmerConfig.Wallet); err != nil {
+	if err := isOperatorWalletValid(operatorConfig.Wallet); err != nil {
 		zap.S().Fatal(err)
 	} else {
-		zap.S().Info("Farmer wallet: ", farmerConfig.Wallet)
+		zap.S().Info("Operator wallet: ", operatorConfig.Wallet)
 	}
 
 	return runCfg.Server.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
@@ -243,20 +243,20 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	return err
 }
 
-func isFarmerEmailValid(email string) error {
+func isOperatorEmailValid(email string) error {
 	if email == "" {
-		return fmt.Errorf("Farmer mail address isn't specified")
+		return fmt.Errorf("Operator mail address isn't specified")
 	}
 	return nil
 }
 
-func isFarmerWalletValid(wallet string) error {
+func isOperatorWalletValid(wallet string) error {
 	if wallet == "" {
-		return fmt.Errorf("Farmer wallet address isn't specified")
+		return fmt.Errorf("Operator wallet address isn't specified")
 	}
 	r := regexp.MustCompile("^0x[a-fA-F0-9]{40}$")
 	if match := r.MatchString(wallet); !match {
-		return fmt.Errorf("Farmer wallet address isn't valid")
+		return fmt.Errorf("Operator wallet address isn't valid")
 	}
 	return nil
 }
