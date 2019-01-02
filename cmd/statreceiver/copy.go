@@ -8,48 +8,48 @@ import (
 	"log"
 	"time"
 
-	"storj.io/storj/pkg/utils"
+	"github.com/zeebo/errs"
 )
 
 // PacketCopier sends the same packet to multiple destinations
 type PacketCopier struct {
-	d []PacketDest
+	dest []PacketDest
 }
 
 // NewPacketCopier creates a packet copier that sends the same packets to
 // the provided different destinations
-func NewPacketCopier(d ...PacketDest) *PacketCopier {
-	return &PacketCopier{d: d}
+func NewPacketCopier(dest ...PacketDest) *PacketCopier {
+	return &PacketCopier{dest: dest}
 }
 
 // Packet implements the PacketDest interface
 func (p *PacketCopier) Packet(data []byte, ts time.Time) (ferr error) {
-	var errs utils.ErrorGroup
-	for _, d := range p.d {
-		errs.Add(d.Packet(data, ts))
+	var errlist errs.Group
+	for _, dest := range p.dest {
+		errlist.Add(dest.Packet(data, ts))
 	}
-	return errs.Finish()
+	return errlist.Err()
 }
 
 // MetricCopier sends the same metric to multiple destinations
 type MetricCopier struct {
-	d []MetricDest
+	dest []MetricDest
 }
 
 // NewMetricCopier creates a metric copier that sends the same metrics to
 // the provided different destinations
-func NewMetricCopier(d ...MetricDest) *MetricCopier {
-	return &MetricCopier{d: d}
+func NewMetricCopier(dest ...MetricDest) *MetricCopier {
+	return &MetricCopier{dest: dest}
 }
 
 // Metric implements the MetricDest interface
 func (m *MetricCopier) Metric(application, instance string,
 	key []byte, val float64, ts time.Time) (ferr error) {
-	var errs utils.ErrorGroup
-	for _, d := range m.d {
-		errs.Add(d.Metric(application, instance, key, val, ts))
+	var errlist errs.Group
+	for _, dest := range m.dest {
+		errlist.Add(dest.Metric(application, instance, key, val, ts))
 	}
-	return errs.Finish()
+	return errlist.Err()
 }
 
 // Packet represents a single packet
@@ -140,17 +140,17 @@ func (p *MetricBuffer) Metric(application, instance string, key []byte,
 // when a buffer is also used. PacketBufPrep copies the memory to make sure
 // there are no data races
 type PacketBufPrep struct {
-	d PacketDest
+	dest PacketDest
 }
 
 // NewPacketBufPrep creates a PacketBufPrep
-func NewPacketBufPrep(d PacketDest) *PacketBufPrep {
-	return &PacketBufPrep{d: d}
+func NewPacketBufPrep(dest PacketDest) *PacketBufPrep {
+	return &PacketBufPrep{dest: dest}
 }
 
 // Packet implements the PacketDest interface
 func (p *PacketBufPrep) Packet(data []byte, ts time.Time) error {
-	return p.d.Packet(append([]byte(nil), data...), ts)
+	return p.dest.Packet(append([]byte(nil), data...), ts)
 }
 
 // MetricBufPrep prepares a metric destination for a metric buffer.
@@ -158,16 +158,16 @@ func (p *PacketBufPrep) Packet(data []byte, ts time.Time) error {
 // conditions when a buffer is also used. MetricBufPrep copies the memory to
 // make sure there are no data races
 type MetricBufPrep struct {
-	d MetricDest
+	dest MetricDest
 }
 
 // NewMetricBufPrep creates a MetricBufPrep
-func NewMetricBufPrep(d MetricDest) *MetricBufPrep {
-	return &MetricBufPrep{d: d}
+func NewMetricBufPrep(dest MetricDest) *MetricBufPrep {
+	return &MetricBufPrep{dest: dest}
 }
 
 // Metric implements the MetricDest interface
 func (p *MetricBufPrep) Metric(application, instance string, key []byte,
 	val float64, ts time.Time) error {
-	return p.d.Metric(application, instance, append([]byte(nil), key...), val, ts)
+	return p.dest.Metric(application, instance, append([]byte(nil), key...), val, ts)
 }
