@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package provider
+package identity
 
 import (
 	"context"
@@ -45,7 +45,8 @@ type encodedChain struct {
 	extensions [][][]byte
 }
 
-func decodeAndParseChainPEM(PEMBytes []byte) ([]*x509.Certificate, error) {
+// DecodeAndParseChainPEM parses a PEM chain
+func DecodeAndParseChainPEM(PEMBytes []byte) ([]*x509.Certificate, error) {
 	var (
 		encChain  encodedChain
 		blockErrs utils.ErrorGroup
