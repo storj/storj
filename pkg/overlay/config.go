@@ -81,6 +81,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	srv := NewServer(zap.L(), cache, ns)
 	pb.RegisterOverlayServer(server.PublicRPC(), srv)
+	pb.RegisterOverlayInspectorServer(server.PrivateRPC(), NewInspector(cache))
 
 	ctx2 := context.WithValue(ctx, ctxKeyOverlay, cache)
 	ctx2 = context.WithValue(ctx2, ctxKeyOverlayServer, srv)

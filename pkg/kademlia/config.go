@@ -99,13 +99,15 @@ func (c Config) Run(ctx context.Context, server *provider.Provider,
 	kad.StartRefresh(ctx)
 	defer func() { err = utils.CombineErrors(err, kad.Disconnect()) }()
 
-	pb.RegisterNodesServer(server.PublicRPC(), node.NewServer(logger, kad))
-
 	go func() {
 		if err = kad.Bootstrap(ctx); err != nil {
 			logger.Error("Failed to bootstrap Kademlia", zap.Any("ID", server.Identity().ID))
 		}
 	}()
+
+	pb.RegisterNodesServer(server.PublicRPC(), node.NewServer(logger, kad))
+	pb.RegisterKadInspectorServer(server.PrivateRPC(),
+		NewInspector(kad, server.Identity()))
 
 	return server.Run(context.WithValue(ctx, ctxKeyKad, kad))
 }

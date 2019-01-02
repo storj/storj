@@ -117,8 +117,10 @@ var (
 
 // Inspector gives access to kademlia and overlay cache
 type Inspector struct {
-	identity *provider.FullIdentity
-	client   pb.InspectorClient
+	identity      *provider.FullIdentity
+	kadclient     pb.KadInspectorClient
+	overlayclient pb.OverlayInspectorClient
+	statdbclient  pb.StatDBInspectorClient
 }
 
 // NewInspector creates a new gRPC inspector server for access to kad
@@ -136,11 +138,11 @@ func NewInspector(address string) (*Inspector, error) {
 		return &Inspector{}, ErrInspectorDial.Wrap(err)
 	}
 
-	c := pb.NewInspectorClient(conn)
-
 	return &Inspector{
-		identity: identity,
-		client:   c,
+		identity:      identity,
+		kadclient:     pb.NewKadInspectorClient(conn),
+		overlayclient: pb.NewOverlayInspectorClient(conn),
+		statdbclient:  pb.NewStatDBInspectorClient(conn),
 	}, nil
 }
 
@@ -151,12 +153,16 @@ func CountNodes(cmd *cobra.Command, args []string) (err error) {
 		return ErrInspectorDial.Wrap(err)
 	}
 
-	count, err := i.client.CountNodes(context.Background(), &pb.CountNodesRequest{})
+	kadcount, err := i.kadclient.CountNodes(context.Background(), &pb.CountNodesRequest{})
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+	overlaycount, err := i.overlayclient.CountNodes(context.Background(), &pb.CountNodesRequest{})
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
 
-	fmt.Printf("---------- \n - Kademlia: %+v\n - Overlay: %+v\n", count.Kademlia, count.Overlay)
+	fmt.Printf("---------- \n - Kademlia: %+v\n - Overlay: %+v\n", kadcount.Count, overlaycount.Count)
 	return nil
 }
 
@@ -167,7 +173,7 @@ func GetBuckets(cmd *cobra.Command, args []string) (err error) {
 		return ErrInspectorDial.Wrap(err)
 	}
 
-	buckets, err := i.client.GetBuckets(context.Background(), &pb.GetBucketsRequest{})
+	buckets, err := i.kadclient.GetBuckets(context.Background(), &pb.GetBucketsRequest{})
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
@@ -191,7 +197,7 @@ func GetBucket(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	bucket, err := i.client.GetBucket(context.Background(), &pb.GetBucketRequest{
+	bucket, err := i.kadclient.GetBucket(context.Background(), &pb.GetBucketRequest{
 		Id: nodeID,
 	})
 
@@ -210,7 +216,7 @@ func LookupNode(cmd *cobra.Command, args []string) (err error) {
 		return ErrInspectorDial.Wrap(err)
 	}
 
-	n, err := i.client.LookupNode(context.Background(), &pb.LookupNodeRequest{
+	n, err := i.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
 		Id: args[0],
 	})
 
@@ -233,13 +239,13 @@ func DumpNodes(cmd *cobra.Command, args []string) (err error) {
 
 	nodes := []pb.Node{}
 
-	buckets, err := i.client.GetBuckets(context.Background(), &pb.GetBucketsRequest{})
+	buckets, err := i.kadclient.GetBuckets(context.Background(), &pb.GetBucketsRequest{})
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
 
 	for _, bucket := range buckets.Ids {
-		b, err := i.client.GetBucket(context.Background(), &pb.GetBucketRequest{
+		b, err := i.kadclient.GetBucket(context.Background(), &pb.GetBucketRequest{
 			Id: bucket,
 		})
 		if err != nil {
@@ -286,7 +292,7 @@ func PingNode(cmd *cobra.Command, args []string) (err error) {
 
 	fmt.Printf("Pinging node %s at %s", args[0], args[1])
 
-	p, err := i.client.PingNode(context.Background(), &pb.PingNodeRequest{
+	p, err := i.kadclient.PingNode(context.Background(), &pb.PingNodeRequest{
 		Id:      nodeID,
 		Address: args[1],
 	})
@@ -316,7 +322,7 @@ func GetStats(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	res, err := i.client.GetStats(context.Background(), &pb.GetStatsRequest{
+	res, err := i.statdbclient.GetStats(context.Background(), &pb.GetStatsRequest{
 		NodeId: nodeID,
 	})
 	if err != nil {
@@ -352,7 +358,7 @@ func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
-		res, err := i.client.GetStats(context.Background(), &pb.GetStatsRequest{
+		res, err := i.statdbclient.GetStats(context.Background(), &pb.GetStatsRequest{
 			NodeId: nodeID,
 		})
 		if err != nil {
@@ -394,7 +400,7 @@ func CreateStats(cmd *cobra.Command, args []string) (err error) {
 		return ErrArgs.New("uptime success count must be an int")
 	}
 
-	_, err = i.client.CreateStats(context.Background(), &pb.CreateStatsRequest{
+	_, err = i.statdbclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
 		NodeId:             nodeID,
 		AuditCount:         auditCount,
 		AuditSuccessCount:  auditSuccessCount,
@@ -449,7 +455,7 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 			return ErrArgs.New("uptime success count must be an int")
 		}
 
-		_, err = i.client.CreateStats(context.Background(), &pb.CreateStatsRequest{
+		_, err = i.statdbclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
 			NodeId:             nodeID,
 			AuditCount:         auditCount,
 			AuditSuccessCount:  auditSuccessCount,

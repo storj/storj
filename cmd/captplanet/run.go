@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/discovery"
-	"storj.io/storj/pkg/inspector"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
@@ -29,6 +28,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/satellite/satelliteweb"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -43,7 +43,6 @@ type Satellite struct {
 	Kademlia    kademlia.SatelliteConfig
 	PointerDB   pointerdb.Config
 	Overlay     overlay.Config
-	Inspector   inspector.Config
 	Checker     checker.Config
 	Repairer    repairer.Config
 	Audit       audit.Config
@@ -53,6 +52,7 @@ type Satellite struct {
 	Discovery   discovery.Config
 	Tally       tally.Config
 	Rollup      rollup.Config
+	StatDB      statdb.Config
 }
 
 // StorageNode is for configuring storage nodes
@@ -137,10 +137,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.Web,
 			runCfg.Satellite.Tally,
 			runCfg.Satellite.Rollup,
-
-			// NB(dylan): Inspector is only used for local development and testing.
-			// It should not be added to the Satellite startup
-			runCfg.Satellite.Inspector,
+			runCfg.Satellite.StatDB,
 		)
 	}()
 

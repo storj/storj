@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -71,6 +72,7 @@ var (
 		BwAgreement bwagreement.Config
 		Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 		Discovery   discovery.Config
+		StatDB      statdb.Config
 	}
 	setupCfg struct {
 		CA        identity.CASetupConfig
@@ -135,6 +137,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		runCfg.Audit,
 		runCfg.BwAgreement,
 		runCfg.Discovery,
+		runCfg.StatDB,
 	)
 }
 
