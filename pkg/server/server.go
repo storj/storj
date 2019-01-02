@@ -6,10 +6,13 @@ package server
 import (
 	"context"
 	"net"
+	"time"
 
+	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/utils"
 )
 
 // Service represents a specific gRPC method collection to be registered
@@ -19,56 +22,78 @@ type Service interface {
 	Run(ctx context.Context, server *Server) error
 }
 
+type handle struct {
+	grpc *grpc.Server
+	lis  net.Listener
+}
+
+func (h handle) Serve() error {
+	err := h.grpc.Serve(h.lis)
+	if err == grpc.ErrServerStopped {
+		return nil
+	}
+	return Error.Wrap(err)
+}
+
+func (h handle) Close() error {
+	h.grpc.GracefulStop()
+	// GracefulStop closes the listener
+	return nil
+}
+
 // Server represents a bundle of services defined by a specific ID.
 // Examples of servers are the satellite, the storagenode, and the uplink.
 type Server struct {
-	lis      net.Listener
-	grpc     *grpc.Server
+	public   handle
+	private  handle
 	next     []Service
 	identity *identity.FullIdentity
 }
 
-// NewServer creates a Server out of an Identity, a net.Listener,
-// a UnaryServerInterceptor, and a set of services.
-func NewServer(opts *Options, lis net.Listener,
-	interceptor grpc.UnaryServerInterceptor, services ...Service) (
-	*Server, error) {
-	grpcOpts, err := opts.grpcOpts()
-	if err != nil {
-		return nil, err
-	}
-
-	unaryInterceptor := unaryInterceptor
-	if interceptor != nil {
-		unaryInterceptor = combineInterceptors(unaryInterceptor, interceptor)
-	}
-
+// NewServer creates a Server out of an Identity, public and private
+// gRPC handles and listeners, and a set of services. Closing a server will
+// stop the grpc servers and close the listeners.
+// A public handler is expected to be exposed to the world, whereas the private
+// handler is for inspectors and debug tools only.
+func NewServer(
+	identity *identity.FullIdentity,
+	publicSrv *grpc.Server, publicLis net.Listener,
+	privateSrv *grpc.Server, privateLis net.Listener,
+	services ...Service) *Server {
 	return &Server{
-		lis: lis,
-		grpc: grpc.NewServer(
-			grpc.StreamInterceptor(streamInterceptor),
-			grpc.UnaryInterceptor(unaryInterceptor),
-			grpcOpts,
-		),
+		public:   handle{grpc: publicSrv, lis: publicLis},
+		private:  handle{grpc: privateSrv, lis: privateLis},
 		next:     services,
-		identity: opts.Ident,
-	}, nil
+		identity: identity,
+	}
 }
 
 // Identity returns the server's identity
 func (p *Server) Identity() *identity.FullIdentity { return p.identity }
 
-// Addr returns the server's listener address
-func (p *Server) Addr() net.Addr { return p.lis.Addr() }
-
-// GRPC returns the server's gRPC handle for registration purposes
-func (p *Server) GRPC() *grpc.Server { return p.grpc }
-
 // Close shuts down the server
 func (p *Server) Close() error {
-	p.grpc.GracefulStop()
-	return nil
+	errch := make(chan error)
+	go func() {
+		errch <- Error.Wrap(p.public.Close())
+	}()
+	go func() {
+		errch <- Error.Wrap(p.private.Close())
+	}()
+	return errs.Combine(<-errch, <-errch)
 }
+
+// PublicRPC returns a gRPC handle to the public, exposed interface
+func (p *Server) PublicRPC() *grpc.Server { return p.public.grpc }
+
+// PrivateRPC returns a gRPC handle to the private, internal interface
+func (p *Server) PrivateRPC() *grpc.Server { return p.private.grpc }
+
+// PublicAddr returns the address of the public, exposed interface
+func (p *Server) PublicAddr() net.Addr { return p.public.lis.Addr() }
+
+// PrivateAddr returns the address of the private, internal interface
+func (p *Server) PrivateAddr() net.Addr { return p.private.lis.Addr() }
 
 // Run will run the server and all of its services
 func (p *Server) Run(ctx context.Context) (err error) {
@@ -82,5 +107,12 @@ func (p *Server) Run(ctx context.Context) (err error) {
 		return next.Run(ctx, p)
 	}
 
-	return p.grpc.Serve(p.lis)
+	errch := make(chan error, 2)
+	go func() {
+		errch <- p.public.Serve()
+	}()
+	go func() {
+		errch <- p.private.Serve()
+	}()
+	return utils.CollectErrors(errch, 5*time.Second)
 }

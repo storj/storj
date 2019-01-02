@@ -11,14 +11,15 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/discovery"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -30,17 +31,18 @@ import (
 
 // Node is a general purpose
 type Node struct {
-	Log       *zap.Logger
-	Info      pb.Node
-	Identity  *provider.FullIdentity
-	Transport transport.Client
-	Listener  net.Listener
-	Provider  *provider.Provider
-	Kademlia  *kademlia.Kademlia
-	Discovery *discovery.Discovery
-	StatDB    statdb.DB
-	Overlay   *overlay.Cache
-	Database  satellite.DB
+	Log             *zap.Logger
+	Info            pb.Node
+	Identity        *identity.FullIdentity
+	Transport       transport.Client
+	PublicListener  net.Listener
+	PrivateListener net.Listener
+	Server          *server.Server
+	Kademlia        *kademlia.Kademlia
+	Discovery       *discovery.Discovery
+	StatDB          statdb.DB
+	Overlay         *overlay.Cache
+	Database        satellite.DB
 
 	Dependencies []io.Closer
 }
@@ -52,43 +54,61 @@ func (planet *Planet) newNode(name string, nodeType pb.NodeType) (*Node, error) 
 		return nil, err
 	}
 
-	listener, err := planet.newListener()
+	publicListener, err := planet.newListener()
 	if err != nil {
 		return nil, err
 	}
 
+	privateListener, err := planet.newListener()
+	if err != nil {
+		return nil, utils.CombineErrors(err, publicListener.Close())
+	}
+
 	node := &Node{
-		Log:      planet.log.Named(name),
-		Identity: identity,
-		Listener: listener,
+		Log:             planet.log.Named(name),
+		Identity:        identity,
+		PublicListener:  publicListener,
+		PrivateListener: privateListener,
 	}
 
 	node.Log.Debug("id=" + identity.ID.String())
 
 	node.Transport = transport.NewClient(identity)
 
-	serverConfig := provider.ServerConfig{Address: node.Listener.Addr().String()}
-	opts, err := provider.NewServerOptions(node.Identity, serverConfig)
+	serverConfig := server.Config{}
+	cfgstruct.SetStructDefaults(&serverConfig)
+	serverConfig.PublicAddress = node.PublicListener.Addr().String()
+	serverConfig.PrivateAddress = node.PrivateListener.Addr().String()
+
+	// TODO(jt): should testplanet create a shared revocation db,
+	// a per-node revocation db, or no revocation db?
+	// should it create a ca whitelist? if we do create a per-node revocation db,
+	// it should be added to node.Dependencies?
+	pcvs := server.PCVs(nil, nil, serverConfig.CertVerification.Extensions)
+
+	publicSrv, privateSrv, err := server.SetupRPCs(identity, pcvs)
 	if err != nil {
-		return nil, err
+		return nil, utils.CombineErrors(err,
+			publicListener.Close(), privateListener.Close())
 	}
-	node.Provider, err = provider.NewProvider(opts, node.Listener, grpcauth.NewAPIKeyInterceptor())
-	if err != nil {
-		return nil, utils.CombineErrors(err, listener.Close())
-	}
+
+	node.Server = server.NewServer(
+		identity,
+		publicSrv, publicListener,
+		privateSrv, privateListener)
 
 	node.Info = pb.Node{
 		Id:   node.Identity.ID,
 		Type: nodeType,
 		Address: &pb.NodeAddress{
 			Transport: pb.NodeTransport_TCP_TLS_GRPC,
-			Address:   node.Listener.Addr().String(),
+			Address:   node.PublicListener.Addr().String(),
 		},
 	}
 
 	planet.nodes = append(planet.nodes, node)
 	planet.nodeInfos = append(planet.nodeInfos, node.Info)
-	planet.nodeLinks = append(planet.nodeLinks, node.Info.Id.String()+":"+node.Listener.Addr().String())
+	planet.nodeLinks = append(planet.nodeLinks, node.Info.Id.String()+":"+node.PublicListener.Addr().String())
 
 	return node, nil
 }
@@ -105,13 +125,10 @@ func (node *Node) Shutdown() error {
 	if node.Kademlia != nil {
 		errs = append(errs, node.Kademlia.Disconnect())
 	}
-	if node.Provider != nil {
-		errs = append(errs, node.Provider.Close())
+	if node.Server != nil {
+		errs = append(errs, node.Server.Close())
 	}
-	// Provider automatically closes listener
-	// if node.Listener != nil {
-	//    errs = append(errs, node.Listener.Close())
-	// }
+	// Server automatically closes listeners
 
 	for _, dep := range node.Dependencies {
 		err := dep.Close()

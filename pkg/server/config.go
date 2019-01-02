@@ -8,26 +8,22 @@ import (
 	"net"
 
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/utils"
 )
 
 // Config holds server specific configuration parameters
 type Config struct {
-	RevocationDBURL     string `help:"url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)" default:"bolt://$CONFDIR/revocations.db"`
-	PeerCAWhitelistPath string `help:"path to the CA cert whitelist (peer identities must be signed by one these to be verified)"`
-	Address             string `help:"address to listen on" default:":7777"`
-	Extensions          peertls.TLSExtConfig
+	PublicAddress  string `help:"public address to listen on" default:":7777"`
+	PrivateAddress string `help:"private address to listen on" default:"localhost:0"`
 
-	Identity identity.Config
+	Identity         identity.Config
+	CertVerification CertVerificationConfig
 }
 
 // Run will run the given responsibilities with the configured identity.
-func (sc Config) Run(ctx context.Context,
-	interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
+func (sc Config) Run(ctx context.Context, services ...Service) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ident, err := sc.Identity.Load()
@@ -35,23 +31,34 @@ func (sc Config) Run(ctx context.Context,
 		return err
 	}
 
-	lis, err := net.Listen("tcp", sc.Address)
+	pcvs, revdb, err := sc.CertVerification.Load()
 	if err != nil {
 		return err
 	}
-	defer func() { _ = lis.Close() }()
+	defer func() { err = utils.CombineErrors(err, revdb.Close()) }()
 
-	opts, err := NewOptions(ident, sc)
+	publicLis, err := net.Listen("tcp", sc.PublicAddress)
 	if err != nil {
 		return err
 	}
-	defer func() { err = utils.CombineErrors(err, opts.RevDB.Close()) }()
+	defer func() { _ = publicLis.Close() }()
 
-	s, err := NewServer(opts, lis, interceptor, services...)
+	privateLis, err := net.Listen("tcp", sc.PrivateAddress)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = s.Close() }()
+	defer func() { _ = privateLis.Close() }()
+
+	publicSrv, privateSrv, err := SetupRPCs(ident, pcvs)
+	if err != nil {
+		return err
+	}
+
+	s := NewServer(ident,
+		publicSrv, publicLis,
+		privateSrv, privateLis,
+		services...)
+	defer func() { err = utils.CombineErrors(err, s.Close()) }()
 
 	zap.S().Infof("Node %s started", s.Identity().ID)
 	return s.Run(ctx)

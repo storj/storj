@@ -17,7 +17,7 @@ import (
 	"storj.io/storj/pkg/auth"
 )
 
-func TestAPIKeyInterceptor(t *testing.T) {
+func TestAPIKeyInterceptorUnary(t *testing.T) {
 	for _, tt := range []struct {
 		APIKey string
 		err    error
@@ -26,7 +26,7 @@ func TestAPIKeyInterceptor(t *testing.T) {
 		{"good key", nil},
 		{"wrong key", status.Errorf(codes.Unauthenticated, "Invalid API credential")},
 	} {
-		interceptor := NewAPIKeyInterceptor()
+		interceptor := NewAPIKeyInterceptor().Unary
 
 		// mock for method handler
 		handler := func(ctx context.Context, req interface{}) (interface{}, error) {
@@ -48,7 +48,7 @@ func TestAPIKeyInterceptor(t *testing.T) {
 	}
 }
 
-func TestAPIKeyInjector(t *testing.T) {
+func TestAPIKeyInjectorUnary(t *testing.T) {
 	for _, tt := range []struct {
 		APIKey string
 		err    error
@@ -56,7 +56,7 @@ func TestAPIKeyInjector(t *testing.T) {
 		{"abc123", nil},
 		{"", nil},
 	} {
-		injector := NewAPIKeyInjector(tt.APIKey)
+		injector := NewAPIKeyInjector(tt.APIKey).Unary
 
 		// mock for method invoker
 		var outputCtx context.Context

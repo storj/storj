@@ -269,7 +269,7 @@ func (c CertSignerConfig) Run(ctx context.Context, server *provider.Provider) (e
 		AuthDB:        authDB,
 		MinDifficulty: uint16(c.MinDifficulty),
 	}
-	pb.RegisterCertificatesServer(server.GRPC(), srv)
+	pb.RegisterCertificatesServer(server.PublicRPC(), srv)
 
 	return server.Run(ctx)
 }

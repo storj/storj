@@ -17,7 +17,6 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
@@ -128,7 +127,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	return runCfg.Server.Run(
 		ctx,
-		grpcauth.NewAPIKeyInterceptor(),
 		runCfg.Kademlia,
 		runCfg.Overlay,
 		runCfg.PointerDB,

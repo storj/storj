@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
@@ -100,14 +99,14 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	// start satellite
 	go func() {
 		_, _ = fmt.Printf("Starting satellite on %s\n",
-			runCfg.Satellite.Server.Address)
+			runCfg.Satellite.Server.PublicAddress)
 
 		if runCfg.Satellite.Audit.SatelliteAddr == "" {
-			runCfg.Satellite.Audit.SatelliteAddr = runCfg.Satellite.Server.Address
+			runCfg.Satellite.Audit.SatelliteAddr = runCfg.Satellite.Server.PublicAddress
 		}
 
 		if runCfg.Satellite.Web.SatelliteAddr == "" {
-			runCfg.Satellite.Web.SatelliteAddr = runCfg.Satellite.Server.Address
+			runCfg.Satellite.Web.SatelliteAddr = runCfg.Satellite.Server.PublicAddress
 		}
 
 		database, err := satellitedb.New(runCfg.Satellite.Database)
@@ -127,7 +126,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 		// Run satellite
 		errch <- runCfg.Satellite.Server.Run(ctx,
-			grpcauth.NewAPIKeyInterceptor(),
 			runCfg.Satellite.Kademlia,
 			runCfg.Satellite.Audit,
 			runCfg.Satellite.Overlay,
@@ -157,11 +155,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 				return
 			}
 
-			address := v.Server.Address
+			address := v.Server.PublicAddress
 			storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
 
 			_, _ = fmt.Printf("Starting storage node %d %s (kad on %s)\n", i, storagenode, address)
-			errch <- v.Server.Run(ctx, nil, v.Kademlia, v.Storage)
+			errch <- v.Server.Run(ctx, v.Kademlia, v.Storage)
 		}(i, v)
 	}
 	// start s3 uplink

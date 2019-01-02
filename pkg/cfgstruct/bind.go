@@ -4,6 +4,7 @@
 package cfgstruct
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -166,4 +167,10 @@ func FindConfigDirParam() string {
 		}
 	}
 	return ""
+}
+
+// SetStructDefaults sets all of the default values in the struct
+func SetStructDefaults(config interface{}, opts ...BindOpt) {
+	fs := flag.NewFlagSet("defaults", flag.ContinueOnError)
+	Bind(fs, config, opts...)
 }

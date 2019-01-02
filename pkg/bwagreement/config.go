@@ -30,11 +30,14 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 	zap.S().Debug("Starting Bandwidth Agreement Receiver...")
 
-	db, ok := ctx.Value("masterdb").(interface{ BandwidthAgreement() DB })
+	db, ok := ctx.Value("masterdb").(interface {
+		BandwidthAgreement() DB
+	})
 	if !ok {
 		return errs.New("unable to get satellite master db instance")
 	}
-	pb.RegisterBandwidthServer(server.GRPC(), NewServer(db.BandwidthAgreement(), zap.L(), k))
+	pb.RegisterBandwidthServer(server.PublicRPC(),
+		NewServer(db.BandwidthAgreement(), zap.L(), k))
 
 	return server.Run(ctx)
 }
