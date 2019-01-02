@@ -41,25 +41,25 @@ func TestNewKademlia(t *testing.T) {
 	rootdir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()
 	cases := []struct {
-		id          storj.NodeID
+		id          *provider.FullIdentity
 		bn          []pb.Node
 		addr        string
 		expectedErr error
 	}{
 		{
-			id: func() storj.NodeID {
+			id: func() *provider.FullIdentity {
 				id, err := testidentity.NewTestIdentity()
 				assert.NoError(t, err)
-				return id.ID
+				return id
 			}(),
 			bn:   []pb.Node{{Id: teststorj.NodeIDFromString("foo")}},
 			addr: "127.0.0.1:8080",
 		},
 		{
-			id: func() storj.NodeID {
+			id: func() *provider.FullIdentity {
 				id, err := testidentity.NewTestIdentity()
 				assert.NoError(t, err)
-				return id.ID
+				return id
 			}(),
 			bn:   []pb.Node{{Id: teststorj.NodeIDFromString("foo")}},
 			addr: "127.0.0.1:8080",
@@ -69,12 +69,7 @@ func TestNewKademlia(t *testing.T) {
 	for i, v := range cases {
 		dir := filepath.Join(rootdir, strconv.Itoa(i))
 
-		ca, err := testidentity.NewTestCA(ctx)
-		assert.NoError(t, err)
-		identity, err := ca.NewIdentity()
-		assert.NoError(t, err)
-
-		kad, err := NewKademlia(zaptest.NewLogger(t), v.id, pb.NodeType_STORAGE, v.bn, v.addr, nil, identity, dir, defaultAlpha)
+		kad, err := NewKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, v.bn, v.addr, nil, v.id, dir, defaultAlpha)
 		assert.NoError(t, err)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
@@ -104,7 +99,7 @@ func TestPeerDiscovery(t *testing.T) {
 		Email:  "foo@bar.com",
 		Wallet: "OperatorWallet",
 	}
-	k, err := NewKademlia(zaptest.NewLogger(t), testID.ID, pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
+	k, err := NewKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
 	assert.NoError(t, err)
 	rt, err := k.GetRoutingTable(ctx)
 	assert.NoError(t, err)
@@ -179,7 +174,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	dir, cleanup := mktempdir(t, "kademlia")
 
 	logger := zaptest.NewLogger(t)
-	k, err := NewKademlia(logger, fid.ID, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, dir, defaultAlpha)
+	k, err := NewKademlia(logger, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
 	s := node.NewServer(logger, k)
 	// new ident opts
@@ -253,7 +248,7 @@ func TestGetNodes(t *testing.T) {
 	assert.NotEqual(t, fid.ID, fid2.ID)
 	dir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()
-	k, err := NewKademlia(zaptest.NewLogger(t), fid.ID, pb.NodeType_STORAGE, []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), nil, fid, dir, defaultAlpha)
+	k, err := NewKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
 	defer func() {
 		assert.NoError(t, k.Disconnect())
