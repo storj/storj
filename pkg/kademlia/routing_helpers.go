@@ -413,55 +413,11 @@ func (rt *RoutingTable) determineLeafDepth(bID bucketID) (int, error) {
 		return -1, RoutingErr.New("could not get k bucket range %s", err)
 	}
 	smaller := bucketRange[0]
-	diffBit, err := rt.determineDifferingBitIndex(bID, smaller)
+	diffBit, err := determineDifferingBitIndex(bID, smaller)
 	if err != nil {
 		return diffBit + 1, RoutingErr.New("could not determine differing bit %s", err)
 	}
 	return diffBit + 1, nil
-}
-
-// determineDifferingBitIndex: helper, returns the last bit differs starting from prefix to suffix
-func (rt *RoutingTable) determineDifferingBitIndex(bID, comparisonID bucketID) (int, error) {
-	if bytes.Equal(bID[:], comparisonID[:]) {
-		return -2, RoutingErr.New("compared two equivalent k bucket ids")
-	}
-	emptyBID := bucketID{}
-	if bytes.Equal(comparisonID[:], emptyBID[:]) {
-		comparisonID = rt.createFirstBucketID()
-	}
-
-	var differingByteIndex int
-	var differingByteXor byte
-	xorArr := xorTwoIds(bID[:], comparisonID[:])
-
-	firstBID := rt.createFirstBucketID()
-	if bytes.Equal(xorArr, firstBID[:]) {
-		return -1, nil
-	}
-
-	for j, v := range xorArr {
-		if v != byte(0) {
-			differingByteIndex = j
-			differingByteXor = v
-			break
-		}
-	}
-
-	h := 0
-	for ; h < 8; h++ {
-		toggle := byte(1 << uint(h))
-		tempXor := differingByteXor
-		tempXor ^= toggle
-		if tempXor < differingByteXor {
-			break
-		}
-
-	}
-	bitInByteIndex := 7 - h
-	byteIndex := differingByteIndex
-	bitIndex := byteIndex*8 + bitInByteIndex
-
-	return bitIndex, nil
 }
 
 // splitBucket: helper, returns the smaller of the two new bucket ids

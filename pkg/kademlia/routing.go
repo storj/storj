@@ -44,6 +44,8 @@ var firstBucketID = bucketID{
 	0xFF, 0xFF, 0xFF, 0xFF,
 }
 
+var emptyBucketID = bucketID{}
+
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
 	log              *zap.Logger
