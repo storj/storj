@@ -289,7 +289,7 @@ func (s *statDB) UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, au
 	return nodeStats, Error.Wrap(tx.Commit())
 }
 
-// UpdateBatch for updating multiple farmers' stats in the db
+// UpdateBatch for updating multiple storage nodes' stats in the db
 func (s *statDB) UpdateBatch(ctx context.Context, updateReqList []*statdb.UpdateRequest) (
 	statsList []*statdb.NodeStats, failedUpdateReqs []*statdb.UpdateRequest, err error) {
 	defer mon.Task()(&ctx)(&err)
