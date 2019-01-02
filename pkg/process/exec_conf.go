@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -91,7 +92,8 @@ func Ctx(cmd *cobra.Command) context.Context {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-c
+		sig := <-c
+		log.Printf("Got a signal from the OS: %q", sig)
 		signal.Stop(c)
 		cancel()
 	}()
