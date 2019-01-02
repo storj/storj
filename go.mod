@@ -42,7 +42,7 @@ require (
 	github.com/go-redis/redis v6.14.1+incompatible
 	github.com/gogo/protobuf v1.1.2-0.20181116123445-07eab6a8298c
 	github.com/golang-migrate/migrate/v3 v3.5.2
-	github.com/golang/mock v1.1.1
+	github.com/golang/mock v1.2.0
 	github.com/golang/protobuf v1.2.0
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
 	github.com/google/go-cmp v0.2.0
@@ -81,6 +81,7 @@ require (
 	github.com/nats-io/nats v1.6.0 // indirect
 	github.com/nats-io/nats-streaming-server v0.11.0 // indirect
 	github.com/nats-io/nuid v1.0.0 // indirect
+	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
 	github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c // indirect
 	github.com/pierrec/lz4 v2.0.5+incompatible // indirect
 	github.com/pkg/profile v1.2.1 // indirect

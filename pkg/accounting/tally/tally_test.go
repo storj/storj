@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
-	testidentity "storj.io/storj/internal/identity"
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/bwagreement/test"
 	"storj.io/storj/pkg/overlay"
@@ -58,7 +58,7 @@ func TestQueryWithBw(t *testing.T) {
 	tally := newTally(zap.NewNop(), db.Accounting(), bwDb, pointerdb, overlayServer, 0, time.Second)
 
 	//get a private key
-	fiC, err := testidentity.NewTestIdentity()
+	fiC, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
 	k, ok := fiC.Key.(*ecdsa.PrivateKey)
 	assert.True(t, ok)
