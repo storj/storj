@@ -4,8 +4,28 @@
 package kademlia
 
 import (
+	"math/bits"
+
 	"storj.io/storj/pkg/storj"
 )
+
+// xorNodeID returns the xor of each byte in NodeID
+func xorNodeID(a, b storj.NodeID) storj.NodeID {
+	r := storj.NodeID{}
+	for i, av := range a {
+		r[i] = av ^ b[i]
+	}
+	return r
+}
+
+// xorBucketID returns the xor of each byte in bucketID
+func xorBucketID(a, b bucketID) bucketID {
+	r := bucketID{}
+	for i, av := range a {
+		r[i] = av ^ b[i]
+	}
+	return r
+}
 
 // determineDifferingBitIndex: helper, returns the last bit differs starting from prefix to suffix
 func determineDifferingBitIndex(bID, comparisonID bucketID) (int, error) {
@@ -17,35 +37,16 @@ func determineDifferingBitIndex(bID, comparisonID bucketID) (int, error) {
 		comparisonID = firstBucketID
 	}
 
-	var differingByteIndex int
-	var differingByteXor byte
-	xorArr := bucketID(xorNodeID(storj.NodeID(bID), storj.NodeID(comparisonID)))
-
-	if xorArr == firstBucketID {
+	xorID := xorBucketID(bID, comparisonID)
+	if xorID == firstBucketID {
 		return -1, nil
 	}
 
-	for j, v := range xorArr {
-		if v != byte(0) {
-			differingByteIndex = j
-			differingByteXor = v
-			break
+	for i, v := range xorID {
+		if v != 0 {
+			return i*8 + 7 - bits.TrailingZeros8(v), nil
 		}
 	}
 
-	h := 0
-	for ; h < 8; h++ {
-		toggle := byte(1 << uint(h))
-		tempXor := differingByteXor
-		tempXor ^= toggle
-		if tempXor < differingByteXor {
-			break
-		}
-
-	}
-	bitInByteIndex := 7 - h
-	byteIndex := differingByteIndex
-	bitIndex := byteIndex*8 + bitInByteIndex
-
-	return bitIndex, nil
+	return -1, nil
 }
