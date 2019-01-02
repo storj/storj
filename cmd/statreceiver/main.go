@@ -6,15 +6,18 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
+	"storj.io/storj/internal/fpath"
 
+	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
+
+	"storj.io/storj/cmd/statreceiver/luacfg"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/luacfg"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/utils"
 )
 
 // Config is the set of configuration values we care about
@@ -22,17 +25,17 @@ var Config struct {
 	Input string `default:"" help:"path to configuration file"`
 }
 
-const defaultConfDir = "$HOME/.storj/statreceiver"
-
 func main() {
+	defaultConfDir := fpath.ApplicationDir("storj", "statreceiver")
+
 	cmd := &cobra.Command{
 		Use:   os.Args[0],
 		Short: "stat receiving",
 		RunE:  Main,
 	}
+
 	cfgstruct.Bind(cmd.Flags(), &Config, cfgstruct.ConfDir(defaultConfDir))
-	cmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"),
-		"path to configuration")
+	cmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	process.Exec(cmd)
 }
 
@@ -45,41 +48,47 @@ func Main(cmd *cobra.Command, args []string) error {
 	case "stdin":
 		input = os.Stdin
 	default:
-		fh, err := os.Open(Config.Input)
+		inputFile, err := os.Open(Config.Input)
 		if err != nil {
 			return err
 		}
-		defer utils.LogClose(fh)
-		input = fh
+		defer func() {
+			if err := inputFile.Close(); err != nil {
+				log.Printf("Failed to close input: %scope", err)
+			}
+		}()
+
+		input = inputFile
 	}
 
-	s := luacfg.NewScope()
-	err := utils.CombineErrors(
-		s.RegisterVal("deliver", Deliver),
-		s.RegisterVal("filein", NewFileSource),
-		s.RegisterVal("fileout", NewFileDest),
-		s.RegisterVal("udpin", NewUDPSource),
-		s.RegisterVal("udpout", NewUDPDest),
-		s.RegisterVal("parse", NewParser),
-		s.RegisterVal("print", NewPrinter),
-		s.RegisterVal("pcopy", NewPacketCopier),
-		s.RegisterVal("mcopy", NewMetricCopier),
-		s.RegisterVal("pbuf", NewPacketBuffer),
-		s.RegisterVal("mbuf", NewMetricBuffer),
-		s.RegisterVal("packetfilter", NewPacketFilter),
-		s.RegisterVal("appfilter", NewApplicationFilter),
-		s.RegisterVal("instfilter", NewInstanceFilter),
-		s.RegisterVal("keyfilter", NewKeyFilter),
-		s.RegisterVal("sanitize", NewSanitizer),
-		s.RegisterVal("graphite", NewGraphiteDest),
-		s.RegisterVal("db", NewDBDest),
-		s.RegisterVal("pbufprep", NewPacketBufPrep),
-		s.RegisterVal("mbufprep", NewMetricBufPrep),
+	scope := luacfg.NewScope()
+	err := errs.Combine(
+		scope.RegisterVal("deliver", Deliver),
+		scope.RegisterVal("filein", NewFileSource),
+		scope.RegisterVal("fileout", NewFileDest),
+		scope.RegisterVal("udpin", NewUDPSource),
+		scope.RegisterVal("udpout", NewUDPDest),
+		scope.RegisterVal("parse", NewParser),
+		scope.RegisterVal("print", NewPrinter),
+		scope.RegisterVal("pcopy", NewPacketCopier),
+		scope.RegisterVal("mcopy", NewMetricCopier),
+		scope.RegisterVal("pbuf", NewPacketBuffer),
+		scope.RegisterVal("mbuf", NewMetricBuffer),
+		scope.RegisterVal("packetfilter", NewPacketFilter),
+		scope.RegisterVal("appfilter", NewApplicationFilter),
+		scope.RegisterVal("instfilter", NewInstanceFilter),
+		scope.RegisterVal("keyfilter", NewKeyFilter),
+		scope.RegisterVal("sanitize", NewSanitizer),
+		scope.RegisterVal("graphite", NewGraphiteDest),
+		scope.RegisterVal("db", NewDBDest),
+		scope.RegisterVal("pbufprep", NewPacketBufPrep),
+		scope.RegisterVal("mbufprep", NewMetricBufPrep),
 	)
 	if err != nil {
 		return err
 	}
-	err = s.Run(input)
+
+	err = scope.Run(input)
 	if err != nil {
 		return err
 	}
