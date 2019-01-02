@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/identity"
+	testidentity "storj.io/storj/internal/identity"
 	"storj.io/storj/internal/s3client"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -48,7 +48,7 @@ func TestUploadDownload(t *testing.T) {
 	gwCfg.Minio.Dir = ctx.Dir("minio")
 
 	// addresses
-	gwCfg.Identity.Server.Address = "127.0.0.1:7777"
+	gwCfg.Server.Address = "127.0.0.1:7777"
 	gwCfg.Client.OverlayAddr = planet.Satellites[0].Addr()
 	gwCfg.Client.PointerDBAddr = planet.Satellites[0].Addr()
 
@@ -84,7 +84,7 @@ func TestUploadDownload(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	client, err := s3client.NewMinio(s3client.Config{
-		S3Gateway:     gwCfg.Identity.Server.Address,
+		S3Gateway:     gwCfg.Server.Address,
 		Satellite:     planet.Satellites[0].Addr(),
 		AccessKey:     gwCfg.Minio.AccessKey,
 		SecretKey:     gwCfg.Minio.SecretKey,
@@ -123,7 +123,7 @@ func runGateway(ctx context.Context, c miniogw.Config, log *zap.Logger, identity
 
 	// set gateway flags
 	flags := flag.NewFlagSet("gateway", flag.ExitOnError)
-	flags.String("address", c.Identity.Server.Address, "")
+	flags.String("address", c.Server.Address, "")
 	flags.String("config-dir", c.Minio.Dir, "")
 	flags.Bool("quiet", true, "")
 

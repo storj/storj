@@ -14,7 +14,9 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -401,4 +403,32 @@ func verifyCAWhitelistSignedLeafFunc(caWhitelist []*x509.Certificate) extensionV
 		}
 		return ErrVerifyCAWhitelist.New("leaf extension")
 	}
+}
+
+// NewRevDB returns a new revocation database given the URL
+func NewRevDB(revocationDBURL string) (*RevocationDB, error) {
+	driver, source, err := utils.SplitDBURL(revocationDBURL)
+	if err != nil {
+		return nil, ErrRevocationDB.Wrap(err)
+	}
+
+	var db *RevocationDB
+	switch driver {
+	case "bolt":
+		db, err = NewRevocationDBBolt(source)
+		if err != nil {
+			return nil, ErrRevocationDB.Wrap(err)
+		}
+		zap.S().Info("Starting overlay cache with BoltDB")
+	case "redis":
+		db, err = NewRevocationDBRedis(revocationDBURL)
+		if err != nil {
+			return nil, ErrRevocationDB.Wrap(err)
+		}
+		zap.S().Info("Starting overlay cache with Redis")
+	default:
+		return nil, ErrRevocationDB.New("database scheme not supported: %s", driver)
+	}
+
+	return db, nil
 }
