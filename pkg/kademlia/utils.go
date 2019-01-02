@@ -39,13 +39,6 @@ func sortByXOR(nodeIDs storj.NodeIDList, ref storj.NodeID) {
 	})
 }
 
-func nodeIDsToKeys(ids storj.NodeIDList) (nodeIDKeys storage.Keys) {
-	for _, n := range ids {
-		nodeIDKeys = append(nodeIDKeys, n.Bytes())
-	}
-	return nodeIDKeys
-}
-
 func keysToNodeIDs(keys storage.Keys) (ids storj.NodeIDList, err error) {
 	var idErrs []error
 	for _, k := range keys {
