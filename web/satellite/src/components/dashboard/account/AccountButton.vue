@@ -71,6 +71,13 @@ export default class AccountButton extends Vue {
         padding-right: 10px;
         background-color: #FFFFFF;
         cursor: pointer;
+
+        &:hover {
+
+            .account-button-toggle-container__user-name {
+                opacity: 0.7;
+            }
+        }
     }
 
     .account-button-toggle-container {
@@ -87,6 +94,7 @@ export default class AccountButton extends Vue {
             font-size: 16px;
             line-height: 23px;
             color: #354049;
+            transition: opacity .2s ease-in-out;
         }
 
         &__avatar {
