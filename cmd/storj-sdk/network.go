@@ -23,6 +23,8 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
+const folderPermissions = 0744
+
 func networkExec(flags *Flags, args []string, command string) error {
 	processes, err := newNetwork(flags.Directory, flags.SatelliteCount, flags.StorageNodeCount)
 	if err != nil {
@@ -95,7 +97,7 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 			"--log.level", "debug",
 			"--config-dir", ".",
 			command,
-			"--server.public-address", addr,
+			"--server.address", addr,
 		}, rest...)
 	}
 
@@ -103,7 +105,7 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 		name := fmt.Sprintf("satellite/%d", i)
 
 		dir := filepath.Join(dir, "satellite", fmt.Sprint(i))
-		if err := os.MkdirAll(dir, 0644); err != nil {
+		if err := os.MkdirAll(dir, folderPermissions); err != nil {
 			return nil, err
 		}
 
@@ -124,7 +126,7 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 			"--log.level", "debug",
 			"--config-dir", ".",
 			command,
-			"--server.public-address", addr,
+			"--server.address", addr,
 		}, rest...)
 	}
 
@@ -132,7 +134,7 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 		name := fmt.Sprintf("gateway/%d", i)
 
 		dir := filepath.Join(dir, "gateway", fmt.Sprint(i))
-		if err := os.MkdirAll(dir, 0644); err != nil {
+		if err := os.MkdirAll(dir, folderPermissions); err != nil {
 			return nil, err
 		}
 
@@ -154,7 +156,7 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 		name := fmt.Sprintf("storage/%d", i)
 
 		dir := filepath.Join(dir, "storage", fmt.Sprint(i))
-		if err := os.MkdirAll(dir, 0644); err != nil {
+		if err := os.MkdirAll(dir, folderPermissions); err != nil {
 			return nil, err
 		}
 
