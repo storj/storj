@@ -21,7 +21,7 @@ import (
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storage/ec"
+	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -123,6 +123,10 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
+		for _, v := range nodes {
+			v.Type.DPanicOnInvalid("ss put")
+		}
+
 		pieceID := psclient.NewPieceID()
 
 		authorization := s.pdb.SignedMessage()
@@ -203,6 +207,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 			if needed <= 0 {
 				break
 			}
+			node.Type.DPanicOnInvalid("ss get")
 		}
 
 		authorization := s.pdb.SignedMessage()
@@ -224,6 +229,7 @@ func makeRemotePointer(nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID
 		if nodes[i] == nil {
 			continue
 		}
+		nodes[i].Type.DPanicOnInvalid("makeremotepointer")
 		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   nodes[i].Id,
@@ -267,6 +273,11 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 		nodes, err = lookupAndAlignNodes(ctx, s.oc, nodes, seg)
 		if err != nil {
 			return Error.Wrap(err)
+		}
+		for _, v := range nodes {
+			if v != nil {
+				v.Type.DPanicOnInvalid("ss delete")
+			}
 		}
 
 		authorization := s.pdb.SignedMessage()
@@ -350,6 +361,9 @@ func lookupAndAlignNodes(ctx context.Context, oc overlay.Client, nodes []*pb.Nod
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
+	}
+	for _, v := range nodes {
+		v.Type.DPanicOnInvalid("lookup and align nodes")
 	}
 
 	// Realign the nodes

@@ -58,7 +58,7 @@ var (
 
 	runCfg struct {
 		Server   server.Config
-		Kademlia kademlia.Config
+		Kademlia kademlia.StorageNodeConfig
 		Storage  psserver.Config
 	}
 	setupCfg struct {
@@ -198,7 +198,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	//get all bandwidth aggrements entries already ordered
 	bwAgreements, err := db.GetBandwidthAllocations()
 	if err != nil {
-		fmt.Println("stroage node 'bandwidth_agreements' table read error:", dbpath)
+		fmt.Println("storage node 'bandwidth_agreements' table read error:", dbpath)
 		return err
 	}
 
