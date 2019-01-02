@@ -21,9 +21,10 @@ import (
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 
-	testidentity "storj.io/storj/internal/identity"
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -41,14 +42,14 @@ func TestNewKademlia(t *testing.T) {
 	rootdir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()
 	cases := []struct {
-		id          *provider.FullIdentity
+		id          *identity.FullIdentity
 		bn          []pb.Node
 		addr        string
 		expectedErr error
 	}{
 		{
-			id: func() *provider.FullIdentity {
-				id, err := testidentity.NewTestIdentity()
+			id: func() *identity.FullIdentity {
+				id, err := testidentity.NewTestIdentity(ctx)
 				assert.NoError(t, err)
 				return id
 			}(),
@@ -57,7 +58,7 @@ func TestNewKademlia(t *testing.T) {
 		},
 		{
 			id: func() *provider.FullIdentity {
-				id, err := testidentity.NewTestIdentity()
+				id, err := testidentity.NewTestIdentity(ctx)
 				assert.NoError(t, err)
 				return id
 			}(),
@@ -161,12 +162,13 @@ func TestBootstrap(t *testing.T) {
 }
 
 func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
+	ctx := testcontext.New(t)
 	// new address
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 	// new config
 	// new identity
-	fid, err := testidentity.NewTestIdentity()
+	fid, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
 	// new kademlia
 	dir, cleanup := mktempdir(t, "kademlia")
@@ -236,9 +238,9 @@ func TestGetNodes(t *testing.T) {
 	defer srv.Stop()
 
 	// make new identity
-	fid, err := testidentity.NewTestIdentity()
+	fid, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
-	fid2, err := testidentity.NewTestIdentity()
+	fid2, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
 	fid.ID = nodeIDA
 	fid2.ID = nodeIDB

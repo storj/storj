@@ -14,14 +14,21 @@ import (
 
 // DB is the master database for the satellite
 type DB interface {
-	BandwidthAgreement() bwagreement.DB
-	// PointerDB() pointerdb.DB
-	StatDB() statdb.DB
-	OverlayCache() storage.KeyValueStore
-	RepairQueue() queue.RepairQueue
-	Accounting() accounting.DB
-	Irreparable() irreparable.DB
-
+	// CreateTables initializes the database
 	CreateTables() error
+	// Close closes the database
 	Close() error
+
+	// BandwidthAgreement returns database for storing bandwidth agreements
+	BandwidthAgreement() bwagreement.DB
+	// StatDB returns database for storing node statistics
+	StatDB() statdb.DB
+	// OverlayCache returns database for caching overlay information
+	OverlayCache() storage.KeyValueStore
+	// Accounting returns database for storing information about data use
+	Accounting() accounting.DB
+	// RepairQueue returns queue for segments that need repairing
+	RepairQueue() queue.RepairQueue
+	// Irreparable returns database for failed repairs
+	Irreparable() irreparable.DB
 }

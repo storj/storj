@@ -62,7 +62,7 @@ func (service *repairService) Run(ctx context.Context) (err error) {
 func (service *repairService) process(ctx context.Context) error {
 	seg, err := service.queue.Dequeue(ctx)
 	if err != nil {
-		if err == storage.ErrEmptyQueue {
+		if storage.ErrEmptyQueue.Has(err) {
 			return nil
 		}
 		return err

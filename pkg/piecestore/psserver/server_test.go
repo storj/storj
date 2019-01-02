@@ -28,9 +28,9 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/internal/identity"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/storj"
 )

@@ -196,5 +196,4 @@ read first (
 read limitoffset (
 	select injuredsegment
 )
-
 delete injuredsegment ( where injuredsegment.id = ? )

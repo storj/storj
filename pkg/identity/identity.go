@@ -131,7 +131,7 @@ func PeerIdentityFromPeer(peer *peer.Peer) (*PeerIdentity, error) {
 	if len(c) < 2 {
 		return nil, Error.New("invalid certificate chain")
 	}
-	pi, err := PeerIdentityFromCerts(c[0], c[1], c[2:])
+	pi, err := PeerIdentityFromCerts(c[peertls.LeafIndex], c[peertls.CAIndex], c[2:])
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +244,7 @@ func (ic Config) Save(fi *FullIdentity) error {
 	)
 }
 
-// RestChainRaw returns the rest (excluding leaf and CA) of the certficate chain as a 2d byte slice
+// RestChainRaw returns the rest (excluding leaf and CA) of the certificate chain as a 2d byte slice
 func (fi *FullIdentity) RestChainRaw() [][]byte {
 	var chain [][]byte
 	for _, cert := range fi.RestChain {

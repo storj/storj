@@ -20,7 +20,7 @@ var ErrKeyNotFound = errs.Class("key not found")
 var ErrEmptyKey = errs.Class("empty key")
 
 // ErrEmptyQueue is returned when attempting to Dequeue from an empty queue
-var ErrEmptyQueue = errors.New("empty queue")
+var ErrEmptyQueue = errs.Class("empty queue")
 
 // ErrLimitExceeded is returned when request limit is exceeded
 var ErrLimitExceeded = errors.New("limit exceeded")
@@ -50,7 +50,7 @@ type ListItem struct {
 	IsPrefix bool
 }
 
-// KeyValueStore is an interface describing key/value stores like redis and boltdb
+// KeyValueStore describes key/value stores like redis and boltdb
 type KeyValueStore interface {
 	// Put adds a value to store
 	Put(Key, Value) error

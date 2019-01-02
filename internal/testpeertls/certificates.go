@@ -4,102 +4,43 @@
 package testpeertls
 
 import (
-	"bytes"
-	"crypto/ecdsa"
+	"crypto"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/json"
-	"fmt"
-	"math/big"
+
+	"storj.io/storj/pkg/peertls"
 )
 
-// DebugCert is a subset of the most relevant fields from an x509.Certificate for debugging
-type DebugCert struct {
-	Raw               []byte
-	RawTBSCertificate []byte
-	Signature         []byte
-	PublicKeyX        *big.Int
-	PublicKeyY        *big.Int
-	Extensions        []pkix.Extension
-}
-
-// NewCertDebug converts an *x509.Certificate into a DebugCert
-func NewCertDebug(cert x509.Certificate) DebugCert {
-	pubKey := cert.PublicKey.(*ecdsa.PublicKey)
-	c := DebugCert{
-		Raw:               make([]byte, len(cert.Raw)),
-		RawTBSCertificate: make([]byte, len(cert.RawTBSCertificate)),
-		Signature:         make([]byte, len(cert.Signature)),
-		PublicKeyX:        pubKey.X,
-		PublicKeyY:        pubKey.Y,
-		Extensions:        []pkix.Extension{},
-	}
-
-	copy(c.Raw, cert.Raw)
-	copy(c.RawTBSCertificate, cert.RawTBSCertificate)
-	copy(c.Signature, cert.Signature)
-	for _, e := range cert.ExtraExtensions {
-		ext := pkix.Extension{Id: e.Id, Value: make([]byte, len(e.Value))}
-		copy(ext.Value, e.Value)
-		c.Extensions = append(c.Extensions, ext)
-	}
-
-	return c
-}
-
-// Cmp is used to compare 2 DebugCerts against each other and print the diff
-func (c DebugCert) Cmp(c2 DebugCert, label string) {
-	fmt.Println("diff " + label + " ---================================================================---")
-	cmpBytes := func(a, b []byte) {
-		PrintJSON(bytes.Compare(a, b), "")
-	}
-
-	cmpBytes(c.Raw, c2.Raw)
-	cmpBytes(c.RawTBSCertificate, c2.RawTBSCertificate)
-	cmpBytes(c.Signature, c2.Signature)
-	c.PublicKeyX.Cmp(c2.PublicKeyX)
-	c.PublicKeyY.Cmp(c2.PublicKeyY)
-}
-
-// PrintJSON uses a json marshaler to pretty-print arbitrary data for debugging
-// with special considerations for certain, specific types
-func PrintJSON(data interface{}, label string) {
-	var (
-		jsonBytes []byte
-		err       error
-	)
-
-	switch d := data.(type) {
-	case x509.Certificate:
-		data = NewCertDebug(d)
-	case *x509.Certificate:
-		data = NewCertDebug(*d)
-	case ecdsa.PublicKey:
-		data = struct {
-			X *big.Int
-			Y *big.Int
-		}{
-			d.X, d.Y,
+// NewCertChain creates a valid peertls certificate chain (and respective keys) of the desired length.
+// NB: keys are in the reverse order compared to certs (i.e. first key belongs to last cert)!
+func NewCertChain(length int) (keys []crypto.PrivateKey, certs []*x509.Certificate, _ error) {
+	for i := 0; i < length; i++ {
+		key, err := peertls.NewKey()
+		if err != nil {
+			return nil, nil, err
 		}
-	case *ecdsa.PrivateKey:
-		data = struct {
-			X *big.Int
-			Y *big.Int
-			D *big.Int
-		}{
-			d.X, d.Y, d.D,
+		keys = append(keys, key)
+
+		var template *x509.Certificate
+		if i == length-1 {
+			template, err = peertls.CATemplate()
+		} else {
+			template, err = peertls.LeafTemplate()
 		}
-	}
+		if err != nil {
+			return nil, nil, err
+		}
 
-	jsonBytes, err = json.MarshalIndent(data, "", "\t\t")
+		var cert *x509.Certificate
+		if i == 0 {
+			cert, err = peertls.NewCert(key, nil, template, nil)
+		} else {
+			cert, err = peertls.NewCert(key, keys[i-1], template, certs[i-1:][0])
+		}
+		if err != nil {
+			return nil, nil, err
+		}
 
-	if label != "" {
-		fmt.Println(label + ": ---================================================================---")
+		certs = append([]*x509.Certificate{cert}, certs...)
 	}
-	if err != nil {
-		fmt.Printf("ERROR: %s", err.Error())
-	}
-
-	fmt.Println(string(jsonBytes))
-	fmt.Println("")
+	return keys, certs, nil
 }
