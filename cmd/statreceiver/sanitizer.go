@@ -13,17 +13,15 @@ import (
 // Sanitizer is a MetricDest that replaces nonalphanumeric characters with
 // underscores.
 type Sanitizer struct {
-	m MetricDest
+	dest MetricDest
 }
 
-// NewSanitizer creates a Sanitizer that sends sanitized metrics to m.
-func NewSanitizer(m MetricDest) *Sanitizer { return &Sanitizer{m: m} }
+// NewSanitizer creates a Sanitizer that sends sanitized metrics to dest.
+func NewSanitizer(dest MetricDest) *Sanitizer { return &Sanitizer{dest: dest} }
 
 // Metric implements MetricDest
-func (s *Sanitizer) Metric(application, instance string, key []byte,
-	val float64, ts time.Time) error {
-	return s.m.Metric(sanitize(application), sanitize(instance), sanitizeb(key),
-		val, ts)
+func (s *Sanitizer) Metric(application, instance string, key []byte, val float64, ts time.Time) error {
+	return s.dest.Metric(sanitize(application), sanitize(instance), sanitizeb(key), val, ts)
 }
 
 func sanitize(val string) string {
@@ -38,6 +36,7 @@ func safechar(r rune) rune {
 	if unicode.IsLetter(r) || unicode.IsNumber(r) {
 		return r
 	}
+
 	switch r {
 	case '/':
 		return '.'

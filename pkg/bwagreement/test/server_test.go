@@ -11,16 +11,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/identity"
+	testidentity "storj.io/storj/internal/identity"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestBandwidthAgreements(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
