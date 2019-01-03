@@ -38,7 +38,7 @@ services:
     image: storjlabs/storagenode:${VERSION:-latest}
     environment:
     - SATELLITE_ADDR=satellite:7777
-    - STORJ_IDENTITY_SERVER_ADDRESS=storagenode:7777
+    - STORJ_KADEMLIA_EXTERNAL_ADDRESS=storagenode:7777
     - STORJ_KADEMLIA_OPERATOR_EMAIL=hello@storj.io
     - STORJ_KADEMLIA_OPERATOR_WALLET=0x0000000000000000000000000000000000000000
     - STORJ_LOG_LEVEL=debug
