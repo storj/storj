@@ -152,6 +152,7 @@ func (server *Server) filterNodes(ctx context.Context, nodes []*pb.Node, nodeReq
 	for _, n := range nodes {
 		addr := n.Address.GetAddress()
 		excluded = append(excluded, n.Id) // exclude all nodes on next iteration
+		updatedExcluded = excluded
 		if !usedAddrs[addr] {
 			resultNodes = append(resultNodes, n)
 			usedAddrs[addr] = true
