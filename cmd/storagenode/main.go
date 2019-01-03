@@ -279,13 +279,15 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	// initialize the table header (fields)
 	const padding = 3
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	fmt.Fprintln(w, "SatelliteID\tTotal\t# Of Transactions\tPUT Action\tGET Action\t")
+	fmt.Fprintln(w, "SatelliteID\tTotal\t# Of Transactions\tPUT Action\tGET Action\tGET (Audit) Action\tGET (Repair) Action\tPUT (Repair) Action\t")
 
 	// populate the row fields
 	sort.Sort(satelliteIDs)
 	for _, satelliteID := range satelliteIDs {
 		summary := summaries[satelliteID]
-		fmt.Fprint(w, satelliteID, "\t", summary.TotalBytes, "\t", summary.TotalTransactions, "\t", summary.PutActionCount, "\t", summary.GetActionCount, "\t\n")
+		fmt.Fprint(w, satelliteID, "\t", summary.TotalBytes, "\t", summary.TotalTransactions, "\t",
+			summary.PutActionCount, "\t", summary.GetActionCount, "\t", summary.GetAuditActionCount,
+			"\t", summary.GetRepairActionCount, "\t", summary.PutRepairActionCount, "\t\n")
 	}
 
 	// display the data
