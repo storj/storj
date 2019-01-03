@@ -58,7 +58,18 @@ aws s3 --endpoint=http://localhost:7777/ mb s3://bucket
 echo "=> Uploading test files"
 aws configure set default.s3.multipart_threshold 1TB
 aws s3 --endpoint=http://localhost:7777/ cp "$TMP_DIR/small-upload-testfile" s3://bucket/small-testfile
-aws s3 --endpoint=http://localhost:7777/ cp "$TMP_DIR/big-upload-testfile" s3://bucket/big-testfile
+starttime="$(date +%s)"
+while true; do
+	if aws s3 --endpoint=http://localhost:7777/ cp "$TMP_DIR/big-upload-testfile" s3://bucket/big-testfile; then
+		break
+	fi
+	echo "=> Large file failed, sleeping for a bit before trying again"
+	sleep 1
+	if [ $(( $starttime + 60 )) -lt $(date +%s) ]; then
+		echo "=> Failed to upload big-testfile for over a minute!"
+		exit 1
+	fi
+done
 
 # Wait 5 seconds to trigger any error related to one of the different intervals
 sleep 5

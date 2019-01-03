@@ -47,7 +47,7 @@ services:
     - satellite
   gateway:
     image: storjlabs/gateway:${VERSION:-latest}
-    command: --rs.min-threshold 1 --rs.max-threshold 2 --rs.repair-threshold 1 --rs.success-threshold 1
+    command: --rs.min-threshold 1 --rs.max-threshold 1 --rs.repair-threshold 1 --rs.success-threshold 1
     environment:
     - API_KEY=abc123
     - SATELLITE_ADDR=satellite:7777
