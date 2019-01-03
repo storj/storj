@@ -416,6 +416,86 @@ func TestStore(t *testing.T) {
 	}
 }
 
+func TestPbaValidation(t *testing.T) {
+	TS := NewTestServer(t)
+	defer TS.Stop()
+
+	tests := []struct {
+		satelliteID storj.NodeID
+		uplinkID    storj.NodeID
+		action      pb.PayerBandwidthAllocation_Action
+		err         string
+	}{
+		{ // missing satellite id
+			satelliteID: storj.NodeID{},
+			uplinkID:    teststorj.NodeIDFromString("uplinkid"),
+			action:      pb.PayerBandwidthAllocation_PUT,
+			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: missing satellite id",
+		},
+		{ // missing uplink id
+			satelliteID: teststorj.NodeIDFromString("satelliteid"),
+			uplinkID:    storj.NodeID{},
+			action:      pb.PayerBandwidthAllocation_PUT,
+			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: missing uplink id",
+		},
+		{ // wrong action type
+			satelliteID: teststorj.NodeIDFromString("satelliteid"),
+			uplinkID:    teststorj.NodeIDFromString("uplinkid"),
+			action:      pb.PayerBandwidthAllocation_GET,
+			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: invalid action GET",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("should return validate payer bandwidth allocation struct", func(t *testing.T) {
+			assert := assert.New(t)
+			stream, err := TS.c.Store(ctx)
+			assert.NoError(err)
+
+			// Write the buffer to the stream we opened earlier
+			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: "99999999999999999999", ExpirationUnixSec: 9999999999}})
+			assert.NoError(err)
+
+			pbad := &pb.PayerBandwidthAllocation_Data{
+				SatelliteId: tt.satelliteID,
+				UplinkId:    tt.uplinkID,
+				Action:      tt.action,
+			}
+			pbaData, err := proto.Marshal(pbad)
+			assert.NoError(err)
+			pba := &pb.PayerBandwidthAllocation{Data: pbaData}
+			// Send Bandwidth Allocation Data
+			content := []byte("content")
+			msg := &pb.PieceStore{
+				PieceData: &pb.PieceStore_PieceData{Content: content},
+				BandwidthAllocation: &pb.RenterBandwidthAllocation{
+					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
+						PayerAllocation: pba,
+						Total:           int64(len(content)),
+					}),
+				},
+			}
+
+			s, err := cryptopasta.Sign(msg.BandwidthAllocation.Data, TS.k.(*ecdsa.PrivateKey))
+			assert.NoError(err)
+			msg.BandwidthAllocation.Signature = s
+
+			// Write the buffer to the stream we opened earlier
+			err = stream.Send(msg)
+			if err != io.EOF && err != nil {
+				assert.NoError(err)
+			}
+
+			_, err = stream.CloseAndRecv()
+			if err != nil {
+				//assert.NotNil(err)
+				assert.Equal(tt.err, err.Error())
+				return
+			}
+		})
+	}
+}
+
 func TestDelete(t *testing.T) {
 	TS := NewTestServer(t)
 	defer TS.Stop()
