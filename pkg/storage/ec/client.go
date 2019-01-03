@@ -118,8 +118,8 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 			// io.ErrUnexpectedEOF means the piece upload was interrupted due to slow connection.
 			// No error logging for this case.
 			if err != nil && err != io.ErrUnexpectedEOF {
-				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
-					pieceID, derivedPieceID, n.Id, err)
+				zap.S().Errorf("Failed putting piece %s -> %s to node %s (%+v): %v",
+					pieceID, derivedPieceID, n.Id, n.Address.Address, err)
 			}
 			infos <- info{i: i, err: err}
 		}(i, n)
