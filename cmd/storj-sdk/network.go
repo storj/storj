@@ -126,7 +126,6 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 			"--log.level", "debug",
 			"--config-dir", ".",
 			command,
-			"--server.address", addr,
 		}, rest...)
 	}
 
@@ -149,7 +148,9 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 		process.Arguments["setup"] = gatewayArguments(name, "setup", process.Info.Address,
 			"--satellite-addr", satellite.Info.Address,
 		)
-		process.Arguments["run"] = gatewayArguments(name, "run", process.Info.Address)
+		process.Arguments["run"] = gatewayArguments(name, "run", process.Info.Address,
+			"--server.address", process.Info.Address,
+		)
 	}
 
 	for i := 0; i < storageNodeCount; i++ {
