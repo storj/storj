@@ -50,7 +50,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
         return {
             arrowUp: EMPTY_STATE_IMAGES.ARROW_UP,
             arrowDown: EMPTY_STATE_IMAGES.ARROW_DOWN,
-        }
+        };
     }
 })
 

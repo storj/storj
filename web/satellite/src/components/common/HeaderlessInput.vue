@@ -56,6 +56,9 @@ import { Component, Vue } from 'vue-property-decorator';
             changeVision: function(): void {
                 this.$data.isPasswordShown = !this.$data.isPasswordShown;
                 if (this.$props.isPassword) this.$data.passwordType = this.$data.passwordType == 'password' ? 'text' : 'password';
+            },
+            setValue(value: string) {
+                this.$data.value = value;
             }
         },
         props: {

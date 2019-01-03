@@ -32,7 +32,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
             arrowLeft: EMPTY_STATE_IMAGES.ARROW_LEFT,
             arrowRight: EMPTY_STATE_IMAGES.ARROW_RIGHT,
             selected: false,
-        }
+        };
     },
 })
 
