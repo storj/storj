@@ -80,7 +80,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		log.Fatal(s.Stop(ctx))
 	}()
 
-	s.log.Info("Started Node", zap.String("ID", fmt.Sprint(server.Identity().ID)))
 	return server.Run(ctx)
 }
 
