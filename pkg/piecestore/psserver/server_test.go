@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
 	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
@@ -340,12 +341,20 @@ func TestStore(t *testing.T) {
 			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
 			assert.NoError(err)
 
+			pbad := &pb.PayerBandwidthAllocation_Data{
+				SatelliteId: teststorj.NodeIDFromString("satelliteid"),
+				UplinkId:    teststorj.NodeIDFromString("uplinkid"),
+				Action:      pb.PayerBandwidthAllocation_PUT,
+			}
+			pbaData, err := proto.Marshal(pbad)
+			assert.NoError(err)
+			pba := &pb.PayerBandwidthAllocation{Data: pbaData}
 			// Send Bandwidth Allocation Data
 			msg := &pb.PieceStore{
 				PieceData: &pb.PieceStore_PieceData{Content: tt.content},
 				BandwidthAllocation: &pb.RenterBandwidthAllocation{
 					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-						PayerAllocation: &pb.PayerBandwidthAllocation{},
+						PayerAllocation: pba,
 						Total:           int64(len(tt.content)),
 					}),
 				},
@@ -394,7 +403,7 @@ func TestStore(t *testing.T) {
 				err = proto.Unmarshal(agreement, decoded)
 				assert.NoError(err)
 				assert.Equal(msg.BandwidthAllocation.GetSignature(), signature)
-				assert.Equal(&pb.PayerBandwidthAllocation{}, decoded.GetPayerAllocation())
+				assert.True(proto.Equal(pba, decoded.GetPayerAllocation()))
 				assert.Equal(int64(len(tt.content)), decoded.GetTotal())
 
 			}

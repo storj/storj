@@ -22,6 +22,7 @@ import (
 type Stripe struct {
 	Index         int
 	Segment       *pb.Pointer
+	Pba           *pb.PayerBandwidthAllocation
 	Authorization *pb.SignedMessage
 }
 
@@ -74,7 +75,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	}
 
 	// get pointer info
-	pointer, _, _, err := cursor.pointers.Get(ctx, path)
+	pointer, _, pba, err := cursor.pointers.Get(ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -99,8 +100,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	}
 
 	authorization := cursor.pointers.SignedMessage()
-
-	return &Stripe{Index: index, Segment: pointer, Authorization: authorization}, nil
+	return &Stripe{Index: index, Segment: pointer, Pba: pba, Authorization: authorization}, nil
 }
 
 func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) {

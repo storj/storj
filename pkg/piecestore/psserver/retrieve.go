@@ -16,7 +16,7 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -136,6 +136,17 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			}
 
 			if err = s.verifySignature(ctx, alloc); err != nil {
+				allocationTracking.Fail(err)
+				return
+			}
+
+			pbaData := &pb.PayerBandwidthAllocation_Data{}
+			if err = proto.Unmarshal(allocData.GetPayerAllocation().GetData(), pbaData); err != nil {
+				allocationTracking.Fail(err)
+				return
+			}
+
+			if err = s.verifyPayerAllocation(pbaData, pb.PayerBandwidthAllocation_GET); err != nil {
 				allocationTracking.Fail(err)
 				return
 			}

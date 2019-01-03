@@ -101,8 +101,7 @@ func (service *Service) process(ctx context.Context) error {
 		return nil
 	}
 
-	authorization := service.Cursor.pointers.SignedMessage()
-	verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
+	verifiedNodes, err := service.Verifier.verify(ctx, stripe)
 	if err != nil {
 		return err
 	}
