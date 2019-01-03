@@ -97,7 +97,6 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 			"--log.level", "debug",
 			"--config-dir", ".",
 			command,
-			"--server.address", addr,
 		}, rest...)
 	}
 
@@ -118,6 +117,7 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 		process.Arguments["setup"] = arguments(name, "setup", process.Info.Address)
 		process.Arguments["run"] = arguments(name, "run", process.Info.Address,
 			"--kademlia.bootstrap-addr", defaultSatellite,
+			"--server.address", process.Info.Address,
 		)
 	}
 
@@ -174,6 +174,7 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 			"--kademlia.bootstrap-addr", defaultSatellite,
 			"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
 			"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
+			"--server.address", process.Info.Address,
 		)
 	}
 
