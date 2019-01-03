@@ -156,7 +156,9 @@ func TestGet(t *testing.T) {
 		gc.EXPECT().Get(gomock.Any(), &getRequest).Return(&getResponse, tt.err)
 
 		pointer, nodes, pba, err := pdb.Get(ctx, tt.path)
-
+		for _, v := range nodes {
+			v.Type.DPanicOnInvalid("client test")
+		}
 		if err != nil {
 			assert.True(t, strings.Contains(err.Error(), tt.errString), errTag)
 			assert.Nil(t, pointer)

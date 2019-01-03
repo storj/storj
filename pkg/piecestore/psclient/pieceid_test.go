@@ -9,7 +9,8 @@ import (
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/internal/identity"
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
 )
 
 func TestNewPieceID(t *testing.T) {
@@ -26,8 +27,9 @@ func TestNewPieceID(t *testing.T) {
 }
 
 func TestDerivePieceID(t *testing.T) {
+	ctx := testcontext.New(t)
 	pid := NewPieceID()
-	fid, err := testidentity.NewTestIdentity()
+	fid, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
 	did, err := pid.Derive(fid.ID.Bytes())
 	assert.NoError(t, err)

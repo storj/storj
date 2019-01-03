@@ -56,6 +56,11 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 		log = zaptest.NewLogger(t)
 	}
 
+	return NewWithLogger(log, satelliteCount, storageNodeCount, uplinkCount)
+}
+
+// NewWithLogger creates a new full system with the given number of nodes.
+func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	planet := &Planet{
 		log:        log,
 		identities: NewPregeneratedIdentities(),
@@ -67,7 +72,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 		return nil, err
 	}
 
-	planet.Satellites, err = planet.newNodes("satellite", satelliteCount, pb.NodeType_ADMIN)
+	planet.Satellites, err = planet.newNodes("satellite", satelliteCount, pb.NodeType_SATELLITE)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
@@ -77,7 +82,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
 
-	planet.Uplinks, err = planet.newNodes("uplink", uplinkCount, pb.NodeType_ADMIN) // TODO: fix the node type here
+	planet.Uplinks, err = planet.newNodes("uplink", uplinkCount, pb.NodeType_UPLINK)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
@@ -232,8 +237,8 @@ func (planet *Planet) newNodes(prefix string, count int, nodeType pb.NodeType) (
 	return xs, nil
 }
 
-// newIdentity creates a new identity for a node
-func (planet *Planet) newIdentity() (*provider.FullIdentity, error) {
+// NewIdentity creates a new identity for a node
+func (planet *Planet) NewIdentity() (*provider.FullIdentity, error) {
 	return planet.identities.NewIdentity()
 }
 

@@ -70,7 +70,8 @@ func TestClient(t *testing.T) {
 			group.Go(func() error {
 				for _, target := range peers {
 					errTag := fmt.Errorf("lookup peer:%s target:%s", peer.ID(), target.ID())
-
+					peer.Info.Type.DPanicOnInvalid("test client peer")
+					target.Info.Type.DPanicOnInvalid("test client target")
 					results, err := client.Lookup(ctx, peer.Info, target.Info)
 					if err != nil {
 						return utils.CombineErrors(errTag, err)
@@ -112,8 +113,8 @@ func TestClient(t *testing.T) {
 				peer := peers[i]
 				group.Go(func() error {
 					errTag := fmt.Errorf("invalid lookup peer:%s target:%s", peer.ID(), target)
-
-					results, err := client.Lookup(ctx, peer.Info, pb.Node{Id: target})
+					peer.Info.Type.DPanicOnInvalid("peer info")
+					results, err := client.Lookup(ctx, peer.Info, pb.Node{Id: target, Type: pb.NodeType_STORAGE})
 					if err != nil {
 						return utils.CombineErrors(errTag, err)
 					}

@@ -41,7 +41,7 @@ const (
 // Satellite is for configuring client
 type Satellite struct {
 	Server      server.Config
-	Kademlia    kademlia.Config
+	Kademlia    kademlia.SatelliteConfig
 	PointerDB   pointerdb.Config
 	Overlay     overlay.Config
 	Inspector   inspector.Config
@@ -59,7 +59,7 @@ type Satellite struct {
 // StorageNode is for configuring storage nodes
 type StorageNode struct {
 	Server   server.Config
-	Kademlia kademlia.Config
+	Kademlia kademlia.StorageNodeConfig
 	Storage  psserver.Config
 }
 
@@ -164,7 +164,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			errch <- v.Server.Run(ctx, nil, v.Kademlia, v.Storage)
 		}(i, v)
 	}
-
 	// start s3 uplink
 	go func() {
 		_, _ = fmt.Printf("Starting s3-gateway on %s\nAccess key: %s\nSecret key: %s\n",

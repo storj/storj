@@ -25,7 +25,7 @@ type Service struct {
 
 // Config contains configurable values for audit service
 type Config struct {
-	APIKey           string        `help:"APIKey to access the statdb" default:"abc123"`
+	APIKey           string        `help:"APIKey to access the statdb" default:""`
 	SatelliteAddr    string        `help:"address to contact services on the satellite"`
 	MaxRetriesStatDB int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
 	Interval         time.Duration `help:"how frequently segments are audited" default:"30s"`

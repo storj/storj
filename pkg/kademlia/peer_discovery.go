@@ -83,20 +83,29 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (target *pb.Node, err erro
 						working++
 						break
 					}
-
 					// no work, wait until some other routine inserts into the queue
 					lookup.cond.Wait()
 				}
 				lookup.cond.L.Unlock()
-
-				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target})
+				var nodeType pb.NodeType
+				if target != nil {
+					nodeType = target.Type
+					nodeType.DPanicOnInvalid("Peer Discovery Run")
+				}
+				next.Type.DPanicOnInvalid("next")
+				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target, Type: nodeType})
 
 				if err != nil {
 					// TODO: reenable retry after fixing logic
 					// ok := lookup.queue.Reinsert(lookup.target, next, lookup.opts.retries)
 					ok := false
 					if !ok {
-						lookup.log.Debug("connecting to node failed", zap.Any("target", lookup.target), zap.Any("dial", next.Id), zap.Error(err))
+						lookup.log.Debug("connecting to node failed",
+							zap.Any("target", lookup.target),
+							zap.Any("dial", next.Id),
+							zap.Any("dial-address", next.Address.Address),
+							zap.Error(err),
+						)
 					}
 				}
 
@@ -221,13 +230,4 @@ func (queue *discoveryQueue) Len() int {
 	defer queue.mu.Unlock()
 
 	return len(queue.items)
-}
-
-// xorNodeID returns the xor of each byte in NodeID
-func xorNodeID(a, b storj.NodeID) storj.NodeID {
-	r := storj.NodeID{}
-	for i, av := range a {
-		r[i] = av ^ b[i]
-	}
-	return r
 }
