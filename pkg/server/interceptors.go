@@ -16,10 +16,9 @@ import (
 	"storj.io/storj/storage"
 )
 
-func defaultLogger() grpcutils.ServerInterceptor {
+func defaultLogger(l *zap.Logger) grpcutils.ServerInterceptor {
 	return grpcutils.ServerInterceptor{
-		Stream: func(srv interface{}, ss grpc.ServerStream,
-			info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+		Stream: func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 			err = handler(srv, ss)
 			if err != nil {
 				// no zap errors for canceled or wrong file downloads
@@ -29,20 +28,18 @@ func defaultLogger() grpcutils.ServerInterceptor {
 					err == io.EOF {
 					return err
 				}
-				zap.S().Errorf("%+v", err)
+				l.Sugar().Errorf("%+v", err)
 			}
 			return err
 		},
-		Unary: func(ctx context.Context, req interface{},
-			info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (
-			resp interface{}, err error) {
+		Unary: func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 			resp, err = handler(ctx, req)
 			if err != nil {
 				// no zap errors for wrong file downloads
 				if status.Code(err) == codes.NotFound {
 					return resp, err
 				}
-				zap.S().Errorf("%+v", err)
+				l.Sugar().Errorf("%+v", err)
 			}
 			return resp, err
 		},

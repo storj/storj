@@ -22,30 +22,38 @@ type Service interface {
 	Run(ctx context.Context, server *Server) error
 }
 
-type handle struct {
-	grpc *grpc.Server
-	lis  net.Listener
+// Handle is a type that pairs a gRPC server to a listener
+type Handle struct {
+	Srv *grpc.Server
+	Lis net.Listener
 }
 
-func (h handle) Serve() error {
-	err := h.grpc.Serve(h.lis)
+// NewHandle constructs a gRPC/listener handle
+func NewHandle(srv *grpc.Server, lis net.Listener) *Handle {
+	return &Handle{Srv: srv, Lis: lis}
+}
+
+// Serve calls Serve on the gRPC server with the handle's listener
+func (h *Handle) Serve() error {
+	err := h.Srv.Serve(h.Lis)
 	if err == grpc.ErrServerStopped {
 		return nil
 	}
 	return Error.Wrap(err)
 }
 
-func (h handle) Close() error {
-	h.grpc.GracefulStop()
-	_ = h.lis.Close()
+// Close closes the gRPC server gracefully and shuts down the listener.
+func (h *Handle) Close() error {
+	h.Srv.GracefulStop()
+	_ = h.Lis.Close()
 	return nil
 }
 
 // Server represents a bundle of services defined by a specific ID.
 // Examples of servers are the satellite, the storagenode, and the uplink.
 type Server struct {
-	public   handle
-	private  handle
+	public   *Handle
+	private  *Handle
 	next     []Service
 	identity *identity.FullIdentity
 }
@@ -55,14 +63,10 @@ type Server struct {
 // stop the grpc servers and close the listeners.
 // A public handler is expected to be exposed to the world, whereas the private
 // handler is for inspectors and debug tools only.
-func NewServer(
-	identity *identity.FullIdentity,
-	publicSrv *grpc.Server, publicLis net.Listener,
-	privateSrv *grpc.Server, privateLis net.Listener,
-	services ...Service) *Server {
+func NewServer(identity *identity.FullIdentity, public, private *Handle, services ...Service) *Server {
 	return &Server{
-		public:   handle{grpc: publicSrv, lis: publicLis},
-		private:  handle{grpc: privateSrv, lis: privateLis},
+		public:   public,
+		private:  private,
 		next:     services,
 		identity: identity,
 	}
@@ -84,16 +88,16 @@ func (p *Server) Close() error {
 }
 
 // PublicRPC returns a gRPC handle to the public, exposed interface
-func (p *Server) PublicRPC() *grpc.Server { return p.public.grpc }
+func (p *Server) PublicRPC() *grpc.Server { return p.public.Srv }
 
 // PrivateRPC returns a gRPC handle to the private, internal interface
-func (p *Server) PrivateRPC() *grpc.Server { return p.private.grpc }
+func (p *Server) PrivateRPC() *grpc.Server { return p.private.Srv }
 
 // PublicAddr returns the address of the public, exposed interface
-func (p *Server) PublicAddr() net.Addr { return p.public.lis.Addr() }
+func (p *Server) PublicAddr() net.Addr { return p.public.Lis.Addr() }
 
 // PrivateAddr returns the address of the private, internal interface
-func (p *Server) PrivateAddr() net.Addr { return p.private.lis.Addr() }
+func (p *Server) PrivateAddr() net.Addr { return p.private.Lis.Addr() }
 
 // Run will run the server and all of its services
 func (p *Server) Run(ctx context.Context) (err error) {

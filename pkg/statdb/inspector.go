@@ -9,10 +9,12 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
+// Inspector is a gRPC service for inspecting statdb internals
 type Inspector struct {
 	statdb DB
 }
 
+// NewInspector creates an Inspector
 func NewInspector(sdb DB) *Inspector {
 	return &Inspector{statdb: sdb}
 }

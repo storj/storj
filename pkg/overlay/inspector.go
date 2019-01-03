@@ -9,10 +9,12 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
+// Inspector is a gRPC service for inspecting overlay cache internals
 type Inspector struct {
 	cache *Cache
 }
 
+// NewInspector creates an Inspector
 func NewInspector(cache *Cache) *Inspector {
 	return &Inspector{cache: cache}
 }

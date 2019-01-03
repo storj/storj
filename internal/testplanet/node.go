@@ -86,16 +86,15 @@ func (planet *Planet) newNode(name string, nodeType pb.NodeType) (*Node, error) 
 	// it should be added to node.Dependencies?
 	pcvs := server.PCVs(nil, nil, serverConfig.CertVerification.Extensions)
 
-	publicSrv, privateSrv, err := server.SetupRPCs(identity, pcvs)
+	publicSrv, privateSrv, err := server.SetupRPCs(node.Log, identity, pcvs)
 	if err != nil {
-		return nil, utils.CombineErrors(err,
-			publicListener.Close(), privateListener.Close())
+		return nil, utils.CombineErrors(err, publicListener.Close(), privateListener.Close())
 	}
 
 	node.Server = server.NewServer(
 		identity,
-		publicSrv, publicListener,
-		privateSrv, privateListener)
+		server.NewHandle(publicSrv, publicListener),
+		server.NewHandle(privateSrv, privateListener))
 
 	node.Info = pb.Node{
 		Id:   node.Identity.ID,

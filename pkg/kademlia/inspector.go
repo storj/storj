@@ -13,11 +13,13 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// Inspector is a gRPC service for inspecting kademlia internals
 type Inspector struct {
 	dht      dht.DHT
 	identity *identity.FullIdentity
 }
 
+// NewInspector creates an Inspector
 func NewInspector(kad dht.DHT, identity *identity.FullIdentity) *Inspector {
 	return &Inspector{
 		dht:      kad,

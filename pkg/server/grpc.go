@@ -4,6 +4,7 @@
 package server
 
 import (
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/auth/grpcauth"
@@ -14,9 +15,7 @@ import (
 
 // SetupRPCs is a common place where both the public and private gRPC servers
 // are set up.
-func SetupRPCs(ident *identity.FullIdentity,
-	pcvs []peertls.PeerCertVerificationFunc) (public, private *grpc.Server,
-	err error) {
+func SetupRPCs(l *zap.Logger, ident *identity.FullIdentity, pcvs []peertls.PeerCertVerificationFunc) (public, private *grpc.Server, err error) {
 
 	grpcOpts, err := ident.ServerOption(pcvs...)
 	if err != nil {
@@ -28,11 +27,10 @@ func SetupRPCs(ident *identity.FullIdentity,
 	serverOpts = append(serverOpts,
 		grpcutils.ServerInterceptors(
 			grpcauth.NewAPIKeyInterceptor(),
-			defaultLogger())...)
+			defaultLogger(l))...)
 	publicSrv := grpc.NewServer(serverOpts...)
 
-	privateSrv := grpc.NewServer(
-		grpcutils.ServerInterceptors(defaultLogger())...)
+	privateSrv := grpc.NewServer(grpcutils.ServerInterceptors(defaultLogger(l))...)
 
 	return publicSrv, privateSrv, nil
 }

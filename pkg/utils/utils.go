@@ -50,7 +50,8 @@ func (e *ErrorGroup) Add(err ...error) {
 	e.e.Add(err...)
 }
 
-// Add add errs to ErrorGroup
+// Finish compiles the given errors into a single error, or nil if there were
+// none
 func (e *ErrorGroup) Finish() error {
 	return e.e.Err()
 }

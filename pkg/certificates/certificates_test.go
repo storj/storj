@@ -693,12 +693,14 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 
 	var ext peertls.TLSExtConfig
 	cfgstruct.SetStructDefaults(&ext)
-	pubSrv, privSrv, err := server.SetupRPCs(serverIdent, server.PCVs(nil, nil, ext))
+	pubSrv, privSrv, err := server.SetupRPCs(zap.L(), serverIdent, server.PCVs(nil, nil, ext))
 	if !assert.NoError(t, err) {
 		t.Fatal(err)
 	}
 
-	service := server.NewServer(serverIdent, pubSrv, listener, privSrv, &noListener{}, config)
+	public := server.NewHandle(pubSrv, listener)
+	private := server.NewHandle(privSrv, &noListener{})
+	service := server.NewServer(serverIdent, public, private, config)
 
 	ctx.Go(func() error {
 		err := service.Run(ctx)

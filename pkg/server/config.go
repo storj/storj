@@ -49,14 +49,14 @@ func (sc Config) Run(ctx context.Context, services ...Service) (err error) {
 	}
 	defer func() { _ = privateLis.Close() }()
 
-	publicSrv, privateSrv, err := SetupRPCs(ident, pcvs)
+	publicSrv, privateSrv, err := SetupRPCs(zap.L(), ident, pcvs)
 	if err != nil {
 		return err
 	}
 
 	s := NewServer(ident,
-		publicSrv, publicLis,
-		privateSrv, privateLis,
+		NewHandle(publicSrv, publicLis),
+		NewHandle(privateSrv, privateLis),
 		services...)
 	defer func() { err = utils.CombineErrors(err, s.Close()) }()
 
