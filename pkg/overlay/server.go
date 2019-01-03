@@ -79,61 +79,65 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 
 	excluded := opts.ExcludedNodes
 	restrictions := opts.GetRestrictions()
+	usedAddrs := make(map[string]bool)
+
+	reputableStartID := req.Start
+	newStartID := req.Start
+
+	requiredNewNodes := int64(float64(maxNodes) * server.newNodePercentage)
+	requiredReputableNodes := maxNodes - requiredNewNodes
+
+	var reputableNodes []*pb.Node
+	var newNodes []*pb.Node
+
+	for {
+		if reputableStartID != (storj.NodeID{}) && int64(len(reputableNodes)) < requiredReputableNodes {
+			reputableNodes, reputableStartID, err = server.getReputableNodes(ctx, reputableStartID, requiredReputableNodes, restrictions, excluded)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			reputableNodes, excluded, usedAddrs = server.filterNodes(ctx, reputableNodes, requiredReputableNodes, usedAddrs, excluded)
+		}
+
+		if newStartID != (storj.NodeID{}) && int64(len(newNodes)) < requiredNewNodes {
+			newNodes, newStartID, err = server.getNewNodes(ctx, newStartID, maxNodes, restrictions, excluded)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			newNodes, excluded, usedAddrs = server.filterNodes(ctx, newNodes, requiredNewNodes, usedAddrs, excluded)
+		}
+
+		if int64(len(newNodes)) >= requiredNewNodes && int64(len(reputableNodes)) >= requiredReputableNodes {
+			break
+		}
+
+		if newStartID == (storj.NodeID{}) && reputableStartID == (storj.NodeID{}) {
+			break
+		}
+
+	}
 
 	var result []*pb.Node
 
-	for {
-		reputableNodes, startID, err := server.getReputableNodes(ctx, req.Start, maxNodes, restrictions, excluded)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		requiredReputableNodes := int64(maxNodes) * int64(100-server.newNodePercentage)
-		usedAddrs := make(map[string]bool)
-
-		resultReputableNodes, excluded, usedAddrs := server.fillNodeRequirement(ctx, reputableNodes, requiredReputableNodes, usedAddrs, excluded)
-
-		for int64(len(resultReputableNodes)) < requiredReputableNodes {
-			nodeDifference := requiredReputableNodes - int64(len(resultReputableNodes))
-			reputableNodes, startID, err = server.getReputableNodes(ctx, startID, nodeDifference, restrictions, excluded)
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
-			resultReputableNodes, excluded, usedAddrs = server.fillNodeRequirement(ctx, reputableNodes, requiredReputableNodes, usedAddrs, excluded)
-		}
-
-		newNodes, startID, err := server.getNewNodes(ctx, req.Start, maxNodes, restrictions, excluded)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		requiredNewNodes := maxNodes * int64(server.newNodePercentage)
-
-		resultNewNodes, excluded, usedAddrs := server.fillNodeRequirement(ctx, newNodes, requiredNewNodes, usedAddrs, excluded)
-
-		for int64(len(resultNewNodes)) < requiredNewNodes {
-			nodeDifference := requiredNewNodes - int64(len(resultNewNodes))
-			newNodes, startID, err = server.getNewNodes(ctx, startID, nodeDifference, restrictions, excluded)
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
-
-			resultNewNodes, excluded, usedAddrs = server.fillNodeRequirement(ctx, newNodes, requiredNewNodes, usedAddrs, excluded)
-		}
-
-		result = append(result, resultReputableNodes...)
-		result = append(result, resultNewNodes...)
-
-		if len(result) >= int(maxNodes) || startID == (storj.NodeID{}) {
-			break
-		}
+	if int64(len(reputableNodes)) >= requiredReputableNodes {
+		result = append(result, reputableNodes[:requiredReputableNodes]...)
+	} else {
+		result = append(result, reputableNodes...)
 	}
 
-	if len(result) < int(maxNodes) {
-		return nil, status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d nodes, only %d nodes matched the criteria requested", maxNodes, len(result)))
+	if int64(len(newNodes)) >= requiredNewNodes {
+		result = append(result, newNodes[:requiredNewNodes]...)
+	} else {
+		result = append(result, newNodes...)
 	}
 
 	if len(result) > int(maxNodes) {
 		result = result[:maxNodes]
+	}
+
+	if int64(len(result)) < maxNodes {
+		err := status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d nodes, only %d nodes matched the criteria requested", maxNodes, len(result)))
+		return &pb.FindStorageNodesResponse{Nodes: result}, err
 	}
 
 	return &pb.FindStorageNodesResponse{
@@ -141,7 +145,8 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 	}, nil
 }
 
-func (server *Server) fillNodeRequirement(ctx context.Context, nodes []*pb.Node, nodeRequirement int64, usedAddrs map[string]bool,
+// filterNodes removes nodes with duplicate IP addresses and updates excluded list with all nodes
+func (server *Server) filterNodes(ctx context.Context, nodes []*pb.Node, nodeRequirement int64, usedAddrs map[string]bool,
 	excluded storj.NodeIDList) (resultNodes []*pb.Node, updatedExcluded storj.NodeIDList, updatedUsed map[string]bool) {
 
 	for _, n := range nodes {
