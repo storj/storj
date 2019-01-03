@@ -15,9 +15,10 @@ type PrefixWriter struct {
 	root    *prefixWriter
 	maxline int
 
-	mu  sync.Mutex
-	len int
-	dst io.Writer
+	mu        sync.Mutex
+	prefixlen int
+	idlen     int
+	dst       io.Writer
 }
 
 func max(a, b int) int {
@@ -48,7 +49,7 @@ type prefixWriter struct {
 // Prefixed returns a new writer that has writes with specified prefix.
 func (writer *PrefixWriter) Prefixed(prefix string) io.Writer {
 	writer.mu.Lock()
-	writer.len = max(writer.len, len(prefix))
+	writer.prefixlen = max(writer.prefixlen, len(prefix))
 	writer.mu.Unlock()
 
 	return &prefixWriter{writer, prefix, "", make([]byte, 0, writer.maxline)}
@@ -98,11 +99,11 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 
 	if newID != "" {
 		writer.id = newID
-		writer.prefix += "." + newID
-		writer.len = max(writer.len, len(writer.prefix))
+		writer.idlen = max(writer.idlen, len(writer.id))
 	}
 
 	prefix := writer.prefix
+	id := writer.id
 	for len(buffer) > 0 {
 		pos := bytes.IndexByte(buffer, '\n') + 1
 		breakline := false
@@ -122,7 +123,7 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 			breakline = true
 		}
 
-		_, err := fmt.Fprintf(writer.dst, "%-*s | ", writer.len, prefix)
+		_, err := fmt.Fprintf(writer.dst, "%-*s %-*s | ", writer.prefixlen, prefix, writer.idlen, id)
 		if err != nil {
 			return len(data), err
 		}
@@ -142,6 +143,7 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 		}
 
 		prefix = ""
+		id = ""
 	}
 
 	return len(data), nil
