@@ -6,7 +6,6 @@
         <div class="user-container__avatar">
             <h1>m</h1>
         </div>
-        <p class="user-container__company-name">{{projectMember.user.company ? projectMember.user.company.name : "Company"}}</p>
         <p class="user-container__user-name">{{`${projectMember.user.firstName} ${projectMember.user.lastName}`}}</p>
         <p class="user-container__user-email">{{projectMember.user.email}}</p>
         <p class="user-container__date">{{new Date(projectMember.joinedAt).toLocaleDateString()}}</p>

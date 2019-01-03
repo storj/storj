@@ -104,11 +104,8 @@ import { Component, Vue } from 'vue-property-decorator';
         },
     },
 )
-export default class HeaderedInput extends Vue implements IEditable {
-    setValue(value: string): void {
-        this.setValue(value);
-    }
-}
+
+export default class HeaderedInput extends Vue {}
 
 </script>
 

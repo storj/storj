@@ -84,6 +84,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
                     return;
                 }
 
+                this.$store.dispatch('clearProjectMembers');
                 this.$store.dispatch('success', 'Project was successfully deleted');
                 this.$store.dispatch('fetchProjects');
                 this.$router.push('/');
