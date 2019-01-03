@@ -27,6 +27,7 @@ func (e *Event) setup() {
 func (e *Event) Wait() {
 	e.setup()
 	e.block.Lock()
+	//nolint ignoring empty critical section warning
 	e.block.Unlock()
 }
 
