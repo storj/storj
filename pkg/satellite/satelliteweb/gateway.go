@@ -32,7 +32,7 @@ type gateway struct {
 // run starts http server
 func (gw *gateway) run() {
 	mux := http.NewServeMux()
-	gw.config.StaticPath = "./web/satellite"
+	//gw.config.StaticPath = "./web/satellite"
 	fs := http.FileServer(http.Dir(gw.config.StaticPath))
 
 	mux.Handle("/api/graphql/v0", http.HandlerFunc(gw.grapqlHandler))
