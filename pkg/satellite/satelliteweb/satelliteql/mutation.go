@@ -152,7 +152,7 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 			},
 			// deletes project by id, taken from input params
 			deleteProjectMutation: &graphql.Field{
-				Type: graphql.String,
+				Type: types.Project(),
 				Args: graphql.FieldConfigArgument{
 					fieldID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -165,12 +165,17 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						return nil, err
 					}
 
-					return nil, service.DeleteProject(p.Context, *projectID)
+					project, err := service.GetProject(p.Context, *projectID)
+					if err != nil {
+						return nil, err
+					}
+
+					return project, service.DeleteProject(p.Context, project.ID)
 				},
 			},
 			// updates project description
 			updateProjectDescriptionMutation: &graphql.Field{
-				Type: graphql.String,
+				Type: types.Project(),
 				Args: graphql.FieldConfigArgument{
 					fieldID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
