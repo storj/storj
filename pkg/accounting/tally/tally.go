@@ -129,7 +129,7 @@ func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 }
 
 // queryBW queries bandwidth allocation database, selecting all new contracts since the last collection run time.
-// Grouping by storage node ID and adding total of bandwidth to granular data table.
+// Grouping by action type, storage node ID and adding total of bandwidth to granular data table.
 func (t *tally) queryBW(ctx context.Context) error {
 	lastBwTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastBandwidthTally)
 	if err != nil {
@@ -153,7 +153,10 @@ func (t *tally) queryBW(ctx context.Context) error {
 	}
 
 	// sum totals by node id ... todo: add nodeid as SQL column so DB can do this?
-	bwTotals := make(map[string]int64)
+	var bwTotals accounting.BWTally
+	for i := range bwTotals {
+		bwTotals[i] = make(map[string]int64)
+	}
 	var latestBwa time.Time
 	for _, baRow := range bwAgreements {
 		rbad := &pb.RenterBandwidthAllocation_Data{}
@@ -161,10 +164,15 @@ func (t *tally) queryBW(ctx context.Context) error {
 			t.logger.DPanic("Could not deserialize renter bwa in tally query")
 			continue
 		}
+		pbad := &pb.PayerBandwidthAllocation_Data{}
+		if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
+			return err
+		}
+
 		if baRow.CreatedAt.After(latestBwa) {
 			latestBwa = baRow.CreatedAt
 		}
-		bwTotals[rbad.StorageNodeId.String()] += rbad.GetTotal()
+		bwTotals[pbad.GetAction()][rbad.StorageNodeId.String()] += rbad.GetTotal()
 	}
 
 	return Error.Wrap(t.accountingDB.SaveBWRaw(ctx, lastBwTally, bwTotals))

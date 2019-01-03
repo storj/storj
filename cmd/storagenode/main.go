@@ -223,10 +223,13 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 
 	// Agreement is a struct that contains a bandwidth agreement and the associated signature
 	type SatelliteSummary struct {
-		TotalBytes        int64
-		PutActionCount    int64
-		GetActionCount    int64
-		TotalTransactions int64
+		TotalBytes           int64
+		PutActionCount       int64
+		GetActionCount       int64
+		GetAuditActionCount  int64
+		GetRepairActionCount int64
+		PutRepairActionCount int64
+		TotalTransactions    int64
 		// additional attributes add here ...
 	}
 
@@ -258,12 +261,18 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 			// fill the summary info
 			summary.TotalBytes += rbad.GetTotal()
 			summary.TotalTransactions++
-			if pbad.GetAction() == pb.PayerBandwidthAllocation_PUT {
+			switch pbad.GetAction() {
+			case pb.PayerBandwidthAllocation_PUT:
 				summary.PutActionCount++
-			} else {
+			case pb.PayerBandwidthAllocation_GET:
 				summary.GetActionCount++
+			case pb.PayerBandwidthAllocation_GET_AUDIT:
+				summary.GetAuditActionCount++
+			case pb.PayerBandwidthAllocation_GET_REPAIR:
+				summary.GetRepairActionCount++
+			case pb.PayerBandwidthAllocation_PUT_REPAIR:
+				summary.PutRepairActionCount++
 			}
-
 		}
 	}
 
