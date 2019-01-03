@@ -447,7 +447,7 @@ func TestPbaValidation(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run("should return validate payer bandwidth allocation struct", func(t *testing.T) {
+		t.Run("should validate payer bandwidth allocation struct", func(t *testing.T) {
 			assert := assert.New(t)
 			stream, err := TS.c.Store(ctx)
 			assert.NoError(err)
