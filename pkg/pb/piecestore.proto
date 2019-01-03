@@ -35,6 +35,7 @@ message PayerBandwidthAllocation { // Payer refers to satellite
     string serial_number = 5;      // Unique serial number
     Action action = 6;             // GET or PUT
     int64 created_unix_sec = 7;    // Unix timestamp for when PayerbandwidthAllocation was created
+    bytes pub_key = 8;             // Renter Public Key 
   }
 
   bytes signature = 1; // Seralized Data signed by Satellite
