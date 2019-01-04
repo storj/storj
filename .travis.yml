@@ -64,7 +64,7 @@ matrix:
         - gospace istidy
 
     ### captplanet tests ###
-    - env: MODE=integration
+    - env: MODE=captplanet
       services:
         - redis
       install:
@@ -73,8 +73,8 @@ matrix:
       script:
         - make test-captplanet
 
-    ### All-In-One tests ###
-    - env: MODE=integration
+    ### docker tests ###
+    - env: MODE=docker
       services:
         - docker
       install:
