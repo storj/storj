@@ -30,7 +30,7 @@ mkdir -p "$CMP_DIR"
 # Stand up production images in a local environment
 docker-compose up -d satellite storagenode gateway
 
-# Wait for the gateway to be ready
+echo "=> Waiting for the gateway to be ready"
 until docker logs storj_gateway_1 | grep -q Access; do
 	sleep 2
 done
