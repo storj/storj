@@ -21,7 +21,7 @@ type PrefixWriter struct {
 	dst       io.Writer
 }
 
-const maxIdLength = 10
+const maxIDLength = 10
 
 func max(a, b int) int {
 	if a > b {
@@ -73,8 +73,8 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 		if start := bytes.Index(data, []byte("Node ")); start > 0 {
 			if end := bytes.Index(data[start:], []byte(" started")); end > 0 {
 				newID = string(data[start+5 : start+end])
-				if len(newID) > maxIdLength {
-					newID = newID[:maxIdLength]
+				if len(newID) > maxIDLength {
+					newID = newID[:maxIDLength]
 				}
 			}
 		}
@@ -125,7 +125,7 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 			breakline = true
 		}
 
-		_, err := fmt.Fprintf(writer.dst, "%-*s %-*s %s | ", writer.prefixlen, prefix, maxIdLength, id, timeText)
+		_, err := fmt.Fprintf(writer.dst, "%-*s %-*s %s | ", writer.prefixlen, prefix, maxIDLength, id, timeText)
 		if err != nil {
 			return len(data), err
 		}
