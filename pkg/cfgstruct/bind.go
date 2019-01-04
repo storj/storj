@@ -182,7 +182,6 @@ func setSetupAnnotation(flagset interface{}, name string) {
 		fmt.Println("unable to set annotation:", err)
 		return
 	}
-	return
 }
 
 func expand(vars map[string]string, val string) string {
