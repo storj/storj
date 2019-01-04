@@ -319,11 +319,11 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 		s.logger.Error("Can't Marshal Public Key for PayerBandwidthAllocation: %+v", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-  
-  serialNum, err := uuid.New()
-  if err != nil {
-    return nil, err
-  }
+
+	serialNum, err := uuid.New()
+	if err != nil {
+		return nil, err
+	}
 
 	pbad := &pb.PayerBandwidthAllocation_Data{
 		SatelliteId:    payer,
