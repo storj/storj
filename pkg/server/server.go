@@ -8,7 +8,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
@@ -76,14 +75,7 @@ func (p *Server) Identity() *identity.FullIdentity { return p.identity }
 
 // Close shuts down the server
 func (p *Server) Close() error {
-	errch := make(chan error)
-	go func() {
-		errch <- Error.Wrap(p.public.Close())
-	}()
-	go func() {
-		errch <- Error.Wrap(p.private.Close())
-	}()
-	return errs.Combine(<-errch, <-errch)
+	return utils.RunJointly(5*time.Second, p.public.Close, p.private.Close)
 }
 
 // PublicRPC returns a gRPC handle to the public, exposed interface

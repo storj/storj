@@ -41,13 +41,23 @@ func (sc Config) Run(ctx context.Context, services ...Service) (err error) {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = publicLis.Close() }()
+	defer func() {
+		// ignoring error, because this will almost always be an error. the *Server
+		// will take responsibility for closing the listener in the happy path, and
+		// by the time this runs the listener will be closed already.
+		_ = publicLis.Close()
+	}()
 
 	privateLis, err := net.Listen("tcp", sc.PrivateAddress)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = privateLis.Close() }()
+	defer func() {
+		// ignoring error, because this will almost always be an error. the *Server
+		// will take responsibility for closing the listener in the happy path, and
+		// by the time this runs the listener will be closed already.
+		_ = privateLis.Close()
+	}()
 
 	publicSrv, privateSrv, err := SetupRPCs(zap.L(), ident, pcvs)
 	if err != nil {
