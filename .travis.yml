@@ -83,6 +83,11 @@ matrix:
       script:
         - ./scripts/test-storj-sdk.sh
 
+    ### Certificate signing tests ###
+    - env: MODE=certificate
+      script:
+        - make test-certificate-signing
+
     ### Docker tests ###
     - env: MODE=docker
       services:
