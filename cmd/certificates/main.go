@@ -38,9 +38,10 @@ var (
 	}
 
 	setupCmd = &cobra.Command{
-		Use:   "setup",
-		Short: "Setup a certificate signing server",
-		RunE:  cmdSetup,
+		Use:         "setup",
+		Short:       "Setup a certificate signing server",
+		RunE:        cmdSetup,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	runCmd = &cobra.Command{
@@ -77,8 +78,9 @@ var (
 		// NB: cert and key paths overridden in setup
 		CA identity.CASetupConfig
 		// NB: cert and key paths overridden in setup
-		Identity identity.SetupConfig
-		certificates.CertSignerConfig
+		Identity  identity.SetupConfig
+		Signer    certificates.CertSignerConfig
+		Overwrite bool `default:"false" help:"if true ca, identity, and authorization db will be overwritten/truncated"`
 	}
 
 	runCfg struct {
@@ -105,11 +107,20 @@ var (
 	}
 
 	defaultConfDir = fpath.ApplicationDir("storj", "cert-signing")
+	confDir        *string
 )
 
 func init() {
+	dirParam := cfgstruct.FindConfigDirParam()
+	if dirParam != "" {
+		defaultConfDir = dirParam
+	}
+	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for captplanet configuration")
+
 	rootCmd.AddCommand(setupCmd)
 	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	rootCmd.AddCommand(runCmd)
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
 	rootCmd.AddCommand(authCmd)
 	authCmd.AddCommand(authCreateCmd)
 	cfgstruct.Bind(authCreateCmd.Flags(), &authCreateCfg, cfgstruct.ConfDir(defaultConfDir))
@@ -120,7 +131,12 @@ func init() {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) error {
-	setupDir, err := filepath.Abs(defaultConfDir)
+	setupDir, err := filepath.Abs(*confDir)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(setupDir, 0700)
 	if err != nil {
 		return err
 	}
@@ -134,21 +150,21 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if _, err := setupCfg.NewAuthDB(); err != nil {
-		return err
+	if setupCfg.Overwrite {
+		setupCfg.CA.Overwrite = true
+		setupCfg.Identity.Overwrite = true
+		setupCfg.Signer.Overwrite = true
 	}
 
-	err = os.MkdirAll(setupDir, 0700)
-	if err != nil {
+	if _, err := setupCfg.Signer.NewAuthDB(); err != nil {
 		return err
 	}
-
 	setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
 	setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
 	setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
 	setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 
-	err = identity.SetupCA(process.Ctx(cmd), setupCfg.CA)
+	err = identity.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
 		return err
 	}
@@ -158,6 +174,7 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 		"ca.key-path":        setupCfg.CA.KeyPath,
 		"identity.cert-path": setupCfg.Identity.CertPath,
 		"identity.key-path":  setupCfg.Identity.KeyPath,
+		"log.level":          "info",
 	}
 	return process.SaveConfig(runCmd.Flags(),
 		filepath.Join(setupDir, "config.yaml"), o)
@@ -306,7 +323,7 @@ func cmdExportAuth(cmd *cobra.Command, args []string) error {
 			return errs.New("Either use `--emails-path` or positional args, not both.")
 		}
 		emails = args
-	} else if authExportCfg.All {
+	} else if len(args) == 0 || authExportCfg.All {
 		emails, err = authDB.UserIDs()
 		if err != nil {
 			return err
@@ -327,6 +344,9 @@ func cmdExportAuth(cmd *cobra.Command, args []string) error {
 	case "-":
 		output = os.Stdout
 	default:
+		if err := os.MkdirAll(filepath.Dir(authExportCfg.Out), 0600); err != nil {
+			return errs.Wrap(err)
+		}
 		output, err = os.OpenFile(authExportCfg.Out, os.O_CREATE, 0600)
 		if err != nil {
 			return errs.Wrap(err)

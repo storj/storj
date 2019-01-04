@@ -77,6 +77,11 @@ test-captplanet: ## Test source with captain planet (travis)
 	@echo "Running ${@}"
 	@./scripts/test-captplanet.sh
 
+.PHONY: test-certificate-signing
+test-certificate-signing: ## Test certificate signing service and storagenode setup (travis)
+	@echo "Running ${@}"
+	@./scripts/test-certificate-signing.sh
+
 .PHONY: test-docker
 test-docker: ## Run tests in Docker
 	docker-compose up -d --remove-orphans test
