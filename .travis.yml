@@ -64,7 +64,7 @@ matrix:
         - gospace istidy
 
     ### captplanet tests ###
-    - env: MODE=integration
+    - env: MODE=captplanet
       services:
         - redis
       install:
@@ -83,10 +83,12 @@ matrix:
       script:
         - ./scripts/test-storj-sdk.sh
 
-    ### All-In-One tests ###
-    - env: MODE=integration
+    ### Docker tests ###
+    - env: MODE=docker
       services:
         - docker
+      before_install:
+        - echo "skip"
       install:
         - source scripts/install-awscli.sh
       script:
