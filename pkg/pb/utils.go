@@ -3,7 +3,11 @@
 
 package pb
 
-import "storj.io/storj/pkg/storj"
+import (
+	"go.uber.org/zap"
+
+	"storj.io/storj/pkg/storj"
+)
 
 // NodeIDsToLookupRequests converts NodeIDs to LookupRequests
 func NodeIDsToLookupRequests(nodeIDs storj.NodeIDList) *LookupRequests {
@@ -41,6 +45,7 @@ func NodesToIDs(nodes []*Node) storj.NodeIDList {
 // with gogo's customtype extension.
 // (see https://github.com/gogo/protobuf/issues/147)
 func CopyNode(src *Node) (dst *Node) {
+	src.Type.DPanicOnInvalid("copy node")
 	node := Node{Id: storj.NodeID{}}
 	copy(node.Id[:], src.Id[:])
 	if src.Address != nil {
@@ -65,4 +70,13 @@ func CopyNode(src *Node) (dst *Node) {
 	node.Type = src.Type
 
 	return &node
+}
+
+// DPanicOnInvalid panics if NodeType is invalid if zap is in development mode,
+// otherwise it logs.
+func (nt NodeType) DPanicOnInvalid(from string) {
+	// TODO: Remove all references
+	if nt == NodeType_INVALID {
+		zap.L().DPanic("INVALID NODE TYPE: " + from)
+	}
 }

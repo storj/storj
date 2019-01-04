@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { USER_MUTATIONS, } from '../mutationConstants';
+import { USER_MUTATIONS } from '../mutationConstants';
 import {
     deleteAccountRequest,
     updateAccountRequest,
@@ -29,9 +29,17 @@ export const usersModule = {
 			state.user.email = '';
 		},
 
-		[USER_MUTATIONS.UPDATE_USER_INFO](state: any, user: User): void {
-			state.user = user;
-		},
+        [USER_MUTATIONS.UPDATE_USER_INFO](state: any, user: User): void {
+            state.user = user;
+        },
+
+        [USER_MUTATIONS.CLEAR](state: any): void {
+            state.user = {
+                firstName: '',
+                lastName: '',
+                email: ''
+            };
+        },
 	},
 
 	actions: {
@@ -58,7 +66,10 @@ export const usersModule = {
 			}
 
 			return response;
-		}
+		},
+        clearUser: function({commit}: any) {
+            commit(USER_MUTATIONS.CLEAR);
+        }
 	},
 
 	getters: {

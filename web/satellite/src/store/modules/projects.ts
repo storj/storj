@@ -44,11 +44,22 @@ export const projectsModule = {
 				state.selectedProject.description = updateProjectModel.description;
 			}
 		},
-		[PROJECTS_MUTATIONS.DELETE](state: any, projectID: string): void {
-			if (state.selectedProject.id === projectID) {
-				state.selectedProject.id = '';
-			}
-		},
+        [PROJECTS_MUTATIONS.DELETE](state: any, projectID: string): void {
+            if (state.selectedProject.id === projectID) {
+                state.selectedProject.id = '';
+            }
+        },
+		[PROJECTS_MUTATIONS.CLEAR](state: any): void {
+            state.projects = [];
+            state.selectedProject = {
+                name: 'Choose Project',
+                id: '',
+                companyName: '',
+                description: '',
+                isTermsAccepted: false,
+                createdAt: '',
+            };
+        },
 	},
 	actions: {
 		fetchProjects: async function ({commit}: any): Promise<RequestResponse<Project[]>> {
@@ -90,6 +101,9 @@ export const projectsModule = {
 
 			return response;
 		},
+        clearProjects: function({commit}: any) {
+            commit(PROJECTS_MUTATIONS.CLEAR);
+		}
 	},
 	getters: {
 		projects: (state: any) => {

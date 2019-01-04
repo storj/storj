@@ -42,7 +42,7 @@ func (r *repairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
 	if err != nil {
 		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 	} else if res == nil {
-		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(storage.ErrEmptyQueue, tx.Rollback()))
+		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(storage.ErrEmptyQueue.New(""), tx.Rollback()))
 	}
 
 	deleted, err := tx.Delete_Injuredsegment_By_Id(

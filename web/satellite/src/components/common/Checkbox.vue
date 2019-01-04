@@ -43,7 +43,8 @@ export default class Checkbox extends Vue {
         display: block;
         position: relative;
         padding-left: 35px;
-        margin-bottom: 12px;
+        height: 25px;
+        width: 25px;
         cursor: pointer;
         font-size: 22px;
         -webkit-user-select: none;
@@ -67,7 +68,6 @@ export default class Checkbox extends Vue {
         left: 0;
         height: 25px;
         width: 25px;
-        background-color: white;
         border: 2px solid rgba(56, 75, 101, 0.4);
         border-radius: 4px;
     }

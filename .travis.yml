@@ -13,7 +13,7 @@ cache:
 before_script:
   # Add an IPv6 config - see the corresponding Travis issue
   # https://github.com/travis-ci/travis-ci/issues/8361
-  - if [ "${TRAVIS_OS_NAME}" == "linux" ]; then 
+  - if [ "${TRAVIS_OS_NAME}" == "linux" ]; then
       sudo sh -c 'echo 0 > /proc/sys/net/ipv6/conf/all/disable_ipv6';
       sudo sh -c 'echo "\n::1 localhost\n" >> /etc/hosts';
       psql -c 'create database teststorj' -U postgres;
@@ -44,7 +44,7 @@ matrix:
         - goveralls -coverprofile=.coverprofile -service=travis-ci
         - rm .coverprofile
         - go run scripts/check-clean-directory.go
-    
+
     ### run linters ###
     - env: MODE=lint
       install:
@@ -62,7 +62,7 @@ matrix:
         - go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint
         - golangci-lint run
         - gospace istidy
-    
+
     ### captplanet tests ###
     - env: MODE=integration
       services:
@@ -72,7 +72,16 @@ matrix:
         - go install -race storj.io/storj/cmd/captplanet
       script:
         - make test-captplanet
-    
+
+    ### All-In-One tests ###
+    - env: MODE=integration
+      services:
+        - docker
+      install:
+        - source scripts/install-awscli.sh
+      script:
+        - make test-all-in-one
+
     ### windows tests ###
     - env: MODE=windows-tests
       if: commit_message =~ /(?i:windows)/

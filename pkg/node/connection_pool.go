@@ -101,6 +101,10 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 	}
 	pool.mu.Unlock()
 
+	if n != nil {
+		n.Type.DPanicOnInvalid("connection pool dial")
+	}
+
 	conn.dial.Do(func() {
 		grpc, err := pool.tc.DialNode(ctx, n, grpc.WithBlock())
 		conn.err = err
