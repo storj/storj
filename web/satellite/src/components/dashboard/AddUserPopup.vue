@@ -9,7 +9,7 @@
                 <div v-html='imageSource'></div>
             </div>
             <div class='add-user__form-container'>
-                <p v-if="!formError">Email Adress</p>
+                <p v-if="!formError">Email Address</p>
                 <div v-if="formError" class="add-user__form-container__label">
                     <img src="../../../static/images/register/ErrorInfo.svg"/>
                     <p>{{formError}}</p>

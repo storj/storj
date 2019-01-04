@@ -5,6 +5,8 @@ package pointerdb
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/x509"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -18,6 +20,7 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls"
 	pointerdbAuth "storj.io/storj/pkg/pointerdb/auth"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
@@ -303,11 +306,30 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 	if err != nil {
 		return nil, err
 	}
+
+	// retrieve the public key
+	pi, err := provider.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	pk, ok := pi.Leaf.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, peertls.ErrUnsupportedKey.New("%T", pi.Leaf.PublicKey)
+	}
+
+	pubbytes, err := x509.MarshalPKIXPublicKey(pk)
+	if err != nil {
+		s.logger.Error("Can't Marshal Public Key for PayerBandwidthAllocation: %+v", zap.Error(err))
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
 	pbad := &pb.PayerBandwidthAllocation_Data{
 		SatelliteId:    payer,
 		UplinkId:       peerIdentity.ID,
 		CreatedUnixSec: time.Now().Unix(),
 		Action:         req.GetAction(),
+		PubKey:         pubbytes,
 	}
 
 	data, err := proto.Marshal(pbad)
