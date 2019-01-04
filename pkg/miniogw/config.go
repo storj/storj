@@ -135,22 +135,22 @@ func (c Config) GetMetainfo(ctx context.Context, identity *provider.FullIdentity
 
 	oc, err := overlay.NewClient(identity, c.Client.OverlayAddr)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, Error.New("failed to connect to overlay: %v", err)
 	}
 
 	pdb, err := pdbclient.NewClient(identity, c.Client.PointerDBAddr, c.Client.APIKey)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, Error.New("failed to connect to pointer DB: %v", err)
 	}
 
 	ec := ecclient.NewClient(identity, c.RS.MaxBufferMem)
 	fc, err := infectious.NewFEC(c.RS.MinThreshold, c.RS.MaxThreshold)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, Error.New("failed to create erasure coding client: %v", err)
 	}
 	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, c.RS.ErasureShareSize), c.RS.RepairThreshold, c.RS.SuccessThreshold)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, Error.New("failed to create redundancy strategy: %v", err)
 	}
 
 	segments := segments.NewSegmentStore(oc, ec, pdb, rs, c.Client.MaxInlineSize)
@@ -165,7 +165,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *provider.FullIdentity
 
 	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize, key, c.Enc.BlockSize, storj.Cipher(c.Enc.DataType))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, Error.New("failed to create stream store: %v", err)
 	}
 
 	buckets := buckets.NewStore(streams)
