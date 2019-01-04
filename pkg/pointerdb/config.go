@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/postgreskv"
-	"storj.io/storj/storage/storelogger"
 )
 
 // CtxKeyPointerdb Used as pointerdb key
@@ -60,8 +59,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	defer func() { _ = db.Close() }()
 
 	cache := overlay.LoadFromContext(ctx)
-	dblogged := storelogger.New(zap.L().Named("pdb"), db)
-	s := NewServer(dblogged, cache, zap.L(), c, server.Identity())
+	s := NewServer(db, cache, zap.L(), c, server.Identity())
 	pb.RegisterPointerDBServer(server.GRPC(), s)
 	// add the server to the context
 	ctx = context.WithValue(ctx, ctxKey, s)

@@ -12,6 +12,8 @@ import (
 	"storj.io/storj/storage"
 )
 
+const detailed = false
+
 var id int64
 
 // Logger implements a zap.Logger for storage.KeyValueStore
@@ -73,6 +75,9 @@ func (store *Logger) Iterate(opts storage.IterateOptions, fn func(storage.Iterat
 		zap.Bool("recurse", opts.Recurse),
 		zap.Bool("reverse", opts.Reverse),
 	)
+	if !detailed {
+		return store.store.Iterate(opts, fn)
+	}
 	return store.store.Iterate(opts, func(it storage.Iterator) error {
 		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
 			ok := it.Next(item)
