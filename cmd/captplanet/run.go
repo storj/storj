@@ -12,9 +12,24 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/accounting/rollup"
+	"storj.io/storj/pkg/accounting/tally"
+	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/datarepair/checker"
+	"storj.io/storj/pkg/datarepair/repairer"
+	"storj.io/storj/pkg/discovery"
+	"storj.io/storj/pkg/inspector"
+	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/miniogw"
+	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/piecestore/psserver"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/satellite/satelliteweb"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -23,6 +38,38 @@ const (
 	storagenodeCount = 10
 )
 
+// Captplanet defines Captain Planet runtime configuration
+type Captplanet struct {
+	Satellite    Satellite
+	StorageNodes [storagenodeCount]StorageNode
+	Uplink       miniogw.Config
+}
+
+// Satellite is for configuring client
+type Satellite struct {
+	Server      server.Config
+	Kademlia    kademlia.SatelliteConfig
+	PointerDB   pointerdb.Config
+	Overlay     overlay.Config
+	Inspector   inspector.Config
+	Checker     checker.Config
+	Repairer    repairer.Config
+	Audit       audit.Config
+	BwAgreement bwagreement.Config
+	Web         satelliteweb.Config
+	Discovery   discovery.Config
+	Tally       tally.Config
+	Rollup      rollup.Config
+	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+}
+
+// StorageNode is for configuring storage nodes
+type StorageNode struct {
+	Server   server.Config
+	Kademlia kademlia.StorageNodeConfig
+	Storage  psserver.Config
+}
+
 var (
 	runCmd = &cobra.Command{
 		Use:   "run",
@@ -30,7 +77,7 @@ var (
 		RunE:  cmdRun,
 	}
 
-	runCfg Config
+	runCfg Captplanet
 )
 
 func init() {
