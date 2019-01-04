@@ -5,6 +5,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -149,9 +151,18 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.Arguments["setup"] = gatewayArguments(name, "setup", process.Info.Address,
 			"--satellite-addr", satellite.Info.Address,
 		)
+
+		accessKey, secretKey := randomKey(), randomKey()
 		process.Arguments["run"] = gatewayArguments(name, "run", process.Info.Address,
 			"--server.address", process.Info.Address,
+			"--minio.access-key", accessKey,
+			"--minio.secret-key", secretKey,
 		)
+
+		process.Info.Extra = []string{
+			"ACCESS_KEY=" + accessKey,
+			"SECRET_KEY=" + secretKey,
+		}
 	}
 
 	for i := 0; i < flags.StorageNodeCount; i++ {
@@ -181,4 +192,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	}
 
 	return processes, nil
+}
+
+func randomKey() string {
+	var data [10]byte
+	_, _ = rand.Read(data[:])
+	return hex.EncodeToString(data[:])
 }

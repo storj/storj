@@ -76,6 +76,7 @@ type ProcessInfo struct {
 	ID        string
 	Address   string
 	Directory string
+	Extra     []string
 }
 
 // Env returns process flags
@@ -104,6 +105,9 @@ func (info *ProcessInfo) Env() []string {
 	}
 	if info.Directory != "" {
 		env = append(env, name+"_DIR="+info.Directory)
+	}
+	for _, extra := range info.Extra {
+		env = append(env, name+"_"+extra)
 	}
 	return env
 }

@@ -12,8 +12,8 @@ SRC_DIR=$TMPDIR/source
 DST_DIR=$(mktemp -d -t tmp.XXXXXXXXXX)
 mkdir -p $SRC_DIR $DST_DIR
 
-aws configure set aws_access_key_id     insecure-dev-access-key
-aws configure set aws_secret_access_key insecure-dev-secret-key
+aws configure set aws_access_key_id     $GATEWAY_0_ACCESS_KEY
+aws configure set aws_secret_access_key $GATEWAY_0_SECRET_KEY
 aws configure set default.region        us-east-1
 
 head -c 1024 </dev/urandom > $SRC_DIR/small-upload-testfile      # create 1mb file of random bytes (inline)
