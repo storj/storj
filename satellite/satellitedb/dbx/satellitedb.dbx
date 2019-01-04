@@ -4,8 +4,10 @@
 
 model bwagreement (
 	key signature
+	unique serialnum
 
 	field signature  blob
+	field serialnum  text
 	field data       blob
 	field created_at timestamp ( autoinsert )
 )
@@ -16,6 +18,11 @@ delete bwagreement ( where bwagreement.signature = ? )
 read one (
 	select bwagreement
 	where  bwagreement.signature = ?
+)
+
+read one (
+	select bwagreement
+	where  bwagreement.serialnum = ?
 )
 
 read limitoffset (

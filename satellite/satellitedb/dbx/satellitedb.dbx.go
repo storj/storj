@@ -20,7 +20,6 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/mattn/go-sqlite3"
-	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
@@ -300,9 +299,11 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bwagreements (
 	signature bytea NOT NULL,
+	serialnum text NOT NULL,
 	data bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( signature )
+	PRIMARY KEY ( signature ),
+	UNIQUE ( serialnum )
 );
 CREATE TABLE injuredsegments (
 	id bigserial NOT NULL,
@@ -425,9 +426,11 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bwagreements (
 	signature BLOB NOT NULL,
+	serialnum TEXT NOT NULL,
 	data BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( signature )
+	PRIMARY KEY ( signature ),
+	UNIQUE ( serialnum )
 );
 CREATE TABLE injuredsegments (
 	id INTEGER NOT NULL,
@@ -539,7 +542,6 @@ type AccountingRaw_Update_Fields struct {
 
 type AccountingRaw_Id_Field struct {
 	_set   bool
-	_null  bool
 	_value int64
 }
 
@@ -548,7 +550,7 @@ func AccountingRaw_Id(v int64) AccountingRaw_Id_Field {
 }
 
 func (f AccountingRaw_Id_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -558,7 +560,6 @@ func (AccountingRaw_Id_Field) _Column() string { return "id" }
 
 type AccountingRaw_NodeId_Field struct {
 	_set   bool
-	_null  bool
 	_value string
 }
 
@@ -567,7 +568,7 @@ func AccountingRaw_NodeId(v string) AccountingRaw_NodeId_Field {
 }
 
 func (f AccountingRaw_NodeId_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -577,7 +578,6 @@ func (AccountingRaw_NodeId_Field) _Column() string { return "node_id" }
 
 type AccountingRaw_IntervalEndTime_Field struct {
 	_set   bool
-	_null  bool
 	_value time.Time
 }
 
@@ -586,7 +586,7 @@ func AccountingRaw_IntervalEndTime(v time.Time) AccountingRaw_IntervalEndTime_Fi
 }
 
 func (f AccountingRaw_IntervalEndTime_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -596,7 +596,6 @@ func (AccountingRaw_IntervalEndTime_Field) _Column() string { return "interval_e
 
 type AccountingRaw_DataTotal_Field struct {
 	_set   bool
-	_null  bool
 	_value int64
 }
 
@@ -605,7 +604,7 @@ func AccountingRaw_DataTotal(v int64) AccountingRaw_DataTotal_Field {
 }
 
 func (f AccountingRaw_DataTotal_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -615,7 +614,6 @@ func (AccountingRaw_DataTotal_Field) _Column() string { return "data_total" }
 
 type AccountingRaw_DataType_Field struct {
 	_set   bool
-	_null  bool
 	_value int
 }
 
@@ -624,7 +622,7 @@ func AccountingRaw_DataType(v int) AccountingRaw_DataType_Field {
 }
 
 func (f AccountingRaw_DataType_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -634,7 +632,6 @@ func (AccountingRaw_DataType_Field) _Column() string { return "data_type" }
 
 type AccountingRaw_CreatedAt_Field struct {
 	_set   bool
-	_null  bool
 	_value time.Time
 }
 
@@ -643,7 +640,7 @@ func AccountingRaw_CreatedAt(v time.Time) AccountingRaw_CreatedAt_Field {
 }
 
 func (f AccountingRaw_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -653,7 +650,6 @@ func (AccountingRaw_CreatedAt_Field) _Column() string { return "created_at" }
 
 type AccountingRaw_UpdatedAt_Field struct {
 	_set   bool
-	_null  bool
 	_value time.Time
 }
 
@@ -662,7 +658,7 @@ func AccountingRaw_UpdatedAt(v time.Time) AccountingRaw_UpdatedAt_Field {
 }
 
 func (f AccountingRaw_UpdatedAt_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -687,7 +683,6 @@ type AccountingRollup_Update_Fields struct {
 
 type AccountingRollup_Id_Field struct {
 	_set   bool
-	_null  bool
 	_value int64
 }
 
@@ -696,7 +691,7 @@ func AccountingRollup_Id(v int64) AccountingRollup_Id_Field {
 }
 
 func (f AccountingRollup_Id_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -706,7 +701,6 @@ func (AccountingRollup_Id_Field) _Column() string { return "id" }
 
 type AccountingRollup_NodeId_Field struct {
 	_set   bool
-	_null  bool
 	_value string
 }
 
@@ -715,7 +709,7 @@ func AccountingRollup_NodeId(v string) AccountingRollup_NodeId_Field {
 }
 
 func (f AccountingRollup_NodeId_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -725,7 +719,6 @@ func (AccountingRollup_NodeId_Field) _Column() string { return "node_id" }
 
 type AccountingRollup_StartTime_Field struct {
 	_set   bool
-	_null  bool
 	_value time.Time
 }
 
@@ -734,7 +727,7 @@ func AccountingRollup_StartTime(v time.Time) AccountingRollup_StartTime_Field {
 }
 
 func (f AccountingRollup_StartTime_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -744,7 +737,6 @@ func (AccountingRollup_StartTime_Field) _Column() string { return "start_time" }
 
 type AccountingRollup_Interval_Field struct {
 	_set   bool
-	_null  bool
 	_value int64
 }
 
@@ -753,7 +745,7 @@ func AccountingRollup_Interval(v int64) AccountingRollup_Interval_Field {
 }
 
 func (f AccountingRollup_Interval_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -763,7 +755,6 @@ func (AccountingRollup_Interval_Field) _Column() string { return "interval" }
 
 type AccountingRollup_DataType_Field struct {
 	_set   bool
-	_null  bool
 	_value int
 }
 
@@ -772,7 +763,7 @@ func AccountingRollup_DataType(v int) AccountingRollup_DataType_Field {
 }
 
 func (f AccountingRollup_DataType_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -782,7 +773,6 @@ func (AccountingRollup_DataType_Field) _Column() string { return "data_type" }
 
 type AccountingRollup_CreatedAt_Field struct {
 	_set   bool
-	_null  bool
 	_value time.Time
 }
 
@@ -791,7 +781,7 @@ func AccountingRollup_CreatedAt(v time.Time) AccountingRollup_CreatedAt_Field {
 }
 
 func (f AccountingRollup_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -801,7 +791,6 @@ func (AccountingRollup_CreatedAt_Field) _Column() string { return "created_at" }
 
 type AccountingRollup_UpdatedAt_Field struct {
 	_set   bool
-	_null  bool
 	_value time.Time
 }
 
@@ -810,7 +799,7 @@ func AccountingRollup_UpdatedAt(v time.Time) AccountingRollup_UpdatedAt_Field {
 }
 
 func (f AccountingRollup_UpdatedAt_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -831,7 +820,6 @@ type AccountingTimestamps_Update_Fields struct {
 
 type AccountingTimestamps_Name_Field struct {
 	_set   bool
-	_null  bool
 	_value string
 }
 
@@ -840,7 +828,7 @@ func AccountingTimestamps_Name(v string) AccountingTimestamps_Name_Field {
 }
 
 func (f AccountingTimestamps_Name_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -850,7 +838,6 @@ func (AccountingTimestamps_Name_Field) _Column() string { return "name" }
 
 type AccountingTimestamps_Value_Field struct {
 	_set   bool
-	_null  bool
 	_value time.Time
 }
 
@@ -859,7 +846,7 @@ func AccountingTimestamps_Value(v time.Time) AccountingTimestamps_Value_Field {
 }
 
 func (f AccountingTimestamps_Value_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -869,6 +856,7 @@ func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
 
 type Bwagreement struct {
 	Signature []byte
+	Serialnum string
 	Data      []byte
 	CreatedAt time.Time
 }
@@ -880,7 +868,6 @@ type Bwagreement_Update_Fields struct {
 
 type Bwagreement_Signature_Field struct {
 	_set   bool
-	_null  bool
 	_value []byte
 }
 
@@ -889,7 +876,7 @@ func Bwagreement_Signature(v []byte) Bwagreement_Signature_Field {
 }
 
 func (f Bwagreement_Signature_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -897,9 +884,26 @@ func (f Bwagreement_Signature_Field) value() interface{} {
 
 func (Bwagreement_Signature_Field) _Column() string { return "signature" }
 
+type Bwagreement_Serialnum_Field struct {
+	_set   bool
+	_value string
+}
+
+func Bwagreement_Serialnum(v string) Bwagreement_Serialnum_Field {
+	return Bwagreement_Serialnum_Field{_set: true, _value: v}
+}
+
+func (f Bwagreement_Serialnum_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Bwagreement_Serialnum_Field) _Column() string { return "serialnum" }
+
 type Bwagreement_Data_Field struct {
 	_set   bool
-	_null  bool
 	_value []byte
 }
 
@@ -908,7 +912,7 @@ func Bwagreement_Data(v []byte) Bwagreement_Data_Field {
 }
 
 func (f Bwagreement_Data_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -918,7 +922,6 @@ func (Bwagreement_Data_Field) _Column() string { return "data" }
 
 type Bwagreement_CreatedAt_Field struct {
 	_set   bool
-	_null  bool
 	_value time.Time
 }
 
@@ -927,7 +930,7 @@ func Bwagreement_CreatedAt(v time.Time) Bwagreement_CreatedAt_Field {
 }
 
 func (f Bwagreement_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -947,7 +950,6 @@ type Injuredsegment_Update_Fields struct {
 
 type Injuredsegment_Id_Field struct {
 	_set   bool
-	_null  bool
 	_value int64
 }
 
@@ -956,7 +958,7 @@ func Injuredsegment_Id(v int64) Injuredsegment_Id_Field {
 }
 
 func (f Injuredsegment_Id_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -966,7 +968,6 @@ func (Injuredsegment_Id_Field) _Column() string { return "id" }
 
 type Injuredsegment_Info_Field struct {
 	_set   bool
-	_null  bool
 	_value []byte
 }
 
@@ -975,7 +976,7 @@ func Injuredsegment_Info(v []byte) Injuredsegment_Info_Field {
 }
 
 func (f Injuredsegment_Info_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1002,7 +1003,6 @@ type Irreparabledb_Update_Fields struct {
 
 type Irreparabledb_Segmentpath_Field struct {
 	_set   bool
-	_null  bool
 	_value []byte
 }
 
@@ -1011,7 +1011,7 @@ func Irreparabledb_Segmentpath(v []byte) Irreparabledb_Segmentpath_Field {
 }
 
 func (f Irreparabledb_Segmentpath_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1021,7 +1021,6 @@ func (Irreparabledb_Segmentpath_Field) _Column() string { return "segmentpath" }
 
 type Irreparabledb_Segmentdetail_Field struct {
 	_set   bool
-	_null  bool
 	_value []byte
 }
 
@@ -1030,7 +1029,7 @@ func Irreparabledb_Segmentdetail(v []byte) Irreparabledb_Segmentdetail_Field {
 }
 
 func (f Irreparabledb_Segmentdetail_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1040,7 +1039,6 @@ func (Irreparabledb_Segmentdetail_Field) _Column() string { return "segmentdetai
 
 type Irreparabledb_PiecesLostCount_Field struct {
 	_set   bool
-	_null  bool
 	_value int64
 }
 
@@ -1049,7 +1047,7 @@ func Irreparabledb_PiecesLostCount(v int64) Irreparabledb_PiecesLostCount_Field 
 }
 
 func (f Irreparabledb_PiecesLostCount_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1059,7 +1057,6 @@ func (Irreparabledb_PiecesLostCount_Field) _Column() string { return "pieces_los
 
 type Irreparabledb_SegDamagedUnixSec_Field struct {
 	_set   bool
-	_null  bool
 	_value int64
 }
 
@@ -1068,7 +1065,7 @@ func Irreparabledb_SegDamagedUnixSec(v int64) Irreparabledb_SegDamagedUnixSec_Fi
 }
 
 func (f Irreparabledb_SegDamagedUnixSec_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1078,7 +1075,6 @@ func (Irreparabledb_SegDamagedUnixSec_Field) _Column() string { return "seg_dama
 
 type Irreparabledb_RepairAttemptCount_Field struct {
 	_set   bool
-	_null  bool
 	_value int64
 }
 
@@ -1087,7 +1083,7 @@ func Irreparabledb_RepairAttemptCount(v int64) Irreparabledb_RepairAttemptCount_
 }
 
 func (f Irreparabledb_RepairAttemptCount_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1120,7 +1116,6 @@ type Node_Update_Fields struct {
 
 type Node_Id_Field struct {
 	_set   bool
-	_null  bool
 	_value []byte
 }
 
@@ -1129,7 +1124,7 @@ func Node_Id(v []byte) Node_Id_Field {
 }
 
 func (f Node_Id_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1139,7 +1134,6 @@ func (Node_Id_Field) _Column() string { return "id" }
 
 type Node_AuditSuccessCount_Field struct {
 	_set   bool
-	_null  bool
 	_value int64
 }
 
@@ -1148,7 +1142,7 @@ func Node_AuditSuccessCount(v int64) Node_AuditSuccessCount_Field {
 }
 
 func (f Node_AuditSuccessCount_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1158,7 +1152,6 @@ func (Node_AuditSuccessCount_Field) _Column() string { return "audit_success_cou
 
 type Node_TotalAuditCount_Field struct {
 	_set   bool
-	_null  bool
 	_value int64
 }
 
@@ -1167,7 +1160,7 @@ func Node_TotalAuditCount(v int64) Node_TotalAuditCount_Field {
 }
 
 func (f Node_TotalAuditCount_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1177,7 +1170,6 @@ func (Node_TotalAuditCount_Field) _Column() string { return "total_audit_count" 
 
 type Node_AuditSuccessRatio_Field struct {
 	_set   bool
-	_null  bool
 	_value float64
 }
 
@@ -1186,7 +1178,7 @@ func Node_AuditSuccessRatio(v float64) Node_AuditSuccessRatio_Field {
 }
 
 func (f Node_AuditSuccessRatio_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1196,7 +1188,6 @@ func (Node_AuditSuccessRatio_Field) _Column() string { return "audit_success_rat
 
 type Node_UptimeSuccessCount_Field struct {
 	_set   bool
-	_null  bool
 	_value int64
 }
 
@@ -1205,7 +1196,7 @@ func Node_UptimeSuccessCount(v int64) Node_UptimeSuccessCount_Field {
 }
 
 func (f Node_UptimeSuccessCount_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1215,7 +1206,6 @@ func (Node_UptimeSuccessCount_Field) _Column() string { return "uptime_success_c
 
 type Node_TotalUptimeCount_Field struct {
 	_set   bool
-	_null  bool
 	_value int64
 }
 
@@ -1224,7 +1214,7 @@ func Node_TotalUptimeCount(v int64) Node_TotalUptimeCount_Field {
 }
 
 func (f Node_TotalUptimeCount_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1234,7 +1224,6 @@ func (Node_TotalUptimeCount_Field) _Column() string { return "total_uptime_count
 
 type Node_UptimeRatio_Field struct {
 	_set   bool
-	_null  bool
 	_value float64
 }
 
@@ -1243,7 +1232,7 @@ func Node_UptimeRatio(v float64) Node_UptimeRatio_Field {
 }
 
 func (f Node_UptimeRatio_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1253,7 +1242,6 @@ func (Node_UptimeRatio_Field) _Column() string { return "uptime_ratio" }
 
 type Node_CreatedAt_Field struct {
 	_set   bool
-	_null  bool
 	_value time.Time
 }
 
@@ -1262,7 +1250,7 @@ func Node_CreatedAt(v time.Time) Node_CreatedAt_Field {
 }
 
 func (f Node_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1272,7 +1260,6 @@ func (Node_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Node_UpdatedAt_Field struct {
 	_set   bool
-	_null  bool
 	_value time.Time
 }
 
@@ -1281,7 +1268,7 @@ func Node_UpdatedAt(v time.Time) Node_UpdatedAt_Field {
 }
 
 func (f Node_UpdatedAt_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1302,7 +1289,6 @@ type OverlayCacheNode_Update_Fields struct {
 
 type OverlayCacheNode_Key_Field struct {
 	_set   bool
-	_null  bool
 	_value []byte
 }
 
@@ -1311,7 +1297,7 @@ func OverlayCacheNode_Key(v []byte) OverlayCacheNode_Key_Field {
 }
 
 func (f OverlayCacheNode_Key_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1321,7 +1307,6 @@ func (OverlayCacheNode_Key_Field) _Column() string { return "key" }
 
 type OverlayCacheNode_Value_Field struct {
 	_set   bool
-	_null  bool
 	_value []byte
 }
 
@@ -1330,7 +1315,7 @@ func OverlayCacheNode_Value(v []byte) OverlayCacheNode_Value_Field {
 }
 
 func (f OverlayCacheNode_Value_Field) value() interface{} {
-	if !f._set || f._null {
+	if !f._set {
 		return nil
 	}
 	return f._value
@@ -1512,21 +1497,23 @@ type Value_Row struct {
 
 func (obj *postgresImpl) Create_Bwagreement(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field,
+	bwagreement_serialnum Bwagreement_Serialnum_Field,
 	bwagreement_data Bwagreement_Data_Field) (
 	bwagreement *Bwagreement, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__signature_val := bwagreement_signature.value()
+	__serialnum_val := bwagreement_serialnum.value()
 	__data_val := bwagreement_data.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( signature, data, created_at ) VALUES ( ?, ?, ? ) RETURNING bwagreements.signature, bwagreements.data, bwagreements.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( signature, serialnum, data, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __signature_val, __data_val, __created_at_val)
+	obj.logStmt(__stmt, __signature_val, __serialnum_val, __data_val, __created_at_val)
 
 	bwagreement = &Bwagreement{}
-	err = obj.driver.QueryRow(__stmt, __signature_val, __data_val, __created_at_val).Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __signature_val, __serialnum_val, __data_val, __created_at_val).Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1719,7 +1706,7 @@ func (obj *postgresImpl) Get_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	bwagreement *Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.signature = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.signature = ?")
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_signature.value())
@@ -1728,7 +1715,28 @@ func (obj *postgresImpl) Get_Bwagreement_By_Signature(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	bwagreement = &Bwagreement{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bwagreement, nil
+
+}
+
+func (obj *postgresImpl) Get_Bwagreement_By_Serialnum(ctx context.Context,
+	bwagreement_serialnum Bwagreement_Serialnum_Field) (
+	bwagreement *Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.serialnum = ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_serialnum.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bwagreement = &Bwagreement{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1740,7 +1748,7 @@ func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at FROM bwagreements LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -1758,7 +1766,7 @@ func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -1774,7 +1782,7 @@ func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
 func (obj *postgresImpl) All_Bwagreement(ctx context.Context) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at FROM bwagreements")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -1790,7 +1798,7 @@ func (obj *postgresImpl) All_Bwagreement(ctx context.Context) (
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -1807,7 +1815,7 @@ func (obj *postgresImpl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Contex
 	bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.created_at > ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.created_at > ?")
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_created_at_greater.value())
@@ -1823,7 +1831,7 @@ func (obj *postgresImpl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Contex
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -2726,20 +2734,22 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 
 func (obj *sqlite3Impl) Create_Bwagreement(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field,
+	bwagreement_serialnum Bwagreement_Serialnum_Field,
 	bwagreement_data Bwagreement_Data_Field) (
 	bwagreement *Bwagreement, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__signature_val := bwagreement_signature.value()
+	__serialnum_val := bwagreement_serialnum.value()
 	__data_val := bwagreement_data.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( signature, data, created_at ) VALUES ( ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( signature, serialnum, data, created_at ) VALUES ( ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __signature_val, __data_val, __created_at_val)
+	obj.logStmt(__stmt, __signature_val, __serialnum_val, __data_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __signature_val, __data_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __signature_val, __serialnum_val, __data_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2957,7 +2967,7 @@ func (obj *sqlite3Impl) Get_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	bwagreement *Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.signature = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.signature = ?")
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_signature.value())
@@ -2966,7 +2976,28 @@ func (obj *sqlite3Impl) Get_Bwagreement_By_Signature(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	bwagreement = &Bwagreement{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bwagreement, nil
+
+}
+
+func (obj *sqlite3Impl) Get_Bwagreement_By_Serialnum(ctx context.Context,
+	bwagreement_serialnum Bwagreement_Serialnum_Field) (
+	bwagreement *Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.serialnum = ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_serialnum.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bwagreement = &Bwagreement{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2978,7 +3009,7 @@ func (obj *sqlite3Impl) Limited_Bwagreement(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at FROM bwagreements LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -2996,7 +3027,7 @@ func (obj *sqlite3Impl) Limited_Bwagreement(ctx context.Context,
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -3012,7 +3043,7 @@ func (obj *sqlite3Impl) Limited_Bwagreement(ctx context.Context,
 func (obj *sqlite3Impl) All_Bwagreement(ctx context.Context) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at FROM bwagreements")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -3028,7 +3059,7 @@ func (obj *sqlite3Impl) All_Bwagreement(ctx context.Context) (
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -3045,7 +3076,7 @@ func (obj *sqlite3Impl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context
 	bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.created_at > ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.created_at > ?")
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_created_at_greater.value())
@@ -3061,7 +3092,7 @@ func (obj *sqlite3Impl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -3928,13 +3959,13 @@ func (obj *sqlite3Impl) getLastBwagreement(ctx context.Context,
 	pk int64) (
 	bwagreement *Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	bwagreement = &Bwagreement{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4294,13 +4325,14 @@ func (rx *Rx) Create_AccountingTimestamps(ctx context.Context,
 
 func (rx *Rx) Create_Bwagreement(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field,
+	bwagreement_serialnum Bwagreement_Serialnum_Field,
 	bwagreement_data Bwagreement_Data_Field) (
 	bwagreement *Bwagreement, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Bwagreement(ctx, bwagreement_signature, bwagreement_data)
+	return tx.Create_Bwagreement(ctx, bwagreement_signature, bwagreement_serialnum, bwagreement_data)
 
 }
 
@@ -4466,6 +4498,16 @@ func (rx *Rx) Get_AccountingRollup_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_AccountingRollup_By_Id(ctx, accounting_rollup_id)
+}
+
+func (rx *Rx) Get_Bwagreement_By_Serialnum(ctx context.Context,
+	bwagreement_serialnum Bwagreement_Serialnum_Field) (
+	bwagreement *Bwagreement, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Bwagreement_By_Serialnum(ctx, bwagreement_serialnum)
 }
 
 func (rx *Rx) Get_Bwagreement_By_Signature(ctx context.Context,
@@ -4652,6 +4694,7 @@ type Methods interface {
 
 	Create_Bwagreement(ctx context.Context,
 		bwagreement_signature Bwagreement_Signature_Field,
+		bwagreement_serialnum Bwagreement_Serialnum_Field,
 		bwagreement_data Bwagreement_Data_Field) (
 		bwagreement *Bwagreement, err error)
 
@@ -4724,6 +4767,10 @@ type Methods interface {
 	Get_AccountingRollup_By_Id(ctx context.Context,
 		accounting_rollup_id AccountingRollup_Id_Field) (
 		accounting_rollup *AccountingRollup, err error)
+
+	Get_Bwagreement_By_Serialnum(ctx context.Context,
+		bwagreement_serialnum Bwagreement_Serialnum_Field) (
+		bwagreement *Bwagreement, err error)
 
 	Get_Bwagreement_By_Signature(ctx context.Context,
 		bwagreement_signature Bwagreement_Signature_Field) (
@@ -4822,11 +4869,7 @@ func openpostgres(source string) (*sql.DB, error) {
 	return sql.Open("postgres", source)
 }
 
-var sqlite3DriverName = func() string {
-	var id [16]byte
-	rand.Read(id[:])
-	return fmt.Sprintf("sqlite3_%x", string(id[:]))
-}()
+var sqlite3DriverName = "sqlite3_" + fmt.Sprint(time.Now().UnixNano())
 
 func init() {
 	sql.Register(sqlite3DriverName, &sqlite3.SQLiteDriver{

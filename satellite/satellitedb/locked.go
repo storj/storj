@@ -122,10 +122,10 @@ type lockedBandwidthAgreement struct {
 }
 
 // CreateAgreement adds a new bandwidth agreement.
-func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 bwagreement.Agreement) error {
+func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 string, a2 bwagreement.Agreement) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.CreateAgreement(ctx, a1)
+	return m.db.CreateAgreement(ctx, a1, a2)
 }
 
 // GetAgreements gets all bandwidth agreements.
@@ -306,7 +306,7 @@ func (m *lockedStatDB) UpdateAuditSuccess(ctx context.Context, nodeID storj.Node
 	return m.db.UpdateAuditSuccess(ctx, nodeID, auditSuccess)
 }
 
-// UpdateBatch for updating multiple storagenodes stats.
+// UpdateBatch for updating multiple storage nodes' stats.
 func (m *lockedStatDB) UpdateBatch(ctx context.Context, requests []*statdb.UpdateRequest) (statslist []*statdb.NodeStats, failed []*statdb.UpdateRequest, err error) {
 	m.Lock()
 	defer m.Unlock()

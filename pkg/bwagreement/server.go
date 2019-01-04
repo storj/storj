@@ -21,7 +21,7 @@ import (
 // DB stores bandwidth agreements.
 type DB interface {
 	// CreateAgreement adds a new bandwidth agreement.
-	CreateAgreement(context.Context, Agreement) error
+	CreateAgreement(context.Context, string, Agreement) error
 	// GetAgreements gets all bandwidth agreements.
 	GetAgreements(context.Context) ([]Agreement, error)
 	// GetAgreementsSince gets all bandwidth agreements since specific time.
@@ -52,7 +52,7 @@ func NewServer(db DB, logger *zap.Logger, pkey crypto.PublicKey) *Server {
 }
 
 // BandwidthAgreements receives and stores bandwidth agreements from storage nodes
-func (s *Server) BandwidthAgreements(ctx context.Context, req *pb.RenterBandwidthAllocation) (reply *pb.AgreementsSummary, err error) {
+func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidthAllocation) (reply *pb.AgreementsSummary, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	s.logger.Debug("Received Agreement...")
@@ -61,13 +61,29 @@ func (s *Server) BandwidthAgreements(ctx context.Context, req *pb.RenterBandwidt
 		Status: pb.AgreementsSummary_FAIL,
 	}
 
-	if err = s.verifySignature(ctx, req); err != nil {
+	if err = s.verifySignature(ctx, ba); err != nil {
 		return reply, err
 	}
 
-	err = s.db.CreateAgreement(ctx, Agreement{
-		Signature: req.GetSignature(),
-		Agreement: req.GetData(),
+	//Deserealize RenterBandwidthAllocation.GetData() so we can get public key
+	rbad := &pb.RenterBandwidthAllocation_Data{}
+	if err = proto.Unmarshal(ba.GetData(), rbad); err != nil {
+		return reply, BwAgreementError.New("Failed to unmarshal RenterBandwidthAllocation: %+v", err)
+	}
+
+	pba := rbad.GetPayerAllocation()
+	pbad := &pb.PayerBandwidthAllocation_Data{}
+	if err := proto.Unmarshal(pba.GetData(), pbad); err != nil {
+		return reply, BwAgreementError.New("Failed to unmarshal PayerBandwidthAllocation: %+v", err)
+	}
+
+	if len(pbad.SerialNumber) == 0 {
+		return reply, BwAgreementError.New("Invalid SerialNumber in the PayerBandwidthAllocatin")
+	}
+
+	err = s.db.CreateAgreement(ctx, pbad.SerialNumber, Agreement{
+		Signature: ba.GetSignature(),
+		Agreement: ba.GetData(),
 	})
 
 	if err != nil {
