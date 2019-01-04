@@ -78,6 +78,7 @@ matrix:
       services:
         - docker
       before_install:
+        - echo "skip"
       install:
         - source scripts/install-awscli.sh
       script:
