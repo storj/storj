@@ -17,12 +17,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 )
 
 var (
@@ -132,8 +132,7 @@ func NewInspector(address string) (*Inspector, error) {
 		return &Inspector{}, ErrIdentity.Wrap(err)
 	}
 
-	tc := transport.NewClient(identity)
-	conn, err := tc.DialAddress(ctx, address)
+	conn, err := grpc.DialContext(ctx, address, grpc.WithInsecure())
 	if err != nil {
 		return &Inspector{}, ErrInspectorDial.Wrap(err)
 	}
