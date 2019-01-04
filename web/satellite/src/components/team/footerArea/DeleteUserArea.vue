@@ -46,7 +46,7 @@ import Button from '@/components/common/Button.vue';
                 return;
             }
 
-            this.$store.dispatch('error', 'Members was successfully removed from project');
+            this.$store.dispatch('success', 'Members was successfully removed from project');
         },
         onClearSelection: function () {
             this.$store.dispatch('clearProjectMemberSelection');
