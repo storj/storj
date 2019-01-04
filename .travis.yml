@@ -73,6 +73,11 @@ matrix:
       script:
         - make test-captplanet
 
+    ### certificate signing tests ###
+    - env: MODE=integration
+      script:
+        - make test-certificate-signing
+
     ### docker tests ###
     - env: MODE=docker
       services:

@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
@@ -421,13 +420,11 @@ func NewRevDB(revocationDBURL string) (*RevocationDB, error) {
 		if err != nil {
 			return nil, ErrRevocationDB.Wrap(err)
 		}
-		zap.S().Info("Starting overlay cache with BoltDB")
 	case "redis":
 		db, err = NewRevocationDBRedis(revocationDBURL)
 		if err != nil {
 			return nil, ErrRevocationDB.Wrap(err)
 		}
-		zap.S().Info("Starting overlay cache with Redis")
 	default:
 		return nil, ErrRevocationDB.New("database scheme not supported: %s", driver)
 	}

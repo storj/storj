@@ -33,8 +33,8 @@ build() {
 }
 
 temp_build() {
-	tmp_dir=$(mktemp -d)
-	build ${tmp_dir} $@
+    declare -g tmp_build_dir=$(mktemp -d)
+	build ${tmp_build_dir} $@
 }
 
 check_help() {
