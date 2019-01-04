@@ -34,8 +34,12 @@ import (
 	"storj.io/storj/satellite/satellitedb"
 )
 
-// Satellite defines satellite runtime configuration
+// Satellite defines satellite configuration
 type Satellite struct {
+	CA        identity.CASetupConfig `setup:"true"`
+	Identity  identity.SetupConfig   `setup:"true"`
+	Overwrite bool                   `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
+
 	Server      server.Config
 	Kademlia    kademlia.SatelliteConfig
 	PointerDB   pointerdb.Config
@@ -46,15 +50,6 @@ type Satellite struct {
 	BwAgreement bwagreement.Config
 	Discovery   discovery.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
-}
-
-// SetupSatellite defines satellite setup configuration
-type SetupSatellite struct {
-	CA        identity.CASetupConfig
-	Identity  identity.SetupConfig
-	Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
-
-	Satellite
 }
 
 var (
@@ -85,7 +80,7 @@ var (
 	}
 
 	runCfg   Satellite
-	setupCfg SetupSatellite
+	setupCfg Satellite
 
 	diagCfg struct {
 		Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
@@ -114,7 +109,7 @@ func init() {
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(qdiagCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(qdiagCmd.Flags(), &qdiagCfg, cfgstruct.ConfDir(defaultConfDir))
 }

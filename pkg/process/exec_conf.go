@@ -67,6 +67,11 @@ func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 	w := &sb
 	for _, k := range keys {
 		f := flagset.Lookup(k)
+		setup := f.Annotations["setup"]
+		if len(setup) > 0 && setup[0] == "true" {
+			continue
+		}
+
 		value := f.Value.String()
 		if v, ok := overrides[k]; ok {
 			value = fmt.Sprintf("%v", v)
