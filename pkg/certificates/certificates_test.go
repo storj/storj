@@ -47,27 +47,6 @@ var (
 	}
 )
 
-type noListener struct {
-	event utils.Event
-}
-
-func (l *noListener) Accept() (net.Conn, error) {
-	l.event.Wait()
-	return nil, fmt.Errorf("closed")
-}
-
-func (l *noListener) Addr() net.Addr {
-	return &net.TCPAddr{
-		IP:   net.IPv4(127, 0, 0, 1),
-		Port: 1,
-	}
-}
-
-func (l *noListener) Close() error {
-	l.event.Fire()
-	return nil
-}
-
 func TestCertSignerConfig_NewAuthDB(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -695,11 +674,17 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 	cfgstruct.SetStructDefaults(&ext)
 	pubSrv, privSrv, err := server.SetupRPCs(zap.L(), serverIdent, server.PCVs(nil, nil, ext))
 	if !assert.NoError(t, err) {
+		assert.NoError(t, listener.Close())
+		t.Fatal(err)
+	}
+
+	privateListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if !assert.NoError(t, err) || !assert.NotNil(t, privateListener) {
 		t.Fatal(err)
 	}
 
 	public := server.NewHandle(pubSrv, listener)
-	private := server.NewHandle(privSrv, &noListener{})
+	private := server.NewHandle(privSrv, privateListener)
 	service := server.NewServer(serverIdent, public, private, config)
 
 	ctx.Go(func() error {

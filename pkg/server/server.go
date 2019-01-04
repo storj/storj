@@ -24,18 +24,18 @@ type Service interface {
 
 // Handle is a type that pairs a gRPC server to a listener
 type Handle struct {
-	Srv *grpc.Server
-	Lis net.Listener
+	Server   *grpc.Server
+	Listener net.Listener
 }
 
 // NewHandle constructs a gRPC/listener handle
 func NewHandle(srv *grpc.Server, lis net.Listener) *Handle {
-	return &Handle{Srv: srv, Lis: lis}
+	return &Handle{Server: srv, Listener: lis}
 }
 
 // Serve calls Serve on the gRPC server with the handle's listener
 func (h *Handle) Serve() error {
-	err := h.Srv.Serve(h.Lis)
+	err := h.Server.Serve(h.Listener)
 	if err == grpc.ErrServerStopped {
 		return nil
 	}
@@ -44,8 +44,7 @@ func (h *Handle) Serve() error {
 
 // Close closes the gRPC server gracefully and shuts down the listener.
 func (h *Handle) Close() error {
-	h.Srv.GracefulStop()
-	_ = h.Lis.Close()
+	h.Server.GracefulStop()
 	return nil
 }
 
@@ -88,16 +87,16 @@ func (p *Server) Close() error {
 }
 
 // PublicRPC returns a gRPC handle to the public, exposed interface
-func (p *Server) PublicRPC() *grpc.Server { return p.public.Srv }
+func (p *Server) PublicRPC() *grpc.Server { return p.public.Server }
 
 // PrivateRPC returns a gRPC handle to the private, internal interface
-func (p *Server) PrivateRPC() *grpc.Server { return p.private.Srv }
+func (p *Server) PrivateRPC() *grpc.Server { return p.private.Server }
 
 // PublicAddr returns the address of the public, exposed interface
-func (p *Server) PublicAddr() net.Addr { return p.public.Lis.Addr() }
+func (p *Server) PublicAddr() net.Addr { return p.public.Listener.Addr() }
 
 // PrivateAddr returns the address of the private, internal interface
-func (p *Server) PrivateAddr() net.Addr { return p.private.Lis.Addr() }
+func (p *Server) PrivateAddr() net.Addr { return p.private.Listener.Addr() }
 
 // Run will run the server and all of its services
 func (p *Server) Run(ctx context.Context) (err error) {

@@ -4,7 +4,6 @@
 package grpcutils
 
 import (
-	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
 )
 
@@ -29,8 +28,9 @@ func ServerInterceptors(interceptors ...ServerInterceptor) []grpc.ServerOption {
 		unaryInterceptors = append(unaryInterceptors, i.Unary)
 	}
 	return []grpc.ServerOption{
-		grpcmiddleware.WithStreamServerChain(streamInterceptors...),
-		grpcmiddleware.WithUnaryServerChain(unaryInterceptors...)}
+		grpc.StreamInterceptor(CombineStreamServerInterceptors(streamInterceptors...)),
+		grpc.UnaryInterceptor(CombineUnaryServerInterceptors(unaryInterceptors...)),
+	}
 }
 
 // ClientInterceptor is a pair of gRPC interceptors, for stream and unary
@@ -55,8 +55,8 @@ func ClientInterceptors(interceptors ...ClientInterceptor) []grpc.DialOption {
 	}
 	return []grpc.DialOption{
 		grpc.WithStreamInterceptor(
-			grpcmiddleware.ChainStreamClient(streamInterceptors...)),
+			CombineStreamClientInterceptors(streamInterceptors...)),
 		grpc.WithUnaryInterceptor(
-			grpcmiddleware.ChainUnaryClient(unaryInterceptors...)),
+			CombineUnaryClientInterceptors(unaryInterceptors...)),
 	}
 }
