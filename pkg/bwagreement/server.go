@@ -81,7 +81,9 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 		return reply, BwAgreementError.New("Invalid SerialNumber in the PayerBandwidthAllocatin")
 	}
 
-	err = s.db.CreateAgreement(ctx, pbad.SerialNumber, Agreement{
+	serialNum := pbad.GetSerialNumber() + rbad.StorageNodeId.String()
+
+	err = s.db.CreateAgreement(ctx, serialNum, Agreement{
 		Signature: ba.GetSignature(),
 		Agreement: ba.GetData(),
 	})
