@@ -81,37 +81,48 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 	restrictions := opts.GetRestrictions()
 	usedAddrs := make(map[string]bool)
 
-	reputableStartID := req.Start
 	newStartID := req.Start
-
 	requiredNewNodes := int64(float64(maxNodes) * server.newNodePercentage)
-	requiredReputableNodes := maxNodes - requiredNewNodes
+	newNodesDone := false
+	var allNewNodes []*pb.Node
 
-	var reputableNodes []*pb.Node
-	var newNodes []*pb.Node
+	reputableStartID := req.Start
+	requiredReputableNodes := maxNodes - requiredNewNodes
+	reputableNodesDone := false
+	var allReputableNodes []*pb.Node
 
 	for {
-		if reputableStartID != (storj.NodeID{}) && int64(len(reputableNodes)) < requiredReputableNodes {
-			reputableNodes, reputableStartID, err = server.getReputableNodes(ctx, reputableStartID, requiredReputableNodes, restrictions, excluded)
+		if !reputableNodesDone {
+			reputableNodes, reputableStartID, err := server.getReputableNodes(ctx, reputableStartID, requiredReputableNodes, restrictions, excluded)
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
 			reputableNodes, excluded, usedAddrs = server.filterNodes(ctx, reputableNodes, requiredReputableNodes, usedAddrs, excluded)
+
+			allReputableNodes = append(allReputableNodes, reputableNodes...)
+
+			// this means we've exhausted the overlay cache looking for reputable nodes or we have enough
+			if reputableStartID == (storj.NodeID{}) || int64(len(allReputableNodes)) >= requiredReputableNodes {
+				reputableNodesDone = true
+			}
 		}
 
-		if newStartID != (storj.NodeID{}) && int64(len(newNodes)) < requiredNewNodes {
-			newNodes, newStartID, err = server.getNewNodes(ctx, newStartID, maxNodes, restrictions, excluded)
+		if !newNodesDone {
+			newNodes, newStartID, err := server.getNewNodes(ctx, newStartID, maxNodes, restrictions, excluded)
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
 			newNodes, excluded, usedAddrs = server.filterNodes(ctx, newNodes, requiredNewNodes, usedAddrs, excluded)
+
+			allNewNodes = append(allNewNodes, newNodes...)
+
+			// this means we've exhausted the overlay cache looking for new nodes or we have enough
+			if newStartID == (storj.NodeID{}) || int64(len(allNewNodes)) >= requiredNewNodes {
+				newNodesDone = true
+			}
 		}
 
-		if int64(len(newNodes)) >= requiredNewNodes && int64(len(reputableNodes)) >= requiredReputableNodes {
-			break
-		}
-
-		if newStartID == (storj.NodeID{}) && reputableStartID == (storj.NodeID{}) {
+		if reputableNodesDone && newNodesDone {
 			break
 		}
 
@@ -119,16 +130,16 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 
 	var result []*pb.Node
 
-	if int64(len(reputableNodes)) >= requiredReputableNodes {
-		result = append(result, reputableNodes[:requiredReputableNodes]...)
+	if int64(len(allReputableNodes)) >= requiredReputableNodes {
+		result = append(result, allReputableNodes[:requiredReputableNodes]...)
 	} else {
-		result = append(result, reputableNodes...)
+		result = append(result, allReputableNodes...)
 	}
 
-	if int64(len(newNodes)) >= requiredNewNodes {
-		result = append(result, newNodes[:requiredNewNodes]...)
+	if int64(len(allNewNodes)) >= requiredNewNodes {
+		result = append(result, allNewNodes[:requiredNewNodes]...)
 	} else {
-		result = append(result, newNodes...)
+		result = append(result, allNewNodes...)
 	}
 
 	if len(result) > int(maxNodes) {
@@ -233,7 +244,6 @@ func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeI
 	if err != nil {
 		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
-
 	return nodes, nextStart, nil
 }
 
