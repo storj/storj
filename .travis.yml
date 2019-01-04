@@ -75,6 +75,8 @@ matrix:
 
     ### All-In-One tests ###
     - env: MODE=integration
+      before_install:
+      before_script:
       services:
         - docker
       install:
