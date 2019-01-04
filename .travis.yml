@@ -73,6 +73,16 @@ matrix:
       script:
         - make test-captplanet
 
+    ### storj-sdk tests ###
+    - env: MODE=storj-sdk
+      services:
+        - redis
+      install:
+        - source scripts/install-awscli.sh
+        - go install -race storj.io/storj/cmd/{storj-sdk,satellite,storagenode,uplink,gateway}
+      script:
+        - ./scripts/test-storj-sdk.sh
+
     ### All-In-One tests ###
     - env: MODE=integration
       services:
