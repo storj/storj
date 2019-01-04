@@ -168,6 +168,7 @@ func (processes *Processes) New(name, executable, directory string) (*Process, e
 func (process *Process) Exec(ctx context.Context, command string) error {
 	cmd := exec.CommandContext(ctx, process.Executable, process.Arguments[command]...)
 	cmd.Dir = process.Directory
+	cmd.Env = append(os.Environ(), "STORJ_LOG_NOTIME=1")
 	cmd.Stdout, cmd.Stderr = process.stdout, process.stderr
 
 	processgroup.Setup(cmd)

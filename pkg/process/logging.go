@@ -5,6 +5,7 @@ package process
 
 import (
 	"flag"
+	"os"
 	"runtime"
 
 	"github.com/zeebo/errs"
@@ -30,6 +31,12 @@ func newLogger() (*zap.Logger, error) {
 		levelEncoder = zapcore.CapitalLevelEncoder
 	}
 
+	timeKey := "T"
+	if os.Getenv("STORJ_LOG_NOTIME") != "" {
+		// using environment variable STORJ_LOG_NOTIME to avoid additional flags
+		timeKey = ""
+	}
+
 	return zap.Config{
 		Level:             zap.NewAtomicLevelAt(*logLevel),
 		Development:       *logDev,
@@ -37,7 +44,7 @@ func newLogger() (*zap.Logger, error) {
 		DisableStacktrace: !*logStack,
 		Encoding:          *logEncoding,
 		EncoderConfig: zapcore.EncoderConfig{
-			TimeKey:        "T",
+			TimeKey:        timeKey,
 			LevelKey:       "L",
 			NameKey:        "N",
 			CallerKey:      "C",
