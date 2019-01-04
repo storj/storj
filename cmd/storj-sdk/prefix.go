@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 )
 
 // PrefixWriter writes to the specified output with prefixes.
@@ -17,9 +18,10 @@ type PrefixWriter struct {
 
 	mu        sync.Mutex
 	prefixlen int
-	idlen     int
 	dst       io.Writer
 }
+
+const maxIdLength = 10
 
 func max(a, b int) int {
 	if a > b {
@@ -71,8 +73,8 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 		if start := bytes.Index(data, []byte("Node ")); start > 0 {
 			if end := bytes.Index(data[start:], []byte(" started")); end > 0 {
 				newID = string(data[start+5 : start+end])
-				if len(newID) > 10 {
-					newID = newID[:10]
+				if len(newID) > maxIdLength {
+					newID = newID[:maxIdLength]
 				}
 			}
 		}
@@ -99,11 +101,11 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 
 	if newID != "" {
 		writer.id = newID
-		writer.idlen = max(writer.idlen, len(writer.id))
 	}
 
 	prefix := writer.prefix
 	id := writer.id
+	timeText := time.Now().Format("15:04:05.000")
 	for len(buffer) > 0 {
 		pos := bytes.IndexByte(buffer, '\n') + 1
 		breakline := false
@@ -123,7 +125,7 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 			breakline = true
 		}
 
-		_, err := fmt.Fprintf(writer.dst, "%-*s %-*s | ", writer.prefixlen, prefix, writer.idlen, id)
+		_, err := fmt.Fprintf(writer.dst, "%-*s %-*s %s | ", writer.prefixlen, prefix, maxIdLength, id, timeText)
 		if err != nil {
 			return len(data), err
 		}
@@ -144,6 +146,7 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 
 		prefix = ""
 		id = ""
+		timeText = "            "
 	}
 
 	return len(data), nil
