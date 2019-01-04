@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/pb"
@@ -67,6 +67,7 @@ func NewClient(identity *provider.FullIdentity, address string, APIKey string) (
 		context.Background(),
 		address,
 		grpc.WithUnaryInterceptor(apiKeyInjector),
+		grpc.WithBlock(),
 	)
 	if err != nil {
 		return nil, err

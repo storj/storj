@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/zeebo/errs"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -52,7 +53,7 @@ type Options struct {
 // NewClient returns a new intialized Overlay Client
 func NewClient(identity *provider.FullIdentity, address string) (Client, error) {
 	tc := transport.NewClient(identity, &Cache{}) // add overlay to transport client as observer
-	conn, err := tc.DialAddress(context.Background(), address)
+	conn, err := tc.DialAddress(context.Background(), address, grpc.WithBlock())
 	if err != nil {
 		return nil, err
 	}
