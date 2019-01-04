@@ -74,7 +74,7 @@ matrix:
         - make test-captplanet
 
     ### certificate signing tests ###
-    - env: MODE=integration
+    - env: MODE=certificate-signing
       script:
         - make test-certificate-signing
 
