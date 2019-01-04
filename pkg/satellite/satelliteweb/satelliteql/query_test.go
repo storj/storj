@@ -38,6 +38,10 @@ func TestGraphqlQuery(t *testing.T) {
 		db,
 	)
 
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	creator := TypeCreator{}
 	if err = creator.Create(service); err != nil {
 		t.Fatal(err)
@@ -173,7 +177,7 @@ func TestGraphqlQuery(t *testing.T) {
 		UserInfo: satellite.UserInfo{
 			FirstName: "Mickey",
 			LastName:  "Last",
-			Email:     "u1@email.com",
+			Email:     "uu1@email.com",
 		},
 		Password: "123a123",
 	})
@@ -186,7 +190,7 @@ func TestGraphqlQuery(t *testing.T) {
 		UserInfo: satellite.UserInfo{
 			FirstName: "Dubas",
 			LastName:  "Name",
-			Email:     "u2@email.com",
+			Email:     "uu2@email.com",
 		},
 		Password: "123a123",
 	})

@@ -41,6 +41,10 @@ func TestGrapqhlMutation(t *testing.T) {
 		db,
 	)
 
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	creator := TypeCreator{}
 	if err = creator.Create(service); err != nil {
 		t.Fatal(err)
@@ -282,7 +286,7 @@ func TestGrapqhlMutation(t *testing.T) {
 	var projectID string
 	t.Run("Create project mutation", func(t *testing.T) {
 		projectInfo := satellite.ProjectInfo{
-			Name: "Project name",
+			Name:        "Project name",
 			Description: "desc",
 		}
 
@@ -333,7 +337,7 @@ func TestGrapqhlMutation(t *testing.T) {
 	user1, err := service.CreateUser(authCtx, satellite.CreateUser{
 		UserInfo: satellite.UserInfo{
 			FirstName: "User1",
-			Email: "u1@email.net",
+			Email:     "u1@email.net",
 		},
 		Password: "123a123",
 	})
@@ -345,7 +349,7 @@ func TestGrapqhlMutation(t *testing.T) {
 	user2, err := service.CreateUser(authCtx, satellite.CreateUser{
 		UserInfo: satellite.UserInfo{
 			FirstName: "User1",
-			Email: "u2@email.net",
+			Email:     "u2@email.net",
 		},
 		Password: "123a123",
 	})
