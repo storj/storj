@@ -63,16 +63,10 @@ func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, uplinkK
 		return nil, errs.New("Uplink Private Key is not a valid *ecdsa.PrivateKey")
 	}
 
-	pubbytes, err := x509.MarshalPKIXPublicKey(&uplinkKeyEcdsa.PublicKey)
-	if err != nil {
-		return nil, errs.New("Could not generate byte array from Uplink Public key: %+v", err)
-	}
-
 	// Generate RenterBandwidthAllocation_Data
 	data, _ := proto.Marshal(
 		&pb.RenterBandwidthAllocation_Data{
 			PayerAllocation: pba,
-			PubKey:          pubbytes, // TODO: Take this out. It will be kept in a database on the satellite
 			StorageNodeId:   teststorj.NodeIDFromString("StorageNodeID"),
 			Total:           int64(666),
 		},
