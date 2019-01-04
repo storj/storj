@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import { usersModule } from '@/store/modules/users';
 import { changePasswordRequest, deleteAccountRequest, getUserRequest, updateAccountRequest } from '@/api/users';
 import { USER_MUTATIONS } from '@/store/mutationConstants';

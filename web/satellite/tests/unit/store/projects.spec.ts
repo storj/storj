@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import { projectsModule } from '@/store/modules/projects';
 import { createProjectRequest, deleteProjectRequest, fetchProjectsRequest, updateProjectRequest } from '@/api/projects';
 import { PROJECTS_MUTATIONS } from '@/store/mutationConstants';
