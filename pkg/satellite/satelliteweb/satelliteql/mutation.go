@@ -170,7 +170,11 @@ func rootMutation(service *satellite.Service, types Types) *graphql.Object {
 						return nil, err
 					}
 
-					return project, service.DeleteProject(p.Context, project.ID)
+					if err = service.DeleteProject(p.Context, project.ID); err != nil {
+						return nil, err
+					}
+
+					return project, nil
 				},
 			},
 			// updates project description
