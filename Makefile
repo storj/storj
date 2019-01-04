@@ -77,6 +77,11 @@ test-captplanet: ## Test source with captain planet (travis)
 	@echo "Running ${@}"
 	@./scripts/test-captplanet.sh
 
+.PHONY: test-certificate-signing
+test-certificate-signing: ## Test certificate signing service and storagenode setup (travis)
+	@echo "Running ${@}"
+	@./scripts/test-certificate-signing.sh
+
 .PHONY: test-docker
 test-docker: ## Run tests in Docker
 	docker-compose up -d --remove-orphans test
@@ -84,11 +89,15 @@ test-docker: ## Run tests in Docker
 
 .PHONY: all-in-one
 all-in-one: ## Deploy docker images with one storagenode locally
-	if [ -z "${VERSION}" ]; then \
-		$(MAKE) satellite-image storagenode-image gateway-image -j 3 \
-		&& export VERSION="${TAG}"; \
-	fi \
-	&& docker-compose up storagenode satellite gateway
+	export VERSION="${TAG}${CUSTOMTAG}" \
+	&& $(MAKE) satellite-image storagenode-image gateway-image \
+	&& docker-compose up --scale storagenode=1 satellite gateway
+
+.PHONY: test-all-in-one
+test-all-in-one: ## Test docker images locally
+	export VERSION="${TAG}${CUSTOMTAG}" \
+	&& $(MAKE) satellite-image storagenode-image gateway-image \
+	&& ./scripts/test-aio.sh
 
 ##@ Build
 
@@ -98,16 +107,16 @@ images: satellite-image storagenode-image uplink-image gateway-image ## Build ga
 
 .PHONY: gateway-image
 gateway-image: ## Build gateway Docker image
-	${DOCKER_BUILD} -t storjlabs/gateway:${TAG}${CUSTOMTAG} -f cmd/gateway/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/gateway:${TAG}${CUSTOMTAG} -f cmd/gateway/Dockerfile .
 .PHONY: satellite-image
 satellite-image: ## Build satellite Docker image
-	${DOCKER_BUILD} -t storjlabs/satellite:${TAG}${CUSTOMTAG} -f cmd/satellite/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG} -f cmd/satellite/Dockerfile .
 .PHONY: storagenode-image
 storagenode-image: ## Build storagenode Docker image
-	${DOCKER_BUILD} -t storjlabs/storagenode:${TAG}${CUSTOMTAG} -f cmd/storagenode/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG} -f cmd/storagenode/Dockerfile .
 .PHONY: uplink-image
 uplink-image: ## Build uplink Docker image
-	${DOCKER_BUILD} -t storjlabs/uplink:${TAG}${CUSTOMTAG} -f cmd/uplink/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG} -f cmd/uplink/Dockerfile .
 
 .PHONY: binary
 binary: CUSTOMTAG = -${GOOS}-${GOARCH}
@@ -173,6 +182,9 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 	docker tag storjlabs/uplink:${TAG} storjlabs/uplink:latest
 	docker push storjlabs/uplink:${TAG}
 	docker push storjlabs/uplink:latest
+	docker tag storjlabs/gateway:${TAG} storjlabs/gateway:latest
+	docker push storjlabs/gateway:${TAG}
+	docker push storjlabs/gateway:latest
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
@@ -190,11 +202,13 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 .PHONY: clean-images
 ifeq (${BRANCH},master)
 clean-images: ## Remove Docker images from local engine
+	-docker rmi storjlabs/gateway:${TAG} storjlabs/gateway:latest
 	-docker rmi storjlabs/satellite:${TAG} storjlabs/satellite:latest
 	-docker rmi storjlabs/storagenode:${TAG} storjlabs/storagenode:latest
 	-docker rmi storjlabs/uplink:${TAG} storjlabs/uplink:latest
 else
 clean-images:
+	-docker rmi storjlabs/gateway:${TAG}
 	-docker rmi storjlabs/satellite:${TAG}
 	-docker rmi storjlabs/storagenode:${TAG}
 	-docker rmi storjlabs/uplink:${TAG}

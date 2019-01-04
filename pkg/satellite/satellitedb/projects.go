@@ -31,7 +31,7 @@ func (projects *projects) GetAll(ctx context.Context) ([]satellite.Project, erro
 
 // GetByUserID is a method for querying all projects from the database by userID.
 func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) ([]satellite.Project, error) {
-	projectsDbx, err := projects.db.All_Project_By_ProjectMember_MemberId(ctx, dbx.ProjectMember_MemberId(userID[:]))
+	projectsDbx, err := projects.db.All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx, dbx.ProjectMember_MemberId(userID[:]))
 	if err != nil {
 		return nil, err
 	}
