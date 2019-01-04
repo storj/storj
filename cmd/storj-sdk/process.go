@@ -174,9 +174,14 @@ func (process *Process) Exec(ctx context.Context, command string) error {
 	processgroup.Setup(cmd)
 
 	if printCommands {
-		fmt.Fprintf(process.processes.Output, "exec: %v\n", strings.Join(cmd.Args, " "))
+		fmt.Fprintf(process.processes.Output, "%s running with %v\n", process.Name, strings.Join(cmd.Args, " "))
 	}
-	return cmd.Run()
+	err := cmd.Run()
+	if printCommands {
+		fmt.Fprintf(process.processes.Output, "%s exited with %v: %v\n", process.Name, strings.Join(cmd.Args, " "), err)
+	}
+
+	return err
 }
 
 // Close closes process resources
