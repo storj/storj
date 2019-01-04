@@ -174,11 +174,11 @@ func (process *Process) Exec(ctx context.Context, command string) error {
 	processgroup.Setup(cmd)
 
 	if printCommands {
-		fmt.Fprintf(process.processes.Output, "%s running with %v\n", process.Name, strings.Join(cmd.Args, " "))
+		fmt.Fprintf(process.processes.Output, "%s running with: %v\n", process.Name, strings.Join(cmd.Args, " "))
 	}
 	err := cmd.Run()
 	if printCommands {
-		fmt.Fprintf(process.processes.Output, "%s exited with %v: %v\n", process.Name, strings.Join(cmd.Args, " "), err)
+		fmt.Fprintf(process.processes.Output, "%s exited with: %v\n", process.Name, err)
 	}
 
 	return err
