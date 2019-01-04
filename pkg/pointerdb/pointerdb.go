@@ -302,11 +302,6 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 	payer := s.identity.ID
 
 	// TODO(michal) should be replaced with renter id when available
-	peerIdentity, err := provider.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	// retrieve the public key
 	pi, err := provider.PeerIdentityFromContext(ctx)
 	if err != nil {
@@ -324,11 +319,17 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
+	serialNum, err := uuid.New()
+	if err != nil {
+		return nil, err
+	}
+
 	pbad := &pb.PayerBandwidthAllocation_Data{
 		SatelliteId:    payer,
-		UplinkId:       peerIdentity.ID,
+		UplinkId:       pi.ID,
 		CreatedUnixSec: time.Now().Unix(),
 		Action:         req.GetAction(),
+		SerialNumber:   serialNum.String(),
 		PubKey:         pubbytes,
 	}
 
