@@ -5,6 +5,7 @@ package process
 
 import (
 	"flag"
+	"runtime"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -24,6 +25,11 @@ var (
 )
 
 func newLogger() (*zap.Logger, error) {
+	levelEncoder := zapcore.CapitalColorLevelEncoder
+	if runtime.GOOS == "windows" {
+		levelEncoder = zapcore.CapitalLevelEncoder
+	}
+
 	return zap.Config{
 		Level:             zap.NewAtomicLevelAt(*logLevel),
 		Development:       *logDev,
@@ -38,7 +44,7 @@ func newLogger() (*zap.Logger, error) {
 			MessageKey:     "M",
 			StacktraceKey:  "S",
 			LineEnding:     zapcore.DefaultLineEnding,
-			EncodeLevel:    zapcore.CapitalColorLevelEncoder,
+			EncodeLevel:    levelEncoder,
 			EncodeTime:     zapcore.ISO8601TimeEncoder,
 			EncodeDuration: zapcore.StringDurationEncoder,
 			EncodeCaller:   zapcore.ShortCallerEncoder,
