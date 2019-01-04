@@ -26,7 +26,7 @@ import (
 const folderPermissions = 0744
 
 func networkExec(flags *Flags, args []string, command string) error {
-	processes, err := newNetwork(flags.Directory, flags.SatelliteCount, flags.StorageNodeCount)
+	processes, err := newNetwork(flags)
 	if err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func networkExec(flags *Flags, args []string, command string) error {
 }
 
 func networkTest(flags *Flags, command string, args []string) error {
-	processes, err := newNetwork(flags.Directory, flags.SatelliteCount, flags.StorageNodeCount)
+	processes, err := newNetwork(flags)
 	if err != nil {
 		return err
 	}
@@ -80,11 +80,12 @@ func networkDestroy(flags *Flags, args []string) error {
 }
 
 // newNetwork creates a default network
-func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, error) {
+func newNetwork(flags *Flags) (*Processes, error) {
 	processes := NewProcesses()
 
-	const (
-		host            = "127.0.0.1"
+	var (
+		configDir       = flags.Directory
+		host            = flags.Host
 		gatewayPort     = 9000
 		satellitePort   = 10000
 		storageNodePort = 11000
@@ -100,10 +101,10 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 		}, rest...)
 	}
 
-	for i := 0; i < satelliteCount; i++ {
+	for i := 0; i < flags.SatelliteCount; i++ {
 		name := fmt.Sprintf("satellite/%d", i)
 
-		dir := filepath.Join(dir, "satellite", fmt.Sprint(i))
+		dir := filepath.Join(configDir, "satellite", fmt.Sprint(i))
 		if err := os.MkdirAll(dir, folderPermissions); err != nil {
 			return nil, err
 		}
@@ -129,10 +130,10 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 		}, rest...)
 	}
 
-	for i := 0; i < satelliteCount; i++ {
+	for i := 0; i < flags.SatelliteCount; i++ {
 		name := fmt.Sprintf("gateway/%d", i)
 
-		dir := filepath.Join(dir, "gateway", fmt.Sprint(i))
+		dir := filepath.Join(configDir, "gateway", fmt.Sprint(i))
 		if err := os.MkdirAll(dir, folderPermissions); err != nil {
 			return nil, err
 		}
@@ -153,10 +154,10 @@ func newNetwork(dir string, satelliteCount, storageNodeCount int) (*Processes, e
 		)
 	}
 
-	for i := 0; i < storageNodeCount; i++ {
+	for i := 0; i < flags.StorageNodeCount; i++ {
 		name := fmt.Sprintf("storage/%d", i)
 
-		dir := filepath.Join(dir, "storage", fmt.Sprint(i))
+		dir := filepath.Join(configDir, "storage", fmt.Sprint(i))
 		if err := os.MkdirAll(dir, folderPermissions); err != nil {
 			return nil, err
 		}

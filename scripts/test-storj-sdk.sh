@@ -12,9 +12,15 @@ cleanup(){
 }
 trap cleanup EXIT
 
+STORJ_LOCAL_NETWORK=$TMP
 
 # setup the network
-storj-sdk -x --config-dir $TMP network setup
-
+storj-sdk -x network setup
 # run test-storj-sdk-aws.sh case
-storj-sdk -x --config-dir $TMP network test bash $SCRIPTDIR/test-storj-sdk-aws.sh
+storj-sdk -x network test bash $SCRIPTDIR/test-storj-sdk-aws.sh
+storj-sdk -x network destroy
+
+# setup the network with ipv6
+storj-sdk -x --host "::1" network setup
+# run test-storj-sdk-aws.sh case
+storj-sdk -x --host "::1" network test bash $SCRIPTDIR/test-storj-sdk-aws.sh
