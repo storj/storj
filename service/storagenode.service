@@ -1,0 +1,14 @@
+[Unit]
+Description  = Storage Node service
+After        = syslog.target
+
+[Service]
+User         = storj
+Group        = storj
+ExecStart    = /usr/local/bin/storagenode run
+Restart      = always
+Type         = simple
+NotifyAccess = main
+
+[Install]
+WantedBy     = multi-user.target
