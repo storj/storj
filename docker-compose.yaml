@@ -24,7 +24,7 @@ services:
     - STORJ_DATABASE=postgres://postgres:postgres@postgres/satellite?sslmode=disable
     - STORJ_LOG_LEVEL=debug
     - STORJ_REPAIRER_QUEUE_ADDRESS=redis://redis:6379/?db=0
-    - STORJ_IDENTITY_SERVER_ADDRESS=satellite:7777
+    - STORJ_SERVER_PUBLIC_ADDRESS=satellite:7777
     restart: always
     ports:
     - 7778:7777
@@ -52,7 +52,7 @@ services:
     - API_KEY=abc123
     - SATELLITE_ADDR=satellite:7777
     - STORJ_LOG_LEVEL=debug
-    - STORJ_SERVER_ADDRESS=0.0.0.0:7777
+    - STORJ_SERVER_PUBLIC_ADDRESS=0.0.0.0:7777
     ports:
     - 7777:7777
     restart: always
