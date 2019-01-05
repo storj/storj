@@ -33,7 +33,7 @@ func TestSameSerialNumberBandwidthAgreements(t *testing.T) {
 		satellitePubKey, satellitePrivKey, uplinkPrivKey := generateKeys(ctx, t)
 		server := bwagreement.NewServer(db.BandwidthAgreement(), zap.NewNop(), satellitePubKey)
 
-		pbaFile1, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey)
+		pbaFile1, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey)
 		assert.NoError(t, err)
 
 		rbaNode1, err := GenerateRenterBandwidthAllocation(pbaFile1, teststorj.NodeIDFromString("Storagenode1"), uplinkPrivKey)
@@ -52,7 +52,7 @@ func TestSameSerialNumberBandwidthAgreements(t *testing.T) {
 
 		/* Storagenode can submit a second bwagreement with a different sequence value.
 		   Uplink downloads another file. New PayerBandwidthAllocation with a new sequence. */
-		pbaFile2, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey)
+		pbaFile2, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey)
 		assert.NoError(t, err)
 
 		rbaNode1, err = GenerateRenterBandwidthAllocation(pbaFile2, teststorj.NodeIDFromString("Storagenode1"), uplinkPrivKey)
