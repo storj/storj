@@ -205,6 +205,14 @@ func (is SetupConfig) Create(ca *FullCertificateAuthority) (*FullIdentity, error
 	return fi, ic.Save(fi)
 }
 
+// FullConfig converts a `SetupConfig` to `Config`
+func (is SetupConfig) FullConfig() Config {
+	return Config{
+		CertPath: is.CertPath,
+		KeyPath:  is.KeyPath,
+	}
+}
+
 // Load loads a FullIdentity from the config
 func (ic Config) Load() (*FullIdentity, error) {
 	c, err := ioutil.ReadFile(ic.CertPath)
