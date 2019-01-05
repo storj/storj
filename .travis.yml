@@ -63,19 +63,17 @@ matrix:
         - golangci-lint run
         - gospace istidy
 
-    ### captplanet tests ###
+    ### service integration tests ###
     - env: MODE=captplanet
       services:
         - redis
       install:
         - source scripts/install-awscli.sh
         - go install -race storj.io/storj/cmd/captplanet
+        - go install -race storj.io/storj/cmd/storagenode
+        - go install -race storj.io/storj/cmd/certificates
       script:
         - make test-captplanet
-
-    ### certificate signing tests ###
-    - env: MODE=integration
-      script:
         - make test-certificate-signing
 
     ### docker tests ###
