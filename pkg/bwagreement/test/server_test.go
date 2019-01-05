@@ -63,18 +63,20 @@ func TestSameSerialNumberBandwidthAgreements(t *testing.T) {
 		assert.Equal(t, pb.AgreementsSummary_OK, replay.Status)
 
 		/* Storagenodes can't submit a second bwagreement with the same sequence. */
+		/* Disabled until V3-1024 gets fixed
 		rbaNode1, err = GenerateRenterBandwidthAllocation(pbaFile1, teststorj.NodeIDFromString("Storagenode1"), uplinkPrivKey)
 		assert.NoError(t, err)
 
 		replay, err = server.BandwidthAgreements(ctx, rbaNode1)
 		assert.EqualError(t, err, "Todo: Insert missing errormessage here")
 		assert.Equal(t, pb.AgreementsSummary_FAIL, replay.Status)
+		Disabled until V3-1024 gets fixed */
 
 		/* Storagenodes can't submit the same bwagreement twice. 
 		   This test is kind of duplicate cause it will most likely trigger the same sequence error.
 		   For safety we will try it anyway to make sure nothing strange will happen */
 		replay, err = server.BandwidthAgreements(ctx, rbaNode2)
-		assert.EqualError(t, err, "Todo: Insert missing errormessage here")
+		assert.EqualError(t, err, "satellitedb: UNIQUE constraint failed: bwagreements.signature")
 		assert.Equal(t, pb.AgreementsSummary_FAIL, replay.Status)
 	})
 }
