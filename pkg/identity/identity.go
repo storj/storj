@@ -7,12 +7,12 @@ import (
 	"bytes"
 	"context"
 	"crypto"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"io/ioutil"
 
 	"github.com/zeebo/errs"
-	"golang.org/x/crypto/sha3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
@@ -151,13 +151,14 @@ func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 
 // NodeIDFromKey hashes a publc key and creates a node ID from it
 func NodeIDFromKey(k crypto.PublicKey) (storj.NodeID, error) {
+	// id = sha256(sha256(pkix(k)))
 	kb, err := x509.MarshalPKIXPublicKey(k)
 	if err != nil {
 		return storj.NodeID{}, storj.ErrNodeID.Wrap(err)
 	}
-	hash := make([]byte, len(storj.NodeID{}))
-	sha3.ShakeSum256(hash, kb)
-	return storj.NodeIDFromBytes(hash)
+	mid := sha256.Sum256(kb)
+	end := sha256.Sum256(mid[:])
+	return storj.NodeIDFromBytes(end[:])
 }
 
 // NewFullIdentity creates a new ID for nodes with difficulty and concurrency params
