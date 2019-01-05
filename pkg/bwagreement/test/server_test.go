@@ -14,7 +14,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
-        "storj.io/storj/internal/teststorj"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
@@ -72,7 +72,7 @@ func TestSameSerialNumberBandwidthAgreements(t *testing.T) {
 		assert.Equal(t, pb.AgreementsSummary_FAIL, replay.Status)
 		Disabled until V3-1024 gets fixed */
 
-		/* Storagenodes can't submit the same bwagreement twice. 
+		/* Storagenodes can't submit the same bwagreement twice.
 		   This test is kind of duplicate cause it will most likely trigger the same sequence error.
 		   For safety we will try it anyway to make sure nothing strange will happen */
 		/* Disabled until V3-1024 gets fixed
