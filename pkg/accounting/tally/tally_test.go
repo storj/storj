@@ -64,7 +64,7 @@ func TestQueryWithBw(t *testing.T) {
 	assert.True(t, ok)
 
 	//generate an agreement with the key
-	pba, err := test.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, k)
+	pba, err := test.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, k, k)
 	assert.NoError(t, err)
 
 	rba, err := test.GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("StorageNodeID"), k)

@@ -91,7 +91,7 @@ func TestInvalidBandwidthAgreements(t *testing.T) {
 		satellitePubKey, satellitePrivKey, uplinkPrivKey := generateKeys(ctx, t)
 		server := bwagreement.NewServer(db.BandwidthAgreement(), zap.NewNop(), satellitePubKey)
 
-		pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey)
+		pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey)
 		assert.NoError(t, err)
 
 		rba, err := GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("Storagenode1"), uplinkPrivKey)

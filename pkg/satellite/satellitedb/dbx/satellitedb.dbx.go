@@ -1167,11 +1167,11 @@ func (obj *sqlite3Impl) Get_Project_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) All_Project_By_ProjectMember_MemberId(ctx context.Context,
+func (obj *sqlite3Impl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.terms_accepted, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.terms_accepted, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
 	var __values []interface{}
 	__values = append(__values, project_member_member_id.value())
@@ -1804,14 +1804,14 @@ func (rx *Rx) All_ProjectMember_By_MemberId(ctx context.Context,
 	return tx.All_ProjectMember_By_MemberId(ctx, project_member_member_id)
 }
 
-func (rx *Rx) All_Project_By_ProjectMember_MemberId(ctx context.Context,
+func (rx *Rx) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field) (
 	rows []*Project, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.All_Project_By_ProjectMember_MemberId(ctx, project_member_member_id)
+	return tx.All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx, project_member_member_id)
 }
 
 func (rx *Rx) Create_ApiKey(ctx context.Context,
@@ -2006,7 +2006,7 @@ type Methods interface {
 		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*ProjectMember, err error)
 
-	All_Project_By_ProjectMember_MemberId(ctx context.Context,
+	All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*Project, err error)
 
