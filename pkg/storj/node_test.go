@@ -4,6 +4,7 @@
 package storj_test
 
 import (
+	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,9 +18,46 @@ func TestNodeID_Difficulty(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, uint16(0), difficulty)
 
-	// node id with difficulty 13
-	node13 := storj.NodeID{253, 160, 157, 107, 237, 151, 13, 122, 56, 254, 115, 137, 205, 43, 27, 150, 32, 207, 14, 161, 252, 218, 36, 4, 211, 83, 195, 250, 17, 61, 224, 0}
-	difficulty, err = node13.Difficulty()
-	assert.NoError(t, err)
-	assert.Equal(t, uint16(13), difficulty)
+	for _, testcase := range []struct {
+		id         string
+		difficulty uint16
+	}{
+		{"0da09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de0f1", 0},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de0fe", 1},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de0fc", 2},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de0f8", 3},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de030", 4},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de0e0", 5},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de0c0", 6},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de080", 7},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de500", 8},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dee00", 9},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dec00", 10},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de800", 11},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113d7000", 12},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de000", 13},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dc000", 14},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113d8000", 15},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa11390000", 16},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113e0000", 17},
+	} {
+
+		decoded, err := hex.DecodeString(testcase.id)
+		if !assert.NoError(t, err) {
+			t.Fatal()
+		}
+
+		var nodeid storj.NodeID
+		n := copy(nodeid[:], decoded)
+		if !assert.Equal(t, n, len(nodeid)) {
+			t.Fatal()
+		}
+
+		difficulty, err := nodeid.Difficulty()
+		if !assert.NoError(t, err) {
+			t.Fatal()
+		}
+
+		assert.Equal(t, testcase.difficulty, difficulty)
+	}
 }
