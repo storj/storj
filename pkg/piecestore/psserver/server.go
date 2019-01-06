@@ -309,13 +309,12 @@ func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllo
 }
 
 func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation_Data, action pb.PayerBandwidthAllocation_Action) (err error) {
-	if pba.SatelliteId.IsZero() {
+	switch {
+	case pba.SatelliteId.IsZero():
 		return StoreError.New("payer bandwidth allocation: missing satellite id")
-	}
-	if pba.UplinkId.IsZero() {
+	case pba.UplinkId.IsZero():
 		return StoreError.New("payer bandwidth allocation: missing uplink id")
-	}
-	if pba.Action != action {
+	case pba.Action != action:
 		return StoreError.New("payer bandwidth allocation: invalid action %v", pba.Action.String())
 	}
 	return nil

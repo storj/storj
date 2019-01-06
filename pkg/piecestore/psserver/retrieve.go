@@ -16,7 +16,7 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
-	pstore "storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -137,6 +137,11 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 
 			if err = s.verifySignature(ctx, alloc); err != nil {
 				allocationTracking.Fail(err)
+				return
+			}
+
+			if allocData.GetPayerAllocation() == nil {
+				allocationTracking.Fail(StoreError.New("no payer bandwidth allocation"))
 				return
 			}
 
