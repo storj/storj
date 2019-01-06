@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
@@ -39,6 +40,7 @@ type StorageNode struct {
 type SetupStorageNode struct {
 	CA        identity.CASetupConfig
 	Identity  identity.SetupConfig
+	Signer    certificates.CertSigningConfig
 	Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
 
 	StorageNode
@@ -146,14 +148,28 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	// TODO: this is only applicable once we stop deleting the entire config dir on overwrite
+	// (see https://storjlabs.atlassian.net/browse/V3-1013)
+	// (see https://storjlabs.atlassian.net/browse/V3-949)
+	if setupCfg.Overwrite {
+		setupCfg.CA.Overwrite = true
+		setupCfg.Identity.Overwrite = true
+	}
 	setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
 	setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
 	setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
 	setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 
-	err = identity.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
-	if err != nil {
-		return err
+	if setupCfg.Signer.AuthToken != "" && setupCfg.Signer.Address != "" {
+		err = setupCfg.Signer.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
+		if err != nil {
+			zap.S().Warn(err)
+		}
+	} else {
+		err = identity.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
+		if err != nil {
+			return err
+		}
 	}
 
 	overrides := map[string]interface{}{

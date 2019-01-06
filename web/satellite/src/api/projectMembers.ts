@@ -12,7 +12,7 @@ export async function addProjectMembers(projectID: string, emails: string[]): Pr
         isSuccess: false,
         data: null
 	};
-	
+
 	try {
 		let response: any = await apollo.mutate(
 			{
@@ -20,9 +20,9 @@ export async function addProjectMembers(projectID: string, emails: string[]): Pr
                 mutation {
                     addProjectMembers(
                         projectID: "${projectID}",
-                        email: "${emails}"
+                        email: [${prepareEmailList(emails)}]
                     ) {id}
-                }`
+                }`,
 				),
 				fetchPolicy: 'no-cache',
 			}
@@ -56,7 +56,7 @@ export async function deleteProjectMembers(projectID: string, emails: string[]):
                 mutation {
                     deleteProjectMembers(
                         projectID: "${projectID}",
-                        email: "${emails}"
+                        email: [${prepareEmailList(emails)}]
                     ) {id}
                 }`
 				),
@@ -120,4 +120,14 @@ export async function fetchProjectMembers(projectID: string, limit: string, offs
 	}
 
 	return result;
+}
+
+function prepareEmailList(emails: string[]): string {
+    let emailString: string = '';
+
+    emails.forEach(email => {
+        emailString += `"${email}", `;
+    });
+
+    return emailString;
 }
