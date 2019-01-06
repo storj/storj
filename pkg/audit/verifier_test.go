@@ -44,7 +44,7 @@ func TestPassingAudit(t *testing.T) {
 		md := mockDownloader{shares: mockShares}
 		verifier := &Verifier{downloader: &md}
 		pointer := makePointer(tt.nodeAmt)
-		verifiedNodes, err := verifier.verify(ctx, &Stripe{Index: 6, Segment: pointer, Pba: nil, Authorization: nil})
+		verifiedNodes, err := verifier.verify(ctx, &Stripe{Index: 6, Segment: pointer, PBA: nil, Authorization: nil})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -88,7 +88,7 @@ func TestSomeNodesPassAudit(t *testing.T) {
 		md := mockDownloader{shares: mockShares}
 		verifier := &Verifier{downloader: &md}
 		pointer := makePointer(tt.nodeAmt)
-		verifiedNodes, err := verifier.verify(ctx, &Stripe{Index: 6, Segment: pointer, Pba: nil, Authorization: nil})
+		verifiedNodes, err := verifier.verify(ctx, &Stripe{Index: 6, Segment: pointer, PBA: nil, Authorization: nil})
 		if err != nil {
 			t.Fatal(err)
 		}
