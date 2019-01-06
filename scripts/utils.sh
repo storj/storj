@@ -37,6 +37,14 @@ temp_build() {
 	build ${tmp_build_dir} $@
 }
 
+declare_cmds() {
+	echo "using installed binaries:"
+	for cmd in $@; do
+        echo "	 - ${cmd}"
+		declare -g ${cmd}=${cmd}
+	done
+}
+
 check_help() {
 	if [ $1 == "--help" ] || [ $1 == "-h" ]; then
 		echo $2
