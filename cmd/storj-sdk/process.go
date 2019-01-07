@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/processgroup"
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -124,10 +126,10 @@ type Process struct {
 	Info ProcessInfo
 
 	Delay  time.Duration
-	Wait   []*Fence
+	Wait   []*sync2.Fence
 	Status struct {
-		Started Fence
-		Exited  Fence
+		Started sync2.Fence
+		Exited  sync2.Fence
 	}
 
 	Arguments map[string][]string
@@ -198,12 +200,11 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 		fence.Wait()
 	}
 
+	// in case we have an explicit delay then sleep
 	if process.Delay > 0 {
-		fmt.Println("waiting for start", time.Now())
-		if err := Sleep(ctx, process.Delay); err != nil {
-			return err
+		if !sync2.Sleep(ctx, process.Delay) {
+			return ctx.Err()
 		}
-		fmt.Println("waited", time.Now())
 	}
 
 	if printCommands {
@@ -225,7 +226,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 		process.Status.Started.Release()
 	default:
 		// release started when we are able to connect to the process address
-		go process.MonitorAddress()
+		go process.monitorAddress()
 	}
 
 	// wait for process completion
@@ -233,15 +234,28 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	return err
 }
 
-// MonitorAddress will monitor starting when we are able to start the process.
-func (process *Process) MonitorAddress() {
-	for process.Status.Started.Blocked() {
-		if TryConnect(process.Info.Address) {
+// monitorAddress will monitor starting when we are able to start the process.
+func (process *Process) monitorAddress() {
+	for !process.Status.Started.Released() {
+		if process.tryConnect() {
 			process.Status.Started.Release()
 			return
 		}
-		time.Sleep(100 * time.Millisecond)
+		// wait a bit before retrying to reduce load
+		time.Sleep(50 * time.Millisecond)
 	}
+}
+
+// tryConnect will try to connect to the process public address
+func (process *Process) tryConnect() bool {
+	conn, err := net.Dial("tcp", process.Info.Address)
+	if err != nil {
+		return false
+	}
+	_, err = conn.Write([]byte{})
+	// ignoring error, because we only care about being able to connect
+	_ = conn.Close()
+	return true
 }
 
 // Close closes process resources
