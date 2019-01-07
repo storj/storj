@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gtank/cryptopasta"
@@ -260,13 +261,13 @@ func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllo
 	return nil
 }
 
-func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation_Data, action pb.PayerBandwidthAllocation_Action) (err error) {
+func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation_Data, actionPrefix string) (err error) {
 	switch {
 	case pba.SatelliteId.IsZero():
 		return StoreError.New("payer bandwidth allocation: missing satellite id")
 	case pba.UplinkId.IsZero():
 		return StoreError.New("payer bandwidth allocation: missing uplink id")
-	case pba.Action != action:
+	case !strings.HasPrefix(pba.Action.String(), actionPrefix):
 		return StoreError.New("payer bandwidth allocation: invalid action %v", pba.Action.String())
 	}
 	return nil
