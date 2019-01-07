@@ -7,12 +7,13 @@ import (
 	"bytes"
 	"context"
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"io/ioutil"
 
 	"github.com/zeebo/errs"
-	"golang.org/x/crypto/sha3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
@@ -111,7 +112,7 @@ func ParseCertChain(chain [][]byte) ([]*x509.Certificate, error) {
 
 // PeerIdentityFromCerts loads a PeerIdentity from a pair of leaf and ca x509 certificates
 func PeerIdentityFromCerts(leaf, ca *x509.Certificate, rest []*x509.Certificate) (*PeerIdentity, error) {
-	i, err := NodeIDFromKey(ca.PublicKey.(crypto.PublicKey))
+	i, err := NodeIDFromKey(ca.PublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -149,15 +150,24 @@ func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 	return PeerIdentityFromPeer(p)
 }
 
-// NodeIDFromKey hashes a publc key and creates a node ID from it
+// NodeIDFromKey hashes a public key and creates a node ID from it
 func NodeIDFromKey(k crypto.PublicKey) (storj.NodeID, error) {
+	if ek, ok := k.(*ecdsa.PublicKey); ok {
+		return NodeIDFromECDSAKey(ek)
+	}
+	return storj.NodeID{}, storj.ErrNodeID.New("invalid key type: %T", k)
+}
+
+// NodeIDFromECDSAKey hashes a public key and creates a node ID from it
+func NodeIDFromECDSAKey(k *ecdsa.PublicKey) (storj.NodeID, error) {
+	// id = sha256(sha256(pkix(k)))
 	kb, err := x509.MarshalPKIXPublicKey(k)
 	if err != nil {
 		return storj.NodeID{}, storj.ErrNodeID.Wrap(err)
 	}
-	hash := make([]byte, len(storj.NodeID{}))
-	sha3.ShakeSum256(hash, kb)
-	return storj.NodeIDFromBytes(hash)
+	mid := sha256.Sum256(kb)
+	end := sha256.Sum256(mid[:])
+	return storj.NodeIDFromBytes(end[:])
 }
 
 // NewFullIdentity creates a new ID for nodes with difficulty and concurrency params
