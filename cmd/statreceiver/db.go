@@ -27,9 +27,11 @@ var (
 // DBDest is a database metric destination. It stores the latest value given
 // a metric key and application per instance.
 type DBDest struct {
-	mtx             sync.Mutex
-	driver, address string
-	db              *sql.DB
+	driver  string
+	address string
+
+	mu sync.Mutex
+	db *sql.DB
 }
 
 // NewDBDest creates a DBDest
@@ -44,19 +46,18 @@ func NewDBDest(driver, address string) *DBDest {
 }
 
 // Metric implements the MetricDest interface
-func (db *DBDest) Metric(application, instance string, key []byte, val float64,
-	ts time.Time) error {
-	db.mtx.Lock()
+func (db *DBDest) Metric(application, instance string, key []byte, val float64, ts time.Time) error {
+	db.mu.Lock()
 	if db.db == nil {
 		conn, err := sql.Open(db.driver, db.address)
 		if err != nil {
-			db.mtx.Unlock()
+			db.mu.Unlock()
 			return err
 		}
 		db.db = conn
 	}
-	db.mtx.Unlock()
-	_, err := db.db.Exec(sqlupsert[db.driver], application+"."+string(key),
-		instance, val, ts.Unix())
+	db.mu.Unlock()
+
+	_, err := db.db.Exec(sqlupsert[db.driver], application+"."+string(key), instance, val, ts.Unix())
 	return err
 }

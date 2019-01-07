@@ -10,10 +10,6 @@
                     <h2>Project Name</h2>
                     <h3>{{name}}</h3>
                 </div>
-                <div class="project-details-info-container__name-container">
-                    <h2>Company / Organization</h2>
-                    <h3>{{companyName}}</h3>
-                </div>
             </div>
             <div class="project-details-info-container">
                 <div class="project-details-info-container__description-container" v-if="!isEditing">
@@ -35,8 +31,8 @@
                         isMultiline
                         @setData="setNewDescription" />
                     <div class="project-details-info-container__description-container__buttons-area">
-                        <Button label="Cancel" width="10vw" height="5vh" :onPress="toggleEditing" isWhite/>
-                        <Button label="Save" width="10vw" height="5vh" :onPress="onSaveButtonClick"/>
+                        <Button label="Cancel" width="180px" height="48px" :onPress="toggleEditing" isWhite/>
+                        <Button label="Save" width="180px" height="48px" :onPress="onSaveButtonClick"/>
                     </div>
                 </div>
             </div>
@@ -50,24 +46,22 @@
                         </div>
                     </div>
                     <div class="project-details-info-container__portability-container__buttons-area">
-                        <Button label="Export" width="10vw" height="5vh" :onPress="onExportClick" isWhite/>
-                        <Button label="Import" width="10vw" height="5vh" :onPress="onImportClick"/>
+                        <Button label="Export" width="180px" height="48px" :onPress="onExportClick" isWhite/>
+                        <Button label="Import" width="180px" height="48px" :onPress="onImportClick"/>
                     </div>
                 </div>
             </div>
-            <div class="project-details__terms-area">
-                <img src="static/images/projectDetails/checked.svg" alt="">
-                <h2>{{projectApproval}}</h2>
-            </div>
             <div class="project-details__button-area">
-                <!-- TODO: change vw to px -->
-                <Button label="Delete project" width="10vw" height="5vh" :onPress="onDeleteButtonClick" isWhite/>
+                <Button class="delete-project" label="Delete project" width="180px" height="48px" :onPress="toggleDeleteDialog" isDeletion/>
             </div>
         </div>
         <EmptyState 
             v-if="!isProjectSelected"
             mainTitle="Choose or Create new project"
             :imageSource="emptyImage" />
+        <DeleteProjectPopup 
+            v-if="isDeleteDialogShown"
+            :onClose="toggleDeleteDialog" />
     </div>
 </template>
 
@@ -78,6 +72,7 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+import DeleteProjectPopup from '@/components/projectDetails/DeleteProjectPopup.vue';
 
 @Component(
     {
@@ -85,7 +80,8 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
             return {
                 isEditing: false,
                 newDescription: '',
-                emptyImage: EMPTY_STATE_IMAGES.PROJECT
+                emptyImage: EMPTY_STATE_IMAGES.PROJECT,
+                isDeleteDialogShown: false,
             };
         },
         methods: {
@@ -98,32 +94,24 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
                 this.$data.newDescription = value;
             },
             onSaveButtonClick: async function (): Promise<any> {
-                let isUpdateSuccess = await this.$store.dispatch(
+                let response = await this.$store.dispatch(
                     'updateProjectDescription', {
                         id: this.$store.getters.selectedProject.id,
                         description: this.$data.newDescription,
                     }
                 );
 
-                isUpdateSuccess
+                response.isSuccess
                     // TODO: call toggleEditing method instead of this IIF
                     ? (() => {
                         this.$data.isEditing = !this.$data.isEditing;
                         this.$data.newDescription = '';
+                        this.$store.dispatch('success', 'Project updated successfully!');
                     })()
-                    // TODO: popup error here
-                    : console.error('error during project updating!');
+                    : this.$store.dispatch('error', response.errorMessage);
             },
-            onDeleteButtonClick: async function (): Promise<any> {
-                let isDeleteSuccess = await this.$store.dispatch(
-                    'deleteProject',
-                    this.$store.getters.selectedProject.id,
-                );
-
-                if (!isDeleteSuccess) {
-                    // TODO: popup error here
-                    console.error('error during project deletion!');
-                }
+            toggleDeleteDialog: function (): void {
+                this.$data.isDeleteDialogShown = !this.$data.isDeleteDialogShown;
             }
         },
         computed: {
@@ -131,15 +119,9 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
                 return this.$store.getters.selectedProject.name;
             },
             description: function (): string {
-                return this.$store.getters.selectedProject.description;
-            },
-            companyName: function (): string {
-                return this.$store.getters.selectedProject.companyName;
-            },
-            projectApproval: function (): string {
-                let date = new Date(this.$store.getters.selectedProject.createdAt);
-
-                return `Project Approval ${date.toLocaleDateString()} by ${this.$store.getters.selectedProject.ownerName}`;
+                return this.$store.getters.selectedProject.description ? 
+                    this.$store.getters.selectedProject.description :
+                    'No description yet. Please enter some information about the project if any.';
             },
             // this computed is used to indicate if project is selected.
             // if false - we should change UI
@@ -152,6 +134,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
             HeaderedInput,
             Checkbox,
             EmptyState,
+            DeleteProjectPopup,
         }
     }
 )
@@ -232,7 +215,7 @@ export default class ProjectDetailsArea extends Vue {
 
         &__name-container {
             height: 10vh;
-            width: 33vw;
+            width: 72vw;
             border-radius: 6px;
             display: flex;
             flex-direction: column;
@@ -260,6 +243,11 @@ export default class ProjectDetailsArea extends Vue {
                 justify-content: center;
                 align-items: flex-start;
                 width: 65vw;
+
+                h3 {
+                    width: 100%;
+                    word-wrap: break-word;
+                }
             }
 
             &--editing {
@@ -275,7 +263,7 @@ export default class ProjectDetailsArea extends Vue {
                 display: flex;
                 flex-direction: row;
                 align-items: center;
-                width: 22vw;
+                width: 380px;
                 justify-content: space-between;
             }
 
@@ -299,7 +287,7 @@ export default class ProjectDetailsArea extends Vue {
 
             &__buttons-area {
                 @extend .project-details-info-container__portability-container__info;
-                width: 22vw;
+                width: 380px;
                 justify-content: space-between;
             }
 

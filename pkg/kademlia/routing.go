@@ -4,13 +4,15 @@
 package kademlia
 
 import (
+	"context"
 	"encoding/binary"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
@@ -30,8 +32,23 @@ var RoutingErr = errs.Class("routing table error")
 // Bucket IDs exist in the same address space as node IDs
 type bucketID [len(storj.NodeID{})]byte
 
+var firstBucketID = bucketID{
+	0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF,
+
+	0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF,
+}
+
+var emptyBucketID = bucketID{}
+
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
+	log              *zap.Logger
 	self             pb.Node
 	kadBucketDB      storage.KeyValueStore
 	nodeBucketDB     storage.KeyValueStore
@@ -45,8 +62,11 @@ type RoutingTable struct {
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
+func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
+	localNode.Type.DPanicOnInvalid("new routing table")
+
 	rt := &RoutingTable{
+		log:          logger,
 		self:         localNode,
 		kadBucketDB:  kdb,
 		nodeBucketDB: ndb,
@@ -124,13 +144,13 @@ func (rt *RoutingTable) FindNear(id storj.NodeID, limit int) (nodes []*pb.Node, 
 	if err != nil {
 		return nodes, RoutingErr.New("could not get node ids %s", err)
 	}
-	sortByXOR(nodeIDsKeys, id.Bytes())
-	if len(nodeIDsKeys) >= limit {
-		nodeIDsKeys = nodeIDsKeys[:limit]
-	}
 	nodeIDs, err := storj.NodeIDsFromBytes(nodeIDsKeys.ByteSlices())
 	if err != nil {
 		return nodes, RoutingErr.Wrap(err)
+	}
+	sortByXOR(nodeIDs, id)
+	if len(nodeIDs) >= limit {
+		nodeIDs = nodeIDs[:limit]
 	}
 
 	nodes, err = rt.getNodesFromIDsBytes(nodeIDs)
@@ -149,6 +169,8 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 		return nil
 	}
 
+	node.Type.DPanicOnInvalid("connection success")
+
 	rt.mutex.Lock()
 	rt.seen[node.Id] = node
 	rt.mutex.Unlock()
@@ -156,27 +178,24 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return RoutingErr.New("could not get node %s", err)
 	}
-
 	if v != nil {
 		err = rt.updateNode(node)
 		if err != nil {
 			return RoutingErr.New("could not update node %s", err)
 		}
-
 		return nil
 	}
-
 	_, err = rt.addNode(node)
 	if err != nil {
 		return RoutingErr.New("could not add node %s", err)
 	}
-
 	return nil
 }
 
 // ConnectionFailed removes a node from the routing table when
 // a connection fails for the node on the network
 func (rt *RoutingTable) ConnectionFailed(node *pb.Node) error {
+	node.Type.DPanicOnInvalid("connection failed")
 	err := rt.removeNode(node.Id)
 	if err != nil {
 		return RoutingErr.New("could not remove node %s", err)
@@ -184,7 +203,7 @@ func (rt *RoutingTable) ConnectionFailed(node *pb.Node) error {
 	return nil
 }
 
-// SetBucketTimestamp updates the last updated time for a bucket
+// SetBucketTimestamp records the time of the last node lookup for a bucket
 func (rt *RoutingTable) SetBucketTimestamp(bIDBytes []byte, now time.Time) error {
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
@@ -195,18 +214,32 @@ func (rt *RoutingTable) SetBucketTimestamp(bIDBytes []byte, now time.Time) error
 	return nil
 }
 
-// GetBucketTimestamp retrieves the last updated time for a bucket
-func (rt *RoutingTable) GetBucketTimestamp(bIDBytes []byte, bucket dht.Bucket) (time.Time, error) {
+// GetBucketTimestamp retrieves time of the last node lookup for a bucket
+func (rt *RoutingTable) GetBucketTimestamp(bIDBytes []byte) (time.Time, error) {
 	t, err := rt.kadBucketDB.Get(bIDBytes)
 	if err != nil {
 		return time.Now(), RoutingErr.New("could not get bucket timestamp %s", err)
 	}
-
 	timestamp, _ := binary.Varint(t)
-
 	return time.Unix(0, timestamp).UTC(), nil
 }
 
 func (rt *RoutingTable) iterate(opts storage.IterateOptions, f func(it storage.Iterator) error) error {
 	return rt.nodeBucketDB.Iterate(opts, f)
+}
+
+// ConnFailure implements the Transport failure function
+func (rt *RoutingTable) ConnFailure(ctx context.Context, node *pb.Node, err error) {
+	err2 := rt.ConnectionFailed(node)
+	if err2 != nil {
+		zap.L().Debug(fmt.Sprintf("error with ConnFailure hook  %+v : %+v", err, err2))
+	}
+}
+
+// ConnSuccess implements the Transport success function
+func (rt *RoutingTable) ConnSuccess(ctx context.Context, node *pb.Node) {
+	err := rt.ConnectionSuccess(node)
+	if err != nil {
+		zap.L().Debug("connection success error:", zap.Error(err))
+	}
 }

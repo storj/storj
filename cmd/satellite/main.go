@@ -21,19 +21,36 @@ import (
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
-	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/discovery"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/storage/redis"
 )
+
+// Satellite defines satellite configuration
+type Satellite struct {
+	CA        identity.CASetupConfig `setup:"true"`
+	Identity  identity.SetupConfig   `setup:"true"`
+	Overwrite bool                   `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
+
+	Server      server.Config
+	Kademlia    kademlia.SatelliteConfig
+	PointerDB   pointerdb.Config
+	Overlay     overlay.Config
+	Checker     checker.Config
+	Repairer    repairer.Config
+	Audit       audit.Config
+	BwAgreement bwagreement.Config
+	Discovery   discovery.Config
+	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+}
 
 var (
 	rootCmd = &cobra.Command{
@@ -62,29 +79,15 @@ var (
 		RunE:  cmdQDiag,
 	}
 
-	runCfg struct {
-		Identity    provider.IdentityConfig
-		Kademlia    kademlia.Config
-		PointerDB   pointerdb.Config
-		Overlay     overlay.Config
-		Checker     checker.Config
-		Repairer    repairer.Config
-		Audit       audit.Config
-		BwAgreement bwagreement.Config
-		Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
-		Discovery   discovery.Config
-	}
-	setupCfg struct {
-		CA        provider.CASetupConfig
-		Identity  provider.IdentitySetupConfig
-		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
-	}
+	runCfg   Satellite
+	setupCfg Satellite
+
 	diagCfg struct {
 		Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	}
 	qdiagCfg struct {
-		DatabaseURL string `help:"the database connection string to use" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
-		QListLimit  int    `help:"maximum segments that can be requested" default:"1000"`
+		Database   string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+		QListLimit int    `help:"maximum segments that can be requested" default:"1000"`
 	}
 
 	defaultConfDir string
@@ -106,7 +109,7 @@ func init() {
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(qdiagCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(qdiagCmd.Flags(), &qdiagCfg, cfgstruct.ConfDir(defaultConfDir))
 }
@@ -127,7 +130,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	//nolint ignoring context rules to not create cyclic dependency, will be removed later
 	ctx = context.WithValue(ctx, "masterdb", database)
 
-	return runCfg.Identity.Run(
+	return runCfg.Server.Run(
 		ctx,
 		grpcauth.NewAPIKeyInterceptor(),
 		runCfg.Kademlia,
@@ -171,7 +174,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
 		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 	}
-	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
+	err = identity.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
 		return err
 	}
@@ -181,8 +184,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"identity.key-path":  setupCfg.Identity.KeyPath,
 	}
 
-	return process.SaveConfig(runCmd.Flags(),
-		filepath.Join(setupDir, "config.yaml"), o)
+	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
@@ -265,16 +267,20 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
-	// open the redis db
-	dbpath := qdiagCfg.DatabaseURL
 
-	redisQ, err := redis.NewQueueFrom(dbpath)
+	// open the master db
+	database, err := satellitedb.New(qdiagCfg.Database)
 	if err != nil {
-		return err
+		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
+	defer func() {
+		err := database.Close()
+		if err != nil {
+			fmt.Printf("error closing connection to master database on satellite: %+v\n", err)
+		}
+	}()
 
-	queue := queue.NewQueue(redisQ)
-	list, err := queue.Peekqueue(qdiagCfg.QListLimit)
+	list, err := database.RepairQueue().Peekqueue(context.Background(), qdiagCfg.QListLimit)
 	if err != nil {
 		return err
 	}

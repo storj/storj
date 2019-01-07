@@ -19,46 +19,42 @@ type Node struct {
 
 // Lookup queries nodes looking for a particular node in the network
 func (node *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node, error) {
+	to.Type.DPanicOnInvalid("node Lookup")
 	conn, err := node.pool.Dial(ctx, &to)
+
 	if err != nil {
 		return nil, NodeClientErr.Wrap(err)
 	}
-
 	resp, err := conn.Query(ctx, &pb.QueryRequest{
 		Limit:    20,
 		Sender:   &node.self,
 		Target:   &find,
 		Pingback: true,
 	})
-
 	if err != nil {
 		return nil, NodeClientErr.Wrap(err)
 	}
-
 	rt, err := node.dht.GetRoutingTable(ctx)
 	if err != nil {
 		return nil, NodeClientErr.Wrap(err)
 	}
-
 	if err := rt.ConnectionSuccess(&to); err != nil {
 		return nil, NodeClientErr.Wrap(err)
 	}
-
 	return resp.Response, nil
 }
 
 // Ping attempts to establish a connection with a node to verify it is alive
 func (node *Node) Ping(ctx context.Context, to pb.Node) (bool, error) {
+	to.Type.DPanicOnInvalid("node ping")
 	conn, err := node.pool.Dial(ctx, &to)
 	if err != nil {
 		return false, NodeClientErr.Wrap(err)
 	}
-
 	_, err = conn.Ping(ctx, &pb.PingRequest{})
 	if err != nil {
 		return false, err
 	}
-
 	return true, nil
 }
 

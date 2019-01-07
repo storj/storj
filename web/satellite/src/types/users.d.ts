@@ -4,16 +4,11 @@
 declare type User = {
 	firstName: string,
 	lastName: string,
-	email: string,
-	id: string,
-	company: Company
+	email: string
 }
 
-declare type Company = {
-	name: string,
-	address: string,
-	country: string,
-	city: string,
-	state: string,
-	postalCode: string
+// Used in users module to pass parameters to action
+declare type UpdatePasswordModel = {
+    oldPassword: string,
+	newPassword: string
 }

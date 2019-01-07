@@ -47,11 +47,6 @@ func (db *Database) Users() satellite.Users {
 	return &users{db.methods}
 }
 
-// Companies is a getter for Companies repository
-func (db *Database) Companies() satellite.Companies {
-	return &companies{db.methods}
-}
-
 // Projects is a getter for Projects repository
 func (db *Database) Projects() satellite.Projects {
 	return &projects{db.methods}
@@ -59,7 +54,12 @@ func (db *Database) Projects() satellite.Projects {
 
 // ProjectMembers is a getter for ProjectMembers repository
 func (db *Database) ProjectMembers() satellite.ProjectMembers {
-	return &projectMembers{db.methods}
+	return &projectMembers{db.methods, db.db}
+}
+
+// APIKeys is a getter for APIKeys repository
+func (db *Database) APIKeys() satellite.APIKeys {
+	return &apikeys{db.methods}
 }
 
 // CreateTables is a method for creating all tables for satellitedb

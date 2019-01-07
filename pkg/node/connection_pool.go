@@ -43,9 +43,9 @@ type Conn struct {
 func NewConn(addr string) *Conn { return &Conn{addr: addr} }
 
 // NewConnectionPool initializes a new in memory pool
-func NewConnectionPool(identity *provider.FullIdentity) *ConnectionPool {
+func NewConnectionPool(identity *provider.FullIdentity, obs ...transport.Observer) *ConnectionPool {
 	return &ConnectionPool{
-		tc:    transport.NewClient(identity),
+		tc:    transport.NewClient(identity, obs...),
 		items: make(map[storj.NodeID]*Conn),
 		mu:    sync.RWMutex{},
 	}
@@ -100,6 +100,10 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 		pool.items[id] = conn
 	}
 	pool.mu.Unlock()
+
+	if n != nil {
+		n.Type.DPanicOnInvalid("connection pool dial")
+	}
 
 	conn.dial.Do(func() {
 		grpc, err := pool.tc.DialNode(ctx, n, grpc.WithBlock())

@@ -12,12 +12,12 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/datarepair/irreparable"
-	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestIrreparable(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
@@ -40,7 +40,7 @@ func testDatabase(ctx context.Context, t *testing.T, irrdb irreparable.DB) {
 		assert.NoError(t, err)
 	}
 
-	{ //Increment the already existing entry
+	{ //Create the already existing entry
 		err := irrdb.IncrementRepairAttempts(ctx, segmentInfo)
 		assert.NoError(t, err)
 		segmentInfo.RepairAttemptCount++

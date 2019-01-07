@@ -4,115 +4,148 @@
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
 
-// Performs graqhQL request.
-// Throws an exception if error occurs
-export async function createProject(project: Project): Promise<any> {
-	let response = await apollo.mutate(
-		{
-			mutation: gql(`
-                mutation {
-                    createProject(
-                        input: {
-                            name: "${project.name}",
-                            description: "${project.description}",
-                            companyName: "${project.companyName}",
-                            isTermsAccepted: ${project.isTermsAccepted},
-                        }
-                    ) {id}
-                }`
-			),
-			fetchPolicy: 'no-cache',
-		}
-	);
+// Performs graqhQL request for project creation.
+export async function createProject(project: Project): Promise<RequestResponse<Project>> {
+    let result: RequestResponse<Project> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: project
+    };
 
-	if (!response) {
-		// TODO: replace with popup in future
-		console.error('cannot create project');
+    try {
+        let response: any = await apollo.mutate(
+            {
+                mutation: gql(`
+					mutation {
+						createProject(
+							input: {
+								name: "${project.name}",
+								description: "${project.description}",
+								isTermsAccepted: ${project.isTermsAccepted},
+							}
+						) {id}
+					}`
+                ),
+                fetchPolicy: 'no-cache',
+            }
+        );
 
-		return null;
-	}
+        if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+            result.data.id = response.data.createProject.id;
+        }
+    } catch (e) {
+        result.errorMessage = e.message;
+    }
 
-	return response;
+    return result;
 }
 
 // Performs graqhQL request for fetching all projects of current user.
-export async function fetchProjects(): Promise<any> {
-	let response = await apollo.query(
-		{
-			query: gql(`
-                query {
-                    myProjects{
-                        name
-                        id
-                        description
-                        createdAt            
-                        ownerName           
-                        companyName           
-                        isTermsAccepted
-                    }
-                }`
-			),
-			fetchPolicy: 'no-cache',
-		}
-	);
+export async function fetchProjects(): Promise<RequestResponse<Project[]>> {
+    let result: RequestResponse<Project[]> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: []
+    };
 
-	if (!response) {
-		// TODO: replace with popup in future
-		console.error('cannot fetch projects');
+    try {
+        let response: any = await apollo.query(
+            {
+                query: gql(`
+					query {
+						myProjects{
+							name
+							id
+							description
+							createdAt
+						}
+					}`
+                ),
+                fetchPolicy: 'no-cache',
+            }
+        );
 
-		return null;
+        if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+            result.data = response.data.myProjects;
+        }
+    } catch (e) {
+        result.errorMessage = e.message;
 	}
 
-	return response;
+    return result;
 }
 
 // Performs graqhQL request for updating selected project description
-export async function updateProject(projectID: string, description: string): Promise<any> {
-	let response = await apollo.mutate(
-		{
-			mutation: gql(`
-                mutation {
-                    updateProjectDescription(
-                        id: "${projectID}",
-                        description: "${description}"
-                    )
-                }`
-			),
-			fetchPolicy: 'no-cache',
-		}
-	);
+export async function updateProject(projectID: string, description: string): Promise<RequestResponse<null>> {
+    let result: RequestResponse<null> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: null
+    };
 
-	if (!response) {
-		// TODO: replace with popup in future
-		console.error('cannot update project');
+    try {
+        let response: any = await apollo.mutate(
+            {
+                mutation: gql(`
+					mutation {
+						updateProjectDescription(
+							id: "${projectID}",
+							description: "${description}"
+						)
+					}`
+                ),
+                fetchPolicy: 'no-cache',
+            }
+        );
 
-		return null;
-	}
+        if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+        }
+    } catch (e) {
+        result.errorMessage = e.message;
+    }
 
-	return response;
+    return result;
 }
 
 // Performs graqhQL request for deleting selected project
-export async function deleteProject(projectID: string): Promise<any> {
-	let response = await apollo.mutate(
-		{
-			mutation: gql(`
-                mutation {
-                    deleteProject(
-                        id: "${projectID}"
-                    )
-                }`
-			),
-			fetchPolicy: 'no-cache',
-		}
-	);
+export async function deleteProject(projectID: string): Promise<RequestResponse<null>> {
+    let result: RequestResponse<null> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: null
+    };
 
-	if (!response) {
-		// TODO: replace with popup in future
-		console.error('cannot delete project');
+    try {
+        let response = await apollo.mutate(
+            {
+                mutation: gql(`
+					mutation {
+						deleteProject(
+							id: "${projectID}"
+						)
+					}`
+                ),
+                fetchPolicy: 'no-cache',
+            }
+        );
 
-		return null;
-	}
+        if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+        }
+    } catch (e) {
+        result.errorMessage = e.message;
+    }
 
-	return response;
+    return result;
 }

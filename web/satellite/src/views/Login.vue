@@ -64,19 +64,15 @@ import { getTokenRequest } from '@/api/users';
             this.$data.password = value;
         },
         onLogin: async function () {
-            try {
-                let loginData = await getTokenRequest(this.$data.email, this.$data.password);
+            let loginResponse = await getTokenRequest(this.$data.email, this.$data.password);
+            if (!loginResponse.isSuccess) {
+                this.$store.dispatch('error', loginResponse.errorMessage);
 
-                setToken(loginData.data.token.token);
-                this.$store.dispatch('setUserInfo', loginData.data.token.user)
-                    .then(() => {
-                        this.$router.push(ROUTES.DASHBOARD.path);
-                    }).catch((error) => {
-                    console.error(error);
-                });
-            } catch (error) {
-                console.error(error);
+                return;
             }
+
+            setToken(loginResponse.data);
+            this.$router.push(ROUTES.DASHBOARD.path);
         }
 
     },

@@ -112,6 +112,9 @@ func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	if len(nodeData) == 0 {
+		return nil
+	}
 	latestTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastAtRestTally)
 	if err != nil {
 		return Error.Wrap(err)
@@ -132,6 +135,7 @@ func (t *tally) queryBW(ctx context.Context) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
 	var bwAgreements []bwagreement.Agreement
 	if isNil {
 		t.logger.Info("Tally found no existing bandwith tracking data")
@@ -142,6 +146,7 @@ func (t *tally) queryBW(ctx context.Context) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
 	if len(bwAgreements) == 0 {
 		t.logger.Info("Tally found no new bandwidth allocations")
 		return nil

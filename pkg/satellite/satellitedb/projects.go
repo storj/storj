@@ -29,19 +29,9 @@ func (projects *projects) GetAll(ctx context.Context) ([]satellite.Project, erro
 	return projectsFromDbxSlice(projectsDbx)
 }
 
-// GetByOwnerID is a method for querying projects from the database by ownerID.
-func (projects *projects) GetByOwnerID(ctx context.Context, ownerID uuid.UUID) ([]satellite.Project, error) {
-	projectsDbx, err := projects.db.All_Project_By_OwnerId(ctx, dbx.Project_OwnerId(ownerID[:]))
-	if err != nil {
-		return nil, err
-	}
-
-	return projectsFromDbxSlice(projectsDbx)
-}
-
 // GetByUserID is a method for querying all projects from the database by userID.
 func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) ([]satellite.Project, error) {
-	projectsDbx, err := projects.db.All_Project_By_ProjectMember_MemberId(ctx, dbx.ProjectMember_MemberId(userID[:]))
+	projectsDbx, err := projects.db.All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx, dbx.ProjectMember_MemberId(userID[:]))
 	if err != nil {
 		return nil, err
 	}
@@ -66,23 +56,11 @@ func (projects *projects) Insert(ctx context.Context, project *satellite.Project
 		return nil, err
 	}
 
-	var ownerID dbx.Project_OwnerId_Field
-
-	if project.OwnerID != nil {
-		ownerID = dbx.Project_OwnerId(project.OwnerID[:])
-	} else {
-		ownerID = dbx.Project_OwnerId(nil)
-	}
-
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),
 		dbx.Project_Name(project.Name),
-		dbx.Project_CompanyName(project.CompanyName),
 		dbx.Project_Description(project.Description),
-		dbx.Project_TermsAccepted(project.TermsAccepted),
-		dbx.Project_Create_Fields{
-			OwnerId: ownerID,
-		})
+		dbx.Project_TermsAccepted(project.TermsAccepted))
 
 	if err != nil {
 		return nil, err
@@ -103,10 +81,6 @@ func (projects *projects) Update(ctx context.Context, project *satellite.Project
 	updateFields := dbx.Project_Update_Fields{
 		Description:   dbx.Project_Description(project.Description),
 		TermsAccepted: dbx.Project_TermsAccepted(project.TermsAccepted),
-	}
-
-	if project.OwnerID != nil {
-		updateFields.OwnerId = dbx.Project_OwnerId(project.OwnerID[:])
 	}
 
 	_, err := projects.db.Update_Project_By_Id(ctx,
@@ -130,21 +104,9 @@ func projectFromDBX(project *dbx.Project) (*satellite.Project, error) {
 	u := &satellite.Project{
 		ID:            id,
 		Name:          project.Name,
-		CompanyName:   project.CompanyName,
 		Description:   project.Description,
 		TermsAccepted: project.TermsAccepted,
 		CreatedAt:     project.CreatedAt,
-	}
-
-	if project.OwnerId == nil {
-		u.OwnerID = nil
-	} else {
-		ownerID, err := bytesToUUID(project.OwnerId)
-		if err != nil {
-			return nil, err
-		}
-
-		u.OwnerID = &ownerID
 	}
 
 	return u, nil

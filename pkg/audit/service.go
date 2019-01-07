@@ -25,7 +25,7 @@ type Service struct {
 
 // Config contains configurable values for audit service
 type Config struct {
-	APIKey           string        `help:"APIKey to access the statdb" default:"abc123"`
+	APIKey           string        `help:"APIKey to access the statdb" default:""`
 	SatelliteAddr    string        `help:"address to contact services on the satellite"`
 	MaxRetriesStatDB int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
 	Interval         time.Duration `help:"how frequently segments are audited" default:"30s"`
@@ -101,8 +101,7 @@ func (service *Service) process(ctx context.Context) error {
 		return nil
 	}
 
-	authorization := service.Cursor.pointers.SignedMessage()
-	verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
+	verifiedNodes, err := service.Verifier.verify(ctx, stripe)
 	if err != nil {
 		return err
 	}

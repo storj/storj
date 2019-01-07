@@ -13,20 +13,20 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-var (
-	runCmd = addCmd(&cobra.Command{
+func init() {
+	addCmd(&cobra.Command{
 		Use:   "run",
 		Short: "Run the S3 gateway",
 		RunE:  cmdRun,
 	}, GWCmd)
-)
+}
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	for _, flagname := range args {
 		return fmt.Errorf("Invalid argument %#v. Try 'uplink run'", flagname)
 	}
 
-	address := cfg.Identity.Server.Address
+	address := cfg.Server.Address
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
 		return err

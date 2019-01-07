@@ -55,5 +55,6 @@ func MockNode(s string) *pb.Node {
 	id := NodeIDFromString(s)
 	var node pb.Node
 	node.Id = id
+	node.Type = pb.NodeType_STORAGE
 	return &node
 }

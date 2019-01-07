@@ -49,14 +49,9 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return Error.New("unable to get master db instance")
 	}
 
-	id, err := provider.NewFullIdentity(ctx, 12, 4)
-	if err != nil {
-		return Error.New("error creating inspector identity:")
-	}
-
 	srv := &Server{
 		dht:      kad,
-		identity: id,
+		identity: server.Identity(),
 		cache:    ol,
 		statdb:   sdb.StatDB(),
 		logger:   zap.L(),

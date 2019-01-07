@@ -140,6 +140,22 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 				return
 			}
 
+			if allocData.GetPayerAllocation() == nil {
+				allocationTracking.Fail(StoreError.New("no payer bandwidth allocation"))
+				return
+			}
+
+			pbaData := &pb.PayerBandwidthAllocation_Data{}
+			if err = proto.Unmarshal(allocData.GetPayerAllocation().GetData(), pbaData); err != nil {
+				allocationTracking.Fail(err)
+				return
+			}
+
+			if err = s.verifyPayerAllocation(pbaData, pb.PayerBandwidthAllocation_GET); err != nil {
+				allocationTracking.Fail(err)
+				return
+			}
+
 			// TODO: break when lastTotal >= allocData.GetPayer_allocation().GetData().GetMax_size()
 
 			if lastTotal > allocData.GetTotal() {

@@ -15,13 +15,21 @@ import (
 
 	"go.uber.org/zap"
 
+	"gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/satellite/satelliteauth"
-	"storj.io/storj/pkg/utils"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // maxLimit specifies the limit for all paged queries
-const maxLimit = 50
+const (
+	// maxLimit specifies the limit for all paged queries
+	maxLimit = 50
+)
 
 // Service is handling accounts related logic
 type Service struct {
@@ -49,7 +57,8 @@ func NewService(log *zap.Logger, signer Signer, store DB) (*Service, error) {
 }
 
 // CreateUser gets password hash value and creates new User
-func (s *Service) CreateUser(ctx context.Context, user CreateUser) (*User, error) {
+func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if err := user.IsValid(); err != nil {
 		return nil, err
 	}
@@ -68,7 +77,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (*User, error
 }
 
 // Token authenticates User by credentials and returns auth token
-func (s *Service) Token(ctx context.Context, email, password string) (string, error) {
+func (s *Service) Token(ctx context.Context, email, password string) (token string, err error) {
+	defer mon.Task()(&ctx)(&err)
 	user, err := s.store.Users().GetByEmail(ctx, email)
 	if err != nil {
 		return "", err
@@ -85,7 +95,7 @@ func (s *Service) Token(ctx context.Context, email, password string) (string, er
 		Expiration: time.Now().Add(time.Minute * 15),
 	}
 
-	token, err := s.createToken(&claims)
+	token, err = s.createToken(&claims)
 	if err != nil {
 		return "", err
 	}
@@ -94,8 +104,9 @@ func (s *Service) Token(ctx context.Context, email, password string) (string, er
 }
 
 // GetUser returns User by id
-func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*User, error) {
-	_, err := GetAuth(ctx)
+func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -103,9 +114,11 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*User, error) {
 	return s.store.Users().Get(ctx, id)
 }
 
-// UpdateUser updates User with given id
-func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) error {
-	_, err := GetAuth(ctx)
+// UpdateAccount updates User
+func (s *Service) UpdateAccount(ctx context.Context, info UserInfo) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
@@ -115,7 +128,7 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) e
 	}
 
 	return s.store.Users().Update(ctx, &User{
-		ID:           id,
+		ID:           auth.User.ID,
 		FirstName:    info.FirstName,
 		LastName:     info.LastName,
 		Email:        info.Email,
@@ -123,19 +136,15 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, info UserInfo) e
 	})
 }
 
-// ChangeUserPassword updates password for a given user
-func (s *Service) ChangeUserPassword(ctx context.Context, id uuid.UUID, pass, newPass string) error {
-	_, err := GetAuth(ctx)
+// ChangePassword updates password for a given user
+func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	user, err := s.store.Users().Get(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(pass))
+	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(pass))
 	if err != nil {
 		return ErrUnauthorized.New("origin password is incorrect: %s", err.Error())
 	}
@@ -149,19 +158,16 @@ func (s *Service) ChangeUserPassword(ctx context.Context, id uuid.UUID, pass, ne
 		return err
 	}
 
-	user.PasswordHash = hash
-	return s.store.Users().Update(ctx, user)
+	auth.User.PasswordHash = hash
+	return s.store.Users().Update(ctx, &auth.User)
 }
 
-// DeleteUser deletes User by id
-func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string) error {
+// DeleteAccount deletes User
+func (s *Service) DeleteAccount(ctx context.Context, password string) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
-	}
-
-	if !uuid.Equal(auth.User.ID, id) {
-		return ErrUnauthorized.New("user has no rights")
 	}
 
 	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(password))
@@ -169,67 +175,13 @@ func (s *Service) DeleteUser(ctx context.Context, id uuid.UUID, password string)
 		return ErrUnauthorized.New("origin password is incorrect")
 	}
 
-	projects, err := s.store.Projects().GetByOwnerID(ctx, auth.User.ID)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	if len(projects) > 0 {
-		return errs.New("can't delete account with project ownership")
-	}
-
-	return s.store.Users().Delete(ctx, id)
-}
-
-// CreateCompany creates Company for User with given id
-func (s *Service) CreateCompany(ctx context.Context, userID uuid.UUID, info CompanyInfo) (*Company, error) {
-	_, err := GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.store.Companies().Insert(ctx, &Company{
-		UserID:     userID,
-		Name:       info.Name,
-		Address:    info.Address,
-		Country:    info.Country,
-		City:       info.City,
-		State:      info.State,
-		PostalCode: info.PostalCode,
-	})
-}
-
-// GetCompany returns Company by userID
-func (s *Service) GetCompany(ctx context.Context, userID uuid.UUID) (*Company, error) {
-	_, err := GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.store.Companies().GetByUserID(ctx, userID)
-}
-
-// UpdateCompany updates Company with given userID
-func (s *Service) UpdateCompany(ctx context.Context, userID uuid.UUID, info CompanyInfo) error {
-	_, err := GetAuth(ctx)
-	if err != nil {
-		return err
-	}
-
-	return s.store.Companies().Update(ctx, &Company{
-		UserID:     userID,
-		Name:       info.Name,
-		Address:    info.Address,
-		Country:    info.Country,
-		City:       info.City,
-		State:      info.State,
-		PostalCode: info.PostalCode,
-	})
+	return s.store.Users().Delete(ctx, auth.User.ID)
 }
 
 // GetProject is a method for querying project by id
-func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (*Project, error) {
-	_, err := GetAuth(ctx)
+func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +190,8 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (*Project
 }
 
 // GetUsersProjects is a method for querying all projects
-func (s *Service) GetUsersProjects(ctx context.Context) ([]Project, error) {
+func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error) {
+	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
@@ -248,7 +201,8 @@ func (s *Service) GetUsersProjects(ctx context.Context) ([]Project, error) {
 }
 
 // CreateProject is a method for creating new project
-func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*Project, error) {
+func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p *Project, err error) {
+	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
@@ -259,9 +213,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 	}
 
 	project := &Project{
-		OwnerID:       &auth.User.ID,
 		Description:   projectInfo.Description,
-		CompanyName:   projectInfo.CompanyName,
 		Name:          projectInfo.Name,
 		TermsAccepted: 1, //TODO: get lat version of Term of Use
 	}
@@ -271,41 +223,44 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (*
 		return nil, err
 	}
 
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, transaction.Rollback())
+			return
+		}
+
+		err = transaction.Commit()
+	}()
+
 	prj, err := transaction.Projects().Insert(ctx, project)
 	if err != nil {
-		return nil, utils.CombineErrors(err, transaction.Rollback())
+		return nil, err
 	}
 
 	_, err = transaction.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
 	if err != nil {
-		return nil, utils.CombineErrors(err, transaction.Rollback())
+		return nil, err
 	}
 
-	return prj, transaction.Commit()
+	return prj, nil
 }
 
 // DeleteProject is a method for deleting project by id
-func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) error {
-	auth, err := GetAuth(ctx)
+func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	project, err := s.store.Projects().Get(ctx, projectID)
-	if err != nil {
-		return err
-	}
-
-	if !uuid.Equal(auth.User.ID, *project.OwnerID) {
-		return ErrUnauthorized.New("only owner can delete the project")
-	}
-
+	// TODO: before deletion we should check if user is a project member
 	return s.store.Projects().Delete(ctx, projectID)
 }
 
 // UpdateProject is a method for updating project description by id
-func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, description string) (*Project, error) {
-	_, err := GetAuth(ctx)
+func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, description string) (p *Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -325,47 +280,225 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, descri
 	return project, nil
 }
 
-// AddProjectMember adds User as member of given Project
-func (s *Service) AddProjectMember(ctx context.Context, projectID, userID uuid.UUID) error {
-	_, err := GetAuth(ctx)
+// AddProjectMembers adds users by email to given project
+func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	_, err = s.store.ProjectMembers().Insert(ctx, userID, projectID)
-	return err
+	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+
+	var userIDs []uuid.UUID
+	var userErr errs.Group
+
+	// collect user querying errors
+	for _, email := range emails {
+		user, err := s.store.Users().GetByEmail(ctx, email)
+
+		if err != nil {
+			userErr.Add(err)
+			continue
+		}
+
+		userIDs = append(userIDs, user.ID)
+	}
+
+	if err = userErr.Err(); err != nil {
+		return err
+	}
+
+	// add project members in transaction scope
+	tx, err := s.store.BeginTx(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+
+	for _, uID := range userIDs {
+		_, err = tx.ProjectMembers().Insert(ctx, uID, projectID)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-// DeleteProjectMember removes user membership for given project
-func (s *Service) DeleteProjectMember(ctx context.Context, projectID, userID uuid.UUID) error {
-	_, err := GetAuth(ctx)
+// DeleteProjectMembers removes users by email from given project
+func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	return s.store.ProjectMembers().Delete(ctx, userID, projectID)
+	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+
+	var userIDs []uuid.UUID
+	var userErr errs.Group
+
+	// collect user querying errors
+	for _, email := range emails {
+		user, err := s.store.Users().GetByEmail(ctx, email)
+
+		if err != nil {
+			userErr.Add(err)
+			continue
+		}
+
+		userIDs = append(userIDs, user.ID)
+	}
+
+	if err = userErr.Err(); err != nil {
+		return err
+	}
+
+	// delete project members in transaction scope
+	tx, err := s.store.BeginTx(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+
+	for _, uID := range userIDs {
+		err = tx.ProjectMembers().Delete(ctx, uID, projectID)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
-func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, limit int, offset int64) ([]ProjectMember, error) {
-	_, err := GetAuth(ctx)
+func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, pagination Pagination) (pm []ProjectMember, err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if limit < 0 || offset < 0 {
-		return nil, errs.New("invalid pagination argument")
+	if pagination.Limit > maxLimit {
+		pagination.Limit = maxLimit
 	}
 
-	if limit > maxLimit {
-		limit = maxLimit
+	return s.store.ProjectMembers().GetByProjectID(ctx, projectID, pagination)
+}
+
+// CreateAPIKey creates new api key
+func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (*APIKeyInfo, *APIKey, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return s.store.ProjectMembers().GetByProjectID(ctx, projectID, limit, offset)
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, nil, ErrUnauthorized.Wrap(err)
+	}
+
+	key, err := createAPIKey()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	info, err := s.store.APIKeys().Create(ctx, *key, APIKeyInfo{
+		Name:      name,
+		ProjectID: projectID,
+	})
+	return info, key, err
+}
+
+// GetAPIKeyInfo retrieves api key by id
+func (s *Service) GetAPIKeyInfo(ctx context.Context, id uuid.UUID) (*APIKeyInfo, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := s.store.APIKeys().Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, key.ProjectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	return key, nil
+}
+
+// DeleteAPIKey deletes api key by id
+func (s *Service) DeleteAPIKey(ctx context.Context, id uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	key, err := s.store.APIKeys().Get(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, key.ProjectID)
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+
+	return s.store.APIKeys().Delete(ctx, id)
+}
+
+// GetAPIKeysInfoByProjectID retrieves all api keys for a given project
+func (s *Service) GetAPIKeysInfoByProjectID(ctx context.Context, projectID uuid.UUID) (info []APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	return s.store.APIKeys().GetByProjectID(ctx, projectID)
 }
 
 // Authorize validates token from context and returns authorized Authorization
-func (s *Service) Authorize(ctx context.Context) (Authorization, error) {
+func (s *Service) Authorize(ctx context.Context) (a Authorization, err error) {
+	defer mon.Task()(&ctx)(&err)
 	tokenS, ok := auth.GetAPIKey(ctx)
 	if !ok {
 		return Authorization{}, ErrUnauthorized.New("no api key was provided")
@@ -441,4 +574,36 @@ func (s *Service) authorize(ctx context.Context, claims *satelliteauth.Claims) (
 	}
 
 	return user, nil
+}
+
+// isProjectMember is return type of isProjectMember service method
+type isProjectMember struct {
+	project    *Project
+	membership *ProjectMember
+}
+
+// ErrNoMembership is error type of not belonging to a specific project
+var ErrNoMembership = errs.Class("no membership error")
+
+// isProjectMember checks if the user is a member of given project
+func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (result isProjectMember, err error) {
+	project, err := s.store.Projects().Get(ctx, projectID)
+	if err != nil {
+		return
+	}
+
+	memberships, err := s.store.ProjectMembers().GetByMemberID(ctx, userID)
+	if err != nil {
+		return
+	}
+
+	for _, membership := range memberships {
+		if membership.ProjectID == projectID {
+			result.membership = &membership
+			result.project = project
+			return
+		}
+	}
+
+	return isProjectMember{}, ErrNoMembership.New("user %s is not a member of project %s", userID, project.ID)
 }

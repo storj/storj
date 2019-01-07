@@ -15,6 +15,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -70,13 +71,15 @@ type TLSExtConfig struct {
 }
 
 // ExtensionHandlers is a collection of `extensionHandler`s for convenience (see `VerifyFunc`)
-type ExtensionHandlers []extensionHandler
+type ExtensionHandlers []ExtensionHandler
 
 type extensionVerificationFunc func(pkix.Extension, [][]*x509.Certificate) error
 
-type extensionHandler struct {
-	id     asn1.ObjectIdentifier
-	verify extensionVerificationFunc
+// ExtensionHandler represents a verify function for handling an extension
+// with the given ID
+type ExtensionHandler struct {
+	ID     asn1.ObjectIdentifier
+	Verify extensionVerificationFunc
 }
 
 // ParseExtOptions holds options for calling `ParseExtensions`
@@ -105,16 +108,16 @@ type RevocationDB struct {
 // to be used in the context of peer certificate verification.
 func ParseExtensions(c TLSExtConfig, opts ParseExtOptions) (handlers ExtensionHandlers) {
 	if c.WhitelistSignedLeaf {
-		handlers = append(handlers, extensionHandler{
-			id:     ExtensionIDs[SignedCertExtID],
-			verify: verifyCAWhitelistSignedLeafFunc(opts.CAWhitelist),
+		handlers = append(handlers, ExtensionHandler{
+			ID:     ExtensionIDs[SignedCertExtID],
+			Verify: verifyCAWhitelistSignedLeafFunc(opts.CAWhitelist),
 		})
 	}
 
 	if c.Revocation {
-		handlers = append(handlers, extensionHandler{
-			id: ExtensionIDs[RevocationExtID],
-			verify: func(certExt pkix.Extension, chains [][]*x509.Certificate) error {
+		handlers = append(handlers, ExtensionHandler{
+			ID: ExtensionIDs[RevocationExtID],
+			Verify: func(certExt pkix.Extension, chains [][]*x509.Certificate) error {
 				if err := opts.RevDB.Put(chains[0], certExt); err != nil {
 					return err
 				}
@@ -243,8 +246,8 @@ func (e ExtensionHandlers) VerifyFunc() PeerCertVerificationFunc {
 		}
 
 		for _, handler := range e {
-			if ext, ok := leafExts[handler.id.String()]; ok {
-				err := handler.verify(ext, parsedChains)
+			if ext, ok := leafExts[handler.ID.String()]; ok {
+				err := handler.Verify(ext, parsedChains)
 				if err != nil {
 					return ErrExtension.Wrap(err)
 				}
@@ -287,7 +290,8 @@ func (r RevocationDB) Put(chain []*x509.Certificate, revExt pkix.Extension) erro
 		return err
 	}
 
-	// TODO: what happens if cert/timestamp/sig is empty/garbage?
+	// TODO: do we care if cert/timestamp/sig is empty/garbage?
+	// TODO(bryanchriswhite): test empty/garbage cert/timestamp/sig
 
 	if err := rev.Verify(ca); err != nil {
 		return err
@@ -400,4 +404,30 @@ func verifyCAWhitelistSignedLeafFunc(caWhitelist []*x509.Certificate) extensionV
 		}
 		return ErrVerifyCAWhitelist.New("leaf extension")
 	}
+}
+
+// NewRevDB returns a new revocation database given the URL
+func NewRevDB(revocationDBURL string) (*RevocationDB, error) {
+	driver, source, err := utils.SplitDBURL(revocationDBURL)
+	if err != nil {
+		return nil, ErrRevocationDB.Wrap(err)
+	}
+
+	var db *RevocationDB
+	switch driver {
+	case "bolt":
+		db, err = NewRevocationDBBolt(source)
+		if err != nil {
+			return nil, ErrRevocationDB.Wrap(err)
+		}
+	case "redis":
+		db, err = NewRevocationDBRedis(revocationDBURL)
+		if err != nil {
+			return nil, ErrRevocationDB.Wrap(err)
+		}
+	default:
+		return nil, ErrRevocationDB.New("database scheme not supported: %s", driver)
+	}
+
+	return db, nil
 }

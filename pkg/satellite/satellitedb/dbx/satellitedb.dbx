@@ -25,37 +25,12 @@ update user ( where user.id = ? )
 delete user ( where user.id = ? )
 
 
-model company (
-    key user_id
-
-    field user_id     user.id   cascade
-
-    field name        text      ( updatable )
-    field address     text      ( updatable )
-    field country     text      ( updatable )
-    field city        text      ( updatable )
-    field state       text      ( updatable )
-    field postal_code text      ( updatable )
-
-    field created_at  timestamp ( autoinsert )
-)
-read one (
-    select company
-    where company.user_id = ?
-)
-create company ( )
-update company ( where company.user_id = ? )
-delete company ( where company.user_id = ? )
-
-
 model project (
     key id
 
     field id             blob
-    field owner_id       user.id   setnull ( nullable, updatable )
 
     field name           text
-    field company_name   text
     field description    text      ( updatable )
     // stores last accepted version of terms of use
     field terms_accepted int       ( updatable )
@@ -69,12 +44,9 @@ read one (
 )
 read all (
     select project
-    where project.owner_id = ?
-)
-read all (
-    select project
     join project.id = project_member.project_id
     where project_member.member_id = ?
+    orderby asc project.name
 )
 create project ( )
 update project ( where project.id = ? )
@@ -92,10 +64,6 @@ model project_member (
 
 read all (
     select project_member
-    where project_member.project_id = ?
-)
-read one (
-    select project_member
     where project_member.member_id = ?
 )
 read limitoffset (
@@ -106,4 +74,33 @@ create project_member ( )
 delete project_member (
     where project_member.member_id = ?
     where project_member.project_id = ?
+)
+
+model api_key (
+    key id
+    unique key
+    unique name project_id
+
+    field id blob
+    field project_id project.id cascade
+
+    field key blob
+
+    field name text (updatable)
+
+    field created_at    timestamp ( autoinsert )
+)
+
+create api_key ()
+update api_key ( where api_key.id = ? )
+delete api_key ( where api_key.id = ? )
+
+read one (
+    select api_key
+    where api_key.id = ?
+)
+read all (
+    select api_key
+    where api_key.project_id = ?
+    orderby asc api_key.name
 )

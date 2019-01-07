@@ -43,8 +43,8 @@ import AccountButton from './account/AccountButton.vue';
         components: {
             ProjectSelectionArea,
             NewProjectArea,
-            AccountButton
-        }
+            AccountButton,
+        },
     }
 )
 
@@ -61,8 +61,8 @@ export default class DashboardHeader extends Vue {
         flex-direction: row;
         align-items: center;
         justify-content: space-between;
-        padding-left: 4vw;
-        padding-right: 4vw;
+        padding-left: 60px;
+        padding-right: 60px;
 
         &__left-area {
             width: 100%;
@@ -93,7 +93,7 @@ export default class DashboardHeader extends Vue {
             }
 
             &__project-selection {
-                margin-left: 250px;
+                margin-left: 265px;
             }
         }
 

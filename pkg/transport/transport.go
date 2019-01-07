@@ -24,6 +24,13 @@ var (
 	timeout = 20 * time.Second
 )
 
+// Observer implements the ConnSuccess and ConnFailure methods
+// for Discovery and other services to use
+type Observer interface {
+	ConnSuccess(ctx context.Context, node *pb.Node)
+	ConnFailure(ctx context.Context, node *pb.Node, err error)
+}
+
 // Client defines the interface to an transport client.
 type Client interface {
 	DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error)
@@ -33,18 +40,24 @@ type Client interface {
 
 // Transport interface structure
 type Transport struct {
-	identity *provider.FullIdentity
+	identity  *provider.FullIdentity
+	observers []Observer
 }
 
 // NewClient returns a newly instantiated Transport Client
-func NewClient(identity *provider.FullIdentity) Client {
-	return &Transport{identity: identity}
+func NewClient(identity *provider.FullIdentity, obs ...Observer) Client {
+	return &Transport{
+		identity:  identity,
+		observers: obs,
+	}
 }
 
 // DialNode returns a grpc connection with tls to a node
 func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
-
+	if node != nil {
+		node.Type.DPanicOnInvalid("transport dial node")
+	}
 	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")
 	}
@@ -59,7 +72,16 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 
 	ctx, cf := context.WithTimeout(ctx, timeout)
 	defer cf()
-	return grpc.DialContext(ctx, node.GetAddress().Address, options...)
+
+	conn, err = grpc.DialContext(ctx, node.GetAddress().Address, options...)
+	if err != nil {
+		alertFail(ctx, transport.observers, node, err)
+		return nil, Error.Wrap(err)
+	}
+
+	alertSuccess(ctx, transport.observers, node)
+
+	return conn, err
 }
 
 // DialAddress returns a grpc connection with tls to an IP address
@@ -80,4 +102,14 @@ func (transport *Transport) Identity() *provider.FullIdentity {
 	return transport.identity
 }
 
-// Close implements io.closer, closing the transport connection(s)
+func alertFail(ctx context.Context, obs []Observer, node *pb.Node, err error) {
+	for _, o := range obs {
+		o.ConnFailure(ctx, node, err)
+	}
+}
+
+func alertSuccess(ctx context.Context, obs []Observer, node *pb.Node) {
+	for _, o := range obs {
+		o.ConnSuccess(ctx, node)
+	}
+}

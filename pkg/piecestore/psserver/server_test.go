@@ -28,9 +28,10 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/internal/identity"
+	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/storj"
 )
@@ -340,12 +341,20 @@ func TestStore(t *testing.T) {
 			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
 			assert.NoError(err)
 
+			pbad := &pb.PayerBandwidthAllocation_Data{
+				SatelliteId: teststorj.NodeIDFromString("satelliteid"),
+				UplinkId:    teststorj.NodeIDFromString("uplinkid"),
+				Action:      pb.PayerBandwidthAllocation_PUT,
+			}
+			pbaData, err := proto.Marshal(pbad)
+			assert.NoError(err)
+			pba := &pb.PayerBandwidthAllocation{Data: pbaData}
 			// Send Bandwidth Allocation Data
 			msg := &pb.PieceStore{
 				PieceData: &pb.PieceStore_PieceData{Content: tt.content},
 				BandwidthAllocation: &pb.RenterBandwidthAllocation{
 					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-						PayerAllocation: &pb.PayerBandwidthAllocation{},
+						PayerAllocation: pba,
 						Total:           int64(len(tt.content)),
 					}),
 				},
@@ -394,7 +403,7 @@ func TestStore(t *testing.T) {
 				err = proto.Unmarshal(agreement, decoded)
 				assert.NoError(err)
 				assert.Equal(msg.BandwidthAllocation.GetSignature(), signature)
-				assert.Equal(&pb.PayerBandwidthAllocation{}, decoded.GetPayerAllocation())
+				assert.True(proto.Equal(pba, decoded.GetPayerAllocation()))
 				assert.Equal(int64(len(tt.content)), decoded.GetTotal())
 
 			}
@@ -403,6 +412,86 @@ func TestStore(t *testing.T) {
 
 			assert.Equal(tt.message, resp.Message)
 			assert.Equal(tt.totalReceived, resp.TotalReceived)
+		})
+	}
+}
+
+func TestPbaValidation(t *testing.T) {
+	TS := NewTestServer(t)
+	defer TS.Stop()
+
+	tests := []struct {
+		satelliteID storj.NodeID
+		uplinkID    storj.NodeID
+		action      pb.PayerBandwidthAllocation_Action
+		err         string
+	}{
+		{ // missing satellite id
+			satelliteID: storj.NodeID{},
+			uplinkID:    teststorj.NodeIDFromString("uplinkid"),
+			action:      pb.PayerBandwidthAllocation_PUT,
+			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: missing satellite id",
+		},
+		{ // missing uplink id
+			satelliteID: teststorj.NodeIDFromString("satelliteid"),
+			uplinkID:    storj.NodeID{},
+			action:      pb.PayerBandwidthAllocation_PUT,
+			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: missing uplink id",
+		},
+		{ // wrong action type
+			satelliteID: teststorj.NodeIDFromString("satelliteid"),
+			uplinkID:    teststorj.NodeIDFromString("uplinkid"),
+			action:      pb.PayerBandwidthAllocation_GET,
+			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: invalid action GET",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("should validate payer bandwidth allocation struct", func(t *testing.T) {
+			assert := assert.New(t)
+			stream, err := TS.c.Store(ctx)
+			assert.NoError(err)
+
+			// Write the buffer to the stream we opened earlier
+			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: "99999999999999999999", ExpirationUnixSec: 9999999999}})
+			assert.NoError(err)
+
+			pbad := &pb.PayerBandwidthAllocation_Data{
+				SatelliteId: tt.satelliteID,
+				UplinkId:    tt.uplinkID,
+				Action:      tt.action,
+			}
+			pbaData, err := proto.Marshal(pbad)
+			assert.NoError(err)
+			pba := &pb.PayerBandwidthAllocation{Data: pbaData}
+			// Send Bandwidth Allocation Data
+			content := []byte("content")
+			msg := &pb.PieceStore{
+				PieceData: &pb.PieceStore_PieceData{Content: content},
+				BandwidthAllocation: &pb.RenterBandwidthAllocation{
+					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
+						PayerAllocation: pba,
+						Total:           int64(len(content)),
+					}),
+				},
+			}
+
+			s, err := cryptopasta.Sign(msg.BandwidthAllocation.Data, TS.k.(*ecdsa.PrivateKey))
+			assert.NoError(err)
+			msg.BandwidthAllocation.Signature = s
+
+			// Write the buffer to the stream we opened earlier
+			err = stream.Send(msg)
+			if err != io.EOF && err != nil {
+				assert.NoError(err)
+			}
+
+			_, err = stream.CloseAndRecv()
+			if err != nil {
+				//assert.NotNil(err)
+				assert.Equal(tt.err, err.Error())
+				return
+			}
 		})
 	}
 }

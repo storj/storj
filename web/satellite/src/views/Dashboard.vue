@@ -17,8 +17,27 @@
 import { Component, Vue } from 'vue-property-decorator';
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
+import { removeToken } from '@/utils/tokenManager';
 
 @Component({
+    beforeMount: async function() {
+        // TODO: should place here some animation while all needed data is fetching
+        let response: RequestResponse<User> = await this.$store.dispatch('getUser');
+
+        if (!response.isSuccess) {
+            this.$store.dispatch('error', response.errorMessage);
+            this.$router.push('/login');
+            removeToken();
+
+            return;
+        }
+
+        let getProjectsResponse: RequestResponse<Project[]> = await this.$store.dispatch('fetchProjects');
+
+        if (getProjectsResponse.isSuccess && getProjectsResponse.data.length > 0) {
+            this.$store.dispatch('selectProject', getProjectsResponse.data[0].id);
+        }
+    },
     components: {
         NavigationArea,
         DashboardHeader

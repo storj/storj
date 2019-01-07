@@ -11,23 +11,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/identity"
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestBandwidthAgreements(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db *satellitedb.DB) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
 		satellitePubKey, satellitePrivKey, uplinkPrivKey := generateKeys(ctx, t)
 		server := bwagreement.NewServer(db.BandwidthAgreement(), zap.NewNop(), satellitePubKey)
 
-		pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey)
+		pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey)
 		assert.NoError(t, err)
 
 		rba, err := GenerateRenterBandwidthAllocation(pba, uplinkPrivKey)
@@ -41,7 +41,7 @@ func TestBandwidthAgreements(t *testing.T) {
 }
 
 func generateKeys(ctx context.Context, t *testing.T) (satellitePubKey *ecdsa.PublicKey, satellitePrivKey *ecdsa.PrivateKey, uplinkPrivKey *ecdsa.PrivateKey) {
-	fiS, err := testidentity.NewTestIdentity()
+	fiS, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
 
 	satellitePubKey, ok := fiS.Leaf.PublicKey.(*ecdsa.PublicKey)
@@ -50,7 +50,7 @@ func generateKeys(ctx context.Context, t *testing.T) (satellitePubKey *ecdsa.Pub
 	satellitePrivKey, ok = fiS.Key.(*ecdsa.PrivateKey)
 	assert.True(t, ok)
 
-	fiU, err := testidentity.NewTestIdentity()
+	fiU, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
 
 	uplinkPrivKey, ok = fiU.Key.(*ecdsa.PrivateKey)

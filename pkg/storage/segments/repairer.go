@@ -10,7 +10,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
-	"storj.io/storj/pkg/storage/ec"
+	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
@@ -64,7 +64,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 			totalNilNodes++
 			continue
 		}
-
+		v.Type.DPanicOnInvalid("repair")
 		excludeNodeIDs = append(excludeNodeIDs, v.Id)
 
 		// If node index exists in lostPieces, skip adding it to healthyNodes
@@ -102,6 +102,9 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 			totalRepairCount--
 			repairNodes[i] = newNodes[totalRepairCount]
 		}
+	}
+	for _, v := range repairNodes {
+		v.Type.DPanicOnInvalid("repair 2")
 	}
 
 	// Check that all nil nodes have a replacement prepared

@@ -11,17 +11,19 @@ import (
 const (
 	projectType      = "project"
 	projectInputType = "projectInput"
+	fieldName        = "name"
 
-	fieldOwnerName   = "ownerName"
-	fieldCompanyName = "companyName"
 	fieldDescription = "description"
 	// Indicates if user accepted Terms & Conditions during project creation
 	// Used in input model
 	fieldIsTermsAccepted = "isTermsAccepted"
 	fieldMembers         = "members"
+	fieldAPIKeys         = "apiKeys"
 
 	limit  = "limit"
 	offset = "offset"
+	search = "search"
+	order  = "order"
 )
 
 // graphqlProject creates *graphql.Object type representation of satellite.ProjectInfo
@@ -35,9 +37,6 @@ func graphqlProject(service *satellite.Service, types Types) *graphql.Object {
 			fieldName: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldCompanyName: &graphql.Field{
-				Type: graphql.String,
-			},
 			fieldDescription: &graphql.Field{
 				Type: graphql.String,
 			},
@@ -46,23 +45,6 @@ func graphqlProject(service *satellite.Service, types Types) *graphql.Object {
 			},
 			fieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
-			},
-			fieldOwnerName: &graphql.Field{
-				Type: graphql.String,
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					// TODO: return owner (user) instead of ownerName
-					project, _ := p.Source.(satellite.Project)
-					if project.OwnerID == nil {
-						return "", nil
-					}
-
-					user, err := service.GetUser(p.Context, *project.OwnerID)
-					if err != nil {
-						return "", nil
-					}
-
-					return user.FirstName + " " + user.LastName, nil
-				},
 			},
 			fieldMembers: &graphql.Field{
 				Type: graphql.NewList(types.ProjectMember()),
@@ -73,14 +55,29 @@ func graphqlProject(service *satellite.Service, types Types) *graphql.Object {
 					limit: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.Int),
 					},
+					search: &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
+					order: &graphql.ArgumentConfig{
+						Type: graphql.Int,
+					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*satellite.Project)
 
 					offs, _ := p.Args[offset].(int64)
 					lim, _ := p.Args[limit].(int)
+					search, _ := p.Args[search].(string)
+					order, _ := p.Args[order].(int8)
 
-					members, err := service.GetProjectMembers(p.Context, project.ID, lim, offs)
+					pagination := satellite.Pagination{
+						Limit:  lim,
+						Offset: offs,
+						Search: search,
+						Order:  satellite.ProjectMemberOrder(order),
+					}
+
+					members, err := service.GetProjectMembers(p.Context, project.ID, pagination)
 					if err != nil {
 						return nil, err
 					}
@@ -101,6 +98,14 @@ func graphqlProject(service *satellite.Service, types Types) *graphql.Object {
 					return users, nil
 				},
 			},
+			fieldAPIKeys: &graphql.Field{
+				Type: graphql.NewList(types.APIKeyInfo()),
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					project, _ := p.Source.(*satellite.Project)
+
+					return service.GetAPIKeysInfoByProjectID(p.Context, project.ID)
+				},
+			},
 		},
 	})
 }
@@ -111,9 +116,6 @@ func graphqlProjectInput() *graphql.InputObject {
 		Name: projectInputType,
 		Fields: graphql.InputObjectConfigFieldMap{
 			fieldName: &graphql.InputObjectFieldConfig{
-				Type: graphql.String,
-			},
-			fieldCompanyName: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
 			fieldDescription: &graphql.InputObjectFieldConfig{
@@ -131,7 +133,6 @@ func fromMapProjectInfo(args map[string]interface{}) (project satellite.ProjectI
 	project.Name, _ = args[fieldName].(string)
 	project.Description, _ = args[fieldDescription].(string)
 	project.IsTermsAccepted, _ = args[fieldIsTermsAccepted].(bool)
-	project.CompanyName, _ = args[fieldCompanyName].(string)
 
 	return
 }

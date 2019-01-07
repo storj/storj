@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
@@ -53,12 +53,12 @@ func NewClient(identity *provider.FullIdentity, memoryLimit int) Client {
 }
 
 func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (psclient.Client, error) {
+	n.Type.DPanicOnInvalid("new ps client")
 	return ec.newPSClientFunc(ctx, ec.transport, n, 0)
 }
 
 func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, data io.Reader, maxSize int64, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	if len(nodes) != rs.TotalCount() {
 		return nil, Error.New("size of nodes slice (%d) does not match total count (%d) of erasure scheme", len(nodes), rs.TotalCount())
 	}
@@ -89,6 +89,10 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	start := time.Now()
 
 	for i, n := range nodes {
+		if n != nil {
+			n.Type.DPanicOnInvalid("ec client Put")
+		}
+
 		go func(i int, n *pb.Node) {
 			if n == nil {
 				_, err := io.Copy(ioutil.Discard, readers[i])
@@ -119,8 +123,12 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 				zap.S().Infof("Node %s cut from upload due to slow connection.", n.Id)
 				err = context.Canceled
 			} else if err != nil {
-				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
-					pieceID, derivedPieceID, n.Id, err)
+				nodeAddress := "nil"
+				if n.Address != nil {
+					nodeAddress = n.Address.Address
+				}
+				zap.S().Errorf("Failed putting piece %s -> %s to node %s (%+v): %v",
+					pieceID, derivedPieceID, n.Id, nodeAddress, err)
 			}
 			infos <- info{i: i, err: err}
 		}(i, n)
@@ -198,6 +206,11 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 	ch := make(chan rangerInfo, len(nodes))
 
 	for i, n := range nodes {
+
+		if n != nil {
+			n.Type.DPanicOnInvalid("ec client Get")
+		}
+
 		if n == nil {
 			ch <- rangerInfo{i: i, rr: nil, err: nil}
 			continue
@@ -243,7 +256,11 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclie
 	defer mon.Task()(&ctx)(&err)
 
 	errs := make(chan error, len(nodes))
-
+	for _, v := range nodes {
+		if v != nil {
+			v.Type.DPanicOnInvalid("ec client delete")
+		}
+	}
 	for _, n := range nodes {
 		if n == nil {
 			errs <- nil
@@ -277,7 +294,11 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclie
 	}
 
 	allerrs := collectErrors(errs, len(nodes))
-
+	for _, v := range nodes {
+		if v != nil {
+			v.Type.DPanicOnInvalid("ec client delete 2")
+		}
+	}
 	if len(allerrs) > 0 && len(allerrs) == len(nodes) {
 		return allerrs[0]
 	}
@@ -300,12 +321,13 @@ func unique(nodes []*pb.Node) bool {
 	if len(nodes) < 2 {
 		return true
 	}
-
 	ids := make(storj.NodeIDList, len(nodes))
 	for i, n := range nodes {
 		if n != nil {
 			ids[i] = n.Id
+			n.Type.DPanicOnInvalid("ec client unique")
 		}
+
 	}
 
 	// sort the ids and check for identical neighbors
@@ -345,6 +367,7 @@ func (lr *lazyPieceRanger) Size() int64 {
 
 // Range implements Ranger.Range to be lazily connected
 func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+	lr.node.Type.DPanicOnInvalid("Range")
 	if lr.ranger == nil {
 		ps, err := lr.newPSClientHelper(ctx, lr.node)
 		if err != nil {
@@ -364,6 +387,7 @@ func nonNilCount(nodes []*pb.Node) int {
 	for _, node := range nodes {
 		if node != nil {
 			total++
+			node.Type.DPanicOnInvalid("nonNilCount")
 		}
 	}
 	return total

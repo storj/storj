@@ -28,7 +28,6 @@
                             class="full-input"
                             label="Last Name"
                             placeholder="Enter Last Name"
-                            :error="lastNameError"
                             @setData="setLastName">
                     </HeaderedInput>
                     <HeaderedInput
@@ -54,72 +53,6 @@
                             @setData="setRepeatedPassword"
                             isPassword>
                     </HeaderedInput>
-                    <div class="register-area__scrollable__form-area__company-area">
-                        <h2>Company</h2>
-                        <div class="register-area__scrollable__form-area__company-area__details-area"
-                             v-on:click="showOptional">
-                            <h2 v-if="!optionalAreaShown"
-                                class="register-area__scrollable__form-area__company-area__details-area__text">
-                                Details</h2>
-                            <h2 v-if="optionalAreaShown"
-                                class="register-area__scrollable__form-area__company-area__details-area__text">Hide
-                                Details</h2>
-                            <div class="register-area__scrollable__form-area__company-area__details-area__expander-area">
-                                <img v-if="!optionalAreaShown" src="../../static/images/register/BlueExpand.svg"/>
-                                <img v-if="optionalAreaShown" src="../../static/images/register/BlueHide.svg"/>
-                            </div>
-                        </div>
-                    </div>
-                    <HeaderedInput
-                            class="full-input"
-                            label="Company Name"
-                            placeholder="Enter Company Name"
-                            @setData="setCompanyName"
-                            isOptional>
-                    </HeaderedInput>
-                    <!-- start of optional area -->
-                    <transition name="fade">
-                        <div id="optional-area"
-                             v-bind:class="[optionalAreaShown ? 'optional-area--active' : 'optional-area']">
-                            <HeaderedInput
-                                    class="full-input"
-                                    label="Company Address"
-                                    placeholder="Enter Company Address"
-                                    isOptional
-                                    isMultiline
-                                    @setData="setCompanyAddress"
-                                    height="100px">
-                            </HeaderedInput>
-                            <HeaderedInput
-                                    class="full-input"
-                                    label="Country"
-                                    placeholder="Enter Country"
-                                    @setData="setCountry"
-                                    isOptional>
-                            </HeaderedInput>
-                            <HeaderedInput
-                                    class="full-input"
-                                    label="City"
-                                    placeholder="Enter City"
-                                    @setData="setCity"
-                                    isOptional>
-                            </HeaderedInput>
-                            <HeaderedInput
-                                    class="full-input"
-                                    label="State"
-                                    placeholder="Enter State"
-                                    @setData="setState"
-                                    isOptional>
-                            </HeaderedInput>
-                            <HeaderedInput
-                                    class="full-input"
-                                    label="Postal Code"
-                                    placeholder="Enter Postal Code"
-                                    @setData="setPostalCode"
-                                    isOptional>
-                            </HeaderedInput>
-                        </div>
-                    </transition>
                     <!-- end of optional area -->
                     <div class="register-area__scrollable__form-area__terms-area">
                         <Checkbox
@@ -144,7 +77,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
 import Button from '@/components/common/Button.vue';
-import { validateEmail } from '@/utils/validation';
+import { validateEmail, validatePassword } from '@/utils/validation';
 import ROUTES from '../utils/constants/routerConstants';
 import { createUserRequest } from '@/api/users';
 
@@ -161,7 +94,6 @@ import { createUserRequest } from '@/api/users';
             },
             setLastName: function (value: string) {
                 this.$data.lastName = value;
-                this.$data.lastNameError = '';
             },
             setPassword: function (value: string) {
                 this.$data.password = value;
@@ -171,60 +103,27 @@ import { createUserRequest } from '@/api/users';
                 this.$data.repeatedPassword = value;
                 this.$data.repeatedPasswordError = '';
             },
-            setCompanyName: function (value: string) {
-                this.$data.companyName = value;
-            },
-            setCompanyAddress: function (value: string) {
-                this.$data.companyAddress = value;
-            },
-            setCountry: function (value: string) {
-                this.$data.country = value;
-            },
-            setCity: function (value: string) {
-                this.$data.city = value;
-            },
-            setState: function (value: string) {
-                this.$data.state = value;
-            },
-            setPostalCode: function (value: string) {
-                this.$data.postalCode = value;
-            },
             setTermsAccepted: function (value: boolean) {
                 this.$data.isTermsAccepted = value;
                 this.$data.isTermsAcceptedError = false;
             },
-            showOptional: function () {
-                let scrollableDiv = document.querySelector('.register-area__scrollable');
-
-                if (this.$data.optionalAreaShown == false) {
-                    setTimeout(() => {
-                        if (scrollableDiv) {
-                            scrollableDiv.scroll(0, window.innerHeight - 200);
-                        }
-                    }, 10);
-                }
-
-                this.$data.optionalAreaShown = !this.$data.optionalAreaShown;
-            },
             onCreateClick: async function () {
                 let hasError = false;
+                const firstName = this.$data.firstName.trim();
+                const email = this.$data.email.trim();
+                const lastName = this.$data.lastName.trim();
 
-                if (!this.$data.firstName) {
+                if (!firstName) {
                     this.$data.firstNameError = 'Invalid First Name';
                     hasError = true;
                 }
 
-                if (!this.$data.lastName) {
-                    this.$data.lastNameError = 'Invalid Last Name';
-                    hasError = true;
-                }
-
-                if (!this.$data.email || !validateEmail(this.$data.email)) {
+                if (!validateEmail(email)) {
                     this.$data.emailError = 'Invalid Email';
                     hasError = true;
                 }
 
-                if (!this.$data.password) {
+                if (!validatePassword(this.$data.password)) {
                     this.$data.passwordError = 'Invalid Password';
                     hasError = true;
                 }
@@ -242,25 +141,19 @@ import { createUserRequest } from '@/api/users';
                 if (hasError) return;
 
                 let user = {
-                    id: '',
-                    email: this.$data.email,
-                    firstName: this.$data.firstName,
-                    lastName: this.$data.lastName,
-                    company: {
-                        name: this.$data.companyName,
-                        address: this.$data.companyAddress,
-                        city: this.$data.companyCity,
-                        country: this.$data.companyCountry,
-                        postalCode: this.$data.companyPostalCode,
-                        state: this.$data.companyState
-                    }
+                    email,
+                    firstName,
+                    lastName,
                 };
-                try {
-                    await createUserRequest(user, this.$data.password);
-                    this.$router.push(ROUTES.LOGIN.path);
-                } catch (error) {
-                    console.error(error);
+
+                let response = await createUserRequest(user, this.$data.password);
+                if (!response.isSuccess) {
+                    this.$store.dispatch('error', response.errorMessage);
+
+                    return;
                 }
+
+                this.$router.push(ROUTES.LOGIN.path);
             }
         },
         data: function (): RegisterData {
@@ -269,22 +162,14 @@ import { createUserRequest } from '@/api/users';
                 firstName: '',
                 firstNameError: '',
                 lastName: '',
-                lastNameError: '',
                 email: '',
                 emailError: '',
                 password: '',
                 passwordError: '',
                 repeatedPassword: '',
                 repeatedPasswordError: '',
-                companyName: '',
-                companyAddress: '',
-                country: '',
-                city: '',
-                state: '',
-                postalCode: '',
                 isTermsAccepted: false,
                 isTermsAcceptedError: false,
-                optionalAreaShown: false
             };
         },
         computed: {},

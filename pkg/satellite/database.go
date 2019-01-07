@@ -9,12 +9,12 @@ import "context"
 type DB interface {
 	// Users is a getter for Users repository
 	Users() Users
-	// Companies is a getter for Companies repository
-	Companies() Companies
 	// Projects is a getter for Projects repository
 	Projects() Projects
 	// ProjectMembers is a getter for ProjectMembers repository
 	ProjectMembers() ProjectMembers
+	// APIKeys is a getter for APIKeys repository
+	APIKeys() APIKeys
 
 	// CreateTables is a method for creating all tables for satellitedb
 	CreateTables() error

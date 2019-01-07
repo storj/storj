@@ -18,13 +18,13 @@ import (
 	"storj.io/storj/pkg/peertls"
 )
 
-// DB interface for database operations
+// DB stores bandwidth agreements.
 type DB interface {
-	// CreateAgreement creates bandwidth agreement in database
+	// CreateAgreement adds a new bandwidth agreement.
 	CreateAgreement(context.Context, Agreement) error
-	// GetAgreements gets all bandwidth agreements
+	// GetAgreements gets all bandwidth agreements.
 	GetAgreements(context.Context) ([]Agreement, error)
-	// GetAgreementsSince gets all bandwidth agreements since specific time
+	// GetAgreementsSince gets all bandwidth agreements since specific time.
 	GetAgreementsSince(context.Context, time.Time) ([]Agreement, error)
 }
 
@@ -90,9 +90,13 @@ func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllo
 		return BwAgreementError.New("Failed to unmarshal RenterBandwidthAllocation: %+v", err)
 	}
 
-	// Extract renter's public key from RenterBandwidthAllocation_Data
-	// TODO: Look this public key up in a database
-	pubkey, err := x509.ParsePKIXPublicKey(rbad.GetPubKey())
+	pba := rbad.GetPayerAllocation()
+	pbad := &pb.PayerBandwidthAllocation_Data{}
+	if err := proto.Unmarshal(pba.GetData(), pbad); err != nil {
+		return BwAgreementError.New("Failed to unmarshal PayerBandwidthAllocation: %+v", err)
+	}
+	// Extract renter's public key from PayerBandwidthAllocation_Data
+	pubkey, err := x509.ParsePKIXPublicKey(pbad.GetPubKey())
 	if err != nil {
 		return BwAgreementError.New("Failed to extract Public Key from RenterBandwidthAllocation: %+v", err)
 	}

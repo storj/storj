@@ -7,9 +7,7 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/vivint/infectious"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -36,7 +34,8 @@ type Verifier struct {
 }
 
 type downloader interface {
-	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]*pb.Node, err error)
+	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, pba *pb.PayerBandwidthAllocation,
+		authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]*pb.Node, err error)
 }
 
 // defaultDownloader downloads shares from networked storage nodes
@@ -59,9 +58,9 @@ func NewVerifier(transport transport.Client, overlay overlay.Client, id provider
 
 // getShare use piece store clients to download shares from a given node
 func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize, pieceNumber int,
-	id psclient.PieceID, pieceSize int64, fromNode *pb.Node, authorization *pb.SignedMessage) (s share, err error) {
+	id psclient.PieceID, pieceSize int64, fromNode *pb.Node, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (s share, err error) {
 	defer mon.Task()(&ctx)(&err)
-
+	fromNode.Type.DPanicOnInvalid("audit getShare")
 	ps, err := psclient.NewPSClient(ctx, d.transport, fromNode, 0)
 	if err != nil {
 		return s, err
@@ -70,20 +69,6 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 	derivedPieceID, err := id.Derive(fromNode.Id.Bytes())
 	if err != nil {
 		return s, err
-	}
-
-	allocationData := &pb.PayerBandwidthAllocation_Data{
-		Action:         pb.PayerBandwidthAllocation_GET,
-		CreatedUnixSec: time.Now().Unix(),
-	}
-
-	serializedAllocation, err := proto.Marshal(allocationData)
-	if err != nil {
-		return s, err
-	}
-
-	pba := &pb.PayerBandwidthAllocation{
-		Data: serializedAllocation,
 	}
 
 	rr, err := ps.Get(ctx, derivedPieceID, pieceSize, pba, authorization)
@@ -115,7 +100,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 
 // Download Shares downloads shares from the nodes where remote pieces are located
 func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
-	stripeIndex int, authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]*pb.Node, err error) {
+	stripeIndex int, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var nodeIds storj.NodeIDList
@@ -142,7 +127,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 		paddedSize := calcPadded(pointer.GetSegmentSize(), shareSize)
 		pieceSize := paddedSize / int64(pointer.Remote.Redundancy.GetMinReq())
 
-		s, err := d.getShare(ctx, stripeIndex, shareSize, int(pieces[i].PieceNum), pieceID, pieceSize, node, authorization)
+		s, err := d.getShare(ctx, stripeIndex, shareSize, int(pieces[i].PieceNum), pieceID, pieceSize, node, pba, authorization)
 		if err != nil {
 			s = share{
 				Error:       err,
@@ -207,10 +192,10 @@ func calcPadded(size int64, blockSize int) int64 {
 }
 
 // verify downloads shares then verifies the data correctness at the given stripe
-func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *pb.Pointer, authorization *pb.SignedMessage) (verifiedNodes *RecordAuditsInfo, err error) {
+func (verifier *Verifier) verify(ctx context.Context, stripe *Stripe) (verifiedNodes *RecordAuditsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	shares, nodes, err := verifier.downloader.DownloadShares(ctx, pointer, stripeIndex, authorization)
+	shares, nodes, err := verifier.downloader.DownloadShares(ctx, stripe.Segment, stripe.Index, stripe.PBA, stripe.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -222,6 +207,7 @@ func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *
 		}
 	}
 
+	pointer := stripe.Segment
 	required := int(pointer.Remote.Redundancy.GetMinReq())
 	total := int(pointer.Remote.Redundancy.GetTotal())
 	pieceNums, err := auditShares(ctx, required, total, shares)

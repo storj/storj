@@ -104,11 +104,8 @@ import { Component, Vue } from 'vue-property-decorator';
         },
     },
 )
-export default class HeaderedInput extends Vue implements IEditable {
-    setValue(value: string): void {
-        this.setValue(value);
-    }
-}
+
+export default class HeaderedInput extends Vue {}
 
 </script>
 
@@ -162,6 +159,8 @@ export default class HeaderedInput extends Vue implements IEditable {
 		text-indent: 20px;
 		border-color: rgba(56, 75, 101, 0.4);
 		border-radius: 6px;
+		outline: none;
+		box-shadow: none;
 	}
 	textarea {
 		padding-top: 20px;
@@ -172,27 +171,4 @@ export default class HeaderedInput extends Vue implements IEditable {
 		line-height: 21px;
 		color: #354049;
 	}
-
-input,
-textarea {
-	font-family: 'montserrat_regular';
-	font-size: 16px;
-	line-height: 21px;
-	resize: none;
-	height: 46px;
-	padding: 0;
-	width: 100%;
-	text-indent: 20px;
-	border-color: rgba(56, 75, 101, 0.4);
-	border-radius: 6px;
-}
-textarea {
-	padding-top: 20px;
-}
-h3 {
-	font-family: 'montserrat_regular';
-	font-size: 16px;
-	line-height: 21px;
-	color: #354049;
-}
 </style>

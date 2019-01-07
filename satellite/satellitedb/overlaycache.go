@@ -14,31 +14,24 @@ import (
 )
 
 type overlaycache struct {
-	db  *dbx.DB
-	ctx context.Context
-}
-
-func newOverlaycache(db *dbx.DB) *overlaycache {
-	return &overlaycache{
-		db:  db,
-		ctx: context.Background(),
-	}
+	db *dbx.DB
 }
 
 func (o *overlaycache) Put(key storage.Key, value storage.Value) error {
 	if key.IsZero() {
 		return storage.ErrEmptyKey.New("")
 	}
+	ctx := context.Background() // TODO: fix
 
-	tx, err := o.db.Open(o.ctx)
+	tx, err := o.db.Open(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	_, err = tx.Get_OverlayCacheNode_By_Key(o.ctx, dbx.OverlayCacheNode_Key(key))
+	_, err = tx.Get_OverlayCacheNode_By_Key(ctx, dbx.OverlayCacheNode_Key(key))
 	if err != nil {
 		_, err = tx.Create_OverlayCacheNode(
-			o.ctx,
+			ctx,
 			dbx.OverlayCacheNode_Key(key),
 			dbx.OverlayCacheNode_Value(value),
 		)
@@ -49,7 +42,7 @@ func (o *overlaycache) Put(key storage.Key, value storage.Value) error {
 		updateFields := dbx.OverlayCacheNode_Update_Fields{}
 		updateFields.Value = dbx.OverlayCacheNode_Value(value)
 		_, err := tx.Update_OverlayCacheNode_By_Key(
-			o.ctx,
+			ctx,
 			dbx.OverlayCacheNode_Key(key),
 			updateFields,
 		)
@@ -65,7 +58,9 @@ func (o *overlaycache) Get(key storage.Key) (storage.Value, error) {
 		return nil, storage.ErrEmptyKey.New("")
 	}
 
-	node, err := o.db.Get_OverlayCacheNode_By_Key(o.ctx, dbx.OverlayCacheNode_Key(key))
+	ctx := context.Background() // TODO: fix
+
+	node, err := o.db.Get_OverlayCacheNode_By_Key(ctx, dbx.OverlayCacheNode_Key(key))
 	if err == sql.ErrNoRows {
 		return nil, storage.ErrKeyNotFound.New(key.String())
 	}
@@ -87,20 +82,22 @@ func (o *overlaycache) GetAll(keys storage.Keys) (storage.Values, error) {
 }
 
 func (o *overlaycache) Delete(key storage.Key) error {
-	_, err := o.db.Delete_OverlayCacheNode_By_Key(o.ctx, dbx.OverlayCacheNode_Key(key))
+	ctx := context.Background() // TODO: fix
+	_, err := o.db.Delete_OverlayCacheNode_By_Key(ctx, dbx.OverlayCacheNode_Key(key))
 	return err
 }
 
 func (o *overlaycache) List(start storage.Key, limit int) (keys storage.Keys, err error) {
+	ctx := context.Background() // TODO: fix
 	if limit <= 0 || limit > storage.LookupLimit {
 		limit = storage.LookupLimit
 	}
 
 	var rows []*dbx.OverlayCacheNode
 	if start == nil {
-		rows, err = o.db.Limited_OverlayCacheNode(o.ctx, limit, 0)
+		rows, err = o.db.Limited_OverlayCacheNode(ctx, limit, 0)
 	} else {
-		rows, err = o.db.Limited_OverlayCacheNode_By_Key_GreaterOrEqual(o.ctx, dbx.OverlayCacheNode_Key(start), limit, 0)
+		rows, err = o.db.Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx, dbx.OverlayCacheNode_Key(start), limit, 0)
 	}
 	if err != nil {
 		return []storage.Key{}, err
