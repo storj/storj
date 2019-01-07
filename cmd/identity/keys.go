@@ -45,7 +45,7 @@ func init() {
 
 func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
-	err = os.MkdirAll(keyCfg.OutputDir, 0755)
+	err = os.MkdirAll(keyCfg.OutputDir, 0700)
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
 			}
 			filename := fmt.Sprintf("gen-%02d-%d.key", difficulty, atomic.AddUint32(counter, 1))
 			fmt.Println("writing", filename)
-			err = ioutil.WriteFile(filepath.Join(keyCfg.OutputDir, filename), data, 0644)
+			err = ioutil.WriteFile(filepath.Join(keyCfg.OutputDir, filename), data, 0600)
 			return false, err
 		})
 }

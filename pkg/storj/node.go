@@ -102,7 +102,8 @@ func (id NodeID) Difficulty() (uint16, error) {
 		if b != 0 {
 			zeroBits = bits.TrailingZeros16(uint16(b))
 			if zeroBits == 16 {
-				panic("impossible codepath")
+				// we already checked that b != 0.
+				return 0, ErrNodeID.New("impossible codepath!")
 			}
 
 			return uint16((i-1)*8 + zeroBits), nil
