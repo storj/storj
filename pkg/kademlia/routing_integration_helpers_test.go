@@ -7,7 +7,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -47,6 +50,29 @@ func Node(id storj.NodeID, address string) *pb.Node {
 		Address: &pb.NodeAddress{
 			Address: address,
 		},
+	}
+}
+
+var graphCounter = new(int64)
+
+type Grapher interface {
+	Graph(io.Writer) error
+}
+
+func SaveGraph(table Grapher) {
+	fh, err := os.Create(fmt.Sprintf("routing-graph-%003d.dot", atomic.AddInt64(graphCounter, 1)))
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		err := fh.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
+	err = table.Graph(fh)
+	if err != nil {
+		panic(err)
 	}
 }
 
