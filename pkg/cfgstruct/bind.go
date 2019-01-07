@@ -96,24 +96,24 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 		field := typ.Field(i)
 		fieldval := val.Field(i)
 		flagname := prefix + hyphenate(snakeCase(field.Name))
-		setup := (field.Tag.Get("setup") == "true") || setupStruct
+		onlyForSetup := (field.Tag.Get("setup") == "true") || setupStruct
 		// ignore setup params for non setup commands
-		if !setupCommand && setup {
+		if !setupCommand && onlyForSetup {
 			continue
 		}
 
 		switch field.Type.Kind() {
 		case reflect.Struct:
 			if field.Anonymous {
-				bindConfig(flags, prefix, fieldval, vars, setupCommand, setup)
+				bindConfig(flags, prefix, fieldval, vars, setupCommand, onlyForSetup)
 			} else {
-				bindConfig(flags, flagname+".", fieldval, vars, setupCommand, setup)
+				bindConfig(flags, flagname+".", fieldval, vars, setupCommand, onlyForSetup)
 			}
 		case reflect.Array, reflect.Slice:
 			digits := len(fmt.Sprint(fieldval.Len()))
 			for j := 0; j < fieldval.Len(); j++ {
 				padding := strings.Repeat("0", digits-len(fmt.Sprint(j)))
-				bindConfig(flags, fmt.Sprintf("%s.%s%d.", flagname, padding, j), fieldval.Index(j), vars, setupCommand, setup)
+				bindConfig(flags, fmt.Sprintf("%s.%s%d.", flagname, padding, j), fieldval.Index(j), vars, setupCommand, onlyForSetup)
 			}
 		default:
 			help := field.Tag.Get("help")
@@ -159,7 +159,7 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			default:
 				panic(fmt.Sprintf("invalid field type: %s", field.Type.String()))
 			}
-			if setup {
+			if onlyForSetup {
 				setSetupAnnotation(flags, flagname)
 			}
 		}
