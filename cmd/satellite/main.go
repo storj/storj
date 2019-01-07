@@ -34,6 +34,29 @@ import (
 	"storj.io/storj/satellite/satellitedb"
 )
 
+// Satellite defines satellite runtime configuration
+type Satellite struct {
+	Server      server.Config
+	Kademlia    kademlia.SatelliteConfig
+	PointerDB   pointerdb.Config
+	Overlay     overlay.Config
+	Checker     checker.Config
+	Repairer    repairer.Config
+	Audit       audit.Config
+	BwAgreement bwagreement.Config
+	Discovery   discovery.Config
+	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+}
+
+// SetupSatellite defines satellite setup configuration
+type SetupSatellite struct {
+	CA        identity.CASetupConfig
+	Identity  identity.SetupConfig
+	Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
+
+	Satellite
+}
+
 var (
 	rootCmd = &cobra.Command{
 		Use:   "satellite",
@@ -61,23 +84,9 @@ var (
 		RunE:  cmdQDiag,
 	}
 
-	runCfg struct {
-		Server      server.Config
-		Kademlia    kademlia.SatelliteConfig
-		PointerDB   pointerdb.Config
-		Overlay     overlay.Config
-		Checker     checker.Config
-		Repairer    repairer.Config
-		Audit       audit.Config
-		BwAgreement bwagreement.Config
-		Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
-		Discovery   discovery.Config
-	}
-	setupCfg struct {
-		CA        identity.CASetupConfig
-		Identity  identity.SetupConfig
-		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
-	}
+	runCfg   Satellite
+	setupCfg SetupSatellite
+
 	diagCfg struct {
 		Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	}
@@ -180,8 +189,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"identity.key-path":  setupCfg.Identity.KeyPath,
 	}
 
-	return process.SaveConfig(runCmd.Flags(),
-		filepath.Join(setupDir, "config.yaml"), o)
+	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {

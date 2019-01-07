@@ -38,6 +38,13 @@ const (
 	storagenodeCount = 10
 )
 
+// Captplanet defines Captain Planet runtime configuration
+type Captplanet struct {
+	Satellite    Satellite
+	StorageNodes [storagenodeCount]StorageNode
+	Uplink       miniogw.Config
+}
+
 // Satellite is for configuring client
 type Satellite struct {
 	Server      server.Config
@@ -50,10 +57,10 @@ type Satellite struct {
 	Audit       audit.Config
 	BwAgreement bwagreement.Config
 	Web         satelliteweb.Config
-	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	Discovery   discovery.Config
 	Tally       tally.Config
 	Rollup      rollup.Config
+	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 }
 
 // StorageNode is for configuring storage nodes
@@ -70,11 +77,7 @@ var (
 		RunE:  cmdRun,
 	}
 
-	runCfg struct {
-		Satellite    Satellite
-		StorageNodes [storagenodeCount]StorageNode
-		Uplink       miniogw.Config
-	}
+	runCfg Captplanet
 )
 
 func init() {

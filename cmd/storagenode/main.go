@@ -29,6 +29,23 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// StorageNode defines storage node runtime configuration
+type StorageNode struct {
+	Server   server.Config
+	Kademlia kademlia.StorageNodeConfig
+	Storage  psserver.Config
+}
+
+// SetupStorageNode defines storage node setup configuration
+type SetupStorageNode struct {
+	CA        identity.CASetupConfig
+	Identity  identity.SetupConfig
+	Signer    certificates.CertSigningConfig
+	Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
+
+	StorageNode
+}
+
 var (
 	rootCmd = &cobra.Command{
 		Use:   "storagenode",
@@ -57,17 +74,9 @@ var (
 		RunE:  cmdDiag,
 	}
 
-	runCfg struct {
-		Server   server.Config
-		Kademlia kademlia.StorageNodeConfig
-		Storage  psserver.Config
-	}
-	setupCfg struct {
-		CA        identity.CASetupConfig
-		Identity  identity.SetupConfig
-		Signer    certificates.CertSigningConfig
-		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
-	}
+	runCfg   StorageNode
+	setupCfg SetupStorageNode
+
 	diagCfg struct {
 	}
 
@@ -172,7 +181,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"piecestore.agreementsender.overlay-addr": defaultSatteliteAddr,
 	}
 
-	return process.SaveConfig(runCmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 }
 
 func cmdConfig(cmd *cobra.Command, args []string) (err error) {
