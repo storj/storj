@@ -76,7 +76,9 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		}
 	}()
 
-	defer log.Fatal(s.Stop(ctx))
+	defer func() {
+		log.Fatal(s.Stop(ctx))
+	}()
 	return server.Run(ctx)
 }
 
