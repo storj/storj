@@ -61,8 +61,7 @@ func BindSetup(flags FlagSet, config interface{}, opts ...BindOpt) {
 func bind(flags FlagSet, config interface{}, setupCommand bool, opts ...BindOpt) {
 	ptrtype := reflect.TypeOf(config)
 	if ptrtype.Kind() != reflect.Ptr {
-		panic(fmt.Sprintf("invalid config type: %#v. "+
-			"Expecting pointer to struct.", config))
+		panic(fmt.Sprintf("invalid config type: %#v. Expecting pointer to struct.", config))
 	}
 	vars := map[string]confVar{}
 	for _, opt := range opts {
@@ -75,11 +74,9 @@ var (
 	whitespace = regexp.MustCompile(`\s+`)
 )
 
-func bindConfig(flags FlagSet, prefix string, val reflect.Value,
-	vars map[string]confVar, setupCommand, setupStruct bool) {
+func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string]confVar, setupCommand, setupStruct bool) {
 	if val.Kind() != reflect.Struct {
-		panic(fmt.Sprintf("invalid config type: %#v. Expecting struct.",
-			val.Interface()))
+		panic(fmt.Sprintf("invalid config type: %#v. Expecting struct.", val.Interface()))
 	}
 	typ := val.Type()
 
@@ -99,8 +96,7 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value,
 		field := typ.Field(i)
 		fieldval := val.Field(i)
 		flagname := prefix + hyphenate(snakeCase(field.Name))
-		tag := reflect.StructTag(whitespace.ReplaceAllString(string(field.Tag), " "))
-		setup := (tag.Get("setup") == "true") || setupStruct
+		setup := (field.Tag.Get("setup") == "true") || setupStruct
 		// ignore setup params for non setup commands
 		if !setupCommand && setup {
 			continue
@@ -117,12 +113,11 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value,
 			digits := len(fmt.Sprint(fieldval.Len()))
 			for j := 0; j < fieldval.Len(); j++ {
 				padding := strings.Repeat("0", digits-len(fmt.Sprint(j)))
-				bindConfig(flags, fmt.Sprintf("%s.%s%d.", flagname, padding, j),
-					fieldval.Index(j), vars, setupCommand, setup)
+				bindConfig(flags, fmt.Sprintf("%s.%s%d.", flagname, padding, j), fieldval.Index(j), vars, setupCommand, setup)
 			}
 		default:
-			help := tag.Get("help")
-			def := tag.Get("default")
+			help := field.Tag.Get("help")
+			def := field.Tag.Get("default")
 			fieldaddr := fieldval.Addr().Interface()
 			check := func(err error) {
 				if err != nil {
@@ -179,8 +174,7 @@ func setSetupAnnotation(flagset interface{}, name string) {
 
 	err := flags.SetAnnotation(name, "setup", []string{"true"})
 	if err != nil {
-		fmt.Println("unable to set annotation:", err)
-		return
+		panic(fmt.Sprintf("unable to set annotation: %v", err))
 	}
 }
 
