@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
@@ -59,20 +60,22 @@ type Grapher interface {
 	Graph(io.Writer) error
 }
 
-func SaveGraph(table Grapher) {
-	fh, err := os.Create(fmt.Sprintf("routing-graph-%003d.dot", atomic.AddInt64(graphCounter, 1)))
-	if err != nil {
-		panic(err)
-	}
-	defer func() {
-		err := fh.Close()
+func SaveGraph(table dht.RoutingTable) {
+	if table, ok := table.(Grapher); ok {
+		fh, err := os.Create(fmt.Sprintf("routing-graph-%003d.dot", atomic.AddInt64(graphCounter, 1)))
 		if err != nil {
 			panic(err)
 		}
-	}()
-	err = table.Graph(fh)
-	if err != nil {
-		panic(err)
+		defer func() {
+			err := fh.Close()
+			if err != nil {
+				panic(err)
+			}
+		}()
+		err = table.Graph(fh)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
