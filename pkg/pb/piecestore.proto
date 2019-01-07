@@ -35,6 +35,7 @@ message PayerBandwidthAllocation { // Payer refers to satellite
     string serial_number = 5;      // Unique serial number
     Action action = 6;             // GET or PUT
     int64 created_unix_sec = 7;    // Unix timestamp for when PayerbandwidthAllocation was created
+    bytes pub_key = 8;             // Renter Public Key 
   }
 
   bytes signature = 1; // Seralized Data signed by Satellite
@@ -46,7 +47,6 @@ message RenterBandwidthAllocation { // Renter refers to uplink
     PayerBandwidthAllocation payer_allocation = 1; // Bandwidth Allocation from Satellite
     int64 total = 2;                               // Total Bytes Stored
     bytes storage_node_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Storage Node Identity
-    bytes pub_key = 4;                             // Renter Public Key // TODO: Take this out. It will be kept in a database on the satellite
   }
 
   bytes signature = 1; // Seralized Data signed by Uplink

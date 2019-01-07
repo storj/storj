@@ -243,6 +243,11 @@ export default class ProjectDetailsArea extends Vue {
                 justify-content: center;
                 align-items: flex-start;
                 width: 65vw;
+
+                h3 {
+                    width: 100%;
+                    word-wrap: break-word;
+                }
             }
 
             &--editing {

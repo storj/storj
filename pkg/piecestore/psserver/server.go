@@ -80,7 +80,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		log.Fatal(s.Stop(ctx))
 	}()
 
-	s.log.Info("Started Node", zap.String("ID", fmt.Sprint(server.Identity().ID)))
 	return server.Run(ctx)
 }
 
@@ -305,6 +304,18 @@ func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllo
 
 	if ok := cryptopasta.Verify(ba.GetData(), ba.GetSignature(), k); !ok {
 		return ServerError.New("failed to verify Signature")
+	}
+	return nil
+}
+
+func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation_Data, action pb.PayerBandwidthAllocation_Action) (err error) {
+	switch {
+	case pba.SatelliteId.IsZero():
+		return StoreError.New("payer bandwidth allocation: missing satellite id")
+	case pba.UplinkId.IsZero():
+		return StoreError.New("payer bandwidth allocation: missing uplink id")
+	case pba.Action != action:
+		return StoreError.New("payer bandwidth allocation: invalid action %v", pba.Action.String())
 	}
 	return nil
 }

@@ -149,6 +149,14 @@ func (caS CASetupConfig) Create(ctx context.Context) (*FullCertificateAuthority,
 	return ca, caC.Save(ca)
 }
 
+// FullConfig converts a `CASetupConfig` to `FullCAConfig`
+func (caS CASetupConfig) FullConfig() FullCAConfig {
+	return FullCAConfig{
+		CertPath: caS.CertPath,
+		KeyPath:  caS.KeyPath,
+	}
+}
+
 // Load loads a CA from the given configuration
 func (fc FullCAConfig) Load() (*FullCertificateAuthority, error) {
 	p, err := fc.PeerConfig().Load()
