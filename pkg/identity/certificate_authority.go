@@ -13,6 +13,8 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 	"log"
+	"sync"
+	"sync/atomic"
 
 	"github.com/zeebo/errs"
 
@@ -20,6 +22,8 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
+
+const minimumLoggableDifficulty = 8
 
 // PeerCertificateAuthority represents the CA which is used to validate peer identities
 type PeerCertificateAuthority struct {
@@ -80,32 +84,66 @@ type FullCAConfig struct {
 func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var (
-		highscore uint32
+		highscore = new(uint32)
+
+		mu          sync.Mutex
+		selectedKey *ecdsa.PrivateKey
+		selectedID  storj.NodeID
 	)
 
 	if opts.Concurrency < 1 {
 		opts.Concurrency = 1
 	}
-	ctx, cancel := context.WithCancel(ctx)
 
 	log.Printf("Generating a certificate matching a difficulty of %d\n", opts.Difficulty)
-	eC := make(chan error)
-	caC := make(chan FullCertificateAuthority, 1)
-	for i := 0; i < int(opts.Concurrency); i++ {
-		go newCAWorker(ctx, i, &highscore, opts.Difficulty, opts.ParentCert, opts.ParentKey, caC, eC)
+	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency),
+		func(k *ecdsa.PrivateKey, id storj.NodeID) (done bool, err error) {
+			difficulty, err := id.Difficulty()
+			if err != nil {
+				return false, err
+			}
+			if difficulty >= opts.Difficulty {
+				mu.Lock()
+				if selectedKey == nil {
+					log.Printf("Found a certificate matching difficulty of %d\n", difficulty)
+					selectedKey = k
+					selectedID = id
+				}
+				mu.Unlock()
+				return true, nil
+			}
+			for {
+				hs := atomic.LoadUint32(highscore)
+				if uint32(difficulty) <= hs {
+					return false, nil
+				}
+				if atomic.CompareAndSwapUint32(highscore, hs, uint32(difficulty)) {
+					log.Printf("Found a certificate matching difficulty of %d\n", difficulty)
+					return false, nil
+				}
+			}
+		})
+	if err != nil {
+		return nil, err
 	}
 
-	select {
-	case ca := <-caC:
-		cancel()
-		return &ca, nil
-	case err := <-eC:
-		cancel()
+	ct, err := peertls.CATemplate()
+	if err != nil {
 		return nil, err
-	case <-ctx.Done():
-		cancel()
-		return nil, ctx.Err()
 	}
+	c, err := peertls.NewCert(selectedKey, opts.ParentKey, ct, opts.ParentCert)
+	if err != nil {
+		return nil, err
+	}
+	ca := &FullCertificateAuthority{
+		Cert: c,
+		Key:  selectedKey,
+		ID:   selectedID,
+	}
+	if opts.ParentCert != nil {
+		ca.RestChain = []*x509.Certificate{opts.ParentCert}
+	}
+	return ca, nil
 }
 
 // Status returns the status of the CA cert/key files for the config
@@ -263,11 +301,7 @@ func (ca *FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 	if err != nil {
 		return nil, err
 	}
-	pk, ok := leafKey.(*ecdsa.PrivateKey)
-	if !ok {
-		return nil, peertls.ErrUnsupportedKey.New("%T", leafKey)
-	}
-	leafCert, err := peertls.NewCert(pk, ca.Key, leafTemplate, ca.Cert)
+	leafCert, err := peertls.NewCert(leafKey, ca.Key, leafTemplate, ca.Cert)
 	if err != nil {
 		return nil, err
 	}

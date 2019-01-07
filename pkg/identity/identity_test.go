@@ -72,11 +72,7 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	assert.NoError(t, pem.Encode(chainPEM, peertls.NewCertBlock(leafCert.Raw)))
 	assert.NoError(t, pem.Encode(chainPEM, peertls.NewCertBlock(caCert.Raw)))
 
-	leafECKey, ok := leafKey.(*ecdsa.PrivateKey)
-	assert.True(t, ok)
-	assert.NotEmpty(t, leafECKey)
-
-	leafKeyBytes, err := x509.MarshalECPrivateKey(leafECKey)
+	leafKeyBytes, err := x509.MarshalECPrivateKey(leafKey)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, leafKeyBytes)
 
