@@ -171,6 +171,7 @@ func (processes *Processes) New(info Info) (*Process, error) {
 	return process, nil
 }
 
+// WaitForStart ensures that process will wait on dependency before starting.
 func (process *Process) WaitForStart(dependency *Process) {
 	process.Wait = append(process.Wait, &dependency.Status.Started)
 }
@@ -245,8 +246,9 @@ func (process *Process) tryConnect() bool {
 	if err != nil {
 		return false
 	}
-	_, err = conn.Write([]byte{})
-	// ignoring error, because we only care about being able to connect
+	// write empty byte slice to trigger refresh on connection
+	_, _ = conn.Write([]byte{})
+	// ignoring errors, because we only care about being able to connect
 	_ = conn.Close()
 	return true
 }
