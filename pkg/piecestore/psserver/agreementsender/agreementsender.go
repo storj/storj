@@ -30,11 +30,11 @@ var (
 
 // AgreementSender maintains variables required for reading bandwidth agreements from a DB and sending them to a Payers
 type AgreementSender struct {
-	DB       *psdb.DB
-	log      *zap.Logger
-	overlay  overlay.Client
-	identity *provider.FullIdentity
-	errs     []error
+	DB        *psdb.DB
+	log       *zap.Logger
+	overlay   overlay.Client
+	transport transport.Client
+	errs      []error
 }
 
 // Initialize the Agreement Sender
@@ -43,7 +43,7 @@ func Initialize(DB *psdb.DB, identity *provider.FullIdentity) (*AgreementSender,
 	if err != nil {
 		return nil, err
 	}
-	return &AgreementSender{DB: DB, identity: identity, overlay: overlay}, nil
+	return &AgreementSender{DB: DB, transport: transport.NewClient(identity), overlay: overlay}, nil
 }
 
 // Run the afreement sender with a context to cehck for cancel
@@ -63,10 +63,9 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 		for range ticker.C {
 			agreementGroups, err := as.DB.GetBandwidthAllocations()
 			if err != nil {
-				as.log.Error(err)
+				as.log.Error("Agreementsender could not retrieve bandwidth allocations", zap.Error(err))
 				continue
 			}
-
 			// Send agreements in groups by satellite id to open less connections
 			for satellite, agreements := range agreementGroups {
 				c <- &agreementGroup{satellite, agreements}
@@ -80,44 +79,41 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 			return utils.CombineErrors(as.errs...)
 		case agreementGroup := <-c:
 			go func() {
-				as.log.Infof("Sending %v agreements to satellite %s\n", len(agreementGroup.agreements), agreementGroup.satellite)
+				as.log.Info("Sending agreements to satellite", zap.Int("number of agreements", len(agreementGroup.agreements)), zap.String("sat node id", agreementGroup.satellite.String()))
 
 				// Get satellite ip from overlay by Lookup agreementGroup.satellite
 				satellite, err := as.overlay.Lookup(ctx, agreementGroup.satellite)
 				if err != nil {
-					as.log.Error(err)
+					as.log.Error("Agreementsender could not find satellite", zap.Error(err))
 					return
 				}
 
 				// Create client from satellite ip
-				tc := transport.NewClient(as.identity)
-				conn, err := tc.DialNode(ctx, satellite)
+				conn, err := as.transport.DialNode(ctx, satellite)
 				if err != nil {
-					as.log.Error(err)
+					as.log.Error("Agreementsender could not dial satellite", zap.Error(err))
 					return
 				}
+
 				client := pb.NewBandwidthClient(conn)
-
 				for _, agreement := range agreementGroup.agreements {
-
 					msg := &pb.RenterBandwidthAllocation{
 						Data:      agreement.Agreement,
 						Signature: agreement.Signature,
 					}
-
 					// Send agreement to satellite
 					r, err := client.BandwidthAgreements(ctx, msg)
 					if err != nil || r.GetStatus() != pb.AgreementsSummary_OK {
-						as.log.Errorf("Failed to send agreement to satellite: %+v", err)
+						as.log.Error("Agreementsender failed to send agreement to satellite", zap.Error(err))
 						return
 					}
-
 					// Delete from PSDB by signature
 					if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {
-						as.log.Error(err)
+						as.log.Error("Agreementsender failed to delete bandwidth allocation", zap.Error(err))
 						return
 					}
 				}
+				conn.Close()
 			}()
 		}
 	}
