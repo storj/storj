@@ -67,7 +67,6 @@ func NewClient(identity *provider.FullIdentity, address string, APIKey string) (
 		context.Background(),
 		address,
 		grpc.WithUnaryInterceptor(apiKeyInjector),
-		grpc.WithBlock(),
 	)
 	if err != nil {
 		return nil, err

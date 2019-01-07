@@ -77,7 +77,6 @@ matrix:
 
     ### Docker tests ###
     - env: MODE=docker
-      disable: true
       services:
         - docker
       before_install:
