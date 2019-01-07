@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"storj.io/storj/pkg/bwagreement"
-	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -17,26 +16,13 @@ type bandwidthagreement struct {
 }
 
 func (b *bandwidthagreement) CreateAgreement(ctx context.Context, serialNum string, agreement bwagreement.Agreement) error {
-	tx, err := b.db.Open(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	_, err = tx.Get_Bwagreement_By_Serialnum(ctx, dbx.Bwagreement_Serialnum(serialNum))
-	if err != nil {
-		// no rows err, ie no dulicate serialnum check, so create an entry
-		_, err = b.db.Create_Bwagreement(
-			ctx,
-			dbx.Bwagreement_Signature(agreement.Signature),
-			dbx.Bwagreement_Serialnum(serialNum),
-			dbx.Bwagreement_Data(agreement.Agreement),
-		)
-		if err != nil {
-			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
-		}
-		return Error.Wrap(tx.Commit())
-	}
-	return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+	_, err := b.db.Create_Bwagreement(
+		ctx,
+		dbx.Bwagreement_Signature(agreement.Signature),
+		dbx.Bwagreement_Serialnum(serialNum),
+		dbx.Bwagreement_Data(agreement.Agreement),
+	)
+	return err
 }
 
 func (b *bandwidthagreement) GetAgreements(ctx context.Context) ([]bwagreement.Agreement, error) {
