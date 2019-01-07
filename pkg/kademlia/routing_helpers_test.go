@@ -21,8 +21,19 @@ import (
 	"storj.io/storj/storage/teststore"
 )
 
+type routingTableOpts struct {
+	bucketSize int
+	cacheSize  int
+}
+
 // newTestRoutingTable returns a newly configured instance of a RoutingTable
-func newTestRoutingTable(localNode pb.Node) (*RoutingTable, error) {
+func newTestRoutingTable(localNode pb.Node, opts routingTableOpts) (*RoutingTable, error) {
+	if opts.bucketSize == 0 {
+		opts.bucketSize = 6
+	}
+	if opts.cacheSize == 0 {
+		opts.cacheSize = 2
+	}
 	rt := &RoutingTable{
 		self:         localNode,
 		kadBucketDB:  storelogger.New(zap.L().Named("rt.kad"), teststore.New()),
@@ -33,8 +44,8 @@ func newTestRoutingTable(localNode pb.Node) (*RoutingTable, error) {
 		seen:             make(map[storj.NodeID]*pb.Node),
 		replacementCache: make(map[bucketID][]*pb.Node),
 
-		bucketSize:   6,
-		rcBucketSize: 2,
+		bucketSize:   opts.bucketSize,
+		rcBucketSize: opts.cacheSize,
 	}
 	ok, err := rt.addNode(&localNode)
 	if !ok || err != nil {
@@ -43,23 +54,27 @@ func newTestRoutingTable(localNode pb.Node) (*RoutingTable, error) {
 	return rt, nil
 }
 
-func createRoutingTable(t *testing.T, localNodeID storj.NodeID) (*RoutingTable, func()) {
+func createRoutingTableWith(localNodeID storj.NodeID, opts routingTableOpts) (*RoutingTable, func()) {
 	if localNodeID == (storj.NodeID{}) {
 		localNodeID = teststorj.NodeIDFromString("AA")
 	}
 	localNode := pb.Node{Id: localNodeID}
 
-	rt, err := newTestRoutingTable(localNode)
+	rt, err := newTestRoutingTable(localNode, opts)
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
 
 	return rt, func() {
 		err := rt.Close()
 		if err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 	}
+}
+
+func createRoutingTable(t *testing.T, localNodeID storj.NodeID) (*RoutingTable, func()) {
+	return createRoutingTableWith(localNodeID, routingTableOpts{})
 }
 
 func TestAddNode(t *testing.T) {
