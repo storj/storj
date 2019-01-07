@@ -115,6 +115,9 @@ func (info *ProcessInfo) Env() []string {
 	return env
 }
 
+// Arguments contains arguments based on the main command
+type Arguments map[string][]string
+
 // Process is a type for monitoring the process
 type Process struct {
 	processes *Processes
@@ -132,7 +135,7 @@ type Process struct {
 		Exited  sync2.Fence
 	}
 
-	Arguments map[string][]string
+	Arguments Arguments
 
 	stdout io.Writer
 	stderr io.Writer
@@ -164,7 +167,7 @@ func (processes *Processes) New(name, executable, directory string) (*Process, e
 			Name:      name,
 			Directory: directory,
 		},
-		Arguments: map[string][]string{},
+		Arguments: Arguments{},
 
 		stdout: io.MultiWriter(output, outfile),
 		stderr: io.MultiWriter(output, errfile),

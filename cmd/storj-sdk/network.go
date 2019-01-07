@@ -84,8 +84,19 @@ func networkDestroy(flags *Flags, args []string) error {
 
 // newNetwork creates a default network
 func newNetwork(flags *Flags) (*Processes, error) {
-	processes := NewProcesses()
+	// with common adds all common arguments to the process
+	withCommon := func(all Arguments) Arguments {
+		for command, args := range all {
+			all[command] = append([]string{
+				"--log.level", "debug",
+				"--config-dir", ".",
+				command,
+			}, args...)
+		}
+		return all
+	}
 
+	processes := NewProcesses()
 	var (
 		configDir       = flags.Directory
 		host            = flags.Host
@@ -95,14 +106,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	)
 
 	var bootstrapSatellite *Process
-
-	arguments := func(name, command, addr string, rest ...string) []string {
-		return append([]string{
-			"--log.level", "debug",
-			"--config-dir", ".",
-			command,
-		}, rest...)
-	}
 
 	for i := 0; i < flags.SatelliteCount; i++ {
 		name := fmt.Sprintf("satellite/%d", i)
@@ -127,19 +130,13 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			bootstrapSatellite = process
 		}
 
-		process.Arguments["setup"] = arguments(name, "setup", process.Info.Address)
-		process.Arguments["run"] = arguments(name, "run", process.Info.Address,
-			"--kademlia.bootstrap-addr", bootstrapAddr,
-			"--server.address", process.Info.Address,
-		)
-	}
-
-	gatewayArguments := func(name, command string, addr string, rest ...string) []string {
-		return append([]string{
-			"--log.level", "debug",
-			"--config-dir", ".",
-			command,
-		}, rest...)
+		process.Arguments = withCommon(Arguments{
+			"setup": {},
+			"run": {
+				"--kademlia.bootstrap-addr", bootstrapAddr,
+				"--server.address", process.Info.Address,
+			},
+		})
 	}
 
 	for i := 0; i < flags.SatelliteCount; i++ {
@@ -160,24 +157,25 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.WaitForStart(satellite)
 
-		process.Arguments["setup"] = gatewayArguments(name, "setup", process.Info.Address,
-			"--satellite-addr", satellite.Info.Address,
-		)
-
 		accessKey, secretKey := randomKey(), randomKey()
-		process.Arguments["run"] = gatewayArguments(name, "run", process.Info.Address,
-			"--server.address", process.Info.Address,
-			"--minio.access-key", accessKey,
-			"--minio.secret-key", secretKey,
-
-			"--client.overlay-addr", satellite.Info.Address,
-			"--client.pointer-db-addr", satellite.Info.Address,
-		)
-
 		process.Info.Extra = []string{
 			"ACCESS_KEY=" + accessKey,
 			"SECRET_KEY=" + secretKey,
 		}
+
+		process.Arguments = withCommon(Arguments{
+			"setup": {
+				"--satellite-addr", satellite.Info.Address,
+			},
+			"run": {
+				"--server.address", process.Info.Address,
+				"--minio.access-key", accessKey,
+				"--minio.secret-key", secretKey,
+
+				"--client.overlay-addr", satellite.Info.Address,
+				"--client.pointer-db-addr", satellite.Info.Address,
+			},
+		})
 	}
 
 	for i := 0; i < flags.StorageNodeCount; i++ {
@@ -196,16 +194,18 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.WaitForStart(bootstrapSatellite)
 
-		process.Arguments["setup"] = arguments(name, "setup", process.Info.Address,
-			"--piecestore.agreementsender.overlay-addr", bootstrapSatellite.Info.Address,
-		)
-		process.Arguments["run"] = arguments(name, "run", process.Info.Address,
-			"--piecestore.agreementsender.overlay-addr", bootstrapSatellite.Info.Address,
-			"--kademlia.bootstrap-addr", bootstrapSatellite.Info.Address,
-			"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
-			"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
-			"--server.address", process.Info.Address,
-		)
+		process.Arguments = withCommon(Arguments{
+			"setup": {
+				"--piecestore.agreementsender.overlay-addr", bootstrapSatellite.Info.Address,
+			},
+			"run": {
+				"--piecestore.agreementsender.overlay-addr", bootstrapSatellite.Info.Address,
+				"--kademlia.bootstrap-addr", bootstrapSatellite.Info.Address,
+				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
+				"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
+				"--server.address", process.Info.Address,
+			},
+		})
 	}
 
 	return processes, nil
