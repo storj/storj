@@ -113,7 +113,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 						return
 					}
 				}
-				conn.Close()
+				as.log.Error("Agreementsender failed to close connection", zap.Error(conn.Close()))
 			}()
 		}
 	}
