@@ -66,7 +66,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	pb.RegisterPieceStoreRoutesServer(server.GRPC(), s)
 
 	// Run the agreement sender process
-	asProcess, err := as.Initialize(s.DB, server.Identity())
+	asProcess, err := as.Initialize(zap.L(), s.DB, server.Identity())
 	if err != nil {
 		return err
 	}

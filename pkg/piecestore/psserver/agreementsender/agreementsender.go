@@ -38,12 +38,12 @@ type AgreementSender struct {
 }
 
 // Initialize the Agreement Sender
-func Initialize(DB *psdb.DB, identity *provider.FullIdentity) (*AgreementSender, error) {
+func Initialize(log *zap.Logger, DB *psdb.DB, identity *provider.FullIdentity) (*AgreementSender, error) {
 	overlay, err := overlay.NewClient(identity, *defaultOverlayAddr)
 	if err != nil {
 		return nil, err
 	}
-	return &AgreementSender{DB: DB, transport: transport.NewClient(identity), overlay: overlay}, nil
+	return &AgreementSender{DB: DB, log: log, transport: transport.NewClient(identity), overlay: overlay}, nil
 }
 
 // Run the afreement sender with a context to cehck for cancel
