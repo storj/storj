@@ -94,13 +94,16 @@ func (id NodeID) Less(b NodeID) bool {
 // Difficulty returns the number of trailing zero bits in a node ID
 func (id NodeID) Difficulty() (uint16, error) {
 	idLen := len(id)
-	for i := 1; i < idLen; i++ {
-		b := id[idLen-i]
+	var b byte
+	var zeroBits int
+	for i := 1; i <= idLen; i++ {
+		b = id[idLen-i]
 
 		if b != 0 {
-			zeroBits := bits.TrailingZeros16(uint16(b))
+			zeroBits = bits.TrailingZeros16(uint16(b))
 			if zeroBits == 16 {
-				zeroBits = 0
+				// we already checked that b != 0.
+				return 0, ErrNodeID.New("impossible codepath!")
 			}
 
 			return uint16((i-1)*8 + zeroBits), nil

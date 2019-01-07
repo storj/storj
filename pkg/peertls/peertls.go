@@ -57,13 +57,8 @@ var (
 type PeerCertVerificationFunc func([][]byte, [][]*x509.Certificate) error
 
 // NewKey returns a new PrivateKey
-func NewKey() (crypto.PrivateKey, error) {
-	k, err := ecdsa.GenerateKey(authECCurve, rand.Reader)
-	if err != nil {
-		return nil, ErrGenerate.New("failed to generate private key: %v", err)
-	}
-
-	return k, nil
+func NewKey() (*ecdsa.PrivateKey, error) {
+	return ecdsa.GenerateKey(authECCurve, rand.Reader)
 }
 
 // VerifyPeerFunc combines multiple `*tls.Config#VerifyPeerCertificate`
