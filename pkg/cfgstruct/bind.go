@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -69,10 +68,6 @@ func bind(flags FlagSet, config interface{}, setupCommand bool, opts ...BindOpt)
 	}
 	bindConfig(flags, "", reflect.ValueOf(config).Elem(), vars, setupCommand, false)
 }
-
-var (
-	whitespace = regexp.MustCompile(`\s+`)
-)
 
 func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string]confVar, setupCommand, setupStruct bool) {
 	if val.Kind() != reflect.Struct {
