@@ -19,6 +19,7 @@ type nodeData struct {
 	ordering  int64
 	timestamp time.Time
 	fails     int
+	inCache   bool
 }
 
 // Table is a routing table that tries to be as correct as possible at
@@ -68,11 +69,12 @@ func (t *Table) ConnectionSuccess(node *pb.Node) error {
 		return nil
 	}
 
-	// if the node is already here, update everything but its placement order
+	// if the node is already here, update it
 	if cell, exists := t.nodes[node.Id]; exists {
 		cell.node = node
 		cell.timestamp = time.Now()
 		cell.fails = 0
+		// skip placement order and cache status
 		return nil
 	}
 
@@ -82,6 +84,7 @@ func (t *Table) ConnectionSuccess(node *pb.Node) error {
 		ordering:  t.counter,
 		timestamp: time.Now(),
 		fails:     0,
+		inCache:   false, // makeTree might promote this to true
 	}
 	t.counter += 1
 
@@ -111,8 +114,14 @@ func (t *Table) ConnectionFailed(node *pb.Node) error {
 		data.fails += 1
 
 		// if we've failed too many times, remove the node
-		if t.allowedFailures < data.fails {
+		if data.fails > t.allowedFailures {
 			delete(t.nodes, node.Id)
+			t.makeTree().walkLeaves(func(b *bucket) {
+				// pull the latest node out of the replacement cache
+				if len(b.cache) > 0 && len(b.nodes) < t.bucketSize {
+					b.cache[len(b.cache)-1].inCache = false
+				}
+			})
 		}
 	}
 	return nil
@@ -126,15 +135,17 @@ func (t *Table) FindNear(id storj.NodeID, limit int) ([]*pb.Node, error) {
 
 	// find all non-cache nodes
 	nodes := make([]*nodeData, 0, len(t.nodes))
-	t.makeTree().walkLeaves(func(b *bucket) {
-		nodes = append(nodes, b.nodes...)
-	})
+	for _, node := range t.nodes {
+		if !node.inCache {
+			nodes = append(nodes, node)
+		}
+	}
 
 	// sort by distance
 	sort.Sort(nodeDataDistanceSorter{self: id, nodes: nodes})
 
 	// return up to limit nodes
-	if len(nodes) < limit {
+	if limit > len(nodes) {
 		limit = len(nodes)
 	}
 	rv := make([]*pb.Node, 0, limit)
@@ -227,7 +238,7 @@ func (t *Table) makeTree() *bucket {
 		// is the node in the nearest k and therefore should be force-added?
 		nearest = append(nearest, node)
 		sort.Sort(nodeDataDistanceSorter{self: t.self, nodes: nearest})
-		if t.bucketSize < len(nearest) {
+		if len(nearest) > t.bucketSize {
 			nearest = nearest[:t.bucketSize]
 		}
 		force := false
@@ -254,12 +265,18 @@ func (t *Table) add(b *bucket, node *nodeData, force, dissimilar bool) {
 		return
 	}
 
+	if node.inCache {
+		b.cache = append(b.cache, node)
+		return
+	}
+
 	if len(b.nodes) < t.bucketSize {
 		b.nodes = append(b.nodes, node)
 		return
 	}
 
 	if dissimilar && !force {
+		node.inCache = true
 		b.cache = append(b.cache, node)
 		return
 	}
@@ -277,11 +294,4 @@ func (t *Table) add(b *bucket, node *nodeData, force, dissimilar bool) {
 		t.add(b, existingNode, false, dissimilar)
 	}
 	t.add(b, node, force, dissimilar)
-}
-
-func extendPrefix(prefix string, bit bool) string {
-	if bit {
-		return prefix + "1"
-	}
-	return prefix + "0"
 }

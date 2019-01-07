@@ -316,8 +316,8 @@ func testFailureCounting(t *testing.T, routingCtor routingCtor) {
 	require.NoError(t, err)
 	requireNodesEqual(t, []*pb.Node{
 		NodeFromPrefix("c0", "f"),
-		NodeFromPrefix("d8", "f"),
 		NodeFromPrefix("e0", "f"),
+		NodeFromPrefix("e8", "f"),
 		NodeFromPrefix("f0", "f"),
 		NodeFromPrefix("f8", "f"),
 		NodeFromPrefix("80", "f"),
@@ -454,5 +454,31 @@ func testShrink(t *testing.T, routingCtor routingCtor) {
 		NodeFromPrefix("a1", "0"),
 		NodeFromPrefix("39", "0"),
 		NodeFromPrefix("31", "0"),
+	}, nodes)
+}
+
+func TestReplacementCacheOrder_Routing(t *testing.T)     { testReplacementCacheOrder(t, newRouting) }
+func TestReplacementCacheOrder_TestRouting(t *testing.T) { testReplacementCacheOrder(t, newTestRouting) }
+func testReplacementCacheOrder(t *testing.T, routingCtor routingCtor) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	table, close := routingCtor(PadID("a3", "3"), 1, 2, 0)
+	defer close()
+
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("80", "0")))
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("20", "0")))
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("c0", "0")))
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("40", "0")))
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("00", "0")))
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("20", "0")))
+
+	nodes, err := table.FindNear(PadID("55", "5"), 4)
+	require.NoError(t, err)
+
+	requireNodesEqual(t, []*pb.Node{
+		NodeFromPrefix("00", "0"),
+		NodeFromPrefix("c0", "0"),
+		NodeFromPrefix("80", "0"),
 	}, nodes)
 }
