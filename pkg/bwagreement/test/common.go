@@ -15,6 +15,7 @@ import (
 
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 //GeneratePayerBandwidthAllocation creates a signed PayerBandwidthAllocation from a PayerBandwidthAllocation_Action
@@ -56,7 +57,7 @@ func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action,
 }
 
 //GenerateRenterBandwidthAllocation creates a signed RenterBandwidthAllocation from a PayerBandwidthAllocation
-func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, uplinkKey crypto.PrivateKey) (*pb.RenterBandwidthAllocation, error) {
+func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, storageNodeID storj.NodeID, uplinkKey crypto.PrivateKey) (*pb.RenterBandwidthAllocation, error) {
 	// get "Uplink" Public Key
 	uplinkKeyEcdsa, ok := uplinkKey.(*ecdsa.PrivateKey)
 	if !ok {
@@ -67,7 +68,7 @@ func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, uplinkK
 	data, _ := proto.Marshal(
 		&pb.RenterBandwidthAllocation_Data{
 			PayerAllocation: pba,
-			StorageNodeId:   teststorj.NodeIDFromString("StorageNodeID"),
+			StorageNodeId:   storageNodeID,
 			Total:           int64(666),
 		},
 	)
