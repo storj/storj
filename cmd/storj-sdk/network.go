@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
@@ -53,7 +52,9 @@ func networkTest(flags *Flags, command string, args []string) error {
 	var group errgroup.Group
 	processes.Start(ctx, &group, "run")
 
-	time.Sleep(2 * time.Second)
+	for _, process := range processes.List {
+		process.Status.Started.Wait()
+	}
 
 	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Env = append(os.Environ(), processes.Env()...)
@@ -168,6 +169,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"--server.address", process.Info.Address,
 			"--minio.access-key", accessKey,
 			"--minio.secret-key", secretKey,
+
+			"--client.overlay-addr", satellite.Info.Address,
+			"--client.pointer-db-addr", satellite.Info.Address,
 		)
 
 		process.Info.Extra = []string{

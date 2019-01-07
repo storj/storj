@@ -5,11 +5,13 @@ package miniogw
 
 import (
 	"context"
+	"errors"
 	"os"
 
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/vivint/infectious"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/eestream"
@@ -132,6 +134,17 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context, identity *provi
 // GetMetainfo returns an implementation of storj.Metainfo
 func (c Config) GetMetainfo(ctx context.Context, identity *provider.FullIdentity) (db storj.Metainfo, ss streams.Store, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if c.Client.OverlayAddr == "" || c.Client.PointerDBAddr == "" {
+		var errlist errs.Group
+		if c.Client.OverlayAddr == "" {
+			errlist.Add(errors.New("overlay address not specified"))
+		}
+		if c.Client.PointerDBAddr == "" {
+			errlist.Add(errors.New("pointerdb address not specified"))
+		}
+		return nil, nil, errlist.Err()
+	}
 
 	oc, err := overlay.NewClient(identity, c.Client.OverlayAddr)
 	if err != nil {

@@ -11,7 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -113,22 +113,6 @@ func (info *ProcessInfo) Env() []string {
 	return env
 }
 
-// Fence is a synchronization primitive.
-// TODO: move to sync2
-type Fence struct {
-	start sync.Once
-	done  sync.Once
-	wg    sync.WaitGroup
-}
-
-func (fence *Fence) init() { fence.start.Do(func() { fence.wg.Add(1) }) }
-
-// Wait waits for the fence to be released
-func (fence *Fence) Wait() { fence.init(); fence.wg.Wait() }
-
-// Release releases the Fence
-func (fence *Fence) Release() { fence.init(); fence.done.Do(fence.wg.Done) }
-
 // Process is a type for monitoring the process
 type Process struct {
 	processes *Processes
@@ -139,6 +123,7 @@ type Process struct {
 
 	Info ProcessInfo
 
+	Delay  time.Duration
 	Wait   []*Fence
 	Status struct {
 		Started Fence
@@ -204,6 +189,23 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 
 	processgroup.Setup(cmd)
 
+	// ensure that we always release all status fences
+	defer process.Status.Started.Release()
+	defer process.Status.Exited.Release()
+
+	// wait for dependencies to start
+	for _, fence := range process.Wait {
+		fence.Wait()
+	}
+
+	if process.Delay > 0 {
+		fmt.Println("waiting for start", time.Now())
+		if err := Sleep(ctx, process.Delay); err != nil {
+			return err
+		}
+		fmt.Println("waited", time.Now())
+	}
+
 	if printCommands {
 		fmt.Fprintf(process.processes.Output, "%s running: %v\n", process.Name, strings.Join(cmd.Args, " "))
 		defer func() {
@@ -211,19 +213,35 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 		}()
 	}
 
-	for _, fence := range process.Wait {
-		fence.Wait()
-	}
-
-	defer process.Status.Exited.Release()
+	// start the process
 	err = cmd.Start()
-	process.Status.Started.Release()
 	if err != nil {
 		return err
 	}
 
+	switch command {
+	case "setup":
+		// during setup we aren't starting the addresses, so we can release the depdendencies immediately
+		process.Status.Started.Release()
+	default:
+		// release started when we are able to connect to the process address
+		go process.MonitorAddress()
+	}
+
+	// wait for process completion
 	err = cmd.Wait()
 	return err
+}
+
+// MonitorAddress will monitor starting when we are able to start the process.
+func (process *Process) MonitorAddress() {
+	for process.Status.Started.Blocked() {
+		if TryConnect(process.Info.Address) {
+			process.Status.Started.Release()
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 // Close closes process resources
