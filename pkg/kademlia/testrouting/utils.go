@@ -8,12 +8,12 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-type nodeDataTimeSorter []*nodeData
+type nodeDataOrderingSorter []*nodeData
 
-func (s nodeDataTimeSorter) Len() int      { return len(s) }
-func (s nodeDataTimeSorter) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s nodeDataOrderingSorter) Len() int      { return len(s) }
+func (s nodeDataOrderingSorter) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
-func (s nodeDataTimeSorter) Less(i, j int) bool {
+func (s nodeDataOrderingSorter) Less(i, j int) bool {
 	return s[i].ordering < s[j].ordering
 }
 

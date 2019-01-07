@@ -221,7 +221,7 @@ func (t *Table) makeTree() *bucket {
 	var root bucket
 
 	// we'll replay the nodes in original placement order
-	sort.Sort(nodeDataTimeSorter(nodes))
+	sort.Sort(nodeDataOrderingSorter(nodes))
 	nearest := make([]*nodeData, 0, t.bucketSize+1)
 	for _, node := range nodes {
 		// is the node in the nearest k and therefore should be force-added?
