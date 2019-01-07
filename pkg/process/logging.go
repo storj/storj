@@ -5,8 +5,6 @@ package process
 
 import (
 	"flag"
-	"os"
-	"runtime"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -26,17 +24,6 @@ var (
 )
 
 func newLogger() (*zap.Logger, error) {
-	levelEncoder := zapcore.CapitalColorLevelEncoder
-	if runtime.GOOS == "windows" {
-		levelEncoder = zapcore.CapitalLevelEncoder
-	}
-
-	timeKey := "T"
-	if os.Getenv("STORJ_LOG_NOTIME") != "" {
-		// using environment variable STORJ_LOG_NOTIME to avoid additional flags
-		timeKey = ""
-	}
-
 	return zap.Config{
 		Level:             zap.NewAtomicLevelAt(*logLevel),
 		Development:       *logDev,
@@ -44,14 +31,14 @@ func newLogger() (*zap.Logger, error) {
 		DisableStacktrace: !*logStack,
 		Encoding:          *logEncoding,
 		EncoderConfig: zapcore.EncoderConfig{
-			TimeKey:        timeKey,
+			TimeKey:        "T",
 			LevelKey:       "L",
 			NameKey:        "N",
 			CallerKey:      "C",
 			MessageKey:     "M",
 			StacktraceKey:  "S",
 			LineEnding:     zapcore.DefaultLineEnding,
-			EncodeLevel:    levelEncoder,
+			EncodeLevel:    zapcore.CapitalColorLevelEncoder,
 			EncodeTime:     zapcore.ISO8601TimeEncoder,
 			EncodeDuration: zapcore.StringDurationEncoder,
 			EncodeCaller:   zapcore.ShortCallerEncoder,

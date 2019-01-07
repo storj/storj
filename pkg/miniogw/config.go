@@ -5,13 +5,11 @@ package miniogw
 
 import (
 	"context"
-	"errors"
 	"os"
 
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/vivint/infectious"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/eestream"
@@ -135,35 +133,24 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context, identity *provi
 func (c Config) GetMetainfo(ctx context.Context, identity *provider.FullIdentity) (db storj.Metainfo, ss streams.Store, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if c.Client.OverlayAddr == "" || c.Client.PointerDBAddr == "" {
-		var errlist errs.Group
-		if c.Client.OverlayAddr == "" {
-			errlist.Add(errors.New("overlay address not specified"))
-		}
-		if c.Client.PointerDBAddr == "" {
-			errlist.Add(errors.New("pointerdb address not specified"))
-		}
-		return nil, nil, errlist.Err()
-	}
-
 	oc, err := overlay.NewClient(identity, c.Client.OverlayAddr)
 	if err != nil {
-		return nil, nil, Error.New("failed to connect to overlay: %v", err)
+		return nil, nil, err
 	}
 
 	pdb, err := pdbclient.NewClient(identity, c.Client.PointerDBAddr, c.Client.APIKey)
 	if err != nil {
-		return nil, nil, Error.New("failed to connect to pointer DB: %v", err)
+		return nil, nil, err
 	}
 
 	ec := ecclient.NewClient(identity, c.RS.MaxBufferMem)
 	fc, err := infectious.NewFEC(c.RS.MinThreshold, c.RS.MaxThreshold)
 	if err != nil {
-		return nil, nil, Error.New("failed to create erasure coding client: %v", err)
+		return nil, nil, err
 	}
 	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, c.RS.ErasureShareSize), c.RS.RepairThreshold, c.RS.SuccessThreshold)
 	if err != nil {
-		return nil, nil, Error.New("failed to create redundancy strategy: %v", err)
+		return nil, nil, err
 	}
 
 	segments := segments.NewSegmentStore(oc, ec, pdb, rs, c.Client.MaxInlineSize)
@@ -178,7 +165,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *provider.FullIdentity
 
 	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize, key, c.Enc.BlockSize, storj.Cipher(c.Enc.DataType))
 	if err != nil {
-		return nil, nil, Error.New("failed to create stream store: %v", err)
+		return nil, nil, err
 	}
 
 	buckets := buckets.NewStore(streams)
