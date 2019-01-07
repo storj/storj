@@ -93,7 +93,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		storageNodePort = 11000
 	)
 
-	defaultSatellite := net.JoinHostPort(host, strconv.Itoa(satellitePort+0))
+	var bootstrapSatellite *Process
 
 	arguments := func(name, command, addr string, rest ...string) []string {
 		return append([]string{
@@ -115,11 +115,20 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		if err != nil {
 			return nil, utils.CombineErrors(err, processes.Close())
 		}
+
 		process.Info.Address = net.JoinHostPort(host, strconv.Itoa(satellitePort+i))
+
+		bootstrapAddr := process.Info.Address
+		if bootstrapSatellite != nil {
+			bootstrapAddr = bootstrapSatellite.Info.Address
+			process.WaitForStart(bootstrapSatellite)
+		} else {
+			bootstrapSatellite = process
+		}
 
 		process.Arguments["setup"] = arguments(name, "setup", process.Info.Address)
 		process.Arguments["run"] = arguments(name, "run", process.Info.Address,
-			"--kademlia.bootstrap-addr", defaultSatellite,
+			"--kademlia.bootstrap-addr", bootstrapAddr,
 			"--server.address", process.Info.Address,
 		)
 	}
@@ -147,6 +156,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			return nil, utils.CombineErrors(err, processes.Close())
 		}
 		process.Info.Address = net.JoinHostPort(host, strconv.Itoa(gatewayPort+i))
+
+		process.WaitForStart(satellite)
 
 		process.Arguments["setup"] = gatewayArguments(name, "setup", process.Info.Address,
 			"--satellite-addr", satellite.Info.Address,
@@ -179,12 +190,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		}
 		process.Info.Address = net.JoinHostPort(host, strconv.Itoa(storageNodePort+i))
 
+		process.WaitForStart(bootstrapSatellite)
+
 		process.Arguments["setup"] = arguments(name, "setup", process.Info.Address,
-			"--piecestore.agreementsender.overlay-addr", defaultSatellite,
+			"--piecestore.agreementsender.overlay-addr", bootstrapSatellite.Info.Address,
 		)
 		process.Arguments["run"] = arguments(name, "run", process.Info.Address,
-			"--piecestore.agreementsender.overlay-addr", defaultSatellite,
-			"--kademlia.bootstrap-addr", defaultSatellite,
+			"--piecestore.agreementsender.overlay-addr", bootstrapSatellite.Info.Address,
+			"--kademlia.bootstrap-addr", bootstrapSatellite.Info.Address,
 			"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
 			"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
 			"--server.address", process.Info.Address,

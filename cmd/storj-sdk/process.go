@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"golang.org/x/sync/errgroup"
 
@@ -112,6 +113,22 @@ func (info *ProcessInfo) Env() []string {
 	return env
 }
 
+// Fence is a synchronization primitive.
+// TODO: move to sync2
+type Fence struct {
+	start sync.Once
+	done  sync.Once
+	wg    sync.WaitGroup
+}
+
+func (fence *Fence) init() { fence.start.Do(func() { fence.wg.Add(1) }) }
+
+// Wait waits for the fence to be released
+func (fence *Fence) Wait() { fence.init(); fence.wg.Wait() }
+
+// Release releases the Fence
+func (fence *Fence) Release() { fence.init(); fence.done.Do(fence.wg.Done) }
+
 // Process is a type for monitoring the process
 type Process struct {
 	processes *Processes
@@ -121,6 +138,12 @@ type Process struct {
 	Executable string
 
 	Info ProcessInfo
+
+	Wait   []*Fence
+	Status struct {
+		Started Fence
+		Exited  Fence
+	}
 
 	Arguments map[string][]string
 
@@ -168,8 +191,12 @@ func (processes *Processes) New(name, executable, directory string) (*Process, e
 	return process, nil
 }
 
+func (process *Process) WaitForStart(dependency *Process) {
+	process.Wait = append(process.Wait, &dependency.Status.Started)
+}
+
 // Exec runs the process using the arguments for a given command
-func (process *Process) Exec(ctx context.Context, command string) error {
+func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	cmd := exec.CommandContext(ctx, process.Executable, process.Arguments[command]...)
 	cmd.Dir = process.Directory
 	cmd.Env = append(os.Environ(), "STORJ_LOG_NOTIME=1")
@@ -179,12 +206,23 @@ func (process *Process) Exec(ctx context.Context, command string) error {
 
 	if printCommands {
 		fmt.Fprintf(process.processes.Output, "%s running: %v\n", process.Name, strings.Join(cmd.Args, " "))
-	}
-	err := cmd.Run()
-	if printCommands {
-		fmt.Fprintf(process.processes.Output, "%s exited: %v\n", process.Name, err)
+		defer func() {
+			fmt.Fprintf(process.processes.Output, "%s exited: %v\n", process.Name, err)
+		}()
 	}
 
+	for _, fence := range process.Wait {
+		fence.Wait()
+	}
+
+	defer process.Status.Exited.Release()
+	err = cmd.Start()
+	process.Status.Started.Release()
+	if err != nil {
+		return err
+	}
+
+	err = cmd.Wait()
 	return err
 }
 
