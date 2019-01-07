@@ -57,7 +57,7 @@ func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action,
 }
 
 //GenerateRenterBandwidthAllocation creates a signed RenterBandwidthAllocation from a PayerBandwidthAllocation
-func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, storagenodeID storj.NodeID, uplinkKey crypto.PrivateKey) (*pb.RenterBandwidthAllocation, error) {
+func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, storageNodeID storj.NodeID, uplinkKey crypto.PrivateKey) (*pb.RenterBandwidthAllocation, error) {
 	// get "Uplink" Public Key
 	uplinkKeyEcdsa, ok := uplinkKey.(*ecdsa.PrivateKey)
 	if !ok {
@@ -68,7 +68,7 @@ func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, storage
 	data, _ := proto.Marshal(
 		&pb.RenterBandwidthAllocation_Data{
 			PayerAllocation: pba,
-			StorageNodeId:   storagenodeID,
+			StorageNodeId:   storageNodeID,
 			Total:           int64(666),
 		},
 	)
