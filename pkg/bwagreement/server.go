@@ -78,7 +78,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 	}
 
 	if len(pbad.SerialNumber) == 0 {
-		return reply, BwAgreementError.New("Invalid SerialNumber in the PayerBandwidthAllocatin")
+		return reply, BwAgreementError.New("Invalid SerialNumber in the PayerBandwidthAllocation")
 	}
 
 	serialNum := pbad.GetSerialNumber() + rbad.StorageNodeId.String()
@@ -89,7 +89,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 	})
 
 	if err != nil {
-		return reply, err
+		return reply, BwAgreementError.New("SerialNumber already exist in the PayerBandwidthAllocation")
 	}
 
 	reply.Status = pb.AgreementsSummary_OK
