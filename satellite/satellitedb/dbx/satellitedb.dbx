@@ -20,11 +20,6 @@ read one (
 	where  bwagreement.signature = ?
 )
 
-read one (
-	select bwagreement
-	where  bwagreement.serialnum = ?
-)
-
 read limitoffset (
 	select bwagreement
 )
