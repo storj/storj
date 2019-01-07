@@ -29,6 +29,18 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// StorageNode defines storage node configuration
+type StorageNode struct {
+	CA        identity.CASetupConfig `setup:"true"`
+	Identity  identity.SetupConfig   `setup:"true"`
+	Overwrite bool                   `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
+
+	Server   server.Config
+	Kademlia kademlia.StorageNodeConfig
+	Storage  psserver.Config
+	Signer   certificates.CertSigningConfig
+}
+
 var (
 	rootCmd = &cobra.Command{
 		Use:   "storagenode",
@@ -57,17 +69,9 @@ var (
 		RunE:  cmdDiag,
 	}
 
-	runCfg struct {
-		Server   server.Config
-		Kademlia kademlia.StorageNodeConfig
-		Storage  psserver.Config
-	}
-	setupCfg struct {
-		CA        identity.CASetupConfig
-		Identity  identity.SetupConfig
-		Signer    certificates.CertSigningConfig
-		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
-	}
+	runCfg   StorageNode
+	setupCfg StorageNode
+
 	diagCfg struct {
 	}
 
@@ -97,7 +101,7 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir))
 }
 
@@ -127,7 +131,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	if !setupCfg.Overwrite && !valid {
 		return fmt.Errorf("storagenode configuration already exists (%v). Rerun with --overwrite", setupDir)
 	} else if setupCfg.Overwrite && err == nil {
-		fmt.Println("overwriting existing satellite config")
+		fmt.Println("overwriting existing storagenode config")
 		err = os.RemoveAll(setupDir)
 		if err != nil {
 			return err
@@ -172,7 +176,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"piecestore.agreementsender.overlay-addr": defaultSatteliteAddr,
 	}
 
-	return process.SaveConfig(runCmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 }
 
 func cmdConfig(cmd *cobra.Command, args []string) (err error) {
