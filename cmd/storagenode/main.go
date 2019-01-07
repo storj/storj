@@ -29,21 +29,16 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// StorageNode defines storage node runtime configuration
+// StorageNode defines storage node configuration
 type StorageNode struct {
+	CA        identity.CASetupConfig `setup:"true"`
+	Identity  identity.SetupConfig   `setup:"true"`
+	Overwrite bool                   `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
+
 	Server   server.Config
 	Kademlia kademlia.StorageNodeConfig
 	Storage  psserver.Config
-}
-
-// SetupStorageNode defines storage node setup configuration
-type SetupStorageNode struct {
-	CA        identity.CASetupConfig
-	Identity  identity.SetupConfig
-	Signer    certificates.CertSigningConfig
-	Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
-
-	StorageNode
+	Signer   certificates.CertSigningConfig
 }
 
 var (
@@ -75,7 +70,7 @@ var (
 	}
 
 	runCfg   StorageNode
-	setupCfg SetupStorageNode
+	setupCfg StorageNode
 
 	diagCfg struct {
 	}
@@ -106,7 +101,7 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir))
 }
 
