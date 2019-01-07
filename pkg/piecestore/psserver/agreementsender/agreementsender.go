@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -34,6 +35,7 @@ type AgreementSender struct {
 	log       *zap.Logger
 	overlay   overlay.Client
 	transport transport.Client
+	identity  *provider.FullIdentity
 	errs      []error
 }
 
@@ -43,7 +45,7 @@ func Initialize(log *zap.Logger, DB *psdb.DB, identity *provider.FullIdentity) (
 	if err != nil {
 		return nil, err
 	}
-	return &AgreementSender{DB: DB, log: log, transport: transport.NewClient(identity), overlay: overlay}, nil
+	return &AgreementSender{DB: DB, log: log, transport: transport.NewClient(identity), identity: identity, overlay: overlay}, nil
 }
 
 // Run the afreement sender with a context to cehck for cancel
@@ -89,7 +91,14 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 				}
 
 				// Create client from satellite ip
-				conn, err := as.transport.DialNode(ctx, satellite)
+				//conn, err := as.transport.DialNode(ctx, satellite)
+				identOpt, err := as.identity.DialOption(storj.NodeID{})
+				if err != nil {
+					zap.S().Error(err)
+					return
+				}
+				conn, err := grpc.Dial(satellite.GetAddress().Address, identOpt)
+
 				if err != nil {
 					as.log.Error("Agreementsender could not dial satellite", zap.Error(err))
 					return
@@ -113,7 +122,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 						return
 					}
 				}
-				as.log.Error("Agreementsender failed to close connection", zap.Error(conn.Close()))
+				//as.log.Error("Agreementsender failed to close connection", zap.Error(conn.Close()))
 			}()
 		}
 	}
