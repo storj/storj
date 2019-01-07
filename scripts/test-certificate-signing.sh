@@ -12,7 +12,7 @@ signer_address="127.0.0.1:8888"
 difficulty=16
 
 cleanup() {
-    if [[ -z ${bg+x} ]]; then
+    if [[ ! -z ${bg+x} ]]; then
         kill ${bg}
     fi
 
@@ -23,9 +23,14 @@ cleanup() {
         fi
     done
 }
-temp_build storagenode certificates
+if [[ ${TRAVIS} == true ]]; then
+    declare_cmds storagenode certificates
+else
+    temp_build storagenode certificates
+fi
 tmp=$(mktemp -d)
-trap "rm -rf ${tmp} ${tmp_build_dir}; cleanup" EXIT
+trap "cleanup" EXIT
+
 
 certificates_dir=${tmp}/cert-signing
 storagenode_dir=${tmp}/storagenode
