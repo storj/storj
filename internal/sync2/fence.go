@@ -58,6 +58,7 @@ func (fence *Fence) Wait() {
 	fence.init()
 	// start waiting on the initial lock to be released
 	fence.wait.Lock()
+	//nolint: intentionally empty critical section
 	fence.wait.Unlock()
 }
 
