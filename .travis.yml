@@ -69,7 +69,7 @@ matrix:
         - redis
       install:
         - source scripts/install-awscli.sh
-        - go install -race storj.io/storj/cmd/{storj-sdk,satellite,storagenode,uplink,gateway,certificates}
+        - go install -race storj.io/storj/cmd/{storj-sdk,satellite,storagenode,uplink,gateway,certificates,captplanet}
       script:
         - make test-storj-sdk
         - make test-certificate-signing
