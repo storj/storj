@@ -12,6 +12,8 @@ import (
 )
 
 func TestSleep(t *testing.T) {
+	const sleepError = time.Second / 2 // should be larger than most system error with regards to sleep
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -19,7 +21,7 @@ func TestSleep(t *testing.T) {
 	if !sync2.Sleep(ctx, time.Second) {
 		t.Error("expected true as result")
 	}
-	if time.Since(start) < time.Second/2 {
+	if time.Since(start) < time.Second-sleepError {
 		t.Error("sleep took too little time")
 	}
 }

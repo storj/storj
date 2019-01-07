@@ -29,7 +29,8 @@ func TestFence(t *testing.T) {
 		})
 	}
 
-	time.Sleep(time.Second)
+	// wait a bit for all goroutines to hit the fence
+	time.Sleep(100 * time.Millisecond)
 
 	for i := 0; i < 3; i++ {
 		group.Go(func() error {
