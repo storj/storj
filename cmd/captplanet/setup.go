@@ -17,22 +17,6 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
-// Config defines broad Captain Planet configuration
-type Config struct {
-	SatelliteCA         provider.CASetupConfig
-	SatelliteIdentity   provider.IdentitySetupConfig
-	UplinkCA            provider.CASetupConfig
-	UplinkIdentity      provider.IdentitySetupConfig
-	StorageNodeCA       provider.CASetupConfig
-	StorageNodeIdentity provider.IdentitySetupConfig
-	ListenHost          string `help:"the host for providers to listen on" default:"127.0.0.1"`
-	StartingPort        int    `help:"all providers will listen on ports consecutively starting with this one" default:"7777"`
-	APIKey              string `default:"abc123" help:"the api key to use for the satellite"`
-	EncKey              string `default:"insecure-default-encryption-key" help:"your root encryption key"`
-	Overwrite           bool   `help:"whether to overwrite pre-existing configuration files" default:"false"`
-	GenerateMinioCerts  bool   `default:"false" help:"generate sample TLS certs for Minio GW"`
-}
-
 var (
 	setupCmd = &cobra.Command{
 		Use:         "setup",
@@ -40,12 +24,12 @@ var (
 		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
-	setupCfg Config
+	setupCfg Captplanet
 )
 
 func init() {
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -171,20 +155,16 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	for i := 0; i < len(runCfg.StorageNodes); i++ {
 		storagenodePath := filepath.Join(setupDir, fmt.Sprintf("f%d", i))
 		storagenode := fmt.Sprintf("storage-nodes.%02d.", i)
-		overrides[storagenode+"server.identity.cert-path"] = filepath.Join(
-			storagenodePath, "identity.cert")
-		overrides[storagenode+"server.identity.key-path"] = filepath.Join(
-			storagenodePath, "identity.key")
-		overrides[storagenode+"server.address"] = joinHostPort(
-			setupCfg.ListenHost, startingPort+i*2+3)
+		overrides[storagenode+"server.identity.cert-path"] = filepath.Join(storagenodePath, "identity.cert")
+		overrides[storagenode+"server.identity.key-path"] = filepath.Join(storagenodePath, "identity.key")
+		overrides[storagenode+"server.address"] = joinHostPort(setupCfg.ListenHost, startingPort+i*2+3)
 		overrides[storagenode+"server.revocation-dburl"] = "redis://127.0.0.1:6378?db=2&password=abc123"
-		overrides[storagenode+"kademlia.bootstrap-addr"] = joinHostPort(
-			setupCfg.ListenHost, startingPort+1)
+		overrides[storagenode+"kademlia.bootstrap-addr"] = joinHostPort(setupCfg.ListenHost, startingPort+1)
 		overrides[storagenode+"storage.path"] = filepath.Join(storagenodePath, "data")
 		overrides[storagenode+"kademlia.alpha"] = 3
 	}
 
-	return process.SaveConfig(runCmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 }
 
 func joinHostPort(host string, port int) string {
