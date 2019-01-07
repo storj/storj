@@ -71,6 +71,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 		return s, err
 	}
 
+	//todo: don't use old PBA (?!), use one w/ PayerBandwidthAllocation_GET_REPAIR
 	rr, err := ps.Get(ctx, derivedPieceID, pieceSize, pba, authorization)
 	if err != nil {
 		return s, err
