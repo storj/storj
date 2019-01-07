@@ -10,13 +10,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -31,6 +31,7 @@ var (
 // AgreementSender maintains variables required for reading bandwidth agreements from a DB and sending them to a Payers
 type AgreementSender struct {
 	DB       *psdb.DB
+	log      *zap.Logger
 	overlay  overlay.Client
 	identity *provider.FullIdentity
 	errs     []error
@@ -42,13 +43,12 @@ func Initialize(DB *psdb.DB, identity *provider.FullIdentity) (*AgreementSender,
 	if err != nil {
 		return nil, err
 	}
-
 	return &AgreementSender{DB: DB, identity: identity, overlay: overlay}, nil
 }
 
 // Run the afreement sender with a context to cehck for cancel
 func (as *AgreementSender) Run(ctx context.Context) error {
-	zap.S().Info("AgreementSender is starting up")
+	as.log.Info("AgreementSender is starting up")
 
 	type agreementGroup struct {
 		satellite  storj.NodeID
@@ -63,7 +63,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 		for range ticker.C {
 			agreementGroups, err := as.DB.GetBandwidthAllocations()
 			if err != nil {
-				zap.S().Error(err)
+				as.log.Error(err)
 				continue
 			}
 
@@ -80,28 +80,22 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 			return utils.CombineErrors(as.errs...)
 		case agreementGroup := <-c:
 			go func() {
-				zap.S().Infof("Sending %v agreements to satellite %s\n", len(agreementGroup.agreements), agreementGroup.satellite)
+				as.log.Infof("Sending %v agreements to satellite %s\n", len(agreementGroup.agreements), agreementGroup.satellite)
 
 				// Get satellite ip from overlay by Lookup agreementGroup.satellite
 				satellite, err := as.overlay.Lookup(ctx, agreementGroup.satellite)
 				if err != nil {
-					zap.S().Error(err)
+					as.log.Error(err)
 					return
 				}
 
 				// Create client from satellite ip
-				identOpt, err := as.identity.DialOption(storj.NodeID{})
+				tc := transport.NewClient(as.identity)
+				conn, err := tc.DialNode(ctx, satellite)
 				if err != nil {
-					zap.S().Error(err)
+					as.log.Error(err)
 					return
 				}
-
-				conn, err := grpc.Dial(satellite.GetAddress().Address, identOpt)
-				if err != nil {
-					zap.S().Error(err)
-					return
-				}
-
 				client := pb.NewBandwidthClient(conn)
 
 				for _, agreement := range agreementGroup.agreements {
@@ -114,13 +108,13 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 					// Send agreement to satellite
 					r, err := client.BandwidthAgreements(ctx, msg)
 					if err != nil || r.GetStatus() != pb.AgreementsSummary_OK {
-						zap.S().Errorf("Failed to send agreement to satellite: %+v", err)
+						as.log.Errorf("Failed to send agreement to satellite: %+v", err)
 						return
 					}
 
 					// Delete from PSDB by signature
 					if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {
-						zap.S().Error(err)
+						as.log.Error(err)
 						return
 					}
 				}
