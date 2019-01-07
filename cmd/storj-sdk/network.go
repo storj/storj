@@ -107,24 +107,21 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	var bootstrapSatellite *Process
 
+	// Create satellites making the first satellite bootstrap
 	for i := 0; i < flags.SatelliteCount; i++ {
-		name := fmt.Sprintf("satellite/%d", i)
-
-		dir := filepath.Join(configDir, "satellite", fmt.Sprint(i))
-		if err := os.MkdirAll(dir, folderPermissions); err != nil {
-			return nil, err
-		}
-
-		process, err := processes.New(name, "satellite", dir)
+		process, err := processes.New(Info{
+			Name:       fmt.Sprintf("satellite/%d", i),
+			Executable: "satellite",
+			Directory:  filepath.Join(configDir, "satellite", fmt.Sprint(i)),
+			Address:    net.JoinHostPort(host, strconv.Itoa(satellitePort+i)),
+		})
 		if err != nil {
 			return nil, utils.CombineErrors(err, processes.Close())
 		}
 
-		process.Info.Address = net.JoinHostPort(host, strconv.Itoa(satellitePort+i))
-
-		bootstrapAddr := process.Info.Address
+		bootstrapAddr := process.Address
 		if bootstrapSatellite != nil {
-			bootstrapAddr = bootstrapSatellite.Info.Address
+			bootstrapAddr = bootstrapSatellite.Address
 			process.WaitForStart(bootstrapSatellite)
 		} else {
 			bootstrapSatellite = process
@@ -134,78 +131,82 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"setup": {},
 			"run": {
 				"--kademlia.bootstrap-addr", bootstrapAddr,
-				"--server.address", process.Info.Address,
+				"--server.address", process.Address,
 			},
 		})
 	}
 
+	// Create gateways for each satellite
 	for i := 0; i < flags.SatelliteCount; i++ {
-		name := fmt.Sprintf("gateway/%d", i)
-
-		dir := filepath.Join(configDir, "gateway", fmt.Sprint(i))
-		if err := os.MkdirAll(dir, folderPermissions); err != nil {
-			return nil, err
-		}
-
+		accessKey, secretKey := randomKey(), randomKey()
 		satellite := processes.List[i]
 
-		process, err := processes.New(name, "gateway", dir)
+		process, err := processes.New(Info{
+			Name:       fmt.Sprintf("gateway/%d", i),
+			Executable: "gateway",
+			Directory:  filepath.Join(configDir, "gateway", fmt.Sprint(i)),
+			Address:    net.JoinHostPort(host, strconv.Itoa(gatewayPort+i)),
+			Extra: []string{
+				"ACCESS_KEY=" + accessKey,
+				"SECRET_KEY=" + secretKey,
+			},
+		})
 		if err != nil {
 			return nil, utils.CombineErrors(err, processes.Close())
 		}
-		process.Info.Address = net.JoinHostPort(host, strconv.Itoa(gatewayPort+i))
 
+		// gateway must wait for the corresponding satellite to start up
 		process.WaitForStart(satellite)
-
-		accessKey, secretKey := randomKey(), randomKey()
-		process.Info.Extra = []string{
-			"ACCESS_KEY=" + accessKey,
-			"SECRET_KEY=" + secretKey,
-		}
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
-				"--satellite-addr", satellite.Info.Address,
+				"--satellite-addr", satellite.Address,
 			},
 			"run": {
-				"--server.address", process.Info.Address,
+				"--server.address", process.Address,
 				"--minio.access-key", accessKey,
 				"--minio.secret-key", secretKey,
 
-				"--client.overlay-addr", satellite.Info.Address,
-				"--client.pointer-db-addr", satellite.Info.Address,
+				"--client.overlay-addr", satellite.Address,
+				"--client.pointer-db-addr", satellite.Address,
 			},
 		})
 	}
 
+	// Create storage nodes
 	for i := 0; i < flags.StorageNodeCount; i++ {
-		name := fmt.Sprintf("storage/%d", i)
-
-		dir := filepath.Join(configDir, "storage", fmt.Sprint(i))
-		if err := os.MkdirAll(dir, folderPermissions); err != nil {
-			return nil, err
-		}
-
-		process, err := processes.New(name, "storagenode", dir)
+		process, err := processes.New(Info{
+			Name:       fmt.Sprintf("storagenode/%d", i),
+			Executable: "storagenode",
+			Directory:  filepath.Join(configDir, "storage", fmt.Sprint(i)),
+			Address:    net.JoinHostPort(host, strconv.Itoa(storageNodePort+i)),
+		})
 		if err != nil {
 			return nil, utils.CombineErrors(err, processes.Close())
 		}
-		process.Info.Address = net.JoinHostPort(host, strconv.Itoa(storageNodePort+i))
 
+		// storage node must wait for bootstrap to start
 		process.WaitForStart(bootstrapSatellite)
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
-				"--piecestore.agreementsender.overlay-addr", bootstrapSatellite.Info.Address,
+				"--piecestore.agreementsender.overlay-addr", bootstrapSatellite.Address,
 			},
 			"run": {
-				"--piecestore.agreementsender.overlay-addr", bootstrapSatellite.Info.Address,
-				"--kademlia.bootstrap-addr", bootstrapSatellite.Info.Address,
+				"--piecestore.agreementsender.overlay-addr", bootstrapSatellite.Address,
+				"--kademlia.bootstrap-addr", bootstrapSatellite.Address,
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
 				"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
-				"--server.address", process.Info.Address,
+				"--server.address", process.Address,
 			},
 		})
+	}
+
+	// Create directories for all processes
+	for _, process := range processes.List {
+		if err := os.MkdirAll(process.Directory, folderPermissions); err != nil {
+			return nil, err
+		}
 	}
 
 	return processes, nil

@@ -73,17 +73,18 @@ func (processes *Processes) Close() error {
 	return utils.CombineErrors(errs...)
 }
 
-// ProcessInfo represents public information about the process
-type ProcessInfo struct {
-	Name      string
-	ID        string
-	Address   string
-	Directory string
-	Extra     []string
+// Info represents public information about the process
+type Info struct {
+	Name       string
+	Executable string
+	Address    string
+	Directory  string
+	ID         string
+	Extra      []string
 }
 
 // Env returns process flags
-func (info *ProcessInfo) Env() []string {
+func (info *Info) Env() []string {
 	name := strings.ToUpper(info.Name)
 
 	name = strings.Map(func(r rune) rune {
@@ -122,11 +123,7 @@ type Arguments map[string][]string
 type Process struct {
 	processes *Processes
 
-	Name       string
-	Directory  string
-	Executable string
-
-	Info ProcessInfo
+	Info
 
 	Delay  time.Duration
 	Wait   []*sync2.Fence
@@ -145,28 +142,21 @@ type Process struct {
 }
 
 // New creates a process which can be run in the specified directory
-func (processes *Processes) New(name, executable, directory string) (*Process, error) {
-	outfile, err1 := os.OpenFile(filepath.Join(directory, "stderr.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	errfile, err2 := os.OpenFile(filepath.Join(directory, "stdout.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+func (processes *Processes) New(info Info) (*Process, error) {
+	outfile, err1 := os.OpenFile(filepath.Join(info.Directory, "stderr.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	errfile, err2 := os.OpenFile(filepath.Join(info.Directory, "stdout.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
 	err := utils.CombineErrors(err1, err2)
 	if err != nil {
 		return nil, err
 	}
 
-	output := processes.Output.Prefixed(name)
+	output := processes.Output.Prefixed(info.Name)
 
 	process := &Process{
 		processes: processes,
 
-		Name:       name,
-		Directory:  directory,
-		Executable: executable,
-
-		Info: ProcessInfo{
-			Name:      name,
-			Directory: directory,
-		},
+		Info:      info,
 		Arguments: Arguments{},
 
 		stdout: io.MultiWriter(output, outfile),
