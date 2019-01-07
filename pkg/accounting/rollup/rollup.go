@@ -51,5 +51,10 @@ func (r *rollup) Run(ctx context.Context) (err error) {
 
 func (r *rollup) Query(ctx context.Context) error {
 	//TODO
+	// "Storage nodes ... will be paid for storing the data month-by-month.  At the end of the payment period, a Satellite
+	// will calculate earnings for each of its storage nodes. Provided the storage node hasn’t been disqualified, the storage
+	// node will be paid by the Satellite for the data it has stored over the course of the month, per the Satellite’s records"
+	// see also https://github.com/storj/storj/blob/cb74d91cb07d659fd9b2fedb2629f23c8918ef0b/pkg/piecestore/psserver/store.go#L97
+
 	return nil
 }

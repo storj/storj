@@ -147,6 +147,9 @@ func (t *tally) queryBW(ctx context.Context) error {
 		return Error.Wrap(err)
 	}
 
+	//todo: avoid selecting recent / in-process bwagreements??
+	// "The storage node has no incentive to keep more than the largest allocation, as
+	// they all share the same “check number,” which can only be cashed once."
 	if len(bwAgreements) == 0 {
 		t.logger.Info("Tally found no new bandwidth allocations")
 		return nil
