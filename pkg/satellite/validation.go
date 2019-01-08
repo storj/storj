@@ -80,3 +80,23 @@ func validatePassword(pass string) error {
 
 	return errs.Combine()
 }
+
+// toLowerCase converts uppercase runes to lowercase equivalents
+// and returns resulting string
+func toLowerCase(s string) string {
+	if s == "" {
+		return s
+	}
+
+	var result []rune
+	for _, r := range s {
+		if unicode.IsUpper(r) {
+			result = append(result, unicode.SimpleFold(r))
+			continue
+		}
+
+		result = append(result, r)
+	}
+
+	return string(result)
+}
