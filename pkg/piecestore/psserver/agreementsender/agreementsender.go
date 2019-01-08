@@ -78,6 +78,13 @@ func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID 
 		return
 	}
 	client := pb.NewBandwidthClient(conn)
+	defer func() {
+		err := conn.Close()
+		if err != nil {
+			as.log.Error("Agreementsender failed to close connection", zap.Error(err))
+		}
+	}()
+
 	for _, agreement := range agreements {
 		msg := &pb.RenterBandwidthAllocation{
 			Data:      agreement.Agreement,
@@ -95,5 +102,4 @@ func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID 
 			return
 		}
 	}
-	as.log.Error("Agreementsender failed to close connection", zap.Error(conn.Close()))
 }
