@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -233,8 +234,12 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 
 	// wait for process completion
 	err = cmd.Wait()
-	if err != nil && err.Error() == "signal: killed" { // TODO: figure out a better way to ignore error of killing
-		return nil
+
+	// clear the error if the process was killed
+	if status, ok := cmd.ProcessState.Sys().(syscall.WaitStatus); ok {
+		if status.Signaled() && status.Signal() == os.Kill {
+			err = nil
+		}
 	}
 	return err
 }
