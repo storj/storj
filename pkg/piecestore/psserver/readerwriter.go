@@ -72,6 +72,15 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, bandwidt
 				return nil, err
 			}
 
+			pbaData := &pb.PayerBandwidthAllocation_Data{}
+			if err = proto.Unmarshal(deserializedData.GetPayerAllocation().GetData(), pbaData); err != nil {
+				return nil, err
+			}
+
+			if err = s.verifyPayerAllocation(pbaData, pb.PayerBandwidthAllocation_PUT); err != nil {
+				return nil, err
+			}
+
 			// Update bandwidthallocation to be stored
 			if deserializedData.GetTotal() > sr.currentTotal {
 				sr.bandwidthAllocation = ba

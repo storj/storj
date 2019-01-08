@@ -22,7 +22,7 @@
                     width="100%"
                     ref="firstNameInput"
                     :error="firstNameError"
-                    :init-value="user.firstName"
+                    :initValue="user.firstName"
                     @setData="setFirstName" />
                 <HeaderedInput
                     class="full-input"
@@ -44,7 +44,7 @@
                     @setData="setEmail" />
                 <div v-if="isAccountSettingsEditing" class="account-area-save-button-area" >
                     <div class="account-area-save-button-area__btn">
-                        <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="205px"  height="50px" :onPress="onCancelAccountSettingsButtonClick" isWhite/>
+                        <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="205px"  height="50px" :onPress="cancelAccountSettings" isWhite/>
                         <Button class="account-area-save-button-area__save-button" label="Save" width="205px"  height="50px" :onPress="onSaveAccountSettingsButtonClick"/>
                     </div>
                 </div>
@@ -96,7 +96,7 @@
                     label="Confirm password"
                     placeholder="Confirm password"
                     width="100%"
-                    ref="confirmationPasswordInput"
+                    ref="confirmPasswordInput"
                     isPassword
                     :error="confirmationPasswordError"
                     @setData="setPasswordConfirmation" />
@@ -147,8 +147,6 @@ import { validateEmail, validatePassword } from '@/utils/validation';
                 lastNameError: '',
                 emailError: '',
 
-                newLastName: '',
-                newEmail: '',
                 isAccountSettingsEditing: false,
 
                 oldPassword: '',
@@ -179,17 +177,22 @@ import { validateEmail, validatePassword } from '@/utils/validation';
                 this.$data.emailError = '';
                 this.$data.isAccountSettingsEditing = true;
             },
-            onCancelAccountSettingsButtonClick: function () {
+            cancelAccountSettings: function () {
                 this.$data.firstName = this.$data.originalFirstName;
                 this.$data.firstNameError = '';
-                this.$data.lastName = this.$store.getters.user.lastName;
+                this.$data.lastName = this.$data.originalLastName;
                 this.$data.lastNameError = '';
                 this.$data.email = this.$data.originalEmail;
                 this.$data.emailError = '';
 
-                (this.$refs['firstNameInput'] as HeaderedInput).setValue(this.$data.originalFirstName);
-                (this.$refs['lastNameInput'] as HeaderedInput).setValue(this.$data.originalLastName);
-                (this.$refs['emailInput'] as HeaderedInput).setValue(this.$data.originalEmail);
+                let firstNameInput: any = this.$refs['firstNameInput'];
+                firstNameInput.setValue(this.$data.originalFirstName);
+
+                let lastNameInput: any = this.$refs['lastNameInput'];
+                lastNameInput.setValue(this.$data.originalLastName);
+
+                let emailInput: any = this.$refs['emailInput'];
+                emailInput.setValue(this.$data.originalEmail);
 
                 this.$data.isAccountSettingsEditing = false;
             },
@@ -230,6 +233,10 @@ import { validateEmail, validatePassword } from '@/utils/validation';
 
                 this.$store.dispatch('success', 'Account info successfully updated!');
 
+                this.$data.originalFirstName = this.$store.getters.user.firstName;
+                this.$data.originalLastName = this.$store.getters.user.lastName;
+                this.$data.originalEmail = this.$store.getters.user.email;
+
                 this.$data.isAccountSettingsEditing = false;
             },
 
@@ -257,9 +264,14 @@ import { validateEmail, validatePassword } from '@/utils/validation';
                 this.$data.newPasswordError = '';
                 this.$data.confirmationPasswordError = '';
 
-                // (this.$refs['oldPasswordInput'] as HeaderedInput).setValue('');
-                // (this.$refs['newPasswordInput'] as HeaderedInput).setValue('');
-                // (this.$refs['confirmationPasswordInput'] as HeaderedInput).setValue('');
+                let oldPasswordInput: any = this.$refs['oldPasswordInput'];
+                oldPasswordInput.setValue('');
+
+                let newPasswordInput: any = this.$refs['newPasswordInput'];
+                newPasswordInput.setValue('');
+
+                let confirmPasswordInput: any = this.$refs['confirmPasswordInput'];
+                confirmPasswordInput.setValue('');
 
                 this.$data.isPasswordEditing = false;
             },
@@ -303,9 +315,23 @@ import { validateEmail, validatePassword } from '@/utils/validation';
                 }
 
                 this.$store.dispatch('success', 'Password successfully changed!');
-                // (this.$refs['oldPasswordInput'] as HeaderedInput).setValue('');
-                // (this.$refs['newPasswordInput'] as HeaderedInput).setValue('');
-                // (this.$refs['confirmationPasswordInput'] as HeaderedInput).setValue('');
+
+                this.$data.oldPassword = '';
+                this.$data.newPassword = '';
+                this.$data.confirmationPassword = '';
+
+                this.$data.oldPasswordError = '';
+                this.$data.newPasswordError = '';
+                this.$data.confirmationPasswordError = '';
+
+                let oldPasswordInput: any = this.$refs['oldPasswordInput'];
+                oldPasswordInput.setValue('');
+
+                let newPasswordInput: any = this.$refs['newPasswordInput'];
+                newPasswordInput.setValue('');
+
+                let confirmPasswordInput: any = this.$refs['confirmPasswordInput'];
+                confirmPasswordInput.setValue('');
 
                 this.$data.isPasswordEditing = false;
             },

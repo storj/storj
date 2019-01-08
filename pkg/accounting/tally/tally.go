@@ -112,6 +112,9 @@ func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	if len(nodeData) == 0 {
+		return nil
+	}
 	latestTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastAtRestTally)
 	if err != nil {
 		return Error.Wrap(err)

@@ -34,9 +34,12 @@ export const projectMembersModule = {
 				return projectMember;
 			});
 		},
-		[PROJECT_MEMBER_MUTATIONS.FETCH](state: any, teamMembers: any[]) {
-			state.projectMembers = teamMembers;
-		},
+        [PROJECT_MEMBER_MUTATIONS.FETCH](state: any, teamMembers: any[]) {
+            state.projectMembers = teamMembers;
+        },
+        [PROJECT_MEMBER_MUTATIONS.CLEAR](state: any) {
+            state.projectMembers = [];
+        },
 	},
 	actions: {
 		addProjectMembers: async function ({rootGetters}: any, emails: string[]): Promise<RequestResponse<null>> {
@@ -73,6 +76,9 @@ export const projectMembersModule = {
 
 			return response;
 		},
+		clearProjectMembers: function ({commit}: any) {
+            commit(PROJECT_MEMBER_MUTATIONS.CLEAR);
+		}
 	},
 	getters: {
 		projectMembers: (state: any) => state.projectMembers,

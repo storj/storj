@@ -69,6 +69,9 @@ import ROUTES from '@/utils/constants/routerConstants';
             onLogoutClick: function () {
                 removeToken();
                 this.$router.push(ROUTES.LOGIN.path);
+                this.$store.dispatch('clearProjectMembers');
+                this.$store.dispatch('clearProjects');
+                this.$store.dispatch('clearUser');
             }
         },
     }

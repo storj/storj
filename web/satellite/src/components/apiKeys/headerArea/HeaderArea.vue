@@ -24,8 +24,8 @@ import AddApiKeyPopup from '@/components/apiKeys/AddApiKeyPopup.vue';
 @Component({
     data: function() {
         return {
-            isPopupShown: true,
-        }
+            isPopupShown: false,
+        };
     },
     components: {
         SearchArea,

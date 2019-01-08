@@ -67,6 +67,11 @@ func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 	w := &sb
 	for _, k := range keys {
 		f := flagset.Lookup(k)
+		setup := f.Annotations["setup"]
+		if len(setup) > 0 && setup[0] == "true" {
+			continue
+		}
+
 		value := f.Value.String()
 		if v, ok := overrides[k]; ok {
 			value = fmt.Sprintf("%v", v)
@@ -78,7 +83,7 @@ func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 		switch f.Value.Type() {
 		case "string":
 			// save ourselves 250+ lines of code and just double quote strings
-			fmt.Fprintf(w, "\"%s\"\n", value)
+			fmt.Fprintf(w, "%q\n", value)
 		default:
 			//assume that everything else doesn't have fancy control characters
 			fmt.Fprintf(w, "%s\n", value)
