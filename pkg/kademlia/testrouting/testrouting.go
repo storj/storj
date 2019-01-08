@@ -15,11 +15,11 @@ import (
 )
 
 type nodeData struct {
-	node      *pb.Node
-	ordering  int64
-	timestamp time.Time
-	fails     int
-	inCache   bool
+	node        *pb.Node
+	ordering    int64
+	lastUpdated time.Time
+	fails       int
+	inCache     bool
 }
 
 // Table is a routing table that tries to be as correct as possible at
@@ -33,6 +33,7 @@ type Table struct {
 	mu      sync.Mutex
 	counter int64
 	nodes   map[storj.NodeID]*nodeData
+	splits  map[string]bool
 }
 
 // New creates a new Table. self is the owning node's node id, bucketSize is
@@ -46,6 +47,7 @@ func New(self storj.NodeID, bucketSize, cacheSize, allowedFailures int) *Table {
 		cacheSize:       cacheSize,
 		allowedFailures: allowedFailures,
 		nodes:           map[storj.NodeID]*nodeData{},
+		splits:          map[string]bool{},
 	}
 }
 
@@ -72,7 +74,7 @@ func (t *Table) ConnectionSuccess(node *pb.Node) error {
 	// if the node is already here, update it
 	if cell, exists := t.nodes[node.Id]; exists {
 		cell.node = node
-		cell.timestamp = time.Now()
+		cell.lastUpdated = time.Now()
 		cell.fails = 0
 		// skip placement order and cache status
 		return nil
@@ -80,10 +82,10 @@ func (t *Table) ConnectionSuccess(node *pb.Node) error {
 
 	// add unconditionally (it might be going into a replacement cache)
 	t.nodes[node.Id] = &nodeData{
-		node:      node,
-		ordering:  t.counter,
-		timestamp: time.Now(),
-		fails:     0,
+		node:        node,
+		ordering:    t.counter,
+		lastUpdated: time.Now(),
+		fails:       0,
 
 		// makeTree within preserveInvariants might promote this to true
 		inCache: false,
@@ -162,7 +164,7 @@ func (t *Table) MaxBucketDepth() (int, error) {
 	defer t.mu.Unlock()
 
 	var maxDepth int
-	t.makeTree().walkLeaves(func(b *bucket) {
+	t.walkLeaves(t.makeTree(), func(b *bucket) {
 		if b.depth > maxDepth {
 			maxDepth = b.depth
 		}
@@ -191,7 +193,7 @@ func (t *Table) GetBucketTimestamp(id []byte) (time.Time, error) {
 }
 
 func (t *Table) preserveInvariants() {
-	t.makeTree().walkLeaves(func(b *bucket) {
+	t.walkLeaves(t.makeTree(), func(b *bucket) {
 		// pull the latest nodes out of the replacement caches for incomplete
 		// buckets
 		for len(b.cache) > 0 && len(b.nodes) < t.bucketSize {
@@ -214,7 +216,6 @@ type bucket struct {
 	prefix string
 	depth  int
 
-	split      bool
 	similar    *bucket
 	dissimilar *bucket
 
@@ -222,18 +223,18 @@ type bucket struct {
 	cache []*nodeData
 }
 
-func (b *bucket) walkLeaves(fn func(b *bucket)) {
-	if !b.split {
+func (t *Table) walkLeaves(b *bucket, fn func(b *bucket)) {
+	if !t.splits[b.prefix] {
 		fn(b)
-	} else {
-		b.similar.walkLeaves(fn)
-		b.dissimilar.walkLeaves(fn)
+	} else if b.similar != nil {
+		t.walkLeaves(b.similar, fn)
+		t.walkLeaves(b.dissimilar, fn)
 	}
 }
 
 func (t *Table) makeTree() *bucket {
 	// to make sure we get the logic right, we're going to reconstruct the
-	// routing table binary tree data structure from first principles every time.
+	// routing table binary tree data structure every time.
 	nodes := make([]*nodeData, 0, len(t.nodes))
 	for _, node := range t.nodes {
 		nodes = append(nodes, node)
@@ -241,7 +242,9 @@ func (t *Table) makeTree() *bucket {
 	var root bucket
 
 	// we'll replay the nodes in original placement order
-	sort.Sort(nodeDataOrderingSorter(nodes))
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].ordering < nodes[j].ordering
+	})
 	nearest := make([]*nodeData, 0, t.bucketSize+1)
 	for _, node := range nodes {
 		// keep track of the nearest k nodes
@@ -257,7 +260,12 @@ func (t *Table) makeTree() *bucket {
 }
 
 func (t *Table) add(b *bucket, node *nodeData, dissimilar bool, nearest []*nodeData) {
-	if b.split {
+	if t.splits[b.prefix] {
+		if b.similar == nil {
+			similarBit := bitAtDepth(t.self, b.depth)
+			b.similar = &bucket{depth: b.depth + 1, prefix: extendPrefix(b.prefix, similarBit)}
+			b.dissimilar = &bucket{depth: b.depth + 1, prefix: extendPrefix(b.prefix, !similarBit)}
+		}
 		if bitAtDepth(node.node.Id, b.depth) == bitAtDepth(t.self, b.depth) {
 			t.add(b.similar, node, dissimilar, nearest)
 		} else {
@@ -266,7 +274,7 @@ func (t *Table) add(b *bucket, node *nodeData, dissimilar bool, nearest []*nodeD
 		return
 	}
 
-	if node.inCache && dissimilar {
+	if node.inCache {
 		b.cache = append(b.cache, node)
 		return
 	}
@@ -283,10 +291,7 @@ func (t *Table) add(b *bucket, node *nodeData, dissimilar bool, nearest []*nodeD
 		return
 	}
 
-	b.split = true
-	similarBit := bitAtDepth(t.self, b.depth)
-	b.similar = &bucket{depth: b.depth + 1, prefix: extendPrefix(b.prefix, similarBit)}
-	b.dissimilar = &bucket{depth: b.depth + 1, prefix: extendPrefix(b.prefix, !similarBit)}
+	t.splits[b.prefix] = true
 	if len(b.cache) > 0 {
 		panic("unreachable codepath")
 	}

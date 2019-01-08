@@ -8,15 +8,6 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-type nodeDataOrderingSorter []*nodeData
-
-func (s nodeDataOrderingSorter) Len() int      { return len(s) }
-func (s nodeDataOrderingSorter) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-
-func (s nodeDataOrderingSorter) Less(i, j int) bool {
-	return s[i].ordering < s[j].ordering
-}
-
 type nodeDataDistanceSorter struct {
 	self  storj.NodeID
 	nodes []*nodeData
