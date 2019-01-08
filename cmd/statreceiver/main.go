@@ -10,12 +10,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"storj.io/storj/internal/fpath"
-
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/statreceiver/luacfg"
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 )
