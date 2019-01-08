@@ -65,19 +65,18 @@ matrix:
         - gospace istidy
 
     ### service integration tests ###
-    - env: MODE=captplanet
+    - env: MODE=integration
       services:
         - redis
       install:
         - source scripts/install-awscli.sh
-        - go install -race storj.io/storj/cmd/captplanet
-        - go install -race storj.io/storj/cmd/storagenode
-        - go install -race storj.io/storj/cmd/certificates
+        - go install -race storj.io/storj/cmd/{storj-sdk,satellite,storagenode,uplink,gateway,certificates,captplanet}
       script:
-        - make test-captplanet
+        - make test-storj-sdk
         - make test-certificate-signing
+        - make test-captplanet
 
-    ### docker tests ###
+    ### Docker tests ###
     - env: MODE=docker
       services:
         - docker
