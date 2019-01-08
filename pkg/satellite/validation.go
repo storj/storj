@@ -4,6 +4,7 @@
 package satellite
 
 import (
+	"strings"
 	"unicode"
 
 	"github.com/zeebo/errs"
@@ -79,4 +80,10 @@ func validatePassword(pass string) error {
 	}
 
 	return errs.Combine()
+}
+
+// normalizeEmail converts emails with different casing into equal strings
+// Note: won't work with µıſͅςϐϑϕϖϰϱϵᲀᲁᲂᲃᲄᲅᲆᲇᲈẛι
+func normalizeEmail(s string) string {
+	return strings.ToLower(s)
 }
