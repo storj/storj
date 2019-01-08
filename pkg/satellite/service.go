@@ -8,14 +8,11 @@ import (
 	"crypto/subtle"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
-
 	"go.uber.org/zap"
-
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	"golang.org/x/crypto/bcrypt"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/satellite/satelliteauth"
