@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/processgroup"
@@ -136,21 +137,10 @@ type Process struct {
 
 	stdout io.Writer
 	stderr io.Writer
-
-	outfile *os.File
-	errfile *os.File
 }
 
 // New creates a process which can be run in the specified directory
-func (processes *Processes) New(info Info) (*Process, error) {
-	outfile, err1 := os.OpenFile(filepath.Join(info.Directory, "stderr.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	errfile, err2 := os.OpenFile(filepath.Join(info.Directory, "stdout.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-
-	err := utils.CombineErrors(err1, err2)
-	if err != nil {
-		return nil, err
-	}
-
+func (processes *Processes) New(info Info) *Process {
 	output := processes.Output.Prefixed(info.Name)
 
 	process := &Process{
@@ -159,16 +149,12 @@ func (processes *Processes) New(info Info) (*Process, error) {
 		Info:      info,
 		Arguments: Arguments{},
 
-		stdout: io.MultiWriter(output, outfile),
-		stderr: io.MultiWriter(output, errfile),
-
-		outfile: outfile,
-		errfile: errfile,
+		stdout: output,
+		stderr: output,
 	}
 
 	processes.List = append(processes.List, process)
-
-	return process, nil
+	return process
 }
 
 // WaitForStart ensures that process will wait on dependency before starting.
@@ -178,16 +164,38 @@ func (process *Process) WaitForStart(dependency *Process) {
 
 // Exec runs the process using the arguments for a given command
 func (process *Process) Exec(ctx context.Context, command string) (err error) {
-	cmd := exec.CommandContext(ctx, process.Executable, process.Arguments[command]...)
-	cmd.Dir = process.Directory
-	cmd.Env = append(os.Environ(), "STORJ_LOG_NOTIME=1")
-	cmd.Stdout, cmd.Stderr = process.stdout, process.stderr
-
-	processgroup.Setup(cmd)
-
 	// ensure that we always release all status fences
 	defer process.Status.Started.Release()
 	defer process.Status.Exited.Release()
+
+	cmd := exec.CommandContext(ctx, process.Executable, process.Arguments[command]...)
+	cmd.Dir = process.Directory
+	cmd.Env = append(os.Environ(), "STORJ_LOG_NOTIME=1")
+
+	{ // setup standard output with logging into file
+		outfile, err1 := os.OpenFile(filepath.Join(process.Directory, "stdout.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err1 != nil {
+			return fmt.Errorf("open stdout: %v", err1)
+		}
+		defer func() { err = errs.Combine(err, outfile.Close()) }()
+
+		cmd.Stdout = io.MultiWriter(process.stdout, outfile)
+	}
+
+	{ // setup standard error with logging into file
+		errfile, err2 := os.OpenFile(filepath.Join(process.Directory, "stderr.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err2 != nil {
+			return fmt.Errorf("open stderr: %v", err2)
+		}
+		defer func() {
+			err = errs.Combine(err, errfile.Close())
+		}()
+
+		cmd.Stderr = io.MultiWriter(process.stderr, errfile)
+	}
+
+	// ensure that it is part of this process group
+	processgroup.Setup(cmd)
 
 	// wait for dependencies to start
 	for _, fence := range process.Wait {
@@ -224,8 +232,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	}
 
 	// wait for process completion
-	err = cmd.Wait()
-	return err
+	return cmd.Wait()
 }
 
 // monitorAddress will monitor starting when we are able to start the process.
@@ -254,9 +261,4 @@ func (process *Process) tryConnect() bool {
 }
 
 // Close closes process resources
-func (process *Process) Close() error {
-	return utils.CombineErrors(
-		process.outfile.Close(),
-		process.errfile.Close(),
-	)
-}
+func (process *Process) Close() error { return nil }

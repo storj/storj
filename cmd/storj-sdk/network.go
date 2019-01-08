@@ -21,7 +21,6 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/processgroup"
-	"storj.io/storj/pkg/utils"
 )
 
 const folderPermissions = 0744
@@ -109,15 +108,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	// Create satellites making the first satellite bootstrap
 	for i := 0; i < flags.SatelliteCount; i++ {
-		process, err := processes.New(Info{
+		process := processes.New(Info{
 			Name:       fmt.Sprintf("satellite/%d", i),
 			Executable: "satellite",
 			Directory:  filepath.Join(configDir, "satellite", fmt.Sprint(i)),
 			Address:    net.JoinHostPort(host, strconv.Itoa(satellitePort+i)),
 		})
-		if err != nil {
-			return nil, utils.CombineErrors(err, processes.Close())
-		}
 
 		bootstrapAddr := process.Address
 		if bootstrapSatellite != nil {
@@ -141,7 +137,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		accessKey, secretKey := randomKey(), randomKey()
 		satellite := processes.List[i]
 
-		process, err := processes.New(Info{
+		process := processes.New(Info{
 			Name:       fmt.Sprintf("gateway/%d", i),
 			Executable: "gateway",
 			Directory:  filepath.Join(configDir, "gateway", fmt.Sprint(i)),
@@ -151,9 +147,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"SECRET_KEY=" + secretKey,
 			},
 		})
-		if err != nil {
-			return nil, utils.CombineErrors(err, processes.Close())
-		}
 
 		// gateway must wait for the corresponding satellite to start up
 		process.WaitForStart(satellite)
@@ -175,15 +168,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	// Create storage nodes
 	for i := 0; i < flags.StorageNodeCount; i++ {
-		process, err := processes.New(Info{
+		process := processes.New(Info{
 			Name:       fmt.Sprintf("storagenode/%d", i),
 			Executable: "storagenode",
 			Directory:  filepath.Join(configDir, "storage", fmt.Sprint(i)),
 			Address:    net.JoinHostPort(host, strconv.Itoa(storageNodePort+i)),
 		})
-		if err != nil {
-			return nil, utils.CombineErrors(err, processes.Close())
-		}
 
 		// storage node must wait for bootstrap to start
 		process.WaitForStart(bootstrapSatellite)

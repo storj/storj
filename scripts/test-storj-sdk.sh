@@ -12,15 +12,17 @@ cleanup(){
 }
 trap cleanup EXIT
 
+export STORJ_LOCAL_NETWORK=$TMP
+
 # setup the network
-storj-sdk --config-dir $TMP -x network setup
+storj-sdk -x network setup
 
 # run aws-cli tests
-storj-sdk --config-dir $TMP -x network test bash $SCRIPTDIR/test-storj-sdk-aws.sh
-storj-sdk --config-dir $TMP -x network destroy
+storj-sdk -x network test bash $SCRIPTDIR/test-storj-sdk-aws.sh
+storj-sdk -x network destroy
 
 # setup the network with ipv6
-storj-sdk --config-dir $TMP -x --host "::1" network setup
+storj-sdk -x --host "::1" network setup
 # run aws-cli tests using ipv6
-storj-sdk --config-dir $TMP -x --host "::1" network test bash $SCRIPTDIR/test-storj-sdk-aws.sh
-storj-sdk --config-dir $TMP -x network destroy
+storj-sdk -x --host "::1" network test bash $SCRIPTDIR/test-storj-sdk-aws.sh
+storj-sdk -x network destroy
