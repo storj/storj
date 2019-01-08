@@ -6,6 +6,7 @@ package satelliteql
 import (
 	"bytes"
 	"fmt"
+	"testing"
 	"time"
 
 	"github.com/graphql-go/graphql"
@@ -19,8 +20,6 @@ import (
 	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/pkg/satellite/satelliteauth"
 	"storj.io/storj/pkg/satellite/satellitedb"
-
-	"testing"
 )
 
 func TestGrapqhlMutation(t *testing.T) {
