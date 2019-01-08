@@ -4,6 +4,7 @@
 package testrouting
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -11,56 +12,37 @@ import (
 
 // Graph writes a DOT format visual graph description of the routing table to w
 func (t *Table) Graph(w io.Writer) error {
-	_, err := w.Write([]byte("digraph{node [shape=box];"))
-	if err != nil {
-		return err
-	}
-	err = t.graph(w, t.makeTree())
-	if err != nil {
-		return err
-	}
-	_, err = w.Write([]byte("}\n"))
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	var buf bytes.Buffer
+	buf.Write([]byte("digraph{node [shape=box];"))
+	t.graph(&buf, t.makeTree())
+	buf.Write([]byte("}\n"))
+
+	_, err := buf.WriteTo(w)
 	return err
 }
 
-func (t *Table) graph(w io.Writer, b *bucket) error {
-	if b.split {
-		_, err := fmt.Fprintf(w, "b%s [label=\"%s\"];", b.prefix, b.prefix)
-		if err != nil {
-			return err
+func (t *Table) graph(buf *bytes.Buffer, b *bucket) {
+	if t.splits[b.prefix] {
+		fmt.Fprintf(buf, "b%s [label=%q];", b.prefix, b.prefix)
+		if b.similar != nil {
+			t.graph(buf, b.similar)
+			t.graph(buf, b.dissimilar)
+			fmt.Fprintf(buf, "b%s -> {b%s, b%s};",
+				b.prefix, b.similar.prefix, b.dissimilar.prefix)
 		}
-		err = t.graph(w, b.similar)
-		if err != nil {
-			return err
-		}
-		err = t.graph(w, b.dissimilar)
-		if err != nil {
-			return err
-		}
-		_, err = fmt.Fprintf(w, "b%s -> {b%s, b%s};",
-			b.prefix, b.similar.prefix, b.dissimilar.prefix)
-		return err
+		return
 	}
-	_, err := fmt.Fprintf(w, "b%s [label=\"%s\nrouting:\\l", b.prefix, b.prefix)
-	if err != nil {
-		return err
-	}
+	// b.prefix is only ever 0s or 1s, so we don't need escaping below.
+	fmt.Fprintf(buf, "b%s [label=\"%s\nrouting:\\l", b.prefix, b.prefix)
 	for _, node := range b.nodes {
-		_, err = fmt.Fprintf(w, "  %s\\l", hex.EncodeToString(node.node.Id[:]))
-		if err != nil {
-			return err
-		}
+		fmt.Fprintf(buf, "  %s\\l", hex.EncodeToString(node.node.Id[:]))
 	}
-	_, err = fmt.Fprintf(w, "cache:\\l")
-	if err != nil {
-		return err
-	}
+	fmt.Fprintf(buf, "cache:\\l")
 	for _, node := range b.cache {
-		_, err = fmt.Fprintf(w, "  %s\\l", hex.EncodeToString(node.node.Id[:]))
-		if err != nil {
-			return err
-		}
+		fmt.Fprintf(buf, "  %s\\l", hex.EncodeToString(node.node.Id[:]))
 	}
-	_, err = fmt.Fprintf(w, "\"];")
-	return err
+	fmt.Fprintf(buf, "\"];")
 }

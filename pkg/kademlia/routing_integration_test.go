@@ -44,7 +44,7 @@ func testTableInit(t *testing.T, routingCtor routingCtor) {
 	require.Equal(t, bucketSize, table.K())
 	require.Equal(t, cacheSize, table.CacheSize())
 
-	nodes, err := table.FindNear(PadID("20", "0"), 3)
+	nodes, err := table.FindNear(PadID("21", "0"), 3)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(nodes))
 }
@@ -61,7 +61,7 @@ func testTableBasic(t *testing.T, routingCtor routingCtor) {
 	err := table.ConnectionSuccess(Node(PadID("5556", "5"), "address:1"))
 	require.NoError(t, err)
 
-	nodes, err := table.FindNear(PadID("20", "0"), 3)
+	nodes, err := table.FindNear(PadID("21", "0"), 3)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(nodes))
 	require.Equal(t, PadID("5556", "5"), nodes[0].Id)
@@ -79,7 +79,7 @@ func testNoSelf(t *testing.T, routingCtor routingCtor) {
 	err := table.ConnectionSuccess(Node(PadID("55", "5"), "address:2"))
 	require.NoError(t, err)
 
-	nodes, err := table.FindNear(PadID("20", "0"), 3)
+	nodes, err := table.FindNear(PadID("21", "0"), 3)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(nodes))
 }
@@ -93,7 +93,7 @@ func testSplits(t *testing.T, routingCtor routingCtor) {
 	table, close := routingCtor(PadID("55", "5"), 5, 2, 0)
 	defer close()
 
-	for _, prefix2 := range "08" {
+	for _, prefix2 := range "18" {
 		for _, prefix1 := range "a69c23f1d7eb5408" {
 			require.NoError(t, table.ConnectionSuccess(
 				NodeFromPrefix(string([]rune{prefix1, prefix2}), "0")))
@@ -113,27 +113,27 @@ func testSplits(t *testing.T, routingCtor routingCtor) {
 	require.NoError(t, err)
 	requireNodesEqual(t, []*pb.Node{
 		// bucket 010 (same first three bits)
-		NodeFromPrefix("50", "0"), NodeFromPrefix("58", "0"),
-		NodeFromPrefix("40", "0"), NodeFromPrefix("48", "0"),
+		NodeFromPrefix("51", "0"), NodeFromPrefix("58", "0"),
+		NodeFromPrefix("41", "0"), NodeFromPrefix("48", "0"),
 
 		// bucket 011 (same first two bits)
-		NodeFromPrefix("70", "0"), NodeFromPrefix("78", "0"),
-		NodeFromPrefix("60", "0"), NodeFromPrefix("68", "0"),
+		NodeFromPrefix("71", "0"), NodeFromPrefix("78", "0"),
+		NodeFromPrefix("61", "0"), NodeFromPrefix("68", "0"),
 
 		// bucket 00 (same first bit)
-		NodeFromPrefix("10", "0"),
-		NodeFromPrefix("00", "0"),
-		NodeFromPrefix("30", "0"),
+		NodeFromPrefix("11", "0"),
+		NodeFromPrefix("01", "0"),
+		NodeFromPrefix("31", "0"),
 		// 20 is added first of this group, so it's the only one where there's
 		// room for the 28, before this bucket is full
-		NodeFromPrefix("20", "0"), NodeFromPrefix("28", "0"),
+		NodeFromPrefix("21", "0"), NodeFromPrefix("28", "0"),
 
 		// bucket 1 (differing first bit)
-		NodeFromPrefix("d0", "0"),
-		NodeFromPrefix("c0", "0"),
-		NodeFromPrefix("f0", "0"),
-		NodeFromPrefix("90", "0"),
-		NodeFromPrefix("a0", "0"),
+		NodeFromPrefix("d1", "0"),
+		NodeFromPrefix("c1", "0"),
+		NodeFromPrefix("f1", "0"),
+		NodeFromPrefix("91", "0"),
+		NodeFromPrefix("a1", "0"),
 		// e and f were added last so that bucket should have been full by then
 	}, nodes)
 
@@ -141,41 +141,41 @@ func testSplits(t *testing.T, routingCtor routingCtor) {
 	// the gaps
 
 	// bucket 010 shouldn't have anything in its replacement cache
-	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("40", "0")))
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("41", "0")))
 	// bucket 011 shouldn't have anything in its replacement cache
 	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("68", "0")))
 
 	// bucket 00 should have two things in its replacement cache, 18... is one of them
 	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("18", "0")))
 	// now just one thing in its replacement cache
-	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("30", "0")))
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("31", "0")))
 	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("28", "0")))
 
 	// bucket 1 should have two things in its replacement cache
-	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("a0", "0")))
-	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("d0", "0")))
-	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("90", "0")))
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("a1", "0")))
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("d1", "0")))
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("91", "0")))
 
 	nodes, err = table.FindNear(PadID("55", "5"), 19)
 	require.NoError(t, err)
 	requireNodesEqual(t, []*pb.Node{
 		// bucket 010
-		NodeFromPrefix("50", "0"), NodeFromPrefix("58", "0"),
+		NodeFromPrefix("51", "0"), NodeFromPrefix("58", "0"),
 		NodeFromPrefix("48", "0"),
 
 		// bucket 011
-		NodeFromPrefix("70", "0"), NodeFromPrefix("78", "0"),
-		NodeFromPrefix("60", "0"),
+		NodeFromPrefix("71", "0"), NodeFromPrefix("78", "0"),
+		NodeFromPrefix("61", "0"),
 
 		// bucket 00
-		NodeFromPrefix("10", "0"),
-		NodeFromPrefix("00", "0"),
+		NodeFromPrefix("11", "0"),
+		NodeFromPrefix("01", "0"),
 		NodeFromPrefix("08", "0"), // replacement cache
-		NodeFromPrefix("20", "0"),
+		NodeFromPrefix("21", "0"),
 
 		// bucket 1
-		NodeFromPrefix("c0", "0"),
-		NodeFromPrefix("f0", "0"),
+		NodeFromPrefix("c1", "0"),
+		NodeFromPrefix("f1", "0"),
 		NodeFromPrefix("88", "0"), // replacement cache
 		NodeFromPrefix("b8", "0"), // replacement cache
 	}, nodes)
@@ -191,7 +191,7 @@ func testUnbalanced(t *testing.T, routingCtor routingCtor) {
 	defer close()
 
 	for _, prefix1 := range "0123456789abcdef" {
-		for _, prefix2 := range "08" {
+		for _, prefix2 := range "18" {
 			require.NoError(t, table.ConnectionSuccess(
 				NodeFromPrefix(string([]rune{prefix1, prefix2}), "0")))
 		}
@@ -205,22 +205,22 @@ func testUnbalanced(t *testing.T, routingCtor routingCtor) {
 	nodes, err := table.FindNear(PadID("ff", "f"), 33)
 	require.NoError(t, err)
 	requireNodesEqual(t, []*pb.Node{
-		NodeFromPrefix("f8", "0"), NodeFromPrefix("f0", "0"),
-		NodeFromPrefix("e8", "0"), NodeFromPrefix("e0", "0"),
-		NodeFromPrefix("d8", "0"), NodeFromPrefix("d0", "0"),
-		NodeFromPrefix("c8", "0"), NodeFromPrefix("c0", "0"),
-		NodeFromPrefix("b8", "0"), NodeFromPrefix("b0", "0"),
-		NodeFromPrefix("a8", "0"), NodeFromPrefix("a0", "0"),
-		NodeFromPrefix("98", "0"), NodeFromPrefix("90", "0"),
-		NodeFromPrefix("88", "0"), NodeFromPrefix("80", "0"),
-		NodeFromPrefix("78", "0"), NodeFromPrefix("70", "0"),
-		NodeFromPrefix("68", "0"), NodeFromPrefix("60", "0"),
-		NodeFromPrefix("58", "0"), NodeFromPrefix("50", "0"),
-		NodeFromPrefix("48", "0"), NodeFromPrefix("40", "0"),
-		NodeFromPrefix("38", "0"), NodeFromPrefix("30", "0"),
-		NodeFromPrefix("28", "0"), NodeFromPrefix("20", "0"),
-		NodeFromPrefix("18", "0"), NodeFromPrefix("10", "0"),
-		NodeFromPrefix("08", "0"), NodeFromPrefix("00", "0"),
+		NodeFromPrefix("f8", "0"), NodeFromPrefix("f1", "0"),
+		NodeFromPrefix("e8", "0"), NodeFromPrefix("e1", "0"),
+		NodeFromPrefix("d8", "0"), NodeFromPrefix("d1", "0"),
+		NodeFromPrefix("c8", "0"), NodeFromPrefix("c1", "0"),
+		NodeFromPrefix("b8", "0"), NodeFromPrefix("b1", "0"),
+		NodeFromPrefix("a8", "0"), NodeFromPrefix("a1", "0"),
+		NodeFromPrefix("98", "0"), NodeFromPrefix("91", "0"),
+		NodeFromPrefix("88", "0"), NodeFromPrefix("81", "0"),
+		NodeFromPrefix("78", "0"), NodeFromPrefix("71", "0"),
+		NodeFromPrefix("68", "0"), NodeFromPrefix("61", "0"),
+		NodeFromPrefix("58", "0"), NodeFromPrefix("51", "0"),
+		NodeFromPrefix("48", "0"), NodeFromPrefix("41", "0"),
+		NodeFromPrefix("38", "0"), NodeFromPrefix("31", "0"),
+		NodeFromPrefix("28", "0"), NodeFromPrefix("21", "0"),
+		NodeFromPrefix("18", "0"), NodeFromPrefix("11", "0"),
+		NodeFromPrefix("08", "0"), NodeFromPrefix("01", "0"),
 	}, nodes)
 }
 
@@ -233,7 +233,7 @@ func testQuery(t *testing.T, routingCtor routingCtor) {
 	table, close := routingCtor(PadID("a3", "3"), 5, 2, 0)
 	defer close()
 
-	for _, prefix2 := range "08" {
+	for _, prefix2 := range "18" {
 		for _, prefix1 := range "b4f25c896de03a71" {
 			require.NoError(t, table.ConnectionSuccess(
 				NodeFromPrefix(string([]rune{prefix1, prefix2}), "f")))
@@ -243,35 +243,35 @@ func testQuery(t *testing.T, routingCtor routingCtor) {
 	nodes, err := table.FindNear(PadID("c7139", "1"), 2)
 	require.NoError(t, err)
 	requireNodesEqual(t, []*pb.Node{
-		NodeFromPrefix("c0", "f"),
-		NodeFromPrefix("d0", "f"),
+		NodeFromPrefix("c1", "f"),
+		NodeFromPrefix("d1", "f"),
 	}, nodes)
 
 	nodes, err = table.FindNear(PadID("c7139", "1"), 7)
 	require.NoError(t, err)
 	requireNodesEqual(t, []*pb.Node{
-		NodeFromPrefix("c0", "f"),
-		NodeFromPrefix("d0", "f"),
-		NodeFromPrefix("e0", "f"),
-		NodeFromPrefix("f0", "f"),
+		NodeFromPrefix("c1", "f"),
+		NodeFromPrefix("d1", "f"),
+		NodeFromPrefix("e1", "f"),
+		NodeFromPrefix("f1", "f"),
 		NodeFromPrefix("f8", "f"),
-		NodeFromPrefix("80", "f"),
+		NodeFromPrefix("81", "f"),
 		NodeFromPrefix("88", "f"),
 	}, nodes)
 
 	nodes, err = table.FindNear(PadID("c7139", "1"), 10)
 	require.NoError(t, err)
 	requireNodesEqual(t, []*pb.Node{
-		NodeFromPrefix("c0", "f"),
-		NodeFromPrefix("d0", "f"),
-		NodeFromPrefix("e0", "f"),
-		NodeFromPrefix("f0", "f"),
+		NodeFromPrefix("c1", "f"),
+		NodeFromPrefix("d1", "f"),
+		NodeFromPrefix("e1", "f"),
+		NodeFromPrefix("f1", "f"),
 		NodeFromPrefix("f8", "f"),
-		NodeFromPrefix("80", "f"),
+		NodeFromPrefix("81", "f"),
 		NodeFromPrefix("88", "f"),
-		NodeFromPrefix("90", "f"),
+		NodeFromPrefix("91", "f"),
 		NodeFromPrefix("98", "f"),
-		NodeFromPrefix("a0", "f"),
+		NodeFromPrefix("a1", "f"),
 	}, nodes)
 }
 
@@ -284,7 +284,7 @@ func testFailureCounting(t *testing.T, routingCtor routingCtor) {
 	table, close := routingCtor(PadID("a3", "3"), 5, 2, 2)
 	defer close()
 
-	for _, prefix2 := range "08" {
+	for _, prefix2 := range "18" {
 		for _, prefix1 := range "b4f25c896de03a71" {
 			require.NoError(t, table.ConnectionSuccess(
 				NodeFromPrefix(string([]rune{prefix1, prefix2}), "f")))
@@ -295,32 +295,32 @@ func testFailureCounting(t *testing.T, routingCtor routingCtor) {
 		nodes, err := table.FindNear(PadID("c7139", "1"), 7)
 		require.NoError(t, err)
 		requireNodesEqual(t, []*pb.Node{
-			NodeFromPrefix("c0", "f"),
-			NodeFromPrefix("d0", "f"),
-			NodeFromPrefix("e0", "f"),
-			NodeFromPrefix("f0", "f"),
+			NodeFromPrefix("c1", "f"),
+			NodeFromPrefix("d1", "f"),
+			NodeFromPrefix("e1", "f"),
+			NodeFromPrefix("f1", "f"),
 			NodeFromPrefix("f8", "f"),
-			NodeFromPrefix("80", "f"),
+			NodeFromPrefix("81", "f"),
 			NodeFromPrefix("88", "f"),
 		}, nodes)
 	}
 
 	nochange()
-	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("d0", "f")))
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("d1", "f")))
 	nochange()
-	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("d0", "f")))
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("d1", "f")))
 	nochange()
-	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("d0", "f")))
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("d1", "f")))
 
 	nodes, err := table.FindNear(PadID("c7139", "1"), 7)
 	require.NoError(t, err)
 	requireNodesEqual(t, []*pb.Node{
-		NodeFromPrefix("c0", "f"),
-		NodeFromPrefix("e0", "f"),
+		NodeFromPrefix("c1", "f"),
+		NodeFromPrefix("e1", "f"),
 		NodeFromPrefix("e8", "f"),
-		NodeFromPrefix("f0", "f"),
+		NodeFromPrefix("f1", "f"),
 		NodeFromPrefix("f8", "f"),
-		NodeFromPrefix("80", "f"),
+		NodeFromPrefix("81", "f"),
 		NodeFromPrefix("88", "f"),
 	}, nodes)
 }
@@ -334,7 +334,7 @@ func testUpdateBucket(t *testing.T, routingCtor routingCtor) {
 	table, close := routingCtor(PadID("a3", "3"), 5, 2, 0)
 	defer close()
 
-	for _, prefix2 := range "08" {
+	for _, prefix2 := range "18" {
 		for _, prefix1 := range "b4f25c896de03a71" {
 			require.NoError(t, table.ConnectionSuccess(
 				NodeFromPrefix(string([]rune{prefix1, prefix2}), "f")))
@@ -344,16 +344,16 @@ func testUpdateBucket(t *testing.T, routingCtor routingCtor) {
 	nodes, err := table.FindNear(PadID("c7139", "1"), 1)
 	require.NoError(t, err)
 	requireNodesEqual(t, []*pb.Node{
-		NodeFromPrefix("c0", "f"),
+		NodeFromPrefix("c1", "f"),
 	}, nodes)
 
 	require.NoError(t, table.ConnectionSuccess(
-		Node(PadID("c0", "f"), "new-address:3")))
+		Node(PadID("c1", "f"), "new-address:3")))
 
 	nodes, err = table.FindNear(PadID("c7139", "1"), 1)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(nodes))
-	require.Equal(t, PadID("c0", "f"), nodes[0].Id)
+	require.Equal(t, PadID("c1", "f"), nodes[0].Id)
 	require.Equal(t, "new-address:3", nodes[0].Address.Address)
 }
 
@@ -366,21 +366,21 @@ func testUpdateCache(t *testing.T, routingCtor routingCtor) {
 	table, close := routingCtor(PadID("a3", "3"), 1, 1, 0)
 	defer close()
 
-	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("80", "0")))
-	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("c0", "0")))
-	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("40", "0")))
-	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("00", "0")))
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("81", "0")))
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("c1", "0")))
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("41", "0")))
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("01", "0")))
 
-	require.NoError(t, table.ConnectionSuccess(Node(PadID("00", "0"), "new-address:6")))
-	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("40", "0")))
+	require.NoError(t, table.ConnectionSuccess(Node(PadID("01", "0"), "new-address:6")))
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("41", "0")))
 
-	nodes, err := table.FindNear(PadID("00", "0"), 4)
+	nodes, err := table.FindNear(PadID("01", "0"), 4)
 	require.NoError(t, err)
 
 	requireNodesEqual(t, []*pb.Node{
-		Node(PadID("00", "0"), "new-address:6"),
-		NodeFromPrefix("80", "0"),
-		NodeFromPrefix("c0", "0"),
+		Node(PadID("01", "0"), "new-address:6"),
+		NodeFromPrefix("81", "0"),
+		NodeFromPrefix("c1", "0"),
 	}, nodes)
 }
 
@@ -393,19 +393,19 @@ func testFailureUnknownAddress(t *testing.T, routingCtor routingCtor) {
 	table, close := routingCtor(PadID("a3", "3"), 1, 1, 0)
 	defer close()
 
-	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("80", "0")))
-	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("c0", "0")))
-	require.NoError(t, table.ConnectionSuccess(Node(PadID("40", "0"), "address:2")))
-	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("00", "0")))
-	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("40", "0")))
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("81", "0")))
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("c1", "0")))
+	require.NoError(t, table.ConnectionSuccess(Node(PadID("41", "0"), "address:2")))
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("01", "0")))
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("41", "0")))
 
-	nodes, err := table.FindNear(PadID("00", "0"), 4)
+	nodes, err := table.FindNear(PadID("01", "0"), 4)
 	require.NoError(t, err)
 
 	requireNodesEqual(t, []*pb.Node{
-		Node(PadID("40", "0"), "address:2"),
-		NodeFromPrefix("80", "0"),
-		NodeFromPrefix("c0", "0"),
+		Node(PadID("41", "0"), "address:2"),
+		NodeFromPrefix("81", "0"),
+		NodeFromPrefix("c1", "0"),
 	}, nodes)
 }
 
@@ -420,7 +420,7 @@ func testShrink(t *testing.T, routingCtor routingCtor) {
 
 	// blow out the routing table
 	for _, prefix1 := range "0123456789abcdef" {
-		for _, prefix2 := range "08" {
+		for _, prefix2 := range "18" {
 			require.NoError(t, table.ConnectionSuccess(
 				NodeFromPrefix(string([]rune{prefix1, prefix2}), "0")))
 		}
@@ -428,7 +428,7 @@ func testShrink(t *testing.T, routingCtor routingCtor) {
 
 	// delete some of the bad ones
 	for _, prefix1 := range "0123456789abcd" {
-		for _, prefix2 := range "08" {
+		for _, prefix2 := range "18" {
 			require.NoError(t, table.ConnectionFailed(
 				NodeFromPrefix(string([]rune{prefix1, prefix2}), "0")))
 		}
@@ -443,17 +443,21 @@ func testShrink(t *testing.T, routingCtor routingCtor) {
 	}
 
 	// make sure table filled in alright
-	nodes, err := table.FindNear(PadID("ff", "f"), 9)
+	nodes, err := table.FindNear(PadID("ff", "f"), 13)
 	require.NoError(t, err)
 	requireNodesEqual(t, []*pb.Node{
 		NodeFromPrefix("f8", "0"),
-		NodeFromPrefix("f0", "0"),
+		NodeFromPrefix("f1", "0"),
 		NodeFromPrefix("e8", "0"),
-		NodeFromPrefix("e0", "0"),
+		NodeFromPrefix("e1", "0"),
 		NodeFromPrefix("a9", "0"),
 		NodeFromPrefix("a1", "0"),
+		NodeFromPrefix("59", "0"),
+		NodeFromPrefix("51", "0"),
 		NodeFromPrefix("39", "0"),
 		NodeFromPrefix("31", "0"),
+		NodeFromPrefix("09", "0"),
+		NodeFromPrefix("01", "0"),
 	}, nodes)
 }
 
@@ -466,20 +470,20 @@ func testReplacementCacheOrder(t *testing.T, routingCtor routingCtor) {
 	table, close := routingCtor(PadID("a3", "3"), 1, 2, 0)
 	defer close()
 
-	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("80", "0")))
-	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("20", "0")))
-	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("c0", "0")))
-	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("40", "0")))
-	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("00", "0")))
-	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("20", "0")))
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("81", "0")))
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("21", "0")))
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("c1", "0")))
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("41", "0")))
+	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("01", "0")))
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("21", "0")))
 
 	nodes, err := table.FindNear(PadID("55", "5"), 4)
 	require.NoError(t, err)
 
 	requireNodesEqual(t, []*pb.Node{
-		NodeFromPrefix("00", "0"),
-		NodeFromPrefix("c0", "0"),
-		NodeFromPrefix("80", "0"),
+		NodeFromPrefix("01", "0"),
+		NodeFromPrefix("c1", "0"),
+		NodeFromPrefix("81", "0"),
 	}, nodes)
 }
 
@@ -493,7 +497,7 @@ func testHealSplit(t *testing.T, routingCtor routingCtor) {
 	defer close()
 
 	for _, pad := range []string{"0", "1"} {
-		for _, prefix := range []string{"ff", "e0", "c0", "54", "56", "57"} {
+		for _, prefix := range []string{"ff", "e1", "c1", "54", "56", "57"} {
 			require.NoError(t, table.ConnectionSuccess(NodeFromPrefix(prefix, pad)))
 		}
 	}
@@ -505,13 +509,13 @@ func testHealSplit(t *testing.T, routingCtor routingCtor) {
 		NodeFromPrefix("54", "0"),
 		NodeFromPrefix("57", "0"),
 		NodeFromPrefix("56", "0"),
-		NodeFromPrefix("c0", "1"),
-		NodeFromPrefix("c0", "0"),
+		NodeFromPrefix("c1", "1"),
+		NodeFromPrefix("c1", "0"),
 		NodeFromPrefix("ff", "0"),
-		NodeFromPrefix("e0", "0"),
+		NodeFromPrefix("e1", "0"),
 	}, nodes)
 
-	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("c0", "0")))
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("c1", "0")))
 
 	nodes, err = table.FindNear(PadID("55", "55"), 9)
 	require.NoError(t, err)
@@ -520,8 +524,9 @@ func testHealSplit(t *testing.T, routingCtor routingCtor) {
 		NodeFromPrefix("54", "0"),
 		NodeFromPrefix("57", "0"),
 		NodeFromPrefix("56", "0"),
+		NodeFromPrefix("c1", "1"),
 		NodeFromPrefix("ff", "0"),
-		NodeFromPrefix("e0", "0"),
+		NodeFromPrefix("e1", "0"),
 	}, nodes)
 
 	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("ff", "0")))
@@ -532,11 +537,12 @@ func testHealSplit(t *testing.T, routingCtor routingCtor) {
 		NodeFromPrefix("54", "0"),
 		NodeFromPrefix("57", "0"),
 		NodeFromPrefix("56", "0"),
-		NodeFromPrefix("c0", "1"),
-		NodeFromPrefix("e0", "0"),
+		NodeFromPrefix("c1", "1"),
+		NodeFromPrefix("e1", "1"),
+		NodeFromPrefix("e1", "0"),
 	}, nodes)
 
-	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("e0", "0")))
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("e1", "0")))
 	nodes, err = table.FindNear(PadID("55", "55"), 9)
 	require.NoError(t, err)
 	requireNodesEqual(t, []*pb.Node{
@@ -544,11 +550,12 @@ func testHealSplit(t *testing.T, routingCtor routingCtor) {
 		NodeFromPrefix("54", "0"),
 		NodeFromPrefix("57", "0"),
 		NodeFromPrefix("56", "0"),
-		NodeFromPrefix("c0", "1"),
-		NodeFromPrefix("e0", "1"),
+		NodeFromPrefix("c1", "1"),
+		NodeFromPrefix("ff", "1"),
+		NodeFromPrefix("e1", "1"),
 	}, nodes)
 
-	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("e0", "1")))
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("e1", "1")))
 	nodes, err = table.FindNear(PadID("55", "55"), 9)
 	require.NoError(t, err)
 	requireNodesEqual(t, []*pb.Node{
@@ -556,10 +563,11 @@ func testHealSplit(t *testing.T, routingCtor routingCtor) {
 		NodeFromPrefix("54", "0"),
 		NodeFromPrefix("57", "0"),
 		NodeFromPrefix("56", "0"),
-		NodeFromPrefix("c0", "1"),
+		NodeFromPrefix("c1", "1"),
+		NodeFromPrefix("ff", "1"),
 	}, nodes)
 
-	for _, prefix := range []string{"ff", "e0", "c0", "54", "56", "57"} {
+	for _, prefix := range []string{"ff", "e1", "c1", "54", "56", "57"} {
 		require.NoError(t, table.ConnectionSuccess(NodeFromPrefix(prefix, "2")))
 	}
 
@@ -570,7 +578,9 @@ func testHealSplit(t *testing.T, routingCtor routingCtor) {
 		NodeFromPrefix("54", "0"),
 		NodeFromPrefix("57", "0"),
 		NodeFromPrefix("56", "0"),
-		NodeFromPrefix("c0", "1"),
+		NodeFromPrefix("c1", "1"),
+		NodeFromPrefix("c1", "2"),
+		NodeFromPrefix("ff", "1"),
 		NodeFromPrefix("ff", "2"),
 	}, nodes)
 }
@@ -584,23 +594,23 @@ func testFullDissimilarBucket(t *testing.T, routingCtor routingCtor) {
 	table, close := routingCtor(PadID("55", "55"), 2, 2, 0)
 	defer close()
 
-	for _, prefix := range []string{"d0", "c0", "f0", "e0"} {
+	for _, prefix := range []string{"d1", "c1", "f1", "e1"} {
 		require.NoError(t, table.ConnectionSuccess(NodeFromPrefix(prefix, "0")))
 	}
 
 	nodes, err := table.FindNear(PadID("55", "55"), 9)
 	require.NoError(t, err)
 	requireNodesEqual(t, []*pb.Node{
-		NodeFromPrefix("d0", "0"),
-		NodeFromPrefix("c0", "0"),
+		NodeFromPrefix("d1", "0"),
+		NodeFromPrefix("c1", "0"),
 	}, nodes)
 
-	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("c0", "0")))
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("c1", "0")))
 
 	nodes, err = table.FindNear(PadID("55", "55"), 9)
 	require.NoError(t, err)
 	requireNodesEqual(t, []*pb.Node{
-		NodeFromPrefix("d0", "0"),
-		NodeFromPrefix("e0", "0"),
+		NodeFromPrefix("d1", "0"),
+		NodeFromPrefix("e1", "0"),
 	}, nodes)
 }

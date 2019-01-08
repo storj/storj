@@ -37,6 +37,9 @@ func ID(hexID string) (rv storj.NodeID) {
 		panic(fmt.Sprintf("invalid length for %q", hexID))
 	}
 	copy(rv[:], bytes)
+	if rv == (storj.NodeID{}) {
+		panic("to allow routing table implementations to use a node id zero value (unlikely to have a collision), tests shouldn't use it")
+	}
 	return rv
 }
 
