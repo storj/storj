@@ -35,10 +35,11 @@ func NewPipeFile(tempdir string) (PipeReader, PipeWriter, error) {
 		return nil, nil, err
 	}
 
+	open := int64(2)
 	pipe := &pipe{
 		buffer: &offsetFile{
 			file: tempfile,
-			open: 2,
+			open: &open,
 		},
 		limit: math.MaxInt64,
 	}
@@ -237,12 +238,13 @@ func NewMultiPipeFile(tempdir string, pipeCount, pipeSize int64) (*MultiPipe, er
 		pipes: make([]pipe, pipeCount),
 	}
 
+	open := 2 * pipeCount
 	for i := range multipipe.pipes {
 		pipe := &multipipe.pipes[i]
 		pipe.buffer = offsetFile{
 			file:   tempfile,
 			offset: int64(i) * pipeSize,
-			open:   2 * pipeCount,
+			open:   &open,
 		}
 		pipe.limit = pipeSize
 		pipe.nodata.L = &pipe.mu

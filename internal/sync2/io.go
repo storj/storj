@@ -61,7 +61,7 @@ func (memory memory) Close() error { return nil }
 type offsetFile struct {
 	file   *os.File
 	offset int64
-	open   int64 // number of handles open
+	open   *int64 // number of handles open
 }
 
 // ReadAt implements io.ReaderAt methods
@@ -76,7 +76,7 @@ func (file offsetFile) WriteAt(data []byte, at int64) (amount int, err error) {
 
 // Close implements io.Closer methods
 func (file offsetFile) Close() error {
-	if atomic.AddInt64(&file.open, -1) == 0 {
+	if atomic.AddInt64(file.open, -1) == 0 {
 		return utils.CombineErrors(
 			file.Close(),
 			os.Remove(file.file.Name()),
