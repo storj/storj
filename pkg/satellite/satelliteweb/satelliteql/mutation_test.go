@@ -12,7 +12,6 @@ import (
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
-
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"

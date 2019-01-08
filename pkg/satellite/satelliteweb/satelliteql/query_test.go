@@ -10,7 +10,6 @@ import (
 
 	"github.com/graphql-go/graphql"
 	"github.com/stretchr/testify/assert"
-
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
