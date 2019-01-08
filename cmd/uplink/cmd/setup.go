@@ -14,6 +14,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 )
@@ -33,6 +34,12 @@ var (
 		EncKey             string                       `default:"" help:"your root encryption key" setup:"true"`
 		GenerateMinioCerts bool                         `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
 		SatelliteAddr      string                       `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
+
+		Server miniogw.ServerConfig
+		Minio  miniogw.MinioConfig
+		Client miniogw.ClientConfig
+		RS     miniogw.RSConfig
+		Enc    miniogw.EncryptionConfig
 	}
 
 	cliConfDir *string
