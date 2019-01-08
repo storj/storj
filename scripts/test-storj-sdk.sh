@@ -21,8 +21,9 @@ storj-sdk -x network setup
 storj-sdk -x network test bash $SCRIPTDIR/test-storj-sdk-aws.sh
 storj-sdk -x network destroy
 
-# setup the network with ipv6
-storj-sdk -x --host "::1" network setup
-# run aws-cli tests using ipv6
-storj-sdk -x --host "::1" network test bash $SCRIPTDIR/test-storj-sdk-aws.sh
-storj-sdk -x network destroy
+# ipv6 tests disabled because aws-cli doesn't seem to support connecting to ipv6 host
+# # setup the network with ipv6
+# storj-sdk -x --host "::1" network setup
+# # run aws-cli tests using ipv6
+# storj-sdk -x --host "::1" network test bash $SCRIPTDIR/test-storj-sdk-aws.sh
+# storj-sdk -x network destroy
