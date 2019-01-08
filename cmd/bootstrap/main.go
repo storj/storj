@@ -1,0 +1,111 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package main
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/spf13/cobra"
+
+	"storj.io/storj/internal/fpath"
+	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/server"
+)
+
+// Bootstrap defines a bootstrap node configuration
+type StorageNode struct {
+	CA       identity.CASetupConfig `setup:"true"`
+	Identity identity.SetupConfig   `setup:"true"`
+
+	Server   server.Config
+	Kademlia kademlia.BootstrapConfig
+}
+
+var (
+	rootCmd = &cobra.Command{
+		Use:   "bootstrap",
+		Short: "bootstrap",
+	}
+	runCmd = &cobra.Command{
+		Use:   "run",
+		Short: "Run the bootstrap server",
+		RunE:  cmdRun,
+	}
+	setupCmd = &cobra.Command{
+		Use:         "setup",
+		Short:       "Create config files",
+		RunE:        cmdSetup,
+		Annotations: map[string]string{"type": "setup"},
+	}
+
+	runCfg   StorageNode
+	setupCfg StorageNode
+
+	defaultConfDir string
+	confDir        *string
+)
+
+const (
+	defaultServerAddr = ":28967"
+)
+
+func init() {
+	defaultConfDir = fpath.ApplicationDir("storj", "bootstrap")
+
+	dirParam := cfgstruct.FindConfigDirParam()
+	if dirParam != "" {
+		defaultConfDir = dirParam
+	}
+
+	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for bootstrap configuration")
+
+	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(setupCmd)
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+}
+
+func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	return runCfg.Server.Run(process.Ctx(cmd), nil, runCfg.Kademlia)
+}
+
+func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	setupDir, err := filepath.Abs(*confDir)
+	if err != nil {
+		return err
+	}
+
+	valid, err := fpath.IsValidSetupDir(setupDir)
+	if !valid {
+		return fmt.Errorf("storagenode configuration already exists (%v). Rerun with --overwrite", setupDir)
+	}
+
+	err = os.MkdirAll(setupDir, 0700)
+	if err != nil {
+		return err
+	}
+
+	setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
+	setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
+	setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
+	setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
+
+	overrides := map[string]interface{}{
+		"identity.cert-path":      setupCfg.Identity.CertPath,
+		"identity.key-path":       setupCfg.Identity.KeyPath,
+		"identity.server.address": defaultServerAddr,
+		"kademlia.bootstrap-addr": "localhost" + defaultServerAddr,
+	}
+
+	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+}
+
+func main() {
+	process.Exec(rootCmd)
+}
