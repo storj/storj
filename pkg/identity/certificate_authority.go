@@ -227,33 +227,6 @@ func (fc FullCAConfig) PeerConfig() PeerCAConfig {
 	}
 }
 
-// Load loads a CA from the given configuration
-func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
-	chainPEM, err := ioutil.ReadFile(pc.CertPath)
-	if err != nil {
-		return nil, peertls.ErrNotExist.Wrap(err)
-	}
-
-	chain, err := DecodeAndParseChainPEM(chainPEM)
-	if err != nil {
-		return nil, errs.New("failed to load identity %#v: %v",
-			pc.CertPath, err)
-	}
-
-	nodeID, err := NodeIDFromKey(chain[peertls.LeafIndex].PublicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return &PeerCertificateAuthority{
-		// NB: `CAIndex` is in the context of a complete chain (incl. leaf).
-		// Here we're loading the CA chain (nodeID.e. without leaf).
-		RestChain: chain[peertls.CAIndex:],
-		Cert:      chain[peertls.CAIndex-1],
-		ID:        nodeID,
-	}, nil
-}
-
 // Save saves a CA with the given configuration
 func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	var (
@@ -287,6 +260,39 @@ func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	}
 
 	return writeErrs.Finish()
+}
+
+func (fc FullCAConfig) SaveBackup(ca *FullCertificateAuthority) error {
+	return FullCAConfig{
+		CertPath: backupPath(fc.CertPath),
+	}.Save(ca)
+}
+
+// Load loads a CA from the given configuration
+func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
+	chainPEM, err := ioutil.ReadFile(pc.CertPath)
+	if err != nil {
+		return nil, peertls.ErrNotExist.Wrap(err)
+	}
+
+	chain, err := DecodeAndParseChainPEM(chainPEM)
+	if err != nil {
+		return nil, errs.New("failed to load identity %#v: %v",
+			pc.CertPath, err)
+	}
+
+	nodeID, err := NodeIDFromKey(chain[peertls.LeafIndex].PublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PeerCertificateAuthority{
+		// NB: `CAIndex` is in the context of a complete chain (incl. leaf).
+		// Here we're loading the CA chain (nodeID.e. without leaf).
+		RestChain: chain[peertls.CAIndex:],
+		Cert:      chain[peertls.CAIndex-1],
+		ID:        nodeID,
+	}, nil
 }
 
 // NewIdentity generates a new `FullIdentity` based on the CA. The CA

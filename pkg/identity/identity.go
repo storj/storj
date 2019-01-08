@@ -11,7 +11,12 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io/ioutil"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
@@ -72,6 +77,9 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 	chain, err := DecodeAndParseChainPEM(chainPEM)
 	if err != nil {
 		return nil, errs.Wrap(err)
+	}
+	if len(chain) < peertls.CAIndex+1 {
+		return nil, ErrChainLength.New("identity chain does not contain a CA certificate")
 	}
 	keysBytes, err := decodePEM(keyPEM)
 	if err != nil {
@@ -262,6 +270,12 @@ func (ic Config) Save(fi *FullIdentity) error {
 	)
 }
 
+func (ic Config) SaveBackup(fi *FullIdentity) error {
+	return Config{
+		CertPath: backupPath(ic.CertPath),
+	}.Save(fi)
+}
+
 // RestChainRaw returns the rest (excluding leaf and CA) of the certificate chain as a 2d byte slice
 func (fi *FullIdentity) RestChainRaw() [][]byte {
 	var chain [][]byte
@@ -338,4 +352,15 @@ func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
 
 		return nil
 	}
+}
+
+func backupPath(path string) string {
+	pathExt := filepath.Ext(path)
+	base := strings.TrimSuffix(path, pathExt)
+	return fmt.Sprintf(
+		"%s.%s%s",
+		base,
+		strconv.Itoa(int(time.Now().Unix())),
+		pathExt,
+	)
 }
