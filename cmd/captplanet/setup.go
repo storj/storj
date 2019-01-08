@@ -144,10 +144,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		// TODO: this will eventually go away
 		"pointer-db.auth.api-key": setupCfg.APIKey,
 
-		// TODO: this is a source of bugs. this value should be pulled from
-		// kademlia instead
-		"piecestore.agreementsender.overlay-addr": overlayAddr,
-
 		"log.development": true,
 		"log.level":       "debug",
 	}
