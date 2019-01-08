@@ -82,8 +82,7 @@ func validatePassword(pass string) error {
 	return errs.Combine()
 }
 
-// normalizeEmail converts uppercase runes to lowercase equivalents
-// and returns resulting string
+// normalizeEmail converts emails with different casing into equal strings
 // Note: won't work with µıſͅςϐϑϕϖϰϱϵᲀᲁᲂᲃᲄᲅᲆᲇᲈẛι
 func normalizeEmail(s string) string {
 	return strings.ToLower(s)
