@@ -102,6 +102,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		gatewayPort     = 9000
 		satellitePort   = 10000
 		storageNodePort = 11000
+		difficulty      = "10"
 	)
 
 	var bootstrapSatellite *Process
@@ -124,7 +125,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		}
 
 		process.Arguments = withCommon(Arguments{
-			"setup": {},
+			"setup": {
+				"--ca.difficulty", difficulty,
+			},
 			"run": {
 				"--kademlia.bootstrap-addr", bootstrapAddr,
 				"--server.address", process.Address,
@@ -154,6 +157,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.Arguments = withCommon(Arguments{
 			"setup": {
 				"--satellite-addr", satellite.Address,
+				"--ca.difficulty", difficulty,
 			},
 			"run": {
 				"--server.address", process.Address,
@@ -185,6 +189,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
+				"--ca.difficulty", difficulty,
 				"--piecestore.agreementsender.overlay-addr", bootstrapSatellite.Address,
 			},
 			"run": {
