@@ -25,7 +25,6 @@ var (
 	mon = monkit.Package()
 )
 
-// maxLimit specifies the limit for all paged queries
 const (
 	// maxLimit specifies the limit for all paged queries
 	maxLimit = 50
@@ -65,7 +64,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 
 	//TODO: store original email input in the db,
 	// add normalization
-	email := toLowerCase(user.Email)
+	email := normalizeEmail(user.Email)
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -84,7 +83,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 func (s *Service) Token(ctx context.Context, email, password string) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	email = toLowerCase(email)
+	email = normalizeEmail(email)
 
 	user, err := s.store.Users().GetByEmail(ctx, email)
 	if err != nil {
@@ -136,7 +135,7 @@ func (s *Service) UpdateAccount(ctx context.Context, info UserInfo) (err error) 
 
 	//TODO: store original email input in the db,
 	// add normalization
-	email := toLowerCase(info.Email)
+	email := normalizeEmail(info.Email)
 
 	return s.store.Users().Update(ctx, &User{
 		ID:           auth.User.ID,
