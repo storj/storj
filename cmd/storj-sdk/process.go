@@ -232,7 +232,11 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	}
 
 	// wait for process completion
-	return cmd.Wait()
+	err = cmd.Wait()
+	if err != nil && err.Error() == "signal: killed" { // TODO: figure out a better way to ignore error of killing
+		return nil
+	}
+	return err
 }
 
 // monitorAddress will monitor starting when we are able to start the process.
