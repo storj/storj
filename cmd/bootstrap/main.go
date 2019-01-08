@@ -81,6 +81,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	valid, err := fpath.IsValidSetupDir(setupDir)
+	if err != nil {
+		return err
+	}
 	if !valid {
 		return fmt.Errorf("storagenode configuration already exists (%v). Rerun with --overwrite", setupDir)
 	}
