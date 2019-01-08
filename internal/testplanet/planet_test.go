@@ -40,7 +40,7 @@ func TestBasic(t *testing.T) {
 	}
 
 	// Example of using pointer db
-	client, err := planet.Uplinks[0].DialPointerDB(planet.Satellites[0], "apikey")
+	_, err := planet.Uplinks[0].DialPointerDB(planet.Satellites[0], "apikey")
 	if err != nil {
 		t.Fatal(err)
 	}
