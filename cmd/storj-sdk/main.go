@@ -14,6 +14,7 @@ import (
 // Flags contains different flags for commands
 type Flags struct {
 	Directory string
+	Host      string
 
 	SatelliteCount   int
 	StorageNodeCount int
@@ -39,12 +40,13 @@ func main() {
 	}
 
 	rootCmd.PersistentFlags().StringVarP(&flags.Directory, "config-dir", "", configDir, "base project directory")
+	rootCmd.PersistentFlags().StringVarP(&flags.Host, "host", "", "127.0.0.1", "host to use for network")
 
 	rootCmd.PersistentFlags().IntVarP(&flags.SatelliteCount, "satellites", "", 1, "number of satellites to start")
 	rootCmd.PersistentFlags().IntVarP(&flags.StorageNodeCount, "storage-nodes", "", 10, "number of storage nodes to start")
 	rootCmd.PersistentFlags().IntVarP(&flags.Identities, "identities", "", 10, "number of identities to create")
 
-	rootCmd.PersistentFlags().BoolVarP(&printCommands, "", "x", false, "print commands as they are run")
+	rootCmd.PersistentFlags().BoolVarP(&printCommands, "print-commands", "x", false, "print commands as they are run")
 
 	networkCmd := &cobra.Command{
 		Use:   "network",
