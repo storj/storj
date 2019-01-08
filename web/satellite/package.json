@@ -39,6 +39,7 @@
     "css-loader": "^1.0.0",
     "eslint": "^5.9.0",
     "eslint-plugin-vue": "^5.0.0",
+    "jest-fetch-mock": "^2.1.0",
     "node-sass": "^4.9.0",
     "sass-loader": "^7.0.1",
     "sinon": "^7.0.0",
@@ -68,6 +69,15 @@
     "not ie <= 8"
   ],
   "jest": {
+    "automock": false,
+    "setupFiles": [
+      "./jestSetup.ts"
+    ],
+    "globals": {
+      "ts-jest": {
+        "diagnostics": false
+      }
+    },
     "moduleFileExtensions": [
       "js",
       "jsx",
@@ -76,12 +86,16 @@
       "ts",
       "tsx"
     ],
+    "collectCoverage": true,
     "transform": {
       "^.+\\.js$": "babel-jest",
       "^.+\\.vue$": "vue-jest",
       ".+\\.(css|styl|less|sass|scss|svg|png|jpg|ttf|woff|woff2)$": "jest-transform-stub",
       "^.+\\.tsx?$": "ts-jest"
     },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(apollo-client|apollo-link))"
+    ],
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/src/$1"
     },
