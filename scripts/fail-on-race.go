@@ -28,8 +28,7 @@ func main() {
 		_, writeErr := os.Stdout.Write(buffer[start:end])
 		if writeErr != nil {
 			os.Stderr.Write([]byte(writeErr.Error()))
-			exitCode = 2
-			break
+			os.Exit(2)
 		}
 
 		if bytes.Contains(buffer[:end], search) {
