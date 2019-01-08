@@ -52,6 +52,16 @@ func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
 	return cache.db.List(nil, 0)
 }
 
+// List returns a list of nodes that can be paginated through using start and limit
+func (cache *Cache) List(ctx context.Context, start storage.Key, limit int) ([]*pb.Node, error) {
+	keys, err := cache.db.List(start, limit)
+	if err != nil {
+		return []*pb.Node{}, OverlayError.Wrap(err)
+	}
+
+	return cache.getNodesFromKeys(keys)
+}
+
 // Get looks up the provided nodeID from the overlay cache
 func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
 	if nodeID.IsZero() {
@@ -85,24 +95,25 @@ func (cache *Cache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb
 	for _, v := range nodeIDs {
 		ks = append(ks, v.Bytes())
 	}
-	vs, err := cache.db.GetAll(ks)
-	if err != nil {
-		return nil, err
-	}
-	var ns []*pb.Node
-	for _, v := range vs {
-		if v == nil {
-			ns = append(ns, nil)
-			continue
-		}
-		na := &pb.Node{}
-		err := proto.Unmarshal(v, na)
-		if err != nil {
-			return nil, OverlayError.New("could not unmarshal non-nil node: %v", err)
-		}
-		ns = append(ns, na)
-	}
-	return ns, nil
+	// vs, err := cache.db.GetAll(ks)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// var ns []*pb.Node
+	// for _, v := range vs {
+	// 	if v == nil {
+	// 		ns = append(ns, nil)
+	// 		continue
+	// 	}
+	// 	na := &pb.Node{}
+	// 	err := proto.Unmarshal(v, na)
+	// 	if err != nil {
+	// 		return nil, OverlayError.New("could not unmarshal non-nil node: %v", err)
+	// 	}
+	// 	ns = append(ns, na)
+	// }
+	return cache.getNodesFromKeys(ks)
+	// return ns, nil
 }
 
 // Put adds a nodeID to the redis cache with a binary representation of proto defined Node
@@ -171,4 +182,25 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 	if err != nil {
 		zap.L().Debug("error updating statdDB with node connection info", zap.Error(err))
 	}
+}
+
+func (cache *Cache) getNodesFromKeys(keys storage.Keys) ([]*pb.Node, error) {
+	values, err := cache.db.GetAll(keys)
+	if err != nil {
+		return nil, err
+	}
+	var nodes []*pb.Node
+	for _, v := range values {
+		if v == nil {
+			nodes = append(nodes, nil)
+			continue
+		}
+		n := &pb.Node{}
+		err := proto.Unmarshal(v, n)
+		if err != nil {
+			return nil, OverlayError.New("could not unmarshal non-nil node: %v", err)
+		}
+		nodes = append(nodes, n)
+	}
+	return nodes, err
 }

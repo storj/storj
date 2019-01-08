@@ -43,12 +43,32 @@ func NewDiscovery(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia,
 // We currently do not penalize nodes that are unresponsive,
 // but should in the future.
 func (d *Discovery) Refresh(ctx context.Context) error {
-	// TODO(coyle): make refresh work by looking on the network for new ndoes
-	nodes := d.kad.Seen()
+	nodes, err := d.cache.List(ctx, nil, 0)
+	if err != nil {
+		return DiscoveryError.Wrap(err)
+	}
 
-	for _, v := range nodes {
-		if err := d.cache.Put(ctx, v.Id, *v); err != nil {
-			return err
+	if len(nodes) == 0 {
+		return DiscoveryError.New("no nodes in cache")
+	}
+
+	for _, node := range nodes {
+		n, err := d.kad.Ping(ctx, *node)
+		if err != nil {
+			d.log.Error("error pinging node")
+		}
+
+		// handle offline node
+		if n.Id.IsZero() {
+			_, err := d.statdb.UpdateUptime(ctx, n.Id, false)
+			if err != nil {
+				d.log.Error("error updating statdb from cache refresh", zap.Error(err))
+			}
+		} else {
+			_, err := d.statdb.UpdateUptime(ctx, node.Id, true)
+			if err != nil {
+				d.log.Error("error updating statdb from cache refresh", zap.Error(err))
+			}
 		}
 	}
 
