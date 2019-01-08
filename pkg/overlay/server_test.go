@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -30,7 +32,7 @@ func TestServer(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	satellite := planet.Satellites[0]
-	server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay, &pb.NodeStats{}, 0, 0)
+	server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay, &pb.NodeStats{}, 2, 0, 0)
 	// TODO: handle cleanup
 
 	{ // FindStorageNodes
@@ -66,7 +68,7 @@ func TestServer(t *testing.T) {
 	}
 }
 
-func TestNewNodes(t *testing.T) {
+func TestFewerThanRequiredReputableNodes(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -80,14 +82,33 @@ func TestNewNodes(t *testing.T) {
 	// we wait a second for all the nodes to complete bootstrapping off the satellite
 	time.Sleep(2 * time.Second)
 
-	satellite := planet.Satellites[0]
-	server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay, &pb.NodeStats{}, 0, 0.5)
-	// TODO: handle cleanup
+	// todo(nat):
+	// create a gateway to upload files to the test nodes
+	// then make sure that the right number of nodes are audited
+	// then confirm right outputs
 
-	{ // FindStorageNodes
-		result, err := server.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{Opts: &pb.OverlayOptions{Amount: 2}})
-		if assert.NoError(t, err) && assert.NotNil(t, result) {
-			assert.Len(t, result.Nodes, 2)
-		}
-	}
+	// gateway := miniogw.NewStorjGateway(storj.Metainfo{}, streams.Store{}, storj.Cipher{}, storj.EncryptionScheme{}, storj.RedundancySceme{})
+
+	satellite := planet.Satellites[0]
+	server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay, &pb.NodeStats{}, 2, 1, 0.5)
+
+	result, err := server.FindStorageNodes(ctx,
+		&pb.FindStorageNodesRequest{
+			Opts: &pb.OverlayOptions{Amount: 2},
+		})
+	stat, ok := status.FromError(err)
+	assert.Equal(t, true, ok)
+	assert.Equal(t, codes.ResourceExhausted, stat.Code)
+	assert.Equal(t, 3, len(result.GetNodes()))
 }
+
+// other tests:
+// 	more than required reputable nodes
+// 	zero reputable nodes found, only new nodes
+// 	fewer than required new nodes
+// 	more than required new nodes
+// 	zero new nodes found, only reputable nodes
+// 	exactly the required amount of new and reputable nodes returned
+// 	low percentage of new nodes
+// 	high percentage of new nodes
+// 	0% new nodes requested

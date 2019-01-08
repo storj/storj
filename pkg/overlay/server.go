@@ -29,18 +29,20 @@ type Server struct {
 	cache                 *Cache
 	metrics               *monkit.Registry
 	minStats              *pb.NodeStats
+	matchingNodeRatio     float64
 	newNodeAuditThreshold int64
 	newNodePercentage     float64
 }
 
 // NewServer creates a new Overlay Server
-func NewServer(log *zap.Logger, cache *Cache, minStats *pb.NodeStats, newNodeAuditThreshold int64,
+func NewServer(log *zap.Logger, cache *Cache, minStats *pb.NodeStats, matchingNodeRatio float64, newNodeAuditThreshold int64,
 	newNodePercentage float64) *Server {
 	return &Server{
 		cache:                 cache,
 		log:                   log,
 		metrics:               monkit.Default,
 		minStats:              minStats,
+		matchingNodeRatio:     matchingNodeRatio,
 		newNodeAuditThreshold: newNodeAuditThreshold,
 		newNodePercentage:     newNodePercentage,
 	}
@@ -72,9 +74,9 @@ func (server *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
 	opts := req.GetOpts()
-	maxNodes := req.GetMaxNodes()
-	if maxNodes <= 0 {
-		maxNodes = opts.GetAmount()
+	requiredReputableNodes := req.GetMaxNodes()
+	if requiredReputableNodes <= 0 {
+		requiredReputableNodes = opts.GetAmount()
 	}
 
 	excluded := opts.ExcludedNodes
@@ -82,50 +84,40 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 	usedAddrs := make(map[string]bool)
 
 	newStartID := req.Start
-	requiredNewNodes := int64(float64(maxNodes) * server.newNodePercentage)
-	newNodesDone := false
+	requiredNewNodes := int64(float64(requiredReputableNodes) * server.newNodePercentage)
 	var allNewNodes []*pb.Node
 
 	reputableStartID := req.Start
-	requiredReputableNodes := maxNodes - requiredNewNodes
-	reputableNodesDone := false
 	var allReputableNodes []*pb.Node
 
 	for {
-		if !reputableNodesDone {
-			reputableNodes, reputableStartID, err := server.getReputableNodes(ctx, reputableStartID, requiredReputableNodes, restrictions, excluded)
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
-			reputableNodes, excluded, usedAddrs = server.filterNodes(ctx, reputableNodes, requiredReputableNodes, usedAddrs, excluded)
-
-			allReputableNodes = append(allReputableNodes, reputableNodes...)
-
-			// this means we've exhausted the overlay cache looking for reputable nodes or we have enough
-			if reputableStartID == (storj.NodeID{}) || int64(len(allReputableNodes)) >= requiredReputableNodes {
-				reputableNodesDone = true
-			}
+		reputableNodes, reputableStartID, err := server.getReputableNodes(ctx, reputableStartID, requiredReputableNodes, restrictions, excluded)
+		if err != nil {
+			return nil, Error.Wrap(err)
 		}
+		reputableNodes, excluded, usedAddrs = server.filterNodes(ctx, reputableNodes, requiredReputableNodes, usedAddrs, excluded)
 
-		if !newNodesDone {
-			newNodes, newStartID, err := server.getNewNodes(ctx, newStartID, maxNodes, restrictions, excluded)
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
-			newNodes, excluded, usedAddrs = server.filterNodes(ctx, newNodes, requiredNewNodes, usedAddrs, excluded)
+		allReputableNodes = append(allReputableNodes, reputableNodes...)
 
-			allNewNodes = append(allNewNodes, newNodes...)
-
-			// this means we've exhausted the overlay cache looking for new nodes or we have enough
-			if newStartID == (storj.NodeID{}) || int64(len(allNewNodes)) >= requiredNewNodes {
-				newNodesDone = true
-			}
-		}
-
-		if reputableNodesDone && newNodesDone {
+		// this means we've exhausted the overlay cache looking for reputable nodes or we have enough
+		if reputableStartID == (storj.NodeID{}) || int64(len(allReputableNodes)) >= requiredReputableNodes {
 			break
 		}
+	}
 
+	for {
+		newNodes, newStartID, err := server.getNewNodes(ctx, newStartID, requiredNewNodes, restrictions, excluded)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		newNodes, excluded, usedAddrs = server.filterNodes(ctx, newNodes, requiredNewNodes, usedAddrs, excluded)
+
+		allNewNodes = append(allNewNodes, newNodes...)
+
+		// this means we've exhausted the overlay cache looking for new nodes or we have enough
+		if newStartID == (storj.NodeID{}) || int64(len(allNewNodes)) >= requiredNewNodes {
+			break
+		}
 	}
 
 	var result []*pb.Node
@@ -142,12 +134,8 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 		result = append(result, allNewNodes...)
 	}
 
-	if len(result) > int(maxNodes) {
-		result = result[:maxNodes]
-	}
-
-	if int64(len(result)) < maxNodes {
-		err := status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d nodes, only %d nodes matched the criteria requested", maxNodes, len(result)))
+	if int64(len(result)) < requiredReputableNodes {
+		err := status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d nodes, only %d nodes matched the criteria requested", requiredReputableNodes, len(result)))
 		return &pb.FindStorageNodesResponse{Nodes: result}, err
 	}
 
@@ -195,7 +183,7 @@ func (server *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.No
 func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeID, maxNodes int64,
 	minRestrictions *pb.NodeRestrictions, excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
 
-	limit := int(maxNodes * 2)
+	limit := int(float64(maxNodes) * server.matchingNodeRatio)
 	minReputation := server.minStats
 
 	keys, err := server.cache.db.List(startID.Bytes(), limit)
@@ -250,7 +238,7 @@ func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeI
 func (server *Server) getNewNodes(ctx context.Context, startID storj.NodeID, maxNodes int64,
 	minRestrictions *pb.NodeRestrictions, excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
 
-	limit := int(maxNodes * 2)
+	limit := int(float64(maxNodes) * server.matchingNodeRatio)
 
 	keys, err := server.cache.db.List(startID.Bytes(), limit)
 	if err != nil {

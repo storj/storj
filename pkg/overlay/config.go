@@ -49,6 +49,7 @@ type NodeSelectionConfig struct {
 
 	NewNodeAuditThreshold int64   `help:"the number of audits a node must have to not be considered a New Node" default:"0"`
 	NewNodePercentage     float64 `help:"the percentage of new nodes allowed per request" default:"0.05"`
+	MatchingNodeRatio     float64 `help:"the ratio of requested nodes to matching nodes for a given list of restrictions" default:"2"`
 }
 
 // CtxKey used for assigning cache and server
@@ -82,7 +83,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		AuditCount:        c.Node.AuditCount,
 	}
 
-	srv := NewServer(zap.L(), cache, minStats, c.Node.NewNodeAuditThreshold, c.Node.NewNodePercentage)
+	srv := NewServer(zap.L(), cache, minStats, c.Node.MatchingNodeRatio, c.Node.NewNodeAuditThreshold, c.Node.NewNodePercentage)
 	pb.RegisterOverlayServer(server.GRPC(), srv)
 
 	ctx2 := context.WithValue(ctx, ctxKeyOverlay, cache)
