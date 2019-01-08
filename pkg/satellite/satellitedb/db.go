@@ -4,9 +4,9 @@
 package satellitedb
 
 import (
-	"github.com/zeebo/errs"
-
 	"context"
+
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/satellite"
