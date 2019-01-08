@@ -117,13 +117,12 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 		return Error.Wrap(err)
 	}
 
-	signedMessage := s.pdb.SignedMessage()
 	pbaGet, err := s.pdb.PayerBandwidthAllocation(ctx, pb.PayerBandwidthAllocation_GET_REPAIR)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 	// Download the segment using just the healthyNodes
-	rr, err := s.ec.Get(ctx, healthyNodes, rs, pid, pr.GetSegmentSize(), pbaGet, signedMessage)
+	rr, err := s.ec.Get(ctx, healthyNodes, rs, pid, pr.GetSegmentSize(), pbaGet)
 	if err != nil {
 		return Error.Wrap(err)
 	}

@@ -170,7 +170,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, nodes, pba, err := s.pdb.Get(ctx, path)
+	pr, nodes, pba, authorization, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return nil, Meta{}, Error.Wrap(err)
 	}
@@ -210,7 +210,6 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 			node.Type.DPanicOnInvalid("ss get")
 		}
 
-		authorization := s.pdb.SignedMessage()
 		rr, err = s.ec.Get(ctx, selected, rs, pid, pr.GetSegmentSize(), pba, authorization)
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
@@ -261,7 +260,7 @@ func makeRemotePointer(nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID
 func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, nodes, _, err := s.pdb.Get(ctx, path)
+	pr, nodes, _, authorization, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -280,7 +279,6 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 			}
 		}
 
-		authorization := s.pdb.SignedMessage()
 		// ecclient sends delete request
 		err = s.ec.Delete(ctx, nodes, pid, authorization)
 		if err != nil {

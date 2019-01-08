@@ -44,9 +44,6 @@ func TestBasic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	message := client.SignedMessage()
-	t.Log(message)
 }
 
 func BenchmarkCreate(b *testing.B) {
