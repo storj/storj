@@ -39,7 +39,7 @@ func runTestPlanet(flags *Flags, command string, args []string) error {
 
 	// add satellites to environment
 	for i, satellite := range planet.Satellites {
-		env = append(env, (&ProcessInfo{
+		env = append(env, (&Info{
 			Name:    "satellite/" + strconv.Itoa(i),
 			ID:      satellite.ID().String(),
 			Address: satellite.Addr(),
@@ -48,7 +48,7 @@ func runTestPlanet(flags *Flags, command string, args []string) error {
 
 	// add storage nodes to environment
 	for i, storage := range planet.StorageNodes {
-		env = append(env, (&ProcessInfo{
+		env = append(env, (&Info{
 			Name:    "storage/" + strconv.Itoa(i),
 			ID:      storage.ID().String(),
 			Address: storage.Addr(),
