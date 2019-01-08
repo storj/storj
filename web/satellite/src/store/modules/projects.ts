@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { PROJECTS_MUTATIONS } from '../mutationConstants';
-import { createProject, deleteProject, fetchProjects, updateProject } from '@/api/projects';
+import { createProjectRequest, deleteProjectRequest, fetchProjectsRequest, updateProjectRequest } from '@/api/projects';
 
 export const projectsModule = {
 	state: {
@@ -63,7 +63,7 @@ export const projectsModule = {
 	},
 	actions: {
 		fetchProjects: async function ({commit}: any): Promise<RequestResponse<Project[]>> {
-			let response: RequestResponse<Project[]> = await fetchProjects();
+			let response: RequestResponse<Project[]> = await fetchProjectsRequest();
 
 			if (response.isSuccess) {
                 commit(PROJECTS_MUTATIONS.FETCH, response.data);
@@ -72,7 +72,7 @@ export const projectsModule = {
 			return response;
 		},
 		createProject: async function ({commit}: any, project: Project): Promise<RequestResponse<Project>> {
-			let response = await createProject(project);
+			let response = await createProjectRequest(project);
 
 			if (response.isSuccess) {
                 commit(PROJECTS_MUTATIONS.CREATE, response.data);
@@ -84,7 +84,7 @@ export const projectsModule = {
 			commit(PROJECTS_MUTATIONS.SELECT, projectID);
 		},
 		updateProjectDescription: async function ({commit}: any, updateProjectModel: UpdateProjectModel): Promise<RequestResponse<null>> {
-			let response = await updateProject(updateProjectModel.id, updateProjectModel.description);
+			let response = await updateProjectRequest(updateProjectModel.id, updateProjectModel.description);
 
 			if (response.isSuccess) {
                 commit(PROJECTS_MUTATIONS.UPDATE, updateProjectModel);
@@ -93,7 +93,7 @@ export const projectsModule = {
 			return response;
 		},
 		deleteProject: async function ({commit}: any, projectID: string): Promise<RequestResponse<null>> {
-			let response = await deleteProject(projectID);
+			let response = await deleteProjectRequest(projectID);
 
 			if (response.isSuccess) {
                 commit(PROJECTS_MUTATIONS.DELETE, projectID);
