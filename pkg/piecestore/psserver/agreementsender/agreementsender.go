@@ -11,19 +11,17 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
-	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/pkg/utils"
 )
 
 var (
-	defaultCheckInterval = flag.Duration("piecestore.agreementsender.check-interval", time.Hour, "number of seconds to sleep between agreement checks")
-	defaultOverlayAddr   = flag.String("piecestore.agreementsender.overlay-addr", "127.0.0.1:7777", "Overlay Address")
-
+	//todo: cache kad responses if this interval is very small
+	defaultCheckInterval = flag.Duration("piecestore.agreementsender.check-interval", time.Hour, "duration to sleep between agreement checks")
 	// ASError wraps errors returned from agreementsender package
 	ASError = errs.Class("agreement sender error")
 )
@@ -32,89 +30,70 @@ var (
 type AgreementSender struct {
 	DB        *psdb.DB
 	log       *zap.Logger
-	overlay   overlay.Client
 	transport transport.Client
-	errs      []error
+	kad       *kademlia.Kademlia
 }
 
-// Initialize the Agreement Sender
-func Initialize(log *zap.Logger, DB *psdb.DB, identity *provider.FullIdentity) (*AgreementSender, error) {
-	overlay, err := overlay.NewClient(identity, *defaultOverlayAddr)
-	if err != nil {
-		return nil, err
-	}
-	return &AgreementSender{DB: DB, log: log, transport: transport.NewClient(identity), overlay: overlay}, nil
+// New creates an Agreement Sender
+func New(log *zap.Logger, DB *psdb.DB, identity *provider.FullIdentity, kad *kademlia.Kademlia) *AgreementSender {
+	return &AgreementSender{DB: DB, log: log, transport: transport.NewClient(identity), kad: kad}
 }
 
-// Run the afreement sender with a context to cehck for cancel
-func (as *AgreementSender) Run(ctx context.Context) error {
-	as.log.Info("AgreementSender is starting up")
-
-	type agreementGroup struct {
-		satellite  storj.NodeID
-		agreements []*psdb.Agreement
-	}
-
-	c := make(chan *agreementGroup, 1)
-
+// Run the afreement sender with a context to check for cancel
+func (as *AgreementSender) Run(ctx context.Context) {
+	//todo:  we likely don't want to stop on err, but consider returning errors via a channel
 	ticker := time.NewTicker(*defaultCheckInterval)
 	defer ticker.Stop()
-	go func() {
-		for range ticker.C {
-			agreementGroups, err := as.DB.GetBandwidthAllocations()
-			if err != nil {
-				as.log.Error("Agreementsender could not retrieve bandwidth allocations", zap.Error(err))
-				continue
-			}
-			// Send agreements in groups by satellite id to open less connections
-			for satellite, agreements := range agreementGroups {
-				c <- &agreementGroup{satellite, agreements}
-			}
-		}
-	}()
-
 	for {
+		as.log.Debug("AgreementSender is running", zap.Duration("duration", *defaultCheckInterval))
+		agreementGroups, err := as.DB.GetBandwidthAllocations()
+		if err != nil {
+			as.log.Error("Agreementsender could not retrieve bandwidth allocations", zap.Error(err))
+			continue
+		}
+		for satellite, agreements := range agreementGroups {
+			as.sendAgreementsToSatellite(ctx, satellite, agreements)
+		}
 		select {
+		case <-ticker.C:
 		case <-ctx.Done():
-			return utils.CombineErrors(as.errs...)
-		case agreementGroup := <-c:
-			go func() {
-				as.log.Info("Sending agreements to satellite", zap.Int("number of agreements", len(agreementGroup.agreements)), zap.String("sat node id", agreementGroup.satellite.String()))
-
-				// Get satellite ip from overlay by Lookup agreementGroup.satellite
-				satellite, err := as.overlay.Lookup(ctx, agreementGroup.satellite)
-				if err != nil {
-					as.log.Error("Agreementsender could not find satellite", zap.Error(err))
-					return
-				}
-
-				// Create client from satellite ip
-				conn, err := as.transport.DialNode(ctx, satellite)
-				if err != nil {
-					as.log.Error("Agreementsender could not dial satellite", zap.Error(err))
-					return
-				}
-
-				client := pb.NewBandwidthClient(conn)
-				for _, agreement := range agreementGroup.agreements {
-					msg := &pb.RenterBandwidthAllocation{
-						Data:      agreement.Agreement,
-						Signature: agreement.Signature,
-					}
-					// Send agreement to satellite
-					r, err := client.BandwidthAgreements(ctx, msg)
-					if err != nil || r.GetStatus() != pb.AgreementsSummary_OK {
-						as.log.Error("Agreementsender failed to send agreement to satellite", zap.Error(err))
-						return
-					}
-					// Delete from PSDB by signature
-					if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {
-						as.log.Error("Agreementsender failed to delete bandwidth allocation", zap.Error(err))
-						return
-					}
-				}
-				as.log.Error("Agreementsender failed to close connection", zap.Error(conn.Close()))
-			}()
+			as.log.Debug("AgreementSender is shutting down", zap.Error(ctx.Err()))
+			return
 		}
 	}
+}
+
+func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID storj.NodeID, agreements []*psdb.Agreement) {
+	as.log.Info("Sending agreements to satellite", zap.Int("number of agreements", len(agreements)), zap.String("sat node id", satID.String()))
+	// Get satellite ip from overlay by Lookup satellite
+	satellite, err := as.kad.FindNode(ctx, satID)
+	if err != nil {
+		as.log.Error("Agreementsender could not find satellite", zap.Error(err))
+		return
+	}
+	// Create client from satellite ip
+	conn, err := as.transport.DialNode(ctx, &satellite)
+	if err != nil {
+		as.log.Error("Agreementsender could not dial satellite", zap.Error(err))
+		return
+	}
+	client := pb.NewBandwidthClient(conn)
+	for _, agreement := range agreements {
+		msg := &pb.RenterBandwidthAllocation{
+			Data:      agreement.Agreement,
+			Signature: agreement.Signature,
+		}
+		// Send agreement to satellite
+		r, err := client.BandwidthAgreements(ctx, msg)
+		if err != nil || r.GetStatus() != pb.AgreementsSummary_OK {
+			as.log.Error("Agreementsender failed to send agreement to satellite", zap.Error(err))
+			return
+		}
+		// Delete from PSDB by signature
+		if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {
+			as.log.Error("Agreementsender failed to delete bandwidth allocation", zap.Error(err))
+			return
+		}
+	}
+	as.log.Error("Agreementsender failed to close connection", zap.Error(conn.Close()))
 }
