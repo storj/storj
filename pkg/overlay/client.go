@@ -5,6 +5,7 @@ package overlay
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/zeebo/errs"
 
@@ -89,7 +90,9 @@ func (client *client) Choose(ctx context.Context, op Options) ([]*pb.Node, error
 
 // Lookup provides a Node with the given ID
 func (client *client) Lookup(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
+	fmt.Printf("\n LOOKING FOR %+v\n", nodeID)
 	resp, err := client.conn.Lookup(ctx, &pb.LookupRequest{NodeId: nodeID})
+	fmt.Printf("\nOVERLAY LOOKUP %+v\n ERROR %+v\n", resp, err)
 	if err != nil {
 		return nil, err
 	}

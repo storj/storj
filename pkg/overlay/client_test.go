@@ -4,6 +4,7 @@
 package overlay_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -144,6 +145,7 @@ func TestLookup(t *testing.T) {
 
 	for _, v := range cases {
 		n, err := oc.Lookup(ctx, v.nodeID)
+		fmt.Printf("\nN %+v\n ERROR %+v\n", n, err)
 		if v.expectErr {
 			assert.Error(t, err)
 		} else {

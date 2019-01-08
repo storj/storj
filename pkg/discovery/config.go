@@ -60,6 +60,13 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	ticker := time.NewTicker(c.RefreshInterval)
 	defer ticker.Stop()
 
+	// Bootstrap the cache with initial kademlia Seen
+	err = discovery.Bootstrap(ctx)
+	if err != nil {
+		discovery.log.Error("error bootstrapping cache", zap.Error(err))
+		return Error.Wrap(err)
+	}
+
 	go func() {
 		for {
 			select {

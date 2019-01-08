@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -75,17 +76,20 @@ func (d *Discovery) Refresh(ctx context.Context) error {
 	return nil
 }
 
-// Bootstrap walks the initialized network and populates the cache
+// Bootstrap walks the initialized network and populates the cache with initial values
 func (d *Discovery) Bootstrap(ctx context.Context) error {
-	// o := overlay.LoadFromContext(ctx)
-	// kad := kademlia.LoadFromContext(ctx)
-	// TODO(coyle): make Bootstrap work
-	// look in our routing table
-	// get every node we know about
-	// ask every node for every node they know about
-	// for each newly known node, ask those nodes for every node they know about
-	// continue until no new nodes are found
-	return nil
+	nodes := d.kad.Seen()
+	var errs []error
+
+	for _, n := range nodes {
+		if err := d.cache.Put(ctx, n.Id, *n); err != nil {
+			d.log.Error("error bootstrapping node into cache", zap.Error(err))
+			errs = append(errs, err)
+			continue
+		}
+	}
+
+	return utils.CombineErrors(errs...)
 }
 
 // Discovery runs lookups for random node ID's to find new nodes in the network
