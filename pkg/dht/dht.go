@@ -5,6 +5,7 @@ package dht
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"storj.io/storj/pkg/pb"
@@ -37,6 +38,7 @@ type RoutingTable interface {
 	// these are for refreshing
 	SetBucketTimestamp(id []byte, now time.Time) error
 	GetBucketTimestamp(id []byte) (time.Time, error)
+	Graph(io.Writer) error
 }
 
 // Bucket is a set of methods to act on kademlia k buckets

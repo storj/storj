@@ -84,9 +84,9 @@ func testNoSelf(t *testing.T, routingCtor routingCtor) {
 	require.Equal(t, 0, len(nodes))
 }
 
-func TestSplits_Routing(t *testing.T)     { testSplits(t, newRouting) }
-func TestSplits_TestRouting(t *testing.T) { testSplits(t, newTestRouting) }
-func testSplits(t *testing.T, routingCtor routingCtor) {
+func TestSplits_Routing(t *testing.T)     { testSplits(t, newRouting, "rt") }
+func TestSplits_TestRouting(t *testing.T) { testSplits(t, newTestRouting, "test") }
+func testSplits(t *testing.T, routingCtor routingCtor, testType string) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -99,7 +99,7 @@ func testSplits(t *testing.T, routingCtor routingCtor) {
 				NodeFromPrefix(string([]rune{prefix1, prefix2}), "0")))
 		}
 	}
-
+	SaveGraph(table, testType)
 	// we just put 32 nodes into the table. the bucket with a differing first
 	// bit should be full with 5 nodes. the bucket with the same first bit and
 	// differing second bit should be full with 5 nodes. the bucket with the

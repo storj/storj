@@ -59,8 +59,8 @@ type Grapher interface {
 	Graph(io.Writer) error
 }
 
-func SaveGraph(table Grapher) {
-	fh, err := os.Create(fmt.Sprintf("routing-graph-%003d.dot", atomic.AddInt64(graphCounter, 1)))
+func SaveGraph(table Grapher, tableType string) {
+	fh, err := os.Create(fmt.Sprintf("routing-"+ tableType +"-graph-%003d.dot", atomic.AddInt64(graphCounter, 1)))
 	if err != nil {
 		panic(err)
 	}
