@@ -20,7 +20,7 @@ import (
 )
 
 /*
-This tool verifies whether imports are divided into three blocks:
+check-imports verifies whether imports are divided into three blocks:
 
 	std packages
 	external packages
@@ -69,18 +69,31 @@ func main() {
 	}
 
 	sort.Slice(pkgs, func(i, k int) bool { return pkgs[i].ID < pkgs[k].ID })
+	correct := true
 	for _, pkg := range pkgs {
-		process(pkg)
+		if !correctPackage(pkg) {
+			correct = false
+		}
+	}
+
+	if !correct {
+		fmt.Fprintln(os.Stderr, "imports not in the correct order")
+		os.Exit(1)
 	}
 }
 
-func process(pkg *packages.Package) {
+func correctPackage(pkg *packages.Package) bool {
+	correct := true
 	for i, file := range pkg.Syntax {
-		checkImports(pkg.Fset, pkg.CompiledGoFiles[i], file)
+		if !correctImports(pkg.Fset, pkg.CompiledGoFiles[i], file) {
+			correct = false
+		}
 	}
+	return correct
 }
 
-func checkImports(fset *token.FileSet, name string, f *ast.File) {
+func correctImports(fset *token.FileSet, name string, f *ast.File) bool {
+	correct := true
 	for _, d := range f.Decls {
 		d, ok := d.(*ast.GenDecl)
 		if !ok || d.Tok != token.IMPORT {
@@ -108,9 +121,11 @@ func checkImports(fset *token.FileSet, name string, f *ast.File) {
 		specgroups = append(specgroups, d.Specs[lastGroup:])
 
 		if !correctOrder(specgroups) {
-			fmt.Println(name)
+			fmt.Fprintln(os.Stderr, name)
+			correct = false
 		}
 	}
+	return correct
 }
 
 func correctOrder(specgroups [][]ast.Spec) bool {

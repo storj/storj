@@ -59,6 +59,7 @@ matrix:
         - cp go.mod.backup go.mod
       script:
         - go run ./scripts/check-copyright.go
+        - go run ./scripts/check-imports.go ./...
         - go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint
         - golangci-lint run
         - gospace istidy
