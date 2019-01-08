@@ -17,7 +17,7 @@ import (
 func main() {
 	var buffer [8192]byte
 
-	exitCode := 0
+	raceDetected := false
 	search := []byte("DATA RACE")
 
 	start := 0
@@ -32,7 +32,7 @@ func main() {
 		}
 
 		if bytes.Contains(buffer[:end], search) {
-			exitCode = 1
+			raceDetected = true
 			break
 		}
 
@@ -48,5 +48,8 @@ func main() {
 	}
 
 	_, _ = io.Copy(os.Stdout, os.Stdin)
-	os.Exit(exitCode)
+	if raceDetected {
+		os.Stderr.Write([]byte("\nTest failed due to data race.\n"))
+		os.Exit(1)
+	}
 }
