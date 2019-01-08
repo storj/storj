@@ -100,12 +100,30 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		configDir       = flags.Directory
 		host            = flags.Host
 		gatewayPort     = 9000
+		bootstrapPort   = 9999
 		satellitePort   = 10000
 		storageNodePort = 11000
 		difficulty      = "10"
 	)
 
-	var bootstrapSatellite *Process
+	bootstrapServer := processes.New(Info{
+		Name:       "bootstrap/0",
+		Executable: "bootstrap",
+		Directory:  filepath.Join(configDir, "bootstrap", "0"),
+		Address:    net.JoinHostPort(host, strconv.Itoa(bootstrapPort)),
+	})
+
+	bootstrapServer.Arguments = withCommon(Arguments{
+		"setup": {
+			"--ca.difficulty", difficulty,
+		},
+		"run": {
+			"--kademlia.bootstrap-addr", bootstrapServer.Address,
+			"--kademlia.operator.email", "bootstrap@example.com",
+			"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
+			"--server.address", bootstrapServer.Address,
+		},
+	})
 
 	// Create satellites making the first satellite bootstrap
 	for i := 0; i < flags.SatelliteCount; i++ {
@@ -116,20 +134,15 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Address:    net.JoinHostPort(host, strconv.Itoa(satellitePort+i)),
 		})
 
-		bootstrapAddr := process.Address
-		if bootstrapSatellite != nil {
-			bootstrapAddr = bootstrapSatellite.Address
-			process.WaitForStart(bootstrapSatellite)
-		} else {
-			bootstrapSatellite = process
-		}
+		// satellite must wait for bootstrap to start
+		process.WaitForStart(bootstrapServer)
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
 				"--ca.difficulty", difficulty,
 			},
 			"run": {
-				"--kademlia.bootstrap-addr", bootstrapAddr,
+				"--kademlia.bootstrap-addr", bootstrapServer.Address,
 				"--server.address", process.Address,
 			},
 		})
@@ -138,7 +151,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	// Create gateways for each satellite
 	for i := 0; i < flags.SatelliteCount; i++ {
 		accessKey, secretKey := randomKey(), randomKey()
-		satellite := processes.List[i]
+		satellite := processes.List[i+1]
 
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("gateway/%d", i),
@@ -185,16 +198,18 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 
 		// storage node must wait for bootstrap to start
-		process.WaitForStart(bootstrapSatellite)
+		process.WaitForStart(bootstrapServer)
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
 				"--ca.difficulty", difficulty,
-				"--piecestore.agreementsender.overlay-addr", bootstrapSatellite.Address,
+				// TODO: storage nodes shouldn't care about an overlay address
+				"--piecestore.agreementsender.overlay-addr", processes.List[1].Address,
 			},
 			"run": {
-				"--piecestore.agreementsender.overlay-addr", bootstrapSatellite.Address,
-				"--kademlia.bootstrap-addr", bootstrapSatellite.Address,
+				// TODO: storage nodes shouldn't care about an overlay address
+				"--piecestore.agreementsender.overlay-addr", processes.List[1].Address,
+				"--kademlia.bootstrap-addr", bootstrapServer.Address,
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
 				"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
 				"--server.address", process.Address,
