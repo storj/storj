@@ -225,7 +225,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 
 	switch command {
 	case "setup":
-		// during setup we aren't starting the addresses, so we can release the depdendencies immediately
+		// during setup we aren't starting the addresses, so we can release the dependencies immediately
 		process.Status.Started.Release()
 	default:
 		// release started when we are able to connect to the process address
