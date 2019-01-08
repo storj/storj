@@ -99,6 +99,14 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, s
 		}
 	}
 
+	// 	{ // List
+	// 		list, err := cache.List(ctx, nil, 0)
+	// 		assert.NoError(t, err)
+	// 		assert.Equal(t, list[0].Id, valid2ID)
+	// 		assert.Equal(t, list[1].Id, valid1ID)
+	// 		assert.Equal(t, list[2].Id, valid2ID)
+	// 	}
+
 	{ // Delete
 		// Test standard delete
 		err := cache.Delete(ctx, valid1ID)
