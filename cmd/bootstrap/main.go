@@ -19,7 +19,7 @@ import (
 )
 
 // Bootstrap defines a bootstrap node configuration
-type StorageNode struct {
+type Bootstrap struct {
 	CA       identity.CASetupConfig `setup:"true"`
 	Identity identity.SetupConfig   `setup:"true"`
 
@@ -44,8 +44,8 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 
-	runCfg   StorageNode
-	setupCfg StorageNode
+	cfg Bootstrap
+	cfg Bootstrap
 
 	defaultConfDir string
 	confDir        *string
@@ -67,8 +67,8 @@ func init() {
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(runCmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -91,14 +91,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
-	setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
-	setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
-	setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
-
 	overrides := map[string]interface{}{
-		"identity.cert-path":      setupCfg.Identity.CertPath,
-		"identity.key-path":       setupCfg.Identity.KeyPath,
+		"identity.cert-path":      cfg.Identity.CertPath,
+		"identity.key-path":       cfg.Identity.KeyPath,
 		"identity.server.address": defaultServerAddr,
 		"kademlia.bootstrap-addr": "localhost" + defaultServerAddr,
 	}
