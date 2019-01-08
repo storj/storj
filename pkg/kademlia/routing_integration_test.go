@@ -482,3 +482,125 @@ func testReplacementCacheOrder(t *testing.T, routingCtor routingCtor) {
 		NodeFromPrefix("80", "0"),
 	}, nodes)
 }
+
+func TestHealSplit_Routing(t *testing.T)     { testHealSplit(t, newRouting) }
+func TestHealSplit_TestRouting(t *testing.T) { testHealSplit(t, newTestRouting) }
+func testHealSplit(t *testing.T, routingCtor routingCtor) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	table, close := routingCtor(PadID("55", "55"), 2, 2, 0)
+	defer close()
+
+	for _, pad := range []string{"0", "1"} {
+		for _, prefix := range []string{"ff", "e0", "c0", "54", "56", "57"} {
+			require.NoError(t, table.ConnectionSuccess(NodeFromPrefix(prefix, pad)))
+		}
+	}
+
+	nodes, err := table.FindNear(PadID("55", "55"), 9)
+	require.NoError(t, err)
+	requireNodesEqual(t, []*pb.Node{
+		NodeFromPrefix("54", "1"),
+		NodeFromPrefix("54", "0"),
+		NodeFromPrefix("57", "0"),
+		NodeFromPrefix("56", "0"),
+		NodeFromPrefix("c0", "1"),
+		NodeFromPrefix("c0", "0"),
+		NodeFromPrefix("ff", "0"),
+		NodeFromPrefix("e0", "0"),
+	}, nodes)
+
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("c0", "0")))
+
+	nodes, err = table.FindNear(PadID("55", "55"), 9)
+	require.NoError(t, err)
+	requireNodesEqual(t, []*pb.Node{
+		NodeFromPrefix("54", "1"),
+		NodeFromPrefix("54", "0"),
+		NodeFromPrefix("57", "0"),
+		NodeFromPrefix("56", "0"),
+		NodeFromPrefix("ff", "0"),
+		NodeFromPrefix("e0", "0"),
+	}, nodes)
+
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("ff", "0")))
+	nodes, err = table.FindNear(PadID("55", "55"), 9)
+	require.NoError(t, err)
+	requireNodesEqual(t, []*pb.Node{
+		NodeFromPrefix("54", "1"),
+		NodeFromPrefix("54", "0"),
+		NodeFromPrefix("57", "0"),
+		NodeFromPrefix("56", "0"),
+		NodeFromPrefix("c0", "1"),
+		NodeFromPrefix("e0", "0"),
+	}, nodes)
+
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("e0", "0")))
+	nodes, err = table.FindNear(PadID("55", "55"), 9)
+	require.NoError(t, err)
+	requireNodesEqual(t, []*pb.Node{
+		NodeFromPrefix("54", "1"),
+		NodeFromPrefix("54", "0"),
+		NodeFromPrefix("57", "0"),
+		NodeFromPrefix("56", "0"),
+		NodeFromPrefix("c0", "1"),
+		NodeFromPrefix("e0", "1"),
+	}, nodes)
+
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("e0", "1")))
+	nodes, err = table.FindNear(PadID("55", "55"), 9)
+	require.NoError(t, err)
+	requireNodesEqual(t, []*pb.Node{
+		NodeFromPrefix("54", "1"),
+		NodeFromPrefix("54", "0"),
+		NodeFromPrefix("57", "0"),
+		NodeFromPrefix("56", "0"),
+		NodeFromPrefix("c0", "1"),
+	}, nodes)
+
+	for _, prefix := range []string{"ff", "e0", "c0", "54", "56", "57"} {
+		require.NoError(t, table.ConnectionSuccess(NodeFromPrefix(prefix, "2")))
+	}
+
+	nodes, err = table.FindNear(PadID("55", "55"), 9)
+	require.NoError(t, err)
+	requireNodesEqual(t, []*pb.Node{
+		NodeFromPrefix("54", "1"),
+		NodeFromPrefix("54", "0"),
+		NodeFromPrefix("57", "0"),
+		NodeFromPrefix("56", "0"),
+		NodeFromPrefix("c0", "1"),
+		NodeFromPrefix("ff", "2"),
+	}, nodes)
+}
+
+func TestFullDissimilarBucket_Routing(t *testing.T)     { testFullDissimilarBucket(t, newRouting) }
+func TestFullDissimilarBucket_TestRouting(t *testing.T) { testFullDissimilarBucket(t, newTestRouting) }
+func testFullDissimilarBucket(t *testing.T, routingCtor routingCtor) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	table, close := routingCtor(PadID("55", "55"), 2, 2, 0)
+	defer close()
+
+	for _, prefix := range []string{"d0", "c0", "f0", "e0"} {
+		require.NoError(t, table.ConnectionSuccess(NodeFromPrefix(prefix, "0")))
+	}
+
+	nodes, err := table.FindNear(PadID("55", "55"), 9)
+	require.NoError(t, err)
+	requireNodesEqual(t, []*pb.Node{
+		NodeFromPrefix("d0", "0"),
+		NodeFromPrefix("c0", "0"),
+	}, nodes)
+
+	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("c0", "0")))
+
+	nodes, err = table.FindNear(PadID("55", "55"), 9)
+	require.NoError(t, err)
+	requireNodesEqual(t, []*pb.Node{
+		NodeFromPrefix("d0", "0"),
+		NodeFromPrefix("e0", "0"),
+	}, nodes)
+}
