@@ -96,9 +96,12 @@ func (rt *RoutingTable) makeTree() *bucket {
 }
 
 func getPrefix(bID bucketID) string {
+	if firstBucketID == bID {
+		return "1"
+	}
 	index, err := determineDifferingBitIndex(firstBucketID, bID)
 	if err != nil {
-		panic("could not determine differing bit index")
+		panic(err)
 	}
 	return string(bID[:index])
 }
