@@ -6,8 +6,9 @@ package satellite
 import (
 	"context"
 	"crypto/subtle"
-	"golang.org/x/crypto/bcrypt"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
