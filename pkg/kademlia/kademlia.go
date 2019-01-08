@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"sync/atomic"
 	"time"
-
 	"unsafe"
 
 	"github.com/gogo/protobuf/proto"

@@ -59,24 +59,30 @@ matrix:
         - cp go.mod.backup go.mod
       script:
         - go run ./scripts/check-copyright.go
+        - go run ./scripts/check-imports.go ./...
         - go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint
         - golangci-lint run
         - gospace istidy
 
-    ### captplanet tests ###
-    - env: MODE=integration
+    ### service integration tests ###
+    - env: MODE=captplanet
       services:
         - redis
       install:
         - source scripts/install-awscli.sh
         - go install -race storj.io/storj/cmd/captplanet
+        - go install -race storj.io/storj/cmd/storagenode
+        - go install -race storj.io/storj/cmd/certificates
       script:
         - make test-captplanet
+        - make test-certificate-signing
 
-    ### All-In-One tests ###
-    - env: MODE=integration
+    ### docker tests ###
+    - env: MODE=docker
       services:
         - docker
+      before_install:
+        - echo "skip"
       install:
         - source scripts/install-awscli.sh
       script:

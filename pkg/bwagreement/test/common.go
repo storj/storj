@@ -15,13 +15,19 @@ import (
 
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 //GeneratePayerBandwidthAllocation creates a signed PayerBandwidthAllocation from a PayerBandwidthAllocation_Action
-func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action, satelliteKey crypto.PrivateKey) (*pb.PayerBandwidthAllocation, error) {
+func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action, satelliteKey crypto.PrivateKey, uplinkKey crypto.PrivateKey) (*pb.PayerBandwidthAllocation, error) {
 	satelliteKeyEcdsa, ok := satelliteKey.(*ecdsa.PrivateKey)
 	if !ok {
 		return nil, errs.New("Satellite Private Key is not a valid *ecdsa.PrivateKey")
+	}
+
+	pubbytes, err := getUplinkPubKey(uplinkKey)
+	if err != nil {
+		return nil, errs.New("Uplink Private Key is not a valid *ecdsa.PrivateKey")
 	}
 
 	// Generate PayerBandwidthAllocation_Data
@@ -33,6 +39,7 @@ func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action,
 			SerialNumber:      "SerialNumber",
 			Action:            action,
 			CreatedUnixSec:    time.Now().Unix(),
+			PubKey:            pubbytes,
 		},
 	)
 
@@ -50,24 +57,18 @@ func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action,
 }
 
 //GenerateRenterBandwidthAllocation creates a signed RenterBandwidthAllocation from a PayerBandwidthAllocation
-func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, uplinkKey crypto.PrivateKey) (*pb.RenterBandwidthAllocation, error) {
+func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, storageNodeID storj.NodeID, uplinkKey crypto.PrivateKey) (*pb.RenterBandwidthAllocation, error) {
 	// get "Uplink" Public Key
 	uplinkKeyEcdsa, ok := uplinkKey.(*ecdsa.PrivateKey)
 	if !ok {
 		return nil, errs.New("Uplink Private Key is not a valid *ecdsa.PrivateKey")
 	}
 
-	pubbytes, err := x509.MarshalPKIXPublicKey(&uplinkKeyEcdsa.PublicKey)
-	if err != nil {
-		return nil, errs.New("Could not generate byte array from Uplink Public key: %+v", err)
-	}
-
 	// Generate RenterBandwidthAllocation_Data
 	data, _ := proto.Marshal(
 		&pb.RenterBandwidthAllocation_Data{
 			PayerAllocation: pba,
-			PubKey:          pubbytes, // TODO: Take this out. It will be kept in a database on the satellite
-			StorageNodeId:   teststorj.NodeIDFromString("StorageNodeID"),
+			StorageNodeId:   storageNodeID,
 			Total:           int64(666),
 		},
 	)
@@ -83,4 +84,21 @@ func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, uplinkK
 		Signature: s,
 		Data:      data,
 	}, nil
+}
+
+// get uplink's public key
+func getUplinkPubKey(uplinkKey crypto.PrivateKey) ([]byte, error) {
+
+	// get "Uplink" Public Key
+	uplinkKeyEcdsa, ok := uplinkKey.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, errs.New("Uplink Private Key is not a valid *ecdsa.PrivateKey")
+	}
+
+	pubbytes, err := x509.MarshalPKIXPublicKey(&uplinkKeyEcdsa.PublicKey)
+	if err != nil {
+		return nil, errs.New("Could not generate byte array from Uplink Public key: %+v", err)
+	}
+
+	return pubbytes, nil
 }

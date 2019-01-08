@@ -36,7 +36,7 @@ func TestNewCert_CA(t *testing.T) {
 	caCert, err := peertls.NewCert(caKey, nil, caTemplate, nil)
 	assert.NoError(t, err)
 
-	assert.NotEmpty(t, caKey.(*ecdsa.PrivateKey))
+	assert.NotEmpty(t, caKey)
 	assert.NotEmpty(t, caCert)
 	assert.NotEmpty(t, caCert.PublicKey.(*ecdsa.PublicKey))
 
@@ -63,7 +63,7 @@ func TestNewCert_Leaf(t *testing.T) {
 	leafCert, err := peertls.NewCert(leafKey, caKey, leafTemplate, caCert)
 	assert.NoError(t, err)
 
-	assert.NotEmpty(t, caKey.(*ecdsa.PrivateKey))
+	assert.NotEmpty(t, caKey)
 	assert.NotEmpty(t, leafCert)
 	assert.NotEmpty(t, leafCert.PublicKey.(*ecdsa.PublicKey))
 
