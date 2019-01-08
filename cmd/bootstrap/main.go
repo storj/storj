@@ -45,7 +45,6 @@ var (
 	}
 
 	cfg Bootstrap
-	cfg Bootstrap
 
 	defaultConfDir string
 	confDir        *string
@@ -72,7 +71,7 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	return runCfg.Server.Run(process.Ctx(cmd), nil, runCfg.Kademlia)
+	return cfg.Server.Run(process.Ctx(cmd), nil, cfg.Kademlia)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
