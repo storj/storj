@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 
 	"github.com/spf13/cobra"
+
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/process"
