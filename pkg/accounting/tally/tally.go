@@ -56,7 +56,7 @@ func (t *tally) Run(ctx context.Context) (err error) {
 		}
 		err = t.queryBW(ctx)
 		if err != nil {
-			t.logger.Error("Query for bandwith failed", zap.Error(err))
+			t.logger.Error("Query for bandwidth failed", zap.Error(err))
 		}
 
 		select {
@@ -138,7 +138,7 @@ func (t *tally) queryBW(ctx context.Context) error {
 
 	var bwAgreements []bwagreement.Agreement
 	if isNil {
-		t.logger.Info("Tally found no existing bandwith tracking data")
+		t.logger.Info("Tally found no existing bandwidth tracking data")
 		bwAgreements, err = t.bwAgreementDB.GetAgreements(ctx)
 	} else {
 		bwAgreements, err = t.bwAgreementDB.GetAgreementsSince(ctx, lastBwTally)
