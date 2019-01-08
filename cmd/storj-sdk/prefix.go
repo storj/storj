@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 )
 
 // PrefixWriter writes to the specified output with prefixes.
@@ -15,9 +16,18 @@ type PrefixWriter struct {
 	root    *prefixWriter
 	maxline int
 
-	mu  sync.Mutex
-	len int
-	dst io.Writer
+	mu        sync.Mutex
+	prefixlen int
+	dst       io.Writer
+}
+
+const maxIDLength = 10
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // NewPrefixWriter creates a writer than can prefix all lines written to it.
@@ -34,18 +44,17 @@ func NewPrefixWriter(defaultPrefix string, dst io.Writer) *PrefixWriter {
 type prefixWriter struct {
 	*PrefixWriter
 	prefix string
+	id     string
 	buffer []byte
 }
 
 // Prefixed returns a new writer that has writes with specified prefix.
 func (writer *PrefixWriter) Prefixed(prefix string) io.Writer {
 	writer.mu.Lock()
-	if len(prefix) > writer.len {
-		writer.len = len(prefix)
-	}
+	writer.prefixlen = max(writer.prefixlen, len(prefix))
 	writer.mu.Unlock()
 
-	return &prefixWriter{writer, prefix, make([]byte, 0, writer.maxline)}
+	return &prefixWriter{writer, prefix, "", make([]byte, 0, writer.maxline)}
 }
 
 // Write implements io.Writer that prefixes lines.
@@ -57,6 +66,18 @@ func (writer *PrefixWriter) Write(data []byte) (int, error) {
 func (writer *prefixWriter) Write(data []byte) (int, error) {
 	if len(data) == 0 {
 		return 0, nil
+	}
+
+	var newID string
+	if writer.id == "" {
+		if start := bytes.Index(data, []byte("Node ")); start > 0 {
+			if end := bytes.Index(data[start:], []byte(" started")); end > 0 {
+				newID = string(data[start+5 : start+end])
+				if len(newID) > maxIDLength {
+					newID = newID[:maxIDLength]
+				}
+			}
+		}
 	}
 
 	buffer := data
@@ -78,7 +99,13 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 	writer.mu.Lock()
 	defer writer.mu.Unlock()
 
+	if newID != "" {
+		writer.id = newID
+	}
+
 	prefix := writer.prefix
+	id := writer.id
+	timeText := time.Now().Format("15:04:05.000")
 	for len(buffer) > 0 {
 		pos := bytes.IndexByte(buffer, '\n') + 1
 		breakline := false
@@ -98,7 +125,7 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 			breakline = true
 		}
 
-		_, err := fmt.Fprintf(writer.dst, "%-*s | ", writer.len, prefix)
+		_, err := fmt.Fprintf(writer.dst, "%-*s %-*s %s | ", writer.prefixlen, prefix, maxIDLength, id, timeText)
 		if err != nil {
 			return len(data), err
 		}
@@ -118,6 +145,8 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 		}
 
 		prefix = ""
+		id = ""
+		timeText = "            "
 	}
 
 	return len(data), nil
