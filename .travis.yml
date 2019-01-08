@@ -73,8 +73,8 @@ matrix:
         - go install -race storj.io/storj/cmd/storagenode
         - go install -race storj.io/storj/cmd/certificates
       script:
-        - make test-captplanet | go run scripts/fail-on-race.go
-        - make test-certificate-signing | go run scripts/fail-on-race.go
+        - make test-captplanet |& go run scripts/fail-on-race.go
+        - make test-certificate-signing |& go run scripts/fail-on-race.go
 
     ### docker tests ###
     - env: MODE=docker
@@ -85,7 +85,7 @@ matrix:
       install:
         - source scripts/install-awscli.sh
       script:
-        - make test-all-in-one | go run scripts/fail-on-race.go
+        - make test-all-in-one |& go run scripts/fail-on-race.go
 
     ### windows tests ###
     - env: MODE=windows-tests
