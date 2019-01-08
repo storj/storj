@@ -69,3 +69,12 @@ func extendPrefix(prefix string, bit bool) string {
 	}
 	return prefix + "0"
 }
+
+func isNearest(id storj.NodeID, nearest []*nodeData) bool {
+	for _, near := range nearest {
+		if near.node.Id == id {
+			return true
+		}
+	}
+	return false
+}
