@@ -272,6 +272,7 @@ func (t *Table) add(b *bucket, node *nodeData, dissimilar bool, nearest []*nodeD
 	}
 
 	if len(b.nodes) < t.bucketSize {
+		node.inCache = false
 		b.nodes = append(b.nodes, node)
 		return
 	}
