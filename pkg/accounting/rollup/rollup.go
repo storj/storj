@@ -56,5 +56,12 @@ func (r *rollup) Query(ctx context.Context) error {
 	// node will be paid by the Satellite for the data it has stored over the course of the month, per the Satellite’s records"
 	// see also https://github.com/storj/storj/blob/cb74d91cb07d659fd9b2fedb2629f23c8918ef0b/pkg/piecestore/psserver/store.go#L97
 
+	// Payments Design Doc:
+	// A rollup will provide a query that performs the following: Select each NodeID in the granular table
+	// For each bucket (1 day, 7 day, 30 day):
+	// Coalesce each row from the granular table by hour from 12:00 AM UTC to 11:00 PM UTC
+	// if a row is missing between two hourly buckets, populate the value with the value from the previous hour.
+	// Total the rows for the node and update into the respective bucket.
+
 	return nil
 }
