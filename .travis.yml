@@ -74,7 +74,7 @@ matrix:
         - go install -race storj.io/storj/cmd/certificates
       script:
         - make test-captplanet | go run scripts/fail-on-race.go
-        - make test-certificate-signing
+        - make test-certificate-signing | go run scripts/fail-on-race.go
 
     ### docker tests ###
     - env: MODE=docker
