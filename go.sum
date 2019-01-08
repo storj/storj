@@ -169,6 +169,8 @@ github.com/jtolds/monkit-hw v0.0.0-20181213143340-df8ef2bea56c h1:N/A0UrhPBdHMU2
 github.com/jtolds/monkit-hw v0.0.0-20181213143340-df8ef2bea56c/go.mod h1:1liUiYZzx8ZoPTfZrBE2q8DFRDPafts0GGjslOtcZcw=
 github.com/jtolds/monkit-hw v0.0.0-20190107153309-3091a0ff7dea h1:STEw4qx0Bjyo7kNPP6Xx7t7p7BZ2Nqb4MPl7PM8S51k=
 github.com/jtolds/monkit-hw v0.0.0-20190107153309-3091a0ff7dea/go.mod h1:1liUiYZzx8ZoPTfZrBE2q8DFRDPafts0GGjslOtcZcw=
+github.com/jtolds/monkit-hw v0.0.0-20190108155550-0f753668cf20 h1:XK96humQhnPbQ24uKtSHKbdShDgrKYqlWBNKJTcIKbg=
+github.com/jtolds/monkit-hw v0.0.0-20190108155550-0f753668cf20/go.mod h1:1liUiYZzx8ZoPTfZrBE2q8DFRDPafts0GGjslOtcZcw=
 github.com/kisielk/gotool v1.0.0 h1:AV2c/EiW3KqPNT9ZKl07ehoAGi4C5/01Cfbblndcapg=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e h1:+lIPJOWl+jSiJOc70QXJ07+2eg2Jy2EC7Mi11BWujeM=
@@ -368,6 +370,8 @@ golang.org/x/sys v0.0.0-20181213081344-73d4af5aa059 h1:dpoPtGwlE4qn2foaFdJVk6ab5
 golang.org/x/sys v0.0.0-20181213081344-73d4af5aa059/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20190107070147-cb59ee366067 h1:ZQ+T5m/gpZNl7OSxsilFj415MZc4Y6Dv+GKZV2MIvS4=
 golang.org/x/sys v0.0.0-20190107070147-cb59ee366067/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+golang.org/x/sys v0.0.0-20190108104531-7fbe1cd0fcc2 h1:ku9Kvp2ZBWAz3GyvuUH3UV1bZCd7RxH0Qf1epWfIDKc=
+golang.org/x/sys v0.0.0-20190108104531-7fbe1cd0fcc2/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 h1:+DCIGbF/swA92ohVg0//6X2IVY3KZs6p9mix0ziNYJM=
