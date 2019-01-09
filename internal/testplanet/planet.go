@@ -212,7 +212,7 @@ func (planet *Planet) Start(ctx context.Context) {
 }
 
 // Size returns number of nodes in the network
-func (planet *Planet) Size() int { return len(planet.nodes) }
+func (planet *Planet) Size() int { return len(planet.nodes) + len(planet.peers) }
 
 // Shutdown shuts down all the nodes and deletes temporary directories.
 func (planet *Planet) Shutdown() error {
@@ -290,6 +290,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 			return xs, errs.Combine(err, db.Close())
 		}
 
+		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
 		xs = append(xs, peer)
 	}
 	return xs, nil
