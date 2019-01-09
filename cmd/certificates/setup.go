@@ -10,9 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/pkg/certificates"
-
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/process"

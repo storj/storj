@@ -121,7 +121,7 @@ func checkIdentContainsCA(opts checkOpts, errFmt string) {
 			opts.errGroup.Add(errVerify.New(errFmt, "ident chain should be longer than ca chain"))
 			break
 		}
-		if bytes.Compare(caCert, identChainBytes[j]) != 0 {
+		if !bytes.Equal(caCert, identChainBytes[j]) {
 			opts.errGroup.Add(errVerify.New(errFmt,
 				fmt.Sprintf("ident and ca chains don't match at indicies %d and %d, respectively", j, i),
 			))

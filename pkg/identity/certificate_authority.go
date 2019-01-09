@@ -262,6 +262,7 @@ func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	return writeErrs.Finish()
 }
 
+// SaveBackup saves the certificate of the config wth a timestamped filename
 func (fc FullCAConfig) SaveBackup(ca *FullCertificateAuthority) error {
 	return FullCAConfig{
 		CertPath: backupPath(fc.CertPath),

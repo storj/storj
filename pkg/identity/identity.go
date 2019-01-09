@@ -270,6 +270,7 @@ func (ic Config) Save(fi *FullIdentity) error {
 	)
 }
 
+// SaveBackup saves the certificate of the config with a timestamped filename
 func (ic Config) SaveBackup(fi *FullIdentity) error {
 	return Config{
 		CertPath: backupPath(ic.CertPath),
