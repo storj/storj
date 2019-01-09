@@ -95,7 +95,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (target *pb.Node, err erro
 				next.Type.DPanicOnInvalid("next")
 				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target, Type: nodeType})
 
-				if err != nil {
+				if err != nil && !isDone(ctx) {
 					// TODO: reenable retry after fixing logic
 					// ok := lookup.queue.Reinsert(lookup.target, next, lookup.opts.retries)
 					ok := false
@@ -120,7 +120,11 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (target *pb.Node, err erro
 		}()
 	}
 
-	return target, ctx.Err()
+	err = ctx.Err()
+	if err == context.Canceled {
+		err = nil
+	}
+	return target, err
 }
 
 func isDone(ctx context.Context) bool {

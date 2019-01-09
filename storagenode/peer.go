@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
@@ -149,15 +150,23 @@ func (peer *Peer) Run(ctx context.Context) error {
 
 	var group errgroup.Group
 	group.Go(func() error {
-		if err := peer.Kademlia.Bootstrap(ctx); err != nil {
-			return err
+		err := peer.Kademlia.Bootstrap(ctx)
+		if ctx.Err() == context.Canceled {
+			// ignore err when when bootstrap was canceled
+			return nil
 		}
-
+		return err
+	})
+	group.Go(func() error {
 		peer.Kademlia.StartRefresh(ctx)
 		return nil
 	})
 	group.Go(func() error {
-		return peer.Public.Server.Run(ctx)
+		err := peer.Public.Server.Run(ctx)
+		if err == context.Canceled || err == grpc.ErrServerStopped {
+			err = nil
+		}
+		return err
 	})
 
 	return group.Wait()
@@ -183,9 +192,11 @@ func (peer *Peer) Close() error {
 	// close servers
 	if peer.Public.Server != nil {
 		errlist.Add(peer.Public.Server.Close())
-	}
-	if peer.Public.Listener != nil {
-		errlist.Add(peer.Public.Listener.Close())
+	} else {
+		// peer.Public.Server automatically closes listener
+		if peer.Public.Listener != nil {
+			errlist.Add(peer.Public.Listener.Close())
+		}
 	}
 	return errlist.Err()
 }
