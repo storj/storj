@@ -83,9 +83,16 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 
 	serialNum := pbad.GetSerialNumber() + rbad.StorageNodeId.String()
 
+	// get and check expiration
+	exp := time.Unix(pbad.GetExpirationUnixSec(), 0).UTC()
+	if exp.After(time.Now().UTC()) {
+		return reply, BwAgreementError.New("Bandwidth agreement is expired (%v)", exp)
+	}
+
 	err = s.db.CreateAgreement(ctx, serialNum, Agreement{
 		Signature: ba.GetSignature(),
 		Agreement: ba.GetData(),
+		ExpiresAt: exp,
 	})
 
 	if err != nil {
