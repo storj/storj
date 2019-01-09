@@ -99,7 +99,7 @@ func (node *Node) ID() storj.NodeID { return node.Info.Id }
 // Addr returns node address
 func (node *Node) Addr() string { return node.Info.Address.Address }
 
-// Addr returns local info
+// Local returns node info
 func (node *Node) Local() pb.Node { return node.Info }
 
 // Shutdown shuts down all node dependencies

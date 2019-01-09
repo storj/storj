@@ -33,6 +33,7 @@ import (
 	"storj.io/storj/storagenode/storagenodedb"
 )
 
+// Peer represents one of StorageNode or Satellite
 type Peer interface {
 	ID() storj.NodeID
 	Addr() string

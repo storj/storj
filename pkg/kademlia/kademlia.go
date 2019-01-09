@@ -56,6 +56,7 @@ type Kademlia struct {
 	bootstrapCancel unsafe.Pointer // context.CancelFunc
 }
 
+// New returns a newly configured Kademlia instance
 var New = NewKademlia
 
 // NewKademlia returns a newly configured Kademlia instance
@@ -89,6 +90,7 @@ func NewKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node
 	return NewKademliaWithRoutingTable(log, self, bootstrapNodes, identity, alpha, rt)
 }
 
+// NewWith returns a newly configured Kademlia instance
 var NewWith = NewKademliaWithRoutingTable
 
 // NewKademliaWithRoutingTable returns a newly configured Kademlia instance
