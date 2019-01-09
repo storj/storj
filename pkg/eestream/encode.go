@@ -9,6 +9,8 @@ import (
 	"io/ioutil"
 	"sync/atomic"
 
+	"go.uber.org/zap"
+
 	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/encryption"
@@ -148,7 +150,7 @@ func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy, maxSi
 func (er *encodedReader) fillBuffer(ctx context.Context, r io.Reader, w sync2.PipeWriter) {
 	// TODO: interrupt copy if context is canceled
 	_, err := io.Copy(w, r)
-	w.CloseWithError(err)
+	zap.S().Error(w.CloseWithError(err))
 }
 
 type encodedPiece struct {
@@ -195,7 +197,7 @@ func (ep *encodedPiece) Read(p []byte) (n int, err error) {
 
 func (ep *encodedPiece) Close() error {
 	if atomic.CompareAndSwapInt32(&ep.closed, 0, 1) {
-		ep.er.segment.Close()
+		return ep.er.segment.Close()
 	}
 	return nil
 }
