@@ -55,8 +55,13 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 	discovery := NewDiscovery(zap.L().Named("discovery"), ol, kad, stat.StatDB())
 
-	zap.L().Debug("Starting discovery")
+	zap.L().Debug("bootstrapping cache")
+	err = discovery.Bootstrap(ctx)
+	if err != nil {
+		discovery.log.Error("Error bootstrapping cache", zap.Error(err))
+	}
 
+	zap.L().Debug("Starting discovery")
 	ticker := time.NewTicker(c.RefreshInterval)
 	defer ticker.Stop()
 
@@ -64,7 +69,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		for {
 			select {
 			case <-ticker.C:
-				err := discovery.Refresh(ctx)
+				err := discovery.Bootstrap(ctx)
+				if err != nil {
+					discovery.log.Error("Error with bootstrap: ", zap.Error(err))
+				}
+				err = discovery.Refresh(ctx)
 				if err != nil {
 					discovery.log.Error("Error with cache refresh: ", zap.Error(err))
 				}

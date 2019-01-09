@@ -44,14 +44,9 @@ func NewDiscovery(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia,
 // We currently do not penalize nodes that are unresponsive,
 // but should in the future.
 func (d *Discovery) Refresh(ctx context.Context) error {
-	// TODO(coyle): make refresh work by looking on the network for new ndoes
 	nodes := d.kad.Seen()
 
-	for _, v := range nodes {
-		if err := d.cache.Put(ctx, v.Id, *v); err != nil {
-			return err
-		}
-	}
+	fmt.Printf("NODES SEEN %+v\n", nodes)
 
 	for _, node := range nodes {
 		if _, err := d.kad.Ping(ctx, *node); err != nil {
@@ -71,6 +66,8 @@ func (d *Discovery) Refresh(ctx context.Context) error {
 // Bootstrap walks the initialized network and populates the cache
 func (d *Discovery) Bootstrap(ctx context.Context) error {
 	nodes := d.kad.Seen()
+
+	fmt.Printf("NODES BOOTSTRAP %+v\n", nodes)
 
 	for _, v := range nodes {
 		if err := d.cache.Put(ctx, v.Id, *v); err != nil {

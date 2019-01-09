@@ -102,6 +102,7 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 	// init Satellites
 	for _, node := range planet.Satellites {
+		ctx := context.Background()
 		pointerServer := pointerdb.NewServer(
 			teststore.New(),
 			node.Overlay,
@@ -115,7 +116,7 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 		pb.RegisterPointerDBServer(node.Provider.GRPC(), pointerServer)
 		// bootstrap satellite kademlia node
 		go func(n *Node) {
-			if err := n.Kademlia.Bootstrap(context.Background()); err != nil {
+			if err := n.Kademlia.Bootstrap(ctx); err != nil {
 				log.Error(err.Error())
 			}
 		}(node)
@@ -137,11 +138,17 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 			}))
 
 		go func(n *Node) {
+			if err := n.Discovery.Bootstrap(ctx); err != nil {
+				log.Error(err.Error())
+			}
 			// refresh the interval every 500ms
 			t := time.NewTicker(500 * time.Millisecond).C
 			for {
 				<-t
-				if err := n.Discovery.Refresh(context.Background()); err != nil {
+				if err := n.Discovery.Bootstrap(ctx); err != nil {
+					log.Error(err.Error())
+				}
+				if err := n.Discovery.Refresh(ctx); err != nil {
 					log.Error(err.Error())
 				}
 			}
@@ -150,9 +157,10 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 	// init storage nodes
 	for _, node := range planet.StorageNodes {
+		ctx := context.Background()
 		storageDir := filepath.Join(planet.directory, node.ID().String())
 
-		serverdb, err := psdb.OpenInMemory(context.Background(), storageDir)
+		serverdb, err := psdb.OpenInMemory(ctx, storageDir)
 		if err != nil {
 			return nil, utils.CombineErrors(err, planet.Shutdown())
 		}
@@ -167,11 +175,11 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 		node.Dependencies = append(node.Dependencies,
 			closerFunc(func() error {
-				return server.Stop(context.Background())
+				return server.Stop(ctx)
 			}))
 		// bootstrap all the kademlia nodes
 		go func(n *Node) {
-			if err := n.Kademlia.Bootstrap(context.Background()); err != nil {
+			if err := n.Kademlia.Bootstrap(ctx); err != nil {
 				log.Error(err.Error())
 			}
 		}(node)
