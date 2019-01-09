@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/teststore"
@@ -131,8 +130,7 @@ func TestAuditSegment(t *testing.T) {
 
 	cache := overlay.NewCache(teststore.New(), nil)
 
-	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c, identity))
-	pointers := pdbclient.New(pdbw)
+	pointers := pointerdb.NewServer(db, cache, zap.NewNop(), c, identity)
 
 	// create a pdb client and instance of audit
 	cursor := NewCursor(pointers)
@@ -150,7 +148,7 @@ func TestAuditSegment(t *testing.T) {
 				req := &pb.PutRequest{Path: tt.path, Pointer: putRequest.Pointer}
 
 				// put pointer into db
-				_, err := pdbw.Put(ctx, req)
+				_, err := pointers.Put(ctx, req)
 				if err != nil {
 					t.Fatalf("failed to put %v: error: %v", req.Pointer, err)
 					assert1.NotNil(err)
@@ -180,10 +178,19 @@ func TestAuditSegment(t *testing.T) {
 
 	// test to see how random paths are
 	t.Run("probabilisticTest", func(t *testing.T) {
-		list, _, err := pointers.List(ctx, "", "", "", true, 10, meta.None)
+		listRes, err := pointers.List(ctx, &pb.ListRequest{
+			Prefix:     "",
+			StartAfter: "",
+			EndBefore:  "",
+			Recursive:  true,
+			Limit:      10,
+			MetaFlags:  meta.None,
+		})
 		if err != nil {
 			t.Error(ErrNoList)
 		}
+
+		list := listRes.GetItems()
 
 		// get count of items picked at random
 		uniquePathCounted := []pathCount{}
