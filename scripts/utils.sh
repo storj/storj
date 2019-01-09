@@ -33,8 +33,16 @@ build() {
 }
 
 temp_build() {
-	tmp_dir=$(mktemp -d)
-	build ${tmp_dir} $@
+    declare -g tmp_build_dir=$(mktemp -d)
+	build ${tmp_build_dir} $@
+}
+
+declare_cmds() {
+	echo "using installed binaries:"
+	for cmd in $@; do
+        echo "	 - ${cmd}"
+		declare -g ${cmd}=${cmd}
+	done
 }
 
 check_help() {

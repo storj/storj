@@ -64,16 +64,16 @@ type CertSigningConfig struct {
 
 // CertSignerConfig is a config struct for use with a certificate signing service server
 type CertSignerConfig struct {
-	Overwrite          bool   `help:"if true, overwrites config AND authorization db is truncated" default:"false"`
-	AuthorizationDBURL string `help:"url to the certificate signing authorization database" default:"bolt://$CONFDIR/authorizations.db"`
-	MinDifficulty      uint   `help:"minimum difficulty of the requester's identity required to claim an authorization"`
-	CA                 provider.FullCAConfig
+	Overwrite          bool   `default:"false" help:"if true, overwrites config AND authorization db is truncated"`
+	AuthorizationDBURL string `default:"bolt://$CONFDIR/authorizations.db" help:"url to the certificate signing authorization database"`
+	MinDifficulty      uint   `default:"16" help:"minimum difficulty of the requester's identity required to claim an authorization"`
+	CA                 identity.FullCAConfig
 }
 
 // CertificateSigner implements pb.CertificatesServer
 type CertificateSigner struct {
-	Logger        *zap.Logger
-	Signer        *provider.FullCertificateAuthority
+	Log           *zap.Logger
+	Signer        *identity.FullCertificateAuthority
 	AuthDB        *AuthorizationDB
 	MinDifficulty uint16
 }
@@ -115,7 +115,7 @@ type ClaimOpts struct {
 type Claim struct {
 	Addr             string
 	Timestamp        int64
-	Identity         *provider.PeerIdentity
+	Identity         *identity.PeerIdentity
 	SignedChainBytes [][]byte
 }
 
@@ -130,7 +130,7 @@ func init() {
 }
 
 // NewClient creates a new certificate signing grpc client
-func NewClient(ctx context.Context, ident *provider.FullIdentity, address string) (*Client, error) {
+func NewClient(ctx context.Context, ident *identity.FullIdentity, address string) (*Client, error) {
 	tc := transport.NewClient(ident)
 	conn, err := tc.DialAddress(ctx, address)
 	if err != nil {
@@ -191,6 +191,94 @@ func ParseToken(tokenString string) (*Token, error) {
 	return t, nil
 }
 
+// SetupIdentity loads or creates a CA and identity and submits a certificate
+// signing request request for the CA; if successful, updated chains are saved.
+func (c CertSigningConfig) SetupIdentity(
+	ctx context.Context,
+	caConfig identity.CASetupConfig,
+	identConfig identity.SetupConfig,
+) error {
+	caStatus := caConfig.Status()
+	var (
+		ca    *identity.FullCertificateAuthority
+		ident *identity.FullIdentity
+		err   error
+	)
+	if caStatus == identity.CertKey && !caConfig.Overwrite {
+		ca, err = caConfig.FullConfig().Load()
+		if err != nil {
+			return err
+		}
+	} else if caStatus != identity.NoCertNoKey && !caConfig.Overwrite {
+		return identity.ErrSetup.New("certificate authority file(s) exist: %s", caStatus)
+	} else {
+		t, err := time.ParseDuration(caConfig.Timeout)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		ctx, cancel := context.WithTimeout(ctx, t)
+		defer cancel()
+
+		ca, err = caConfig.Create(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	identStatus := identConfig.Status()
+	if identStatus == identity.CertKey && !identConfig.Overwrite {
+		ident, err = identConfig.FullConfig().Load()
+		if err != nil {
+			return err
+		}
+	} else if identStatus != identity.NoCertNoKey && !identConfig.Overwrite {
+		return identity.ErrSetup.New("identity file(s) exist: %s", identStatus)
+	} else {
+		ident, err = identConfig.Create(ca)
+		if err != nil {
+			return err
+		}
+	}
+
+	signedChainBytes, err := c.Sign(ctx, ident)
+	if err != nil {
+		return errs.New("error occured while signing certificate: %s\n(identity files were still generated and saved, if you try again existnig files will be loaded)", err)
+	}
+
+	signedChain, err := identity.ParseCertChain(signedChainBytes)
+	if err != nil {
+		return nil
+	}
+
+	ca.Cert = signedChain[0]
+	ca.RestChain = signedChain[1:]
+	err = identity.FullCAConfig{
+		CertPath: caConfig.FullConfig().CertPath,
+	}.Save(ca)
+	if err != nil {
+		return err
+	}
+
+	ident.RestChain = signedChain[1:]
+	err = identity.Config{
+		CertPath: identConfig.FullConfig().CertPath,
+	}.Save(ident)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Sign submits a certificate signing request given the config
+func (c CertSigningConfig) Sign(ctx context.Context, ident *identity.FullIdentity) ([][]byte, error) {
+	client, err := NewClient(ctx, ident, c.Address)
+	if err != nil {
+		return nil, err
+	}
+
+	return client.Sign(ctx, c.AuthToken)
+}
+
 // Sign claims an authorization using the token string and returns a signed
 // copy of the client's CA certificate
 func (c Client) Sign(ctx context.Context, tokenStr string) ([][]byte, error) {
@@ -216,7 +304,8 @@ func (c CertSignerConfig) NewAuthDB() (*AuthorizationDB, error) {
 	authDB := new(AuthorizationDB)
 	switch driver {
 	case "bolt":
-		if c.Overwrite {
+		_, err := os.Stat(source)
+		if c.Overwrite && err == nil {
 			if err := os.Remove(source); err != nil {
 				return nil, err
 			}
@@ -264,12 +353,25 @@ func (c CertSignerConfig) Run(ctx context.Context, server *provider.Provider) (e
 	}
 
 	srv := &CertificateSigner{
-		Logger:        zap.L(),
+		Log:           zap.L(),
 		Signer:        signer,
 		AuthDB:        authDB,
 		MinDifficulty: uint16(c.MinDifficulty),
 	}
 	pb.RegisterCertificatesServer(server.PublicRPC(), srv)
+
+	srv.Log.Info(
+		"Certificate signing server running",
+		zap.String("address", server.PublicAddr().String()),
+	)
+
+	go func() {
+		done := ctx.Done()
+		<-done
+		if err := server.Close(); err != nil {
+			srv.Log.Error("closing server", zap.Error(err))
+		}
+	}()
 
 	return server.Run(ctx)
 }

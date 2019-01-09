@@ -4,23 +4,17 @@
 package identity
 
 import (
-	"context"
-	"crypto"
-	"crypto/ecdsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/pem"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
-	"sync/atomic"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -94,77 +88,6 @@ func decodePEM(PEMBytes []byte) ([][]byte, error) {
 	}
 
 	return DERBytes, nil
-}
-
-func newCAWorker(ctx context.Context, workerid int, highscore *uint32, difficulty uint16, parentCert *x509.Certificate, parentKey crypto.PrivateKey, caC chan FullCertificateAuthority, eC chan error) {
-	var (
-		k   crypto.PrivateKey
-		i   storj.NodeID
-		err error
-	)
-	for {
-		select {
-		case <-ctx.Done():
-			eC <- ctx.Err()
-			return
-		default:
-			k, err = peertls.NewKey()
-			if err != nil {
-				eC <- err
-				return
-			}
-			switch kE := k.(type) {
-			case *ecdsa.PrivateKey:
-				i, err = NodeIDFromKey(&kE.PublicKey)
-				if err != nil {
-					eC <- err
-					return
-				}
-			default:
-				eC <- peertls.ErrUnsupportedKey.New("%T", k)
-				return
-			}
-		}
-
-		d, err := i.Difficulty()
-		if err != nil {
-			eC <- err
-			continue
-		}
-
-		hs := atomic.LoadUint32(highscore)
-		if uint32(d) > hs {
-			atomic.CompareAndSwapUint32(highscore, hs, uint32(d))
-			log.Printf("Found a certificate matching difficulty of %d\n", hs)
-		}
-
-		if d >= difficulty {
-			log.Printf("Found a certificate matching difficulty of %d\n", d)
-			break
-		}
-	}
-
-	ct, err := peertls.CATemplate()
-	if err != nil {
-		eC <- err
-		return
-	}
-
-	c, err := peertls.NewCert(k, parentKey, ct, parentCert)
-	if err != nil {
-		eC <- err
-		return
-	}
-
-	ca := FullCertificateAuthority{
-		Cert: c,
-		Key:  k,
-		ID:   i,
-	}
-	if parentCert != nil {
-		ca.RestChain = []*x509.Certificate{parentCert}
-	}
-	caC <- ca
 }
 
 // writeChainData writes data to path ensuring permissions are appropriate for a cert

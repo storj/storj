@@ -14,6 +14,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 )
@@ -26,13 +27,19 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 	setupCfg struct {
-		CA                 provider.CASetupConfig
-		Identity           provider.IdentitySetupConfig
-		Overwrite          bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
-		SatelliteAddr      string `default:"localhost:7778" help:"the address to use for the satellite"`
-		APIKey             string `default:"" help:"the api key to use for the satellite"`
-		EncKey             string `default:"" help:"your root encryption key"`
-		GenerateMinioCerts bool   `default:"false" help:"generate sample TLS certs for Minio GW"`
+		CA                 provider.CASetupConfig       `setup:"true"`
+		Identity           provider.IdentitySetupConfig `setup:"true"`
+		Overwrite          bool                         `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
+		APIKey             string                       `default:"" help:"the api key to use for the satellite" setup:"true"`
+		EncKey             string                       `default:"" help:"your root encryption key" setup:"true"`
+		GenerateMinioCerts bool                         `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
+		SatelliteAddr      string                       `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
+
+		Server miniogw.ServerConfig
+		Minio  miniogw.MinioConfig
+		Client miniogw.ClientConfig
+		RS     miniogw.RSConfig
+		Enc    miniogw.EncryptionConfig
 	}
 
 	cliConfDir *string
@@ -52,7 +59,7 @@ func init() {
 
 	CLICmd.AddCommand(setupCmd)
 	GWCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -123,7 +130,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"enc.key":                setupCfg.EncKey,
 	}
 
-	return process.SaveConfig(runCmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
+	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
 }
 
 func generateAWSKey() (key string, err error) {

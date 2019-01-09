@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/bwagreement/test"
 	"storj.io/storj/pkg/overlay"
@@ -66,7 +67,7 @@ func TestQueryWithBw(t *testing.T) {
 	pba, err := test.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, k, k)
 	assert.NoError(t, err)
 
-	rba, err := test.GenerateRenterBandwidthAllocation(pba, k)
+	rba, err := test.GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("StorageNodeID"), k)
 	assert.NoError(t, err)
 	//save to db
 

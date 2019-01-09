@@ -9,10 +9,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/spf13/pflag"
 )
 
 // BindOpt is an option for the Bind method
@@ -45,29 +46,33 @@ type confVar struct {
 
 // Bind sets flags on a FlagSet that match the configuration struct
 // 'config'. This works by traversing the config struct using the 'reflect'
-// package.
+// package. Will ignore fields with `setup:"true"` tag.
 func Bind(flags FlagSet, config interface{}, opts ...BindOpt) {
+	bind(flags, config, false, opts...)
+}
+
+// BindSetup sets flags on a FlagSet that match the configuration struct
+// 'config'. This works by traversing the config struct using the 'reflect'
+// package.
+func BindSetup(flags FlagSet, config interface{}, opts ...BindOpt) {
+	bind(flags, config, true, opts...)
+}
+
+func bind(flags FlagSet, config interface{}, setupCommand bool, opts ...BindOpt) {
 	ptrtype := reflect.TypeOf(config)
 	if ptrtype.Kind() != reflect.Ptr {
-		panic(fmt.Sprintf("invalid config type: %#v. "+
-			"Expecting pointer to struct.", config))
+		panic(fmt.Sprintf("invalid config type: %#v. Expecting pointer to struct.", config))
 	}
 	vars := map[string]confVar{}
 	for _, opt := range opts {
 		opt(vars)
 	}
-	bindConfig(flags, "", reflect.ValueOf(config).Elem(), vars)
+	bindConfig(flags, "", reflect.ValueOf(config).Elem(), vars, setupCommand, false)
 }
 
-var (
-	whitespace = regexp.MustCompile(`\s+`)
-)
-
-func bindConfig(flags FlagSet, prefix string, val reflect.Value,
-	vars map[string]confVar) {
+func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string]confVar, setupCommand, setupStruct bool) {
 	if val.Kind() != reflect.Struct {
-		panic(fmt.Sprintf("invalid config type: %#v. Expecting struct.",
-			val.Interface()))
+		panic(fmt.Sprintf("invalid config type: %#v. Expecting struct.", val.Interface()))
 	}
 	typ := val.Type()
 
@@ -87,26 +92,28 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value,
 		field := typ.Field(i)
 		fieldval := val.Field(i)
 		flagname := prefix + hyphenate(snakeCase(field.Name))
+		onlyForSetup := (field.Tag.Get("setup") == "true") || setupStruct
+		// ignore setup params for non setup commands
+		if !setupCommand && onlyForSetup {
+			continue
+		}
 
 		switch field.Type.Kind() {
 		case reflect.Struct:
 			if field.Anonymous {
-				bindConfig(flags, prefix, fieldval, vars)
+				bindConfig(flags, prefix, fieldval, vars, setupCommand, onlyForSetup)
 			} else {
-				bindConfig(flags, flagname+".", fieldval, vars)
+				bindConfig(flags, flagname+".", fieldval, vars, setupCommand, onlyForSetup)
 			}
 		case reflect.Array, reflect.Slice:
 			digits := len(fmt.Sprint(fieldval.Len()))
 			for j := 0; j < fieldval.Len(); j++ {
 				padding := strings.Repeat("0", digits-len(fmt.Sprint(j)))
-				bindConfig(flags, fmt.Sprintf("%s.%s%d.", flagname, padding, j),
-					fieldval.Index(j), vars)
+				bindConfig(flags, fmt.Sprintf("%s.%s%d.", flagname, padding, j), fieldval.Index(j), vars, setupCommand, onlyForSetup)
 			}
 		default:
-			tag := reflect.StructTag(
-				whitespace.ReplaceAllString(string(field.Tag), " "))
-			help := tag.Get("help")
-			def := tag.Get("default")
+			help := field.Tag.Get("help")
+			def := field.Tag.Get("default")
 			fieldaddr := fieldval.Addr().Interface()
 			check := func(err error) {
 				if err != nil {
@@ -148,7 +155,22 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value,
 			default:
 				panic(fmt.Sprintf("invalid field type: %s", field.Type.String()))
 			}
+			if onlyForSetup {
+				setSetupAnnotation(flags, flagname)
+			}
 		}
+	}
+}
+
+func setSetupAnnotation(flagset interface{}, name string) {
+	flags, ok := flagset.(*pflag.FlagSet)
+	if !ok {
+		return
+	}
+
+	err := flags.SetAnnotation(name, "setup", []string{"true"})
+	if err != nil {
+		panic(fmt.Sprintf("unable to set annotation: %v", err))
 	}
 }
 

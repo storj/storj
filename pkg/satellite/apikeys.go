@@ -11,9 +11,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/zeebo/errs"
-
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 )
 
 // APIKeys is interface for working with api keys store

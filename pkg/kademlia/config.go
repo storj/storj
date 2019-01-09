@@ -44,7 +44,7 @@ type OperatorConfig struct {
 // Config defines all of the things that are needed to start up Kademlia
 // server endpoints (and not necessarily client code).
 type Config struct {
-	BootstrapAddr   string `help:"the kademlia node to bootstrap against" default:"bootstrap-dev.storj.io:8080"`
+	BootstrapAddr   string `help:"the kademlia node to bootstrap against" default:"127.0.0.1:7778"`
 	DBPath          string `help:"the path for our db services to be created on" default:"$CONFDIR/kademlia"`
 	Alpha           int    `help:"alpha is a system wide concurrency parameter." default:"5"`
 	ExternalAddress string `help:"the public address of the kademlia node; defaults to the gRPC server address." default:""`

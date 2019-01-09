@@ -17,16 +17,18 @@ func NewCLIContext(root context.Context) (context.Context, func()) {
 
 	signal.Notify(signals, os.Interrupt)
 
+	stop := func() {
+		signal.Stop(signals)
+		cancel()
+	}
+
 	go func() {
 		select {
 		case <-signals:
-			cancel()
+			stop()
 		case <-ctx.Done():
 		}
 	}()
 
-	return ctx, func() {
-		signal.Stop(signals)
-		cancel()
-	}
+	return ctx, stop
 }

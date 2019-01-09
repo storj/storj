@@ -34,6 +34,25 @@ import (
 	"storj.io/storj/satellite/satellitedb"
 )
 
+// Satellite defines satellite configuration
+type Satellite struct {
+	CA        identity.CASetupConfig `setup:"true"`
+	Identity  identity.SetupConfig   `setup:"true"`
+	Overwrite bool                   `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
+
+	Server      server.Config
+	Kademlia    kademlia.SatelliteConfig
+	PointerDB   pointerdb.Config
+	Overlay     overlay.Config
+	Checker     checker.Config
+	Repairer    repairer.Config
+	Audit       audit.Config
+	BwAgreement bwagreement.Config
+	Discovery   discovery.Config
+	StatDB      statdb.Config
+	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+}
+
 var (
 	rootCmd = &cobra.Command{
 		Use:   "satellite",
@@ -61,24 +80,9 @@ var (
 		RunE:  cmdQDiag,
 	}
 
-	runCfg struct {
-		Server      server.Config
-		Kademlia    kademlia.SatelliteConfig
-		PointerDB   pointerdb.Config
-		Overlay     overlay.Config
-		Checker     checker.Config
-		Repairer    repairer.Config
-		Audit       audit.Config
-		BwAgreement bwagreement.Config
-		Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
-		Discovery   discovery.Config
-		StatDB      statdb.Config
-	}
-	setupCfg struct {
-		CA        identity.CASetupConfig
-		Identity  identity.SetupConfig
-		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
-	}
+	runCfg   Satellite
+	setupCfg Satellite
+
 	diagCfg struct {
 		Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	}
@@ -106,7 +110,7 @@ func init() {
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(qdiagCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(qdiagCmd.Flags(), &qdiagCfg, cfgstruct.ConfDir(defaultConfDir))
 }
@@ -181,8 +185,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"identity.key-path":  setupCfg.Identity.KeyPath,
 	}
 
-	return process.SaveConfig(runCmd.Flags(),
-		filepath.Join(setupDir, "config.yaml"), o)
+	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
