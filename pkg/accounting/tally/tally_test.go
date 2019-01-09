@@ -71,7 +71,7 @@ func TestQueryWithBw(t *testing.T) {
 	assert.NoError(t, err)
 	//save to db
 
-	err = bwDb.CreateAgreement(ctx, bwagreement.Agreement{Signature: rba.GetSignature(), Agreement: rba.GetData()})
+	err = bwDb.CreateAgreement(ctx, "SerialNumber", bwagreement.Agreement{Signature: rba.GetSignature(), Agreement: rba.GetData()})
 	assert.NoError(t, err)
 
 	//check the db
