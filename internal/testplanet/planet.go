@@ -20,10 +20,12 @@ import (
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
@@ -282,6 +284,12 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 					Email:  prefix + "@example.com",
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
+			},
+			Piecestore: psserver.Config{
+				Path:                   db.Disk(),
+				AllocatedDiskSpace:     memory.TB.Int64(),
+				AllocatedBandwidth:     memory.TB.Int64(),
+				KBucketRefreshInterval: time.Minute,
 			},
 		}
 
