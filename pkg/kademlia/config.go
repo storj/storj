@@ -60,6 +60,15 @@ func (c StorageNodeConfig) Run(ctx context.Context, server *provider.Provider) e
 	return Config(c).Run(ctx, server, pb.NodeType_STORAGE)
 }
 
+// BootstrapConfig is a Config that implements provider.Responsibility as
+// a bootstrap server
+type BootstrapConfig Config
+
+// Run implements provider.Responsibility
+func (c BootstrapConfig) Run(ctx context.Context, server *provider.Provider) error {
+	return Config(c).Run(ctx, server, pb.NodeType_BOOTSTRAP)
+}
+
 // SatelliteConfig is a Config that implements provider.Responsibility as
 // a satellite
 type SatelliteConfig Config

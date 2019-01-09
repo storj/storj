@@ -168,12 +168,11 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	overrides := map[string]interface{}{
-		"server.identity.cert-path":               setupCfg.Identity.CertPath,
-		"server.identity.key-path":                setupCfg.Identity.KeyPath,
-		"server.public-address":                   defaultServerAddr,
-		"storage.path":                            filepath.Join(setupDir, "storage"),
-		"kademlia.bootstrap-addr":                 defaultSatteliteAddr,
-		"piecestore.agreementsender.overlay-addr": defaultSatteliteAddr,
+		"server.identity.cert-path": setupCfg.Identity.CertPath,
+		"server.identity.key-path":  setupCfg.Identity.KeyPath,
+		"server.public-address":     defaultServerAddr,
+		"storage.path":              filepath.Join(setupDir, "storage"),
+		"kademlia.bootstrap-addr":   defaultSatteliteAddr,
 	}
 
 	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
