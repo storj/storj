@@ -62,6 +62,11 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 		Status: pb.AgreementsSummary_FAIL,
 	}
 
+	// storagenode signature is not empty
+	if len(ba.GetSignature()) == 0 {
+		return reply, BwAgreementError.New("Nil Storage Node Signature in the RenterBandwidthAllocation")
+	}
+
 	if err = s.verifySignature(ctx, ba); err != nil {
 		return reply, err
 	}
@@ -75,6 +80,11 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 	pbad := &pb.PayerBandwidthAllocation_Data{}
 	if err := proto.Unmarshal(pba.GetData(), pbad); err != nil {
 		return reply, BwAgreementError.New("Failed to unmarshal PayerBandwidthAllocation: %+v", err)
+	}
+
+	// satellite signature is not empty
+	if len(pba.GetSignature()) == 0 {
+		return reply, BwAgreementError.New("Nil Satellite Signature in the PayerBandwidthAllocation")
 	}
 
 	if len(pbad.SerialNumber) == 0 {
