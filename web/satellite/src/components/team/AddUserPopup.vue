@@ -3,7 +3,7 @@
 
 <template>
     <div class='add-user-container'>
-        <div class='add-user'>
+        <div class='add-user' id="addTeamMemberPopup">
             <div class='add-user__info-panel-container'>
                 <h2 class='add-user__info-panel-container__main-label-text'>Add New User</h2>
                 <div v-html='imageSource'></div>
@@ -59,14 +59,12 @@ import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
 import { removeToken } from '@/utils/tokenManager';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { EmailInput } from '@/utils/entities/EmailInput';
+import { PM_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { EmailInput } from '@/types/EmailInput';
 import { validateEmail } from '@/utils/validation';
 
 @Component(
     {
-        props: {
-            onClose: Function
-        },
         data: function() {
             return {
                 inputs: [new EmailInput(), new EmailInput(), new EmailInput()],
@@ -117,24 +115,24 @@ import { validateEmail } from '@/utils/validation';
 
                 if (!areAllEmailsValid) return;
                 
-                let result = await this.$store.dispatch('addProjectMembers', emailArray);
+                let result = await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
                 
                 if (!result.isSuccess) {
-                    this.$store.dispatch('error', 'Error during adding team members!');
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during adding team members!');
 
                     return;
                 }
 
-                const response = await this.$store.dispatch('fetchProjectMembers', { limit: 20, offset: 0 });
+                const response = await this.$store.dispatch(PM_ACTIONS.FETCH, { limit: 20, offset: 0 });
 
                 if (!response.isSuccess) {
-                    this.$store.dispatch('error', 'Unable to fetch project members');
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
             
                     return;
                 }
 
-                this.$store.dispatch('success', 'Members successfully added to project!');
-                this.$store.dispatch('setAddTeamMembersPopup', false);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members successfully added to project!');
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
             },
             addInput: function(): void {
                 let inputsLength = this.$data.inputs.length;
@@ -153,7 +151,7 @@ import { validateEmail } from '@/utils/validation';
                 this.$data.inputs[index].setError(false);
             },
             onClose: function(): void {
-                this.$store.dispatch('setAddTeamMembersPopup', false);
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
             },
          },
         computed: {

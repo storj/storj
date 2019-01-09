@@ -45,6 +45,7 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import Button from '@/components/common/Button.vue';
 import { setToken } from '@/utils/tokenManager';
 import ROUTES from '../utils/constants/routerConstants';
+import { NOTIFICATION_ACTIONS } from '../utils/constants/actionNames';
 import { getTokenRequest } from '@/api/users';
 
 @Component({
@@ -66,7 +67,7 @@ import { getTokenRequest } from '@/api/users';
         onLogin: async function () {
             let loginResponse = await getTokenRequest(this.$data.email, this.$data.password);
             if (!loginResponse.isSuccess) {
-                this.$store.dispatch('error', loginResponse.errorMessage);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, loginResponse.errorMessage);
 
                 return;
             }
