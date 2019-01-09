@@ -42,7 +42,7 @@ export default class Checkbox extends Vue {
     .container {
         display: block;
         position: relative;
-        padding-left: 35px;
+        padding-left: 20px;
         height: 25px;
         width: 25px;
         cursor: pointer;
