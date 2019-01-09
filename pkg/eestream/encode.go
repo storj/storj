@@ -125,7 +125,7 @@ func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy, maxSi
 	}
 
 	// TODO: make it configurable between file pipe and memory pipe
-	teeReader, teeWriter, err := sync2.NewTeeFile("/tmp", rs.TotalCount())
+	teeReader, teeWriter, err := sync2.NewTeeFile(rs.TotalCount(), "/tmp")
 	if err != nil {
 		return nil, err
 	}
@@ -148,8 +148,7 @@ func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy, maxSi
 }
 
 func (er *encodedReader) fillBuffer(ctx context.Context, r io.Reader, w sync2.PipeWriter) {
-	// TODO: interrupt copy if context is canceled
-	_, err := io.Copy(w, r)
+	_, err := sync2.Copy(ctx, w, r)
 	err = w.CloseWithError(err)
 	if err != nil {
 		zap.S().Error(err)

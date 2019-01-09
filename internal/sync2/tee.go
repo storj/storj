@@ -8,10 +8,12 @@ import (
 	"io/ioutil"
 	"math"
 	"sync"
+	"sync/atomic"
 )
 
 type tee struct {
 	buffer ReadAtWriteAtCloser
+	open   *int64
 
 	mu      sync.Mutex
 	nodata  sync.Cond
@@ -26,31 +28,33 @@ type tee struct {
 }
 
 // NewTeeFile returns a tee that uses file-system to offload memory
-func NewTeeFile(tempdir string, readers int) (PipeReaderAt, PipeWriter, error) {
+func NewTeeFile(readers int, tempdir string) (PipeReaderAt, PipeWriter, error) {
 	tempfile, err := ioutil.TempFile(tempdir, "tee")
 	if err != nil {
 		return nil, nil, err
 	}
 
 	handles := int64(readers + 1) // +1 for the writer
-	tee := &tee{
-		buffer: &offsetFile{
-			file: tempfile,
-			open: &handles,
-		},
-		limit: math.MaxInt64,
-	}
-	tee.nodata.L = &tee.mu
-	tee.newdata.L = &tee.mu
 
-	return teeReader{tee}, teeWriter{tee}, nil
+	buffer := &offsetFile{
+		file: tempfile,
+		open: &handles,
+	}
+
+	return newTee(buffer, &handles, math.MaxInt64)
 }
 
 // NewTeeMemory returns a tee that uses an in-memory buffer
-func NewTeeMemory(bufSize int64) (PipeReaderAt, PipeWriter, error) {
+func NewTeeMemory(readers int, bufSize int64) (PipeReaderAt, PipeWriter, error) {
+	handles := int64(readers + 1) // +1 for the writer
+	return newTee(make(memory, bufSize), &handles, bufSize)
+}
+
+func newTee(buffer ReadAtWriteAtCloser, open *int64, limit int64) (PipeReaderAt, PipeWriter, error) {
 	tee := &tee{
-		buffer: make(memory, bufSize),
-		limit:  bufSize,
+		buffer: buffer,
+		open:   open,
+		limit:  limit,
 	}
 	tee.nodata.L = &tee.mu
 	tee.newdata.L = &tee.mu
@@ -134,7 +138,11 @@ func (writer teeWriter) Write(data []byte) (n int, err error) {
 	}
 
 	for tee.write > tee.maxRequired {
-		// TODO: return if all readers are closed or context is canceled
+		// are all readers already closed?
+		if atomic.LoadInt64(tee.open) <= 1 {
+			tee.mu.Unlock()
+			return 0, io.ErrClosedPipe
+		}
 		// wait until new data is required by any reader
 		tee.newdata.Wait()
 	}
