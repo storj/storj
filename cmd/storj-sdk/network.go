@@ -207,12 +207,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.Arguments = withCommon(Arguments{
 			"setup": {
 				"--ca.difficulty", difficulty,
-				// TODO: storage nodes shouldn't care about an overlay address
-				"--piecestore.agreementsender.overlay-addr", satellites[0].Address,
 			},
 			"run": {
-				// TODO: storage nodes shouldn't care about an overlay address
-				"--piecestore.agreementsender.overlay-addr", satellites[0].Address,
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
 				"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
