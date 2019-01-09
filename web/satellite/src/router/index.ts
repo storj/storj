@@ -58,11 +58,11 @@ let router = new Router({
 					name: 'ApiKeys',
 					component: ApiKeysArea
 				},
-                {
-                    path: '/',
-                    name: 'dashboardArea',
-                    component: DashboardArea
-                },
+                // {
+                //     path: '/',
+                //     name: 'dashboardArea',
+                //     component: DashboardArea
+                // },
 			]
 		},
 		{
