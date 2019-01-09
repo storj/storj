@@ -6,6 +6,7 @@ package discovery
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -52,19 +53,31 @@ func (d *Discovery) Refresh(ctx context.Context) error {
 		}
 	}
 
+	for _, node := range nodes {
+		if _, err := d.kad.Ping(ctx, *node); err != nil {
+			// fail ping refresh
+			d.log.Warn(fmt.Sprintf("unable to ping node %+v\n", node.Id))
+			_, err = d.statdb.UpdateUptime(ctx, node.Id, false)
+		} else {
+			// succeed ping refresh
+			d.log.Info(fmt.Sprintf("successfully contacted node %s", node.Id))
+			_, err = d.statdb.UpdateUptime(ctx, node.Id, true)
+		}
+	}
+
 	return nil
 }
 
 // Bootstrap walks the initialized network and populates the cache
 func (d *Discovery) Bootstrap(ctx context.Context) error {
-	// o := overlay.LoadFromContext(ctx)
-	// kad := kademlia.LoadFromContext(ctx)
-	// TODO(coyle): make Bootstrap work
-	// look in our routing table
-	// get every node we know about
-	// ask every node for every node they know about
-	// for each newly known node, ask those nodes for every node they know about
-	// continue until no new nodes are found
+	nodes := d.kad.Seen()
+
+	for _, v := range nodes {
+		if err := d.cache.Put(ctx, v.Id, *v); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
