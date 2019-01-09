@@ -34,9 +34,9 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import ProjectSelectionArea from './projectSelection/ProjectSelectionArea.vue';
-import NewProjectArea from './newProject/NewProjectArea.vue';
-import AccountButton from './account/AccountButton.vue';
+import ProjectSelectionArea from '@/components/header/projectSelection/ProjectSelectionArea.vue';
+import NewProjectArea from '@/components/header/NewProjectArea.vue';
+import AccountButton from './AccountButton.vue';
 
 @Component(
     {

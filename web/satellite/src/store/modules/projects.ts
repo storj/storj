@@ -83,7 +83,7 @@ export const projectsModule = {
 		selectProject: function ({commit}: any, projectID: string) {
 			commit(PROJECTS_MUTATIONS.SELECT, projectID);
 		},
-		updateProjectDescription: async function ({commit}: any, updateProjectModel: UpdateProjectModel): Promise<RequestResponse<null>> {
+		updateProject: async function ({commit}: any, updateProjectModel: UpdateProjectModel): Promise<RequestResponse<null>> {
 			let response = await updateProjectRequest(updateProjectModel.id, updateProjectModel.description);
 
 			if (response.isSuccess) {

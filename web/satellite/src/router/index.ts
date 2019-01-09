@@ -7,11 +7,12 @@ import ROUTES from '@/utils/constants/routerConstants';
 import Login from '@/views/Login.vue';
 import Register from '@/views/Register.vue';
 import Dashboard from '@/views/Dashboard.vue';
-import AccountArea from '@/components/dashboard/account/AccountArea.vue';
-import ProjectDetails from '@/components/projectDetails/ProjectDetailsArea.vue';
+import AccountArea from '@/components/account/AccountArea.vue';
+import ProjectDetails from '@/components/project/ProjectDetailsArea.vue';
 import TeamArea from '@/components/team/TeamArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
+import DashboardArea from '@/components/dashboard/DashboardArea.vue';
 import { getToken } from '@/utils/tokenManager';
 
 Vue.use(Router);
@@ -56,7 +57,12 @@ let router = new Router({
 					path: '/api-keys',
 					name: 'ApiKeys',
 					component: ApiKeysArea
-				}
+				},
+                // {
+                //     path: '/',
+                //     name: 'dashboardArea',
+                //     component: DashboardArea
+                // },
 			]
 		},
 		{
