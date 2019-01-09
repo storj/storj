@@ -14,7 +14,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/teststorj"
@@ -32,35 +31,6 @@ var (
 	ErrNoList = errors.New("list error: failed to get list")
 	ErrNoNum  = errors.New("num error: failed to get num")
 )
-
-// pointerDBWrapper wraps pb.PointerDBServer to be compatible with pb.PointerDBClient
-type pointerDBWrapper struct {
-	s pb.PointerDBServer
-}
-
-func newPointerDBWrapper(pdbs pb.PointerDBServer) pb.PointerDBClient {
-	return &pointerDBWrapper{pdbs}
-}
-
-func (pbd *pointerDBWrapper) Put(ctx context.Context, in *pb.PutRequest, opts ...grpc.CallOption) (*pb.PutResponse, error) {
-	return pbd.s.Put(ctx, in)
-}
-
-func (pbd *pointerDBWrapper) Get(ctx context.Context, in *pb.GetRequest, opts ...grpc.CallOption) (*pb.GetResponse, error) {
-	return pbd.s.Get(ctx, in)
-}
-
-func (pbd *pointerDBWrapper) List(ctx context.Context, in *pb.ListRequest, opts ...grpc.CallOption) (*pb.ListResponse, error) {
-	return pbd.s.List(ctx, in)
-}
-
-func (pbd *pointerDBWrapper) Delete(ctx context.Context, in *pb.DeleteRequest, opts ...grpc.CallOption) (*pb.DeleteResponse, error) {
-	return pbd.s.Delete(ctx, in)
-}
-
-func (pbd *pointerDBWrapper) PayerBandwidthAllocation(ctx context.Context, in *pb.PayerBandwidthAllocationRequest, opts ...grpc.CallOption) (*pb.PayerBandwidthAllocationResponse, error) {
-	return pbd.s.PayerBandwidthAllocation(ctx, in)
-}
 
 func TestAuditSegment(t *testing.T) {
 	type pathCount struct {
