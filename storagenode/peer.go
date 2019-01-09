@@ -9,6 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
@@ -146,12 +147,20 @@ func (peer *Peer) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	if err := peer.Kademlia.Bootstrap(ctx); err != nil {
-		return err
-	}
-	peer.Kademlia.StartRefresh(ctx)
+	var group errgroup.Group
+	group.Go(func() error {
+		if err := peer.Kademlia.Bootstrap(ctx); err != nil {
+			return err
+		}
 
-	return peer.Public.Server.Run(ctx)
+		peer.Kademlia.StartRefresh(ctx)
+		return nil
+	})
+	group.Go(func() error {
+		return peer.Public.Server.Run(ctx)
+	})
+
+	return group.Wait()
 }
 
 // Close closes all the resources.
