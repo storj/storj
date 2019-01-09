@@ -120,13 +120,15 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			errch <- v.Server.Run(ctx, nil, v.Kademlia, v.Storage)
 		}(i, v)
 	}
+
 	// start s3 uplink
+	uplink := runCfg.Uplink
 	go func() {
 		_, _ = fmt.Printf("Starting s3-gateway on %s\nAccess key: %s\nSecret key: %s\n",
-			runCfg.Uplink.Server.Address,
-			runCfg.Uplink.Minio.AccessKey,
-			runCfg.Uplink.Minio.SecretKey)
-		errch <- runCfg.Uplink.Run(ctx)
+			uplink.Server.Address,
+			uplink.Minio.AccessKey,
+			uplink.Minio.SecretKey)
+		errch <- uplink.Run(ctx)
 	}()
 
 	return utils.CollectErrors(errch, 5*time.Second)
