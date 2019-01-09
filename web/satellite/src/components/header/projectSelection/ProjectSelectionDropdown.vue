@@ -36,6 +36,8 @@ import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } 
 
 				if (!this.$store.getters.selectedProject.id) return;
 
+				this.$store.dispatch(PM_ACTIONS.SET_PROJECT_MEMBERS_SEARCH_QUERY, '');
+
 				const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
 				if (response.isSuccess) return;
 

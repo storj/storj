@@ -22,6 +22,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
+import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component(
     {
@@ -42,12 +43,12 @@ import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum
             onSortUsersClick: async function (sortBy: ProjectMemberSortByEnum) {
 				this.$emit('onClose');
 
-				this.$store.dispatch('setProjectMembersSortingBy', sortBy);
+				this.$store.dispatch(PM_ACTIONS.SET_PROJECT_MEMBERS_SORT_BY, sortBy);
 
-				const response = await this.$store.dispatch('fetchProjectMembers');
+				const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
 				if (response.isSuccess) return;
 
-				this.$store.dispatch('error', 'Unable to fetch project members');
+				this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
 
             }
         },

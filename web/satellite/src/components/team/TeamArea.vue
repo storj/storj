@@ -40,6 +40,7 @@ import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames'
     data: function () {
         return {
             emptyImage: EMPTY_STATE_IMAGES.TEAM,
+            isFetchInProgress: false,
         };
     },
     methods: {
@@ -52,9 +53,16 @@ import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames'
 				return;
 			}
 
-			if (documentElement.scrollTop + documentElement.clientHeight !== documentElement.scrollHeight) return;
+			const isAtBottom = documentElement.scrollTop + documentElement.clientHeight === documentElement.scrollHeight;
+
+			if (!isAtBottom || this.$data.isFetchInProgress) return;
+
+			this.$data.isFetchInProgress = true;
 
 			const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
+
+			this.$data.isFetchInProgress = false;
+
 			if (response.isSuccess) return;
 
 			this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');

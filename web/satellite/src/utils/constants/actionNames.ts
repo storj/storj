@@ -26,7 +26,9 @@ export const PM_ACTIONS = {
     TOGGLE_SELECTION: 'toggleProjectMemberSelection',
     CLEAR_SELECTION: 'clearProjectMemberSelection',
     FETCH: 'fetchProjectMembers',
-    CLEAR: 'clearProjectMembers'
+    CLEAR: 'clearProjectMembers',
+    SET_PROJECT_MEMBERS_SEARCH_QUERY: 'setProjectMembersSearchQuery',
+	SET_PROJECT_MEMBERS_SORT_BY: 'setProjectMembersSortingBy'
 };
 
 export const PROJETS_ACTIONS = {

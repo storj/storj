@@ -18,7 +18,7 @@ export const projectMembersModule = {
 		},
 		pagination: {
 			offset: 0,
-			limit: 20
+			limit: 20,
 		}
 	},
 	mutations: {
@@ -109,13 +109,13 @@ export const projectMembersModule = {
 		},
 		setProjectMembersSortingBy: function ({commit, dispatch}, sortBy: ProjectMemberSortByEnum) {
 			commit(PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER, sortBy);
-			dispatch('clearProjectMembers');
-			dispatch('clearProjectMembersOffset');
+			commit(PROJECT_MEMBER_MUTATIONS.CLEAR);
+			commit(PROJECT_MEMBER_MUTATIONS.CLEAR_OFFSET);
 		},
 		setProjectMembersSearchQuery: function ({commit, dispatch}, searchQuery: string) {
 			commit(PROJECT_MEMBER_MUTATIONS.SET_SEARCH_QUERY, searchQuery);
-			dispatch('clearProjectMembers');
-			dispatch('clearProjectMembersOffset');
+			commit(PROJECT_MEMBER_MUTATIONS.CLEAR);
+			commit(PROJECT_MEMBER_MUTATIONS.CLEAR_OFFSET);
 		},
 		clearProjectMembers: function ({commit}: any) {
 			commit(PROJECT_MEMBER_MUTATIONS.CLEAR);
