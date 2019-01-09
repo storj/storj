@@ -46,8 +46,6 @@ func NewDiscovery(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia,
 func (d *Discovery) Refresh(ctx context.Context) error {
 	nodes := d.kad.Seen()
 
-	fmt.Printf("NODES SEEN %+v\n", nodes)
-
 	for _, node := range nodes {
 		if _, err := d.kad.Ping(ctx, *node); err != nil {
 			// fail ping refresh
@@ -66,8 +64,6 @@ func (d *Discovery) Refresh(ctx context.Context) error {
 // Bootstrap walks the initialized network and populates the cache
 func (d *Discovery) Bootstrap(ctx context.Context) error {
 	nodes := d.kad.Seen()
-
-	fmt.Printf("NODES BOOTSTRAP %+v\n", nodes)
 
 	for _, v := range nodes {
 		if err := d.cache.Put(ctx, v.Id, *v); err != nil {
