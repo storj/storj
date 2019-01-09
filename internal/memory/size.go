@@ -109,17 +109,17 @@ func (size *Size) Set(s string) error {
 	}
 
 	switch suffix {
-	case "EB":
+	case "EB", "EiB":
 		*size = Size(v * EB.Float64())
-	case "PB":
+	case "PB", "PiB":
 		*size = Size(v * PB.Float64())
-	case "TB":
+	case "TB", "TiB":
 		*size = Size(v * TB.Float64())
-	case "GB":
+	case "GB", "GiB":
 		*size = Size(v * GB.Float64())
-	case "MB":
+	case "MB", "MiB":
 		*size = Size(v * MB.Float64())
-	case "KB":
+	case "KB", "KiB":
 		*size = Size(v * KB.Float64())
 	case "B", "":
 		*size = Size(v)
