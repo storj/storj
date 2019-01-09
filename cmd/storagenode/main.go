@@ -175,7 +175,13 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"kademlia.bootstrap-addr": defaultSatteliteAddr,
 	}
 
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	configFile := filepath.Join(setupDir, "config.yaml")
+
+	if err := process.SaveConfig(cmd.Flags(), configFile, overrides); err != nil {
+		return err
+	}
+
+	return fpath.EditFile(configFile)
 }
 
 func cmdConfig(cmd *cobra.Command, args []string) (err error) {
@@ -186,9 +192,7 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 	//run setup if we can't access the config file
 	conf := filepath.Join(setupDir, "config.yaml")
 	if _, err := os.Stat(conf); err != nil {
-		if err = cmdSetup(cmd, args); err != nil {
-			return err
-		}
+		return cmdSetup(cmd, args)
 	}
 	return fpath.EditFile(conf)
 }
