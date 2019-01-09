@@ -36,7 +36,7 @@ func (m *PaymentRequest) Reset()         { *m = PaymentRequest{} }
 func (m *PaymentRequest) String() string { return proto.CompactTextString(m) }
 func (*PaymentRequest) ProtoMessage()    {}
 func (*PaymentRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_payments_89f2ad202d6d67fc, []int{0}
+	return fileDescriptor_payments_74d7a55fc29ae2d5, []int{0}
 }
 func (m *PaymentRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PaymentRequest.Unmarshal(m, b)
@@ -74,7 +74,7 @@ func (m *PaymentResponse) Reset()         { *m = PaymentResponse{} }
 func (m *PaymentResponse) String() string { return proto.CompactTextString(m) }
 func (*PaymentResponse) ProtoMessage()    {}
 func (*PaymentResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_payments_89f2ad202d6d67fc, []int{1}
+	return fileDescriptor_payments_74d7a55fc29ae2d5, []int{1}
 }
 func (m *PaymentResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PaymentResponse.Unmarshal(m, b)
@@ -107,7 +107,7 @@ func (m *CalculateRequest) Reset()         { *m = CalculateRequest{} }
 func (m *CalculateRequest) String() string { return proto.CompactTextString(m) }
 func (*CalculateRequest) ProtoMessage()    {}
 func (*CalculateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_payments_89f2ad202d6d67fc, []int{2}
+	return fileDescriptor_payments_74d7a55fc29ae2d5, []int{2}
 }
 func (m *CalculateRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CalculateRequest.Unmarshal(m, b)
@@ -149,7 +149,7 @@ func (m *CalculateResponse) Reset()         { *m = CalculateResponse{} }
 func (m *CalculateResponse) String() string { return proto.CompactTextString(m) }
 func (*CalculateResponse) ProtoMessage()    {}
 func (*CalculateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_payments_89f2ad202d6d67fc, []int{3}
+	return fileDescriptor_payments_74d7a55fc29ae2d5, []int{3}
 }
 func (m *CalculateResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CalculateResponse.Unmarshal(m, b)
@@ -198,7 +198,7 @@ func (m *AdjustPricesRequest) Reset()         { *m = AdjustPricesRequest{} }
 func (m *AdjustPricesRequest) String() string { return proto.CompactTextString(m) }
 func (*AdjustPricesRequest) ProtoMessage()    {}
 func (*AdjustPricesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_payments_89f2ad202d6d67fc, []int{4}
+	return fileDescriptor_payments_74d7a55fc29ae2d5, []int{4}
 }
 func (m *AdjustPricesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AdjustPricesRequest.Unmarshal(m, b)
@@ -243,7 +243,7 @@ func (m *AdjustPricesResponse) Reset()         { *m = AdjustPricesResponse{} }
 func (m *AdjustPricesResponse) String() string { return proto.CompactTextString(m) }
 func (*AdjustPricesResponse) ProtoMessage()    {}
 func (*AdjustPricesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_payments_89f2ad202d6d67fc, []int{5}
+	return fileDescriptor_payments_74d7a55fc29ae2d5, []int{5}
 }
 func (m *AdjustPricesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AdjustPricesResponse.Unmarshal(m, b)
@@ -416,9 +416,9 @@ var _Payments_serviceDesc = grpc.ServiceDesc{
 	Metadata: "payments.proto",
 }
 
-func init() { proto.RegisterFile("payments.proto", fileDescriptor_payments_89f2ad202d6d67fc) }
+func init() { proto.RegisterFile("payments.proto", fileDescriptor_payments_74d7a55fc29ae2d5) }
 
-var fileDescriptor_payments_89f2ad202d6d67fc = []byte{
+var fileDescriptor_payments_74d7a55fc29ae2d5 = []byte{
 	// 261 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x51, 0xc1, 0x4a, 0xc3, 0x40,
 	0x14, 0x24, 0x8d, 0xb6, 0xe6, 0x21, 0x6d, 0xf3, 0x8c, 0x1a, 0x82, 0x87, 0xb2, 0xa7, 0x88, 0xb0,
