@@ -30,6 +30,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
+import { PM_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     methods: {
@@ -38,18 +39,18 @@ import Button from '@/components/common/Button.vue';
                 return member.user.email;
             });
 
-            const isSuccess = await this.$store.dispatch('deleteProjectMembers', projectMemberEmails);
+            const isSuccess = await this.$store.dispatch(PM_ACTIONS.DELETE, projectMemberEmails);
 
             if (!isSuccess) {
-                this.$store.dispatch('error', 'Error while deleting users from team');
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error while deleting users from team');
 
                 return;
             }
 
-            this.$store.dispatch('success', 'Members was successfully removed from project');
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members was successfully removed from project');
         },
         onClearSelection: function () {
-            this.$store.dispatch('clearProjectMemberSelection');
+            this.$store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
         }
 
     },

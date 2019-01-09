@@ -3,33 +3,33 @@
 
 <template>
     <div class="new-project-container">
-        <div class="new-project-button-container" v-on:click="toggleSelection">
+        <div class="new-project-button-container" v-on:click="toggleSelection" id="newProjectButton">
             <h1>New Project +</h1>
         </div>
-        <NewProjectPopup v-if="isPopupShown" @onClose="toggleSelection"/>
+        <NewProjectPopup v-if="isPopupShown"/>
     </div>
 </template>
 
 <script lang="ts">
+import { mapState } from 'vuex';
 import { Component, Vue } from 'vue-property-decorator';
-import NewProjectPopup from './NewProjectPopup.vue';
+import NewProjectPopup from '@/components/project/NewProjectPopup.vue';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 // Button and popup for adding new Project
 @Component(
     {
-        data: function () {
-            return {
-                isPopupShown: false
-            };
-        },
         methods: {
             toggleSelection: function () {
-                this.$data.isPopupShown = !this.$data.isPopupShown;
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
             }
         },
         components: {
             NewProjectPopup
-        }
+        },
+        computed: mapState({
+            isPopupShown: (state: any) => state.appStateModule.appState.isNewProjectPopupShown,
+        }),
     }
 )
 
