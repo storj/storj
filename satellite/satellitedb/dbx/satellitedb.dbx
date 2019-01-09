@@ -4,8 +4,10 @@
 
 model bwagreement (
 	key signature
+	unique serialnum
 
 	field signature  blob
+	field serialnum  text
 	field data       blob
 	field created_at timestamp ( autoinsert )
 )

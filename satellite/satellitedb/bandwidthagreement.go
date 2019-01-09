@@ -15,10 +15,11 @@ type bandwidthagreement struct {
 	db *dbx.DB
 }
 
-func (b *bandwidthagreement) CreateAgreement(ctx context.Context, agreement bwagreement.Agreement) error {
+func (b *bandwidthagreement) CreateAgreement(ctx context.Context, serialNum string, agreement bwagreement.Agreement) error {
 	_, err := b.db.Create_Bwagreement(
 		ctx,
 		dbx.Bwagreement_Signature(agreement.Signature),
+		dbx.Bwagreement_Serialnum(serialNum),
 		dbx.Bwagreement_Data(agreement.Agreement),
 	)
 	return err
