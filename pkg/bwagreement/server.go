@@ -66,7 +66,6 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 		return reply, err
 	}
 
-	//Deserealize RenterBandwidthAllocation.GetData() so we can get public key
 	rbad := &pb.RenterBandwidthAllocation_Data{}
 	if err = proto.Unmarshal(ba.GetData(), rbad); err != nil {
 		return reply, BwAgreementError.New("Failed to unmarshal RenterBandwidthAllocation: %+v", err)
