@@ -17,6 +17,7 @@ import (
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
 type Service struct {
+	log      *zap.Logger
 	Cursor   *Cursor
 	Verifier *Verifier
 	Reporter reporter
@@ -43,19 +44,21 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return err
 	}
 	transport := transport.NewClient(identity)
-	service, err := NewService(ctx, c.SatelliteAddr, c.Interval, c.MaxRetriesStatDB, pointers, transport, overlay, *identity, c.APIKey)
+
+	log := zap.L()
+	service, err := NewService(ctx, log, c.SatelliteAddr, c.Interval, c.MaxRetriesStatDB, pointers, transport, overlay, *identity, c.APIKey)
 	if err != nil {
 		return err
 	}
 	go func() {
 		err := service.Run(ctx)
-		zap.S().Error("audit service failed to run:", zap.Error(err))
+		service.log.Error("audit service failed to run:", zap.Error(err))
 	}()
 	return server.Run(ctx)
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(ctx context.Context, statDBPort string, interval time.Duration, maxRetries int, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
+func NewService(ctx context.Context, log *zap.Logger, statDBPort string, interval time.Duration, maxRetries int, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
 	identity provider.FullIdentity, apiKey string) (service *Service, err error) {
 	cursor := NewCursor(pointers)
 	verifier := NewVerifier(transport, overlay, identity)
@@ -65,6 +68,7 @@ func NewService(ctx context.Context, statDBPort string, interval time.Duration, 
 	}
 
 	return &Service{
+		log:      log,
 		Cursor:   cursor,
 		Verifier: verifier,
 		Reporter: reporter,
@@ -75,12 +79,12 @@ func NewService(ctx context.Context, statDBPort string, interval time.Duration, 
 // Run runs auditing service
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	zap.S().Info("Audit cron is starting up")
+	service.log.Info("Audit cron is starting up")
 
 	for {
 		err := service.process(ctx)
 		if err != nil {
-			zap.L().Error("process", zap.Error(err))
+			service.log.Error("process", zap.Error(err))
 		}
 
 		select {
