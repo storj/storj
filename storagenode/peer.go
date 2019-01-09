@@ -184,5 +184,8 @@ func (peer *Peer) Close() error {
 // ID returns the peer ID.
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
+// Local returns the peer local node info.
+func (peer *Peer) Local() pb.Node { return peer.RoutingTable.Local() }
+
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Public.Server.Addr().String() }

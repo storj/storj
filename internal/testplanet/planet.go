@@ -36,9 +36,12 @@ import (
 type Peer interface {
 	ID() storj.NodeID
 	Addr() string
+	Local() pb.Node
 
 	Run(context.Context) error
 	Close() error
+
+	NewNodeClient() (node.Client, error)
 }
 
 // Planet is a full storj system setup.
@@ -251,7 +254,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 	defer func() {
 		for _, x := range xs {
 			planet.peers = append(planet.peers, x)
-			planet.nodeInfos = append(planet.nodeInfos, x.RoutingTable.Local())
+			planet.nodeInfos = append(planet.nodeInfos, x.Local())
 		}
 	}()
 

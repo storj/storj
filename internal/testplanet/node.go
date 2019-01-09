@@ -96,8 +96,11 @@ func (planet *Planet) newNode(name string, nodeType pb.NodeType) (*Node, error) 
 // ID returns node id
 func (node *Node) ID() storj.NodeID { return node.Info.Id }
 
-// Addr retursn node address
+// Addr returns node address
 func (node *Node) Addr() string { return node.Info.Address.Address }
+
+// Addr returns local info
+func (node *Node) Local() pb.Node { return node.Info }
 
 // Shutdown shuts down all node dependencies
 func (node *Node) Shutdown() error {
