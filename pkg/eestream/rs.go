@@ -17,6 +17,10 @@ func NewRSScheme(fc *infectious.FEC, erasureShareSize int) ErasureScheme {
 	return &rsScheme{fc: fc, erasureShareSize: erasureShareSize}
 }
 
+func (s *rsScheme) EncodeSingle(input, output []byte, num int) (err error) {
+	return s.fc.EncodeSingle(input, output, num)
+}
+
 func (s *rsScheme) Encode(input []byte, output func(num int, data []byte)) (
 	err error) {
 	return s.fc.Encode(input, func(s infectious.Share) {

@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 )
 
 func randData(amount int) []byte {
@@ -51,7 +52,7 @@ func TestRS(t *testing.T) {
 	}
 	readerMap := make(map[int]io.ReadCloser, len(readers))
 	for i, reader := range readers {
-		readerMap[i] = ioutil.NopCloser(reader)
+		readerMap[i] = reader
 	}
 	decoder := DecodeReaders(ctx, readerMap, rs, 32*1024, 0)
 	defer func() { assert.NoError(t, decoder.Close()) }()
@@ -82,7 +83,7 @@ func TestRSUnexpectedEOF(t *testing.T) {
 	}
 	readerMap := make(map[int]io.ReadCloser, len(readers))
 	for i, reader := range readers {
-		readerMap[i] = ioutil.NopCloser(reader)
+		readerMap[i] = reader
 	}
 	decoder := DecodeReaders(ctx, readerMap, rs, 32*1024, 0)
 	defer func() { assert.NoError(t, decoder.Close()) }()
@@ -194,8 +195,6 @@ func TestRSEncoderInputParams(t *testing.T) {
 		maxSize   int64
 		errString string
 	}{
-		{0, ""},
-		{-1, "eestream error: negative max size"},
 		{1024, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
@@ -210,11 +209,14 @@ func TestRSEncoderInputParams(t *testing.T) {
 		if !assert.NoError(t, err, errTag) {
 			continue
 		}
-		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.maxSize)
+		readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, tt.maxSize)
 		if tt.errString == "" {
 			assert.NoError(t, err, errTag)
 		} else {
 			assert.EqualError(t, err, tt.errString, errTag)
+		}
+		for _, reader := range readers {
+			assert.NoError(t, reader.Close())
 		}
 	}
 }
@@ -240,11 +242,14 @@ func TestRSRangerInputParams(t *testing.T) {
 		if !assert.NoError(t, err, errTag) {
 			continue
 		}
-		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.maxSize)
+		readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, tt.maxSize)
 		if tt.errString == "" {
 			assert.NoError(t, err, errTag)
 		} else {
 			assert.EqualError(t, err, tt.errString, errTag)
+		}
+		for _, reader := range readers {
+			assert.NoError(t, reader.Close())
 		}
 	}
 }
@@ -479,14 +484,14 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 	}
 }
 
-func readAll(readers []io.Reader) ([][]byte, error) {
+func readAll(readers []io.ReadCloser) ([][]byte, error) {
 	pieces := make([][]byte, len(readers))
 	errs := make(chan error, len(readers))
 	for i := range readers {
 		go func(i int) {
 			var err error
 			pieces[i], err = ioutil.ReadAll(readers[i])
-			errs <- err
+			errs <- utils.CombineErrors(err, readers[i].Close())
 		}(i)
 	}
 	for range readers {
@@ -534,9 +539,12 @@ func TestEncoderStalledReaders(t *testing.T) {
 	if time.Since(start) > 1*time.Second {
 		t.Fatalf("waited for slow reader")
 	}
+	for _, reader := range readers {
+		assert.NoError(t, reader.Close())
+	}
 }
 
-func readAllStalled(readers []io.Reader, stalled int) ([][]byte, error) {
+func readAllStalled(readers []io.ReadCloser, stalled int) ([][]byte, error) {
 	pieces := make([][]byte, len(readers))
 	errs := make(chan error, len(readers))
 	for i := stalled; i < len(readers); i++ {

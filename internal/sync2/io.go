@@ -30,6 +30,13 @@ type PipeReader interface {
 	CloseWithError(reason error) error
 }
 
+// PipeReaderAt allows closing the offset reader with an error
+type PipeReaderAt interface {
+	io.ReaderAt
+	io.Closer
+	CloseWithError(reason error) error
+}
+
 // memory implements ReadAtWriteAtCloser on a memory buffer
 type memory []byte
 

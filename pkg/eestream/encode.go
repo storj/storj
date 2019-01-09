@@ -7,13 +7,12 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"sync/atomic"
 
-	"go.uber.org/zap"
-
+	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/utils"
 )
 
 // ErasureScheme represents the general format of any erasure scheme algorithm.
@@ -22,6 +21,9 @@ import (
 type ErasureScheme interface {
 	// Encode will take 'in' and call 'out' with erasure coded pieces.
 	Encode(in []byte, out func(num int, data []byte)) error
+
+	// EncodeSingle will take 'in' with the stripe and fill 'out' with the erasure share for piece 'num'.
+	EncodeSingle(in, out []byte, num int) error
 
 	// Decode will take a mapping of available erasure coded piece num -> data,
 	// 'in', and append the combined data to 'out', returning it.
@@ -100,87 +102,102 @@ func (rs *RedundancyStrategy) OptimalThreshold() int {
 }
 
 type encodedReader struct {
-	r        io.Reader
-	rs       RedundancyStrategy
-	inbuf    []byte
-	pieceBuf *sync2.MultiPipe
+	rs      RedundancyStrategy
+	segment sync2.PipeReaderAt
+	pieces  map[int](*encodedPiece)
 }
 
 // EncodeReader takes a Reader and a RedundancyStrategy and returns a slice of
 // Readers.
 //
 // maxSize is the maximum number of bytes expected to be returned by the Reader.
-func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy, maxSize int64) ([]io.Reader, error) {
+func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy, maxSize int64) ([]io.ReadCloser, error) {
 	err := checkMaxSize(maxSize)
 	if err != nil {
 		return nil, err
 	}
 
-	pieceSize := maxSize / int64(rs.RequiredCount())
-
 	er := &encodedReader{
-		r:     r,
-		rs:    rs,
-		inbuf: make([]byte, rs.StripeSize()),
+		rs:     rs,
+		pieces: make(map[int](*encodedPiece), rs.TotalCount()),
 	}
 
 	// TODO: make it configurable between file pipe and memory pipe
-	er.pieceBuf, err = sync2.NewMultiPipeMemory(int64(rs.TotalCount()), pieceSize)
+	teeReader, teeWriter, err := sync2.NewTeeFile("/tmp", rs.TotalCount())
 	if err != nil {
 		return nil, err
 	}
 
-	readers := make([]io.Reader, 0, rs.TotalCount())
+	er.segment = teeReader
+	readers := make([]io.ReadCloser, 0, rs.TotalCount())
 	for i := 0; i < rs.TotalCount(); i++ {
-		reader, _ := er.pieceBuf.Pipe(i)
-		readers = append(readers, reader)
+		er.pieces[i] = &encodedPiece{
+			er:        er,
+			num:       i,
+			stripeBuf: make([]byte, rs.StripeSize()),
+			shareBuf:  make([]byte, rs.ErasureShareSize()),
+		}
+		readers = append(readers, er.pieces[i])
 	}
 
-	go er.fillBuffer(ctx)
+	go er.fillBuffer(ctx, r, teeWriter)
 
 	return readers, nil
 }
 
-func (er *encodedReader) fillBuffer(ctx context.Context) {
-	var err error
+func (er *encodedReader) fillBuffer(ctx context.Context, r io.Reader, w sync2.PipeWriter) {
+	// TODO: interrupt copy if context is canceled
+	_, err := io.Copy(w, r)
+	w.CloseWithError(err)
+}
 
-	for {
-		if ctx.Err() == context.Canceled {
-			err = context.Canceled
-			break
-		}
+type encodedPiece struct {
+	er            *encodedReader
+	num           int
+	currentStripe int64
+	stripeBuf     []byte
+	shareBuf      []byte
+	available     int
+	err           error
+	closed        int32
+}
 
-		_, err = io.ReadFull(er.r, er.inbuf)
+func (ep *encodedPiece) Read(p []byte) (n int, err error) {
+	if ep.err != nil {
+		return 0, ep.err
+	}
+
+	if ep.available == 0 {
+		// take the next stripe from the segment buffer
+		off := ep.currentStripe * int64(ep.er.rs.StripeSize())
+		_, err := ep.er.segment.ReadAt(ep.stripeBuf, off)
 		if err != nil {
-			break
+			return 0, err
 		}
 
-		var writeErr error
-		err = er.rs.Encode(er.inbuf, func(num int, data []byte) {
-			_, writer := er.pieceBuf.Pipe(num)
-			_, writeErr = writer.Write(data)
-		})
-
-		err = utils.CombineErrors(err, writeErr)
+		// encode the num-th erasure share
+		err = ep.er.rs.EncodeSingle(ep.stripeBuf, ep.shareBuf, ep.num)
 		if err != nil {
-			break
+			return 0, err
 		}
+
+		ep.currentStripe++
+		ep.available = ep.er.rs.ErasureShareSize()
 	}
 
-	if err == io.EOF {
-		err = nil
-	}
+	// we have some buffer remaining for this piece. write it to the output
+	off := len(ep.shareBuf) - ep.available
+	n = copy(p, ep.shareBuf[off:])
+	ep.available -= n
 
-	var errGroup utils.ErrorGroup
-	for i := 0; i < er.rs.TotalCount(); i++ {
-		_, writer := er.pieceBuf.Pipe(i)
-		errGroup.Add(writer.CloseWithError(err))
-	}
+	return n, nil
+}
 
-	err = errGroup.Finish()
-	if err != nil {
-		zap.S().Errorf("Error closing pipe writers: %v", err)
+func (ep *encodedPiece) Close() error {
+	if atomic.CompareAndSwapInt32(&ep.closed, 0, 1) {
+		ep.er.segment.Close()
 	}
+	return nil
 }
 
 // EncodedRanger will take an existing Ranger and provide a means to get
@@ -218,7 +235,7 @@ func (er *EncodedRanger) OutputSize() int64 {
 }
 
 // Range is like Ranger.Range, but returns a slice of Readers
-func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.Reader, error) {
+func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.ReadCloser, error) {
 	// the offset and length given may not be block-aligned, so let's figure
 	// out which blocks contain the request.
 	firstBlock, blockCount := encryption.CalcEncompassingBlocks(
@@ -244,7 +261,7 @@ func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.
 		}
 		// the length might be shorter than a multiple of the block size, so
 		// limit it
-		readers[i] = io.LimitReader(r, length)
+		readers[i] = readcloser.LimitReadCloser(r, length)
 	}
 	return readers, nil
 }

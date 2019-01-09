@@ -10,7 +10,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"time"
 
 	"github.com/gtank/cryptopasta"
@@ -136,7 +135,7 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 
 	defer func() {
 		if err := writer.Close(); err != nil && err != io.EOF {
-			log.Printf("failed to close writer: %s\n", err)
+			zap.S().Debugf("failed to close writer: %s\n", err)
 		}
 	}()
 

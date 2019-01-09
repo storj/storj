@@ -83,7 +83,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	}
 	infos := make(chan info, len(nodes))
 
-	childCtx, cancel := context.WithCancel(ctx)
+	psCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	start := time.Now()
@@ -106,20 +106,21 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 				infos <- info{i: i, err: err}
 				return
 			}
-			ps, err := ec.newPSClient(childCtx, n)
+			ps, err := ec.newPSClient(psCtx, n)
 			if err != nil {
 				zap.S().Errorf("Failed dialing for putting piece %s -> %s to node %s: %v",
 					pieceID, derivedPieceID, n.Id, err)
 				infos <- info{i: i, err: err}
 				return
 			}
-			err = ps.Put(childCtx, derivedPieceID, readers[i], expiration, pba, authorization)
+			err = ps.Put(psCtx, derivedPieceID, readers[i], expiration, pba, authorization)
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
 			utils.LogClose(ps)
+			utils.LogClose(readers[i])
 			// Canceled context means the piece upload was interrupted due to slow connection.
 			// No error logging for this case.
-			if childCtx.Err() == context.Canceled {
+			if psCtx.Err() == context.Canceled {
 				zap.S().Infof("Node %s cut from upload due to slow connection.", n.Id)
 				err = context.Canceled
 			} else if err != nil {

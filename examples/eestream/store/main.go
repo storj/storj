@@ -77,6 +77,7 @@ func Main() error {
 			}
 
 			defer printError(fh.Close)
+			defer printError(readers[i].Close)
 
 			_, err = io.Copy(fh, readers[i])
 			errs <- err
