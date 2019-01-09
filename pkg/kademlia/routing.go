@@ -150,6 +150,18 @@ func (rt *RoutingTable) FindNear(id storj.NodeID, limit int) (nodes []*pb.Node, 
 	if err != nil {
 		return nodes, RoutingErr.Wrap(err)
 	}
+
+	// remove ourselves from the results
+	if len(nodeIDs) > 0 {
+		for i, nodeID := range nodeIDs {
+			if nodeID == rt.self.Id {
+				nodeIDs[i], nodeIDs[len(nodeIDs)-1] = nodeIDs[len(nodeIDs)-1], nodeIDs[i]
+				nodeIDs = nodeIDs[:len(nodeIDs)-1]
+				break
+			}
+		}
+	}
+
 	sortByXOR(nodeIDs, id)
 	if len(nodeIDs) >= limit {
 		nodeIDs = nodeIDs[:limit]
