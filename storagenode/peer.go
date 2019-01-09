@@ -19,12 +19,15 @@ import (
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storage"
 )
 
 // DB is the master database for Storage Node
 type DB interface {
-	PSDB() *psdb.DB // TODO: use better interface
-	RoutingTable() *kademlia.RoutingTable
+	// TODO: use better interfaces
+	Disk() string
+	PSDB() *psdb.DB
+	RoutingTable() (kdb, ndb storage.KeyValueStore)
 }
 
 // Config is all the configuration parameters for a Storage Node
@@ -55,6 +58,7 @@ type Peer struct {
 	}
 
 	// services and endpoints
+	RoutingTable     *kademlia.RoutingTable
 	Kademlia         *kademlia.Kademlia
 	KademliaEndpoint *node.Server
 	// Discovery *discovery.Discovery
@@ -62,7 +66,7 @@ type Peer struct {
 	Piecestore *psserver.Server // TODO: separate into endpoint and service
 }
 
-// New creates a new Storage Node
+// New creates a new Storage Node.
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
@@ -109,13 +113,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			},
 		}
 
-		// TODO: reduce number of arguments
-		peer.Kademlia, err = kademlia.NewWith(peer.Log.Named("kademlia"), self, nil, peer.Identity, config.Alpha, peer.DB.RoutingTable())
+		kdb, ndb := peer.DB.RoutingTable()
+		peer.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.KademliaEndpoint = node.NewServer(peer.Log.Named("kademlia"), peer.Kademlia)
+		// TODO: reduce number of arguments
+		peer.Kademlia, err = kademlia.NewWith(peer.Log.Named("kademlia"), self, nil, peer.Identity, config.Alpha, peer.RoutingTable)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.KademliaEndpoint = node.NewServer(peer.Log.Named("kademlia:endpoint"), peer.Kademlia)
 		pb.RegisterNodesServer(peer.Public.Server.GRPC(), peer.KademliaEndpoint)
 	}
 
@@ -124,13 +134,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		config := config.Piecestore
 
 		// TODO: psserver shouldn't need the private key
-		peer.Piecestore = psserver.New(peer.Log.Named("piecestore"), config.Path, peer.DB.PSDB(), config, peer.Identity.Key)
+		peer.Piecestore = psserver.New(peer.Log.Named("piecestore"), peer.DB.Disk(), peer.DB.PSDB(), config, peer.Identity.Key)
 		pb.RegisterPieceStoreRoutesServer(peer.Public.Server.GRPC(), peer.Piecestore)
 	}
 
 	return peer, nil
 }
 
+// Run runs storage node until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -154,6 +165,9 @@ func (peer *Peer) Close() error {
 	}
 	if peer.Kademlia != nil {
 		errlist.Add(peer.Kademlia.Close())
+	}
+	if peer.RoutingTable != nil {
+		errlist.Add(peer.RoutingTable.SelfClose())
 	}
 
 	// close servers
