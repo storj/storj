@@ -56,6 +56,8 @@ type Kademlia struct {
 	bootstrapCancel unsafe.Pointer // context.CancelFunc
 }
 
+var New = NewKademlia
+
 // NewKademlia returns a newly configured Kademlia instance
 func NewKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
 	self := pb.Node{
@@ -87,6 +89,8 @@ func NewKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node
 	return NewKademliaWithRoutingTable(log, self, bootstrapNodes, identity, alpha, rt)
 }
 
+var NewWith = NewKademliaWithRoutingTable
+
 // NewKademliaWithRoutingTable returns a newly configured Kademlia instance
 func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
 	k := &Kademlia{
@@ -104,6 +108,16 @@ func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes [
 	}
 	k.nodeClient = nc
 	return k, nil
+}
+
+// Close closes all kademlia connections and prevents new ones from being created.
+func (k *Kademlia) Close() error {
+	// Cancel the bootstrap context
+	ptr := atomic.LoadPointer(&k.bootstrapCancel)
+	if ptr != nil {
+		(*(*context.CancelFunc)(ptr))()
+	}
+	return k.nodeClient.Disconnect()
 }
 
 // Disconnect safely closes connections to the Kademlia network
@@ -166,6 +180,10 @@ func (k *Kademlia) GetNodes(ctx context.Context, start storj.NodeID, limit int, 
 func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error) {
 	return k.routingTable, nil
 }
+
+// SetBootstrapNodes sets the bootstrap nodes.
+// Must be called before anything starting to use kademlia.
+func (k *Kademlia) SetBootstrapNodes(nodes []pb.Node) { k.bootstrapNodes = nodes }
 
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
