@@ -273,7 +273,6 @@ func GetIntroNode(addr string) (*pb.Node, error) {
 func (k *Kademlia) StartRefresh(ctx context.Context) {
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
-		time.Sleep(time.Duration(rand.Intn(300)) * time.Second) //stagger
 		for {
 			if err := k.refresh(ctx); err != nil {
 				k.log.Warn("bucket refresh failed", zap.Error(err))

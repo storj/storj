@@ -6,7 +6,6 @@ package discovery
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -49,11 +48,9 @@ func (d *Discovery) Refresh(ctx context.Context) error {
 	for _, node := range nodes {
 		if _, err := d.kad.Ping(ctx, *node); err != nil {
 			// fail ping refresh
-			d.log.Warn(fmt.Sprintf("unable to ping node %+v\n", node.Id))
 			_, err = d.statdb.UpdateUptime(ctx, node.Id, false)
 		} else {
 			// succeed ping refresh
-			d.log.Info(fmt.Sprintf("successfully contacted node %s", node.Id))
 			_, err = d.statdb.UpdateUptime(ctx, node.Id, true)
 		}
 	}
