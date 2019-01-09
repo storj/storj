@@ -53,20 +53,20 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		defer m.Close()
 	}
 
+	satellite := runCfg.Satellite
 	// start satellite
 	go func() {
-		_, _ = fmt.Printf("Starting satellite on %s\n",
-			runCfg.Satellite.Server.Address)
+		_, _ = fmt.Printf("Starting satellite on %s\n", satellite.Server.Address)
 
-		if runCfg.Satellite.Audit.SatelliteAddr == "" {
-			runCfg.Satellite.Audit.SatelliteAddr = runCfg.Satellite.Server.Address
+		if satellite.Audit.SatelliteAddr == "" {
+			satellite.Audit.SatelliteAddr = satellite.Server.Address
 		}
 
-		if runCfg.Satellite.Web.SatelliteAddr == "" {
-			runCfg.Satellite.Web.SatelliteAddr = runCfg.Satellite.Server.Address
+		if satellite.Web.SatelliteAddr == "" {
+			satellite.Web.SatelliteAddr = satellite.Server.Address
 		}
 
-		database, err := satellitedb.New(runCfg.Satellite.Database)
+		database, err := satellitedb.New(satellite.Database)
 		if err != nil {
 			errch <- errs.New("Error starting master database on satellite: %+v", err)
 			return
@@ -82,23 +82,23 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		ctx = context.WithValue(ctx, "masterdb", database)
 
 		// Run satellite
-		errch <- runCfg.Satellite.Server.Run(ctx,
+		errch <- satellite.Server.Run(ctx,
 			grpcauth.NewAPIKeyInterceptor(),
-			runCfg.Satellite.Kademlia,
-			runCfg.Satellite.Audit,
-			runCfg.Satellite.Overlay,
-			runCfg.Satellite.Discovery,
-			runCfg.Satellite.PointerDB,
-			runCfg.Satellite.Checker,
-			runCfg.Satellite.Repairer,
-			runCfg.Satellite.BwAgreement,
-			runCfg.Satellite.Web,
-			runCfg.Satellite.Tally,
-			runCfg.Satellite.Rollup,
+			satellite.Kademlia,
+			satellite.Audit,
+			satellite.Overlay,
+			satellite.Discovery,
+			satellite.PointerDB,
+			satellite.Checker,
+			satellite.Repairer,
+			satellite.BwAgreement,
+			satellite.Web,
+			satellite.Tally,
+			satellite.Rollup,
 
 			// NB(dylan): Inspector is only used for local development and testing.
 			// It should not be added to the Satellite startup
-			runCfg.Satellite.Inspector,
+			satellite.Inspector,
 		)
 	}()
 
@@ -120,13 +120,15 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			errch <- v.Server.Run(ctx, nil, v.Kademlia, v.Storage)
 		}(i, v)
 	}
+
 	// start s3 uplink
+	uplink := runCfg.Uplink
 	go func() {
 		_, _ = fmt.Printf("Starting s3-gateway on %s\nAccess key: %s\nSecret key: %s\n",
-			runCfg.Uplink.Server.Address,
-			runCfg.Uplink.Minio.AccessKey,
-			runCfg.Uplink.Minio.SecretKey)
-		errch <- runCfg.Uplink.Run(ctx)
+			uplink.Server.Address,
+			uplink.Minio.AccessKey,
+			uplink.Minio.SecretKey)
+		errch <- uplink.Run(ctx)
 	}()
 
 	return utils.CollectErrors(errch, 5*time.Second)
