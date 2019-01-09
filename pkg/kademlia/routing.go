@@ -96,6 +96,8 @@ func (rt *RoutingTable) Close() error {
 
 // Local returns the local nodes ID
 func (rt *RoutingTable) Local() pb.Node {
+	rt.mutex.Lock()
+	defer rt.mutex.Unlock()
 	return rt.self
 }
 
@@ -163,15 +165,13 @@ func (rt *RoutingTable) FindNear(id storj.NodeID, limit int) (nodes []*pb.Node, 
 
 // UpdateSelf updates a node on the routing table
 func (rt *RoutingTable) UpdateSelf(node *pb.Node) error {
-	if node.Id != rt.Local().Id {
+	// TODO: replace UpdateSelf with UpdateRestrictions and UpdateAddress
+	rt.mutex.Lock()
+	if node.Id != rt.self.Id {
+		rt.mutex.Unlock()
 		return RoutingErr.New("self does not have a matching node id")
 	}
-
-	rt.mutex.Lock()
 	rt.self = *node
-	rt.mutex.Unlock()
-
-	rt.mutex.Lock()
 	rt.seen[node.Id] = node
 	rt.mutex.Unlock()
 

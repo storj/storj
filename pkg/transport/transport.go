@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -65,7 +65,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 	// add ID of node we are wanting to connect to
 	dialOpt, err := transport.identity.DialOption(node.Id)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	options := append([]grpc.DialOption{dialOpt}, opts...)
@@ -81,7 +81,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 
 	alertSuccess(ctx, transport.observers, node)
 
-	return conn, err
+	return conn, nil
 }
 
 // DialAddress returns a grpc connection with tls to an IP address
@@ -90,11 +90,12 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 
 	dialOpt, err := transport.identity.DialOption(storj.NodeID{})
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	options := append([]grpc.DialOption{dialOpt}, opts...)
-	return grpc.Dial(address, options...)
+	conn, err = grpc.Dial(address, options...)
+	return conn, Error.Wrap(err)
 }
 
 // Identity is a getter for the transport's identity
