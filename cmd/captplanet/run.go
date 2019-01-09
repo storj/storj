@@ -56,8 +56,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	satellite := runCfg.Satellite
 	// start satellite
 	go func() {
-		_, _ = fmt.Printf("Starting satellite on %s\n",
-			satellite.Server.Address)
+		_, _ = fmt.Printf("Starting satellite on %s\n", satellite.Server.Address)
 
 		if satellite.Audit.SatelliteAddr == "" {
 			satellite.Audit.SatelliteAddr = satellite.Server.Address
