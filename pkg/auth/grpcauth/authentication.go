@@ -5,7 +5,6 @@ package grpcauth
 
 import (
 	"context"
-	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -20,11 +19,14 @@ func NewAPIKeyInterceptor() grpc.UnaryServerInterceptor {
 		err error) {
 
 		md, ok := metadata.FromIncomingContext(ctx)
-		APIKey := strings.Join(md["apikey"], "")
-		if !ok || APIKey == "" {
+		if !ok {
 			return handler(ctx, req)
 		}
-		return handler(auth.WithAPIKey(ctx, []byte(APIKey)), req)
+		apikeys, ok := md["apikey"]
+		if !ok || len(apikeys) == 0 {
+			return handler(ctx, req)
+		}
+		return handler(auth.WithAPIKey(ctx, []byte(apikeys[0])), req)
 	}
 }
 

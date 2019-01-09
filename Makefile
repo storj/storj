@@ -77,6 +77,11 @@ test-captplanet: ## Test source with captain planet (travis)
 	@echo "Running ${@}"
 	@./scripts/test-captplanet.sh
 
+.PHONY: test-storj-sdk
+test-storj-sdk: ## Test source with storj-sdk (travis)
+	@echo "Running ${@}"
+	@./scripts/test-storj-sdk.sh
+
 .PHONY: test-certificate-signing
 test-certificate-signing: ## Test certificate signing service and storagenode setup (travis)
 	@echo "Running ${@}"

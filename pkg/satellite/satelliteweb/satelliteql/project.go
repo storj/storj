@@ -5,6 +5,7 @@ package satelliteql
 
 import (
 	"github.com/graphql-go/graphql"
+
 	"storj.io/storj/pkg/satellite"
 )
 

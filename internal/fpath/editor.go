@@ -6,9 +6,8 @@ package fpath
 import (
 	"fmt"
 	"os"
-	"strings"
-
 	"os/exec"
+	"strings"
 )
 
 //EditFile opens the best OS-specific text editor we can find
