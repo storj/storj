@@ -39,7 +39,7 @@ func New(log *zap.Logger, DB *psdb.DB, identity *provider.FullIdentity, kad *kad
 	return &AgreementSender{DB: DB, log: log, transport: transport.NewClient(identity), kad: kad}
 }
 
-// Run the afreement sender with a context to check for cancel
+// Run the agreement sender with a context to check for cancel
 func (as *AgreementSender) Run(ctx context.Context) {
 	//todo:  we likely don't want to stop on err, but consider returning errors via a channel
 	ticker := time.NewTicker(*defaultCheckInterval)
@@ -64,8 +64,8 @@ func (as *AgreementSender) Run(ctx context.Context) {
 }
 
 func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID storj.NodeID, agreements []*psdb.Agreement) {
-	as.log.Info("Sending agreements to satellite", zap.Int("number of agreements", len(agreements)), zap.String("sat node id", satID.String()))
-	// Get satellite ip from overlay by Lookup satellite
+	as.log.Info("Sending agreements to satellite", zap.Int("number of agreements", len(agreements)), zap.String("satellite id", satID.String()))
+	// Get satellite ip from kademlia
 	satellite, err := as.kad.FindNode(ctx, satID)
 	if err != nil {
 		as.log.Error("Agreementsender could not find satellite", zap.Error(err))
