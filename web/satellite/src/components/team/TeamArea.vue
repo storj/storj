@@ -3,10 +3,10 @@
 
 <template>
     <div>
-        <div v-if="projectMembers.length > 0" class="team-header">
+        <div class="team-header">
             <HeaderArea/>
         </div>
-        <div v-if="projectMembers.length > 0" class="team-container">
+        <div id="scrollable_team_container" v-if="projectMembers.length > 0" v-on:scroll="handleScroll" class="team-container">
             <div class="team-container__content">
                 <div v-for="(member, index) in projectMembers" v-on:click="onMemberClick(member)" v-bind:key="index">
                     <TeamMemberItem
@@ -21,10 +21,9 @@
             </div>
         </div>
         <EmptyState
-            v-if="projectMembers.length === 0"
-            mainTitle="Invite Team Members"
-            additionalText="You need to click the button “+” in the left corner"
-            :imageSource="emptyImage" />
+                v-if="projectMembers.length === 0"
+                mainTitle="No results found"
+                :imageSource="emptyImage" />
     </div>
 </template>
 
@@ -35,17 +34,30 @@ import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
 import Footer from '@/components/team/footerArea/Footer.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     data: function () {
         return {
-            emptyImage: EMPTY_STATE_IMAGES.TEAM
+            emptyImage: EMPTY_STATE_IMAGES.TEAM,
         };
     },
     methods: {
         onMemberClick: function (member: any) {
             this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
+		},
+		handleScroll: async function () {
+			const documentElement = document.getElementById('scrollable_team_container');
+			if (!documentElement) {
+				return;
+			}
+
+			if (documentElement.scrollTop + documentElement.clientHeight !== documentElement.scrollHeight) return;
+
+			const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
+			if (response.isSuccess) return;
+
+			this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
         },
     },
     computed: {
@@ -54,7 +66,7 @@ import { PM_ACTIONS } from '@/utils/constants/actionNames';
         },
         selectedProjectMembers: function () {
             return this.$store.getters.selectedProjectMembers;
-        }
+        },
     },
     components: {
         TeamMemberItem,
@@ -71,6 +83,7 @@ export default class TeamArea extends Vue {
 <style scoped lang="scss">
     .team-header {
         position: fixed;
+        top: 100px;
         padding: 55px 30px 25px 64px;
         max-width: 79.7%;
         width: 100%;

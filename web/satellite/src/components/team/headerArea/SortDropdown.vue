@@ -6,11 +6,14 @@
     <div class="sort-dropdown-choice-container">
         <div class="sort-dropdown-overflow-container">
             <!-- TODO: add selection logic onclick -->
-            <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick">
+            <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick(sortByEnum.EMAIL)">
                 <h2>Sort by email</h2>
             </div>
-            <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick">
+            <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick(sortByEnum.CREATED_AT)">
                 <h2>Sort by date</h2>
+            </div>
+            <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick(sortByEnum.NAME)">
+                <h2>Sort by name</h2>
             </div>
         </div>
     </div>
@@ -18,11 +21,14 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
 
 @Component(
     {
         data: function () {
-            return {};
+            return {
+            	sortByEnum: ProjectMemberSortByEnum,
+            };
         },
         props: {
             onClose: {
@@ -33,8 +39,16 @@ import { Component, Vue } from 'vue-property-decorator';
             onCloseClick: function (): void {
                 this.$emit('onClose');
             },
-            onSortUsersClick: function (): void {
-                this.$emit('onClose');
+            onSortUsersClick: async function (sortBy: ProjectMemberSortByEnum) {
+				this.$emit('onClose');
+
+				this.$store.dispatch('setProjectMembersSortingBy', sortBy);
+
+				const response = await this.$store.dispatch('fetchProjectMembers');
+				if (response.isSuccess) return;
+
+				this.$store.dispatch('error', 'Unable to fetch project members');
+
             }
         },
     }
