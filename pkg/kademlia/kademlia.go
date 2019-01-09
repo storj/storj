@@ -287,7 +287,7 @@ func GetIntroNode(addr string) (*pb.Node, error) {
 	}, nil
 }
 
-//StartRefresh occasionally refreshes stale kad buckets
+// StartRefresh occasionally refreshes stale kad buckets
 func (k *Kademlia) StartRefresh(ctx context.Context) {
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
@@ -306,7 +306,7 @@ func (k *Kademlia) StartRefresh(ctx context.Context) {
 	}()
 }
 
-//refresh updates each Kademlia bucket not contacted in the last hour
+// refresh updates each Kademlia bucket not contacted in the last hour
 func (k *Kademlia) refresh(ctx context.Context) error {
 	bIDs, err := k.routingTable.GetBucketIds()
 	if err != nil {

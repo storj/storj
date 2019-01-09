@@ -151,6 +151,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return err
 	}
 	peer.Kademlia.StartRefresh(ctx)
+
 	return peer.Public.Server.Run(ctx)
 }
 
