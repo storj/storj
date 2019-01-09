@@ -302,3 +302,6 @@ func (t *Table) add(b *bucket, node *nodeData, dissimilar bool, nearest []*nodeD
 	}
 	t.add(b, node, dissimilar, nearest)
 }
+
+// Local implements the dht.RoutingTable interface
+func (t *Table) Close() error { return nil }

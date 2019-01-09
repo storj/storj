@@ -8,14 +8,17 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
 func TestAddToReplacementCache(t *testing.T) {
-	rt, cleanup := createRoutingTable(t, storj.NodeID{244, 255})
-	defer cleanup()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	rt := createRoutingTable(storj.NodeID{244, 255})
+	defer ctx.Check(rt.Close)
 
 	kadBucketID := bucketID{255, 255}
 	node1 := teststorj.MockNode(string([]byte{233, 255}))
