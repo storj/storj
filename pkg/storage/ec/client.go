@@ -121,7 +121,11 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 			// Canceled context means the piece upload was interrupted due to slow connection.
 			// No error logging for this case.
 			if psCtx.Err() == context.Canceled {
-				zap.S().Infof("Node %s cut from upload due to slow connection.", n.Id)
+				if ctx.Err() == context.Canceled {
+					zap.S().Infof("Upload to node %s canceled by user.", n.Id)
+				} else {
+					zap.S().Infof("Node %s cut from upload due to slow connection.", n.Id)
+				}
 				err = context.Canceled
 			} else if err != nil {
 				nodeAddress := "nil"
