@@ -21,6 +21,7 @@ func (b *bandwidthagreement) CreateAgreement(ctx context.Context, serialNum stri
 		dbx.Bwagreement_Signature(agreement.Signature),
 		dbx.Bwagreement_Serialnum(serialNum),
 		dbx.Bwagreement_Data(agreement.Agreement),
+		dbx.Bwagreement_ExpiresAt(agreement.ExpiresAt),
 	)
 	return err
 }
@@ -55,4 +56,8 @@ func (b *bandwidthagreement) GetAgreementsSince(ctx context.Context, since time.
 		agreement.CreatedAt = entry.CreatedAt
 	}
 	return agreements, nil
+}
+
+func (b *bandwidthagreement) DeleteExpired(ctx context.Context) error {
+	return Error.New("DeleteExpired not implemented")
 }

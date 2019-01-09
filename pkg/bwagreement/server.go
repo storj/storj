@@ -40,6 +40,7 @@ type Agreement struct {
 	Agreement []byte
 	Signature []byte
 	CreatedAt time.Time
+	ExpiresAt time.Time
 }
 
 // NewServer creates instance of Server
