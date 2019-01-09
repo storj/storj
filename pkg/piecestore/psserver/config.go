@@ -37,7 +37,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	defer mon.Task()(&ctx)(&err)
 	ctx, cancel := context.WithCancel(ctx)
 
-	//peicestore
+	//piecestore
 	db, err := psdb.Open(ctx, filepath.Join(c.Path, "piece-store-data"), filepath.Join(c.Path, "piecestore.db"))
 	if err != nil {
 		return ServerError.Wrap(err)
