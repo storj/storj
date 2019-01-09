@@ -62,7 +62,6 @@ type Peer struct {
 	RoutingTable     *kademlia.RoutingTable
 	Kademlia         *kademlia.Kademlia
 	KademliaEndpoint *node.Server
-	// Discovery *discovery.Discovery
 
 	Piecestore *psserver.Server // TODO: separate into endpoint and service
 }
