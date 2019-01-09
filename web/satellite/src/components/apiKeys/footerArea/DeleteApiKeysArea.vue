@@ -2,16 +2,16 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="delete-user-container" >
-        <div class="delete-user-container__wrap">
-            <div class="delete-user-container__selected-users-count">
-                <span class="delete-user-container__selected-users-count__button"></span>
-                <p class="delete-user-container__selected-users-count__count">{{selectedProjectMembersCount}}</p>
-                <p class="delete-user-container__selected-users-count__total-count"> of <span>{{projectMembersCount}}</span> Users Selected</p>
+    <div class="delete-api-key-container" >
+        <div class="delete-api-key-container__wrap">
+            <div class="delete-api-key-container__selected-api-keys-count">
+                <span class="delete-api-key-container__selected-api-keys-count__button"></span>
+                <p class="delete-api-key-container__selected-api-keys-count__count">1</p>
+                <p class="delete-api-key-container__selected-api-keys-count__total-count"> of <span>X</span> API Keys Selected</p>
             </div>
-            <div class="delete-user-container__buttons-group">
+            <div class="delete-api-key-container__buttons-group">
                 <Button 
-                    class="delete-user-container__buttons-group__cancel" 
+                    class="delete-api-key-container__buttons-group__cancel" 
                     label="Cancel" 
                     width="140px" 
                     height="58px" 
@@ -30,49 +30,31 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
-import { PM_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     methods: {
         onDelete: async function () {
-            const projectMemberEmails = this.$store.getters.selectedProjectMembers.map((member: TeamMemberModel) => {
-                return member.user.email;
-            });
-
-            const isSuccess = await this.$store.dispatch(PM_ACTIONS.DELETE, projectMemberEmails);
-
-            if (!isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error while deleting users from team');
-
-                return;
-            }
-
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members was successfully removed from project');
+           
         },
         onClearSelection: function () {
-            this.$store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
+
         }
 
     },
     computed: {
-        selectedProjectMembersCount: function () {
-            return this.$store.getters.selectedProjectMembers.length;
-        },
-        projectMembersCount: function () {
-            return this.$store.getters.projectMembers.length;
-        }
+
     },
     components: {
         Button
     }
 })
 
-export default class DeleteUserArea extends Vue {
+export default class DeleteApiKeysArea extends Vue {
 }
 </script>
 
 <style scoped lang="scss">
-    .delete-user-container {
+    .delete-api-key-container {
         padding-bottom: 50px;
         position: fixed;
         bottom: 0px;
@@ -110,7 +92,7 @@ export default class DeleteUserArea extends Vue {
             }
         }
 
-        &__selected-users-count {
+        &__selected-api-keys-count {
             display: flex;
             align-items: center;
             font-family: 'montserrat_regular';
@@ -131,19 +113,19 @@ export default class DeleteUserArea extends Vue {
         }
     }
     @media screen and (max-width: 1600px) {
-        .delete-user-container {
+        .delete-api-key-container {
             max-width: 74%;
         }
     }
 
     @media screen and (max-width: 1366px) {
-        .delete-user-container {
+        .delete-api-key-container {
             max-width: 72%;
         }
     }
 
     @media screen and (max-width: 1120px) {
-        .delete-user-container {
+        .delete-api-key-container {
             max-width: 82.7%;
         }
     }

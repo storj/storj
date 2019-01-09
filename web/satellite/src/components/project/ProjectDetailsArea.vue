@@ -46,12 +46,12 @@
                         </div>
                     </div>
                     <div class="project-details-info-container__portability-container__buttons-area">
-                        <Button label="Export" width="180px" height="48px" :onPress="onExportClick" isWhite/>
-                        <Button label="Import" width="180px" height="48px" :onPress="onImportClick"/>
+                        <Button label="Export" width="170px" height="48px" :onPress="onExportClick" isWhite/>
+                        <Button label="Import" width="170px" height="48px" :onPress="onImportClick"/>
                     </div>
                 </div>
             </div>
-            <div class="project-details__button-area">
+            <div class="project-details__button-area" id="deleteProjectPopupButton">
                 <Button class="delete-project" label="Delete project" width="180px" height="48px" :onPress="toggleDeleteDialog" isDeletion/>
             </div>
         </div>
@@ -59,9 +59,7 @@
             v-if="!isProjectSelected"
             mainTitle="Choose or Create new project"
             :imageSource="emptyImage" />
-        <DeleteProjectPopup 
-            v-if="isDeleteDialogShown"
-            :onClose="toggleDeleteDialog" />
+        <DeleteProjectPopup v-if="isPopupShown" />
     </div>
 </template>
 
@@ -72,7 +70,8 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import DeleteProjectPopup from '@/components/projectDetails/DeleteProjectPopup.vue';
+import { PROJETS_ACTIONS, APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
 
 @Component(
     {
@@ -81,7 +80,6 @@ import DeleteProjectPopup from '@/components/projectDetails/DeleteProjectPopup.v
                 isEditing: false,
                 newDescription: '',
                 emptyImage: EMPTY_STATE_IMAGES.PROJECT,
-                isDeleteDialogShown: false,
             };
         },
         methods: {
@@ -95,7 +93,7 @@ import DeleteProjectPopup from '@/components/projectDetails/DeleteProjectPopup.v
             },
             onSaveButtonClick: async function (): Promise<any> {
                 let response = await this.$store.dispatch(
-                    'updateProjectDescription', {
+                    PROJETS_ACTIONS.UPDATE, {
                         id: this.$store.getters.selectedProject.id,
                         description: this.$data.newDescription,
                     }
@@ -106,19 +104,21 @@ import DeleteProjectPopup from '@/components/projectDetails/DeleteProjectPopup.v
                     ? (() => {
                         this.$data.isEditing = !this.$data.isEditing;
                         this.$data.newDescription = '';
-                        this.$store.dispatch('success', 'Project updated successfully!');
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project updated successfully!');
                     })()
-                    : this.$store.dispatch('error', response.errorMessage);
+                    : this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
             },
             toggleDeleteDialog: function (): void {
-                this.$data.isDeleteDialogShown = !this.$data.isDeleteDialogShown;
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
             }
         },
         computed: {
             name: function (): string {
+
                 return this.$store.getters.selectedProject.name;
             },
             description: function (): string {
+
                 return this.$store.getters.selectedProject.description ? 
                     this.$store.getters.selectedProject.description :
                     'No description yet. Please enter some information about the project if any.';
@@ -126,8 +126,13 @@ import DeleteProjectPopup from '@/components/projectDetails/DeleteProjectPopup.v
             // this computed is used to indicate if project is selected.
             // if false - we should change UI
             isProjectSelected: function (): boolean {
+
                 return this.$store.getters.selectedProject.id !== '';
             },
+            isPopupShown: function (): boolean {
+
+                return this.$store.state.appStateModule.appState.isDeleteProjectPopupShown;
+            }
         },
         components: {
             Button,

@@ -3,7 +3,7 @@
 
 <template>
     <div class="new-project-popup-container">
-        <div class="new-project-popup">
+        <div class="new-project-popup" id="newProjectPopup">
             <div class="new-project-popup__info-panel-container">
                 <h2 class="new-project-popup__info-panel-container__main-label-text">Create New Project</h2>
                 <img src="@/../static/images/dashboard/CreateNewProject.png" alt="">
@@ -52,13 +52,11 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
 import Button from '@/components/common/Button.vue';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component(
     {
         props: {
-            onClose: {
-                type: Function
-            },
             onCreate: {
                 type: Function
             }
@@ -85,8 +83,7 @@ import Button from '@/components/common/Button.vue';
                 this.$data.termsAcceptedError = false;
             },
             onCloseClick: function (): void {
-                // TODO: save popup states in store
-                this.$emit('onClose');
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
             },
             createProject: async function (): Promise<any> {
                 if (!this.$data.isTermsAccepted) {
@@ -105,20 +102,20 @@ import Button from '@/components/common/Button.vue';
                     return;
                 }
 
-                let response = await this.$store.dispatch('createProject', {
+                let response = await this.$store.dispatch(PROJETS_ACTIONS.CREATE, {
                     name: this.$data.name,
                     description: this.$data.description,
                     isTermsAccepted: this.$data.isTermsAccepted
                 });
 
                 if (!response.isSuccess) {
-                    this.$store.dispatch('error', response.errorMessage);
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
 
                     return;
                 }
 
-                this.$store.dispatch('success', 'Project created successfully!');
-                this.$emit('onClose');
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project created successfully!');
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
             }
         },
         components: {
@@ -152,7 +149,7 @@ export default class NewProjectPopup extends Vue {
     .new-project-popup {
         width: 100%;
         max-width: 845px;
-        height: 540px;
+        height: 440px;
         background-color: #FFFFFF;
         border-radius: 6px;
         display: flex;
@@ -198,8 +195,8 @@ export default class NewProjectPopup extends Vue {
                     font-family: 'montserrat_regular';
                     font-size: 14px;
                     line-height: 20px;
-                    margin-top: 30px;
-                    margin-left: 10px;
+                    margin-top: 20px;
+                    margin-left: 0;
                 };
                 a {
                     color: #2683FF;

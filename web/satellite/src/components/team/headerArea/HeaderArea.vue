@@ -5,7 +5,7 @@
     <div class="team-header-container">
         <SortUsersDropdown />
         <SearchArea />
-        <Button label="Add User" width="240px" height="58px" :onPress="onAddUsersClick" />
+        <Button label="Add User" width="240px" height="58px" :onPress="onAddUsersClick" id="addTeamMemberPopupButton" />
     </div>
 </template>
 
@@ -14,11 +14,12 @@ import { Component, Vue } from 'vue-property-decorator';
 import SortUsersDropdown from '@/components/team/headerArea/SortUsersDropdown.vue';
 import SearchArea from './SearchArea.vue';
 import Button from '@/components/common/Button.vue';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     methods: {
         onAddUsersClick: function(): void {
-            this.$store.dispatch('setAddTeamMembersPopup', true);
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
         }
     },
     components: {

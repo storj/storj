@@ -35,6 +35,7 @@ import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
 import Footer from '@/components/team/footerArea/Footer.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     data: function () {
@@ -44,7 +45,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     },
     methods: {
         onMemberClick: function (member: any) {
-            this.$store.dispatch('toggleProjectMemberSelection', member.user.id);
+            this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
         },
     },
     computed: {
