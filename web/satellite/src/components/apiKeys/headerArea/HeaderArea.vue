@@ -8,7 +8,7 @@
             <Button label="New API Key" width="240px" height="54px" :onPress="toggleSelection" />
         </div>
         <div class="api-keys-header-container__item">
-            <SortApiKeysHeader />
+            <!-- <SortApiKeysHeader /> -->
         </div>
         <AddApiKeyPopup v-if="isPopupShown" @onClose="toggleSelection" />
     </div>

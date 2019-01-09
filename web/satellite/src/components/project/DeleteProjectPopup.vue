@@ -3,7 +3,7 @@
 
 <template>
     <div class="delete-project-popup-container">
-        <div class="delete-project-popup">
+        <div class="delete-project-popup" id="deleteProjectPopup">
             <div class="delete-project-popup__info-panel-container">
                 <h2 class="delete-project-popup__info-panel-container__main-label-text">Delete Project</h2>
                 <div v-html="imageSource"></div>
@@ -24,7 +24,7 @@
                 </div>
                 
                 <div class="delete-project-popup__form-container__button-container">
-                    <Button label="Cancel" width="205px" height="48px" :onPress="onClose" isWhite/>
+                    <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite/>
                     <Button 
                         label="Delete Project" 
                         width="205px" 
@@ -35,7 +35,7 @@
                 </div>
             </div>
             <div class="delete-project-popup__close-cross-container">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" v-on:click="onClose">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" v-on:click="onCloseClick">
                     <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
                 </svg>
             </div>
@@ -47,14 +47,10 @@
 import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+import { PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component(
     {
-        props: {
-            onClose: {
-                type: Function
-            },
-        },
         data: function () {
             return {
                 projectName: '',
@@ -74,20 +70,23 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
                 }
 
                 let response = await this.$store.dispatch(
-                    'deleteProject',
+                    PROJETS_ACTIONS.DELETE,
                     this.$store.getters.selectedProject.id,
                 );
 
                 if (!response.isSuccess) {
-                    this.$store.dispatch('error', 'Error during project deletion');
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during project deletion');
 
                     return;
                 }
 
-                this.$store.dispatch('clearProjectMembers');
-                this.$store.dispatch('success', 'Project was successfully deleted');
-                this.$store.dispatch('fetchProjects');
+                this.$store.dispatch(PM_ACTIONS.CLEAR);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project was successfully deleted');
+                this.$store.dispatch(PROJETS_ACTIONS.FETCH);
                 this.$router.push('/');
+            },
+            onCloseClick: function (): void {
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
             }
         },
         computed: {

@@ -7,7 +7,7 @@
             <div class="navigation-area__item-container__link-container" >
                 <div v-html="navItem.svg"></div>
                 <h1>{{navItem.label}}</h1>
-                <div class="navigation-area__item-container__link-container__add-button" v-if="navItem.label == 'Team'">
+                <div class="navigation-area__item-container__link-container__add-button" id="addTeamMemberPopupButtonSVG" v-if="navItem.label == 'Team'">
                     <div v-on:click="togglePopup">
                         <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <rect width="40" height="40" rx="20" fill="#2683FF"/>
@@ -25,7 +25,8 @@
 import { Component, Vue } from 'vue-property-decorator';
 import { mapState } from 'vuex';
 import NAVIGATION_ITEMS from '@/utils/constants/navigationLinks';
-import AddUserPopup from '@/components/dashboard/AddUserPopup.vue';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import AddUserPopup from '@/components/team/AddUserPopup.vue';
 
 @Component(
     {
@@ -42,11 +43,11 @@ import AddUserPopup from '@/components/dashboard/AddUserPopup.vue';
             togglePopup: function(): void {
                 if (!this.$store.getters.selectedProject.id) return;
 
-                this.$store.dispatch('setAddTeamMembersPopup', true);
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
             },
         },
         computed: mapState({
-            isAddTeamMembersPopupShown: (state: any) => state.appStateModule.currentAppState.isAddTeamMembersPopupShown,
+            isAddTeamMembersPopupShown: (state: any) => state.appStateModule.appState.isAddTeamMembersPopupShown,
         }),
     }
 )
@@ -72,7 +73,6 @@ export default class NavigationArea extends Vue {
              display: flex;
              justify-content: flex-start;
              align-items: center;
-            &.router-link-active,
             &.router-link-exact-active,
             &:hover {
                  border-left: 3px solid #2683FF;

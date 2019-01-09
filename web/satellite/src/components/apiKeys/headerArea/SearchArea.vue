@@ -24,7 +24,7 @@ export default class SearchArea extends Vue {
     .search-container {
         width: 100%;
         height: 56px;
-        margin: 0 24px;
+        margin-right: 24px;
 
         &__wrap {
             position: relative;

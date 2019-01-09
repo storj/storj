@@ -2,48 +2,46 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="project-selection-container">
+    <div class="project-selection-container" id="projectDropdownButton">
         <div class="project-selection-toggle-container" v-on:click="toggleSelection">
             <h1>{{name}}</h1>
             <div class="project-selection-toggle-container__expander-area">
-                <img v-if="!isChoiceShown" src="../../../../static/images/register/BlueExpand.svg"/>
-                <img v-if="isChoiceShown" src="../../../../static/images/register/BlueHide.svg"/>
+                <img v-if="!isDropdownShown" src="../../../../static/images/register/BlueExpand.svg"/>
+                <img v-if="isDropdownShown" src="../../../../static/images/register/BlueHide.svg"/>
             </div>
         </div>
-        <ProjectSelectionDropdown v-if="isChoiceShown" @onClose="toggleSelection"/>
+        <ProjectSelectionDropdown v-if="isDropdownShown"/>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import { mapState } from 'vuex';
 import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
+import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component(
     {
-        data: function () {
-            return {
-                isChoiceShown: false,
-            };
-        },
         methods: {
             toggleSelection: async function (): Promise<any> {
-                const response = await this.$store.dispatch('fetchProjects');
+                const response = await this.$store.dispatch(PROJETS_ACTIONS.FETCH);
                 if (!response.isSuccess) {
-                    this.$store.dispatch('error', response.errorMessage);
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
 
                     return;
                 }
 
-                this.$data.isChoiceShown = !this.$data.isChoiceShown;
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
             }
         },
-        computed: {
-            name: function (): string {
-                let selectedProject = this.$store.getters.selectedProject;
+        computed: mapState({
+            name: (state: any): string => {
+                let selectedProject = state.projectsModule.selectedProject;
 
                 return selectedProject.id ? selectedProject.name : 'Choose project';
-            }
-        },
+            },
+            isDropdownShown: (state: any) => state.appStateModule.appState.isProjectsDropdownShown
+        }),
         components: {
             ProjectSelectionDropdown
         }

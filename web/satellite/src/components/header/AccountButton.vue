@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="account-button-container" >
+    <div class="account-button-container" id="accountDropdownButton">
         <div class="account-button-toggle-container" v-on:click="toggleSelection" >
             <!-- background of this div generated and stores in store -->
             <div class="account-button-toggle-container__avatar" :style="style">
@@ -12,25 +12,21 @@
             </div>
             <h1 class="account-button-toggle-container__user-name">{{userName}}</h1>
             <div class="account-button-toggle-container__expander-area">
-                <img v-if="!isChoiceShown" src="../../../../static/images/register/BlueExpand.svg" />
-                <img v-if="isChoiceShown" src="../../../../static/images/register/BlueHide.svg" />
+                <img v-if="!isDropdownShown" src="../../../static/images/register/BlueExpand.svg" />
+                <img v-if="isDropdownShown" src="../../../static/images/register/BlueHide.svg" />
             </div>
         </div>
-        <AccountDropdown v-if="isChoiceShown" @onClose="toggleSelection" />
+        <AccountDropdown v-if="isDropdownShown" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import AccountDropdown from './AccountDropdown.vue';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component(
     {
-        data: function () {
-            return {
-                isChoiceShown: false
-            };
-        },
         computed: {
             style: function (): object {
                 // Color from $store
@@ -42,12 +38,14 @@ import AccountDropdown from './AccountDropdown.vue';
             },
             userName: function (): string {
                 return this.$store.getters.userName;
-
-            }
+            },
+            isDropdownShown: function (): boolean {
+                return this.$store.state.appStateModule.appState.isAccountDropdownShown;
+            },
         },
         methods: {
             toggleSelection: function (): void {
-                this.$data.isChoiceShown = !this.$data.isChoiceShown;
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
             }
         },
         components: {
