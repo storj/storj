@@ -85,7 +85,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	if !valid {
-		return fmt.Errorf("storagenode configuration already exists (%v). Rerun with --overwrite", setupDir)
+		return fmt.Errorf("bootstrap configuration already exists (%v). Rerun with --overwrite", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
