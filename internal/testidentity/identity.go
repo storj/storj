@@ -13,8 +13,8 @@ import (
 // correct difficulty and concurrency
 func NewTestIdentity(ctx context.Context) (*provider.FullIdentity, error) {
 	ca, err := provider.NewCA(ctx, provider.NewCAOptions{
-		Difficulty:  12,
-		Concurrency: 4,
+		Difficulty:  4,
+		Concurrency: 1,
 	})
 	if err != nil {
 		return nil, err
@@ -29,7 +29,7 @@ func NewTestIdentity(ctx context.Context) (*provider.FullIdentity, error) {
 // NewTestCA returns a ca with a default difficulty and concurrency for use in tests
 func NewTestCA(ctx context.Context) (*provider.FullCertificateAuthority, error) {
 	return provider.NewCA(ctx, provider.NewCAOptions{
-		Difficulty:  12,
-		Concurrency: 4,
+		Difficulty:  4,
+		Concurrency: 1,
 	})
 }
