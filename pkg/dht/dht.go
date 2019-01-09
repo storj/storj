@@ -37,6 +37,8 @@ type RoutingTable interface {
 	// these are for refreshing
 	SetBucketTimestamp(id []byte, now time.Time) error
 	GetBucketTimestamp(id []byte) (time.Time, error)
+
+	Close() error
 }
 
 // Bucket is a set of methods to act on kademlia k buckets

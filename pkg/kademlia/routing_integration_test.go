@@ -15,9 +15,9 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-type routingCtor func(storj.NodeID, int, int, int) (dht.RoutingTable, func())
+type routingCtor func(storj.NodeID, int, int, int) dht.RoutingTable
 
-func newRouting(self storj.NodeID, bucketSize, cacheSize, allowedFailures int) (dht.RoutingTable, func()) {
+func newRouting(self storj.NodeID, bucketSize, cacheSize, allowedFailures int) dht.RoutingTable {
 	if allowedFailures != 0 {
 		panic("failure counting currently unsupported")
 	}
@@ -27,8 +27,8 @@ func newRouting(self storj.NodeID, bucketSize, cacheSize, allowedFailures int) (
 	})
 }
 
-func newTestRouting(self storj.NodeID, bucketSize, cacheSize, allowedFailures int) (dht.RoutingTable, func()) {
-	return testrouting.New(self, bucketSize, cacheSize, allowedFailures), func() {}
+func newTestRouting(self storj.NodeID, bucketSize, cacheSize, allowedFailures int) dht.RoutingTable {
+	return testrouting.New(self, bucketSize, cacheSize, allowedFailures)
 }
 
 func TestTableInit_Routing(t *testing.T)     { testTableInit(t, newRouting) }
@@ -39,8 +39,8 @@ func testTableInit(t *testing.T, routingCtor routingCtor) {
 
 	bucketSize := 5
 	cacheSize := 3
-	table, close := routingCtor(PadID("55", "5"), bucketSize, cacheSize, 0)
-	defer close()
+	table := routingCtor(PadID("55", "5"), bucketSize, cacheSize, 0)
+	defer ctx.Check(table.Close)
 	require.Equal(t, bucketSize, table.K())
 	require.Equal(t, cacheSize, table.CacheSize())
 
@@ -55,8 +55,8 @@ func testTableBasic(t *testing.T, routingCtor routingCtor) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	table, close := routingCtor(PadID("5555", "5"), 5, 3, 0)
-	defer close()
+	table := routingCtor(PadID("5555", "5"), 5, 3, 0)
+	defer ctx.Check(table.Close)
 
 	err := table.ConnectionSuccess(Node(PadID("5556", "5"), "address:1"))
 	require.NoError(t, err)
@@ -74,8 +74,8 @@ func testNoSelf(t *testing.T, routingCtor routingCtor) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	table, close := routingCtor(PadID("55", "5"), 5, 3, 0)
-	defer close()
+	table := routingCtor(PadID("55", "5"), 5, 3, 0)
+	defer ctx.Check(table.Close)
 	err := table.ConnectionSuccess(Node(PadID("55", "5"), "address:2"))
 	require.NoError(t, err)
 
@@ -90,8 +90,8 @@ func testSplits(t *testing.T, routingCtor routingCtor) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	table, close := routingCtor(PadID("55", "5"), 5, 2, 0)
-	defer close()
+	table := routingCtor(PadID("55", "5"), 5, 2, 0)
+	defer ctx.Check(table.Close)
 
 	for _, prefix2 := range "18" {
 		for _, prefix1 := range "a69c23f1d7eb5408" {
@@ -187,8 +187,8 @@ func testUnbalanced(t *testing.T, routingCtor routingCtor) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	table, close := routingCtor(PadID("ff", "f"), 5, 2, 0)
-	defer close()
+	table := routingCtor(PadID("ff", "f"), 5, 2, 0)
+	defer ctx.Check(table.Close)
 
 	for _, prefix1 := range "0123456789abcdef" {
 		for _, prefix2 := range "18" {
@@ -230,8 +230,8 @@ func testQuery(t *testing.T, routingCtor routingCtor) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	table, close := routingCtor(PadID("a3", "3"), 5, 2, 0)
-	defer close()
+	table := routingCtor(PadID("a3", "3"), 5, 2, 0)
+	defer ctx.Check(table.Close)
 
 	for _, prefix2 := range "18" {
 		for _, prefix1 := range "b4f25c896de03a71" {
@@ -281,8 +281,8 @@ func testFailureCounting(t *testing.T, routingCtor routingCtor) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	table, close := routingCtor(PadID("a3", "3"), 5, 2, 2)
-	defer close()
+	table := routingCtor(PadID("a3", "3"), 5, 2, 2)
+	defer ctx.Check(table.Close)
 
 	for _, prefix2 := range "18" {
 		for _, prefix1 := range "b4f25c896de03a71" {
@@ -331,8 +331,8 @@ func testUpdateBucket(t *testing.T, routingCtor routingCtor) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	table, close := routingCtor(PadID("a3", "3"), 5, 2, 0)
-	defer close()
+	table := routingCtor(PadID("a3", "3"), 5, 2, 0)
+	defer ctx.Check(table.Close)
 
 	for _, prefix2 := range "18" {
 		for _, prefix1 := range "b4f25c896de03a71" {
@@ -363,8 +363,8 @@ func testUpdateCache(t *testing.T, routingCtor routingCtor) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	table, close := routingCtor(PadID("a3", "3"), 1, 1, 0)
-	defer close()
+	table := routingCtor(PadID("a3", "3"), 1, 1, 0)
+	defer ctx.Check(table.Close)
 
 	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("81", "0")))
 	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("c1", "0")))
@@ -390,8 +390,8 @@ func testFailureUnknownAddress(t *testing.T, routingCtor routingCtor) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	table, close := routingCtor(PadID("a3", "3"), 1, 1, 0)
-	defer close()
+	table := routingCtor(PadID("a3", "3"), 1, 1, 0)
+	defer ctx.Check(table.Close)
 
 	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("81", "0")))
 	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("c1", "0")))
@@ -415,8 +415,8 @@ func testShrink(t *testing.T, routingCtor routingCtor) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	table, close := routingCtor(PadID("ff", "f"), 2, 2, 0)
-	defer close()
+	table := routingCtor(PadID("ff", "f"), 2, 2, 0)
+	defer ctx.Check(table.Close)
 
 	// blow out the routing table
 	for _, prefix1 := range "0123456789abcdef" {
@@ -467,8 +467,8 @@ func testReplacementCacheOrder(t *testing.T, routingCtor routingCtor) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	table, close := routingCtor(PadID("a3", "3"), 1, 2, 0)
-	defer close()
+	table := routingCtor(PadID("a3", "3"), 1, 2, 0)
+	defer ctx.Check(table.Close)
 
 	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("81", "0")))
 	require.NoError(t, table.ConnectionSuccess(NodeFromPrefix("21", "0")))
@@ -493,8 +493,8 @@ func testHealSplit(t *testing.T, routingCtor routingCtor) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	table, close := routingCtor(PadID("55", "55"), 2, 2, 0)
-	defer close()
+	table := routingCtor(PadID("55", "55"), 2, 2, 0)
+	defer ctx.Check(table.Close)
 
 	for _, pad := range []string{"0", "1"} {
 		for _, prefix := range []string{"ff", "e1", "c1", "54", "56", "57"} {
@@ -591,8 +591,8 @@ func testFullDissimilarBucket(t *testing.T, routingCtor routingCtor) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	table, close := routingCtor(PadID("55", "55"), 2, 2, 0)
-	defer close()
+	table := routingCtor(PadID("55", "55"), 2, 2, 0)
+	defer ctx.Check(table.Close)
 
 	for _, prefix := range []string{"d1", "c1", "f1", "e1"} {
 		require.NoError(t, table.ConnectionSuccess(NodeFromPrefix(prefix, "0")))
