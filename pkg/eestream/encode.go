@@ -150,7 +150,10 @@ func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy, maxSi
 func (er *encodedReader) fillBuffer(ctx context.Context, r io.Reader, w sync2.PipeWriter) {
 	// TODO: interrupt copy if context is canceled
 	_, err := io.Copy(w, r)
-	zap.S().Error(w.CloseWithError(err))
+	err = w.CloseWithError(err)
+	if err != nil {
+		zap.S().Error(err)
+	}
 }
 
 type encodedPiece struct {
