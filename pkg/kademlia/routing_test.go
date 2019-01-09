@@ -115,14 +115,17 @@ func TestFindNear(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	rt := createRoutingTable(teststorj.NodeIDFromString("AA"))
+	rt := createRoutingTable(teststorj.NodeIDFromString("AB"))
 	defer ctx.Check(rt.Close)
 	node1 := teststorj.MockNode("AA")
 	node2 := teststorj.MockNode("BB")
 	node3 := teststorj.MockNode("CC")
-	ok, err := rt.addNode(node2)
-	assert.True(t, ok)
+	ok, err := rt.addNode(node1)
 	assert.NoError(t, err)
+	assert.True(t, ok)
+	ok, err = rt.addNode(node2)
+	assert.NoError(t, err)
+	assert.True(t, ok)
 
 	cases := []struct {
 		testID        string
@@ -155,6 +158,7 @@ func TestFindNear(t *testing.T) {
 		t.Run(c.testID, func(t *testing.T) {
 			ns, err := rt.FindNear(c.node.Id, c.limit)
 			assert.NoError(t, err)
+			assert.Equal(t, len(c.expectedNodes), len(ns))
 			for i, n := range c.expectedNodes {
 				assert.True(t, bytes.Equal(n.Id.Bytes(), ns[i].Id.Bytes()))
 >>>>>>> 0fdb134d... pkg/kademlia: clean up routing table creation in tests
