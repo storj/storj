@@ -200,9 +200,8 @@ func (ep *encodedPiece) Close() error {
 // multiple Ranged sub-Readers. EncodedRanger does not match the normal Ranger
 // interface.
 type EncodedRanger struct {
-	rr      ranger.Ranger
-	rs      RedundancyStrategy
-	maxSize int64
+	rr ranger.Ranger
+	rs RedundancyStrategy
 }
 
 // NewEncodedRanger from the given Ranger and RedundancyStrategy. See the
