@@ -110,21 +110,13 @@ type encodedReader struct {
 }
 
 // EncodeReader takes a Reader and a RedundancyStrategy and returns a slice of
-// Readers.
-//
-// maxSize is the maximum number of bytes expected to be returned by the Reader.
-func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy, maxSize int64) ([]io.ReadCloser, error) {
-	err := checkMaxSize(maxSize)
-	if err != nil {
-		return nil, err
-	}
-
+// io.ReadClosers.
+func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy) ([]io.ReadCloser, error) {
 	er := &encodedReader{
 		rs:     rs,
 		pieces: make(map[int](*encodedPiece), rs.TotalCount()),
 	}
 
-	// TODO: make it configurable between file pipe and memory pipe
 	teeReader, teeWriter, err := sync2.NewTeeFile(rs.TotalCount(), "/tmp")
 	if err != nil {
 		return nil, err
@@ -214,20 +206,15 @@ type EncodedRanger struct {
 }
 
 // NewEncodedRanger from the given Ranger and RedundancyStrategy. See the
-// comments for EncodeReader about the repair and optimal thresholds, and the
-// max buffer memory.
-func NewEncodedRanger(rr ranger.Ranger, rs RedundancyStrategy, maxSize int64) (*EncodedRanger, error) {
+// comments for EncodeReader about the repair and success thresholds.
+func NewEncodedRanger(rr ranger.Ranger, rs RedundancyStrategy) (*EncodedRanger, error) {
 	if rr.Size()%int64(rs.StripeSize()) != 0 {
 		return nil, Error.New("invalid erasure encoder and range reader combo. " +
 			"range reader size must be a multiple of erasure encoder block size")
 	}
-	if err := checkMaxSize(maxSize); err != nil {
-		return nil, err
-	}
 	return &EncodedRanger{
-		rs:      rs,
-		rr:      rr,
-		maxSize: maxSize,
+		rs: rs,
+		rr: rr,
 	}, nil
 }
 
@@ -251,7 +238,7 @@ func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.
 	if err != nil {
 		return nil, err
 	}
-	readers, err := EncodeReader(ctx, r, er.rs, er.maxSize)
+	readers, err := EncodeReader(ctx, r, er.rs)
 	if err != nil {
 		return nil, err
 	}
@@ -268,11 +255,4 @@ func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.
 		readers[i] = readcloser.LimitReadCloser(r, length)
 	}
 	return readers, nil
-}
-
-func checkMaxSize(size int64) error {
-	if size < 0 {
-		return Error.New("negative max size")
-	}
-	return nil
 }

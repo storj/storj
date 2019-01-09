@@ -132,7 +132,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	defer utils.LogClose(r)
 
 	// Upload the repaired pieces to the repairNodes
-	successfulNodes, err := s.ec.Put(ctx, repairNodes, rs, pid, r, rr.Size(), convertTime(pr.GetExpirationDate()), pba, signedMessage)
+	successfulNodes, err := s.ec.Put(ctx, repairNodes, rs, pid, r, convertTime(pr.GetExpirationDate()), pba, signedMessage)
 	if err != nil {
 		return Error.Wrap(err)
 	}

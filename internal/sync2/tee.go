@@ -6,7 +6,6 @@ package sync2
 import (
 	"io"
 	"io/ioutil"
-	"math"
 	"sync"
 	"sync/atomic"
 )
@@ -21,7 +20,6 @@ type tee struct {
 
 	maxRequired int64
 	write       int64
-	limit       int64
 
 	writerDone bool
 	writerErr  error
@@ -41,20 +39,13 @@ func NewTeeFile(readers int, tempdir string) (PipeReaderAt, PipeWriter, error) {
 		open: &handles,
 	}
 
-	return newTee(buffer, &handles, math.MaxInt64)
+	return newTee(buffer, &handles)
 }
 
-// NewTeeMemory returns a tee that uses an in-memory buffer
-func NewTeeMemory(readers int, bufSize int64) (PipeReaderAt, PipeWriter, error) {
-	handles := int64(readers + 1) // +1 for the writer
-	return newTee(make(memory, bufSize), &handles, bufSize)
-}
-
-func newTee(buffer ReadAtWriteAtCloser, open *int64, limit int64) (PipeReaderAt, PipeWriter, error) {
+func newTee(buffer ReadAtWriteAtCloser, open *int64) (PipeReaderAt, PipeWriter, error) {
 	tee := &tee{
 		buffer: buffer,
 		open:   open,
-		limit:  limit,
 	}
 	tee.nodata.L = &tee.mu
 	tee.newdata.L = &tee.mu
@@ -71,11 +62,6 @@ type teeWriter struct{ tee *tee }
 func (reader teeReader) ReadAt(data []byte, off int64) (n int, err error) {
 	end := off + int64(len(data))
 	tee := reader.tee
-
-	// have we run out of the limit
-	if end >= tee.limit {
-		return 0, io.ErrUnexpectedEOF
-	}
 
 	tee.mu.Lock()
 
@@ -97,22 +83,15 @@ func (reader teeReader) ReadAt(data []byte, off int64) (n int, err error) {
 			tee.mu.Unlock()
 			return 0, tee.writerErr
 		}
-		// ok, lets wait
+
+		// ok, let's wait
 		tee.nodata.Wait()
 	}
 
 	tee.mu.Unlock()
 
 	// read data
-	readAmount, err := tee.buffer.ReadAt(data, off)
-
-	done := off+int64(readAmount) >= tee.limit
-
-	if err == nil && done {
-		err = io.EOF
-	}
-
-	return readAmount, err
+	return tee.buffer.ReadAt(data, off)
 }
 
 // Write writes to the buffer returning io.ErrClosedPipe when limit is reached
@@ -128,15 +107,6 @@ func (writer teeWriter) Write(data []byte) (n int, err error) {
 		return 0, io.ErrClosedPipe
 	}
 
-	// check how much do they want to write
-	canWrite := tee.limit - tee.write
-
-	// no more room to write
-	if canWrite == 0 {
-		tee.mu.Unlock()
-		return 0, io.ErrClosedPipe
-	}
-
 	for tee.write > tee.maxRequired {
 		// are all readers already closed?
 		if atomic.LoadInt64(tee.open) <= 1 {
@@ -147,30 +117,18 @@ func (writer teeWriter) Write(data []byte) (n int, err error) {
 		tee.newdata.Wait()
 	}
 
-	// figure out how much to write
-	toWrite := int64(len(data))
-	if toWrite > canWrite {
-		toWrite = canWrite
-	}
-
 	writeAt := tee.write
 	tee.mu.Unlock()
 
 	// write data to buffer
-	writeAmount, err := tee.buffer.WriteAt(data[:toWrite], writeAt)
+	writeAmount, err := tee.buffer.WriteAt(data, writeAt)
 
 	tee.mu.Lock()
 	// update writing head
 	tee.write += int64(writeAmount)
 	// wake up reader
 	tee.nodata.Broadcast()
-	// check whether we have finished
-	done := tee.write >= tee.limit
 	tee.mu.Unlock()
-
-	if err == nil && done {
-		err = io.ErrClosedPipe
-	}
 
 	return writeAmount, err
 }

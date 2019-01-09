@@ -67,14 +67,14 @@ func (mr *MockClientMockRecorder) Get(arg0, arg1, arg2, arg3, arg4, arg5, arg6 i
 }
 
 // Put mocks base method
-func (m *MockClient) Put(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.RedundancyStrategy, arg3 client.PieceID, arg4 io.Reader, arg5 int64, arg6 time.Time, arg7 *pb.PayerBandwidthAllocation, arg8 *pb.SignedMessage) ([]*pb.Node, error) {
-	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+func (m *MockClient) Put(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.RedundancyStrategy, arg3 client.PieceID, arg4 io.Reader, arg5 time.Time, arg6 *pb.PayerBandwidthAllocation, arg7 *pb.SignedMessage) ([]*pb.Node, error) {
+	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	ret0, _ := ret[0].([]*pb.Node)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Put indicates an expected call of Put
-func (mr *MockClientMockRecorder) Put(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockClient)(nil).Put), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+func (mr *MockClientMockRecorder) Put(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockClient)(nil).Put), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 }

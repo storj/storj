@@ -46,7 +46,7 @@ func TestRS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 32*1024)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestRSUnexpectedEOF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 32*1024)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestRSRanger(t *testing.T) {
 		t.Fatal(err)
 	}
 	readers, err := EncodeReader(ctx, encryption.TransformReader(PadReader(ioutil.NopCloser(
-		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0), rs, 48*1024)
+		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0), rs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,70 +187,6 @@ func TestNewRedundancyStrategy(t *testing.T) {
 		assert.NoError(t, err, errTag)
 		assert.Equal(t, tt.expRep, rs.RepairThreshold(), errTag)
 		assert.Equal(t, tt.expOpt, rs.OptimalThreshold(), errTag)
-	}
-}
-
-func TestRSEncoderInputParams(t *testing.T) {
-	for i, tt := range []struct {
-		maxSize   int64
-		errString string
-	}{
-		{1024, ""},
-	} {
-		errTag := fmt.Sprintf("Test case #%d", i)
-		ctx := context.Background()
-		data := randData(32 * 1024)
-		fc, err := infectious.NewFEC(2, 4)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		es := NewRSScheme(fc, 8*1024)
-		rs, err := NewRedundancyStrategy(es, 0, 0)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, tt.maxSize)
-		if tt.errString == "" {
-			assert.NoError(t, err, errTag)
-		} else {
-			assert.EqualError(t, err, tt.errString, errTag)
-		}
-		for _, reader := range readers {
-			assert.NoError(t, reader.Close())
-		}
-	}
-}
-
-func TestRSRangerInputParams(t *testing.T) {
-	for i, tt := range []struct {
-		maxSize   int64
-		errString string
-	}{
-		{0, ""},
-		{-1, "eestream error: negative max size"},
-		{1024, ""},
-	} {
-		errTag := fmt.Sprintf("Test case #%d", i)
-		ctx := context.Background()
-		data := randData(32 * 1024)
-		fc, err := infectious.NewFEC(2, 4)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		es := NewRSScheme(fc, 8*1024)
-		rs, err := NewRedundancyStrategy(es, 0, 0)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, tt.maxSize)
-		if tt.errString == "" {
-			assert.NoError(t, err, errTag)
-		} else {
-			assert.EqualError(t, err, tt.errString, errTag)
-		}
-		for _, reader := range readers {
-			assert.NoError(t, reader.Close())
-		}
 	}
 }
 
@@ -453,7 +389,7 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 	if !assert.NoError(t, err, errTag) {
 		return
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, int64(tt.dataSize))
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
 	if !assert.NoError(t, err, errTag) {
 		return
 	}
@@ -529,7 +465,7 @@ func TestEncoderStalledReaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 120*1024)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -575,7 +511,7 @@ func TestDecoderErrorWithStalledReaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 10*1024)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
 	if err != nil {
 		t.Fatal(err)
 	}

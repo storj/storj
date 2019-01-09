@@ -148,7 +148,7 @@ TestLoop:
 		r := io.LimitReader(rand.Reader, int64(size))
 		ec := ecClient{newPSClientFunc: mockNewPSClient(clients)}
 
-		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, int64(size), ttl, nil, nil)
+		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, nil, nil)
 
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)

@@ -59,18 +59,16 @@ type segmentStore struct {
 	pdb           pdbclient.Client
 	rs            eestream.RedundancyStrategy
 	thresholdSize int
-	segmentSize   int64
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int, segmentSize int64) Store {
+func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int) Store {
 	return &segmentStore{
 		oc:            oc,
 		ec:            ec,
 		pdb:           pdb,
 		rs:            rs,
 		thresholdSize: threshold,
-		segmentSize:   segmentSize,
 	}
 }
 
@@ -143,7 +141,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			return Meta{}, Error.Wrap(err)
 		}
 
-		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, s.segmentSize, expiration, pba, authorization)
+		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba, authorization)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
