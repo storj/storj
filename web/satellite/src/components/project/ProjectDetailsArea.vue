@@ -46,8 +46,8 @@
                         </div>
                     </div>
                     <div class="project-details-info-container__portability-container__buttons-area">
-                        <Button label="Export" width="180px" height="48px" :onPress="onExportClick" isWhite/>
-                        <Button label="Import" width="180px" height="48px" :onPress="onImportClick"/>
+                        <Button label="Export" width="170px" height="48px" :onPress="onExportClick" isWhite/>
+                        <Button label="Import" width="170px" height="48px" :onPress="onImportClick"/>
                     </div>
                 </div>
             </div>
