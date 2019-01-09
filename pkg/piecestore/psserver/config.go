@@ -27,8 +27,8 @@ var (
 // Config contains everything necessary for a server
 type Config struct {
 	Path                   string        `help:"path to store data in" default:"$CONFDIR"`
-	AllocatedDiskSpace     int64         `help:"total allocated disk space, default(1GB)" default:"1073741824"`
-	AllocatedBandwidth     int64         `help:"total allocated bandwidth, default(100GB)" default:"107374182400"`
+	AllocatedDiskSpace     int64         `help:"total allocated disk space, default(1TiB)" default:"1099511627800"`
+	AllocatedBandwidth     int64         `help:"total allocated bandwidth, default(500GiB)" default:"536870912000"`
 	KBucketRefreshInterval time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
 }
 
