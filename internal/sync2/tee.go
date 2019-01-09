@@ -13,11 +13,13 @@ import (
 type tee struct {
 	buffer ReadAtWriteAtCloser
 
-	mu     sync.Mutex
-	nodata sync.Cond
+	mu      sync.Mutex
+	nodata  sync.Cond
+	newdata sync.Cond
 
-	write int64
-	limit int64
+	maxRequired int64
+	write       int64
+	limit       int64
 
 	writerDone bool
 	writerErr  error
@@ -39,6 +41,7 @@ func NewTeeFile(tempdir string, readers int) (PipeReaderAt, PipeWriter, error) {
 		limit: math.MaxInt64,
 	}
 	tee.nodata.L = &tee.mu
+	tee.newdata.L = &tee.mu
 
 	return teeReader{tee}, teeWriter{tee}, nil
 }
@@ -50,6 +53,7 @@ func NewTeeMemory(bufSize int64) (PipeReaderAt, PipeWriter, error) {
 		limit:  bufSize,
 	}
 	tee.nodata.L = &tee.mu
+	tee.newdata.L = &tee.mu
 
 	return teeReader{tee}, teeWriter{tee}, nil
 }
@@ -57,11 +61,15 @@ func NewTeeMemory(bufSize int64) (PipeReaderAt, PipeWriter, error) {
 type teeReader struct{ tee *tee }
 type teeWriter struct{ tee *tee }
 
+// Read reads from the tee returning io.EOF when writer is closed or bufSize is reached.
+//
+// It will block if the writer has not provided the data yet.
 func (reader teeReader) ReadAt(data []byte, off int64) (n int, err error) {
+	end := off + int64(len(data))
 	tee := reader.tee
 
 	// have we run out of the limit
-	if off+int64(len(data)) >= tee.limit {
+	if end >= tee.limit {
 		return 0, io.ErrUnexpectedEOF
 	}
 
@@ -73,8 +81,13 @@ func (reader teeReader) ReadAt(data []byte, off int64) (n int, err error) {
 		return 0, tee.writerErr
 	}
 
+	if end > tee.maxRequired {
+		tee.maxRequired = end
+		tee.newdata.Broadcast()
+	}
+
 	// wait until we have all the data to read
-	for off+int64(len(data)) > tee.write {
+	for end > tee.write {
 		// has the writer finished?
 		if tee.writerDone {
 			tee.mu.Unlock()
@@ -99,6 +112,8 @@ func (reader teeReader) ReadAt(data []byte, off int64) (n int, err error) {
 }
 
 // Write writes to the buffer returning io.ErrClosedPipe when limit is reached
+//
+// It will block until at least one reader require the data.
 func (writer teeWriter) Write(data []byte) (n int, err error) {
 	tee := writer.tee
 	tee.mu.Lock()
@@ -116,6 +131,12 @@ func (writer teeWriter) Write(data []byte) (n int, err error) {
 	if canWrite == 0 {
 		tee.mu.Unlock()
 		return 0, io.ErrClosedPipe
+	}
+
+	for tee.write > tee.maxRequired {
+		// TODO: return if all readers are closed or context is canceled
+		// wait until new data is required by any reader
+		tee.newdata.Wait()
 	}
 
 	// figure out how much to write
@@ -153,14 +174,21 @@ func (reader teeReader) Close() error { return reader.CloseWithError(nil) }
 func (writer teeWriter) Close() error { return writer.CloseWithError(nil) }
 
 // CloseWithError implements closing with error
-func (reader teeReader) CloseWithError(err error) error {
-	return reader.tee.buffer.Close()
+func (reader teeReader) CloseWithError(reason error) error {
+	tee := reader.tee
+	err := tee.buffer.Close()
+
+	tee.mu.Lock()
+	tee.newdata.Broadcast()
+	tee.mu.Unlock()
+
+	return err
 }
 
 // CloseWithError implements closing with error
-func (writer teeWriter) CloseWithError(err error) error {
-	if err == nil {
-		err = io.EOF
+func (writer teeWriter) CloseWithError(reason error) error {
+	if reason == nil {
+		reason = io.EOF
 	}
 
 	tee := writer.tee
@@ -170,7 +198,7 @@ func (writer teeWriter) CloseWithError(err error) error {
 		return io.ErrClosedPipe
 	}
 	tee.writerDone = true
-	tee.writerErr = err
+	tee.writerErr = reason
 	tee.nodata.Broadcast()
 	tee.mu.Unlock()
 
