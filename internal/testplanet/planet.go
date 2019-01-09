@@ -18,7 +18,6 @@ import (
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -159,8 +158,8 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 		server := pieceserver.New(node.Log, storageDir, serverdb, pieceserver.Config{
 			Path:               storageDir,
-			AllocatedDiskSpace: memory.GB.Int64(),
-			AllocatedBandwidth: 100 * memory.GB.Int64(),
+			AllocatedDiskSpace: "1GB",
+			AllocatedBandwidth: "100GB",
 		}, node.Identity.Key)
 
 		pb.RegisterPieceStoreRoutesServer(node.Provider.GRPC(), server)

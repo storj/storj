@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"time"
 
+	"code.cloudfoundry.org/bytefmt"
 	"github.com/gtank/cryptopasta"
 	"github.com/mr-tron/base58/base58"
 	"github.com/shirou/gopsutil/disk"
@@ -68,8 +69,17 @@ type Server struct {
 func NewEndpoint(log *zap.Logger, config Config, db *psdb.DB, pkey crypto.PrivateKey) (*Server, error) {
 
 	// read the allocated disk space from the config file
-	allocatedDiskSpace := config.AllocatedDiskSpace
-	allocatedBandwidth := config.AllocatedBandwidth
+	adp, err := bytefmt.ToBytes(config.AllocatedDiskSpace)
+	if err != nil {
+		return nil, err
+	}
+	allocatedDiskSpace := int64(adp)
+
+	abw, err := bytefmt.ToBytes(config.AllocatedBandwidth)
+	if err != nil {
+		return nil, err
+	}
+	allocatedBandwidth := int64(abw)
 
 	// get the disk space details
 	// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
@@ -132,13 +142,23 @@ func NewEndpoint(log *zap.Logger, config Config, db *psdb.DB, pkey crypto.Privat
 
 // New creates a Server with custom db
 func New(log *zap.Logger, dataDir string, db *psdb.DB, config Config, pkey crypto.PrivateKey) *Server {
+	allocatedDiskSpace, err := bytefmt.ToBytes(config.AllocatedDiskSpace)
+	if err != nil {
+		return nil
+	}
+
+	allocatedBandwidth, err := bytefmt.ToBytes(config.AllocatedBandwidth)
+	if err != nil {
+		return nil
+	}
+
 	return &Server{
 		log:              log,
 		DataDir:          dataDir,
 		DB:               db,
 		pkey:             pkey,
-		totalAllocated:   config.AllocatedDiskSpace,
-		totalBwAllocated: config.AllocatedBandwidth,
+		totalAllocated:   int64(allocatedDiskSpace),
+		totalBwAllocated: int64(allocatedBandwidth),
 		verifier:         auth.NewSignedMessageVerifier(),
 	}
 }
