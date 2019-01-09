@@ -194,10 +194,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.Arguments = withCommon(Arguments{
 			"setup": {
 				"--ca.difficulty", difficulty,
-				"--piecestore.agreementsender.overlay-addr", bootstrapSatellite.Address,
 			},
 			"run": {
-				"--piecestore.agreementsender.overlay-addr", bootstrapSatellite.Address,
 				"--kademlia.bootstrap-addr", bootstrapSatellite.Address,
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
 				"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
