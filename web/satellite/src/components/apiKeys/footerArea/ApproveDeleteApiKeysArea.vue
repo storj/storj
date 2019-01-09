@@ -4,14 +4,14 @@
 <template>
     <div>
         <div class="blur-wrap"></div>
-        <div class="delete-user-container" >
-            <div class="delete-user-container__text">
+        <div class="delete-api-key-container" >
+            <div class="delete-api-key-container__text">
                 <img src="../../../../static/images/team/atten.svg" alt="">
-                <p>Are you sure you want to delete <span>1</span> user?</p>
+                <p>Are you sure you want to delete <span>1</span> API key?</p>
             </div>
-            <div class="delete-user-container__buttons-group">
+            <div class="delete-api-key-container__buttons-group">
                 <Button 
-                    class="delete-user-container__buttons-group__cancel" 
+                    class="delete-api-key-container__buttons-group__cancel" 
                     label="Cancel" 
                     width="140px" 
                     height="58px" 
@@ -37,12 +37,12 @@ import Button from '@/components/common/Button.vue';
     }
 })
 
-export default class ApproveDeleteUserArea extends Vue {
+export default class ApproveDeleteApiKeysArea extends Vue {
 }
 </script>
 
 <style scoped lang="scss">
-    .delete-user-container {
+    .delete-api-key-container {
         height: 98px;
         max-width: 74.2%;
         width: 100%;
