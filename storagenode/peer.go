@@ -33,6 +33,7 @@ type DB interface {
 // Config is all the configuration parameters for a Storage Node
 type Config struct {
 	Identity identity.Config
+
 	// TODO: switch to using server.Config when Identity has been removed from it
 	PublicAddress string `help:"public address to listen on" default:":7777"`
 	Kademlia      kademlia.Config

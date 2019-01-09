@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/storage"
@@ -24,8 +23,11 @@ type DB struct {
 	kdb, ndb storage.KeyValueStore
 }
 
-func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
-	psdb, err := psdb.OpenInMemory(context.Background(), storageDir)
+// NewInMemory creates new inmemory database for storagenode
+// TODO: still stores data on disk
+func NewInMemory(storageDir string) (*DB, error) {
+	// TODO: OpenInMemory shouldn't need context argument
+	psdb, err := psdb.OpenInMemory(context.TODO(), storageDir)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +41,7 @@ func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 }
 
 // Close closes any resources.
-func (db *DB) Close(ctx context.Context) error {
+func (db *DB) Close() error {
 	return errs.Combine(
 		db.psdb.Close(),
 		db.kdb.Close(),
