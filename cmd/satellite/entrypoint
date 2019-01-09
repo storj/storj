@@ -2,7 +2,10 @@
 set -euo pipefail
 
 if [[ ! -f "${CONF_PATH}/config.yaml" ]]; then
-	./satellite setup
+	if [[ -n "${CA_DIFFICULTY}" ]]; then
+		SETUP_PARAMS="--ca.difficulty ${CA_DIFFICULTY}"
+	fi
+	./satellite setup $SETUP_PARAMS
 fi
 
 RUN_PARAMS="${RUN_PARAMS:-} --config-dir ${CONF_PATH}"
