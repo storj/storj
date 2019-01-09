@@ -27,9 +27,11 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bwagreements (
 	signature bytea NOT NULL,
+	serialnum text NOT NULL,
 	data bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( signature )
+	PRIMARY KEY ( signature ),
+	UNIQUE ( serialnum )
 );
 CREATE TABLE injuredsegments (
 	id bigserial NOT NULL,
