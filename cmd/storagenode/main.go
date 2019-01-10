@@ -194,7 +194,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if editConfig == true {
+	if editConfig {
 		return fpath.EditFile(configFile)
 	}
 
@@ -212,7 +212,7 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 		return cmdSetup(cmd, args)
 	}
 
-	if editConfig == true {
+	if editConfig {
 		return fpath.EditFile(conf)
 	}
 
