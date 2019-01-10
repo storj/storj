@@ -30,6 +30,7 @@ CREATE TABLE bwagreements (
 	serialnum TEXT NOT NULL,
 	data BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
+	expires_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( signature ),
 	UNIQUE ( serialnum )
 );
