@@ -34,7 +34,7 @@ type Config struct {
 	MinRemoteSegmentSize int    `default:"1240" help:"minimum remote segment size"`
 	MaxInlineSegmentSize int    `default:"8000" help:"maximum inline segment size"`
 	Overlay              bool   `default:"true" help:"toggle flag if overlay is enabled"`
-	BWATTL               int    `default:"45"   help:"lifespan of bandwidth agreements in days"`
+	BwExpiration         int    `default:"45"   help:"lifespan of bandwidth agreements in days"`
 }
 
 func newKeyValueStore(dbURLString string) (db storage.KeyValueStore, err error) {

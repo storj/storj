@@ -340,7 +340,7 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 	created := time.Now().Unix()
 
 	// convert ttl from days to seconds
-	ttl := s.config.BWATTL
+	ttl := s.config.BwExpiration
 	ttl *= 86400
 
 	pbad := &pb.PayerBandwidthAllocation_Data{
