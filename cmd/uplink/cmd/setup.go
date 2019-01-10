@@ -20,13 +20,29 @@ import (
 )
 
 var (
-	setupCmd = &cobra.Command{
+	uplinkSetupCmd = &cobra.Command{
 		Use:         "setup",
 		Short:       "Create an uplink config file",
-		RunE:        cmdSetup,
+		RunE:        cmdUplinkSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
-	setupCfg struct {
+	gatewaySetupCmd = &cobra.Command{
+		Use:         "setup",
+		Short:       "Create an gateway config file",
+		RunE:        cmdGatewaySetup,
+		Annotations: map[string]string{"type": "setup"},
+	}
+	uplinkCfg struct {
+		CA            provider.CASetupConfig       `setup:"true"`
+		Identity      provider.IdentitySetupConfig `setup:"true"`
+		Overwrite     bool                         `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
+		SatelliteAddr string                       `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
+
+		Client miniogw.ClientConfig
+		RS     miniogw.RSConfig
+		Enc    miniogw.EncryptionConfig
+	}
+	gatewayCfg struct {
 		CA                 provider.CASetupConfig       `setup:"true"`
 		Identity           provider.IdentitySetupConfig `setup:"true"`
 		Overwrite          bool                         `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
@@ -47,22 +63,25 @@ var (
 )
 
 func init() {
-	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
+	defaultUplinkConfDir := fpath.ApplicationDir("storj", "uplink")
+	defaultGatewayConfDir := fpath.ApplicationDir("storj", "gateway")
 
 	dirParam := cfgstruct.FindConfigDirParam()
 	if dirParam != "" {
-		defaultConfDir = dirParam
+		defaultUplinkConfDir = dirParam
+		defaultGatewayConfDir = dirParam
 	}
 
-	cliConfDir = CLICmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for setup configuration")
-	gwConfDir = GWCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for setup configuration")
+	cliConfDir = CLICmd.PersistentFlags().String("config-dir", defaultUplinkConfDir, "main directory for setup configuration")
+	gwConfDir = GWCmd.PersistentFlags().String("config-dir", defaultGatewayConfDir, "main directory for setup configuration")
 
-	CLICmd.AddCommand(setupCmd)
-	GWCmd.AddCommand(setupCmd)
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	CLICmd.AddCommand(uplinkSetupCmd)
+	GWCmd.AddCommand(gatewaySetupCmd)
+	cfgstruct.BindSetup(uplinkSetupCmd.Flags(), &uplinkCfg, cfgstruct.ConfDir(defaultUplinkConfDir))
+	cfgstruct.BindSetup(gatewaySetupCmd.Flags(), &gatewayCfg, cfgstruct.ConfDir(defaultGatewayConfDir))
 }
 
-func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+func cmdUplinkSetup(cmd *cobra.Command, args []string) (err error) {
 	setupDir, err := filepath.Abs(*cliConfDir)
 	if err != nil {
 		return err
@@ -73,8 +92,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	valid, _ := fpath.IsValidSetupDir(setupDir)
-	if !setupCfg.Overwrite && !valid {
-		return fmt.Errorf("uplink configuration already exists (%v). Rerun with --overwrite", setupDir)
+	if !uplinkCfg.Overwrite && !valid {
+		return fmt.Errorf("%s configuration already exists (%v). Rerun with --overwrite", "uplink", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
@@ -86,25 +105,69 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	// TODO: handle setting base path *and* identity file paths via args
 	// NB: if base path is set this overrides identity and CA path options
 	if setupDir != defaultConfDir {
-		setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
-		setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
-		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
-		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
+		uplinkCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
+		uplinkCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
+		uplinkCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
+		uplinkCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 	}
-	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
+	err = provider.SetupIdentity(process.Ctx(cmd), uplinkCfg.CA, uplinkCfg.Identity)
 	if err != nil {
 		return err
 	}
 
-	if setupCfg.GenerateMinioCerts {
+	o := map[string]interface{}{
+		"identity.cert-path":     uplinkCfg.Identity.CertPath,
+		"identity.key-path":      uplinkCfg.Identity.KeyPath,
+		"client.pointer-db-addr": uplinkCfg.SatelliteAddr,
+		"client.overlay-addr":    uplinkCfg.SatelliteAddr,
+	}
+
+	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
+}
+
+func cmdGatewaySetup(cmd *cobra.Command, args []string) (err error) {
+	setupDir, err := filepath.Abs(*gwConfDir)
+	if err != nil {
+		return err
+	}
+
+	for _, flagname := range args {
+		return fmt.Errorf("%s - Invalid flag. Pleas see --help", flagname)
+	}
+
+	valid, _ := fpath.IsValidSetupDir(setupDir)
+	if !gatewayCfg.Overwrite && !valid {
+		return fmt.Errorf("%s configuration already exists (%v). Rerun with --overwrite", "gateway", setupDir)
+	}
+
+	err = os.MkdirAll(setupDir, 0700)
+	if err != nil {
+		return err
+	}
+
+	defaultConfDir := fpath.ApplicationDir("storj", "gateway")
+	// TODO: handle setting base path *and* identity file paths via args
+	// NB: if base path is set this overrides identity and CA path options
+	if setupDir != defaultConfDir {
+		gatewayCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
+		gatewayCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
+		gatewayCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
+		gatewayCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
+	}
+	err = provider.SetupIdentity(process.Ctx(cmd), gatewayCfg.CA, gatewayCfg.Identity)
+	if err != nil {
+		return err
+	}
+
+	if gatewayCfg.GenerateMinioCerts {
 		minioCerts := filepath.Join(setupDir, "minio", "certs")
 		if err := os.MkdirAll(minioCerts, 0744); err != nil {
 			return err
 		}
-		if err := os.Link(setupCfg.Identity.CertPath, filepath.Join(minioCerts, "public.crt")); err != nil {
+		if err := os.Link(gatewayCfg.Identity.CertPath, filepath.Join(minioCerts, "public.crt")); err != nil {
 			return err
 		}
-		if err := os.Link(setupCfg.Identity.KeyPath, filepath.Join(minioCerts, "private.key")); err != nil {
+		if err := os.Link(gatewayCfg.Identity.KeyPath, filepath.Join(minioCerts, "private.key")); err != nil {
 			return err
 		}
 	}
@@ -120,14 +183,14 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	o := map[string]interface{}{
-		"identity.cert-path":     setupCfg.Identity.CertPath,
-		"identity.key-path":      setupCfg.Identity.KeyPath,
-		"client.api-key":         setupCfg.APIKey,
-		"client.pointer-db-addr": setupCfg.SatelliteAddr,
-		"client.overlay-addr":    setupCfg.SatelliteAddr,
+		"identity.cert-path":     gatewayCfg.Identity.CertPath,
+		"identity.key-path":      gatewayCfg.Identity.KeyPath,
+		"client.api-key":         gatewayCfg.APIKey,
+		"client.pointer-db-addr": gatewayCfg.SatelliteAddr,
+		"client.overlay-addr":    gatewayCfg.SatelliteAddr,
 		"minio.access-key":       accessKey,
 		"minio.secret-key":       secretKey,
-		"enc.key":                setupCfg.EncKey,
+		"enc.key":                gatewayCfg.EncKey,
 	}
 
 	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
