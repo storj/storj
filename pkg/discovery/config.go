@@ -13,7 +13,6 @@ import (
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
 )
@@ -24,13 +23,6 @@ var (
 	Error = errs.Class("discovery error")
 )
 
-// CtxKey used for assigning a key to Discovery server
-type CtxKey int
-
-const (
-	ctxKeyDiscovery CtxKey = iota
-)
-
 // Config loads on the configuration values from run flags
 type Config struct {
 	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
@@ -39,9 +31,6 @@ type Config struct {
 // Run runs the Discovery boot up and initialization
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	srv := NewServer(zap.L())
-	pb.RegisterDiscoveryServer(server.GRPC(), srv)
 
 	ol := overlay.LoadFromContext(ctx)
 	kad := kademlia.LoadFromContext(ctx)
@@ -84,5 +73,5 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		}
 	}()
 
-	return server.Run(context.WithValue(ctx, ctxKeyDiscovery, discovery))
+	return server.Run(ctx)
 }

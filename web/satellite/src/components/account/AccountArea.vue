@@ -30,7 +30,6 @@
                     placeholder="Enter Last Name"
                     width="100%"
                     ref="lastNameInput"
-                    :error="lastNameError"
                     :initValue="user.lastName"
                     @setData="setLastName"/>
                 <HeaderedInput
@@ -114,10 +113,10 @@
             </div>
             <!--end of Password area -->
         </div>
-        <div class="account-area-button-area">
+        <div class="account-area-button-area" id="deleteAccountPopupButton">
             <Button label="Delete account" width="205px" height="50px" :onPress="togglePopup" isDeletion/>
         </div>
-        <DeleteAccountPopup v-if="isPopupShown" :onClose="togglePopup" />
+        <DeleteAccountPopup v-if="isPopupShown" />
     </div>
 </template>
 
@@ -127,8 +126,8 @@ import Button from '@/components/common/Button.vue';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
-import ROUTES from '@/utils/constants/routerConstants';
-import DeleteAccountPopup from '@/components/dashboard/account/DeleteAccountPopup.vue';
+import { USER_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import DeleteAccountPopup from '@/components/account/DeleteAccountPopup.vue';
 import { validateEmail, validatePassword } from '@/utils/validation';
 
 @Component(
@@ -144,7 +143,6 @@ import { validateEmail, validatePassword } from '@/utils/validation';
                 email: this.$store.getters.user.email,
 
                 firstNameError: '',
-                lastNameError: '',
                 emailError: '',
 
                 isAccountSettingsEditing: false,
@@ -157,8 +155,6 @@ import { validateEmail, validatePassword } from '@/utils/validation';
                 newPasswordError: '',
                 confirmationPasswordError: '',
                 isPasswordEditing: false,
-
-                isPopupShown: false
             };
         },
         methods: {
@@ -169,7 +165,6 @@ import { validateEmail, validatePassword } from '@/utils/validation';
             },
             setLastName: function (value: string) {
                 this.$data.lastName = value;
-                this.$data.lastNameError = '';
                 this.$data.isAccountSettingsEditing = true;
             },
             setEmail: function (value: string) {
@@ -181,7 +176,6 @@ import { validateEmail, validatePassword } from '@/utils/validation';
                 this.$data.firstName = this.$data.originalFirstName;
                 this.$data.firstNameError = '';
                 this.$data.lastName = this.$data.originalLastName;
-                this.$data.lastNameError = '';
                 this.$data.email = this.$data.originalEmail;
                 this.$data.emailError = '';
 
@@ -204,11 +198,6 @@ import { validateEmail, validatePassword } from '@/utils/validation';
                     hasError = true;
                 }
 
-                if (!this.$data.lastName) {
-                    this.$data.lastNameError = 'Last name expected';
-                    hasError = true;
-                }
-
                 if (!validateEmail(this.$data.email)) {
                     this.$data.emailError = 'Incorrect email';
                     hasError = true;
@@ -224,14 +213,14 @@ import { validateEmail, validatePassword } from '@/utils/validation';
                     lastName: this.$data.lastName,
                 };
 
-                let response = await this.$store.dispatch('updateAccount', user);
+                let response = await this.$store.dispatch(USER_ACTIONS.UPDATE, user);
                 if (!response.isSuccess) {
-                    this.$store.dispatch('error', response.errorMessage);
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
 
                     return;
                 }
 
-                this.$store.dispatch('success', 'Account info successfully updated!');
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account info successfully updated!');
 
                 this.$data.originalFirstName = this.$store.getters.user.firstName;
                 this.$data.originalLastName = this.$store.getters.user.lastName;
@@ -302,19 +291,19 @@ import { validateEmail, validatePassword } from '@/utils/validation';
                     return;
                 }
 
-                let response = await this.$store.dispatch('changePassword',
+                let response = await this.$store.dispatch(USER_ACTIONS.CHANGE_PASSWORD,
                     {
                         oldPassword: this.$data.oldPassword,
                         newPassword: this.$data.newPassword
                     }
                 );
                 if (!response.isSuccess) {
-                    this.$store.dispatch('error', response.errorMessage);
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
 
                     return;
                 }
 
-                this.$store.dispatch('success', 'Password successfully changed!');
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Password successfully changed!');
 
                 this.$data.oldPassword = '';
                 this.$data.newPassword = '';
@@ -336,7 +325,7 @@ import { validateEmail, validatePassword } from '@/utils/validation';
                 this.$data.isPasswordEditing = false;
             },
             togglePopup: function(): void {
-                this.$data.isPopupShown = ! this.$data.isPopupShown;
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
             },
         },
         computed: {
@@ -351,6 +340,10 @@ import { validateEmail, validatePassword } from '@/utils/validation';
             avatarLetter: function (): string {
                 return this.$store.getters.userName.slice(0, 1).toUpperCase();
             },
+            isPopupShown: function (): boolean {
+
+                return this.$store.state.appStateModule.appState.isDeleteAccountPopupShown;
+            }
         },
         components: {
             Button,

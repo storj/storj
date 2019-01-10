@@ -49,16 +49,22 @@ func (d *Discovery) Refresh(ctx context.Context) error {
 		if _, err := d.kad.Ping(ctx, *node); err != nil {
 			// fail ping refresh
 			_, err = d.statdb.UpdateUptime(ctx, node.Id, false)
+			if err != nil {
+				d.log.Error("couldn't update uptime for node")
+			}
 		} else {
 			// succeed ping refresh
 			_, err = d.statdb.UpdateUptime(ctx, node.Id, true)
+			if err != nil {
+				d.log.Error("couldn't update uptime for node")
+			}
 		}
 	}
 
 	return nil
 }
 
-// Bootstrap walks the initialized network and populates the cache
+// Bootstrap populates the cache with the nodes from Kademlia#Seen()
 func (d *Discovery) Bootstrap(ctx context.Context) error {
 	nodes := d.kad.Seen()
 

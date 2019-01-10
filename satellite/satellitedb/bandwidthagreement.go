@@ -15,11 +15,13 @@ type bandwidthagreement struct {
 	db *dbx.DB
 }
 
-func (b *bandwidthagreement) CreateAgreement(ctx context.Context, agreement bwagreement.Agreement) error {
+func (b *bandwidthagreement) CreateAgreement(ctx context.Context, serialNum string, agreement bwagreement.Agreement) error {
 	_, err := b.db.Create_Bwagreement(
 		ctx,
 		dbx.Bwagreement_Signature(agreement.Signature),
+		dbx.Bwagreement_Serialnum(serialNum),
 		dbx.Bwagreement_Data(agreement.Agreement),
+		dbx.Bwagreement_ExpiresAt(agreement.ExpiresAt),
 	)
 	return err
 }
@@ -54,4 +56,9 @@ func (b *bandwidthagreement) GetAgreementsSince(ctx context.Context, since time.
 		agreement.CreatedAt = entry.CreatedAt
 	}
 	return agreements, nil
+}
+
+func (b *bandwidthagreement) DeletePaidAndExpired(ctx context.Context) error {
+	// TODO: implement deletion of paid and expired BWAs
+	return Error.New("DeletePaidAndExpired not implemented")
 }

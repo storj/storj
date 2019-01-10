@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="project-selection-choice-container" >
+    <div class="project-selection-choice-container" id="projectDropdown">
         <div class="project-selection-overflow-container">
             <!-- loop for rendering projects -->
             <!-- TODO: add selection logic onclick -->
@@ -20,6 +20,7 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component(
     {
@@ -28,23 +29,19 @@ import { Component, Vue } from 'vue-property-decorator';
                 return this.$store.getters.projects;
             }
         },
-        props: {
-            onClose: {
-                type: Function
-            }
-        },
         methods: {
             onProjectSelected: async function (projectID: string): Promise<void> {
-                this.$store.dispatch('selectProject', projectID);
-                this.$emit('onClose');
+				this.$store.dispatch(PROJETS_ACTIONS.SELECT, projectID);
+				this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
 
-                if (!this.$store.getters.selectedProject.id) return;
+				if (!this.$store.getters.selectedProject.id) return;
 
-                const response = await this.$store.dispatch('fetchProjectMembers', {limit: 20, offset: 0});
+				this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-                if (response.isSuccess) return;
+				const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
+				if (response.isSuccess) return;
 
-                this.$store.dispatch('error', 'Unable to fetch project members');
+				this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
             }
         },
     }

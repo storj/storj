@@ -79,6 +79,7 @@ import Checkbox from '@/components/common/Checkbox.vue';
 import Button from '@/components/common/Button.vue';
 import { validateEmail, validatePassword } from '@/utils/validation';
 import ROUTES from '../utils/constants/routerConstants';
+import { NOTIFICATION_ACTIONS } from '../utils/constants/actionNames';
 import { createUserRequest } from '@/api/users';
 
 @Component(
@@ -148,7 +149,7 @@ import { createUserRequest } from '@/api/users';
 
                 let response = await createUserRequest(user, this.$data.password);
                 if (!response.isSuccess) {
-                    this.$store.dispatch('error', response.errorMessage);
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
 
                     return;
                 }

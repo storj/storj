@@ -33,7 +33,7 @@ func TestSameSerialNumberBandwidthAgreements(t *testing.T) {
 		satellitePubKey, satellitePrivKey, uplinkPrivKey := generateKeys(ctx, t)
 		server := bwagreement.NewServer(db.BandwidthAgreement(), zap.NewNop(), satellitePubKey)
 
-		pbaFile1, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey)
+		pbaFile1, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, false)
 		assert.NoError(t, err)
 
 		rbaNode1, err := GenerateRenterBandwidthAllocation(pbaFile1, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
@@ -52,7 +52,7 @@ func TestSameSerialNumberBandwidthAgreements(t *testing.T) {
 
 		/* Storage node can submit a second bwagreement with a different sequence value.
 		   Uplink downloads another file. New PayerBandwidthAllocation with a new sequence. */
-		pbaFile2, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey)
+		pbaFile2, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, false)
 		assert.NoError(t, err)
 
 		rbaNode1, err = GenerateRenterBandwidthAllocation(pbaFile2, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
@@ -63,47 +63,53 @@ func TestSameSerialNumberBandwidthAgreements(t *testing.T) {
 		assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
 
 		/* Storage nodes can't submit a second bwagreement with the same sequence. */
-		/* Disabled until V3-1024 gets fixed
 		rbaNode1, err = GenerateRenterBandwidthAllocation(pbaFile1, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
 		assert.NoError(t, err)
 
 		reply, err = server.BandwidthAgreements(ctx, rbaNode1)
-		assert.EqualError(t, err, "Todo: Insert missing errormessage here")
+		assert.EqualError(t, err, "bwagreement error: SerialNumber already exists in the PayerBandwidthAllocation")
 		assert.Equal(t, pb.AgreementsSummary_FAIL, reply.Status)
-		Disabled until V3-1024 gets fixed */
 
 		/* Storage nodes can't submit the same bwagreement twice.
 		   This test is kind of duplicate cause it will most likely trigger the same sequence error.
 		   For safety we will try it anyway to make sure nothing strange will happen */
-		/* Disabled until V3-1024 gets fixed
 		reply, err = server.BandwidthAgreements(ctx, rbaNode2)
-		assert.EqualError(t, err, "Old error message was a UNIQUE constraint violation. Better error message needed!")
+		assert.EqualError(t, err, "bwagreement error: SerialNumber already exists in the PayerBandwidthAllocation")
 		assert.Equal(t, pb.AgreementsSummary_FAIL, reply.Status)
-		Disabled until V3-1024 gets fixed */
 	})
 }
 
 func TestInvalidBandwidthAgreements(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		/* Todo: Add more tests for bwagreement manipulations
-
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
 		satellitePubKey, satellitePrivKey, uplinkPrivKey := generateKeys(ctx, t)
 		server := bwagreement.NewServer(db.BandwidthAgreement(), zap.NewNop(), satellitePubKey)
 
-		pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey)
+		pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, false)
 		assert.NoError(t, err)
 
 		rba, err := GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
 		assert.NoError(t, err)
 
-		Make sure the bwagreement we are using as bluleprint is valid and avoid false positives that way.
+		// Make sure the bwagreement we are using as blueprint is valid and avoid false positives that way.
 		reply, err := server.BandwidthAgreements(ctx, rba)
 		assert.NoError(t, err)
 		assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
-		*/
+
+		// storage nodes can't submit an expired bwagreement
+		expPBA, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, true)
+		assert.NoError(t, err)
+
+		rba, err = GenerateRenterBandwidthAllocation(expPBA, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
+		assert.NoError(t, err)
+
+		reply, err = server.BandwidthAgreements(ctx, rba)
+		assert.Error(t, err)
+		assert.Equal(t, pb.AgreementsSummary_FAIL, reply.Status)
+
+		/* Todo: Add more tests for bwagreement manipulations
 
 		/* copy and unmarshal pba and rba to manipulate it without overwriting it */
 

@@ -29,7 +29,7 @@ func New(log *zap.Logger, store storage.KeyValueStore) *Logger {
 
 // Put adds a value to store
 func (store *Logger) Put(key storage.Key, value storage.Value) error {
-	store.log.Debug("Put", zap.String("key", string(key)), zap.Binary("value", []byte(value)))
+	store.log.Debug("Put", zap.String("key", string(key)), zap.Int("value length", len(value)), zap.Binary("truncated value", truncate(value)))
 	return store.store.Put(key, value)
 }
 
@@ -77,7 +77,11 @@ func (store *Logger) Iterate(opts storage.IterateOptions, fn func(storage.Iterat
 		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
 			ok := it.Next(item)
 			if ok {
-				store.log.Debug("  ", zap.String("key", string(item.Key)), zap.Binary("value", item.Value))
+				store.log.Debug("  ",
+					zap.String("key", string(item.Key)),
+					zap.Int("value length", len(item.Value)),
+					zap.Binary("truncated value", truncate(item.Value)),
+				)
 			}
 			return ok
 		}))
@@ -88,4 +92,13 @@ func (store *Logger) Iterate(opts storage.IterateOptions, fn func(storage.Iterat
 func (store *Logger) Close() error {
 	store.log.Debug("Close")
 	return store.store.Close()
+}
+
+func truncate(v storage.Value) (t []byte) {
+	if len(v)-1 < 10 {
+		t = []byte(v)
+	} else {
+		t = v[:10]
+	}
+	return t
 }
