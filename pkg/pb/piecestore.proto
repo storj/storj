@@ -25,6 +25,9 @@ message PayerBandwidthAllocation { // Payer refers to satellite
   enum Action {
     PUT = 0;
     GET = 1;
+    GET_AUDIT = 2;
+    GET_REPAIR = 3;
+    PUT_REPAIR = 4;
   }
 
   message Data {
