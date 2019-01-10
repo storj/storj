@@ -39,7 +39,7 @@ type Config struct {
 	// TODO: switch to using server.Config when Identity has been removed from it
 	PublicAddress string `help:"public address to listen on" default:":7777"`
 	Kademlia      kademlia.Config
-	Piecestore    psserver.Config
+	Storage       psserver.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -133,7 +133,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 
 	{ // setup piecestore
 		// TODO: move this setup logic into psstore package
-		config := config.Piecestore
+		config := config.Storage
 
 		// TODO: psserver shouldn't need the private key
 		peer.Piecestore = psserver.New(peer.Log.Named("piecestore"), peer.DB.Disk(), peer.DB.PSDB(), config, peer.Identity.Key)

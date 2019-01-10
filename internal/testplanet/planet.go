@@ -285,7 +285,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
 			},
-			Piecestore: psserver.Config{
+			Storage: psserver.Config{
 				Path:                   db.Disk(),
 				AllocatedDiskSpace:     memory.TB.Int64(),
 				AllocatedBandwidth:     memory.TB.Int64(),
