@@ -68,7 +68,7 @@ func TestServer(t *testing.T) {
 	}
 }
 
-func TestFewerThanRequiredReputableNodes(t *testing.T) {
+func TestNewNodeFiltering(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -82,33 +82,76 @@ func TestFewerThanRequiredReputableNodes(t *testing.T) {
 	// we wait a second for all the nodes to complete bootstrapping off the satellite
 	time.Sleep(2 * time.Second)
 
-	// todo(nat):
-	// create a gateway to upload files to the test nodes
-	// then make sure that the right number of nodes are audited
-	// then confirm right outputs
-
-	// gateway := miniogw.NewStorjGateway(storj.Metainfo{}, streams.Store{}, storj.Cipher{}, storj.EncryptionScheme{}, storj.RedundancySceme{})
-
 	satellite := planet.Satellites[0]
-	server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay, &pb.NodeStats{}, 2, 1, 0.5)
 
-	result, err := server.FindStorageNodes(ctx,
-		&pb.FindStorageNodesRequest{
-			Opts: &pb.OverlayOptions{Amount: 2},
-		})
-	stat, ok := status.FromError(err)
-	assert.Equal(t, true, ok)
-	assert.Equal(t, codes.ResourceExhausted, stat.Code)
-	assert.Equal(t, 3, len(result.GetNodes()))
+	for i, tt := range []struct {
+		name                  string
+		newNodeAuditThreshold int64
+		newNodePercentage     float64
+		requestedNodeAmt      int64
+		expectedResultLength  int
+		reputableNodes        int
+	}{
+		{
+			name:                  "case: fewer than required reputable nodes",
+			requestedNodeAmt:      4,
+			reputableNodes:        3,
+			expectedResultLength:  3,
+			newNodeAuditThreshold: 1,
+		},
+		// {
+		// 	name:                  "case: more than required reputable nodes",
+		// 	requestedNodeAmt:      2,
+		// 	reputableNodes:        4,
+		// 	expectedResultLength:  2,
+		// 	newNodeAuditThreshold: 1,
+		// },
+		// {
+		// 	name: "zero reputable nodes found, only new nodes",
+		// },
+		// {
+		// 	name: "fewer than required new nodes",
+		// },
+		// {
+		// 	name: "more than required new nodes",
+		// },
+		// {
+		// 	name: "zero new nodes found, only reputable nodes",
+		// },
+		// {
+		// 	name: "exactly the required amount of new and reputable nodes returned",
+		// },
+		// {
+		// 	name: "low percentage of new nodes",
+		// },
+		// {
+		// 	name: "high percentage of new nodes",
+		// },
+		// {
+		// 	name: "0% new nodes requested",
+		// },
+	} {
+		server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay,
+			&pb.NodeStats{}, 2, tt.newNodeAuditThreshold, tt.newNodePercentage)
+
+		for i := 0; i <= tt.reputableNodes; i++ {
+			satellite.Overlay.Put(ctx, planet.StorageNodes[i].ID(), pb.Node{
+				Reputation: &pb.NodeStats{AuditCount: 1},
+			})
+		}
+
+		result, err := server.FindStorageNodes(ctx,
+			&pb.FindStorageNodesRequest{
+				Opts: &pb.OverlayOptions{Amount: tt.requestedNodeAmt},
+			})
+
+		if i == 0 {
+			stat, ok := status.FromError(err)
+			assert.Equal(t, true, ok)
+			assert.Equal(t, codes.ResourceExhausted, stat.Code())
+			assert.Equal(t, tt.expectedResultLength, len(result.GetNodes()))
+		} else {
+			assert.NoError(t, err, tt.name)
+		}
+	}
 }
-
-// other tests:
-// 	more than required reputable nodes
-// 	zero reputable nodes found, only new nodes
-// 	fewer than required new nodes
-// 	more than required new nodes
-// 	zero new nodes found, only reputable nodes
-// 	exactly the required amount of new and reputable nodes returned
-// 	low percentage of new nodes
-// 	high percentage of new nodes
-// 	0% new nodes requested
