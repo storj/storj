@@ -10,10 +10,12 @@ model bwagreement (
 	field serialnum  text
 	field data       blob
 	field created_at timestamp ( autoinsert )
+	field expires_at timestamp
 )
 
 create bwagreement ( )
 delete bwagreement ( where bwagreement.signature = ? )
+delete bwagreement ( where bwagreement.expires_at <= ?)
 
 read one (
 	select bwagreement
