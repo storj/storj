@@ -75,7 +75,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	}
 
 	// get pointer info
-	pointer, _, pba, err := cursor.pointers.Get(ctx, path)
+	pointer, _, _, err := cursor.pointers.Get(ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +100,10 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	}
 
 	authorization := cursor.pointers.SignedMessage()
+	pba, err := cursor.pointers.PayerBandwidthAllocation(ctx, pb.PayerBandwidthAllocation_GET_AUDIT)
+	if err != nil {
+		return nil, err
+	}
 	return &Stripe{Index: index, Segment: pointer, PBA: pba, Authorization: authorization}, nil
 }
 

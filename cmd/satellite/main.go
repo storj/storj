@@ -243,9 +243,10 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		// fill the summary info
 		summary.TotalBytes += rbad.GetTotal()
 		summary.TotalTransactions++
-		if pbad.GetAction() == pb.PayerBandwidthAllocation_PUT {
+		switch pbad.GetAction() {
+		case pb.PayerBandwidthAllocation_PUT:
 			summary.PutActionCount++
-		} else {
+		case pb.PayerBandwidthAllocation_GET:
 			summary.GetActionCount++
 		}
 	}
