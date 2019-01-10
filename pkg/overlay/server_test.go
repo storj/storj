@@ -178,7 +178,7 @@ func TestNewNodeFiltering(t *testing.T) {
 
 		for i := 0; i <= tt.reputableNodes; i++ {
 			err := satellite.Overlay.Put(ctx, planet.StorageNodes[i].ID(), pb.Node{
-				Reputation: &pb.NodeStats{AuditCount: 1},
+				Reputation: &pb.NodeStats{AuditCount: tt.newNodeAuditThreshold},
 			})
 			assert.NoError(t, err, tt.name)
 		}

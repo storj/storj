@@ -47,7 +47,7 @@ type NodeSelectionConfig struct {
 	AuditSuccessRatio float64 `help:"a node's ratio of successful audits" default:"0"`
 	AuditCount        int64   `help:"the number of times a node has been audited" default:"0"`
 
-	NewNodeAuditThreshold int64   `help:"the number of audits a node must have to not be considered a New Node" default:"0"`
+	NewNodeAuditThreshold int64   `help:"the number of audits a node must have to not be considered a New Node" default:"1"`
 	NewNodePercentage     float64 `help:"the percentage of new nodes allowed per request" default:"0.05"`
 	MatchingNodeRatio     float64 `help:"the ratio of requested nodes to matching nodes for a given list of restrictions" default:"2"`
 }
