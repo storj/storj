@@ -3,7 +3,7 @@
 
 <template>
     <!-- To close popup we need to use method onCloseClick -->
-    <div class="account-dropdown-choice-container" >
+    <div class="account-dropdown-choice-container" id="accountDropdown">
         <div class="account-dropdown-overflow-container">
             <!-- TODO: add selection logic onclick -->
             <div class="account-dropdown-item-container settings" v-on:click="onAccountSettingsClick" >
@@ -47,31 +47,27 @@
 import { Component, Vue } from 'vue-property-decorator';
 import { removeToken } from '@/utils/tokenManager';
 import ROUTES from '@/utils/constants/routerConstants';
+import { APP_STATE_ACTIONS, PROJETS_ACTIONS, PM_ACTIONS, USER_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component(
     {
         data: function () {
             return {};
         },
-        props: {
-            onClose: {
-                type: Function
-            }
-        },
         methods: {
             onCloseClick: function (): void {
-                this.$emit('onClose');
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
             },
             onAccountSettingsClick: function (): void {
                 this.$router.push('/account-settings');
-                this.$emit('onClose');
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
             },
             onLogoutClick: function () {
                 removeToken();
                 this.$router.push(ROUTES.LOGIN.path);
-                this.$store.dispatch('clearProjectMembers');
-                this.$store.dispatch('clearProjects');
-                this.$store.dispatch('clearUser');
+                this.$store.dispatch(PM_ACTIONS.CLEAR);
+                this.$store.dispatch(PROJETS_ACTIONS.CLEAR);
+                this.$store.dispatch(USER_ACTIONS.CLEAR);
             }
         },
     }

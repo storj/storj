@@ -7,7 +7,7 @@
         <div class="delete-user-container" >
             <div class="delete-user-container__text">
                 <img src="../../../../static/images/team/atten.svg" alt="">
-                <p>Are you sure you want tot delete <span>1</span> user?</p>
+                <p>Are you sure you want to delete <span>1</span> user?</p>
             </div>
             <div class="delete-user-container__buttons-group">
                 <Button 

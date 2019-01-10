@@ -11,6 +11,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -287,7 +288,13 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.De
 }
 
 // Iterate iterates over items based on IterateRequest
-func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it storage.Iterator) error) error {
+func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it storage.Iterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = s.validateAuth(ctx); err != nil {
+		return err
+	}
+
 	opts := storage.IterateOptions{
 		Prefix:  storage.Key(req.Prefix),
 		First:   storage.Key(req.First),
@@ -298,15 +305,16 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 }
 
 // PayerBandwidthAllocation returns PayerBandwidthAllocation struct, signed and with given action type
-func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBandwidthAllocationRequest) (*pb.PayerBandwidthAllocationResponse, error) {
-	payer := s.identity.ID
+func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBandwidthAllocationRequest) (pba *pb.PayerBandwidthAllocationResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	// TODO(michal) should be replaced with renter id when available
-	peerIdentity, err := provider.PeerIdentityFromContext(ctx)
-	if err != nil {
+	if err = s.validateAuth(ctx); err != nil {
 		return nil, err
 	}
 
+	payer := s.identity.ID
+
+	// TODO(michal) should be replaced with renter id when available
 	// retrieve the public key
 	pi, err := provider.PeerIdentityFromContext(ctx)
 	if err != nil {
@@ -324,11 +332,17 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
+	serialNum, err := uuid.New()
+	if err != nil {
+		return nil, err
+	}
+
 	pbad := &pb.PayerBandwidthAllocation_Data{
 		SatelliteId:    payer,
-		UplinkId:       peerIdentity.ID,
+		UplinkId:       pi.ID,
 		CreatedUnixSec: time.Now().Unix(),
 		Action:         req.GetAction(),
+		SerialNumber:   serialNum.String(),
 		PubKey:         pubbytes,
 	}
 

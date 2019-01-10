@@ -33,7 +33,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	defer mon.Task()(&ctx)(&err)
 
 	// Read the segment's pointer's info from the PointerDB
-	pr, originalNodes, pba, err := s.pdb.Get(ctx, path)
+	pr, originalNodes, _, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -118,9 +118,12 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	}
 
 	signedMessage := s.pdb.SignedMessage()
-
+	pbaGet, err := s.pdb.PayerBandwidthAllocation(ctx, pb.PayerBandwidthAllocation_GET_REPAIR)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 	// Download the segment using just the healthyNodes
-	rr, err := s.ec.Get(ctx, healthyNodes, rs, pid, pr.GetSegmentSize(), pba, signedMessage)
+	rr, err := s.ec.Get(ctx, healthyNodes, rs, pid, pr.GetSegmentSize(), pbaGet, signedMessage)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -131,8 +134,12 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	}
 	defer utils.LogClose(r)
 
+	pbaPut, err := s.pdb.PayerBandwidthAllocation(ctx, pb.PayerBandwidthAllocation_PUT_REPAIR)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 	// Upload the repaired pieces to the repairNodes
-	successfulNodes, err := s.ec.Put(ctx, repairNodes, rs, pid, r, convertTime(pr.GetExpirationDate()), pba, signedMessage)
+	successfulNodes, err := s.ec.Put(ctx, repairNodes, rs, pid, r, convertTime(pr.GetExpirationDate()), pbaPut, signedMessage)
 	if err != nil {
 		return Error.Wrap(err)
 	}
