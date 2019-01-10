@@ -29,7 +29,7 @@ func (db *accountingDB) LastRawTime(ctx context.Context, timestampType string) (
 
 // SaveBWRaw records granular tallies (sums of bw agreement values) to the database
 // and updates the LastRawTime
-func (db *accountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTotals map[string]int64) (err error) {
+func (db *accountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTotals accounting.BWTally) (err error) {
 	// We use the latest bandwidth agreement value of a batch of records as the start of the next batch
 	// This enables us to not use:
 	// 1) local time (which may deviate from DB time)
@@ -53,14 +53,16 @@ func (db *accountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTo
 		}
 	}()
 	//create a granular record per node id
-	for k, v := range bwTotals {
-		nID := dbx.AccountingRaw_NodeId(k)
-		end := dbx.AccountingRaw_IntervalEndTime(latestBwa)
-		total := dbx.AccountingRaw_DataTotal(v)
-		dataType := dbx.AccountingRaw_DataType(accounting.Bandwith)
-		_, err = tx.Create_AccountingRaw(ctx, nID, end, total, dataType)
-		if err != nil {
-			return Error.Wrap(err)
+	for actionType, bwActionTotals := range bwTotals {
+		for k, v := range bwActionTotals {
+			nID := dbx.AccountingRaw_NodeId(k)
+			end := dbx.AccountingRaw_IntervalEndTime(latestBwa)
+			total := dbx.AccountingRaw_DataTotal(v)
+			dataType := dbx.AccountingRaw_DataType(actionType)
+			_, err = tx.Create_AccountingRaw(ctx, nID, end, total, dataType)
+			if err != nil {
+				return Error.Wrap(err)
+			}
 		}
 	}
 	//save this batch's greatest time

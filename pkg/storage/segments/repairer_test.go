@@ -14,9 +14,9 @@ import (
 	"storj.io/storj/internal/teststorj"
 	mock_overlay "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb/pdbclient/mocks"
+	mock_pointerdb "storj.io/storj/pkg/pointerdb/pdbclient/mocks"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storage/ec/mocks"
+	mock_ecclient "storj.io/storj/pkg/storage/ec/mocks"
 )
 
 func TestNewSegmentRepairer(t *testing.T) {
@@ -102,9 +102,11 @@ func TestSegmentStoreRepairRemote(t *testing.T) {
 			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
 			mockOC.EXPECT().Choose(gomock.Any(), gomock.Any()).Return(tt.newNodes, nil),
 			mockPDB.EXPECT().SignedMessage(),
+			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any()),
 			mockEC.EXPECT().Get(
 				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return(ranger.ByteRanger([]byte(tt.data)), nil),
+			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any()),
 			mockEC.EXPECT().Put(
 				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return(tt.newNodes, nil),

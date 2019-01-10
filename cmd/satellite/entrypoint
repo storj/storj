@@ -1,15 +1,15 @@
 #!/bin/sh
 set -euo pipefail
 
+if [[ -n "${API_KEY}" ]]; then
+	export STORJ_POINTER_DB_AUTH_API_KEY="${API_KEY}"
+fi
+
 if [[ ! -f "${CONF_PATH}/config.yaml" ]]; then
 	./satellite setup
 fi
 
 RUN_PARAMS="${RUN_PARAMS:-} --config-dir ${CONF_PATH}"
-
-if [[ -n "${API_KEY}" ]]; then
-	export STORJ_POINTER_DB_AUTH_API_KEY="${API_KEY}"
-fi
 
 if [[ -n "${BOOTSTRAP_ADDR:-}" ]]; then
 	RUN_PARAMS="${RUN_PARAMS} --kademlia.bootstrap-addr ${BOOTSTRAP_ADDR}"
