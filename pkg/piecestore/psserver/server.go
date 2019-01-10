@@ -144,10 +144,11 @@ func New(log *zap.Logger, dataDir string, db *psdb.DB, config Config, pkey crypt
 	}
 }
 
+// Close stops the server
+func (s *Server) Close() error { return nil }
+
 // Stop the piececstore node
-func (s *Server) Stop(ctx context.Context) (err error) {
-	return s.DB.Close()
-}
+func (s *Server) Stop(ctx context.Context) error { return s.DB.Close() }
 
 // Piece -- Send meta data about a stored by by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
