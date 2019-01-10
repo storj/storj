@@ -31,7 +31,7 @@ func TestDatabase(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		transaction, err := db.BeginTx(nil)
+		transaction, err := db.BeginTx(ctx)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, transaction)
@@ -51,7 +51,7 @@ func TestDatabase(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		transaction, err := db.BeginTx(nil)
+		transaction, err := db.BeginTx(ctx)
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, transaction)
