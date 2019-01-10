@@ -177,9 +177,10 @@ func TestNewNodeFiltering(t *testing.T) {
 			&pb.NodeStats{}, 2, tt.newNodeAuditThreshold, tt.newNodePercentage)
 
 		for i := 0; i <= tt.reputableNodes; i++ {
-			satellite.Overlay.Put(ctx, planet.StorageNodes[i].ID(), pb.Node{
+			err := satellite.Overlay.Put(ctx, planet.StorageNodes[i].ID(), pb.Node{
 				Reputation: &pb.NodeStats{AuditCount: 1},
 			})
+			assert.NoError(t, err, tt.name)
 		}
 
 		result, err := server.FindStorageNodes(ctx,
@@ -198,9 +199,10 @@ func TestNewNodeFiltering(t *testing.T) {
 
 		// resetting audit count to 0
 		for i := 0; i <= tt.reputableNodes; i++ {
-			satellite.Overlay.Put(ctx, planet.StorageNodes[i].ID(), pb.Node{
+			err := satellite.Overlay.Put(ctx, planet.StorageNodes[i].ID(), pb.Node{
 				Reputation: &pb.NodeStats{AuditCount: 0},
 			})
+			assert.NoError(t, err, tt.name)
 		}
 	}
 }
