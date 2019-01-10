@@ -48,6 +48,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		zap.Int64("Size", pd.GetPieceSize()),
 	)
 
+	rba := recv.GetBandwidthAllocation()
 	id, err := getNamespacedPieceID([]byte(pd.GetId()), getNamespace(authorization))
 	if err != nil {
 		return err
