@@ -69,20 +69,20 @@ func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID 
 	// Get satellite ip from kademlia
 	satellite, err := as.kad.FindNode(ctx, satID)
 	if err != nil {
-		as.log.Error("Agreementsender could not find satellite", zap.Error(err))
+		as.log.Warn("Agreementsender could not find satellite", zap.Error(err))
 		return
 	}
 	// Create client from satellite ip
 	conn, err := as.transport.DialNode(ctx, &satellite)
 	if err != nil {
-		as.log.Error("Agreementsender could not dial satellite", zap.Error(err))
+		as.log.Warn("Agreementsender could not dial satellite", zap.Error(err))
 		return
 	}
 	client := pb.NewBandwidthClient(conn)
 	defer func() {
 		err := conn.Close()
 		if err != nil {
-			as.log.Error("Agreementsender failed to close connection", zap.Error(err))
+			as.log.Warn("Agreementsender failed to close connection", zap.Error(err))
 		}
 	}()
 
@@ -98,7 +98,7 @@ func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID 
 				//todo: something better than a delete here?
 				as.log.Error("Agreementsender had agreement explicitly rejected by satellite : will delete", zap.Error(err))
 			} else {
-				as.log.Error("Agreementsender failed to send agreement to satellite : will retry", zap.Error(err))
+				as.log.Warn("Agreementsender failed to send agreement to satellite : will retry", zap.Error(err))
 				continue
 			}
 		}
