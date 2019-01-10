@@ -88,55 +88,15 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 
 	start := time.Now()
 
-	for i, n := range nodes {
-		if n != nil {
-			n.Type.DPanicOnInvalid("ec client Put")
+	for i, node := range nodes {
+		if node != nil {
+			node.Type.DPanicOnInvalid("ec client Put")
 		}
 
-		go func(i int, n *pb.Node) {
-			if n == nil {
-				_, err := io.Copy(ioutil.Discard, readers[i])
-				infos <- info{i: i, err: err}
-				return
-			}
-			derivedPieceID, err := pieceID.Derive(n.Id.Bytes())
-
-			if err != nil {
-				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
-				infos <- info{i: i, err: err}
-				return
-			}
-			ps, err := ec.newPSClient(psCtx, n)
-			if err != nil {
-				zap.S().Errorf("Failed dialing for putting piece %s -> %s to node %s: %v",
-					pieceID, derivedPieceID, n.Id, err)
-				infos <- info{i: i, err: err}
-				return
-			}
-			err = ps.Put(psCtx, derivedPieceID, readers[i], expiration, pba, authorization)
-			// normally the bellow call should be deferred, but doing so fails
-			// randomly the unit tests
-			utils.LogClose(ps)
-			utils.LogClose(readers[i])
-			// Canceled context means the piece upload was interrupted due to slow connection.
-			// No error logging for this case.
-			if psCtx.Err() == context.Canceled {
-				if ctx.Err() == context.Canceled {
-					zap.S().Infof("Upload to node %s canceled by user.", n.Id)
-				} else {
-					zap.S().Infof("Node %s cut from upload due to slow connection.", n.Id)
-				}
-				err = context.Canceled
-			} else if err != nil {
-				nodeAddress := "nil"
-				if n.Address != nil {
-					nodeAddress = n.Address.Address
-				}
-				zap.S().Errorf("Failed putting piece %s -> %s to node %s (%+v): %v",
-					pieceID, derivedPieceID, n.Id, nodeAddress, err)
-			}
+		go func(i int, node *pb.Node) {
+			err := ec.putPiece(psCtx, ctx, node, pieceID, readers[i], expiration, pba, authorization)
 			infos <- info{i: i, err: err}
-		}(i, n)
+		}(i, node)
 	}
 
 	successfulNodes = make([]*pb.Node, len(nodes))
@@ -185,6 +145,48 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	}
 
 	return successfulNodes, nil
+}
+
+func (ec *ecClient) putPiece(ctx, parent context.Context, node *pb.Node, pieceID psclient.PieceID, data io.ReadCloser, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) error {
+	defer utils.LogClose(data)
+
+	if node == nil {
+		_, err := io.Copy(ioutil.Discard, data)
+		return err
+	}
+	derivedPieceID, err := pieceID.Derive(node.Id.Bytes())
+
+	if err != nil {
+		zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
+		return err
+	}
+	ps, err := ec.newPSClient(ctx, node)
+	if err != nil {
+		zap.S().Errorf("Failed dialing for putting piece %s -> %s to node %s: %v",
+			pieceID, derivedPieceID, node.Id, err)
+		return err
+	}
+	err = ps.Put(ctx, derivedPieceID, data, expiration, pba, authorization)
+	defer utils.LogClose(ps)
+	// Canceled context means the piece upload was interrupted by user or due
+	// to slow connection. No error logging for this case.
+	if ctx.Err() == context.Canceled {
+		if parent.Err() == context.Canceled {
+			zap.S().Infof("Upload to node %s canceled by user.", node.Id)
+		} else {
+			zap.S().Infof("Node %s cut from upload due to slow connection.", node.Id)
+		}
+		err = context.Canceled
+	} else if err != nil {
+		nodeAddress := "nil"
+		if node.Address != nil {
+			nodeAddress = node.Address.Address
+		}
+		zap.S().Errorf("Failed putting piece %s -> %s to node %s (%+v): %v",
+			pieceID, derivedPieceID, node.Id, nodeAddress, err)
+	}
+
+	return err
 }
 
 func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
