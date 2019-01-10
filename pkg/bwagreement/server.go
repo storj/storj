@@ -40,6 +40,7 @@ type Agreement struct {
 	Agreement []byte
 	Signature []byte
 	CreatedAt time.Time
+	ExpiresAt time.Time
 }
 
 // NewServer creates instance of Server
@@ -65,7 +66,6 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 		return reply, err
 	}
 
-	//Deserealize RenterBandwidthAllocation.GetData() so we can get public key
 	rbad := &pb.RenterBandwidthAllocation_Data{}
 	if err = proto.Unmarshal(ba.GetData(), rbad); err != nil {
 		return reply, BwAgreementError.New("Failed to unmarshal RenterBandwidthAllocation: %+v", err)
@@ -83,13 +83,20 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 
 	serialNum := pbad.GetSerialNumber() + rbad.StorageNodeId.String()
 
+	// get and check expiration
+	exp := time.Unix(pbad.GetExpirationUnixSec(), 0).UTC()
+	if exp.Before(time.Now().UTC()) {
+		return reply, BwAgreementError.New("Bandwidth agreement is expired (%v)", exp)
+	}
+
 	err = s.db.CreateAgreement(ctx, serialNum, Agreement{
 		Signature: ba.GetSignature(),
 		Agreement: ba.GetData(),
+		ExpiresAt: exp,
 	})
 
 	if err != nil {
-		return reply, BwAgreementError.New("SerialNumber already exist in the PayerBandwidthAllocation")
+		return reply, BwAgreementError.New("SerialNumber already exists in the PayerBandwidthAllocation")
 	}
 
 	reply.Status = pb.AgreementsSummary_OK
