@@ -4,7 +4,6 @@
 package agreementsender
 
 import (
-	"flag"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -20,32 +19,31 @@ import (
 )
 
 var (
-	//todo: cache kad responses if this interval is very small
-	defaultCheckInterval = flag.Duration("piecestore.agreementsender.check-interval", time.Hour, "duration to sleep between agreement checks")
 	// ASError wraps errors returned from agreementsender package
 	ASError = errs.Class("agreement sender error")
 )
 
 // AgreementSender maintains variables required for reading bandwidth agreements from a DB and sending them to a Payers
 type AgreementSender struct {
-	DB        *psdb.DB
-	log       *zap.Logger
-	transport transport.Client
-	kad       *kademlia.Kademlia
+	DB            *psdb.DB
+	log           *zap.Logger
+	transport     transport.Client
+	kad           *kademlia.Kademlia
+	checkInterval time.Duration
 }
 
 // New creates an Agreement Sender
-func New(log *zap.Logger, DB *psdb.DB, identity *provider.FullIdentity, kad *kademlia.Kademlia) *AgreementSender {
-	return &AgreementSender{DB: DB, log: log, transport: transport.NewClient(identity), kad: kad}
+func New(log *zap.Logger, DB *psdb.DB, identity *provider.FullIdentity, kad *kademlia.Kademlia, checkInterval time.Duration) *AgreementSender {
+	return &AgreementSender{DB: DB, log: log, transport: transport.NewClient(identity), kad: kad, checkInterval: checkInterval}
 }
 
 // Run the agreement sender with a context to check for cancel
 func (as *AgreementSender) Run(ctx context.Context) {
 	//todo:  we likely don't want to stop on err, but consider returning errors via a channel
-	ticker := time.NewTicker(*defaultCheckInterval)
+	ticker := time.NewTicker(as.checkInterval)
 	defer ticker.Stop()
 	for {
-		as.log.Debug("AgreementSender is running", zap.Duration("duration", *defaultCheckInterval))
+		as.log.Debug("AgreementSender is running", zap.Duration("duration", as.checkInterval))
 		agreementGroups, err := as.DB.GetBandwidthAllocations()
 		if err != nil {
 			as.log.Error("Agreementsender could not retrieve bandwidth allocations", zap.Error(err))
@@ -65,6 +63,7 @@ func (as *AgreementSender) Run(ctx context.Context) {
 
 func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID storj.NodeID, agreements []*psdb.Agreement) {
 	as.log.Info("Sending agreements to satellite", zap.Int("number of agreements", len(agreements)), zap.String("satellite id", satID.String()))
+	// todo: cache kad responses if this interval is very small
 	// Get satellite ip from kademlia
 	satellite, err := as.kad.FindNode(ctx, satID)
 	if err != nil {
