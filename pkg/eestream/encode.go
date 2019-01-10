@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"os"
 	"sync/atomic"
 
 	"go.uber.org/zap"
@@ -117,7 +118,7 @@ func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy) ([]io
 		pieces: make(map[int](*encodedPiece), rs.TotalCount()),
 	}
 
-	teeReader, teeWriter, err := sync2.NewTeeFile(rs.TotalCount(), "/tmp")
+	teeReader, teeWriter, err := sync2.NewTeeFile(rs.TotalCount(), os.TempDir())
 	if err != nil {
 		return nil, err
 	}
