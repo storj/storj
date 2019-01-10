@@ -91,6 +91,10 @@ func (size *Size) Set(s string) error {
 	p := len(s)
 	for isLetter(s[p-1]) {
 		p--
+
+		if p < 0 {
+			return errors.New("p out of bounds")
+		}
 	}
 
 	value, suffix := s[:p], s[p:]
@@ -99,17 +103,11 @@ func (size *Size) Set(s string) error {
 		suffix += "B"
 	}
 
-	fmt.Println("value ", value)
-	fmt.Println("suffix ", suffix)
-
 	value = strings.TrimSpace(value)
-	fmt.Println("value2 ", value)
 	v, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("parsed ", v)
 
 	switch suffix {
 	case "EB", "EIB":
