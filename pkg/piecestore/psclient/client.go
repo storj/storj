@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
@@ -28,13 +29,18 @@ import (
 var ClientError = errs.Class("piecestore client error")
 
 var (
-	defaultBandwidthMsgSize = flag.Int(
-		"piecestore.rpc.client.default-bandwidth-msg-size", 32*1024,
-		"default bandwidth message size in bytes")
-	maxBandwidthMsgSize = flag.Int(
-		"piecestore.rpc.client.max-bandwidth-msg-size", 64*1024,
-		"max bandwidth message size in bytes")
+	defaultBandwidthMsgSize memory.Size = 32 * memory.KB
+	maxBandwidthMsgSize     memory.Size = 64 * memory.KB
 )
+
+func init() {
+	flag.Var(&defaultBandwidthMsgSize,
+		"piecestore.rpc.client.default-bandwidth-msg-size",
+		"default bandwidth message size in bytes")
+	flag.Var(&maxBandwidthMsgSize,
+		"piecestore.rpc.client.max-bandwidth-msg-size",
+		"max bandwidth message size in bytes")
+}
 
 // Client is an interface describing the functions for interacting with piecestore nodes
 type Client interface {
@@ -63,12 +69,12 @@ func NewPSClient(ctx context.Context, tc transport.Client, n *pb.Node, bandwidth
 		return nil, err
 	}
 
-	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
+	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize.Int() {
 		return nil, ClientError.New("invalid Bandwidth Message Size: %v", bandwidthMsgSize)
 	}
 
 	if bandwidthMsgSize == 0 {
-		bandwidthMsgSize = *defaultBandwidthMsgSize
+		bandwidthMsgSize = defaultBandwidthMsgSize.Int()
 	}
 
 	return &PieceStore{
@@ -83,12 +89,12 @@ func NewPSClient(ctx context.Context, tc transport.Client, n *pb.Node, bandwidth
 // NewCustomRoute creates new PieceStore with custom client interface
 func NewCustomRoute(client pb.PieceStoreRoutesClient, target *pb.Node, bandwidthMsgSize int, prikey crypto.PrivateKey) (*PieceStore, error) {
 	target.Type.DPanicOnInvalid("new custom route")
-	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
+	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize.Int() {
 		return nil, ClientError.New("invalid Bandwidth Message Size: %v", bandwidthMsgSize)
 	}
 
 	if bandwidthMsgSize == 0 {
-		bandwidthMsgSize = *defaultBandwidthMsgSize
+		bandwidthMsgSize = defaultBandwidthMsgSize.Int()
 	}
 
 	return &PieceStore{

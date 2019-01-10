@@ -68,8 +68,8 @@ type Server struct {
 func NewEndpoint(log *zap.Logger, config Config, db *psdb.DB, pkey crypto.PrivateKey) (*Server, error) {
 
 	// read the allocated disk space from the config file
-	allocatedDiskSpace := config.AllocatedDiskSpace
-	allocatedBandwidth := config.AllocatedBandwidth
+	allocatedDiskSpace := config.AllocatedDiskSpace.Int64()
+	allocatedBandwidth := config.AllocatedBandwidth.Int64()
 
 	// get the disk space details
 	// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
@@ -137,8 +137,8 @@ func New(log *zap.Logger, dataDir string, db *psdb.DB, config Config, pkey crypt
 		DataDir:          dataDir,
 		DB:               db,
 		pkey:             pkey,
-		totalAllocated:   config.AllocatedDiskSpace,
-		totalBwAllocated: config.AllocatedBandwidth,
+		totalAllocated:   config.AllocatedDiskSpace.Int64(),
+		totalBwAllocated: config.AllocatedBandwidth.Int64(),
 		verifier:         auth.NewSignedMessageVerifier(),
 	}
 }

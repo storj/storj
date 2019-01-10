@@ -159,8 +159,8 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 		server := pieceserver.New(node.Log, storageDir, serverdb, pieceserver.Config{
 			Path:               storageDir,
-			AllocatedDiskSpace: memory.GB.Int64(),
-			AllocatedBandwidth: 100 * memory.GB.Int64(),
+			AllocatedDiskSpace: memory.GB,
+			AllocatedBandwidth: 100 * memory.GB,
 		}, node.Identity.Key)
 
 		pb.RegisterPieceStoreRoutesServer(node.Provider.GRPC(), server)

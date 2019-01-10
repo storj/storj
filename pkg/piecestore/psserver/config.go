@@ -13,6 +13,7 @@ import (
 	"golang.org/x/net/context"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/agreementsender"
@@ -27,8 +28,8 @@ var (
 // Config contains everything necessary for a server
 type Config struct {
 	Path                   string        `help:"path to store data in" default:"$CONFDIR"`
-	AllocatedDiskSpace     int64         `help:"total allocated disk space, default(1GB)" default:"1073741824"`
-	AllocatedBandwidth     int64         `help:"total allocated bandwidth, default(100GB)" default:"107374182400"`
+	AllocatedDiskSpace     memory.Size   `help:"total allocated disk space" default:"1G"`
+	AllocatedBandwidth     memory.Size   `help:"total allocated bandwidth" default:"100G"`
 	KBucketRefreshInterval time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
 }
 
