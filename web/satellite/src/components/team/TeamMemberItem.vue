@@ -4,7 +4,7 @@
 <template>
     <div class="user-container">
         <div class="user-container__avatar">
-            <h1>m</h1>
+            <h1>{{projectMember.user.firstName.slice(0,1)}}</h1>
         </div>
         <p class="user-container__user-name">{{`${projectMember.user.firstName} ${projectMember.user.lastName}`}}</p>
         <p class="user-container__user-email">{{projectMember.user.email}}</p>

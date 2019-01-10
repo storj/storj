@@ -66,14 +66,14 @@ func graphqlProject(service *satellite.Service, types Types) *graphql.Object {
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*satellite.Project)
 
-					offs, _ := p.Args[offset].(int64)
+					offs, _ := p.Args[offset].(int)
 					lim, _ := p.Args[limit].(int)
 					search, _ := p.Args[search].(string)
-					order, _ := p.Args[order].(int8)
+					order, _ := p.Args[order].(int)
 
 					pagination := satellite.Pagination{
 						Limit:  lim,
-						Offset: offs,
+						Offset: int64(offs),
 						Search: search,
 						Order:  satellite.ProjectMemberOrder(order),
 					}

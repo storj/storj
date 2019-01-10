@@ -5,7 +5,7 @@
     <div class="search-container">
         <div class="search-container__wrap">
             <label class="search-container__wrap__input">
-                <input placeholder="Search Users" type="text">
+                <input v-on:input="processSearchQuery" v-model="searchQuery" placeholder="Search Users" type="text">
             </label>
         </div>
     </div>
@@ -13,8 +13,25 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component({})
+@Component({
+	data:function () {
+		return {
+			searchQuery:''
+		};
+	},
+	methods: {
+		processSearchQuery: async function () {
+			this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, this.$data.searchQuery);
+			const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
+
+			if (response.isSuccess) return;
+
+			this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+		},
+	}
+})
 
 export default class SearchArea extends Vue {
 }
