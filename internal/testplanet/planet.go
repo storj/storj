@@ -7,6 +7,7 @@ package testplanet
 import (
 	"context"
 	"errors"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -53,7 +54,8 @@ type Planet struct {
 	directory string // TODO: ensure that everything is in-memory to speed things up
 	started   bool
 
-	peers []Peer
+	peers     []Peer
+	databases []io.Closer
 
 	nodeInfos []pb.Node
 	nodeLinks []string
@@ -232,6 +234,9 @@ func (planet *Planet) Shutdown() error {
 		peer := planet.peers[i]
 		errlist.Add(peer.Close())
 	}
+	for _, db := range planet.databases {
+		errlist.Add(db.Close())
+	}
 
 	errlist.Add(os.RemoveAll(planet.directory))
 	return errlist.Err()
@@ -275,6 +280,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 		if err != nil {
 			return nil, err
 		}
+		planet.databases = append(planet.databases, db)
 
 		config := storagenode.Config{
 			PublicAddress: "127.0.0.1:0",
@@ -295,7 +301,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 
 		peer, err := storagenode.New(log, identity, db, config)
 		if err != nil {
-			return xs, errs.Combine(err, db.Close())
+			return xs, err
 		}
 
 		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
