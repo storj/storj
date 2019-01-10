@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gtank/cryptopasta"
@@ -143,10 +144,11 @@ func New(log *zap.Logger, dataDir string, db *psdb.DB, config Config, pkey crypt
 	}
 }
 
+// Close stops the server
+func (s *Server) Close() error { return nil }
+
 // Stop the piececstore node
-func (s *Server) Stop(ctx context.Context) (err error) {
-	return s.DB.Close()
-}
+func (s *Server) Stop(ctx context.Context) error { return s.DB.Close() }
 
 // Piece -- Send meta data about a stored by by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
@@ -260,13 +262,13 @@ func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllo
 	return nil
 }
 
-func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation_Data, action pb.PayerBandwidthAllocation_Action) (err error) {
+func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation_Data, actionPrefix string) (err error) {
 	switch {
 	case pba.SatelliteId.IsZero():
 		return StoreError.New("payer bandwidth allocation: missing satellite id")
 	case pba.UplinkId.IsZero():
 		return StoreError.New("payer bandwidth allocation: missing uplink id")
-	case pba.Action != action:
+	case !strings.HasPrefix(pba.Action.String(), actionPrefix):
 		return StoreError.New("payer bandwidth allocation: invalid action %v", pba.Action.String())
 	}
 	return nil

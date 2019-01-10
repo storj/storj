@@ -92,6 +92,7 @@ func OpenInMemory(ctx context.Context, dataPath string) (db *DB, err error) {
 		return nil, utils.CombineErrors(err, db.DB.Close())
 	}
 
+	// TODO: make garbage collect calling piecestore service responsibility
 	go db.garbageCollect(ctx)
 
 	return db, nil
