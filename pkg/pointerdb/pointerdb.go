@@ -144,19 +144,12 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	authorization, err := s.getSignedMessage()
-	if err != nil {
-		s.logger.Error("err getting signed message", zap.Error(err))
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-
 	nodes := []*pb.Node{}
 
 	var r = &pb.GetResponse{
-		Pointer:       pointer,
-		Nodes:         nil,
-		Pba:           pba.GetPba(),
-		Authorization: authorization,
+		Pointer: pointer,
+		Nodes:   nil,
+		Pba:     pba.GetPba(),
 	}
 
 	if !s.config.Overlay || pointer.Remote == nil {
@@ -175,10 +168,9 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		v.Type.DPanicOnInvalid("pdb server Get")
 	}
 	r = &pb.GetResponse{
-		Pointer:       pointer,
-		Nodes:         nodes,
-		Pba:           pba.GetPba(),
-		Authorization: authorization,
+		Pointer: pointer,
+		Nodes:   nodes,
+		Pba:     pba.GetPba(),
 	}
 
 	return r, nil
@@ -343,13 +335,4 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 		return nil, err
 	}
 	return &pb.PayerBandwidthAllocationResponse{Pba: &pb.PayerBandwidthAllocation{Signature: signature, Data: data}}, nil
-}
-
-func (s *Server) getSignedMessage() (*pb.SignedMessage, error) {
-	signature, err := auth.GenerateSignature(s.identity.ID.Bytes(), s.identity)
-	if err != nil {
-		return nil, err
-	}
-
-	return auth.NewSignedMessage(signature, s.identity)
 }

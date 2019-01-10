@@ -111,7 +111,7 @@ func main() {
 				Data: serializedAllocation,
 			}
 
-			if err := psClient.Put(context.Background(), id, dataSection, ttl, pba, nil); err != nil {
+			if err := psClient.Put(context.Background(), id, dataSection, ttl, pba); err != nil {
 				fmt.Printf("Failed to Store data of id: %s\n", id)
 				return err
 			}
@@ -180,7 +180,7 @@ func main() {
 				Data: serializedAllocation,
 			}
 
-			rr, err := psClient.Get(ctx, psclient.PieceID(id), pieceInfo.PieceSize, pba, nil)
+			rr, err := psClient.Get(ctx, psclient.PieceID(id), pieceInfo.PieceSize, pba)
 			if err != nil {
 				fmt.Printf("Failed to retrieve file of id: %s\n", id)
 				errRemove := os.Remove(outputDir)
@@ -222,7 +222,7 @@ func main() {
 		Aliases: []string{"x"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
-			return psClient.Delete(context.Background(), psclient.PieceID(id), nil)
+			return psClient.Delete(context.Background(), psclient.PieceID(id))
 		},
 	})
 

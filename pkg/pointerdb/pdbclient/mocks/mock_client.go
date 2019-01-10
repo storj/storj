@@ -102,15 +102,3 @@ func (m *MockClient) Put(arg0 context.Context, arg1 string, arg2 *pb.Pointer) er
 func (mr *MockClientMockRecorder) Put(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockClient)(nil).Put), arg0, arg1, arg2)
 }
-
-// SignedMessage mocks base method
-func (m *MockClient) SignedMessage() *pb.SignedMessage {
-	ret := m.ctrl.Call(m, "SignedMessage")
-	ret0, _ := ret[0].(*pb.SignedMessage)
-	return ret0
-}
-
-// SignedMessage indicates an expected call of SignedMessage
-func (mr *MockClientMockRecorder) SignedMessage() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignedMessage", reflect.TypeOf((*MockClient)(nil).SignedMessage))
-}

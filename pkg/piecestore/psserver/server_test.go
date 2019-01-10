@@ -584,14 +584,10 @@ func newTestServerStruct(t *testing.T) (*Server, func()) {
 		t.Fatalf("failed open psdb: %v", err)
 	}
 
-	verifier := func(authorization *pb.SignedMessage) error {
-		return nil
-	}
 	server := &Server{
 		log:              zaptest.NewLogger(t),
 		DataDir:          tempDir,
 		DB:               psDB,
-		verifier:         verifier,
 		totalAllocated:   math.MaxInt64,
 		totalBwAllocated: math.MaxInt64,
 	}

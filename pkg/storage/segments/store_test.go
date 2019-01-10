@@ -118,7 +118,6 @@ func TestSegmentStorePutRemote(t *testing.T) {
 					Type: pb.NodeType_STORAGE,
 				},
 			}, nil),
-			mockPDB.EXPECT().SignedMessage(),
 			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any()),
 			mockEC.EXPECT().Put(
 				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
@@ -282,7 +281,6 @@ func TestSegmentStoreGetRemote(t *testing.T) {
 				Metadata:       tt.metadata,
 			}, nil, nil, nil),
 			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
-			mockPDB.EXPECT().SignedMessage(),
 			mockEC.EXPECT().Get(
 				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			),
@@ -395,7 +393,6 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 				Metadata:       tt.metadata,
 			}, nil, nil, nil),
 			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
-			mockPDB.EXPECT().SignedMessage(),
 			mockEC.EXPECT().Delete(
 				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			),

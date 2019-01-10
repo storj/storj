@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
@@ -28,10 +28,10 @@ var mon = monkit.Package()
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
 	Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
-		pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error)
+		pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation) (successfulNodes []*pb.Node, err error)
 	Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
-		pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error)
-	Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, authorization *pb.SignedMessage) error
+		pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation) (ranger.Ranger, error)
+	Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID) error
 }
 
 type psClientFunc func(context.Context, transport.Client, *pb.Node, int) (psclient.Client, error)
@@ -59,7 +59,7 @@ func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (psclient.Clien
 }
 
 func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
-	pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error) {
+	pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation) (successfulNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodes) != rs.TotalCount() {
 		return nil, Error.New("size of nodes slice (%d) does not match total count (%d) of erasure scheme", len(nodes), rs.TotalCount())
@@ -111,7 +111,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 				infos <- info{i: i, err: err}
 				return
 			}
-			err = ps.Put(ctx, derivedPieceID, readers[i], expiration, pba, authorization)
+			err = ps.Put(ctx, derivedPieceID, readers[i], expiration, pba)
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
 			utils.LogClose(ps)
@@ -145,7 +145,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 		case <-ctx.Done():
 			err = utils.CombineErrors(
 				Error.New("upload cancelled by user"),
-				ec.Delete(context.Background(), nodes, pieceID, authorization),
+				ec.Delete(context.Background(), nodes, pieceID),
 			)
 		default:
 		}
@@ -159,7 +159,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 }
 
 func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
-	pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (rr ranger.Ranger, err error) {
+	pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodes) != es.TotalCount() {
@@ -206,7 +206,6 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 				id:                derivedPieceID,
 				size:              pieceSize,
 				pba:               pba,
-				authorization:     authorization,
 			}
 
 			ch <- rangerInfo{i: i, rr: rr, err: nil}
@@ -228,7 +227,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 	return eestream.Unpad(rr, int(paddedSize-size))
 }
 
-func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, authorization *pb.SignedMessage) (err error) {
+func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	errs := make(chan error, len(nodes))
@@ -257,7 +256,7 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclie
 				errs <- err
 				return
 			}
-			err = ps.Delete(ctx, derivedPieceID, authorization)
+			err = ps.Delete(ctx, derivedPieceID)
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
 			utils.LogClose(ps)
@@ -333,7 +332,6 @@ type lazyPieceRanger struct {
 	id                psclient.PieceID
 	size              int64
 	pba               *pb.PayerBandwidthAllocation
-	authorization     *pb.SignedMessage
 }
 
 // Size implements Ranger.Size
@@ -349,7 +347,7 @@ func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.
 		if err != nil {
 			return nil, err
 		}
-		ranger, err := ps.Get(ctx, lr.id, lr.size, lr.pba, lr.authorization)
+		ranger, err := ps.Get(ctx, lr.id, lr.size, lr.pba)
 		if err != nil {
 			return nil, err
 		}

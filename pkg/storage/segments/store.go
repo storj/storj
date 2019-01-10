@@ -128,14 +128,12 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 
 		pieceID := psclient.NewPieceID()
-
-		authorization := s.pdb.SignedMessage()
 		pba, err := s.pdb.PayerBandwidthAllocation(ctx, pb.PayerBandwidthAllocation_PUT)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
 
-		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba, authorization)
+		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -170,7 +168,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, nodes, pba, authorization, err := s.pdb.Get(ctx, path)
+	pr, nodes, pba, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return nil, Meta{}, Error.Wrap(err)
 	}
@@ -210,7 +208,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 			node.Type.DPanicOnInvalid("ss get")
 		}
 
-		rr, err = s.ec.Get(ctx, selected, rs, pid, pr.GetSegmentSize(), pba, authorization)
+		rr, err = s.ec.Get(ctx, selected, rs, pid, pr.GetSegmentSize(), pba)
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
@@ -260,7 +258,7 @@ func makeRemotePointer(nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID
 func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, nodes, _, authorization, err := s.pdb.Get(ctx, path)
+	pr, nodes, _, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -280,7 +278,7 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 		}
 
 		// ecclient sends delete request
-		err = s.ec.Delete(ctx, nodes, pid, authorization)
+		err = s.ec.Delete(ctx, nodes, pid)
 		if err != nil {
 			return Error.Wrap(err)
 		}

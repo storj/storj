@@ -58,8 +58,8 @@ func (mr *MockPSClientMockRecorder) Close() *gomock.Call {
 }
 
 // Delete mocks base method
-func (m *MockPSClient) Delete(arg0 context.Context, arg1 client.PieceID, arg2 *pb.SignedMessage) error {
-	ret := m.ctrl.Call(m, "Delete", arg0, arg1, arg2)
+func (m *MockPSClient) Delete(arg0 context.Context, arg1 client.PieceID) error {
+	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -70,8 +70,8 @@ func (mr *MockPSClientMockRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock
 }
 
 // Get mocks base method
-func (m *MockPSClient) Get(arg0 context.Context, arg1 client.PieceID, arg2 int64, arg3 *pb.PayerBandwidthAllocation, arg4 *pb.SignedMessage) (ranger.Ranger, error) {
-	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2, arg3, arg4)
+func (m *MockPSClient) Get(arg0 context.Context, arg1 client.PieceID, arg2 int64, arg3 *pb.PayerBandwidthAllocation) (ranger.Ranger, error) {
+	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(ranger.Ranger)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -96,8 +96,8 @@ func (mr *MockPSClientMockRecorder) Meta(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Put mocks base method
-func (m *MockPSClient) Put(arg0 context.Context, arg1 client.PieceID, arg2 io.Reader, arg3 time.Time, arg4 *pb.PayerBandwidthAllocation, arg5 *pb.SignedMessage) error {
-	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3, arg4, arg5)
+func (m *MockPSClient) Put(arg0 context.Context, arg1 client.PieceID, arg2 io.Reader, arg3 time.Time, arg4 *pb.PayerBandwidthAllocation) error {
+	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }

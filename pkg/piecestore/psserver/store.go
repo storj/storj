@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -34,11 +34,6 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	}
 	if recv == nil {
 		return StoreError.New("error receiving Piece metadata")
-	}
-
-	authorization := recv.GetAuthorization()
-	if err := s.verifier(authorization); err != nil {
-		return ServerError.Wrap(err)
 	}
 
 	pd := recv.GetPieceData()

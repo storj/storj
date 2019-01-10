@@ -34,8 +34,8 @@ type Verifier struct {
 }
 
 type downloader interface {
-	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, pba *pb.PayerBandwidthAllocation,
-		authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]*pb.Node, err error)
+	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int,
+		pba *pb.PayerBandwidthAllocation) (shares map[int]share, nodes map[int]*pb.Node, err error)
 }
 
 // defaultDownloader downloads shares from networked storage nodes
@@ -58,7 +58,7 @@ func NewVerifier(transport transport.Client, overlay overlay.Client, id provider
 
 // getShare use piece store clients to download shares from a given node
 func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize, pieceNumber int,
-	id psclient.PieceID, pieceSize int64, fromNode *pb.Node, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (s share, err error) {
+	id psclient.PieceID, pieceSize int64, fromNode *pb.Node, pba *pb.PayerBandwidthAllocation) (s share, err error) {
 	defer mon.Task()(&ctx)(&err)
 	fromNode.Type.DPanicOnInvalid("audit getShare")
 	ps, err := psclient.NewPSClient(ctx, d.transport, fromNode, 0)
@@ -71,7 +71,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 		return s, err
 	}
 
-	rr, err := ps.Get(ctx, derivedPieceID, pieceSize, pba, authorization)
+	rr, err := ps.Get(ctx, derivedPieceID, pieceSize, pba)
 	if err != nil {
 		return s, err
 	}
@@ -100,7 +100,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 
 // Download Shares downloads shares from the nodes where remote pieces are located
 func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
-	stripeIndex int, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]*pb.Node, err error) {
+	stripeIndex int, pba *pb.PayerBandwidthAllocation) (shares map[int]share, nodes map[int]*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var nodeIds storj.NodeIDList
@@ -127,7 +127,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 		paddedSize := calcPadded(pointer.GetSegmentSize(), shareSize)
 		pieceSize := paddedSize / int64(pointer.Remote.Redundancy.GetMinReq())
 
-		s, err := d.getShare(ctx, stripeIndex, shareSize, int(pieces[i].PieceNum), pieceID, pieceSize, node, pba, authorization)
+		s, err := d.getShare(ctx, stripeIndex, shareSize, int(pieces[i].PieceNum), pieceID, pieceSize, node, pba)
 		if err != nil {
 			s = share{
 				Error:       err,
@@ -195,7 +195,7 @@ func calcPadded(size int64, blockSize int) int64 {
 func (verifier *Verifier) verify(ctx context.Context, stripe *Stripe) (verifiedNodes *RecordAuditsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	shares, nodes, err := verifier.downloader.DownloadShares(ctx, stripe.Segment, stripe.Index, stripe.PBA, stripe.Authorization)
+	shares, nodes, err := verifier.downloader.DownloadShares(ctx, stripe.Segment, stripe.Index, stripe.PBA)
 	if err != nil {
 		return nil, err
 	}

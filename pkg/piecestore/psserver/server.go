@@ -23,7 +23,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	pstore "storj.io/storj/pkg/piecestore"
@@ -62,7 +61,6 @@ type Server struct {
 	pkey             crypto.PrivateKey
 	totalAllocated   int64
 	totalBwAllocated int64
-	verifier         auth.SignedMessageVerifier
 }
 
 // NewEndpoint -- initializes a new endpoint for a piecestore server
@@ -127,7 +125,6 @@ func NewEndpoint(log *zap.Logger, config Config, db *psdb.DB, pkey crypto.Privat
 		pkey:             pkey,
 		totalAllocated:   allocatedDiskSpace,
 		totalBwAllocated: allocatedBandwidth,
-		verifier:         auth.NewSignedMessageVerifier(),
 	}, nil
 }
 
@@ -140,7 +137,6 @@ func New(log *zap.Logger, dataDir string, db *psdb.DB, config Config, pkey crypt
 		pkey:             pkey,
 		totalAllocated:   config.AllocatedDiskSpace,
 		totalBwAllocated: config.AllocatedBandwidth,
-		verifier:         auth.NewSignedMessageVerifier(),
 	}
 }
 
@@ -152,11 +148,6 @@ func (s *Server) Stop(ctx context.Context) (err error) {
 // Piece -- Send meta data about a stored by by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
 	s.log.Debug("Getting Meta", zap.String("Piece ID", in.GetId()))
-
-	authorization := in.GetAuthorization()
-	if err := s.verifier(authorization); err != nil {
-		return nil, ServerError.Wrap(err)
-	}
 
 	id, err := getNamespacedPieceID([]byte(in.GetId()), getNamespace(authorization))
 	if err != nil {
@@ -212,11 +203,6 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, e
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
 	s.log.Debug("Deleting", zap.String("Piece ID", fmt.Sprint(in.GetId())))
-
-	authorization := in.GetAuthorization()
-	if err := s.verifier(authorization); err != nil {
-		return nil, ServerError.Wrap(err)
-	}
 
 	id, err := getNamespacedPieceID([]byte(in.GetId()), getNamespace(authorization))
 	if err != nil {

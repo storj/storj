@@ -20,10 +20,9 @@ import (
 
 // Stripe keeps track of a stripe's index and its parent segment
 type Stripe struct {
-	Index         int
-	Segment       *pb.Pointer
-	PBA           *pb.PayerBandwidthAllocation
-	Authorization *pb.SignedMessage
+	Index   int
+	Segment *pb.Pointer
+	PBA     *pb.PayerBandwidthAllocation
 }
 
 // Cursor keeps track of audit location in pointer db
@@ -75,11 +74,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	}
 
 	// get pointer info
-<<<<<<< HEAD
-	pointer, _, _, err := cursor.pointers.Get(ctx, path)
-=======
-	pointer, _, pba, authorization, err := cursor.pointers.Get(ctx, path)
->>>>>>> started removing signedmessage method
+	pointer, _, pba, err := cursor.pointers.Get(ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +98,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
-	pba, err := cursor.pointers.PayerBandwidthAllocation(ctx, pb.PayerBandwidthAllocation_GET_AUDIT)
+	pba, err = cursor.pointers.PayerBandwidthAllocation(ctx, pb.PayerBandwidthAllocation_GET_AUDIT)
 	if err != nil {
 		return nil, err
 	}
