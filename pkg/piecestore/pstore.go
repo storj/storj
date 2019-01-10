@@ -24,6 +24,7 @@ func NewStorage(dir string) *Storage {
 	return &Storage{dir}
 }
 
+// Close closes resources
 func (storage *Storage) Close() error { return nil }
 
 // IDLength -- Minimum ID length
