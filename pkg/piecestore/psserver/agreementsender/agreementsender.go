@@ -94,12 +94,11 @@ func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID 
 		r, err := client.BandwidthAgreements(ctx, msg)
 		if err != nil || r.GetStatus() != pb.AgreementsSummary_OK {
 			as.log.Error("Agreementsender failed to send agreement to satellite", zap.Error(err))
-			return
+			continue
 		}
 		// Delete from PSDB by signature
 		if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {
 			as.log.Error("Agreementsender failed to delete bandwidth allocation", zap.Error(err))
-			return
 		}
 	}
 }
