@@ -3,26 +3,18 @@
 
 <template>
     <div class="add-api-key-popup-container">
-        <div v-if="isMacaroonPopupShown !== true" class="add-api-key-popup">
+        <div v-if="true" class="add-api-key-popup">
             <div class="add-api-key-popup__info-panel-container">
-                <h2 class="add-api-key-popup__info-panel-container__main-label-text">New API Key</h2>
                 <div v-html="imageSource"></div>
             </div>
             <div class="add-api-key-popup__form-container">
-                <p>Name <span>Up To 20 Characters</span></p>
-                <HeaderlessInput 
+                <h2 class="add-api-key-popup__form-container__main-label-text">New API Key</h2>
+                <HeaderedInput 
+                    label="Name"
+                    additionalLabel="Up To 20 Characters"
                     placeholder="Enter API Key Name"
                     class="full-input"
-                    width="100%">
-                </HeaderlessInput>
-                <p>Bucket</p>
-                <HeaderlessInput 
-                    placeholder="Enter Bucket Name"
-                    class="full-input"
-                    width="100%">
-                </HeaderlessInput>
-                <p>Rights</p>
-                <ApiKeysDropdown />
+                    width="100%" />
                 <div class="add-api-key-popup__form-container__button-container">
                     <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite />
                     <Button label="Create API Key" width="205px" height="48px" />
@@ -34,26 +26,16 @@
                 </svg>
             </div>
         </div>
-        <div v-if="isMacaroonPopupShown === true" class="macaroon-popup">
-            <div v-html="imageSource"></div>
-            <div class="macaroon-popup__content">
-                <h1 class="macaroon-popup__content__title">Macaroon</h1>
-                <p class="macaroon-popup__content__name">Name: <span>Kahmir</span></p>
-                <div class="macaroon-popup__content__copy-area">
-                    <p class="macaroon-popup__content__copy-area__macaroon">ab4923re124NSVDLkvdmsfv mwm45678gnhab4923rewm45678gn</p>
-                    <Button label="Copy" width="140px" height="48px" />
-                </div>
-            </div>
-        </div>
+        <CopyApiKeyPopup v-if="false" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import CopyApiKeyPopup from './CopyApiKeyPopup.vue';
 import Button from '@/components/common/Button.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import ApiKeysDropdown from '@/components/apiKeys/ApiKeysDropdown.vue';
 
 @Component(
     {
@@ -65,7 +47,6 @@ import ApiKeysDropdown from '@/components/apiKeys/ApiKeysDropdown.vue';
         data: function () {
             return {
                 imageSource: EMPTY_STATE_IMAGES.ADD_API_KEY,
-                isMacaroonPopupShown: false,
             };
         },
         methods: {
@@ -75,9 +56,9 @@ import ApiKeysDropdown from '@/components/apiKeys/ApiKeysDropdown.vue';
             },
         },
         components: {
-            HeaderlessInput,
+            HeaderedInput,
             Button,
-            ApiKeysDropdown
+            CopyApiKeyPopup
         }
     }
 )
@@ -87,49 +68,12 @@ export default class AddApiKeyPopup extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .macaroon-popup {
-        width: 100%;
-        max-width: 845px;
-        background-color: #FFFFFF;
-        border-radius: 6px;
+    p {
+        font-family: 'montserrat_medium';
+        font-size: 16px;
+        line-height: 21px;
+        color: #354049;
         display: flex;
-        flex-direction: row;
-        align-items: flex-start;
-        position: relative;
-        justify-content: space-between;
-        padding: 80px 100px 80px 50px;
-
-        &__content {
-            max-width: 555px;
-            margin-left: 70px;
-
-            &__name {
-                font-family: 'montserrat_medium';
-                font-size: 16px;
-                color: #AFB7C1;
-                display: flex;
-
-                span {
-                    color: #354049;
-                    margin-bottom: 20px;
-                    margin-left: 10px;;
-                    display: block;
-                }
-            }
-
-            &__title {
-                font-family: 'montserrat_medium';
-                font-size: 32px;
-            }
-
-            &__copy-area {
-                background: #F5F6FA;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 10px 20px;
-            }
-        }
     }
 
     .add-api-key-popup-container {
@@ -164,16 +108,8 @@ export default class AddApiKeyPopup extends Vue {
              flex-direction: column;
              justify-content: flex-start;
              align-items: center;
-             margin-right: 55px;
-
-            &__main-label-text {
-                 font-family: 'montserrat_bold';
-                 font-size: 32px;
-                 line-height: 39px;
-                 color: #384B65;
-                 margin-bottom: 60px;
-                 margin-top: 0;
-            }
+             margin-right: 100px;
+             margin-top: 20px;
         }
 
         &__form-container {
@@ -191,13 +127,22 @@ export default class AddApiKeyPopup extends Vue {
                  }
              }
 
+            &__main-label-text {
+                font-family: 'montserrat_bold';
+                font-size: 32px;
+                line-height: 39px;
+                color: #384B65;
+                margin-bottom: 35px;
+                margin-top: 0;
+            }
+
             &__button-container {
                  width: 100%;
                  display: flex;
                  flex-direction: row;
                  justify-content: space-between;
                  align-items: center;
-                 margin-top: 30px;
+                 margin-top: 40px;
             }
         }
 

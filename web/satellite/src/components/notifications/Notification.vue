@@ -16,6 +16,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import { NOTIFICATION_IMAGES, NOTIFICATION_TYPES } from '@/utils/constants/notification';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     props: {
@@ -25,15 +26,15 @@ import { NOTIFICATION_IMAGES, NOTIFICATION_TYPES } from '@/utils/constants/notif
     methods: {
         // Force delete notification
         onCloseClick: function (): void {
-            this.$store.dispatch('deleteNotification');
+            this.$store.dispatch(NOTIFICATION_ACTIONS.DELETE);
         },
         // Force notification to stay on page on mouse over it
         onMouseOver: function (): void {
-            this.$store.dispatch('pauseNotification');
+            this.$store.dispatch(NOTIFICATION_ACTIONS.PAUSE);
         },
         // Resume notification flow when mouse leaves notification
         onMouseLeave: function (): void {
-            this.$store.dispatch('resumeNotification');
+            this.$store.dispatch(NOTIFICATION_ACTIONS.RESUME);
         },
     },
     computed: {

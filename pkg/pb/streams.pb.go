@@ -30,7 +30,7 @@ func (m *SegmentMeta) Reset()         { *m = SegmentMeta{} }
 func (m *SegmentMeta) String() string { return proto.CompactTextString(m) }
 func (*SegmentMeta) ProtoMessage()    {}
 func (*SegmentMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_streams_c0d9754174b032dc, []int{0}
+	return fileDescriptor_streams_2b972859339b7bc3, []int{0}
 }
 func (m *SegmentMeta) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentMeta.Unmarshal(m, b)
@@ -78,7 +78,7 @@ func (m *StreamInfo) Reset()         { *m = StreamInfo{} }
 func (m *StreamInfo) String() string { return proto.CompactTextString(m) }
 func (*StreamInfo) ProtoMessage()    {}
 func (*StreamInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_streams_c0d9754174b032dc, []int{1}
+	return fileDescriptor_streams_2b972859339b7bc3, []int{1}
 }
 func (m *StreamInfo) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StreamInfo.Unmarshal(m, b)
@@ -140,7 +140,7 @@ func (m *StreamMeta) Reset()         { *m = StreamMeta{} }
 func (m *StreamMeta) String() string { return proto.CompactTextString(m) }
 func (*StreamMeta) ProtoMessage()    {}
 func (*StreamMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_streams_c0d9754174b032dc, []int{2}
+	return fileDescriptor_streams_2b972859339b7bc3, []int{2}
 }
 func (m *StreamMeta) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StreamMeta.Unmarshal(m, b)
@@ -194,9 +194,9 @@ func init() {
 	proto.RegisterType((*StreamMeta)(nil), "streams.StreamMeta")
 }
 
-func init() { proto.RegisterFile("streams.proto", fileDescriptor_streams_c0d9754174b032dc) }
+func init() { proto.RegisterFile("streams.proto", fileDescriptor_streams_2b972859339b7bc3) }
 
-var fileDescriptor_streams_c0d9754174b032dc = []byte{
+var fileDescriptor_streams_2b972859339b7bc3 = []byte{
 	// 304 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x51, 0xcb, 0x4e, 0xc3, 0x30,
 	0x10, 0x54, 0x5f, 0x50, 0xb6, 0x29, 0x05, 0x03, 0x52, 0x04, 0x17, 0x14, 0x0e, 0x20, 0x84, 0x7a,

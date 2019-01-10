@@ -27,9 +27,11 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bwagreements (
 	signature BLOB NOT NULL,
+	serialnum TEXT NOT NULL,
 	data BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( signature )
+	PRIMARY KEY ( signature ),
+	UNIQUE ( serialnum )
 );
 CREATE TABLE injuredsegments (
 	id INTEGER NOT NULL,

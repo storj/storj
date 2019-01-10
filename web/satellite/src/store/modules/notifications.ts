@@ -3,7 +3,7 @@
 
 import { NOTIFICATION_MUTATIONS } from '../mutationConstants';
 import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
-import { DelayedNotification } from '@/utils/entities/DelayedNotification';
+import { DelayedNotification } from '@/types/DelayedNotification';
 
 export const notificationsModule = {
 	state: {

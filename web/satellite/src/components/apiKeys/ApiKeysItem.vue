@@ -2,145 +2,108 @@
 // See LICENSE for copying information.
 
 <template>
-    <label v-bind:class="checked ? 'container selected' : 'container'">
-        <div>
-            <input type="checkbox" v-model="checked" @change="onChange">
-            <span v-bind:class="[isCheckboxError ? 'checkmark error': 'checkmark']"></span>
+    <div class="apikey-item-container">
+        <div class="apikey-item-container__avatar">
+            <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M0 6C0 2.68629 2.68629 0 6 0H24C27.3137 0 30 2.68629 30 6V24C30 27.3137 27.3137 30 24 30H6C2.68629 30 0 27.3137 0 24V6Z" fill="#2683FF"/>
+                <path class="white" d="M11.9184 11C13.4286 11 14.7239 11.8848 15.3777 13.1667H22.0408C22.1155 13.1667 22.1875 13.1921 22.2449 13.2396L23.8776 14.5886C23.9573 14.6537 24.0026 14.7533 23.9994 14.8581C23.9968 14.9623 23.9458 15.0593 23.8623 15.1198L21.5766 16.7708C21.456 16.8581 21.2928 16.8516 21.1786 16.7552L20.4082 16.099L19.6378 16.7552C19.5172 16.8581 19.3406 16.8581 19.2194 16.7552L18.449 16.099L17.6786 16.7552C17.6205 16.8053 17.5465 16.8327 17.4694 16.8333H15.3724C14.7174 18.112 13.426 19 11.9184 19C9.75837 19 8 17.205 8 15C8 12.795 9.75837 11 11.9184 11H11.9184Z" fill="white"/>
+                <path d="M10.7754 13.666C11.4928 13.666 12.0815 14.2669 12.0815 14.9993C12.0815 15.7318 11.4928 16.3327 10.7754 16.3327C10.0579 16.3327 9.46924 15.7318 9.46924 14.9993C9.46924 14.2669 10.0579 13.666 10.7754 13.666Z" fill="#2683FF"/>
+                <path d="M10.7756 14.334C10.4108 14.334 10.1226 14.6283 10.1226 15.0007C10.1226 15.3731 10.4108 15.6673 10.7756 15.6673C11.1404 15.6673 11.4287 15.3731 11.4287 15.0007C11.4287 14.6283 11.1404 14.334 10.7756 14.334Z" fill="#2683FF"/>
+            </svg>
         </div>
-        <p class="container__item">test</p>
-        <p class="container__item">test</p>
-        <p class="container__item">test</p>
-        <p class="container__item">test</p>
-        <p class="container__item">test</p>
-    </label>
+        <p class="apikey-item-container__name">test</p>
+        <p class="apikey-item-container__date">date</p>
+    </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-// Custom checkbox component
 @Component(
     {
-        data: () => {
-            return {
-                checked: false
-            };
-        },
-        methods: {
-            // Emits data to parent component
-            onChange() {
-                this.$emit('setData', this.$data.checked);
-            }
-        },
-        props: {
-            isCheckboxError: {
-                type: Boolean,
-                default: false
-            },
-        },
+
     }
 )
 export default class ApiKeysItem extends Vue {}
 </script>
 
 <style scoped lang="scss">
-    .container {
-        display: grid;
-        grid-template-columns: 2% 20% 30% 20% 20% 8%;
-        cursor: pointer;
-        position: relative;
-        transition: box-shadow .2s ease-out;
-        padding: 35px 0px 35px 70px;
-        transition: all .2s ease;
-        margin-bottom: 10px;
+   .apikey-item-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
         border-radius: 6px;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-        outline: none;
+        height: 140px;
+        background-color: #fff;
+        margin-bottom: 24px;
+        padding: 30px 0;
+        cursor: pointer;
+        transition: box-shadow .2s ease-out;
 
         &:hover {
-            background: #fff;
-            box-shadow: 0px 4px 4px rgba(231, 232, 238, 0.6);
+            box-shadow: 0px 12px 24px rgba(175, 183, 193, 0.4);
         }
 
-        &__item {
-            width: 20%;
-            font-family: 'montserrat_medium';
-            font-size: 16px;
+        &:last-child {
+            margin-left: 0;
+        }
+
+        &__date {
+            font-family: 'montserrat_regular';
+            font-size: 12px;
+            line-height: 16px;
+            color: #AFB7C1;
             margin: 0;
         }
-    }
 
-    .container.selected {
-        background: #2379EC;
-        box-shadow: 0px 6px 20px rgba(39, 132, 255, 0.4);
+        &__name {
+            font-family: 'montserrat_medium';
+            font-size: 16px;
+            line-height: 21px;
+            color: #354049;
+            margin-top: 20px;
+        }
 
-        p {
-            color: #fff;
+        &__avatar {
+            min-width: 40px;
+            max-width: 40px;
+            min-height: 40px;
+            max-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
     }
+    .apikey-item-container.selected {
+        box-shadow: 0px 12px 24px rgba(38, 131, 255, 0.4);
+        background-color: #2683FF;
 
-    .container input {
-        position: absolute;
-        opacity: 0;
-        cursor: pointer;
-        height: 0;
-        width: 0;
-    }
+        p {
 
-    .checkmark {
-        position: absolute;
-        left: 25px;
-        top: 50%;
-        transform: translateY(-50%);
-        height: 25px;
-        width: 25px;
-        border: 1px solid rgba(56, 75, 101, 0.4);
-        border-radius: 4px;
-    }
+            &:nth-child(2) {
+                color: #fff;
+            }
 
-    .container:hover input ~ .checkmark {
-        background-color: #fff;
-    }
+            &:nth-child(3) {
+                color: #fff;
+            }
 
-    .container input:checked ~ .checkmark {
-        border: 1px solid #fff;
-        background-color: #fff;
-    }
+            &:nth-child(4) {
+                color: #fff;
+            }
 
-    .checkmark:after {
-        content: "";
-        position: absolute;
-        display: none;
-    }
+            &:nth-child(5) {
+                color: #fff;
+            }
+        }
 
-    .checkmark.error {
-        border-color: red;
-    }
+        svg path {
+            fill: white;
+        }
 
-    .container input:checked ~ .checkmark:after {
-        display: block;
-    }
-
-    .container .checkmark:after {
-        left: 9px;
-        top: 5px;
-        width: 5px;
-        height: 10px;
-        border: solid #2379EC;
-        border-width: 0 3px 3px 0;
-        -webkit-transform: rotate(45deg);
-        -ms-transform: rotate(45deg);
-        transform: rotate(45deg);
-    }
-
-    @media screen and (max-width: 1600px) {
-
-        .container {
-            grid-template-columns: 2% 20% 30% 20% 15% 13%;
-            padding: 20px 0px 20px 70px;
+        .white {
+            fill: #2683FF;
         }
     }
 </style>
