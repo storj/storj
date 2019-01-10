@@ -78,6 +78,7 @@ var (
 	defaultConfDir string
 	defaultDiagDir string
 	confDir        *string
+	editConfig     bool
 )
 
 const (
@@ -94,6 +95,7 @@ func init() {
 	}
 
 	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for storagenode configuration")
+	rootCmd.PersistentFlags().BoolVarP(&editConfig, "edit-conf", "", false, "open config in default editor")
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
@@ -187,11 +189,16 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	configFile := filepath.Join(setupDir, "config.yaml")
 
-	if err := process.SaveConfig(cmd.Flags(), configFile, overrides); err != nil {
+	err = process.SaveConfig(cmd.Flags(), configFile, overrides)
+	if err != nil {
 		return err
 	}
 
-	return fpath.EditFile(configFile)
+	if editConfig == true {
+		return fpath.EditFile(configFile)
+	}
+
+	return err
 }
 
 func cmdConfig(cmd *cobra.Command, args []string) (err error) {
@@ -204,7 +211,12 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 	if _, err := os.Stat(conf); err != nil {
 		return cmdSetup(cmd, args)
 	}
-	return fpath.EditFile(conf)
+
+	if editConfig == true {
+		return fpath.EditFile(conf)
+	}
+
+	return nil
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {

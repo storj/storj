@@ -293,8 +293,8 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 			},
 			Storage: psserver.Config{
 				Path:                   db.Disk(),
-				AllocatedDiskSpace:     memory.TB.Int64(),
-				AllocatedBandwidth:     memory.TB.Int64(),
+				AllocatedDiskSpace:     memory.TB,
+				AllocatedBandwidth:     memory.TB,
 				KBucketRefreshInterval: time.Minute,
 			},
 		}
