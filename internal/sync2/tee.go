@@ -26,7 +26,7 @@ type tee struct {
 }
 
 // NewTeeFile returns a tee that uses file-system to offload memory
-func NewTeeFile(readers int, tempdir string) (PipeReaderAt, PipeWriter, error) {
+func NewTeeFile(readers int, tempdir string) ([]PipeReader, PipeWriter, error) {
 	tempfile, err := ioutil.TempFile(tempdir, "tee")
 	if err != nil {
 		return nil, nil, err
@@ -39,10 +39,10 @@ func NewTeeFile(readers int, tempdir string) (PipeReaderAt, PipeWriter, error) {
 		open: &handles,
 	}
 
-	return newTee(buffer, &handles)
+	return newTee(buffer, readers, &handles)
 }
 
-func newTee(buffer ReadAtWriteAtCloser, open *int64) (PipeReaderAt, PipeWriter, error) {
+func newTee(buffer ReadAtWriteAtCloser, readers int, open *int64) ([]PipeReader, PipeWriter, error) {
 	tee := &tee{
 		buffer: buffer,
 		open:   open,
@@ -50,19 +50,27 @@ func newTee(buffer ReadAtWriteAtCloser, open *int64) (PipeReaderAt, PipeWriter, 
 	tee.nodata.L = &tee.mu
 	tee.noreader.L = &tee.mu
 
-	return teeReader{tee}, teeWriter{tee}, nil
+	teeReaders := make([]PipeReader, readers)
+	for i := 0; i < readers; i++ {
+		teeReaders[i] = &teeReader{tee: tee}
+	}
+
+	return teeReaders, teeWriter{tee}, nil
 }
 
-type teeReader struct{ tee *tee }
+type teeReader struct {
+	tee    *tee
+	pos    int64
+	closed int32
+}
+
 type teeWriter struct{ tee *tee }
 
 // Read reads from the tee returning io.EOF when writer is closed or bufSize is reached.
 //
 // It will block if the writer has not provided the data yet.
-func (reader teeReader) ReadAt(data []byte, off int64) (n int, err error) {
-	end := off + int64(len(data))
+func (reader *teeReader) Read(data []byte) (n int, err error) {
 	tee := reader.tee
-
 	tee.mu.Lock()
 
 	// fail fast on writer error
@@ -71,13 +79,16 @@ func (reader teeReader) ReadAt(data []byte, off int64) (n int, err error) {
 		return 0, tee.writerErr
 	}
 
+	toRead := int64(len(data))
+	end := reader.pos + toRead
+
 	if end > tee.maxRead {
 		tee.maxRead = end
 		tee.noreader.Broadcast()
 	}
 
-	// wait until we have all the data to read
-	for end > tee.write {
+	// wait until we have any data to read
+	for reader.pos >= tee.write {
 		// has the writer finished?
 		if tee.writerDone {
 			tee.mu.Unlock()
@@ -88,10 +99,19 @@ func (reader teeReader) ReadAt(data []byte, off int64) (n int, err error) {
 		tee.nodata.Wait()
 	}
 
+	// how much there's available for reading
+	canRead := tee.write - reader.pos
+	if toRead > canRead {
+		toRead = canRead
+	}
+	readAt := reader.pos
 	tee.mu.Unlock()
 
 	// read data
-	return tee.buffer.ReadAt(data, off)
+	readAmount, err := tee.buffer.ReadAt(data[:toRead], readAt)
+	reader.pos += int64(readAmount)
+
+	return readAmount, err
 }
 
 // Write writes to the buffer returning io.ErrClosedPipe when limit is reached
@@ -140,9 +160,11 @@ func (reader teeReader) Close() error { return reader.CloseWithError(nil) }
 func (writer teeWriter) Close() error { return writer.CloseWithError(nil) }
 
 // CloseWithError implements closing with error
-func (reader teeReader) CloseWithError(reason error) error {
+func (reader teeReader) CloseWithError(reason error) (err error) {
 	tee := reader.tee
-	err := tee.buffer.Close()
+	if atomic.CompareAndSwapInt32(&reader.closed, 0, 1) {
+		err = tee.buffer.Close()
+	}
 
 	tee.mu.Lock()
 	tee.noreader.Broadcast()

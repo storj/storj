@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"sync/atomic"
 
 	"go.uber.org/zap"
 
@@ -105,9 +104,8 @@ func (rs *RedundancyStrategy) OptimalThreshold() int {
 }
 
 type encodedReader struct {
-	rs      RedundancyStrategy
-	segment sync2.PipeReaderAt
-	pieces  map[int](*encodedPiece)
+	rs     RedundancyStrategy
+	pieces map[int](*encodedPiece)
 }
 
 // EncodeReader takes a Reader and a RedundancyStrategy and returns a slice of
@@ -118,24 +116,24 @@ func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy) ([]io
 		pieces: make(map[int](*encodedPiece), rs.TotalCount()),
 	}
 
-	teeReader, teeWriter, err := sync2.NewTeeFile(rs.TotalCount(), os.TempDir())
+	pipeReaders, pipeWriter, err := sync2.NewTeeFile(rs.TotalCount(), os.TempDir())
 	if err != nil {
 		return nil, err
 	}
 
-	er.segment = teeReader
 	readers := make([]io.ReadCloser, 0, rs.TotalCount())
 	for i := 0; i < rs.TotalCount(); i++ {
 		er.pieces[i] = &encodedPiece{
-			er:        er,
-			num:       i,
-			stripeBuf: make([]byte, rs.StripeSize()),
-			shareBuf:  make([]byte, rs.ErasureShareSize()),
+			er:         er,
+			pipeReader: pipeReaders[i],
+			num:        i,
+			stripeBuf:  make([]byte, rs.StripeSize()),
+			shareBuf:   make([]byte, rs.ErasureShareSize()),
 		}
 		readers = append(readers, er.pieces[i])
 	}
 
-	go er.fillBuffer(ctx, r, teeWriter)
+	go er.fillBuffer(ctx, r, pipeWriter)
 
 	return readers, nil
 }
@@ -150,13 +148,13 @@ func (er *encodedReader) fillBuffer(ctx context.Context, r io.Reader, w sync2.Pi
 
 type encodedPiece struct {
 	er            *encodedReader
+	pipeReader    sync2.PipeReader
 	num           int
 	currentStripe int64
 	stripeBuf     []byte
 	shareBuf      []byte
 	available     int
 	err           error
-	closed        int32
 }
 
 func (ep *encodedPiece) Read(p []byte) (n int, err error) {
@@ -166,8 +164,7 @@ func (ep *encodedPiece) Read(p []byte) (n int, err error) {
 
 	if ep.available == 0 {
 		// take the next stripe from the segment buffer
-		off := ep.currentStripe * int64(ep.er.rs.StripeSize())
-		_, err := ep.er.segment.ReadAt(ep.stripeBuf, off)
+		_, err := io.ReadFull(ep.pipeReader, ep.stripeBuf)
 		if err != nil {
 			return 0, err
 		}
@@ -191,10 +188,7 @@ func (ep *encodedPiece) Read(p []byte) (n int, err error) {
 }
 
 func (ep *encodedPiece) Close() error {
-	if atomic.CompareAndSwapInt32(&ep.closed, 0, 1) {
-		return ep.er.segment.Close()
-	}
-	return nil
+	return ep.pipeReader.Close()
 }
 
 // EncodedRanger will take an existing Ranger and provide a means to get
