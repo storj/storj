@@ -109,7 +109,7 @@ func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.T
 }
 
 // SaveBWRaw records raw sums of agreement values to the database and updates the LastRawTime.
-func (m *lockedAccounting) SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTotals map[string]int64) error {
+func (m *lockedAccounting) SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTotals accounting.BWTally) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveBWRaw(ctx, latestBwa, bwTotals)

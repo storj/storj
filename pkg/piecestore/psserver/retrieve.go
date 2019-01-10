@@ -151,7 +151,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 				return
 			}
 
-			if err = s.verifyPayerAllocation(pbaData, pb.PayerBandwidthAllocation_GET); err != nil {
+			if err = s.verifyPayerAllocation(pbaData, "GET"); err != nil {
 				allocationTracking.Fail(err)
 				return
 			}
