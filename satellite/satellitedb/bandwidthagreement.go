@@ -58,6 +58,7 @@ func (b *bandwidthagreement) GetAgreementsSince(ctx context.Context, since time.
 	return agreements, nil
 }
 
-func (b *bandwidthagreement) DeleteExpired(ctx context.Context) error {
-	return Error.New("DeleteExpired not implemented")
+func (b *bandwidthagreement) DeletePaidAndExpired(ctx context.Context) error {
+	// TODO: implement deletion of paid and expired BWAs
+	return Error.New("DeletePaidAndExpired not implemented")
 }
