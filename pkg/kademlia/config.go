@@ -24,8 +24,8 @@ var (
 )
 
 var (
-	flagBucketSize           = flag.Int("kademlia.bucket-size", 20, "Size of each Kademlia bucket")
-	flagReplacementCacheSize = flag.Int("kademlia.replacement-cache-size", 5, "Size of Kademlia replacement cache")
+	flagBucketSize           = flag.Int("kademlia.bucket-size", 20, "size of each Kademlia bucket")
+	flagReplacementCacheSize = flag.Int("kademlia.replacement-cache-size", 5, "size of Kademlia replacement cache")
 )
 
 //CtxKey Used as kademlia key
@@ -37,17 +37,17 @@ const (
 
 // OperatorConfig defines properties related to storage node operator metadata
 type OperatorConfig struct {
-	Email  string `help:"Operator email address" default:""`
-	Wallet string `help:"Operator wallet adress" default:""`
+	Email  string `help:"operator email address" default:""`
+	Wallet string `help:"operator wallet adress" default:""`
 }
 
 // Config defines all of the things that are needed to start up Kademlia
 // server endpoints (and not necessarily client code).
 type Config struct {
-	BootstrapAddr   string `help:"the kademlia node to bootstrap against" default:"127.0.0.1:7778"`
-	DBPath          string `help:"the path for our db services to be created on" default:"$CONFDIR/kademlia"`
-	Alpha           int    `help:"alpha is a system wide concurrency parameter." default:"5"`
-	ExternalAddress string `help:"the public address of the kademlia node; defaults to the gRPC server address." default:""`
+	BootstrapAddr   string `help:"the Kademlia node to bootstrap against" default:"127.0.0.1:7778"`
+	DBPath          string `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia"`
+	Alpha           int    `help:"alpha is a system wide concurrency parameter" default:"5"`
+	ExternalAddress string `help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
 	Operator        OperatorConfig
 }
 
