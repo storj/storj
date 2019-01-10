@@ -85,7 +85,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 
 	// get and check expiration
 	exp := time.Unix(pbad.GetExpirationUnixSec(), 0).UTC()
-	if exp.After(time.Now().UTC()) {
+	if exp.Before(time.Now().UTC()) {
 		return reply, BwAgreementError.New("Bandwidth agreement is expired (%v)", exp)
 	}
 

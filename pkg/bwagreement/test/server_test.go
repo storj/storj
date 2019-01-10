@@ -33,7 +33,7 @@ func TestSameSerialNumberBandwidthAgreements(t *testing.T) {
 		satellitePubKey, satellitePrivKey, uplinkPrivKey := generateKeys(ctx, t)
 		server := bwagreement.NewServer(db.BandwidthAgreement(), zap.NewNop(), satellitePubKey)
 
-		pbaFile1, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, true)
+		pbaFile1, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, false)
 		assert.NoError(t, err)
 
 		rbaNode1, err := GenerateRenterBandwidthAllocation(pbaFile1, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
@@ -52,7 +52,7 @@ func TestSameSerialNumberBandwidthAgreements(t *testing.T) {
 
 		/* Storage node can submit a second bwagreement with a different sequence value.
 		   Uplink downloads another file. New PayerBandwidthAllocation with a new sequence. */
-		pbaFile2, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, true)
+		pbaFile2, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, false)
 		assert.NoError(t, err)
 
 		rbaNode1, err = GenerateRenterBandwidthAllocation(pbaFile2, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
@@ -87,7 +87,7 @@ func TestInvalidBandwidthAgreements(t *testing.T) {
 		satellitePubKey, satellitePrivKey, uplinkPrivKey := generateKeys(ctx, t)
 		server := bwagreement.NewServer(db.BandwidthAgreement(), zap.NewNop(), satellitePubKey)
 
-		pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, true)
+		pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, false)
 		assert.NoError(t, err)
 
 		rba, err := GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
@@ -99,7 +99,7 @@ func TestInvalidBandwidthAgreements(t *testing.T) {
 		assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
 
 		// storage nodes can't submit an expired bwagreement
-		expPBA, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, false)
+		expPBA, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, true)
 		assert.NoError(t, err)
 
 		rba, err = GenerateRenterBandwidthAllocation(expPBA, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
