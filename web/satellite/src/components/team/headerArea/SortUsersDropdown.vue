@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="sort-container" >
+    <div class="sort-container" id="sortTeamMemberByDropdownButton">
         <!-- TODO: fix dd styles on hover -->
         <div class="sort-toggle-container" v-on:click="toggleSelection" >
             <h1 class="sort-toggle-container__sort-name">Sort by {{sortOption}}</h1>
@@ -20,18 +20,18 @@
 	import SortDropdown from './SortDropdown.vue';
 	import { mapState } from 'vuex';
 	import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
+	import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 	@Component(
     {
         data: function () {
             return {
                 userName: this.$store.getters.userName,
-                isChoiceShown: false
             };
         },
         methods: {
             toggleSelection: function (): void {
-                this.$data.isChoiceShown = !this.$data.isChoiceShown;
+            	this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PROJECT_MEMBERS_BY_DROPDOWN);
             }
         },
 		computed: mapState({
@@ -46,6 +46,7 @@
                     	return 'name';
 				}
             },
+			isChoiceShown: (state: any) => state.appStateModule.appState.isSortProjectMembersByPopupShown
 		}),
         components: {
             SortDropdown

@@ -3,7 +3,7 @@
 
 <template>
     <!-- To close popup we need to use method onCloseClick -->
-    <div class="sort-dropdown-choice-container">
+    <div class="sort-dropdown-choice-container" id="sortTeamMemberByDropdown">
         <div class="sort-dropdown-overflow-container">
             <!-- TODO: add selection logic onclick -->
             <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick(sortByEnum.EMAIL)">
@@ -22,7 +22,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
-import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component(
     {
@@ -38,12 +38,11 @@ import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames'
         },
         methods: {
             onCloseClick: function (): void {
-                this.$emit('onClose');
+				this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PROJECT_MEMBERS_BY_DROPDOWN);
             },
             onSortUsersClick: async function (sortBy: ProjectMemberSortByEnum) {
-				this.$emit('onClose');
-
-				this.$store.dispatch(PM_ACTIONS.SET_PROJECT_MEMBERS_SORT_BY, sortBy);
+				this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
+				this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PROJECT_MEMBERS_BY_DROPDOWN);
 
 				const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
 				if (response.isSuccess) return;

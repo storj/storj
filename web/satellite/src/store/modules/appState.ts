@@ -13,6 +13,7 @@ export const appStateModule = {
             isAccountDropdownShown: false,
             isDeleteProjectPopupShown: false,
             isDeleteAccountPopupShown: false,
+            isSortProjectMembersByPopupShown: false,
         },
 	},
 	mutations: {
@@ -45,6 +46,10 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_DELETE_ACCOUNT_DROPDOWN](state: any): void {
             state.appState.isDeleteAccountPopupShown = !state.appState.isDeleteAccountPopupShown;
         },
+		// Mutation changing 'sort project members by' popup visibility
+		[APP_STATE_MUTATIONS.TOGGLE_SORT_PROJECT_MEMBERS_BY_DROPDOWN](state: any): void {
+			state.appState.isSortProjectMembersByPopupShown = !state.appState.isSortProjectMembersByPopupShown;
+		},
 
         // Mutation that closes each popup/dropdown
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: any): void {
@@ -54,6 +59,7 @@ export const appStateModule = {
             state.appState.isAccountDropdownShown = false;
             state.appState.isDeleteProjectPopupShown = false;
             state.appState.isDeleteAccountPopupShown = false;
+            state.appState.isSortProjectMembersByPopupShown = false;
         },
 	},
 	actions: {
@@ -100,6 +106,13 @@ export const appStateModule = {
 
             commit(APP_STATE_MUTATIONS.TOGGLE_DELETE_ACCOUNT_DROPDOWN);
         },
+		toggleSortProjectMembersByPopup: function ({commit, state}: any): void {
+			if (!state.appState.isSortProjectMembersByPopupShown) {
+				commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+			}
+
+			commit(APP_STATE_MUTATIONS.TOGGLE_SORT_PROJECT_MEMBERS_BY_DROPDOWN);
+		},
         closePopups: function ({commit}: any): void {
             commit(APP_STATE_MUTATIONS.CLOSE_ALL);
         },

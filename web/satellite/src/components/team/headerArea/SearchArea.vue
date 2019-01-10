@@ -23,7 +23,7 @@ import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames'
 	},
 	methods: {
 		processSearchQuery: async function () {
-			this.$store.dispatch(PM_ACTIONS.SET_PROJECT_MEMBERS_SEARCH_QUERY, this.$data.searchQuery);
+			this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, this.$data.searchQuery);
 			const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
 
 			if (response.isSuccess) return;
