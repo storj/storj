@@ -4,10 +4,10 @@
 package sync2_test
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"io"
+	"io/ioutil"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,9 +21,8 @@ func TestCopy(t *testing.T) {
 	defer cancel()
 
 	r := io.LimitReader(rand.Reader, 32*memory.KB.Int64())
-	w := &bytes.Buffer{}
 
-	n, err := sync2.Copy(ctx, w, r)
+	n, err := sync2.Copy(ctx, ioutil.Discard, r)
 
 	assert.NoError(t, err)
 	assert.Equal(t, n, 32*memory.KB.Int64())
@@ -34,9 +33,8 @@ func TestCopy_Cancel(t *testing.T) {
 	cancel()
 
 	r := io.LimitReader(rand.Reader, 32*memory.KB.Int64())
-	w := &bytes.Buffer{}
 
-	n, err := sync2.Copy(ctx, w, r)
+	n, err := sync2.Copy(ctx, ioutil.Discard, r)
 
 	assert.EqualError(t, err, context.Canceled.Error())
 	assert.EqualValues(t, n, 0)

@@ -14,12 +14,12 @@ type tee struct {
 	buffer ReadAtWriteAtCloser
 	open   *int64
 
-	mu      sync.Mutex
-	nodata  sync.Cond
-	newdata sync.Cond
+	mu       sync.Mutex
+	nodata   sync.Cond
+	noreader sync.Cond
 
-	maxRequired int64
-	write       int64
+	maxRead int64
+	write   int64
 
 	writerDone bool
 	writerErr  error
@@ -48,7 +48,7 @@ func newTee(buffer ReadAtWriteAtCloser, open *int64) (PipeReaderAt, PipeWriter, 
 		open:   open,
 	}
 	tee.nodata.L = &tee.mu
-	tee.newdata.L = &tee.mu
+	tee.noreader.L = &tee.mu
 
 	return teeReader{tee}, teeWriter{tee}, nil
 }
@@ -71,9 +71,9 @@ func (reader teeReader) ReadAt(data []byte, off int64) (n int, err error) {
 		return 0, tee.writerErr
 	}
 
-	if end > tee.maxRequired {
-		tee.maxRequired = end
-		tee.newdata.Broadcast()
+	if end > tee.maxRead {
+		tee.maxRead = end
+		tee.noreader.Broadcast()
 	}
 
 	// wait until we have all the data to read
@@ -107,14 +107,14 @@ func (writer teeWriter) Write(data []byte) (n int, err error) {
 		return 0, io.ErrClosedPipe
 	}
 
-	for tee.write > tee.maxRequired {
+	for tee.write > tee.maxRead {
 		// are all readers already closed?
 		if atomic.LoadInt64(tee.open) <= 1 {
 			tee.mu.Unlock()
 			return 0, io.ErrClosedPipe
 		}
 		// wait until new data is required by any reader
-		tee.newdata.Wait()
+		tee.noreader.Wait()
 	}
 
 	writeAt := tee.write
@@ -145,7 +145,7 @@ func (reader teeReader) CloseWithError(reason error) error {
 	err := tee.buffer.Close()
 
 	tee.mu.Lock()
-	tee.newdata.Broadcast()
+	tee.noreader.Broadcast()
 	tee.mu.Unlock()
 
 	return err

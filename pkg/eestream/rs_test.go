@@ -17,12 +17,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/vivint/infectious"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 )
 
 func randData(amount int) []byte {
@@ -422,16 +422,16 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 
 func readAll(readers []io.ReadCloser) ([][]byte, error) {
 	pieces := make([][]byte, len(readers))
-	errs := make(chan error, len(readers))
+	errors := make(chan error, len(readers))
 	for i := range readers {
 		go func(i int) {
 			var err error
 			pieces[i], err = ioutil.ReadAll(readers[i])
-			errs <- utils.CombineErrors(err, readers[i].Close())
+			errors <- errs.Combine(err, readers[i].Close())
 		}(i)
 	}
 	for range readers {
-		err := <-errs
+		err := <-errors
 		if err != nil {
 			return nil, err
 		}

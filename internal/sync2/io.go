@@ -8,7 +8,7 @@ import (
 	"os"
 	"sync/atomic"
 
-	"storj.io/storj/pkg/utils"
+	"github.com/zeebo/errs"
 )
 
 // ReadAtWriteAtCloser implements all io.ReaderAt, io.WriterAt and io.Closer
@@ -84,7 +84,7 @@ func (file offsetFile) WriteAt(data []byte, at int64) (amount int, err error) {
 // Close implements io.Closer methods
 func (file offsetFile) Close() error {
 	if atomic.AddInt64(file.open, -1) == 0 {
-		return utils.CombineErrors(
+		return errs.Combine(
 			file.Close(),
 			os.Remove(file.file.Name()),
 		)
