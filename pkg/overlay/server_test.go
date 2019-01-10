@@ -99,37 +99,79 @@ func TestNewNodeFiltering(t *testing.T) {
 			expectedResultLength:  3,
 			newNodeAuditThreshold: 1,
 		},
-		// {
-		// 	name:                  "case: more than required reputable nodes",
-		// 	requestedNodeAmt:      2,
-		// 	reputableNodes:        4,
-		// 	expectedResultLength:  2,
-		// 	newNodeAuditThreshold: 1,
-		// },
-		// {
-		// 	name: "zero reputable nodes found, only new nodes",
-		// },
-		// {
-		// 	name: "fewer than required new nodes",
-		// },
-		// {
-		// 	name: "more than required new nodes",
-		// },
-		// {
-		// 	name: "zero new nodes found, only reputable nodes",
-		// },
-		// {
-		// 	name: "exactly the required amount of new and reputable nodes returned",
-		// },
-		// {
-		// 	name: "low percentage of new nodes",
-		// },
-		// {
-		// 	name: "high percentage of new nodes",
-		// },
-		// {
-		// 	name: "0% new nodes requested",
-		// },
+		{
+			name:                  "case: more than required reputable nodes",
+			requestedNodeAmt:      2,
+			reputableNodes:        3,
+			expectedResultLength:  2,
+			newNodeAuditThreshold: 1,
+		},
+		{
+			name:                  "case: zero reputable nodes found, only new nodes",
+			requestedNodeAmt:      2,
+			reputableNodes:        0,
+			expectedResultLength:  2,
+			newNodeAuditThreshold: 1,
+		},
+		{
+			name:              "case: fewer than required new nodes",
+			requestedNodeAmt:  2,
+			reputableNodes:    3,
+			newNodePercentage: 0.5,
+			// this gives extra reputable instead
+			expectedResultLength:  3,
+			newNodeAuditThreshold: 1,
+		},
+		{
+			name:                  "case: more than required new nodes",
+			requestedNodeAmt:      2,
+			reputableNodes:        2,
+			newNodePercentage:     0.5,
+			expectedResultLength:  3,
+			newNodeAuditThreshold: 1,
+		},
+		{
+			// todo(nat): fix nodes length issue
+			name:                  "case: zero new nodes found, only reputable nodes",
+			requestedNodeAmt:      3,
+			reputableNodes:        3,
+			newNodePercentage:     0.5,
+			expectedResultLength:  4,
+			newNodeAuditThreshold: 1,
+		},
+		{
+			name:                  "case: exactly the required amount of new and reputable nodes returned",
+			requestedNodeAmt:      1,
+			reputableNodes:        1,
+			newNodePercentage:     1,
+			expectedResultLength:  2,
+			newNodeAuditThreshold: 1,
+		},
+		{
+			name:              "case: low percentage of new nodes",
+			requestedNodeAmt:  3,
+			reputableNodes:    1,
+			newNodePercentage: 0.01,
+			// todo(nat): expect this result to be 1
+			expectedResultLength:  3,
+			newNodeAuditThreshold: 1,
+		},
+		{
+			name:                  "case: high percentage of new nodes",
+			requestedNodeAmt:      1,
+			reputableNodes:        1,
+			newNodePercentage:     3,
+			expectedResultLength:  4,
+			newNodeAuditThreshold: 1,
+		},
+		{
+			name:                  "case: 0% new nodes requested",
+			requestedNodeAmt:      1,
+			reputableNodes:        1,
+			newNodePercentage:     0,
+			expectedResultLength:  1,
+			newNodeAuditThreshold: 1,
+		},
 	} {
 		server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay,
 			&pb.NodeStats{}, 2, tt.newNodeAuditThreshold, tt.newNodePercentage)
@@ -147,11 +189,18 @@ func TestNewNodeFiltering(t *testing.T) {
 
 		if i == 0 {
 			stat, ok := status.FromError(err)
-			assert.Equal(t, true, ok)
-			assert.Equal(t, codes.ResourceExhausted, stat.Code())
-			assert.Equal(t, tt.expectedResultLength, len(result.GetNodes()))
+			assert.Equal(t, true, ok, tt.name)
+			assert.Equal(t, codes.ResourceExhausted, stat.Code(), tt.name)
 		} else {
 			assert.NoError(t, err, tt.name)
+		}
+		assert.Equal(t, tt.expectedResultLength, len(result.GetNodes()), tt.name)
+
+		// resetting audit count to 0
+		for i := 0; i <= tt.reputableNodes; i++ {
+			satellite.Overlay.Put(ctx, planet.StorageNodes[i].ID(), pb.Node{
+				Reputation: &pb.NodeStats{AuditCount: 0},
+			})
 		}
 	}
 }
