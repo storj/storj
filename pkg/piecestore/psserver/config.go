@@ -29,8 +29,8 @@ type Config struct {
 	Path                         string        `help:"path to store data in" default:"$CONFDIR"`
 	AllocatedDiskSpace           int64         `help:"total allocated disk space in bytes, default(1GB)" default:"1073741824"`
 	AllocatedBandwidth           int64         `help:"total allocated bandwidth in bytes, default(100GB)" default:"107374182400"`
-	KBucketRefreshInterval       time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"3600s"`
-	AgreementsenderCheckInterval time.Duration `help:"duration between agreement checks" default:"1h0m0s"`
+	KBucketRefreshInterval       time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
+	AgreementSenderCheckInterval time.Duration `help:"duration between agreement checks" default:"1h0m0s"`
 }
 
 // Run implements provider.Responsibility
@@ -70,8 +70,8 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	}()
 
 	//agreementsender
-	agreementsender := agreementsender.New(zap.L(), s.DB, server.Identity(), k, c.AgreementsenderCheckInterval)
-	go agreementsender.Run(ctx)
+	agreementSender := agreementsender.New(zap.L(), s.DB, server.Identity(), k, c.AgreementSenderCheckInterval)
+	go agreementSender.Run(ctx)
 
 	defer func() { log.Fatal(s.Stop(ctx)) }()
 	s.log.Info("Started Node", zap.String("ID", fmt.Sprint(server.Identity().ID)))
