@@ -8,7 +8,7 @@ export const APP_STATE_ACTIONS = {
 	TOGGLE_ACCOUNT: 'toggleAccountDropdown',
 	TOGGLE_DEL_PROJ: 'toggleDeleteProjectPopup',
 	TOGGLE_DEL_ACCOUNT: 'toggleDeleteAccountPopup',
-	TOGGLE_SORT_PROJECT_MEMBERS_BY_DROPDOWN: 'toggleSortProjectMembersByPopup',
+	TOGGLE_SORT_PM_BY_DROPDOWN: 'toggleSortProjectMembersByPopup',
 	CLOSE_POPUPS: 'closePopups',
 };
 

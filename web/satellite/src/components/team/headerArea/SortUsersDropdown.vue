@@ -31,7 +31,7 @@
         },
         methods: {
             toggleSelection: function (): void {
-            	this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PROJECT_MEMBERS_BY_DROPDOWN);
+            	this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
             }
         },
 		computed: mapState({
