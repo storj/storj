@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -84,7 +83,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		publicConfig := provider.ServerConfig{Address: peer.Public.Listener.Addr().String()}
+		publicConfig := server.Config{Address: peer.Public.Listener.Addr().String()}
 		publicOptions, err := server.NewOptions(peer.Identity, publicConfig)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
