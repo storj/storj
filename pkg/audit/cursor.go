@@ -13,7 +13,7 @@ import (
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 )
@@ -28,13 +28,13 @@ type Stripe struct {
 
 // Cursor keeps track of audit location in pointer db
 type Cursor struct {
-	pointers pdbclient.Client
+	pointers *pointerdb.Server
 	lastPath storj.Path
 	mutex    sync.Mutex
 }
 
 // NewCursor creates a Cursor which iterates over pointer db
-func NewCursor(pointers pdbclient.Client) *Cursor {
+func NewCursor(pointers *pointerdb.Server) *Cursor {
 	return &Cursor{pointers: pointers}
 }
 
@@ -43,18 +43,24 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	cursor.mutex.Lock()
 	defer cursor.mutex.Unlock()
 
-	var pointerItems []pdbclient.ListItem
+	var pointerItems []*pb.ListResponse_Item
 	var path storj.Path
 	var more bool
 
-	if cursor.lastPath == "" {
-		pointerItems, more, err = cursor.pointers.List(ctx, "", "", "", true, 0, meta.None)
-	} else {
-		pointerItems, more, err = cursor.pointers.List(ctx, "", cursor.lastPath, "", true, 0, meta.None)
-	}
+	listRes, err := cursor.pointers.List(ctx, &pb.ListRequest{
+		Prefix:     "",
+		StartAfter: cursor.lastPath,
+		EndBefore:  "",
+		Recursive:  true,
+		Limit:      0,
+		MetaFlags:  meta.None,
+	})
 	if err != nil {
 		return nil, err
 	}
+
+	pointerItems = listRes.GetItems()
+	more = listRes.GetMore()
 
 	if len(pointerItems) == 0 {
 		return nil, nil
@@ -75,10 +81,13 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	}
 
 	// get pointer info
-	pointer, _, pba, err := cursor.pointers.Get(ctx, path)
+	getRes, err := cursor.pointers.Get(ctx, &pb.GetRequest{Path: path})
 	if err != nil {
 		return nil, err
 	}
+	pointer := getRes.GetPointer()
+	pba := getRes.GetPba()
+	authorization := getRes.GetAuthorization()
 
 	if pointer.GetType() != pb.Pointer_REMOTE {
 		return nil, nil
@@ -99,8 +108,12 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
-	authorization := cursor.pointers.SignedMessage()
-	return &Stripe{Index: index, Segment: pointer, PBA: pba, Authorization: authorization}, nil
+	return &Stripe{
+		Index:         index,
+		Segment:       pointer,
+		PBA:           pba,
+		Authorization: authorization,
+	}, nil
 }
 
 func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) {
@@ -130,10 +143,10 @@ func getRandomStripe(es eestream.ErasureScheme, pointer *pb.Pointer) (index int,
 	return int(randomStripeIndex.Int64()), nil
 }
 
-func getRandomPointer(pointerItems []pdbclient.ListItem) (pointer pdbclient.ListItem, err error) {
+func getRandomPointer(pointerItems []*pb.ListResponse_Item) (pointer *pb.ListResponse_Item, err error) {
 	randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(pointerItems))))
 	if err != nil {
-		return pdbclient.ListItem{}, err
+		return &pb.ListResponse_Item{}, err
 	}
 	randomNumInt64 := randomNum.Int64()
 	pointerItem := pointerItems[randomNumInt64]
