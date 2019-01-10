@@ -89,11 +89,8 @@ func (size *Size) Set(s string) error {
 	}
 
 	p := len(s)
-	if isLetter(s[len(s)-1]) {
+	for isLetter(s[p-1]) {
 		p--
-		if len(s)-2 >= 0 && isLetter(s[len(s)-2]) {
-			p--
-		}
 	}
 
 	value, suffix := s[:p], s[p:]
@@ -102,24 +99,30 @@ func (size *Size) Set(s string) error {
 		suffix += "B"
 	}
 
+	fmt.Println("value ", value)
+	fmt.Println("suffix ", suffix)
+
 	value = strings.TrimSpace(value)
+	fmt.Println("value2 ", value)
 	v, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		return err
 	}
 
+	fmt.Println("parsed ", v)
+
 	switch suffix {
-	case "EB", "EiB":
+	case "EB", "EIB":
 		*size = Size(v * EB.Float64())
-	case "PB", "PiB":
+	case "PB", "PIB":
 		*size = Size(v * PB.Float64())
-	case "TB", "TiB":
+	case "TB", "TIB":
 		*size = Size(v * TB.Float64())
-	case "GB", "GiB":
+	case "GB", "GIB":
 		*size = Size(v * GB.Float64())
-	case "MB", "MiB":
+	case "MB", "MIB":
 		*size = Size(v * MB.Float64())
-	case "KB", "KiB":
+	case "KB", "KIB":
 		*size = Size(v * KB.Float64())
 	case "B", "":
 		*size = Size(v)
