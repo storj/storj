@@ -78,7 +78,18 @@ func TestProjectsRepository(t *testing.T) {
 	})
 
 	t.Run("Get project success", func(t *testing.T) {
+		projectByID, err := projects.Get(ctx, project.ID)
 
+		assert.Nil(t, err)
+		assert.NoError(t, err)
+
+		assert.Equal(t, projectByID.ID, project.ID)
+		assert.Equal(t, projectByID.Name, name)
+		assert.Equal(t, projectByID.Description, description)
+		assert.Equal(t, projectByID.TermsAccepted, 1)
+	})
+
+	t.Run("Get by projectID success", func(t *testing.T) {
 		projectByID, err := projects.Get(ctx, project.ID)
 
 		assert.Nil(t, err)
