@@ -32,9 +32,8 @@ func TestClient(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 
-	peers := []*testplanet.Node{}
-	peers = append(peers, planet.Satellites...)
-	peers = append(peers, planet.StorageNodes...)
+	// TODO: also use satellites
+	peers := planet.StorageNodes
 
 	{ // Ping
 		client, err := planet.StorageNodes[0].NewNodeClient()
@@ -46,7 +45,7 @@ func TestClient(t *testing.T) {
 		for i := range peers {
 			peer := peers[i]
 			group.Go(func() error {
-				pinged, err := client.Ping(ctx, peer.Info)
+				pinged, err := client.Ping(ctx, peer.Local())
 				var pingErr error
 				if !pinged {
 					pingErr = fmt.Errorf("ping to %s should have succeeded", peer.ID())
@@ -70,9 +69,9 @@ func TestClient(t *testing.T) {
 			group.Go(func() error {
 				for _, target := range peers {
 					errTag := fmt.Errorf("lookup peer:%s target:%s", peer.ID(), target.ID())
-					peer.Info.Type.DPanicOnInvalid("test client peer")
-					target.Info.Type.DPanicOnInvalid("test client target")
-					results, err := client.Lookup(ctx, peer.Info, target.Info)
+					peer.Local().Type.DPanicOnInvalid("test client peer")
+					target.Local().Type.DPanicOnInvalid("test client target")
+					results, err := client.Lookup(ctx, peer.Local(), target.Local())
 					if err != nil {
 						return utils.CombineErrors(errTag, err)
 					}
@@ -113,8 +112,8 @@ func TestClient(t *testing.T) {
 				peer := peers[i]
 				group.Go(func() error {
 					errTag := fmt.Errorf("invalid lookup peer:%s target:%s", peer.ID(), target)
-					peer.Info.Type.DPanicOnInvalid("peer info")
-					results, err := client.Lookup(ctx, peer.Info, pb.Node{Id: target, Type: pb.NodeType_STORAGE})
+					peer.Local().Type.DPanicOnInvalid("peer info")
+					results, err := client.Lookup(ctx, peer.Local(), pb.Node{Id: target, Type: pb.NodeType_STORAGE})
 					if err != nil {
 						return utils.CombineErrors(errTag, err)
 					}

@@ -288,7 +288,13 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.De
 }
 
 // Iterate iterates over items based on IterateRequest
-func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it storage.Iterator) error) error {
+func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it storage.Iterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = s.validateAuth(ctx); err != nil {
+		return err
+	}
+
 	opts := storage.IterateOptions{
 		Prefix:  storage.Key(req.Prefix),
 		First:   storage.Key(req.First),
@@ -299,7 +305,13 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 }
 
 // PayerBandwidthAllocation returns PayerBandwidthAllocation struct, signed and with given action type
-func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBandwidthAllocationRequest) (*pb.PayerBandwidthAllocationResponse, error) {
+func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBandwidthAllocationRequest) (pba *pb.PayerBandwidthAllocationResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
 	payer := s.identity.ID
 
 	// TODO(michal) should be replaced with renter id when available

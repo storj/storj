@@ -30,7 +30,9 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
                 'deleteAccountPopup',
                 'addTeamMemberPopupButton',
                 'addTeamMemberPopup',
-                'addTeamMemberPopupButtonSVG'
+                'addTeamMemberPopupButtonSVG',
+                'sortTeamMemberByDropdown',
+				'sortTeamMemberByDropdownButton',
             ]
         };
     },
