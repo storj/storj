@@ -339,12 +339,15 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 
 	created := time.Now().Unix()
 
-	// Expiration is set to 45 days from creation
+	// convert ttl from days to seconds
+	ttl := s.config.BWATTL
+	ttl *= 86400
+
 	pbad := &pb.PayerBandwidthAllocation_Data{
 		SatelliteId:       payer,
 		UplinkId:          pi.ID,
 		CreatedUnixSec:    created,
-		ExpirationUnixSec: created + 3888000,
+		ExpirationUnixSec: created + int64(ttl),
 		Action:            req.GetAction(),
 		SerialNumber:      serialNum.String(),
 		PubKey:            pubbytes,
