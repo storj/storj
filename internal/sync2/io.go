@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"sync/atomic"
+
+	"github.com/zeebo/errs"
 )
 
 // ReadAtWriteAtCloser implements all io.ReaderAt, io.WriterAt and io.Closer
@@ -59,7 +61,7 @@ func (memory memory) Close() error { return nil }
 type offsetFile struct {
 	file   *os.File
 	offset int64
-	open   *int64 // pointer to MultiPipe.open
+	open   *int64 // number of handles open
 }
 
 // ReadAt implements io.ReaderAt methods
@@ -75,7 +77,10 @@ func (file offsetFile) WriteAt(data []byte, at int64) (amount int, err error) {
 // Close implements io.Closer methods
 func (file offsetFile) Close() error {
 	if atomic.AddInt64(file.open, -1) == 0 {
-		return file.Close()
+		return errs.Combine(
+			file.Close(),
+			os.Remove(file.file.Name()),
+		)
 	}
 	return nil
 }
