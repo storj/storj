@@ -113,9 +113,11 @@ type Peer struct {
 		Endpoint *bwagreement.Server
 	}
 
-	Checker  *checker.Checker
-	Repairer *repairer.Service
-	Audit    *audit.Server
+	Datarepair struct {
+		Checker  *checker.Checker
+		Repairer *repairer.Service
+	}
+	Audit *audit.Server
 }
 
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*Peer, error) {
@@ -224,7 +226,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 	{ // setup agreements
 		peer.Agreements.Endpoint = bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.Log.Named("agreements"), peer.Identity.Leaf.PublicKey)
-		pb.RegisterPointerDBServer(peer.Public.Server.GRPC(), peer.Metainfo.Endpoint)
+		pb.RegisterBandwidthServer(peer.Public.Server.GRPC(), peer.Agreements.Endpoint)
+	}
+
+	{ // setup datarepair checker
+		// TODO: simplify argument list somehow
+		peer.Datarepair.Checker = checker.NewChecker(peer.Metainfo.Endpoint, peer.DB.StatDB(), peer.DB.RepairQueue(), peer.Overlay.Service, peer.DB.Irreparable(), 0, peer.Log.Named("checker"), config.Checker.Interval)
 	}
 
 	return peer, nil
@@ -253,6 +260,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return ignoreCancel(peer.Discovery.Service.Run(ctx))
 	})
 	group.Go(func() error {
+		return ignoreCancel(peer.Datarepair.Checker.Run(ctx))
+	})
+	group.Go(func() error {
 		return ignoreCancel(peer.Public.Server.Run(ctx))
 	})
 
@@ -266,6 +276,11 @@ func (peer *Peer) Close() error {
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close services in reverse initialization order
+
+	if peer.Datarepair.Checker != nil {
+		errlist.Add(peer.Datarepair.Checker.Close())
+	}
+
 	if peer.Agreements.Endpoint != nil {
 		errlist.Add(peer.Agreements.Endpoint.Close())
 	}

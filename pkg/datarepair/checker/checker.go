@@ -22,6 +22,7 @@ import (
 // Checker is the interface for data repair checker
 type Checker interface {
 	Run(ctx context.Context) error
+	Close() error
 }
 
 // Checker contains the information needed to do checks for missing pieces
@@ -34,6 +35,12 @@ type checker struct {
 	limit       int
 	logger      *zap.Logger
 	ticker      *time.Ticker
+}
+
+// NewChecker creates a new instance of checker
+func NewChecker(pointerdb *pointerdb.Server, sdb statdb.DB, repairQueue queue.RepairQueue, overlay pb.OverlayServer, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) Checker {
+	// TODO: reorder arguments
+	return newChecker(pointerdb, sdb, repairQueue, overlay, irrdb, limit, logger, interval)
 }
 
 // newChecker creates a new instance of checker
@@ -67,6 +74,9 @@ func (c *checker) Run(ctx context.Context) (err error) {
 		}
 	}
 }
+
+// Close closes resources
+func (c *checker) Close() (err error) {}
 
 // identifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
 func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
