@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	prompt "github.com/segmentio/go-prompt"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
@@ -42,6 +43,13 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	if !setupCfg.Overwrite && !valid {
 		return fmt.Errorf("captplanet configuration already exists (%v). Rerun with --overwrite", setupDir)
 	} else if setupCfg.Overwrite && err == nil {
+		opts := []string{"yes", "no"}
+		question := fmt.Sprintf("Are you sure you want to delete the following directory?\n%v", setupDir)
+		i := prompt.Choose(question, opts)
+		if opts[i] == "no" {
+			return
+		}
+
 		fmt.Println("overwriting existing captplanet config")
 		err = os.RemoveAll(setupDir)
 		if err != nil {
