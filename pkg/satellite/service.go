@@ -431,7 +431,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, ErrUnauthorized.Wrap(err)
 	}
 
-	key, err := createAPIKey()
+	key, err := CreateAPIKey()
 	if err != nil {
 		return nil, nil, err
 	}
