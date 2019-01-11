@@ -12,6 +12,8 @@ service Payments {
     rpc Calculate(CalculateRequest) returns (CalculateResponse);
     // AdjustPrices sets the prices paid by a satellite for data at rest and bandwidth
     rpc AdjustPrices(AdjustPricesRequest) returns (AdjustPricesResponse);
+    // GenerateCSV ... TODO
+    rpc GenerateCSV(GenerateCSVRequest) returns (GenerateCSVResponse);
 }
 
 // The request message containing the details needed to pay a storage node.
@@ -47,3 +49,9 @@ message AdjustPricesRequest {
 
 // The response message from adjusting cost basis on satelittes.
 message AdjustPricesResponse {}
+
+// The request message for querying the data needed to generate a payments CSV
+message GenerateCSVRequest {}
+
+// The response message ...(TODO)
+message GenerateCSVResponse {}
