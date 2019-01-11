@@ -76,14 +76,14 @@ func TestPipe_CloseWithError(t *testing.T) {
 }
 
 func testPipes(t *testing.T, test func(t *testing.T, reader sync2.PipeReader, writer sync2.PipeWriter)) {
-	t.Run("Memory", func(t *testing.T) {
+	t.Run("File", func(t *testing.T) {
 		reader, writer, err := sync2.NewPipeFile("")
 		if err != nil {
 			t.Fatal(err)
 		}
 		test(t, reader, writer)
 	})
-	t.Run("File", func(t *testing.T) {
+	t.Run("Memory", func(t *testing.T) {
 		reader, writer, err := sync2.NewPipeMemory(1024)
 		if err != nil {
 			t.Fatal(err)
