@@ -114,10 +114,12 @@ type Peer struct {
 	}
 
 	Repair struct {
-		Checker  *checker.Checker
+		Checker  checker.Checker // TODO: convert to actual struct
 		Repairer *repairer.Service
 	}
-	Audit *audit.Server
+	Audit struct {
+		Service *audit.Service // TODO
+	}
 }
 
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*Peer, error) {
@@ -240,6 +242,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		}
 
 		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(), segmentRepairer, config.Repairer.Interval, config.Repairer.MaxRepair)
+	}
+
+	{ // setup audit
+		// TODO: audit needs many fixes
 	}
 
 	return peer, nil
