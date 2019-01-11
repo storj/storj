@@ -10,7 +10,7 @@ fi
 
 RUN_PARAMS="${RUN_PARAMS:-} --config-dir ${CONF_PATH}"
 
-if [[ -n "${API_KEY}" ]]; then
+if [[ -n "${API_KEY:-}" ]]; then
 	RUN_PARAMS="${RUN_PARAMS} --client.api-key ${API_KEY}"
 fi
 

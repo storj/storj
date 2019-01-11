@@ -3,25 +3,25 @@ set -euo pipefail
 
 SETUP_PARAMS=""
 
-if [[ -n "${API_KEY}" ]]; then
+if [[ -n "${API_KEY:-}" ]]; then
 	export STORJ_POINTER_DB_AUTH_API_KEY="${API_KEY}"
   export STORJ_AUDIT_API_KEY="${API_KEY}"
   export STORJ_POINTER_DB_AUTH_API_KEY="${API_KEY}"
   export STORJ_REPAIRER_API_KEY="${API_KEY}"
 fi
 
-if [[ -n "${OVERLAY_URL}" ]]; then
+if [[ -n "${OVERLAY_URL:-}" ]]; then
 	export STORJ_POINTER_DB_DATABASE_URL="${OVERLAY_URL}"
 else
   export STORJ_POINTER_DB_DATABASE_URL="${STORJ_DATABASE}"
 fi
 
 
-if [[ -n "${IDENTITY_ADDR}" ]]; then
+if [[ -n "${IDENTITY_ADDR:-}" ]]; then
 	export STORJ_SERVER_ADDRESS="${IDENTITY_ADDR}"
 fi
 
-if [[ -n "${BOOTSTRAP_ADDR}" ]]; then
+if [[ -n "${BOOTSTRAP_ADDR:-}" ]]; then
 	export STORJ_KADEMLIA_BOOTSTRAP_ADDR="${BOOTSTRAP_ADDR}"
 fi
 
