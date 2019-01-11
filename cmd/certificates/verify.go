@@ -26,10 +26,8 @@ var (
 	verifyCmd = &cobra.Command{
 		Use:   "verify",
 		Short: "Verify identity and CA certificate chains are valid",
-		Long: `Verify identity and CA certificate chains are valid.
-
-To be valid, an identity certificate chain must contain its CA's certificate chain, and both chains must consist of certificates signed by their respective parents, ending in a self-signed root.`,
-		RunE: cmdVerify,
+		Long:  "Verify identity and CA certificate chains are valid.\n\nTo be valid, an identity certificate chain must contain its CA's certificate chain, and both chains must consist of certificates signed by their respective parents, ending in a self-signed root.",
+		RunE:  cmdVerify,
 	}
 
 	verifyCfg verifyConfig
