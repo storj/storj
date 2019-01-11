@@ -44,7 +44,6 @@ func TestProjectMembersRepository(t *testing.T) {
 
 		projMember, err := projectMembers.Insert(ctx, *unexistingUserID, createdProjects[0].ID)
 		assert.Nil(t, projMember)
-		assert.NotNil(t, err)
 		assert.Error(t, err)
 	})
 
@@ -54,82 +53,79 @@ func TestProjectMembersRepository(t *testing.T) {
 
 		projMember, err := projectMembers.Insert(ctx, createdUsers[0].ID, *unexistingProjectID)
 		assert.Nil(t, projMember)
-		assert.NotNil(t, err)
 		assert.Error(t, err)
 	})
 
 	t.Run("Insert  success", func(t *testing.T) {
 		projMember1, err := projectMembers.Insert(ctx, createdUsers[0].ID, createdProjects[0].ID)
 		assert.NotNil(t, projMember1)
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 
 		projMember2, err := projectMembers.Insert(ctx, createdUsers[1].ID, createdProjects[0].ID)
 		assert.NotNil(t, projMember2)
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 
 		projMember3, err := projectMembers.Insert(ctx, createdUsers[3].ID, createdProjects[0].ID)
 		assert.NotNil(t, projMember3)
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 
 		projMember4, err := projectMembers.Insert(ctx, createdUsers[4].ID, createdProjects[0].ID)
 		assert.NotNil(t, projMember4)
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 
 		projMember5, err := projectMembers.Insert(ctx, createdUsers[5].ID, createdProjects[0].ID)
 		assert.NotNil(t, projMember5)
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 
 		projMember6, err := projectMembers.Insert(ctx, createdUsers[2].ID, createdProjects[1].ID)
 		assert.NotNil(t, projMember6)
-		assert.Nil(t, err)
 		assert.NoError(t, err)
+
+		projMember7, err := projectMembers.Insert(ctx, createdUsers[0].ID, createdProjects[1].ID)
+		assert.NotNil(t, projMember7)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Get projects by userID", func(t *testing.T) {
+		projects, err := projects.GetByUserID(ctx, createdUsers[0].ID)
+		assert.NoError(t, err)
+		assert.NotNil(t, projects)
+		assert.Equal(t, len(projects), 2)
 	})
 
 	t.Run("Get paged", func(t *testing.T) {
 		// sql injection test. F.E '%SomeText%' = > ''%SomeText%' OR 'x' != '%'' will be true
 		members, err := projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: 6, Offset: 0, Search: "son%' OR 'x' != '", Order: 2})
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.Nil(t, members)
 		assert.Equal(t, 0, len(members))
 
 		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: 3, Offset: 0, Search: "", Order: 1})
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
 		assert.Equal(t, 3, len(members))
 
 		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: 2, Offset: 0, Search: "Liam", Order: 2})
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
 		assert.Equal(t, 2, len(members))
 
 		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: 2, Offset: 0, Search: "Liam", Order: 1})
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
 		assert.Equal(t, 2, len(members))
 
 		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: 6, Offset: 0, Search: "son", Order: 123})
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
 		assert.Equal(t, 5, len(members))
 
 		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: 6, Offset: 3, Search: "son", Order: 2})
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, members)
 		assert.Equal(t, 2, len(members))
 
 		members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{Limit: -123, Offset: -14, Search: "son", Order: 2})
-		assert.NotNil(t, err)
 		assert.Error(t, err)
 		assert.Nil(t, members)
 		assert.Equal(t, 0, len(members))
@@ -140,7 +136,6 @@ func TestProjectMembersRepository(t *testing.T) {
 		selectedMembers1, err := projectMembers.GetByMemberID(ctx, originalMember1.ID)
 
 		assert.NotNil(t, selectedMembers1)
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.Equal(t, originalMember1.ID, selectedMembers1[0].MemberID)
 
@@ -148,9 +143,23 @@ func TestProjectMembersRepository(t *testing.T) {
 		selectedMembers2, err := projectMembers.GetByMemberID(ctx, originalMember2.ID)
 
 		assert.NotNil(t, selectedMembers2)
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.Equal(t, originalMember2.ID, selectedMembers2[0].MemberID)
+	})
+
+	t.Run("Delete member by memberID and projectID success", func(t *testing.T) {
+		err := projectMembers.Delete(ctx, createdUsers[0].ID, createdProjects[0].ID)
+		assert.NoError(t, err)
+
+		projMembers, err := projectMembers.GetByProjectID(ctx, createdProjects[0].ID, satellite.Pagination{
+			Order:  1,
+			Search: "",
+			Offset: 0,
+			Limit:  100,
+		})
+		assert.NoError(t, err)
+		assert.NotNil(t, projectMembers)
+		assert.Equal(t, len(projMembers), 4)
 	})
 }
 

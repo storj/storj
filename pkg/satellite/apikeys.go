@@ -61,8 +61,8 @@ func APIKeyFromBytes(b []byte) *APIKey {
 	return key
 }
 
-// createAPIKey creates new api key
-func createAPIKey() (*APIKey, error) {
+// CreateAPIKey creates new api key
+func CreateAPIKey() (*APIKey, error) {
 	key := new(APIKey)
 
 	n, err := io.ReadFull(rand.Reader, key[:])
