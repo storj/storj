@@ -53,17 +53,13 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
 import Button from '@/components/common/Button.vue';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/utils/constants/actionNames';
+import { validateProjectName } from '@/utils/validation';
 
 @Component(
     {
-        props: {
-            onCreate: {
-                type: Function
-            }
-        },
         data: function () {
             return {
-                name: '',
+                projectName: '',
                 description: '',
                 isTermsAccepted: false,
                 termsAcceptedError: false,
@@ -72,7 +68,7 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/util
         },
         methods: {
             setProjectName: function (value: string): void {
-                this.$data.name = value;
+                this.$data.projectName = value;
                 this.$data.nameError = '';
             },
             setProjectDescription: function (value: string): void {
@@ -86,15 +82,17 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/util
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
             },
             createProject: async function (): Promise<any> {
+                let projectName = this.$data.projectName.trim();
+
                 if (!this.$data.isTermsAccepted) {
                     this.$data.termsAcceptedError = true;
                 }
 
-                if (!this.$data.name) {
-                    this.$data.nameError = 'Name is required!';
+                if (!validateProjectName(projectName)) {
+                    this.$data.nameError = 'Name for project is invalid!';
                 }
 
-                if (this.$data.name.length > 20) {
+                if (projectName.length > 20) {
                     this.$data.nameError = 'Name should be less than 21 character!';
                 }
 
@@ -103,7 +101,7 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/util
                 }
 
                 let response = await this.$store.dispatch(PROJETS_ACTIONS.CREATE, {
-                    name: this.$data.name,
+                    name: projectName,
                     description: this.$data.description,
                     isTermsAccepted: this.$data.isTermsAccepted
                 });
