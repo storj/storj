@@ -337,13 +337,20 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 		return nil, err
 	}
 
+	created := time.Now().Unix()
+
+	// convert ttl from days to seconds
+	ttl := s.config.BwExpiration
+	ttl *= 86400
+
 	pbad := &pb.PayerBandwidthAllocation_Data{
-		SatelliteId:    payer,
-		UplinkId:       pi.ID,
-		CreatedUnixSec: time.Now().Unix(),
-		Action:         req.GetAction(),
-		SerialNumber:   serialNum.String(),
-		PubKey:         pubbytes,
+		SatelliteId:       payer,
+		UplinkId:          pi.ID,
+		CreatedUnixSec:    created,
+		ExpirationUnixSec: created + int64(ttl),
+		Action:            req.GetAction(),
+		SerialNumber:      serialNum.String(),
+		PubKey:            pubbytes,
 	}
 
 	data, err := proto.Marshal(pbad)

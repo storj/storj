@@ -60,6 +60,11 @@ func NewVerifier(transport transport.Client, overlay overlay.Client, id provider
 func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize, pieceNumber int,
 	id psclient.PieceID, pieceSize int64, fromNode *pb.Node, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (s share, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if fromNode == nil {
+		// TODO(moby) perhaps we should not penalize this node's reputation if it is not returned by the overlay
+		return s, Error.New("no node returned from overlay for piece %s", id.String())
+	}
 	fromNode.Type.DPanicOnInvalid("audit getShare")
 	ps, err := psclient.NewPSClient(ctx, d.transport, fromNode, 0)
 	if err != nil {
