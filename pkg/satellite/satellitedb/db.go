@@ -18,6 +18,8 @@ var (
 	Error = errs.Class("satellitedb")
 )
 
+//go:generate go run ../../../scripts/lockedgen/main.go -o locked.go -p satellitedb -i storj.io/storj/pkg/satellite.DB
+
 // Database contains access to different satellite databases
 type Database struct {
 	db *dbx.DB
@@ -27,7 +29,7 @@ type Database struct {
 }
 
 // New - constructor for DB
-func New(driver, source string) (*Database, error) {
+func New(driver, source string) (satellite.DB, error) {
 	db, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, Error.New("failed opening database %q, %q: %v",
@@ -39,6 +41,9 @@ func New(driver, source string) (*Database, error) {
 		methods: db,
 	}
 
+	if driver == "sqlite" {
+		return newLocked(database), nil
+	}
 	return database, nil
 }
 
