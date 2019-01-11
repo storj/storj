@@ -95,9 +95,7 @@ func cmdRevokeCA(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// NB: backup original cert
-	var backupCfg provider.FullCAConfig
-	backupCfg.CertPath = backupPath(revokeCACfg.CA.CertPath)
-	if err := backupCfg.Save(ca); err != nil {
+	if err := revokeCACfg.CA.SaveBackup(ca); err != nil {
 		return err
 	}
 
