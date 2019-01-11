@@ -68,10 +68,11 @@ type Config struct {
 	Discovery discovery.Config
 
 	PointerDB   pointerdb.Config
-	Checker     checker.Config
-	Repairer    repairer.Config
-	Audit       audit.Config
 	BwAgreement bwagreement.Config
+
+	Checker  checker.Config
+	Repairer repairer.Config
+	Audit    audit.Config
 }
 
 type Peer struct {
@@ -96,6 +97,10 @@ type Peer struct {
 	Overlay struct {
 		Service  *overlay.Cache
 		Endpoint *overlay.Server
+	}
+
+	Discovery struct {
+		Service *discovery.Discovery
 	}
 }
 
@@ -188,10 +193,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup discovery
-
+		config := config.Discovery
+		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, peer.DB.StatDB(), config.RefreshInterval)
 	}
 
 	return peer, nil
+}
+
+func ignoreCancel(err error) error {
+	if err == context.Canceled || err == grpc.ErrServerStopped {
+		return nil
+	}
+	return err
 }
 
 // Run runs storage node until it's either closed or it errors.
@@ -201,26 +214,16 @@ func (peer *Peer) Run(ctx context.Context) error {
 
 	var group errgroup.Group
 	group.Go(func() error {
-		err := peer.Kademlia.Service.Bootstrap(ctx)
-		if ctx.Err() == context.Canceled {
-			// ignore err when when bootstrap was canceled
-			return nil
-		}
-		return err
+		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
-		err := peer.Kademlia.Service.RunRefresh(ctx)
-		if err == context.Canceled || err == grpc.ErrServerStopped {
-			err = nil
-		}
-		return err
+		return ignoreCancel(peer.Kademlia.Service.RunRefresh(ctx))
 	})
 	group.Go(func() error {
-		err := peer.Public.Server.Run(ctx)
-		if err == context.Canceled || err == grpc.ErrServerStopped {
-			err = nil
-		}
-		return err
+		return ignoreCancel(peer.Discovery.Service.Run(ctx))
+	})
+	group.Go(func() error {
+		return ignoreCancel(peer.Public.Server.Run(ctx))
 	})
 
 	return group.Wait()
@@ -233,6 +236,10 @@ func (peer *Peer) Close() error {
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close services in reverse initialization order
+	if peer.Discovery.Service != nil {
+		errlist.Add(peer.Discovery.Service.Close())
+	}
+
 	if peer.Overlay.Endpoint != nil {
 		errlist.Add(peer.Overlay.Endpoint.Close())
 	}

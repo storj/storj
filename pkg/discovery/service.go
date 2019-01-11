@@ -6,6 +6,7 @@ package discovery
 import (
 	"context"
 	"crypto/rand"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -27,6 +28,19 @@ type Discovery struct {
 	cache  *overlay.Cache
 	kad    *kademlia.Kademlia
 	statdb statdb.DB
+
+	refreshInterval time.Duration
+}
+
+// New returns a new discovery service.
+func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB, refreshInterval time.Duration) *Discovery {
+	return &Discovery{
+		log:             logger,
+		cache:           ol,
+		kad:             kad,
+		statdb:          stat,
+		refreshInterval: refreshInterval,
+	}
 }
 
 // NewDiscovery Returns a new Discovery instance with cache, kad, and statdb loaded on
@@ -36,6 +50,33 @@ func NewDiscovery(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia,
 		cache:  ol,
 		kad:    kad,
 		statdb: stat,
+	}
+}
+
+// Close closes resources
+func (discovery *Discovery) Close() error { return nil }
+
+// Run runs the discovery service
+func (discovery *Discovery) Run(ctx context.Context) error {
+	ticker := time.NewTicker(discovery.refreshInterval)
+	defer ticker.Stop()
+
+	for {
+		err := discovery.Refresh(ctx)
+		if err != nil {
+			discovery.log.Error("Error with cache refresh: ", zap.Error(err))
+		}
+
+		err = discovery.Discovery(ctx)
+		if err != nil {
+			discovery.log.Error("Error with cache discovery: ", zap.Error(err))
+		}
+
+		select {
+		case <-ticker.C: // redo
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 }
 
