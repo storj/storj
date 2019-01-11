@@ -77,7 +77,7 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, bandwidt
 				return nil, err
 			}
 
-			if err = s.verifyPayerAllocation(pbaData, pb.PayerBandwidthAllocation_PUT); err != nil {
+			if err = s.verifyPayerAllocation(pbaData, "PUT"); err != nil {
 				return nil, err
 			}
 

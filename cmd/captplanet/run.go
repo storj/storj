@@ -79,16 +79,16 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		//nolint ignoring context rules to not create cyclic dependency, will be removed later
-		ctx = context.WithValue(ctx, "masterdb", database)
+		satelliteCtx := context.WithValue(ctx, "masterdb", database)
 
 		// Run satellite
-		errch <- satellite.Server.Run(ctx,
+		errch <- satellite.Server.Run(satelliteCtx,
 			grpcauth.NewAPIKeyInterceptor(),
 			satellite.Kademlia,
-			satellite.Audit,
 			satellite.Overlay,
 			satellite.Discovery,
 			satellite.PointerDB,
+			satellite.Audit,
 			satellite.Checker,
 			satellite.Repairer,
 			satellite.BwAgreement,
