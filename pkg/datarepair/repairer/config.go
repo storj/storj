@@ -41,7 +41,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return Error.Wrap(err)
 	}
 
-	service := newService(q.RepairQueue(), repairer, c.Interval, c.MaxRepair)
+	service := NewService(q.RepairQueue(), repairer, c.Interval, c.MaxRepair)
 
 	ctx, cancel := context.WithCancel(ctx)
 

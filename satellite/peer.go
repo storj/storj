@@ -112,6 +112,10 @@ type Peer struct {
 	Agreements struct {
 		Endpoint *bwagreement.Server
 	}
+
+	Checker  *checker.Checker
+	Repairer *repairer.Service
+	Audit    *audit.Server
 }
 
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*Peer, error) {

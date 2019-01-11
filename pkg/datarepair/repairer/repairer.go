@@ -20,16 +20,16 @@ type SegmentRepairer interface {
 	Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error)
 }
 
-// repairService contains the information needed to run the repair service
-type repairService struct {
+// Service contains the information needed to run the repair service
+type Service struct {
 	queue    queue.RepairQueue
 	repairer SegmentRepairer
 	limiter  *sync2.Limiter
 	ticker   *time.Ticker
 }
 
-func newService(queue queue.RepairQueue, repairer SegmentRepairer, interval time.Duration, concurrency int) *repairService {
-	return &repairService{
+func NewService(queue queue.RepairQueue, repairer SegmentRepairer, interval time.Duration, concurrency int) *Service {
+	return &Service{
 		queue:    queue,
 		repairer: repairer,
 		limiter:  sync2.NewLimiter(concurrency),
@@ -38,7 +38,7 @@ func newService(queue queue.RepairQueue, repairer SegmentRepairer, interval time
 }
 
 // Run runs the repairer service
-func (service *repairService) Run(ctx context.Context) (err error) {
+func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// wait for all repairs to complete
@@ -59,7 +59,7 @@ func (service *repairService) Run(ctx context.Context) (err error) {
 }
 
 // process picks an item from repair queue and spawns a repair worker
-func (service *repairService) process(ctx context.Context) error {
+func (service *Service) process(ctx context.Context) error {
 	seg, err := service.queue.Dequeue(ctx)
 	if err != nil {
 		if storage.ErrEmptyQueue.Has(err) {
