@@ -12,3 +12,9 @@ export function validatePassword(password: string): boolean {
 
     return rgx.test(password);
 }
+
+export function validateProjectName(projectName: string): boolean {
+    const rgx = /^[^/]+$/;
+
+    return rgx.test(projectName);
+}
