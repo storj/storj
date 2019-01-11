@@ -6,9 +6,8 @@ package pointerdb
 import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
@@ -33,15 +32,13 @@ func (s *Service) Put(path string, pointer *pb.Pointer) (err error) {
 
 	pointerBytes, err := proto.Marshal(pointer)
 	if err != nil {
-		//s.logger.Error("err marshaling pointer", zap.Error(err))
-		return err //status.Errorf(codes.Internal, err.Error())
+		return err
 	}
 
 	// TODO(kaloyan): make sure that we know we are overwriting the pointer!
 	// In such case we should delete the pieces of the old segment if it was
 	// a remote one.
 	if err = s.DB.Put([]byte(path), pointerBytes); err != nil {
-		//s.logger.Error("err putting pointer", zap.Error(err))
 		return err
 	}
 
@@ -52,18 +49,13 @@ func (s *Service) Put(path string, pointer *pb.Pointer) (err error) {
 func (s *Service) Get(path string) (pointer *pb.Pointer, err error) {
 	pointerBytes, err := s.DB.Get([]byte(path))
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			return nil, status.Errorf(codes.NotFound, err.Error())
-		}
-		//s.logger.Error("err getting pointer", zap.Error(err))
 		return nil, err
 	}
 
 	pointer = &pb.Pointer{}
 	err = proto.Unmarshal(pointerBytes, pointer)
 	if err != nil {
-		// s.logger.Error("Error unmarshaling pointer")
-		return nil, err
+		return nil, errs.New("error unmarshaling pointer: %v", err)
 	}
 
 	return pointer, nil
@@ -93,7 +85,6 @@ func (s *Service) List(prefix string, startAfter string, endBefore string, recur
 		return nil, false, err
 	}
 
-	// var items []*pb.ListResponse_Item
 	for _, rawItem := range rawItems {
 		items = append(items, s.createListItem(rawItem, metaFlags))
 	}
