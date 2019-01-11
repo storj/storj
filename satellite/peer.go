@@ -209,8 +209,11 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return err
 	})
 	group.Go(func() error {
-		peer.Kademlia.Service.StartRefresh(ctx)
-		return nil
+		err := peer.Kademlia.Service.RunRefresh(ctx)
+		if err == context.Canceled || err == grpc.ErrServerStopped {
+			err = nil
+		}
+		return err
 	})
 	group.Go(func() error {
 		err := peer.Public.Server.Run(ctx)
