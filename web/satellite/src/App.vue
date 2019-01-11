@@ -31,6 +31,10 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
                 'addTeamMemberPopupButton',
                 'addTeamMemberPopup',
                 'addTeamMemberPopupButtonSVG',
+                'addApiKeyPopup',
+                'addApiKeyPopupButton',
+                'addApiKeysPopupEmptyButton',
+                'addTeamMemberPopupButtonSVG',
                 'sortTeamMemberByDropdown',
 				'sortTeamMemberByDropdownButton',
             ]

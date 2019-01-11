@@ -6,7 +6,7 @@
         <div class="delete-api-key-container__wrap">
             <div class="delete-api-key-container__selected-api-keys-count">
                 <span class="delete-api-key-container__selected-api-keys-count__button"></span>
-                <p class="delete-api-key-container__selected-api-keys-count__count">1</p>
+                <p class="delete-api-key-container__selected-api-keys-count__count">{{ count }}</p>
                 <p class="delete-api-key-container__selected-api-keys-count__total-count"> of <span>X</span> API Keys Selected</p>
             </div>
             <div class="delete-api-key-container__buttons-group">
@@ -30,19 +30,25 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
+import { API_KEYS_ACTIONS } from "@/utils/constants/actionNames";
 
 @Component({
     methods: {
         onDelete: async function () {
-           
+           let selectedKeys: any[] = this.$store.getters.selectedAPIKeys;
+
+           for (let i = 0; i < selectedKeys.length; i++) {
+               this.$store.dispatch(API_KEYS_ACTIONS.DELETE, selectedKeys[i].id);
+           }
         },
-        onClearSelection: function () {
-
-        }
-
+        onClearSelection: function (): void {
+            this.$store.dispatch(API_KEYS_ACTIONS.CLEAR_SELECTION);
+        },
     },
     computed: {
-
+        count: function (): number {
+            return this.$store.getters.selectedAPIKeys.length;
+        }
     },
     components: {
         Button

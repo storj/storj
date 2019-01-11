@@ -2,6 +2,14 @@
 // See LICENSE for copying information.
 
 export const APP_STATE_ACTIONS = {
+    TOGGLE_TEAM_MEMBERS: 'toggleAddTeamMembersPopup',
+    TOGGLE_NEW_PROJ : 'toggleNewProjectPopup',
+    TOGGLE_PROJECTS: 'toggleProjectsDropdown',
+    TOGGLE_ACCOUNT: 'toggleAccountDropdown',
+    TOGGLE_DEL_PROJ: 'toggleDeleteProjectPopup',
+    TOGGLE_DEL_ACCOUNT: 'toggleDeleteAccountPopup',
+    TOGGLE_NEW_API_KEY: "toggleNewAPIKeyPopup",
+    CLOSE_POPUPS: 'closePopups',
 	TOGGLE_TEAM_MEMBERS: 'toggleAddTeamMembersPopup',
 	TOGGLE_NEW_PROJ: 'toggleNewProjectPopup',
 	TOGGLE_PROJECTS: 'toggleProjectsDropdown',
@@ -48,4 +56,13 @@ export const USER_ACTIONS = {
 	DELETE: 'deleteAccount',
 	GET: 'getUser',
 	CLEAR: 'clearUser',
+};
+
+export const API_KEYS_ACTIONS = {
+    FETCH: "fetchAPIKeys",
+    CREATE: "createAPIKey",
+    DELETE: "deleteAPIKey",
+    CLEAR: "clearAPIKeys",
+    TOGGLE_SELECTION: "toggleAPIKeySelection",
+    CLEAR_SELECTION: "clearAPIKeySelection"
 };

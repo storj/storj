@@ -6,11 +6,13 @@
         <div class="empty-state__wrap">
             <h1>{{mainTitle}}</h1>
             <p>{{additionalText}}</p>
-            <Button
-                v-if="isButtonShown"
-                @onPress="onButtonClick"
-                :label="buttonLabel"
-                width="170px" />
+            <div id="addApiKeysPopupEmptyButton">
+                <Button
+                    v-if="isButtonShown"
+                    :onPress="onButtonClick"
+                    :label="buttonLabel"
+                    width="170px" />
+            </div>
             <div class="empty-state__wrap__img" v-html="imageSource"></div>
         </div>
     </div>
