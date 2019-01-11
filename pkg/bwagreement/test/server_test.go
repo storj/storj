@@ -107,7 +107,7 @@ func TestManipulatedBandwidthAgreements(t *testing.T) {
 
 		reply, err = server.BandwidthAgreements(ctx, rba)
 		assert.Error(t, err)
-		assert.Equal(t, pb.AgreementsSummary_FAIL, reply.Status)
+		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 
 		/* Todo: Add more tests for bwagreement manipulations
 
@@ -143,7 +143,7 @@ func TestInvalidBandwidthAgreements(t *testing.T) {
 
 		reply, err = server.BandwidthAgreements(ctx, rba)
 		assert.EqualError(t, err, "bwagreement error: Invalid Renter's Signature Length")
-		assert.Equal(t, pb.AgreementsSummary_FAIL, reply.Status)
+		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 	})
 }
 
