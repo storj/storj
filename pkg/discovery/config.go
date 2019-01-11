@@ -32,8 +32,14 @@ type Config struct {
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ol := overlay.LoadFromContext(ctx)
+	overlay := overlay.LoadFromContext(ctx)
+	if overlay == nil {
+		return Error.New("programmer error: overlay responsibility unstarted")
+	}
 	kad := kademlia.LoadFromContext(ctx)
+	if kad == nil {
+		return Error.New("programmer error: kademlia responsibility unstarted")
+	}
 	stat, ok := ctx.Value("masterdb").(interface {
 		StatDB() statdb.DB
 	})
@@ -42,7 +48,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return Error.New("unable to get master db instance")
 	}
 
-	discovery := NewDiscovery(zap.L().Named("discovery"), ol, kad, stat.StatDB())
+	discovery := NewDiscovery(zap.L().Named("discovery"), overlay, kad, stat.StatDB())
 
 	zap.L().Debug("bootstrapping cache")
 	err = discovery.Bootstrap(ctx)

@@ -59,11 +59,12 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 	s.logger.Debug("Received Agreement...")
 
 	reply = &pb.AgreementsSummary{
-		Status: pb.AgreementsSummary_FAIL,
+		Status: pb.AgreementsSummary_REJECTED,
 	}
 
-	if err = s.verifySignature(ctx, ba); err != nil {
-		return reply, err
+	// storagenode signature is empty
+	if len(ba.GetSignature()) == 0 {
+		return reply, BwAgreementError.New("Invalid Storage Node Signature length in the RenterBandwidthAllocation")
 	}
 
 	rbad := &pb.RenterBandwidthAllocation_Data{}
@@ -77,8 +78,17 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 		return reply, BwAgreementError.New("Failed to unmarshal PayerBandwidthAllocation: %+v", err)
 	}
 
+	// satellite signature is empty
+	if len(pba.GetSignature()) == 0 {
+		return reply, BwAgreementError.New("Invalid Satellite Signature length in the PayerBandwidthAllocation")
+	}
+
 	if len(pbad.SerialNumber) == 0 {
 		return reply, BwAgreementError.New("Invalid SerialNumber in the PayerBandwidthAllocation")
+	}
+
+	if err = s.verifySignature(ctx, ba); err != nil {
+		return reply, err
 	}
 
 	serialNum := pbad.GetSerialNumber() + rbad.StorageNodeId.String()
@@ -96,13 +106,12 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 	})
 
 	if err != nil {
+		//todo:  better classify transport errors (AgreementsSummary_FAIL) vs logical (AgreementsSummary_REJECTED)
 		return reply, BwAgreementError.New("SerialNumber already exists in the PayerBandwidthAllocation")
 	}
 
 	reply.Status = pb.AgreementsSummary_OK
-
 	s.logger.Debug("Stored Agreement...")
-
 	return reply, nil
 }
 
@@ -132,16 +141,25 @@ func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllo
 		return peertls.ErrUnsupportedKey.New("%T", pubkey)
 	}
 
+	signatureLength := k.Curve.Params().P.BitLen() / 8
+	if len(ba.GetSignature()) < signatureLength {
+		return BwAgreementError.New("Invalid Renter's Signature Length")
+	}
 	// verify Renter's (uplink) signature
 	if ok := cryptopasta.Verify(ba.GetData(), ba.GetSignature(), k); !ok {
 		return BwAgreementError.New("Failed to verify Renter's Signature")
 	}
 
+	// satellite public key
 	k, ok = s.pkey.(*ecdsa.PublicKey)
 	if !ok {
 		return peertls.ErrUnsupportedKey.New("%T", s.pkey)
 	}
 
+	signatureLength = k.Curve.Params().P.BitLen() / 8
+	if len(rbad.GetPayerAllocation().GetSignature()) < signatureLength {
+		return BwAgreementError.New("Inavalid Payer's Signature Length")
+	}
 	// verify Payer's (satellite) signature
 	if ok := cryptopasta.Verify(rbad.GetPayerAllocation().GetData(), rbad.GetPayerAllocation().GetSignature(), k); !ok {
 		return BwAgreementError.New("Failed to verify Payer's Signature")
