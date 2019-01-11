@@ -5,12 +5,12 @@ FROM storjlabs/golang as build-env
 
 # final stage
 FROM alpine
-ENV CONF_PATH=/root/.local/storj/gateway \
+ENV CONF_PATH=/root/.local/storj/uplink \
     API_KEY= \
     SATELLITE_ADDR=
 EXPOSE 7777
 WORKDIR /app
-VOLUME /root/.local/storj/gateway
-COPY --from=build-env /app /app/gateway
+VOLUME /root/.local/storj/uplink
+COPY --from=build-env /app /app/uplink
 COPY cmd/uplink/entrypoint /entrypoint
 ENTRYPOINT ["/entrypoint"]
