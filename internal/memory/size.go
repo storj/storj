@@ -130,3 +130,6 @@ func (size *Size) Set(s string) error {
 
 	return nil
 }
+
+// Type implements pflag.Value
+func (Size) Type() string { return "memory.Size" }
