@@ -10,7 +10,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/pem"
 	"io/ioutil"
 	"log"
 	"sync"
@@ -146,6 +145,34 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 	return ca, nil
 }
 
+func NewCAFromKey(key crypto.PrivateKey, opts NewCAOptions) (*FullCertificateAuthority, error) {
+	ecKey, ok := key.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, peertls.ErrUnsupportedKey.New("%T", key)
+	}
+	id, err := NodeIDFromKey(&ecKey.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+	ct, err := peertls.CATemplate()
+	if err != nil {
+		return nil, err
+	}
+	c, err := peertls.NewCert(key, opts.ParentKey, ct, opts.ParentCert)
+	if err != nil {
+		return nil, err
+	}
+	ca := &FullCertificateAuthority{
+		Cert: c,
+		Key:  key,
+		ID:   id,
+	}
+	if opts.ParentCert != nil {
+		ca.RestChain = []*x509.Certificate{opts.ParentCert}
+	}
+	return ca, nil
+}
+
 // Status returns the status of the CA cert/key files for the config
 func (caS CASetupConfig) Status() TLSFilesStatus {
 	return statTLSFiles(caS.CertPath, caS.KeyPath)
@@ -180,11 +207,7 @@ func (caS CASetupConfig) Create(ctx context.Context) (*FullCertificateAuthority,
 	if err != nil {
 		return nil, err
 	}
-	caC := FullCAConfig{
-		CertPath: caS.CertPath,
-		KeyPath:  caS.KeyPath,
-	}
-	return ca, caC.Save(ca)
+	return ca, caS.FullConfig().Save(ca)
 }
 
 // FullConfig converts a `CASetupConfig` to `FullCAConfig`
@@ -202,12 +225,7 @@ func (fc FullCAConfig) Load() (*FullCertificateAuthority, error) {
 		return nil, err
 	}
 
-	kb, err := ioutil.ReadFile(fc.KeyPath)
-	if err != nil {
-		return nil, peertls.ErrNotExist.Wrap(err)
-	}
-	kp, _ := pem.Decode(kb)
-	k, err := x509.ParseECPrivateKey(kp.Bytes)
+	key, err := peertls.LoadKey(fc.KeyPath)
 	if err != nil {
 		return nil, errs.New("unable to parse EC private key: %v", err)
 	}
@@ -215,7 +233,7 @@ func (fc FullCAConfig) Load() (*FullCertificateAuthority, error) {
 	return &FullCertificateAuthority{
 		RestChain: p.RestChain,
 		Cert:      p.Cert,
-		Key:       k,
+		Key:       key,
 		ID:        p.ID,
 	}, nil
 }
@@ -242,7 +260,7 @@ func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 			writeErrs.Add(err)
 			return writeErrs.Finish()
 		}
-		if err := writeChainData(fc.CertPath, certData.Bytes()); err != nil {
+		if err := peertls.WriteChainData(fc.CertPath, certData.Bytes()); err != nil {
 			writeErrs.Add(err)
 			return writeErrs.Finish()
 		}
@@ -253,7 +271,7 @@ func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 			writeErrs.Add(err)
 			return writeErrs.Finish()
 		}
-		if err := writeKeyData(fc.KeyPath, keyData.Bytes()); err != nil {
+		if err := peertls.WriteKeyData(fc.KeyPath, keyData.Bytes()); err != nil {
 			writeErrs.Add(err)
 			return writeErrs.Finish()
 		}

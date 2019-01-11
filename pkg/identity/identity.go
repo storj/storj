@@ -272,12 +272,12 @@ func (ic Config) Save(fi *FullIdentity) error {
 
 	if ic.CertPath != "" {
 		writeChainErr = peertls.WriteChain(&certData, chain...)
-		writeChainDataErr = writeChainData(ic.CertPath, certData.Bytes())
+		writeChainDataErr = peertls.WriteChainData(ic.CertPath, certData.Bytes())
 	}
 
 	if ic.KeyPath != "" {
 		writeKeyErr = peertls.WriteKey(&keyData, fi.Key)
-		writeKeyDataErr = writeKeyData(ic.KeyPath, keyData.Bytes())
+		writeKeyDataErr = peertls.WriteKeyData(ic.KeyPath, keyData.Bytes())
 	}
 
 	writeErr := utils.CombineErrors(writeChainErr, writeKeyErr)

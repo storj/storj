@@ -19,7 +19,10 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"io/ioutil"
 	"math/big"
+	"os"
+	"path/filepath"
 
 	"github.com/zeebo/errs"
 )
@@ -155,4 +158,35 @@ func signBytes(key crypto.PrivateKey, data []byte) ([]byte, error) {
 	}
 
 	return asn1.Marshal(ECDSASignature{R: r, S: s})
+}
+
+// writeChainData writes data to path ensuring permissions are appropriate for a cert
+func WriteChainData(path string, data []byte) error {
+	err := writeFile(path, 0744, 0644, data)
+	if err != nil {
+		return errs.New("unable to write certificate to \"%s\": %v", path, err)
+	}
+	return nil
+}
+
+// writeKeyData writes data to path ensuring permissions are appropriate for a cert
+func WriteKeyData(path string, data []byte) error {
+	err := writeFile(path, 0700, 0600, data)
+	if err != nil {
+		return errs.New("unable to write key to \"%s\": %v", path, err)
+	}
+	return nil
+}
+
+// writeFile writes to path, creating directories and files with the necessary permissions
+func writeFile(path string, dirmode, filemode os.FileMode, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), dirmode); err != nil {
+		return errs.Wrap(err)
+	}
+
+	if err := ioutil.WriteFile(path, data, filemode); err != nil {
+		return errs.Wrap(err)
+	}
+
+	return nil
 }
