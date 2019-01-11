@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -87,7 +86,7 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	}()
 
 	// Initialize file for storing data
-	storeFile, err := pstore.StoreWriter(id, s.DataDir)
+	storeFile, err := s.storage.Writer(id)
 	if err != nil {
 		return 0, err
 	}
