@@ -5,6 +5,7 @@ package transport
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -36,12 +37,15 @@ type Client interface {
 	DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	Identity() *provider.FullIdentity
+	AddObserver(obs Observer)
+	Observers() []Observer
 }
 
 // Transport interface structure
 type Transport struct {
 	identity  *provider.FullIdentity
 	observers []Observer
+	sync.Mutex
 }
 
 // NewClient returns a newly instantiated Transport Client
@@ -101,6 +105,18 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 // Identity is a getter for the transport's identity
 func (transport *Transport) Identity() *provider.FullIdentity {
 	return transport.identity
+}
+
+// Observers is a getter for the transports Observers
+func (transport *Transport) Observers() []Observer {
+	return transport.observers
+}
+
+// AddObserver will loop through and add observers to the Observer slice
+func (transport *Transport) AddObserver(obs Observer) {
+	transport.Lock()
+	defer transport.Unlock()
+	transport.observers = append(transport.observers, obs)
 }
 
 func alertFail(ctx context.Context, obs []Observer, node *pb.Node, err error) {
