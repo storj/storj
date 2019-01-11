@@ -16,7 +16,6 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -59,7 +58,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 	}
 
 	// Get path to data being retrieved
-	path, err := pstore.PathByID(id, s.DataDir)
+	path, err := s.storage.PiecePath(id)
 	if err != nil {
 		return err
 	}
@@ -95,7 +94,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_RetrieveServer, id string, offset, length int64) (retrieved, allocated int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	storeFile, err := pstore.RetrieveReader(ctx, id, offset, length, s.DataDir)
+	storeFile, err := s.storage.Reader(ctx, id, offset, length)
 	if err != nil {
 		return 0, 0, err
 	}

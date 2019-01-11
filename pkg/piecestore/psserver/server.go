@@ -57,7 +57,7 @@ func DirSize(path string) (int64, error) {
 // Server -- GRPC server meta data used in route calls
 type Server struct {
 	log              *zap.Logger
-	DataDir          string
+	storage          *pstore.Storage
 	DB               *psdb.DB
 	pkey             crypto.PrivateKey
 	totalAllocated   int64
@@ -66,8 +66,7 @@ type Server struct {
 }
 
 // NewEndpoint -- initializes a new endpoint for a piecestore server
-func NewEndpoint(log *zap.Logger, config Config, db *psdb.DB, pkey crypto.PrivateKey) (*Server, error) {
-
+func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *psdb.DB, pkey crypto.PrivateKey) (*Server, error) {
 	// read the allocated disk space from the config file
 	allocatedDiskSpace := config.AllocatedDiskSpace.Int64()
 	allocatedBandwidth := config.AllocatedDiskSpace.Int64()
@@ -122,7 +121,7 @@ func NewEndpoint(log *zap.Logger, config Config, db *psdb.DB, pkey crypto.Privat
 
 	return &Server{
 		log:              log,
-		DataDir:          filepath.Join(config.Path, "piece-store-data"),
+		storage:          storage,
 		DB:               db,
 		pkey:             pkey,
 		totalAllocated:   allocatedDiskSpace,
@@ -132,10 +131,10 @@ func NewEndpoint(log *zap.Logger, config Config, db *psdb.DB, pkey crypto.Privat
 }
 
 // New creates a Server with custom db
-func New(log *zap.Logger, dataDir string, db *psdb.DB, config Config, pkey crypto.PrivateKey) *Server {
+func New(log *zap.Logger, storage *pstore.Storage, db *psdb.DB, config Config, pkey crypto.PrivateKey) *Server {
 	return &Server{
 		log:              log,
-		DataDir:          dataDir,
+		storage:          storage,
 		DB:               db,
 		pkey:             pkey,
 		totalAllocated:   config.AllocatedDiskSpace.Int64(),
@@ -148,7 +147,12 @@ func New(log *zap.Logger, dataDir string, db *psdb.DB, config Config, pkey crypt
 func (s *Server) Close() error { return nil }
 
 // Stop the piececstore node
-func (s *Server) Stop(ctx context.Context) error { return s.DB.Close() }
+func (s *Server) Stop(ctx context.Context) error {
+	return errs.Combine(
+		s.DB.Close(),
+		s.storage.Close(),
+	)
+}
 
 // Piece -- Send meta data about a stored by by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
@@ -164,7 +168,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 		return nil, err
 	}
 
-	path, err := pstore.PathByID(id, s.DataDir)
+	path, err := s.storage.PiecePath(id)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +235,7 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 }
 
 func (s *Server) deleteByID(id string) error {
-	if err := pstore.Delete(id, s.DataDir); err != nil {
+	if err := s.storage.Delete(id); err != nil {
 		return err
 	}
 
