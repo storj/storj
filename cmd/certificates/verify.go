@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -36,7 +36,7 @@ var (
 type checkOpts struct {
 	verifyConfig
 	ca       *identity.FullCertificateAuthority
-	ident    *identity.FullIdentity
+	identity *identity.FullIdentity
 	errGroup *errs.Group
 }
 
@@ -59,7 +59,7 @@ func cmdVerify(cmd *cobra.Command, args []string) error {
 	opts := checkOpts{
 		verifyConfig: verifyCfg,
 		ca:           ca,
-		ident:        ident,
+		identity:     ident,
 		errGroup:     new(errs.Group),
 	}
 	checks := []struct {
@@ -89,9 +89,9 @@ func cmdVerify(cmd *cobra.Command, args []string) error {
 
 func checkIdentChain(opts checkOpts, errFmt string) {
 	identChain := append([]*x509.Certificate{
-		opts.ident.Leaf,
-		opts.ident.CA,
-	}, opts.ident.RestChain...)
+		opts.identity.Leaf,
+		opts.identity.CA,
+	}, opts.identity.RestChain...)
 
 	verifyChain(identChain, errFmt, opts.errGroup)
 }
@@ -106,8 +106,8 @@ func checkCAChain(opts checkOpts, errFmt string) {
 
 func checkIdentContainsCA(opts checkOpts, errFmt string) {
 	identChainBytes := append([][]byte{
-		opts.ident.Leaf.Raw,
-		opts.ident.CA.Raw,
+		opts.identity.Leaf.Raw,
+		opts.identity.CA.Raw,
 	}, opts.ca.RestChainRaw()...)
 	caChainBytes := append([][]byte{
 		opts.ca.Cert.Raw,
@@ -116,12 +116,12 @@ func checkIdentContainsCA(opts checkOpts, errFmt string) {
 	for i, caCert := range caChainBytes {
 		j := i + 1
 		if len(identChainBytes) == j {
-			opts.errGroup.Add(errVerify.New(errFmt, "ident chain should be longer than ca chain"))
+			opts.errGroup.Add(errVerify.New(errFmt, "identity chain should be longer than ca chain"))
 			break
 		}
 		if !bytes.Equal(caCert, identChainBytes[j]) {
 			opts.errGroup.Add(errVerify.New(errFmt,
-				fmt.Sprintf("ident and ca chains don't match at indicies %d and %d, respectively", j, i),
+				fmt.Sprintf("identity and ca chains don't match at indicies %d and %d, respectively", j, i),
 			))
 		}
 	}

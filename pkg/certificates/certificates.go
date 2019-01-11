@@ -53,10 +53,10 @@ var (
 
 // CertificateSigner implements pb.CertificatesServer
 type CertificateSigner struct {
-	Log           *zap.Logger
-	Signer        *identity.FullCertificateAuthority
-	AuthDB        *AuthorizationDB
-	MinDifficulty uint16
+	log           *zap.Logger
+	signer        *identity.FullCertificateAuthority
+	authDB        *AuthorizationDB
+	minDifficulty uint16
 }
 
 // AuthorizationDB stores authorizations which may be claimed in exchange for a
@@ -108,6 +108,16 @@ type Client struct {
 func init() {
 	gob.Register(&ecdsa.PublicKey{})
 	gob.Register(elliptic.P256())
+}
+
+// NewServer creates a new certificate signing grpc server
+func NewServer(log *zap.Logger, signer *identity.FullCertificateAuthority, authDB *AuthorizationDB, minDifficulty uint16) *CertificateSigner {
+	return &CertificateSigner{
+		log:           log,
+		signer:        signer,
+		authDB:        authDB,
+		minDifficulty: minDifficulty,
+	}
 }
 
 // NewClient creates a new certificate signing grpc client
@@ -199,7 +209,7 @@ func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (*p
 		return nil, err
 	}
 
-	signedPeerCA, err := c.Signer.Sign(peerIdent.CA)
+	signedPeerCA, err := c.signer.Sign(peerIdent.CA)
 	if err != nil {
 		return nil, err
 	}
@@ -207,15 +217,15 @@ func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (*p
 	signedChainBytes := append(
 		[][]byte{
 			signedPeerCA.Raw,
-			c.Signer.Cert.Raw,
+			c.signer.Cert.Raw,
 		},
-		c.Signer.RestChainRaw()...,
+		c.signer.RestChainRaw()...,
 	)
-	err = c.AuthDB.Claim(&ClaimOpts{
+	err = c.authDB.Claim(&ClaimOpts{
 		Req:           req,
 		Peer:          grpcPeer,
 		ChainBytes:    signedChainBytes,
-		MinDifficulty: c.MinDifficulty,
+		MinDifficulty: c.minDifficulty,
 	})
 	if err != nil {
 		return nil, err

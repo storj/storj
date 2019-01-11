@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package certificates
@@ -47,14 +47,15 @@ func (c CertClientConfig) SetupIdentity(
 		ident *identity.FullIdentity
 		err   error
 	)
-	if caStatus == identity.CertKey && !caConfig.Overwrite {
+	switch {
+	case caStatus == identity.CertKey && !caConfig.Overwrite:
 		ca, err = caConfig.FullConfig().Load()
 		if err != nil {
 			return err
 		}
-	} else if caStatus != identity.NoCertNoKey && !caConfig.Overwrite {
+	case caStatus != identity.NoCertNoKey && !caConfig.Overwrite:
 		return identity.ErrSetup.New("certificate authority file(s) exist: %s", caStatus)
-	} else {
+	default:
 		t, err := time.ParseDuration(caConfig.Timeout)
 		if err != nil {
 			return errs.Wrap(err)
@@ -69,14 +70,15 @@ func (c CertClientConfig) SetupIdentity(
 	}
 
 	identStatus := identConfig.Status()
-	if identStatus == identity.CertKey && !identConfig.Overwrite {
+	switch {
+	case identStatus == identity.CertKey && !identConfig.Overwrite:
 		ident, err = identConfig.FullConfig().Load()
 		if err != nil {
 			return err
 		}
-	} else if identStatus != identity.NoCertNoKey && !identConfig.Overwrite {
+	case identStatus != identity.NoCertNoKey && !identConfig.Overwrite:
 		return identity.ErrSetup.New("identity file(s) exist: %s", identStatus)
-	} else {
+	default:
 		ident, err = identConfig.Create(ca)
 		if err != nil {
 			return err
@@ -181,15 +183,15 @@ func (c CertServerConfig) Run(ctx context.Context, server *provider.Provider) (e
 		return err
 	}
 
-	srv := &CertificateSigner{
-		Log:           zap.L(),
-		Signer:        signer,
-		AuthDB:        authDB,
-		MinDifficulty: uint16(c.MinDifficulty),
-	}
+	srv := NewServer(
+		zap.L(),
+		signer,
+		authDB,
+		uint16(c.MinDifficulty),
+	)
 	pb.RegisterCertificatesServer(server.GRPC(), srv)
 
-	srv.Log.Info(
+	srv.log.Info(
 		"Certificate signing server running",
 		zap.String("address", server.Addr().String()),
 	)
@@ -198,7 +200,7 @@ func (c CertServerConfig) Run(ctx context.Context, server *provider.Provider) (e
 		done := ctx.Done()
 		<-done
 		if err := server.Close(); err != nil {
-			srv.Log.Error("closing server", zap.Error(err))
+			srv.log.Error("closing server", zap.Error(err))
 		}
 	}()
 

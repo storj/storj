@@ -871,11 +871,12 @@ func TestCertificateSigner_Sign(t *testing.T) {
 	}
 	peerCtx := peer.NewContext(ctx, grpcPeer)
 
-	certSigner := &CertificateSigner{
-		Log:    zap.L(),
-		Signer: signingCA,
-		AuthDB: authDB,
-	}
+	certSigner := NewServer(
+		zap.L(),
+		signingCA,
+		authDB,
+		0,
+	)
 	req := pb.SigningRequest{
 		Timestamp: time.Now().Unix(),
 		AuthToken: auths[0].Token.String(),
