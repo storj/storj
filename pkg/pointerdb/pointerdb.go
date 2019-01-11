@@ -33,20 +33,20 @@ var (
 
 // Server implements the network state RPC service
 type Server struct {
-	service  *Service
 	logger   *zap.Logger
-	config   Config
+	service  *Service
 	cache    *overlay.Cache
+	config   Config
 	identity *provider.FullIdentity
 }
 
 // NewServer creates instance of Server
-func NewServer(service *Service, cache *overlay.Cache, logger *zap.Logger, c Config, identity *provider.FullIdentity) *Server {
+func NewServer(logger *zap.Logger, service *Service, cache *overlay.Cache, config Config, identity *provider.FullIdentity) *Server {
 	return &Server{
-		service:  service,
 		logger:   logger,
-		config:   c,
+		service:  service,
 		cache:    cache,
+		config:   config,
 		identity: identity,
 	}
 }

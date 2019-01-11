@@ -125,9 +125,9 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 	for _, node := range planet.Satellites {
 		service := pointerdb.NewService(node.Log.Named("pdb"), teststore.New())
 		pointerServer := pointerdb.NewServer(
+			node.Log.Named("pdb"),
 			service,
 			node.Overlay,
-			node.Log.Named("pdb"),
 			pointerdb.Config{
 				MinRemoteSegmentSize: 1240,
 				MaxInlineSegmentSize: 8000,

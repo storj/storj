@@ -64,7 +64,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	dblogged := storelogger.New(zap.L().Named("pdb"), db)
 
 	service := NewService(zap.L(), dblogged)
-	s := NewServer(service, cache, zap.L(), c, server.Identity())
+	s := NewServer(zap.L(), service, cache, c, server.Identity())
 	pb.RegisterPointerDBServer(server.GRPC(), s)
 	// add the server to the context
 	ctx = context.WithValue(ctx, ctxKey, s)

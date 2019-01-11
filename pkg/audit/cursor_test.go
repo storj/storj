@@ -101,7 +101,7 @@ func TestAuditSegment(t *testing.T) {
 	cache := overlay.NewCache(teststore.New(), nil)
 
 	service := pointerdb.NewService(zap.NewNop(), db)
-	pointers := pointerdb.NewServer(service, cache, zap.NewNop(), c, identity)
+	pointers := pointerdb.NewServer(zap.NewNop(), service, cache, c, identity)
 
 	// create a pdb client and instance of audit
 	cursor := NewCursor(pointers)

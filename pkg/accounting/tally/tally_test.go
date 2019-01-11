@@ -30,7 +30,7 @@ func TestQueryNoAgreements(t *testing.T) {
 	defer ctx.Cleanup()
 
 	service := pointerdb.NewService(zap.NewNop(), teststore.New())
-	pointerdb := pointerdb.NewServer(service, &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
+	pointerdb := pointerdb.NewServer(zap.NewNop(), service, &overlay.Cache{}, pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 	db, err := satellitedb.NewInMemory()
 	assert.NoError(t, err)
@@ -48,7 +48,7 @@ func TestQueryWithBw(t *testing.T) {
 	defer ctx.Cleanup()
 
 	service := pointerdb.NewService(zap.NewNop(), teststore.New())
-	pointerdb := pointerdb.NewServer(service, &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
+	pointerdb := pointerdb.NewServer(zap.NewNop(), service, &overlay.Cache{}, pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 
 	db, err := satellitedb.NewInMemory()

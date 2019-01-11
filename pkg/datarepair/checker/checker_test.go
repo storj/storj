@@ -35,7 +35,7 @@ var ctx = context.Background()
 func TestIdentifyInjuredSegments(t *testing.T) {
 	logger := zap.NewNop()
 	service := pointerdb.NewService(zap.NewNop(), teststore.New())
-	pointerdb := pointerdb.NewServer(service, &overlay.Cache{}, logger, pointerdb.Config{}, nil)
+	pointerdb := pointerdb.NewServer(logger, service, &overlay.Cache{}, pointerdb.Config{}, nil)
 	assert.NotNil(t, pointerdb)
 
 	repairQueue := queue.NewQueue(testqueue.New())
@@ -123,7 +123,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 func TestOfflineNodes(t *testing.T) {
 	logger := zap.NewNop()
 	service := pointerdb.NewService(zap.NewNop(), teststore.New())
-	pointerdb := pointerdb.NewServer(service, &overlay.Cache{}, logger, pointerdb.Config{}, nil)
+	pointerdb := pointerdb.NewServer(logger, service, &overlay.Cache{}, pointerdb.Config{}, nil)
 	assert.NotNil(t, pointerdb)
 
 	repairQueue := queue.NewQueue(testqueue.New())
@@ -164,7 +164,7 @@ func TestOfflineNodes(t *testing.T) {
 func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	logger := zap.NewNop()
 	service := pointerdb.NewService(zap.NewNop(), teststore.New())
-	pointerdb := pointerdb.NewServer(service, &overlay.Cache{}, logger, pointerdb.Config{}, nil)
+	pointerdb := pointerdb.NewServer(logger, service, &overlay.Cache{}, pointerdb.Config{}, nil)
 	assert.NotNil(b, pointerdb)
 
 	// creating in-memory db and opening connection
