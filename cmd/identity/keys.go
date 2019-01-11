@@ -4,8 +4,10 @@
 package main
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -13,9 +15,11 @@ import (
 	"sync/atomic"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 )
@@ -24,6 +28,12 @@ var (
 	keysCmd = &cobra.Command{
 		Use:   "keys",
 		Short: "Manage keys",
+	}
+	keyEncodeCmd = &cobra.Command{
+		Use:   "encode <key path>[, ...]",
+		Short: "encode binary key to PEM",
+		RunE:  cmdKeyEncode,
+		Args:  cobra.MinimumNArgs(1),
 	}
 	keyGenerateCmd = &cobra.Command{
 		Use:         "generate",
@@ -41,8 +51,39 @@ var (
 
 func init() {
 	rootCmd.AddCommand(keysCmd)
+	keysCmd.AddCommand(keyEncodeCmd)
 	keysCmd.AddCommand(keyGenerateCmd)
+	cfgstruct.Bind(keyEncodeCmd.Flags(), &keyCfg)
 	cfgstruct.Bind(keyGenerateCmd.Flags(), &keyCfg)
+}
+
+// TODO: better errors?
+func cmdKeyEncode(cmd *cobra.Command, args []string) error {
+	keyErrs := new(errs.Group)
+	for _, arg := range args {
+		paths, err := filepath.Glob(arg)
+		if err != nil {
+			return err
+		}
+		for _, path := range paths {
+			keyBytes, err := ioutil.ReadFile(path)
+			if err != nil {
+				keyErrs.Add(err)
+				continue
+			}
+
+			keyData := new(bytes.Buffer)
+			if err = pem.Encode(keyData, peertls.NewKeyBlock(keyBytes)); err != nil {
+				keyErrs.Add(err)
+				continue
+			}
+			if err = peertls.WriteKeyData(path, keyData.Bytes()); err != nil {
+				keyErrs.Add(err)
+				continue
+			}
+		}
+	}
+	return keyErrs.Err()
 }
 
 func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {

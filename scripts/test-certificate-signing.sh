@@ -16,12 +16,7 @@ cleanup() {
         kill ${bg}
     fi
 
-    dirs="$tmp $tmp_build_dir"
-    for dir in ${dirs}; do
-        if [[ ! -z ${dir+x} ]]; then
-            rm -rf ${dir}
-        fi
-    done
+    temp_cleanup ${tmp}
 }
 if [[ ${TRAVIS} == true ]]; then
     declare_cmds storagenode certificates

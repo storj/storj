@@ -16,27 +16,42 @@ dots_off() {
 	kill "$dots_pid"
 }
 
-build_cleanup() {
+dir_cleanup() {
+    for dir in $@; do
+        if [[ ! -z ${dir+x} ]]; then
+            rm -rf ${dir}
+        fi
+    done
+}
+
+temp_cleanup() {
+    dirs="${tmp_build_dir} $@"
+    dir_cleanup ${dirs}
+}
+
+build_error_cleanup() {
     dots_off
+    dir_cleanup $@
     echo
     echo "BUILD ERROR:"
     echo "$build_out"
 }
+
 build() {
-    trap "build_cleanup" ERR
-	local tmp_dir=$1
+	local out_dir=$1
+    trap "build_error_cleanup ${out_dir}" ERR
 	shift
 	echo "building temp binaries:"
 	for cmd in $@; do
 		echo -n "	building $cmd..."
 		dots_on
-		local path=${tmp_dir}/${cmd}
+		local path=${out_dir}/${cmd}
 		declare -g $(echo $cmd | sed s,-,_,g)=${path}
 		build_out=$(go build -o ${path} storj.io/storj/cmd/${cmd} 2>&1)
 		dots_off
 		echo "done"
 	done
-	echo "	binaries built in $tmp_dir"
+	echo "	binaries built in $out_dir"
 }
 
 temp_build() {
@@ -53,8 +68,8 @@ declare_cmds() {
 }
 
 check_help() {
-	if [ $1 == "--help" ] || [ $1 == "-h" ]; then
-		echo $2
+	if [[ $1 == "--help" ]] || [[ $1 == "-h" ]]; then
+		echo "$2"
 		exit 0
 	fi
 }

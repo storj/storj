@@ -8,9 +8,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/pem"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 
 	"github.com/zeebo/errs"
 
@@ -88,37 +86,6 @@ func decodePEM(PEMBytes []byte) ([][]byte, error) {
 	}
 
 	return DERBytes, nil
-}
-
-// writeChainData writes data to path ensuring permissions are appropriate for a cert
-func writeChainData(path string, data []byte) error {
-	err := writeFile(path, 0744, 0644, data)
-	if err != nil {
-		return errs.New("unable to write certificate to \"%s\": %v", path, err)
-	}
-	return nil
-}
-
-// writeKeyData writes data to path ensuring permissions are appropriate for a cert
-func writeKeyData(path string, data []byte) error {
-	err := writeFile(path, 0700, 0600, data)
-	if err != nil {
-		return errs.New("unable to write key to \"%s\": %v", path, err)
-	}
-	return nil
-}
-
-// writeFile writes to path, creating directories and files with the necessary permissions
-func writeFile(path string, dirmode, filemode os.FileMode, data []byte) error {
-	if err := os.MkdirAll(filepath.Dir(path), dirmode); err != nil {
-		return errs.Wrap(err)
-	}
-
-	if err := ioutil.WriteFile(path, data, filemode); err != nil {
-		return errs.Wrap(err)
-	}
-
-	return nil
 }
 
 func statTLSFiles(certPath, keyPath string) TLSFilesStatus {

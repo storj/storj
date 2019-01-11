@@ -13,6 +13,7 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"io"
+	"io/ioutil"
 
 	"github.com/zeebo/errs"
 
@@ -169,6 +170,16 @@ func ChainBytes(chain ...*x509.Certificate) ([]byte, error) {
 	var data bytes.Buffer
 	err := WriteChain(&data, chain...)
 	return data.Bytes(), err
+}
+
+// LoadKey loads a PEM-encoded a key file
+func LoadKey(path string) (*ecdsa.PrivateKey, error) {
+	keyBytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, ErrNotExist.Wrap(err)
+	}
+	keyPEM, _ := pem.Decode(keyBytes)
+	return x509.ParseECPrivateKey(keyPEM.Bytes)
 }
 
 // WriteKey writes the private key to the writer, PEM-encoded.

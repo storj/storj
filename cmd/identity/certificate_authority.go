@@ -4,11 +4,17 @@
 package main
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
+	"io/ioutil"
+	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
@@ -80,8 +86,44 @@ func init() {
 	cfgstruct.Bind(revokeCACmd.Flags(), &revokeCACfg, cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
-func cmdNewCA(cmd *cobra.Command, args []string) error {
-	_, err := newCACfg.CA.Create(process.Ctx(cmd))
+func cmdNewCA(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
+	if _, err = os.Stat(newCACfg.CA.KeyPath); !os.IsNotExist(err) {
+		var (
+			parent *identity.FullCertificateAuthority
+			opts   identity.NewCAOptions
+		)
+		if newCACfg.CA.ParentCertPath != "" && newCACfg.CA.ParentKeyPath != "" {
+			parent, err = identity.FullCAConfig{
+				CertPath: newCACfg.CA.ParentCertPath,
+				KeyPath:  newCACfg.CA.ParentKeyPath,
+			}.Load()
+		}
+		if parent != nil {
+			opts = identity.NewCAOptions{
+				ParentCert: parent.Cert,
+				ParentKey:  parent.Key,
+			}
+		}
+
+		kb, err := ioutil.ReadFile(newCACfg.CA.KeyPath)
+		if err != nil {
+			return peertls.ErrNotExist.Wrap(err)
+		}
+		kp, _ := pem.Decode(kb)
+		key, err := x509.ParseECPrivateKey(kp.Bytes)
+		if err != nil {
+			return errs.New("unable to parse EC private key: %v", err)
+		}
+
+		ca, err := identity.NewCAFromKey(key, opts)
+		if err != nil {
+			return err
+		}
+		err = newCACfg.CA.FullConfig().Save(ca)
+	} else {
+		_, err = newCACfg.CA.Create(ctx)
+	}
 	return err
 }
 
