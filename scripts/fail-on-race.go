@@ -62,7 +62,7 @@ func main() {
 
 	_, _ = io.Copy(os.Stdout, os.Stdin)
 	if raceDetected {
-		os.Stderr.Write([]byte("\nTest failed due to data race.\n"))
+		os.Stderr.Write([]byte("\nTest failed due to data race or panic.\n"))
 		os.Exit(1)
 	}
 }
