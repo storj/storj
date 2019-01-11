@@ -37,6 +37,9 @@ func NewService(queue queue.RepairQueue, repairer SegmentRepairer, interval time
 	}
 }
 
+// Close closes resources
+func (service *Service) Close() error { return nil }
+
 // Run runs the repairer service
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)

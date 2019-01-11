@@ -113,7 +113,7 @@ type Peer struct {
 		Endpoint *bwagreement.Server
 	}
 
-	Datarepair struct {
+	Repair struct {
 		Checker  *checker.Checker
 		Repairer *repairer.Service
 	}
@@ -229,9 +229,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		pb.RegisterBandwidthServer(peer.Public.Server.GRPC(), peer.Agreements.Endpoint)
 	}
 
-	{ // setup datarepair checker
+	{ // setup datarepair
 		// TODO: simplify argument list somehow
-		peer.Datarepair.Checker = checker.NewChecker(peer.Metainfo.Endpoint, peer.DB.StatDB(), peer.DB.RepairQueue(), peer.Overlay.Service, peer.DB.Irreparable(), 0, peer.Log.Named("checker"), config.Checker.Interval)
+		peer.Repair.Checker = checker.NewChecker(peer.Metainfo.Endpoint, peer.DB.StatDB(), peer.DB.RepairQueue(), peer.Overlay.Service, peer.DB.Irreparable(), 0, peer.Log.Named("checker"), config.Checker.Interval)
+
+		// TODO: close segment repairer, currently this leaks connections
+		segmentRepairer, err := config.Repairer.GetSegmentRepairer(context.TODO(), peer.Identity)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(), segmentRepairer, config.Repairer.Interval, config.Repairer.MaxRepair)
 	}
 
 	return peer, nil
@@ -260,7 +268,10 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return ignoreCancel(peer.Discovery.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Datarepair.Checker.Run(ctx))
+		return ignoreCancel(peer.Repair.Checker.Run(ctx))
+	})
+	group.Go(func() error {
+		return ignoreCancel(peer.Repair.Repairer.Run(ctx))
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Public.Server.Run(ctx))
@@ -276,9 +287,11 @@ func (peer *Peer) Close() error {
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close services in reverse initialization order
-
-	if peer.Datarepair.Checker != nil {
-		errlist.Add(peer.Datarepair.Checker.Close())
+	if peer.Repair.Repairer != nil {
+		errlist.Add(peer.Repair.Repairer.Close())
+	}
+	if peer.Repair.Checker != nil {
+		errlist.Add(peer.Repair.Checker.Close())
 	}
 
 	if peer.Agreements.Endpoint != nil {

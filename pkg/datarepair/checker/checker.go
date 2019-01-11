@@ -76,7 +76,7 @@ func (c *checker) Run(ctx context.Context) (err error) {
 }
 
 // Close closes resources
-func (c *checker) Close() (err error) {}
+func (c *checker) Close() error { return nil }
 
 // identifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
 func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {

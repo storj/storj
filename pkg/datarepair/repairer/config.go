@@ -36,7 +36,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return Error.New("unable to get master db instance")
 	}
 
-	repairer, err := c.getSegmentRepairer(ctx, server.Identity())
+	repairer, err := c.GetSegmentRepairer(ctx, server.Identity())
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -56,8 +56,8 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	return server.Run(ctx)
 }
 
-// getSegmentRepairer creates a new segment repairer from storeConfig values
-func (c Config) getSegmentRepairer(ctx context.Context, identity *provider.FullIdentity) (ss SegmentRepairer, err error) {
+// GetSegmentRepairer creates a new segment repairer from storeConfig values
+func (c Config) GetSegmentRepairer(ctx context.Context, identity *provider.FullIdentity) (ss SegmentRepairer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var oc overlay.Client
