@@ -38,7 +38,7 @@ type StorageNode struct {
 	Server   server.Config
 	Kademlia kademlia.StorageNodeConfig
 	Storage  psserver.Config
-	Signer   certificates.CertSigningConfig
+	Signer   certificates.CertClientConfig
 }
 
 var (
