@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
@@ -93,14 +92,12 @@ func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID 
 		}
 		// Send agreement to satellite
 		r, err := client.BandwidthAgreements(ctx, msg)
-		if err != nil || r.GetStatus() != pb.AgreementsSummary_OK {
-			if bwagreement.BwAgreementError.Has(err) {
-				//todo: something better than a delete here?
-				as.log.Error("Agreementsender had agreement explicitly rejected by satellite : will delete", zap.Error(err))
-			} else {
-				as.log.Warn("Agreementsender failed to send agreement to satellite : will retry", zap.Error(err))
-				continue
-			}
+		if err != nil || r.GetStatus() == pb.AgreementsSummary_FAIL {
+			as.log.Warn("Agreementsender failed to send agreement to satellite : will retry", zap.Error(err))
+			continue
+		} else if r.GetStatus() != pb.AgreementsSummary_REJECTED {
+			//todo: something better than a delete here?
+			as.log.Error("Agreementsender had agreement explicitly rejected by satellite : will delete", zap.Error(err))
 		}
 		// Delete from PSDB by signature
 		if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {
