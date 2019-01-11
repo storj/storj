@@ -90,6 +90,11 @@ type Peer struct {
 	RoutingTable     *kademlia.RoutingTable
 	Kademlia         *kademlia.Kademlia
 	KademliaEndpoint *node.Server
+
+	Overlay struct {
+		Service  *overlay.Cache
+		Endpoint *overlay.Server
+	}
 }
 
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*Peer, error) {
@@ -166,7 +171,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup overlay
+		config := config.Overlay
+		peer.Overlay.Service = overlay.NewCache(peer.DB.OverlayCache(), peer.DB.StatDB())
 
+		ns := &pb.NodeStats{
+			UptimeCount:       config.Node.UptimeCount,
+			UptimeRatio:       config.Node.UptimeRatio,
+			AuditSuccessRatio: config.Node.AuditSuccessRatio,
+			AuditCount:        config.Node.AuditCount,
+		}
+
+		peer.Overlay.Endpoint = overlay.NewServer(peer.Log.Named("overlay:endpoint"), peer.Overlay.Service, ns)
+		pb.RegisterOverlayServer(peer.Public.Server.GRPC(), peer.Overlay.Endpoint)
 	}
 
 	{ // setup discovery
@@ -212,6 +228,14 @@ func (peer *Peer) Close() error {
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close services in reverse initialization order
+	if peer.Overlay.Endpoint != nil {
+		errlist.Add(peer.Overlay.Endpoint.Close())
+	}
+	if peer.Overlay.Service != nil {
+		errlist.Add(peer.Overlay.Service.Close())
+	}
+
+	pb.RegisterOverlayServer(peer.Public.Server.GRPC(), peer.Overlay.Endpoint)
 	if peer.Kademlia != nil {
 		errlist.Add(peer.Kademlia.Close())
 	}

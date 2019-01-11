@@ -41,6 +41,9 @@ func NewServer(log *zap.Logger, cache *Cache, nodeStats *pb.NodeStats) *Server {
 	}
 }
 
+// Close closes resources
+func (server *Server) Close() error { return nil }
+
 // Lookup finds the address of a node in our overlay network
 func (server *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (*pb.LookupResponse, error) {
 	na, err := server.cache.Get(ctx, req.NodeId)
