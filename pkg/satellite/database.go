@@ -21,15 +21,15 @@ type DB interface {
 	// Close is used to close db connection
 	Close() error
 
-	// BeginTx is a method for opening transaction
+	// BeginTransaction is a method for opening transaction
 	BeginTx(ctx context.Context) (DBTx, error)
 }
 
 // DBTx extends Database with transaction scope
 type DBTx interface {
 	DB
-	// Commit is a method for committing and closing transaction
+	// CommitTransaction is a method for committing and closing transaction
 	Commit() error
-	// Rollback is a method for rollback and closing transaction
+	// RollbackTransaction is a method for rollback and closing transaction
 	Rollback() error
 }
