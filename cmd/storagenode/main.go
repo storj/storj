@@ -176,15 +176,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"storage.path":            filepath.Join(setupDir, "storage"),
 		"kademlia.bootstrap-addr": defaultSatteliteAddr,
 		"log.level":               "debug",
-
-		// "config-dir": "",
-		// "kademlia.bootstrap-addr": "",
-		// "kademlia.external-address": "",
-		// "kademlia.operator.email": "",
-		// "kademlia.operator.wallet": "",
-		// "server.address": "",
-		// "storage.allocated-bandwidth": "",
-		// "storage.allocated-disk-space": "",
 	}
 
 	configFile := filepath.Join(setupDir, "config.yaml")
