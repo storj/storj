@@ -32,13 +32,6 @@ func (m *locked) APIKeys() satellite.APIKeys {
 	return &lockedAPIKeys{m.Locker, m.db.APIKeys()}
 }
 
-// BeginTransaction is a method for opening transaction
-func (m *locked) BeginTx(ctx context.Context) (satellite.DBTx, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.BeginTx(ctx)
-}
-
 // Close is used to close db connection
 func (m *locked) Close() error {
 	m.Lock()

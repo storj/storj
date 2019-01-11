@@ -42,6 +42,9 @@ func main() {
 	code.Ignore = map[string]bool{
 		"error": true,
 	}
+	code.IgnoreMethods = map[string]bool{
+		"BeginTx": true,
+	}
 	code.OutputPackage = packageName
 	code.Config = &packages.Config{
 		Mode: packages.LoadAllSyntax,
@@ -98,8 +101,9 @@ type Code struct {
 
 	OutputPackage string
 
-	Imports map[string]bool
-	Ignore  map[string]bool
+	Imports       map[string]bool
+	Ignore        map[string]bool
+	IgnoreMethods map[string]bool
 
 	Preamble bytes.Buffer
 	Source   bytes.Buffer
@@ -248,6 +252,10 @@ func (code *Code) IncludeImports(sig *types.Signature) {
 
 // NeedsWrapper checks whether method result needs a wrapper type.
 func (code *Code) NeedsWrapper(method *types.Func) bool {
+	if code.IgnoreMethods[method.Name()] {
+		return false
+	}
+
 	sig := method.Type().Underlying().(*types.Signature)
 	return sig.Results().Len() == 1 && !code.Ignore[sig.Results().At(0).Type().String()]
 }
@@ -259,6 +267,10 @@ func (code *Code) WrapperTypeName(method *types.Func) string {
 
 // PrintLockedFunc prints a method with locking and defers the actual logic to method.
 func (code *Code) PrintLockedFunc(receiverType string, method *types.Func, allowNesting bool) {
+	if code.IgnoreMethods[method.Name()] {
+		return
+	}
+
 	sig := method.Type().Underlying().(*types.Signature)
 	code.IncludeImports(sig)
 
