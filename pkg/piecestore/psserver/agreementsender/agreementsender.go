@@ -84,6 +84,7 @@ func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID 
 		}
 	}()
 
+	//todo:  stop sending these one-by-one, send all at once
 	for _, agreement := range agreements {
 		msg := &pb.RenterBandwidthAllocation{
 			Data:      agreement.Agreement,
