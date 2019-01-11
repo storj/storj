@@ -47,7 +47,7 @@ func (d *GraphiteDest) Metric(application, instance string, key []byte, val floa
 		d.buf = bufio.NewWriter(conn)
 	}
 
-	_, err := fmt.Fprintf(d.buf, "%s.%s.%s %v %d\n", application, string(key), instance, val, ts.Unix())
+	_, err := fmt.Fprintf(d.buf, "%s.%s.%s %v %d\n", application, instance, string(key), val, ts.Unix())
 	return err
 }
 
