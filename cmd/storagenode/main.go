@@ -126,9 +126,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	valid, err := fpath.IsValidSetupDir(setupDir)
+	valid, _ := fpath.IsValidSetupDir(setupDir)
 	if !valid {
-		return fmt.Errorf("storagenode configuration already exists (%v).", setupDir)
+		return fmt.Errorf("storagenode configuration already exists (%v)", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
