@@ -80,13 +80,15 @@ func TestPiece(t *testing.T) {
 			expiration: 9999999999,
 			err:        "rpc error: code = Unknown desc = piecestore error: invalid id length",
 		},
-		/*
-			{ // server should err with nonexistent file
-				id:         "22222222222222222222",
-				size:       5,
-				expiration: 9999999999,
-				err:        fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(TS.s.DataDir, "/22/22/2222222222222222")),
-			},*/
+		{ // server should err with nonexistent file
+			id:         "22222222222222222222",
+			size:       5,
+			expiration: 9999999999,
+			err: fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", func() string {
+				path, _ := TS.s.storage.PiecePath("22222222222222222222")
+				return path
+			}()),
+		},
 		{ // server should err with invalid TTL
 			id:         "22222222222222222222;DELETE*FROM TTL;;;;",
 			size:       5,
@@ -208,7 +210,10 @@ func TestRetrieve(t *testing.T) {
 			allocSize: 5,
 			offset:    0,
 			content:   []byte("xyzwq"),
-			// err:       fmt.Sprintf("rpc error: code = Unknown desc = retrieve error: stat %s: no such file or directory", path.Join(TS.s.DataDir, "/22/22/2222222222222222")),
+			err: fmt.Sprintf("rpc error: code = Unknown desc = retrieve error: stat %s: no such file or directory", func() string {
+				path, _ := TS.s.storage.PiecePath("22222222222222222222")
+				return path
+			}()),
 		},
 		{ // server should return expected content and respSize with offset and excess reqSize
 			id:        "11111111111111111111",
