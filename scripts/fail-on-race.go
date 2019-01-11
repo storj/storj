@@ -17,7 +17,7 @@ import (
 func main() {
 	var buffer [8192]byte
 
-	raceDetected := false
+	problemDetected := false
 
 	search := [][]byte{
 		[]byte("DATA RACE"),
@@ -44,7 +44,7 @@ func main() {
 
 		for _, keyword := range search {
 			if bytes.Contains(buffer[:end], keyword) {
-				raceDetected = true
+				problemDetected = true
 				break
 			}
 		}
@@ -61,7 +61,7 @@ func main() {
 	}
 
 	_, _ = io.Copy(os.Stdout, os.Stdin)
-	if raceDetected {
+	if problemDetected {
 		os.Stderr.Write([]byte("\nTest failed due to data race or panic.\n"))
 		os.Exit(1)
 	}
