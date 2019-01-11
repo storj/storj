@@ -24,12 +24,10 @@ func TestClaims(t *testing.T) {
 	}
 
 	claimsBytes, err := claims.JSON()
-	assert.Nil(t, err)
 	assert.NoError(t, err)
 	assert.NotNil(t, claimsBytes)
 
 	parsedClaims, err := FromJSON(claimsBytes)
-	assert.Nil(t, err)
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedClaims)
 

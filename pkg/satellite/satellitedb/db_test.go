@@ -20,7 +20,6 @@ func TestDatabase(t *testing.T) {
 		}
 
 		transaction, err := db.BeginTx(ctx)
-		assert.NotNil(t, err)
 		assert.Error(t, err)
 		assert.Nil(t, transaction)
 	})
@@ -32,16 +31,13 @@ func TestDatabase(t *testing.T) {
 		}
 
 		transaction, err := db.BeginTx(ctx)
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, transaction)
 
 		err = transaction.Commit()
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 
 		err = db.Close()
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 	})
 
@@ -52,16 +48,13 @@ func TestDatabase(t *testing.T) {
 		}
 
 		transaction, err := db.BeginTx(ctx)
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.NotNil(t, transaction)
 
 		err = transaction.Rollback()
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 
 		err = db.Close()
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 	})
 
@@ -73,7 +66,6 @@ func TestDatabase(t *testing.T) {
 		}
 
 		err := transaction.Commit()
-		assert.NotNil(t, err)
 		assert.Error(t, err)
 	})
 
@@ -85,7 +77,6 @@ func TestDatabase(t *testing.T) {
 		}
 
 		err := transaction.Rollback()
-		assert.NotNil(t, err)
 		assert.Error(t, err)
 	})
 }

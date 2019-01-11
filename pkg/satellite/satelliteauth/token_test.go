@@ -20,7 +20,6 @@ func TestToken(t *testing.T) {
 	assert.Equal(t, len(tokenString) > 0, true)
 
 	tokenFromString, err := FromBase64URLString(tokenString)
-	assert.Nil(t, err)
 	assert.NoError(t, err)
 	assert.Equal(t, tokenFromString.Payload, token.Payload)
 	assert.Equal(t, tokenFromString.Signature, token.Signature)
