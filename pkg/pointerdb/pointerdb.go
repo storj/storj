@@ -44,6 +44,7 @@ type Server struct {
 
 // NewServer creates instance of Server
 func NewServer(db storage.KeyValueStore, cache *overlay.Cache, logger *zap.Logger, c Config, identity *provider.FullIdentity) *Server {
+	// TODO: reorder arguments
 	return &Server{
 		DB:       db,
 		logger:   logger,
@@ -52,6 +53,9 @@ func NewServer(db storage.KeyValueStore, cache *overlay.Cache, logger *zap.Logge
 		identity: identity,
 	}
 }
+
+// Close closes resources
+func (s *Server) Close() error { return nil }
 
 func (s *Server) validateAuth(ctx context.Context) error {
 	APIKey, ok := auth.GetAPIKey(ctx)

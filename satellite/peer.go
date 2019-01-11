@@ -33,6 +33,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
+	"storj.io/storj/storage/storelogger"
 )
 
 // DB is the master database for the satellite
@@ -101,6 +102,15 @@ type Peer struct {
 
 	Discovery struct {
 		Service *discovery.Discovery
+	}
+
+	Metainfo struct {
+		Database storage.KeyValueStore // TODO: move into pointerDB
+		Endpoint *pointerdb.Server
+	}
+
+	Agreements struct {
+		Endpoint *bwagreement.Server
 	}
 }
 
@@ -197,6 +207,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, peer.DB.StatDB(), config.RefreshInterval)
 	}
 
+	{ // setup metainfo
+		db, err := pointerdb.NewStore(config.PointerDB.DatabaseURL)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Metainfo.Database = storelogger.New(peer.Log.Named("pdb"), db)
+		peer.Metainfo.Endpoint = pointerdb.NewServer(peer.Metainfo.Database, peer.Overlay.Service, peer.Log.Named("pointerdb"), config.PointerDB, peer.Identity)
+		pb.RegisterPointerDBServer(peer.Public.Server.GRPC(), peer.Metainfo.Endpoint)
+	}
+
+	{ // setup agreements
+		peer.Agreements.Endpoint = bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.Log.Named("agreements"), peer.Identity.Leaf.PublicKey)
+		pb.RegisterPointerDBServer(peer.Public.Server.GRPC(), peer.Metainfo.Endpoint)
+	}
+
 	return peer, nil
 }
 
@@ -236,6 +262,17 @@ func (peer *Peer) Close() error {
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close services in reverse initialization order
+	if peer.Agreements.Endpoint != nil {
+		errlist.Add(peer.Agreements.Endpoint.Close())
+	}
+
+	if peer.Metainfo.Endpoint != nil {
+		errlist.Add(peer.Metainfo.Endpoint.Close())
+	}
+	if peer.Metainfo.Database != nil {
+		errlist.Add(peer.Metainfo.Database.Close())
+	}
+
 	if peer.Discovery.Service != nil {
 		errlist.Add(peer.Discovery.Service.Close())
 	}

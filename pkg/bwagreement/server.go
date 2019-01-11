@@ -45,12 +45,16 @@ type Agreement struct {
 
 // NewServer creates instance of Server
 func NewServer(db DB, logger *zap.Logger, pkey crypto.PublicKey) *Server {
+	// TODO: reorder arguments, rename logger -> log
 	return &Server{
 		db:     db,
 		logger: logger,
 		pkey:   pkey,
 	}
 }
+
+// Close closes resources
+func (s *Server) Close() error { return nil }
 
 // BandwidthAgreements receives and stores bandwidth agreements from storage nodes
 func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidthAllocation) (reply *pb.AgreementsSummary, err error) {
