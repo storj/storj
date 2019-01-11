@@ -22,4 +22,6 @@ type DB interface {
 	SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTotals BWTally) error
 	// SaveAtRestRaw records raw tallies of at-rest-data.
 	SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]int64) error
+	//QueryRollup ... TODO
+	QueryRollup(ctx context.Context, start time.Time, end time.Time) error
 }

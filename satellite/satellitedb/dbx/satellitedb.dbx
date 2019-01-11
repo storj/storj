@@ -99,6 +99,10 @@ read all (
 	select accounting_rollup
 	where  accounting_rollup.node_id = ?
 )
+read all (
+	select accounting_rollup
+	where created_at <= ? and created_at > ?
+)
 
 model accounting_raw (
 	key id
