@@ -49,10 +49,7 @@ func TestUserRepository(t *testing.T) {
 
 	t.Run("User insertion success", func(t *testing.T) {
 		id, err := uuid.New()
-
-		if err != nil {
-			assert.NoError(t, err)
-		}
+		assert.NoError(t, err)
 
 		user := &satellite.User{
 			ID:           *id,
@@ -64,8 +61,6 @@ func TestUserRepository(t *testing.T) {
 		}
 
 		_, err = repository.Insert(ctx, user)
-
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 	})
 
@@ -79,24 +74,18 @@ func TestUserRepository(t *testing.T) {
 		}
 
 		_, err = repository.Insert(ctx, user)
-
-		assert.NotNil(t, err)
 		assert.Error(t, err)
 	})
 
 	t.Run("Get user success", func(t *testing.T) {
 		userByEmail, err := repository.GetByEmail(ctx, email)
-
 		assert.Equal(t, userByEmail.FirstName, name)
 		assert.Equal(t, userByEmail.LastName, lastName)
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 
 		userByID, err := repository.Get(ctx, userByEmail.ID)
-
 		assert.Equal(t, userByID.FirstName, name)
 		assert.Equal(t, userByID.LastName, lastName)
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 
 		assert.Equal(t, userByID.ID, userByEmail.ID)
@@ -109,7 +98,6 @@ func TestUserRepository(t *testing.T) {
 
 	t.Run("Update user success", func(t *testing.T) {
 		oldUser, err := repository.GetByEmail(ctx, email)
-
 		assert.NoError(t, err)
 
 		newUser := &satellite.User{
@@ -121,14 +109,10 @@ func TestUserRepository(t *testing.T) {
 		}
 
 		err = repository.Update(ctx, newUser)
-
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 
 		newUser, err = repository.Get(ctx, oldUser.ID)
-
 		assert.NoError(t, err)
-
 		assert.Equal(t, newUser.ID, oldUser.ID)
 		assert.Equal(t, newUser.FirstName, newName)
 		assert.Equal(t, newUser.LastName, newLastName)
@@ -139,17 +123,12 @@ func TestUserRepository(t *testing.T) {
 
 	t.Run("Delete user success", func(t *testing.T) {
 		oldUser, err := repository.GetByEmail(ctx, newEmail)
-
 		assert.NoError(t, err)
 
 		err = repository.Delete(ctx, oldUser.ID)
-
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 
 		_, err = repository.Get(ctx, oldUser.ID)
-
-		assert.NotNil(t, err)
 		assert.Error(t, err)
 	})
 }
@@ -157,9 +136,7 @@ func TestUserRepository(t *testing.T) {
 func TestUserFromDbx(t *testing.T) {
 	t.Run("can't create dbo from nil dbx model", func(t *testing.T) {
 		user, err := userFromDBX(nil)
-
 		assert.Nil(t, user)
-		assert.NotNil(t, err)
 		assert.Error(t, err)
 	})
 
@@ -176,7 +153,6 @@ func TestUserFromDbx(t *testing.T) {
 		user, err := userFromDBX(&dbxUser)
 
 		assert.Nil(t, user)
-		assert.NotNil(t, err)
 		assert.Error(t, err)
 	})
 }
