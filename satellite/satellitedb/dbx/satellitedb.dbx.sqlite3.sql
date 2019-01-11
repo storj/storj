@@ -7,7 +7,6 @@ CREATE TABLE accounting_raws (
 	data_total INTEGER NOT NULL,
 	data_type INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	updated_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE accounting_rollups (
@@ -15,9 +14,9 @@ CREATE TABLE accounting_rollups (
 	node_id TEXT NOT NULL,
 	start_time TIMESTAMP NOT NULL,
 	interval INTEGER NOT NULL,
+	data_total INTEGER NOT NULL,
 	data_type INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	updated_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE accounting_timestamps (

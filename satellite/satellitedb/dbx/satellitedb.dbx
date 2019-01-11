@@ -81,13 +81,12 @@ model accounting_rollup (
 	field node_id    text
 	field start_time timestamp
 	field interval   int64
+	field data_total int64
 	field data_type  int
 	field created_at timestamp ( autoinsert )
-	field updated_at timestamp ( autoinsert, autoupdate )
 )
 
 create accounting_rollup ( )
-update accounting_rollup ( where accounting_rollup.id = ? )
 delete accounting_rollup ( where accounting_rollup.id = ? )
 
 read one (
@@ -97,7 +96,7 @@ read one (
 
 read all (
 	select accounting_rollup
-	where  accounting_rollup.node_id = ?
+	where  accounting_rollup.start_time >= ?
 )
 
 model accounting_raw (
@@ -109,11 +108,9 @@ model accounting_raw (
 	field data_total        int64
 	field data_type         int
 	field created_at        timestamp ( autoinsert )
-	field updated_at        timestamp ( autoinsert, autoupdate )
 )
 
 create accounting_raw ( )
-update accounting_raw ( where accounting_raw.id = ? )
 delete accounting_raw ( where accounting_raw.id = ? )
 
 read one (
@@ -123,7 +120,11 @@ read one (
 
 read all (
 	select accounting_raw
-	where  accounting_raw.node_id = ?
+)
+
+read all (
+	select accounting_raw
+	where accounting_raw.interval_end_time >= ?
 )
 
 //--- statdb ---//

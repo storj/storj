@@ -5,6 +5,7 @@ package rollup
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -58,10 +59,27 @@ func (r *rollup) Query(ctx context.Context) error {
 
 	// Payments Design Doc:
 	// A rollup will provide a query that performs the following: Select each NodeID in the granular table
-	// For each bucket (1 day, 7 day, 30 day):
+	// For each bucket (1 day, 7 day, 30 day): -- note: for alpha we're sticking to daily and monthly
 	// Coalesce each row from the granular table by hour from 12:00 AM UTC to 11:00 PM UTC
 	// if a row is missing between two hourly buckets, populate the value with the value from the previous hour.
 	// Total the rows for the node and update into the respective bucket.
+
+	lastRollup, isNil, err := r.db.LastRawTime(ctx, accounting.LastRollup)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	var tallies []string
+	if isNil {
+		r.logger.Info("Rollup found no existing raw tally data")
+		tallies, err = r.db.GetRaw(ctx)
+	} else {
+		tallies, err = r.db.GetRawSince(ctx, lastRollup)
+	}
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	r.logger.Debug(fmt.Sprintf("%+v", tallies))
 
 	return nil
 }

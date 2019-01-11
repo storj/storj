@@ -94,6 +94,20 @@ type lockedAccounting struct {
 	db accounting.DB
 }
 
+// GetRaw retrieves all raw tallies
+func (m *lockedAccounting) GetRaw(ctx context.Context) ([]string, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetRaw(ctx)
+}
+
+// GetRawSince r retrieves all raw tallies sinces
+func (m *lockedAccounting) GetRawSince(ctx context.Context, latestRollup time.Time) ([]string, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetRawSince(ctx, latestRollup)
+}
+
 // LastRawTime records the latest last tallied time.
 func (m *lockedAccounting) LastRawTime(ctx context.Context, timestampType string) (time.Time, bool, error) {
 	m.Lock()

@@ -101,3 +101,45 @@ func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time
 	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastAtRestTally), update)
 	return Error.Wrap(err)
 }
+
+// GetRaw retrieves all raw tallies
+func (db *accountingDB) GetRaw(ctx context.Context) ([]string, error) {
+	return []string{}, nil
+}
+
+// GetRawSince r retrieves all raw tallies sinces
+func (db *accountingDB) GetRawSince(ctx context.Context, latestRollup time.Time) ([]string, error) {
+	return []string{}, nil
+}
+
+// SaveRollup records raw tallies of at rest data to the database
+func (db *accountingDB) SaveRollup(ctx context.Context, latestTally time.Time, interval int64, nodeData map[storj.NodeID]int64) error {
+	if len(nodeData) == 0 {
+		return Error.New("In SaveRollup with empty nodeData")
+	}
+	tx, err := db.db.Open(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		} else {
+			err = utils.CombineErrors(err, tx.Rollback())
+		}
+	}()
+	for k, v := range nodeData {
+		nID := dbx.AccountingRollup_NodeId(k.String())
+		start := dbx.AccountingRollup_StartTime(latestTally)
+		total := dbx.AccountingRollup_DataTotal(v)
+		interval := dbx.AccountingRollup_Interval(interval)
+		dataType := dbx.AccountingRollup_DataType(accounting.AtRest)
+		_, err = tx.Create_AccountingRollup(ctx, nID, start, interval, total, dataType)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestTally)}
+	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastAtRestTally), update)
+	return Error.Wrap(err)
+}

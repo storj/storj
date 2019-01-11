@@ -11,7 +11,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-//BWTally is a convience alias
+//BWTally is a conveniece alias
 type BWTally [pb.PayerBandwidthAllocation_PUT_REPAIR + 1]map[string]int64
 
 // DB stores information about bandwidth usage
@@ -22,4 +22,8 @@ type DB interface {
 	SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTotals BWTally) error
 	// SaveAtRestRaw records raw tallies of at-rest-data.
 	SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]int64) error
+	// GetRaw retrieves all raw tallies
+	GetRaw(ctx context.Context) ([]string, error)
+	// GetRawSince r retrieves all raw tallies sinces
+	GetRawSince(ctx context.Context, latestRollup time.Time) ([]string, error)
 }

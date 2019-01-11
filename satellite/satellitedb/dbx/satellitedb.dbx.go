@@ -280,7 +280,6 @@ func (obj *postgresDB) Schema() string {
 	data_total bigint NOT NULL,
 	data_type integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE accounting_rollups (
@@ -288,9 +287,9 @@ CREATE TABLE accounting_rollups (
 	node_id text NOT NULL,
 	start_time timestamp with time zone NOT NULL,
 	interval bigint NOT NULL,
+	data_total bigint NOT NULL,
 	data_type integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE accounting_timestamps (
@@ -421,7 +420,6 @@ func (obj *sqlite3DB) Schema() string {
 	data_total INTEGER NOT NULL,
 	data_type INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	updated_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE accounting_rollups (
@@ -429,9 +427,9 @@ CREATE TABLE accounting_rollups (
 	node_id TEXT NOT NULL,
 	start_time TIMESTAMP NOT NULL,
 	interval INTEGER NOT NULL,
+	data_total INTEGER NOT NULL,
 	data_type INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	updated_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE accounting_timestamps (
@@ -561,7 +559,6 @@ type AccountingRaw struct {
 	DataTotal       int64
 	DataType        int
 	CreatedAt       time.Time
-	UpdatedAt       time.Time
 }
 
 func (AccountingRaw) _Table() string { return "accounting_raws" }
@@ -683,33 +680,14 @@ func (f AccountingRaw_CreatedAt_Field) value() interface{} {
 
 func (AccountingRaw_CreatedAt_Field) _Column() string { return "created_at" }
 
-type AccountingRaw_UpdatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func AccountingRaw_UpdatedAt(v time.Time) AccountingRaw_UpdatedAt_Field {
-	return AccountingRaw_UpdatedAt_Field{_set: true, _value: v}
-}
-
-func (f AccountingRaw_UpdatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (AccountingRaw_UpdatedAt_Field) _Column() string { return "updated_at" }
-
 type AccountingRollup struct {
 	Id        int64
 	NodeId    string
 	StartTime time.Time
 	Interval  int64
+	DataTotal int64
 	DataType  int
 	CreatedAt time.Time
-	UpdatedAt time.Time
 }
 
 func (AccountingRollup) _Table() string { return "accounting_rollups" }
@@ -793,6 +771,25 @@ func (f AccountingRollup_Interval_Field) value() interface{} {
 
 func (AccountingRollup_Interval_Field) _Column() string { return "interval" }
 
+type AccountingRollup_DataTotal_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func AccountingRollup_DataTotal(v int64) AccountingRollup_DataTotal_Field {
+	return AccountingRollup_DataTotal_Field{_set: true, _value: v}
+}
+
+func (f AccountingRollup_DataTotal_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (AccountingRollup_DataTotal_Field) _Column() string { return "data_total" }
+
 type AccountingRollup_DataType_Field struct {
 	_set   bool
 	_null  bool
@@ -830,25 +827,6 @@ func (f AccountingRollup_CreatedAt_Field) value() interface{} {
 }
 
 func (AccountingRollup_CreatedAt_Field) _Column() string { return "created_at" }
-
-type AccountingRollup_UpdatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func AccountingRollup_UpdatedAt(v time.Time) AccountingRollup_UpdatedAt_Field {
-	return AccountingRollup_UpdatedAt_Field{_set: true, _value: v}
-}
-
-func (f AccountingRollup_UpdatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (AccountingRollup_UpdatedAt_Field) _Column() string { return "updated_at" }
 
 type AccountingTimestamps struct {
 	Name  string
@@ -1934,6 +1912,7 @@ func (obj *postgresImpl) Create_AccountingRollup(ctx context.Context,
 	accounting_rollup_node_id AccountingRollup_NodeId_Field,
 	accounting_rollup_start_time AccountingRollup_StartTime_Field,
 	accounting_rollup_interval AccountingRollup_Interval_Field,
+	accounting_rollup_data_total AccountingRollup_DataTotal_Field,
 	accounting_rollup_data_type AccountingRollup_DataType_Field) (
 	accounting_rollup *AccountingRollup, err error) {
 
@@ -1941,17 +1920,17 @@ func (obj *postgresImpl) Create_AccountingRollup(ctx context.Context,
 	__node_id_val := accounting_rollup_node_id.value()
 	__start_time_val := accounting_rollup_start_time.value()
 	__interval_val := accounting_rollup_interval.value()
+	__data_total_val := accounting_rollup_data_total.value()
 	__data_type_val := accounting_rollup_data_type.value()
 	__created_at_val := __now
-	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_rollups ( node_id, start_time, interval, data_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_type, accounting_rollups.created_at, accounting_rollups.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_rollups ( node_id, start_time, interval, data_total, data_type, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_total, accounting_rollups.data_type, accounting_rollups.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __start_time_val, __interval_val, __data_type_val, __created_at_val, __updated_at_val)
+	obj.logStmt(__stmt, __node_id_val, __start_time_val, __interval_val, __data_total_val, __data_type_val, __created_at_val)
 
 	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __start_time_val, __interval_val, __data_type_val, __created_at_val, __updated_at_val).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataType, &accounting_rollup.CreatedAt, &accounting_rollup.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __node_id_val, __start_time_val, __interval_val, __data_total_val, __data_type_val, __created_at_val).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataTotal, &accounting_rollup.DataType, &accounting_rollup.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1972,15 +1951,14 @@ func (obj *postgresImpl) Create_AccountingRaw(ctx context.Context,
 	__data_total_val := accounting_raw_data_total.value()
 	__data_type_val := accounting_raw_data_type.value()
 	__created_at_val := __now
-	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_raws ( node_id, interval_end_time, data_total, data_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at, accounting_raws.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_raws ( node_id, interval_end_time, data_total, data_type, created_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val)
+	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val)
 
 	accounting_raw = &AccountingRaw{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val).Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt, &accounting_raw.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val).Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2259,7 +2237,7 @@ func (obj *postgresImpl) Get_AccountingRollup_By_Id(ctx context.Context,
 	accounting_rollup_id AccountingRollup_Id_Field) (
 	accounting_rollup *AccountingRollup, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_type, accounting_rollups.created_at, accounting_rollups.updated_at FROM accounting_rollups WHERE accounting_rollups.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_total, accounting_rollups.data_type, accounting_rollups.created_at FROM accounting_rollups WHERE accounting_rollups.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, accounting_rollup_id.value())
@@ -2268,7 +2246,7 @@ func (obj *postgresImpl) Get_AccountingRollup_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataType, &accounting_rollup.CreatedAt, &accounting_rollup.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataTotal, &accounting_rollup.DataType, &accounting_rollup.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2276,14 +2254,14 @@ func (obj *postgresImpl) Get_AccountingRollup_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) All_AccountingRollup_By_NodeId(ctx context.Context,
-	accounting_rollup_node_id AccountingRollup_NodeId_Field) (
+func (obj *postgresImpl) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx context.Context,
+	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field) (
 	rows []*AccountingRollup, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_type, accounting_rollups.created_at, accounting_rollups.updated_at FROM accounting_rollups WHERE accounting_rollups.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_total, accounting_rollups.data_type, accounting_rollups.created_at FROM accounting_rollups WHERE accounting_rollups.start_time >= ?")
 
 	var __values []interface{}
-	__values = append(__values, accounting_rollup_node_id.value())
+	__values = append(__values, accounting_rollup_start_time_greater_or_equal.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -2296,7 +2274,7 @@ func (obj *postgresImpl) All_AccountingRollup_By_NodeId(ctx context.Context,
 
 	for __rows.Next() {
 		accounting_rollup := &AccountingRollup{}
-		err = __rows.Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataType, &accounting_rollup.CreatedAt, &accounting_rollup.UpdatedAt)
+		err = __rows.Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataTotal, &accounting_rollup.DataType, &accounting_rollup.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -2313,7 +2291,7 @@ func (obj *postgresImpl) Get_AccountingRaw_By_Id(ctx context.Context,
 	accounting_raw_id AccountingRaw_Id_Field) (
 	accounting_raw *AccountingRaw, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at, accounting_raws.updated_at FROM accounting_raws WHERE accounting_raws.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at FROM accounting_raws WHERE accounting_raws.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, accounting_raw_id.value())
@@ -2322,7 +2300,7 @@ func (obj *postgresImpl) Get_AccountingRaw_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	accounting_raw = &AccountingRaw{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt, &accounting_raw.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2330,14 +2308,13 @@ func (obj *postgresImpl) Get_AccountingRaw_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) All_AccountingRaw_By_NodeId(ctx context.Context,
-	accounting_raw_node_id AccountingRaw_NodeId_Field) (
+func (obj *postgresImpl) All_AccountingRaw(ctx context.Context) (
 	rows []*AccountingRaw, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at, accounting_raws.updated_at FROM accounting_raws WHERE accounting_raws.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at FROM accounting_raws")
 
 	var __values []interface{}
-	__values = append(__values, accounting_raw_node_id.value())
+	__values = append(__values)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -2350,7 +2327,40 @@ func (obj *postgresImpl) All_AccountingRaw_By_NodeId(ctx context.Context,
 
 	for __rows.Next() {
 		accounting_raw := &AccountingRaw{}
-		err = __rows.Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt, &accounting_raw.UpdatedAt)
+		err = __rows.Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, accounting_raw)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
+	accounting_raw_interval_end_time_greater_or_equal AccountingRaw_IntervalEndTime_Field) (
+	rows []*AccountingRaw, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at FROM accounting_raws WHERE accounting_raws.interval_end_time >= ?")
+
+	var __values []interface{}
+	__values = append(__values, accounting_raw_interval_end_time_greater_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		accounting_raw := &AccountingRaw{}
+		err = __rows.Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -2603,78 +2613,6 @@ func (obj *postgresImpl) Update_AccountingTimestamps_By_Name(ctx context.Context
 		return nil, obj.makeErr(err)
 	}
 	return accounting_timestamps, nil
-}
-
-func (obj *postgresImpl) Update_AccountingRollup_By_Id(ctx context.Context,
-	accounting_rollup_id AccountingRollup_Id_Field,
-	update AccountingRollup_Update_Fields) (
-	accounting_rollup *AccountingRollup, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE accounting_rollups SET "), __sets, __sqlbundle_Literal(" WHERE accounting_rollups.id = ? RETURNING accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_type, accounting_rollups.created_at, accounting_rollups.updated_at")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	__now := obj.db.Hooks.Now().UTC()
-
-	__values = append(__values, __now)
-	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
-
-	__args = append(__args, accounting_rollup_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataType, &accounting_rollup.CreatedAt, &accounting_rollup.UpdatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return accounting_rollup, nil
-}
-
-func (obj *postgresImpl) Update_AccountingRaw_By_Id(ctx context.Context,
-	accounting_raw_id AccountingRaw_Id_Field,
-	update AccountingRaw_Update_Fields) (
-	accounting_raw *AccountingRaw, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE accounting_raws SET "), __sets, __sqlbundle_Literal(" WHERE accounting_raws.id = ? RETURNING accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at, accounting_raws.updated_at")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	__now := obj.db.Hooks.Now().UTC()
-
-	__values = append(__values, __now)
-	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
-
-	__args = append(__args, accounting_raw_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	accounting_raw = &AccountingRaw{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt, &accounting_raw.UpdatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return accounting_raw, nil
 }
 
 func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
@@ -3238,6 +3176,7 @@ func (obj *sqlite3Impl) Create_AccountingRollup(ctx context.Context,
 	accounting_rollup_node_id AccountingRollup_NodeId_Field,
 	accounting_rollup_start_time AccountingRollup_StartTime_Field,
 	accounting_rollup_interval AccountingRollup_Interval_Field,
+	accounting_rollup_data_total AccountingRollup_DataTotal_Field,
 	accounting_rollup_data_type AccountingRollup_DataType_Field) (
 	accounting_rollup *AccountingRollup, err error) {
 
@@ -3245,16 +3184,16 @@ func (obj *sqlite3Impl) Create_AccountingRollup(ctx context.Context,
 	__node_id_val := accounting_rollup_node_id.value()
 	__start_time_val := accounting_rollup_start_time.value()
 	__interval_val := accounting_rollup_interval.value()
+	__data_total_val := accounting_rollup_data_total.value()
 	__data_type_val := accounting_rollup_data_type.value()
 	__created_at_val := __now
-	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_rollups ( node_id, start_time, interval, data_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_rollups ( node_id, start_time, interval, data_total, data_type, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __start_time_val, __interval_val, __data_type_val, __created_at_val, __updated_at_val)
+	obj.logStmt(__stmt, __node_id_val, __start_time_val, __interval_val, __data_total_val, __data_type_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __start_time_val, __interval_val, __data_type_val, __created_at_val, __updated_at_val)
+	__res, err := obj.driver.Exec(__stmt, __node_id_val, __start_time_val, __interval_val, __data_total_val, __data_type_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -3279,14 +3218,13 @@ func (obj *sqlite3Impl) Create_AccountingRaw(ctx context.Context,
 	__data_total_val := accounting_raw_data_total.value()
 	__data_type_val := accounting_raw_data_type.value()
 	__created_at_val := __now
-	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_raws ( node_id, interval_end_time, data_total, data_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_raws ( node_id, interval_end_time, data_total, data_type, created_at ) VALUES ( ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val)
+	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val, __updated_at_val)
+	__res, err := obj.driver.Exec(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -3578,7 +3516,7 @@ func (obj *sqlite3Impl) Get_AccountingRollup_By_Id(ctx context.Context,
 	accounting_rollup_id AccountingRollup_Id_Field) (
 	accounting_rollup *AccountingRollup, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_type, accounting_rollups.created_at, accounting_rollups.updated_at FROM accounting_rollups WHERE accounting_rollups.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_total, accounting_rollups.data_type, accounting_rollups.created_at FROM accounting_rollups WHERE accounting_rollups.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, accounting_rollup_id.value())
@@ -3587,7 +3525,7 @@ func (obj *sqlite3Impl) Get_AccountingRollup_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataType, &accounting_rollup.CreatedAt, &accounting_rollup.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataTotal, &accounting_rollup.DataType, &accounting_rollup.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -3595,14 +3533,14 @@ func (obj *sqlite3Impl) Get_AccountingRollup_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) All_AccountingRollup_By_NodeId(ctx context.Context,
-	accounting_rollup_node_id AccountingRollup_NodeId_Field) (
+func (obj *sqlite3Impl) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx context.Context,
+	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field) (
 	rows []*AccountingRollup, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_type, accounting_rollups.created_at, accounting_rollups.updated_at FROM accounting_rollups WHERE accounting_rollups.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_total, accounting_rollups.data_type, accounting_rollups.created_at FROM accounting_rollups WHERE accounting_rollups.start_time >= ?")
 
 	var __values []interface{}
-	__values = append(__values, accounting_rollup_node_id.value())
+	__values = append(__values, accounting_rollup_start_time_greater_or_equal.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -3615,7 +3553,7 @@ func (obj *sqlite3Impl) All_AccountingRollup_By_NodeId(ctx context.Context,
 
 	for __rows.Next() {
 		accounting_rollup := &AccountingRollup{}
-		err = __rows.Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataType, &accounting_rollup.CreatedAt, &accounting_rollup.UpdatedAt)
+		err = __rows.Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataTotal, &accounting_rollup.DataType, &accounting_rollup.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -3632,7 +3570,7 @@ func (obj *sqlite3Impl) Get_AccountingRaw_By_Id(ctx context.Context,
 	accounting_raw_id AccountingRaw_Id_Field) (
 	accounting_raw *AccountingRaw, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at, accounting_raws.updated_at FROM accounting_raws WHERE accounting_raws.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at FROM accounting_raws WHERE accounting_raws.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, accounting_raw_id.value())
@@ -3641,7 +3579,7 @@ func (obj *sqlite3Impl) Get_AccountingRaw_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	accounting_raw = &AccountingRaw{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt, &accounting_raw.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -3649,14 +3587,13 @@ func (obj *sqlite3Impl) Get_AccountingRaw_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) All_AccountingRaw_By_NodeId(ctx context.Context,
-	accounting_raw_node_id AccountingRaw_NodeId_Field) (
+func (obj *sqlite3Impl) All_AccountingRaw(ctx context.Context) (
 	rows []*AccountingRaw, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at, accounting_raws.updated_at FROM accounting_raws WHERE accounting_raws.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at FROM accounting_raws")
 
 	var __values []interface{}
-	__values = append(__values, accounting_raw_node_id.value())
+	__values = append(__values)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -3669,7 +3606,40 @@ func (obj *sqlite3Impl) All_AccountingRaw_By_NodeId(ctx context.Context,
 
 	for __rows.Next() {
 		accounting_raw := &AccountingRaw{}
-		err = __rows.Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt, &accounting_raw.UpdatedAt)
+		err = __rows.Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, accounting_raw)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
+	accounting_raw_interval_end_time_greater_or_equal AccountingRaw_IntervalEndTime_Field) (
+	rows []*AccountingRaw, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at FROM accounting_raws WHERE accounting_raws.interval_end_time >= ?")
+
+	var __values []interface{}
+	__values = append(__values, accounting_raw_interval_end_time_greater_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		accounting_raw := &AccountingRaw{}
+		err = __rows.Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -3942,98 +3912,6 @@ func (obj *sqlite3Impl) Update_AccountingTimestamps_By_Name(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return accounting_timestamps, nil
-}
-
-func (obj *sqlite3Impl) Update_AccountingRollup_By_Id(ctx context.Context,
-	accounting_rollup_id AccountingRollup_Id_Field,
-	update AccountingRollup_Update_Fields) (
-	accounting_rollup *AccountingRollup, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE accounting_rollups SET "), __sets, __sqlbundle_Literal(" WHERE accounting_rollups.id = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	__now := obj.db.Hooks.Now().UTC()
-
-	__values = append(__values, __now)
-	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
-
-	__args = append(__args, accounting_rollup_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	accounting_rollup = &AccountingRollup{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_type, accounting_rollups.created_at, accounting_rollups.updated_at FROM accounting_rollups WHERE accounting_rollups.id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataType, &accounting_rollup.CreatedAt, &accounting_rollup.UpdatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return accounting_rollup, nil
-}
-
-func (obj *sqlite3Impl) Update_AccountingRaw_By_Id(ctx context.Context,
-	accounting_raw_id AccountingRaw_Id_Field,
-	update AccountingRaw_Update_Fields) (
-	accounting_raw *AccountingRaw, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE accounting_raws SET "), __sets, __sqlbundle_Literal(" WHERE accounting_raws.id = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	__now := obj.db.Hooks.Now().UTC()
-
-	__values = append(__values, __now)
-	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
-
-	__args = append(__args, accounting_raw_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	accounting_raw = &AccountingRaw{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at, accounting_raws.updated_at FROM accounting_raws WHERE accounting_raws.id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt, &accounting_raw.UpdatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return accounting_raw, nil
 }
 
 func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
@@ -4488,13 +4366,13 @@ func (obj *sqlite3Impl) getLastAccountingRollup(ctx context.Context,
 	pk int64) (
 	accounting_rollup *AccountingRollup, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_type, accounting_rollups.created_at, accounting_rollups.updated_at FROM accounting_rollups WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_total, accounting_rollups.data_type, accounting_rollups.created_at FROM accounting_rollups WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataType, &accounting_rollup.CreatedAt, &accounting_rollup.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataTotal, &accounting_rollup.DataType, &accounting_rollup.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4506,13 +4384,13 @@ func (obj *sqlite3Impl) getLastAccountingRaw(ctx context.Context,
 	pk int64) (
 	accounting_raw *AccountingRaw, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at, accounting_raws.updated_at FROM accounting_raws WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at FROM accounting_raws WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	accounting_raw = &AccountingRaw{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt, &accounting_raw.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4719,24 +4597,33 @@ func (rx *Rx) Rollback() (err error) {
 	return err
 }
 
-func (rx *Rx) All_AccountingRaw_By_NodeId(ctx context.Context,
-	accounting_raw_node_id AccountingRaw_NodeId_Field) (
+func (rx *Rx) All_AccountingRaw(ctx context.Context) (
 	rows []*AccountingRaw, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.All_AccountingRaw_By_NodeId(ctx, accounting_raw_node_id)
+	return tx.All_AccountingRaw(ctx)
 }
 
-func (rx *Rx) All_AccountingRollup_By_NodeId(ctx context.Context,
-	accounting_rollup_node_id AccountingRollup_NodeId_Field) (
+func (rx *Rx) All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
+	accounting_raw_interval_end_time_greater_or_equal AccountingRaw_IntervalEndTime_Field) (
+	rows []*AccountingRaw, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx, accounting_raw_interval_end_time_greater_or_equal)
+}
+
+func (rx *Rx) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx context.Context,
+	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field) (
 	rows []*AccountingRollup, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.All_AccountingRollup_By_NodeId(ctx, accounting_rollup_node_id)
+	return tx.All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx, accounting_rollup_start_time_greater_or_equal)
 }
 
 func (rx *Rx) All_Bwagreement(ctx context.Context) (
@@ -4776,13 +4663,14 @@ func (rx *Rx) Create_AccountingRollup(ctx context.Context,
 	accounting_rollup_node_id AccountingRollup_NodeId_Field,
 	accounting_rollup_start_time AccountingRollup_StartTime_Field,
 	accounting_rollup_interval AccountingRollup_Interval_Field,
+	accounting_rollup_data_total AccountingRollup_DataTotal_Field,
 	accounting_rollup_data_type AccountingRollup_DataType_Field) (
 	accounting_rollup *AccountingRollup, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_AccountingRollup(ctx, accounting_rollup_node_id, accounting_rollup_start_time, accounting_rollup_interval, accounting_rollup_data_type)
+	return tx.Create_AccountingRollup(ctx, accounting_rollup_node_id, accounting_rollup_start_time, accounting_rollup_interval, accounting_rollup_data_total, accounting_rollup_data_type)
 
 }
 
@@ -5071,28 +4959,6 @@ func (rx *Rx) Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx context.Cont
 	return tx.Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx, overlay_cache_node_node_id_greater_or_equal, limit, offset)
 }
 
-func (rx *Rx) Update_AccountingRaw_By_Id(ctx context.Context,
-	accounting_raw_id AccountingRaw_Id_Field,
-	update AccountingRaw_Update_Fields) (
-	accounting_raw *AccountingRaw, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Update_AccountingRaw_By_Id(ctx, accounting_raw_id, update)
-}
-
-func (rx *Rx) Update_AccountingRollup_By_Id(ctx context.Context,
-	accounting_rollup_id AccountingRollup_Id_Field,
-	update AccountingRollup_Update_Fields) (
-	accounting_rollup *AccountingRollup, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Update_AccountingRollup_By_Id(ctx, accounting_rollup_id, update)
-}
-
 func (rx *Rx) Update_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -5138,12 +5004,15 @@ func (rx *Rx) Update_OverlayCacheNode_By_NodeId(ctx context.Context,
 }
 
 type Methods interface {
-	All_AccountingRaw_By_NodeId(ctx context.Context,
-		accounting_raw_node_id AccountingRaw_NodeId_Field) (
+	All_AccountingRaw(ctx context.Context) (
 		rows []*AccountingRaw, err error)
 
-	All_AccountingRollup_By_NodeId(ctx context.Context,
-		accounting_rollup_node_id AccountingRollup_NodeId_Field) (
+	All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
+		accounting_raw_interval_end_time_greater_or_equal AccountingRaw_IntervalEndTime_Field) (
+		rows []*AccountingRaw, err error)
+
+	All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx context.Context,
+		accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field) (
 		rows []*AccountingRollup, err error)
 
 	All_Bwagreement(ctx context.Context) (
@@ -5164,6 +5033,7 @@ type Methods interface {
 		accounting_rollup_node_id AccountingRollup_NodeId_Field,
 		accounting_rollup_start_time AccountingRollup_StartTime_Field,
 		accounting_rollup_interval AccountingRollup_Interval_Field,
+		accounting_rollup_data_total AccountingRollup_DataTotal_Field,
 		accounting_rollup_data_type AccountingRollup_DataType_Field) (
 		accounting_rollup *AccountingRollup, err error)
 
@@ -5294,16 +5164,6 @@ type Methods interface {
 		overlay_cache_node_node_id_greater_or_equal OverlayCacheNode_NodeId_Field,
 		limit int, offset int64) (
 		rows []*OverlayCacheNode, err error)
-
-	Update_AccountingRaw_By_Id(ctx context.Context,
-		accounting_raw_id AccountingRaw_Id_Field,
-		update AccountingRaw_Update_Fields) (
-		accounting_raw *AccountingRaw, err error)
-
-	Update_AccountingRollup_By_Id(ctx context.Context,
-		accounting_rollup_id AccountingRollup_Id_Field,
-		update AccountingRollup_Update_Fields) (
-		accounting_rollup *AccountingRollup, err error)
 
 	Update_AccountingTimestamps_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field,
