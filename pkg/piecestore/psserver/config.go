@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver/agreementsender"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/provider"
@@ -40,11 +41,14 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	ctx, cancel := context.WithCancel(ctx)
 
 	//piecestore
-	db, err := psdb.Open(ctx, filepath.Join(c.Path, "piece-store-data"), filepath.Join(c.Path, "piecestore.db"))
+	storage := pstore.NewStorage(filepath.Join(c.Path, "piece-store-data"))
+
+	db, err := psdb.Open(ctx, storage, filepath.Join(c.Path, "piecestore.db"))
 	if err != nil {
 		return ServerError.Wrap(err)
 	}
-	s, err := NewEndpoint(zap.L(), c, db, server.Identity().Key)
+
+	s, err := NewEndpoint(zap.L(), c, storage, db, server.Identity().Key)
 	if err != nil {
 		return err
 	}
