@@ -23,7 +23,7 @@ var (
 	Error = errs.Class("satellitedb")
 )
 
-//go:generate go run lockedgen/main.go -o locked.go
+//go:generate go run ../../lockedgen/main.go -o locked.go -p satellitedb -i storj.io/storj/satellite.DB
 
 // DB contains access to different database tables
 type DB struct {
