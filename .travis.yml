@@ -72,6 +72,7 @@ matrix:
         - source scripts/install-awscli.sh
         - go install -race storj.io/storj/cmd/{storj-sdk,bootstrap,satellite,storagenode,uplink,gateway,certificates,captplanet}
       script:
+        - set -o pipefail
         - make test-storj-sdk |& go run scripts/fail-on-race.go
         - make test-certificate-signing |& go run scripts/fail-on-race.go
         - make test-captplanet |& go run scripts/fail-on-race.go
@@ -85,6 +86,7 @@ matrix:
       install:
         - source scripts/install-awscli.sh
       script:
+        - set -o pipefail
         - make test-all-in-one |& go run scripts/fail-on-race.go
 
     ### windows tests ###
