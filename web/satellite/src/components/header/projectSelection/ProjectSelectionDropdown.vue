@@ -31,16 +31,17 @@ import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } 
         },
         methods: {
             onProjectSelected: async function (projectID: string): Promise<void> {
-                this.$store.dispatch(PROJETS_ACTIONS.SELECT, projectID);
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
+				this.$store.dispatch(PROJETS_ACTIONS.SELECT, projectID);
+				this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
 
-                if (!this.$store.getters.selectedProject.id) return;
+				if (!this.$store.getters.selectedProject.id) return;
 
-                const response = await this.$store.dispatch(PM_ACTIONS.FETCH, {limit: 20, offset: 0});
+				this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-                if (response.isSuccess) return;
+				const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
+				if (response.isSuccess) return;
 
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+				this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
             }
         },
     }

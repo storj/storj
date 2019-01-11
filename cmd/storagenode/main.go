@@ -38,7 +38,7 @@ type StorageNode struct {
 	Server   server.Config
 	Kademlia kademlia.StorageNodeConfig
 	Storage  psserver.Config
-	Signer   certificates.CertSigningConfig
+	Signer   certificates.CertClientConfig
 }
 
 var (
@@ -208,7 +208,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 
 	// open the sql db
 	dbpath := filepath.Join(diagDir, "storage", "piecestore.db")
-	db, err := psdb.Open(context.Background(), "", dbpath)
+	db, err := psdb.Open(context.Background(), nil, dbpath)
 	if err != nil {
 		fmt.Println("Storagenode database couldnt open:", dbpath)
 		return err
