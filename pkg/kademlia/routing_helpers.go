@@ -100,18 +100,29 @@ func (rt *RoutingTable) updateNode(node *pb.Node) error {
 }
 
 // removeNode will remove churned nodes and replace those entries with nodes from the replacement cache.
-func (rt *RoutingTable) removeNode(nodeID storj.NodeID) error {
-	kadBucketID, err := rt.getKBucketID(nodeID)
+func (rt *RoutingTable) removeNode(node *pb.Node) error {
+	kadBucketID, err := rt.getKBucketID(node.Id)
 	if err != nil {
 		return RoutingErr.New("could not get k bucket %s", err)
 	}
-	_, err = rt.nodeBucketDB.Get(nodeID.Bytes())
+	existingMarshalled, err := rt.nodeBucketDB.Get(node.Id.Bytes())
 	if storage.ErrKeyNotFound.Has(err) {
 		return nil
 	} else if err != nil {
 		return RoutingErr.New("could not get node %s", err)
 	}
-	err = rt.nodeBucketDB.Delete(nodeID.Bytes())
+
+	var existing pb.Node
+	err = proto.Unmarshal(existingMarshalled, &existing)
+	if err != nil {
+		return RoutingErr.New("could not unmarshal node %s", err)
+	}
+
+	if !pb.AddressEqual(existing.Address, node.Address) {
+		// don't remove a node if the address is different
+		return nil
+	}
+	err = rt.nodeBucketDB.Delete(node.Id.Bytes())
 	if err != nil {
 		return RoutingErr.New("could not delete node %s", err)
 	}
