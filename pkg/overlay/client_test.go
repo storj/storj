@@ -250,7 +250,7 @@ func TestBulkLookupV2(t *testing.T) {
 }
 
 func getPlanet(ctx *testcontext.Context, t *testing.T) (planet *testplanet.Planet, f func()) {
-	planet, err := testplanet.New(t, 1, 4, 1)
+	planet, err := testplanet.New(ctx, t, 1, 4, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

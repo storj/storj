@@ -69,7 +69,7 @@ type Planet struct {
 }
 
 // New creates a new full system with the given number of nodes.
-func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+func New(ctx context.Context, t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	var log *zap.Logger
 	if t == nil {
 		log = zap.NewNop()
@@ -77,11 +77,11 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 		log = zaptest.NewLogger(t)
 	}
 
-	return NewWithLogger(log, satelliteCount, storageNodeCount, uplinkCount)
+	return NewWithLogger(ctx, log, satelliteCount, storageNodeCount, uplinkCount)
 }
 
 // NewWithLogger creates a new full system with the given number of nodes.
-func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+func NewWithLogger(ctx context.Context, log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	planet := &Planet{
 		log:        log,
 		identities: NewPregeneratedIdentities(),
@@ -123,7 +123,6 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 	// init Satellites
 	for _, node := range planet.Satellites {
-		ctx := context.Background()
 		pointerServer := pointerdb.NewServer(
 			teststore.New(),
 			node.Overlay,
@@ -138,6 +137,12 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 		// bootstrap satellite kademlia node
 		go func(n *Node) {
 			if err := n.Kademlia.Bootstrap(ctx); err != nil {
+				log.Error(err.Error())
+			}
+			if err := n.Discovery.Bootstrap(ctx); err != nil {
+				log.Error(err.Error())
+			}
+			if err := n.Discovery.StartRefresh(ctx); err != nil {
 				log.Error(err.Error())
 			}
 		}(node)
@@ -159,19 +164,9 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 			}))
 
 		go func(n *Node) {
-			if err := n.Discovery.Bootstrap(ctx); err != nil {
+			// Kick off Refresh on each node
+			if err := n.Discovery.StartRefresh(ctx); err != nil {
 				log.Error(err.Error())
-			}
-			// refresh the interval every 500ms
-			t := time.NewTicker(500 * time.Millisecond).C
-			for {
-				<-t
-				if err := n.Discovery.Bootstrap(ctx); err != nil {
-					log.Error(err.Error())
-				}
-				if err := n.Discovery.Refresh(ctx); err != nil {
-					log.Error(err.Error())
-				}
 			}
 		}(node)
 	}

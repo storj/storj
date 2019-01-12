@@ -19,7 +19,7 @@ func TestServer(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 4, 1)
+	planet, err := testplanet.New(ctx, t, 1, 4, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

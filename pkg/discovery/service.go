@@ -6,6 +6,7 @@ package discovery
 import (
 	"context"
 	"crypto/rand"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -14,6 +15,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -37,6 +39,22 @@ func NewDiscovery(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia,
 		kad:    kad,
 		statdb: stat,
 	}
+}
+
+// StartRefresh kicks off a goroutine that refreshes the cache on an interval and returns an error
+func (d *Discovery) StartRefresh(ctx context.Context) error {
+	var errs []error
+	go func() {
+		t := time.NewTicker(500 * time.Millisecond).C
+		for {
+			<-t
+			if err := d.Refresh(ctx); err != nil {
+				d.log.Error(err.Error())
+				errs = append(errs, err)
+			}
+		}
+	}()
+	return utils.CombineErrors(errs...)
 }
 
 // Refresh updates the cache db with the current DHT.
