@@ -10,13 +10,14 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/transport"
 )
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
 type Service struct {
+	log      *zap.Logger
 	Cursor   *Cursor
 	Verifier *Verifier
 	Reporter reporter
@@ -34,28 +35,31 @@ type Config struct {
 // Run runs the repairer with the configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	identity := server.Identity()
-	pointers, err := pdbclient.NewClient(identity, c.SatelliteAddr, c.APIKey)
-	if err != nil {
-		return err
+	pointers := pointerdb.LoadFromContext(ctx)
+	if pointers == nil {
+		return Error.New("programmer error: pointerdb responsibility unstarted")
 	}
+
 	overlay, err := overlay.NewClient(identity, c.SatelliteAddr)
 	if err != nil {
 		return err
 	}
 	transport := transport.NewClient(identity)
-	service, err := NewService(ctx, c.SatelliteAddr, c.Interval, c.MaxRetriesStatDB, pointers, transport, overlay, *identity, c.APIKey)
+
+	log := zap.L()
+	service, err := NewService(ctx, log, c.SatelliteAddr, c.Interval, c.MaxRetriesStatDB, pointers, transport, overlay, *identity, c.APIKey)
 	if err != nil {
 		return err
 	}
 	go func() {
 		err := service.Run(ctx)
-		zap.S().Error("audit service failed to run:", zap.Error(err))
+		service.log.Error("audit service failed to run:", zap.Error(err))
 	}()
 	return server.Run(ctx)
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(ctx context.Context, statDBPort string, interval time.Duration, maxRetries int, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
+func NewService(ctx context.Context, log *zap.Logger, statDBPort string, interval time.Duration, maxRetries int, pointers *pointerdb.Server, transport transport.Client, overlay overlay.Client,
 	identity provider.FullIdentity, apiKey string) (service *Service, err error) {
 	cursor := NewCursor(pointers)
 	verifier := NewVerifier(transport, overlay, identity)
@@ -65,6 +69,7 @@ func NewService(ctx context.Context, statDBPort string, interval time.Duration, 
 	}
 
 	return &Service{
+		log:      log,
 		Cursor:   cursor,
 		Verifier: verifier,
 		Reporter: reporter,
@@ -75,12 +80,12 @@ func NewService(ctx context.Context, statDBPort string, interval time.Duration, 
 // Run runs auditing service
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	zap.S().Info("Audit cron is starting up")
+	service.log.Info("Audit cron is starting up")
 
 	for {
 		err := service.process(ctx)
 		if err != nil {
-			zap.L().Error("process", zap.Error(err))
+			service.log.Error("process", zap.Error(err))
 		}
 
 		select {

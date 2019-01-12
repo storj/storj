@@ -4,7 +4,7 @@
 import { shallowMount, mount } from '@vue/test-utils';
 import NotificationArea from '@/components/notifications/NotificationArea.vue';
 import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
-import { DelayedNotification } from '@/utils/entities/DelayedNotification';
+import { DelayedNotification } from '@/types/DelayedNotification';
 
 describe('Notification.vue', () => {
 

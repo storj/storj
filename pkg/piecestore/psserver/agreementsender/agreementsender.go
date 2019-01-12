@@ -4,127 +4,104 @@
 package agreementsender
 
 import (
-	"flag"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
+	"storj.io/storj/pkg/transport"
 )
 
 var (
-	defaultCheckInterval = flag.Duration("piecestore.agreementsender.check-interval", time.Hour, "number of seconds to sleep between agreement checks")
-	defaultOverlayAddr   = flag.String("piecestore.agreementsender.overlay-addr", "127.0.0.1:7777", "Overlay Address")
-
 	// ASError wraps errors returned from agreementsender package
 	ASError = errs.Class("agreement sender error")
 )
 
 // AgreementSender maintains variables required for reading bandwidth agreements from a DB and sending them to a Payers
 type AgreementSender struct {
-	DB       *psdb.DB
-	overlay  overlay.Client
-	identity *provider.FullIdentity
-	errs     []error
+	DB            *psdb.DB
+	log           *zap.Logger
+	transport     transport.Client
+	kad           *kademlia.Kademlia
+	checkInterval time.Duration
 }
 
-// Initialize the Agreement Sender
-func Initialize(DB *psdb.DB, identity *provider.FullIdentity) (*AgreementSender, error) {
-	overlay, err := overlay.NewClient(identity, *defaultOverlayAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	return &AgreementSender{DB: DB, identity: identity, overlay: overlay}, nil
+// New creates an Agreement Sender
+func New(log *zap.Logger, DB *psdb.DB, identity *provider.FullIdentity, kad *kademlia.Kademlia, checkInterval time.Duration) *AgreementSender {
+	return &AgreementSender{DB: DB, log: log, transport: transport.NewClient(identity), kad: kad, checkInterval: checkInterval}
 }
 
-// Run the afreement sender with a context to cehck for cancel
-func (as *AgreementSender) Run(ctx context.Context) error {
-	zap.S().Info("AgreementSender is starting up")
-
-	type agreementGroup struct {
-		satellite  storj.NodeID
-		agreements []*psdb.Agreement
-	}
-
-	c := make(chan *agreementGroup, 1)
-
-	ticker := time.NewTicker(*defaultCheckInterval)
+// Run the agreement sender with a context to check for cancel
+func (as *AgreementSender) Run(ctx context.Context) {
+	//todo:  we likely don't want to stop on err, but consider returning errors via a channel
+	ticker := time.NewTicker(as.checkInterval)
 	defer ticker.Stop()
-	go func() {
-		for range ticker.C {
-			agreementGroups, err := as.DB.GetBandwidthAllocations()
-			if err != nil {
-				zap.S().Error(err)
-				continue
-			}
+	for {
+		as.log.Debug("AgreementSender is running", zap.Duration("duration", as.checkInterval))
+		agreementGroups, err := as.DB.GetBandwidthAllocations()
+		if err != nil {
+			as.log.Error("Agreementsender could not retrieve bandwidth allocations", zap.Error(err))
+			continue
+		}
+		for satellite, agreements := range agreementGroups {
+			as.sendAgreementsToSatellite(ctx, satellite, agreements)
+		}
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			as.log.Debug("AgreementSender is shutting down", zap.Error(ctx.Err()))
+			return
+		}
+	}
+}
 
-			// Send agreements in groups by satellite id to open less connections
-			for satellite, agreements := range agreementGroups {
-				c <- &agreementGroup{satellite, agreements}
-			}
+func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID storj.NodeID, agreements []*psdb.Agreement) {
+	as.log.Info("Sending agreements to satellite", zap.Int("number of agreements", len(agreements)), zap.String("satellite id", satID.String()))
+	// todo: cache kad responses if this interval is very small
+	// Get satellite ip from kademlia
+	satellite, err := as.kad.FindNode(ctx, satID)
+	if err != nil {
+		as.log.Warn("Agreementsender could not find satellite", zap.Error(err))
+		return
+	}
+	// Create client from satellite ip
+	conn, err := as.transport.DialNode(ctx, &satellite)
+	if err != nil {
+		as.log.Warn("Agreementsender could not dial satellite", zap.Error(err))
+		return
+	}
+	client := pb.NewBandwidthClient(conn)
+	defer func() {
+		err := conn.Close()
+		if err != nil {
+			as.log.Warn("Agreementsender failed to close connection", zap.Error(err))
 		}
 	}()
 
-	for {
-		select {
-		case <-ctx.Done():
-			return utils.CombineErrors(as.errs...)
-		case agreementGroup := <-c:
-			go func() {
-				zap.S().Infof("Sending %v agreements to satellite %s\n", len(agreementGroup.agreements), agreementGroup.satellite)
-
-				// Get satellite ip from overlay by Lookup agreementGroup.satellite
-				satellite, err := as.overlay.Lookup(ctx, agreementGroup.satellite)
-				if err != nil {
-					zap.S().Error(err)
-					return
-				}
-
-				// Create client from satellite ip
-				identOpt, err := as.identity.DialOption(storj.NodeID{})
-				if err != nil {
-					zap.S().Error(err)
-					return
-				}
-
-				conn, err := grpc.Dial(satellite.GetAddress().Address, identOpt)
-				if err != nil {
-					zap.S().Error(err)
-					return
-				}
-
-				client := pb.NewBandwidthClient(conn)
-
-				for _, agreement := range agreementGroup.agreements {
-
-					msg := &pb.RenterBandwidthAllocation{
-						Data:      agreement.Agreement,
-						Signature: agreement.Signature,
-					}
-
-					// Send agreement to satellite
-					r, err := client.BandwidthAgreements(ctx, msg)
-					if err != nil || r.GetStatus() != pb.AgreementsSummary_OK {
-						zap.S().Errorf("Failed to send agreement to satellite: %+v", err)
-						return
-					}
-
-					// Delete from PSDB by signature
-					if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {
-						zap.S().Error(err)
-						return
-					}
-				}
-			}()
+	//todo:  stop sending these one-by-one, send all at once
+	for _, agreement := range agreements {
+		msg := &pb.RenterBandwidthAllocation{
+			Data:      agreement.Agreement,
+			Signature: agreement.Signature,
+		}
+		// Send agreement to satellite
+		r, err := client.BandwidthAgreements(ctx, msg)
+		if err != nil || r.GetStatus() == pb.AgreementsSummary_FAIL {
+			as.log.Warn("Agreementsender failed to send agreement to satellite : will retry", zap.Error(err))
+			continue
+		} else if r.GetStatus() == pb.AgreementsSummary_REJECTED {
+			//todo: something better than a delete here?
+			as.log.Error("Agreementsender had agreement explicitly rejected by satellite : will delete", zap.Error(err))
+		}
+		// Delete from PSDB by signature
+		if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {
+			as.log.Error("Agreementsender failed to delete bandwidth allocation", zap.Error(err))
 		}
 	}
 }

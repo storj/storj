@@ -14,7 +14,7 @@ import (
 func NewTestIdentity(ctx context.Context) (*provider.FullIdentity, error) {
 	ca, err := provider.NewCA(ctx, provider.NewCAOptions{
 		Difficulty:  2,
-		Concurrency: 4,
+		Concurrency: 1,
 	})
 	if err != nil {
 		return nil, err
@@ -30,6 +30,6 @@ func NewTestIdentity(ctx context.Context) (*provider.FullIdentity, error) {
 func NewTestCA(ctx context.Context) (*provider.FullCertificateAuthority, error) {
 	return provider.NewCA(ctx, provider.NewCAOptions{
 		Difficulty:  2,
-		Concurrency: 4,
+		Concurrency: 1,
 	})
 }

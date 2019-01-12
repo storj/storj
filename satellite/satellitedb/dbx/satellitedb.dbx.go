@@ -300,9 +300,12 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bwagreements (
 	signature bytea NOT NULL,
+	serialnum text NOT NULL,
 	data bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( signature )
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( signature ),
+	UNIQUE ( serialnum )
 );
 CREATE TABLE injuredsegments (
 	id bigserial NOT NULL,
@@ -425,9 +428,12 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bwagreements (
 	signature BLOB NOT NULL,
+	serialnum TEXT NOT NULL,
 	data BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( signature )
+	expires_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( signature ),
+	UNIQUE ( serialnum )
 );
 CREATE TABLE injuredsegments (
 	id INTEGER NOT NULL,
@@ -869,8 +875,10 @@ func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
 
 type Bwagreement struct {
 	Signature []byte
+	Serialnum string
 	Data      []byte
 	CreatedAt time.Time
+	ExpiresAt time.Time
 }
 
 func (Bwagreement) _Table() string { return "bwagreements" }
@@ -896,6 +904,25 @@ func (f Bwagreement_Signature_Field) value() interface{} {
 }
 
 func (Bwagreement_Signature_Field) _Column() string { return "signature" }
+
+type Bwagreement_Serialnum_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Bwagreement_Serialnum(v string) Bwagreement_Serialnum_Field {
+	return Bwagreement_Serialnum_Field{_set: true, _value: v}
+}
+
+func (f Bwagreement_Serialnum_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bwagreement_Serialnum_Field) _Column() string { return "serialnum" }
 
 type Bwagreement_Data_Field struct {
 	_set   bool
@@ -934,6 +961,25 @@ func (f Bwagreement_CreatedAt_Field) value() interface{} {
 }
 
 func (Bwagreement_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Bwagreement_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Bwagreement_ExpiresAt(v time.Time) Bwagreement_ExpiresAt_Field {
+	return Bwagreement_ExpiresAt_Field{_set: true, _value: v}
+}
+
+func (f Bwagreement_ExpiresAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bwagreement_ExpiresAt_Field) _Column() string { return "expires_at" }
 
 type Injuredsegment struct {
 	Id   int64
@@ -1512,21 +1558,25 @@ type Value_Row struct {
 
 func (obj *postgresImpl) Create_Bwagreement(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field,
-	bwagreement_data Bwagreement_Data_Field) (
+	bwagreement_serialnum Bwagreement_Serialnum_Field,
+	bwagreement_data Bwagreement_Data_Field,
+	bwagreement_expires_at Bwagreement_ExpiresAt_Field) (
 	bwagreement *Bwagreement, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__signature_val := bwagreement_signature.value()
+	__serialnum_val := bwagreement_serialnum.value()
 	__data_val := bwagreement_data.value()
 	__created_at_val := __now
+	__expires_at_val := bwagreement_expires_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( signature, data, created_at ) VALUES ( ?, ?, ? ) RETURNING bwagreements.signature, bwagreements.data, bwagreements.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( signature, serialnum, data, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at, bwagreements.expires_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __signature_val, __data_val, __created_at_val)
+	obj.logStmt(__stmt, __signature_val, __serialnum_val, __data_val, __created_at_val, __expires_at_val)
 
 	bwagreement = &Bwagreement{}
-	err = obj.driver.QueryRow(__stmt, __signature_val, __data_val, __created_at_val).Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __signature_val, __serialnum_val, __data_val, __created_at_val, __expires_at_val).Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1719,7 +1769,7 @@ func (obj *postgresImpl) Get_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	bwagreement *Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.signature = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.signature = ?")
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_signature.value())
@@ -1728,7 +1778,7 @@ func (obj *postgresImpl) Get_Bwagreement_By_Signature(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	bwagreement = &Bwagreement{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1740,7 +1790,7 @@ func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at, bwagreements.expires_at FROM bwagreements LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -1758,7 +1808,7 @@ func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -1774,7 +1824,7 @@ func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
 func (obj *postgresImpl) All_Bwagreement(ctx context.Context) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at, bwagreements.expires_at FROM bwagreements")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -1790,7 +1840,7 @@ func (obj *postgresImpl) All_Bwagreement(ctx context.Context) (
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -1807,7 +1857,7 @@ func (obj *postgresImpl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Contex
 	bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.created_at > ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.created_at > ?")
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_created_at_greater.value())
@@ -1823,7 +1873,7 @@ func (obj *postgresImpl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Contex
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -2470,6 +2520,32 @@ func (obj *postgresImpl) Delete_Bwagreement_By_Signature(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Delete_Bwagreement_By_ExpiresAt_LessOrEqual(ctx context.Context,
+	bwagreement_expires_at_less_or_equal Bwagreement_ExpiresAt_Field) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreements WHERE bwagreements.expires_at <= ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_expires_at_less_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -2726,20 +2802,24 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 
 func (obj *sqlite3Impl) Create_Bwagreement(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field,
-	bwagreement_data Bwagreement_Data_Field) (
+	bwagreement_serialnum Bwagreement_Serialnum_Field,
+	bwagreement_data Bwagreement_Data_Field,
+	bwagreement_expires_at Bwagreement_ExpiresAt_Field) (
 	bwagreement *Bwagreement, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__signature_val := bwagreement_signature.value()
+	__serialnum_val := bwagreement_serialnum.value()
 	__data_val := bwagreement_data.value()
 	__created_at_val := __now
+	__expires_at_val := bwagreement_expires_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( signature, data, created_at ) VALUES ( ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( signature, serialnum, data, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __signature_val, __data_val, __created_at_val)
+	obj.logStmt(__stmt, __signature_val, __serialnum_val, __data_val, __created_at_val, __expires_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __signature_val, __data_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __signature_val, __serialnum_val, __data_val, __created_at_val, __expires_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2957,7 +3037,7 @@ func (obj *sqlite3Impl) Get_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	bwagreement *Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.signature = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.signature = ?")
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_signature.value())
@@ -2966,7 +3046,7 @@ func (obj *sqlite3Impl) Get_Bwagreement_By_Signature(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	bwagreement = &Bwagreement{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2978,7 +3058,7 @@ func (obj *sqlite3Impl) Limited_Bwagreement(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at, bwagreements.expires_at FROM bwagreements LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -2996,7 +3076,7 @@ func (obj *sqlite3Impl) Limited_Bwagreement(ctx context.Context,
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -3012,7 +3092,7 @@ func (obj *sqlite3Impl) Limited_Bwagreement(ctx context.Context,
 func (obj *sqlite3Impl) All_Bwagreement(ctx context.Context) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at, bwagreements.expires_at FROM bwagreements")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -3028,7 +3108,7 @@ func (obj *sqlite3Impl) All_Bwagreement(ctx context.Context) (
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -3045,7 +3125,7 @@ func (obj *sqlite3Impl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context
 	bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.created_at > ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.created_at > ?")
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_created_at_greater.value())
@@ -3061,7 +3141,7 @@ func (obj *sqlite3Impl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -3768,6 +3848,32 @@ func (obj *sqlite3Impl) Delete_Bwagreement_By_Signature(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_Bwagreement_By_ExpiresAt_LessOrEqual(ctx context.Context,
+	bwagreement_expires_at_less_or_equal Bwagreement_ExpiresAt_Field) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreements WHERE bwagreements.expires_at <= ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_expires_at_less_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -3928,13 +4034,13 @@ func (obj *sqlite3Impl) getLastBwagreement(ctx context.Context,
 	pk int64) (
 	bwagreement *Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.serialnum, bwagreements.data, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	bwagreement = &Bwagreement{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bwagreement.Signature, &bwagreement.Serialnum, &bwagreement.Data, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4294,13 +4400,15 @@ func (rx *Rx) Create_AccountingTimestamps(ctx context.Context,
 
 func (rx *Rx) Create_Bwagreement(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field,
-	bwagreement_data Bwagreement_Data_Field) (
+	bwagreement_serialnum Bwagreement_Serialnum_Field,
+	bwagreement_data Bwagreement_Data_Field,
+	bwagreement_expires_at Bwagreement_ExpiresAt_Field) (
 	bwagreement *Bwagreement, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Bwagreement(ctx, bwagreement_signature, bwagreement_data)
+	return tx.Create_Bwagreement(ctx, bwagreement_signature, bwagreement_serialnum, bwagreement_data, bwagreement_expires_at)
 
 }
 
@@ -4377,6 +4485,17 @@ func (rx *Rx) Delete_AccountingRollup_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_AccountingRollup_By_Id(ctx, accounting_rollup_id)
+}
+
+func (rx *Rx) Delete_Bwagreement_By_ExpiresAt_LessOrEqual(ctx context.Context,
+	bwagreement_expires_at_less_or_equal Bwagreement_ExpiresAt_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_Bwagreement_By_ExpiresAt_LessOrEqual(ctx, bwagreement_expires_at_less_or_equal)
+
 }
 
 func (rx *Rx) Delete_Bwagreement_By_Signature(ctx context.Context,
@@ -4652,7 +4771,9 @@ type Methods interface {
 
 	Create_Bwagreement(ctx context.Context,
 		bwagreement_signature Bwagreement_Signature_Field,
-		bwagreement_data Bwagreement_Data_Field) (
+		bwagreement_serialnum Bwagreement_Serialnum_Field,
+		bwagreement_data Bwagreement_Data_Field,
+		bwagreement_expires_at Bwagreement_ExpiresAt_Field) (
 		bwagreement *Bwagreement, err error)
 
 	Create_Injuredsegment(ctx context.Context,
@@ -4689,6 +4810,10 @@ type Methods interface {
 	Delete_AccountingRollup_By_Id(ctx context.Context,
 		accounting_rollup_id AccountingRollup_Id_Field) (
 		deleted bool, err error)
+
+	Delete_Bwagreement_By_ExpiresAt_LessOrEqual(ctx context.Context,
+		bwagreement_expires_at_less_or_equal Bwagreement_ExpiresAt_Field) (
+		count int64, err error)
 
 	Delete_Bwagreement_By_Signature(ctx context.Context,
 		bwagreement_signature Bwagreement_Signature_Field) (

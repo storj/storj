@@ -11,6 +11,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gtank/cryptopasta"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/teststorj"
@@ -19,7 +20,7 @@ import (
 )
 
 //GeneratePayerBandwidthAllocation creates a signed PayerBandwidthAllocation from a PayerBandwidthAllocation_Action
-func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action, satelliteKey crypto.PrivateKey, uplinkKey crypto.PrivateKey) (*pb.PayerBandwidthAllocation, error) {
+func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action, satelliteKey crypto.PrivateKey, uplinkKey crypto.PrivateKey, expired bool) (*pb.PayerBandwidthAllocation, error) {
 	satelliteKeyEcdsa, ok := satelliteKey.(*ecdsa.PrivateKey)
 	if !ok {
 		return nil, errs.New("Satellite Private Key is not a valid *ecdsa.PrivateKey")
@@ -30,13 +31,26 @@ func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action,
 		return nil, errs.New("Uplink Private Key is not a valid *ecdsa.PrivateKey")
 	}
 
+	serialNum, err := uuid.New()
+	if err != nil {
+		return nil, err
+	}
+
+	// generate expiration date
+	var exp int64
+	if expired {
+		exp = time.Now().AddDate(0, 0, -5).Unix()
+	} else {
+		exp = time.Now().Add(time.Hour * 24 * 10).Unix()
+	}
+
 	// Generate PayerBandwidthAllocation_Data
 	data, _ := proto.Marshal(
 		&pb.PayerBandwidthAllocation_Data{
 			SatelliteId:       teststorj.NodeIDFromString("SatelliteID"),
 			UplinkId:          teststorj.NodeIDFromString("UplinkID"),
-			ExpirationUnixSec: time.Now().Add(time.Hour * 24 * 10).Unix(),
-			SerialNumber:      "SerialNumber",
+			ExpirationUnixSec: exp,
+			SerialNumber:      serialNum.String(),
 			Action:            action,
 			CreatedUnixSec:    time.Now().Unix(),
 			PubKey:            pubbytes,

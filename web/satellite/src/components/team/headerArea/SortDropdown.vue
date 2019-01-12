@@ -3,14 +3,17 @@
 
 <template>
     <!-- To close popup we need to use method onCloseClick -->
-    <div class="sort-dropdown-choice-container">
+    <div class="sort-dropdown-choice-container" id="sortTeamMemberByDropdown">
         <div class="sort-dropdown-overflow-container">
             <!-- TODO: add selection logic onclick -->
-            <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick">
+            <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick(sortByEnum.EMAIL)">
                 <h2>Sort by email</h2>
             </div>
-            <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick">
+            <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick(sortByEnum.CREATED_AT)">
                 <h2>Sort by date</h2>
+            </div>
+            <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick(sortByEnum.NAME)">
+                <h2>Sort by name</h2>
             </div>
         </div>
     </div>
@@ -18,11 +21,15 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component(
     {
         data: function () {
-            return {};
+            return {
+            	sortByEnum: ProjectMemberSortByEnum,
+            };
         },
         props: {
             onClose: {
@@ -31,10 +38,17 @@ import { Component, Vue } from 'vue-property-decorator';
         },
         methods: {
             onCloseClick: function (): void {
-                this.$emit('onClose');
+				this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
             },
-            onSortUsersClick: function (): void {
-                this.$emit('onClose');
+            onSortUsersClick: async function (sortBy: ProjectMemberSortByEnum) {
+				this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
+				this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
+
+				const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
+				if (response.isSuccess) return;
+
+				this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+
             }
         },
     }
