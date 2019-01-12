@@ -5,7 +5,6 @@ package overlay
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -133,7 +132,6 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 		return err
 	}
 
-	fmt.Printf("\nputting node to cache %+v\n %+v\n ", nodeID, data)
 	return cache.db.Put(nodeID.Bytes(), data)
 }
 
