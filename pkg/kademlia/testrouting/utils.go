@@ -4,7 +4,6 @@
 package testrouting
 
 import (
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -47,11 +46,6 @@ func bitAtDepth(id storj.NodeID, bitDepth int) bool {
 		return true
 	}
 	return false
-}
-
-func addressEqual(a1, a2 *pb.NodeAddress) bool {
-	return a1.Transport == a2.Transport &&
-		a1.Address == a2.Address
 }
 
 func extendPrefix(prefix string, bit bool) string {

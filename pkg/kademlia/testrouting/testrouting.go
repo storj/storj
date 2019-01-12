@@ -106,7 +106,7 @@ func (t *Table) ConnectionFailed(node *pb.Node) error {
 	// if the node exists and the failure is with the address we have, record
 	// a failure
 	if data, exists := t.nodes[node.Id]; exists &&
-		addressEqual(data.node.Address, node.Address) {
+		pb.AddressEqual(data.node.Address, node.Address) {
 		data.fails += 1
 
 		// if we've failed too many times, remove the node

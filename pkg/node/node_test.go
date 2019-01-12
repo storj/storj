@@ -67,7 +67,11 @@ func TestClient(t *testing.T) {
 		for i := range peers {
 			peer := peers[i]
 			group.Go(func() error {
-				for _, target := range peers {
+				for j, target := range peers {
+					if i == j {
+						// peers no longer contain themselves in their own routing table
+						continue
+					}
 					errTag := fmt.Errorf("lookup peer:%s target:%s", peer.ID(), target.ID())
 					peer.Local().Type.DPanicOnInvalid("test client peer")
 					target.Local().Type.DPanicOnInvalid("test client target")
@@ -80,9 +84,9 @@ func TestClient(t *testing.T) {
 						continue
 					}
 
-					// with small network we expect to return everything
-					if len(results) != planet.Size() {
-						return utils.CombineErrors(errTag, fmt.Errorf("expected %d got %d: %s", planet.Size(), len(results), pb.NodesToIDs(results)))
+					// with small network we expect to return everything besides ourselves
+					if len(results) != planet.Size()-1 {
+						return utils.CombineErrors(errTag, fmt.Errorf("expected %d got %d: %s", planet.Size()-1, len(results), pb.NodesToIDs(results)))
 					}
 
 					return nil
@@ -118,9 +122,9 @@ func TestClient(t *testing.T) {
 						return utils.CombineErrors(errTag, err)
 					}
 
-					// with small network we expect to return everything
-					if len(results) != planet.Size() {
-						return utils.CombineErrors(errTag, fmt.Errorf("expected %d got %d: %s", planet.Size(), len(results), pb.NodesToIDs(results)))
+					// with small network we expect to return everything besides ourselves
+					if len(results) != planet.Size()-1 {
+						return utils.CombineErrors(errTag, fmt.Errorf("expected %d got %d: %s", planet.Size()-1, len(results), pb.NodesToIDs(results)))
 					}
 
 					return nil

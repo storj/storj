@@ -270,7 +270,7 @@ func TestRemoveNode(t *testing.T) {
 	assert.NotNil(t, val)
 	node2 := teststorj.MockNode("CC")
 	rt.addToReplacementCache(kadBucketID, node2)
-	err = rt.removeNode(node.Id)
+	err = rt.removeNode(node)
 	assert.NoError(t, err)
 	val, err = rt.nodeBucketDB.Get(node.Id.Bytes())
 	assert.Nil(t, val)
@@ -281,7 +281,10 @@ func TestRemoveNode(t *testing.T) {
 	assert.Equal(t, 0, len(rt.replacementCache[kadBucketID]))
 
 	//try to remove node not in rt
-	err = rt.removeNode(teststorj.NodeIDFromString("DD"))
+	err = rt.removeNode(&pb.Node{
+		Id:      teststorj.NodeIDFromString("DD"),
+		Address: &pb.NodeAddress{Address: "address:1"},
+	})
 	assert.NoError(t, err)
 }
 
