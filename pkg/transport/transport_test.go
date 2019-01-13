@@ -22,7 +22,7 @@ func TestDialNode(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 0, 2, 0)
+	planet, err := testplanet.New(t, 1, 2, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

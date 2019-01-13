@@ -5,6 +5,7 @@ package kademlia_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -24,16 +25,16 @@ func TestLookupNodes(t *testing.T) {
 
 	planet.Start(ctx)
 
-	k := planet.Satellites[0].Kademlia
-	err = k.Bootstrap(ctx)
-	assert.NoError(t, err)
+	satellite := planet.Satellites[0].Kademlia
 
-	seen := k.Seen()
+	time.Sleep(1 * time.Second)
+
+	seen := satellite.Seen()
 	assert.NotEqual(t, len(seen), 0)
 	assert.NotNil(t, seen)
 
 	target := seen[0]
-	found, err := k.FindNode(ctx, target.Id)
+	found, err := satellite.FindNode(ctx, target.Id)
 	assert.NoError(t, err)
 	assert.Equal(t, target.Id, found.Id)
 }

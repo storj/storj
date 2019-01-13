@@ -57,7 +57,6 @@ type Planet struct {
 	peers     []Peer
 	databases []io.Closer
 
-	nodeInfos []pb.Node
 	nodeLinks []string
 	nodes     []*Node
 
@@ -69,19 +68,19 @@ type Planet struct {
 }
 
 // New creates a new full system with the given number of nodes.
-func New(ctx context.Context, t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	var log *zap.Logger
 	if t == nil {
 		log = zap.NewNop()
 	} else {
 		log = zaptest.NewLogger(t)
 	}
-
-	return NewWithLogger(ctx, log, satelliteCount, storageNodeCount, uplinkCount)
+	return NewWithLogger(log, satelliteCount, storageNodeCount, uplinkCount)
 }
 
 // NewWithLogger creates a new full system with the given number of nodes.
-func NewWithLogger(ctx context.Context, log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+	ctx := context.Background()
 	planet := &Planet{
 		log:        log,
 		identities: NewPregeneratedIdentities(),
@@ -108,44 +107,43 @@ func NewWithLogger(ctx context.Context, log *zap.Logger, satelliteCount, storage
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
 
-	for _, node := range planet.nodes {
-		err = node.initOverlay(planet)
-		if err != nil {
-			return nil, utils.CombineErrors(err, planet.Shutdown())
-		}
-	}
-
-	for _, n := range planet.nodes {
-		server := node.NewServer(n.Log.Named("node"), n.Kademlia)
-		pb.RegisterNodesServer(n.Provider.GRPC(), server)
-		// TODO: shutdown
+	satNodeInfos := make([]pb.Node, satelliteCount)
+	for i, sat := range planet.Satellites {
+		satNodeInfos[i] = sat.Info
 	}
 
 	// init Satellites
-	for _, node := range planet.Satellites {
+	for _, sat := range planet.Satellites {
+
+		// TODO: shutdown
+		err = sat.initOverlay(planet)
+		if err != nil {
+			return nil, utils.CombineErrors(err, planet.Shutdown())
+		}
+		server := node.NewServer(sat.Log.Named("node"), sat.Kademlia)
+		pb.RegisterNodesServer(sat.Provider.GRPC(), server)
+
 		pointerServer := pointerdb.NewServer(
 			teststore.New(),
-			node.Overlay,
-			node.Log.Named("pdb"),
+			sat.Overlay,
+			sat.Log.Named("pdb"),
 			pointerdb.Config{
 				MinRemoteSegmentSize: 1240,
 				MaxInlineSegmentSize: 8000,
 				Overlay:              true,
 			},
-			node.Identity)
-		pb.RegisterPointerDBServer(node.Provider.GRPC(), pointerServer)
+			sat.Identity)
+		pb.RegisterPointerDBServer(sat.Provider.GRPC(), pointerServer)
 		// bootstrap satellite kademlia node
 		go func(n *Node) {
-			if err := n.Kademlia.Bootstrap(ctx); err != nil {
-				log.Error(err.Error())
-			}
+			// if err := n.Kademlia.Bootstrap(ctx); err != nil {
+			// 	log.Error(err.Error())
+			// }
 			if err := n.Discovery.Bootstrap(ctx); err != nil {
 				log.Error(err.Error())
 			}
-			if err := n.Discovery.StartRefresh(ctx); err != nil {
-				log.Error(err.Error())
-			}
-		}(node)
+			n.Discovery.StartRefresh(ctx)
+		}(sat)
 
 		ns := &pb.NodeStats{
 			UptimeCount:       0,
@@ -154,10 +152,10 @@ func NewWithLogger(ctx context.Context, log *zap.Logger, satelliteCount, storage
 			AuditCount:        0,
 		}
 
-		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, ns)
-		pb.RegisterOverlayServer(node.Provider.GRPC(), overlayServer)
+		overlayServer := overlay.NewServer(sat.Log.Named("overlay"), sat.Overlay, ns)
+		pb.RegisterOverlayServer(sat.Provider.GRPC(), overlayServer)
 
-		node.Dependencies = append(node.Dependencies,
+		sat.Dependencies = append(sat.Dependencies,
 			closerFunc(func() error {
 				// TODO: implement
 				return nil
@@ -165,15 +163,13 @@ func NewWithLogger(ctx context.Context, log *zap.Logger, satelliteCount, storage
 
 		go func(n *Node) {
 			// Kick off Refresh on each node
-			if err := n.Discovery.StartRefresh(ctx); err != nil {
-				log.Error(err.Error())
-			}
-		}(node)
+			n.Discovery.StartRefresh(ctx)
+		}(sat)
 	}
 
 	// init storage nodes
 	for _, storageNode := range planet.StorageNodes {
-		storageNode.Kademlia.SetBootstrapNodes(planet.nodeInfos)
+		storageNode.Kademlia.SetBootstrapNodes(satNodeInfos)
 	}
 
 	// init Uplinks
@@ -187,7 +183,7 @@ func NewWithLogger(ctx context.Context, log *zap.Logger, satelliteCount, storage
 
 // Start starts all the nodes.
 func (planet *Planet) Start(ctx context.Context) {
-	for _, node := range planet.nodes {
+	for _, node := range planet.Satellites {
 		go func(node *Node) {
 			node.Kademlia.StartRefresh(ctx)
 			err := node.Provider.Run(ctx)
@@ -264,7 +260,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 	defer func() {
 		for _, x := range xs {
 			planet.peers = append(planet.peers, x)
-			planet.nodeInfos = append(planet.nodeInfos, x.Local())
+			//planet.nodeInfos = append(planet.nodeInfos, x.Local())
 		}
 	}()
 

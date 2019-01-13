@@ -150,6 +150,13 @@ func (peer *Peer) Run(ctx context.Context) error {
 
 	var group errgroup.Group
 	group.Go(func() error {
+		err := peer.Public.Server.Run(ctx)
+		if err == context.Canceled || err == grpc.ErrServerStopped {
+			err = nil
+		}
+		return err
+	})
+	group.Go(func() error {
 		err := peer.Kademlia.Bootstrap(ctx)
 		if ctx.Err() == context.Canceled {
 			// ignore err when when bootstrap was canceled
@@ -161,14 +168,6 @@ func (peer *Peer) Run(ctx context.Context) error {
 		peer.Kademlia.StartRefresh(ctx)
 		return nil
 	})
-	group.Go(func() error {
-		err := peer.Public.Server.Run(ctx)
-		if err == context.Canceled || err == grpc.ErrServerStopped {
-			err = nil
-		}
-		return err
-	})
-
 	return group.Wait()
 }
 

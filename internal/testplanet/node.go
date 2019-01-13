@@ -87,7 +87,6 @@ func (planet *Planet) newNode(name string, nodeType pb.NodeType) (*Node, error) 
 	}
 
 	planet.nodes = append(planet.nodes, node)
-	planet.nodeInfos = append(planet.nodeInfos, node.Info)
 	planet.nodeLinks = append(planet.nodeLinks, node.Info.Id.String()+":"+node.Listener.Addr().String())
 
 	return node, nil
@@ -175,7 +174,7 @@ func (node *Node) initOverlay(planet *Planet) error {
 		return err
 	}
 
-	kad, err := kademlia.NewKademliaWithRoutingTable(node.Log.Named("kademlia"), node.Info, planet.nodeInfos, node.Identity, 5, routing)
+	kad, err := kademlia.NewKademliaWithRoutingTable(node.Log.Named("kademlia"), node.Info, []pb.Node{}, node.Identity, 5, routing)
 	if err != nil {
 		return utils.CombineErrors(err, routing.Close())
 	}

@@ -196,7 +196,6 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	bootstrapContext, bootstrapCancel := context.WithCancel(ctx)
 	atomic.StorePointer(&k.bootstrapCancel, unsafe.Pointer(&bootstrapCancel))
 	//find nodes most similar to self
-
 	k.routingTable.mutex.Lock()
 	id := k.routingTable.self.Id
 	k.routingTable.mutex.Unlock()

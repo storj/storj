@@ -55,6 +55,13 @@ func (node *Node) Ping(ctx context.Context, to pb.Node) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	rt, err := node.dht.GetRoutingTable(ctx)
+	if err != nil {
+		return false, NodeClientErr.Wrap(err)
+	}
+	if err := rt.ConnectionSuccess(&to); err != nil {
+		return false, NodeClientErr.Wrap(err)
+	}
 	return true, nil
 }
 

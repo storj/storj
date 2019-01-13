@@ -26,6 +26,5 @@ func TestCache_Refresh(t *testing.T) {
 
 	err = planet.Satellites[0].Discovery.Bootstrap(ctx)
 	assert.NoError(t, err)
-	err = planet.Satellites[0].Discovery.Refresh(ctx)
-	assert.NoError(t, err)
+	planet.Satellites[0].Discovery.Refresh(ctx)
 }

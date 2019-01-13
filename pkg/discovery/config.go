@@ -64,10 +64,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		for {
 			select {
 			case <-ticker.C:
-				err = discovery.Refresh(ctx)
-				if err != nil {
-					discovery.log.Error("Error with cache refresh: ", zap.Error(err))
-				}
+				discovery.Refresh(ctx)
 
 				err = discovery.Discovery(ctx)
 				if err != nil {

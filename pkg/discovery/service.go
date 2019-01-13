@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -42,44 +41,45 @@ func NewDiscovery(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia,
 }
 
 // StartRefresh kicks off a goroutine that refreshes the cache on an interval and returns an error
-func (d *Discovery) StartRefresh(ctx context.Context) error {
-	var errs []error
+func (d *Discovery) StartRefresh(ctx context.Context) {
 	go func() {
 		t := time.NewTicker(500 * time.Millisecond).C
 		for {
 			<-t
-			if err := d.Refresh(ctx); err != nil {
-				d.log.Error(err.Error())
-				errs = append(errs, err)
-			}
+			d.Refresh(ctx)
 		}
 	}()
-	return utils.CombineErrors(errs...)
 }
 
 // Refresh updates the cache db with the current DHT.
 // We currently do not penalize nodes that are unresponsive,
 // but should in the future.
-func (d *Discovery) Refresh(ctx context.Context) error {
+func (d *Discovery) Refresh(ctx context.Context) {
 	nodes := d.kad.Seen()
 
 	for _, node := range nodes {
 		if _, err := d.kad.Ping(ctx, *node); err != nil {
 			// fail ping refresh
+			_, err := d.statdb.CreateEntryIfNotExists(ctx, node.Id)
+			if err != nil {
+				d.log.Error("couldn't create stats to update uptime on failure: " + err.Error())
+			}
 			_, err = d.statdb.UpdateUptime(ctx, node.Id, false)
 			if err != nil {
-				d.log.Error("couldn't update uptime for node")
+				d.log.Error("couldn't update uptime for node on failure: " + err.Error())
 			}
 		} else {
 			// succeed ping refresh
+			_, err := d.statdb.CreateEntryIfNotExists(ctx, node.Id)
+			if err != nil {
+				d.log.Error("couldn't create stats to update uptime on failure: " + err.Error())
+			}
 			_, err = d.statdb.UpdateUptime(ctx, node.Id, true)
 			if err != nil {
-				d.log.Error("couldn't update uptime for node")
+				d.log.Error("couldn't update uptime for node on success: " + err.Error())
 			}
 		}
 	}
-
-	return nil
 }
 
 // Bootstrap populates the cache with the nodes from Kademlia#Seen()

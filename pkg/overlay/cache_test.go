@@ -125,7 +125,7 @@ func TestCache_Masterdb(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(ctx, t, 1, 4, 0)
+	planet, err := testplanet.New(t, 1, 4, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
