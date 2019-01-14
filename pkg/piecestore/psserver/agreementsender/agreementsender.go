@@ -67,23 +67,24 @@ func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID 
 	// Get satellite ip from kademlia
 	satellite, err := as.kad.FindNode(ctx, satID)
 	if err != nil {
-		as.log.Error("Agreementsender could not find satellite", zap.Error(err))
+		as.log.Warn("Agreementsender could not find satellite", zap.Error(err))
 		return
 	}
 	// Create client from satellite ip
 	conn, err := as.transport.DialNode(ctx, &satellite)
 	if err != nil {
-		as.log.Error("Agreementsender could not dial satellite", zap.Error(err))
+		as.log.Warn("Agreementsender could not dial satellite", zap.Error(err))
 		return
 	}
 	client := pb.NewBandwidthClient(conn)
 	defer func() {
 		err := conn.Close()
 		if err != nil {
-			as.log.Error("Agreementsender failed to close connection", zap.Error(err))
+			as.log.Warn("Agreementsender failed to close connection", zap.Error(err))
 		}
 	}()
 
+	//todo:  stop sending these one-by-one, send all at once
 	for _, agreement := range agreements {
 		msg := &pb.RenterBandwidthAllocation{
 			Data:      agreement.Agreement,
@@ -91,14 +92,16 @@ func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID 
 		}
 		// Send agreement to satellite
 		r, err := client.BandwidthAgreements(ctx, msg)
-		if err != nil || r.GetStatus() != pb.AgreementsSummary_OK {
-			as.log.Error("Agreementsender failed to send agreement to satellite", zap.Error(err))
-			return
+		if err != nil || r.GetStatus() == pb.AgreementsSummary_FAIL {
+			as.log.Warn("Agreementsender failed to send agreement to satellite : will retry", zap.Error(err))
+			continue
+		} else if r.GetStatus() == pb.AgreementsSummary_REJECTED {
+			//todo: something better than a delete here?
+			as.log.Error("Agreementsender had agreement explicitly rejected by satellite : will delete", zap.Error(err))
 		}
 		// Delete from PSDB by signature
 		if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {
 			as.log.Error("Agreementsender failed to delete bandwidth allocation", zap.Error(err))
-			return
 		}
 	}
 }

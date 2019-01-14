@@ -8,6 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
@@ -18,7 +19,7 @@ var _ storagenode.DB = (*DB)(nil)
 
 // DB contains access to different database tables
 type DB struct {
-	disk     string
+	storage  *pstore.Storage
 	psdb     *psdb.DB
 	kdb, ndb storage.KeyValueStore
 }
@@ -26,17 +27,19 @@ type DB struct {
 // NewInMemory creates new inmemory database for storagenode
 // TODO: still stores data on disk
 func NewInMemory(storageDir string) (*DB, error) {
+	storage := pstore.NewStorage(storageDir)
+
 	// TODO: OpenInMemory shouldn't need context argument
-	psdb, err := psdb.OpenInMemory(context.TODO(), storageDir)
+	psdb, err := psdb.OpenInMemory(context.TODO(), storage)
 	if err != nil {
 		return nil, err
 	}
 
 	return &DB{
-		disk: storageDir,
-		psdb: psdb,
-		kdb:  teststore.New(),
-		ndb:  teststore.New(),
+		storage: storage,
+		psdb:    psdb,
+		kdb:     teststore.New(),
+		ndb:     teststore.New(),
 	}, nil
 }
 
@@ -46,12 +49,13 @@ func (db *DB) Close() error {
 		db.psdb.Close(),
 		db.kdb.Close(),
 		db.ndb.Close(),
+		db.storage.Close(),
 	)
 }
 
-// Disk returns piecestore data folder
-func (db *DB) Disk() string {
-	return db.disk
+// Storage returns piecestore location
+func (db *DB) Storage() *pstore.Storage {
+	return db.storage
 }
 
 // PSDB returns piecestore database
