@@ -93,6 +93,17 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	if setupDir != defaultConfDir {
+		cfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
+		cfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
+		cfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
+		cfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
+	}
+	err = identity.SetupIdentity(process.Ctx(cmd), cfg.CA, cfg.Identity)
+	if err != nil {
+		return err
+	}
+
 	overrides := map[string]interface{}{
 		"identity.cert-path":      cfg.Identity.CertPath,
 		"identity.key-path":       cfg.Identity.KeyPath,
