@@ -46,7 +46,7 @@ func (x AgreementsSummary_Status) String() string {
 	return proto.EnumName(AgreementsSummary_Status_name, int32(x))
 }
 func (AgreementsSummary_Status) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_bandwidth_1560d6d92a271e58, []int{0, 0}
+	return fileDescriptor_bandwidth_acc7ad1b0a6a13c6, []int{0, 0}
 }
 
 type AgreementsSummary struct {
@@ -60,7 +60,7 @@ func (m *AgreementsSummary) Reset()         { *m = AgreementsSummary{} }
 func (m *AgreementsSummary) String() string { return proto.CompactTextString(m) }
 func (*AgreementsSummary) ProtoMessage()    {}
 func (*AgreementsSummary) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bandwidth_1560d6d92a271e58, []int{0}
+	return fileDescriptor_bandwidth_acc7ad1b0a6a13c6, []int{0}
 }
 func (m *AgreementsSummary) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AgreementsSummary.Unmarshal(m, b)
@@ -164,10 +164,11 @@ var _Bandwidth_serviceDesc = grpc.ServiceDesc{
 	Metadata: "bandwidth.proto",
 }
 
-func init() { proto.RegisterFile("bandwidth.proto", fileDescriptor_bandwidth_1560d6d92a271e58) }
+func init() { proto.RegisterFile("bandwidth.proto", fileDescriptor_bandwidth_acc7ad1b0a6a13c6) }
 
-var fileDescriptor_bandwidth_1560d6d92a271e58 = []byte{
-	// 210 bytes of a gzipped FileDescriptorProto
+var fileDescriptor_bandwidth_acc7ad1b0a6a13c6 = []byte{
+	// 196 bytes of a gzipped FileDescriptorProto
+
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x4f, 0x4a, 0xcc, 0x4b,
 	0x29, 0xcf, 0x4c, 0x29, 0xc9, 0xd0, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x84, 0x0b, 0x48,
 	0x09, 0x14, 0x64, 0xa6, 0x26, 0xa7, 0x16, 0x97, 0xe4, 0x17, 0xa5, 0x42, 0x24, 0x95, 0xaa, 0xb8,

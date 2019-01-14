@@ -5,7 +5,11 @@ package statdb
 
 import (
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
-// Error is the default boltdb errs class
-var Error = errs.Class("statdb error")
+var (
+	// Error is the default boltdb errs class
+	Error = errs.Class("statdb error")
+	mon   = monkit.Package()
+)
