@@ -85,12 +85,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	valid, err := fpath.IsValidSetupDir(setupDir)
-	if err != nil {
-		return err
-	}
+	valid, _ := fpath.IsValidSetupDir(setupDir)
 	if !valid {
-		return fmt.Errorf("bootstrap configuration already exists (%v). Rerun with --overwrite", setupDir)
+		return fmt.Errorf("bootstrap configuration already exists (%v)", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)

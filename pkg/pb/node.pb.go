@@ -49,7 +49,7 @@ func (x NodeType) String() string {
 	return proto.EnumName(NodeType_name, int32(x))
 }
 func (NodeType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_node_67af40c3abfaa4ce, []int{0}
+	return fileDescriptor_node_85c65d9820f3e8d4, []int{0}
 }
 
 // NodeTransport is an enum of possible transports for the overlay network
@@ -70,7 +70,7 @@ func (x NodeTransport) String() string {
 	return proto.EnumName(NodeTransport_name, int32(x))
 }
 func (NodeTransport) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_node_67af40c3abfaa4ce, []int{1}
+	return fileDescriptor_node_85c65d9820f3e8d4, []int{1}
 }
 
 //  NodeRestrictions contains all relevant data about a nodes ability to store data
@@ -86,7 +86,7 @@ func (m *NodeRestrictions) Reset()         { *m = NodeRestrictions{} }
 func (m *NodeRestrictions) String() string { return proto.CompactTextString(m) }
 func (*NodeRestrictions) ProtoMessage()    {}
 func (*NodeRestrictions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_67af40c3abfaa4ce, []int{0}
+	return fileDescriptor_node_85c65d9820f3e8d4, []int{0}
 }
 func (m *NodeRestrictions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeRestrictions.Unmarshal(m, b)
@@ -145,7 +145,7 @@ func (m *Node) Reset()         { *m = Node{} }
 func (m *Node) String() string { return proto.CompactTextString(m) }
 func (*Node) ProtoMessage()    {}
 func (*Node) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_67af40c3abfaa4ce, []int{1}
+	return fileDescriptor_node_85c65d9820f3e8d4, []int{1}
 }
 func (m *Node) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Node.Unmarshal(m, b)
@@ -255,7 +255,7 @@ func (m *NodeAddress) Reset()         { *m = NodeAddress{} }
 func (m *NodeAddress) String() string { return proto.CompactTextString(m) }
 func (*NodeAddress) ProtoMessage()    {}
 func (*NodeAddress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_67af40c3abfaa4ce, []int{2}
+	return fileDescriptor_node_85c65d9820f3e8d4, []int{2}
 }
 func (m *NodeAddress) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeAddress.Unmarshal(m, b)
@@ -308,7 +308,7 @@ func (m *NodeStats) Reset()         { *m = NodeStats{} }
 func (m *NodeStats) String() string { return proto.CompactTextString(m) }
 func (*NodeStats) ProtoMessage()    {}
 func (*NodeStats) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_67af40c3abfaa4ce, []int{3}
+	return fileDescriptor_node_85c65d9820f3e8d4, []int{3}
 }
 func (m *NodeStats) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeStats.Unmarshal(m, b)
@@ -389,7 +389,7 @@ func (m *NodeMetadata) Reset()         { *m = NodeMetadata{} }
 func (m *NodeMetadata) String() string { return proto.CompactTextString(m) }
 func (*NodeMetadata) ProtoMessage()    {}
 func (*NodeMetadata) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_67af40c3abfaa4ce, []int{4}
+	return fileDescriptor_node_85c65d9820f3e8d4, []int{4}
 }
 func (m *NodeMetadata) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeMetadata.Unmarshal(m, b)
@@ -433,9 +433,9 @@ func init() {
 	proto.RegisterEnum("node.NodeTransport", NodeTransport_name, NodeTransport_value)
 }
 
-func init() { proto.RegisterFile("node.proto", fileDescriptor_node_67af40c3abfaa4ce) }
+func init() { proto.RegisterFile("node.proto", fileDescriptor_node_85c65d9820f3e8d4) }
 
-var fileDescriptor_node_67af40c3abfaa4ce = []byte{
+var fileDescriptor_node_85c65d9820f3e8d4 = []byte{
 	// 652 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x94, 0xc1, 0x4e, 0xdb, 0x40,
 	0x10, 0x86, 0x49, 0x6c, 0x9c, 0x78, 0xec, 0xa4, 0x66, 0x40, 0xc8, 0x6a, 0xd5, 0x12, 0x82, 0xaa,
