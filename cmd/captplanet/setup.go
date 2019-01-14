@@ -4,6 +4,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -43,11 +44,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	if !setupCfg.Overwrite && !valid {
 		return fmt.Errorf("captplanet configuration already exists (%v). Rerun with --overwrite", setupDir)
 	} else if setupCfg.Overwrite && err == nil {
-		opts := []string{"yes", "no"}
-		question := fmt.Sprintf("Are you sure you want to delete the following directory?\n%v", setupDir)
-		i := prompt.Choose(question, opts)
-		if opts[i] == "no" {
-			return
+		if ok := prompt.Confirm("Are you sure you want to delete the following directory?\n%v", setupDir); !ok {
+			return errors.New("overwrite canceled")
 		}
 
 		fmt.Println("overwriting existing captplanet config")
