@@ -39,7 +39,7 @@ func TestServer(t *testing.T) {
 			Opts: &pb.OverlayOptions{Amount: 2},
 		})
 		require.NoError(t, err)
-		require.NotNil(t, err)
+		require.NotNil(t, result)
 		assert.Len(t, result.Nodes, 2)
 	}
 
@@ -48,7 +48,7 @@ func TestServer(t *testing.T) {
 			NodeId: planet.StorageNodes[0].ID(),
 		})
 		require.NoError(t, err)
-		require.NotNil(t, err)
+		require.NotNil(t, result)
 		assert.Equal(t, result.Node.Address.Address, planet.StorageNodes[0].Addr())
 	}
 

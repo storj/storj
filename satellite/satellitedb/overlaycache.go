@@ -203,6 +203,7 @@ func convertOverlayNode(info *dbx.OverlayCacheNode) (*pb.Node, error) {
 			FreeDisk:      info.FreeDisk,
 		},
 		Reputation: &pb.NodeStats{
+			NodeId:             id,
 			Latency_90:         info.Latency90,
 			AuditSuccessRatio:  info.AuditSuccessRatio,
 			UptimeRatio:        info.AuditUptimeRatio,
