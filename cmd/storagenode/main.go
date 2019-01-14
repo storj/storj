@@ -33,6 +33,7 @@ import (
 type StorageNode struct {
 	CA       identity.CASetupConfig `setup:"true"`
 	Identity identity.SetupConfig   `setup:"true"`
+	EditConf bool                   `default:"false" help:"open config in default editor"`
 
 	Server   server.Config
 	Kademlia kademlia.StorageNodeConfig
@@ -77,7 +78,6 @@ var (
 	defaultConfDir string
 	defaultDiagDir string
 	confDir        string
-	editConfig     bool
 )
 
 const (
@@ -92,8 +92,6 @@ func init() {
 		defaultConfDir = dirParam
 	}
 
-	setupCmd.Flags().BoolVarP(&editConfig, "edit-conf", "", false, "open config in default editor")
-	configCmd.Flags().BoolVarP(&editConfig, "edit-conf", "", false, "open config in default editor")
 	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
@@ -103,6 +101,7 @@ func init() {
 	rootCmd.AddCommand(diagCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir))
 }
 
@@ -170,7 +169,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if editConfig {
+	if setupCfg.EditConf {
 		return fpath.EditFile(configFile)
 	}
 
@@ -188,11 +187,7 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 		return cmdSetup(cmd, args)
 	}
 
-	if editConfig {
-		return fpath.EditFile(conf)
-	}
-
-	return nil
+	return fpath.EditFile(conf)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
