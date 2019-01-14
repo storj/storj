@@ -275,7 +275,7 @@ func newpostgres(db *DB) *postgresDB {
 func (obj *postgresDB) Schema() string {
 	return `CREATE TABLE accounting_raws (
 	id bigserial NOT NULL,
-	node_id text NOT NULL,
+	node_id bytea NOT NULL,
 	interval_end_time timestamp with time zone NOT NULL,
 	data_total bigint NOT NULL,
 	data_type integer NOT NULL,
@@ -404,7 +404,7 @@ func newsqlite3(db *DB) *sqlite3DB {
 func (obj *sqlite3DB) Schema() string {
 	return `CREATE TABLE accounting_raws (
 	id INTEGER NOT NULL,
-	node_id TEXT NOT NULL,
+	node_id BLOB NOT NULL,
 	interval_end_time TIMESTAMP NOT NULL,
 	data_total INTEGER NOT NULL,
 	data_type INTEGER NOT NULL,
@@ -532,7 +532,7 @@ nextval:
 
 type AccountingRaw struct {
 	Id              int64
-	NodeId          string
+	NodeId          []byte
 	IntervalEndTime time.Time
 	DataTotal       int64
 	DataType        int
@@ -567,10 +567,10 @@ func (AccountingRaw_Id_Field) _Column() string { return "id" }
 type AccountingRaw_NodeId_Field struct {
 	_set   bool
 	_null  bool
-	_value string
+	_value []byte
 }
 
-func AccountingRaw_NodeId(v string) AccountingRaw_NodeId_Field {
+func AccountingRaw_NodeId(v []byte) AccountingRaw_NodeId_Field {
 	return AccountingRaw_NodeId_Field{_set: true, _value: v}
 }
 

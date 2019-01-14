@@ -2,7 +2,7 @@
 -- DO NOT EDIT
 CREATE TABLE accounting_raws (
 	id INTEGER NOT NULL,
-	node_id TEXT NOT NULL,
+	node_id BLOB NOT NULL,
 	interval_end_time TIMESTAMP NOT NULL,
 	data_total INTEGER NOT NULL,
 	data_type INTEGER NOT NULL,

@@ -55,7 +55,7 @@ func (db *accountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTo
 	//create a granular record per node id
 	for actionType, bwActionTotals := range bwTotals {
 		for k, v := range bwActionTotals {
-			nID := dbx.AccountingRaw_NodeId(k)
+			nID := dbx.AccountingRaw_NodeId(k.Bytes())
 			end := dbx.AccountingRaw_IntervalEndTime(latestBwa)
 			total := dbx.AccountingRaw_DataTotal(v)
 			dataType := dbx.AccountingRaw_DataType(actionType)
@@ -88,7 +88,7 @@ func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time
 		}
 	}()
 	for k, v := range nodeData {
-		nID := dbx.AccountingRaw_NodeId(k.String())
+		nID := dbx.AccountingRaw_NodeId(k.Bytes())
 		end := dbx.AccountingRaw_IntervalEndTime(latestTally)
 		total := dbx.AccountingRaw_DataTotal(v)
 		dataType := dbx.AccountingRaw_DataType(accounting.AtRest)

@@ -13,7 +13,7 @@ import (
 )
 
 //BWTally is a convience alias
-type BWTally [pb.PayerBandwidthAllocation_PUT_REPAIR + 1]map[string]int64
+type BWTally [pb.PayerBandwidthAllocation_PUT_REPAIR + 1]map[storj.NodeID]int64
 
 // DB stores information about bandwidth usage
 type DB interface {

@@ -155,7 +155,7 @@ func (t *tally) queryBW(ctx context.Context) error {
 	// sum totals by node id ... todo: add nodeid as SQL column so DB can do this?
 	var bwTotals accounting.BWTally
 	for i := range bwTotals {
-		bwTotals[i] = make(map[string]int64)
+		bwTotals[i] = make(map[storj.NodeID]int64)
 	}
 	var latestBwa time.Time
 	for _, baRow := range bwAgreements {
@@ -172,7 +172,7 @@ func (t *tally) queryBW(ctx context.Context) error {
 		if baRow.CreatedAt.After(latestBwa) {
 			latestBwa = baRow.CreatedAt
 		}
-		bwTotals[pbad.GetAction()][rbad.StorageNodeId.String()] += rbad.GetTotal()
+		bwTotals[pbad.GetAction()][rbad.StorageNodeId] += rbad.GetTotal()
 	}
 
 	return Error.Wrap(t.accountingDB.SaveBWRaw(ctx, lastBwTally, bwTotals))

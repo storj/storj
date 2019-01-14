@@ -23,6 +23,8 @@ var (
 // Config is a configuration struct for everything you need to start the
 // Payments responsibility.
 type Config struct {
+	//Filepath
+	Filepath string `help:"the relative file path of the generated csv" default:"$CONFDIR/payments/csv"`
 }
 
 // Run implements the provider.Responsibility interface
@@ -35,6 +37,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return Error.New("unable to get master db instance")
 	}
 	srv := &Server{
+		filepath:     c.Filepath,
 		accountingDB: db.Accounting(),
 		log:          zap.L(),
 		metrics:      monkit.Default,
