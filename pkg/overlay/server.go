@@ -124,6 +124,7 @@ func (server *Server) populate(ctx context.Context,
 	minRestrictions *pb.NodeRestrictions,
 	minReputation *pb.NodeStats,
 	excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
+
 	// TODO: move the query into db
 	limit := int(maxNodes * 2)
 	nodes, err := server.cache.db.List(ctx, startID, limit)
@@ -141,6 +142,7 @@ func (server *Server) populate(ctx context.Context,
 
 		nextStart = v.Id
 		if v.Type != pb.NodeType_STORAGE {
+			server.log.Debug("not storage node = " + v.Id.String() + " was " + v.Type.String())
 			continue
 		}
 
@@ -154,8 +156,11 @@ func (server *Server) populate(ctx context.Context,
 			reputation.GetAuditSuccessRatio() < minReputation.GetAuditSuccessRatio() ||
 			reputation.GetAuditCount() < minReputation.GetAuditCount() ||
 			contains(excluded, v.Id) {
+			server.log.Debug("excluded = " + v.Id.String())
 			continue
 		}
+
+		server.log.Debug("append " + v.Id.String() + " - " + v.Type.String())
 		result = append(result, v)
 	}
 

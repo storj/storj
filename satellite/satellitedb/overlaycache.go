@@ -35,6 +35,7 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*pb.Node, 
 	if err != nil {
 		return nil, err
 	}
+
 	return convertOverlayNode(node)
 }
 
@@ -137,6 +138,7 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 		}
 	} else {
 		update := dbx.OverlayCacheNode_Update_Fields{
+			// TODO: should we be able to update node type?
 			Address:  dbx.OverlayCacheNode_Address(address.Address),
 			Protocol: dbx.OverlayCacheNode_Protocol(int(address.Transport)),
 
@@ -167,6 +169,7 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 	}
+
 	return Error.Wrap(tx.Commit())
 }
 

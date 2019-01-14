@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
@@ -23,6 +22,15 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
 )
+
+func TestCache_Database(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		testCache(t, db.OverlayCache(), db.StatDB())
+	})
+}
 
 func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, sdb statdb.DB) {
 	valid1ID := storj.NodeID{}
@@ -121,20 +129,4 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, s
 		assert.Error(t, err)
 		assert.True(t, err == overlay.ErrEmptyNode)
 	}
-}
-
-func TestCache_Masterdb(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet, err := testplanet.New(t, 1, 4, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(planet.Shutdown)
-	planet.Start(ctx)
-
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		testCache(ctx, t, db.OverlayCache(), db.StatDB())
-	})
 }

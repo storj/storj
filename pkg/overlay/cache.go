@@ -85,14 +85,16 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if nodeID.IsZero() {
 		return nil
 	}
+	if nodeID != value.Id {
+		return errors.New("invalid request")
+	}
 
 	// get existing node rep, or create a new statdb node with 0 rep
 	stats, err := cache.statDB.CreateEntryIfNotExists(ctx, nodeID)
 	if err != nil {
 		return err
 	}
-	// TODO: error for when value.Id != nodeID
-	value.Id = nodeID
+
 	value.Reputation = &pb.NodeStats{
 		AuditSuccessRatio:  stats.AuditSuccessRatio,
 		AuditSuccessCount:  stats.AuditSuccessCount,

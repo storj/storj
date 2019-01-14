@@ -52,7 +52,7 @@ func New(databaseURL string) (satellite.DB, error) {
 
 // NewInMemory creates instance of Sqlite in memory satellite database
 func NewInMemory() (satellite.DB, error) {
-	return New("sqlite3://file::memory:?mode=memory&cache=shared")
+	return New("sqlite3://file::memory:?mode=memory")
 }
 
 // BandwidthAgreement is a getter for bandwidth agreement repository

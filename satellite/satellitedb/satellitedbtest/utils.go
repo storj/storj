@@ -17,7 +17,7 @@ import (
 const (
 	// postgres connstring that works with docker-compose
 	defaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
-	defaultSqliteConn   = "sqlite3://file::memory:?mode=memory&cache=shared"
+	defaultSqliteConn   = "sqlite3://file::memory:?mode=memory"
 )
 
 var (
