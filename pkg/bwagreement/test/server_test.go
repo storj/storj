@@ -68,14 +68,14 @@ func TestSameSerialNumberBandwidthAgreements(t *testing.T) {
 
 		reply, err = server.BandwidthAgreements(ctx, rbaNode1)
 		assert.EqualError(t, err, "bwagreement error: SerialNumber already exists in the PayerBandwidthAllocation")
-		assert.Equal(t, pb.AgreementsSummary_FAIL, reply.Status)
+		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 
 		/* Storage nodes can't submit the same bwagreement twice.
 		   This test is kind of duplicate cause it will most likely trigger the same sequence error.
 		   For safety we will try it anyway to make sure nothing strange will happen */
 		reply, err = server.BandwidthAgreements(ctx, rbaNode2)
 		assert.EqualError(t, err, "bwagreement error: SerialNumber already exists in the PayerBandwidthAllocation")
-		assert.Equal(t, pb.AgreementsSummary_FAIL, reply.Status)
+		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 	})
 }
 
@@ -107,7 +107,7 @@ func TestManipulatedBandwidthAgreements(t *testing.T) {
 
 		reply, err = server.BandwidthAgreements(ctx, rba)
 		assert.Error(t, err)
-		assert.Equal(t, pb.AgreementsSummary_FAIL, reply.Status)
+		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 
 		/* Todo: Add more tests for bwagreement manipulations
 
@@ -143,7 +143,7 @@ func TestInvalidBandwidthAgreements(t *testing.T) {
 
 		reply, err = server.BandwidthAgreements(ctx, rba)
 		assert.EqualError(t, err, "bwagreement error: Invalid Renter's Signature Length")
-		assert.Equal(t, pb.AgreementsSummary_FAIL, reply.Status)
+		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 	})
 }
 
