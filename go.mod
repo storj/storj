@@ -37,8 +37,9 @@ require (
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/eclipse/paho.mqtt.golang v1.1.1 // indirect
 	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
-	github.com/fatih/color v1.7.0 // indirect
+	github.com/fatih/color v1.7.0
 	github.com/fatih/structs v1.0.0 // indirect
+	github.com/gizak/termui v2.3.0+incompatible
 	github.com/go-redis/redis v6.14.1+incompatible
 	github.com/gogo/protobuf v1.1.2-0.20181116123445-07eab6a8298c
 	github.com/golang-migrate/migrate/v3 v3.5.2
@@ -62,6 +63,7 @@ require (
 	github.com/lib/pq v1.0.0
 	github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e
 	github.com/loov/plot v0.0.0-20180510142208-e59891ae1271
+	github.com/maruel/panicparse v1.1.1 // indirect
 	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/mattn/go-runewidth v0.0.3 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0
@@ -74,6 +76,7 @@ require (
 	github.com/minio/sha256-simd v0.0.0-20171213220625-ad98a36ba0da // indirect
 	github.com/minio/sio v0.0.0-20180327104954-6a41828a60f0 // indirect
 	github.com/mitchellh/go-homedir v0.0.0-20180801233206-58046073cbff // indirect
+	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
 	github.com/mr-tron/base58 v0.0.0-20180922112544-9ad991d48a42
 	github.com/nats-io/gnatsd v1.3.0 // indirect
 	github.com/nats-io/go-nats v1.6.0 // indirect
@@ -82,6 +85,7 @@ require (
 	github.com/nats-io/nats-streaming-server v0.11.0 // indirect
 	github.com/nats-io/nuid v1.0.0 // indirect
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
+	github.com/nsf/termbox-go v0.0.0-20190104133558-0938b5187e61 // indirect
 	github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c // indirect
 	github.com/pierrec/lz4 v2.0.5+incompatible // indirect
 	github.com/pkg/errors v0.8.1 // indirect

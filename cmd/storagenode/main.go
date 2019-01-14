@@ -14,6 +14,7 @@ import (
 	"sort"
 	"text/tabwriter"
 
+	"github.com/fatih/color"
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -325,7 +326,31 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("DATA %+v\n", data)
+
+		clr()
+		color.Green("\n\033[1mStorage Node Dashboard Stats\033[1m\n")
+		color.Green("\n===============================\n")
+
+		color.Green("\nNode ID: ")
+		color.White("%s\n", data.NodeId)
+
+		color.Green("\nUptime: ")
+		color.White("%+v \n", data.Uptime)
+
+		color.Green("\nNode Connections: ")
+		color.White("%+v\n", data.NodeConnections)
+
+		color.Green("\nAvailable Bandwidth: ")
+		color.White("%+v\n", data.Stats.AvailableBandwidth)
+
+		color.Green("\nUsed Bandwidth: ")
+		color.White("%+v\n", data.Stats.UsedBandwidth)
+
+		color.Green("\nAvailable Space: ")
+		color.White("%+v\n", data.Stats.AvailableSpace)
+
+		color.Green("\nUsed Space: ")
+		color.White("%+v\n", data.Stats.UsedSpace)
 	}
 
 	return nil
@@ -347,6 +372,11 @@ func isOperatorWalletValid(wallet string) error {
 		return fmt.Errorf("Operator wallet address isn't valid")
 	}
 	return nil
+}
+
+// clr uses ANSI escape codes to clear the screen
+func clr() {
+	print("\033[H\033[2J")
 }
 
 func main() {

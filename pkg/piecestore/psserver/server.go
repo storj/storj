@@ -351,10 +351,10 @@ func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, erro
 		return &pb.DashboardStats{}, ServerError.Wrap(err)
 	}
 
+	// nodeId, err := rt.Local().Id)
+
 	return &pb.DashboardStats{
-		NodeId: &pb.Node{
-			Id: rt.Local().Id,
-		},
+		NodeId:          rt.Local().Id.String(),
 		NodeConnections: int64(len(nodes)),
 		Address:         "",
 		Connection:      true,
