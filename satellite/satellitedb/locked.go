@@ -14,11 +14,11 @@ import (
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
-	"storj.io/storj/storage"
 )
 
 // locked implements a locking wrapper around satellite.DB.
@@ -68,7 +68,7 @@ func (m *locked) Irreparable() irreparable.DB {
 }
 
 // OverlayCache returns database for caching overlay information
-func (m *locked) OverlayCache() storage.KeyValueStore {
+func (m *locked) OverlayCache() overlay.CacheDB {
 	m.Lock()
 	defer m.Unlock()
 	return &lockedOverlayCache{m.Locker, m.db.OverlayCache()}
@@ -169,66 +169,40 @@ func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segment
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)
 }
 
-// lockedOverlayCache implements locking wrapper for storage.KeyValueStore
+// lockedOverlayCache implements locking wrapper for overlay.CacheDB
 type lockedOverlayCache struct {
 	sync.Locker
-	db storage.KeyValueStore
+	db overlay.CacheDB
 }
 
-// Close closes the store
-func (m *lockedOverlayCache) Close() error {
+func (m *lockedOverlayCache) Delete(ctx context.Context, id storj.NodeID) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Close()
+	return m.db.Delete(ctx, id)
 }
 
-// Delete deletes key and the value
-func (m *lockedOverlayCache) Delete(a0 storage.Key) error {
+func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Delete(a0)
+	return m.db.Get(ctx, nodeID)
 }
 
-// Get gets a value to store
-func (m *lockedOverlayCache) Get(a0 storage.Key) (storage.Value, error) {
+func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Get(a0)
+	return m.db.GetAll(ctx, nodeIDs)
 }
 
-// GetAll gets all values from the store
-func (m *lockedOverlayCache) GetAll(a0 storage.Keys) (storage.Values, error) {
+func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetAll(a0)
+	return m.db.List(ctx, cursor, limit)
 }
 
-// Iterate iterates over items based on opts
-func (m *lockedOverlayCache) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
+func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Iterate(opts, fn)
-}
-
-// List lists all keys starting from start and upto limit items
-func (m *lockedOverlayCache) List(start storage.Key, limit int) (storage.Keys, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.List(start, limit)
-}
-
-// Put adds a value to store
-func (m *lockedOverlayCache) Put(a0 storage.Key, a1 storage.Value) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Put(a0, a1)
-}
-
-// ReverseList lists all keys in revers order
-func (m *lockedOverlayCache) ReverseList(a0 storage.Key, a1 int) (storage.Keys, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.ReverseList(a0, a1)
+	return m.db.Update(ctx, value)
 }
 
 // lockedRepairQueue implements locking wrapper for queue.RepairQueue

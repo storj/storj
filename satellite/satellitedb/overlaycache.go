@@ -9,8 +9,9 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/utils"
+	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )
@@ -21,7 +22,7 @@ type overlaycache struct {
 	db *dbx.DB
 }
 
-func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (storage.Value, error) {
+func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*pb.Node, error) {
 	if key.IsZero() {
 		return nil, overlay.ErrEmptyNode
 	}

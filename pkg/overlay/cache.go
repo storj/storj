@@ -102,7 +102,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 		UptimeCount:        stats.UptimeCount,
 	}
 
-	return cache.db.Update(ctx, value)
+	return cache.db.Update(ctx, &value)
 }
 
 // Delete will remove the node from the cache. Used when a node hard disconnects or fails

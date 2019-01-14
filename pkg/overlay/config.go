@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
-	"storj.io/storj/storage"
 )
 
 var (
@@ -64,7 +63,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	sdb, ok := ctx.Value("masterdb").(interface {
 		StatDB() statdb.DB
-		OverlayCache() storage.KeyValueStore
+		OverlayCache() CacheDB
 	})
 	if !ok {
 		return Error.Wrap(errs.New("unable to get master db instance"))
