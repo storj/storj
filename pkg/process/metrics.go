@@ -11,9 +11,11 @@ import (
 
 	hw "github.com/jtolds/monkit-hw"
 	"github.com/zeebo/admission/admproto"
+	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 	"gopkg.in/spacemonkeygo/monkit.v2/environment"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/telemetry"
 )
 
@@ -28,10 +30,16 @@ var (
 		"application suffix")
 )
 
-func initMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (
+func InitMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (
 	err error) {
 	if *metricCollector == "" || *metricInterval == 0 {
 		return Error.New("telemetry disabled")
+	}
+	if r == nil {
+		r = monkit.Default
+	}
+	if instanceID == "" {
+		instanceID = telemetry.DefaultInstanceID()
 	}
 	c, err := telemetry.NewClient(*metricCollector, telemetry.ClientOpts{
 		Interval:      *metricInterval,
@@ -47,4 +55,16 @@ func initMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (
 	hw.Register(r)
 	go c.Run(ctx)
 	return nil
+}
+
+func InitMetricsWithCertPath(ctx context.Context, r *monkit.Registry, certPath string) error {
+	var metricsID string
+	nodeID, err := identity.NodeIDFromCertPath(certPath)
+	if err != nil {
+		zap.S().Errorf("Could not read identity for telemetry setup: %v", err)
+		metricsID = ""
+	} else {
+		metricsID = nodeID.String()
+	}
+	return InitMetrics(ctx, r, metricsID)
 }

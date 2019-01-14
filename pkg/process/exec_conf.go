@@ -22,8 +22,6 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-
-	"storj.io/storj/pkg/telemetry"
 )
 
 // ExecuteWithConfig runs a Cobra command with the provided default config
@@ -182,12 +180,6 @@ func cleanup(cmd *cobra.Command) {
 		}
 		for _, key := range brokenVals {
 			logger.Sugar().Infof("Invalid configuration file value for key: %s", key)
-		}
-
-		err = initMetrics(ctx, monkit.Default,
-			telemetry.DefaultInstanceID())
-		if err != nil {
-			logger.Error("failed to configure telemetry", zap.Error(err))
 		}
 
 		err = initDebug(logger, monkit.Default)
