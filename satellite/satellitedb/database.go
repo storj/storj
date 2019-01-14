@@ -11,11 +11,11 @@ import (
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/storage"
 )
 
 var (
@@ -71,7 +71,7 @@ func (db *DB) StatDB() statdb.DB {
 }
 
 // OverlayCache is a getter for overlay cache repository
-func (db *DB) OverlayCache() storage.KeyValueStore {
+func (db *DB) OverlayCache() overlay.CacheDB {
 	return &overlaycache{db: db.db}
 }
 
