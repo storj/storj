@@ -172,11 +172,12 @@ model overlay_cache_node (
 	field free_disk      int64 (updatable)
 
 	field latency_90          int64   (updatable)
+	
 	field audit_success_ratio float64 (updatable)
 	field audit_uptime_ratio  float64 (updatable)
-
 	field audit_count          int64 (updatable)
 	field audit_success_count  int64 (updatable)
+
 	field uptime_count         int64 (updatable)
 	field uptime_success_count int64 (updatable)
 )

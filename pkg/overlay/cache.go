@@ -39,6 +39,8 @@ type CacheDB interface {
 	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
 	Update(ctx context.Context, value *pb.Node) error
 	Delete(ctx context.Context, id storj.NodeID) error
+
+	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error)
 }
 
 // Cache is used to store overlay data in Redis
@@ -89,6 +91,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if err != nil {
 		return err
 	}
+	// TODO: error for when value.Id != nodeID
 	value.Id = nodeID
 	value.Reputation = &pb.NodeStats{
 		AuditSuccessRatio:  stats.AuditSuccessRatio,
@@ -99,7 +102,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 		UptimeCount:        stats.UptimeCount,
 	}
 
-	return cache.db.Update(ctx, nodeID, value)
+	return cache.db.Update(ctx, value)
 }
 
 // Delete will remove the node from the cache. Used when a node hard disconnects or fails

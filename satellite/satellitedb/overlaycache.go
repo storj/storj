@@ -48,7 +48,23 @@ func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDs) ([]*pb
 	return infos, nil
 }
 
-func (cache *overlaycache) Update(ctx context.Context,  value *pb.Node) (err error) {
+func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
+	dbxInfos, err := cache.db.Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx,
+		dbx.OverlayCacheNode_NodeId(cursor.Bytes()),
+		limit, 0,
+	)
+	if  err != nil {
+		return nil, err
+	}
+
+	infos := make([]*pb.Node, len(dbxInfos))
+	for i, dbxInfo := range dbxInfos {
+		infos[i] = convertOverlayNode(dbxInfo)
+	}
+	return infos, nil
+}
+
+func (cache *overlaycache) Update(ctx context.Context, value *pb.Node) (err error) {
 	if key.IsZero() {
 		return nil, overlay.ErrEmptyNode
 	}
