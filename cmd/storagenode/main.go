@@ -79,10 +79,6 @@ var (
 	confDir        *string
 )
 
-const (
-	defaultServerAddr = ":28967"
-)
-
 func init() {
 	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
 
@@ -150,10 +146,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
-	}
-
-	overrides := map[string]interface{}{
-		"identity.server.address": defaultServerAddr,
 	}
 
 	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
