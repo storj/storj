@@ -115,7 +115,7 @@ require (
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect
 	golang.org/x/tools v0.0.0-20181221235234-d00ac6d27372
 	google.golang.org/genproto v0.0.0-20181221175505-bd9b4fb69e2f // indirect
-	google.golang.org/grpc v1.16.0
+	google.golang.org/grpc v1.17.0
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.25 // indirect
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
