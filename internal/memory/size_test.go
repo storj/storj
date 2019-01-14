@@ -10,6 +10,8 @@ import (
 )
 
 const (
+	eb = 1 << 60
+	pb = 1 << 50
 	tb = 1 << 40
 	gb = 1 << 30
 	mb = 1 << 20
@@ -67,6 +69,9 @@ func TestParse(t *testing.T) {
 		{1 * gb, "1.0 gB"},
 		{1 * mb, "1.0 Mb"},
 		{1 * kb, "1.0 kb"},
+		{1 * kb, "1.0kib"},
+		{1 * pb, "1.0pib"},
+		{1 * eb, "1.0eib"},
 		{1, "1.00"},
 		// without B suffix
 		{1 * tb, "1.00T"},
