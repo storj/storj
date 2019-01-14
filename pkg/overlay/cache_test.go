@@ -1,8 +1,6 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build ignore
-
 package overlay_test
 
 import (
@@ -19,8 +17,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/teststore"
 )
 
 func TestCache_Database(t *testing.T) {
@@ -28,11 +24,11 @@ func TestCache_Database(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		testCache(t, db.OverlayCache(), db.StatDB())
+		testCache(ctx, t, db.OverlayCache(), db.StatDB())
 	})
 }
 
-func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, sdb statdb.DB) {
+func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.DB) {
 	valid1ID := storj.NodeID{}
 	valid2ID := storj.NodeID{}
 	missingID := storj.NodeID{}
@@ -75,11 +71,7 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, s
 		assert.True(t, err == overlay.ErrNodeNotFound)
 		assert.Nil(t, invalid2)
 
-		if storeClient, ok := store.(*teststore.Client); ok {
-			storeClient.ForceError++
-			_, err := cache.Get(ctx, valid1ID)
-			assert.Error(t, err)
-		}
+		// TODO: add erroring database test
 	}
 
 	{ // GetAll
@@ -102,11 +94,7 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, s
 		_, err = cache.GetAll(ctx, storj.NodeIDList{})
 		assert.True(t, overlay.OverlayError.Has(err))
 
-		if storeClient, ok := store.(*teststore.Client); ok {
-			storeClient.ForceError++
-			_, err := cache.GetAll(ctx, storj.NodeIDList{valid1ID, valid2ID})
-			assert.Error(t, err)
-		}
+		// TODO: add erroring database test
 	}
 
 	{ // Delete
