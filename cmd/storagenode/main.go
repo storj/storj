@@ -80,8 +80,7 @@ var (
 )
 
 const (
-	defaultServerAddr    = ":28967"
-	defaultSatteliteAddr = "127.0.0.1:7778"
+	defaultServerAddr = ":28967"
 )
 
 func init() {
@@ -158,7 +157,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"identity.key-path":       setupCfg.Identity.KeyPath,
 		"identity.server.address": defaultServerAddr,
 		"storage.path":            filepath.Join(setupDir, "storage"),
-		"kademlia.bootstrap-addr": defaultSatteliteAddr,
 	}
 
 	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
