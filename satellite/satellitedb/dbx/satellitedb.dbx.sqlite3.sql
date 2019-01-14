@@ -12,9 +12,10 @@ CREATE TABLE accounting_raws (
 );
 CREATE TABLE accounting_rollups (
 	id INTEGER NOT NULL,
-	node_id TEXT NOT NULL,
+	node_id BLOB NOT NULL,
 	start_time TIMESTAMP NOT NULL,
 	interval INTEGER NOT NULL,
+	data_total INTEGER NOT NULL,
 	data_type INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
