@@ -32,15 +32,10 @@ func TestBandwidthAgreement(t *testing.T) {
 }
 
 func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
-	//testing variables
-	{ // TestSameSerialNumberBandwidthAgreements
-		/* More than one storage node can submit bwagreements with the same serial number.
-		   Uplink would like to download a file from 2 storage nodes.
-		   Uplink requests a PayerBandwidthAllocation from the satellite. One serial number for all storage nodes.
-		   Uplink signes 2 RenterBandwidthAllocation for both storage node. */
-		satellitePubKey, satellitePrivKey, uplinkPrivKey := generateKeys(ctx, t)
-		server := bwagreement.NewServer(bwdb, zap.NewNop(), satellitePubKey)
+	satellitePubKey, satellitePrivKey, uplinkPrivKey := generateKeys(ctx, t)
+	server := bwagreement.NewServer(bwdb, zap.NewNop(), satellitePubKey)
 
+	{ // TestSameSerialNumberBandwidthAgreements
 		pbaFile1, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, false)
 		assert.NoError(t, err)
 
@@ -50,171 +45,77 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		rbaNode2, err := GenerateRenterBandwidthAllocation(pbaFile1, teststorj.NodeIDFromString("Storage node 2"), uplinkPrivKey)
 		assert.NoError(t, err)
 
-		reply, err := server.BandwidthAgreements(ctx, rbaNode1)
-		assert.NoError(t, err)
-		assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
+		/* More than one storage node can submit bwagreements with the same serial number.
+		   Uplink would like to download a file from 2 storage nodes.
+		   Uplink requests a PayerBandwidthAllocation from the satellite. One serial number for all storage nodes.
+		   Uplink signes 2 RenterBandwidthAllocation for both storage node. */
+		{
+			reply, err := server.BandwidthAgreements(ctx, rbaNode1)
+			assert.NoError(t, err)
+			assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
 
-		reply, err = server.BandwidthAgreements(ctx, rbaNode2)
-		assert.NoError(t, err)
-		assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
+			reply, err = server.BandwidthAgreements(ctx, rbaNode2)
+			assert.NoError(t, err)
+			assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
+		}
 
 		/* Storage node can submit a second bwagreement with a different sequence value.
 		   Uplink downloads another file. New PayerBandwidthAllocation with a new sequence. */
-		pbaFile2, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, false)
-		assert.NoError(t, err)
+		{
+			pbaFile2, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, false)
+			assert.NoError(t, err)
 
-		rbaNode1, err = GenerateRenterBandwidthAllocation(pbaFile2, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
-		assert.NoError(t, err)
+			rbaNode1, err := GenerateRenterBandwidthAllocation(pbaFile2, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
+			assert.NoError(t, err)
 
-		reply, err = server.BandwidthAgreements(ctx, rbaNode1)
-		assert.NoError(t, err)
-		assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
+			reply, err := server.BandwidthAgreements(ctx, rbaNode1)
+			assert.NoError(t, err)
+			assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
+		}
 
 		/* Storage nodes can't submit a second bwagreement with the same sequence. */
-		rbaNode1, err = GenerateRenterBandwidthAllocation(pbaFile1, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
-		assert.NoError(t, err)
+		{
+			rbaNode1, err := GenerateRenterBandwidthAllocation(pbaFile1, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
+			assert.NoError(t, err)
 
-		reply, err = server.BandwidthAgreements(ctx, rbaNode1)
-		assert.EqualError(t, err, "bwagreement error: SerialNumber already exists in the PayerBandwidthAllocation")
-		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
+			reply, err := server.BandwidthAgreements(ctx, rbaNode1)
+			assert.EqualError(t, err, "bwagreement error: SerialNumber already exists in the PayerBandwidthAllocation")
+			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
+		}
 
 		/* Storage nodes can't submit the same bwagreement twice.
 		   This test is kind of duplicate cause it will most likely trigger the same sequence error.
 		   For safety we will try it anyway to make sure nothing strange will happen */
-		reply, err = server.BandwidthAgreements(ctx, rbaNode2)
-		assert.EqualError(t, err, "bwagreement error: SerialNumber already exists in the PayerBandwidthAllocation")
-		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
+		{
+			reply, err := server.BandwidthAgreements(ctx, rbaNode2)
+			assert.EqualError(t, err, "bwagreement error: SerialNumber already exists in the PayerBandwidthAllocation")
+			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
+		}
+	}
+
+	{ // TestExpiredBandwidthAgreements
+
+		{ // storage nodes can't submit an expired bwagreement
+			pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, true)
+			assert.NoError(t, err)
+
+			rba, err := GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
+			assert.NoError(t, err)
+
+			reply, err := server.BandwidthAgreements(ctx, rba)
+			assert.Error(t, err)
+			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
+		}
 	}
 
 	{ // TestManipulatedBandwidthAgreements
-		satellitePubKey, satellitePrivKey, uplinkPrivKey := generateKeys(ctx, t)
-		server := bwagreement.NewServer(bwdb, zap.NewNop(), satellitePubKey)
-
-		// storage nodes can't submit an expired bwagreement
-		expPBA, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, true)
-		assert.NoError(t, err)
-
-		rba, err := GenerateRenterBandwidthAllocation(expPBA, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
-		assert.NoError(t, err)
-
-		reply, err := server.BandwidthAgreements(ctx, rba)
-		assert.Error(t, err)
-		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
-
-		/* Storage node can't manipulate the bwagreement size (or any other field)
-		   Satellite will verify Renter's Signature */
-		pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, false)
-		assert.NoError(t, err)
-
-		rba, err = GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
-		assert.NoError(t, err)
-
-		rbaData := &pb.RenterBandwidthAllocation_Data{}
-		err = proto.Unmarshal(rba.GetData(), rbaData)
-		assert.NoError(t, err)
-
-		rbaData.Total = 1337
-
-		maniprba, err := proto.Marshal(rbaData)
-		assert.NoError(t, err)
-
-		reply, err = server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
-			Signature: rba.GetSignature(),
-			Data:      maniprba,
-		})
-		assert.EqualError(t, err, "bwagreement error: Failed to verify Renter's Signature")
-		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
-
-		/* Storage node can't sign the manipulated bwagreement
-		   Satellite will verify Renter's Signature */
-		_, manipPrivKey, _ := generateKeys(ctx, t)
-		manipSignature, err := cryptopasta.Sign(maniprba, manipPrivKey)
-		assert.NoError(t, err)
-
-		reply, err = server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
-			Signature: manipSignature,
-			Data:      maniprba,
-		})
-		assert.EqualError(t, err, "bwagreement error: Failed to verify Renter's Signature")
-		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
-
-		/* Storage node can't replace uplink PubKey
-		   Satellite will verify Payer's Signature */
-		pbaData := &pb.PayerBandwidthAllocation_Data{}
-		err = proto.Unmarshal(pba.GetData(), pbaData)
-		assert.NoError(t, err)
-
-		pubbytes, err := getUplinkPubKey(manipPrivKey)
-		assert.NoError(t, err)
-
-		pbaData.PubKey = pubbytes
-
-		manippba, err := proto.Marshal(pbaData)
-		assert.NoError(t, err)
-
-		rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
-			Signature: pba.GetSignature(),
-			Data:      manippba,
-		}
-
-		maniprba, err = proto.Marshal(rbaData)
-		assert.NoError(t, err)
-
-		manipSignature, err = cryptopasta.Sign(maniprba, manipPrivKey)
-		assert.NoError(t, err)
-
-		reply, err = server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
-			Signature: manipSignature,
-			Data:      maniprba,
-		})
-		assert.EqualError(t, err, "bwagreement error: Failed to verify Payer's Signature")
-		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
-
-		/* Storage node can't self sign the PayerBandwidthAllocation.
-		   Satellite will verify the Payer's Signature with his own public key. */
-		manipSignature, err = cryptopasta.Sign(manippba, manipPrivKey)
-		assert.NoError(t, err)
-
-		rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
-			Signature: manipSignature,
-			Data:      manippba,
-		}
-
-		maniprba, err = proto.Marshal(rbaData)
-		assert.NoError(t, err)
-
-		manipSignature, err = cryptopasta.Sign(maniprba, manipPrivKey)
-		assert.NoError(t, err)
-
-		reply, err = server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
-			Signature: manipSignature,
-			Data:      maniprba,
-		})
-		assert.EqualError(t, err, "bwagreement error: Failed to verify Payer's Signature")
-		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
-	}
-
-	{ //TestInvalidBandwidthAgreements
-		satellitePubKey, satellitePrivKey, uplinkPrivKey := generateKeys(ctx, t)
-		server := bwagreement.NewServer(bwdb, zap.NewNop(), satellitePubKey)
-
 		pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, false)
 		assert.NoError(t, err)
 
 		rba, err := GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
 		assert.NoError(t, err)
 
-		/* Storage node sends an corrupted signuature to force a satellite crash */
-		rba.Signature = []byte("invalid")
-
-		reply, err := server.BandwidthAgreements(ctx, rba)
-		assert.EqualError(t, err, "bwagreement error: Invalid Renter's Signature Length")
-		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
-
-		/* Storage node sends an corrupted uplink pubkey to force a crash */
-		rba, err = GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("Storage node 2"), uplinkPrivKey)
-		assert.NoError(t, err)
-
+		// Unmarschal Renter and Payer bwagreements
 		rbaData := &pb.RenterBandwidthAllocation_Data{}
 		err = proto.Unmarshal(rba.GetData(), rbaData)
 		assert.NoError(t, err)
@@ -223,25 +124,158 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		err = proto.Unmarshal(pba.GetData(), pbaData)
 		assert.NoError(t, err)
 
-		pbaData.PubKey = nil
+		// Storage node manipulates the bwagreement
+		rbaData.Total = 1337
 
-		invalidpba, err := proto.Marshal(pbaData)
+		// Marschal the manipulated bwagreement
+		maniprba, err := proto.Marshal(rbaData)
 		assert.NoError(t, err)
 
-		rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
-			Signature: pba.GetSignature(),
-			Data:      invalidpba,
+		// Generate a new keypair for self signing bwagreements
+		_, manipPrivKey, _ := generateKeys(ctx, t)
+		manipPubKey, err := getUplinkPubKey(manipPrivKey)
+		assert.NoError(t, err)
+
+		/* Storage node can't manipulate the bwagreement size (or any other field)
+		   Satellite will verify Renter's Signature */
+		{
+			// Using uplink signature
+			reply, err := server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
+				Signature: rba.GetSignature(),
+				Data:      maniprba,
+			})
+
+			assert.EqualError(t, err, "bwagreement error: Failed to verify Renter's Signature")
+			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
-		invalidrba, err := proto.Marshal(rbaData)
+		/* Storage node can't sign the manipulated bwagreement
+		   Satellite will verify Renter's Signature */
+		{
+			manipSignature, err := cryptopasta.Sign(maniprba, manipPrivKey)
+			assert.NoError(t, err)
+
+			// Using self created signature
+			reply, err := server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
+				Signature: manipSignature,
+				Data:      maniprba,
+			})
+
+			assert.EqualError(t, err, "bwagreement error: Failed to verify Renter's Signature")
+			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
+		}
+
+		/* Storage node can't replace uplink PubKey
+		   Satellite will verify Payer's Signature */
+		{
+			// Overwrite the uplink public key with our own keypair
+			pbaData.PubKey = manipPubKey
+
+			manippba, err := proto.Marshal(pbaData)
+			assert.NoError(t, err)
+
+			rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
+				Signature: pba.GetSignature(),
+				Data:      manippba,
+			}
+
+			maniprba, err := proto.Marshal(rbaData)
+			assert.NoError(t, err)
+
+			manipSignature, err := cryptopasta.Sign(maniprba, manipPrivKey)
+			assert.NoError(t, err)
+
+			// Using self created signature + public key
+			reply, err := server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
+				Signature: manipSignature,
+				Data:      maniprba,
+			})
+
+			assert.EqualError(t, err, "bwagreement error: Failed to verify Payer's Signature")
+			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
+		}
+
+		/* Storage node can't self sign the PayerBandwidthAllocation.
+		   Satellite will verify the Payer's Signature with his own public key. */
+		{
+			// Overwrite the uplink public key with our own keypair
+			pbaData.PubKey = manipPubKey
+
+			manippba, err := proto.Marshal(pbaData)
+			assert.NoError(t, err)
+
+			manipSignature, err := cryptopasta.Sign(manippba, manipPrivKey)
+			assert.NoError(t, err)
+
+			rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
+				Signature: manipSignature,
+				Data:      manippba,
+			}
+
+			maniprba, err := proto.Marshal(rbaData)
+			assert.NoError(t, err)
+
+			manipSignature, err = cryptopasta.Sign(maniprba, manipPrivKey)
+			assert.NoError(t, err)
+
+			// Using self created Payer and Renter bwagreement signatures
+			reply, err := server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
+				Signature: manipSignature,
+				Data:      maniprba,
+			})
+
+			assert.EqualError(t, err, "bwagreement error: Failed to verify Payer's Signature")
+			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
+		}
+	}
+
+	{ //TestInvalidBandwidthAgreements
+		pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, false)
 		assert.NoError(t, err)
 
-		reply, err = server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
-			Signature: rba.GetSignature(),
-			Data:      invalidrba,
-		})
-		assert.EqualError(t, err, "bwagreement error: Failed to extract Public Key from RenterBandwidthAllocation: asn1: syntax error: sequence truncated")
-		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
+		{ // Storage node sends an corrupted signuature to force a satellite crash
+			rba, err := GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
+			assert.NoError(t, err)
+
+			rba.Signature = []byte("invalid")
+
+			reply, err := server.BandwidthAgreements(ctx, rba)
+			assert.EqualError(t, err, "bwagreement error: Invalid Renter's Signature Length")
+			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
+		}
+
+		{ // Storage node sends an corrupted uplink pubkey to force a crash
+			rba, err := GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("Storage node 2"), uplinkPrivKey)
+			assert.NoError(t, err)
+
+			rbaData := &pb.RenterBandwidthAllocation_Data{}
+			err = proto.Unmarshal(rba.GetData(), rbaData)
+			assert.NoError(t, err)
+
+			pbaData := &pb.PayerBandwidthAllocation_Data{}
+			err = proto.Unmarshal(pba.GetData(), pbaData)
+			assert.NoError(t, err)
+
+			pbaData.PubKey = nil
+
+			invalidpba, err := proto.Marshal(pbaData)
+			assert.NoError(t, err)
+
+			rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
+				Signature: pba.GetSignature(),
+				Data:      invalidpba,
+			}
+
+			invalidrba, err := proto.Marshal(rbaData)
+			assert.NoError(t, err)
+
+			reply, err := server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
+				Signature: rba.GetSignature(),
+				Data:      invalidrba,
+			})
+			assert.EqualError(t, err, "bwagreement error: Failed to extract Public Key from RenterBandwidthAllocation: asn1: syntax error: sequence truncated")
+			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
+		}
 	}
 }
 
