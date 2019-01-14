@@ -148,7 +148,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
 }
 
 func cmdConfig(cmd *cobra.Command, args []string) (err error) {
