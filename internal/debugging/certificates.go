@@ -8,9 +8,8 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"math/big"
-
 	"github.com/nsf/jsondiff"
+	"math/big"
 )
 
 var (
@@ -59,7 +58,6 @@ func PrintJSON(data interface{}, label string) {
 		}
 	}
 
-	jsonBytes, err = json.MarshalIndent(data, "", "\t\t")
 
 	if label != "" {
 		fmt.Println(label + ": ---================================================================---")
