@@ -7,9 +7,9 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"testing"
-	"github.com/gtank/cryptopasta"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/gtank/cryptopasta"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
@@ -116,7 +116,7 @@ func TestManipulatedBandwidthAgreements(t *testing.T) {
 		maniprba, err := proto.Marshal(rbaData)
 		assert.NoError(t, err)
 
-		reply, err = server.BandwidthAgreements(ctx,&pb.RenterBandwidthAllocation{
+		reply, err = server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
 			Signature: rba.GetSignature(),
 			Data:      maniprba,
 		})
@@ -129,7 +129,7 @@ func TestManipulatedBandwidthAgreements(t *testing.T) {
 		manipSignature, err := cryptopasta.Sign(maniprba, manipPrivKey)
 		assert.NoError(t, err)
 
-		reply, err = server.BandwidthAgreements(ctx,&pb.RenterBandwidthAllocation{
+		reply, err = server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
 			Signature: manipSignature,
 			Data:      maniprba,
 		})
@@ -143,30 +143,30 @@ func TestManipulatedBandwidthAgreements(t *testing.T) {
 		assert.NoError(t, err)
 
 		pubbytes, err := getUplinkPubKey(manipPrivKey)
-                assert.NoError(t, err)
+		assert.NoError(t, err)
 
-                pbaData.PubKey = pubbytes
+		pbaData.PubKey = pubbytes
 
-                manippba, err := proto.Marshal(pbaData)
-                assert.NoError(t, err)
+		manippba, err := proto.Marshal(pbaData)
+		assert.NoError(t, err)
 
-                rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
-                        Signature: pba.GetSignature(),
-                        Data:      manippba,
-                }
+		rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
+			Signature: pba.GetSignature(),
+			Data:      manippba,
+		}
 
-                maniprba, err = proto.Marshal(rbaData)
-                assert.NoError(t, err)
+		maniprba, err = proto.Marshal(rbaData)
+		assert.NoError(t, err)
 
 		manipSignature, err = cryptopasta.Sign(maniprba, manipPrivKey)
 		assert.NoError(t, err)
 
-                reply, err = server.BandwidthAgreements(ctx,&pb.RenterBandwidthAllocation{
-                        Signature: manipSignature,
-                        Data:      maniprba,
-                })
-                assert.EqualError(t, err, "bwagreement error: Failed to verify Payer's Signature")
-                assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
+		reply, err = server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
+			Signature: manipSignature,
+			Data:      maniprba,
+		})
+		assert.EqualError(t, err, "bwagreement error: Failed to verify Payer's Signature")
+		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 	})
 }
 
@@ -216,7 +216,7 @@ func TestInvalidBandwidthAgreements(t *testing.T) {
 		invalidrba, err := proto.Marshal(rbaData)
 		assert.NoError(t, err)
 
-		reply, err = server.BandwidthAgreements(ctx,&pb.RenterBandwidthAllocation{
+		reply, err = server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
 			Signature: rba.GetSignature(),
 			Data:      invalidrba,
 		})
