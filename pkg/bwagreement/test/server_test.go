@@ -22,17 +22,24 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestSameSerialNumberBandwidthAgreements(t *testing.T) {
+func TestBandwidthAgreement(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
+		testDatabase(ctx, t, db.BandwidthAgreement())
+	})
+}
+
+func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
+	//testing variables
+	{ // TestSameSerialNumberBandwidthAgreements
 		/* More than one storage node can submit bwagreements with the same serial number.
 		   Uplink would like to download a file from 2 storage nodes.
 		   Uplink requests a PayerBandwidthAllocation from the satellite. One serial number for all storage nodes.
 		   Uplink signes 2 RenterBandwidthAllocation for both storage node. */
 		satellitePubKey, satellitePrivKey, uplinkPrivKey := generateKeys(ctx, t)
-		server := bwagreement.NewServer(db.BandwidthAgreement(), zap.NewNop(), satellitePubKey)
+		server := bwagreement.NewServer(bwdb, zap.NewNop(), satellitePubKey)
 
 		pbaFile1, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, false)
 		assert.NoError(t, err)
@@ -77,16 +84,11 @@ func TestSameSerialNumberBandwidthAgreements(t *testing.T) {
 		reply, err = server.BandwidthAgreements(ctx, rbaNode2)
 		assert.EqualError(t, err, "bwagreement error: SerialNumber already exists in the PayerBandwidthAllocation")
 		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
-	})
-}
+	}
 
-func TestManipulatedBandwidthAgreements(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	{ // TestManipulatedBandwidthAgreements
 		satellitePubKey, satellitePrivKey, uplinkPrivKey := generateKeys(ctx, t)
-		server := bwagreement.NewServer(db.BandwidthAgreement(), zap.NewNop(), satellitePubKey)
+		server := bwagreement.NewServer(bwdb, zap.NewNop(), satellitePubKey)
 
 		// storage nodes can't submit an expired bwagreement
 		expPBA, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, true)
@@ -167,16 +169,34 @@ func TestManipulatedBandwidthAgreements(t *testing.T) {
 		})
 		assert.EqualError(t, err, "bwagreement error: Failed to verify Payer's Signature")
 		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
-	})
-}
 
-func TestInvalidBandwidthAgreements(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
+		/* Storage node can't self sign the PayerBandwidthAllocation.
+		   Satellite will verify the Payer's Signature with his own public key. */
+		manipSignature, err = cryptopasta.Sign(manippba, manipPrivKey)
+		assert.NoError(t, err)
 
+		rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
+			Signature: manipSignature,
+			Data:      manippba,
+		}
+
+		maniprba, err = proto.Marshal(rbaData)
+		assert.NoError(t, err)
+
+		manipSignature, err = cryptopasta.Sign(maniprba, manipPrivKey)
+		assert.NoError(t, err)
+
+		reply, err = server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
+			Signature: manipSignature,
+			Data:      maniprba,
+		})
+		assert.EqualError(t, err, "bwagreement error: Failed to verify Payer's Signature")
+		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
+	}
+
+	{ //TestInvalidBandwidthAgreements
 		satellitePubKey, satellitePrivKey, uplinkPrivKey := generateKeys(ctx, t)
-		server := bwagreement.NewServer(db.BandwidthAgreement(), zap.NewNop(), satellitePubKey)
+		server := bwagreement.NewServer(bwdb, zap.NewNop(), satellitePubKey)
 
 		pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, false)
 		assert.NoError(t, err)
@@ -222,7 +242,7 @@ func TestInvalidBandwidthAgreements(t *testing.T) {
 		})
 		assert.EqualError(t, err, "bwagreement error: Failed to extract Public Key from RenterBandwidthAllocation: asn1: syntax error: sequence truncated")
 		assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
-	})
+	}
 }
 
 func generateKeys(ctx context.Context, t *testing.T) (satellitePubKey *ecdsa.PublicKey, satellitePrivKey *ecdsa.PrivateKey, uplinkPrivKey *ecdsa.PrivateKey) {
