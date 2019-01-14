@@ -38,9 +38,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	valid, err := fpath.IsValidSetupDir(setupDir)
+	valid, _ := fpath.IsValidSetupDir(setupDir)
 	if !valid {
-		return fmt.Errorf("captplanet configuration already exists (%v).", setupDir)
+		return fmt.Errorf("captplanet configuration already exists (%v)", setupDir)
 	}
 
 	satellitePath := filepath.Join(setupDir, "satellite")
