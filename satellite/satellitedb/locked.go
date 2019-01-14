@@ -19,6 +19,8 @@ import (
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/storage"
 )
 
 // locked implements a locking wrapper around satellite.DB.
@@ -113,6 +115,13 @@ func (m *lockedAccounting) SaveBWRaw(ctx context.Context, latestBwa time.Time, b
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveBWRaw(ctx, latestBwa, bwTotals)
+}
+
+// TODO
+func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*dbx.Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_DataType_AccountingRollup_DataTotal_AccountingRollup_CreatedAt_Row, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.QueryPaymentInfo(ctx, start, end)
 }
 
 // lockedBandwidthAgreement implements locking wrapper for bwagreement.DB
