@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -215,6 +216,24 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--server.address", process.Address,
 			},
 		})
+	}
+
+	{ // verify that we have all binaries
+		missing := map[string]bool{}
+		for _, process := range processes.List {
+			_, err := exec.LookPath(process.Executable)
+			if err != nil {
+				missing[process.Executable] = true
+			}
+		}
+		if len(missing) > 0 {
+			var list []string
+			for executable := range missing {
+				list = append(list, executable)
+			}
+			sort.Strings(list)
+			return nil, fmt.Errorf("some executables cannot be found: %v", list)
+		}
 	}
 
 	// Create directories for all processes

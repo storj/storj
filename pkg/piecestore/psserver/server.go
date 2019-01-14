@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gtank/cryptopasta"
@@ -56,7 +57,7 @@ func DirSize(path string) (int64, error) {
 // Server -- GRPC server meta data used in route calls
 type Server struct {
 	log              *zap.Logger
-	DataDir          string
+	storage          *pstore.Storage
 	DB               *psdb.DB
 	pkey             crypto.PrivateKey
 	totalAllocated   int64
@@ -65,8 +66,7 @@ type Server struct {
 }
 
 // NewEndpoint -- initializes a new endpoint for a piecestore server
-func NewEndpoint(log *zap.Logger, config Config, db *psdb.DB, pkey crypto.PrivateKey) (*Server, error) {
-
+func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *psdb.DB, pkey crypto.PrivateKey) (*Server, error) {
 	// read the allocated disk space from the config file
 	allocatedDiskSpace := config.AllocatedDiskSpace
 	allocatedBandwidth := config.AllocatedBandwidth
@@ -121,7 +121,7 @@ func NewEndpoint(log *zap.Logger, config Config, db *psdb.DB, pkey crypto.Privat
 
 	return &Server{
 		log:              log,
-		DataDir:          filepath.Join(config.Path, "piece-store-data"),
+		storage:          storage,
 		DB:               db,
 		pkey:             pkey,
 		totalAllocated:   allocatedDiskSpace,
@@ -131,10 +131,10 @@ func NewEndpoint(log *zap.Logger, config Config, db *psdb.DB, pkey crypto.Privat
 }
 
 // New creates a Server with custom db
-func New(log *zap.Logger, dataDir string, db *psdb.DB, config Config, pkey crypto.PrivateKey) *Server {
+func New(log *zap.Logger, storage *pstore.Storage, db *psdb.DB, config Config, pkey crypto.PrivateKey) *Server {
 	return &Server{
 		log:              log,
-		DataDir:          dataDir,
+		storage:          storage,
 		DB:               db,
 		pkey:             pkey,
 		totalAllocated:   config.AllocatedDiskSpace,
@@ -143,9 +143,15 @@ func New(log *zap.Logger, dataDir string, db *psdb.DB, config Config, pkey crypt
 	}
 }
 
+// Close stops the server
+func (s *Server) Close() error { return nil }
+
 // Stop the piececstore node
-func (s *Server) Stop(ctx context.Context) (err error) {
-	return s.DB.Close()
+func (s *Server) Stop(ctx context.Context) error {
+	return errs.Combine(
+		s.DB.Close(),
+		s.storage.Close(),
+	)
 }
 
 // Piece -- Send meta data about a stored by by Id
@@ -162,7 +168,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 		return nil, err
 	}
 
-	path, err := pstore.PathByID(id, s.DataDir)
+	path, err := s.storage.PiecePath(id)
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +235,7 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 }
 
 func (s *Server) deleteByID(id string) error {
-	if err := pstore.Delete(id, s.DataDir); err != nil {
+	if err := s.storage.Delete(id); err != nil {
 		return err
 	}
 
@@ -260,13 +266,13 @@ func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllo
 	return nil
 }
 
-func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation_Data, action pb.PayerBandwidthAllocation_Action) (err error) {
+func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation_Data, actionPrefix string) (err error) {
 	switch {
 	case pba.SatelliteId.IsZero():
 		return StoreError.New("payer bandwidth allocation: missing satellite id")
 	case pba.UplinkId.IsZero():
 		return StoreError.New("payer bandwidth allocation: missing uplink id")
-	case pba.Action != action:
+	case !strings.HasPrefix(pba.Action.String(), actionPrefix):
 		return StoreError.New("payer bandwidth allocation: invalid action %v", pba.Action.String())
 	}
 	return nil

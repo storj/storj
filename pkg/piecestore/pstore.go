@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 
 	"github.com/zeebo/errs"
@@ -15,84 +14,82 @@ import (
 	"storj.io/storj/pkg/ranger"
 )
 
+// Storage stores piecestore pieces
+type Storage struct {
+	dir string
+}
+
+// NewStorage creates database for storing pieces
+func NewStorage(dir string) *Storage {
+	return &Storage{dir}
+}
+
+// Close closes resources
+func (storage *Storage) Close() error { return nil }
+
 // IDLength -- Minimum ID length
 const IDLength = 20
 
 // Errors
 var (
-	ArgError = errs.Class("argError")
-	FSError  = errs.Class("fsError")
+	Error = errs.Class("piecestore error")
 )
 
-// PathByID creates datapath from id and dir
-func PathByID(id, dir string) (string, error) {
-	if len(id) < IDLength {
-		return "", ArgError.New("invalid id length")
-	}
-	if dir == "" {
-		return "", ArgError.New("no path provided")
+// PiecePath creates piece storage path from id and dir
+func (storage *Storage) PiecePath(pieceID string) (string, error) {
+	if len(pieceID) < IDLength {
+		return "", Error.New("invalid id length")
 	}
 
-	folder1 := id[0:2]
-	folder2 := id[2:4]
-	fileName := id[4:]
-
-	return path.Join(dir, folder1, folder2, fileName), nil
+	folder1, folder2, filename := pieceID[0:2], pieceID[2:4], pieceID[4:]
+	return filepath.Join(storage.dir, folder1, folder2, filename), nil
 }
 
-// StoreWriter stores data into piece store in multiple writes
-// 	id is the id of the data to be stored
-// 	dir is the pstore directory containing all other data stored
-// 	returns error if failed and nil if successful
-func StoreWriter(id string, dir string) (io.WriteCloser, error) {
-	dataPath, err := PathByID(id, dir)
+// Writer returns a writer that can be used to store piece.
+func (storage *Storage) Writer(pieceID string) (io.WriteCloser, error) {
+	path, err := storage.PiecePath(pieceID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create directory path on file system
-	if err = os.MkdirAll(filepath.Dir(dataPath), 0700); err != nil {
-		return nil, err
+	if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return nil, Error.Wrap(err)
 	}
 
-	// Create File on file system
-	return os.OpenFile(dataPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return file, nil
 }
 
-// RetrieveReader retrieves data from pstore directory
-//	id is the id of the stored data
-//	offset	is the offset of the data that you are reading. Useful for multiple connections to split the data transfer
-//	length is the amount of data to read. Read all data if -1
-//	dir is the pstore directory containing all other data stored
-// 	returns error if failed and nil if successful
-func RetrieveReader(ctx context.Context, id string, offset int64, length int64, dir string) (io.ReadCloser, error) {
-	dataPath, err := PathByID(id, dir)
+// Reader returns a reader for the specified piece at the location
+func (storage *Storage) Reader(ctx context.Context, pieceID string, offset int64, length int64) (io.ReadCloser, error) {
+	path, err := storage.PiecePath(pieceID)
 	if err != nil {
 		return nil, err
 	}
 
-	fileInfo, err := os.Stat(dataPath)
+	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
 	}
 
-	// If offset is greater than file size return
-	if offset >= fileInfo.Size() || offset < 0 {
-		return nil, ArgError.New("invalid offset: %v", offset)
+	if offset >= info.Size() || offset < 0 {
+		return nil, Error.New("invalid offset: %v", offset)
 	}
 
-	// If length less than 0 read the entire file
 	if length <= -1 {
-		length = fileInfo.Size()
+		length = info.Size()
 	}
 
 	// If trying to read past the end of the file, just read to the end
-	if fileInfo.Size() < offset+length {
-		length = fileInfo.Size() - offset
+	if info.Size() < offset+length {
+		length = info.Size() - offset
 	}
 
-	// Created a section reader so that we can concurrently retrieve the same file.
-	rr, err := ranger.FileRanger(dataPath)
+	rr, err := ranger.FileRanger(path)
 	if err != nil {
 		return nil, err
 	}
@@ -100,23 +97,16 @@ func RetrieveReader(ctx context.Context, id string, offset int64, length int64, 
 	return rr.Range(ctx, offset, length)
 }
 
-// Delete deletes data from storagenode
-//	id is the id of the data to be stored
-//	dir is the pstore directory containing all other data stored
-//	returns error if failed and nil if successful
-func Delete(id string, dir string) error {
-	dataPath, err := PathByID(id, dir)
+// Delete deletes piece from storage
+func (storage *Storage) Delete(pieceID string) error {
+	path, err := storage.PiecePath(pieceID)
 	if err != nil {
 		return err
 	}
 
-	if _, err = os.Stat(dataPath); os.IsNotExist(err) {
-		return nil
+	err = os.Remove(path)
+	if os.IsNotExist(err) {
+		err = nil
 	}
-
-	if err = os.Remove(dataPath); err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }

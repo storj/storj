@@ -60,7 +60,6 @@ func TestProjectsRepository(t *testing.T) {
 			Email:        email,
 			PasswordHash: []byte(pass),
 		})
-
 		assert.NoError(t, err)
 		assert.NotNil(t, owner)
 
@@ -71,19 +70,22 @@ func TestProjectsRepository(t *testing.T) {
 		}
 
 		project, err = projects.Insert(ctx, project)
-
 		assert.NotNil(t, project)
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 	})
 
 	t.Run("Get project success", func(t *testing.T) {
-
 		projectByID, err := projects.Get(ctx, project.ID)
-
-		assert.Nil(t, err)
 		assert.NoError(t, err)
+		assert.Equal(t, projectByID.ID, project.ID)
+		assert.Equal(t, projectByID.Name, name)
+		assert.Equal(t, projectByID.Description, description)
+		assert.Equal(t, projectByID.TermsAccepted, 1)
+	})
 
+	t.Run("Get by projectID success", func(t *testing.T) {
+		projectByID, err := projects.Get(ctx, project.ID)
+		assert.NoError(t, err)
 		assert.Equal(t, projectByID.ID, project.ID)
 		assert.Equal(t, projectByID.Name, name)
 		assert.Equal(t, projectByID.Description, description)
@@ -92,7 +94,6 @@ func TestProjectsRepository(t *testing.T) {
 
 	t.Run("Update project success", func(t *testing.T) {
 		oldProject, err := projects.Get(ctx, project.ID)
-
 		assert.NoError(t, err)
 		assert.NotNil(t, oldProject)
 
@@ -104,15 +105,11 @@ func TestProjectsRepository(t *testing.T) {
 		}
 
 		err = projects.Update(ctx, newProject)
-
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 
 		// fetching updated project from db
 		newProject, err = projects.Get(ctx, oldProject.ID)
-
 		assert.NoError(t, err)
-
 		assert.Equal(t, newProject.ID, oldProject.ID)
 		assert.Equal(t, newProject.Description, newDescription)
 		assert.Equal(t, newProject.TermsAccepted, 2)
@@ -120,25 +117,18 @@ func TestProjectsRepository(t *testing.T) {
 
 	t.Run("Delete project success", func(t *testing.T) {
 		oldProject, err := projects.Get(ctx, project.ID)
-
 		assert.NoError(t, err)
 		assert.NotNil(t, oldProject)
 
 		err = projects.Delete(ctx, oldProject.ID)
-
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 
 		_, err = projects.Get(ctx, oldProject.ID)
-
-		assert.NotNil(t, err)
 		assert.Error(t, err)
 	})
 
 	t.Run("GetAll success", func(t *testing.T) {
 		allProjects, err := projects.GetAll(ctx)
-
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.Equal(t, len(allProjects), 0)
 
@@ -149,13 +139,9 @@ func TestProjectsRepository(t *testing.T) {
 		}
 
 		_, err = projects.Insert(ctx, newProject)
-
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 
 		allProjects, err = projects.GetAll(ctx)
-
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.Equal(t, len(allProjects), 1)
 
@@ -166,13 +152,9 @@ func TestProjectsRepository(t *testing.T) {
 		}
 
 		_, err = projects.Insert(ctx, newProject2)
-
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 
 		allProjects, err = projects.GetAll(ctx)
-
-		assert.Nil(t, err)
 		assert.NoError(t, err)
 		assert.Equal(t, len(allProjects), 2)
 	})

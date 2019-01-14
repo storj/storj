@@ -3,6 +3,7 @@
 
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
+import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
 
 // Performs graqhQL request.
 // Throws an exception if error occurs
@@ -78,11 +79,11 @@ export async function deleteProjectMembersRequest(projectID: string, emails: str
 
 // Performs graqhQL request.
 // Throws an exception if error occurs
-export async function fetchProjectMembersRequest(projectID: string, limit: string, offset: string): Promise<RequestResponse<TeamMemberModel[]>> {
+export async function fetchProjectMembersRequest(projectID: string, limit: string, offset: string, sortBy: ProjectMemberSortByEnum, searchQuery: string): Promise<RequestResponse<TeamMemberModel[]>> {
 	let result: RequestResponse<TeamMemberModel[]> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: []
+		errorMessage: '',
+		isSuccess: false,
+		data: []
 	};
 
 	try {
@@ -93,7 +94,7 @@ export async function fetchProjectMembersRequest(projectID: string, limit: strin
 						project(
 							id: "${projectID}",
 						) {
-							members(limit: ${limit}, offset: ${offset}) {
+							members(limit: ${limit}, offset: ${offset}, order: ${sortBy}, search: "${searchQuery}") {
 								user {
 									id,
 									firstName,

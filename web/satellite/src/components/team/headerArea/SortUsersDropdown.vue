@@ -2,10 +2,10 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="sort-container" >
+    <div class="sort-container" id="sortTeamMemberByDropdownButton">
         <!-- TODO: fix dd styles on hover -->
         <div class="sort-toggle-container" v-on:click="toggleSelection" >
-            <h1 class="sort-toggle-container__sort-name">Sort by name</h1>
+            <h1 class="sort-toggle-container__sort-name">Sort by {{sortOption}}</h1>
             <div class="sort-toggle-container__expander-area">
                 <img v-if="!isChoiceShown" src="../../../../static/images/register/BlueExpand.svg" />
                 <img v-if="isChoiceShown" src="../../../../static/images/register/BlueHide.svg" />
@@ -16,22 +16,38 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import SortDropdown from './SortDropdown.vue';
+	import { Component, Vue } from 'vue-property-decorator';
+	import SortDropdown from './SortDropdown.vue';
+	import { mapState } from 'vuex';
+	import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
+	import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component(
+	@Component(
     {
         data: function () {
             return {
                 userName: this.$store.getters.userName,
-                isChoiceShown: false
             };
         },
         methods: {
             toggleSelection: function (): void {
-                this.$data.isChoiceShown = !this.$data.isChoiceShown;
+            	this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
             }
         },
+		computed: mapState({
+			sortOption: (state: any) => {
+				switch (state.projectMembersModule.searchParameters.sortBy) {
+					case ProjectMemberSortByEnum.EMAIL:
+						return 'email';
+
+					case ProjectMemberSortByEnum.CREATED_AT:
+						return 'date';
+                    default: // ProjectMemberSortByEnum.NAME
+                    	return 'name';
+				}
+            },
+			isChoiceShown: (state: any) => state.appStateModule.appState.isSortProjectMembersByPopupShown
+		}),
         components: {
             SortDropdown
         }
