@@ -162,11 +162,11 @@ model overlay_cache_node (
 	field node_id   blob
 	field node_type int
 
-	field address   text (updatable)
+	field address   text (updatable) // TODO: use compressed format
 	field protocol  int  (updatable)
 	
 	field operator_email  text (updatable)
-	field operator_wallet text (updatable)
+	field operator_wallet text (updatable) //TODO: use compressed format
 	
 	field free_bandwidth int64 (updatable)
 	field free_disk      int64 (updatable)

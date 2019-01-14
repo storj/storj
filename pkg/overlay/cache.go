@@ -37,7 +37,7 @@ var OverlayError = errs.Class("Overlay Error")
 type CacheDB interface {
 	Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error)
 	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
-	Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) error
+	Update(ctx context.Context, value *pb.Node) error
 	Delete(ctx context.Context, id storj.NodeID) error
 }
 
@@ -89,6 +89,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if err != nil {
 		return err
 	}
+	value.Id = nodeID
 	value.Reputation = &pb.NodeStats{
 		AuditSuccessRatio:  stats.AuditSuccessRatio,
 		AuditSuccessCount:  stats.AuditSuccessCount,
@@ -98,7 +99,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 		UptimeCount:        stats.UptimeCount,
 	}
 
-	return cache.db.Put(ctx, nodeID, value)
+	return cache.db.Update(ctx, nodeID, value)
 }
 
 // Delete will remove the node from the cache. Used when a node hard disconnects or fails

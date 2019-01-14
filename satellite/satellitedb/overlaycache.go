@@ -6,7 +6,8 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"errors"
+
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/utils"
@@ -20,111 +21,113 @@ type overlaycache struct {
 	db *dbx.DB
 }
 
-func (o *overlaycache) Put(key storage.Key, value storage.Value) error {
+func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (storage.Value, error) {
 	if key.IsZero() {
-		return storage.ErrEmptyKey.New("")
+		return nil, overlay.ErrEmptyNode
 	}
-	ctx := context.Background() // TODO: fix
 
-	tx, err := o.db.Open(ctx)
+	node, err := cache.db.Get_OverlayCacheNode_By_NodeId(ctx, 
+		dbx.OverlayCacheNode_NodeId(id.Bytes()),
+	)
+	if err == sql.ErrNoRows {
+		return nil, overlay.ErrNodeNotFound
+	}
+	return convertOverlayNode(node), err
+}
+
+func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDs) ([]*pb.Node, error) {
+	infos := make([]*pb.Node, len(ids))
+	for i, id := range ids {
+		// TODO: abort on canceled context
+		info, err := o.Get(ctx, id)
+		if err != nil {
+			continue
+		}
+		infos[i] = info
+	}
+	return infos, nil
+}
+
+func (cache *overlaycache) Update(ctx context.Context,  value *pb.Node) (err error) {
+	if key.IsZero() {
+		return nil, overlay.ErrEmptyNode
+	}
+
+	tx, err := cache.db.Open(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	_, err = tx.Get_OverlayCacheNode_By_Key(ctx, dbx.OverlayCacheNode_Key(key))
+	// TODO: use upsert
+	_, err = tx.Get_OverlayCacheNode_By_NodeId(ctx, 
+		dbx.OverlayCacheNode_Key(key),
+	)
 	if err != nil {
 		_, err = tx.Create_OverlayCacheNode(
 			ctx,
-			dbx.OverlayCacheNode_Key(key),
-			dbx.OverlayCacheNode_Value(value),
+			dbx.OverlayCacheNode_NodeId(info.Id),
+
+			dbx.OverlayCacheNode_NodeType(int(info.NodeType)),
+			dbx.OverlayCacheNode_Address(info.Address.Address),
+			dbx.OverlayCacheNode_Protocol(int(info.Address.Protocol)),
+			dbx.OverlayCacheNode_OperatorEmail(info.Metadata.Email),
+			dbx.OverlayCacheNode_OperatorWallet(info.Metadata.Wallet),
+			dbx.OverlayCacheNode_FreeBandwidth(info.Restrictions.FreeBandwidth),
+			dbx.OverlayCacheNode_FreeDisk(info.Restrictions.FreeDisk),
+			dbx.OverlayCacheNode_Latency90(info.Reputation.Latency90),
+			dbx.OverlayCacheNode_AuditSuccessRatio(info.Reputation.AuditSuccessRatio),
+			dbx.OverlayCacheNode_AuditUptimeRatio(info.Reputation.AuditUptimeRatio),
+			dbx.OverlayCacheNode_AuditCount(info.Reputation.AuditCount),
+			dbx.OverlayCacheNode_AuditSuccessCount(info.Reputation.AuditSuccessCount),
+			dbx.OverlayCacheNode_UptimeCount(info.Reputation.UptimeCount),
+			dbx.OverlayCacheNode_UptimeSuccessCount(info.Reputation.UptimeSuccessCount),
 		)
 		if err != nil {
-			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 	} else {
-		updateFields := dbx.OverlayCacheNode_Update_Fields{}
-		updateFields.Value = dbx.OverlayCacheNode_Value(value)
-		_, err := tx.Update_OverlayCacheNode_By_Key(
+		_, err := tx.Update_OverlayCacheNode_By_NodeId(
 			ctx,
 			dbx.OverlayCacheNode_Key(key),
-			updateFields,
+			dbx.OverlayCacheNode_Update_Fields{
+				dbx.OverlayCacheNode_Address(info.Address.Address),
+				dbx.OverlayCacheNode_Protocol(int(info.Address.Protocol)),
+				
+				dbx.OverlayCacheNode_OperatorEmail(info.Metadata.Email),
+				dbx.OverlayCacheNode_OperatorWallet(info.Metadata.Wallet),
+				
+				dbx.OverlayCacheNode_FreeBandwidth(info.Restrictions.FreeBandwidth),
+				dbx.OverlayCacheNode_FreeDisk(info.Restrictions.FreeDisk),
+				
+				dbx.OverlayCacheNode_Latency90(info.Reputation.Latency90),
+				
+				dbx.OverlayCacheNode_AuditSuccessRatio(info.Reputation.AuditSuccessRatio),
+				dbx.OverlayCacheNode_AuditUptimeRatio(info.Reputation.AuditUptimeRatio),
+				dbx.OverlayCacheNode_AuditCount(info.Reputation.AuditCount),
+				dbx.OverlayCacheNode_AuditSuccessCount(info.Reputation.AuditSuccessCount),
+				
+				dbx.OverlayCacheNode_UptimeCount(info.Reputation.UptimeCount),
+				dbx.OverlayCacheNode_UptimeSuccessCount(info.Reputation.UptimeSuccessCount),
+			},
 		)
 		if err != nil {
-			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 	}
 	return Error.Wrap(tx.Commit())
 }
 
-func (o *overlaycache) Get(key storage.Key) (storage.Value, error) {
-	if key.IsZero() {
-		return nil, storage.ErrEmptyKey.New("")
-	}
-
-	ctx := context.Background() // TODO: fix
-
-	node, err := o.db.Get_OverlayCacheNode_By_Key(ctx, dbx.OverlayCacheNode_Key(key))
-	if err == sql.ErrNoRows {
-		return nil, storage.ErrKeyNotFound.New(key.String())
-	}
-	if err != nil {
-		return nil, err
-	}
-	return node.Value, nil
-}
-
-func (o *overlaycache) GetAll(keys storage.Keys) (storage.Values, error) {
-	values := make([]storage.Value, len(keys))
-	for i, key := range keys {
-		value, err := o.Get(key)
-		if err == nil {
-			values[i] = value
-		}
-	}
-	return values, nil
-}
-
-func (o *overlaycache) Delete(key storage.Key) error {
-	ctx := context.Background() // TODO: fix
-	_, err := o.db.Delete_OverlayCacheNode_By_Key(ctx, dbx.OverlayCacheNode_Key(key))
+func (cache *overlaycache) Delete(ctx context.Context, id storj.NodeID) error {
+	_, err := cache.db.Delete_OverlayCacheNode_By_NodeId(ctx, 
+		dbx.OverlayCacheNode_NodeId(id.Bytes()),
+	)
 	return err
 }
 
-func (o *overlaycache) List(start storage.Key, limit int) (keys storage.Keys, err error) {
-	ctx := context.Background() // TODO: fix
-	if limit <= 0 || limit > storage.LookupLimit {
-		limit = storage.LookupLimit
+func convertOverlayNode(node *dbx.OverlayCacheNode) *pb.Node {
+	if node == nil {
+		return nil
 	}
-
-	var rows []*dbx.OverlayCacheNode
-	if start == nil {
-		rows, err = o.db.Limited_OverlayCacheNode(ctx, limit, 0)
-	} else {
-		rows, err = o.db.Limited_OverlayCacheNode_By_Key_GreaterOrEqual(ctx, dbx.OverlayCacheNode_Key(start), limit, 0)
-	}
-	if err != nil {
-		return []storage.Key{}, err
-	}
-
-	keys = make([]storage.Key, len(rows))
-	for i, row := range rows {
-		keys[i] = row.Key
-	}
-
-	return keys, nil
-}
-
-// ReverseList lists all keys in revers order
-func (o *overlaycache) ReverseList(start storage.Key, limit int) (storage.Keys, error) {
-	return nil, errors.New("not implemented")
-}
-
-// Iterate iterates over items based on opts
-func (o *overlaycache) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
-	return errors.New("not implemented")
-}
-
-// Close closes the store
-func (o *overlaycache) Close() error {
-	return errors.New("not implemented")
+	// TODO:
+	return nil
 }
