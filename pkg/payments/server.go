@@ -49,7 +49,3 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 	// TODO
 	return &pb.GenerateCSVResponse{}, nil
 }
-
-func (srv *Server) query() {
-	srv.accountingDB.
-}
