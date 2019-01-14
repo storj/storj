@@ -31,9 +31,8 @@ import (
 
 // StorageNode defines storage node configuration
 type StorageNode struct {
-	CA        identity.CASetupConfig `setup:"true"`
-	Identity  identity.SetupConfig   `setup:"true"`
-	Overwrite bool                   `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
+	CA       identity.CASetupConfig `setup:"true"`
+	Identity identity.SetupConfig   `setup:"true"`
 
 	Server   server.Config
 	Kademlia kademlia.StorageNodeConfig
@@ -77,13 +76,12 @@ var (
 
 	defaultConfDir string
 	defaultDiagDir string
-	confDir        *string
+	confDir        string
 	editConfig     bool
 )
 
 const (
-	defaultServerAddr    = ":28967"
-	defaultSatteliteAddr = "127.0.0.1:7778"
+	defaultServerAddr = ":28967"
 )
 
 func init() {
@@ -94,8 +92,9 @@ func init() {
 		defaultConfDir = dirParam
 	}
 
-	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for storagenode configuration")
-	rootCmd.PersistentFlags().BoolVarP(&editConfig, "edit-conf", "", false, "open config in default editor")
+	setupCmd.Flags().BoolVarP(&editConfig, "edit-conf", "", false, "open config in default editor")
+	configCmd.Flags().BoolVarP(&editConfig, "edit-conf", "", false, "open config in default editor")
+	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
@@ -124,20 +123,14 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*confDir)
+	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
 
-	valid, err := fpath.IsValidSetupDir(setupDir)
-	if !setupCfg.Overwrite && !valid {
-		return fmt.Errorf("storagenode configuration already exists (%v). Rerun with --overwrite", setupDir)
-	} else if setupCfg.Overwrite && err == nil {
-		fmt.Println("overwriting existing storagenode config")
-		err = os.RemoveAll(setupDir)
-		if err != nil {
-			return err
-		}
+	valid, _ := fpath.IsValidSetupDir(setupDir)
+	if !valid {
+		return fmt.Errorf("storagenode configuration already exists (%v)", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
@@ -145,13 +138,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// TODO: this is only applicable once we stop deleting the entire config dir on overwrite
-	// (see https://storjlabs.atlassian.net/browse/V3-1013)
-	// (see https://storjlabs.atlassian.net/browse/V3-949)
-	if setupCfg.Overwrite {
-		setupCfg.CA.Overwrite = true
-		setupCfg.Identity.Overwrite = true
-	}
 	setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
 	setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
 	setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
@@ -174,8 +160,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"identity.key-path":       setupCfg.Identity.KeyPath,
 		"identity.server.address": defaultServerAddr,
 		"storage.path":            filepath.Join(setupDir, "storage"),
-		"kademlia.bootstrap-addr": defaultSatteliteAddr,
-		"log.level":               "debug",
+		"log.level":               "info",
 	}
 
 	configFile := filepath.Join(setupDir, "config.yaml")
@@ -193,7 +178,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdConfig(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*confDir)
+	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
@@ -211,7 +196,7 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
-	diagDir, err := filepath.Abs(*confDir)
+	diagDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
