@@ -52,9 +52,19 @@ var (
 	contexts   = map[*cobra.Command]context.Context{}
 )
 
-// SaveConfig will save all flags with default values to outfilewith specific
-// values specified in 'overrides' overridden.
-func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}, saveAllDefaults bool) error {
+// SaveConfig will save only the user-specific flags with default values to
+// outfile with specific values specified in 'overrides' overridden.
+func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}) error {
+	return saveConfig(flagset, outfile, overrides, false)
+}
+
+// SaveConfigWithAllDefaults will save all flags with default values to outfile
+// with specific values specified in 'overrides' overridden.
+func SaveConfigWithAllDefaults(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}) error {
+	return saveConfig(flagset, outfile, overrides, true)
+}
+
+func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}, saveAllDefaults bool) error {
 	// we previously used Viper here, but switched to a custom serializer to allow comments
 	//todo:  switch back to Viper once go-yaml v3 is released and its supports writing comments?
 	flagset.AddFlagSet(pflag.CommandLine)

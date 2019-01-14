@@ -154,7 +154,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		overrides[storagenode+"kademlia.alpha"] = 3
 	}
 
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides, true)
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 }
 
 func joinHostPort(host string, port int) string {
