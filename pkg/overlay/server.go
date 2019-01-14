@@ -118,11 +118,6 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 	}, nil
 }
 
-func (server *Server) getNodes(ctx context.Context, ids storj.NodeIDList) ([]*pb.Node, error) {
-	values, err := server.cache.db.GetAll(ctx, ids)
-	return values, Error.Wrap(err)
-}
-
 // TODO: nicer method arguments
 func (server *Server) populate(ctx context.Context,
 	startID storj.NodeID, maxNodes int64,

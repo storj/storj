@@ -85,6 +85,11 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 		dbx.OverlayCacheNode_NodeId(info.Id.Bytes()),
 	)
 
+	address := info.Address
+	if address == nil {
+		address = &pb.NodeAddress{}
+	}
+
 	metadata := info.Metadata
 	if metadata == nil {
 		metadata = &pb.NodeMetadata{}
@@ -109,8 +114,8 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			dbx.OverlayCacheNode_NodeId(info.Id.Bytes()),
 
 			dbx.OverlayCacheNode_NodeType(int(info.Type)),
-			dbx.OverlayCacheNode_Address(info.Address.Address),
-			dbx.OverlayCacheNode_Protocol(int(info.Address.Transport)),
+			dbx.OverlayCacheNode_Address(address.Address),
+			dbx.OverlayCacheNode_Protocol(int(address.Transport)),
 
 			dbx.OverlayCacheNode_OperatorEmail(metadata.Email),
 			dbx.OverlayCacheNode_OperatorWallet(metadata.Wallet),
@@ -132,8 +137,8 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 		}
 	} else {
 		update := dbx.OverlayCacheNode_Update_Fields{
-			Address:  dbx.OverlayCacheNode_Address(info.Address.Address),
-			Protocol: dbx.OverlayCacheNode_Protocol(int(info.Address.Transport)),
+			Address:  dbx.OverlayCacheNode_Address(address.Address),
+			Protocol: dbx.OverlayCacheNode_Protocol(int(address.Transport)),
 
 			Latency90:          dbx.OverlayCacheNode_Latency90(info.Reputation.Latency_90),
 			AuditSuccessRatio:  dbx.OverlayCacheNode_AuditSuccessRatio(info.Reputation.AuditSuccessRatio),
@@ -208,11 +213,17 @@ func convertOverlayNode(info *dbx.OverlayCacheNode) (*pb.Node, error) {
 		},
 	}
 
+	if node.Address.Address == "" {
+		node.Address = nil
+	}
 	if node.Metadata.Email == "" && node.Metadata.Wallet == "" {
 		node.Metadata = nil
 	}
 	if node.Restrictions.FreeBandwidth < 0 && node.Restrictions.FreeDisk < 0 {
 		node.Restrictions = nil
+	}
+	if node.Reputation.Latency_90 < 0 {
+		node.Reputation = nil
 	}
 
 	return node, nil
