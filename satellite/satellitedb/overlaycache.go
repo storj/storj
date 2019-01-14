@@ -32,7 +32,10 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*pb.Node, 
 	if err == sql.ErrNoRows {
 		return nil, overlay.ErrNodeNotFound
 	}
-	return convertOverlayNode(node), err
+	if err != nil {
+		return nil, err
+	}
+	return convertOverlayNode(node)
 }
 
 func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*pb.Node, error) {
@@ -59,7 +62,10 @@ func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit 
 
 	infos := make([]*pb.Node, len(dbxInfos))
 	for i, dbxInfo := range dbxInfos {
-		infos[i] = convertOverlayNode(dbxInfo)
+		infos[i], err = convertOverlayNode(dbxInfo)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return infos, nil
 }
@@ -110,22 +116,22 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			ctx,
 			dbx.OverlayCacheNode_NodeId(info.Id.Bytes()),
 			dbx.OverlayCacheNode_Update_Fields{
-				dbx.OverlayCacheNode_Address(info.Address.Address),
-				dbx.OverlayCacheNode_Protocol(int(info.Address.Transport)),
+				Address:  dbx.OverlayCacheNode_Address(info.Address.Address),
+				Protocol: dbx.OverlayCacheNode_Protocol(int(info.Address.Transport)),
 
-				dbx.OverlayCacheNode_OperatorEmail(info.Metadata.Email),
-				dbx.OverlayCacheNode_OperatorWallet(info.Metadata.Wallet),
+				OperatorEmail:  dbx.OverlayCacheNode_OperatorEmail(info.Metadata.Email),
+				OperatorWallet: dbx.OverlayCacheNode_OperatorWallet(info.Metadata.Wallet),
 
-				dbx.OverlayCacheNode_FreeBandwidth(info.Restrictions.FreeBandwidth),
-				dbx.OverlayCacheNode_FreeDisk(info.Restrictions.FreeDisk),
+				FreeBandwidth: dbx.OverlayCacheNode_FreeBandwidth(info.Restrictions.FreeBandwidth),
+				FreeDisk:      dbx.OverlayCacheNode_FreeDisk(info.Restrictions.FreeDisk),
 
-				dbx.OverlayCacheNode_Latency90(info.Reputation.Latency_90),
-				dbx.OverlayCacheNode_AuditSuccessRatio(info.Reputation.AuditSuccessRatio),
-				dbx.OverlayCacheNode_AuditUptimeRatio(info.Reputation.UptimeRatio),
-				dbx.OverlayCacheNode_AuditCount(info.Reputation.AuditCount),
-				dbx.OverlayCacheNode_AuditSuccessCount(info.Reputation.AuditSuccessCount),
-				dbx.OverlayCacheNode_UptimeCount(info.Reputation.UptimeCount),
-				dbx.OverlayCacheNode_UptimeSuccessCount(info.Reputation.UptimeSuccessCount),
+				Latency90:          dbx.OverlayCacheNode_Latency90(info.Reputation.Latency_90),
+				AuditSuccessRatio:  dbx.OverlayCacheNode_AuditSuccessRatio(info.Reputation.AuditSuccessRatio),
+				AuditUptimeRatio:   dbx.OverlayCacheNode_AuditUptimeRatio(info.Reputation.UptimeRatio),
+				AuditCount:         dbx.OverlayCacheNode_AuditCount(info.Reputation.AuditCount),
+				AuditSuccessCount:  dbx.OverlayCacheNode_AuditSuccessCount(info.Reputation.AuditSuccessCount),
+				UptimeCount:        dbx.OverlayCacheNode_UptimeCount(info.Reputation.UptimeCount),
+				UptimeSuccessCount: dbx.OverlayCacheNode_UptimeSuccessCount(info.Reputation.UptimeSuccessCount),
 			},
 		)
 		if err != nil {
@@ -142,10 +148,39 @@ func (cache *overlaycache) Delete(ctx context.Context, id storj.NodeID) error {
 	return err
 }
 
-func convertOverlayNode(node *dbx.OverlayCacheNode) *pb.Node {
-	if node == nil {
-		return nil
+func convertOverlayNode(info *dbx.OverlayCacheNode) (*pb.Node, error) {
+	if info == nil {
+		return nil, Error.New("missing info")
 	}
-	// TODO:
-	return nil
+
+	id, err := storj.NodeIDFromBytes(info.NodeId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.Node{
+		Id:   id,
+		Type: pb.NodeType(info.NodeType),
+		Address: &pb.NodeAddress{
+			Address:   info.Address,
+			Transport: pb.NodeTransport(info.Protocol),
+		},
+		Metadata: &pb.NodeMetadata{
+			Email:  info.OperatorEmail,
+			Wallet: info.OperatorWallet,
+		},
+		Restrictions: &pb.NodeRestrictions{
+			FreeBandwidth: info.FreeBandwidth,
+			FreeDisk:      info.FreeDisk,
+		},
+		Reputation: &pb.NodeStats{
+			Latency_90:         info.Latency90,
+			AuditSuccessRatio:  info.AuditSuccessRatio,
+			UptimeRatio:        info.AuditUptimeRatio,
+			AuditCount:         info.AuditCount,
+			AuditSuccessCount:  info.AuditSuccessCount,
+			UptimeCount:        info.UptimeCount,
+			UptimeSuccessCount: info.UptimeSuccessCount,
+		},
+	}, nil
 }
