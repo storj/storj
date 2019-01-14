@@ -26,6 +26,13 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE buckets (
+	name text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	path_cipher integer NOT NULL,
+	PRIMARY KEY ( name ),
+	UNIQUE ( name )
+);
 CREATE TABLE bwagreements (
 	signature bytea NOT NULL,
 	serialnum text NOT NULL,

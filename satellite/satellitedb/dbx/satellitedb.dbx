@@ -372,3 +372,47 @@ read all (
     where bucket_info.project_id = ?
     orderby asc bucket_info.name
 )
+
+//--- metainfo ---//
+
+model bucket (
+	key    name
+	unique name
+
+	field name text
+	field created_at timestamp
+	field path_cipher int
+)
+
+create bucket ()
+
+delete bucket ( where bucket.name = ? )
+
+read one (
+	select bucket
+	where  bucket.name = ?
+)
+
+read limitoffset (
+	select bucket	
+	where bucket.name > ?
+	orderby asc bucket.name
+)
+
+read limitoffset (
+	select bucket	
+	where bucket.name >= ?
+	orderby asc bucket.name
+)
+
+read limitoffset (
+	select bucket	
+	where bucket.name < ?
+	orderby desc bucket.name
+)
+
+read limitoffset (
+	select bucket	
+	where bucket.name <= ?
+	orderby desc bucket.name
+)

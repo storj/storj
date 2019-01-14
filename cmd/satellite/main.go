@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -48,6 +49,7 @@ type Satellite struct {
 	Server      server.Config
 	Kademlia    kademlia.SatelliteConfig
 	PointerDB   pointerdb.Config
+	Metainfo    metainfo.Config
 	Overlay     overlay.Config
 	Checker     checker.Config
 	Repairer    repairer.Config

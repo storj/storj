@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
+	"storj.io/storj/uplink/metainfo"
 )
 
 var mon = monkit.Package()
@@ -31,16 +32,18 @@ type DB struct {
 	segments segments.Store
 	pointers pdbclient.Client
 
-	rootKey *storj.Key
+	metainfo *metainfo.Client
+	rootKey  *storj.Key
 }
 
 // New creates a new metainfo database
-func New(buckets buckets.Store, streams streams.Store, segments segments.Store, pointers pdbclient.Client, rootKey *storj.Key) *DB {
+func New(buckets buckets.Store, streams streams.Store, segments segments.Store, pointers pdbclient.Client, metainfo *metainfo.Client, rootKey *storj.Key) *DB {
 	return &DB{
 		buckets:  buckets,
 		streams:  streams,
 		segments: segments,
 		pointers: pointers,
+		metainfo: metainfo,
 		rootKey:  rootKey,
 	}
 }

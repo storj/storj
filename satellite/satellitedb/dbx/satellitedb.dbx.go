@@ -299,6 +299,13 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE buckets (
+	name text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	path_cipher integer NOT NULL,
+	PRIMARY KEY ( name ),
+	UNIQUE ( name )
+);
 CREATE TABLE bwagreements (
 	signature bytea NOT NULL,
 	serialnum text NOT NULL,
@@ -480,6 +487,13 @@ CREATE TABLE accounting_timestamps (
 	name TEXT NOT NULL,
 	value TIMESTAMP NOT NULL,
 	PRIMARY KEY ( name )
+);
+CREATE TABLE buckets (
+	name TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	path_cipher INTEGER NOT NULL,
+	PRIMARY KEY ( name ),
+	UNIQUE ( name )
 );
 CREATE TABLE bwagreements (
 	signature BLOB NOT NULL,
@@ -1000,6 +1014,74 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 }
 
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
+
+type Bucket struct {
+	Name       string
+	CreatedAt  time.Time
+	PathCipher int
+}
+
+func (Bucket) _Table() string { return "buckets" }
+
+type Bucket_Update_Fields struct {
+}
+
+type Bucket_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Bucket_Name(v string) Bucket_Name_Field {
+	return Bucket_Name_Field{_set: true, _value: v}
+}
+
+func (f Bucket_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_Name_Field) _Column() string { return "name" }
+
+type Bucket_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Bucket_CreatedAt(v time.Time) Bucket_CreatedAt_Field {
+	return Bucket_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Bucket_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Bucket_PathCipher_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Bucket_PathCipher(v int) Bucket_PathCipher_Field {
+	return Bucket_PathCipher_Field{_set: true, _value: v}
+}
+
+func (f Bucket_PathCipher_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_PathCipher_Field) _Column() string { return "path_cipher" }
 
 type Bwagreement struct {
 	Signature []byte
@@ -2836,6 +2918,29 @@ func (obj *postgresImpl) Create_BucketInfo(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_Bucket(ctx context.Context,
+	bucket_name Bucket_Name_Field,
+	bucket_created_at Bucket_CreatedAt_Field,
+	bucket_path_cipher Bucket_PathCipher_Field) (
+	bucket *Bucket, err error) {
+	__name_val := bucket_name.value()
+	__created_at_val := bucket_created_at.value()
+	__path_cipher_val := bucket_path_cipher.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO buckets ( name, created_at, path_cipher ) VALUES ( ?, ?, ? ) RETURNING buckets.name, buckets.created_at, buckets.path_cipher")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __name_val, __created_at_val, __path_cipher_val)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, __name_val, __created_at_val, __path_cipher_val).Scan(&bucket.Name, &bucket.CreatedAt, &bucket.PathCipher)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
+
+}
+
 func (obj *postgresImpl) Get_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	bwagreement *Bwagreement, err error) {
@@ -3702,6 +3807,171 @@ func (obj *postgresImpl) All_BucketInfo_By_ProjectId_OrderBy_Asc_Name(ctx contex
 
 }
 
+func (obj *postgresImpl) Get_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.name, buckets.created_at, buckets.path_cipher FROM buckets WHERE buckets.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket.Name, &bucket.CreatedAt, &bucket.PathCipher)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
+
+}
+
+func (obj *postgresImpl) Limited_Bucket_By_Name_Greater_OrderBy_Asc_Name(ctx context.Context,
+	bucket_name_greater Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.name, buckets.created_at, buckets.path_cipher FROM buckets WHERE buckets.name > ? ORDER BY buckets.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name_greater.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Name, &bucket.CreatedAt, &bucket.PathCipher)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_Bucket_By_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
+	bucket_name_greater_or_equal Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.name, buckets.created_at, buckets.path_cipher FROM buckets WHERE buckets.name >= ? ORDER BY buckets.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name_greater_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Name, &bucket.CreatedAt, &bucket.PathCipher)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_Bucket_By_Name_Less_OrderBy_Desc_Name(ctx context.Context,
+	bucket_name_less Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.name, buckets.created_at, buckets.path_cipher FROM buckets WHERE buckets.name < ? ORDER BY buckets.name DESC LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Name, &bucket.CreatedAt, &bucket.PathCipher)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_Bucket_By_Name_LessOrEqual_OrderBy_Desc_Name(ctx context.Context,
+	bucket_name_less_or_equal Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.name, buckets.created_at, buckets.path_cipher FROM buckets WHERE buckets.name <= ? ORDER BY buckets.name DESC LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name_less_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Name, &bucket.CreatedAt, &bucket.PathCipher)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -4442,6 +4712,32 @@ func (obj *postgresImpl) Delete_BucketInfo_By_Name(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Delete_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM buckets WHERE buckets.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -4546,6 +4842,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bwagreements;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM buckets;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -4998,6 +5304,32 @@ func (obj *sqlite3Impl) Create_BucketInfo(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastBucketInfo(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_Bucket(ctx context.Context,
+	bucket_name Bucket_Name_Field,
+	bucket_created_at Bucket_CreatedAt_Field,
+	bucket_path_cipher Bucket_PathCipher_Field) (
+	bucket *Bucket, err error) {
+	__name_val := bucket_name.value()
+	__created_at_val := bucket_created_at.value()
+	__path_cipher_val := bucket_path_cipher.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO buckets ( name, created_at, path_cipher ) VALUES ( ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __name_val, __created_at_val, __path_cipher_val)
+
+	__res, err := obj.driver.Exec(__stmt, __name_val, __created_at_val, __path_cipher_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastBucket(ctx, __pk)
 
 }
 
@@ -5867,6 +6199,171 @@ func (obj *sqlite3Impl) All_BucketInfo_By_ProjectId_OrderBy_Asc_Name(ctx context
 
 }
 
+func (obj *sqlite3Impl) Get_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.name, buckets.created_at, buckets.path_cipher FROM buckets WHERE buckets.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket.Name, &bucket.CreatedAt, &bucket.PathCipher)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Bucket_By_Name_Greater_OrderBy_Asc_Name(ctx context.Context,
+	bucket_name_greater Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.name, buckets.created_at, buckets.path_cipher FROM buckets WHERE buckets.name > ? ORDER BY buckets.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name_greater.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Name, &bucket.CreatedAt, &bucket.PathCipher)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Bucket_By_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
+	bucket_name_greater_or_equal Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.name, buckets.created_at, buckets.path_cipher FROM buckets WHERE buckets.name >= ? ORDER BY buckets.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name_greater_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Name, &bucket.CreatedAt, &bucket.PathCipher)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Bucket_By_Name_Less_OrderBy_Desc_Name(ctx context.Context,
+	bucket_name_less Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.name, buckets.created_at, buckets.path_cipher FROM buckets WHERE buckets.name < ? ORDER BY buckets.name DESC LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Name, &bucket.CreatedAt, &bucket.PathCipher)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Bucket_By_Name_LessOrEqual_OrderBy_Desc_Name(ctx context.Context,
+	bucket_name_less_or_equal Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.name, buckets.created_at, buckets.path_cipher FROM buckets WHERE buckets.name <= ? ORDER BY buckets.name DESC LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name_less_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Name, &bucket.CreatedAt, &bucket.PathCipher)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -6677,6 +7174,32 @@ func (obj *sqlite3Impl) Delete_BucketInfo_By_Name(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM buckets WHERE buckets.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) getLastBwagreement(ctx context.Context,
 	pk int64) (
 	bwagreement *Bwagreement, err error) {
@@ -6911,6 +7434,24 @@ func (obj *sqlite3Impl) getLastBucketInfo(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastBucket(ctx context.Context,
+	pk int64) (
+	bucket *Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.name, buckets.created_at, buckets.path_cipher FROM buckets WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket.Name, &bucket.CreatedAt, &bucket.PathCipher)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -7020,6 +7561,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bwagreements;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM buckets;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -7281,6 +7832,19 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_Bucket(ctx context.Context,
+	bucket_name Bucket_Name_Field,
+	bucket_created_at Bucket_CreatedAt_Field,
+	bucket_path_cipher Bucket_PathCipher_Field) (
+	bucket *Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Bucket(ctx, bucket_name, bucket_created_at, bucket_path_cipher)
+
+}
+
 func (rx *Rx) Create_BucketInfo(ctx context.Context,
 	bucket_info_project_id BucketInfo_ProjectId_Field,
 	bucket_info_name BucketInfo_Name_Field) (
@@ -7456,6 +8020,16 @@ func (rx *Rx) Delete_BucketInfo_By_Name(ctx context.Context,
 	return tx.Delete_BucketInfo_By_Name(ctx, bucket_info_name)
 }
 
+func (rx *Rx) Delete_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_Bucket_By_Name(ctx, bucket_name)
+}
+
 func (rx *Rx) Delete_Bwagreement_By_ExpiresAt_LessOrEqual(ctx context.Context,
 	bwagreement_expires_at_less_or_equal Bwagreement_ExpiresAt_Field) (
 	count int64, err error) {
@@ -7617,6 +8191,16 @@ func (rx *Rx) Get_BucketInfo_By_Name(ctx context.Context,
 	return tx.Get_BucketInfo_By_Name(ctx, bucket_info_name)
 }
 
+func (rx *Rx) Get_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Bucket_By_Name(ctx, bucket_name)
+}
+
 func (rx *Rx) Get_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	bwagreement *Bwagreement, err error) {
@@ -7695,6 +8279,50 @@ func (rx *Rx) Get_User_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_User_By_Id(ctx, user_id)
+}
+
+func (rx *Rx) Limited_Bucket_By_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
+	bucket_name_greater_or_equal Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Bucket_By_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx, bucket_name_greater_or_equal, limit, offset)
+}
+
+func (rx *Rx) Limited_Bucket_By_Name_Greater_OrderBy_Asc_Name(ctx context.Context,
+	bucket_name_greater Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Bucket_By_Name_Greater_OrderBy_Asc_Name(ctx, bucket_name_greater, limit, offset)
+}
+
+func (rx *Rx) Limited_Bucket_By_Name_LessOrEqual_OrderBy_Desc_Name(ctx context.Context,
+	bucket_name_less_or_equal Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Bucket_By_Name_LessOrEqual_OrderBy_Desc_Name(ctx, bucket_name_less_or_equal, limit, offset)
+}
+
+func (rx *Rx) Limited_Bucket_By_Name_Less_OrderBy_Desc_Name(ctx context.Context,
+	bucket_name_less Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Bucket_By_Name_Less_OrderBy_Desc_Name(ctx, bucket_name_less, limit, offset)
 }
 
 func (rx *Rx) Limited_Bwagreement(ctx context.Context,
@@ -7892,6 +8520,12 @@ type Methods interface {
 		api_key_name ApiKey_Name_Field) (
 		api_key *ApiKey, err error)
 
+	Create_Bucket(ctx context.Context,
+		bucket_name Bucket_Name_Field,
+		bucket_created_at Bucket_CreatedAt_Field,
+		bucket_path_cipher Bucket_PathCipher_Field) (
+		bucket *Bucket, err error)
+
 	Create_BucketInfo(ctx context.Context,
 		bucket_info_project_id BucketInfo_ProjectId_Field,
 		bucket_info_name BucketInfo_Name_Field) (
@@ -7980,6 +8614,10 @@ type Methods interface {
 		bucket_info_name BucketInfo_Name_Field) (
 		deleted bool, err error)
 
+	Delete_Bucket_By_Name(ctx context.Context,
+		bucket_name Bucket_Name_Field) (
+		deleted bool, err error)
+
 	Delete_Bwagreement_By_ExpiresAt_LessOrEqual(ctx context.Context,
 		bwagreement_expires_at_less_or_equal Bwagreement_ExpiresAt_Field) (
 		count int64, err error)
@@ -8044,6 +8682,10 @@ type Methods interface {
 		bucket_info_name BucketInfo_Name_Field) (
 		bucket_info *BucketInfo, err error)
 
+	Get_Bucket_By_Name(ctx context.Context,
+		bucket_name Bucket_Name_Field) (
+		bucket *Bucket, err error)
+
 	Get_Bwagreement_By_Signature(ctx context.Context,
 		bwagreement_signature Bwagreement_Signature_Field) (
 		bwagreement *Bwagreement, err error)
@@ -8075,6 +8717,26 @@ type Methods interface {
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		user *User, err error)
+
+	Limited_Bucket_By_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
+		bucket_name_greater_or_equal Bucket_Name_Field,
+		limit int, offset int64) (
+		rows []*Bucket, err error)
+
+	Limited_Bucket_By_Name_Greater_OrderBy_Asc_Name(ctx context.Context,
+		bucket_name_greater Bucket_Name_Field,
+		limit int, offset int64) (
+		rows []*Bucket, err error)
+
+	Limited_Bucket_By_Name_LessOrEqual_OrderBy_Desc_Name(ctx context.Context,
+		bucket_name_less_or_equal Bucket_Name_Field,
+		limit int, offset int64) (
+		rows []*Bucket, err error)
+
+	Limited_Bucket_By_Name_Less_OrderBy_Desc_Name(ctx context.Context,
+		bucket_name_less Bucket_Name_Field,
+		limit int, offset int64) (
+		rows []*Bucket, err error)
 
 	Limited_Bwagreement(ctx context.Context,
 		limit int, offset int64) (

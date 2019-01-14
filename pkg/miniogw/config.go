@@ -26,6 +26,8 @@ import (
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
+	"storj.io/storj/uplink/metainfo"
 )
 
 // RSConfig is a configuration struct that keeps details about default
@@ -184,7 +186,15 @@ func (c Config) GetMetainfo(ctx context.Context, identity *provider.FullIdentity
 
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(buckets, streams, segments, pdb, key), streams, nil
+	transport := transport.NewClient(identity)
+	conn, err := transport.DialAddress(ctx, c.Client.PointerDBAddr)
+	if err != nil {
+		return nil, nil, Error.New("failed to connect to Pointer DB: %v", err)
+	}
+
+	metainfo := metainfo.NewClient(conn)
+
+	return kvmetainfo.New(buckets, streams, segments, pdb, metainfo, key), streams, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads

@@ -1,0 +1,70 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package metainfo;
+
+import "google/protobuf/timestamp.proto";
+
+// Metainfo defines the interface for interacting with the metainfo persistence layer
+service Metainfo {
+  // CreateBucket creates a new bucket
+  rpc CreateBucket(CreateBucketMetainfoRequest) returns (CreateBucketMetainfoResponse);
+  // GetBucket returns the info for a bucket
+  rpc GetBucket(GetBucketMetainfoRequest) returns (GetBucketMetainfoResponse);
+  // ListBuckets lists the existing buckets
+  rpc ListBuckets(ListBucketsMetainfoRequest) returns (ListBucketsMetainfoResponse);
+  // DeleteBucket deletes a bucket
+  rpc DeleteBucket(DeleteBucketMetainfoRequest) returns (DeleteBucketMetainfoResponse);
+}
+
+message BucketInfo {
+  string name = 1;
+  google.protobuf.Timestamp created = 2;
+  int32 path_cipher = 3;
+}
+
+// CreateBucketMetainfoRequest is a request message for the CreateBucket rpc call
+message CreateBucketMetainfoRequest {
+  string bucket = 1;
+  int32 path_cipher = 2;
+}
+
+// CreateBucketMetainfoResponse is a response message for the CreateBucket rpc call
+message CreateBucketMetainfoResponse {
+  BucketInfo info = 1;
+}
+
+// GetBucketMetainfoRequest is a request message for the GetBucket rpc call
+message GetBucketMetainfoRequest {
+  string bucket = 1;
+}
+
+// GetBucketMetainfoResponse is a response message for the GetBucket rpc call
+message GetBucketMetainfoResponse {
+  BucketInfo info = 1;
+}
+
+// ListBucketsMetainfoRequest is a request message for the ListBuckets rpc call
+message ListBucketsMetainfoRequest {
+  string cursor = 1;
+  int32 direction = 2;
+  int32 limit = 3;
+}
+
+// ListBucketsMetainfoResponse is a response message for the ListBuckets rpc call
+message ListBucketsMetainfoResponse {  
+  repeated BucketInfo items = 1;
+  bool more = 2;
+}
+
+// DeleteBucketsResponse is a response message for the DeleteBuckets rpc call
+message DeleteBucketMetainfoRequest {
+  string bucket = 1;
+}
+
+// DeleteBucketMetainfoResponse is a response message for the DeleteBucket rpc call
+message DeleteBucketMetainfoResponse {
+}
