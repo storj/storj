@@ -98,6 +98,11 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 		}
 	}
 
+	reputation := info.Reputation
+	if reputation == nil {
+		reputation = &pb.NodeStats{}
+	}
+
 	if err != nil {
 		_, err = tx.Create_OverlayCacheNode(
 			ctx,
@@ -113,14 +118,14 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			dbx.OverlayCacheNode_FreeBandwidth(restrictions.FreeBandwidth),
 			dbx.OverlayCacheNode_FreeDisk(restrictions.FreeDisk),
 
-			dbx.OverlayCacheNode_Latency90(info.Reputation.Latency_90),
-			dbx.OverlayCacheNode_AuditSuccessRatio(info.Reputation.AuditSuccessRatio),
-			dbx.OverlayCacheNode_AuditUptimeRatio(info.Reputation.UptimeRatio),
-			dbx.OverlayCacheNode_AuditCount(info.Reputation.AuditCount),
-			dbx.OverlayCacheNode_AuditSuccessCount(info.Reputation.AuditSuccessCount),
+			dbx.OverlayCacheNode_Latency90(reputation.Latency_90),
+			dbx.OverlayCacheNode_AuditSuccessRatio(reputation.AuditSuccessRatio),
+			dbx.OverlayCacheNode_AuditUptimeRatio(reputation.UptimeRatio),
+			dbx.OverlayCacheNode_AuditCount(reputation.AuditCount),
+			dbx.OverlayCacheNode_AuditSuccessCount(reputation.AuditSuccessCount),
 
-			dbx.OverlayCacheNode_UptimeCount(info.Reputation.UptimeCount),
-			dbx.OverlayCacheNode_UptimeSuccessCount(info.Reputation.UptimeSuccessCount),
+			dbx.OverlayCacheNode_UptimeCount(reputation.UptimeCount),
+			dbx.OverlayCacheNode_UptimeSuccessCount(reputation.UptimeSuccessCount),
 		)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
