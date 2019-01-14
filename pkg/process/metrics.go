@@ -30,6 +30,8 @@ var (
 		"application suffix")
 )
 
+// InitMetrics: Initialize telemetry reporting. Makes a telemetry.Client and calls
+// its Run() method in a goroutine.
 func InitMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (
 	err error) {
 	if *metricCollector == "" || *metricInterval == 0 {
@@ -57,6 +59,8 @@ func InitMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (
 	return nil
 }
 
+// InitMetrics: Initialize telemetry reporting, using the node ID corresponding
+// to the given certificate as the telemetry instance ID.
 func InitMetricsWithCertPath(ctx context.Context, r *monkit.Registry, certPath string) error {
 	var metricsID string
 	nodeID, err := identity.NodeIDFromCertPath(certPath)
