@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+
+	"storj.io/storj/internal/memory"
 )
 
 // BindOpt is an option for the Bind method
@@ -120,6 +122,9 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 				}
 			}
 			switch field.Type {
+			case reflect.TypeOf(memory.Size(0)):
+				check(fieldaddr.(*memory.Size).Set(def))
+				flags.Var(fieldaddr.(*memory.Size), flagname, help)
 			case reflect.TypeOf(int(0)):
 				val, err := strconv.ParseInt(def, 0, strconv.IntSize)
 				check(err)
