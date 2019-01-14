@@ -2,7 +2,6 @@ package psclient
 
 import (
 	"context"
-	"fmt"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -34,7 +33,6 @@ func (psl *PieceStoreLite) Stats(ctx context.Context) (*pb.StatSummary, error) {
 func NewLiteClient(ctx context.Context) (LiteClient, error) {
 	clientIdent, err := provider.NewFullIdentity(ctx, 12, 4)
 	if err != nil {
-		fmt.Printf("ERROR %+v\n", err)
 		return nil, err
 	}
 
@@ -44,6 +42,7 @@ func NewLiteClient(ctx context.Context) (LiteClient, error) {
 			Address:   ":7777",
 			Transport: 0,
 		},
+		Type: pb.NodeType_STORAGE,
 	}
 
 	conn, err := tc.DialNode(ctx, n)

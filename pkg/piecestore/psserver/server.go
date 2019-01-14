@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/gtank/cryptopasta"
 	"github.com/mr-tron/base58/base58"
 	"github.com/shirou/gopsutil/disk"
@@ -24,6 +25,7 @@ import (
 	"golang.org/x/net/context"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	pstore "storj.io/storj/pkg/piecestore"
@@ -56,6 +58,7 @@ func DirSize(path string) (int64, error) {
 
 // Server -- GRPC server meta data used in route calls
 type Server struct {
+	startTime        time.Time
 	log              *zap.Logger
 	storage          *pstore.Storage
 	DB               *psdb.DB
@@ -63,10 +66,11 @@ type Server struct {
 	totalAllocated   int64
 	totalBwAllocated int64
 	verifier         auth.SignedMessageVerifier
+	kad              *kademlia.Kademlia
 }
 
 // NewEndpoint -- initializes a new endpoint for a piecestore server
-func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *psdb.DB, pkey crypto.PrivateKey) (*Server, error) {
+func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *psdb.DB, pkey crypto.PrivateKey, k *kademlia.Kademlia) (*Server, error) {
 	// read the allocated disk space from the config file
 	allocatedDiskSpace := config.AllocatedDiskSpace.Int64()
 	allocatedBandwidth := config.AllocatedBandwidth.Int64()
@@ -120,6 +124,7 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 	}
 
 	return &Server{
+		startTime:        time.Now(),
 		log:              log,
 		storage:          storage,
 		DB:               db,
@@ -127,6 +132,7 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 		totalAllocated:   allocatedDiskSpace,
 		totalBwAllocated: allocatedBandwidth,
 		verifier:         auth.NewSignedMessageVerifier(),
+		kad:              k,
 	}, nil
 }
 
@@ -219,26 +225,25 @@ func (s *Server) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_Dashb
 	ctx := stream.Context()
 	ticker := time.NewTicker(500 * time.Millisecond)
 
-	select {
-	case <-ctx.Done():
-		fmt.Printf("context done")
-		return ctx.Err()
-	case <-ticker.C:
-		fmt.Printf("TICKER FIRED")
-		data, err := s.getDashboardData(ctx)
-		if err != nil {
-			s.log.Warn("unable to create dashboard data proto")
-		}
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			data, err := s.getDashboardData(ctx)
+			if err != nil {
+				s.log.Warn("unable to create dashboard data proto")
+				continue
+			}
 
-		fmt.Printf("SENDING DATA %+v\n", data)
-
-		if err := stream.Send(data); err != nil {
-			fmt.Printf("error sending dashboard stream %+v\n", err)
-			s.log.Error("error sending dashboard stream")
-			return err
+			if err := stream.Send(data); err != nil {
+				s.log.Error("error sending dashboard stream", zap.Error(err))
+				return err
+			}
 		}
 	}
 
+	fmt.Printf("RETURNING DASHBOARD FUNC")
 	return nil
 }
 
@@ -335,12 +340,25 @@ func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, erro
 	if err != nil {
 		return &pb.DashboardStats{}, ServerError.Wrap(err)
 	}
+
+	rt, err := s.kad.GetRoutingTable(ctx)
+	if err != nil {
+		return &pb.DashboardStats{}, ServerError.Wrap(err)
+	}
+
+	nodes, err := s.kad.GetNodes(ctx, rt.Local().Id, 10000)
+	if err != nil {
+		return &pb.DashboardStats{}, ServerError.Wrap(err)
+	}
+
 	return &pb.DashboardStats{
-		NodeId:          &pb.Node{},
-		NodeConnections: 0,
+		NodeId: &pb.Node{
+			Id: rt.Local().Id,
+		},
+		NodeConnections: int64(len(nodes)),
 		Address:         "",
 		Connection:      true,
-		Uptime:          0,
+		Uptime:          ptypes.DurationProto(time.Since(s.startTime)),
 		Stats:           statsSummary,
 	}, nil
 }

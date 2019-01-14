@@ -312,6 +312,9 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	stream, err := lc.Dashboard(ctx)
+	if err != nil {
+		return err
+	}
 
 	for {
 		data, err := stream.Recv()
@@ -320,15 +323,9 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		if err != nil {
-			fmt.Printf("error with dashboard: %+v\n", err)
+			return err
 		}
-
-		fmt.Printf("### DATA %+v\n", data)
-		// reply, err := stream.CloseAndRecv()
-		// if err != nil {
-		// 	fmt.Printf("close and receive errored out: %+v\n", err)
-		// 	return err
-		// }
+		fmt.Printf("DATA %+v\n", data)
 	}
 
 	return nil

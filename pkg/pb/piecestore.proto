@@ -8,6 +8,7 @@ package piecestoreroutes;
 
 import "node.proto";
 import "gogo.proto";
+import "google/protobuf/duration.proto";
 
 service PieceStoreRoutes {
   rpc Piece(PieceId) returns (PieceSummary) {}
@@ -141,5 +142,5 @@ message DashboardStats {
   string address = 3;
   StatSummary stats = 4;
   bool connection = 5;
-  int64 uptime = 6;
+  google.protobuf.Duration uptime = 6;
 }
