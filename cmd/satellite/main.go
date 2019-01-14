@@ -37,9 +37,8 @@ import (
 
 // Satellite defines satellite configuration
 type Satellite struct {
-	CA        identity.CASetupConfig `setup:"true"`
-	Identity  identity.SetupConfig   `setup:"true"`
-	Overwrite bool                   `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
+	CA       identity.CASetupConfig `setup:"true"`
+	Identity identity.SetupConfig   `setup:"true"`
 
 	Server      server.Config
 	Kademlia    kademlia.SatelliteConfig
@@ -153,15 +152,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	valid, err := fpath.IsValidSetupDir(setupDir)
-	if !setupCfg.Overwrite && !valid {
-		return fmt.Errorf("satellite configuration already exists (%v). Rerun with --overwrite", setupDir)
-	} else if setupCfg.Overwrite && err == nil {
-		fmt.Println("overwriting existing satellite config")
-		err = os.RemoveAll(setupDir)
-		if err != nil {
-			return err
-		}
+	valid, _ := fpath.IsValidSetupDir(setupDir)
+	if !valid {
+		return fmt.Errorf("satellite configuration already exists (%v)", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
