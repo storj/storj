@@ -217,20 +217,20 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, e
 // Dashboard is a stream that sends data every `interval` seconds to the listener.
 func (s *Server) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_DashboardServer) (err error) {
 	ctx := stream.Context()
-	// check if ctx.Done()
-	// send message to quit ticker
-
 	ticker := time.NewTicker(500 * time.Millisecond)
 
 	select {
 	case <-ctx.Done():
 		fmt.Printf("context done")
+		return ctx.Err()
 	case <-ticker.C:
 		fmt.Printf("TICKER FIRED")
-		data := s.getDashboardData()
+		data, err := s.getDashboardData(ctx)
 		if err != nil {
 			s.log.Warn("unable to create dashboard data proto")
 		}
+
+		fmt.Printf("SENDING DATA %+v\n", data)
 
 		if err := stream.Send(data); err != nil {
 			fmt.Printf("error sending dashboard stream %+v\n", err)
@@ -330,12 +330,17 @@ func getNamespace(signedMessage *pb.SignedMessage) []byte {
 	return signedMessage.GetData()
 }
 
-func (s *Server) getDashboardData() *pb.DashboardStats {
+func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, error) {
+	statsSummary, err := s.Stats(ctx, &pb.StatsReq{})
+	if err != nil {
+		return &pb.DashboardStats{}, ServerError.Wrap(err)
+	}
 	return &pb.DashboardStats{
 		NodeId:          &pb.Node{},
 		NodeConnections: 0,
 		Address:         "",
 		Connection:      true,
 		Uptime:          0,
-	}
+		Stats:           statsSummary,
+	}, nil
 }

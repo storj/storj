@@ -5,7 +5,9 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -22,6 +24,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/process"
@@ -68,17 +71,19 @@ var (
 		Short: "Diagnostic Tool support",
 		RunE:  cmdDiag,
 	}
-
-	// DashboardCmd = &cobra.Command{
-	// 	Use:
-	//  `var Addr = flag.String("address", "localhost:7777", "address of piecestoreserver to inspect")`
-	// }
-
+	dashboardCmd = &cobra.Command{
+		Use:   "dashboard",
+		Short: "Display a dashbaord",
+		RunE:  dashCmd,
+	}
 	runCfg   StorageNode
 	setupCfg StorageNode
 
 	diagCfg struct {
 	}
+
+	// Addr is the default GRPC server address
+	Addr = flag.String("address", "localhost:7777", "address of piecestoreserver to inspect")
 
 	defaultConfDir string
 	defaultDiagDir string
@@ -104,6 +109,7 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
+	rootCmd.AddCommand(dashboardCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
@@ -297,10 +303,35 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	return err
 }
 
-func DashboardCmd(cmd *cobra.Command, args []string) (err error) {
-	// send request
-	// boot up dashboard
-	// display response data in dashboard
+func dashCmd(cmd *cobra.Command, args []string) (err error) {
+	// create new client
+	ctx := context.Background()
+	lc, err := psclient.NewLiteClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	stream, err := lc.Dashboard(ctx)
+
+	for {
+		data, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			fmt.Printf("error with dashboard: %+v\n", err)
+		}
+
+		fmt.Printf("### DATA %+v\n", data)
+		// reply, err := stream.CloseAndRecv()
+		// if err != nil {
+		// 	fmt.Printf("close and receive errored out: %+v\n", err)
+		// 	return err
+		// }
+	}
+
+	return nil
 }
 
 func isOperatorEmailValid(email string) error {
