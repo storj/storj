@@ -8,10 +8,13 @@ import (
 	"database/sql"
 	"errors"
 
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )
+
+var _ overlay.CacheDB = (*overlaycache)(nil)
 
 type overlaycache struct {
 	db *dbx.DB
