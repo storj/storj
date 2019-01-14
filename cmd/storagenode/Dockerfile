@@ -1,10 +1,11 @@
 
 # build
-FROM golang:alpine as build-env
+FROM golang:1.11-alpine as build-env
 ADD . /go/src/storj.io/storj
 WORKDIR /go/src/storj.io/storj/cmd/storagenode
 # dependencies + binary
-RUN apk add --no-cache gcc musl-dev && CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o storagenode . && mkdir config
+# RUN unset GOPATH && go mod vendor
+RUN apk add --no-cache git gcc musl-dev && unset GOPATH && go mod vendor && CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o storagenode . && mkdir config
 
 # final stage
 FROM alpine
