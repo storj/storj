@@ -21,6 +21,7 @@ type overlaycache struct {
 	db *dbx.DB
 }
 
+// Get looks up the node by nodeID
 func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*pb.Node, error) {
 	if id.IsZero() {
 		return nil, overlay.ErrEmptyNode
@@ -39,6 +40,7 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*pb.Node, 
 	return convertOverlayNode(node)
 }
 
+// GetAll looks up nodes based on the ids from the overlay cache
 func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*pb.Node, error) {
 	infos := make([]*pb.Node, len(ids))
 	for i, id := range ids {
@@ -52,6 +54,7 @@ func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]
 	return infos, nil
 }
 
+// List lists nodes starting from cursor
 func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
 	dbxInfos, err := cache.db.Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx,
 		dbx.OverlayCacheNode_NodeId(cursor.Bytes()),
@@ -71,6 +74,7 @@ func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit 
 	return infos, nil
 }
 
+// Update updates node information
 func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error) {
 	if info == nil || info.Id.IsZero() {
 		return overlay.ErrEmptyNode
@@ -173,6 +177,7 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 	return Error.Wrap(tx.Commit())
 }
 
+// Delete deletes node based on id
 func (cache *overlaycache) Delete(ctx context.Context, id storj.NodeID) error {
 	_, err := cache.db.Delete_OverlayCacheNode_By_NodeId(ctx,
 		dbx.OverlayCacheNode_NodeId(id.Bytes()),

@@ -33,24 +33,28 @@ var ErrBucketNotFound = errs.New("Bucket not found")
 // OverlayError creates class of errors for stack traces
 var OverlayError = errs.Class("Overlay Error")
 
-// CacheDB implements the database for overlay.Cache
-type CacheDB interface {
+// DB implements the database for overlay.Cache
+type DB interface {
+	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error)
+	// GetAll looks up nodes based on the ids from the overlay cache
 	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
-	Update(ctx context.Context, value *pb.Node) error
-	Delete(ctx context.Context, id storj.NodeID) error
-
+	// List lists nodes starting from cursor
 	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error)
+	// Update updates node information
+	Update(ctx context.Context, value *pb.Node) error
+	// Delete deletes node based on id
+	Delete(ctx context.Context, id storj.NodeID) error
 }
 
 // Cache is used to store overlay data in Redis
 type Cache struct {
-	db     CacheDB
+	db     DB
 	statDB statdb.DB
 }
 
 // NewCache returns a new Cache
-func NewCache(db CacheDB, sdb statdb.DB) *Cache {
+func NewCache(db DB, sdb statdb.DB) *Cache {
 	return &Cache{db: db, statDB: sdb}
 }
 

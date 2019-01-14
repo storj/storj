@@ -63,7 +63,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	sdb, ok := ctx.Value("masterdb").(interface {
 		StatDB() statdb.DB
-		OverlayCache() CacheDB
+		OverlayCache() DB
 	})
 	if !ok {
 		return Error.Wrap(errs.New("unable to get master db instance"))
