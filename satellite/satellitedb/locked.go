@@ -116,7 +116,7 @@ func (m *lockedAccounting) SaveBWRaw(ctx context.Context, latestBwa time.Time, b
 	return m.db.SaveBWRaw(ctx, latestBwa, bwTotals)
 }
 
-// TODO
+// QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
 func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*dbx.Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_DataType_AccountingRollup_DataTotal_AccountingRollup_CreatedAt_Row, error) {
 	m.Lock()
 	defer m.Unlock()
