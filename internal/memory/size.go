@@ -89,10 +89,11 @@ func (size *Size) Set(s string) error {
 	}
 
 	p := len(s)
-	if isLetter(s[len(s)-1]) {
+	for isLetter(s[p-1]) {
 		p--
-		if len(s)-2 >= 0 && isLetter(s[len(s)-2]) {
-			p--
+
+		if p < 0 {
+			return errors.New("p out of bounds")
 		}
 	}
 
@@ -109,17 +110,17 @@ func (size *Size) Set(s string) error {
 	}
 
 	switch suffix {
-	case "EB":
+	case "EB", "EIB":
 		*size = Size(v * EB.Float64())
-	case "PB":
+	case "PB", "PIB":
 		*size = Size(v * PB.Float64())
-	case "TB":
+	case "TB", "TIB":
 		*size = Size(v * TB.Float64())
-	case "GB":
+	case "GB", "GIB":
 		*size = Size(v * GB.Float64())
-	case "MB":
+	case "MB", "MIB":
 		*size = Size(v * MB.Float64())
-	case "KB":
+	case "KB", "KIB":
 		*size = Size(v * KB.Float64())
 	case "B", "":
 		*size = Size(v)
@@ -129,3 +130,6 @@ func (size *Size) Set(s string) error {
 
 	return nil
 }
+
+// Type implements pflag.Value
+func (Size) Type() string { return "memory.Size" }
