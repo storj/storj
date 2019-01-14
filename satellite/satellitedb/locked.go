@@ -68,7 +68,7 @@ func (m *locked) Irreparable() irreparable.DB {
 }
 
 // OverlayCache returns database for caching overlay information
-func (m *locked) OverlayCache() overlay.CacheDB {
+func (m *locked) OverlayCache() overlay.DB {
 	m.Lock()
 	defer m.Unlock()
 	return &lockedOverlayCache{m.Locker, m.db.OverlayCache()}
@@ -169,36 +169,41 @@ func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segment
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)
 }
 
-// lockedOverlayCache implements locking wrapper for overlay.CacheDB
+// lockedOverlayCache implements locking wrapper for overlay.DB
 type lockedOverlayCache struct {
 	sync.Locker
-	db overlay.CacheDB
+	db overlay.DB
 }
 
+// Delete deletes node based on id
 func (m *lockedOverlayCache) Delete(ctx context.Context, id storj.NodeID) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Delete(ctx, id)
 }
 
+// Get looks up the node by nodeID
 func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Get(ctx, nodeID)
 }
 
+// GetAll looks up nodes based on the ids from the overlay cache
 func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetAll(ctx, nodeIDs)
 }
 
+// List lists nodes starting from cursor
 func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.List(ctx, cursor, limit)
 }
 
+// Update updates node information
 func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 	m.Lock()
 	defer m.Unlock()

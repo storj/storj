@@ -71,7 +71,7 @@ func (db *DB) StatDB() statdb.DB {
 }
 
 // OverlayCache is a getter for overlay cache repository
-func (db *DB) OverlayCache() overlay.CacheDB {
+func (db *DB) OverlayCache() overlay.DB {
 	return &overlaycache{db: db.db}
 }
 

@@ -15,7 +15,7 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-var _ overlay.CacheDB = (*overlaycache)(nil)
+var _ overlay.DB = (*overlaycache)(nil)
 
 type overlaycache struct {
 	db *dbx.DB

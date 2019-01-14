@@ -24,7 +24,7 @@ type DB interface {
 	// StatDB returns database for storing node statistics
 	StatDB() statdb.DB
 	// OverlayCache returns database for caching overlay information
-	OverlayCache() overlay.CacheDB
+	OverlayCache() overlay.DB
 	// Accounting returns database for storing information about data use
 	Accounting() accounting.DB
 	// RepairQueue returns queue for segments that need repairing
