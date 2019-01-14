@@ -78,9 +78,10 @@ model accounting_rollup (
 	key id
 
 	field id         serial64
-	field node_id    text
+	field node_id    blob
 	field start_time timestamp
 	field interval   int64
+	field data_total int64
 	field data_type  int
 	field created_at timestamp ( autoinsert )
 	field updated_at timestamp ( autoinsert, autoupdate )
@@ -98,10 +99,6 @@ read one (
 read all (
 	select accounting_rollup
 	where  accounting_rollup.node_id = ?
-)
-read all (
-	select accounting_rollup
-	where created_at <= ? and created_at > ?
 )
 
 model accounting_raw (
@@ -155,6 +152,15 @@ delete node ( where node.id = ? )
 read one (
 	select node
 	where  node.id = ?
+)
+
+// payment csv generation query
+read all (
+	select node.id node.created_at node.audit_success_ratio accounting_rollup.data_type accounting_rollup.data_total accounting_rollup.created_at
+	where accounting_rollup.created_at >= ? 
+	where accounting_rollup.created_at < ?
+	join node.id = accounting_rollup.node_id
+	orderby asc node.id
 )
 
 //--- overlaycache ---//
