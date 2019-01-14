@@ -4,13 +4,11 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 
-	prompt "github.com/segmentio/go-prompt"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
@@ -41,18 +39,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	valid, err := fpath.IsValidSetupDir(setupDir)
-	if !setupCfg.Overwrite && !valid {
-		return fmt.Errorf("captplanet configuration already exists (%v). Rerun with --overwrite", setupDir)
-	} else if setupCfg.Overwrite && err == nil {
-		if ok := prompt.Confirm("Are you sure you want to delete the following directory?\n%v", setupDir); !ok {
-			return errors.New("overwrite canceled")
-		}
-
-		fmt.Println("overwriting existing captplanet config")
-		err = os.RemoveAll(setupDir)
-		if err != nil {
-			return err
-		}
+	if !valid {
+		return fmt.Errorf("captplanet configuration already exists (%v).", setupDir)
 	}
 
 	satellitePath := filepath.Join(setupDir, "satellite")
