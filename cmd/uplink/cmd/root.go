@@ -29,12 +29,6 @@ var CLICmd = &cobra.Command{
 	Short: "The Storj client-side CLI",
 }
 
-// GWCmd represents the base gateway command when called without any subcommands
-var GWCmd = &cobra.Command{
-	Use:   "gateway",
-	Short: "The Storj client-side S3 gateway",
-}
-
 func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 	root.AddCommand(cmd)
 

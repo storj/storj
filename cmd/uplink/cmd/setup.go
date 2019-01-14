@@ -4,12 +4,10 @@
 package cmd
 
 import (
-	"crypto/rand"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	base58 "github.com/jbenet/go-base58"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
@@ -26,12 +24,12 @@ var (
 		RunE:        cmdUplinkSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
-	gatewaySetupCmd = &cobra.Command{
-		Use:         "setup",
-		Short:       "Create an gateway config file",
-		RunE:        cmdGatewaySetup,
-		Annotations: map[string]string{"type": "setup"},
-	}
+	// gatewaySetupCmd = &cobra.Command{
+	// 	Use:         "setup",
+	// 	Short:       "Create an gateway config file",
+	// 	RunE:        cmdGatewaySetup,
+	// 	Annotations: map[string]string{"type": "setup"},
+	// }
 	uplinkCfg struct {
 		CA            provider.CASetupConfig       `setup:"true"`
 		Identity      provider.IdentitySetupConfig `setup:"true"`
@@ -42,43 +40,27 @@ var (
 		RS     miniogw.RSConfig
 		Enc    miniogw.EncryptionConfig
 	}
-	gatewayCfg struct {
-		CA                 provider.CASetupConfig       `setup:"true"`
-		Identity           provider.IdentitySetupConfig `setup:"true"`
-		Overwrite          bool                         `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
-		APIKey             string                       `default:"" help:"the api key to use for the satellite" setup:"true"`
-		EncKey             string                       `default:"" help:"your root encryption key" setup:"true"`
-		GenerateMinioCerts bool                         `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
-		SatelliteAddr      string                       `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
-
-		Server miniogw.ServerConfig
-		Minio  miniogw.MinioConfig
-		Client miniogw.ClientConfig
-		RS     miniogw.RSConfig
-		Enc    miniogw.EncryptionConfig
-	}
 
 	cliConfDir *string
-	gwConfDir  *string
 )
 
 func init() {
 	defaultUplinkConfDir := fpath.ApplicationDir("storj", "uplink")
-	defaultGatewayConfDir := fpath.ApplicationDir("storj", "gateway")
+	//defaultGatewayConfDir := fpath.ApplicationDir("storj", "gateway")
 
 	dirParam := cfgstruct.FindConfigDirParam()
 	if dirParam != "" {
 		defaultUplinkConfDir = dirParam
-		defaultGatewayConfDir = dirParam
+		//defaultGatewayConfDir = dirParam
 	}
 
 	cliConfDir = CLICmd.PersistentFlags().String("config-dir", defaultUplinkConfDir, "main directory for setup configuration")
-	gwConfDir = GWCmd.PersistentFlags().String("config-dir", defaultGatewayConfDir, "main directory for setup configuration")
+	//gwConfDir = GWCmd.PersistentFlags().String("config-dir", defaultGatewayConfDir, "main directory for setup configuration")
 
 	CLICmd.AddCommand(uplinkSetupCmd)
-	GWCmd.AddCommand(gatewaySetupCmd)
+	//GWCmd.AddCommand(gatewaySetupCmd)
 	cfgstruct.BindSetup(uplinkSetupCmd.Flags(), &uplinkCfg, cfgstruct.ConfDir(defaultUplinkConfDir))
-	cfgstruct.BindSetup(gatewaySetupCmd.Flags(), &gatewayCfg, cfgstruct.ConfDir(defaultGatewayConfDir))
+	//cfgstruct.BindSetup(gatewaySetupCmd.Flags(), &gatewayCfg, cfgstruct.ConfDir(defaultGatewayConfDir))
 }
 
 func cmdUplinkSetup(cmd *cobra.Command, args []string) (err error) {
@@ -123,84 +105,4 @@ func cmdUplinkSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
-}
-
-func cmdGatewaySetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*gwConfDir)
-	if err != nil {
-		return err
-	}
-
-	for _, flagname := range args {
-		return fmt.Errorf("%s - Invalid flag. Pleas see --help", flagname)
-	}
-
-	valid, _ := fpath.IsValidSetupDir(setupDir)
-	if !gatewayCfg.Overwrite && !valid {
-		return fmt.Errorf("%s configuration already exists (%v). Rerun with --overwrite", "gateway", setupDir)
-	}
-
-	err = os.MkdirAll(setupDir, 0700)
-	if err != nil {
-		return err
-	}
-
-	defaultConfDir := fpath.ApplicationDir("storj", "gateway")
-	// TODO: handle setting base path *and* identity file paths via args
-	// NB: if base path is set this overrides identity and CA path options
-	if setupDir != defaultConfDir {
-		gatewayCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
-		gatewayCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
-		gatewayCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
-		gatewayCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
-	}
-	err = provider.SetupIdentity(process.Ctx(cmd), gatewayCfg.CA, gatewayCfg.Identity)
-	if err != nil {
-		return err
-	}
-
-	if gatewayCfg.GenerateMinioCerts {
-		minioCerts := filepath.Join(setupDir, "minio", "certs")
-		if err := os.MkdirAll(minioCerts, 0744); err != nil {
-			return err
-		}
-		if err := os.Link(gatewayCfg.Identity.CertPath, filepath.Join(minioCerts, "public.crt")); err != nil {
-			return err
-		}
-		if err := os.Link(gatewayCfg.Identity.KeyPath, filepath.Join(minioCerts, "private.key")); err != nil {
-			return err
-		}
-	}
-
-	accessKey, err := generateAWSKey()
-	if err != nil {
-		return err
-	}
-
-	secretKey, err := generateAWSKey()
-	if err != nil {
-		return err
-	}
-
-	o := map[string]interface{}{
-		"identity.cert-path":     gatewayCfg.Identity.CertPath,
-		"identity.key-path":      gatewayCfg.Identity.KeyPath,
-		"client.api-key":         gatewayCfg.APIKey,
-		"client.pointer-db-addr": gatewayCfg.SatelliteAddr,
-		"client.overlay-addr":    gatewayCfg.SatelliteAddr,
-		"minio.access-key":       accessKey,
-		"minio.secret-key":       secretKey,
-		"enc.key":                gatewayCfg.EncKey,
-	}
-
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
-}
-
-func generateAWSKey() (key string, err error) {
-	var buf [20]byte
-	_, err = rand.Read(buf[:])
-	if err != nil {
-		return "", err
-	}
-	return base58.Encode(buf[:]), nil
 }
