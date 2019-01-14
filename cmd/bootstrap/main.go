@@ -108,7 +108,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"kademlia.bootstrap-addr": "localhost" + defaultServerAddr,
 	}
 
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides, true)
 }
 
 func main() {

@@ -155,21 +155,24 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 				panic(fmt.Sprintf("invalid field type: %s", field.Type.String()))
 			}
 			if onlyForSetup {
-				setSetupAnnotation(flags, flagname)
+				setBoolAnnotation(flags, flagname, "setup")
+			}
+			if field.Tag.Get("user") == "true" {
+				setBoolAnnotation(flags, flagname, "user")
 			}
 		}
 	}
 }
 
-func setSetupAnnotation(flagset interface{}, name string) {
+func setBoolAnnotation(flagset interface{}, name, key string) {
 	flags, ok := flagset.(*pflag.FlagSet)
 	if !ok {
 		return
 	}
 
-	err := flags.SetAnnotation(name, "setup", []string{"true"})
+	err := flags.SetAnnotation(name, key, []string{"true"})
 	if err != nil {
-		panic(fmt.Sprintf("unable to set annotation: %v", err))
+		panic(fmt.Sprintf("unable to set %s annotation for %s: %v", key, name, err))
 	}
 }
 

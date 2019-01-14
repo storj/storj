@@ -27,9 +27,9 @@ var (
 
 // Config contains everything necessary for a server
 type Config struct {
-	Path                         string        `help:"path to store data in" default:"$CONFDIR"`
-	AllocatedDiskSpace           int64         `help:"total allocated disk space in bytes, default(1GB)" default:"1073741824"`
-	AllocatedBandwidth           int64         `help:"total allocated bandwidth in bytes, default(100GB)" default:"107374182400"`
+	Path                         string        `user:"true" help:"path to store data in" default:"$CONFDIR"`
+	AllocatedDiskSpace           int64         `user:"true" help:"total allocated disk space in bytes, default(1GB)" default:"1073741824"`
+	AllocatedBandwidth           int64         `user:"true" help:"total allocated bandwidth in bytes, default(100GB)" default:"107374182400"`
 	KBucketRefreshInterval       time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
 	AgreementSenderCheckInterval time.Duration `help:"duration between agreement checks" default:"1h0m0s"`
 }

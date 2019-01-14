@@ -31,8 +31,9 @@ import (
 
 // StorageNode defines storage node configuration
 type StorageNode struct {
-	CA       identity.CASetupConfig `setup:"true"`
-	Identity identity.SetupConfig   `setup:"true"`
+	CA              identity.CASetupConfig `setup:"true"`
+	Identity        identity.SetupConfig   `setup:"true"`
+	SaveAllDefaults bool                   `default:"false" help:"save all default values to config.yaml file" setup:"true"`
 
 	Server   server.Config
 	Kademlia kademlia.StorageNodeConfig
@@ -159,7 +160,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"storage.path":            filepath.Join(setupDir, "storage"),
 	}
 
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides, setupCfg.SaveAllDefaults)
 }
 
 func cmdConfig(cmd *cobra.Command, args []string) (err error) {

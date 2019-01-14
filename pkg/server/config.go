@@ -19,7 +19,7 @@ import (
 type Config struct {
 	RevocationDBURL     string `help:"url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)" default:"bolt://$CONFDIR/revocations.db"`
 	PeerCAWhitelistPath string `help:"path to the CA cert whitelist (peer identities must be signed by one these to be verified)"`
-	Address             string `help:"address to listen on" default:":7777"`
+	Address             string `user:"true" help:"address to listen on" default:":7777"`
 	Extensions          peertls.TLSExtConfig
 
 	Identity identity.Config

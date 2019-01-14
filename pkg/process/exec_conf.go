@@ -54,7 +54,7 @@ var (
 
 // SaveConfig will save all flags with default values to outfilewith specific
 // values specified in 'overrides' overridden.
-func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}) error {
+func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}, saveAllDefaults bool) error {
 	// we previously used Viper here, but switched to a custom serializer to allow comments
 	//todo:  switch back to Viper once go-yaml v3 is released and its supports writing comments?
 	flagset.AddFlagSet(pflag.CommandLine)
@@ -67,8 +67,10 @@ func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 	w := &sb
 	for _, k := range keys {
 		f := flagset.Lookup(k)
-		setup := f.Annotations["setup"]
-		if len(setup) > 0 && setup[0] == "true" {
+		if readBoolAnnotation(f, "setup") {
+			continue
+		}
+		if !saveAllDefaults && !readBoolAnnotation(f, "user") && !f.Changed {
 			continue
 		}
 
@@ -90,6 +92,11 @@ func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 		}
 	}
 	return ioutil.WriteFile(outfile, []byte(sb.String()), os.FileMode(0644))
+}
+
+func readBoolAnnotation(flag *pflag.Flag, key string) bool {
+	annotation := flag.Annotations[key]
+	return len(annotation) > 0 && annotation[0] == "true"
 }
 
 // Ctx returns the appropriate context.Context for ExecuteWithConfig commands
@@ -128,10 +135,6 @@ func cleanup(cmd *cobra.Command) {
 		defer mon.TaskNamed("root")(&ctx)(&err)
 
 		vip := viper.New()
-		err = vip.BindPFlags(cmd.Flags())
-		if err != nil {
-			return err
-		}
 		vip.SetEnvPrefix("storj")
 		vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 		vip.AutomaticEnv()
@@ -145,7 +148,6 @@ func cleanup(cmd *cobra.Command) {
 				if err != nil {
 					return err
 				}
-
 			}
 		}
 
