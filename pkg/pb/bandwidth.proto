@@ -16,6 +16,7 @@ message AgreementsSummary {
   enum Status {
     FAIL = 0;
     OK = 1;
+    REJECTED = 2;
   }
 
   Status status = 1;

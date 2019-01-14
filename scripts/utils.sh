@@ -16,7 +16,14 @@ dots_off() {
 	kill "$dots_pid"
 }
 
+build_cleanup() {
+    dots_off
+    echo
+    echo "BUILD ERROR:"
+    echo "$build_out"
+}
 build() {
+    trap "build_cleanup" ERR
 	local tmp_dir=$1
 	shift
 	echo "building temp binaries:"
@@ -25,7 +32,7 @@ build() {
 		dots_on
 		local path=${tmp_dir}/${cmd}
 		declare -g ${cmd}=${path}
-		go build -o ${path} storj.io/storj/cmd/${cmd}
+		build_out=$(go build -o ${path} storj.io/storj/cmd/${cmd} 2>&1)
 		dots_off
 		echo "done"
 	done
