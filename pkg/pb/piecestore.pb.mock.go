@@ -43,8 +43,6 @@ func (m *MockPieceStoreRoutesClient) Dashboard(ctx context.Context, req *Dashboa
 	return nil, nil
 }
 
-// func (m *MockPieceStoreRoutesClient) Stats() {}
-
 // Delete mocks base method
 func (m *MockPieceStoreRoutesClient) Delete(arg0 context.Context, arg1 *PieceDelete, arg2 ...grpc.CallOption) (*PieceDeleteSummary, error) {
 	varargs := []interface{}{arg0, arg1}
