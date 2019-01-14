@@ -101,14 +101,3 @@ func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time
 	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastAtRestTally), update)
 	return Error.Wrap(err)
 }
-
-// QueryRollup ... TODO
-func (db *accountingDB) QueryRollup(ctx context.Context, start time.Time, end time.Time) error {
-	tx, err := db.db.Open(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	
-	return nil
-}
