@@ -214,6 +214,34 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, e
 	return &pb.StatSummary{UsedSpace: totalUsed, AvailableSpace: (s.totalAllocated - totalUsed), UsedBandwidth: totalUsedBandwidth, AvailableBandwidth: (s.totalBwAllocated - totalUsedBandwidth)}, nil
 }
 
+// Dashboard is a stream that sends data every `interval` seconds to the listener.
+func (s *Server) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_DashboardServer) (err error) {
+	ctx := stream.Context()
+	// check if ctx.Done()
+	// send message to quit ticker
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+
+	select {
+	case <-ctx.Done():
+		fmt.Printf("context done")
+	case <-ticker.C:
+		fmt.Printf("TICKER FIRED")
+		data := s.getDashboardData()
+		if err != nil {
+			s.log.Warn("unable to create dashboard data proto")
+		}
+
+		if err := stream.Send(data); err != nil {
+			fmt.Printf("error sending dashboard stream %+v\n", err)
+			s.log.Error("error sending dashboard stream")
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
 	s.log.Debug("Deleting", zap.String("Piece ID", fmt.Sprint(in.GetId())))
@@ -300,4 +328,14 @@ func getNamespacedPieceID(pieceID, namespace []byte) (string, error) {
 
 func getNamespace(signedMessage *pb.SignedMessage) []byte {
 	return signedMessage.GetData()
+}
+
+func (s *Server) getDashboardData() *pb.DashboardStats {
+	return &pb.DashboardStats{
+		NodeId:          &pb.Node{},
+		NodeConnections: 0,
+		Address:         "",
+		Connection:      true,
+		Uptime:          0,
+	}
 }

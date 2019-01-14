@@ -20,7 +20,7 @@ service PieceStoreRoutes {
 
   rpc Stats(StatsReq) returns (StatSummary) {}
 
-  rpc Dashboard(stream DashboardReq) returns (stream DashboardStream) {}
+  rpc Dashboard(DashboardReq) returns (stream DashboardStats) {}
 }
 
 message PayerBandwidthAllocation { // Payer refers to satellite
@@ -135,7 +135,7 @@ message SignedMessage {
 
 message DashboardReq { }
 
-message DashboardStream {
+message DashboardStats {
   node.Node node_id = 1;
   int64 node_connections = 2;
   string address = 3;

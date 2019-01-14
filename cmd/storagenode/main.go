@@ -69,6 +69,11 @@ var (
 		RunE:  cmdDiag,
 	}
 
+	// DashboardCmd = &cobra.Command{
+	// 	Use:
+	//  `var Addr = flag.String("address", "localhost:7777", "address of piecestoreserver to inspect")`
+	// }
+
 	runCfg   StorageNode
 	setupCfg StorageNode
 
@@ -290,6 +295,12 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	// display the data
 	err = w.Flush()
 	return err
+}
+
+func DashboardCmd(cmd *cobra.Command, args []string) (err error) {
+	// send request
+	// boot up dashboard
+	// display response data in dashboard
 }
 
 func isOperatorEmailValid(email string) error {
