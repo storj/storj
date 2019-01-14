@@ -66,7 +66,7 @@ func InitMetricsWithCertPath(ctx context.Context, r *monkit.Registry, certPath s
 	nodeID, err := identity.NodeIDFromCertPath(certPath)
 	if err != nil {
 		zap.S().Errorf("Could not read identity for telemetry setup: %v", err)
-		metricsID = ""
+		metricsID = "" // InitMetrics() will fill in a default value
 	} else {
 		metricsID = nodeID.String()
 	}
