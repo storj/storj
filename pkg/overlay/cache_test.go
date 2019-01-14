@@ -1,6 +1,8 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// +build ignore
+
 package overlay_test
 
 import (
