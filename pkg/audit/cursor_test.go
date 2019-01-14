@@ -1,8 +1,6 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build ignore
-
 package audit
 
 import (
@@ -13,14 +11,16 @@ import (
 	"math/big"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storage/meta"
@@ -40,10 +40,17 @@ func TestAuditSegment(t *testing.T) {
 		count int
 	}
 
-	ca, err := testidentity.NewTestCA(ctx)
-	assert.NoError(t, err)
-	identity, err := ca.NewIdentity()
-	assert.NoError(t, err)
+	tctx := testcontext.New(t)
+	defer tctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 4, 1)
+	require.NoError(t, err)
+	defer tctx.Check(planet.Shutdown)
+
+	planet.Start(tctx)
+
+	// we wait a second for all the nodes to complete bootstrapping off the satellite
+	time.Sleep(2 * time.Second)
 
 	// note: to simulate better,
 	// change limit in library to 5 in
@@ -94,15 +101,15 @@ func TestAuditSegment(t *testing.T) {
 		},
 	}
 
-	ctx = auth.WithAPIKey(ctx, nil)
+	ctx := auth.WithAPIKey(tctx, nil)
 
 	// PointerDB instantiation
 	db := teststore.New()
 	c := pointerdb.Config{MaxInlineSegmentSize: 8000}
 
-	cache := overlay.NewCache(teststore.New(), nil)
-
-	pointers := pointerdb.NewServer(db, cache, zap.NewNop(), c, identity)
+	//TODO: use planet PointerDB directly
+	cache := planet.Satellites[0].Overlay
+	pointers := pointerdb.NewServer(db, cache, zap.NewNop(), c, planet.Satellites[0].Identity)
 
 	// create a pdb client and instance of audit
 	cursor := NewCursor(pointers)
