@@ -33,7 +33,7 @@ func TestBandwidthAgreement(t *testing.T) {
 
 func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 	satellitePubKey, satellitePrivKey, uplinkPrivKey := generateKeys(ctx, t)
-	server := bwagreement.NewServer(bwdb, zap.NewNop(), satellitePubKey)
+	satellite := bwagreement.NewServer(bwdb, zap.NewNop(), satellitePubKey)
 
 	{ // TestSameSerialNumberBandwidthAgreements
 		pbaFile1, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satellitePrivKey, uplinkPrivKey, false)
@@ -50,11 +50,11 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		   Uplink requests a PayerBandwidthAllocation from the satellite. One serial number for all storage nodes.
 		   Uplink signes 2 RenterBandwidthAllocation for both storage node. */
 		{
-			reply, err := server.BandwidthAgreements(ctx, rbaNode1)
+			reply, err := satellite.BandwidthAgreements(ctx, rbaNode1)
 			assert.NoError(t, err)
 			assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
 
-			reply, err = server.BandwidthAgreements(ctx, rbaNode2)
+			reply, err = satellite.BandwidthAgreements(ctx, rbaNode2)
 			assert.NoError(t, err)
 			assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
 		}
@@ -68,7 +68,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			rbaNode1, err := GenerateRenterBandwidthAllocation(pbaFile2, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
 			assert.NoError(t, err)
 
-			reply, err := server.BandwidthAgreements(ctx, rbaNode1)
+			reply, err := satellite.BandwidthAgreements(ctx, rbaNode1)
 			assert.NoError(t, err)
 			assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
 		}
@@ -78,7 +78,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			rbaNode1, err := GenerateRenterBandwidthAllocation(pbaFile1, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
 			assert.NoError(t, err)
 
-			reply, err := server.BandwidthAgreements(ctx, rbaNode1)
+			reply, err := satellite.BandwidthAgreements(ctx, rbaNode1)
 			assert.EqualError(t, err, "bwagreement error: SerialNumber already exists in the PayerBandwidthAllocation")
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
@@ -87,7 +87,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		   This test is kind of duplicate cause it will most likely trigger the same sequence error.
 		   For safety we will try it anyway to make sure nothing strange will happen */
 		{
-			reply, err := server.BandwidthAgreements(ctx, rbaNode2)
+			reply, err := satellite.BandwidthAgreements(ctx, rbaNode2)
 			assert.EqualError(t, err, "bwagreement error: SerialNumber already exists in the PayerBandwidthAllocation")
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
@@ -102,7 +102,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			rba, err := GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("Storage node 1"), uplinkPrivKey)
 			assert.NoError(t, err)
 
-			reply, err := server.BandwidthAgreements(ctx, rba)
+			reply, err := satellite.BandwidthAgreements(ctx, rba)
 			assert.Error(t, err)
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
@@ -140,7 +140,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		   Satellite will verify Renter's Signature */
 		{
 			// Using uplink signature
-			reply, err := server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
+			reply, err := satellite.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
 				Signature: rba.GetSignature(),
 				Data:      maniprba,
 			})
@@ -156,7 +156,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			assert.NoError(t, err)
 
 			// Using self created signature
-			reply, err := server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
+			reply, err := satellite.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
 				Signature: manipSignature,
 				Data:      maniprba,
 			})
@@ -186,7 +186,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			assert.NoError(t, err)
 
 			// Using self created signature + public key
-			reply, err := server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
+			reply, err := satellite.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
 				Signature: manipSignature,
 				Data:      maniprba,
 			})
@@ -219,7 +219,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			assert.NoError(t, err)
 
 			// Using self created Payer and Renter bwagreement signatures
-			reply, err := server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
+			reply, err := satellite.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
 				Signature: manipSignature,
 				Data:      maniprba,
 			})
@@ -239,7 +239,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 
 			rba.Signature = []byte("invalid")
 
-			reply, err := server.BandwidthAgreements(ctx, rba)
+			reply, err := satellite.BandwidthAgreements(ctx, rba)
 			assert.EqualError(t, err, "bwagreement error: Invalid Renter's Signature Length")
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
@@ -269,7 +269,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			invalidrba, err := proto.Marshal(rbaData)
 			assert.NoError(t, err)
 
-			reply, err := server.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
+			reply, err := satellite.BandwidthAgreements(ctx, &pb.RenterBandwidthAllocation{
 				Signature: rba.GetSignature(),
 				Data:      invalidrba,
 			})
