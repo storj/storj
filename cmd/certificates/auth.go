@@ -83,6 +83,7 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	defer authDB.Close()
 
 	var emails []string
 	if len(args) > 1 {
