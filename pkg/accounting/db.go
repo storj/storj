@@ -23,5 +23,6 @@ type DB interface {
 	SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTotals BWTally) error
 	// SaveAtRestRaw records raw tallies of at-rest-data.
 	SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]int64) error
+	// QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*dbx.Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_DataType_AccountingRollup_DataTotal_AccountingRollup_CreatedAt_Row, error)
 }
