@@ -81,6 +81,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	srv := NewServer(zap.L(), cache, ns)
 	pb.RegisterOverlayServer(server.GRPC(), srv)
 
+	zap.S().Warn("Once the Peer refactor is done, the overlay inspector needs to be registered on a " +
+		"gRPC server that only listens on localhost")
+	// TODO: register on a private rpc server
+	pb.RegisterOverlayInspectorServer(server.GRPC(), NewInspector(cache))
+
 	ctx2 := context.WithValue(ctx, ctxKeyOverlay, cache)
 	ctx2 = context.WithValue(ctx2, ctxKeyOverlayServer, srv)
 	return server.Run(ctx2)

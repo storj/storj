@@ -26,7 +26,6 @@ import (
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/discovery"
-	"storj.io/storj/pkg/inspector"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
@@ -36,6 +35,7 @@ import (
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/satellite/satelliteweb"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/statdb"
 )
 
 // Captplanet defines Captain Planet configuration
@@ -63,7 +63,6 @@ type Satellite struct {
 	Kademlia    kademlia.SatelliteConfig
 	PointerDB   pointerdb.Config
 	Overlay     overlay.Config
-	Inspector   inspector.Config
 	Checker     checker.Config
 	Repairer    repairer.Config
 	Audit       audit.Config
@@ -72,6 +71,7 @@ type Satellite struct {
 	Discovery   discovery.Config
 	Tally       tally.Config
 	Rollup      rollup.Config
+	StatDB      statdb.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 }
 
