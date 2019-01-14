@@ -31,14 +31,13 @@ import (
 
 // StorageNode defines storage node configuration
 type StorageNode struct {
-	CA        identity.CASetupConfig `setup:"true"`
-	Identity  identity.SetupConfig   `setup:"true"`
-	Overwrite bool                   `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
+	CA       identity.CASetupConfig `setup:"true"`
+	Identity identity.SetupConfig   `setup:"true"`
 
 	Server   server.Config
 	Kademlia kademlia.StorageNodeConfig
 	Storage  psserver.Config
-	Signer   certificates.CertSigningConfig
+	Signer   certificates.CertClientConfig
 }
 
 var (
@@ -81,8 +80,7 @@ var (
 )
 
 const (
-	defaultServerAddr    = ":28967"
-	defaultSatteliteAddr = "127.0.0.1:7778"
+	defaultServerAddr = ":28967"
 )
 
 func init() {
@@ -127,15 +125,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	valid, err := fpath.IsValidSetupDir(setupDir)
-	if !setupCfg.Overwrite && !valid {
-		return fmt.Errorf("storagenode configuration already exists (%v). Rerun with --overwrite", setupDir)
-	} else if setupCfg.Overwrite && err == nil {
-		fmt.Println("overwriting existing storagenode config")
-		err = os.RemoveAll(setupDir)
-		if err != nil {
-			return err
-		}
+	valid, _ := fpath.IsValidSetupDir(setupDir)
+	if !valid {
+		return fmt.Errorf("storagenode configuration already exists (%v)", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
@@ -143,13 +135,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// TODO: this is only applicable once we stop deleting the entire config dir on overwrite
-	// (see https://storjlabs.atlassian.net/browse/V3-1013)
-	// (see https://storjlabs.atlassian.net/browse/V3-949)
-	if setupCfg.Overwrite {
-		setupCfg.CA.Overwrite = true
-		setupCfg.Identity.Overwrite = true
-	}
 	setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
 	setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
 	setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
@@ -172,7 +157,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"identity.key-path":       setupCfg.Identity.KeyPath,
 		"identity.server.address": defaultServerAddr,
 		"storage.path":            filepath.Join(setupDir, "storage"),
-		"kademlia.bootstrap-addr": defaultSatteliteAddr,
 	}
 
 	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
@@ -208,7 +192,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 
 	// open the sql db
 	dbpath := filepath.Join(diagDir, "storage", "piecestore.db")
-	db, err := psdb.Open(context.Background(), "", dbpath)
+	db, err := psdb.Open(context.Background(), nil, dbpath)
 	if err != nil {
 		fmt.Println("Storagenode database couldnt open:", dbpath)
 		return err
@@ -223,10 +207,13 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 
 	// Agreement is a struct that contains a bandwidth agreement and the associated signature
 	type SatelliteSummary struct {
-		TotalBytes        int64
-		PutActionCount    int64
-		GetActionCount    int64
-		TotalTransactions int64
+		TotalBytes           int64
+		PutActionCount       int64
+		GetActionCount       int64
+		GetAuditActionCount  int64
+		GetRepairActionCount int64
+		PutRepairActionCount int64
+		TotalTransactions    int64
 		// additional attributes add here ...
 	}
 
@@ -258,25 +245,33 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 			// fill the summary info
 			summary.TotalBytes += rbad.GetTotal()
 			summary.TotalTransactions++
-			if pbad.GetAction() == pb.PayerBandwidthAllocation_PUT {
+			switch pbad.GetAction() {
+			case pb.PayerBandwidthAllocation_PUT:
 				summary.PutActionCount++
-			} else {
+			case pb.PayerBandwidthAllocation_GET:
 				summary.GetActionCount++
+			case pb.PayerBandwidthAllocation_GET_AUDIT:
+				summary.GetAuditActionCount++
+			case pb.PayerBandwidthAllocation_GET_REPAIR:
+				summary.GetRepairActionCount++
+			case pb.PayerBandwidthAllocation_PUT_REPAIR:
+				summary.PutRepairActionCount++
 			}
-
 		}
 	}
 
 	// initialize the table header (fields)
 	const padding = 3
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	fmt.Fprintln(w, "SatelliteID\tTotal\t# Of Transactions\tPUT Action\tGET Action\t")
+	fmt.Fprintln(w, "SatelliteID\tTotal\t# Of Transactions\tPUT Action\tGET Action\tGET (Audit) Action\tGET (Repair) Action\tPUT (Repair) Action\t")
 
 	// populate the row fields
 	sort.Sort(satelliteIDs)
 	for _, satelliteID := range satelliteIDs {
 		summary := summaries[satelliteID]
-		fmt.Fprint(w, satelliteID, "\t", summary.TotalBytes, "\t", summary.TotalTransactions, "\t", summary.PutActionCount, "\t", summary.GetActionCount, "\t\n")
+		fmt.Fprint(w, satelliteID, "\t", summary.TotalBytes, "\t", summary.TotalTransactions, "\t",
+			summary.PutActionCount, "\t", summary.GetActionCount, "\t", summary.GetAuditActionCount,
+			"\t", summary.GetRepairActionCount, "\t", summary.PutRepairActionCount, "\t\n")
 	}
 
 	// display the data

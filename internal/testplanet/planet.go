@@ -7,28 +7,46 @@ package testplanet
 import (
 	"context"
 	"errors"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	pieceserver "storj.io/storj/pkg/piecestore/psserver"
-	"storj.io/storj/pkg/piecestore/psserver/psdb"
+	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage/teststore"
+	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/storagenodedb"
 )
+
+// Peer represents one of StorageNode or Satellite
+type Peer interface {
+	ID() storj.NodeID
+	Addr() string
+	Local() pb.Node
+
+	Run(context.Context) error
+	Close() error
+
+	NewNodeClient() (node.Client, error)
+}
 
 // Planet is a full storj system setup.
 type Planet struct {
@@ -36,12 +54,15 @@ type Planet struct {
 	directory string // TODO: ensure that everything is in-memory to speed things up
 	started   bool
 
+	peers     []Peer
+	databases []io.Closer
+
 	nodeInfos []pb.Node
 	nodeLinks []string
 	nodes     []*Node
 
 	Satellites   []*Node
-	StorageNodes []*Node
+	StorageNodes []*storagenode.Peer
 	Uplinks      []*Node
 
 	identities *Identities
@@ -77,7 +98,7 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
 
-	planet.StorageNodes, err = planet.newNodes("storage", storageNodeCount, pb.NodeType_STORAGE)
+	planet.StorageNodes, err = planet.newStorageNodes(storageNodeCount)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
@@ -149,32 +170,8 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 	}
 
 	// init storage nodes
-	for _, node := range planet.StorageNodes {
-		storageDir := filepath.Join(planet.directory, node.ID().String())
-
-		serverdb, err := psdb.OpenInMemory(context.Background(), storageDir)
-		if err != nil {
-			return nil, utils.CombineErrors(err, planet.Shutdown())
-		}
-
-		server := pieceserver.New(node.Log, storageDir, serverdb, pieceserver.Config{
-			Path:               storageDir,
-			AllocatedDiskSpace: memory.GB.Int64(),
-			AllocatedBandwidth: 100 * memory.GB.Int64(),
-		}, node.Identity.Key)
-
-		pb.RegisterPieceStoreRoutesServer(node.Provider.GRPC(), server)
-
-		node.Dependencies = append(node.Dependencies,
-			closerFunc(func() error {
-				return server.Stop(context.Background())
-			}))
-		// bootstrap all the kademlia nodes
-		go func(n *Node) {
-			if err := n.Kademlia.Bootstrap(context.Background()); err != nil {
-				log.Error(err.Error())
-			}
-		}(node)
+	for _, storageNode := range planet.StorageNodes {
+		storageNode.Kademlia.SetBootstrapNodes(planet.nodeInfos)
 	}
 
 	// init Uplinks
@@ -201,26 +198,48 @@ func (planet *Planet) Start(ctx context.Context) {
 			}
 		}(node)
 	}
+
+	for _, peer := range planet.peers {
+		go func(peer Peer) {
+			err := peer.Run(ctx)
+			if err == grpc.ErrServerStopped {
+				err = nil
+			}
+			if err != nil {
+				// TODO: better error handling
+				panic(err)
+			}
+		}(peer)
+	}
+
 	planet.started = true
 }
 
 // Size returns number of nodes in the network
-func (planet *Planet) Size() int { return len(planet.nodes) }
+func (planet *Planet) Size() int { return len(planet.nodes) + len(planet.peers) }
 
 // Shutdown shuts down all the nodes and deletes temporary directories.
 func (planet *Planet) Shutdown() error {
-	var errs []error
+	var errlist errs.Group
 	if !planet.started {
-		errs = append(errs, errors.New("Start was never called"))
+		errlist.Add(errors.New("Start was never called"))
 	}
 
 	// shutdown in reverse order
 	for i := len(planet.nodes) - 1; i >= 0; i-- {
 		node := planet.nodes[i]
-		errs = append(errs, node.Shutdown())
+		errlist.Add(node.Shutdown())
 	}
-	errs = append(errs, os.RemoveAll(planet.directory))
-	return utils.CombineErrors(errs...)
+	for i := len(planet.peers) - 1; i >= 0; i-- {
+		peer := planet.peers[i]
+		errlist.Add(peer.Close())
+	}
+	for _, db := range planet.databases {
+		errlist.Add(db.Close())
+	}
+
+	errlist.Add(os.RemoveAll(planet.directory))
+	return errlist.Err()
 }
 
 // newNodes creates initializes multiple nodes
@@ -234,6 +253,60 @@ func (planet *Planet) newNodes(prefix string, count int, nodeType pb.NodeType) (
 		xs = append(xs, node)
 	}
 
+	return xs, nil
+}
+
+// newStorageNodes initializes storage nodes
+func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
+	var xs []*storagenode.Peer
+	defer func() {
+		for _, x := range xs {
+			planet.peers = append(planet.peers, x)
+			planet.nodeInfos = append(planet.nodeInfos, x.Local())
+		}
+	}()
+
+	for i := 0; i < count; i++ {
+		prefix := "storage" + strconv.Itoa(i)
+		log := planet.log.Named(prefix)
+		storageDir := filepath.Join(planet.directory, prefix)
+
+		identity, err := planet.NewIdentity()
+		if err != nil {
+			return nil, err
+		}
+
+		db, err := storagenodedb.NewInMemory(storageDir)
+		if err != nil {
+			return nil, err
+		}
+		planet.databases = append(planet.databases, db)
+
+		config := storagenode.Config{
+			PublicAddress: "127.0.0.1:0",
+			Kademlia: kademlia.Config{
+				Alpha: 5,
+				Operator: kademlia.OperatorConfig{
+					Email:  prefix + "@example.com",
+					Wallet: "0x" + strings.Repeat("00", 20),
+				},
+			},
+			Storage: psserver.Config{
+				Path:                   "", // TODO: this argument won't be needed with master storagenodedb
+				AllocatedDiskSpace:     memory.TB.Int64(),
+				AllocatedBandwidth:     memory.TB.Int64(),
+				KBucketRefreshInterval: time.Minute,
+			},
+		}
+
+		peer, err := storagenode.New(log, identity, db, config)
+		if err != nil {
+			return xs, err
+		}
+
+		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
+		xs = append(xs, peer)
+	}
 	return xs, nil
 }
 

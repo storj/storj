@@ -104,9 +104,7 @@ func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// NB: backup original cert
-	var backupCfg provider.IdentityConfig
-	backupCfg.CertPath = backupPath(revokeLeafCfg.Identity.CertPath)
-	if err := backupCfg.Save(originalIdent); err != nil {
+	if err := revokeLeafCfg.Identity.SaveBackup(originalIdent); err != nil {
 		return err
 	}
 
