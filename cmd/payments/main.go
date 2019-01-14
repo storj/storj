@@ -5,12 +5,12 @@ package main
 
 import (
 	"context"
-	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"storj.io/storj/pkg/pb"
 )
 
 var (
@@ -29,6 +29,11 @@ var (
 	}
 )
 
+// Payments gives access to the payments api
+type Payments struct {
+	client pb.PaymentsClient
+}
+
 func main() {
 	rootCmd.PersistentFlags().StringVarP(&port, "port", "p", ":7778", "satellite port")
 	rootCmd.PersistentFlags().StringVarP(&apiKey, "apikey", "a", "abc123", "satellite api key")
@@ -40,39 +45,38 @@ func main() {
 	}
 }
 
+func NewPayments(address string) (*Payments, error) {
+	ctx := context.Background()
+
+}
+
+// func NewInspector(address string) (*Inspector, error) {
+// 	ctx := context.Background()
+// 	identity, err := provider.NewFullIdentity(ctx, 12, 4)
+// 	if err != nil {
+// 		return &Inspector{}, ErrIdentity.Wrap(err)
+// 	}
+
+// 	tc := transport.NewClient(identity)
+// 	conn, err := tc.DialAddress(ctx, address)
+// 	if err != nil {
+// 		return &Inspector{}, ErrInspectorDial.Wrap(err)
+// 	}
+
+// 	c := pb.NewInspectorClient(conn)
+
+// 	return &Inspector{
+// 		identity: identity,
+// 		client:   c,
+// 	}, nil
+// }
+
+
 func generateCSV(cmd *cobra.Command, args []string) error {
 	//TODO check validity of args
 
 	startTime := args[0]
 	endTime := args[1]
-
-	headers := []string{"nodeID", "nodeIDCreationDate", "nodeStatus", "walletAddress", "GBAtRest", "GBBWRepair", "GBBWAudit", "GBBWDownload", "start", "end", "satelliteID"}
-	file, err := os.Create("./out/" + startTime + "-" + endTime + ".csv")
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	w := csv.NewWriter(file)
-	if err := w.Write(headers); err != nil {
-		log.Fatalln("error writing headers to csv:", err)
-	}
-
-	qErr := query(startTime, endTime)
-	if qErr != nil {
-		return err
-	}
-
-	if err := w.Error(); err != nil {
-		log.Fatal(err)
-	}
-	w.Flush()
-
-	return query(args[0], args[1])
-}
-
-func query(startTime, endTime string) error {
-	//maybe return queried result
-
-	return nil
+	pc := pb.NewPaymentsClient()
+	// return query(args[0], args[1])
 }
