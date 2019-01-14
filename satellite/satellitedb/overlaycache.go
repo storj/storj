@@ -9,11 +9,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/storage"
 )
 
 var _ overlay.CacheDB = (*overlaycache)(nil)
@@ -23,11 +22,11 @@ type overlaycache struct {
 }
 
 func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*pb.Node, error) {
-	if key.IsZero() {
+	if id.IsZero() {
 		return nil, overlay.ErrEmptyNode
 	}
 
-	node, err := cache.db.Get_OverlayCacheNode_By_NodeId(ctx, 
+	node, err := cache.db.Get_OverlayCacheNode_By_NodeId(ctx,
 		dbx.OverlayCacheNode_NodeId(id.Bytes()),
 	)
 	if err == sql.ErrNoRows {
@@ -36,11 +35,11 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*pb.Node, 
 	return convertOverlayNode(node), err
 }
 
-func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDs) ([]*pb.Node, error) {
+func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*pb.Node, error) {
 	infos := make([]*pb.Node, len(ids))
 	for i, id := range ids {
 		// TODO: abort on canceled context
-		info, err := o.Get(ctx, id)
+		info, err := cache.Get(ctx, id)
 		if err != nil {
 			continue
 		}
@@ -54,7 +53,7 @@ func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit 
 		dbx.OverlayCacheNode_NodeId(cursor.Bytes()),
 		limit, 0,
 	)
-	if  err != nil {
+	if err != nil {
 		return nil, err
 	}
 
@@ -65,9 +64,9 @@ func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit 
 	return infos, nil
 }
 
-func (cache *overlaycache) Update(ctx context.Context, value *pb.Node) (err error) {
-	if key.IsZero() {
-		return nil, overlay.ErrEmptyNode
+func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error) {
+	if info.Id.IsZero() {
+		return overlay.ErrEmptyNode
 	}
 
 	tx, err := cache.db.Open(ctx)
@@ -76,26 +75,30 @@ func (cache *overlaycache) Update(ctx context.Context, value *pb.Node) (err erro
 	}
 
 	// TODO: use upsert
-	_, err = tx.Get_OverlayCacheNode_By_NodeId(ctx, 
-		dbx.OverlayCacheNode_Key(key),
+	_, err = tx.Get_OverlayCacheNode_By_NodeId(ctx,
+		dbx.OverlayCacheNode_NodeId(info.Id.Bytes()),
 	)
 	if err != nil {
 		_, err = tx.Create_OverlayCacheNode(
 			ctx,
-			dbx.OverlayCacheNode_NodeId(info.Id),
+			dbx.OverlayCacheNode_NodeId(info.Id.Bytes()),
 
-			dbx.OverlayCacheNode_NodeType(int(info.NodeType)),
+			dbx.OverlayCacheNode_NodeType(int(info.Type)),
 			dbx.OverlayCacheNode_Address(info.Address.Address),
-			dbx.OverlayCacheNode_Protocol(int(info.Address.Protocol)),
+			dbx.OverlayCacheNode_Protocol(int(info.Address.Transport)),
+
 			dbx.OverlayCacheNode_OperatorEmail(info.Metadata.Email),
 			dbx.OverlayCacheNode_OperatorWallet(info.Metadata.Wallet),
+
 			dbx.OverlayCacheNode_FreeBandwidth(info.Restrictions.FreeBandwidth),
 			dbx.OverlayCacheNode_FreeDisk(info.Restrictions.FreeDisk),
-			dbx.OverlayCacheNode_Latency90(info.Reputation.Latency90),
+
+			dbx.OverlayCacheNode_Latency90(info.Reputation.Latency_90),
 			dbx.OverlayCacheNode_AuditSuccessRatio(info.Reputation.AuditSuccessRatio),
-			dbx.OverlayCacheNode_AuditUptimeRatio(info.Reputation.AuditUptimeRatio),
+			dbx.OverlayCacheNode_AuditUptimeRatio(info.Reputation.UptimeRatio),
 			dbx.OverlayCacheNode_AuditCount(info.Reputation.AuditCount),
 			dbx.OverlayCacheNode_AuditSuccessCount(info.Reputation.AuditSuccessCount),
+
 			dbx.OverlayCacheNode_UptimeCount(info.Reputation.UptimeCount),
 			dbx.OverlayCacheNode_UptimeSuccessCount(info.Reputation.UptimeSuccessCount),
 		)
@@ -105,24 +108,22 @@ func (cache *overlaycache) Update(ctx context.Context, value *pb.Node) (err erro
 	} else {
 		_, err := tx.Update_OverlayCacheNode_By_NodeId(
 			ctx,
-			dbx.OverlayCacheNode_Key(key),
+			dbx.OverlayCacheNode_NodeId(info.Id.Bytes()),
 			dbx.OverlayCacheNode_Update_Fields{
 				dbx.OverlayCacheNode_Address(info.Address.Address),
-				dbx.OverlayCacheNode_Protocol(int(info.Address.Protocol)),
-				
+				dbx.OverlayCacheNode_Protocol(int(info.Address.Transport)),
+
 				dbx.OverlayCacheNode_OperatorEmail(info.Metadata.Email),
 				dbx.OverlayCacheNode_OperatorWallet(info.Metadata.Wallet),
-				
+
 				dbx.OverlayCacheNode_FreeBandwidth(info.Restrictions.FreeBandwidth),
 				dbx.OverlayCacheNode_FreeDisk(info.Restrictions.FreeDisk),
-				
-				dbx.OverlayCacheNode_Latency90(info.Reputation.Latency90),
-				
+
+				dbx.OverlayCacheNode_Latency90(info.Reputation.Latency_90),
 				dbx.OverlayCacheNode_AuditSuccessRatio(info.Reputation.AuditSuccessRatio),
-				dbx.OverlayCacheNode_AuditUptimeRatio(info.Reputation.AuditUptimeRatio),
+				dbx.OverlayCacheNode_AuditUptimeRatio(info.Reputation.UptimeRatio),
 				dbx.OverlayCacheNode_AuditCount(info.Reputation.AuditCount),
 				dbx.OverlayCacheNode_AuditSuccessCount(info.Reputation.AuditSuccessCount),
-				
 				dbx.OverlayCacheNode_UptimeCount(info.Reputation.UptimeCount),
 				dbx.OverlayCacheNode_UptimeSuccessCount(info.Reputation.UptimeSuccessCount),
 			},
@@ -135,7 +136,7 @@ func (cache *overlaycache) Update(ctx context.Context, value *pb.Node) (err erro
 }
 
 func (cache *overlaycache) Delete(ctx context.Context, id storj.NodeID) error {
-	_, err := cache.db.Delete_OverlayCacheNode_By_NodeId(ctx, 
+	_, err := cache.db.Delete_OverlayCacheNode_By_NodeId(ctx,
 		dbx.OverlayCacheNode_NodeId(id.Bytes()),
 	)
 	return err
