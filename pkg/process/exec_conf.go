@@ -52,9 +52,19 @@ var (
 	contexts   = map[*cobra.Command]context.Context{}
 )
 
-// SaveConfig will save all flags with default values to outfilewith specific
-// values specified in 'overrides' overridden.
+// SaveConfig will save only the user-specific flags with default values to
+// outfile with specific values specified in 'overrides' overridden.
 func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}) error {
+	return saveConfig(flagset, outfile, overrides, false)
+}
+
+// SaveConfigWithAllDefaults will save all flags with default values to outfile
+// with specific values specified in 'overrides' overridden.
+func SaveConfigWithAllDefaults(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}) error {
+	return saveConfig(flagset, outfile, overrides, true)
+}
+
+func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}, saveAllDefaults bool) error {
 	// we previously used Viper here, but switched to a custom serializer to allow comments
 	//todo:  switch back to Viper once go-yaml v3 is released and its supports writing comments?
 	flagset.AddFlagSet(pflag.CommandLine)
@@ -67,8 +77,10 @@ func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 	w := &sb
 	for _, k := range keys {
 		f := flagset.Lookup(k)
-		setup := f.Annotations["setup"]
-		if len(setup) > 0 && setup[0] == "true" {
+		if readBoolAnnotation(f, "setup") {
+			continue
+		}
+		if !saveAllDefaults && !readBoolAnnotation(f, "user") && !f.Changed {
 			continue
 		}
 
@@ -90,6 +102,11 @@ func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 		}
 	}
 	return ioutil.WriteFile(outfile, []byte(sb.String()), os.FileMode(0644))
+}
+
+func readBoolAnnotation(flag *pflag.Flag, key string) bool {
+	annotation := flag.Annotations[key]
+	return len(annotation) > 0 && annotation[0] == "true"
 }
 
 // Ctx returns the appropriate context.Context for ExecuteWithConfig commands
@@ -145,7 +162,6 @@ func cleanup(cmd *cobra.Command) {
 				if err != nil {
 					return err
 				}
-
 			}
 		}
 
@@ -157,11 +173,14 @@ func cleanup(cmd *cobra.Command) {
 				// flag couldn't be found
 				brokenKeys = append(brokenKeys, key)
 			} else {
+				oldChanged := cmd.Flag(key).Changed
 				err := cmd.Flags().Set(key, vip.GetString(key))
 				if err != nil {
 					// flag couldn't be set
 					brokenVals = append(brokenVals, key)
 				}
+				// revert Changed value
+				cmd.Flag(key).Changed = oldChanged
 			}
 		}
 
