@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -17,7 +16,6 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
 )
 
 // ServerError creates class of errors for stack traces
@@ -120,52 +118,31 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 	}, nil
 }
 
-func (server *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.Node, error) {
-	values, err := server.cache.db.GetAll(keys)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	nodes := []*pb.Node{}
-	for _, v := range values {
-		n := &pb.Node{}
-		if err := proto.Unmarshal(v, n); err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		nodes = append(nodes, n)
-	}
-
-	return nodes, nil
-
-}
-
-func (server *Server) populate(ctx context.Context, startID storj.NodeID, maxNodes int64,
-	minRestrictions *pb.NodeRestrictions, minReputation *pb.NodeStats,
+// TODO: nicer method arguments
+func (server *Server) populate(ctx context.Context,
+	startID storj.NodeID, maxNodes int64,
+	minRestrictions *pb.NodeRestrictions,
+	minReputation *pb.NodeStats,
 	excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
 
+	// TODO: move the query into db
 	limit := int(maxNodes * 2)
-	keys, err := server.cache.db.List(startID.Bytes(), limit)
+	nodes, err := server.cache.db.List(ctx, startID, limit)
 	if err != nil {
 		server.log.Error("Error listing nodes", zap.Error(err))
 		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
-	if len(keys) <= 0 {
-		server.log.Info("No Keys returned from List operation")
-		return []*pb.Node{}, startID, nil
-	}
-
-	// TODO: should this be `var result []*pb.Node` ?
+	var nextStart storj.NodeID
 	result := []*pb.Node{}
-	nodes, err := server.getNodes(ctx, keys)
-	if err != nil {
-		server.log.Error("Error getting nodes", zap.Error(err))
-		return nil, storj.NodeID{}, Error.Wrap(err)
-	}
-
 	for _, v := range nodes {
+		if v == nil {
+			continue
+		}
+
+		nextStart = v.Id
 		if v.Type != pb.NodeType_STORAGE {
+			server.log.Debug("not storage node = " + v.Id.String() + " was " + v.Type.String())
 			continue
 		}
 
@@ -179,19 +156,12 @@ func (server *Server) populate(ctx context.Context, startID storj.NodeID, maxNod
 			reputation.GetAuditSuccessRatio() < minReputation.GetAuditSuccessRatio() ||
 			reputation.GetAuditCount() < minReputation.GetAuditCount() ||
 			contains(excluded, v.Id) {
+			server.log.Debug("excluded = " + v.Id.String())
 			continue
 		}
-		result = append(result, v)
-	}
 
-	var nextStart storj.NodeID
-	if len(keys) < limit {
-		nextStart = storj.NodeID{}
-	} else {
-		nextStart, err = storj.NodeIDFromBytes(keys[len(keys)-1])
-	}
-	if err != nil {
-		return nil, storj.NodeID{}, Error.Wrap(err)
+		server.log.Debug("append " + v.Id.String() + " - " + v.Type.String())
+		result = append(result, v)
 	}
 
 	return result, nextStart, nil
