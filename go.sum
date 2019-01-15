@@ -185,6 +185,8 @@ github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e h1:UC+nLCm+w3WL+ibAW/w
 github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e/go.mod h1:2871C3urfEJnq/bpTYjFdMOdgxVd8otLLEL6vMNy/Iw=
 github.com/loov/plot v0.0.0-20180510142208-e59891ae1271 h1:51ToN6N0TDtCruf681gufYuEhO9qFHQzM3RFTS/n6XE=
 github.com/loov/plot v0.0.0-20180510142208-e59891ae1271/go.mod h1:3yy5HBPbe5e1UmEffbO0n0g6A8h6ChHaCTeundr6H60=
+github.com/loov/watchrun v0.3.2 h1:crcpJEz+T07GXlwNW/H9+NYGKd1Mdj7PdByASg8KnG0=
+github.com/loov/watchrun v0.3.2/go.mod h1:/4OG1c9+h6lGssn1P/4Lob9PXLZlSuC32OHTq6hV+mo=
 github.com/magiconair/properties v1.8.0 h1:LLgXmsheXeRoUOBOjtwPQCWIYqM/LU1ayDtDePerRcY=
 github.com/magiconair/properties v1.8.0/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/mailru/easyjson v0.0.0-20180730094502-03f2033d19d5 h1:0x4qcEHDpruK6ML/m/YSlFUUu0UpRD3I2PHsNCuGnyA=

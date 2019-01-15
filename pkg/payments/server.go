@@ -6,7 +6,9 @@ package payments
 import (
 	"context"
 	"encoding/csv"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/golang/protobuf/ptypes"
@@ -55,6 +57,7 @@ func (srv *Server) AdjustPrices(ctx context.Context, req *pb.AdjustPricesRequest
 
 // GenerateCSV creates a csv file for payment purposes
 func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) (*pb.GenerateCSVResponse, error) {
+	fmt.Println("entering server generate csv")
 	start, err := ptypes.Timestamp(req.StartTime)
 	if err != nil {
 		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
@@ -69,8 +72,10 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 	if err != nil {
 		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
 	}
+	os.MkdirAll(srv.filepath, 0700)
+	filename := pi.ID.String() + "-" + start.String() + "-" + end.String() + ".csv"
+	file, err := os.Create(filepath.Join(srv.filepath, filename))
 
-	file, err := os.Create(srv.filepath + "/" + pi.ID.String() + ":" + start.String() + "-" + end.String() + ".csv")
 	if err != nil {
 		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
 	}

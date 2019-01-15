@@ -50,7 +50,7 @@ type Payments struct {
 }
 
 func main() {
-	rootCmd.PersistentFlags().StringVarP(&port, "port", "p", ":7778", "satellite port")
+	rootCmd.PersistentFlags().StringVarP(&port, "port", "p", ":10000", "storj-sdk satellite port")
 	rootCmd.AddCommand(cmdGenerate)
 	err := rootCmd.Execute()
 	if err != nil {
@@ -78,6 +78,7 @@ func NewPayments() (*Payments, error) {
 
 // GenerateCSV makes a call to the payments client to query the db and generate a csv
 func GenerateCSV(cmd *cobra.Command, args []string) error {
+	fmt.Println("entering payments generatecsv")
 	layout := "2006-01-02"
 	start, err := time.Parse(layout, args[0])
 	if err != nil {
