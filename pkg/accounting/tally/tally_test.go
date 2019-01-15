@@ -77,7 +77,7 @@ func TestQueryWithBw(t *testing.T) {
 
 func makeBWA(ctx context.Context, t *testing.T, bwDb bwagreement.DB, serialNum string, k *ecdsa.PrivateKey, action pb.PayerBandwidthAllocation_Action) {
 	//generate an agreement with the key
-	pba, err := test.GeneratePayerBandwidthAllocation(action, k, k, "1h")
+	pba, err := test.GeneratePayerBandwidthAllocation(action, k, k, time.Hour)
 	assert.NoError(t, err)
 	rba, err := test.GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("StorageNodeID"), k)
 	assert.NoError(t, err)
