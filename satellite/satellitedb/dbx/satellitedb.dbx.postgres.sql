@@ -60,8 +60,21 @@ CREATE TABLE nodes (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE overlay_cache_nodes (
-	key bytea NOT NULL,
-	value bytea NOT NULL,
-	PRIMARY KEY ( key ),
-	UNIQUE ( key )
+	node_id bytea NOT NULL,
+	node_type integer NOT NULL,
+	address text NOT NULL,
+	protocol integer NOT NULL,
+	operator_email text NOT NULL,
+	operator_wallet text NOT NULL,
+	free_bandwidth bigint NOT NULL,
+	free_disk bigint NOT NULL,
+	latency_90 bigint NOT NULL,
+	audit_success_ratio double precision NOT NULL,
+	audit_uptime_ratio double precision NOT NULL,
+	audit_count bigint NOT NULL,
+	audit_success_count bigint NOT NULL,
+	uptime_count bigint NOT NULL,
+	uptime_success_count bigint NOT NULL,
+	PRIMARY KEY ( node_id ),
+	UNIQUE ( node_id )
 );

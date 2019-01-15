@@ -182,7 +182,7 @@ func (node *Node) initOverlay(planet *Planet) error {
 
 	node.Kademlia = kad
 	node.StatDB = node.Database.StatDB()
-	node.Overlay = overlay.NewCache(teststore.New(), node.StatDB)
+	node.Overlay = overlay.NewCache(node.Database.OverlayCache(), node.StatDB)
 	node.Discovery = discovery.NewDiscovery(node.Log.Named("discovery"), node.Overlay, node.Kademlia, node.StatDB)
 
 	return nil
