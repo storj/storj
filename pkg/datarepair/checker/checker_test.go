@@ -4,35 +4,23 @@
 package checker_test
 
 import (
-	"context"
 	"math/rand"
 	"sort"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/storage/redis"
-	"storj.io/storj/storage/redis/redisserver"
-	"storj.io/storj/storage/teststore"
 )
-
-var ctx = context.Background()
 
 func TestIdentifyInjuredSegments(t *testing.T) {
 	tctx := testcontext.New(t)
@@ -44,6 +32,8 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 
 	pointerdb := planet.Satellites[0].Metainfo.Endpoint
 	repairQueue := planet.Satellites[0].DB.RepairQueue()
+
+	ctx := auth.WithAPIKey(tctx, nil)
 
 	const N = 25
 	nodes := []*pb.Node{}
@@ -71,7 +61,6 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 			Path:    p.Remote.PieceId,
 			Pointer: p,
 		}
-		ctx = auth.WithAPIKey(ctx, nil)
 		resp, err := pointerdb.Put(ctx, req)
 		assert.NotNil(t, resp)
 		assert.NoError(t, err)
@@ -92,19 +81,6 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 			segs = append(segs, seg)
 		}
 	}
-	//fill a overlay cache
-	overlayServer := mocks.NewOverlay(nodes)
-	limit := 0
-	interval := time.Second
-	// creating in-memory db and opening connection
-	db, err := satellitedb.NewInMemory()
-	assert.NoError(t, err)
-	defer func() {
-		err = db.Close()
-		assert.NoError(t, err)
-	}()
-	err = db.CreateTables()
-	assert.NoError(t, err)
 
 	checker := planet.Satellites[0].Repair.Checker
 	assert.NoError(t, err)
@@ -134,9 +110,6 @@ func TestOfflineNodes(t *testing.T) {
 	require.NoError(t, err)
 	defer tctx.Check(planet.Shutdown)
 
-	pointerdb := planet.Satellites[0].Metainfo.Endpoint
-	repairQueue := planet.Satellites[0].DB.RepairQueue()
-
 	const N = 50
 	nodes := []*pb.Node{}
 	nodeIDs := storj.NodeIDList{}
@@ -153,29 +126,25 @@ func TestOfflineNodes(t *testing.T) {
 		}
 	}
 
-	overlayServer := planet.Satellites[0].Overlay.Endpoint
-	limit := 0
-	interval := time.Second
-	// creating in-memory db and opening connection
-	db, err := satellitedb.NewInMemory()
-	assert.NoError(t, err)
-	defer func() {
-		err = db.Close()
-		assert.NoError(t, err)
-	}()
-	err = db.CreateTables()
-	assert.NoError(t, err)
 	checker := planet.Satellites[0].Repair.Checker
 	assert.NoError(t, err)
-	offline, err := checker.OfflineNodes(ctx, nodeIDs)
+	offline, err := checker.OfflineNodes(tctx, nodeIDs)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedOffline, offline)
 }
 
 func BenchmarkIdentifyInjuredSegments(b *testing.B) {
-	logger := zap.NewNop()
-	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
-	assert.NotNil(b, pointerdb)
+	tctx := testcontext.New(b)
+	defer tctx.Cleanup()
+
+	planet, err := testplanet.New(b, 1, 0, 0)
+	require.NoError(b, err)
+	defer tctx.Check(planet.Shutdown)
+
+	pointerdb := planet.Satellites[0].Metainfo.Endpoint
+	repairQueue := planet.Satellites[0].DB.RepairQueue()
+
+	ctx := auth.WithAPIKey(tctx, nil)
 
 	// creating in-memory db and opening connection
 	db, err := satellitedb.NewInMemory()
@@ -185,13 +154,6 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	}()
 	err = db.CreateTables()
 	assert.NoError(b, err)
-
-	addr, cleanup, err := redisserver.Start()
-	defer cleanup()
-	assert.NoError(b, err)
-	client, err := redis.NewQueue(addr, "", 1)
-	assert.NoError(b, err)
-	repairQueue := queue.NewQueue(client)
 
 	const N = 25
 	nodes := []*pb.Node{}
@@ -219,7 +181,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 			Path:    p.Remote.PieceId,
 			Pointer: p,
 		}
-		ctx = auth.WithAPIKey(ctx, nil)
+
 		resp, err := pointerdb.Put(ctx, req)
 		assert.NotNil(b, resp)
 		assert.NoError(b, err)
@@ -241,13 +203,9 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 		}
 	}
 	//fill a overlay cache
-	overlayServer := mocks.NewOverlay(nodes)
-	limit := 0
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		interval := time.Second
-		assert.NoError(b, err)
-		checker := newChecker(pointerdb, db.StatDB(), repairQueue, overlayServer, db.Irreparable(), limit, logger, interval)
+		checker := planet.Satellites[0].Repair.Checker
 		assert.NoError(b, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
