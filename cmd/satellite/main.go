@@ -27,9 +27,9 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/payments"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/payments"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/statdb"
@@ -51,7 +51,7 @@ type Satellite struct {
 	Audit       audit.Config
 	BwAgreement bwagreement.Config
 	Discovery   discovery.Config
-	Payments 	payments.Config
+	Payments    payments.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	StatDB      statdb.Config
 }

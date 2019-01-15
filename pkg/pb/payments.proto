@@ -58,4 +58,6 @@ message GenerateCSVRequest {
 }
 
 // The response message for querying the data needed to generate a payments CSV
-message GenerateCSVResponse {}
+message GenerateCSVResponse {
+    string filepath = 1;
+}

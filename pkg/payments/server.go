@@ -77,8 +77,8 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 
 	os.MkdirAll(srv.filepath, 0700)
 	filename := pi.ID.String() + "--" + start.Format(layout) + "--" + end.Format(layout) + ".csv"
-	file, err := os.Create(filepath.Join(srv.filepath, filename))
-
+	path := filepath.Join(srv.filepath, filename)
+	file, err := os.Create(path)
 	if err != nil {
 		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
 	}
@@ -135,5 +135,9 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
 	}
 	w.Flush()
-	return &pb.GenerateCSVResponse{}, nil
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return &pb.GenerateCSVResponse{}, err
+	}
+	return &pb.GenerateCSVResponse{Filepath: abs}, nil
 }
