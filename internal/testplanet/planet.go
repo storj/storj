@@ -24,14 +24,13 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
-	"storj.io/storj/storage/teststore"
+	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
 )
@@ -103,81 +102,18 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
 
-	planet.Uplinks, err = planet.newNodes("uplink", uplinkCount, pb.NodeType_UPLINK)
+	planet.Uplinks, err = planet.newUplinks("uplink", uplinkCount)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
 
-	for _, node := range planet.nodes {
-		err = node.initOverlay(planet)
-		if err != nil {
-			return nil, utils.CombineErrors(err, planet.Shutdown())
-		}
-	}
-
-	for _, n := range planet.nodes {
-		server := node.NewServer(n.Log.Named("node"), n.Kademlia)
-		pb.RegisterNodesServer(n.Provider.GRPC(), server)
-		// TODO: shutdown
-	}
-
 	// init Satellites
-	for _, node := range planet.Satellites {
-		pointerServer := pointerdb.NewServer(
-			teststore.New(),
-			node.Overlay,
-			node.Log.Named("pdb"),
-			pointerdb.Config{
-				MinRemoteSegmentSize: 1240,
-				MaxInlineSegmentSize: 8000,
-				Overlay:              true,
-			},
-			node.Identity)
-		pb.RegisterPointerDBServer(node.Provider.GRPC(), pointerServer)
-		// bootstrap satellite kademlia node
-		go func(n *Node) {
-			if err := n.Kademlia.Bootstrap(context.Background()); err != nil {
-				log.Error(err.Error())
-			}
-		}(node)
-
-		ns := &pb.NodeStats{
-			UptimeCount:       0,
-			UptimeRatio:       0,
-			AuditSuccessRatio: 0,
-			AuditCount:        0,
-		}
-
-		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, ns)
-		pb.RegisterOverlayServer(node.Provider.GRPC(), overlayServer)
-
-		node.Dependencies = append(node.Dependencies,
-			closerFunc(func() error {
-				// TODO: implement
-				return nil
-			}))
-
-		go func(n *Node) {
-			// refresh the interval every 500ms
-			t := time.NewTicker(500 * time.Millisecond).C
-			for {
-				<-t
-				if err := n.Discovery.Refresh(context.Background()); err != nil {
-					log.Error(err.Error())
-				}
-			}
-		}(node)
+	for _, satellite := range planet.Satellites {
+		satellite.Kademlia.Service.SetBootstrapNodes(planet.nodeInfos)
 	}
-
 	// init storage nodes
 	for _, storageNode := range planet.StorageNodes {
 		storageNode.Kademlia.SetBootstrapNodes(planet.nodeInfos)
-	}
-
-	// init Uplinks
-	for _, uplink := range planet.Uplinks {
-		// TODO: do we need here anything?
-		_ = uplink
 	}
 
 	return planet, nil
@@ -185,20 +121,6 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 // Start starts all the nodes.
 func (planet *Planet) Start(ctx context.Context) {
-	for _, node := range planet.nodes {
-		go func(node *Node) {
-			node.Kademlia.StartRefresh(ctx)
-			err := node.Provider.Run(ctx)
-			if err == grpc.ErrServerStopped {
-				err = nil
-			}
-			if err != nil {
-				// TODO: better error handling
-				panic(err)
-			}
-		}(node)
-	}
-
 	for _, peer := range planet.peers {
 		go func(peer Peer) {
 			err := peer.Run(ctx)
@@ -242,11 +164,11 @@ func (planet *Planet) Shutdown() error {
 	return errlist.Err()
 }
 
-// newNodes creates initializes multiple nodes
-func (planet *Planet) newNodes(prefix string, count int, nodeType pb.NodeType) ([]*Node, error) {
+// newUplinks creates initializes uplinks
+func (planet *Planet) newUplinks(prefix string, count int) ([]*Node, error) {
 	var xs []*Node
 	for i := 0; i < count; i++ {
-		node, err := planet.newNode(prefix+strconv.Itoa(i), nodeType)
+		node, err := planet.newUplink(prefix + strconv.Itoa(i))
 		if err != nil {
 			return nil, err
 		}
@@ -291,7 +213,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
 			},
-			
+
 			// Overlay   overlay.Config
 			// Discovery discovery.Config
 			// PointerDB   pointerdb.Config
@@ -301,7 +223,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			// Audit    audit.Config
 		}
 
-		peer, err := satellite.New(log, identity, db, config)
+		peer, err := satellite.New(log, identity, db, &config)
 		if err != nil {
 			return xs, err
 		}
