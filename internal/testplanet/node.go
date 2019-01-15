@@ -68,7 +68,7 @@ func (node *Node) Local() pb.Node { return node.Info }
 func (node *Node) Shutdown() error { return nil }
 
 // DialPointerDB dials destination with apikey and returns pointerdb Client
-func (node *Node) DialPointerDB(destination *Node, apikey string) (pdbclient.Client, error) {
+func (node *Node) DialPointerDB(destination Peer, apikey string) (pdbclient.Client, error) {
 	// TODO: use node.Transport instead of pdbclient.NewClient
 	/*
 		conn, err := node.Transport.DialNode(context.Background(), &destination.Info)
@@ -83,8 +83,9 @@ func (node *Node) DialPointerDB(destination *Node, apikey string) (pdbclient.Cli
 }
 
 // DialOverlay dials destination and returns an overlay.Client
-func (node *Node) DialOverlay(destination *Node) (overlay.Client, error) {
-	conn, err := node.Transport.DialNode(context.Background(), &destination.Info, grpc.WithBlock())
+func (node *Node) DialOverlay(destination Peer) (overlay.Client, error) {
+	info := destination.Local()
+	conn, err := node.Transport.DialNode(context.Background(), &info, grpc.WithBlock())
 	if err != nil {
 		return nil, err
 	}

@@ -22,10 +22,16 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/datarepair/checker"
+	"storj.io/storj/pkg/datarepair/repairer"
+	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
@@ -213,14 +219,38 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
 			},
-
-			// Overlay   overlay.Config
-			// Discovery discovery.Config
-			// PointerDB   pointerdb.Config
-			// BwAgreement bwagreement.Config
-			// Checker  checker.Config
-			// Repairer repairer.Config
-			// Audit    audit.Config
+			Overlay: overlay.Config{
+				RefreshInterval: 30 * time.Second,
+				Node: overlay.NodeSelectionConfig{
+					UptimeRatio:       0,
+					UptimeCount:       0,
+					AuditSuccessRatio: 0,
+					AuditCount:        0,
+				},
+			},
+			Discovery: discovery.Config{
+				RefreshInterval: 1 * time.Second,
+			},
+			PointerDB: pointerdb.Config{
+				DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),
+				MinRemoteSegmentSize: 1024,
+				MaxInlineSegmentSize: 8000,
+				Overlay:              true,
+				BwExpiration:         45,
+			},
+			BwAgreement: bwagreement.Config{},
+			Checker: checker.Config{
+				Interval: 30 * time.Second,
+			},
+			Repairer: repairer.Config{
+				MaxRepair:     10,
+				Interval:      time.Hour,
+				OverlayAddr:   "", // overridden in satellite.New
+				PointerDBAddr: "", // overridden in satellite.New
+				MaxBufferMem:  4 * memory.MB,
+				APIKey:        "",
+			},
+			// TODO: Audit    audit.Config
 		}
 
 		peer, err := satellite.New(log, identity, db, &config)
