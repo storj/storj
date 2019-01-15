@@ -112,4 +112,3 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 	}
 	return rows, nil
 }
-
