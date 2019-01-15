@@ -12,10 +12,10 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-//BWTally is a conveniece alias
+//BWTally is a convenience alias
 type BWTally [pb.PayerBandwidthAllocation_PUT_REPAIR + 1]map[storj.NodeID]int64
 
-//RollupStats is a conveniece alias
+//RollupStats is a convenience alias
 type RollupStats map[time.Time]map[storj.NodeID]*dbx.AccountingRollup
 
 // DB stores information about bandwidth usage

@@ -85,7 +85,7 @@ func (r *rollup) Query(ctx context.Context) error {
 		iDay := tallyRow.IntervalEndTime
 		iDay = time.Date(iDay.Year(), iDay.Month(), iDay.Day(), 0, 0, 0, 0, iDay.Location())
 		if rollupStats[iDay] == nil {
-			rollupStats[iDay] = make(map[storj.NodeID]*dbx.AccountingRollup, 0)
+			rollupStats[iDay] = make(map[storj.NodeID]*dbx.AccountingRollup)
 		}
 		if rollupStats[iDay][node] == nil {
 			rollupStats[iDay][node] = &dbx.AccountingRollup{NodeId: node.Bytes(), StartTime: iDay}
