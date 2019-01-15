@@ -184,7 +184,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"identity.key-path":  setupCfg.Identity.KeyPath,
 	}
 
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
