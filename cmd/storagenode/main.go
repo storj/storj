@@ -334,39 +334,44 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		clr()
-		heading := color.New(color.Green).Add(color.Bold)
+		heading := color.New(color.FgGreen, color.Bold)
 
 		heading.Printf("\nStorage Node Dashboard Stats\n")
 		heading.Printf("\n===============================\n")
 
-		color.Green("\nNode ID: ")
-		color.White("%s\n", data.NodeId)
+		fmt.Fprintf(color.Output, "Node ID: %s\n", color.BlueString(data.GetNodeId()))
 
-		color.Green("\nUptime: ")
-		uptime, err := ptypes.Duration(data.Uptime)
-		if err != nil {
-			color.Red("%+v \n", err)
+		if data.GetConnection() {
+			fmt.Fprintf(color.Output, "%s ", color.GreenString("ONLINE"))
 		} else {
-			color.White("%s \n", uptime)
+			fmt.Fprintf(color.Output, "%s ", color.RedString("OFFLINE"))
 		}
 
-		color.Green("\nNode Connections: ")
-		color.White("%+v\n", data.NodeConnections)
+		uptime, err := ptypes.Duration(data.GetUptime())
+		if err != nil {
+			color.Red(" %+v \n", err)
+		} else {
+			color.Yellow(" %s \n", uptime)
+		}
 
-		color.Green("\nAvailable Bandwidth: ")
-		color.White("%+v\n", data.Stats.AvailableBandwidth)
+		fmt.Fprintf(color.Output, "Node Connections: %+v\n", whiteInt(data.GetNodeConnections()))
 
-		color.Green("\nUsed Bandwidth: ")
-		color.White("%+v\n", data.Stats.UsedBandwidth)
+		color.Green("\nIO\t\tAvailable\tUsed\n--\t\t---------\t----")
+		stats := data.GetStats()
+		if stats != nil {
+			fmt.Fprintf(color.Output, "Bandwidth\t%+v\t%+v\n", whiteInt(stats.GetAvailableBandwidth()), whiteInt(stats.GetUsedBandwidth()))
+			fmt.Fprintf(color.Output, "Disk\t\t%+v\t%+v\n", whiteInt(stats.GetAvailableSpace()), whiteInt(stats.GetUsedSpace()))
+		} else {
+			color.Yellow("Loading...")
+		}
 
-		color.Green("\nAvailable Space: ")
-		color.White("%+v\n", data.Stats.AvailableSpace)
-
-		color.Green("\nUsed Space: ")
-		color.White("%+v\n", data.Stats.UsedSpace)
 	}
 
 	return nil
+}
+
+func whiteInt(value int64) string {
+	return color.WhiteString(fmt.Sprintf("%+v", value))
 }
 
 func isOperatorEmailValid(email string) error {
