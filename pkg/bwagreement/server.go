@@ -63,7 +63,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 	s.logger.Debug("Received Agreement...")
 
 	reply = &pb.AgreementsSummary{
-		Status: pb.AgreementsSummary_FAIL,
+		Status: pb.AgreementsSummary_REJECTED,
 	}
 
 	// storagenode signature is empty
@@ -110,13 +110,12 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 	})
 
 	if err != nil {
+		//todo:  better classify transport errors (AgreementsSummary_FAIL) vs logical (AgreementsSummary_REJECTED)
 		return reply, BwAgreementError.New("SerialNumber already exists in the PayerBandwidthAllocation")
 	}
 
 	reply.Status = pb.AgreementsSummary_OK
-
 	s.logger.Debug("Stored Agreement...")
-
 	return reply, nil
 }
 

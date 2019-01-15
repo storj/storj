@@ -5,9 +5,9 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 
+	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/cfgstruct"
@@ -16,18 +16,18 @@ import (
 )
 
 var (
-	targetAddr = flag.String("target", "satellite.staging.storj.io:7777", "address of target")
+	targetAddr = pflag.String("target", "satellite.staging.storj.io:7777", "address of target")
 
 	identityConfig provider.IdentityConfig
 )
 
 func init() {
-	cfgstruct.Bind(flag.CommandLine, &identityConfig, cfgstruct.ConfDir("$HOME/.storj/gw"))
+	cfgstruct.Bind(pflag.CommandLine, &identityConfig, cfgstruct.ConfDir("$HOME/.storj/gw"))
 }
 
 func main() {
 	ctx := context.Background()
-	flag.Parse()
+	pflag.Parse()
 	identity, err := identityConfig.Load()
 	if err != nil {
 		panic(err)

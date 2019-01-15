@@ -75,7 +75,7 @@ func (s *Server) validateSegment(req *pb.PutRequest) error {
 		return segmentError.New("remote segment size %d less than minimum allowed %d", remoteSize, min)
 	}
 
-	max := s.config.MaxInlineSegmentSize
+	max := s.config.MaxInlineSegmentSize.Int()
 	inlineSize := len(req.GetPointer().InlineSegment)
 
 	if inlineSize > max {

@@ -36,9 +36,10 @@ type Config struct {
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	identity := server.Identity()
 	pointers := pointerdb.LoadFromContext(ctx)
-	if err != nil {
-		return err
+	if pointers == nil {
+		return Error.New("programmer error: pointerdb responsibility unstarted")
 	}
+
 	overlay, err := overlay.NewClient(identity, c.SatelliteAddr)
 	if err != nil {
 		return err

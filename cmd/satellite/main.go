@@ -14,6 +14,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/audit"
@@ -30,15 +31,15 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/satellitedb"
 )
 
 // Satellite defines satellite configuration
 type Satellite struct {
-	CA        identity.CASetupConfig `setup:"true"`
-	Identity  identity.SetupConfig   `setup:"true"`
-	Overwrite bool                   `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
+	CA       identity.CASetupConfig `setup:"true"`
+	Identity identity.SetupConfig   `setup:"true"`
 
 	Server      server.Config
 	Kademlia    kademlia.SatelliteConfig
@@ -50,6 +51,7 @@ type Satellite struct {
 	BwAgreement bwagreement.Config
 	Discovery   discovery.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+	StatDB      statdb.Config
 }
 
 var (
@@ -126,6 +128,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Errorf("Failed to initialize telemetry batcher: %+v", err)
+	}
 
 	//nolint ignoring context rules to not create cyclic dependency, will be removed later
 	ctx = context.WithValue(ctx, "masterdb", database)
@@ -141,6 +146,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		runCfg.Audit,
 		runCfg.BwAgreement,
 		runCfg.Discovery,
+		runCfg.StatDB,
 	)
 }
 
@@ -150,15 +156,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	valid, err := fpath.IsValidSetupDir(setupDir)
-	if !setupCfg.Overwrite && !valid {
-		return fmt.Errorf("satellite configuration already exists (%v). Rerun with --overwrite", setupDir)
-	} else if setupCfg.Overwrite && err == nil {
-		fmt.Println("overwriting existing satellite config")
-		err = os.RemoveAll(setupDir)
-		if err != nil {
-			return err
-		}
+	valid, _ := fpath.IsValidSetupDir(setupDir)
+	if !valid {
+		return fmt.Errorf("satellite configuration already exists (%v)", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
@@ -184,7 +184,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"identity.key-path":  setupCfg.Identity.KeyPath,
 	}
 
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {

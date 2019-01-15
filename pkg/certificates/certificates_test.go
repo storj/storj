@@ -620,7 +620,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 		CertPath: caCert,
 		KeyPath:  caKey,
 	}
-	config := CertSignerConfig{
+	config := CertServerConfig{
 		AuthorizationDBURL: "bolt://" + filepath.Join(tmp, "authorizations.db"),
 		CA:                 caConfig,
 	}
@@ -815,7 +815,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 		CertPath: caCert,
 		KeyPath:  caKey,
 	}
-	config := CertSignerConfig{
+	config := CertServerConfig{
 		AuthorizationDBURL: "bolt://" + filepath.Join(tmp, "authorizations.db"),
 	}
 	signingCA, err := caSetupConfig.Create(ctx)
@@ -871,11 +871,12 @@ func TestCertificateSigner_Sign(t *testing.T) {
 	}
 	peerCtx := peer.NewContext(ctx, grpcPeer)
 
-	certSigner := &CertificateSigner{
-		Log:    zap.L(),
-		Signer: signingCA,
-		AuthDB: authDB,
-	}
+	certSigner := NewServer(
+		zap.L(),
+		signingCA,
+		authDB,
+		0,
+	)
 	req := pb.SigningRequest{
 		Timestamp: time.Now().Unix(),
 		AuthToken: auths[0].Token.String(),
@@ -917,7 +918,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 
 func newTestAuthDB(ctx *testcontext.Context) (*AuthorizationDB, error) {
 	dbPath := "bolt://" + filepath.Join(ctx.Dir(), "authorizations.db")
-	config := CertSignerConfig{
+	config := CertServerConfig{
 		AuthorizationDBURL: dbPath,
 	}
 	return config.NewAuthDB()
