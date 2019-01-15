@@ -145,6 +145,10 @@ func cleanup(cmd *cobra.Command) {
 		defer mon.TaskNamed("root")(&ctx)(&err)
 
 		vip := viper.New()
+		err = vip.BindPFlags(cmd.Flags())
+		if err != nil {
+			return err
+		}
 		vip.SetEnvPrefix("storj")
 		vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 		vip.AutomaticEnv()
@@ -169,11 +173,14 @@ func cleanup(cmd *cobra.Command) {
 				// flag couldn't be found
 				brokenKeys = append(brokenKeys, key)
 			} else {
+				oldChanged := cmd.Flag(key).Changed
 				err := cmd.Flags().Set(key, vip.GetString(key))
 				if err != nil {
 					// flag couldn't be set
 					brokenVals = append(brokenVals, key)
 				}
+				// revert Changed value
+				cmd.Flag(key).Changed = oldChanged
 			}
 		}
 
