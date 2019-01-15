@@ -129,7 +129,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"enc.key":                setupCfg.EncKey,
 	}
 
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
 }
 
 func generateAWSKey() (key string, err error) {
