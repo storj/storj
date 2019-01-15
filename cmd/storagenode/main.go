@@ -165,7 +165,11 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	configFile := filepath.Join(setupDir, "config.yaml")
-	err = process.SaveConfig(cmd.Flags(), configFile, overrides)
+	if setupCfg.SaveAllDefaults {
+		err = process.SaveConfigWithAllDefaults(cmd.Flags(), configFile, overrides)
+	} else {
+		err = process.SaveConfig(cmd.Flags(), configFile, overrides)
+	}
 	if err != nil {
 		return err
 	}
