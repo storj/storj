@@ -4,7 +4,6 @@
 package audit
 
 import (
-	"context"
 	"crypto/rand"
 	"errors"
 	"math"
@@ -29,7 +28,6 @@ import (
 )
 
 var (
-	ctx       = context.Background()
 	ErrNoList = errors.New("list error: failed to get list")
 	ErrNoNum  = errors.New("num error: failed to get num")
 )
