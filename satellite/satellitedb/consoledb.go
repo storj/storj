@@ -19,6 +19,7 @@ type ConsoleDB struct {
 
 	methods dbx.Methods
 }
+
 // NewConsoleDB - constructor for ConsoleDB
 func NewConsoleDB(driver, source string) (*ConsoleDB, error) {
 	db, err := dbx.Open(driver, source)

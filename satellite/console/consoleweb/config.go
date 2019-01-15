@@ -5,6 +5,7 @@ package consoleweb
 
 import (
 	"context"
+
 	"github.com/graphql-go/graphql"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
