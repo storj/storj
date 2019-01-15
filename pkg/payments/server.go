@@ -47,7 +47,7 @@ func (srv *Server) AdjustPrices(ctx context.Context, req *pb.AdjustPricesRequest
 
 // GenerateCSV creates a csv file for payment purposes
 func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) (*pb.GenerateCSVResponse, error) {
-	// rows, err := srv.accountingDB.QueryPaymentInfo(ctx, req.startTime, req.endTime)
+	rows, err := srv.accountingDB.QueryPaymentInfo(ctx, req.StartTime, req.EndTime)
 
 	// headers := []string{"nodeID", "nodeIDCreationDate", "nodeStatus", "walletAddress", "GBAtRest", "GBBWRepair", "GBBWAudit", "GBBWDownload", "start", "end", "satelliteID"}
 	// file, err := os.Create(srv.filepath + req.startTime + "-" + req.endTime + ".csv")
