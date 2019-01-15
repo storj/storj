@@ -88,9 +88,11 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 		"auditSuccessRatio",
 		"walletAddress",
 		"byte/hr:AtRest",
-		"byte/hr:BWRepair",
+		"byte/hr:BWRepair-GET",
+		"byte/hr:BWRepair-PUT",
 		"byte/hr:BWAudit",
-		"byte/hr:BWDownload",
+		"byte/hr:BWGet",
+		"byte/hr:BWPut",
 		"date",
 	}
 	if err := w.Write(headers); err != nil {
@@ -109,7 +111,13 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 			record.Node_CreatedAt.String(),
 			strconv.FormatFloat(record.Node_AuditSuccessRatio, 'f', 5, 64),
 			wallet,
-			record.AccountingRollup_CreatedAt.String(),
+			string(record.AccountingRollup_AtRestTotal),
+			string(record.AccountingRollup_GetRepairTotal),
+			string(record.AccountingRollup_PutRepairTotal),
+			string(record.AccountingRollup_GetAuditTotal),
+			string(record.AccountingRollup_GetTotal),
+			string(record.AccountingRollup_PutTotal),
+			record.AccountingRollup_StartTime.String(),
 		}
 		if err := w.Write(r); err != nil {
 			return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)

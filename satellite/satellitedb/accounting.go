@@ -103,14 +103,10 @@ func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time
 }
 
 // QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
-func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*dbx.Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_DataType_AccountingRollup_DataTotal_AccountingRollup_CreatedAt_Row, error) {
-	tx, err := db.db.Open(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	s := dbx.AccountingRollup_CreatedAt(start)
-	e := dbx.AccountingRollup_CreatedAt(end)
-	rows, err := tx.All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_DataType_AccountingRollup_DataTotal_AccountingRollup_CreatedAt_By_AccountingRollup_CreatedAt_GreaterOrEqual_And_AccountingRollup_CreatedAt_Less_OrderBy_Asc_Node_Id(ctx, s, e)
+func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*dbx.Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row, error) {
+	s := dbx.AccountingRollup_StartTime(start)
+	e := dbx.AccountingRollup_StartTime(end)
+	rows, err := db.db.All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx, s, e)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

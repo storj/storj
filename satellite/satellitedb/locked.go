@@ -117,7 +117,7 @@ func (m *lockedAccounting) SaveBWRaw(ctx context.Context, latestBwa time.Time, b
 }
 
 // QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
-func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*dbx.Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_DataType_AccountingRollup_DataTotal_AccountingRollup_CreatedAt_Row, error) {
+func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*dbx.Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.QueryPaymentInfo(ctx, start, end)
@@ -217,6 +217,14 @@ func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 	defer m.Unlock()
 	return m.db.Update(ctx, value)
 }
+
+//GetWalletAddress gets the node's wallet address
+func (m *lockedOverlayCache) GetWalletAddress(ctx context.Context, id storj.NodeID) (string, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetWalletAddress(ctx, id)
+}
+
 
 // lockedRepairQueue implements locking wrapper for queue.RepairQueue
 type lockedRepairQueue struct {
