@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
@@ -23,7 +24,7 @@ type Config struct {
 	Interval      time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
 	OverlayAddr   string        `help:"Address to contact overlay server through"`
 	PointerDBAddr string        `help:"Address to contact pointerdb server through"`
-	MaxBufferMem  int           `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"0x400000"`
+	MaxBufferMem  memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
 	APIKey        string        `help:"repairer-specific pointerdb access credential"`
 }
 
@@ -71,7 +72,7 @@ func (c Config) getSegmentRepairer(ctx context.Context, identity *provider.FullI
 		return nil, err
 	}
 
-	ec := ecclient.NewClient(identity, c.MaxBufferMem)
+	ec := ecclient.NewClient(identity, c.MaxBufferMem.Int())
 
 	return segments.NewSegmentRepairer(oc, ec, pdb), nil
 }

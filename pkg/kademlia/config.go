@@ -108,13 +108,18 @@ func (c Config) Run(ctx context.Context, server *provider.Provider,
 	kad.StartRefresh(ctx)
 	defer func() { err = utils.CombineErrors(err, kad.Disconnect()) }()
 
-	pb.RegisterNodesServer(server.GRPC(), node.NewServer(logger, kad))
-
 	go func() {
 		if err = kad.Bootstrap(ctx); err != nil {
 			logger.Error("Failed to bootstrap Kademlia", zap.Any("ID", server.Identity().ID))
 		}
 	}()
+
+	pb.RegisterNodesServer(server.GRPC(), node.NewServer(logger, kad))
+
+	zap.S().Warn("Once the Peer refactor is done, the kad inspector needs to be registered on a " +
+		"gRPC server that only listens on localhost")
+	// TODO: register on a private rpc server
+	pb.RegisterKadInspectorServer(server.GRPC(), NewInspector(kad, server.Identity()))
 
 	return server.Run(context.WithValue(ctx, ctxKeyKad, kad))
 }

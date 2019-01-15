@@ -31,8 +31,8 @@ var (
 	}
 
 	runCfg struct {
-		CertSigner certificates.CertServerConfig
-		Server     server.Config
+		Signer certificates.CertServerConfig
+		Server server.Config
 	}
 
 	defaultConfDir = fpath.ApplicationDir("storj", "cert-signing")
@@ -53,7 +53,7 @@ func init() {
 func cmdRun(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	return runCfg.Server.Run(ctx, nil, runCfg.CertSigner)
+	return runCfg.Server.Run(ctx, nil, runCfg.Signer)
 }
 
 func main() {

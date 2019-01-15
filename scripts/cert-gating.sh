@@ -23,7 +23,7 @@ case $1 in
 	setup)
 		temp_build captplanet identity
 		echo "setting up captplanet"
-		"$captplanet" setup --overwrite
+		"$captplanet" setup
 		echo "clearing whitelist"
 		echo > ${ca_whitelist}
 		echo -n "generating alpha certificate authorities.."
