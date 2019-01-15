@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/accounting"
-	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/irreparable"
@@ -74,7 +73,7 @@ type Config struct {
 
 	Checker  checker.Config
 	Repairer repairer.Config
-	Audit    audit.Config
+	// TODO: Audit    audit.Config
 }
 
 // Peer is the satellite
@@ -120,7 +119,7 @@ type Peer struct {
 		Repairer *repairer.Service
 	}
 	Audit struct {
-		Service *audit.Service // TODO
+		// TODO: Service *audit.Service
 	}
 
 	// TODO: add console
