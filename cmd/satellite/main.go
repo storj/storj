@@ -14,6 +14,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/audit"
@@ -126,6 +127,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	err = database.CreateTables()
 	if err != nil {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
+	}
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Errorf("Failed to initialize telemetry batcher: %+v", err)
 	}
 
 	//nolint ignoring context rules to not create cyclic dependency, will be removed later
