@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
@@ -29,6 +30,9 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	planet, err := testplanet.New(t, 1, 0, 0)
 	require.NoError(t, err)
 	defer tctx.Check(planet.Shutdown)
+
+	planet.Start(tctx)
+	time.Sleep(2 * time.Second)
 
 	pointerdb := planet.Satellites[0].Metainfo.Endpoint
 	repairQueue := planet.Satellites[0].DB.RepairQueue()
@@ -110,6 +114,9 @@ func TestOfflineNodes(t *testing.T) {
 	require.NoError(t, err)
 	defer tctx.Check(planet.Shutdown)
 
+	planet.Start(tctx)
+	time.Sleep(2 * time.Second)
+
 	const N = 50
 	nodes := []*pb.Node{}
 	nodeIDs := storj.NodeIDList{}
@@ -140,6 +147,9 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	planet, err := testplanet.New(b, 1, 0, 0)
 	require.NoError(b, err)
 	defer tctx.Check(planet.Shutdown)
+
+	planet.Start(tctx)
+	time.Sleep(2 * time.Second)
 
 	pointerdb := planet.Satellites[0].Metainfo.Endpoint
 	repairQueue := planet.Satellites[0].DB.RepairQueue()
