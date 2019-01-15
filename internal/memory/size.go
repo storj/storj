@@ -86,6 +86,30 @@ func (size Size) String() string {
 	}
 
 	switch {
+	case size >= EiB*2/3:
+		return fmt.Sprintf("%.1f EiB", size.EiB())
+	case size >= PiB*2/3:
+		return fmt.Sprintf("%.1f PiB", size.PiB())
+	case size >= TiB*2/3:
+		return fmt.Sprintf("%.1f TiB", size.TiB())
+	case size >= GiB*2/3:
+		return fmt.Sprintf("%.1f GiB", size.GiB())
+	case size >= MiB*2/3:
+		return fmt.Sprintf("%.1f MiB", size.MiB())
+	case size >= KiB*2/3:
+		return fmt.Sprintf("%.1f KiB", size.KiB())
+	}
+
+	return strconv.Itoa(size.Int()) + " B"
+}
+
+// Base10String converts size to a string
+func (size Size) Base10String() string {
+	if size == 0 {
+		return "0"
+	}
+
+	switch {
 	case size >= EB*2/3:
 		return fmt.Sprintf("%.1f EB", size.EB())
 	case size >= PB*2/3:
