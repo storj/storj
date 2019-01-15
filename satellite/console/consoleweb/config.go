@@ -5,16 +5,16 @@ package consoleweb
 
 import (
 	"context"
-	"storj.io/storj/pkg/utils"
-	"storj.io/storj/satellite/satellitedb"
 
 	"github.com/graphql-go/graphql"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
+	"storj.io/storj/satellite/satellitedb"
 )
 
 // Config contains info needed for satellite account related services
