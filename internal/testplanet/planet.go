@@ -212,6 +212,12 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		err = db.CreateTables()
+		if err != nil {
+			return nil, err
+		}
+
 		planet.databases = append(planet.databases, db)
 
 		config := satellite.Config{
@@ -297,6 +303,12 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		// TODO: err = db.CreateTables()
+		// if err != nil {
+		// 	return nil, err
+		// }
+
 		planet.databases = append(planet.databases, db)
 
 		config := storagenode.Config{
