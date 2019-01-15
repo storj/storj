@@ -28,6 +28,14 @@ CREATE TABLE api_keys (
 	UNIQUE ( key ),
 	UNIQUE ( name, project_id )
 );
+CREATE TABLE buckets (
+	id BLOB NOT NULL,
+	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	name TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name )
+);
 CREATE TABLE project_members (
 	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,

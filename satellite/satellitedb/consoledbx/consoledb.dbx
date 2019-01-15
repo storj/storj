@@ -104,3 +104,29 @@ read all (
     where api_key.project_id = ?
     orderby asc api_key.name
 )
+
+model bucket (
+    key id
+    unique name
+
+    field id blob
+    field project_id project.id cascade
+
+    field name text
+
+    field created_at    timestamp ( autoinsert )
+)
+
+create bucket ()
+delete bucket ( where bucket.name = ? )
+
+read one (
+    select bucket
+    where bucket.name = ?
+)
+
+read all (
+    select bucket
+    where bucket.project_id = ?
+    orderby asc bucket.name
+)

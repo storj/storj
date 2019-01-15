@@ -19,8 +19,9 @@ import (
 
 	"github.com/lib/pq"
 
-	"github.com/mattn/go-sqlite3"
 	"math/rand"
+
+	"github.com/mattn/go-sqlite3"
 )
 
 // Prevent conditional imports from causing build failures
@@ -301,6 +302,14 @@ CREATE TABLE api_keys (
 	UNIQUE ( key ),
 	UNIQUE ( name, project_id )
 );
+CREATE TABLE buckets (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	name text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name )
+);
 CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -397,6 +406,14 @@ CREATE TABLE api_keys (
 	PRIMARY KEY ( id ),
 	UNIQUE ( key ),
 	UNIQUE ( name, project_id )
+);
+CREATE TABLE buckets (
+	id BLOB NOT NULL,
+	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	name TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name )
 );
 CREATE TABLE project_members (
 	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
@@ -817,6 +834,94 @@ func (f ApiKey_CreatedAt_Field) value() interface{} {
 
 func (ApiKey_CreatedAt_Field) _Column() string { return "created_at" }
 
+type Bucket struct {
+	Id        []byte
+	ProjectId []byte
+	Name      string
+	CreatedAt time.Time
+}
+
+func (Bucket) _Table() string { return "buckets" }
+
+type Bucket_Update_Fields struct {
+}
+
+type Bucket_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Bucket_Id(v []byte) Bucket_Id_Field {
+	return Bucket_Id_Field{_set: true, _value: v}
+}
+
+func (f Bucket_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_Id_Field) _Column() string { return "id" }
+
+type Bucket_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Bucket_ProjectId(v []byte) Bucket_ProjectId_Field {
+	return Bucket_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f Bucket_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_ProjectId_Field) _Column() string { return "project_id" }
+
+type Bucket_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Bucket_Name(v string) Bucket_Name_Field {
+	return Bucket_Name_Field{_set: true, _value: v}
+}
+
+func (f Bucket_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_Name_Field) _Column() string { return "name" }
+
+type Bucket_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Bucket_CreatedAt(v time.Time) Bucket_CreatedAt_Field {
+	return Bucket_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Bucket_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_CreatedAt_Field) _Column() string { return "created_at" }
+
 type ProjectMember struct {
 	MemberId  []byte
 	ProjectId []byte
@@ -1163,6 +1268,32 @@ func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_Bucket(ctx context.Context,
+	bucket_id Bucket_Id_Field,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := bucket_id.value()
+	__project_id_val := bucket_project_id.value()
+	__name_val := bucket_name.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO buckets ( id, project_id, name, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING buckets.id, buckets.project_id, buckets.name, buckets.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __name_val, __created_at_val)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __name_val, __created_at_val).Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
+
+}
+
 func (obj *postgresImpl) Get_User_By_Email(ctx context.Context,
 	user_email User_Email_Field) (
 	user *User, err error) {
@@ -1406,6 +1537,60 @@ func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Co
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, api_key)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Get_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.created_at FROM buckets WHERE buckets.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
+
+}
+
+func (obj *postgresImpl) All_Bucket_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.created_at FROM buckets WHERE buckets.project_id = ? ORDER BY buckets.name")
+
+	var __values []interface{}
+	__values = append(__values, bucket_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -1659,6 +1844,32 @@ func (obj *postgresImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Delete_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM buckets WHERE buckets.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -1673,6 +1884,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	var __res sql.Result
 	var __count int64
 	__res, err = obj.driver.Exec("DELETE FROM project_members;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM buckets;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -1836,6 +2057,35 @@ func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastApiKey(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_Bucket(ctx context.Context,
+	bucket_id Bucket_Id_Field,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := bucket_id.value()
+	__project_id_val := bucket_project_id.value()
+	__name_val := bucket_name.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO buckets ( id, project_id, name, created_at ) VALUES ( ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __name_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __id_val, __project_id_val, __name_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastBucket(ctx, __pk)
 
 }
 
@@ -2082,6 +2332,60 @@ func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Con
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, api_key)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Get_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.created_at FROM buckets WHERE buckets.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
+
+}
+
+func (obj *sqlite3Impl) All_Bucket_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.created_at FROM buckets WHERE buckets.project_id = ? ORDER BY buckets.name")
+
+	var __values []interface{}
+	__values = append(__values, bucket_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -2365,6 +2669,32 @@ func (obj *sqlite3Impl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM buckets WHERE buckets.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) getLastUser(ctx context.Context,
 	pk int64) (
 	user *User, err error) {
@@ -2437,6 +2767,24 @@ func (obj *sqlite3Impl) getLastApiKey(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastBucket(ctx context.Context,
+	pk int64) (
+	bucket *Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.created_at FROM buckets WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -2456,6 +2804,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	var __res sql.Result
 	var __count int64
 	__res, err = obj.driver.Exec("DELETE FROM project_members;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM buckets;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -2552,6 +2910,16 @@ func (rx *Rx) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
 	return tx.All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx, api_key_project_id)
 }
 
+func (rx *Rx) All_Bucket_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field) (
+	rows []*Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Bucket_By_ProjectId_OrderBy_Asc_Name(ctx, bucket_project_id)
+}
+
 func (rx *Rx) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 	var tx *Tx
@@ -2592,6 +2960,19 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 		return
 	}
 	return tx.Create_ApiKey(ctx, api_key_id, api_key_project_id, api_key_key, api_key_name)
+
+}
+
+func (rx *Rx) Create_Bucket(ctx context.Context,
+	bucket_id Bucket_Id_Field,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Bucket(ctx, bucket_id, bucket_project_id, bucket_name)
 
 }
 
@@ -2646,6 +3027,16 @@ func (rx *Rx) Delete_ApiKey_By_Id(ctx context.Context,
 	return tx.Delete_ApiKey_By_Id(ctx, api_key_id)
 }
 
+func (rx *Rx) Delete_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_Bucket_By_Name(ctx, bucket_name)
+}
+
 func (rx *Rx) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -2685,6 +3076,16 @@ func (rx *Rx) Get_ApiKey_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_ApiKey_By_Id(ctx, api_key_id)
+}
+
+func (rx *Rx) Get_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Bucket_By_Name(ctx, bucket_name)
 }
 
 func (rx *Rx) Get_Project_By_Id(ctx context.Context,
@@ -2766,6 +3167,10 @@ type Methods interface {
 		api_key_project_id ApiKey_ProjectId_Field) (
 		rows []*ApiKey, err error)
 
+	All_Bucket_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
+		bucket_project_id Bucket_ProjectId_Field) (
+		rows []*Bucket, err error)
+
 	All_Project(ctx context.Context) (
 		rows []*Project, err error)
 
@@ -2783,6 +3188,12 @@ type Methods interface {
 		api_key_key ApiKey_Key_Field,
 		api_key_name ApiKey_Name_Field) (
 		api_key *ApiKey, err error)
+
+	Create_Bucket(ctx context.Context,
+		bucket_id Bucket_Id_Field,
+		bucket_project_id Bucket_ProjectId_Field,
+		bucket_name Bucket_Name_Field) (
+		bucket *Bucket, err error)
 
 	Create_Project(ctx context.Context,
 		project_id Project_Id_Field,
@@ -2808,6 +3219,10 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field) (
 		deleted bool, err error)
 
+	Delete_Bucket_By_Name(ctx context.Context,
+		bucket_name Bucket_Name_Field) (
+		deleted bool, err error)
+
 	Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field,
 		project_member_project_id ProjectMember_ProjectId_Field) (
@@ -2824,6 +3239,10 @@ type Methods interface {
 	Get_ApiKey_By_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field) (
 		api_key *ApiKey, err error)
+
+	Get_Bucket_By_Name(ctx context.Context,
+		bucket_name Bucket_Name_Field) (
+		bucket *Bucket, err error)
 
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
