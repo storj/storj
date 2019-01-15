@@ -238,7 +238,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			},
 			PointerDB: pointerdb.Config{
 				DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),
-				MinRemoteSegmentSize: 1024,
+				MinRemoteSegmentSize: 10, // TODO: fix tests
 				MaxInlineSegmentSize: 8000,
 				Overlay:              true,
 				BwExpiration:         45,
