@@ -10,120 +10,97 @@ import (
 	"strings"
 )
 
-// base 2
+// base 2 and base 10 sizes
 const (
-	B BinarySize = 1 << (10 * iota)
+	B Size = 1 << (10 * iota)
 	KiB
 	MiB
 	GiB
 	TiB
 	PiB
 	EiB
-)
 
-// base 10
-const (
-	KB DecimalSize = 1e3
-	MB DecimalSize = 1e6
-	GB DecimalSize = 1e9
-	TB DecimalSize = 1e12
-	PB DecimalSize = 1e15
-	EB DecimalSize = 1e18
+	KB Size = 1e3
+	MB Size = 1e6
+	GB Size = 1e9
+	TB Size = 1e12
+	PB Size = 1e15
+	EB Size = 1e18
 )
 
 // Size implements flag.Value for collecting memory size in bytes
-// type Size int64
-
-// BinarySize implements ..
-type BinarySize int64
-
-// DecimalSize implements ..
-type DecimalSize int64
-
-// Int returns bytes binary size as int
-func (binSize BinarySize) Int() int { return int(binSize) }
-
-// Int32 returns bytes binary size as int32
-func (binSize BinarySize) Int32() int32 { return int32(binSize) }
-
-// Int64 returns bytes binary size as int64
-func (binSize BinarySize) Int64() int64 { return int64(binSize) }
-
-// Float64 returns bytes binary size as float64
-func (binSize BinarySize) Float64() float64 { return float64(binSize) }
-
-// KiB returns binary size in kibibytes
-func (binSize BinarySize) KiB() float64 { return binSize.Float64() / KiB.Float64() }
-
-// MiB returns size in mebibytes
-func (binSize BinarySize) MiB() float64 { return binSize.Float64() / MB.Float64() }
-
-// GiB returns size in gibibytes
-func (binSize BinarySize) GiB() float64 { return binSize.Float64() / GB.Float64() }
-
-// TiB returns size in tebibytes
-func (binSize BinarySize) TiB() float64 { return binSize.Float64() / TB.Float64() }
-
-// PiB returns size in pebibytes
-func (binSize BinarySize) PiB() float64 { return binSize.Float64() / PB.Float64() }
-
-// EiB returns size in exbibytes
-func (binSize BinarySize) EiB() float64 { return binSize.Float64() / EB.Float64() }
-
-// DecimalSize methods
+type Size int64
 
 // Int returns bytes size as int
-func (decSize DecimalSize) Int() int { return int(decSize) }
+func (size Size) Int() int { return int(size) }
 
 // Int32 returns bytes size as int32
-func (decSize DecimalSize) Int32() int32 { return int32(decSize) }
+func (size Size) Int32() int32 { return int32(size) }
 
 // Int64 returns bytes size as int64
-func (decSize DecimalSize) Int64() int64 { return int64(decSize) }
+func (size Size) Int64() int64 { return int64(size) }
 
 // Float64 returns bytes size as float64
-func (decSize DecimalSize) Float64() float64 { return float64(decSize) }
+func (size Size) Float64() float64 { return float64(size) }
+
+// KiB returns size in kibibytes
+func (size Size) KiB() float64 { return size.Float64() / KiB.Float64() }
+
+// MiB returns size in mebibytes
+func (size Size) MiB() float64 { return size.Float64() / MiB.Float64() }
+
+// GiB returns size in gibibytes
+func (size Size) GiB() float64 { return size.Float64() / GiB.Float64() }
+
+// TiB returns size in tebibytes
+func (size Size) TiB() float64 { return size.Float64() / TiB.Float64() }
+
+// PiB returns size in pebibytes
+func (size Size) PiB() float64 { return size.Float64() / PiB.Float64() }
+
+// EiB returns size in exbibytes
+func (size Size) EiB() float64 { return size.Float64() / EiB.Float64() }
 
 // KB returns size in kilobytes
-func (decSize DecimalSize) KB() float64 { return decSize.Float64() / KB.Float64() }
+func (size Size) KB() float64 { return size.Float64() / KB.Float64() }
 
 // MB returns size in megabytes
-func (decSize DecimalSize) MB() float64 { return decSize.Float64() / MB.Float64() }
+func (size Size) MB() float64 { return size.Float64() / MB.Float64() }
 
 // GB returns size in gigabytes
-func (decSize DecimalSize) GB() float64 { return decSize.Float64() / GB.Float64() }
+func (size Size) GB() float64 { return size.Float64() / GB.Float64() }
 
 // TB returns size in terabytes
-func (decSize DecimalSize) TB() float64 { return decSize.Float64() / TB.Float64() }
+func (size Size) TB() float64 { return size.Float64() / TB.Float64() }
 
 // PB returns size in petabytes
-func (decSize DecimalSize) PB() float64 { return decSize.Float64() / PB.Float64() }
+func (size Size) PB() float64 { return size.Float64() / PB.Float64() }
 
-// EB returns size in etabytes
-func (decSize DecimalSize) EB() float64 { return decSize.Float64() / EB.Float64() }
+// EB returns size in exabytes
+func (size Size) EB() float64 { return size.Float64() / EB.Float64() }
 
-// String converts decimal size to a string
-func (decSize DecimalSize) String() string {
-	if decSize == 0 {
+// String converts size to a string
+func (size Size) String() string {
+	if size == 0 {
 		return "0"
 	}
 
 	switch {
-	case decSize >= EB*2/3:
-		return fmt.Sprintf("%.1f EB", decSize.EB())
-	case decSize >= PB*2/3:
-		return fmt.Sprintf("%.1f PB", decSize.PB())
-	case decSize >= TB*2/3:
-		return fmt.Sprintf("%.1f TB", decSize.TB())
-	case decSize >= GB*2/3:
-		return fmt.Sprintf("%.1f GB", decSize.GB())
-	case decSize >= MB*2/3:
-		return fmt.Sprintf("%.1f MB", decSize.MB())
-	case decSize >= KB*2/3:
-		return fmt.Sprintf("%.1f KB", decSize.KB())
+	case size >= EB*2/3:
+		return fmt.Sprintf("%.1f EB", size.EB())
+	case size >= PB*2/3:
+		return fmt.Sprintf("%.1f PB", size.PB())
+	case size >= TB*2/3:
+		return fmt.Sprintf("%.1f TB", size.TB())
+	case size >= GB*2/3:
+		return fmt.Sprintf("%.1f GB", size.GB())
+	case size >= MB*2/3:
+		return fmt.Sprintf("%.1f MB", size.MB())
+	case size >= KB*2/3:
+		return fmt.Sprintf("%.1f KB", size.KB())
 	}
 
-	return strconv.Itoa(decSize.Int()) + " B"
+	return strconv.Itoa(size.Int()) + " B"
 }
 
 func isLetter(b byte) bool {
@@ -131,7 +108,7 @@ func isLetter(b byte) bool {
 }
 
 // Set updates value from string
-func (binSize *BinarySize) Set(s string) error {
+func (size *Size) Set(s string) error {
 	if s == "" {
 		return errors.New("empty size")
 	}
@@ -158,69 +135,32 @@ func (binSize *BinarySize) Set(s string) error {
 	}
 
 	switch suffix {
-	case "EB", "EIB":
-		*binSize = BinarySize(v * EiB.Float64())
-	case "PB", "PIB":
-		*binSize = BinarySize(v * PiB.Float64())
-	case "TB", "TIB":
-		*binSize = BinarySize(v * TiB.Float64())
-	case "GB", "GIB":
-		*binSize = BinarySize(v * GiB.Float64())
-	case "MB", "MIB":
-		*binSize = BinarySize(v * MiB.Float64())
-	case "KB", "KIB":
-		*binSize = BinarySize(v * KiB.Float64())
+	case "EB":
+		*size = Size(v * EB.Float64())
+	case "EIB":
+		*size = Size(v * EiB.Float64())
+	case "PB":
+		*size = Size(v * PB.Float64())
+	case "PIB":
+		*size = Size(v * PiB.Float64())
+	case "TB":
+		*size = Size(v * TB.Float64())
+	case "TIB":
+		*size = Size(v * TiB.Float64())
+	case "GB":
+		*size = Size(v * GB.Float64())
+	case "GIB":
+		*size = Size(v * GiB.Float64())
+	case "MB":
+		*size = Size(v * MB.Float64())
+	case "MIB":
+		*size = Size(v * MiB.Float64())
+	case "KB":
+		*size = Size(v * KB.Float64())
+	case "KIB":
+		*size = Size(v * KiB.Float64())
 	case "B", "":
-		*binSize = BinarySize(v)
-	default:
-		return fmt.Errorf("unknown suffix %q", suffix)
-	}
-
-	return nil
-}
-
-// Set updates value from string
-func (decSize *DecimalSize) Set(s string) error {
-	if s == "" {
-		return errors.New("empty size")
-	}
-
-	p := len(s)
-	for isLetter(s[p-1]) {
-		p--
-
-		if p < 0 {
-			return errors.New("p out of bounds")
-		}
-	}
-
-	value, suffix := s[:p], s[p:]
-	suffix = strings.ToUpper(suffix)
-	if suffix == "" || suffix[len(suffix)-1] != 'B' {
-		suffix += "B"
-	}
-
-	value = strings.TrimSpace(value)
-	v, err := strconv.ParseFloat(value, 64)
-	if err != nil {
-		return err
-	}
-
-	switch suffix {
-	case "EB", "EIB":
-		*decSize = DecimalSize(v * EB.Float64())
-	case "PB", "PIB":
-		*decSize = DecimalSize(v * PB.Float64())
-	case "TB", "TIB":
-		*decSize = DecimalSize(v * TB.Float64())
-	case "GB", "GIB":
-		*decSize = DecimalSize(v * GB.Float64())
-	case "MB", "MIB":
-		*decSize = DecimalSize(v * MB.Float64())
-	case "KB", "KIB":
-		*decSize = DecimalSize(v * KB.Float64())
-	case "B", "":
-		*decSize = DecimalSize(v)
+		*size = Size(v)
 	default:
 		return fmt.Errorf("unknown suffix %q", suffix)
 	}
@@ -229,7 +169,4 @@ func (decSize *DecimalSize) Set(s string) error {
 }
 
 // Type implements pflag.Value
-func (BinarySize) Type() string { return "memory.Size" }
-
-// Type implements pflag.Value
-func (DecimalSize) Type() string { return "memory.Size" }
+func (Size) Type() string { return "memory.Size" }
