@@ -238,7 +238,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 	{ // setup datarepair
 		// TODO: simplify argument list somehow
-		peer.Repair.Checker = checker.NewChecker(peer.Metainfo.Endpoint, peer.DB.StatDB(), peer.DB.RepairQueue(), peer.Overlay.Service, peer.DB.Irreparable(), 0, peer.Log.Named("checker"), config.Checker.Interval)
+		peer.Repair.Checker = checker.NewChecker(
+			peer.Metainfo.Endpoint,
+			peer.DB.StatDB(), peer.DB.RepairQueue(),
+			peer.Overlay.Endpoint, peer.DB.Irreparable(),
+			0, peer.Log.Named("checker"),
+			config.Checker.Interval)
 
 		// TODO: close segment repairer, currently this leaks connections
 		segmentRepairer, err := config.Repairer.GetSegmentRepairer(context.TODO(), peer.Identity)
