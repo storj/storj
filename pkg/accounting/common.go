@@ -20,8 +20,4 @@ const (
 	LastBandwidthTally = "LastBandwidthTally"
 	// LastAtReLastRollupstTally represents the accounting timestamp for rollup calculations
 	LastRollup = "LastRollup"
-	//IntervalDaily means a daily rollup
-	IntervalDaily = 0
-	//IntervalDaily means a montly rollup, starting on the 1st of the month
-	IntervalMonthly = 1
 )

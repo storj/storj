@@ -103,13 +103,15 @@ func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time
 }
 
 // GetRaw retrieves all raw tallies
-func (db *accountingDB) GetRaw(ctx context.Context) ([]string, error) {
-	return []string{}, nil
+func (db *accountingDB) GetRaw(ctx context.Context) ([]*dbx.AccountingRaw, error) {
+	out, err := db.db.All_AccountingRaw(ctx)
+	return out, Error.Wrap(err)
 }
 
 // GetRawSince r retrieves all raw tallies sinces
-func (db *accountingDB) GetRawSince(ctx context.Context, latestRollup time.Time) ([]string, error) {
-	return []string{}, nil
+func (db *accountingDB) GetRawSince(ctx context.Context, latestRollup time.Time) ([]*dbx.AccountingRaw, error) {
+	out, err := db.db.All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx, dbx.AccountingRaw_IntervalEndTime(latestRollup))
+	return out, Error.Wrap(err)
 }
 
 // SaveRollup records raw tallies of at rest data to the database

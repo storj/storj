@@ -146,10 +146,6 @@ func (t *tally) queryBW(ctx context.Context) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
-	//todo: avoid selecting recent / in-process bwagreements??
-	// "The storage node has no incentive to keep more than the largest allocation, as
-	// they all share the same “check number,” which can only be cashed once."
 	if len(bwAgreements) == 0 {
 		t.logger.Info("Tally found no new bandwidth allocations")
 		return nil
@@ -171,12 +167,10 @@ func (t *tally) queryBW(ctx context.Context) error {
 		if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
 			return err
 		}
-
 		if baRow.CreatedAt.After(latestBwa) {
 			latestBwa = baRow.CreatedAt
 		}
 		bwTotals[pbad.GetAction()][rbad.StorageNodeId.String()] += rbad.GetTotal()
 	}
-
 	return Error.Wrap(t.accountingDB.SaveBWRaw(ctx, lastBwTally, bwTotals))
 }

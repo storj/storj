@@ -11,12 +11,14 @@ CREATE TABLE accounting_raws (
 );
 CREATE TABLE accounting_rollups (
 	id bigserial NOT NULL,
-	node_id text NOT NULL,
+	node_id bytea NOT NULL,
 	start_time timestamp with time zone NOT NULL,
-	interval bigint NOT NULL,
-	data_total bigint NOT NULL,
-	data_type integer NOT NULL,
-	created_at timestamp with time zone NOT NULL,
+	put_total bigint NOT NULL,
+	get_total bigint NOT NULL,
+	get_audit_total bigint NOT NULL,
+	get_repair_total bigint NOT NULL,
+	put_repair_total bigint NOT NULL,
+	at_rest_total bigint NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE accounting_timestamps (

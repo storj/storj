@@ -284,12 +284,14 @@ func (obj *postgresDB) Schema() string {
 );
 CREATE TABLE accounting_rollups (
 	id bigserial NOT NULL,
-	node_id text NOT NULL,
+	node_id bytea NOT NULL,
 	start_time timestamp with time zone NOT NULL,
-	interval bigint NOT NULL,
-	data_total bigint NOT NULL,
-	data_type integer NOT NULL,
-	created_at timestamp with time zone NOT NULL,
+	put_total bigint NOT NULL,
+	get_total bigint NOT NULL,
+	get_audit_total bigint NOT NULL,
+	get_repair_total bigint NOT NULL,
+	put_repair_total bigint NOT NULL,
+	at_rest_total bigint NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE accounting_timestamps (
@@ -424,12 +426,14 @@ func (obj *sqlite3DB) Schema() string {
 );
 CREATE TABLE accounting_rollups (
 	id INTEGER NOT NULL,
-	node_id TEXT NOT NULL,
+	node_id BLOB NOT NULL,
 	start_time TIMESTAMP NOT NULL,
-	interval INTEGER NOT NULL,
-	data_total INTEGER NOT NULL,
-	data_type INTEGER NOT NULL,
-	created_at TIMESTAMP NOT NULL,
+	put_total INTEGER NOT NULL,
+	get_total INTEGER NOT NULL,
+	get_audit_total INTEGER NOT NULL,
+	get_repair_total INTEGER NOT NULL,
+	put_repair_total INTEGER NOT NULL,
+	at_rest_total INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE accounting_timestamps (
@@ -681,13 +685,15 @@ func (f AccountingRaw_CreatedAt_Field) value() interface{} {
 func (AccountingRaw_CreatedAt_Field) _Column() string { return "created_at" }
 
 type AccountingRollup struct {
-	Id        int64
-	NodeId    string
-	StartTime time.Time
-	Interval  int64
-	DataTotal int64
-	DataType  int
-	CreatedAt time.Time
+	Id             int64
+	NodeId         []byte
+	StartTime      time.Time
+	PutTotal       int64
+	GetTotal       int64
+	GetAuditTotal  int64
+	GetRepairTotal int64
+	PutRepairTotal int64
+	AtRestTotal    int64
 }
 
 func (AccountingRollup) _Table() string { return "accounting_rollups" }
@@ -717,10 +723,10 @@ func (AccountingRollup_Id_Field) _Column() string { return "id" }
 type AccountingRollup_NodeId_Field struct {
 	_set   bool
 	_null  bool
-	_value string
+	_value []byte
 }
 
-func AccountingRollup_NodeId(v string) AccountingRollup_NodeId_Field {
+func AccountingRollup_NodeId(v []byte) AccountingRollup_NodeId_Field {
 	return AccountingRollup_NodeId_Field{_set: true, _value: v}
 }
 
@@ -752,81 +758,119 @@ func (f AccountingRollup_StartTime_Field) value() interface{} {
 
 func (AccountingRollup_StartTime_Field) _Column() string { return "start_time" }
 
-type AccountingRollup_Interval_Field struct {
+type AccountingRollup_PutTotal_Field struct {
 	_set   bool
 	_null  bool
 	_value int64
 }
 
-func AccountingRollup_Interval(v int64) AccountingRollup_Interval_Field {
-	return AccountingRollup_Interval_Field{_set: true, _value: v}
+func AccountingRollup_PutTotal(v int64) AccountingRollup_PutTotal_Field {
+	return AccountingRollup_PutTotal_Field{_set: true, _value: v}
 }
 
-func (f AccountingRollup_Interval_Field) value() interface{} {
+func (f AccountingRollup_PutTotal_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (AccountingRollup_Interval_Field) _Column() string { return "interval" }
+func (AccountingRollup_PutTotal_Field) _Column() string { return "put_total" }
 
-type AccountingRollup_DataTotal_Field struct {
+type AccountingRollup_GetTotal_Field struct {
 	_set   bool
 	_null  bool
 	_value int64
 }
 
-func AccountingRollup_DataTotal(v int64) AccountingRollup_DataTotal_Field {
-	return AccountingRollup_DataTotal_Field{_set: true, _value: v}
+func AccountingRollup_GetTotal(v int64) AccountingRollup_GetTotal_Field {
+	return AccountingRollup_GetTotal_Field{_set: true, _value: v}
 }
 
-func (f AccountingRollup_DataTotal_Field) value() interface{} {
+func (f AccountingRollup_GetTotal_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (AccountingRollup_DataTotal_Field) _Column() string { return "data_total" }
+func (AccountingRollup_GetTotal_Field) _Column() string { return "get_total" }
 
-type AccountingRollup_DataType_Field struct {
+type AccountingRollup_GetAuditTotal_Field struct {
 	_set   bool
 	_null  bool
-	_value int
+	_value int64
 }
 
-func AccountingRollup_DataType(v int) AccountingRollup_DataType_Field {
-	return AccountingRollup_DataType_Field{_set: true, _value: v}
+func AccountingRollup_GetAuditTotal(v int64) AccountingRollup_GetAuditTotal_Field {
+	return AccountingRollup_GetAuditTotal_Field{_set: true, _value: v}
 }
 
-func (f AccountingRollup_DataType_Field) value() interface{} {
+func (f AccountingRollup_GetAuditTotal_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (AccountingRollup_DataType_Field) _Column() string { return "data_type" }
+func (AccountingRollup_GetAuditTotal_Field) _Column() string { return "get_audit_total" }
 
-type AccountingRollup_CreatedAt_Field struct {
+type AccountingRollup_GetRepairTotal_Field struct {
 	_set   bool
 	_null  bool
-	_value time.Time
+	_value int64
 }
 
-func AccountingRollup_CreatedAt(v time.Time) AccountingRollup_CreatedAt_Field {
-	return AccountingRollup_CreatedAt_Field{_set: true, _value: v}
+func AccountingRollup_GetRepairTotal(v int64) AccountingRollup_GetRepairTotal_Field {
+	return AccountingRollup_GetRepairTotal_Field{_set: true, _value: v}
 }
 
-func (f AccountingRollup_CreatedAt_Field) value() interface{} {
+func (f AccountingRollup_GetRepairTotal_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (AccountingRollup_CreatedAt_Field) _Column() string { return "created_at" }
+func (AccountingRollup_GetRepairTotal_Field) _Column() string { return "get_repair_total" }
+
+type AccountingRollup_PutRepairTotal_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func AccountingRollup_PutRepairTotal(v int64) AccountingRollup_PutRepairTotal_Field {
+	return AccountingRollup_PutRepairTotal_Field{_set: true, _value: v}
+}
+
+func (f AccountingRollup_PutRepairTotal_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (AccountingRollup_PutRepairTotal_Field) _Column() string { return "put_repair_total" }
+
+type AccountingRollup_AtRestTotal_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func AccountingRollup_AtRestTotal(v int64) AccountingRollup_AtRestTotal_Field {
+	return AccountingRollup_AtRestTotal_Field{_set: true, _value: v}
+}
+
+func (f AccountingRollup_AtRestTotal_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (AccountingRollup_AtRestTotal_Field) _Column() string { return "at_rest_total" }
 
 type AccountingTimestamps struct {
 	Name  string
@@ -1911,26 +1955,29 @@ func (obj *postgresImpl) Create_AccountingTimestamps(ctx context.Context,
 func (obj *postgresImpl) Create_AccountingRollup(ctx context.Context,
 	accounting_rollup_node_id AccountingRollup_NodeId_Field,
 	accounting_rollup_start_time AccountingRollup_StartTime_Field,
-	accounting_rollup_interval AccountingRollup_Interval_Field,
-	accounting_rollup_data_total AccountingRollup_DataTotal_Field,
-	accounting_rollup_data_type AccountingRollup_DataType_Field) (
+	accounting_rollup_put_total AccountingRollup_PutTotal_Field,
+	accounting_rollup_get_total AccountingRollup_GetTotal_Field,
+	accounting_rollup_get_audit_total AccountingRollup_GetAuditTotal_Field,
+	accounting_rollup_get_repair_total AccountingRollup_GetRepairTotal_Field,
+	accounting_rollup_put_repair_total AccountingRollup_PutRepairTotal_Field,
+	accounting_rollup_at_rest_total AccountingRollup_AtRestTotal_Field) (
 	accounting_rollup *AccountingRollup, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := accounting_rollup_node_id.value()
 	__start_time_val := accounting_rollup_start_time.value()
-	__interval_val := accounting_rollup_interval.value()
-	__data_total_val := accounting_rollup_data_total.value()
-	__data_type_val := accounting_rollup_data_type.value()
-	__created_at_val := __now
+	__put_total_val := accounting_rollup_put_total.value()
+	__get_total_val := accounting_rollup_get_total.value()
+	__get_audit_total_val := accounting_rollup_get_audit_total.value()
+	__get_repair_total_val := accounting_rollup_get_repair_total.value()
+	__put_repair_total_val := accounting_rollup_put_repair_total.value()
+	__at_rest_total_val := accounting_rollup_at_rest_total.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_rollups ( node_id, start_time, interval, data_total, data_type, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_total, accounting_rollups.data_type, accounting_rollups.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_rollups ( node_id, start_time, put_total, get_total, get_audit_total, get_repair_total, put_repair_total, at_rest_total ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __start_time_val, __interval_val, __data_total_val, __data_type_val, __created_at_val)
+	obj.logStmt(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
 
 	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __start_time_val, __interval_val, __data_total_val, __data_type_val, __created_at_val).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataTotal, &accounting_rollup.DataType, &accounting_rollup.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2237,7 +2284,7 @@ func (obj *postgresImpl) Get_AccountingRollup_By_Id(ctx context.Context,
 	accounting_rollup_id AccountingRollup_Id_Field) (
 	accounting_rollup *AccountingRollup, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_total, accounting_rollups.data_type, accounting_rollups.created_at FROM accounting_rollups WHERE accounting_rollups.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM accounting_rollups WHERE accounting_rollups.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, accounting_rollup_id.value())
@@ -2246,7 +2293,7 @@ func (obj *postgresImpl) Get_AccountingRollup_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataTotal, &accounting_rollup.DataType, &accounting_rollup.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2258,7 +2305,7 @@ func (obj *postgresImpl) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx co
 	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field) (
 	rows []*AccountingRollup, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_total, accounting_rollups.data_type, accounting_rollups.created_at FROM accounting_rollups WHERE accounting_rollups.start_time >= ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM accounting_rollups WHERE accounting_rollups.start_time >= ?")
 
 	var __values []interface{}
 	__values = append(__values, accounting_rollup_start_time_greater_or_equal.value())
@@ -2274,7 +2321,7 @@ func (obj *postgresImpl) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx co
 
 	for __rows.Next() {
 		accounting_rollup := &AccountingRollup{}
-		err = __rows.Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataTotal, &accounting_rollup.DataType, &accounting_rollup.CreatedAt)
+		err = __rows.Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -3175,25 +3222,28 @@ func (obj *sqlite3Impl) Create_AccountingTimestamps(ctx context.Context,
 func (obj *sqlite3Impl) Create_AccountingRollup(ctx context.Context,
 	accounting_rollup_node_id AccountingRollup_NodeId_Field,
 	accounting_rollup_start_time AccountingRollup_StartTime_Field,
-	accounting_rollup_interval AccountingRollup_Interval_Field,
-	accounting_rollup_data_total AccountingRollup_DataTotal_Field,
-	accounting_rollup_data_type AccountingRollup_DataType_Field) (
+	accounting_rollup_put_total AccountingRollup_PutTotal_Field,
+	accounting_rollup_get_total AccountingRollup_GetTotal_Field,
+	accounting_rollup_get_audit_total AccountingRollup_GetAuditTotal_Field,
+	accounting_rollup_get_repair_total AccountingRollup_GetRepairTotal_Field,
+	accounting_rollup_put_repair_total AccountingRollup_PutRepairTotal_Field,
+	accounting_rollup_at_rest_total AccountingRollup_AtRestTotal_Field) (
 	accounting_rollup *AccountingRollup, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := accounting_rollup_node_id.value()
 	__start_time_val := accounting_rollup_start_time.value()
-	__interval_val := accounting_rollup_interval.value()
-	__data_total_val := accounting_rollup_data_total.value()
-	__data_type_val := accounting_rollup_data_type.value()
-	__created_at_val := __now
+	__put_total_val := accounting_rollup_put_total.value()
+	__get_total_val := accounting_rollup_get_total.value()
+	__get_audit_total_val := accounting_rollup_get_audit_total.value()
+	__get_repair_total_val := accounting_rollup_get_repair_total.value()
+	__put_repair_total_val := accounting_rollup_put_repair_total.value()
+	__at_rest_total_val := accounting_rollup_at_rest_total.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_rollups ( node_id, start_time, interval, data_total, data_type, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_rollups ( node_id, start_time, put_total, get_total, get_audit_total, get_repair_total, put_repair_total, at_rest_total ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __start_time_val, __interval_val, __data_total_val, __data_type_val, __created_at_val)
+	obj.logStmt(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
 
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __start_time_val, __interval_val, __data_total_val, __data_type_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -3516,7 +3566,7 @@ func (obj *sqlite3Impl) Get_AccountingRollup_By_Id(ctx context.Context,
 	accounting_rollup_id AccountingRollup_Id_Field) (
 	accounting_rollup *AccountingRollup, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_total, accounting_rollups.data_type, accounting_rollups.created_at FROM accounting_rollups WHERE accounting_rollups.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM accounting_rollups WHERE accounting_rollups.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, accounting_rollup_id.value())
@@ -3525,7 +3575,7 @@ func (obj *sqlite3Impl) Get_AccountingRollup_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataTotal, &accounting_rollup.DataType, &accounting_rollup.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -3537,7 +3587,7 @@ func (obj *sqlite3Impl) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx con
 	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field) (
 	rows []*AccountingRollup, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_total, accounting_rollups.data_type, accounting_rollups.created_at FROM accounting_rollups WHERE accounting_rollups.start_time >= ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM accounting_rollups WHERE accounting_rollups.start_time >= ?")
 
 	var __values []interface{}
 	__values = append(__values, accounting_rollup_start_time_greater_or_equal.value())
@@ -3553,7 +3603,7 @@ func (obj *sqlite3Impl) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx con
 
 	for __rows.Next() {
 		accounting_rollup := &AccountingRollup{}
-		err = __rows.Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataTotal, &accounting_rollup.DataType, &accounting_rollup.CreatedAt)
+		err = __rows.Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -4366,13 +4416,13 @@ func (obj *sqlite3Impl) getLastAccountingRollup(ctx context.Context,
 	pk int64) (
 	accounting_rollup *AccountingRollup, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.interval, accounting_rollups.data_total, accounting_rollups.data_type, accounting_rollups.created_at FROM accounting_rollups WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM accounting_rollups WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.Interval, &accounting_rollup.DataTotal, &accounting_rollup.DataType, &accounting_rollup.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4662,15 +4712,18 @@ func (rx *Rx) Create_AccountingRaw(ctx context.Context,
 func (rx *Rx) Create_AccountingRollup(ctx context.Context,
 	accounting_rollup_node_id AccountingRollup_NodeId_Field,
 	accounting_rollup_start_time AccountingRollup_StartTime_Field,
-	accounting_rollup_interval AccountingRollup_Interval_Field,
-	accounting_rollup_data_total AccountingRollup_DataTotal_Field,
-	accounting_rollup_data_type AccountingRollup_DataType_Field) (
+	accounting_rollup_put_total AccountingRollup_PutTotal_Field,
+	accounting_rollup_get_total AccountingRollup_GetTotal_Field,
+	accounting_rollup_get_audit_total AccountingRollup_GetAuditTotal_Field,
+	accounting_rollup_get_repair_total AccountingRollup_GetRepairTotal_Field,
+	accounting_rollup_put_repair_total AccountingRollup_PutRepairTotal_Field,
+	accounting_rollup_at_rest_total AccountingRollup_AtRestTotal_Field) (
 	accounting_rollup *AccountingRollup, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_AccountingRollup(ctx, accounting_rollup_node_id, accounting_rollup_start_time, accounting_rollup_interval, accounting_rollup_data_total, accounting_rollup_data_type)
+	return tx.Create_AccountingRollup(ctx, accounting_rollup_node_id, accounting_rollup_start_time, accounting_rollup_put_total, accounting_rollup_get_total, accounting_rollup_get_audit_total, accounting_rollup_get_repair_total, accounting_rollup_put_repair_total, accounting_rollup_at_rest_total)
 
 }
 
@@ -5032,9 +5085,12 @@ type Methods interface {
 	Create_AccountingRollup(ctx context.Context,
 		accounting_rollup_node_id AccountingRollup_NodeId_Field,
 		accounting_rollup_start_time AccountingRollup_StartTime_Field,
-		accounting_rollup_interval AccountingRollup_Interval_Field,
-		accounting_rollup_data_total AccountingRollup_DataTotal_Field,
-		accounting_rollup_data_type AccountingRollup_DataType_Field) (
+		accounting_rollup_put_total AccountingRollup_PutTotal_Field,
+		accounting_rollup_get_total AccountingRollup_GetTotal_Field,
+		accounting_rollup_get_audit_total AccountingRollup_GetAuditTotal_Field,
+		accounting_rollup_get_repair_total AccountingRollup_GetRepairTotal_Field,
+		accounting_rollup_put_repair_total AccountingRollup_PutRepairTotal_Field,
+		accounting_rollup_at_rest_total AccountingRollup_AtRestTotal_Field) (
 		accounting_rollup *AccountingRollup, err error)
 
 	Create_AccountingTimestamps(ctx context.Context,

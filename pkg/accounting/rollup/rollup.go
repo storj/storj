@@ -11,6 +11,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/storj"
+	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // Rollup is the service for totalling data on storage nodes for 1, 7, 30 day intervals
@@ -51,25 +53,13 @@ func (r *rollup) Run(ctx context.Context) (err error) {
 }
 
 func (r *rollup) Query(ctx context.Context) error {
-	//TODO
-	// "Storage nodes ... will be paid for storing the data month-by-month.  At the end of the payment period, a Satellite
-	// will calculate earnings for each of its storage nodes. Provided the storage node hasn’t been disqualified, the storage
-	// node will be paid by the Satellite for the data it has stored over the course of the month, per the Satellite’s records"
-	// see also https://github.com/storj/storj/blob/cb74d91cb07d659fd9b2fedb2629f23c8918ef0b/pkg/piecestore/psserver/store.go#L97
-
-	// Payments Design Doc:
-	// A rollup will provide a query that performs the following: Select each NodeID in the granular table
-	// For each bucket (1 day, 7 day, 30 day): -- note: for alpha we're sticking to daily and monthly
-	// Coalesce each row from the granular table by hour from 12:00 AM UTC to 11:00 PM UTC
-	// if a row is missing between two hourly buckets, populate the value with the value from the previous hour.
-	// Total the rows for the node and update into the respective bucket.
-
+	//only rollup new things - get LastRollup
+	var latestTally time.Time
 	lastRollup, isNil, err := r.db.LastRawTime(ctx, accounting.LastRollup)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
-	var tallies []string
+	var tallies []*dbx.AccountingRaw
 	if isNil {
 		r.logger.Info("Rollup found no existing raw tally data")
 		tallies, err = r.db.GetRaw(ctx)
@@ -79,7 +69,49 @@ func (r *rollup) Query(ctx context.Context) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	r.logger.Debug(fmt.Sprintf("%+v", tallies))
+	if len(tallies) == 0 {
+		r.logger.Info("Rollup found no new tallies")
+		return nil
+	}
 
-	return nil
+	//loop through tallies and build rollup
+	tallyTotals := make(map[time.Time]map[storj.NodeID]*dbx.AccountingRollup)
+	for _, tallyRow := range tallies {
+		node, err := storj.NodeIDFromString(tallyRow.NodeId)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		if tallyRow.CreatedAt.After(latestTally) {
+			latestTally = tallyRow.CreatedAt
+		}
+		//create or get AccoutingRollup
+		iDay := tallyRow.IntervalEndTime
+		iDay = time.Date(iDay.Year(), iDay.Month(), iDay.Day(), 0, 0, 0, 0, iDay.Location())
+		if tallyTotals[iDay] == nil {
+			tallyTotals[iDay] = make(map[storj.NodeID]*dbx.AccountingRollup, 0)
+		}
+		if tallyTotals[iDay][node] == nil {
+			tallyTotals[iDay][node] = &dbx.AccountingRollup{NodeId: node.Bytes(), StartTime: iDay}
+		}
+		//increment Rollups
+		switch tallyRow.DataType {
+		case accounting.BandwidthPut:
+			tallyTotals[iDay][node].PutTotal += tallyRow.DataTotal
+		case accounting.BandwidthGet:
+			tallyTotals[iDay][node].GetTotal += tallyRow.DataTotal
+		case accounting.BandwidthGetAudit:
+			tallyTotals[iDay][node].GetAuditTotal += tallyRow.DataTotal
+		case accounting.BandwidthGetRepair:
+			tallyTotals[iDay][node].GetRepairTotal += tallyRow.DataTotal
+		case accounting.BandwidthPutRepair:
+			tallyTotals[iDay][node].PutRepairTotal += tallyRow.DataTotal
+		case accounting.AtRest:
+			tallyTotals[iDay][node].AtRestTotal += tallyRow.DataTotal
+		default:
+			return Error.Wrap(fmt.Errorf("Bad tally datatype in rollup : %d", tallyRow.DataType))
+		}
+	}
+	//push to database
+	latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
+	return Error.Wrap(nil)
 }

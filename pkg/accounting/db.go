@@ -9,6 +9,7 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 //BWTally is a conveniece alias
@@ -23,7 +24,7 @@ type DB interface {
 	// SaveAtRestRaw records raw tallies of at-rest-data.
 	SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]int64) error
 	// GetRaw retrieves all raw tallies
-	GetRaw(ctx context.Context) ([]string, error)
+	GetRaw(ctx context.Context) ([]*dbx.AccountingRaw, error)
 	// GetRawSince r retrieves all raw tallies sinces
-	GetRawSince(ctx context.Context, latestRollup time.Time) ([]string, error)
+	GetRawSince(ctx context.Context, latestRollup time.Time) ([]*dbx.AccountingRaw, error)
 }

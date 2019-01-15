@@ -77,13 +77,15 @@ read scalar (
 model accounting_rollup (
 	key id
 
-	field id         serial64
-	field node_id    text
-	field start_time timestamp
-	field interval   int64
-	field data_total int64
-	field data_type  int
-	field created_at timestamp ( autoinsert )
+	field id               serial64
+	field node_id          blob
+	field start_time       timestamp
+	field put_total        int64
+	field get_total        int64
+	field get_audit_total  int64
+	field get_repair_total int64 
+	field put_repair_total int64
+	field at_rest_total    int64
 )
 
 create accounting_rollup ( )
