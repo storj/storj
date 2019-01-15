@@ -15,7 +15,7 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// Rollup is the service for totalling data on storage nodes for 1, 7, 30 day intervals
+// Rollup is the service for totalling data on storage nodes on daily intervals
 type Rollup interface {
 	Run(ctx context.Context) error
 }
