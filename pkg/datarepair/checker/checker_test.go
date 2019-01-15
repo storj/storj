@@ -66,6 +66,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 			Path:    p.Remote.PieceId,
 			Pointer: p,
 		}
+
 		resp, err := pointerdb.Put(ctx, req)
 		assert.NotNil(t, resp)
 		assert.NoError(t, err)
