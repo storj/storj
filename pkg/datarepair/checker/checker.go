@@ -22,6 +22,8 @@ import (
 // Checker is the interface for data repair checker
 type Checker interface {
 	Run(ctx context.Context) error
+	IdentifyInjuredSegments(ctx context.Context) (err error)
+	OfflineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (offline []int32, err error)
 	Close() error
 }
 
@@ -62,7 +64,7 @@ func (c *checker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
-		err = c.identifyInjuredSegments(ctx)
+		err = c.IdentifyInjuredSegments(ctx)
 		if err != nil {
 			c.logger.Error("Checker failed", zap.Error(err))
 		}
@@ -78,8 +80,8 @@ func (c *checker) Run(ctx context.Context) (err error) {
 // Close closes resources
 func (c *checker) Close() error { return nil }
 
-// identifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
-func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
+// IdentifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
+func (c *checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = c.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
@@ -114,7 +116,7 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 				}
 
 				// Find all offline nodes
-				offlineNodes, err := c.offlineNodes(ctx, nodeIDs)
+				offlineNodes, err := c.OfflineNodes(ctx, nodeIDs)
 				if err != nil {
 					return Error.New("error getting offline nodes %s", err)
 				}
@@ -158,8 +160,8 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 	return err
 }
 
-// returns the indices of offline nodes
-func (c *checker) offlineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (offline []int32, err error) {
+// OfflineNodes returns the indices of offline nodes
+func (c *checker) OfflineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (offline []int32, err error) {
 	responses, err := c.overlay.BulkLookup(ctx, pb.NodeIDsToLookupRequests(nodeIDs))
 	if err != nil {
 		return []int32{}, err

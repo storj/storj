@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package checker
+package checker_test
 
 import (
 	"context"
@@ -13,8 +13,11 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/datarepair/queue"
@@ -26,18 +29,21 @@ import (
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storage/redis"
 	"storj.io/storj/storage/redis/redisserver"
-	"storj.io/storj/storage/testqueue"
 	"storj.io/storj/storage/teststore"
 )
 
 var ctx = context.Background()
 
 func TestIdentifyInjuredSegments(t *testing.T) {
-	logger := zap.NewNop()
-	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
-	assert.NotNil(t, pointerdb)
+	tctx := testcontext.New(t)
+	defer tctx.Cleanup()
 
-	repairQueue := queue.NewQueue(testqueue.New())
+	planet, err := testplanet.New(t, 1, 0, 0)
+	require.NoError(t, err)
+	defer tctx.Check(planet.Shutdown)
+
+	pointerdb := planet.Satellites[0].Metainfo.Endpoint
+	repairQueue := planet.Satellites[0].DB.RepairQueue()
 
 	const N = 25
 	nodes := []*pb.Node{}
@@ -99,9 +105,10 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	}()
 	err = db.CreateTables()
 	assert.NoError(t, err)
-	checker := newChecker(pointerdb, db.StatDB(), repairQueue, overlayServer, db.Irreparable(), limit, logger, interval)
+
+	checker := planet.Satellites[0].Repair.Checker
 	assert.NoError(t, err)
-	err = checker.identifyInjuredSegments(ctx)
+	err = checker.IdentifyInjuredSegments(ctx)
 	assert.NoError(t, err)
 
 	//check if the expected segments were added to the queue
@@ -120,11 +127,16 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 }
 
 func TestOfflineNodes(t *testing.T) {
-	logger := zap.NewNop()
-	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
-	assert.NotNil(t, pointerdb)
+	tctx := testcontext.New(t)
+	defer tctx.Cleanup()
 
-	repairQueue := queue.NewQueue(testqueue.New())
+	planet, err := testplanet.New(t, 1, 0, 0)
+	require.NoError(t, err)
+	defer tctx.Check(planet.Shutdown)
+
+	pointerdb := planet.Satellites[0].Metainfo.Endpoint
+	repairQueue := planet.Satellites[0].DB.RepairQueue()
+
 	const N = 50
 	nodes := []*pb.Node{}
 	nodeIDs := storj.NodeIDList{}
@@ -140,7 +152,8 @@ func TestOfflineNodes(t *testing.T) {
 			nodeIDs = append(nodeIDs, id)
 		}
 	}
-	overlayServer := mocks.NewOverlay(nodes)
+
+	overlayServer := planet.Satellites[0].Overlay.Endpoint
 	limit := 0
 	interval := time.Second
 	// creating in-memory db and opening connection
@@ -152,9 +165,9 @@ func TestOfflineNodes(t *testing.T) {
 	}()
 	err = db.CreateTables()
 	assert.NoError(t, err)
-	checker := newChecker(pointerdb, db.StatDB(), repairQueue, overlayServer, db.Irreparable(), limit, logger, interval)
+	checker := planet.Satellites[0].Repair.Checker
 	assert.NoError(t, err)
-	offline, err := checker.offlineNodes(ctx, nodeIDs)
+	offline, err := checker.OfflineNodes(ctx, nodeIDs)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedOffline, offline)
 }
@@ -237,7 +250,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 		checker := newChecker(pointerdb, db.StatDB(), repairQueue, overlayServer, db.Irreparable(), limit, logger, interval)
 		assert.NoError(b, err)
 
-		err = checker.identifyInjuredSegments(ctx)
+		err = checker.IdentifyInjuredSegments(ctx)
 		assert.NoError(b, err)
 
 		//check if the expected segments were added to the queue
