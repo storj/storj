@@ -11,7 +11,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	dbx "storj.io/storj/satellite/satellitedb/consoledbx"
 )
 
 // apikeys is an implementation of satellite.APIKeys

@@ -25,12 +25,12 @@ func TestDatabase(t *testing.T) {
 	})
 
 	t.Run("BeginTx and Commit success", func(t *testing.T) {
-		db, err := NewInMemory()
+		db, err := NewConsoleDB("sqlite3", "file::memory:?mode=memory&cache=shared")
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		transaction, err := db.ConsoleDB().BeginTx(ctx)
+		transaction, err := db.BeginTx(ctx)
 		assert.NoError(t, err)
 		assert.NotNil(t, transaction)
 
@@ -42,12 +42,12 @@ func TestDatabase(t *testing.T) {
 	})
 
 	t.Run("BeginTx and Rollback success", func(t *testing.T) {
-		db, err := NewInMemory()
+		db, err := NewConsoleDB("sqlite3", "file::memory:?mode=memory&cache=shared")
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		transaction, err := db.ConsoleDB().BeginTx(ctx)
+		transaction, err := db.BeginTx(ctx)
 		assert.NoError(t, err)
 		assert.NotNil(t, transaction)
 

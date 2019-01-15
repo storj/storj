@@ -16,9 +16,9 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/satellite"
-	"storj.io/storj/pkg/satellite/satelliteauth"
-	"storj.io/storj/pkg/satellite/satellitedb"
+	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/satellitedb"
 )
 
 func TestGrapqhlMutation(t *testing.T) {
@@ -27,7 +27,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 	log := zap.NewExample()
 
-	db, err := satellitedb.New("sqlite3", "file::memory:?mode=memory&cache=shared")
+	db, err := satellitedb.NewConsoleDB("sqlite3", "file::memory:?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,9 +36,9 @@ func TestGrapqhlMutation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	service, err := satellite.NewService(
+	service, err := console.NewService(
 		log,
-		&satelliteauth.Hmac{Secret: []byte("my-suppa-secret-key")},
+		&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 		db,
 	)
 
@@ -60,8 +60,8 @@ func TestGrapqhlMutation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	createUser := satellite.CreateUser{
-		UserInfo: satellite.UserInfo{
+	createUser := console.CreateUser{
+		UserInfo: console.UserInfo{
 			FirstName: "John",
 			LastName:  "Roll",
 			Email:     "test@email.com",
@@ -84,11 +84,11 @@ func TestGrapqhlMutation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	authCtx := satellite.WithAuth(ctx, sauth)
+	authCtx := console.WithAuth(ctx, sauth)
 
 	t.Run("Create user mutation", func(t *testing.T) {
-		newUser := satellite.CreateUser{
-			UserInfo: satellite.UserInfo{
+		newUser := console.CreateUser{
+			UserInfo: console.UserInfo{
 				FirstName: "Mickey",
 				LastName:  "Green",
 				Email:     "u1@email.com",
@@ -282,11 +282,11 @@ func TestGrapqhlMutation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	authCtx = satellite.WithAuth(ctx, sauth)
+	authCtx = console.WithAuth(ctx, sauth)
 
 	var projectID string
 	t.Run("Create project mutation", func(t *testing.T) {
-		projectInfo := satellite.ProjectInfo{
+		projectInfo := console.ProjectInfo{
 			Name:        "Project name",
 			Description: "desc",
 		}
@@ -335,8 +335,8 @@ func TestGrapqhlMutation(t *testing.T) {
 		assert.Equal(t, "", proj[fieldDescription])
 	})
 
-	user1, err := service.CreateUser(authCtx, satellite.CreateUser{
-		UserInfo: satellite.UserInfo{
+	user1, err := service.CreateUser(authCtx, console.CreateUser{
+		UserInfo: console.UserInfo{
 			FirstName: "User1",
 			Email:     "u1@email.net",
 		},
@@ -347,8 +347,8 @@ func TestGrapqhlMutation(t *testing.T) {
 		t.Fatal(err, project)
 	}
 
-	user2, err := service.CreateUser(authCtx, satellite.CreateUser{
-		UserInfo: satellite.UserInfo{
+	user2, err := service.CreateUser(authCtx, console.CreateUser{
+		UserInfo: console.UserInfo{
 			FirstName: "User1",
 			Email:     "u2@email.net",
 		},

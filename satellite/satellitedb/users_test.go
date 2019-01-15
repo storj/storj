@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	dbx "storj.io/storj/satellite/satellitedb/consoledbx"
 )
 
 func TestUserRepository(t *testing.T) {
@@ -34,7 +34,7 @@ func TestUserRepository(t *testing.T) {
 
 	// creating in-memory db and opens connection
 	// to test with real db3 file use this connection string - "../db/accountdb.db3"
-	db, err := NewInMemory()
+	db, err := NewConsoleDB("sqlite3", "file::memory:?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func TestUserRepository(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	repository := db.ConsoleDB().Users()
+	repository := db.Users()
 
 	t.Run("User insertion success", func(t *testing.T) {
 		id, err := uuid.New()

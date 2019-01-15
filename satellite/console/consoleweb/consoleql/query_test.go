@@ -8,15 +8,16 @@ import (
 	"testing"
 	"time"
 
+	"storj.io/storj/satellite/console"
+
 	"github.com/graphql-go/graphql"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/satellite"
-	"storj.io/storj/pkg/satellite/satelliteauth"
-	"storj.io/storj/pkg/satellite/satellitedb"
+	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/satellitedb"
 )
 
 func TestGraphqlQuery(t *testing.T) {
@@ -25,7 +26,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 	log := zap.NewExample()
 
-	db, err := satellitedb.New("sqlite3", "file::memory:?mode=memory&cache=shared")
+	db, err := satellitedb.NewConsoleDB("sqlite3", "file::memory:?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,9 +35,9 @@ func TestGraphqlQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	service, err := satellite.NewService(
+	service, err := console.NewService(
 		log,
-		&satelliteauth.Hmac{Secret: []byte("my-suppa-secret-key")},
+		&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 		db,
 	)
 
@@ -58,8 +59,8 @@ func TestGraphqlQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	createUser := satellite.CreateUser{
-		UserInfo: satellite.UserInfo{
+	createUser := console.CreateUser{
+		UserInfo: console.UserInfo{
 			FirstName: "John",
 			LastName:  "",
 			Email:     "test@email.com",
@@ -82,7 +83,7 @@ func TestGraphqlQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	authCtx := satellite.WithAuth(ctx, sauth)
+	authCtx := console.WithAuth(ctx, sauth)
 
 	testQuery := func(t *testing.T, query string) interface{} {
 		result := graphql.Do(graphql.Params{
@@ -104,7 +105,7 @@ func TestGraphqlQuery(t *testing.T) {
 	}
 
 	t.Run("User query", func(t *testing.T) {
-		testUser := func(t *testing.T, actual map[string]interface{}, expected *satellite.User) {
+		testUser := func(t *testing.T, actual map[string]interface{}, expected *console.User) {
 			assert.Equal(t, expected.ID.String(), actual[fieldID])
 			assert.Equal(t, expected.Email, actual[fieldEmail])
 			assert.Equal(t, expected.FirstName, actual[fieldFirstName])
@@ -143,7 +144,7 @@ func TestGraphqlQuery(t *testing.T) {
 		})
 	})
 
-	createdProject, err := service.CreateProject(authCtx, satellite.ProjectInfo{
+	createdProject, err := service.CreateProject(authCtx, console.ProjectInfo{
 		Name:            "TestProject",
 		IsTermsAccepted: true,
 	})
@@ -175,8 +176,8 @@ func TestGraphqlQuery(t *testing.T) {
 		assert.Equal(t, createdProject.CreatedAt, createdAt)
 	})
 
-	user1, err := service.CreateUser(authCtx, satellite.CreateUser{
-		UserInfo: satellite.UserInfo{
+	user1, err := service.CreateUser(authCtx, console.CreateUser{
+		UserInfo: console.UserInfo{
 			FirstName: "Mickey",
 			LastName:  "Last",
 			Email:     "uu1@email.com",
@@ -188,8 +189,8 @@ func TestGraphqlQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	user2, err := service.CreateUser(authCtx, satellite.CreateUser{
-		UserInfo: satellite.UserInfo{
+	user2, err := service.CreateUser(authCtx, console.CreateUser{
+		UserInfo: console.UserInfo{
 			FirstName: "Dubas",
 			LastName:  "Name",
 			Email:     "uu2@email.com",
@@ -224,7 +225,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 		assert.Equal(t, 3, len(members))
 
-		testUser := func(t *testing.T, actual map[string]interface{}, expected *satellite.User) {
+		testUser := func(t *testing.T, actual map[string]interface{}, expected *console.User) {
 			assert.Equal(t, expected.Email, actual[fieldEmail])
 			assert.Equal(t, expected.FirstName, actual[fieldFirstName])
 			assert.Equal(t, expected.LastName, actual[fieldLastName])
@@ -285,7 +286,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 		assert.Equal(t, 2, len(keys))
 
-		testAPIKey := func(t *testing.T, actual map[string]interface{}, expected *satellite.APIKeyInfo) {
+		testAPIKey := func(t *testing.T, actual map[string]interface{}, expected *console.APIKeyInfo) {
 			assert.Equal(t, expected.Name, actual[fieldName])
 			assert.Equal(t, expected.ProjectID.String(), actual[fieldProjectID])
 
@@ -316,7 +317,7 @@ func TestGraphqlQuery(t *testing.T) {
 		assert.True(t, foundKey2)
 	})
 
-	project2, err := service.CreateProject(authCtx, satellite.ProjectInfo{
+	project2, err := service.CreateProject(authCtx, console.ProjectInfo{
 		Name:            "Project2",
 		Description:     "Test desc",
 		IsTermsAccepted: true,
@@ -336,7 +337,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 		assert.Equal(t, 2, len(projectsList))
 
-		testProject := func(t *testing.T, actual map[string]interface{}, expected *satellite.Project) {
+		testProject := func(t *testing.T, actual map[string]interface{}, expected *console.Project) {
 			assert.Equal(t, expected.Name, actual[fieldName])
 			assert.Equal(t, expected.Description, actual[fieldDescription])
 

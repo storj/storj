@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	dbx "storj.io/storj/satellite/satellitedb/consoledbx"
 )
 
 func TestProjectsRepository(t *testing.T) {
@@ -36,7 +36,7 @@ func TestProjectsRepository(t *testing.T) {
 
 	// creating in-memory db and opening connection
 	// to test with real db3 file use this connection string - "../db/accountdb.db3"
-	db, err := NewInMemory()
+	db, err := NewConsoleDB("sqlite3", "file::memory:?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,8 +49,8 @@ func TestProjectsRepository(t *testing.T) {
 	}
 
 	// repositories
-	users := db.ConsoleDB().Users()
-	projects := db.ConsoleDB().Projects()
+	users := db.Users()
+	projects := db.Projects()
 	var project *console.Project
 	var owner *console.User
 

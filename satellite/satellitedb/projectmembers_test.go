@@ -20,7 +20,7 @@ func TestProjectMembersRepository(t *testing.T) {
 	defer ctx.Cleanup()
 
 	// creating in-memory db and opening connection
-	db, err := NewInMemory()
+	db, err := NewConsoleDB("sqlite3", "file::memory:?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,9 +33,9 @@ func TestProjectMembersRepository(t *testing.T) {
 	}
 
 	// repositories
-	users := db.ConsoleDB().Users()
-	projects := db.ConsoleDB().Projects()
-	projectMembers := db.ConsoleDB().ProjectMembers()
+	users := db.Users()
+	projects := db.Projects()
+	projectMembers := db.ProjectMembers()
 
 	createdUsers, createdProjects := prepareUsersAndProjects(ctx, t, users, projects)
 

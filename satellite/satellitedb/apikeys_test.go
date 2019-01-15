@@ -18,7 +18,7 @@ func TestApiKeysRepository(t *testing.T) {
 	defer ctx.Cleanup()
 
 	// creating in-memory db and opening connection
-	db, err := NewInMemory()
+	db, err := NewConsoleDB("sqlite3", "file::memory:?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,8 +30,8 @@ func TestApiKeysRepository(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	projects := db.ConsoleDB().Projects()
-	apikeys := db.ConsoleDB().APIKeys()
+	projects := db.Projects()
+	apikeys := db.APIKeys()
 
 	project, err := projects.Insert(ctx, &console.Project{
 		Name:          "ProjectName",
