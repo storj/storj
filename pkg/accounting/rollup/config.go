@@ -16,7 +16,7 @@ import (
 
 // Config contains configurable values for rollup
 type Config struct {
-	Interval time.Duration `help:"how frequently rollup should run" default:"1hr"`
+	Interval time.Duration `help:"how frequently rollup should run" default:"1h"`
 }
 
 // Initialize a rollup struct

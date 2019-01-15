@@ -37,13 +37,11 @@ func newRollup(logger *zap.Logger, db accounting.DB, interval time.Duration) *ro
 // Run the rollup loop
 func (r *rollup) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	for {
 		err = r.Query(ctx)
 		if err != nil {
 			r.logger.Error("Query failed", zap.Error(err))
 		}
-
 		select {
 		case <-r.ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the rollup is canceled via context
@@ -73,7 +71,6 @@ func (r *rollup) Query(ctx context.Context) error {
 		r.logger.Info("Rollup found no new tallies")
 		return nil
 	}
-
 	//loop through tallies and build rollup
 	rollupStats := make(accounting.RollupStats)
 	for _, tallyRow := range tallies {
