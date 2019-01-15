@@ -5,9 +5,10 @@ package consoleweb
 
 import (
 	"context"
+	"storj.io/storj/pkg/utils"
+	"storj.io/storj/satellite/satellitedb"
 
 	"github.com/graphql-go/graphql"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/provider"
@@ -27,15 +28,26 @@ type Config struct {
 func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	log := zap.NewExample()
 
-	db, ok := ctx.Value("masterdb").(interface{ ConsoleDB() console.DB })
-	if !ok {
-		return errs.New("unable to get satellite master db instance")
+	// Create satellite DB
+	driver, source, err := utils.SplitDBURL(c.DatabaseURL)
+	if err != nil {
+		return err
+	}
+
+	db, err := satellitedb.NewConsoleDB(driver, source)
+	if err != nil {
+		return err
+	}
+
+	err = db.CreateTables()
+	if err != nil {
+		log.Error(err.Error())
 	}
 
 	service, err := console.NewService(
 		log,
 		&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
-		db.ConsoleDB(),
+		db,
 	)
 
 	if err != nil {
