@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/satellite/console"
-	dbx "storj.io/storj/satellite/satellitedb/consoledbx"
+	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // apikeys is an implementation of satellite.APIKeys
@@ -48,6 +48,16 @@ func (keys *apikeys) GetByProjectID(ctx context.Context, projectID uuid.UUID) ([
 // Get implements satellite.APIKeys
 func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (*console.APIKeyInfo, error) {
 	dbKey, err := keys.db.Get_ApiKey_By_Id(ctx, dbx.ApiKey_Id(id[:]))
+	if err != nil {
+		return nil, err
+	}
+
+	return fromDBXAPIKey(dbKey)
+}
+
+// GetByKey implements satellite.APIKeys
+func (keys *apikeys) GetByKey(ctx context.Context, key console.APIKey) (*console.APIKeyInfo, error) {
+	dbKey, err := keys.db.Get_ApiKey_By_Key(ctx, dbx.ApiKey_Key(key[:]))
 	if err != nil {
 		return nil, err
 	}

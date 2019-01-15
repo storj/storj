@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package console
 
 import (
@@ -7,7 +10,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 )
 
-// Buckets interface
+// Buckets is interface for working with bucket to project relations
 type Buckets interface {
 	ListBuckets(ctx context.Context, projectID uuid.UUID) ([]Bucket, error)
 	GetBucket(ctx context.Context, name string) (*Bucket, error)
@@ -15,7 +18,7 @@ type Buckets interface {
 	DeattachBucket(ctx context.Context, name string) error
 }
 
-// Bucket type
+// Bucket represents bucket to project relationship
 type Bucket struct {
 	ID uuid.UUID
 

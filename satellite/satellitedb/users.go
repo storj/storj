@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/satellite/console"
-	dbx "storj.io/storj/satellite/satellitedb/consoledbx"
+	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // implementation of Users interface repository using spacemonkeygo/dbx orm

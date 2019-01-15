@@ -6,16 +6,19 @@ package consoleweb
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+
 	"github.com/graphql-go/graphql"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
-	"storj.io/storj/satellite/satellitedb"
 )
+
+// Error is satellite console error type
+var Error = errs.Class("satellite console error")
 
 // Config contains info needed for satellite account related services
 type Config struct {
@@ -28,36 +31,28 @@ type Config struct {
 func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	log := zap.NewExample()
 
-	// Create satellite DB
-	driver, source, err := utils.SplitDBURL(c.DatabaseURL)
-	if err != nil {
-		return err
-	}
+	db, ok := ctx.Value("masterdb").(interface {
+		Console() console.DB
+	})
 
-	db, err := satellitedb.NewConsoleDB(driver, source)
-	if err != nil {
-		return err
-	}
-
-	err = db.CreateTables()
-	if err != nil {
-		log.Error(err.Error())
+	if !ok {
+		return Error.Wrap(errs.New("unable to get master db instance"))
 	}
 
 	service, err := console.NewService(
 		log,
 		&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
-		db,
+		db.Console(),
 	)
 
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	creator := consoleql.TypeCreator{}
 	err = creator.Create(service)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	schema, err := graphql.NewSchema(graphql.SchemaConfig{
@@ -66,7 +61,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	})
 
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	go (&gateway{

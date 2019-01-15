@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package satellitedb
 
 import (
@@ -8,13 +11,14 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/satellite/console"
-	dbx "storj.io/storj/satellite/satellitedb/consoledbx"
+	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type buckets struct {
 	db dbx.Methods
 }
 
+// ListBuckets implements console.Buckets
 func (buck *buckets) ListBuckets(ctx context.Context, projectID uuid.UUID) ([]console.Bucket, error) {
 	buckets, err := buck.db.All_Bucket_By_ProjectId_OrderBy_Asc_Name(
 		ctx,
@@ -43,6 +47,7 @@ func (buck *buckets) ListBuckets(ctx context.Context, projectID uuid.UUID) ([]co
 	return consoleBuckets, nil
 }
 
+// GetBucket implements console.Buckets
 func (buck *buckets) GetBucket(ctx context.Context, name string) (*console.Bucket, error) {
 	bucket, err := buck.db.Get_Bucket_By_Name(ctx, dbx.Bucket_Name(name))
 	if err != nil {
@@ -52,6 +57,7 @@ func (buck *buckets) GetBucket(ctx context.Context, name string) (*console.Bucke
 	return fromDBXBucket(bucket)
 }
 
+// AttachBucket implements console.Buckets
 func (buck *buckets) AttachBucket(ctx context.Context, name string, projectID uuid.UUID) (*console.Bucket, error) {
 	id, err := uuid.New()
 	if err != nil {
@@ -72,10 +78,13 @@ func (buck *buckets) AttachBucket(ctx context.Context, name string, projectID uu
 	return fromDBXBucket(bucket)
 }
 
+// DeattachBucket implements console.Buckets
 func (buck *buckets) DeattachBucket(ctx context.Context, name string) error {
-	panic("implement me")
+	_, err := buck.db.Delete_Bucket_By_Name(ctx, dbx.Bucket_Name(name))
+	return err
 }
 
+// fromDBXBucket creates console.Bucket from dbx.Bucket
 func fromDBXBucket(bucket *dbx.Bucket) (*console.Bucket, error) {
 	id, err := bytesToUUID(bucket.Id)
 	if err != nil {

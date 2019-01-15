@@ -6,6 +6,8 @@ package satellitedb
 import (
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/satellite/console"
+
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
@@ -88,6 +90,14 @@ func (db *DB) Accounting() accounting.DB {
 // Irreparable returns database for storing segments that failed repair
 func (db *DB) Irreparable() irreparable.DB {
 	return &irreparableDB{db: db.db}
+}
+
+// Console returns database for storing users, projects and api keys
+func (db *DB) Console() console.DB {
+	return &ConsoleDB{
+		db:      db.db,
+		methods: db.db,
+	}
 }
 
 // CreateTables is a method for creating all tables for database

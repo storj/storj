@@ -351,6 +351,48 @@ CREATE TABLE overlay_cache_nodes (
 	uptime_success_count bigint NOT NULL,
 	PRIMARY KEY ( node_id ),
 	UNIQUE ( node_id )
+);
+CREATE TABLE projects (
+	id bytea NOT NULL,
+	name text NOT NULL,
+	description text NOT NULL,
+	terms_accepted integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE users (
+	id bytea NOT NULL,
+	first_name text NOT NULL,
+	last_name text NOT NULL,
+	email text NOT NULL,
+	password_hash bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( email )
+);
+CREATE TABLE api_keys (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	key bytea NOT NULL,
+	name text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( key ),
+	UNIQUE ( name, project_id )
+);
+CREATE TABLE buckets (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	name text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name )
+);
+CREATE TABLE project_members (
+	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( member_id, project_id )
 );`
 }
 
@@ -493,6 +535,48 @@ CREATE TABLE overlay_cache_nodes (
 	uptime_success_count INTEGER NOT NULL,
 	PRIMARY KEY ( node_id ),
 	UNIQUE ( node_id )
+);
+CREATE TABLE projects (
+	id BLOB NOT NULL,
+	name TEXT NOT NULL,
+	description TEXT NOT NULL,
+	terms_accepted INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE users (
+	id BLOB NOT NULL,
+	first_name TEXT NOT NULL,
+	last_name TEXT NOT NULL,
+	email TEXT NOT NULL,
+	password_hash BLOB NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( email )
+);
+CREATE TABLE api_keys (
+	id BLOB NOT NULL,
+	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	key BLOB NOT NULL,
+	name TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( key ),
+	UNIQUE ( name, project_id )
+);
+CREATE TABLE buckets (
+	id BLOB NOT NULL,
+	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	name TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name )
+);
+CREATE TABLE project_members (
+	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( member_id, project_id )
 );`
 }
 
@@ -1704,6 +1788,513 @@ func (f OverlayCacheNode_UptimeSuccessCount_Field) value() interface{} {
 
 func (OverlayCacheNode_UptimeSuccessCount_Field) _Column() string { return "uptime_success_count" }
 
+type Project struct {
+	Id            []byte
+	Name          string
+	Description   string
+	TermsAccepted int
+	CreatedAt     time.Time
+}
+
+func (Project) _Table() string { return "projects" }
+
+type Project_Update_Fields struct {
+	Description   Project_Description_Field
+	TermsAccepted Project_TermsAccepted_Field
+}
+
+type Project_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Project_Id(v []byte) Project_Id_Field {
+	return Project_Id_Field{_set: true, _value: v}
+}
+
+func (f Project_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Project_Id_Field) _Column() string { return "id" }
+
+type Project_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Project_Name(v string) Project_Name_Field {
+	return Project_Name_Field{_set: true, _value: v}
+}
+
+func (f Project_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Project_Name_Field) _Column() string { return "name" }
+
+type Project_Description_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Project_Description(v string) Project_Description_Field {
+	return Project_Description_Field{_set: true, _value: v}
+}
+
+func (f Project_Description_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Project_Description_Field) _Column() string { return "description" }
+
+type Project_TermsAccepted_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Project_TermsAccepted(v int) Project_TermsAccepted_Field {
+	return Project_TermsAccepted_Field{_set: true, _value: v}
+}
+
+func (f Project_TermsAccepted_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Project_TermsAccepted_Field) _Column() string { return "terms_accepted" }
+
+type Project_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Project_CreatedAt(v time.Time) Project_CreatedAt_Field {
+	return Project_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Project_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Project_CreatedAt_Field) _Column() string { return "created_at" }
+
+type User struct {
+	Id           []byte
+	FirstName    string
+	LastName     string
+	Email        string
+	PasswordHash []byte
+	CreatedAt    time.Time
+}
+
+func (User) _Table() string { return "users" }
+
+type User_Update_Fields struct {
+	FirstName    User_FirstName_Field
+	LastName     User_LastName_Field
+	Email        User_Email_Field
+	PasswordHash User_PasswordHash_Field
+}
+
+type User_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func User_Id(v []byte) User_Id_Field {
+	return User_Id_Field{_set: true, _value: v}
+}
+
+func (f User_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_Id_Field) _Column() string { return "id" }
+
+type User_FirstName_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func User_FirstName(v string) User_FirstName_Field {
+	return User_FirstName_Field{_set: true, _value: v}
+}
+
+func (f User_FirstName_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_FirstName_Field) _Column() string { return "first_name" }
+
+type User_LastName_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func User_LastName(v string) User_LastName_Field {
+	return User_LastName_Field{_set: true, _value: v}
+}
+
+func (f User_LastName_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_LastName_Field) _Column() string { return "last_name" }
+
+type User_Email_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func User_Email(v string) User_Email_Field {
+	return User_Email_Field{_set: true, _value: v}
+}
+
+func (f User_Email_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_Email_Field) _Column() string { return "email" }
+
+type User_PasswordHash_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func User_PasswordHash(v []byte) User_PasswordHash_Field {
+	return User_PasswordHash_Field{_set: true, _value: v}
+}
+
+func (f User_PasswordHash_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_PasswordHash_Field) _Column() string { return "password_hash" }
+
+type User_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func User_CreatedAt(v time.Time) User_CreatedAt_Field {
+	return User_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f User_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_CreatedAt_Field) _Column() string { return "created_at" }
+
+type ApiKey struct {
+	Id        []byte
+	ProjectId []byte
+	Key       []byte
+	Name      string
+	CreatedAt time.Time
+}
+
+func (ApiKey) _Table() string { return "api_keys" }
+
+type ApiKey_Update_Fields struct {
+	Name ApiKey_Name_Field
+}
+
+type ApiKey_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ApiKey_Id(v []byte) ApiKey_Id_Field {
+	return ApiKey_Id_Field{_set: true, _value: v}
+}
+
+func (f ApiKey_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ApiKey_Id_Field) _Column() string { return "id" }
+
+type ApiKey_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ApiKey_ProjectId(v []byte) ApiKey_ProjectId_Field {
+	return ApiKey_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f ApiKey_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ApiKey_ProjectId_Field) _Column() string { return "project_id" }
+
+type ApiKey_Key_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ApiKey_Key(v []byte) ApiKey_Key_Field {
+	return ApiKey_Key_Field{_set: true, _value: v}
+}
+
+func (f ApiKey_Key_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ApiKey_Key_Field) _Column() string { return "key" }
+
+type ApiKey_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ApiKey_Name(v string) ApiKey_Name_Field {
+	return ApiKey_Name_Field{_set: true, _value: v}
+}
+
+func (f ApiKey_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ApiKey_Name_Field) _Column() string { return "name" }
+
+type ApiKey_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ApiKey_CreatedAt(v time.Time) ApiKey_CreatedAt_Field {
+	return ApiKey_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f ApiKey_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ApiKey_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Bucket struct {
+	Id        []byte
+	ProjectId []byte
+	Name      string
+	CreatedAt time.Time
+}
+
+func (Bucket) _Table() string { return "buckets" }
+
+type Bucket_Update_Fields struct {
+}
+
+type Bucket_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Bucket_Id(v []byte) Bucket_Id_Field {
+	return Bucket_Id_Field{_set: true, _value: v}
+}
+
+func (f Bucket_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_Id_Field) _Column() string { return "id" }
+
+type Bucket_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Bucket_ProjectId(v []byte) Bucket_ProjectId_Field {
+	return Bucket_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f Bucket_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_ProjectId_Field) _Column() string { return "project_id" }
+
+type Bucket_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Bucket_Name(v string) Bucket_Name_Field {
+	return Bucket_Name_Field{_set: true, _value: v}
+}
+
+func (f Bucket_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_Name_Field) _Column() string { return "name" }
+
+type Bucket_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Bucket_CreatedAt(v time.Time) Bucket_CreatedAt_Field {
+	return Bucket_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Bucket_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_CreatedAt_Field) _Column() string { return "created_at" }
+
+type ProjectMember struct {
+	MemberId  []byte
+	ProjectId []byte
+	CreatedAt time.Time
+}
+
+func (ProjectMember) _Table() string { return "project_members" }
+
+type ProjectMember_Update_Fields struct {
+}
+
+type ProjectMember_MemberId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ProjectMember_MemberId(v []byte) ProjectMember_MemberId_Field {
+	return ProjectMember_MemberId_Field{_set: true, _value: v}
+}
+
+func (f ProjectMember_MemberId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectMember_MemberId_Field) _Column() string { return "member_id" }
+
+type ProjectMember_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ProjectMember_ProjectId(v []byte) ProjectMember_ProjectId_Field {
+	return ProjectMember_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f ProjectMember_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectMember_ProjectId_Field) _Column() string { return "project_id" }
+
+type ProjectMember_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ProjectMember_CreatedAt(v time.Time) ProjectMember_CreatedAt_Field {
+	return ProjectMember_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f ProjectMember_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectMember_CreatedAt_Field) _Column() string { return "created_at" }
+
 func toUTC(t time.Time) time.Time {
 	return t.UTC()
 }
@@ -2111,6 +2702,142 @@ func (obj *postgresImpl) Create_Injuredsegment(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return injuredsegment, nil
+
+}
+
+func (obj *postgresImpl) Create_User(ctx context.Context,
+	user_id User_Id_Field,
+	user_first_name User_FirstName_Field,
+	user_last_name User_LastName_Field,
+	user_email User_Email_Field,
+	user_password_hash User_PasswordHash_Field) (
+	user *User, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := user_id.value()
+	__first_name_val := user_first_name.value()
+	__last_name_val := user_last_name.value()
+	__email_val := user_email.value()
+	__password_hash_val := user_password_hash.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, first_name, last_name, email, password_hash, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __created_at_val)
+
+	user = &User{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __created_at_val).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user, nil
+
+}
+
+func (obj *postgresImpl) Create_Project(ctx context.Context,
+	project_id Project_Id_Field,
+	project_name Project_Name_Field,
+	project_description Project_Description_Field,
+	project_terms_accepted Project_TermsAccepted_Field) (
+	project *Project, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := project_id.value()
+	__name_val := project_name.value()
+	__description_val := project_description.value()
+	__terms_accepted_val := project_terms_accepted.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, terms_accepted, created_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.terms_accepted, projects.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __name_val, __description_val, __terms_accepted_val, __created_at_val)
+
+	project = &Project{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __name_val, __description_val, __terms_accepted_val, __created_at_val).Scan(&project.Id, &project.Name, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project, nil
+
+}
+
+func (obj *postgresImpl) Create_ProjectMember(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field,
+	project_member_project_id ProjectMember_ProjectId_Field) (
+	project_member *ProjectMember, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__member_id_val := project_member_member_id.value()
+	__project_id_val := project_member_project_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_members ( member_id, project_id, created_at ) VALUES ( ?, ?, ? ) RETURNING project_members.member_id, project_members.project_id, project_members.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __member_id_val, __project_id_val, __created_at_val)
+
+	project_member = &ProjectMember{}
+	err = obj.driver.QueryRow(__stmt, __member_id_val, __project_id_val, __created_at_val).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_member, nil
+
+}
+
+func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
+	api_key_id ApiKey_Id_Field,
+	api_key_project_id ApiKey_ProjectId_Field,
+	api_key_key ApiKey_Key_Field,
+	api_key_name ApiKey_Name_Field) (
+	api_key *ApiKey, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := api_key_id.value()
+	__project_id_val := api_key_project_id.value()
+	__key_val := api_key_key.value()
+	__name_val := api_key_name.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_keys ( id, project_id, key, name, created_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __key_val, __name_val, __created_at_val)
+
+	api_key = &ApiKey{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __key_val, __name_val, __created_at_val).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key, nil
+
+}
+
+func (obj *postgresImpl) Create_Bucket(ctx context.Context,
+	bucket_id Bucket_Id_Field,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := bucket_id.value()
+	__project_id_val := bucket_project_id.value()
+	__name_val := bucket_name.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO buckets ( id, project_id, name, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING buckets.id, buckets.project_id, buckets.name, buckets.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __name_val, __created_at_val)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __name_val, __created_at_val).Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
 
 }
 
@@ -2567,6 +3294,332 @@ func (obj *postgresImpl) Limited_Injuredsegment(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Get_User_By_Email(ctx context.Context,
+	user_email User_Email_Field) (
+	user *User, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE users.email = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user = &User{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user, nil
+
+}
+
+func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	user *User, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE users.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user = &User{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user, nil
+
+}
+
+func (obj *postgresImpl) All_Project(ctx context.Context) (
+	rows []*Project, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.terms_accepted, projects.created_at FROM projects")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project := &Project{}
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Get_Project_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	project *Project, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.terms_accepted, projects.created_at FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project = &Project{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project, nil
+
+}
+
+func (obj *postgresImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field) (
+	rows []*Project, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.terms_accepted, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+
+	var __values []interface{}
+	__values = append(__values, project_member_member_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project := &Project{}
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_ProjectMember_By_MemberId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field) (
+	rows []*ProjectMember, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.member_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_member_member_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project_member := &ProjectMember{}
+		err = __rows.Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project_member)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_ProjectMember_By_ProjectId(ctx context.Context,
+	project_member_project_id ProjectMember_ProjectId_Field,
+	limit int, offset int64) (
+	rows []*ProjectMember, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.project_id = ? LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, project_member_project_id.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project_member := &ProjectMember{}
+		err = __rows.Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project_member)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Get_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field) (
+	api_key *ApiKey, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	api_key = &ApiKey{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key, nil
+
+}
+
+func (obj *postgresImpl) Get_ApiKey_By_Key(ctx context.Context,
+	api_key_key ApiKey_Key_Field) (
+	api_key *ApiKey, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.key = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_key.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	api_key = &ApiKey{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key, nil
+
+}
+
+func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
+	api_key_project_id ApiKey_ProjectId_Field) (
+	rows []*ApiKey, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.project_id = ? ORDER BY api_keys.name")
+
+	var __values []interface{}
+	__values = append(__values, api_key_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		api_key := &ApiKey{}
+		err = __rows.Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, api_key)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Get_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.created_at FROM buckets WHERE buckets.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
+
+}
+
+func (obj *postgresImpl) All_Bucket_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.created_at FROM buckets WHERE buckets.project_id = ? ORDER BY buckets.name")
+
+	var __values []interface{}
+	__values = append(__values, bucket_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -2828,6 +3881,146 @@ func (obj *postgresImpl) Update_OverlayCacheNode_By_NodeId(ctx context.Context,
 	return overlay_cache_node, nil
 }
 
+func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
+	user_id User_Id_Field,
+	update User_Update_Fields) (
+	user *User, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.FirstName._set {
+		__values = append(__values, update.FirstName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("first_name = ?"))
+	}
+
+	if update.LastName._set {
+		__values = append(__values, update.LastName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_name = ?"))
+	}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.PasswordHash._set {
+		__values = append(__values, update.PasswordHash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, user_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user = &User{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user, nil
+}
+
+func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
+	project_id Project_Id_Field,
+	update Project_Update_Fields) (
+	project *Project, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.terms_accepted, projects.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Description._set {
+		__values = append(__values, update.Description.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
+	}
+
+	if update.TermsAccepted._set {
+		__values = append(__values, update.TermsAccepted.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("terms_accepted = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, project_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project = &Project{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project, nil
+}
+
+func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field,
+	update ApiKey_Update_Fields) (
+	api_key *ApiKey, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_keys SET "), __sets, __sqlbundle_Literal(" WHERE api_keys.id = ? RETURNING api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, api_key_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	api_key = &ApiKey{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key, nil
+}
+
 func (obj *postgresImpl) Delete_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	deleted bool, err error) {
@@ -3036,6 +4229,137 @@ func (obj *postgresImpl) Delete_Injuredsegment_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Delete_User_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM users WHERE users.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *postgresImpl) Delete_Project_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *postgresImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field,
+	project_member_project_id ProjectMember_ProjectId_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_members WHERE project_members.member_id = ? AND project_members.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_member_member_id.value(), project_member_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *postgresImpl) Delete_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *postgresImpl) Delete_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM buckets WHERE buckets.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -3049,6 +4373,56 @@ func (impl postgresImpl) isConstraintError(err error) (
 func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
+	__res, err = obj.driver.Exec("DELETE FROM project_members;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM buckets;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM api_keys;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM projects;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM overlay_cache_nodes;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -3393,6 +4767,157 @@ func (obj *sqlite3Impl) Create_Injuredsegment(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastInjuredsegment(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_User(ctx context.Context,
+	user_id User_Id_Field,
+	user_first_name User_FirstName_Field,
+	user_last_name User_LastName_Field,
+	user_email User_Email_Field,
+	user_password_hash User_PasswordHash_Field) (
+	user *User, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := user_id.value()
+	__first_name_val := user_first_name.value()
+	__last_name_val := user_last_name.value()
+	__email_val := user_email.value()
+	__password_hash_val := user_password_hash.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, first_name, last_name, email, password_hash, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastUser(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_Project(ctx context.Context,
+	project_id Project_Id_Field,
+	project_name Project_Name_Field,
+	project_description Project_Description_Field,
+	project_terms_accepted Project_TermsAccepted_Field) (
+	project *Project, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := project_id.value()
+	__name_val := project_name.value()
+	__description_val := project_description.value()
+	__terms_accepted_val := project_terms_accepted.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, terms_accepted, created_at ) VALUES ( ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __name_val, __description_val, __terms_accepted_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __id_val, __name_val, __description_val, __terms_accepted_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastProject(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_ProjectMember(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field,
+	project_member_project_id ProjectMember_ProjectId_Field) (
+	project_member *ProjectMember, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__member_id_val := project_member_member_id.value()
+	__project_id_val := project_member_project_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_members ( member_id, project_id, created_at ) VALUES ( ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __member_id_val, __project_id_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __member_id_val, __project_id_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastProjectMember(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
+	api_key_id ApiKey_Id_Field,
+	api_key_project_id ApiKey_ProjectId_Field,
+	api_key_key ApiKey_Key_Field,
+	api_key_name ApiKey_Name_Field) (
+	api_key *ApiKey, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := api_key_id.value()
+	__project_id_val := api_key_project_id.value()
+	__key_val := api_key_key.value()
+	__name_val := api_key_name.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_keys ( id, project_id, key, name, created_at ) VALUES ( ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __key_val, __name_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __id_val, __project_id_val, __key_val, __name_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastApiKey(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_Bucket(ctx context.Context,
+	bucket_id Bucket_Id_Field,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := bucket_id.value()
+	__project_id_val := bucket_project_id.value()
+	__name_val := bucket_name.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO buckets ( id, project_id, name, created_at ) VALUES ( ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __name_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __id_val, __project_id_val, __name_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastBucket(ctx, __pk)
 
 }
 
@@ -3849,6 +5374,332 @@ func (obj *sqlite3Impl) Limited_Injuredsegment(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Get_User_By_Email(ctx context.Context,
+	user_email User_Email_Field) (
+	user *User, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE users.email = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user = &User{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user, nil
+
+}
+
+func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	user *User, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE users.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user = &User{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user, nil
+
+}
+
+func (obj *sqlite3Impl) All_Project(ctx context.Context) (
+	rows []*Project, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.terms_accepted, projects.created_at FROM projects")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project := &Project{}
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Get_Project_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	project *Project, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.terms_accepted, projects.created_at FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project = &Project{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project, nil
+
+}
+
+func (obj *sqlite3Impl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field) (
+	rows []*Project, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.terms_accepted, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+
+	var __values []interface{}
+	__values = append(__values, project_member_member_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project := &Project{}
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) All_ProjectMember_By_MemberId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field) (
+	rows []*ProjectMember, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.member_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_member_member_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project_member := &ProjectMember{}
+		err = __rows.Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project_member)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_ProjectMember_By_ProjectId(ctx context.Context,
+	project_member_project_id ProjectMember_ProjectId_Field,
+	limit int, offset int64) (
+	rows []*ProjectMember, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.project_id = ? LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, project_member_project_id.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project_member := &ProjectMember{}
+		err = __rows.Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project_member)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Get_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field) (
+	api_key *ApiKey, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	api_key = &ApiKey{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key, nil
+
+}
+
+func (obj *sqlite3Impl) Get_ApiKey_By_Key(ctx context.Context,
+	api_key_key ApiKey_Key_Field) (
+	api_key *ApiKey, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.key = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_key.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	api_key = &ApiKey{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key, nil
+
+}
+
+func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
+	api_key_project_id ApiKey_ProjectId_Field) (
+	rows []*ApiKey, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.project_id = ? ORDER BY api_keys.name")
+
+	var __values []interface{}
+	__values = append(__values, api_key_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		api_key := &ApiKey{}
+		err = __rows.Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, api_key)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Get_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.created_at FROM buckets WHERE buckets.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
+
+}
+
+func (obj *sqlite3Impl) All_Bucket_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.created_at FROM buckets WHERE buckets.project_id = ? ORDER BY buckets.name")
+
+	var __values []interface{}
+	__values = append(__values, bucket_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -4150,6 +6001,176 @@ func (obj *sqlite3Impl) Update_OverlayCacheNode_By_NodeId(ctx context.Context,
 	return overlay_cache_node, nil
 }
 
+func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
+	user_id User_Id_Field,
+	update User_Update_Fields) (
+	user *User, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.FirstName._set {
+		__values = append(__values, update.FirstName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("first_name = ?"))
+	}
+
+	if update.LastName._set {
+		__values = append(__values, update.LastName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_name = ?"))
+	}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.PasswordHash._set {
+		__values = append(__values, update.PasswordHash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, user_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user = &User{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE users.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user, nil
+}
+
+func (obj *sqlite3Impl) Update_Project_By_Id(ctx context.Context,
+	project_id Project_Id_Field,
+	update Project_Update_Fields) (
+	project *Project, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Description._set {
+		__values = append(__values, update.Description.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
+	}
+
+	if update.TermsAccepted._set {
+		__values = append(__values, update.TermsAccepted.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("terms_accepted = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, project_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project = &Project{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.terms_accepted, projects.created_at FROM projects WHERE projects.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&project.Id, &project.Name, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project, nil
+}
+
+func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field,
+	update ApiKey_Update_Fields) (
+	api_key *ApiKey, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_keys SET "), __sets, __sqlbundle_Literal(" WHERE api_keys.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, api_key_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	api_key = &ApiKey{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key, nil
+}
+
 func (obj *sqlite3Impl) Delete_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	deleted bool, err error) {
@@ -4358,6 +6379,137 @@ func (obj *sqlite3Impl) Delete_Injuredsegment_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_User_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM users WHERE users.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) Delete_Project_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field,
+	project_member_project_id ProjectMember_ProjectId_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_members WHERE project_members.member_id = ? AND project_members.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_member_member_id.value(), project_member_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) Delete_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) Delete_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM buckets WHERE buckets.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) getLastBwagreement(ctx context.Context,
 	pk int64) (
 	bwagreement *Bwagreement, err error) {
@@ -4502,6 +6654,96 @@ func (obj *sqlite3Impl) getLastInjuredsegment(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastUser(ctx context.Context,
+	pk int64) (
+	user *User, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	user = &User{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user, nil
+
+}
+
+func (obj *sqlite3Impl) getLastProject(ctx context.Context,
+	pk int64) (
+	project *Project, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.terms_accepted, projects.created_at FROM projects WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	project = &Project{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&project.Id, &project.Name, &project.Description, &project.TermsAccepted, &project.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project, nil
+
+}
+
+func (obj *sqlite3Impl) getLastProjectMember(ctx context.Context,
+	pk int64) (
+	project_member *ProjectMember, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	project_member = &ProjectMember{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_member, nil
+
+}
+
+func (obj *sqlite3Impl) getLastApiKey(ctx context.Context,
+	pk int64) (
+	api_key *ApiKey, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	api_key = &ApiKey{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key, nil
+
+}
+
+func (obj *sqlite3Impl) getLastBucket(ctx context.Context,
+	pk int64) (
+	bucket *Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.created_at FROM buckets WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -4520,6 +6762,56 @@ func (impl sqlite3Impl) isConstraintError(err error) (
 func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
+	__res, err = obj.driver.Exec("DELETE FROM project_members;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM buckets;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM api_keys;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM projects;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM overlay_cache_nodes;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -4676,6 +6968,26 @@ func (rx *Rx) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx context.Conte
 	return tx.All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx, accounting_rollup_start_time_greater_or_equal)
 }
 
+func (rx *Rx) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
+	api_key_project_id ApiKey_ProjectId_Field) (
+	rows []*ApiKey, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx, api_key_project_id)
+}
+
+func (rx *Rx) All_Bucket_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field) (
+	rows []*Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Bucket_By_ProjectId_OrderBy_Asc_Name(ctx, bucket_project_id)
+}
+
 func (rx *Rx) All_Bwagreement(ctx context.Context) (
 	rows []*Bwagreement, err error) {
 	var tx *Tx
@@ -4693,6 +7005,35 @@ func (rx *Rx) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
 		return
 	}
 	return tx.All_Bwagreement_By_CreatedAt_Greater(ctx, bwagreement_created_at_greater)
+}
+
+func (rx *Rx) All_Project(ctx context.Context) (
+	rows []*Project, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Project(ctx)
+}
+
+func (rx *Rx) All_ProjectMember_By_MemberId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field) (
+	rows []*ProjectMember, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_ProjectMember_By_MemberId(ctx, project_member_member_id)
+}
+
+func (rx *Rx) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field) (
+	rows []*Project, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx, project_member_member_id)
 }
 
 func (rx *Rx) Create_AccountingRaw(ctx context.Context,
@@ -4736,6 +7077,33 @@ func (rx *Rx) Create_AccountingTimestamps(ctx context.Context,
 		return
 	}
 	return tx.Create_AccountingTimestamps(ctx, accounting_timestamps_name, accounting_timestamps_value)
+
+}
+
+func (rx *Rx) Create_ApiKey(ctx context.Context,
+	api_key_id ApiKey_Id_Field,
+	api_key_project_id ApiKey_ProjectId_Field,
+	api_key_key ApiKey_Key_Field,
+	api_key_name ApiKey_Name_Field) (
+	api_key *ApiKey, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_ApiKey(ctx, api_key_id, api_key_project_id, api_key_key, api_key_name)
+
+}
+
+func (rx *Rx) Create_Bucket(ctx context.Context,
+	bucket_id Bucket_Id_Field,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Bucket(ctx, bucket_id, bucket_project_id, bucket_name)
 
 }
 
@@ -4821,6 +7189,47 @@ func (rx *Rx) Create_OverlayCacheNode(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_Project(ctx context.Context,
+	project_id Project_Id_Field,
+	project_name Project_Name_Field,
+	project_description Project_Description_Field,
+	project_terms_accepted Project_TermsAccepted_Field) (
+	project *Project, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Project(ctx, project_id, project_name, project_description, project_terms_accepted)
+
+}
+
+func (rx *Rx) Create_ProjectMember(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field,
+	project_member_project_id ProjectMember_ProjectId_Field) (
+	project_member *ProjectMember, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_ProjectMember(ctx, project_member_member_id, project_member_project_id)
+
+}
+
+func (rx *Rx) Create_User(ctx context.Context,
+	user_id User_Id_Field,
+	user_first_name User_FirstName_Field,
+	user_last_name User_LastName_Field,
+	user_email User_Email_Field,
+	user_password_hash User_PasswordHash_Field) (
+	user *User, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_User(ctx, user_id, user_first_name, user_last_name, user_email, user_password_hash)
+
+}
+
 func (rx *Rx) Delete_AccountingRaw_By_Id(ctx context.Context,
 	accounting_raw_id AccountingRaw_Id_Field) (
 	deleted bool, err error) {
@@ -4839,6 +7248,26 @@ func (rx *Rx) Delete_AccountingRollup_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_AccountingRollup_By_Id(ctx, accounting_rollup_id)
+}
+
+func (rx *Rx) Delete_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_ApiKey_By_Id(ctx, api_key_id)
+}
+
+func (rx *Rx) Delete_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_Bucket_By_Name(ctx, bucket_name)
 }
 
 func (rx *Rx) Delete_Bwagreement_By_ExpiresAt_LessOrEqual(ctx context.Context,
@@ -4902,6 +7331,37 @@ func (rx *Rx) Delete_OverlayCacheNode_By_NodeId(ctx context.Context,
 	return tx.Delete_OverlayCacheNode_By_NodeId(ctx, overlay_cache_node_node_id)
 }
 
+func (rx *Rx) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field,
+	project_member_project_id ProjectMember_ProjectId_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_ProjectMember_By_MemberId_And_ProjectId(ctx, project_member_member_id, project_member_project_id)
+}
+
+func (rx *Rx) Delete_Project_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_Project_By_Id(ctx, project_id)
+}
+
+func (rx *Rx) Delete_User_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_User_By_Id(ctx, user_id)
+}
+
 func (rx *Rx) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field) (
 	row *Value_Row, err error) {
@@ -4939,6 +7399,36 @@ func (rx *Rx) Get_AccountingRollup_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_AccountingRollup_By_Id(ctx, accounting_rollup_id)
+}
+
+func (rx *Rx) Get_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field) (
+	api_key *ApiKey, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_ApiKey_By_Id(ctx, api_key_id)
+}
+
+func (rx *Rx) Get_ApiKey_By_Key(ctx context.Context,
+	api_key_key ApiKey_Key_Field) (
+	api_key *ApiKey, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_ApiKey_By_Key(ctx, api_key_key)
+}
+
+func (rx *Rx) Get_Bucket_By_Name(ctx context.Context,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Bucket_By_Name(ctx, bucket_name)
 }
 
 func (rx *Rx) Get_Bwagreement_By_Signature(ctx context.Context,
@@ -4981,6 +7471,36 @@ func (rx *Rx) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 	return tx.Get_OverlayCacheNode_By_NodeId(ctx, overlay_cache_node_node_id)
 }
 
+func (rx *Rx) Get_Project_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	project *Project, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Project_By_Id(ctx, project_id)
+}
+
+func (rx *Rx) Get_User_By_Email(ctx context.Context,
+	user_email User_Email_Field) (
+	user *User, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_User_By_Email(ctx, user_email)
+}
+
+func (rx *Rx) Get_User_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	user *User, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_User_By_Id(ctx, user_id)
+}
+
 func (rx *Rx) Limited_Bwagreement(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Bwagreement, err error) {
@@ -5012,6 +7532,17 @@ func (rx *Rx) Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx context.Cont
 	return tx.Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx, overlay_cache_node_node_id_greater_or_equal, limit, offset)
 }
 
+func (rx *Rx) Limited_ProjectMember_By_ProjectId(ctx context.Context,
+	project_member_project_id ProjectMember_ProjectId_Field,
+	limit int, offset int64) (
+	rows []*ProjectMember, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_ProjectMember_By_ProjectId(ctx, project_member_project_id, limit, offset)
+}
+
 func (rx *Rx) Update_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -5021,6 +7552,17 @@ func (rx *Rx) Update_AccountingTimestamps_By_Name(ctx context.Context,
 		return
 	}
 	return tx.Update_AccountingTimestamps_By_Name(ctx, accounting_timestamps_name, update)
+}
+
+func (rx *Rx) Update_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field,
+	update ApiKey_Update_Fields) (
+	api_key *ApiKey, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_ApiKey_By_Id(ctx, api_key_id, update)
 }
 
 func (rx *Rx) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -5056,6 +7598,28 @@ func (rx *Rx) Update_OverlayCacheNode_By_NodeId(ctx context.Context,
 	return tx.Update_OverlayCacheNode_By_NodeId(ctx, overlay_cache_node_node_id, update)
 }
 
+func (rx *Rx) Update_Project_By_Id(ctx context.Context,
+	project_id Project_Id_Field,
+	update Project_Update_Fields) (
+	project *Project, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_Project_By_Id(ctx, project_id, update)
+}
+
+func (rx *Rx) Update_User_By_Id(ctx context.Context,
+	user_id User_Id_Field,
+	update User_Update_Fields) (
+	user *User, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_User_By_Id(ctx, user_id, update)
+}
+
 type Methods interface {
 	All_AccountingRaw(ctx context.Context) (
 		rows []*AccountingRaw, err error)
@@ -5068,12 +7632,31 @@ type Methods interface {
 		accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field) (
 		rows []*AccountingRollup, err error)
 
+	All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
+		api_key_project_id ApiKey_ProjectId_Field) (
+		rows []*ApiKey, err error)
+
+	All_Bucket_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
+		bucket_project_id Bucket_ProjectId_Field) (
+		rows []*Bucket, err error)
+
 	All_Bwagreement(ctx context.Context) (
 		rows []*Bwagreement, err error)
 
 	All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
 		bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
 		rows []*Bwagreement, err error)
+
+	All_Project(ctx context.Context) (
+		rows []*Project, err error)
+
+	All_ProjectMember_By_MemberId(ctx context.Context,
+		project_member_member_id ProjectMember_MemberId_Field) (
+		rows []*ProjectMember, err error)
+
+	All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx context.Context,
+		project_member_member_id ProjectMember_MemberId_Field) (
+		rows []*Project, err error)
 
 	Create_AccountingRaw(ctx context.Context,
 		accounting_raw_node_id AccountingRaw_NodeId_Field,
@@ -5097,6 +7680,19 @@ type Methods interface {
 		accounting_timestamps_name AccountingTimestamps_Name_Field,
 		accounting_timestamps_value AccountingTimestamps_Value_Field) (
 		accounting_timestamps *AccountingTimestamps, err error)
+
+	Create_ApiKey(ctx context.Context,
+		api_key_id ApiKey_Id_Field,
+		api_key_project_id ApiKey_ProjectId_Field,
+		api_key_key ApiKey_Key_Field,
+		api_key_name ApiKey_Name_Field) (
+		api_key *ApiKey, err error)
+
+	Create_Bucket(ctx context.Context,
+		bucket_id Bucket_Id_Field,
+		bucket_project_id Bucket_ProjectId_Field,
+		bucket_name Bucket_Name_Field) (
+		bucket *Bucket, err error)
 
 	Create_Bwagreement(ctx context.Context,
 		bwagreement_signature Bwagreement_Signature_Field,
@@ -5145,12 +7741,40 @@ type Methods interface {
 		overlay_cache_node_uptime_success_count OverlayCacheNode_UptimeSuccessCount_Field) (
 		overlay_cache_node *OverlayCacheNode, err error)
 
+	Create_Project(ctx context.Context,
+		project_id Project_Id_Field,
+		project_name Project_Name_Field,
+		project_description Project_Description_Field,
+		project_terms_accepted Project_TermsAccepted_Field) (
+		project *Project, err error)
+
+	Create_ProjectMember(ctx context.Context,
+		project_member_member_id ProjectMember_MemberId_Field,
+		project_member_project_id ProjectMember_ProjectId_Field) (
+		project_member *ProjectMember, err error)
+
+	Create_User(ctx context.Context,
+		user_id User_Id_Field,
+		user_first_name User_FirstName_Field,
+		user_last_name User_LastName_Field,
+		user_email User_Email_Field,
+		user_password_hash User_PasswordHash_Field) (
+		user *User, err error)
+
 	Delete_AccountingRaw_By_Id(ctx context.Context,
 		accounting_raw_id AccountingRaw_Id_Field) (
 		deleted bool, err error)
 
 	Delete_AccountingRollup_By_Id(ctx context.Context,
 		accounting_rollup_id AccountingRollup_Id_Field) (
+		deleted bool, err error)
+
+	Delete_ApiKey_By_Id(ctx context.Context,
+		api_key_id ApiKey_Id_Field) (
+		deleted bool, err error)
+
+	Delete_Bucket_By_Name(ctx context.Context,
+		bucket_name Bucket_Name_Field) (
 		deleted bool, err error)
 
 	Delete_Bwagreement_By_ExpiresAt_LessOrEqual(ctx context.Context,
@@ -5177,6 +7801,19 @@ type Methods interface {
 		overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
 		deleted bool, err error)
 
+	Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
+		project_member_member_id ProjectMember_MemberId_Field,
+		project_member_project_id ProjectMember_ProjectId_Field) (
+		deleted bool, err error)
+
+	Delete_Project_By_Id(ctx context.Context,
+		project_id Project_Id_Field) (
+		deleted bool, err error)
+
+	Delete_User_By_Id(ctx context.Context,
+		user_id User_Id_Field) (
+		deleted bool, err error)
+
 	Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field) (
 		row *Value_Row, err error)
@@ -5191,6 +7828,18 @@ type Methods interface {
 	Get_AccountingRollup_By_Id(ctx context.Context,
 		accounting_rollup_id AccountingRollup_Id_Field) (
 		accounting_rollup *AccountingRollup, err error)
+
+	Get_ApiKey_By_Id(ctx context.Context,
+		api_key_id ApiKey_Id_Field) (
+		api_key *ApiKey, err error)
+
+	Get_ApiKey_By_Key(ctx context.Context,
+		api_key_key ApiKey_Key_Field) (
+		api_key *ApiKey, err error)
+
+	Get_Bucket_By_Name(ctx context.Context,
+		bucket_name Bucket_Name_Field) (
+		bucket *Bucket, err error)
 
 	Get_Bwagreement_By_Signature(ctx context.Context,
 		bwagreement_signature Bwagreement_Signature_Field) (
@@ -5208,6 +7857,18 @@ type Methods interface {
 		overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
 		overlay_cache_node *OverlayCacheNode, err error)
 
+	Get_Project_By_Id(ctx context.Context,
+		project_id Project_Id_Field) (
+		project *Project, err error)
+
+	Get_User_By_Email(ctx context.Context,
+		user_email User_Email_Field) (
+		user *User, err error)
+
+	Get_User_By_Id(ctx context.Context,
+		user_id User_Id_Field) (
+		user *User, err error)
+
 	Limited_Bwagreement(ctx context.Context,
 		limit int, offset int64) (
 		rows []*Bwagreement, err error)
@@ -5221,10 +7882,20 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*OverlayCacheNode, err error)
 
+	Limited_ProjectMember_By_ProjectId(ctx context.Context,
+		project_member_project_id ProjectMember_ProjectId_Field,
+		limit int, offset int64) (
+		rows []*ProjectMember, err error)
+
 	Update_AccountingTimestamps_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field,
 		update AccountingTimestamps_Update_Fields) (
 		accounting_timestamps *AccountingTimestamps, err error)
+
+	Update_ApiKey_By_Id(ctx context.Context,
+		api_key_id ApiKey_Id_Field,
+		update ApiKey_Update_Fields) (
+		api_key *ApiKey, err error)
 
 	Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
@@ -5240,6 +7911,16 @@ type Methods interface {
 		overlay_cache_node_node_id OverlayCacheNode_NodeId_Field,
 		update OverlayCacheNode_Update_Fields) (
 		overlay_cache_node *OverlayCacheNode, err error)
+
+	Update_Project_By_Id(ctx context.Context,
+		project_id Project_Id_Field,
+		update Project_Update_Fields) (
+		project *Project, err error)
+
+	Update_User_By_Id(ctx context.Context,
+		user_id User_Id_Field,
+		update User_Update_Fields) (
+		user *User, err error)
 }
 
 type TxMethods interface {
