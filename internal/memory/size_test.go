@@ -30,6 +30,8 @@ func TestBase2Size(t *testing.T) {
 		text string
 	}{
 		// basics
+		{1 * eib, "1.0 EiB"},
+		{1 * pib, "1.0 PiB"},
 		{1 * tib, "1.0 TiB"},
 		{1 * gib, "1.0 GiB"},
 		{1 * mib, "1.0 MiB"},
@@ -66,6 +68,8 @@ func TestBase10Size(t *testing.T) {
 		text string
 	}{
 		// basics
+		{1 * pb, "1.0 PB"},
+		{1 * eb, "1.0 EB"},
 		{1 * tb, "1.0 TB"},
 		{1 * gb, "1.0 GB"},
 		{1 * mb, "1.0 MB"},
