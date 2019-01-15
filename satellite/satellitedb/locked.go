@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/storage"
 )
 
 // locked implements a locking wrapper around satellite.DB.

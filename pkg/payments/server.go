@@ -15,8 +15,10 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -28,6 +30,7 @@ var (
 type Server struct {
 	filepath     string
 	accountingDB accounting.DB
+	overlayDB    overlay.DB
 	log          *zap.Logger
 	metrics      *monkit.Registry
 }
@@ -79,8 +82,35 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 	}
 
 	w := csv.NewWriter(file)
+	headers := []string{
+		"nodeID",
+		"nodeCreationDate",
+		"auditSuccessRatio",
+		"walletAddress",
+		"byte/hr:AtRest",
+		"byte/hr:BWRepair",
+		"byte/hr:BWAudit",
+		"byte/hr:BWDownload",
+		"date",
+	}
+	if err := w.Write(headers); err != nil {
+		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+	}
 	for _, record := range rows {
-		r := []string{string(record.Node_Id), record.Node_CreatedAt.String(), strconv.FormatFloat(record.Node_AuditSuccessRatio, 'f', 5, 64), record.AccountingRollup_DataType, string(record.AccountingRollup_DataTotal), record.AccountingRollup_CreatedAt.String()}
+		nid, err := storj.NodeIDFromBytes(record.Node_Id)
+		if err != nil {
+			return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+		}
+		wallet, err := srv.overlayDB.GetWalletAddress(ctx, nid)
+		if err != nil {
+			return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+		}
+		r := []string{string(record.Node_Id),
+			record.Node_CreatedAt.String(),
+			strconv.FormatFloat(record.Node_AuditSuccessRatio, 'f', 5, 64),
+			wallet,
+			record.AccountingRollup_CreatedAt.String(),
+		}
 		if err := w.Write(r); err != nil {
 			return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
 		}

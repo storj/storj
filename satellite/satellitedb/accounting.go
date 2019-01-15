@@ -103,7 +103,6 @@ func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time
 }
 
 // QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
-// TODO: add satellite ID from BW allocation, wallet address from overlay cache
 func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*dbx.Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_DataType_AccountingRollup_DataTotal_AccountingRollup_CreatedAt_Row, error) {
 	tx, err := db.db.Open(ctx)
 	if err != nil {
@@ -117,3 +116,4 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 	}
 	return rows, nil
 }
+

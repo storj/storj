@@ -1881,6 +1881,10 @@ type Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_DataType_Acc
 	AccountingRollup_CreatedAt time.Time
 }
 
+type OperatorWallet_Row struct {
+	OperatorWallet string
+}
+
 type Value_Row struct {
 	Value time.Time
 }
@@ -2451,8 +2455,8 @@ func (obj *postgresImpl) All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_Accou
 
 }
 
-func (obj *postgresImpl) Get_OverlayCacheNode_By_Key(ctx context.Context,
-	overlay_cache_node_key OverlayCacheNode_Key_Field) (
+func (obj *postgresImpl) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
+	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
 	overlay_cache_node *OverlayCacheNode, err error) {
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.node_id, overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.protocol, overlay_cache_nodes.operator_email, overlay_cache_nodes.operator_wallet, overlay_cache_nodes.free_bandwidth, overlay_cache_nodes.free_disk, overlay_cache_nodes.latency_90, overlay_cache_nodes.audit_success_ratio, overlay_cache_nodes.audit_uptime_ratio, overlay_cache_nodes.audit_count, overlay_cache_nodes.audit_success_count, overlay_cache_nodes.uptime_count, overlay_cache_nodes.uptime_success_count FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id = ?")
@@ -2505,6 +2509,27 @@ func (obj *postgresImpl) Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx c
 		return nil, obj.makeErr(err)
 	}
 	return rows, nil
+
+}
+
+func (obj *postgresImpl) Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx context.Context,
+	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
+	row *OperatorWallet_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.operator_wallet FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, overlay_cache_node_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &OperatorWallet_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.OperatorWallet)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -3806,8 +3831,8 @@ func (obj *sqlite3Impl) All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_Accoun
 
 }
 
-func (obj *sqlite3Impl) Get_OverlayCacheNode_By_Key(ctx context.Context,
-	overlay_cache_node_key OverlayCacheNode_Key_Field) (
+func (obj *sqlite3Impl) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
+	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
 	overlay_cache_node *OverlayCacheNode, err error) {
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.node_id, overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.protocol, overlay_cache_nodes.operator_email, overlay_cache_nodes.operator_wallet, overlay_cache_nodes.free_bandwidth, overlay_cache_nodes.free_disk, overlay_cache_nodes.latency_90, overlay_cache_nodes.audit_success_ratio, overlay_cache_nodes.audit_uptime_ratio, overlay_cache_nodes.audit_count, overlay_cache_nodes.audit_success_count, overlay_cache_nodes.uptime_count, overlay_cache_nodes.uptime_success_count FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id = ?")
@@ -3860,6 +3885,27 @@ func (obj *sqlite3Impl) Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx co
 		return nil, obj.makeErr(err)
 	}
 	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx context.Context,
+	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
+	row *OperatorWallet_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.operator_wallet FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, overlay_cache_node_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &OperatorWallet_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.OperatorWallet)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -5155,6 +5201,16 @@ func (rx *Rx) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 	return tx.Get_OverlayCacheNode_By_NodeId(ctx, overlay_cache_node_node_id)
 }
 
+func (rx *Rx) Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx context.Context,
+	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
+	row *OperatorWallet_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx, overlay_cache_node_node_id)
+}
+
 func (rx *Rx) Limited_Bwagreement(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Bwagreement, err error) {
@@ -5402,6 +5458,10 @@ type Methods interface {
 	Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 		overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
 		overlay_cache_node *OverlayCacheNode, err error)
+
+	Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx context.Context,
+		overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
+		row *OperatorWallet_Row, err error)
 
 	Limited_Bwagreement(ctx context.Context,
 		limit int, offset int64) (
