@@ -83,8 +83,10 @@ func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 		}
 
 		value := f.Value.String()
-		if v, ok := overrides[k]; ok {
-			value = fmt.Sprintf("%v", v)
+		if overrides != nil {
+			if v, ok := overrides[k]; ok {
+				value = fmt.Sprintf("%v", v)
+			}
 		}
 		if f.Usage != "" {
 			fmt.Fprintf(w, "# %s\n", f.Usage)
