@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -32,7 +31,6 @@ var (
 	ErrArgs = errs.Class("error with CLI args:")
 
 	port string
-	// apiKey string
 
 	rootCmd = &cobra.Command{Use: "payments"}
 
@@ -51,7 +49,6 @@ type Payments struct {
 
 func main() {
 	rootCmd.PersistentFlags().StringVarP(&port, "port", "p", ":7778", "satellite port")
-	// rootCmd.PersistentFlags().StringVarP(&apiKey, "apikey", "a", "abc123", "satellite api key")
 	rootCmd.AddCommand(cmdGenerate)
 	err := rootCmd.Execute()
 	if err != nil {
@@ -80,12 +77,14 @@ func NewPayments() (*Payments, error) {
 // GenerateCSV makes a call to the payments client to query the db and generate a csv
 func GenerateCSV(cmd *cobra.Command, args []string) error {
 	//TODO check validity of args
-	p, err := NewPayments()
 	startTime := args[0]
 	endTime := args[1]
-	start := time.Now()
-	end := time.Now()
 
-	p.client.GenerateCSV(ctx, start, end)
-	// return query(args[0], args[1])
+	p, err := NewPayments()
+	req := &pb.GenerateCSVRequest{
+		StartTime: start,
+		EndTime:   end,
+	}
+	_, err = p.client.GenerateCSV(ctx, req)
+	return err
 }
