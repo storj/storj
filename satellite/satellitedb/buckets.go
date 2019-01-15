@@ -20,9 +20,9 @@ type buckets struct {
 
 // ListBuckets implements console.Buckets
 func (buck *buckets) ListBuckets(ctx context.Context, projectID uuid.UUID) ([]console.Bucket, error) {
-	buckets, err := buck.db.All_Bucket_By_ProjectId_OrderBy_Asc_Name(
+	buckets, err := buck.db.All_BucketInfo_By_ProjectId_OrderBy_Asc_Name(
 		ctx,
-		dbx.Bucket_ProjectId(projectID[:]),
+		dbx.BucketInfo_ProjectId(projectID[:]),
 	)
 
 	if err != nil {
@@ -49,7 +49,7 @@ func (buck *buckets) ListBuckets(ctx context.Context, projectID uuid.UUID) ([]co
 
 // GetBucket implements console.Buckets
 func (buck *buckets) GetBucket(ctx context.Context, name string) (*console.Bucket, error) {
-	bucket, err := buck.db.Get_Bucket_By_Name(ctx, dbx.Bucket_Name(name))
+	bucket, err := buck.db.Get_BucketInfo_By_Name(ctx, dbx.BucketInfo_Name(name))
 	if err != nil {
 		return nil, err
 	}
@@ -64,11 +64,11 @@ func (buck *buckets) AttachBucket(ctx context.Context, name string, projectID uu
 		return nil, err
 	}
 
-	bucket, err := buck.db.Create_Bucket(
+	bucket, err := buck.db.Create_BucketInfo(
 		ctx,
-		dbx.Bucket_Id(id[:]),
-		dbx.Bucket_ProjectId(projectID[:]),
-		dbx.Bucket_Name(name),
+		dbx.BucketInfo_Id(id[:]),
+		dbx.BucketInfo_ProjectId(projectID[:]),
+		dbx.BucketInfo_Name(name),
 	)
 
 	if err != nil {
@@ -80,12 +80,12 @@ func (buck *buckets) AttachBucket(ctx context.Context, name string, projectID uu
 
 // DeattachBucket implements console.Buckets
 func (buck *buckets) DeattachBucket(ctx context.Context, name string) error {
-	_, err := buck.db.Delete_Bucket_By_Name(ctx, dbx.Bucket_Name(name))
+	_, err := buck.db.Delete_BucketInfo_By_Name(ctx, dbx.BucketInfo_Name(name))
 	return err
 }
 
 // fromDBXBucket creates console.Bucket from dbx.Bucket
-func fromDBXBucket(bucket *dbx.Bucket) (*console.Bucket, error) {
+func fromDBXBucket(bucket *dbx.BucketInfo) (*console.Bucket, error) {
 	id, err := bytesToUUID(bucket.Id)
 	if err != nil {
 		return nil, err

@@ -331,7 +331,7 @@ read all (
     orderby asc api_key.name
 )
 
-model bucket (
+model bucket_info (
     key id
     unique name
 
@@ -343,16 +343,16 @@ model bucket (
     field created_at    timestamp ( autoinsert )
 )
 
-create bucket ()
-delete bucket ( where bucket.name = ? )
+create bucket_info ()
+delete bucket_info ( where bucket_info.name = ? )
 
 read one (
-    select bucket
-    where bucket.name = ?
+    select bucket_info
+    where bucket_info.name = ?
 )
 
 read all (
-    select bucket
-    where bucket.project_id = ?
-    orderby asc bucket.name
+    select bucket_info
+    where bucket_info.project_id = ?
+    orderby asc bucket_info.name
 )

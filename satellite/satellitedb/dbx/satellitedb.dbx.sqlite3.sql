@@ -107,7 +107,7 @@ CREATE TABLE api_keys (
 	UNIQUE ( key ),
 	UNIQUE ( name, project_id )
 );
-CREATE TABLE buckets (
+CREATE TABLE bucket_infos (
 	id BLOB NOT NULL,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	name TEXT NOT NULL,
