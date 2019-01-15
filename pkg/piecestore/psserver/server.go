@@ -68,8 +68,8 @@ type Server struct {
 // NewEndpoint -- initializes a new endpoint for a piecestore server
 func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *psdb.DB, pkey crypto.PrivateKey) (*Server, error) {
 	// read the allocated disk space from the config file
-	allocatedDiskSpace := config.AllocatedDiskSpace
-	allocatedBandwidth := config.AllocatedBandwidth
+	allocatedDiskSpace := config.AllocatedDiskSpace.Int64()
+	allocatedBandwidth := config.AllocatedBandwidth.Int64()
 
 	// get the disk space details
 	// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
@@ -137,8 +137,8 @@ func New(log *zap.Logger, storage *pstore.Storage, db *psdb.DB, config Config, p
 		storage:          storage,
 		DB:               db,
 		pkey:             pkey,
-		totalAllocated:   config.AllocatedDiskSpace,
-		totalBwAllocated: config.AllocatedBandwidth,
+		totalAllocated:   config.AllocatedDiskSpace.Int64(),
+		totalBwAllocated: config.AllocatedBandwidth.Int64(),
 		verifier:         auth.NewSignedMessageVerifier(),
 	}
 }

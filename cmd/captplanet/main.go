@@ -26,7 +26,6 @@ import (
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/discovery"
-	"storj.io/storj/pkg/inspector"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
@@ -34,8 +33,9 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/satellite/satelliteweb"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/statdb"
+	"storj.io/storj/satellite/console/consoleweb"
 )
 
 // Captplanet defines Captain Planet configuration
@@ -50,6 +50,7 @@ type Captplanet struct {
 	StartingPort        int                          `help:"all providers will listen on ports consecutively starting with this one" default:"7777" setup:"true"`
 	APIKey              string                       `default:"abc123" help:"the api key to use for the satellite" setup:"true"`
 	EncKey              string                       `default:"insecure-default-encryption-key" help:"your root encryption key" setup:"true"`
+	Overwrite           bool                         `help:"whether to overwrite pre-existing configuration files" default:"false" setup:"true"`
 	GenerateMinioCerts  bool                         `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
 
 	Satellite    Satellite
@@ -63,15 +64,15 @@ type Satellite struct {
 	Kademlia    kademlia.SatelliteConfig
 	PointerDB   pointerdb.Config
 	Overlay     overlay.Config
-	Inspector   inspector.Config
 	Checker     checker.Config
 	Repairer    repairer.Config
 	Audit       audit.Config
 	BwAgreement bwagreement.Config
-	Web         satelliteweb.Config
+	Web         consoleweb.Config
 	Discovery   discovery.Config
 	Tally       tally.Config
 	Rollup      rollup.Config
+	StatDB      statdb.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 }
 

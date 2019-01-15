@@ -31,8 +31,10 @@ import (
 
 // StorageNode defines storage node configuration
 type StorageNode struct {
-	CA       identity.CASetupConfig `setup:"true"`
-	Identity identity.SetupConfig   `setup:"true"`
+	CA              identity.CASetupConfig `setup:"true"`
+	Identity        identity.SetupConfig   `setup:"true"`
+	EditConf        bool                   `default:"false" help:"open config in default editor"`
+	SaveAllDefaults bool                   `default:"false" help:"save all default values to config.yaml file" setup:"true"`
 
 	Server   server.Config
 	Kademlia kademlia.StorageNodeConfig
@@ -76,10 +78,11 @@ var (
 
 	defaultConfDir string
 	defaultDiagDir string
-	confDir        *string
+	confDir        string
 )
 
 const (
+	// default server address, only for storage node
 	defaultServerAddr = ":28967"
 )
 
@@ -91,7 +94,7 @@ func init() {
 		defaultConfDir = dirParam
 	}
 
-	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for storagenode configuration")
+	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
@@ -100,6 +103,7 @@ func init() {
 	rootCmd.AddCommand(diagCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir))
 }
 
@@ -115,12 +119,16 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	} else {
 		zap.S().Info("Operator wallet: ", operatorConfig.Wallet)
 	}
+	ctx := process.Ctx(cmd)
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Error("Failed to initialize telemetry batcher:", err)
+	}
 
-	return runCfg.Server.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
+	return runCfg.Server.Run(ctx, nil, runCfg.Kademlia, runCfg.Storage)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*confDir)
+	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
@@ -153,32 +161,46 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	overrides := map[string]interface{}{
-		"identity.cert-path":      setupCfg.Identity.CertPath,
-		"identity.key-path":       setupCfg.Identity.KeyPath,
-		"identity.server.address": defaultServerAddr,
-		"storage.path":            filepath.Join(setupDir, "storage"),
+		"log.level": "info",
+	}
+	serverAddress := cmd.Flag("server.address")
+	if !serverAddress.Changed {
+		overrides[serverAddress.Name] = defaultServerAddr
 	}
 
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	configFile := filepath.Join(setupDir, "config.yaml")
+	if setupCfg.SaveAllDefaults {
+		err = process.SaveConfigWithAllDefaults(cmd.Flags(), configFile, overrides)
+	} else {
+		err = process.SaveConfig(cmd.Flags(), configFile, overrides)
+	}
+	if err != nil {
+		return err
+	}
+
+	if setupCfg.EditConf {
+		return fpath.EditFile(configFile)
+	}
+
+	return err
 }
 
 func cmdConfig(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*confDir)
+	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
 	//run setup if we can't access the config file
 	conf := filepath.Join(setupDir, "config.yaml")
 	if _, err := os.Stat(conf); err != nil {
-		if err = cmdSetup(cmd, args); err != nil {
-			return err
-		}
+		return cmdSetup(cmd, args)
 	}
+
 	return fpath.EditFile(conf)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
-	diagDir, err := filepath.Abs(*confDir)
+	diagDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}

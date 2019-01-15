@@ -103,6 +103,7 @@ func NewClient(remoteAddr string, opts ClientOpts) (rv *Client, err error) {
 
 // Run calls Report roughly every Interval
 func (c *Client) Run(ctx context.Context) {
+	zap.S().Debugf("Initialized telemetry batcher with id = %q", c.opts.InstanceId)
 	for {
 		time.Sleep(jitter(c.interval))
 		if ctx.Err() != nil {
