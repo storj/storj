@@ -115,8 +115,8 @@ func (db *accountingDB) GetRawSince(ctx context.Context, latestRollup time.Time)
 }
 
 // SaveRollup records raw tallies of at rest data to the database
-func (db *accountingDB) SaveRollup(ctx context.Context, latestTally time.Time, interval int64, nodeData map[storj.NodeID]int64) error {
-	if len(nodeData) == 0 {
+func (db *accountingDB) SaveRollup(ctx context.Context, latestTally time.Time, stats accounting.RollupStats) error {
+	if len(stats) == 0 {
 		return Error.New("In SaveRollup with empty nodeData")
 	}
 	tx, err := db.db.Open(ctx)
@@ -130,15 +130,20 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestTally time.Time, i
 			err = utils.CombineErrors(err, tx.Rollback())
 		}
 	}()
-	for k, v := range nodeData {
-		nID := dbx.AccountingRollup_NodeId(k.String())
-		start := dbx.AccountingRollup_StartTime(latestTally)
-		total := dbx.AccountingRollup_DataTotal(v)
-		interval := dbx.AccountingRollup_Interval(interval)
-		dataType := dbx.AccountingRollup_DataType(accounting.AtRest)
-		_, err = tx.Create_AccountingRollup(ctx, nID, start, interval, total, dataType)
-		if err != nil {
-			return Error.Wrap(err)
+	for _, arsByDate := range stats {
+		for _, ar := range arsByDate {
+			nID := dbx.AccountingRollup_NodeId(ar.NodeId)
+			start := dbx.AccountingRollup_StartTime(ar.StartTime)
+			put := dbx.AccountingRollup_PutTotal(ar.PutTotal)
+			get := dbx.AccountingRollup_GetTotal(ar.GetTotal)
+			audit := dbx.AccountingRollup_GetAuditTotal(ar.GetAuditTotal)
+			getRepair := dbx.AccountingRollup_GetRepairTotal(ar.GetRepairTotal)
+			putRepair := dbx.AccountingRollup_PutRepairTotal(ar.PutRepairTotal)
+			atRest := dbx.AccountingRollup_AtRestTotal(ar.AtRestTotal)
+			_, err = tx.Create_AccountingRollup(ctx, nID, start, put, get, audit, getRepair, putRepair, atRest)
+			if err != nil {
+				return Error.Wrap(err)
+			}
 		}
 	}
 	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestTally)}

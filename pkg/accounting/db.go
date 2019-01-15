@@ -15,6 +15,9 @@ import (
 //BWTally is a conveniece alias
 type BWTally [pb.PayerBandwidthAllocation_PUT_REPAIR + 1]map[string]int64
 
+//RollupStats is a conveniece alias
+type RollupStats map[time.Time]map[storj.NodeID]*dbx.AccountingRollup
+
 // DB stores information about bandwidth usage
 type DB interface {
 	// LastRawTime records the latest last tallied time.
@@ -27,4 +30,6 @@ type DB interface {
 	GetRaw(ctx context.Context) ([]*dbx.AccountingRaw, error)
 	// GetRawSince r retrieves all raw tallies sinces
 	GetRawSince(ctx context.Context, latestRollup time.Time) ([]*dbx.AccountingRaw, error)
+	// SaveRollup records raw tallies of at rest data to the database
+	SaveRollup(ctx context.Context, latestTally time.Time, stats RollupStats) error
 }

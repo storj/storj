@@ -109,6 +109,13 @@ func (m *lockedAccounting) GetRawSince(ctx context.Context, latestRollup time.Ti
 	return m.db.GetRawSince(ctx, latestRollup)
 }
 
+// SaveRollup records raw tallies of at rest data to the database
+func (m *lockedAccounting) SaveRollup(ctx context.Context, latestTally time.Time, stats accounting.RollupStats) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveRollup(ctx, latestTally, stats)
+}
+
 // LastRawTime records the latest last tallied time.
 func (m *lockedAccounting) LastRawTime(ctx context.Context, timestampType string) (time.Time, bool, error) {
 	m.Lock()

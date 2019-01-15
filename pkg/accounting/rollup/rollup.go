@@ -75,7 +75,7 @@ func (r *rollup) Query(ctx context.Context) error {
 	}
 
 	//loop through tallies and build rollup
-	tallyTotals := make(map[time.Time]map[storj.NodeID]*dbx.AccountingRollup)
+	rollupStats := make(accounting.RollupStats)
 	for _, tallyRow := range tallies {
 		node, err := storj.NodeIDFromString(tallyRow.NodeId)
 		if err != nil {
@@ -87,31 +87,31 @@ func (r *rollup) Query(ctx context.Context) error {
 		//create or get AccoutingRollup
 		iDay := tallyRow.IntervalEndTime
 		iDay = time.Date(iDay.Year(), iDay.Month(), iDay.Day(), 0, 0, 0, 0, iDay.Location())
-		if tallyTotals[iDay] == nil {
-			tallyTotals[iDay] = make(map[storj.NodeID]*dbx.AccountingRollup, 0)
+		if rollupStats[iDay] == nil {
+			rollupStats[iDay] = make(map[storj.NodeID]*dbx.AccountingRollup, 0)
 		}
-		if tallyTotals[iDay][node] == nil {
-			tallyTotals[iDay][node] = &dbx.AccountingRollup{NodeId: node.Bytes(), StartTime: iDay}
+		if rollupStats[iDay][node] == nil {
+			rollupStats[iDay][node] = &dbx.AccountingRollup{NodeId: node.Bytes(), StartTime: iDay}
 		}
 		//increment Rollups
 		switch tallyRow.DataType {
 		case accounting.BandwidthPut:
-			tallyTotals[iDay][node].PutTotal += tallyRow.DataTotal
+			rollupStats[iDay][node].PutTotal += tallyRow.DataTotal
 		case accounting.BandwidthGet:
-			tallyTotals[iDay][node].GetTotal += tallyRow.DataTotal
+			rollupStats[iDay][node].GetTotal += tallyRow.DataTotal
 		case accounting.BandwidthGetAudit:
-			tallyTotals[iDay][node].GetAuditTotal += tallyRow.DataTotal
+			rollupStats[iDay][node].GetAuditTotal += tallyRow.DataTotal
 		case accounting.BandwidthGetRepair:
-			tallyTotals[iDay][node].GetRepairTotal += tallyRow.DataTotal
+			rollupStats[iDay][node].GetRepairTotal += tallyRow.DataTotal
 		case accounting.BandwidthPutRepair:
-			tallyTotals[iDay][node].PutRepairTotal += tallyRow.DataTotal
+			rollupStats[iDay][node].PutRepairTotal += tallyRow.DataTotal
 		case accounting.AtRest:
-			tallyTotals[iDay][node].AtRestTotal += tallyRow.DataTotal
+			rollupStats[iDay][node].AtRestTotal += tallyRow.DataTotal
 		default:
 			return Error.Wrap(fmt.Errorf("Bad tally datatype in rollup : %d", tallyRow.DataType))
 		}
 	}
 	//push to database
 	latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
-	return Error.Wrap(nil)
+	return Error.Wrap(r.db.SaveRollup(ctx, latestTally, rollupStats))
 }
