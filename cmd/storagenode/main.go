@@ -334,8 +334,10 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		clr()
-		color.Bold(color.Green("\nStorage Node Dashboard Stats\n"))
-		color.Bold(color.Green("\n===============================\n"))
+		heading := color.New(color.Green).Add(color.Bold)
+
+		heading.Printf("\nStorage Node Dashboard Stats\n")
+		heading.Printf("\n===============================\n")
 
 		color.Green("\nNode ID: ")
 		color.White("%s\n", data.NodeId)

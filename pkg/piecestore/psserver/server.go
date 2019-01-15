@@ -138,6 +138,7 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 
 // New creates a Server with custom db
 func New(log *zap.Logger, storage *pstore.Storage, db *psdb.DB, config Config, pkey crypto.PrivateKey) *Server {
+	fmt.Printf("\n CONFIG %+v\n", config)
 	return &Server{
 		log:              log,
 		storage:          storage,
