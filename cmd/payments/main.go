@@ -7,7 +7,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
@@ -76,14 +78,37 @@ func NewPayments() (*Payments, error) {
 
 // GenerateCSV makes a call to the payments client to query the db and generate a csv
 func GenerateCSV(cmd *cobra.Command, args []string) error {
-	//TODO check validity of args
-	startTime := args[0]
-	endTime := args[1]
+	// TODO check validity of args
+	// TODO: different delimiters from layout cause error when parsing
+
+	layout := "2006/01/02"
+	start, err := time.Parse(layout, args[0])
+	if err != nil {
+		return errs.New("Invalid date format. Please use YYYY/MM/DD")
+	}
+	end, err := time.Parse(layout, args[1])
+	if err != nil {
+		return errs.New("Invalid date format. Please use YYYY/MM/DD")
+	}
+
+	// Ensure that start date is not after end date
+	if start.After(end) {
+		return errs.New("Invalid time period (%v) - (%v)", start, end)
+	}
+
+	startTimestamp, err := ptypes.TimestampProto(start)
+	if err != nil {
+		return err
+	}
+	endTimestamp, err := ptypes.TimestampProto(end)
+	if err != nil {
+		return err
+	}
 
 	p, err := NewPayments()
 	req := &pb.GenerateCSVRequest{
-		StartTime: start,
-		EndTime:   end,
+		StartTime: startTimestamp,
+		EndTime:   endTimestamp,
 	}
 	_, err = p.client.GenerateCSV(ctx, req)
 	return err
