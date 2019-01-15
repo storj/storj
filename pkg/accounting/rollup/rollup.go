@@ -108,7 +108,8 @@ func (r *rollup) Query(ctx context.Context) error {
 			return Error.Wrap(fmt.Errorf("Bad tally datatype in rollup : %d", tallyRow.DataType))
 		}
 	}
-	//push to database
+	//remove the latest day (which we cannot know is complete), then push to DB
 	latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
+	delete(rollupStats, latestTally)
 	return Error.Wrap(r.db.SaveRollup(ctx, latestTally, rollupStats))
 }
