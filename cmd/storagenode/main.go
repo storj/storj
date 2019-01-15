@@ -334,37 +334,31 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		clr()
+
 		color.Green("\n\033[1mStorage Node Dashboard Stats\033[1m\n")
-		color.Green("\n===============================\n")
+		color.Green("\n===============================\n\n")
 
-		color.Green("\nNode ID: ")
-		color.White("%s\n", data.NodeId)
+		fmt.Fprintf(color.Output, "Node ID: %s", color.BlueString(data.NodeId))
 
-		color.Green("\nUptime: ")
 		uptime, err := ptypes.Duration(data.Uptime)
 		if err != nil {
-			color.Red("%+v \n", err)
+			color.Red(" %+v \n", err)
 		} else {
-			color.White("%s \n", uptime)
+			color.Yellow(" %s \n", uptime)
 		}
 
-		color.Green("\nNode Connections: ")
-		color.White("%+v\n", data.NodeConnections)
+		fmt.Fprintf(color.Output, "Node Connections: %+v\n", WhiteInt(data.NodeConnections))
 
-		color.Green("\nAvailable Bandwidth: ")
-		color.White("%+v\n", data.Stats.AvailableBandwidth)
-
-		color.Green("\nUsed Bandwidth: ")
-		color.White("%+v\n", data.Stats.UsedBandwidth)
-
-		color.Green("\nAvailable Space: ")
-		color.White("%+v\n", data.Stats.AvailableSpace)
-
-		color.Green("\nUsed Space: ")
-		color.White("%+v\n", data.Stats.UsedSpace)
+		color.Green("\nIO\t\tAvailable\tUsed\n--\t\t---------\t----")
+		fmt.Fprintf(color.Output, "Bandwidth\t%+v\t%+v\n", WhiteInt(data.Stats.AvailableBandwidth), WhiteInt(data.Stats.UsedBandwidth))
+		fmt.Fprintf(color.Output, "Disk\t\t%+v\t%+v\n", WhiteInt(data.Stats.AvailableSpace), WhiteInt(data.Stats.UsedSpace))
 	}
 
 	return nil
+}
+
+func WhiteInt(value int64) string {
+	return color.WhiteString(fmt.Sprintf("%+v", value))
 }
 
 func isOperatorEmailValid(email string) error {
