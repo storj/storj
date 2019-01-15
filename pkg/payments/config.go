@@ -24,7 +24,7 @@ var (
 // Payments responsibility.
 type Config struct {
 	//Filepath
-	Filepath string `help:"the relative file path of the generated csv" default:"$CONFDIR/payments"`
+	Filepath string `help:"the file path of the generated csv" default:"$CONFDIR/payments"`
 }
 
 // Run implements the provider.Responsibility interface

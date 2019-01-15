@@ -107,6 +107,7 @@ func GenerateCSV(cmd *cobra.Command, args []string) error {
 		StartTime: startTimestamp,
 		EndTime:   endTimestamp,
 	}
-	_, err = p.client.GenerateCSV(ctx, req)
+	resp, err := p.client.GenerateCSV(ctx, req)
+	fmt.Println("Created payments report at", resp.GetFilepath())
 	return err
 }
