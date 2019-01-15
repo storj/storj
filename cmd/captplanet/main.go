@@ -33,7 +33,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/satellite/satelliteweb"
+	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/statdb"
 )
@@ -67,7 +67,7 @@ type Satellite struct {
 	Repairer    repairer.Config
 	Audit       audit.Config
 	BwAgreement bwagreement.Config
-	Web         satelliteweb.Config
+	Web         consoleweb.Config
 	Discovery   discovery.Config
 	Tally       tally.Config
 	Rollup      rollup.Config

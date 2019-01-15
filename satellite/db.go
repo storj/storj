@@ -9,6 +9,7 @@ import (
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/statdb"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/storage"
 )
 
@@ -19,6 +20,8 @@ type DB interface {
 	// Close closes the database
 	Close() error
 
+	// ConsoleDB returns database for managing satellite accounts and projects
+	ConsoleDB() console.DB
 	// BandwidthAgreement returns database for storing bandwidth agreements
 	BandwidthAgreement() bwagreement.DB
 	// StatDB returns database for storing node statistics
