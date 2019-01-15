@@ -61,6 +61,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 				},
 			},
 		}
+
 		req := &pb.PutRequest{
 			Path:    p.Remote.PieceId,
 			Pointer: p,
