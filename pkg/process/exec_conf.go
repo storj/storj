@@ -78,15 +78,20 @@ func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 		if readBoolAnnotation(f, "setup") {
 			continue
 		}
-		if !saveAllDefaults && !readBoolAnnotation(f, "user") && !f.Changed {
+
+		var overriddenValue interface{}
+		var overrideExist bool
+		if overrides != nil {
+			overriddenValue, overrideExist = overrides[k]
+		}
+
+		if !saveAllDefaults && !readBoolAnnotation(f, "user") && !f.Changed && !overrideExist {
 			continue
 		}
 
 		value := f.Value.String()
-		if overrides != nil {
-			if v, ok := overrides[k]; ok {
-				value = fmt.Sprintf("%v", v)
-			}
+		if overriddenValue != nil {
+			value = fmt.Sprintf("%v", overriddenValue)
 		}
 		if f.Usage != "" {
 			fmt.Fprintf(w, "# %s\n", f.Usage)
