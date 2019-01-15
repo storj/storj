@@ -197,7 +197,11 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 	for i := 0; i < count; i++ {
 		prefix := "satellite" + strconv.Itoa(i)
 		log := planet.log.Named(prefix)
+
 		storageDir := filepath.Join(planet.directory, prefix)
+		if err := os.MkdirAll(storageDir, 0700); err != nil {
+			return nil, err
+		}
 
 		identity, err := planet.NewIdentity()
 		if err != nil {
@@ -213,7 +217,8 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		config := satellite.Config{
 			PublicAddress: "127.0.0.1:0",
 			Kademlia: kademlia.Config{
-				Alpha: 5,
+				Alpha:  5,
+				DBPath: storageDir, // TODO: replace with master db
 				Operator: kademlia.OperatorConfig{
 					Email:  prefix + "@example.com",
 					Wallet: "0x" + strings.Repeat("00", 20),
@@ -279,6 +284,10 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 		log := planet.log.Named(prefix)
 		storageDir := filepath.Join(planet.directory, prefix)
 
+		if err := os.MkdirAll(storageDir, 0700); err != nil {
+			return nil, err
+		}
+
 		identity, err := planet.NewIdentity()
 		if err != nil {
 			return nil, err
@@ -293,7 +302,8 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 		config := storagenode.Config{
 			PublicAddress: "127.0.0.1:0",
 			Kademlia: kademlia.Config{
-				Alpha: 5,
+				Alpha:  5,
+				DBPath: storageDir, // TODO: replace with master db
 				Operator: kademlia.OperatorConfig{
 					Email:  prefix + "@example.com",
 					Wallet: "0x" + strings.Repeat("00", 20),
