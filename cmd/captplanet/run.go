@@ -11,6 +11,7 @@ import (
 	"github.com/alicebob/miniredis"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/cfgstruct"
@@ -41,6 +42,10 @@ func init() {
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
 	defer mon.Task()(&ctx)(&err)
+
+	if err := process.InitMetrics(ctx, nil, ""); err != nil {
+		zap.S().Errorf("Failed to initialize telemetry batcher: %+v", err)
+	}
 
 	errch := make(chan error, len(runCfg.StorageNodes)+2)
 	// start mini redis
