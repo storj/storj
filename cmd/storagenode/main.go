@@ -82,6 +82,7 @@ var (
 )
 
 const (
+	// default server address, only for storage node
 	defaultServerAddr = ":28967"
 )
 
@@ -160,15 +161,14 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	overrides := map[string]interface{}{
-		"identity.cert-path":      setupCfg.Identity.CertPath,
-		"identity.key-path":       setupCfg.Identity.KeyPath,
-		"identity.server.address": defaultServerAddr,
-		"storage.path":            filepath.Join(setupDir, "storage"),
-		"log.level":               "info",
+		"log.level": "info",
+	}
+	serverAddress := cmd.Flag("server.address")
+	if !serverAddress.Changed {
+		overrides[serverAddress.Name] = defaultServerAddr
 	}
 
 	configFile := filepath.Join(setupDir, "config.yaml")
-
 	if setupCfg.SaveAllDefaults {
 		err = process.SaveConfigWithAllDefaults(cmd.Flags(), configFile, overrides)
 	} else {
