@@ -2,9 +2,9 @@
 -- DO NOT EDIT
 CREATE TABLE accounting_raws (
 	id INTEGER NOT NULL,
-	node_id TEXT NOT NULL,
+	node_id BLOB NOT NULL,
 	interval_end_time TIMESTAMP NOT NULL,
-	data_total INTEGER NOT NULL,
+	data_total REAL NOT NULL,
 	data_type INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
@@ -18,7 +18,7 @@ CREATE TABLE accounting_rollups (
 	get_audit_total INTEGER NOT NULL,
 	get_repair_total INTEGER NOT NULL,
 	put_repair_total INTEGER NOT NULL,
-	at_rest_total INTEGER NOT NULL,
+	at_rest_total REAL NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE accounting_timestamps (

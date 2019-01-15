@@ -74,7 +74,7 @@ func (r *rollup) Query(ctx context.Context) error {
 	//loop through tallies and build rollup
 	rollupStats := make(accounting.RollupStats)
 	for _, tallyRow := range tallies {
-		node, err := storj.NodeIDFromString(tallyRow.NodeId)
+		node, err := storj.NodeIDFromBytes(tallyRow.NodeId)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -93,15 +93,15 @@ func (r *rollup) Query(ctx context.Context) error {
 		//increment Rollups
 		switch tallyRow.DataType {
 		case accounting.BandwidthPut:
-			rollupStats[iDay][node].PutTotal += tallyRow.DataTotal
+			rollupStats[iDay][node].PutTotal += int64(tallyRow.DataTotal)
 		case accounting.BandwidthGet:
-			rollupStats[iDay][node].GetTotal += tallyRow.DataTotal
+			rollupStats[iDay][node].GetTotal += int64(tallyRow.DataTotal)
 		case accounting.BandwidthGetAudit:
-			rollupStats[iDay][node].GetAuditTotal += tallyRow.DataTotal
+			rollupStats[iDay][node].GetAuditTotal += int64(tallyRow.DataTotal)
 		case accounting.BandwidthGetRepair:
-			rollupStats[iDay][node].GetRepairTotal += tallyRow.DataTotal
+			rollupStats[iDay][node].GetRepairTotal += int64(tallyRow.DataTotal)
 		case accounting.BandwidthPutRepair:
-			rollupStats[iDay][node].PutRepairTotal += tallyRow.DataTotal
+			rollupStats[iDay][node].PutRepairTotal += int64(tallyRow.DataTotal)
 		case accounting.AtRest:
 			rollupStats[iDay][node].AtRestTotal += tallyRow.DataTotal
 		default:

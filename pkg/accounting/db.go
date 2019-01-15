@@ -13,7 +13,7 @@ import (
 )
 
 //BWTally is a conveniece alias
-type BWTally [pb.PayerBandwidthAllocation_PUT_REPAIR + 1]map[string]int64
+type BWTally [pb.PayerBandwidthAllocation_PUT_REPAIR + 1]map[storj.NodeID]int64
 
 //RollupStats is a conveniece alias
 type RollupStats map[time.Time]map[storj.NodeID]*dbx.AccountingRollup
@@ -25,7 +25,7 @@ type DB interface {
 	// SaveBWRaw records raw sums of agreement values to the database and updates the LastRawTime.
 	SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTotals BWTally) error
 	// SaveAtRestRaw records raw tallies of at-rest-data.
-	SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]int64) error
+	SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) error
 	// GetRaw retrieves all raw tallies
 	GetRaw(ctx context.Context) ([]*dbx.AccountingRaw, error)
 	// GetRawSince r retrieves all raw tallies sinces

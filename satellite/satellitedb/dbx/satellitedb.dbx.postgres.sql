@@ -2,9 +2,9 @@
 -- DO NOT EDIT
 CREATE TABLE accounting_raws (
 	id bigserial NOT NULL,
-	node_id text NOT NULL,
+	node_id bytea NOT NULL,
 	interval_end_time timestamp with time zone NOT NULL,
-	data_total bigint NOT NULL,
+	data_total double precision NOT NULL,
 	data_type integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
@@ -18,7 +18,7 @@ CREATE TABLE accounting_rollups (
 	get_audit_total bigint NOT NULL,
 	get_repair_total bigint NOT NULL,
 	put_repair_total bigint NOT NULL,
-	at_rest_total bigint NOT NULL,
+	at_rest_total double precision NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE accounting_timestamps (

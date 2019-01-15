@@ -275,9 +275,9 @@ func newpostgres(db *DB) *postgresDB {
 func (obj *postgresDB) Schema() string {
 	return `CREATE TABLE accounting_raws (
 	id bigserial NOT NULL,
-	node_id text NOT NULL,
+	node_id bytea NOT NULL,
 	interval_end_time timestamp with time zone NOT NULL,
-	data_total bigint NOT NULL,
+	data_total double precision NOT NULL,
 	data_type integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
@@ -291,7 +291,7 @@ CREATE TABLE accounting_rollups (
 	get_audit_total bigint NOT NULL,
 	get_repair_total bigint NOT NULL,
 	put_repair_total bigint NOT NULL,
-	at_rest_total bigint NOT NULL,
+	at_rest_total double precision NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE accounting_timestamps (
@@ -417,9 +417,9 @@ func newsqlite3(db *DB) *sqlite3DB {
 func (obj *sqlite3DB) Schema() string {
 	return `CREATE TABLE accounting_raws (
 	id INTEGER NOT NULL,
-	node_id TEXT NOT NULL,
+	node_id BLOB NOT NULL,
 	interval_end_time TIMESTAMP NOT NULL,
-	data_total INTEGER NOT NULL,
+	data_total REAL NOT NULL,
 	data_type INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
@@ -433,7 +433,7 @@ CREATE TABLE accounting_rollups (
 	get_audit_total INTEGER NOT NULL,
 	get_repair_total INTEGER NOT NULL,
 	put_repair_total INTEGER NOT NULL,
-	at_rest_total INTEGER NOT NULL,
+	at_rest_total REAL NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE accounting_timestamps (
@@ -558,9 +558,9 @@ nextval:
 
 type AccountingRaw struct {
 	Id              int64
-	NodeId          string
+	NodeId          []byte
 	IntervalEndTime time.Time
-	DataTotal       int64
+	DataTotal       float64
 	DataType        int
 	CreatedAt       time.Time
 }
@@ -592,10 +592,10 @@ func (AccountingRaw_Id_Field) _Column() string { return "id" }
 type AccountingRaw_NodeId_Field struct {
 	_set   bool
 	_null  bool
-	_value string
+	_value []byte
 }
 
-func AccountingRaw_NodeId(v string) AccountingRaw_NodeId_Field {
+func AccountingRaw_NodeId(v []byte) AccountingRaw_NodeId_Field {
 	return AccountingRaw_NodeId_Field{_set: true, _value: v}
 }
 
@@ -630,10 +630,10 @@ func (AccountingRaw_IntervalEndTime_Field) _Column() string { return "interval_e
 type AccountingRaw_DataTotal_Field struct {
 	_set   bool
 	_null  bool
-	_value int64
+	_value float64
 }
 
-func AccountingRaw_DataTotal(v int64) AccountingRaw_DataTotal_Field {
+func AccountingRaw_DataTotal(v float64) AccountingRaw_DataTotal_Field {
 	return AccountingRaw_DataTotal_Field{_set: true, _value: v}
 }
 
@@ -693,7 +693,7 @@ type AccountingRollup struct {
 	GetAuditTotal  int64
 	GetRepairTotal int64
 	PutRepairTotal int64
-	AtRestTotal    int64
+	AtRestTotal    float64
 }
 
 func (AccountingRollup) _Table() string { return "accounting_rollups" }
@@ -856,10 +856,10 @@ func (AccountingRollup_PutRepairTotal_Field) _Column() string { return "put_repa
 type AccountingRollup_AtRestTotal_Field struct {
 	_set   bool
 	_null  bool
-	_value int64
+	_value float64
 }
 
-func AccountingRollup_AtRestTotal(v int64) AccountingRollup_AtRestTotal_Field {
+func AccountingRollup_AtRestTotal(v float64) AccountingRollup_AtRestTotal_Field {
 	return AccountingRollup_AtRestTotal_Field{_set: true, _value: v}
 }
 

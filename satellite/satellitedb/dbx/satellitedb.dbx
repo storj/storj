@@ -85,7 +85,7 @@ model accounting_rollup (
 	field get_audit_total  int64
 	field get_repair_total int64 
 	field put_repair_total int64
-	field at_rest_total    int64
+	field at_rest_total    float64
 )
 
 create accounting_rollup ( )
@@ -105,9 +105,9 @@ model accounting_raw (
 	key id
 
 	field id                serial64
-	field node_id           text
+	field node_id           blob
 	field interval_end_time timestamp
-	field data_total        int64
+	field data_total        float64
 	field data_type         int
 	field created_at        timestamp ( autoinsert )
 )
