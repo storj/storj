@@ -8,8 +8,8 @@ import (
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
-	"storj.io/storj/storage"
 )
 
 // DB is the master database for the satellite
@@ -24,7 +24,7 @@ type DB interface {
 	// StatDB returns database for storing node statistics
 	StatDB() statdb.DB
 	// OverlayCache returns database for caching overlay information
-	OverlayCache() storage.KeyValueStore
+	OverlayCache() overlay.DB
 	// Accounting returns database for storing information about data use
 	Accounting() accounting.DB
 	// RepairQueue returns queue for segments that need repairing

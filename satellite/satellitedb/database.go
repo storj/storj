@@ -11,11 +11,11 @@ import (
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/storage"
 )
 
 var (
@@ -52,7 +52,7 @@ func New(databaseURL string) (satellite.DB, error) {
 
 // NewInMemory creates instance of Sqlite in memory satellite database
 func NewInMemory() (satellite.DB, error) {
-	return New("sqlite3://file::memory:?mode=memory&cache=shared")
+	return New("sqlite3://file::memory:?mode=memory")
 }
 
 // BandwidthAgreement is a getter for bandwidth agreement repository
@@ -71,7 +71,7 @@ func (db *DB) StatDB() statdb.DB {
 }
 
 // OverlayCache is a getter for overlay cache repository
-func (db *DB) OverlayCache() storage.KeyValueStore {
+func (db *DB) OverlayCache() overlay.DB {
 	return &overlaycache{db: db.db}
 }
 
