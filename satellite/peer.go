@@ -57,6 +57,7 @@ type DB interface {
 	Irreparable() irreparable.DB
 }
 
+// Config is the global config satellite
 type Config struct {
 	Identity identity.Config
 
@@ -76,6 +77,7 @@ type Config struct {
 	Audit    audit.Config
 }
 
+// Peer is the satellite
 type Peer struct {
 	// core dependencies
 	Log      *zap.Logger
@@ -120,8 +122,11 @@ type Peer struct {
 	Audit struct {
 		Service *audit.Service // TODO
 	}
+
+	// TODO: add console
 }
 
+// New creates a new satellite
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,

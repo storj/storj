@@ -61,7 +61,7 @@ type Planet struct {
 	nodeLinks []string
 	nodes     []*Node
 
-	Satellites   []*Node
+	Satellites   []*satellite.Peer
 	StorageNodes []*storagenode.Peer
 	Uplinks      []*Node
 
@@ -93,7 +93,7 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 		return nil, err
 	}
 
-	planet.Satellites, err = planet.newNodes("satellite", satelliteCount, pb.NodeType_SATELLITE)
+	planet.Satellites, err = planet.newSatellites(satelliteCount)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
@@ -253,6 +253,62 @@ func (planet *Planet) newNodes(prefix string, count int, nodeType pb.NodeType) (
 		xs = append(xs, node)
 	}
 
+	return xs, nil
+}
+
+// newSatellites initializes satellites
+func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
+	var xs []*satellite.Peer
+	defer func() {
+		for _, x := range xs {
+			planet.peers = append(planet.peers, x)
+			planet.nodeInfos = append(planet.nodeInfos, x.Local())
+		}
+	}()
+
+	for i := 0; i < count; i++ {
+		prefix := "satellite" + strconv.Itoa(i)
+		log := planet.log.Named(prefix)
+		storageDir := filepath.Join(planet.directory, prefix)
+
+		identity, err := planet.NewIdentity()
+		if err != nil {
+			return nil, err
+		}
+
+		db, err := satellitedb.NewInMemory()
+		if err != nil {
+			return nil, err
+		}
+		planet.databases = append(planet.databases, db)
+
+		config := satellite.Config{
+			PublicAddress: "127.0.0.1:0",
+			Kademlia: kademlia.Config{
+				Alpha: 5,
+				Operator: kademlia.OperatorConfig{
+					Email:  prefix + "@example.com",
+					Wallet: "0x" + strings.Repeat("00", 20),
+				},
+			},
+			
+			// Overlay   overlay.Config
+			// Discovery discovery.Config
+			// PointerDB   pointerdb.Config
+			// BwAgreement bwagreement.Config
+			// Checker  checker.Config
+			// Repairer repairer.Config
+			// Audit    audit.Config
+		}
+
+		peer, err := satellite.New(log, identity, db, config)
+		if err != nil {
+			return xs, err
+		}
+
+		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
+		xs = append(xs, peer)
+	}
 	return xs, nil
 }
 

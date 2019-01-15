@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storagenode
+package satellite
 
 import (
 	"storj.io/storj/pkg/node"
