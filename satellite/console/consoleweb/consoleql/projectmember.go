@@ -6,9 +6,9 @@ package consoleql
 import (
 	"time"
 
-	"storj.io/storj/satellite/console"
-
 	"github.com/graphql-go/graphql"
+
+	"storj.io/storj/satellite/console"
 )
 
 const (

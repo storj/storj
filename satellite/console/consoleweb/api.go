@@ -10,14 +10,13 @@ import (
 	"net/http"
 	"strings"
 
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consoleql"
-
 	"github.com/graphql-go/graphql"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb/consoleql"
 )
 
 const (

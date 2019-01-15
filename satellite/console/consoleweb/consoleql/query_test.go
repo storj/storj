@@ -8,14 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/satellite/console"
-
 	"github.com/graphql-go/graphql"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/satellitedb"
 )

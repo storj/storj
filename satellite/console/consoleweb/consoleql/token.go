@@ -5,9 +5,9 @@ package consoleql
 
 import (
 	"github.com/graphql-go/graphql"
-	"storj.io/storj/satellite/console"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/satellite/console"
 )
 
 const (

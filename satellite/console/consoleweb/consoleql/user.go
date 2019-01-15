@@ -5,6 +5,7 @@ package consoleql
 
 import (
 	"github.com/graphql-go/graphql"
+
 	"storj.io/storj/satellite/console"
 )
 

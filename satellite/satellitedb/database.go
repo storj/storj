@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"

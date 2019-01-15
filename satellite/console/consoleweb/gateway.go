@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"storj.io/storj/satellite/console"
-
 	"github.com/graphql-go/graphql"
 	"go.uber.org/zap"
+
+	"storj.io/storj/satellite/console"
 )
 
 // GatewayConfig contains configuration for gateway

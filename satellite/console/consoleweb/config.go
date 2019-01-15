@@ -9,9 +9,9 @@ import (
 	"github.com/graphql-go/graphql"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"storj.io/storj/satellite/console"
 
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 )

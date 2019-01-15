@@ -6,11 +6,10 @@ package satellitedb
 import (
 	"context"
 
-	"storj.io/storj/satellite/console"
-
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/consoledbx"
 )
 

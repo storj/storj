@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/consoledbx"

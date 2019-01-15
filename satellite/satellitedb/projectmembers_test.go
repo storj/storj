@@ -7,12 +7,11 @@ import (
 	"context"
 	"testing"
 
-	"storj.io/storj/satellite/console"
-
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/satellite/console"
 )
 
 func TestProjectMembersRepository(t *testing.T) {
