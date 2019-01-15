@@ -16,6 +16,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -340,7 +341,12 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		color.White("%s\n", data.NodeId)
 
 		color.Green("\nUptime: ")
-		color.White("%+v \n", data.Uptime)
+		uptime, err := ptypes.Duration(data.Uptime)
+		if err != nil {
+			color.Red("%+v \n", err)
+		} else {
+			color.White("%s \n", uptime)
+		}
 
 		color.Green("\nNode Connections: ")
 		color.White("%+v\n", data.NodeConnections)
