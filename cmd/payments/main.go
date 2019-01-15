@@ -44,7 +44,7 @@ var (
 
 // Payments gives access to the payments api
 type Payments struct {
-	client pb.PaymentsClient
+	client 		pb.PaymentsClient
 }
 
 func main() {
@@ -77,13 +77,13 @@ func NewPayments() (*Payments, error) {
 // GenerateCSV makes a call to the payments client to query the db and generate a csv
 func GenerateCSV(cmd *cobra.Command, args []string) error {
 	//TODO check validity of args
-	startTime := args[0]
-	endTime := args[1]
+	// startTime := args[0]
+	// endTime := args[1]
 
 	p, err := NewPayments()
 	req := &pb.GenerateCSVRequest{
-		StartTime: start,
-		EndTime:   end,
+		// StartTime: start,
+		// EndTime:   end,
 	}
 	_, err = p.client.GenerateCSV(ctx, req)
 	return err

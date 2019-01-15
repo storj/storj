@@ -42,7 +42,7 @@ func (x RedundancyScheme_SchemeType) String() string {
 	return proto.EnumName(RedundancyScheme_SchemeType_name, int32(x))
 }
 func (RedundancyScheme_SchemeType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{0, 0}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{0, 0}
 }
 
 type Pointer_DataType int32
@@ -65,7 +65,7 @@ func (x Pointer_DataType) String() string {
 	return proto.EnumName(Pointer_DataType_name, int32(x))
 }
 func (Pointer_DataType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{3, 0}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{3, 0}
 }
 
 type RedundancyScheme struct {
@@ -85,7 +85,7 @@ func (m *RedundancyScheme) Reset()         { *m = RedundancyScheme{} }
 func (m *RedundancyScheme) String() string { return proto.CompactTextString(m) }
 func (*RedundancyScheme) ProtoMessage()    {}
 func (*RedundancyScheme) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{0}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{0}
 }
 func (m *RedundancyScheme) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RedundancyScheme.Unmarshal(m, b)
@@ -159,7 +159,7 @@ func (m *RemotePiece) Reset()         { *m = RemotePiece{} }
 func (m *RemotePiece) String() string { return proto.CompactTextString(m) }
 func (*RemotePiece) ProtoMessage()    {}
 func (*RemotePiece) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{1}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{1}
 }
 func (m *RemotePiece) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RemotePiece.Unmarshal(m, b)
@@ -201,7 +201,7 @@ func (m *RemoteSegment) Reset()         { *m = RemoteSegment{} }
 func (m *RemoteSegment) String() string { return proto.CompactTextString(m) }
 func (*RemoteSegment) ProtoMessage()    {}
 func (*RemoteSegment) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{2}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{2}
 }
 func (m *RemoteSegment) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RemoteSegment.Unmarshal(m, b)
@@ -266,7 +266,7 @@ func (m *Pointer) Reset()         { *m = Pointer{} }
 func (m *Pointer) String() string { return proto.CompactTextString(m) }
 func (*Pointer) ProtoMessage()    {}
 func (*Pointer) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{3}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{3}
 }
 func (m *Pointer) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Pointer.Unmarshal(m, b)
@@ -348,7 +348,7 @@ func (m *PutRequest) Reset()         { *m = PutRequest{} }
 func (m *PutRequest) String() string { return proto.CompactTextString(m) }
 func (*PutRequest) ProtoMessage()    {}
 func (*PutRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{4}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{4}
 }
 func (m *PutRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PutRequest.Unmarshal(m, b)
@@ -394,7 +394,7 @@ func (m *GetRequest) Reset()         { *m = GetRequest{} }
 func (m *GetRequest) String() string { return proto.CompactTextString(m) }
 func (*GetRequest) ProtoMessage()    {}
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{5}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{5}
 }
 func (m *GetRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetRequest.Unmarshal(m, b)
@@ -438,7 +438,7 @@ func (m *ListRequest) Reset()         { *m = ListRequest{} }
 func (m *ListRequest) String() string { return proto.CompactTextString(m) }
 func (*ListRequest) ProtoMessage()    {}
 func (*ListRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{6}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{6}
 }
 func (m *ListRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListRequest.Unmarshal(m, b)
@@ -511,7 +511,7 @@ func (m *PutResponse) Reset()         { *m = PutResponse{} }
 func (m *PutResponse) String() string { return proto.CompactTextString(m) }
 func (*PutResponse) ProtoMessage()    {}
 func (*PutResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{7}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{7}
 }
 func (m *PutResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PutResponse.Unmarshal(m, b)
@@ -546,7 +546,7 @@ func (m *GetResponse) Reset()         { *m = GetResponse{} }
 func (m *GetResponse) String() string { return proto.CompactTextString(m) }
 func (*GetResponse) ProtoMessage()    {}
 func (*GetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{8}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{8}
 }
 func (m *GetResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetResponse.Unmarshal(m, b)
@@ -607,7 +607,7 @@ func (m *ListResponse) Reset()         { *m = ListResponse{} }
 func (m *ListResponse) String() string { return proto.CompactTextString(m) }
 func (*ListResponse) ProtoMessage()    {}
 func (*ListResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{9}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{9}
 }
 func (m *ListResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListResponse.Unmarshal(m, b)
@@ -654,7 +654,7 @@ func (m *ListResponse_Item) Reset()         { *m = ListResponse_Item{} }
 func (m *ListResponse_Item) String() string { return proto.CompactTextString(m) }
 func (*ListResponse_Item) ProtoMessage()    {}
 func (*ListResponse_Item) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{9, 0}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{9, 0}
 }
 func (m *ListResponse_Item) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListResponse_Item.Unmarshal(m, b)
@@ -706,7 +706,7 @@ func (m *DeleteRequest) Reset()         { *m = DeleteRequest{} }
 func (m *DeleteRequest) String() string { return proto.CompactTextString(m) }
 func (*DeleteRequest) ProtoMessage()    {}
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{10}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{10}
 }
 func (m *DeleteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeleteRequest.Unmarshal(m, b)
@@ -744,7 +744,7 @@ func (m *DeleteResponse) Reset()         { *m = DeleteResponse{} }
 func (m *DeleteResponse) String() string { return proto.CompactTextString(m) }
 func (*DeleteResponse) ProtoMessage()    {}
 func (*DeleteResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{11}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{11}
 }
 func (m *DeleteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeleteResponse.Unmarshal(m, b)
@@ -779,7 +779,7 @@ func (m *IterateRequest) Reset()         { *m = IterateRequest{} }
 func (m *IterateRequest) String() string { return proto.CompactTextString(m) }
 func (*IterateRequest) ProtoMessage()    {}
 func (*IterateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{12}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{12}
 }
 func (m *IterateRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_IterateRequest.Unmarshal(m, b)
@@ -838,7 +838,7 @@ func (m *PayerBandwidthAllocationRequest) Reset()         { *m = PayerBandwidthA
 func (m *PayerBandwidthAllocationRequest) String() string { return proto.CompactTextString(m) }
 func (*PayerBandwidthAllocationRequest) ProtoMessage()    {}
 func (*PayerBandwidthAllocationRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{13}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{13}
 }
 func (m *PayerBandwidthAllocationRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PayerBandwidthAllocationRequest.Unmarshal(m, b)
@@ -876,7 +876,7 @@ func (m *PayerBandwidthAllocationResponse) Reset()         { *m = PayerBandwidth
 func (m *PayerBandwidthAllocationResponse) String() string { return proto.CompactTextString(m) }
 func (*PayerBandwidthAllocationResponse) ProtoMessage()    {}
 func (*PayerBandwidthAllocationResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_37763013b07c9a27, []int{14}
+	return fileDescriptor_pointerdb_3f3e047a48f87feb, []int{14}
 }
 func (m *PayerBandwidthAllocationResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PayerBandwidthAllocationResponse.Unmarshal(m, b)
@@ -1138,9 +1138,9 @@ var _PointerDB_serviceDesc = grpc.ServiceDesc{
 	Metadata: "pointerdb.proto",
 }
 
-func init() { proto.RegisterFile("pointerdb.proto", fileDescriptor_pointerdb_37763013b07c9a27) }
+func init() { proto.RegisterFile("pointerdb.proto", fileDescriptor_pointerdb_3f3e047a48f87feb) }
 
-var fileDescriptor_pointerdb_37763013b07c9a27 = []byte{
+var fileDescriptor_pointerdb_3f3e047a48f87feb = []byte{
 	// 1092 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x55, 0x5d, 0x6f, 0x1b, 0x45,
 	0x17, 0xae, 0xbf, 0xe3, 0xb3, 0x76, 0xea, 0x77, 0xd4, 0x37, 0xdd, 0xba, 0x45, 0x09, 0x8b, 0x80,

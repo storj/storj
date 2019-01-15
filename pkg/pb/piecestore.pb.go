@@ -53,7 +53,7 @@ func (x PayerBandwidthAllocation_Action) String() string {
 	return proto.EnumName(PayerBandwidthAllocation_Action_name, int32(x))
 }
 func (PayerBandwidthAllocation_Action) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{0, 0}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{0, 0}
 }
 
 type PayerBandwidthAllocation struct {
@@ -68,7 +68,7 @@ func (m *PayerBandwidthAllocation) Reset()         { *m = PayerBandwidthAllocati
 func (m *PayerBandwidthAllocation) String() string { return proto.CompactTextString(m) }
 func (*PayerBandwidthAllocation) ProtoMessage()    {}
 func (*PayerBandwidthAllocation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{0}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{0}
 }
 func (m *PayerBandwidthAllocation) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PayerBandwidthAllocation.Unmarshal(m, b)
@@ -120,7 +120,7 @@ func (m *PayerBandwidthAllocation_Data) Reset()         { *m = PayerBandwidthAll
 func (m *PayerBandwidthAllocation_Data) String() string { return proto.CompactTextString(m) }
 func (*PayerBandwidthAllocation_Data) ProtoMessage()    {}
 func (*PayerBandwidthAllocation_Data) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{0, 0}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{0, 0}
 }
 func (m *PayerBandwidthAllocation_Data) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PayerBandwidthAllocation_Data.Unmarshal(m, b)
@@ -194,7 +194,7 @@ func (m *RenterBandwidthAllocation) Reset()         { *m = RenterBandwidthAlloca
 func (m *RenterBandwidthAllocation) String() string { return proto.CompactTextString(m) }
 func (*RenterBandwidthAllocation) ProtoMessage()    {}
 func (*RenterBandwidthAllocation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{1}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{1}
 }
 func (m *RenterBandwidthAllocation) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RenterBandwidthAllocation.Unmarshal(m, b)
@@ -241,7 +241,7 @@ func (m *RenterBandwidthAllocation_Data) Reset()         { *m = RenterBandwidthA
 func (m *RenterBandwidthAllocation_Data) String() string { return proto.CompactTextString(m) }
 func (*RenterBandwidthAllocation_Data) ProtoMessage()    {}
 func (*RenterBandwidthAllocation_Data) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{1, 0}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{1, 0}
 }
 func (m *RenterBandwidthAllocation_Data) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RenterBandwidthAllocation_Data.Unmarshal(m, b)
@@ -288,7 +288,7 @@ func (m *PieceStore) Reset()         { *m = PieceStore{} }
 func (m *PieceStore) String() string { return proto.CompactTextString(m) }
 func (*PieceStore) ProtoMessage()    {}
 func (*PieceStore) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{2}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{2}
 }
 func (m *PieceStore) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceStore.Unmarshal(m, b)
@@ -343,7 +343,7 @@ func (m *PieceStore_PieceData) Reset()         { *m = PieceStore_PieceData{} }
 func (m *PieceStore_PieceData) String() string { return proto.CompactTextString(m) }
 func (*PieceStore_PieceData) ProtoMessage()    {}
 func (*PieceStore_PieceData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{2, 0}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{2, 0}
 }
 func (m *PieceStore_PieceData) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceStore_PieceData.Unmarshal(m, b)
@@ -397,7 +397,7 @@ func (m *PieceId) Reset()         { *m = PieceId{} }
 func (m *PieceId) String() string { return proto.CompactTextString(m) }
 func (*PieceId) ProtoMessage()    {}
 func (*PieceId) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{3}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{3}
 }
 func (m *PieceId) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceId.Unmarshal(m, b)
@@ -444,7 +444,7 @@ func (m *PieceSummary) Reset()         { *m = PieceSummary{} }
 func (m *PieceSummary) String() string { return proto.CompactTextString(m) }
 func (*PieceSummary) ProtoMessage()    {}
 func (*PieceSummary) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{4}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{4}
 }
 func (m *PieceSummary) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceSummary.Unmarshal(m, b)
@@ -498,7 +498,7 @@ func (m *PieceRetrieval) Reset()         { *m = PieceRetrieval{} }
 func (m *PieceRetrieval) String() string { return proto.CompactTextString(m) }
 func (*PieceRetrieval) ProtoMessage()    {}
 func (*PieceRetrieval) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{5}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{5}
 }
 func (m *PieceRetrieval) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceRetrieval.Unmarshal(m, b)
@@ -553,7 +553,7 @@ func (m *PieceRetrieval_PieceData) Reset()         { *m = PieceRetrieval_PieceDa
 func (m *PieceRetrieval_PieceData) String() string { return proto.CompactTextString(m) }
 func (*PieceRetrieval_PieceData) ProtoMessage()    {}
 func (*PieceRetrieval_PieceData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{5, 0}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{5, 0}
 }
 func (m *PieceRetrieval_PieceData) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceRetrieval_PieceData.Unmarshal(m, b)
@@ -606,7 +606,7 @@ func (m *PieceRetrievalStream) Reset()         { *m = PieceRetrievalStream{} }
 func (m *PieceRetrievalStream) String() string { return proto.CompactTextString(m) }
 func (*PieceRetrievalStream) ProtoMessage()    {}
 func (*PieceRetrievalStream) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{6}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{6}
 }
 func (m *PieceRetrievalStream) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceRetrievalStream.Unmarshal(m, b)
@@ -653,7 +653,7 @@ func (m *PieceDelete) Reset()         { *m = PieceDelete{} }
 func (m *PieceDelete) String() string { return proto.CompactTextString(m) }
 func (*PieceDelete) ProtoMessage()    {}
 func (*PieceDelete) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{7}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{7}
 }
 func (m *PieceDelete) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceDelete.Unmarshal(m, b)
@@ -698,7 +698,7 @@ func (m *PieceDeleteSummary) Reset()         { *m = PieceDeleteSummary{} }
 func (m *PieceDeleteSummary) String() string { return proto.CompactTextString(m) }
 func (*PieceDeleteSummary) ProtoMessage()    {}
 func (*PieceDeleteSummary) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{8}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{8}
 }
 func (m *PieceDeleteSummary) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceDeleteSummary.Unmarshal(m, b)
@@ -737,7 +737,7 @@ func (m *PieceStoreSummary) Reset()         { *m = PieceStoreSummary{} }
 func (m *PieceStoreSummary) String() string { return proto.CompactTextString(m) }
 func (*PieceStoreSummary) ProtoMessage()    {}
 func (*PieceStoreSummary) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{9}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{9}
 }
 func (m *PieceStoreSummary) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceStoreSummary.Unmarshal(m, b)
@@ -781,7 +781,7 @@ func (m *StatsReq) Reset()         { *m = StatsReq{} }
 func (m *StatsReq) String() string { return proto.CompactTextString(m) }
 func (*StatsReq) ProtoMessage()    {}
 func (*StatsReq) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{10}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{10}
 }
 func (m *StatsReq) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StatsReq.Unmarshal(m, b)
@@ -815,7 +815,7 @@ func (m *StatSummary) Reset()         { *m = StatSummary{} }
 func (m *StatSummary) String() string { return proto.CompactTextString(m) }
 func (*StatSummary) ProtoMessage()    {}
 func (*StatSummary) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{11}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{11}
 }
 func (m *StatSummary) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StatSummary.Unmarshal(m, b)
@@ -876,7 +876,7 @@ func (m *SignedMessage) Reset()         { *m = SignedMessage{} }
 func (m *SignedMessage) String() string { return proto.CompactTextString(m) }
 func (*SignedMessage) ProtoMessage()    {}
 func (*SignedMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_494b76725f4df406, []int{12}
+	return fileDescriptor_piecestore_b0d5353ad62c39e9, []int{12}
 }
 func (m *SignedMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SignedMessage.Unmarshal(m, b)
@@ -1209,9 +1209,9 @@ var _PieceStoreRoutes_serviceDesc = grpc.ServiceDesc{
 	Metadata: "piecestore.proto",
 }
 
-func init() { proto.RegisterFile("piecestore.proto", fileDescriptor_piecestore_494b76725f4df406) }
+func init() { proto.RegisterFile("piecestore.proto", fileDescriptor_piecestore_b0d5353ad62c39e9) }
 
-var fileDescriptor_piecestore_494b76725f4df406 = []byte{
+var fileDescriptor_piecestore_b0d5353ad62c39e9 = []byte{
 	// 972 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x56, 0xcd, 0x6e, 0xdb, 0x46,
 	0x10, 0x36, 0x49, 0x5b, 0xb2, 0xc6, 0x96, 0xac, 0xac, 0x8d, 0x96, 0x16, 0xe2, 0xda, 0x60, 0x9a,

@@ -5,13 +5,18 @@ package payments
 
 import (
 	"context"
+	"encoding/csv"
+	"os"
+	"strconv"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/provider"
 )
 
 var (
@@ -47,28 +52,42 @@ func (srv *Server) AdjustPrices(ctx context.Context, req *pb.AdjustPricesRequest
 
 // GenerateCSV creates a csv file for payment purposes
 func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) (*pb.GenerateCSVResponse, error) {
-	rows, err := srv.accountingDB.QueryPaymentInfo(ctx, req.StartTime, req.EndTime)
+	start, err := ptypes.Timestamp(req.StartTime)
+	if err != nil {
+		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+	}
 
-	// headers := []string{"nodeID", "nodeIDCreationDate", "nodeStatus", "walletAddress", "GBAtRest", "GBBWRepair", "GBBWAudit", "GBBWDownload", "start", "end", "satelliteID"}
-	// file, err := os.Create(srv.filepath + req.startTime + "-" + req.endTime + ".csv")
-	// if err != nil {
-	// 	return err
-	// }
-	// defer file.Close()
+	end, err := ptypes.Timestamp(req.EndTime)
+	if err != nil {
+		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+	}
 
-	// w := csv.NewWriter(file)
-	// if err := w.Write(headers); err != nil {
-	// 	log.Fatalln("error writing headers to csv:", err)
-	// }
+	pi, err := provider.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+	}
 
-	// // qErr := query(startTime, endTime)
-	// // if qErr != nil {
-	// // 	return err
-	// // }
+	file, err := os.Create(srv.filepath + pi.ID.String() + ":" + start.String() + "-" + end.String() + ".csv")
+	if err != nil {
+		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+	}
+	defer file.Close()
 
-	// if err := w.Error(); err != nil {
-	// 	log.Fatal(err)
-	// }
-	// w.Flush()
+	rows, err := srv.accountingDB.QueryPaymentInfo(ctx, start, end)
+	if err != nil {
+		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+	}
+
+	w := csv.NewWriter(file)
+	for _, record := range rows {
+		r := []string{string(record.Node_Id), record.Node_CreatedAt.String(), strconv.FormatFloat(record.Node_AuditSuccessRatio, 'f', 5, 64), record.AccountingRollup_DataType, string(record.AccountingRollup_DataTotal), record.AccountingRollup_CreatedAt.String()}
+		if err := w.Write(r); err != nil {
+			return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+		}
+	}
+	if err := w.Error(); err != nil {
+		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+	}
+	w.Flush()
 	return &pb.GenerateCSVResponse{}, nil
 }
