@@ -12,7 +12,6 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 )
 
@@ -31,7 +30,7 @@ func TestServer(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	satellite := planet.Satellites[0]
-	server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay, &pb.NodeStats{})
+	server := satellite.Overlay.Endpoint
 	// TODO: handle cleanup
 
 	{ // FindStorageNodes
