@@ -223,7 +223,7 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, e
 // Dashboard is a stream that sends data every `interval` seconds to the listener.
 func (s *Server) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_DashboardServer) (err error) {
 	ctx := stream.Context()
-	ticker := time.NewTicker(500 * time.Millisecond)
+	ticker := time.NewTicker(3 * time.Second)
 
 	for {
 		select {
@@ -243,7 +243,6 @@ func (s *Server) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_Dashb
 		}
 	}
 
-	fmt.Printf("RETURNING DASHBOARD FUNC")
 	return nil
 }
 
