@@ -101,11 +101,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			satellite.Tally,
 			satellite.Rollup,
 			satellite.StatDB,
-			runCfg.Satellite.Payments,
-
-			// NB(dylan): Inspector is only used for local development and testing.
-			// It should not be added to the Satellite startup
-			satellite.Inspector,
+			satellite.Payments,
 		)
 	}()
 

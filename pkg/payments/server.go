@@ -70,7 +70,7 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
 	}
 
-	file, err := os.Create(srv.filepath + pi.ID.String() + ":" + start.String() + "-" + end.String() + ".csv")
+	file, err := os.Create(srv.filepath + "/" + pi.ID.String() + ":" + start.String() + "-" + end.String() + ".csv")
 	if err != nil {
 		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
 	}

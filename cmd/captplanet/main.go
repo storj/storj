@@ -33,6 +33,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/payments"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -73,6 +74,7 @@ type Satellite struct {
 	Tally       tally.Config
 	Rollup      rollup.Config
 	StatDB      statdb.Config
+	Payments	payments.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 }
 
