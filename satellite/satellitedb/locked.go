@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
 	"storj.io/storj/storage"
 )
 
@@ -52,13 +51,6 @@ func (m *locked) Close() error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Close()
-}
-
-// ConsoleDB returns database for managing satellite accounts and projects
-func (m *locked) ConsoleDB() console.DB {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedConsoleDB{m.Locker, m.db.ConsoleDB()}
 }
 
 // CreateTables initializes the database
@@ -148,54 +140,6 @@ func (m *lockedBandwidthAgreement) GetAgreementsSince(ctx context.Context, a1 ti
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetAgreementsSince(ctx, a1)
-}
-
-// lockedConsoleDB implements locking wrapper for console.DB
-type lockedConsoleDB struct {
-	sync.Locker
-	db console.DB
-}
-
-// APIKeys is a getter for APIKeys repository
-func (m *lockedConsoleDB) APIKeys() console.APIKeys {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedAPIKeys{m.Locker, m.db.APIKeys()}
-}
-
-// Close is used to close db connection
-func (m *lockedConsoleDB) Close() error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Close()
-}
-
-// CreateTables is a method for creating all tables for satellitedb
-func (m *lockedConsoleDB) CreateTables() error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.CreateTables()
-}
-
-// ProjectMembers is a getter for ProjectMembers repository
-func (m *lockedConsoleDB) ProjectMembers() console.ProjectMembers {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedProjectMembers{m.Locker, m.db.ProjectMembers()}
-}
-
-// Projects is a getter for Projects repository
-func (m *lockedConsoleDB) Projects() console.Projects {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedProjects{m.Locker, m.db.Projects()}
-}
-
-// Users is a getter for Users repository
-func (m *lockedConsoleDB) Users() console.Users {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedUsers{m.Locker, m.db.Users()}
 }
 
 // lockedIrreparable implements locking wrapper for irreparable.DB

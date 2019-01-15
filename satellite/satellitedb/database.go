@@ -5,8 +5,6 @@ package satellitedb
 
 import (
 	"github.com/zeebo/errs"
-	"storj.io/storj/satellite/console"
-
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
@@ -54,14 +52,6 @@ func New(databaseURL string) (satellite.DB, error) {
 // NewInMemory creates instance of Sqlite in memory satellite database
 func NewInMemory() (satellite.DB, error) {
 	return New("sqlite3://file::memory:?mode=memory&cache=shared")
-}
-
-// ConsoleDB returns database for managing satellite accounts and projects
-func (db *DB) ConsoleDB() console.DB {
-	return &ConsoleDB{
-		db:      db.db,
-		methods: db.db,
-	}
 }
 
 // BandwidthAgreement is a getter for bandwidth agreement repository
