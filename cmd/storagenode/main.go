@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -89,6 +90,7 @@ var (
 	defaultConfDir string
 	defaultDiagDir string
 	confDir        string
+	serverAddress  string
 )
 
 const (
@@ -115,6 +117,8 @@ func init() {
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir))
+	flag.StringVar(&serverAddress, "server-address", ":28967", "address for dashboard to grab metrics from")
+	flag.Parse()
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -314,8 +318,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 func dashCmd(cmd *cobra.Command, args []string) (err error) {
 	ctx := context.Background()
 
-	// create new client on localhost:7777
-	lc, err := psclient.NewLiteClient(ctx, ":7777")
+	lc, err := psclient.NewLiteClient(ctx, serverAddress)
 	if err != nil {
 		return err
 	}
