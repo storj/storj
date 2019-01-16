@@ -18,7 +18,7 @@ type buckets struct {
 	db dbx.Methods
 }
 
-// ListBuckets implements console.Buckets
+// ListBuckets returns bucket list of a given project
 func (buck *buckets) ListBuckets(ctx context.Context, projectID uuid.UUID) ([]console.Bucket, error) {
 	buckets, err := buck.db.All_BucketInfo_By_ProjectId_OrderBy_Asc_Name(
 		ctx,
@@ -47,7 +47,7 @@ func (buck *buckets) ListBuckets(ctx context.Context, projectID uuid.UUID) ([]co
 	return consoleBuckets, nil
 }
 
-// GetBucket implements console.Buckets
+// GetBucket retrieves bucket info of bucket with given name
 func (buck *buckets) GetBucket(ctx context.Context, name string) (*console.Bucket, error) {
 	bucket, err := buck.db.Get_BucketInfo_By_Name(ctx, dbx.BucketInfo_Name(name))
 	if err != nil {
@@ -57,16 +57,10 @@ func (buck *buckets) GetBucket(ctx context.Context, name string) (*console.Bucke
 	return fromDBXBucket(bucket)
 }
 
-// AttachBucket implements console.Buckets
+// AttachBucket attaches a bucket to a project
 func (buck *buckets) AttachBucket(ctx context.Context, name string, projectID uuid.UUID) (*console.Bucket, error) {
-	id, err := uuid.New()
-	if err != nil {
-		return nil, err
-	}
-
 	bucket, err := buck.db.Create_BucketInfo(
 		ctx,
-		dbx.BucketInfo_Id(id[:]),
 		dbx.BucketInfo_ProjectId(projectID[:]),
 		dbx.BucketInfo_Name(name),
 	)
@@ -78,7 +72,7 @@ func (buck *buckets) AttachBucket(ctx context.Context, name string, projectID uu
 	return fromDBXBucket(bucket)
 }
 
-// DeattachBucket implements console.Buckets
+// DeattachBucket deletes bucket info for a bucket by name
 func (buck *buckets) DeattachBucket(ctx context.Context, name string) error {
 	_, err := buck.db.Delete_BucketInfo_By_Name(ctx, dbx.BucketInfo_Name(name))
 	return err
@@ -86,18 +80,12 @@ func (buck *buckets) DeattachBucket(ctx context.Context, name string) error {
 
 // fromDBXBucket creates console.Bucket from dbx.Bucket
 func fromDBXBucket(bucket *dbx.BucketInfo) (*console.Bucket, error) {
-	id, err := bytesToUUID(bucket.Id)
-	if err != nil {
-		return nil, err
-	}
-
 	projectID, err := bytesToUUID(bucket.ProjectId)
 	if err != nil {
 		return nil, err
 	}
 
 	return &console.Bucket{
-		ID:        id,
 		ProjectID: projectID,
 		Name:      bucket.Name,
 		CreatedAt: bucket.CreatedAt,

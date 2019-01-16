@@ -6,8 +6,6 @@ package satellitedb
 import (
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/satellite/console"
-
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
@@ -17,6 +15,7 @@ import (
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 

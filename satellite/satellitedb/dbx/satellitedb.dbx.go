@@ -381,12 +381,10 @@ CREATE TABLE api_keys (
 	UNIQUE ( name, project_id )
 );
 CREATE TABLE bucket_infos (
-	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	name text NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( name )
+	PRIMARY KEY ( name )
 );
 CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
@@ -565,12 +563,10 @@ CREATE TABLE api_keys (
 	UNIQUE ( name, project_id )
 );
 CREATE TABLE bucket_infos (
-	id BLOB NOT NULL,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	name TEXT NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( name )
+	PRIMARY KEY ( name )
 );
 CREATE TABLE project_members (
 	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
@@ -2140,7 +2136,6 @@ func (f ApiKey_CreatedAt_Field) value() interface{} {
 func (ApiKey_CreatedAt_Field) _Column() string { return "created_at" }
 
 type BucketInfo struct {
-	Id        []byte
 	ProjectId []byte
 	Name      string
 	CreatedAt time.Time
@@ -2150,25 +2145,6 @@ func (BucketInfo) _Table() string { return "bucket_infos" }
 
 type BucketInfo_Update_Fields struct {
 }
-
-type BucketInfo_Id_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func BucketInfo_Id(v []byte) BucketInfo_Id_Field {
-	return BucketInfo_Id_Field{_set: true, _value: v}
-}
-
-func (f BucketInfo_Id_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketInfo_Id_Field) _Column() string { return "id" }
 
 type BucketInfo_ProjectId_Field struct {
 	_set   bool
@@ -2816,24 +2792,22 @@ func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
 }
 
 func (obj *postgresImpl) Create_BucketInfo(ctx context.Context,
-	bucket_info_id BucketInfo_Id_Field,
 	bucket_info_project_id BucketInfo_ProjectId_Field,
 	bucket_info_name BucketInfo_Name_Field) (
 	bucket_info *BucketInfo, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
-	__id_val := bucket_info_id.value()
 	__project_id_val := bucket_info_project_id.value()
 	__name_val := bucket_info_name.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_infos ( id, project_id, name, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING bucket_infos.id, bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_infos ( project_id, name, created_at ) VALUES ( ?, ?, ? ) RETURNING bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __project_id_val, __name_val, __created_at_val)
+	obj.logStmt(__stmt, __project_id_val, __name_val, __created_at_val)
 
 	bucket_info = &BucketInfo{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __name_val, __created_at_val).Scan(&bucket_info.Id, &bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __project_id_val, __name_val, __created_at_val).Scan(&bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -3570,7 +3544,7 @@ func (obj *postgresImpl) Get_BucketInfo_By_Name(ctx context.Context,
 	bucket_info_name BucketInfo_Name_Field) (
 	bucket_info *BucketInfo, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_infos.id, bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at FROM bucket_infos WHERE bucket_infos.name = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at FROM bucket_infos WHERE bucket_infos.name = ?")
 
 	var __values []interface{}
 	__values = append(__values, bucket_info_name.value())
@@ -3579,7 +3553,7 @@ func (obj *postgresImpl) Get_BucketInfo_By_Name(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	bucket_info = &BucketInfo{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_info.Id, &bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -3591,7 +3565,7 @@ func (obj *postgresImpl) All_BucketInfo_By_ProjectId_OrderBy_Asc_Name(ctx contex
 	bucket_info_project_id BucketInfo_ProjectId_Field) (
 	rows []*BucketInfo, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_infos.id, bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at FROM bucket_infos WHERE bucket_infos.project_id = ? ORDER BY bucket_infos.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at FROM bucket_infos WHERE bucket_infos.project_id = ? ORDER BY bucket_infos.name")
 
 	var __values []interface{}
 	__values = append(__values, bucket_info_project_id.value())
@@ -3607,7 +3581,7 @@ func (obj *postgresImpl) All_BucketInfo_By_ProjectId_OrderBy_Asc_Name(ctx contex
 
 	for __rows.Next() {
 		bucket_info := &BucketInfo{}
-		err = __rows.Scan(&bucket_info.Id, &bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
+		err = __rows.Scan(&bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -4893,23 +4867,21 @@ func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
 }
 
 func (obj *sqlite3Impl) Create_BucketInfo(ctx context.Context,
-	bucket_info_id BucketInfo_Id_Field,
 	bucket_info_project_id BucketInfo_ProjectId_Field,
 	bucket_info_name BucketInfo_Name_Field) (
 	bucket_info *BucketInfo, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
-	__id_val := bucket_info_id.value()
 	__project_id_val := bucket_info_project_id.value()
 	__name_val := bucket_info_name.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_infos ( id, project_id, name, created_at ) VALUES ( ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_infos ( project_id, name, created_at ) VALUES ( ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __project_id_val, __name_val, __created_at_val)
+	obj.logStmt(__stmt, __project_id_val, __name_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __project_id_val, __name_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __project_id_val, __name_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5650,7 +5622,7 @@ func (obj *sqlite3Impl) Get_BucketInfo_By_Name(ctx context.Context,
 	bucket_info_name BucketInfo_Name_Field) (
 	bucket_info *BucketInfo, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_infos.id, bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at FROM bucket_infos WHERE bucket_infos.name = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at FROM bucket_infos WHERE bucket_infos.name = ?")
 
 	var __values []interface{}
 	__values = append(__values, bucket_info_name.value())
@@ -5659,7 +5631,7 @@ func (obj *sqlite3Impl) Get_BucketInfo_By_Name(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	bucket_info = &BucketInfo{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_info.Id, &bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5671,7 +5643,7 @@ func (obj *sqlite3Impl) All_BucketInfo_By_ProjectId_OrderBy_Asc_Name(ctx context
 	bucket_info_project_id BucketInfo_ProjectId_Field) (
 	rows []*BucketInfo, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_infos.id, bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at FROM bucket_infos WHERE bucket_infos.project_id = ? ORDER BY bucket_infos.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at FROM bucket_infos WHERE bucket_infos.project_id = ? ORDER BY bucket_infos.name")
 
 	var __values []interface{}
 	__values = append(__values, bucket_info_project_id.value())
@@ -5687,7 +5659,7 @@ func (obj *sqlite3Impl) All_BucketInfo_By_ProjectId_OrderBy_Asc_Name(ctx context
 
 	for __rows.Next() {
 		bucket_info := &BucketInfo{}
-		err = __rows.Scan(&bucket_info.Id, &bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
+		err = __rows.Scan(&bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -6730,13 +6702,13 @@ func (obj *sqlite3Impl) getLastBucketInfo(ctx context.Context,
 	pk int64) (
 	bucket_info *BucketInfo, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_infos.id, bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at FROM bucket_infos WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at FROM bucket_infos WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	bucket_info = &BucketInfo{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_info.Id, &bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7095,7 +7067,6 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 }
 
 func (rx *Rx) Create_BucketInfo(ctx context.Context,
-	bucket_info_id BucketInfo_Id_Field,
 	bucket_info_project_id BucketInfo_ProjectId_Field,
 	bucket_info_name BucketInfo_Name_Field) (
 	bucket_info *BucketInfo, err error) {
@@ -7103,7 +7074,7 @@ func (rx *Rx) Create_BucketInfo(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_BucketInfo(ctx, bucket_info_id, bucket_info_project_id, bucket_info_name)
+	return tx.Create_BucketInfo(ctx, bucket_info_project_id, bucket_info_name)
 
 }
 
@@ -7689,7 +7660,6 @@ type Methods interface {
 		api_key *ApiKey, err error)
 
 	Create_BucketInfo(ctx context.Context,
-		bucket_info_id BucketInfo_Id_Field,
 		bucket_info_project_id BucketInfo_ProjectId_Field,
 		bucket_info_name BucketInfo_Name_Field) (
 		bucket_info *BucketInfo, err error)

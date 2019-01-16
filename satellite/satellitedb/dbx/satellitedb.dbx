@@ -332,10 +332,8 @@ read all (
 )
 
 model bucket_info (
-    key id
-    unique name
+    key name
 
-    field id blob
     field project_id project.id cascade
 
     field name text

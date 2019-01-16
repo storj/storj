@@ -6,9 +6,8 @@ package consoleweb
 import (
 	"context"
 
-	"github.com/zeebo/errs"
-
 	"github.com/graphql-go/graphql"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/provider"
