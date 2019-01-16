@@ -80,8 +80,11 @@ var (
 		Short: "Display a dashbaord",
 		RunE:  dashCmd,
 	}
-	runCfg   StorageNode
-	setupCfg StorageNode
+	runCfg       StorageNode
+	setupCfg     StorageNode
+	dashboardCfg struct {
+		Address string `default:":28967" help:"address for dashboard service"`
+	}
 
 	diagCfg struct {
 	}
@@ -115,6 +118,7 @@ func init() {
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir))
+	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg)
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -314,8 +318,8 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 func dashCmd(cmd *cobra.Command, args []string) (err error) {
 	ctx := context.Background()
 
-	// create new client on localhost:7777
-	lc, err := psclient.NewLiteClient(ctx, ":7777")
+	// create new client
+	lc, err := psclient.NewLiteClient(ctx, dashboardCfg.Address)
 	if err != nil {
 		return err
 	}
