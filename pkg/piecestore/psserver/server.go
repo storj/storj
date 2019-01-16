@@ -243,8 +243,6 @@ func (s *Server) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_Dashb
 			}
 		}
 	}
-
-	return nil
 }
 
 // Delete -- Delete data by Id from piecestore

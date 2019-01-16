@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -86,9 +85,6 @@ var (
 
 	diagCfg struct {
 	}
-
-	// Addr is the default GRPC server address
-	Addr = flag.String("address", "localhost:7777", "address of piecestoreserver to inspect")
 
 	defaultConfDir string
 	defaultDiagDir string
@@ -338,8 +334,8 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		clr()
 		heading := color.New(color.FgGreen, color.Bold)
 
-		heading.Printf("\nStorage Node Dashboard Stats\n")
-		heading.Printf("\n===============================\n")
+		_, _ = heading.Printf("\nStorage Node Dashboard Stats\n")
+		_, _ = heading.Printf("\n===============================\n")
 
 		fmt.Fprintf(color.Output, "Node ID: %s\n", color.BlueString(data.GetNodeId()))
 
@@ -396,22 +392,30 @@ func isOperatorWalletValid(wallet string) error {
 
 // clr clears the screen so it can be redrawn
 func clr() {
-	var clear map[string]func()
-	clear = make(map[string]func())
+	var clear = make(map[string]func())
 	clear["linux"] = func() {
 		cmd := exec.Command("clear")
 		cmd.Stdout = os.Stdout
-		cmd.Run()
+		err := cmd.Run()
+		if err != nil {
+			fmt.Errorf("Linux clear screen command returned an error %+v", err)
+		}
 	}
 	clear["darwin"] = func() {
 		cmd := exec.Command("clear")
 		cmd.Stdout = os.Stdout
-		cmd.Run()
+		err := cmd.Run()
+		if err != nil {
+			fmt.Errorf("MacOS clear screen command returned an error %+v", err)
+		}
 	}
 	clear["windows"] = func() {
 		cmd := exec.Command("cmd", "/c", "cls")
 		cmd.Stdout = os.Stdout
-		cmd.Run()
+		err := cmd.Run()
+		if err != nil {
+			fmt.Errorf("Windows clear screen command returned an error %+v", err)
+		}
 	}
 
 	value, ok := clear[runtime.GOOS]
