@@ -5,9 +5,9 @@ package satellitedb
 
 import (
 	"context"
-	"time"
 	"fmt"
 	"strconv"
+	"time"
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/storj"
@@ -200,7 +200,7 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 			nodeID.String(),
 			record.Node_CreatedAt.String(),
 			strconv.FormatFloat(record.Node_AuditSuccessRatio, 'f', 5, 64),
-			string(record.AccountingRollup_AtRestTotal),
+			strconv.FormatFloat(record.AccountingRollup_AtRestTotal, 'f', 5, 64),
 			string(record.AccountingRollup_GetRepairTotal),
 			string(record.AccountingRollup_PutRepairTotal),
 			string(record.AccountingRollup_GetAuditTotal),
@@ -227,12 +227,12 @@ func (db *accountingDB) TestPayments(ctx context.Context) error {
 	for _, id := range ids {
 		nID := dbx.AccountingRollup_NodeId(id)
 		st := dbx.AccountingRollup_StartTime(time.Date(2018, time.Month(1), 1, 0, 0, 0, 0, time.UTC))
-		pt := dbx.AccountingRollup_PutTotal(int64(1))        //not in db?
-		gt := dbx.AccountingRollup_GetTotal(int64(1))        //not in db?
-		gat := dbx.AccountingRollup_GetAuditTotal(int64(1))  //not in db?
-		grt := dbx.AccountingRollup_GetRepairTotal(int64(1)) //not in db?
-		prt := dbx.AccountingRollup_PutRepairTotal(int64(1)) //not in db?
-		art := dbx.AccountingRollup_AtRestTotal(int64(1))    //not in db?
+		pt := dbx.AccountingRollup_PutTotal(int64(1))
+		gt := dbx.AccountingRollup_GetTotal(int64(1))
+		gat := dbx.AccountingRollup_GetAuditTotal(int64(1))
+		grt := dbx.AccountingRollup_GetRepairTotal(int64(1))
+		prt := dbx.AccountingRollup_PutRepairTotal(int64(1))
+		art := dbx.AccountingRollup_AtRestTotal(float64(1))
 		_, err = db.db.Create_AccountingRollup(ctx, nID, st, pt, gt, gat, grt, prt, art)
 		if err != nil {
 			return Error.Wrap(err)

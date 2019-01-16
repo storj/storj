@@ -1872,6 +1872,27 @@ func (h *__sqlbundle_Hole) Render() string { return h.SQL.Render() }
 // end runtime support for building sql statements
 //
 
+type Id_Row struct {
+	Id []byte
+}
+
+type Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row struct {
+	Node_Id                         []byte
+	Node_CreatedAt                  time.Time
+	Node_AuditSuccessRatio          float64
+	AccountingRollup_StartTime      time.Time
+	AccountingRollup_PutTotal       int64
+	AccountingRollup_GetTotal       int64
+	AccountingRollup_GetAuditTotal  int64
+	AccountingRollup_GetRepairTotal int64
+	AccountingRollup_PutRepairTotal int64
+	AccountingRollup_AtRestTotal    float64
+}
+
+type OperatorWallet_Row struct {
+	OperatorWallet string
+}
+
 type Value_Row struct {
 	Value time.Time
 }
@@ -2441,6 +2462,72 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) All_Node_Id(ctx context.Context) (
+	rows []*Id_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id FROM nodes")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		row := &Id_Row{}
+		err = __rows.Scan(&row.Id)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, row)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx context.Context,
+	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field,
+	accounting_rollup_start_time_less AccountingRollup_StartTime_Field) (
+	rows []*Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.created_at, nodes.audit_success_ratio, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM nodes  JOIN accounting_rollups ON nodes.id = accounting_rollups.node_id WHERE accounting_rollups.start_time >= ? AND accounting_rollups.start_time < ? ORDER BY nodes.id")
+
+	var __values []interface{}
+	__values = append(__values, accounting_rollup_start_time_greater_or_equal.value(), accounting_rollup_start_time_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		row := &Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row{}
+		err = __rows.Scan(&row.Node_Id, &row.Node_CreatedAt, &row.Node_AuditSuccessRatio, &row.AccountingRollup_StartTime, &row.AccountingRollup_PutTotal, &row.AccountingRollup_GetTotal, &row.AccountingRollup_GetAuditTotal, &row.AccountingRollup_GetRepairTotal, &row.AccountingRollup_PutRepairTotal, &row.AccountingRollup_AtRestTotal)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, row)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
 	overlay_cache_node *OverlayCacheNode, err error) {
@@ -2459,6 +2546,27 @@ func (obj *postgresImpl) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return overlay_cache_node, nil
+
+}
+
+func (obj *postgresImpl) Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx context.Context,
+	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
+	row *OperatorWallet_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.operator_wallet FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, overlay_cache_node_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &OperatorWallet_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.OperatorWallet)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -3723,6 +3831,72 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) All_Node_Id(ctx context.Context) (
+	rows []*Id_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id FROM nodes")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		row := &Id_Row{}
+		err = __rows.Scan(&row.Id)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, row)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx context.Context,
+	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field,
+	accounting_rollup_start_time_less AccountingRollup_StartTime_Field) (
+	rows []*Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.created_at, nodes.audit_success_ratio, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM nodes  JOIN accounting_rollups ON nodes.id = accounting_rollups.node_id WHERE accounting_rollups.start_time >= ? AND accounting_rollups.start_time < ? ORDER BY nodes.id")
+
+	var __values []interface{}
+	__values = append(__values, accounting_rollup_start_time_greater_or_equal.value(), accounting_rollup_start_time_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		row := &Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row{}
+		err = __rows.Scan(&row.Node_Id, &row.Node_CreatedAt, &row.Node_AuditSuccessRatio, &row.AccountingRollup_StartTime, &row.AccountingRollup_PutTotal, &row.AccountingRollup_GetTotal, &row.AccountingRollup_GetAuditTotal, &row.AccountingRollup_GetRepairTotal, &row.AccountingRollup_PutRepairTotal, &row.AccountingRollup_AtRestTotal)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, row)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *sqlite3Impl) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
 	overlay_cache_node *OverlayCacheNode, err error) {
@@ -3741,6 +3915,27 @@ func (obj *sqlite3Impl) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return overlay_cache_node, nil
+
+}
+
+func (obj *sqlite3Impl) Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx context.Context,
+	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
+	row *OperatorWallet_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.operator_wallet FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, overlay_cache_node_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &OperatorWallet_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.OperatorWallet)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -4695,6 +4890,26 @@ func (rx *Rx) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
 	return tx.All_Bwagreement_By_CreatedAt_Greater(ctx, bwagreement_created_at_greater)
 }
 
+func (rx *Rx) All_Node_Id(ctx context.Context) (
+	rows []*Id_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Node_Id(ctx)
+}
+
+func (rx *Rx) All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx context.Context,
+	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field,
+	accounting_rollup_start_time_less AccountingRollup_StartTime_Field) (
+	rows []*Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx, accounting_rollup_start_time_greater_or_equal, accounting_rollup_start_time_less)
+}
+
 func (rx *Rx) Create_AccountingRaw(ctx context.Context,
 	accounting_raw_node_id AccountingRaw_NodeId_Field,
 	accounting_raw_interval_end_time AccountingRaw_IntervalEndTime_Field,
@@ -4981,6 +5196,16 @@ func (rx *Rx) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 	return tx.Get_OverlayCacheNode_By_NodeId(ctx, overlay_cache_node_node_id)
 }
 
+func (rx *Rx) Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx context.Context,
+	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
+	row *OperatorWallet_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx, overlay_cache_node_node_id)
+}
+
 func (rx *Rx) Limited_Bwagreement(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Bwagreement, err error) {
@@ -5074,6 +5299,14 @@ type Methods interface {
 	All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
 		bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
 		rows []*Bwagreement, err error)
+
+	All_Node_Id(ctx context.Context) (
+		rows []*Id_Row, err error)
+
+	All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx context.Context,
+		accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field,
+		accounting_rollup_start_time_less AccountingRollup_StartTime_Field) (
+		rows []*Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row, err error)
 
 	Create_AccountingRaw(ctx context.Context,
 		accounting_raw_node_id AccountingRaw_NodeId_Field,
@@ -5207,6 +5440,10 @@ type Methods interface {
 	Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 		overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
 		overlay_cache_node *OverlayCacheNode, err error)
+
+	Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx context.Context,
+		overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
+		row *OperatorWallet_Row, err error)
 
 	Limited_Bwagreement(ctx context.Context,
 		limit int, offset int64) (
