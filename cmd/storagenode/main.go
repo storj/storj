@@ -5,14 +5,20 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"text/tabwriter"
 
+	"github.com/fatih/color"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -22,6 +28,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/process"
@@ -69,12 +76,19 @@ var (
 		Short: "Diagnostic Tool support",
 		RunE:  cmdDiag,
 	}
-
+	dashboardCmd = &cobra.Command{
+		Use:   "dashboard",
+		Short: "Display a dashbaord",
+		RunE:  dashCmd,
+	}
 	runCfg   StorageNode
 	setupCfg StorageNode
 
 	diagCfg struct {
 	}
+
+	// Addr is the default GRPC server address
+	Addr = flag.String("address", "localhost:7777", "address of piecestoreserver to inspect")
 
 	defaultConfDir string
 	defaultDiagDir string
@@ -82,7 +96,6 @@ var (
 )
 
 const (
-	// default server address, only for storage node
 	defaultServerAddr = ":28967"
 )
 
@@ -101,6 +114,7 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
+	rootCmd.AddCommand(dashboardCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
@@ -119,12 +133,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	} else {
 		zap.S().Info("Operator wallet: ", operatorConfig.Wallet)
 	}
-	ctx := process.Ctx(cmd)
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Error("Failed to initialize telemetry batcher:", err)
-	}
 
-	return runCfg.Server.Run(ctx, nil, runCfg.Kademlia, runCfg.Storage)
+	return runCfg.Server.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -161,14 +171,15 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	overrides := map[string]interface{}{
-		"log.level": "info",
-	}
-	serverAddress := cmd.Flag("server.address")
-	if !serverAddress.Changed {
-		overrides[serverAddress.Name] = defaultServerAddr
+		"identity.cert-path":      setupCfg.Identity.CertPath,
+		"identity.key-path":       setupCfg.Identity.KeyPath,
+		"identity.server.address": defaultServerAddr,
+		"storage.path":            filepath.Join(setupDir, "storage"),
+		"log.level":               "info",
 	}
 
 	configFile := filepath.Join(setupDir, "config.yaml")
+
 	if setupCfg.SaveAllDefaults {
 		err = process.SaveConfigWithAllDefaults(cmd.Flags(), configFile, overrides)
 	} else {
@@ -301,6 +312,70 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	return err
 }
 
+func dashCmd(cmd *cobra.Command, args []string) (err error) {
+	// create new client
+	ctx := context.Background()
+	lc, err := psclient.NewLiteClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	stream, err := lc.Dashboard(ctx)
+	if err != nil {
+		return err
+	}
+
+	for {
+		data, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		clr()
+		heading := color.New(color.FgGreen, color.Bold)
+
+		heading.Printf("\nStorage Node Dashboard Stats\n")
+		heading.Printf("\n===============================\n")
+
+		fmt.Fprintf(color.Output, "Node ID: %s\n", color.BlueString(data.GetNodeId()))
+
+		if data.GetConnection() {
+			fmt.Fprintf(color.Output, "%s ", color.GreenString("ONLINE"))
+		} else {
+			fmt.Fprintf(color.Output, "%s ", color.RedString("OFFLINE"))
+		}
+
+		uptime, err := ptypes.Duration(data.GetUptime())
+		if err != nil {
+			color.Red(" %+v \n", err)
+		} else {
+			color.Yellow(" %s \n", uptime)
+		}
+
+		fmt.Fprintf(color.Output, "Node Connections: %+v\n", whiteInt(data.GetNodeConnections()))
+
+		color.Green("\nIO\t\tAvailable\tUsed\n--\t\t---------\t----")
+		stats := data.GetStats()
+		if stats != nil {
+			fmt.Fprintf(color.Output, "Bandwidth\t%+v\t%+v\n", whiteInt(stats.GetAvailableBandwidth()), whiteInt(stats.GetUsedBandwidth()))
+			fmt.Fprintf(color.Output, "Disk\t\t%+v\t%+v\n", whiteInt(stats.GetAvailableSpace()), whiteInt(stats.GetUsedSpace()))
+		} else {
+			color.Yellow("Loading...")
+		}
+
+	}
+
+	return nil
+}
+
+func whiteInt(value int64) string {
+	return color.WhiteString(fmt.Sprintf("%+v", value))
+}
+
 func isOperatorEmailValid(email string) error {
 	if email == "" {
 		return fmt.Errorf("Operator mail address isn't specified")
@@ -317,6 +392,34 @@ func isOperatorWalletValid(wallet string) error {
 		return fmt.Errorf("Operator wallet address isn't valid")
 	}
 	return nil
+}
+
+// clr clears the screen so it can be redrawn
+func clr() {
+	var clear map[string]func()
+	clear = make(map[string]func())
+	clear["linux"] = func() {
+		cmd := exec.Command("clear")
+		cmd.Stdout = os.Stdout
+		cmd.Run()
+	}
+	clear["darwin"] = func() {
+		cmd := exec.Command("clear")
+		cmd.Stdout = os.Stdout
+		cmd.Run()
+	}
+	clear["windows"] = func() {
+		cmd := exec.Command("cmd", "/c", "cls")
+		cmd.Stdout = os.Stdout
+		cmd.Run()
+	}
+
+	value, ok := clear[runtime.GOOS]
+	if ok {
+		value()
+	} else {
+		panic("Your platform is unsupported! I can't clear terminal screen :(")
+	}
 }
 
 func main() {
