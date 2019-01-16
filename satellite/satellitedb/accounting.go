@@ -5,8 +5,6 @@ package satellitedb
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 	"time"
 
 	"storj.io/storj/pkg/accounting"
@@ -179,34 +177,30 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 }
 
 // QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
-func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([][]string, error) {
+func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
 	s := dbx.AccountingRollup_StartTime(start)
 	e := dbx.AccountingRollup_StartTime(end)
 	data, err := db.db.All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx, s, e)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	var rows [][]string
-	for i, record := range data {
-		if len(record.Node_Id) != 32 {
-			fmt.Println(i)
-			continue
-		}
-		nodeID, err := storj.NodeIDFromBytes(record.Node_Id) //different nodeid length... have 50 want 32?
+	var rows []*accounting.CSVRow
+	for _, record := range data {
+		nodeID, err := storj.NodeIDFromBytes(record.Node_Id)
 		if err != nil {
 			return rows, err
 		}
-		row := []string{
-			nodeID.String(),
-			record.Node_CreatedAt.String(),
-			strconv.FormatFloat(record.Node_AuditSuccessRatio, 'f', 5, 64),
-			strconv.FormatFloat(record.AccountingRollup_AtRestTotal, 'f', 5, 64),
-			string(record.AccountingRollup_GetRepairTotal),
-			string(record.AccountingRollup_PutRepairTotal),
-			string(record.AccountingRollup_GetAuditTotal),
-			string(record.AccountingRollup_GetTotal),
-			string(record.AccountingRollup_PutTotal),
-			record.AccountingRollup_StartTime.String(),
+		row := &accounting.CSVRow{
+			NodeID:            nodeID,
+			NodeCreationDate:  record.Node_CreatedAt,
+			AuditSuccessRatio: record.Node_AuditSuccessRatio,
+			AtRestTotal:       record.AccountingRollup_AtRestTotal,
+			GetRepairTotal:    record.AccountingRollup_GetRepairTotal,
+			PutRepairTotal:    record.AccountingRollup_PutRepairTotal,
+			GetAuditTotal:     record.AccountingRollup_GetAuditTotal,
+			PutTotal:          record.AccountingRollup_PutTotal,
+			GetTotal:          record.AccountingRollup_GetTotal,
+			Date:              record.AccountingRollup_StartTime,
 		}
 		rows = append(rows, row)
 	}
@@ -219,20 +213,18 @@ func (db *accountingDB) TestPayments(ctx context.Context) error {
 		return Error.Wrap(err)
 	}
 	ids := [][]byte{}
-	fmt.Println("Node IDs from statDB")
 	for _, r := range rows {
-		fmt.Printf("ID: %v, length: %d\n", r.Id, len(r.Id))
 		ids = append(ids, r.Id)
 	}
-	for _, id := range ids {
+	for i, id := range ids {
 		nID := dbx.AccountingRollup_NodeId(id)
-		st := dbx.AccountingRollup_StartTime(time.Date(2018, time.Month(1), 1, 0, 0, 0, 0, time.UTC))
-		pt := dbx.AccountingRollup_PutTotal(int64(1))
-		gt := dbx.AccountingRollup_GetTotal(int64(1))
-		gat := dbx.AccountingRollup_GetAuditTotal(int64(1))
-		grt := dbx.AccountingRollup_GetRepairTotal(int64(1))
-		prt := dbx.AccountingRollup_PutRepairTotal(int64(1))
-		art := dbx.AccountingRollup_AtRestTotal(float64(1))
+		st := dbx.AccountingRollup_StartTime(time.Date(2018, time.Month(i+1), i+1, 0, 0, 0, 0, time.UTC))
+		pt := dbx.AccountingRollup_PutTotal(int64(i))
+		gt := dbx.AccountingRollup_GetTotal(int64(i))
+		gat := dbx.AccountingRollup_GetAuditTotal(int64(i))
+		grt := dbx.AccountingRollup_GetRepairTotal(int64(i))
+		prt := dbx.AccountingRollup_PutRepairTotal(int64(i))
+		art := dbx.AccountingRollup_AtRestTotal(float64(i))
 		_, err = db.db.Create_AccountingRollup(ctx, nID, st, pt, gt, gat, grt, prt, art)
 		if err != nil {
 			return Error.Wrap(err)

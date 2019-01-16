@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
@@ -19,7 +20,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -109,22 +109,16 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 	if err := w.Write(headers); err != nil {
 		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
 	}
-	for _, record := range rows {
-		if len([]byte(record[0])) != 32 {
-			continue
-		}
-		nid, err := storj.NodeIDFromBytes([]byte(record[0]))
+
+	for _, row := range rows {
+		nid := row.NodeID
+		fmt.Println(len(nid))
+		wallet, err := srv.overlayDB.GetWalletAddress(ctx, nid)
 		if err != nil {
 			return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
 		}
-
-		wallet, err := srv.overlayDB.GetWalletAddress(ctx, nid) //breaking
-		if err != nil {
-			return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
-		}
-
-		record = append(record, wallet)
-
+		row.Wallet = wallet
+		record := structToStringSlice(row)
 		if err := w.Write(record); err != nil {
 			return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
 		}
@@ -144,4 +138,21 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 func (srv *Server) Test(ctx context.Context, req *pb.TestRequest) (*pb.TestResponse, error) {
 	err := srv.accountingDB.TestPayments(ctx)
 	return &pb.TestResponse{}, err
+}
+
+func structToStringSlice(s *accounting.CSVRow) []string {
+	record := []string{
+		s.NodeID.String(),
+		s.NodeCreationDate.Format("2006-01-02"),
+		strconv.FormatFloat(s.AuditSuccessRatio, 'f', 5, 64),
+		strconv.FormatFloat(s.AtRestTotal, 'f', 5, 64),
+		strconv.FormatInt(s.GetRepairTotal, 10),
+		strconv.FormatInt(s.PutRepairTotal, 10),
+		strconv.FormatInt(s.GetAuditTotal, 10),
+		strconv.FormatInt(s.PutTotal, 10),
+		strconv.FormatInt(s.GetTotal, 10),
+		s.Date.Format("2006-01-02"),
+		s.Wallet,
+	}
+	return record
 }

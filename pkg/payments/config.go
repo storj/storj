@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 )
@@ -32,6 +33,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	defer mon.Task()(&ctx)(&err)
 	db, ok := ctx.Value("masterdb").(interface {
 		Accounting() accounting.DB
+		OverlayCache() overlay.DB
 	})
 	if !ok {
 		return Error.New("unable to get master db instance")
@@ -39,6 +41,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	srv := &Server{
 		filepath:     c.Filepath,
 		accountingDB: db.Accounting(),
+		overlayDB:    db.OverlayCache(),
 		log:          zap.L(),
 		metrics:      monkit.Default,
 	}
