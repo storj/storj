@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // locked implements a locking wrapper around satellite.DB.
@@ -117,10 +116,16 @@ func (m *lockedAccounting) SaveBWRaw(ctx context.Context, latestBwa time.Time, b
 }
 
 // QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
-func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*dbx.Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row, error) {
+func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([][]string, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.QueryPaymentInfo(ctx, start, end)
+}
+// TestPayments ... TODO REMOVE
+func (m *lockedAccounting) TestPayments(ctx context.Context) (error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.TestPayments(ctx)
 }
 
 // lockedBandwidthAgreement implements locking wrapper for bwagreement.DB
@@ -224,7 +229,6 @@ func (m *lockedOverlayCache) GetWalletAddress(ctx context.Context, id storj.Node
 	defer m.Unlock()
 	return m.db.GetWalletAddress(ctx, id)
 }
-
 
 // lockedRepairQueue implements locking wrapper for queue.RepairQueue
 type lockedRepairQueue struct {

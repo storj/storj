@@ -58,7 +58,7 @@ func NodeIDsFromBytes(b [][]byte) (ids NodeIDList, err error) {
 func NodeIDFromBytes(b []byte) (NodeID, error) {
 	bLen := len(b)
 	if bLen != len(NodeID{}) {
-		return NodeID{}, ErrNodeID.New("not enough bytes to make a node id; have %d, need %d", bLen, len(NodeID{}))
+		return NodeID{}, ErrNodeID.New("not enough bytes to make a node id; have %d, need %d: %v", bLen, len(NodeID{}), b)
 	}
 
 	var id NodeID

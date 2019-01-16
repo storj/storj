@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
@@ -98,7 +97,6 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 		"nodeID",
 		"nodeCreationDate",
 		"auditSuccessRatio",
-		"walletAddress",
 		"byte/hr:AtRest",
 		"byte/hr:BWRepair-GET",
 		"byte/hr:BWRepair-PUT",
@@ -106,32 +104,28 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 		"byte/hr:BWGet",
 		"byte/hr:BWPut",
 		"date",
+		"walletAddress",
 	}
 	if err := w.Write(headers); err != nil {
 		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
 	}
 	for _, record := range rows {
-		nid, err := storj.NodeIDFromBytes(record.Node_Id)
+		if len([]byte(record[0])) != 32 {
+			continue
+		}
+		nid, err := storj.NodeIDFromBytes([]byte(record[0]))
 		if err != nil {
 			return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
 		}
-		wallet, err := srv.overlayDB.GetWalletAddress(ctx, nid)
+
+		wallet, err := srv.overlayDB.GetWalletAddress(ctx, nid) //breaking
 		if err != nil {
 			return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
 		}
-		r := []string{string(record.Node_Id),
-			record.Node_CreatedAt.String(),
-			strconv.FormatFloat(record.Node_AuditSuccessRatio, 'f', 5, 64),
-			wallet,
-			string(record.AccountingRollup_AtRestTotal),
-			string(record.AccountingRollup_GetRepairTotal),
-			string(record.AccountingRollup_PutRepairTotal),
-			string(record.AccountingRollup_GetAuditTotal),
-			string(record.AccountingRollup_GetTotal),
-			string(record.AccountingRollup_PutTotal),
-			record.AccountingRollup_StartTime.String(),
-		}
-		if err := w.Write(r); err != nil {
+
+		record = append(record, wallet)
+
+		if err := w.Write(record); err != nil {
 			return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
 		}
 	}
@@ -144,4 +138,10 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 		return &pb.GenerateCSVResponse{}, err
 	}
 	return &pb.GenerateCSVResponse{Filepath: abs}, nil
+}
+
+// Test TODO: remove
+func (srv *Server) Test(ctx context.Context, req *pb.TestRequest) (*pb.TestResponse, error) {
+	err := srv.accountingDB.TestPayments(ctx)
+	return &pb.TestResponse{}, err
 }

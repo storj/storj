@@ -15,6 +15,7 @@ service Payments {
     rpc AdjustPrices(AdjustPricesRequest) returns (AdjustPricesResponse);
     // GenerateCSV creates a csv file for payment purposes
     rpc GenerateCSV(GenerateCSVRequest) returns (GenerateCSVResponse);
+    rpc Test(TestRequest) returns (TestResponse);
 }
 
 // The request message containing the details needed to pay a storage node.
@@ -61,3 +62,7 @@ message GenerateCSVRequest {
 message GenerateCSVResponse {
     string filepath = 1;
 }
+
+message TestRequest {}
+
+message TestResponse {}

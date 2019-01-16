@@ -37,10 +37,16 @@ var (
 	rootCmd = &cobra.Command{Use: "payments"}
 
 	cmdGenerate = &cobra.Command{
-		Use:   "GenerateCSV",
-		Short: "Generates payment csv",
+		Use:   "generatecsv",
+		Short: "generates payment csv",
 		Args:  cobra.MinimumNArgs(2),
-		RunE:  GenerateCSV,
+		RunE:  generatecsv,
+	}
+
+	cmdTest = &cobra.Command{
+		Use:   "test",
+		Short: "test only: add records to accounting rollup",
+		RunE:  test,
 	}
 )
 
@@ -52,6 +58,7 @@ type Payments struct {
 func main() {
 	rootCmd.PersistentFlags().StringVarP(&port, "port", "p", ":10000", "storj-sdk satellite port")
 	rootCmd.AddCommand(cmdGenerate)
+	rootCmd.AddCommand(cmdTest)
 	err := rootCmd.Execute()
 	if err != nil {
 		fmt.Println("Error", err)
@@ -65,7 +72,7 @@ func NewPayments() (*Payments, error) {
 	if err != nil {
 		return &Payments{}, ErrIdentity.Wrap(err)
 	}
-
+	fmt.Println("Our identity:", identity.ID)
 	tc := transport.NewClient(identity)
 	conn, err := tc.DialAddress(ctx, port)
 	if err != nil {
@@ -76,8 +83,8 @@ func NewPayments() (*Payments, error) {
 	return &Payments{client: c}, nil
 }
 
-// GenerateCSV makes a call to the payments client to query the db and generate a csv
-func GenerateCSV(cmd *cobra.Command, args []string) error {
+// generateCSV makes a call to the payments client to query the db and generate a csv
+func generatecsv(cmd *cobra.Command, args []string) error {
 	fmt.Println("entering payments generatecsv")
 	layout := "2006-01-02"
 	start, err := time.Parse(layout, args[0])
@@ -111,12 +118,24 @@ func GenerateCSV(cmd *cobra.Command, args []string) error {
 		StartTime: startTimestamp,
 		EndTime:   endTimestamp,
 	}
-  
+
 	resp, err := p.client.GenerateCSV(ctx, req)
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
-  
+
 	fmt.Println("Created payments report at", resp.GetFilepath())
 	return nil
+}
+
+// test only: add records to accounting rollup
+func test(cmd *cobra.Command, args []string) error {
+	p, err := NewPayments()
+	if err != nil {
+		return err
+	}
+	req := &pb.TestRequest{}
+	_, err = p.client.Test(ctx, req)
+	fmt.Println("Added these nodes to rollup")
+	return err
 }

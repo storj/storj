@@ -5,6 +5,8 @@ package satellitedb
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"time"
 
 	"storj.io/storj/pkg/accounting"
@@ -103,12 +105,66 @@ func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time
 }
 
 // QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
-func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*dbx.Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row, error) {
+func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([][]string, error) {
 	s := dbx.AccountingRollup_StartTime(start)
 	e := dbx.AccountingRollup_StartTime(end)
-	rows, err := db.db.All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx, s, e)
+	data, err := db.db.All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx, s, e)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+	var rows [][]string
+	for i, record := range data {
+		if len(record.Node_Id) != 32 {
+			fmt.Println(i)
+			continue
+		}
+		fmt.Println("WTF")
+		nodeID, err := storj.NodeIDFromBytes(record.Node_Id) //different nodeid length... have 50 want 32?
+		if err != nil {
+			return rows, err
+		}
+		row := []string{
+			nodeID.String(),
+			record.Node_CreatedAt.String(),
+			strconv.FormatFloat(record.Node_AuditSuccessRatio, 'f', 5, 64),
+			string(record.AccountingRollup_AtRestTotal),
+			string(record.AccountingRollup_GetRepairTotal),
+			string(record.AccountingRollup_PutRepairTotal),
+			string(record.AccountingRollup_GetAuditTotal),
+			string(record.AccountingRollup_GetTotal),
+			string(record.AccountingRollup_PutTotal),
+			record.AccountingRollup_StartTime.String(),
+		}
+		rows = append(rows, row)
+	}
 	return rows, nil
+}
+
+func (db *accountingDB) TestPayments(ctx context.Context) error {
+	rows, err := db.db.All_Node_Id(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	ids := [][]byte{}
+	fmt.Println("Node IDs from statDB")
+	for _, r := range rows {
+		fmt.Printf("ID: %v, length: %d\n", r.Id, len(r.Id))
+		ids = append(ids, r.Id)
+	}
+	for _, id := range ids {
+		nID := dbx.AccountingRollup_NodeId(id)
+		st := dbx.AccountingRollup_StartTime(time.Date(2018, time.Month(1), 1, 0, 0, 0, 0, time.UTC))
+		pt := dbx.AccountingRollup_PutTotal(int64(1))        //not in db?
+		gt := dbx.AccountingRollup_GetTotal(int64(1))        //not in db?
+		gat := dbx.AccountingRollup_GetAuditTotal(int64(1))  //not in db?
+		grt := dbx.AccountingRollup_GetRepairTotal(int64(1)) //not in db?
+		prt := dbx.AccountingRollup_PutRepairTotal(int64(1)) //not in db?
+		art := dbx.AccountingRollup_AtRestTotal(int64(1))    //not in db?
+		_, err = db.db.Create_AccountingRollup(ctx, nID, st, pt, gt, gat, grt, prt, art)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	return nil
 }
