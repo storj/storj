@@ -94,6 +94,27 @@ type lockedAccounting struct {
 	db accounting.DB
 }
 
+// GetRaw retrieves all raw tallies
+func (m *lockedAccounting) GetRaw(ctx context.Context) ([]*accounting.Raw, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetRaw(ctx)
+}
+
+// GetRawSince r retrieves all raw tallies sinces
+func (m *lockedAccounting) GetRawSince(ctx context.Context, latestRollup time.Time) ([]*accounting.Raw, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetRawSince(ctx, latestRollup)
+}
+
+// SaveRollup records raw tallies of at rest data to the database
+func (m *lockedAccounting) SaveRollup(ctx context.Context, latestTally time.Time, stats accounting.RollupStats) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveRollup(ctx, latestTally, stats)
+}
+
 // LastRawTime records the latest last tallied time.
 func (m *lockedAccounting) LastRawTime(ctx context.Context, timestampType string) (time.Time, bool, error) {
 	m.Lock()
@@ -102,7 +123,7 @@ func (m *lockedAccounting) LastRawTime(ctx context.Context, timestampType string
 }
 
 // SaveAtRestRaw records raw tallies of at-rest-data.
-func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]int64) error {
+func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveAtRestRaw(ctx, latestTally, nodeData)
