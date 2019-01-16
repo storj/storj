@@ -3,7 +3,7 @@ set -ueo pipefail
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-make -C .. install-sdk
+make -C $SCRIPTDIR/.. install-sdk
 
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
