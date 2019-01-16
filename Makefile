@@ -72,11 +72,6 @@ test: ## Run tests on source code (travis)
 	go test -race -v -cover -coverprofile=.coverprofile ./...
 	@echo done
 
-.PHONY: test-captplanet
-test-captplanet: ## Test source with captain planet (travis)
-	@echo "Running ${@}"
-	@./scripts/test-captplanet.sh
-
 .PHONY: test-storj-sdk
 test-storj-sdk: ## Test source with storj-sdk (travis)
 	@echo "Running ${@}"
