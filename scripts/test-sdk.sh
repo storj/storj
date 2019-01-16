@@ -3,7 +3,7 @@ set -ueo pipefail
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-go install -race -v storj.io/storj/cmd/{storj-sdk,bootstrap,satellite,storagenode,uplink,gateway}
+make -C $SCRIPTDIR/.. install-sdk
 
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
@@ -18,7 +18,7 @@ export STORJ_LOCAL_NETWORK=$TMP
 storj-sdk -x network setup
 
 # run aws-cli tests
-storj-sdk -x network test bash $SCRIPTDIR/test-storj-sdk-aws.sh
+storj-sdk -x network test bash $SCRIPTDIR/test-sdk-aws.sh
 storj-sdk -x network destroy
 
 # ipv6 tests disabled because aws-cli doesn't seem to support connecting to ipv6 host

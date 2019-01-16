@@ -146,7 +146,7 @@ func NewInspector(address string) (*Inspector, error) {
 	}, nil
 }
 
-// CountNodes returns the number of nodes in the cache and kademlia
+// CountNodes returns the number of nodes in kademlia
 func CountNodes(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr)
 	if err != nil {
@@ -157,12 +157,8 @@ func CountNodes(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
-	overlaycount, err := i.overlayclient.CountNodes(context.Background(), &pb.CountNodesRequest{})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
 
-	fmt.Printf("---------- \n - Kademlia: %+v\n - Overlay: %+v\n", kadcount.Count, overlaycount.Count)
+	fmt.Printf("Kademlia node count: %+v\n", kadcount.Count)
 	return nil
 }
 
