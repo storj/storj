@@ -32,7 +32,7 @@ type Processes struct {
 // NewProcesses returns a group of processes
 func NewProcesses() *Processes {
 	return &Processes{
-		Output: NewPrefixWriter("sdk", os.Stdout),
+		Output: NewPrefixWriter("sim", os.Stdout),
 		List:   nil,
 	}
 }
