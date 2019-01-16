@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -75,14 +76,16 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 
 	layout := "2006-01-02"
 
-	os.MkdirAll(srv.filepath, 0700)
+	if err := os.MkdirAll(srv.filepath, 0700); err != nil {
+		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+	}
 	filename := pi.ID.String() + "--" + start.Format(layout) + "--" + end.Format(layout) + ".csv"
 	path := filepath.Join(srv.filepath, filename)
 	file, err := os.Create(path)
 	if err != nil {
 		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
 	}
-	defer file.Close()
+	defer utils.LogClose(file)
 
 	rows, err := srv.accountingDB.QueryPaymentInfo(ctx, start, end)
 	if err != nil {
