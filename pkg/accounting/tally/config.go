@@ -53,7 +53,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	go func() {
 		if err := tally.Run(ctx); err != nil {
 			defer cancel()
-			zap.L().Error("Error running tally", zap.Error(err))
+			zap.L().Debug("Tally is shutting down", zap.Error(err))
 		}
 	}()
 
