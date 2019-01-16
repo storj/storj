@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
@@ -54,6 +55,8 @@ type DB interface {
 	RepairQueue() queue.RepairQueue
 	// Irreparable returns database for failed repairs
 	Irreparable() irreparable.DB
+	// Console returns database for satellite console
+	Console() console.DB
 }
 
 // Config is the global config satellite

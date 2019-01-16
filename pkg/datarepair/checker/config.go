@@ -54,7 +54,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	go func() {
 		if err := check.Run(ctx); err != nil {
 			defer cancel()
-			zap.L().Error("Error running checker", zap.Error(err))
+			zap.L().Debug("Checker is shutting down", zap.Error(err))
 		}
 	}()
 
