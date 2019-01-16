@@ -232,8 +232,6 @@ func DumpNodes(cmd *cobra.Command, args []string) (err error) {
 		return ErrInspectorDial.Wrap(err)
 	}
 
-	nodes := []pb.Node{}
-
 	buckets, err := i.kadclient.GetBuckets(context.Background(), &pb.GetBucketsRequest{})
 	if err != nil {
 		return ErrRequest.Wrap(err)
