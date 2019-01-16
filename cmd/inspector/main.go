@@ -251,7 +251,6 @@ func DumpNodes(cmd *cobra.Command, args []string) (err error) {
 		fmt.Println("Nodes in Bucket:", len(b.Nodes))
 
 		for i, node := range b.Nodes {
-			nodes = append(nodes, *node)
 			fmt.Printf("\nNode %d:\n", i)
 			fmt.Println(prettyPrint(node))
 		}
