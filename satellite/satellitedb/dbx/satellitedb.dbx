@@ -77,17 +77,18 @@ read scalar (
 model accounting_rollup (
 	key id
 
-	field id         serial64
-	field node_id    text
-	field start_time timestamp
-	field interval   int64
-	field data_type  int
-	field created_at timestamp ( autoinsert )
-	field updated_at timestamp ( autoinsert, autoupdate )
+	field id               serial64
+	field node_id          blob
+	field start_time       timestamp
+	field put_total        int64
+	field get_total        int64
+	field get_audit_total  int64
+	field get_repair_total int64 
+	field put_repair_total int64
+	field at_rest_total    float64
 )
 
 create accounting_rollup ( )
-update accounting_rollup ( where accounting_rollup.id = ? )
 delete accounting_rollup ( where accounting_rollup.id = ? )
 
 read one (
@@ -97,23 +98,21 @@ read one (
 
 read all (
 	select accounting_rollup
-	where  accounting_rollup.node_id = ?
+	where  accounting_rollup.start_time >= ?
 )
 
 model accounting_raw (
 	key id
 
 	field id                serial64
-	field node_id           text
+	field node_id           blob
 	field interval_end_time timestamp
-	field data_total        int64
+	field data_total        float64
 	field data_type         int
 	field created_at        timestamp ( autoinsert )
-	field updated_at        timestamp ( autoinsert, autoupdate )
 )
 
 create accounting_raw ( )
-update accounting_raw ( where accounting_raw.id = ? )
 delete accounting_raw ( where accounting_raw.id = ? )
 
 read one (
@@ -123,7 +122,11 @@ read one (
 
 read all (
 	select accounting_raw
-	where  accounting_raw.node_id = ?
+)
+
+read all (
+	select accounting_raw
+	where accounting_raw.interval_end_time >= ?
 )
 
 //--- statdb ---//
