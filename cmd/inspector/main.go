@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	// Addr is the address of Capt Planet from command flags
-	Addr = flag.String("address", "localhost:7778", "address of captplanet to inspect")
+	// Addr is the address of peer from command flags
+	Addr = flag.String("address", "localhost:7778", "address of peer to inspect")
 
 	// ErrInspectorDial throws when there are errors dialing the inspector server
 	ErrInspectorDial = errs.Class("error dialing inspector server:")
