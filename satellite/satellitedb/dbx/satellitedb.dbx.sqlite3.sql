@@ -2,22 +2,23 @@
 -- DO NOT EDIT
 CREATE TABLE accounting_raws (
 	id INTEGER NOT NULL,
-	node_id TEXT NOT NULL,
+	node_id BLOB NOT NULL,
 	interval_end_time TIMESTAMP NOT NULL,
-	data_total INTEGER NOT NULL,
+	data_total REAL NOT NULL,
 	data_type INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	updated_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE accounting_rollups (
 	id INTEGER NOT NULL,
-	node_id TEXT NOT NULL,
+	node_id BLOB NOT NULL,
 	start_time TIMESTAMP NOT NULL,
-	interval INTEGER NOT NULL,
-	data_type INTEGER NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	updated_at TIMESTAMP NOT NULL,
+	put_total INTEGER NOT NULL,
+	get_total INTEGER NOT NULL,
+	get_audit_total INTEGER NOT NULL,
+	get_repair_total INTEGER NOT NULL,
+	put_repair_total INTEGER NOT NULL,
+	at_rest_total REAL NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE accounting_timestamps (
