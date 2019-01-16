@@ -59,10 +59,10 @@ matrix:
         - cp go.mod.backup go.mod
       script:
         - go run ./scripts/check-copyright.go
-        - go run ./scripts/check-imports.go ./...
+        # - go run ./scripts/check-imports.go ./...
         - go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint
         - golangci-lint run
-        - gospace istidy
+        # - gospace istidy
 
     ### service integration tests ###
     - env: MODE=integration
@@ -70,14 +70,14 @@ matrix:
         - redis
       install:
         - source scripts/install-awscli.sh
-        - go install -race storj.io/storj/cmd/{storj-sdk,satellite,storagenode,uplink,gateway,certificates,captplanet}
+        - go install -race storj.io/storj/cmd/{storj-sdk,bootstrap,satellite,storagenode,uplink,gateway,certificates}
       script:
-        - make test-storj-sdk |& go run scripts/fail-on-race.go
-        - make test-certificate-signing |& go run scripts/fail-on-race.go
-        - make test-captplanet |& go run scripts/fail-on-race.go
+        - set -o pipefail && make test-sdk |& go run scripts/fail-on-race.go
+        - set -o pipefail && make test-certificate-signing |& go run scripts/fail-on-race.go
 
     ### Docker tests ###
     - env: MODE=docker
+      if: commit_message =~ /(?i:docker)/
       services:
         - docker
       before_install:
@@ -85,7 +85,7 @@ matrix:
       install:
         - source scripts/install-awscli.sh
       script:
-        - make test-all-in-one |& go run scripts/fail-on-race.go
+        - set -o pipefail && make test-all-in-one |& go run scripts/fail-on-race.go
 
     ### windows tests ###
     - env: MODE=windows-tests

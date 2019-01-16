@@ -23,7 +23,7 @@ var (
 	signCfg struct {
 		CA       identity.FullCAConfig
 		Identity identity.Config
-		// TODO: this default doesn't really make sense
+		// NB: defaults to same as CA
 		Signer identity.FullCAConfig
 	}
 )

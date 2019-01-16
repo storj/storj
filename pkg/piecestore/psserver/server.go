@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/gtank/cryptopasta"
 	"github.com/mr-tron/base58/base58"
 	"github.com/shirou/gopsutil/disk"
@@ -24,6 +25,7 @@ import (
 	"golang.org/x/net/context"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	pstore "storj.io/storj/pkg/piecestore"
@@ -56,6 +58,7 @@ func DirSize(path string) (int64, error) {
 
 // Server -- GRPC server meta data used in route calls
 type Server struct {
+	startTime        time.Time
 	log              *zap.Logger
 	storage          *pstore.Storage
 	DB               *psdb.DB
@@ -63,13 +66,14 @@ type Server struct {
 	totalAllocated   int64
 	totalBwAllocated int64
 	verifier         auth.SignedMessageVerifier
+	kad              *kademlia.Kademlia
 }
 
 // NewEndpoint -- initializes a new endpoint for a piecestore server
-func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *psdb.DB, pkey crypto.PrivateKey) (*Server, error) {
+func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *psdb.DB, pkey crypto.PrivateKey, k *kademlia.Kademlia) (*Server, error) {
 	// read the allocated disk space from the config file
-	allocatedDiskSpace := config.AllocatedDiskSpace
-	allocatedBandwidth := config.AllocatedBandwidth
+	allocatedDiskSpace := config.AllocatedDiskSpace.Int64()
+	allocatedBandwidth := config.AllocatedBandwidth.Int64()
 
 	// get the disk space details
 	// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
@@ -120,6 +124,7 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 	}
 
 	return &Server{
+		startTime:        time.Now(),
 		log:              log,
 		storage:          storage,
 		DB:               db,
@@ -127,6 +132,7 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 		totalAllocated:   allocatedDiskSpace,
 		totalBwAllocated: allocatedBandwidth,
 		verifier:         auth.NewSignedMessageVerifier(),
+		kad:              k,
 	}, nil
 }
 
@@ -137,8 +143,8 @@ func New(log *zap.Logger, storage *pstore.Storage, db *psdb.DB, config Config, p
 		storage:          storage,
 		DB:               db,
 		pkey:             pkey,
-		totalAllocated:   config.AllocatedDiskSpace,
-		totalBwAllocated: config.AllocatedBandwidth,
+		totalAllocated:   config.AllocatedDiskSpace.Int64(),
+		totalBwAllocated: config.AllocatedBandwidth.Int64(),
 		verifier:         auth.NewSignedMessageVerifier(),
 	}
 }
@@ -212,6 +218,30 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, e
 	}
 
 	return &pb.StatSummary{UsedSpace: totalUsed, AvailableSpace: (s.totalAllocated - totalUsed), UsedBandwidth: totalUsedBandwidth, AvailableBandwidth: (s.totalBwAllocated - totalUsedBandwidth)}, nil
+}
+
+// Dashboard is a stream that sends data every `interval` seconds to the listener.
+func (s *Server) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_DashboardServer) (err error) {
+	ctx := stream.Context()
+	ticker := time.NewTicker(3 * time.Second)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			data, err := s.getDashboardData(ctx)
+			if err != nil {
+				s.log.Warn("unable to create dashboard data proto")
+				continue
+			}
+
+			if err := stream.Send(data); err != nil {
+				s.log.Error("error sending dashboard stream", zap.Error(err))
+				return err
+			}
+		}
+	}
 }
 
 // Delete -- Delete data by Id from piecestore
@@ -300,4 +330,30 @@ func getNamespacedPieceID(pieceID, namespace []byte) (string, error) {
 
 func getNamespace(signedMessage *pb.SignedMessage) []byte {
 	return signedMessage.GetData()
+}
+
+func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, error) {
+	statsSummary, err := s.Stats(ctx, &pb.StatsReq{})
+	if err != nil {
+		return &pb.DashboardStats{}, ServerError.Wrap(err)
+	}
+
+	rt, err := s.kad.GetRoutingTable(ctx)
+	if err != nil {
+		return &pb.DashboardStats{}, ServerError.Wrap(err)
+	}
+
+	nodes, err := s.kad.GetNodes(ctx, rt.Local().Id, 10000)
+	if err != nil {
+		return &pb.DashboardStats{}, ServerError.Wrap(err)
+	}
+
+	return &pb.DashboardStats{
+		NodeId:          rt.Local().Id.String(),
+		NodeConnections: int64(len(nodes)),
+		Address:         "",
+		Connection:      true,
+		Uptime:          ptypes.DurationProto(time.Since(s.startTime)),
+		Stats:           statsSummary,
+	}, nil
 }

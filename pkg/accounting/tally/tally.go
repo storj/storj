@@ -71,7 +71,13 @@ func (t *tally) Run(ctx context.Context) (err error) {
 // the amount of at-rest data stored on each respective node
 func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	var nodeData = make(map[storj.NodeID]int64)
+
+	latestTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastAtRestTally)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	var nodeData = make(map[storj.NodeID]float64)
 	err = t.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
@@ -103,27 +109,25 @@ func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 				}
 				pieceSize := segmentSize / int64(minReq)
 				for _, piece := range pieces {
-					nodeData[piece.NodeId] += pieceSize
+					nodeData[piece.NodeId] += float64(pieceSize)
 				}
 			}
 			return nil
 		},
 	)
-	if err != nil {
-		return Error.Wrap(err)
-	}
 	if len(nodeData) == 0 {
 		return nil
 	}
-	latestTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastAtRestTally)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	if err != nil {
-		return Error.Wrap(err)
+	//store byte hours, not just bytes
+	numHours := 1.0 //todo: something more considered?
+	if !isNil {
+		numHours = time.Now().UTC().Sub(latestTally).Hours()
 	}
-	if isNil {
-		latestTally = time.Now().UTC()
+	for k := range nodeData {
+		nodeData[k] *= numHours
 	}
 	return Error.Wrap(t.accountingDB.SaveAtRestRaw(ctx, latestTally, nodeData))
 }
@@ -146,7 +150,6 @@ func (t *tally) queryBW(ctx context.Context) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
 	if len(bwAgreements) == 0 {
 		t.logger.Info("Tally found no new bandwidth allocations")
 		return nil
@@ -155,7 +158,7 @@ func (t *tally) queryBW(ctx context.Context) error {
 	// sum totals by node id ... todo: add nodeid as SQL column so DB can do this?
 	var bwTotals accounting.BWTally
 	for i := range bwTotals {
-		bwTotals[i] = make(map[string]int64)
+		bwTotals[i] = make(map[storj.NodeID]int64)
 	}
 	var latestBwa time.Time
 	for _, baRow := range bwAgreements {
@@ -168,12 +171,10 @@ func (t *tally) queryBW(ctx context.Context) error {
 		if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
 			return err
 		}
-
 		if baRow.CreatedAt.After(latestBwa) {
 			latestBwa = baRow.CreatedAt
 		}
-		bwTotals[pbad.GetAction()][rbad.StorageNodeId.String()] += rbad.GetTotal()
+		bwTotals[pbad.GetAction()][rbad.StorageNodeId] += rbad.GetTotal()
 	}
-
 	return Error.Wrap(t.accountingDB.SaveBWRaw(ctx, lastBwTally, bwTotals))
 }

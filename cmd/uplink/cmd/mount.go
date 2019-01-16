@@ -51,6 +51,10 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	if err := process.InitMetricsWithCertPath(ctx, nil, cfg.Identity.CertPath); err != nil {
+		zap.S().Errorf("Failed to initialize telemetry batcher: %v", err)
+	}
+
 	src, err := fpath.New(args[0])
 	if err != nil {
 		return err

@@ -48,20 +48,21 @@ var (
 	}
 
 	authCreateCfg struct {
-		certificates.CertServerConfig
+		Signer certificates.CertServerConfig
 		batchCfg
 	}
 
 	authInfoCfg struct {
+		All        bool `help:"print the info for all authorizations" default:"false"`
 		ShowTokens bool `help:"if true, token strings will be printed" default:"false"`
-		certificates.CertServerConfig
+		Signer     certificates.CertServerConfig
 		batchCfg
 	}
 
 	authExportCfg struct {
-		All bool   `help:"export all authorizations" default:"false"`
-		Out string `help:"output file path; if \"-\", will use STDOUT" default:"$CONFDIR/authorizations.csv"`
-		certificates.CertServerConfig
+		All    bool   `help:"export all authorizations" default:"false"`
+		Out    string `help:"output file path; if \"-\", will use STDOUT" default:"-"`
+		Signer certificates.CertServerConfig
 		batchCfg
 	}
 )
@@ -81,7 +82,7 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return errs.New("Count couldn't be parsed: %s", args[0])
 	}
-	authDB, err := authCreateCfg.NewAuthDB()
+	authDB, err := authCreateCfg.Signer.NewAuthDB()
 	if err != nil {
 		return err
 	}
@@ -110,17 +111,22 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 }
 
 func cmdInfoAuth(cmd *cobra.Command, args []string) error {
-	authDB, err := authInfoCfg.NewAuthDB()
+	authDB, err := authInfoCfg.Signer.NewAuthDB()
 	if err != nil {
 		return err
 	}
 
 	var emails []string
 	if len(args) > 0 {
-		if authInfoCfg.EmailsPath != "" {
+		if authInfoCfg.EmailsPath != "" && !authInfoCfg.All {
 			return errs.New("Either use `--emails-path` or positional args, not both.")
 		}
 		emails = args
+	} else if len(args) == 0 || authExportCfg.All {
+		emails, err = authDB.UserIDs()
+		if err != nil {
+			return err
+		}
 	} else if _, err := os.Stat(authInfoCfg.EmailsPath); err != nil {
 		return errs.New("Emails path error: %s", err)
 	} else {
@@ -202,7 +208,7 @@ func writeTokenInfo(claimed, open certificates.Authorizations, w io.Writer) erro
 }
 
 func cmdExportAuth(cmd *cobra.Command, args []string) error {
-	authDB, err := authExportCfg.NewAuthDB()
+	authDB, err := authExportCfg.Signer.NewAuthDB()
 	if err != nil {
 		return err
 	}

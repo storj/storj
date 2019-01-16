@@ -5,8 +5,8 @@ package overlay
 
 import (
 	"context"
+	"errors"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -21,9 +21,6 @@ const (
 	OverlayBucket = "overlay"
 )
 
-// ErrDelete is returned when there is a problem deleting a node from the cache
-var ErrDelete = errs.New("error deleting node")
-
 // ErrEmptyNode is returned when the nodeID is empty
 var ErrEmptyNode = errs.New("empty node ID")
 
@@ -36,20 +33,35 @@ var ErrBucketNotFound = errs.New("Bucket not found")
 // OverlayError creates class of errors for stack traces
 var OverlayError = errs.Class("Overlay Error")
 
+// DB implements the database for overlay.Cache
+type DB interface {
+	// Get looks up the node by nodeID
+	Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error)
+	// GetAll looks up nodes based on the ids from the overlay cache
+	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
+	// List lists nodes starting from cursor
+	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error)
+	// Update updates node information
+	Update(ctx context.Context, value *pb.Node) error
+	// Delete deletes node based on id
+	Delete(ctx context.Context, id storj.NodeID) error
+}
+
 // Cache is used to store overlay data in Redis
 type Cache struct {
-	db     storage.KeyValueStore
+	db     DB
 	statDB statdb.DB
 }
 
 // NewCache returns a new Cache
-func NewCache(db storage.KeyValueStore, sdb statdb.DB) *Cache {
+func NewCache(db DB, sdb statdb.DB) *Cache {
 	return &Cache{db: db, statDB: sdb}
 }
 
 // Inspect lists limited number of items in the cache
 func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
-	return cache.db.List(nil, 0)
+	// TODO: implement inspection tools
+	return nil, errors.New("not implemented")
 }
 
 // Get looks up the provided nodeID from the overlay cache
@@ -58,51 +70,16 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, err
 		return nil, ErrEmptyNode
 	}
 
-	b, err := cache.db.Get(nodeID.Bytes())
-	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			return nil, ErrNodeNotFound
-		}
-		return nil, err
-	}
-	if b == nil {
-		return nil, ErrNodeNotFound
-	}
-
-	na := &pb.Node{}
-	if err := proto.Unmarshal(b, na); err != nil {
-		return nil, err
-	}
-	return na, nil
+	return cache.db.Get(ctx, nodeID)
 }
 
-// GetAll looks up the provided nodeIDs from the overlay cache
-func (cache *Cache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error) {
-	if len(nodeIDs) == 0 {
-		return nil, OverlayError.New("no nodeIDs provided")
+// GetAll looks up the provided ids from the overlay cache
+func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*pb.Node, error) {
+	if len(ids) == 0 {
+		return nil, OverlayError.New("no ids provided")
 	}
-	var ks storage.Keys
-	for _, v := range nodeIDs {
-		ks = append(ks, v.Bytes())
-	}
-	vs, err := cache.db.GetAll(ks)
-	if err != nil {
-		return nil, err
-	}
-	var ns []*pb.Node
-	for _, v := range vs {
-		if v == nil {
-			ns = append(ns, nil)
-			continue
-		}
-		na := &pb.Node{}
-		err := proto.Unmarshal(v, na)
-		if err != nil {
-			return nil, OverlayError.New("could not unmarshal non-nil node: %v", err)
-		}
-		ns = append(ns, na)
-	}
-	return ns, nil
+
+	return cache.db.GetAll(ctx, ids)
 }
 
 // Put adds a nodeID to the redis cache with a binary representation of proto defined Node
@@ -112,12 +89,16 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if nodeID.IsZero() {
 		return nil
 	}
+	if nodeID != value.Id {
+		return errors.New("invalid request")
+	}
 
 	// get existing node rep, or create a new statdb node with 0 rep
 	stats, err := cache.statDB.CreateEntryIfNotExists(ctx, nodeID)
 	if err != nil {
 		return err
 	}
+
 	value.Reputation = &pb.NodeStats{
 		AuditSuccessRatio:  stats.AuditSuccessRatio,
 		AuditSuccessCount:  stats.AuditSuccessCount,
@@ -127,12 +108,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 		UptimeCount:        stats.UptimeCount,
 	}
 
-	data, err := proto.Marshal(&value)
-	if err != nil {
-		return err
-	}
-
-	return cache.db.Put(nodeID.Bytes(), data)
+	return cache.db.Update(ctx, &value)
 }
 
 // Delete will remove the node from the cache. Used when a node hard disconnects or fails
@@ -141,13 +117,7 @@ func (cache *Cache) Delete(ctx context.Context, id storj.NodeID) error {
 	if id.IsZero() {
 		return ErrEmptyNode
 	}
-
-	err := cache.db.Delete(id.Bytes())
-	if err != nil {
-		return ErrDelete
-	}
-
-	return nil
+	return cache.db.Delete(ctx, id)
 }
 
 // ConnFailure implements the Transport Observer `ConnFailure` function

@@ -16,7 +16,7 @@ import (
 
 // Config contains configurable values for rollup
 type Config struct {
-	Interval time.Duration `help:"how frequently rollup should run" default:"30s"`
+	Interval time.Duration `help:"how frequently rollup should run" default:"1h"`
 }
 
 // Initialize a rollup struct
@@ -39,7 +39,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	go func() {
 		if err := rollup.Run(ctx); err != nil {
 			defer cancel()
-			zap.L().Error("Error running rollup", zap.Error(err))
+			zap.L().Debug("Rollup is shutting down", zap.Error(err))
 		}
 	}()
 

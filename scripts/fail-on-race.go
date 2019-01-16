@@ -17,8 +17,19 @@ import (
 func main() {
 	var buffer [8192]byte
 
-	raceDetected := false
-	search := []byte("DATA RACE")
+	problemDetected := false
+
+	search := [][]byte{
+		[]byte("DATA RACE"),
+		[]byte("panic"),
+	}
+
+	maxsearch := 0
+	for _, keyword := range search {
+		if maxsearch < len(keyword) {
+			maxsearch = len(keyword)
+		}
+	}
 
 	start := 0
 	for {
@@ -31,15 +42,17 @@ func main() {
 			os.Exit(2)
 		}
 
-		if bytes.Contains(buffer[:end], search) {
-			raceDetected = true
-			break
+		for _, keyword := range search {
+			if bytes.Contains(buffer[:end], keyword) {
+				problemDetected = true
+				break
+			}
 		}
 
 		// copy buffer tail to the beginning of the content
-		if end > len(search) {
-			copy(buffer[:], buffer[end-len(search):end])
-			start = len(search)
+		if end > maxsearch {
+			copy(buffer[:], buffer[end-maxsearch:end])
+			start = maxsearch
 		}
 
 		if readErr != nil {
@@ -48,8 +61,8 @@ func main() {
 	}
 
 	_, _ = io.Copy(os.Stdout, os.Stdin)
-	if raceDetected {
-		os.Stderr.Write([]byte("\nTest failed due to data race.\n"))
+	if problemDetected {
+		os.Stderr.Write([]byte("\nTest failed due to data race or panic.\n"))
 		os.Exit(1)
 	}
 }

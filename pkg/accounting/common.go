@@ -18,4 +18,6 @@ const (
 	LastAtRestTally = "LastAtRestTally"
 	// LastBandwidthTally represents the accounting timestamp for the bandwidth allocation query
 	LastBandwidthTally = "LastBandwidthTally"
+	// LastRollup represents the accounting timestamp for rollup calculations
+	LastRollup = "LastRollup"
 )
