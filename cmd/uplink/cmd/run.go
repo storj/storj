@@ -47,13 +47,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	if err := process.InitMetricsWithCertPath(ctx, nil, cfg.Identity.CertPath); err != nil {
+		zap.S().Errorf("Failed to initialize telemetry batcher: %v", err)
+	}
 	_, err = metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
 	if err != nil {
 		return fmt.Errorf("Failed to contact Satellite.\n"+
 			"Perhaps your configuration is invalid?\n%s", err)
-	}
-	if err := process.InitMetricsWithCertPath(ctx, nil, cfg.Identity.CertPath); err != nil {
-		zap.S().Errorf("Failed to initialize telemetry batcher: %v", err)
 	}
 
 	return cfg.Run(ctx)

@@ -65,6 +65,13 @@ proto: ## Rebuild protobuf files
 	go run scripts/protobuf.go install
 	go run scripts/protobuf.go generate
 
+##@ SDK
+
+.PHONY: install-sdk
+install-sdk: ## install storj-sdk
+	@echo "Running ${@}"
+	@go install -race -v storj.io/storj/cmd/storj-sdk storj.io/storj/cmd/bootstrap storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode storj.io/storj/cmd/uplink storj.io/storj/cmd/gateway
+
 ##@ Test
 
 .PHONY: test
@@ -72,10 +79,10 @@ test: ## Run tests on source code (travis)
 	go test -race -v -cover -coverprofile=.coverprofile ./...
 	@echo done
 
-.PHONY: test-storj-sdk
-test-storj-sdk: ## Test source with storj-sdk (travis)
+.PHONY: test-sdk
+test-sdk: ## Test source with storj-sdk (travis)
 	@echo "Running ${@}"
-	@./scripts/test-storj-sdk.sh
+	@./scripts/test-sdk.sh
 
 .PHONY: test-certificate-signing
 test-certificate-signing: ## Test certificate signing service and storagenode setup (travis)
