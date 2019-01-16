@@ -70,9 +70,10 @@ matrix:
         - redis
       install:
         - source scripts/install-awscli.sh
-        - go install -race storj.io/storj/cmd/{storj-sdk,bootstrap,satellite,storagenode,uplink,gateway,certificates}
+        - make install-sim
+        - go install -race storj.io/storj/cmd/certificates
       script:
-        - set -o pipefail && make test-sdk |& go run scripts/fail-on-race.go
+        - set -o pipefail && make test-sim |& go run scripts/fail-on-race.go
         - set -o pipefail && make test-certificate-signing |& go run scripts/fail-on-race.go
 
     ### Docker tests ###
