@@ -119,10 +119,6 @@ func init() {
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	operatorConfig := runCfg.Kademlia.Operator
-	ctx := process.Ctx(cmd)
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Error("Failed to initialize telemetry batcher:", err)
-	}
 	if err := isOperatorEmailValid(operatorConfig.Email); err != nil {
 		zap.S().Warn(err)
 	} else {
