@@ -201,7 +201,13 @@ func cleanup(cmd *cobra.Command) {
 		}
 
 		if vip.ConfigFileUsed() != "" {
-			logger.Sugar().Info("Configuration loaded from: ", vip.ConfigFileUsed())
+			path, err := filepath.Abs(vip.ConfigFileUsed())
+			if err != nil {
+				path = vip.ConfigFileUsed()
+				logger.Debug("unable to resolve path", zap.Error(err))
+			}
+
+			logger.Sugar().Info("Configuration loaded from: ", path)
 		}
 
 		defer func() { _ = logger.Sync() }()
