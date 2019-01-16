@@ -57,9 +57,14 @@ func NewServer(db storage.KeyValueStore, cache *overlay.Cache, logger *zap.Logge
 // Close closes resources
 func (s *Server) Close() error { return nil }
 
+// TODO: ZZZ temporarily disabled until endpoint and service split
+const disableAuth = true
+
 func (s *Server) validateAuth(ctx context.Context) error {
 	// TODO: ZZZ temporarily disabled until endpoint and service split
-	return nil
+	if disableAuth {
+		return nil
+	}
 
 	APIKey, ok := auth.GetAPIKey(ctx)
 	if !ok || !pointerdbAuth.ValidateAPIKey(string(APIKey)) {

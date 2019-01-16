@@ -63,7 +63,6 @@ type Planet struct {
 	databases []io.Closer
 
 	nodeInfos []pb.Node
-	nodeLinks []string
 	nodes     []*Node
 
 	Satellites   []*satellite.Peer
@@ -345,7 +344,7 @@ func (planet *Planet) NewIdentity() (*provider.FullIdentity, error) {
 	return planet.identities.NewIdentity()
 }
 
-// newListener creates a new listener
-func (planet *Planet) newListener() (net.Listener, error) {
+// NewListener creates a new listener
+func (planet *Planet) NewListener() (net.Listener, error) {
 	return net.Listen("tcp", "127.0.0.1:0")
 }

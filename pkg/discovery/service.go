@@ -83,7 +83,7 @@ func (discovery *Discovery) Run(ctx context.Context) error {
 // Refresh updates the cache db with the current DHT.
 // We currently do not penalize nodes that are unresponsive,
 // but should in the future.
-func (d *Discovery) Refresh(ctx context.Context) error {
+func (discovery *Discovery) Refresh(ctx context.Context) error {
 	// TODO(coyle): make refresh work by looking on the network for new ndoes
 	nodes := d.kad.Seen()
 
@@ -97,7 +97,7 @@ func (d *Discovery) Refresh(ctx context.Context) error {
 }
 
 // Bootstrap walks the initialized network and populates the cache
-func (d *Discovery) Bootstrap(ctx context.Context) error {
+func (discovery *Discovery) Bootstrap(ctx context.Context) error {
 	// o := overlay.LoadFromContext(ctx)
 	// kad := kademlia.LoadFromContext(ctx)
 	// TODO(coyle): make Bootstrap work
@@ -110,12 +110,12 @@ func (d *Discovery) Bootstrap(ctx context.Context) error {
 }
 
 // Discovery runs lookups for random node ID's to find new nodes in the network
-func (d *Discovery) Discovery(ctx context.Context) error {
+func (discovery *Discovery) Discovery(ctx context.Context) error {
 	r, err := randomID()
 	if err != nil {
 		return DiscoveryError.Wrap(err)
 	}
-	_, err = d.kad.FindNode(ctx, r)
+	_, err = discovery.kad.FindNode(ctx, r)
 	if err != nil && !kademlia.NodeNotFound.Has(err) {
 		return DiscoveryError.Wrap(err)
 	}
@@ -123,7 +123,7 @@ func (d *Discovery) Discovery(ctx context.Context) error {
 }
 
 // Walk iterates over each node in each bucket to traverse the network
-func (d *Discovery) Walk(ctx context.Context) error {
+func (discovery *Discovery) Walk(ctx context.Context) error {
 	// TODO: This should walk the cache, rather than be a duplicate of refresh
 	return nil
 }

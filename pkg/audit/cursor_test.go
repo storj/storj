@@ -7,7 +7,6 @@ package audit
 
 import (
 	"crypto/rand"
-	"errors"
 	"math"
 	"math/big"
 	"reflect"
@@ -24,11 +23,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
-)
-
-var (
-	ErrNoList = errors.New("list error: failed to get list")
-	ErrNoNum  = errors.New("num error: failed to get num")
 )
 
 func TestAuditSegment(t *testing.T) {
@@ -169,7 +163,7 @@ func TestAuditSegment(t *testing.T) {
 		for i := 0; i < 100; i++ {
 			randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(list))))
 			if err != nil {
-				t.Error(ErrNoNum)
+				t.Error("num error: failed to get num")
 			}
 			pointerItem := list[randomNum.Int64()]
 			path := pointerItem.Path

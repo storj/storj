@@ -93,7 +93,3 @@ func (node *Node) DialOverlay(destination Peer) (overlay.Client, error) {
 	// TODO: handle disconnect
 	return overlay.NewClientFrom(pb.NewOverlayClient(conn)), nil
 }
-
-type closerFunc func() error
-
-func (fn closerFunc) Close() error { return fn() }

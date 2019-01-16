@@ -1,6 +1,9 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+//TODO: reenable
+// +build ignore
+
 package checker_test
 
 import (
@@ -25,6 +28,12 @@ import (
 
 func TestIdentifyInjuredSegments(t *testing.T) {
 	t.Skip("needs update")
+
+	// logic should be roughly:
+	// use storagenodes as the valid and
+	// generate invalid ids
+	// identify should then find the invalid ones
+	// note satellite's: own sub-systems need to be disabled
 
 	tctx := testcontext.New(t)
 	defer tctx.Cleanup()

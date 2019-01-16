@@ -28,6 +28,7 @@ type Service struct {
 	ticker   *time.Ticker
 }
 
+// NewService creates repairing service
 func NewService(queue queue.RepairQueue, repairer SegmentRepairer, interval time.Duration, concurrency int) *Service {
 	return &Service{
 		queue:    queue,
