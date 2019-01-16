@@ -60,36 +60,36 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 	fmt.Println("entering server generate csv")
 	start, err := ptypes.Timestamp(req.StartTime)
 	if err != nil {
-		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+		return nil, PaymentsError.Wrap(err)
 	}
 
 	end, err := ptypes.Timestamp(req.EndTime)
 	if err != nil {
-		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+		return nil, PaymentsError.Wrap(err)
 	}
 
 	pi, err := provider.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+		return nil, PaymentsError.Wrap(err)
 	}
 
 	layout := "2006-01-02"
 
 	if err := os.MkdirAll(srv.filepath, 0700); err != nil {
-		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+		return nil, PaymentsError.Wrap(err)
 	}
 
 	filename := pi.ID.String() + "--" + start.Format(layout) + "--" + end.Format(layout) + ".csv"
 	path := filepath.Join(srv.filepath, filename)
 	file, err := os.Create(path)
 	if err != nil {
-		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+		return nil, PaymentsError.Wrap(err)
 	}
 	defer utils.LogClose(file)
 
 	rows, err := srv.accountingDB.QueryPaymentInfo(ctx, start, end)
 	if err != nil {
-		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+		return nil, PaymentsError.Wrap(err)
 	}
 
 	w := csv.NewWriter(file)
@@ -107,7 +107,7 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 		"walletAddress",
 	}
 	if err := w.Write(headers); err != nil {
-		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+		return nil, PaymentsError.Wrap(err)
 	}
 
 	for _, row := range rows {
@@ -115,21 +115,21 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 		fmt.Println(len(nid))
 		wallet, err := srv.overlayDB.GetWalletAddress(ctx, nid)
 		if err != nil {
-			return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+			return nil, PaymentsError.Wrap(err)
 		}
 		row.Wallet = wallet
 		record := structToStringSlice(row)
 		if err := w.Write(record); err != nil {
-			return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+			return nil, PaymentsError.Wrap(err)
 		}
 	}
 	if err := w.Error(); err != nil {
-		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
+		return nil, PaymentsError.Wrap(err)
 	}
 	w.Flush()
 	abs, err := filepath.Abs(path)
 	if err != nil {
-		return &pb.GenerateCSVResponse{}, err
+		return nil, err
 	}
 	return &pb.GenerateCSVResponse{Filepath: abs}, nil
 }
