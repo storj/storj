@@ -102,9 +102,13 @@ func (db *accountingDB) GetRaw(ctx context.Context) ([]*accounting.Raw, error) {
 	raws, err := db.db.All_AccountingRaw(ctx)
 	out := make([]*accounting.Raw, len(raws))
 	for i, r := range raws {
+		nodeID, err := storj.NodeIDFromBytes(r.NodeId)
+		if err != nil {
+			Error.Wrap(err)
+		}
 		out[i] = &accounting.Raw{
-			Id:              r.Id,
-			NodeId:          r.NodeId,
+			ID:              r.Id,
+			NodeID:          nodeID,
 			IntervalEndTime: r.IntervalEndTime,
 			DataTotal:       r.DataTotal,
 			DataType:        r.DataType,
@@ -119,9 +123,13 @@ func (db *accountingDB) GetRawSince(ctx context.Context, latestRollup time.Time)
 	raws, err := db.db.All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx, dbx.AccountingRaw_IntervalEndTime(latestRollup))
 	out := make([]*accounting.Raw, len(raws))
 	for i, r := range raws {
+		nodeID, err := storj.NodeIDFromBytes(r.NodeId)
+		if err != nil {
+			Error.Wrap(err)
+		}
 		out[i] = &accounting.Raw{
-			Id:              r.Id,
-			NodeId:          r.NodeId,
+			ID:              r.Id,
+			NodeID:          nodeID,
 			IntervalEndTime: r.IntervalEndTime,
 			DataTotal:       r.DataTotal,
 			DataType:        r.DataType,
@@ -149,7 +157,7 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 	}()
 	for _, arsByDate := range stats {
 		for _, ar := range arsByDate {
-			nID := dbx.AccountingRollup_NodeId(ar.NodeId)
+			nID := dbx.AccountingRollup_NodeId(ar.NodeID.Bytes())
 			start := dbx.AccountingRollup_StartTime(ar.StartTime)
 			put := dbx.AccountingRollup_PutTotal(ar.PutTotal)
 			get := dbx.AccountingRollup_GetTotal(ar.GetTotal)

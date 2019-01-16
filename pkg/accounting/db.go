@@ -19,8 +19,8 @@ type RollupStats map[time.Time]map[storj.NodeID]*Rollup
 
 //Raw mirrors dbx.AccountingRaw, allowing us to use that struct without leaking dbx
 type Raw struct {
-	Id              int64
-	NodeId          []byte
+	ID              int64
+	NodeID          storj.NodeID
 	IntervalEndTime time.Time
 	DataTotal       float64
 	DataType        int
@@ -29,8 +29,8 @@ type Raw struct {
 
 //Rollup mirrors dbx.AccountingRollup, allowing us to use that struct without leaking dbx
 type Rollup struct {
-	Id             int64
-	NodeId         []byte
+	ID             int64
+	NodeID         storj.NodeID
 	StartTime      time.Time
 	PutTotal       int64
 	GetTotal       int64

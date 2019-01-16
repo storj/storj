@@ -73,10 +73,7 @@ func (r *rollup) Query(ctx context.Context) error {
 	//loop through tallies and build rollup
 	rollupStats := make(accounting.RollupStats)
 	for _, tallyRow := range tallies {
-		node, err := storj.NodeIDFromBytes(tallyRow.NodeId)
-		if err != nil {
-			return Error.Wrap(err)
-		}
+		node := tallyRow.NodeID
 		if tallyRow.CreatedAt.After(latestTally) {
 			latestTally = tallyRow.CreatedAt
 		}
@@ -87,7 +84,7 @@ func (r *rollup) Query(ctx context.Context) error {
 			rollupStats[iDay] = make(map[storj.NodeID]*accounting.Rollup)
 		}
 		if rollupStats[iDay][node] == nil {
-			rollupStats[iDay][node] = &accounting.Rollup{NodeId: node.Bytes(), StartTime: iDay}
+			rollupStats[iDay][node] = &accounting.Rollup{NodeID: node, StartTime: iDay}
 		}
 		//increment Rollups
 		switch tallyRow.DataType {
