@@ -95,6 +95,7 @@ func init() {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
+	rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
