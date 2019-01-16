@@ -30,7 +30,7 @@ func main() {
 
 	rootCmd := &cobra.Command{
 		Use:   "storj-sim",
-		Short: "Storj Simulator",
+		Short: "Storj Network Simulator",
 	}
 
 	defaultConfigDir := fpath.ApplicationDir("storj", "local-network")
