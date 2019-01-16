@@ -106,7 +106,13 @@ func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 			fmt.Fprintf(w, "%s\n", value)
 		}
 	}
-	return ioutil.WriteFile(outfile, []byte(sb.String()), os.FileMode(0644))
+
+	err := ioutil.WriteFile(outfile, []byte(sb.String()), os.FileMode(0644))
+	if err != nil {
+		return err
+	}
+	fmt.Println("Configuration saved to:", outfile)
+	return nil
 }
 
 func readBoolAnnotation(flag *pflag.Flag, key string) bool {
