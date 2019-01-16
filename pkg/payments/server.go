@@ -79,6 +79,7 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 	if err := os.MkdirAll(srv.filepath, 0700); err != nil {
 		return &pb.GenerateCSVResponse{}, PaymentsError.Wrap(err)
 	}
+
 	filename := pi.ID.String() + "--" + start.Format(layout) + "--" + end.Format(layout) + ".csv"
 	path := filepath.Join(srv.filepath, filename)
 	file, err := os.Create(path)
