@@ -194,7 +194,9 @@ func cleanup(cmd *cobra.Command) {
 			return err
 		}
 
-		logger.Sugar().Debug("Configuration loaded from: ", vip.ConfigFileUsed())
+		if vip.ConfigFileUsed() != "" {
+			logger.Sugar().Info("Configuration loaded from: ", vip.ConfigFileUsed())
+		}
 
 		defer func() { _ = logger.Sync() }()
 		defer zap.ReplaceGlobals(logger)()

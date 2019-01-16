@@ -53,6 +53,6 @@ func (sc Config) Run(ctx context.Context,
 	}
 	defer func() { _ = s.Close() }()
 
-	zap.S().Infof("Node %s started", s.Identity().ID)
+	zap.S().Infof("Node %s started on '%s'", s.Identity().ID, sc.Address)
 	return s.Run(ctx)
 }

@@ -116,6 +116,8 @@ func (c Config) Run(ctx context.Context, server *provider.Provider,
 
 	pb.RegisterNodesServer(server.GRPC(), node.NewServer(logger, kad))
 
+	zap.S().Infof("Kademlia external address: %s", addr)
+
 	zap.S().Warn("Once the Peer refactor is done, the kad inspector needs to be registered on a " +
 		"gRPC server that only listens on localhost")
 	// TODO: register on a private rpc server
