@@ -22,7 +22,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -42,9 +41,6 @@ type StorageNode struct {
 	Server   server.Config
 	Kademlia kademlia.StorageNodeConfig
 	Storage  psserver.Config
-	// TODO: should use `setup:true` (i.e.: don't write to config) but current user flow
-	//  expects the user to edit this in the config.
-	Signer certificates.CertClientConfig
 }
 
 var (

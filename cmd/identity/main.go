@@ -36,7 +36,6 @@ var (
 	csrCmd = &cobra.Command{
 		Use:   "csr <service>",
 		Short: "Send a certificate signing request for a service's CA certificate",
-		Long:  "TESTING123",
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdCSR,
 	}
@@ -68,29 +67,27 @@ func main() {
 
 func cmdNewService(cmd *cobra.Command, args []string) error {
 	serviceErrs := new(errs.Group)
-	if len(args) > 0 {
-		for _, service := range args {
-			serviceDir := filepath.Join(config.BaseDir, service)
-			caCertPath := filepath.Join(serviceDir, "ca.cert")
-			caKeyPath := filepath.Join(serviceDir, "ca.key")
-			identCertPath := filepath.Join(serviceDir, "identity.cert")
-			identKeyPath := filepath.Join(serviceDir, "identity.key")
+	for _, service := range args {
+		serviceDir := filepath.Join(config.BaseDir, service)
+		caCertPath := filepath.Join(serviceDir, "ca.cert")
+		caKeyPath := filepath.Join(serviceDir, "ca.key")
+		identCertPath := filepath.Join(serviceDir, "identity.cert")
+		identKeyPath := filepath.Join(serviceDir, "identity.key")
 
-			ca, err := identity.CASetupConfig{
-				CertPath: caCertPath,
-				KeyPath:  caKeyPath,
-			}.Create(process.Ctx(cmd))
-			if err != nil {
-				serviceErrs.Add(err)
-			}
+		ca, err := identity.CASetupConfig{
+			CertPath: caCertPath,
+			KeyPath:  caKeyPath,
+		}.Create(process.Ctx(cmd))
+		if err != nil {
+			serviceErrs.Add(err)
+		}
 
-			_, err = identity.SetupConfig{
-				CertPath: identCertPath,
-				KeyPath:  identKeyPath,
-			}.Create(ca)
-			if err != nil {
-				serviceErrs.Add(err)
-			}
+		_, err = identity.SetupConfig{
+			CertPath: identCertPath,
+			KeyPath:  identKeyPath,
+		}.Create(ca)
+		if err != nil {
+			serviceErrs.Add(err)
 		}
 	}
 
