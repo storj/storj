@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -88,6 +89,14 @@ func (db *DB) Accounting() accounting.DB {
 // Irreparable returns database for storing segments that failed repair
 func (db *DB) Irreparable() irreparable.DB {
 	return &irreparableDB{db: db.db}
+}
+
+// Console returns database for storing users, projects and api keys
+func (db *DB) Console() console.DB {
+	return &ConsoleDB{
+		db:      db.db,
+		methods: db.db,
+	}
 }
 
 // CreateTables is a method for creating all tables for database

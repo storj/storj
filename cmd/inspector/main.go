@@ -14,9 +14,9 @@ import (
 	"strconv"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
@@ -201,7 +201,7 @@ func GetBucket(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	fmt.Println(prettyPrintBucket(bucket))
+	fmt.Println(prettyPrint(bucket))
 	return nil
 }
 
@@ -220,20 +220,17 @@ func LookupNode(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	fmt.Println(prettyPrintNode(n))
+	fmt.Println(prettyPrint(n))
 
 	return nil
 }
 
 // DumpNodes outputs a json list of every node in every bucket in the satellite
 func DumpNodes(cmd *cobra.Command, args []string) (err error) {
-	fmt.Println("querying for buckets and nodes, sit tight....")
 	i, err := NewInspector(*Addr)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
-
-	nodes := []pb.Node{}
 
 	buckets, err := i.kadclient.GetBuckets(context.Background(), &pb.GetBucketsRequest{})
 	if err != nil {
@@ -247,31 +244,26 @@ func DumpNodes(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
+		fmt.Println("-------------------------------")
+		fmt.Println("Bucket ID:", b.Id)
+		fmt.Println("Nodes in Bucket:", len(b.Nodes))
 
-		for _, node := range b.Nodes {
-			nodes = append(nodes, *node)
+		for i, node := range b.Nodes {
+			fmt.Printf("\nNode %d:\n", i)
+			fmt.Println(prettyPrint(node))
 		}
 	}
-	fmt.Printf("%+v\n", nodes)
 	return nil
 }
 
-func prettyPrintNode(n *pb.LookupNodeResponse) string {
-	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: false}
-	s, err := m.MarshalToString(n)
+func prettyPrint(unformatted proto.Message) string {
+	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: true}
+	formatted, err := m.MarshalToString(unformatted)
 	if err != nil {
-		zap.S().Error("error marshaling node: %s", n)
+		fmt.Println("Error", err)
+		os.Exit(1)
 	}
-	return s
-}
-
-func prettyPrintBucket(b *pb.GetBucketResponse) string {
-	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: false}
-	s, err := m.MarshalToString(b)
-	if err != nil {
-		zap.S().Error("error marshaling bucket: %s", b.Id)
-	}
-	return s
+	return formatted
 }
 
 // PingNode sends a PING RPC across the Kad network to check node availability

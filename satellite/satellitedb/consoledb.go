@@ -10,7 +10,7 @@ import (
 
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/satellite/console"
-	dbx "storj.io/storj/satellite/satellitedb/consoledbx"
+	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ConsoleDB contains access to different satellite databases
@@ -55,6 +55,11 @@ func (db *ConsoleDB) ProjectMembers() console.ProjectMembers {
 // APIKeys is a getter for APIKeys repository
 func (db *ConsoleDB) APIKeys() console.APIKeys {
 	return &apikeys{db.methods}
+}
+
+// Buckets is a getter for Buckets repository
+func (db *ConsoleDB) Buckets() console.Buckets {
+	return &buckets{db.methods}
 }
 
 // CreateTables is a method for creating all tables for satellitedb

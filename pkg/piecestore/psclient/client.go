@@ -48,7 +48,6 @@ type Client interface {
 	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) error
 	Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error)
 	Delete(ctx context.Context, pieceID PieceID, authorization *pb.SignedMessage) error
-	Stats(ctx context.Context) (*pb.StatSummary, error)
 	io.Closer
 }
 
@@ -182,11 +181,6 @@ func (ps *PieceStore) Delete(ctx context.Context, id PieceID, authorization *pb.
 	}
 	zap.S().Infof("Delete request route summary: %v", reply)
 	return nil
-}
-
-// Stats will retrieve stats about a piece storage node
-func (ps *PieceStore) Stats(ctx context.Context) (*pb.StatSummary, error) {
-	return ps.client.Stats(ctx, &pb.StatsReq{})
 }
 
 // sign a message using the clients private key
