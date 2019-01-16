@@ -10,6 +10,7 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
+	"storj.io/storj/satellite/console"
 )
 
 // DB is the master database for the satellite
@@ -31,4 +32,6 @@ type DB interface {
 	RepairQueue() queue.RepairQueue
 	// Irreparable returns database for failed repairs
 	Irreparable() irreparable.DB
+	// Console returns database for satellite console
+	Console() console.DB
 }
