@@ -136,6 +136,19 @@ func (m *lockedAccounting) SaveBWRaw(ctx context.Context, latestBwa time.Time, b
 	return m.db.SaveBWRaw(ctx, latestBwa, bwTotals)
 }
 
+// QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
+func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([][]string, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.QueryPaymentInfo(ctx, start, end)
+}
+// TestPayments ... TODO REMOVE
+func (m *lockedAccounting) TestPayments(ctx context.Context) (error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.TestPayments(ctx)
+}
+
 // lockedBandwidthAgreement implements locking wrapper for bwagreement.DB
 type lockedBandwidthAgreement struct {
 	sync.Locker
@@ -229,6 +242,13 @@ func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Update(ctx, value)
+}
+
+//GetWalletAddress gets the node's wallet address
+func (m *lockedOverlayCache) GetWalletAddress(ctx context.Context, id storj.NodeID) (string, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetWalletAddress(ctx, id)
 }
 
 // lockedRepairQueue implements locking wrapper for queue.RepairQueue

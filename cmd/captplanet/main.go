@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
+	"storj.io/storj/pkg/payments"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
@@ -73,6 +74,7 @@ type Satellite struct {
 	Tally       tally.Config
 	Rollup      rollup.Config
 	StatDB      statdb.Config
+	Payments    payments.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 }
 

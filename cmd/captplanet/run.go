@@ -101,6 +101,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			satellite.Tally,
 			satellite.Rollup,
 			satellite.StatDB,
+			satellite.Payments,
 		)
 	}()
 
