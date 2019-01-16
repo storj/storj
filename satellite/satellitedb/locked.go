@@ -354,7 +354,7 @@ func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time
 }
 
 // TestPayments ... TODO REMOVE
-func (m *lockedAccounting) TestPayments(ctx context.Context) (error) {
+func (m *lockedAccounting) TestPayments(ctx context.Context) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.TestPayments(ctx)
@@ -502,7 +502,8 @@ func (m *lockedOverlayCache) GetWalletAddress(ctx context.Context, id storj.Node
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetWalletAddress(ctx, id)
-	
+}
+
 // RepairQueue returns queue for segments that need repairing
 func (m *locked) RepairQueue() queue.RepairQueue {
 	m.Lock()
