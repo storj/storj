@@ -118,7 +118,6 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 			fmt.Println(i)
 			continue
 		}
-		fmt.Println("WTF")
 		nodeID, err := storj.NodeIDFromBytes(record.Node_Id) //different nodeid length... have 50 want 32?
 		if err != nil {
 			return rows, err
