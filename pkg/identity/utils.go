@@ -123,10 +123,10 @@ func writeFile(path string, dirmode, filemode os.FileMode, data []byte) error {
 
 func statTLSFiles(certPath, keyPath string) TLSFilesStatus {
 	_, err := os.Stat(certPath)
-	hasCert := os.IsExist(err)
+	hasCert := !os.IsNotExist(err)
 
 	_, err = os.Stat(keyPath)
-	hasKey := os.IsExist(err)
+	hasKey := !os.IsNotExist(err)
 
 	if hasCert && hasKey {
 		return CertKey
