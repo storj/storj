@@ -121,7 +121,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Info("Operator wallet: ", operatorConfig.Wallet)
 	}
 	ctx := process.Ctx(cmd)
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Server.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher:", err)
 	}
 

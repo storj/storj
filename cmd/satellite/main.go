@@ -128,7 +128,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Server.Identity.CertPath); err != nil {
 		zap.S().Errorf("Failed to initialize telemetry batcher: %+v", err)
 	}
 

@@ -85,6 +85,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider,
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO(coyle): I'm thinking we just remove this function and grab from the config.
+	zap.S().Debugf("kademlia bootstrap node: %q", c.BootstrapAddr)
 	in, err := GetIntroNode(c.BootstrapAddr)
 	if err != nil {
 		return err
