@@ -72,7 +72,6 @@ func NewPayments() (*Payments, error) {
 	if err != nil {
 		return &Payments{}, ErrIdentity.Wrap(err)
 	}
-	fmt.Println("Our identity:", identity.ID)
 	tc := transport.NewClient(identity)
 	conn, err := tc.DialAddress(ctx, port)
 	if err != nil {
@@ -136,6 +135,6 @@ func test(cmd *cobra.Command, args []string) error {
 	}
 	req := &pb.TestRequest{}
 	_, err = p.client.Test(ctx, req)
-	fmt.Println("Added these nodes to rollup")
+	fmt.Println("Added nodes to accounting rollup")
 	return err
 }
