@@ -104,7 +104,7 @@ func (db *accountingDB) GetRaw(ctx context.Context) ([]*accounting.Raw, error) {
 	for i, r := range raws {
 		nodeID, err := storj.NodeIDFromBytes(r.NodeId)
 		if err != nil {
-			Error.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 		out[i] = &accounting.Raw{
 			ID:              r.Id,
@@ -125,7 +125,7 @@ func (db *accountingDB) GetRawSince(ctx context.Context, latestRollup time.Time)
 	for i, r := range raws {
 		nodeID, err := storj.NodeIDFromBytes(r.NodeId)
 		if err != nil {
-			Error.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 		out[i] = &accounting.Raw{
 			ID:              r.Id,
