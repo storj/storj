@@ -40,6 +40,7 @@ var (
 		RunE:  cmdCSR,
 	}
 
+	//nolint
 	config struct {
 		BaseDir        string `default:"$CONFDIR/identity" help:"Directory containing service subdirectories"`
 		Difficulty     uint64 `default:"15" help:"minimum difficulty for identity generation"`

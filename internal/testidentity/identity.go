@@ -41,6 +41,7 @@ func NewTestCA(ctx context.Context) (*provider.FullCertificateAuthority, error) 
 	})
 }
 
+// NewTestIdentityFromCmd runs tests against the CLI
 func NewTestIdentityFromCmd(t *testing.T, cmdIdentity *testcmd.Cmd, caConfig identity.FullCAConfig, identConfig identity.Config) {
 	assert := assert.New(t)
 

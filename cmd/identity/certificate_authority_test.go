@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package main
 
 import (
@@ -315,6 +318,9 @@ func TestCmdSigningRequest(t *testing.T) {
 			"--ca.cert-path", signerCertPath,
 			"--ca.key-path", signerKeyPath,
 		)
+		if !assert.NoError(err) {
+			t.Fatal(err)
+		}
 
 		// Sign identity
 		err = cmdIdentity.Run(
@@ -403,6 +409,9 @@ func createAuthorization(t *testing.T, cmdCertificates *testcmd.Cmd, flags []str
 		t.Fatal(errs.Combine(errs.New("certificates auth create error"), err))
 	}
 	stdout, err := cmdCertificates.UnreadStdout()
+	if !assert.NoError(t, err) {
+		t.Fatal(err)
+	}
 	tokenParts := strings.SplitN(stdout.String(), ",", 2)
 	*token = tokenParts[1][:len(tokenParts[1])-1]
 }
