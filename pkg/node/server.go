@@ -47,6 +47,8 @@ func (server *Server) Query(ctx context.Context, req *pb.QueryRequest) (*pb.Quer
 		if err != nil {
 			server.log.Error("could not respond to connection success", zap.Error(err))
 		}
+
+		server.log.Sugar().Debugf("successfully connected with: %s", req.Sender.Address.Address)
 	}
 
 	nodes, err := rt.FindNear(req.Target.Id, int(req.Limit))
