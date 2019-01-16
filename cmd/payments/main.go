@@ -21,16 +21,16 @@ import (
 var (
 	ctx = context.Background()
 	// ErrPaymentsDial throws when there are errors dialing the payments client
-	ErrPaymentsDial = errs.Class("error dialing payments client:")
+	ErrPaymentsDial = errs.Class("error dialing payments client")
 
 	// ErrRequest is for gRPC request errors after dialing
-	ErrRequest = errs.Class("error processing request:")
+	ErrRequest = errs.Class("error processing request")
 
 	// ErrIdentity is for errors during identity creation for this CLI
-	ErrIdentity = errs.Class("error creating identity:")
+	ErrIdentity = errs.Class("error creating identity")
 
 	// ErrArgs throws when there are errors with CLI args
-	ErrArgs = errs.Class("error with CLI args:")
+	ErrArgs = errs.Class("error with CLI args")
 
 	port string
 
