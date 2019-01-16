@@ -398,7 +398,7 @@ func clr() {
 		cmd.Stdout = os.Stdout
 		err := cmd.Run()
 		if err != nil {
-			fmt.Errorf("Linux clear screen command returned an error %+v", err)
+			_ := fmt.Errorf("Linux clear screen command returned an error %+v", err)
 		}
 	}
 	clear["darwin"] = func() {
@@ -406,7 +406,7 @@ func clr() {
 		cmd.Stdout = os.Stdout
 		err := cmd.Run()
 		if err != nil {
-			fmt.Errorf("MacOS clear screen command returned an error %+v", err)
+			_ := fmt.Errorf("MacOS clear screen command returned an error %+v", err)
 		}
 	}
 	clear["windows"] = func() {
@@ -414,7 +414,7 @@ func clr() {
 		cmd.Stdout = os.Stdout
 		err := cmd.Run()
 		if err != nil {
-			fmt.Errorf("Windows clear screen command returned an error %+v", err)
+			_ := fmt.Errorf("Windows clear screen command returned an error %+v", err)
 		}
 	}
 
