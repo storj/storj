@@ -17,7 +17,8 @@ import (
 )
 
 var (
-	defaultDirs = flag.Bool("default-dirs", false, "run tests which execure commands that read/write files in the default directories")
+	defaultDirs = flag.Bool("default-dirs", false, "run tests which exercise commands that read/write files in the default directories")
+	prebuiltTestCmds = flag.Bool("prebuild-test-cmds", false, "run tests using pre-built cli command binaries")
 )
 
 func TestMain(m *testing.M) {
@@ -145,6 +146,10 @@ func TestCmdRun(t *testing.T) {
 }
 
 func testCommands(ctx *testcontext.Context, t *testing.T) (_, _ *testcmd.Cmd) {
+	if *prebuiltTestCmds {
+		return testcmd.NewCmd(testcmd.CmdIdentity.String()),
+			testcmd.NewCmd(testcmd.CmdCertificates.String())
+	}
 	cmdMap, err := testcmd.Build(ctx, testcmd.CmdIdentity, testcmd.CmdStorageNode)
 	if !assert.NoError(t, err) {
 		t.Fatal(err)
