@@ -12,7 +12,6 @@ import (
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/storj"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // Rollup is the service for totalling data on storage nodes on daily intervals
@@ -57,7 +56,7 @@ func (r *rollup) Query(ctx context.Context) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	var tallies []*dbx.AccountingRaw
+	var tallies []*accounting.Raw
 	if isNil {
 		r.logger.Info("Rollup found no existing raw tally data")
 		tallies, err = r.db.GetRaw(ctx)
@@ -85,10 +84,10 @@ func (r *rollup) Query(ctx context.Context) error {
 		iDay := tallyRow.IntervalEndTime
 		iDay = time.Date(iDay.Year(), iDay.Month(), iDay.Day(), 0, 0, 0, 0, iDay.Location())
 		if rollupStats[iDay] == nil {
-			rollupStats[iDay] = make(map[storj.NodeID]*dbx.AccountingRollup)
+			rollupStats[iDay] = make(map[storj.NodeID]*accounting.Rollup)
 		}
 		if rollupStats[iDay][node] == nil {
-			rollupStats[iDay][node] = &dbx.AccountingRollup{NodeId: node.Bytes(), StartTime: iDay}
+			rollupStats[iDay][node] = &accounting.Rollup{NodeId: node.Bytes(), StartTime: iDay}
 		}
 		//increment Rollups
 		switch tallyRow.DataType {

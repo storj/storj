@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // locked implements a locking wrapper around satellite.DB.
@@ -96,14 +95,14 @@ type lockedAccounting struct {
 }
 
 // GetRaw retrieves all raw tallies
-func (m *lockedAccounting) GetRaw(ctx context.Context) ([]*dbx.AccountingRaw, error) {
+func (m *lockedAccounting) GetRaw(ctx context.Context) ([]*accounting.Raw, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetRaw(ctx)
 }
 
 // GetRawSince r retrieves all raw tallies sinces
-func (m *lockedAccounting) GetRawSince(ctx context.Context, latestRollup time.Time) ([]*dbx.AccountingRaw, error) {
+func (m *lockedAccounting) GetRawSince(ctx context.Context, latestRollup time.Time) ([]*accounting.Raw, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetRawSince(ctx, latestRollup)

@@ -98,14 +98,36 @@ func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time
 }
 
 // GetRaw retrieves all raw tallies
-func (db *accountingDB) GetRaw(ctx context.Context) ([]*dbx.AccountingRaw, error) {
-	out, err := db.db.All_AccountingRaw(ctx)
+func (db *accountingDB) GetRaw(ctx context.Context) ([]*accounting.Raw, error) {
+	raws, err := db.db.All_AccountingRaw(ctx)
+	out := make([]*accounting.Raw, len(raws))
+	for i, r := range raws {
+		out[i] = &accounting.Raw{
+			Id:              r.Id,
+			NodeId:          r.NodeId,
+			IntervalEndTime: r.IntervalEndTime,
+			DataTotal:       r.DataTotal,
+			DataType:        r.DataType,
+			CreatedAt:       r.CreatedAt,
+		}
+	}
 	return out, Error.Wrap(err)
 }
 
 // GetRawSince r retrieves all raw tallies sinces
-func (db *accountingDB) GetRawSince(ctx context.Context, latestRollup time.Time) ([]*dbx.AccountingRaw, error) {
-	out, err := db.db.All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx, dbx.AccountingRaw_IntervalEndTime(latestRollup))
+func (db *accountingDB) GetRawSince(ctx context.Context, latestRollup time.Time) ([]*accounting.Raw, error) {
+	raws, err := db.db.All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx, dbx.AccountingRaw_IntervalEndTime(latestRollup))
+	out := make([]*accounting.Raw, len(raws))
+	for i, r := range raws {
+		out[i] = &accounting.Raw{
+			Id:              r.Id,
+			NodeId:          r.NodeId,
+			IntervalEndTime: r.IntervalEndTime,
+			DataTotal:       r.DataTotal,
+			DataType:        r.DataType,
+			CreatedAt:       r.CreatedAt,
+		}
+	}
 	return out, Error.Wrap(err)
 }
 
