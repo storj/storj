@@ -18,7 +18,7 @@ export STORJ_LOCAL_NETWORK=$TMP
 storj-sdk -x network setup
 
 # run aws-cli tests
-storj-sdk -x network test bash $SCRIPTDIR/test-storj-sdk-aws.sh
+storj-sdk -x network test bash $SCRIPTDIR/test-sdk-aws.sh
 storj-sdk -x network destroy
 
 # ipv6 tests disabled because aws-cli doesn't seem to support connecting to ipv6 host
