@@ -21,16 +21,16 @@ import (
 var (
 	ctx = context.Background()
 	// ErrPaymentsDial throws when there are errors dialing the payments client
-	ErrPaymentsDial = errs.Class("error dialing payments client:")
+	ErrPaymentsDial = errs.Class("error dialing payments client")
 
 	// ErrRequest is for gRPC request errors after dialing
-	ErrRequest = errs.Class("error processing request:")
+	ErrRequest = errs.Class("error processing request")
 
 	// ErrIdentity is for errors during identity creation for this CLI
-	ErrIdentity = errs.Class("error creating identity:")
+	ErrIdentity = errs.Class("error creating identity")
 
 	// ErrArgs throws when there are errors with CLI args
-	ErrArgs = errs.Class("error with CLI args:")
+	ErrArgs = errs.Class("error with CLI args")
 
 	port string
 
@@ -82,11 +82,11 @@ func GenerateCSV(cmd *cobra.Command, args []string) error {
 	layout := "2006-01-02"
 	start, err := time.Parse(layout, args[0])
 	if err != nil {
-		return errs.New("Invalid date format. Please use YYYY-MM-DD")
+		return ErrArgs.Wrap(errs.New("Invalid date format. Please use YYYY-MM-DD"))
 	}
 	end, err := time.Parse(layout, args[1])
 	if err != nil {
-		return errs.New("Invalid date format. Please use YYYY-MM-DD")
+		return ErrArgs.Wrap(errs.New("Invalid date format. Please use YYYY-MM-DD"))
 	}
 
 	// Ensure that start date is not after end date
@@ -103,11 +103,20 @@ func GenerateCSV(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	p, err := NewPayments()
+	if err != nil {
+		return err
+	}
+
 	req := &pb.GenerateCSVRequest{
 		StartTime: startTimestamp,
 		EndTime:   endTimestamp,
 	}
+  
 	resp, err := p.client.GenerateCSV(ctx, req)
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+  
 	fmt.Println("Created payments report at", resp.GetFilepath())
-	return err
+	return nil
 }
