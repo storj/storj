@@ -70,11 +70,7 @@ proto: ## Rebuild protobuf files
 .PHONY: install-sdk
 install-sdk: ## install storj-sdk
 	@echo "Running ${@}"
-	@go install -v storj.io/storj/cmd/{storj-sdk,bootstrap,satellite,storagenode,uplink,gateway}
-
-.PHONY: install-sdk-race
-install-sdk-race: ## install storj-sdk with race detector
-	@echo "Running ${@}"
+	## todo should this have a non race variant?
 	@go install -race -v storj.io/storj/cmd/{storj-sdk,bootstrap,satellite,storagenode,uplink,gateway}
 
 ##@ Test
