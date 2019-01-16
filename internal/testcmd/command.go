@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package testcmd
 
 import (
@@ -10,7 +13,10 @@ import (
 	"storj.io/storj/internal/testcontext"
 )
 
+// CmdEnum is an alias for the possible command options
 type CmdEnum int
+
+// Cmd is a convenience wrapper for basic command functionality
 type Cmd struct {
 	path    string
 	Process *os.Process
@@ -20,11 +26,15 @@ type Cmd struct {
 }
 
 const (
+	// CmdCertificates is an alias for certificates command
 	CmdCertificates = CmdEnum(iota)
+	// CmdIdentity is an alias for identity command
 	CmdIdentity
+	// CmdStorageNode is an alias for storagenode command
 	CmdStorageNode
 )
 
+// NewCmd instantiates a new command
 func NewCmd(name string) *Cmd {
 	return &Cmd{
 		path:    name,
@@ -35,6 +45,7 @@ func NewCmd(name string) *Cmd {
 	}
 }
 
+// Build builds commands
 func Build(ctx *testcontext.Context, cmdNames ...CmdEnum) (cmdMap map[CmdEnum]*Cmd, err error) {
 	cmdMap = make(map[CmdEnum]*Cmd)
 	for _, c := range cmdNames {

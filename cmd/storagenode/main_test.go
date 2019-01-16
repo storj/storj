@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package main
 
 import (
@@ -5,6 +8,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"os"
 
 	"storj.io/storj/internal/testidentity"
 
@@ -22,7 +26,7 @@ var (
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	m.Run()
+	os.Exit(m.Run())
 }
 
 func TestCmdRun(t *testing.T) {
