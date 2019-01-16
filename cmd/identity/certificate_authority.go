@@ -63,13 +63,15 @@ var (
 
 func init() {
 	rootCmd.AddCommand(caCmd)
+
 	caCmd.AddCommand(newCACmd)
-	cfgstruct.Bind(newCACmd.Flags(), &newCACfg, cfgstruct.ConfDir(defaultConfDir))
 	caCmd.AddCommand(getIDCmd)
-	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, cfgstruct.ConfDir(defaultConfDir))
 	caCmd.AddCommand(caExtCmd)
-	cfgstruct.Bind(caExtCmd.Flags(), &caExtCfg, cfgstruct.ConfDir(defaultConfDir))
 	caCmd.AddCommand(revokeCACmd)
+
+	cfgstruct.Bind(newCACmd.Flags(), &newCACfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(caExtCmd.Flags(), &caExtCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(revokeCACmd.Flags(), &revokeCACfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
