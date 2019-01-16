@@ -40,7 +40,7 @@ func (server *Server) Query(ctx context.Context, req *pb.QueryRequest) (*pb.Quer
 			if err != nil {
 				server.log.Error("could not respond to connection failed", zap.Error(err))
 			}
-			server.log.Error("connection to node failed", zap.Error(err), zap.String("nodeID", req.Sender.Id.String()))
+			server.log.Debug("connection to node failed", zap.Error(err), zap.String("nodeID", req.Sender.Id.String()))
 		}
 
 		err = rt.ConnectionSuccess(req.Sender)
