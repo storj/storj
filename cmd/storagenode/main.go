@@ -119,6 +119,10 @@ func init() {
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	operatorConfig := runCfg.Kademlia.Operator
+	ctx := process.Ctx(cmd)
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Error("Failed to initialize telemetry batcher:", err)
+	}
 	if err := isOperatorEmailValid(operatorConfig.Email); err != nil {
 		zap.S().Warn(err)
 	} else {
@@ -167,15 +171,14 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	overrides := map[string]interface{}{
-		"identity.cert-path":      setupCfg.Identity.CertPath,
-		"identity.key-path":       setupCfg.Identity.KeyPath,
-		"identity.server.address": defaultServerAddr,
-		"storage.path":            filepath.Join(setupDir, "storage"),
-		"log.level":               "info",
+		"log.level": "info",
+	}
+	serverAddress := cmd.Flag("server.address")
+	if !serverAddress.Changed {
+		overrides[serverAddress.Name] = defaultServerAddr
 	}
 
 	configFile := filepath.Join(setupDir, "config.yaml")
-
 	if setupCfg.SaveAllDefaults {
 		err = process.SaveConfigWithAllDefaults(cmd.Flags(), configFile, overrides)
 	} else {
@@ -309,9 +312,10 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 }
 
 func dashCmd(cmd *cobra.Command, args []string) (err error) {
-	// create new client
 	ctx := context.Background()
-	lc, err := psclient.NewLiteClient(ctx)
+
+	// create new client on localhost:7777
+	lc, err := psclient.NewLiteClient(ctx, ":7777")
 	if err != nil {
 		return err
 	}

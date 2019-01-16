@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package psclient
@@ -33,16 +33,21 @@ func (psl *PieceStoreLite) Stats(ctx context.Context) (*pb.StatSummary, error) {
 }
 
 // NewLiteClient returns a new LiteClient
-func NewLiteClient(ctx context.Context) (LiteClient, error) {
+func NewLiteClient(ctx context.Context, addr string) (LiteClient, error) {
 	clientIdent, err := provider.NewFullIdentity(ctx, 12, 4)
 	if err != nil {
 		return nil, err
 	}
 
+	// address of node to create client connection
+	if addr == "" {
+		addr = ":7777"
+	}
+
 	tc := transport.NewClient(clientIdent)
 	n := &pb.Node{
 		Address: &pb.NodeAddress{
-			Address:   ":7777",
+			Address:   addr,
 			Transport: 0,
 		},
 		Type: pb.NodeType_STORAGE,
