@@ -28,17 +28,19 @@ var (
 	}
 
 	newServiceCmd = &cobra.Command{
-		Use:   "new <service>",
-		Short: "Create a new full identity for a service",
-		Args:  cobra.ExactArgs(1),
-		RunE:  cmdNewService,
+		Use:         "new <service>",
+		Short:       "Create a new full identity for a service",
+		Args:        cobra.ExactArgs(1),
+		RunE:        cmdNewService,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	csrCmd = &cobra.Command{
-		Use:   "csr <service>",
-		Short: "Send a certificate signing request for a service's CA certificate",
-		Args:  cobra.ExactArgs(1),
-		RunE:  cmdCSR,
+		Use:         "csr <service>",
+		Short:       "Send a certificate signing request for a service's CA certificate",
+		Args:        cobra.ExactArgs(1),
+		RunE:        cmdCSR,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	config struct {

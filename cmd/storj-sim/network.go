@@ -35,6 +35,18 @@ func networkExec(flags *Flags, args []string, command string) error {
 	ctx, cancel := NewCLIContext(context.Background())
 	defer cancel()
 
+	if command == "setup" {
+		identities, err := identitySetup(processes)
+		if err != nil {
+			return err
+		}
+
+		err = identities.Exec(ctx, command)
+		if err != nil {
+			return err
+		}
+	}
+
 	err = processes.Exec(ctx, command)
 	closeErr := processes.Close()
 
@@ -229,6 +241,35 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	}
 
 	// Create directories for all processes
+	for _, process := range processes.List {
+		if err := os.MkdirAll(process.Directory, folderPermissions); err != nil {
+			return nil, err
+		}
+	}
+
+	return processes, nil
+}
+
+func identitySetup(network *Processes) (*Processes, error) {
+	processes := NewProcesses()
+
+	for _, process := range network.List {
+		identity := processes.New(Info{
+			Name:       "identity/" + process.Info.Name,
+			Executable: "identity",
+			Directory:  filepath.Join(process.Directory, "identity"),
+			Address:    "",
+		})
+
+		identity.Arguments = Arguments{
+			"setup": {
+				"--config-dir", process.Directory,
+				"new", "identity",
+			},
+		}
+	}
+
+	// create directories for all processes
 	for _, process := range processes.List {
 		if err := os.MkdirAll(process.Directory, folderPermissions); err != nil {
 			return nil, err
