@@ -4,6 +4,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -101,9 +102,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		cfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
 		cfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 	}
-	err = identity.SetupIdentity(process.Ctx(cmd), cfg.CA, cfg.Identity)
-	if err != nil {
-		return err
+
+	if cfg.Identity.Status() != identity.CertKey {
+		return errors.New("identity is missing")
 	}
 
 	overrides := map[string]interface{}{

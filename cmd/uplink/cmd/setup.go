@@ -14,6 +14,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
@@ -90,9 +91,14 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
 		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 	}
-	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
-	if err != nil {
-		return err
+
+	if setupCfg.Identity.Status() == identity.CertKey {
+		// identity already exists
+	} else {
+		err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
+		if err != nil {
+			return err
+		}
 	}
 
 	if setupCfg.GenerateMinioCerts {
