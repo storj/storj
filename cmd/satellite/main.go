@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/payments"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
@@ -52,6 +53,7 @@ type Satellite struct {
 	Discovery   discovery.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	StatDB      statdb.Config
+	Payments    payments.Config
 }
 
 var (
@@ -147,6 +149,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		runCfg.BwAgreement,
 		runCfg.Discovery,
 		runCfg.StatDB,
+		runCfg.Payments,
 	)
 }
 
