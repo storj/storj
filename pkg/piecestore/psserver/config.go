@@ -58,7 +58,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	if err != nil {
 		return err
 	}
-	defer func() { log.Fatal(s.Stop(ctx)) }()
+	defer func() {
+		if stopErr := s.Stop(ctx); stopErr != nil {
+			log.Fatal(stopErr)
+		}
+	}()
 
 	pb.RegisterPieceStoreRoutesServer(server.GRPC(), s)
 
