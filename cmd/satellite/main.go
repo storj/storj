@@ -17,6 +17,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/pkg/accounting/rollup"
+	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
@@ -53,6 +55,8 @@ type Satellite struct {
 	Discovery   discovery.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	StatDB      statdb.Config
+	Tally       tally.Config
+	Rollup      rollup.Config
 	Payments    payments.Config
 }
 
@@ -149,6 +153,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		runCfg.BwAgreement,
 		runCfg.Discovery,
 		runCfg.StatDB,
+		runCfg.Tally,
+		runCfg.Rollup,
 		runCfg.Payments,
 	)
 }
