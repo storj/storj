@@ -5,7 +5,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"path/filepath"
 	"testing"
 	"os"
@@ -20,14 +19,14 @@ import (
 	"storj.io/storj/pkg/peertls"
 )
 
-var (
-	defaultDirs = flag.Bool("default-dirs", false, "run tests which exercise commands that read/write files in the default directories")
-	prebuiltTestCmds = flag.Bool("prebuild-test-cmds", false, "run tests using pre-built cli command binaries")
-)
+func init() {
+	flag.Parse()
+}
 
 func TestMain(m *testing.M) {
-	flag.Parse()
-	os.Exit(m.Run())
+	if *testcmd.Integration {
+		os.Exit(m.Run())
+	}
 }
 
 func TestCmdRun(t *testing.T) {
@@ -37,7 +36,7 @@ func TestCmdRun(t *testing.T) {
 	cmdStorageNode, cmdIdentity := testCommands(ctx, t)
 
 	t.Run("with defaults", func(t *testing.T) {
-		if !*defaultDirs {
+		if !*testcmd.DefaultDirs {
 			t.SkipNow()
 		}
 
@@ -107,7 +106,6 @@ func TestCmdRun(t *testing.T) {
 			"--kademlia.operator.wallet", "0x6839992C7F5Bfbe7a3675C1d0aB06D33fcE084FA",
 			"--kademlia.operator.email", "user@example.com",
 		)
-		fmt.Println(cmdStorageNode.Stderr)
 		if !assert.NoError(t, err) {
 			t.Fatal(err)
 		}
@@ -150,7 +148,7 @@ func TestCmdRun(t *testing.T) {
 }
 
 func testCommands(ctx *testcontext.Context, t *testing.T) (_, _ *testcmd.Cmd) {
-	if *prebuiltTestCmds {
+	if *testcmd.PrebuiltTestCmds {
 		return testcmd.NewCmd(testcmd.CmdIdentity.String()),
 			testcmd.NewCmd(testcmd.CmdCertificates.String())
 	}
