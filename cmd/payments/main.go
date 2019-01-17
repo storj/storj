@@ -56,7 +56,7 @@ type Payments struct {
 }
 
 func main() {
-	rootCmd.PersistentFlags().StringVarP(&port, "port", "p", ":10000", "storj-sim satellite port")
+	rootCmd.PersistentFlags().StringVarP(&port, "port", "p", ":10000", "satellite port")
 	rootCmd.AddCommand(cmdGenerate)
 	rootCmd.AddCommand(cmdTest)
 	err := rootCmd.Execute()
@@ -73,6 +73,10 @@ func NewPayments() (*Payments, error) {
 		return &Payments{}, ErrIdentity.Wrap(err)
 	}
 	tc := transport.NewClient(identity)
+	
+	// TODO: this might be blocked after requiring authorization
+	// use satellite identity or later private grpc
+	fmt.Println("Warning: created new ID, may not be able to connect to satellite")
 	conn, err := tc.DialAddress(ctx, port)
 	if err != nil {
 		return &Payments{}, ErrPaymentsDial.Wrap(err)
