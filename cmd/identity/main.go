@@ -27,9 +27,9 @@ var (
 	}
 
 	newServiceCmd = &cobra.Command{
-		Use:   "new <service>[, ...]",
-		Short: "Create a new full identity for one or more services",
-		Args:  cobra.MinimumNArgs(1),
+		Use:   "new <service>",
+		Short: "Create a new full identity for a service",
+		Args:  cobra.ExactArgs(1),
 		RunE:  cmdNewService,
 	}
 
@@ -68,28 +68,29 @@ func main() {
 
 func cmdNewService(cmd *cobra.Command, args []string) error {
 	serviceErrs := new(errs.Group)
-	for _, service := range args {
-		serviceDir := filepath.Join(config.BaseDir, service)
-		caCertPath := filepath.Join(serviceDir, "ca.cert")
-		caKeyPath := filepath.Join(serviceDir, "ca.key")
-		identCertPath := filepath.Join(serviceDir, "identity.cert")
-		identKeyPath := filepath.Join(serviceDir, "identity.key")
 
-		ca, err := identity.CASetupConfig{
-			CertPath: caCertPath,
-			KeyPath:  caKeyPath,
-		}.Create(process.Ctx(cmd))
-		if err != nil {
-			serviceErrs.Add(err)
-		}
+	service := args[0]
 
-		_, err = identity.SetupConfig{
-			CertPath: identCertPath,
-			KeyPath:  identKeyPath,
-		}.Create(ca)
-		if err != nil {
-			serviceErrs.Add(err)
-		}
+	serviceDir := filepath.Join(config.BaseDir, service)
+	caCertPath := filepath.Join(serviceDir, "ca.cert")
+	caKeyPath := filepath.Join(serviceDir, "ca.key")
+	identCertPath := filepath.Join(serviceDir, "identity.cert")
+	identKeyPath := filepath.Join(serviceDir, "identity.key")
+
+	ca, err := identity.CASetupConfig{
+		CertPath: caCertPath,
+		KeyPath:  caKeyPath,
+	}.Create(process.Ctx(cmd))
+	if err != nil {
+		serviceErrs.Add(err)
+	}
+
+	_, err = identity.SetupConfig{
+		CertPath: identCertPath,
+		KeyPath:  identKeyPath,
+	}.Create(ca)
+	if err != nil {
+		serviceErrs.Add(err)
 	}
 
 	return serviceErrs.Err()

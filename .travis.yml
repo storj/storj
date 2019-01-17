@@ -64,7 +64,7 @@ matrix:
         - golangci-lint run
         # - gospace istidy
 
-    ### service & cli acceptance tests ###
+    ### integration tests ###
     - env: MODE=integration
       services:
         - redis
