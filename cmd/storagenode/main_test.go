@@ -5,9 +5,9 @@ package main
 
 import (
 	"flag"
+	"os"
 	"path/filepath"
 	"testing"
-	"os"
 
 	"storj.io/storj/internal/testidentity"
 

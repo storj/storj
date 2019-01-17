@@ -5,14 +5,15 @@ package main
 
 import (
 	"flag"
-	"github.com/stretchr/testify/assert"
-	"github.com/zeebo/errs"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/testcmd"
 	"storj.io/storj/internal/testcontext"
