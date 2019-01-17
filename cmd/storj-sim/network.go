@@ -114,6 +114,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	})
 
 	bootstrap.Arguments = withCommon(Arguments{
+		"setup": {},
 		"run": {
 			"--kademlia.bootstrap-addr", bootstrap.Address,
 			"--kademlia.operator.email", "bootstrap@example.com",
@@ -137,6 +138,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.WaitForStart(bootstrap)
 
 		process.Arguments = withCommon(Arguments{
+			"setup": {},
 			"run": {
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--server.address", process.Address,
@@ -166,6 +168,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.WaitForStart(satellite)
 
 		process.Arguments = withCommon(Arguments{
+			"setup": {
+				"--satellite-addr", satellite.Address,
+			},
 			"run": {
 				"--server.address", process.Address,
 				"--minio.access-key", accessKey,
@@ -195,6 +200,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.WaitForStart(bootstrap)
 
 		process.Arguments = withCommon(Arguments{
+			"setup": {},
 			"run": {
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
