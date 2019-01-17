@@ -5,15 +5,14 @@ package main
 
 import (
 	"flag"
+	"github.com/stretchr/testify/assert"
+	"github.com/zeebo/errs"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/testcmd"
 	"storj.io/storj/internal/testcontext"
@@ -27,7 +26,7 @@ func init() {
 
 func TestMain(m *testing.M) {
 	if *testcmd.Integration {
-		m.Run()
+		os.Exit(m.Run())
 	}
 }
 
@@ -302,8 +301,18 @@ func TestCmdSigningRequest(t *testing.T) {
 		// Create identity
 		testidentity.NewTestIdentityFromCmd(t, cmdIdentity, caConfig.FullConfig(), identConfig.FullConfig())
 
+		// Create signer cert
+		err := cmdIdentity.Run(
+			"ca", "new",
+			"--ca.cert-path", signerCertPath,
+			"--ca.key-path", signerKeyPath,
+		)
+		if !assert.NoError(err) {
+			t.Fatal(err)
+		}
+
 		// Start CSR service
-		err := cmdCertificates.Start(
+		err = cmdCertificates.Start(
 			append([]string{
 				"run",
 				"--signer.min-difficulty", "0",
@@ -313,19 +322,7 @@ func TestCmdSigningRequest(t *testing.T) {
 		if !assert.NoError(err) {
 			t.Fatal(err)
 		}
-		certsServerProcess := *cmdCertificates.Process
 		time.Sleep(1 * time.Second)
-		ctx.Check(certsServerProcess.Kill)
-
-		// Create signer cert
-		err = cmdIdentity.Run(
-			"ca", "new",
-			"--ca.cert-path", signerCertPath,
-			"--ca.key-path", signerKeyPath,
-		)
-		if !assert.NoError(err) {
-			t.Fatal(err)
-		}
 
 		// Sign identity
 		err = cmdIdentity.Run(
@@ -334,6 +331,8 @@ func TestCmdSigningRequest(t *testing.T) {
 			"--signer.address", csrAddress,
 			"--signer.auth-token", *token,
 		)
+		// TODO: need a more robust way to ensure CSR server is killed *always*
+		ctx.Check(cmdCertificates.Kill)
 		if !assert.NoError(err) {
 			t.Fatal(err)
 		}

@@ -13,10 +13,10 @@ import (
 	"storj.io/storj/internal/testcontext"
 )
 
-// CmdEnum is an alias for the possible command options
+// CmdEnum is an alias for the possible command options.
 type CmdEnum int
 
-// Cmd is a convenience wrapper for basic command functionality
+// Cmd is a convenience wrapper for basic command functionality.
 type Cmd struct {
 	path    string
 	Process *os.Process
@@ -34,7 +34,7 @@ const (
 	CmdStorageNode
 )
 
-// NewCmd instantiates a new command
+// NewCmd instantiates a new command.
 func NewCmd(name string) *Cmd {
 	return &Cmd{
 		path:    name,
@@ -45,7 +45,7 @@ func NewCmd(name string) *Cmd {
 	}
 }
 
-// Build builds commands
+// Build builds commands.
 func Build(ctx *testcontext.Context, cmdNames ...CmdEnum) (cmdMap map[CmdEnum]*Cmd, err error) {
 	cmdMap = make(map[CmdEnum]*Cmd)
 	for _, c := range cmdNames {
@@ -67,6 +67,7 @@ func Build(ctx *testcontext.Context, cmdNames ...CmdEnum) (cmdMap map[CmdEnum]*C
 	return cmdMap, err
 }
 
+// Run executes the command and waits for it to finish.
 func (c Cmd) Run(args ...string) error {
 	cmd := exec.Command(c.path, args...)
 	cmd.Stdout = c.Stdout
@@ -78,10 +79,14 @@ func (c Cmd) Run(args ...string) error {
 	if err != nil {
 		log.Println(c.Stderr.String())
 	}
+	// TODO: figure out why this doesn't work
+	//c.Process = cmd.Process
+	//nolint
 	*c.Process = *cmd.Process
 	return err
 }
 
+// Start executes the command but does not wait for it to finish.
 func (c Cmd) Start(args ...string) error {
 	cmd := exec.Command(c.path, args...)
 	cmd.Stdout = c.Stdout
@@ -93,14 +98,19 @@ func (c Cmd) Start(args ...string) error {
 	if err != nil {
 		log.Println(c.Stderr.String())
 	}
+	// TODO: figure out why this doesn't work
+	//c.Process = cmd.Process
+	//nolint
 	*c.Process = *cmd.Process
 	return err
 }
 
+// Kill causes the command's process to exit.
 func (c Cmd) Kill() error {
 	return c.Process.Kill()
 }
 
+// UnreadStdout returns the unread portion of the stdout buffer of the command.
 func (c Cmd) UnreadStdout() (*bytes.Buffer, error) {
 	stdout := new(bytes.Buffer)
 	_, err := c.Stdout.WriteTo(stdout)
@@ -110,6 +120,7 @@ func (c Cmd) UnreadStdout() (*bytes.Buffer, error) {
 	return stdout, err
 }
 
+// DrainStdout drains the stdout buffer of the command.
 func (c Cmd) DrainStdout() error {
 	if _, err := c.UnreadStdout(); err != nil {
 		return err
@@ -117,6 +128,7 @@ func (c Cmd) DrainStdout() error {
 	return nil
 }
 
+// String returns the command dir/package name of its respective enum alias.
 func (c CmdEnum) String() string {
 	switch c {
 	case CmdCertificates:

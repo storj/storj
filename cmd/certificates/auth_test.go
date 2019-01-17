@@ -5,6 +5,7 @@ package main
 
 import (
 	"flag"
+	"os"
 	"strconv"
 	"testing"
 
@@ -20,7 +21,7 @@ func init() {
 
 func TestMain(m *testing.M) {
 	if *testcmd.Integration {
-		m.Run()
+		os.Exit(m.Run())
 	}
 }
 
