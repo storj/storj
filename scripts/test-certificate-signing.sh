@@ -34,7 +34,6 @@ trap "cleanup" EXIT
 
 certificates_dir=${tmp}/cert-signing
 storagenode_dir=${tmp}/storagenode
-creds_dir=${tmp}/creds
 
 # TODO: create separate signer CA and use `--signer.ca` options
 #                    --signer.ca.cert-path ${signer_cert} \
@@ -64,8 +63,8 @@ bg=$!
 sleep 1
 
 echo "setting up storage node"
-$identity new storagenode --base-dir ${creds_dir}
-$identity csr --base-dir ${creds_dir} \
+$storagenode setup --config-dir ${storagenode_dir} \
+                   --ca.difficulty ${difficulty} \
                    --signer.address ${signer_address} \
                    --signer.auth-token ${token}
 

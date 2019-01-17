@@ -26,8 +26,6 @@ func init() {
 func TestMain(m *testing.M) {
 	if *testcmd.Integration {
 		os.Exit(m.Run())
-	} else {
-		os.Exit(0)
 	}
 }
 

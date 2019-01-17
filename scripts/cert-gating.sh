@@ -21,9 +21,9 @@ case $1 in
 		echo "usage: $(basename $0) [setup|alpha|unauthorized]"
 	;;
 	setup)
-		temp_build storj-sim identity
-		echo "setting up storj-sim"
-		"$storj_sim" network setup
+		temp_build captplanet identity
+		echo "setting up captplanet"
+		"$captplanet" setup
 		echo "clearing whitelist"
 		echo > ${ca_whitelist}
 		echo -n "generating alpha certificate authorities.."
@@ -64,18 +64,18 @@ case $1 in
 		cat ${basepath}/config.yaml | sed -E "s,peer-ca-whitelist-path: \"\",peer-ca-whitelist-path: $ca_whitelist,g" >"$unauthorized_config"
 	;;
 	alpha)
-		build storj-sim
-		${storj_sim} network run --config ${alpha_config}
+		build captplanet
+		${captplanet} run --config ${alpha_config}
 	;;
 	unauthorized)
-		build storj-sim
-		${storj_sim} network run --config ${unauthorized_config}
+		build captplanet
+		${captplanet} run --config ${unauthorized_config}
 	;;
 	run)
-		${storj_sim} network run
+		${captplanet} run
 	;;
 	*)
-		$0 --help
+		$@ --help
 	;;
 esac
 
