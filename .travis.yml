@@ -74,7 +74,7 @@ matrix:
       script:
         - set -o pipefail && make test-sim |& go run scripts/fail-on-race.go
         - set -o pipefail && make test-certificate-signing |& go run scripts/fail-on-race.go
-        - makke test-cli
+        - make test-cli
 
     ### Docker tests ###
     - env: MODE=docker
