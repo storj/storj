@@ -126,14 +126,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	})
 
 	bootstrap.Arguments = withCommon(Arguments{
-		"setup": {
-			"--ca.cert-path", filepath.Join(bootstrap.Directory, "identity", "ca.cert"),
-			"--ca.key-path", filepath.Join(bootstrap.Directory, "identity", "ca.key"),
-			"--identity.cert-path", filepath.Join(bootstrap.Directory, "identity", "identity.cert"),
-			"--identity.key-path", filepath.Join(bootstrap.Directory, "identity", "identity.key"),
-			"--server.identity.cert-path", filepath.Join(bootstrap.Directory, "identity", "identity.cert"),
-			"--server.identity.key-path", filepath.Join(bootstrap.Directory, "identity", "identity.key"),
-		},
+		"setup": {},
 		"run": {
 			"--kademlia.bootstrap-addr", bootstrap.Address,
 			"--kademlia.operator.email", "bootstrap@example.com",
@@ -157,14 +150,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.WaitForStart(bootstrap)
 
 		process.Arguments = withCommon(Arguments{
-			"setup": {
-				"--ca.cert-path", filepath.Join(process.Directory, "identity", "ca.cert"),
-				"--ca.key-path", filepath.Join(process.Directory, "identity", "ca.key"),
-				"--identity.cert-path", filepath.Join(process.Directory, "identity", "identity.cert"),
-				"--identity.key-path", filepath.Join(process.Directory, "identity", "identity.key"),
-				"--server.identity.cert-path", filepath.Join(process.Directory, "identity", "identity.cert"),
-				"--server.identity.key-path", filepath.Join(process.Directory, "identity", "identity.key"),
-			},
+			"setup": {},
 			"run": {
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--server.address", process.Address,
@@ -195,11 +181,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
-				"--ca.cert-path", filepath.Join(process.Directory, "identity", "ca.cert"),
-				"--ca.key-path", filepath.Join(process.Directory, "identity", "ca.key"),
-				"--identity.cert-path", filepath.Join(process.Directory, "identity", "identity.cert"),
-				"--identity.key-path", filepath.Join(process.Directory, "identity", "identity.key"),
-
 				"--satellite-addr", satellite.Address,
 			},
 			"run": {
@@ -231,10 +212,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.WaitForStart(bootstrap)
 
 		process.Arguments = withCommon(Arguments{
-			"setup": {
-				"--server.identity.cert-path", filepath.Join(process.Directory, "identity", "identity.cert"),
-				"--server.identity.key-path", filepath.Join(process.Directory, "identity", "identity.key"),
-			},
+			"setup": {},
 			"run": {
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
@@ -279,14 +257,14 @@ func identitySetup(network *Processes) (*Processes, error) {
 		identity := processes.New(Info{
 			Name:       "identity/" + process.Info.Name,
 			Executable: "identity",
-			Directory:  filepath.Join(process.Directory, "identity"),
+			Directory:  process.Directory,
 			Address:    "",
 		})
 
 		identity.Arguments = Arguments{
 			"setup": {
 				"--config-dir", process.Directory,
-				"new", "identity",
+				"new", ".",
 			},
 		}
 	}

@@ -175,8 +175,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
 		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 	}
-
-	if !(setupCfg.CA.Status() == identity.CertKey && setupCfg.Identity.Status() == identity.CertKey) {
+	if setupCfg.Identity.Status() != identity.CertKey {
 		return errors.New("identity is missing")
 	}
 
