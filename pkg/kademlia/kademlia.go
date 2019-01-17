@@ -199,7 +199,6 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		break
 	}
 
 	bootstrapContext, bootstrapCancel := context.WithCancel(ctx)
