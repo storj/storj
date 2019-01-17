@@ -56,7 +56,7 @@ type Payments struct {
 }
 
 func main() {
-	rootCmd.PersistentFlags().StringVarP(&port, "port", "p", ":10000", "storj-sdk satellite port")
+	rootCmd.PersistentFlags().StringVarP(&port, "port", "p", ":10000", "storj-sim satellite port")
 	rootCmd.AddCommand(cmdGenerate)
 	rootCmd.AddCommand(cmdTest)
 	err := rootCmd.Execute()

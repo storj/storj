@@ -112,7 +112,6 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 
 	for _, row := range rows {
 		nid := row.NodeID
-		fmt.Println(len(nid))
 		wallet, err := srv.overlayDB.GetWalletAddress(ctx, nid)
 		if err != nil {
 			return nil, PaymentsError.Wrap(err)

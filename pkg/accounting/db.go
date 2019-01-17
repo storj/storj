@@ -57,5 +57,5 @@ type DB interface {
 	// QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
 	// Adds records to rollup for testing (TODO: remove before merge)
-	TestPayments(ctx context.Context) (error)
+	TestPayments(ctx context.Context) error
 }
