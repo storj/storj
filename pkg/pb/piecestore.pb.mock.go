@@ -39,6 +39,11 @@ func (m *MockPieceStoreRoutesClient) EXPECT() *MockPieceStoreRoutesClientMockRec
 	return m.recorder
 }
 
+// Dashboard returns an object that mocks out the dashboard calls to pass tests
+func (m *MockPieceStoreRoutesClient) Dashboard(ctx context.Context, req *DashboardReq, opts ...grpc.CallOption) (PieceStoreRoutes_DashboardClient, error) {
+	return nil, nil
+}
+
 // Delete mocks base method
 func (m *MockPieceStoreRoutesClient) Delete(arg0 context.Context, arg1 *PieceDelete, arg2 ...grpc.CallOption) (*PieceDeleteSummary, error) {
 	varargs := []interface{}{arg0, arg1}

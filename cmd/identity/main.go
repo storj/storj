@@ -131,11 +131,21 @@ func cmdCSR(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	err = caConfig.SaveBackup(ca)
+	if err != nil {
+		return err
+	}
+
 	ca.Cert = signedChain[0]
 	ca.RestChain = signedChain[1:]
 	err = identity.FullCAConfig{
 		CertPath: caConfig.CertPath,
 	}.Save(ca)
+	if err != nil {
+		return err
+	}
+
+	err = identConfig.SaveBackup(ident)
 	if err != nil {
 		return err
 	}

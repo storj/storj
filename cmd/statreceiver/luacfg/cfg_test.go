@@ -7,8 +7,16 @@ import (
 	"bytes"
 	"fmt"
 
+	"storj.io/storj/internal/testcmd"
+
 	"storj.io/storj/cmd/statreceiver/luacfg"
 )
+
+func init() {
+	// NB: `flag.Parse()` is called in an import and causes an error when passing
+	//	   flags to cmd tests unless they're defined.
+	testcmd.Noop()
+}
 
 func Example() {
 	scope := luacfg.NewScope()

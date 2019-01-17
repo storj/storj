@@ -29,8 +29,8 @@ func main() {
 	var flags Flags
 
 	rootCmd := &cobra.Command{
-		Use:   "storj-sdk",
-		Short: "Storj SDK",
+		Use:   "storj-sim",
+		Short: "Storj Network Simulator",
 	}
 
 	defaultConfigDir := fpath.ApplicationDir("storj", "local-network")

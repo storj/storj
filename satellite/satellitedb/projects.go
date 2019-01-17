@@ -11,7 +11,7 @@ import (
 
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite/console"
-	dbx "storj.io/storj/satellite/satellitedb/consoledbx"
+	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // implementation of Projects interface repository using spacemonkeygo/dbx orm

@@ -65,12 +65,12 @@ proto: ## Rebuild protobuf files
 	go run scripts/protobuf.go install
 	go run scripts/protobuf.go generate
 
-##@ SDK
+##@ Simulator
 
-.PHONY: install-sdk
-install-sdk: ## install storj-sdk
+.PHONY: install-sim
+install-sim: ## install storj-sim
 	@echo "Running ${@}"
-	@go install -race -v storj.io/storj/cmd/storj-sdk storj.io/storj/cmd/bootstrap storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode storj.io/storj/cmd/uplink storj.io/storj/cmd/gateway
+	@go install -race -v storj.io/storj/cmd/storj-sim storj.io/storj/cmd/bootstrap storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode storj.io/storj/cmd/uplink storj.io/storj/cmd/gateway
 
 ##@ Test
 
@@ -79,15 +79,15 @@ test: ## Run tests on source code (travis)
 	go test -race -v -cover -coverprofile=.coverprofile ./...
 	@echo done
 
-.PHONY: test-captplanet
-test-captplanet: ## Test source with captain planet (travis)
-	@echo "Running ${@}"
-	@./scripts/test-captplanet.sh
+.PHONY: test-cli
+test-cli: ## Run cli command tests
+	go test -race -v -cover -coverprofile=.coverprofile ./cmd/... -args -integration -prebuilt-test-cmds
+	@echo done
 
-.PHONY: test-sdk
-test-sdk: ## Test source with storj-sdk (travis)
+.PHONY: test-sim
+test-sim: ## Test source with storj-sim (travis)
 	@echo "Running ${@}"
-	@./scripts/test-sdk.sh
+	@./scripts/test-sim.sh
 
 .PHONY: test-certificate-signing
 test-certificate-signing: ## Test certificate signing service and storagenode setup (travis)

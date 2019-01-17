@@ -79,3 +79,43 @@ CREATE TABLE overlay_cache_nodes (
 	PRIMARY KEY ( node_id ),
 	UNIQUE ( node_id )
 );
+CREATE TABLE projects (
+	id bytea NOT NULL,
+	name text NOT NULL,
+	description text NOT NULL,
+	terms_accepted integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE users (
+	id bytea NOT NULL,
+	first_name text NOT NULL,
+	last_name text NOT NULL,
+	email text NOT NULL,
+	password_hash bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( email )
+);
+CREATE TABLE api_keys (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	key bytea NOT NULL,
+	name text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( key ),
+	UNIQUE ( name, project_id )
+);
+CREATE TABLE bucket_infos (
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	name text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( name )
+);
+CREATE TABLE project_members (
+	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( member_id, project_id )
+);

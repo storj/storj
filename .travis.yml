@@ -64,16 +64,17 @@ matrix:
         - golangci-lint run
         # - gospace istidy
 
-    ### service integration tests ###
+    ### service & cli acceptance tests ###
     - env: MODE=integration
       services:
         - redis
       install:
         - source scripts/install-awscli.sh
-        - go install -race storj.io/storj/cmd/{storj-sdk,bootstrap,satellite,storagenode,uplink,gateway,certificates}
+        - go install -race storj.io/storj/cmd/{storj-sdk,bootstrap,satellite,storagenode,uplink,gateway,certificates,identity}
       script:
-        - set -o pipefail && make test-sdk |& go run scripts/fail-on-race.go
+        - set -o pipefail && make test-sim |& go run scripts/fail-on-race.go
         - set -o pipefail && make test-certificate-signing |& go run scripts/fail-on-race.go
+        - makke test-cli
 
     ### Docker tests ###
     - env: MODE=docker

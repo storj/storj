@@ -6,13 +6,18 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"text/tabwriter"
 
+	"github.com/fatih/color"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -20,6 +25,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/process"
@@ -64,9 +70,16 @@ var (
 		Short: "Diagnostic Tool support",
 		RunE:  cmdDiag,
 	}
-
-	runCfg   StorageNode
-	setupCfg StorageNode
+	dashboardCmd = &cobra.Command{
+		Use:   "dashboard",
+		Short: "Display a dashbaord",
+		RunE:  dashCmd,
+	}
+	runCfg       StorageNode
+	setupCfg     StorageNode
+	dashboardCfg struct {
+		Address string `default:":28967" help:"address for dashboard service"`
+	}
 
 	diagCfg struct {
 	}
@@ -79,7 +92,6 @@ var (
 )
 
 const (
-	// default server address, only for storage node
 	defaultServerAddr = ":28967"
 )
 
@@ -94,6 +106,10 @@ func init() {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
+	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
 	rootCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for storagenode identity credentials")
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
@@ -101,10 +117,12 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
+	rootCmd.AddCommand(dashboardCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir))
+	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg)
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -130,7 +148,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Error("Failed to initialize telemetry batcher:", err)
 	}
 
-	return runCfg.Server.Run(ctx, nil, runCfg.Kademlia, runCfg.Storage)
+	return runCfg.Server.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -290,6 +308,71 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	return err
 }
 
+func dashCmd(cmd *cobra.Command, args []string) (err error) {
+	ctx := context.Background()
+
+	// create new client
+	lc, err := psclient.NewLiteClient(ctx, dashboardCfg.Address)
+	if err != nil {
+		return err
+	}
+
+	stream, err := lc.Dashboard(ctx)
+	if err != nil {
+		return err
+	}
+
+	for {
+		data, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		clr()
+		heading := color.New(color.FgGreen, color.Bold)
+
+		_, _ = heading.Printf("\nStorage Node Dashboard Stats\n")
+		_, _ = heading.Printf("\n===============================\n")
+
+		fmt.Fprintf(color.Output, "Node ID: %s\n", color.BlueString(data.GetNodeId()))
+
+		if data.GetConnection() {
+			fmt.Fprintf(color.Output, "%s ", color.GreenString("ONLINE"))
+		} else {
+			fmt.Fprintf(color.Output, "%s ", color.RedString("OFFLINE"))
+		}
+
+		uptime, err := ptypes.Duration(data.GetUptime())
+		if err != nil {
+			color.Red(" %+v \n", err)
+		} else {
+			color.Yellow(" %s \n", uptime)
+		}
+
+		fmt.Fprintf(color.Output, "Node Connections: %+v\n", whiteInt(data.GetNodeConnections()))
+
+		color.Green("\nIO\t\tAvailable\tUsed\n--\t\t---------\t----")
+		stats := data.GetStats()
+		if stats != nil {
+			fmt.Fprintf(color.Output, "Bandwidth\t%+v\t%+v\n", whiteInt(stats.GetAvailableBandwidth()), whiteInt(stats.GetUsedBandwidth()))
+			fmt.Fprintf(color.Output, "Disk\t\t%+v\t%+v\n", whiteInt(stats.GetAvailableSpace()), whiteInt(stats.GetUsedSpace()))
+		} else {
+			color.Yellow("Loading...")
+		}
+
+	}
+
+	return nil
+}
+
+func whiteInt(value int64) string {
+	return color.WhiteString(fmt.Sprintf("%+v", value))
+}
+
 func isOperatorEmailValid(email string) error {
 	if email == "" {
 		return fmt.Errorf("Operator mail address isn't specified")
@@ -306,6 +389,42 @@ func isOperatorWalletValid(wallet string) error {
 		return fmt.Errorf("Operator wallet address isn't valid")
 	}
 	return nil
+}
+
+// clr clears the screen so it can be redrawn
+func clr() {
+	var clear = make(map[string]func())
+	clear["linux"] = func() {
+		cmd := exec.Command("clear")
+		cmd.Stdout = os.Stdout
+		err := cmd.Run()
+		if err != nil {
+			_ = fmt.Errorf("Linux clear screen command returned an error %+v", err)
+		}
+	}
+	clear["darwin"] = func() {
+		cmd := exec.Command("clear")
+		cmd.Stdout = os.Stdout
+		err := cmd.Run()
+		if err != nil {
+			_ = fmt.Errorf("MacOS clear screen command returned an error %+v", err)
+		}
+	}
+	clear["windows"] = func() {
+		cmd := exec.Command("cmd", "/c", "cls")
+		cmd.Stdout = os.Stdout
+		err := cmd.Run()
+		if err != nil {
+			_ = fmt.Errorf("Windows clear screen command returned an error %+v", err)
+		}
+	}
+
+	value, ok := clear[runtime.GOOS]
+	if ok {
+		value()
+	} else {
+		panic("Your platform is unsupported! I can't clear terminal screen :(")
+	}
 }
 
 func main() {

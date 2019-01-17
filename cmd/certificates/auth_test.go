@@ -4,6 +4,8 @@
 package main
 
 import (
+	"flag"
+	"os"
 	"strconv"
 	"testing"
 
@@ -12,6 +14,16 @@ import (
 	"storj.io/storj/internal/testcmd"
 	"storj.io/storj/internal/testcontext"
 )
+
+func init() {
+	flag.Parse()
+}
+
+func TestMain(m *testing.M) {
+	if *testcmd.Integration {
+		os.Exit(m.Run())
+	}
+}
 
 func TestCmdCreateAuth(t *testing.T) {
 	assert := assert.New(t)
