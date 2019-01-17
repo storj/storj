@@ -92,9 +92,6 @@ func (size Size) String() string {
 // number in that base from least significant to most, stopping when a non-zero
 // value is hit.
 func countZeros(num, base int64) (count int) {
-	if num < 0 {
-		num *= -1
-	}
 	for num != 0 && num%base == 0 {
 		num /= base
 		count++
