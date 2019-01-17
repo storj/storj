@@ -126,7 +126,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		},
 	})
 
-	// Create satellites making the first satellite bootstrap
+	// Create satellites making all satellites wait for bootstrap to start
 	var satellites []*Process
 	for i := 0; i < flags.SatelliteCount; i++ {
 		process := processes.New(Info{
@@ -198,7 +198,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("storagenode/%d", i),
 			Executable: "storagenode",
-			Directory:  filepath.Join(configDir, "storage", fmt.Sprint(i)),
+			Directory:  filepath.Join(configDir, "storagenode", fmt.Sprint(i)),
 			Address:    net.JoinHostPort(host, strconv.Itoa(storageNodePort+i)),
 		})
 
