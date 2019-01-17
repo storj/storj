@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/certificates"
@@ -40,9 +41,7 @@ var (
 		RunE:  cmdCSR,
 	}
 
-	//nolint
 	config struct {
-		BaseDir        string `default:"$CONFDIR/identity" help:"Directory containing service subdirectories"`
 		Difficulty     uint64 `default:"15" help:"minimum difficulty for identity generation"`
 		Timeout        string `default:"5m" help:"timeout for CA generation; golang duration string (0 no timeout)"`
 		Concurrency    uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
@@ -51,10 +50,22 @@ var (
 		Signer         certificates.CertClientConfig
 	}
 
+	confDir        string
 	defaultConfDir = fpath.ApplicationDir("storj", "identity")
 )
 
 func init() {
+	dirParam := cfgstruct.FindConfigDirParam()
+	if dirParam != "" {
+		defaultConfDir = dirParam
+	}
+
+	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
+	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
+
 	rootCmd.AddCommand(newServiceCmd)
 	rootCmd.AddCommand(csrCmd)
 
@@ -66,40 +77,36 @@ func main() {
 	process.Exec(rootCmd)
 }
 
+func serviceDirectory(serviceName string) string {
+	return filepath.Join(confDir, serviceName)
+}
+
 func cmdNewService(cmd *cobra.Command, args []string) error {
-	serviceErrs := new(errs.Group)
+	serviceDir := serviceDirectory(args[0])
 
-	service := args[0]
-
-	serviceDir := filepath.Join(config.BaseDir, service)
 	caCertPath := filepath.Join(serviceDir, "ca.cert")
 	caKeyPath := filepath.Join(serviceDir, "ca.key")
 	identCertPath := filepath.Join(serviceDir, "identity.cert")
 	identKeyPath := filepath.Join(serviceDir, "identity.key")
 
-	ca, err := identity.CASetupConfig{
+	ca, caerr := identity.CASetupConfig{
 		CertPath: caCertPath,
 		KeyPath:  caKeyPath,
 	}.Create(process.Ctx(cmd))
-	if err != nil {
-		serviceErrs.Add(err)
-	}
 
-	_, err = identity.SetupConfig{
+	_, iderr := identity.SetupConfig{
 		CertPath: identCertPath,
 		KeyPath:  identKeyPath,
 	}.Create(ca)
-	if err != nil {
-		serviceErrs.Add(err)
-	}
 
-	return serviceErrs.Err()
+	return errs.Combine(caerr, iderr)
 }
 
 func cmdCSR(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	serviceDir := filepath.Join(config.BaseDir, args[0])
+	serviceDir := serviceDirectory(args[0])
+
 	caCertPath := filepath.Join(serviceDir, "ca.cert")
 	caKeyPath := filepath.Join(serviceDir, "ca.key")
 	caConfig := identity.FullCAConfig{
