@@ -55,7 +55,7 @@ func (sc Config) Run(ctx context.Context,
 
 	go func() {
 		<-ctx.Done()
-		s.Close()
+		_ = s.Close()
 	}()
 
 	zap.S().Infof("Node %s started on %s", s.Identity().ID, sc.Address)
