@@ -79,8 +79,31 @@ func (size Size) PB() float64 { return size.Float64() / PB.Float64() }
 // EB returns size in exabytes
 func (size Size) EB() float64 { return size.Float64() / EB.Float64() }
 
-// String converts size to a string
+// String converts size to a string using base-2 prefixes, unless the number
+// appears to be in base 10.
 func (size Size) String() string {
+	if countZeros(int64(size), 1000) > countZeros(int64(size), 1024) {
+		return size.Base10String()
+	}
+	return size.Base2String()
+}
+
+// countZeros considers a number num in base base. It counts zeros of that
+// number in that base from least significant to most, stopping when a non-zero
+// value is hit.
+func countZeros(num, base int64) (count int) {
+	if num < 0 {
+		num *= -1
+	}
+	for num != 0 && num%base == 0 {
+		num /= base
+		count++
+	}
+	return count
+}
+
+// Base2String converts size to a string using base-2 prefixes
+func (size Size) Base2String() string {
 	if size == 0 {
 		return "0"
 	}
@@ -103,7 +126,7 @@ func (size Size) String() string {
 	return strconv.Itoa(size.Int()) + " B"
 }
 
-// Base10String converts size to a string
+// Base10String converts size to a string using base-10 prefixes
 func (size Size) Base10String() string {
 	if size == 0 {
 		return "0"
