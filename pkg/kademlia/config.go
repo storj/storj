@@ -112,10 +112,14 @@ func (c Config) Run(ctx context.Context, server *provider.Provider,
 	go func() {
 		if err = kad.Bootstrap(ctx); err != nil {
 			logger.Error("Failed to bootstrap Kademlia", zap.Any("ID", server.Identity().ID))
+		} else {
+			logger.Sugar().Infof("Successfully connected to Kademlia bootstrap node %s", c.BootstrapAddr)
 		}
 	}()
 
 	pb.RegisterNodesServer(server.GRPC(), node.NewServer(logger, kad))
+
+	zap.S().Infof("Kademlia external address: %s", addr)
 
 	zap.S().Warn("Once the Peer refactor is done, the kad inspector needs to be registered on a " +
 		"gRPC server that only listens on localhost")

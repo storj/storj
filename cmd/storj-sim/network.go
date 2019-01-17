@@ -77,7 +77,7 @@ func networkDestroy(flags *Flags, args []string) error {
 		return errors.New("safety check: disallowed to remove root directory " + flags.Directory)
 	}
 	if printCommands {
-		fmt.Println("sdk | exec: rm -rf", flags.Directory)
+		fmt.Println("sim | exec: rm -rf", flags.Directory)
 	}
 	return os.RemoveAll(flags.Directory)
 }
