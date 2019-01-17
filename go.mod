@@ -24,8 +24,6 @@ require (
 	github.com/Shopify/go-lua v0.0.0-20181106184032-48449c60c0a9
 	github.com/Shopify/toxiproxy v2.1.3+incompatible // indirect
 	github.com/StackExchange/wmi v0.0.0-20180725035823-b12b22c5341f // indirect
-	github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc // indirect
-	github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf // indirect
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
 	github.com/alicebob/miniredis v0.0.0-20180911162847-3657542c8629
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da // indirect
@@ -88,7 +86,6 @@ require (
 	github.com/pierrec/lz4 v2.0.5+incompatible // indirect
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/pkg/profile v1.2.1 // indirect
-	github.com/prometheus/common v0.0.0-20180801064454-c7de2306084e
 	github.com/rcrowley/go-metrics v0.0.0-20180503174638-e2704e165165 // indirect
 	github.com/rs/cors v1.5.0 // indirect
 	github.com/shirou/gopsutil v2.17.12+incompatible
@@ -120,7 +117,6 @@ require (
 	google.golang.org/genproto v0.0.0-20181221175505-bd9b4fb69e2f // indirect
 	google.golang.org/grpc v1.16.0
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
-	gopkg.in/alecthomas/kingpin.v2 v2.2.6 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.25 // indirect
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
 	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20180827161543-6ebf5a752f9b
