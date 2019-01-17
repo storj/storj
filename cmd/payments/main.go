@@ -73,7 +73,7 @@ func NewPayments() (*Payments, error) {
 		return &Payments{}, ErrIdentity.Wrap(err)
 	}
 	tc := transport.NewClient(identity)
-	
+
 	// TODO: this might be blocked after requiring authorization
 	// use satellite identity or later private grpc
 	fmt.Println("Warning: created new ID, may not be able to connect to satellite")
