@@ -193,6 +193,15 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	if len(k.bootstrapNodes) == 0 {
 		return BootstrapErr.New("no bootstrap nodes provided")
 	}
+
+	for _, node := range k.bootstrapNodes {
+		_, err := k.nodeClient.Ping(ctx, node)
+		if err != nil {
+			return err
+		}
+		break
+	}
+
 	bootstrapContext, bootstrapCancel := context.WithCancel(ctx)
 	atomic.StorePointer(&k.bootstrapCancel, unsafe.Pointer(&bootstrapCancel))
 	//find nodes most similar to self
