@@ -44,7 +44,7 @@ func init() {
 	if dirParam != "" {
 		defaultConfDir = dirParam
 	}
-	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for captplanet configuration")
+	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for certificates configuration")
 
 	rootCmd.AddCommand(runCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
