@@ -228,6 +228,10 @@ func (s *Server) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_Dashb
 	for {
 		select {
 		case <-ctx.Done():
+			if ctx.Err() == context.Canceled {
+				return nil
+			}
+
 			return ctx.Err()
 		case <-ticker.C:
 			data, err := s.getDashboardData(ctx)

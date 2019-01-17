@@ -38,9 +38,8 @@ type Config struct {
 // Run implements provider.Responsibility
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	ctx, cancel := context.WithCancel(ctx)
 
-	//piecestore
+	// piecestore Storage Driver
 	storage := pstore.NewStorage(filepath.Join(c.Path, "piece-store-data"))
 
 	db, err := psdb.Open(ctx, storage, filepath.Join(c.Path, "piecestore.db"))
@@ -48,38 +47,43 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return ServerError.Wrap(err)
 	}
 
-	//kademlia
+	// Load kademlia from context
 	kad := kademlia.LoadFromContext(ctx)
 	if kad == nil {
 		return ServerError.New("Failed to load Kademlia from context")
 	}
 
+	// Initialize piecestore server struct
 	s, err := NewEndpoint(zap.L(), c, storage, db, server.Identity().Key, kad)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if stopErr := s.Stop(ctx); stopErr != nil {
+			log.Fatal(stopErr)
+		}
+	}()
+
 	pb.RegisterPieceStoreRoutesServer(server.GRPC(), s)
 
 	rt, err := kad.GetRoutingTable(ctx)
 	if err != nil {
 		return ServerError.Wrap(err)
 	}
+
 	krt, ok := rt.(*kademlia.RoutingTable)
 	if !ok {
 		return ServerError.New("Could not convert dht.RoutingTable to *kademlia.RoutingTable")
 	}
-	refreshProcess := newService(zap.L(), c.KBucketRefreshInterval, krt, s)
-	go func() {
-		if err := refreshProcess.Run(ctx); err != nil {
-			cancel()
-		}
-	}()
 
-	//agreementsender
+	// Initialize Refresh process for updating storage node meta in kademlia
+	refreshProcess := newService(zap.L(), c.KBucketRefreshInterval, krt, s)
+	go refreshProcess.Run(ctx)
+
+	// Initialize agreementsender process for sending received bandwidth agreements to satellites
 	agreementSender := agreementsender.New(zap.L(), s.DB, server.Identity(), kad, c.AgreementSenderCheckInterval)
 	go agreementSender.Run(ctx)
 
-	defer func() { log.Fatal(s.Stop(ctx)) }()
 	s.log.Info("Started Node", zap.String("ID", fmt.Sprint(server.Identity().ID)))
 	return server.Run(ctx)
 }
