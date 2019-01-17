@@ -52,7 +52,11 @@ func (sc Config) Run(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	defer func() { _ = s.Close() }()
+
+	go func() {
+		<-ctx.Done()
+		s.Close()
+	}()
 
 	zap.S().Infof("Node %s started on %s", s.Identity().ID, sc.Address)
 	return s.Run(ctx)

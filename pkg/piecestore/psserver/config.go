@@ -80,14 +80,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	agreementSender := agreementsender.New(zap.L(), s.DB, server.Identity(), kad, c.AgreementSenderCheckInterval)
 	go agreementSender.Run(ctx)
 
-	go func() {
-		done := ctx.Done()
-		<-done
-		if err := server.Close(); err != nil {
-			zap.L().Error("closing server", zap.Error(err))
-		}
-	}()
-
 	s.log.Info("Started Node", zap.String("ID", fmt.Sprint(server.Identity().ID)))
 	return server.Run(ctx)
 }
