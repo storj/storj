@@ -17,6 +17,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/pkg/accounting/rollup"
+	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
@@ -34,8 +36,6 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/accounting/tally"
-	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -55,8 +55,8 @@ type Satellite struct {
 	Discovery   discovery.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	StatDB      statdb.Config
-	Tally 		tally.Config
-	Rollup 		rollup.Config
+	Tally       tally.Config
+	Rollup      rollup.Config
 	Payments    payments.Config
 }
 
