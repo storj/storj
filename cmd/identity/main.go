@@ -43,6 +43,7 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 
+	//nolint
 	config struct {
 		Difficulty     uint64 `default:"15" help:"minimum difficulty for identity generation"`
 		Timeout        string `default:"5m" help:"timeout for CA generation; golang duration string (0 no timeout)"`

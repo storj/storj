@@ -71,7 +71,6 @@ matrix:
       install:
         - source scripts/install-awscli.sh
         - make install-sim
-        - go install -race ./cmd/certificate
       script:
         - set -o pipefail && make test-sim |& go run scripts/fail-on-race.go
         - set -o pipefail && make test-certificate-signing |& go run scripts/fail-on-race.go
