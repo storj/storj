@@ -79,11 +79,6 @@ test: ## Run tests on source code (travis)
 	go test -race -v -cover -coverprofile=.coverprofile ./...
 	@echo done
 
-.PHONY: test-cli
-test-cli: ## Run cli command tests
-	go test -race -v -cover -coverprofile=.coverprofile ./cmd/... -args -integration -prebuilt-test-cmds
-	@echo done
-
 .PHONY: test-sim
 test-sim: ## Test source with storj-sim (travis)
 	@echo "Running ${@}"
