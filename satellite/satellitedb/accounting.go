@@ -175,3 +175,61 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup), update)
 	return Error.Wrap(err)
 }
+
+// QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
+func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
+	s := dbx.AccountingRollup_StartTime(start)
+	e := dbx.AccountingRollup_StartTime(end)
+	data, err := db.db.All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx, s, e)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	var rows []*accounting.CSVRow
+	for _, record := range data {
+		nodeID, err := storj.NodeIDFromBytes(record.Node_Id)
+		if err != nil {
+			return rows, err
+		}
+		row := &accounting.CSVRow{
+			NodeID:            nodeID,
+			NodeCreationDate:  record.Node_CreatedAt,
+			AuditSuccessRatio: record.Node_AuditSuccessRatio,
+			AtRestTotal:       record.AccountingRollup_AtRestTotal,
+			GetRepairTotal:    record.AccountingRollup_GetRepairTotal,
+			PutRepairTotal:    record.AccountingRollup_PutRepairTotal,
+			GetAuditTotal:     record.AccountingRollup_GetAuditTotal,
+			PutTotal:          record.AccountingRollup_PutTotal,
+			GetTotal:          record.AccountingRollup_GetTotal,
+			Date:              record.AccountingRollup_StartTime,
+		}
+		rows = append(rows, row)
+	}
+	return rows, nil
+}
+
+func (db *accountingDB) TestPayments(ctx context.Context) error {
+	rows, err := db.db.All_Node_Id(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	ids := [][]byte{}
+	for _, r := range rows {
+		ids = append(ids, r.Id)
+	}
+	for i, id := range ids {
+		nID := dbx.AccountingRollup_NodeId(id)
+		st := dbx.AccountingRollup_StartTime(time.Date(2018, time.Month(i+1), i+1, 0, 0, 0, 0, time.UTC))
+		pt := dbx.AccountingRollup_PutTotal(int64(i))
+		gt := dbx.AccountingRollup_GetTotal(int64(i))
+		gat := dbx.AccountingRollup_GetAuditTotal(int64(i))
+		grt := dbx.AccountingRollup_GetRepairTotal(int64(i))
+		prt := dbx.AccountingRollup_PutRepairTotal(int64(i))
+		art := dbx.AccountingRollup_AtRestTotal(float64(i))
+		_, err = db.db.Create_AccountingRollup(ctx, nID, st, pt, gt, gat, grt, prt, art)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	return nil
+}
