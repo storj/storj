@@ -84,15 +84,11 @@ test-cli: ## Run cli command tests
 	go test -race -v -cover -coverprofile=.coverprofile ./cmd/... -args -integration -prebuilt-test-cmds
 	@echo done
 
-.PHONY: test-sim
-test-sim: ## Test source with storj-sim (travis)
+.PHONY: test-certificate-gating
+test-certificate-gating: ## Test certificate signing service and CA-whitelisting on nodes (travis)
 	@echo "Running ${@}"
-	@./scripts/test-sim.sh
-
-.PHONY: test-certificate-signing
-test-certificate-signing: ## Test certificate signing service and storagenode setup (travis)
-	@echo "Running ${@}"
-	@./scripts/test-certificate-signing.sh
+	@./scripts/test-certificate-gating.sh setup
+	@./scripts/test-certificate-gating.sh run
 
 .PHONY: test-docker
 test-docker: ## Run tests in Docker
