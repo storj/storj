@@ -6,7 +6,6 @@ package kademlia
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 
 	"google.golang.org/grpc"
 
@@ -78,9 +77,6 @@ func (pool *Pool) forceSize(ctx context.Context) error {
 func (pool *Pool) release(conn *poolConn) error {
 	pool.mu.Lock()
 	conn.refcount--
-	if atomic.LoadInt32(&pool.closed) == 1 {
-
-	}
 	pool.mu.Unlock()
 	return err
 }
@@ -92,6 +88,10 @@ func (pool *Pool) releaser(conn *poolConn) func() error {
 func (pool *Pool) connect(ctx context.Context, to pb.Node) (*poolConn, func() error, error) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
+
+	if pool.closed {
+		return nil, func() error { return nil }, context.Canceled
+	}
 
 	for i, conn := range pool.recent {
 		// TODO: verify also other properties
