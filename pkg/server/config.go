@@ -52,7 +52,13 @@ func (sc Config) Run(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	defer func() { _ = s.Close() }()
+
+	go func() {
+		<-ctx.Done()
+		if closeErr := s.Close(); closeErr != nil {
+			zap.S().Errorf("Failed to close server: %s", closeErr)
+		}
+	}()
 
 	zap.S().Infof("Node %s started on %s", s.Identity().ID, sc.Address)
 	return s.Run(ctx)
