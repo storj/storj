@@ -34,7 +34,6 @@ type Conn struct {
 	refcount int32 // only modify when holding pool.mu
 
 	mu     sync.Mutex
-	err    error
 	addr   string
 	conn   *grpc.ClientConn
 	client pb.NodesClient
