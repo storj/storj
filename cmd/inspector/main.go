@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"storj.io/storj/pkg/identity"
 	"strconv"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -28,6 +29,9 @@ import (
 var (
 	// Addr is the address of peer from command flags
 	Addr = flag.String("address", "localhost:7778", "address of peer to inspect")
+
+	// Identity is the path to the identity the inspector should use for network communication
+	IdentityPath = flag.String("identity-path", "", "path to the identity certificate for use on the network")
 
 	// ErrInspectorDial throws when there are errors dialing the inspector server
 	ErrInspectorDial = errs.Class("error dialing inspector server:")
@@ -125,9 +129,13 @@ type Inspector struct {
 
 // NewInspector creates a new gRPC inspector server for access to kad
 // and the overlay cache
-func NewInspector(address string) (*Inspector, error) {
+func NewInspector(address, path string) (*Inspector, error) {
 	ctx := context.Background()
-	identity, err := provider.NewFullIdentity(ctx, 12, 4)
+	identity, err := identity.Config{
+		CertPath: fmt.Sprintf("%s/ca.cert", path),
+		KeyPath: fmt.Sprintf("%s/ca.key", path),
+	}.Load()
+
 	if err != nil {
 		return &Inspector{}, ErrIdentity.Wrap(err)
 	}
@@ -148,7 +156,7 @@ func NewInspector(address string) (*Inspector, error) {
 
 // CountNodes returns the number of nodes in kademlia
 func CountNodes(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -164,7 +172,7 @@ func CountNodes(cmd *cobra.Command, args []string) (err error) {
 
 // GetBuckets returns all buckets in the overlay cache's routing table
 func GetBuckets(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -184,7 +192,7 @@ func GetBuckets(cmd *cobra.Command, args []string) (err error) {
 
 // GetBucket returns a bucket with given `id`
 func GetBucket(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -207,7 +215,7 @@ func GetBucket(cmd *cobra.Command, args []string) (err error) {
 
 // LookupNode starts a Kademlia lookup for the provided Node ID
 func LookupNode(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -227,7 +235,7 @@ func LookupNode(cmd *cobra.Command, args []string) (err error) {
 
 // DumpNodes outputs a json list of every node in every bucket in the satellite
 func DumpNodes(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -273,7 +281,7 @@ func PingNode(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -300,7 +308,7 @@ func PingNode(cmd *cobra.Command, args []string) (err error) {
 
 // GetStats gets a node's stats from statdb
 func GetStats(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -325,7 +333,7 @@ func GetStats(cmd *cobra.Command, args []string) (err error) {
 
 // GetCSVStats gets node stats from statdb based on a csv
 func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -362,7 +370,7 @@ func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
 
 // CreateStats creates a node with stats in statdb
 func CreateStats(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -405,7 +413,7 @@ func CreateStats(cmd *cobra.Command, args []string) (err error) {
 
 // CreateCSVStats creates node with stats in statdb based on a CSV
 func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
