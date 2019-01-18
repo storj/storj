@@ -90,7 +90,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*confDir)
+	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
