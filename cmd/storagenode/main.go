@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 )
 
 // StorageNode defines storage node configuration
@@ -311,8 +312,29 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 func dashCmd(cmd *cobra.Command, args []string) (err error) {
 	ctx := context.Background()
 
+	ident, err := runCfg.Server.Identity.Load()
+	if err != nil {
+		zap.S().Fatal(err)
+	} else {
+		zap.S().Info("Node ID: ", ident.ID)
+	}
+
+	// address of node to create client connection
+	if dashboardCfg.Address == "" {
+		dashboardCfg.Address = ":7777"
+	}
+
+	tc := transport.NewClient(ident)
+	n := &pb.Node{
+		Address: &pb.NodeAddress{
+			Address:   dashboardCfg.Address,
+			Transport: 0,
+		},
+		Type: pb.NodeType_STORAGE,
+	}
+
 	// create new client
-	lc, err := psclient.NewLiteClient(ctx, dashboardCfg.Address)
+	lc, err := psclient.NewLiteClient(ctx, tc, n)
 	if err != nil {
 		return err
 	}

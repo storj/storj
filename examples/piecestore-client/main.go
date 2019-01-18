@@ -47,9 +47,10 @@ func main() {
 		Id:   serverIdent.ID,
 		Type: pb.NodeType_STORAGE,
 	}
+
 	tc := transport.NewClient(clientIdent)
 	// create a new liteclient for dashboard on localhost port 7777
-	liteClient, err := psclient.NewLiteClient(ctx, ":7777")
+	liteClient, err := psclient.NewLiteClient(ctx, tc)
 	if err != nil {
 		log.Fatalf("could not initialize lite client: %s", err)
 	}
