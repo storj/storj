@@ -46,7 +46,6 @@ var (
 	//nolint
 	config struct {
 		Difficulty     uint64 `default:"15" help:"minimum difficulty for identity generation"`
-		Timeout        string `default:"5m" help:"timeout for CA generation; golang duration string (0 no timeout)"`
 		Concurrency    uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
 		ParentCertPath string `help:"path to the parent authority's certificate chain"`
 		ParentKeyPath  string `help:"path to the parent authority's private key"`
@@ -92,15 +91,31 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 	identCertPath := filepath.Join(serviceDir, "identity.cert")
 	identKeyPath := filepath.Join(serviceDir, "identity.key")
 
-	ca, caerr := identity.CASetupConfig{
+	caConfig := identity.CASetupConfig{
 		CertPath: caCertPath,
 		KeyPath:  caKeyPath,
-	}.Create(process.Ctx(cmd))
+		Difficulty: config.Difficulty,
+		Concurrency: config.Concurrency,
+		ParentCertPath: config.ParentCertPath,
+		ParentKeyPath: config.ParentKeyPath,
+	}
 
-	_, iderr := identity.SetupConfig{
+	if caConfig.Status() != identity.NoCertNoKey {
+		return errs.New("CA certificate and/or key already exits, NOT overwriting!")
+	}
+
+	ca, caerr := caConfig.Create(process.Ctx(cmd))
+
+	identConfig := identity.SetupConfig{
 		CertPath: identCertPath,
 		KeyPath:  identKeyPath,
-	}.Create(ca)
+	}
+
+	if identConfig.Status() != identity.NoCertNoKey {
+		return errs.New("Identity certificate and/or key already exits, NOT overwriting!")
+	}
+
+	_, iderr := identConfig.Create(ca)
 
 	return errs.Combine(caerr, iderr)
 }
