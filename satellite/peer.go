@@ -110,6 +110,7 @@ type Peer struct {
 
 	Metainfo struct {
 		Database storage.KeyValueStore // TODO: move into pointerDB
+		Service  *pointerdb.Service
 		Endpoint *pointerdb.Server
 	}
 
@@ -229,7 +230,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		}
 
 		peer.Metainfo.Database = storelogger.New(peer.Log.Named("pdb"), db)
-		peer.Metainfo.Endpoint = pointerdb.NewServer(peer.Metainfo.Database, peer.Overlay.Service, peer.Log.Named("pointerdb"), config.PointerDB, peer.Identity)
+		peer.Metainfo.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Metainfo.Database)
+		peer.Metainfo.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"), peer.Metainfo.Service, peer.Overlay.Service, config.PointerDB, peer.Identity)
 		pb.RegisterPointerDBServer(peer.Public.Server.GRPC(), peer.Metainfo.Endpoint)
 	}
 
