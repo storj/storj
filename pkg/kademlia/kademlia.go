@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 )
@@ -194,11 +195,16 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return BootstrapErr.New("no bootstrap nodes provided")
 	}
 
+	var errs utils.ErrorGroup
 	for _, node := range k.bootstrapNodes {
 		_, err := k.nodeClient.Ping(ctx, node)
 		if err != nil {
-			return err
+			errs.Add(err)
 		}
+	}
+	err := errs.Finish()
+	if err != nil {
+		return err
 	}
 
 	bootstrapContext, bootstrapCancel := context.WithCancel(ctx)
@@ -208,7 +214,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	k.routingTable.mutex.Lock()
 	id := k.routingTable.self.Id
 	k.routingTable.mutex.Unlock()
-	_, err := k.lookup(bootstrapContext, id, true)
+	_, err = k.lookup(bootstrapContext, id, true)
 	return err
 }
 
