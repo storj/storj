@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"storj.io/storj/pkg/identity"
 	"strconv"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -19,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
@@ -133,7 +133,7 @@ func NewInspector(address, path string) (*Inspector, error) {
 	ctx := context.Background()
 	identity, err := identity.Config{
 		CertPath: fmt.Sprintf("%s/ca.cert", path),
-		KeyPath: fmt.Sprintf("%s/ca.key", path),
+		KeyPath:  fmt.Sprintf("%s/ca.key", path),
 	}.Load()
 
 	if err != nil {
