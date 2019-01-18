@@ -102,7 +102,7 @@ var (
 	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
 	// TODO: this path should be defined somewhere else
 	defaultCredsDir = fpath.ApplicationDir("storj", "identity", "satellite")
-	confDir        string
+	confDir         string
 	credsDir        string
 )
 
