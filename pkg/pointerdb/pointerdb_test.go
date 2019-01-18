@@ -95,7 +95,8 @@ func TestServiceGet(t *testing.T) {
 
 		db := teststore.New()
 		service := NewService(zap.NewNop(), db)
-		s := Server{service: service, logger: zap.NewNop(), identity: identity}
+		allocation := NewAllocationSigner(identity, 45)
+		s := NewServer(zap.NewNop(), service, allocation, nil, Config{}, identity)
 
 		path := "a/b/c"
 
