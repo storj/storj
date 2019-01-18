@@ -31,7 +31,7 @@ func TestCA(t *testing.T) {
 		t.Log(string(output))
 		require.NoError(t, err)
 
-		caConfig := identity.SetupConfig{
+		caConfig := identity.CASetupConfig{
 			CertPath: ctx.File("basic", "main", "ca.cert"),
 			KeyPath:  ctx.File("basic", "main", "ca.key"),
 		}
@@ -53,9 +53,9 @@ func TestCA(t *testing.T) {
 		t.Log(string(output))
 		require.NoError(t, err)
 
-		caConfig := identity.SetupConfig{
-			CertPath: ctx.File("difficulty", "custom.identity.cert"),
-			KeyPath:  ctx.File("difficulty", "custom.identity.key"),
+		caConfig := identity.CASetupConfig{
+			CertPath: ctx.File("difficulty", "custom.ca.cert"),
+			KeyPath:  ctx.File("difficulty", "custom.ca.key"),
 		}
 		assert.Equal(t, caConfig.Status(), identity.CertKey)
 
@@ -69,23 +69,6 @@ func TestCA(t *testing.T) {
 			return uint16(expectedDifficulty) <= caDifficulty
 		})
 	})
-
-	t.Run("with parent", func(t *testing.T) {
-		output, err := exec.Command(identityexe,
-			"--config-dir", ctx.Dir("basic"),
-			"--ca.difficulty", "4",
-			"ca", "new", "main",
-		).CombinedOutput()
-		t.Log(string(output))
-		require.NoError(t, err)
-
-		caConfig := identity.SetupConfig{
-			CertPath: ctx.File("basic", "main", "ca.cert"),
-			KeyPath:  ctx.File("basic", "main", "ca.key"),
-		}
-		assert.Equal(t, caConfig.Status(), identity.CertKey)
-	})
-
 }
 
 func TestNew(t *testing.T) {
