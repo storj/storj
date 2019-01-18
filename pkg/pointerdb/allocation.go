@@ -18,22 +18,22 @@ import (
 	"storj.io/storj/pkg/peertls"
 )
 
-// Allocation structure
-type Allocation struct {
+// AllocationSigner structure
+type AllocationSigner struct {
 	satelliteIdentity *identity.FullIdentity
 	bwExpiration      int
 }
 
-// NewAllocation creates new instance
-func NewAllocation(satelliteIdentity *identity.FullIdentity, bwExpiration int) *Allocation {
-	return &Allocation{
+// NewAllocationSigner creates new instance
+func NewAllocationSigner(satelliteIdentity *identity.FullIdentity, bwExpiration int) *AllocationSigner {
+	return &AllocationSigner{
 		satelliteIdentity: satelliteIdentity,
 		bwExpiration:      bwExpiration,
 	}
 }
 
 // PayerBandwidthAllocation returns generated payer bandwidth allocation
-func (allocation *Allocation) PayerBandwidthAllocation(ctx context.Context, peerIdentity *identity.PeerIdentity, action pb.PayerBandwidthAllocation_Action) (pba *pb.PayerBandwidthAllocation, err error) {
+func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context, peerIdentity *identity.PeerIdentity, action pb.PayerBandwidthAllocation_Action) (pba *pb.PayerBandwidthAllocation, err error) {
 	if peerIdentity == nil {
 		return nil, Error.New("missing peer identity")
 	}

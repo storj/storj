@@ -33,14 +33,14 @@ type Stripe struct {
 // Cursor keeps track of audit location in pointer db
 type Cursor struct {
 	pointers   *pointerdb.Service
-	allocation *pointerdb.Allocation
+	allocation *pointerdb.AllocationSigner
 	identity   *provider.FullIdentity
 	lastPath   storj.Path
 	mutex      sync.Mutex
 }
 
 // NewCursor creates a Cursor which iterates over pointer db
-func NewCursor(pointers *pointerdb.Service, allocation *pointerdb.Allocation, identity *provider.FullIdentity) *Cursor {
+func NewCursor(pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, identity *provider.FullIdentity) *Cursor {
 	return &Cursor{pointers: pointers, allocation: allocation, identity: identity}
 }
 

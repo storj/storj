@@ -64,7 +64,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(ctx context.Context, log *zap.Logger, statDBPort string, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.Allocation, transport transport.Client, overlay overlay.Client,
+func NewService(ctx context.Context, log *zap.Logger, statDBPort string, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, transport transport.Client, overlay overlay.Client,
 	identity provider.FullIdentity, apiKey string) (service *Service, err error) {
 
 	//TODO: instead of statDBPort pass in the actual database interface

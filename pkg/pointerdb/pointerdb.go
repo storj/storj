@@ -29,14 +29,14 @@ var (
 type Server struct {
 	logger     *zap.Logger
 	service    *Service
-	allocation *Allocation
+	allocation *AllocationSigner
 	cache      *overlay.Cache
 	config     Config
 	identity   *provider.FullIdentity
 }
 
 // NewServer creates instance of Server
-func NewServer(logger *zap.Logger, service *Service, allocation *Allocation, cache *overlay.Cache, config Config, identity *provider.FullIdentity) *Server {
+func NewServer(logger *zap.Logger, service *Service, allocation *AllocationSigner, cache *overlay.Cache, config Config, identity *provider.FullIdentity) *Server {
 	return &Server{
 		logger:     logger,
 		service:    service,
