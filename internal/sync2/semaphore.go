@@ -13,7 +13,7 @@ import (
 type Semaphore struct {
 	ctx   context.Context
 	close func()
-	sema  semaphore.Weighted
+	sema  *semaphore.Weighted
 }
 
 // NewSemaphore creates a semaphore with the specified size.
@@ -25,12 +25,8 @@ func NewSemaphore(size int) *Semaphore {
 
 // Init initializes semaphore to the specified size.
 func (sema *Semaphore) Init(size int) {
-	ctx, cancel := context.WithCancel(context.Background())
-	*sema = Semaphore{
-		ctx:   ctx,
-		close: cancel,
-		sema:  *semaphore.NewWeighted(int64(size)),
-	}
+	sema.ctx, sema.close = context.WithCancel(context.Background())
+	sema.sema = semaphore.NewWeighted(int64(size))
 }
 
 // Close closes the semaphore from further use.
