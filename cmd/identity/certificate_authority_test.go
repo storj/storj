@@ -4,7 +4,6 @@
 package main_test
 
 import (
-	"fmt"
 	"os/exec"
 	"strconv"
 	"testing"
@@ -23,8 +22,7 @@ type newCACfg struct {
 
 func TestCmdNewCA(t *testing.T) {
 	ctx := testcontext.New(t)
-	fmt.Println(ctx.Dir("identity"))
-	//defer ctx.Cleanup()
+	defer ctx.Cleanup()
 
 	identityexe := ctx.Compile("storj.io/storj/cmd/identity")
 	// certificatesexe := ctx.Compile("storj.io/cmd/certificates")
