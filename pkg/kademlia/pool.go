@@ -5,10 +5,10 @@ package kademlia
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/sync2"
@@ -18,6 +18,7 @@ import (
 
 // Pool is a kademlia connection pool.
 type Pool struct {
+	log       *zap.Logger
 	transport transport.Client
 	size      int
 
@@ -40,8 +41,9 @@ type Conn struct {
 }
 
 // NewPool creates a connection pool for kademlia.
-func NewPool(transport transport.Client) *Pool {
+func NewPool(log *zap.Logger, transport transport.Client) *Pool {
 	pool := &Pool{
+		log:       log,
 		transport: transport,
 		size:      10,
 	}
@@ -74,17 +76,21 @@ func (pool *Pool) disconnectAll() error {
 	return errgroup.Err()
 }
 
-// forceSizeLocked enforces connection limit
-func (pool *Pool) forceSizeLocked() error {
+// disconnectOne disconnects one connection
+func (pool *Pool) disconnectOne() {
 	n := len(pool.recent)
 	for i := n - 1; i >= 0; i-- {
 		conn := pool.recent[i]
 		if conn.refcount == 0 {
 			pool.recent = append(pool.recent[:i], pool.recent[i+1:]...)
-			return conn.disconnect()
+			err := conn.disconnect()
+			if err != nil {
+				pool.log.Debug("error during closing connection", zap.Error(err))
+			}
+			return
 		}
 	}
-	return errors.New("programmer error")
+	pool.log.Debug("did not find connection to drop, shouldn't happen")
 }
 
 // Lookup queries ask about find, and also sends information about self.
@@ -159,7 +165,9 @@ func (pool *Pool) connect(ctx context.Context, target pb.Node) (*Conn, error) {
 			return conn, nil
 		}
 	}
-	pool.forceSizeLocked()
+	if len(pool.recent) >= pool.size {
+		pool.disconnectOne()
+	}
 
 	conn, err := pool.dial(ctx, target)
 	conn.acquireLocked()
