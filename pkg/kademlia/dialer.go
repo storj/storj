@@ -34,7 +34,7 @@ func NewDialer(log *zap.Logger, transport transport.Client) *Dialer {
 		log:       log,
 		transport: transport,
 	}
-	dialer.limit.Init(32)
+	dialer.limit.Init(32) // TODO: limit should not be hardcoded
 	return dialer
 }
 
@@ -57,10 +57,10 @@ func (dialer *Dialer) Lookup(ctx context.Context, self pb.Node, ask pb.Node, fin
 	}
 
 	resp, err := conn.client.Query(ctx, &pb.QueryRequest{
-		Limit:    20,
+		Limit:    20, // TODO: should not be hardcoded, but instead kademlia k value, routing table depth, etc
 		Sender:   &self,
 		Target:   &find,
-		Pingback: true,
+		Pingback: true, // should only be true during bucket refreshing
 	})
 	if err != nil {
 		return nil, errs.Combine(err, conn.disconnect())
