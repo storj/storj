@@ -92,12 +92,12 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 	identKeyPath := filepath.Join(serviceDir, "identity.key")
 
 	caConfig := identity.CASetupConfig{
-		CertPath: caCertPath,
-		KeyPath:  caKeyPath,
-		Difficulty: config.Difficulty,
-		Concurrency: config.Concurrency,
+		CertPath:       caCertPath,
+		KeyPath:        caKeyPath,
+		Difficulty:     config.Difficulty,
+		Concurrency:    config.Concurrency,
 		ParentCertPath: config.ParentCertPath,
-		ParentKeyPath: config.ParentKeyPath,
+		ParentKeyPath:  config.ParentKeyPath,
 	}
 
 	if caConfig.Status() != identity.NoCertNoKey {
