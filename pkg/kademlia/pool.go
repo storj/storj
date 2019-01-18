@@ -150,8 +150,12 @@ func (pool *Pool) connect(ctx context.Context, target pb.Node) (*Conn, error) {
 		// TODO: verify also other properties
 		if conn.addr == target.GetAddress().Address {
 			conn.acquireLocked()
+
+			// this is a simplest way to implement recently used cache
+			// avoiding random connections pushing important connections off
 			k := i / 2
 			pool.recent[k], pool.recent[i] = pool.recent[i], pool.recent[k]
+
 			return conn, nil
 		}
 	}
