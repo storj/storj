@@ -18,10 +18,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 )
@@ -51,7 +51,7 @@ type Kademlia struct {
 	alpha           int // alpha is a system wide concurrency parameter
 	routingTable    *RoutingTable
 	bootstrapNodes  []pb.Node
-	nodeClient      node.Client
+	dialer          *Dialer
 	identity        *provider.FullIdentity
 	bootstrapCancel unsafe.Pointer // context.CancelFunc
 }
@@ -101,14 +101,9 @@ func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes [
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
 		identity:       identity,
-	}
 
-	nc, err := node.NewNodeClient(identity, self, k, rt)
-
-	if err != nil {
-		return nil, BootstrapErr.Wrap(err)
+		dialer: NewDialer(log.Named("dialer"), transport.NewClient(identity, rt)),
 	}
-	k.nodeClient = nc
 	return k, nil
 }
 
@@ -119,7 +114,7 @@ func (k *Kademlia) Close() error {
 	if ptr != nil {
 		(*(*context.CancelFunc)(ptr))()
 	}
-	return k.nodeClient.Disconnect()
+	return k.dialer.Close()
 }
 
 // Disconnect safely closes connections to the Kademlia network
@@ -130,7 +125,7 @@ func (k *Kademlia) Disconnect() error {
 		(*(*context.CancelFunc)(ptr))()
 	}
 	return errs.Combine(
-		k.nodeClient.Disconnect(),
+		k.dialer.Close(),
 		k.routingTable.Close(),
 	)
 }
@@ -206,7 +201,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 
 // Ping checks that the provided node is still accessible on the network
 func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
-	ok, err := k.nodeClient.Ping(ctx, node)
+	ok, err := k.dialer.Ping(ctx, node)
 	if err != nil {
 		return pb.Node{}, NodeErr.Wrap(err)
 	}
@@ -237,7 +232,7 @@ func (k *Kademlia) lookup(ctx context.Context, ID storj.NodeID, isBootstrap bool
 			return pb.Node{}, err
 		}
 	}
-	lookup := newPeerDiscovery(k.log, nodes, k.nodeClient, ID, discoveryOptions{
+	lookup := newPeerDiscovery(k.log, k.routingTable.Local(), nodes, k.dialer, ID, discoveryOptions{
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: isBootstrap, bootstrapNodes: k.bootstrapNodes,
 	})
 	target, err := lookup.Run(ctx)
