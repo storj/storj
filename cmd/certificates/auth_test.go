@@ -4,36 +4,20 @@
 package main
 
 import (
-	"flag"
-	"os"
+	"os/exec"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/internal/testcmd"
 	"storj.io/storj/internal/testcontext"
 )
 
-func init() {
-	flag.Parse()
-}
-
-func TestMain(m *testing.M) {
-	if *testcmd.Integration {
-		os.Exit(m.Run())
-	}
-}
-
-func TestCmdCreateAuth(t *testing.T) {
-	assert := assert.New(t)
+func TestCreateAuth(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	commands, err := testcmd.Build(ctx, testcmd.CmdCertificates)
-	if !assert.NoError(err) {
-		t.Fatal(err)
-	}
+	certificatesexe := ctx.Compile("storj.io/storj/cmd/certificates")
 
 	// `certificates auth create 1 user@example.com`
 	cases := map[string]int{
@@ -43,10 +27,11 @@ func TestCmdCreateAuth(t *testing.T) {
 	}
 
 	for userID, count := range cases {
-		err := commands[testcmd.CmdCertificates].Run("auth", "create", strconv.Itoa(count), userID)
-		if !assert.NoError(err) {
-			t.Fatal(err)
-		}
+		data, err := exec.Command(certificatesexe,
+			"--config-dir", ctx.Dir(userID),
+			"auth", "create", strconv.Itoa(count), userID).CombinedOutput()
+		t.Log(string(data))
+		assert.NoError(t, err)
 	}
 
 }
