@@ -48,8 +48,10 @@ var (
 
 	cfg Bootstrap
 
-	defaultConfDir string
-	confDir        *string
+	defaultConfDir  = fpath.ApplicationDir("storj", "bootstrap")
+	defaultCredsDir = fpath.ApplicationDir("storj", "identity", "bootstrap")
+	confDir         string
+	credsDir        string
 )
 
 const (
@@ -57,18 +59,21 @@ const (
 )
 
 func init() {
-	defaultConfDir = fpath.ApplicationDir("storj", "bootstrap")
-
 	dirParam := cfgstruct.FindConfigDirParam()
 	if dirParam != "" {
 		defaultConfDir = dirParam
 	}
 
-	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for bootstrap configuration")
+	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for bootstrap configuration")
+	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
+	rootCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for bootstrap configuration")
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(runCmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(runCmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
 	cfgstruct.BindSetup(setupCmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
