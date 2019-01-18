@@ -123,7 +123,7 @@ func init() {
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir))
-	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg)
+	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, cfgstruct.ConfDir(defaultDiagDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -321,7 +321,7 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 
 	// address of node to create client connection
 	if dashboardCfg.Address == "" {
-		dashboardCfg.Address = ":7777"
+		return fmt.Errorf("Storage Node address isn't specified")
 	}
 
 	tc := transport.NewClient(ident)
