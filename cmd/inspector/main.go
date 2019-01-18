@@ -30,7 +30,7 @@ var (
 	// Addr is the address of peer from command flags
 	Addr = flag.String("address", "localhost:7778", "address of peer to inspect")
 
-	// Identity is the path to the identity the inspector should use for network communication
+	// IdentityPath is the path to the identity the inspector should use for network communication
 	IdentityPath = flag.String("identity-path", "", "path to the identity certificate for use on the network")
 
 	// ErrInspectorDial throws when there are errors dialing the inspector server
