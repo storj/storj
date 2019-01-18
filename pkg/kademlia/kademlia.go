@@ -51,7 +51,7 @@ type Kademlia struct {
 	alpha           int // alpha is a system wide concurrency parameter
 	routingTable    *RoutingTable
 	bootstrapNodes  []pb.Node
-	pool            *Pool
+	dialer          *Dialer
 	identity        *provider.FullIdentity
 	bootstrapCancel unsafe.Pointer // context.CancelFunc
 }
@@ -102,7 +102,7 @@ func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes [
 		bootstrapNodes: bootstrapNodes,
 		identity:       identity,
 
-		pool: NewPool(log.Named("pool"), transport.NewClient(identity, rt)),
+		dialer: NewDialer(log.Named("dialer"), transport.NewClient(identity, rt)),
 	}
 	return k, nil
 }
@@ -114,7 +114,7 @@ func (k *Kademlia) Close() error {
 	if ptr != nil {
 		(*(*context.CancelFunc)(ptr))()
 	}
-	return k.pool.Close()
+	return k.dialer.Close()
 }
 
 // Disconnect safely closes connections to the Kademlia network
@@ -125,7 +125,7 @@ func (k *Kademlia) Disconnect() error {
 		(*(*context.CancelFunc)(ptr))()
 	}
 	return errs.Combine(
-		k.pool.Close(),
+		k.dialer.Close(),
 		k.routingTable.Close(),
 	)
 }
@@ -201,7 +201,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 
 // Ping checks that the provided node is still accessible on the network
 func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
-	ok, err := k.pool.Ping(ctx, node)
+	ok, err := k.dialer.Ping(ctx, node)
 	if err != nil {
 		return pb.Node{}, NodeErr.Wrap(err)
 	}
@@ -232,7 +232,7 @@ func (k *Kademlia) lookup(ctx context.Context, ID storj.NodeID, isBootstrap bool
 			return pb.Node{}, err
 		}
 	}
-	lookup := newPeerDiscovery(k.log, k.routingTable.Local(), nodes, k.pool, ID, discoveryOptions{
+	lookup := newPeerDiscovery(k.log, k.routingTable.Local(), nodes, k.dialer, ID, discoveryOptions{
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: isBootstrap, bootstrapNodes: k.bootstrapNodes,
 	})
 	target, err := lookup.Run(ctx)

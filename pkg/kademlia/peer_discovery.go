@@ -18,7 +18,7 @@ import (
 type peerDiscovery struct {
 	log *zap.Logger
 
-	pool   *Pool
+	dialer *Dialer
 	self   pb.Node
 	target storj.NodeID
 	opts   discoveryOptions
@@ -30,10 +30,10 @@ type peerDiscovery struct {
 // ErrMaxRetries is used when a lookup has been retried the max number of times
 var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 
-func newPeerDiscovery(log *zap.Logger, self pb.Node, nodes []*pb.Node, pool *Pool, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
+func newPeerDiscovery(log *zap.Logger, self pb.Node, nodes []*pb.Node, dialer *Dialer, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
 	discovery := &peerDiscovery{
 		log:    log,
-		pool:   pool,
+		dialer: dialer,
 		self:   self,
 		target: target,
 		opts:   opts,
@@ -94,7 +94,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (target *pb.Node, err erro
 					nodeType.DPanicOnInvalid("Peer Discovery Run")
 				}
 				next.Type.DPanicOnInvalid("next")
-				neighbors, err := lookup.pool.Lookup(ctx, lookup.self, *next, pb.Node{Id: lookup.target, Type: nodeType})
+				neighbors, err := lookup.dialer.Lookup(ctx, lookup.self, *next, pb.Node{Id: lookup.target, Type: nodeType})
 
 				if err != nil && !isDone(ctx) {
 					// TODO: reenable retry after fixing logic
