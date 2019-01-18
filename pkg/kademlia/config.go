@@ -111,7 +111,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider,
 
 	go func() {
 		if err = kad.Bootstrap(ctx); err != nil {
-			logger.Error("Failed to bootstrap Kademlia", zap.Any("Address", c.BootstrapAddr))
+			logger.Sugar().Errorf("Failed to bootstrap Kademlia %s: %v", c.BootstrapAddr, err)
 		} else {
 			logger.Sugar().Infof("Successfully connected to Kademlia bootstrap node %s", c.BootstrapAddr)
 		}
