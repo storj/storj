@@ -162,9 +162,9 @@ func (caS CASetupConfig) Create(ctx context.Context) (*FullCertificateAuthority,
 			CertPath: caS.ParentCertPath,
 			KeyPath:  caS.ParentKeyPath,
 		}.Load()
-	}
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if parent == nil {
