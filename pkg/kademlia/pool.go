@@ -5,8 +5,10 @@ package kademlia
 
 import (
 	"context"
+	"errors"
 	"sync"
 
+	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/sync2"
@@ -14,6 +16,7 @@ import (
 	"storj.io/storj/pkg/transport"
 )
 
+// Pool is a kademlia connection pool.
 type Pool struct {
 	transport transport.Client
 	size      int
@@ -21,10 +24,12 @@ type Pool struct {
 	limit  sync2.Semaphore
 	mu     sync.Mutex
 	closed bool
-	recent []*poolConn
+	recent []*Conn
 }
 
-type poolConn struct {
+// Conn represents a cached kademlia cache.
+type Conn struct {
+	pool     *Pool
 	refcount int32 // only modify when holding pool.mu
 
 	mu     sync.Mutex
@@ -34,6 +39,7 @@ type poolConn struct {
 	client pb.NodesClient
 }
 
+// NewPool creates a connection pool for kademlia.
 func NewPool(transport transport.Client) *Pool {
 	pool := &Pool{
 		transport: transport,
@@ -43,13 +49,14 @@ func NewPool(transport transport.Client) *Pool {
 	return pool
 }
 
+// Close closes the pool resources and prevents new connections to be made.
 func (pool *Pool) Close() error {
 	pool.limit.Close()
-	pool.disconnectAll()
-	return nil
+	return pool.disconnectAll()
 }
 
-func (pool *Pool) disconnectAll() {
+// disconnectAll disconnects all the active and non-active connections.
+func (pool *Pool) disconnectAll() error {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
@@ -59,77 +66,41 @@ func (pool *Pool) disconnectAll() {
 	recent := pool.recent
 	pool.recent = nil
 
+	var errgroup errs.Group
 	for _, conn := range recent {
-		conn.conn.Close()
+		errgroup.Add(conn.disconnect())
 	}
+
+	return errgroup.Err()
 }
 
-func (pool *Pool) forceSize(ctx context.Context) error {
+// forceSizeLocked enforces connection limit
+func (pool *Pool) forceSizeLocked() error {
 	n := len(pool.recent)
-	if n > pool.size {
-		conn := pool.recent[n-1]
-		pool.recent[n-1] = nil
-		pool.recent = pool.recent[:n-1]
-		conn.client.Close()
-	}
-}
-
-func (pool *Pool) release(conn *poolConn) error {
-	pool.mu.Lock()
-	conn.refcount--
-	pool.mu.Unlock()
-	return err
-}
-
-func (pool *Pool) releaser(conn *poolConn) func() error {
-	return func() error { return pool.release(conn) }
-}
-
-func (pool *Pool) connect(ctx context.Context, to pb.Node) (*poolConn, func() error, error) {
-	pool.mu.Lock()
-	defer pool.mu.Unlock()
-
-	if pool.closed {
-		return nil, func() error { return nil }, context.Canceled
-	}
-
-	for i, conn := range pool.recent {
-		// TODO: verify also other properties
-		if conn.addr == to.GetAddress().Address {
-			conn.refcount++
-			k := i / 2
-			pool.recent[k], pool.recent[i] = pool.recent[i], pool.recent[k]
-			return conn, pool.releaser(conn), err
+	for i := n - 1; i >= 0; i-- {
+		conn := pool.recent[i]
+		if conn.refcount == 0 {
+			pool.recent = append(pool.recent[:i], pool.recent[i+1:]...)
+			return conn.disconnect()
 		}
 	}
-	pool.forceSize()
-
-	grpcconn, err := pool.transport.Dial(ctx, to)
-	conn := &poolConn{
-		mu:       sync.Mutex{},
-		refcount: 1,
-		addr:     to.GetAddress().Address,
-		conn:     grpcconn,
-		client:   pb.NewNodesClient(conn),
-	}
-	pool.recent = append(pool.recent, conn)
-
-	return conn, pool.releaser(conn), err
+	return errors.New("programmer error")
 }
 
+// Lookup queries ask about find, and also sends information about self.
 func (pool *Pool) Lookup(ctx context.Context, self pb.Node, ask pb.Node, find pb.Node) ([]*pb.Node, error) {
 	if !pool.limit.Lock() {
 		return nil, context.Canceled
 	}
 	defer pool.limit.Unlock()
 
-	conn, release, err := pool.connect(ask)
-	defer release()
+	conn, err := pool.connect(ctx, ask)
+	defer conn.release()
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := conn.Query(ctx, &pb.QueryRequest{
+	resp, err := conn.client.Query(ctx, &pb.QueryRequest{
 		Limit:    20,
 		Sender:   &self,
 		Target:   &find,
@@ -145,21 +116,80 @@ func (pool *Pool) Lookup(ctx context.Context, self pb.Node, ask pb.Node, find pb
 	return resp.Response, nil
 }
 
-func (pool *Pool) Ping(ctx context.Context, ask pb.Node, find pb.Node) ([]*pb.Node, error) {
+// Ping pings target.
+func (pool *Pool) Ping(ctx context.Context, target pb.Node) (bool, error) {
 	if !pool.limit.Lock() {
-		return nil, context.Canceled
+		return false, context.Canceled
 	}
 	defer pool.limit.Unlock()
 
-	conn, release, err := pool.connect(ask)
-	defer release()
+	conn, err := pool.connect(ctx, target)
+	defer conn.release()
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
-	_, err = conn.Ping(ctx, &pb.PingRequest{})
+	_, err = conn.client.Ping(ctx, &pb.PingRequest{})
 
 	// notify kademlia about success/failure
 
 	return err == nil, err
+}
+
+// connect dials and adds target to cache.
+// always call conn.release() after using the connection
+func (pool *Pool) connect(ctx context.Context, target pb.Node) (*Conn, error) {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+
+	if pool.closed {
+		return nil, context.Canceled
+	}
+
+	for i, conn := range pool.recent {
+		// TODO: verify also other properties
+		if conn.addr == target.GetAddress().Address {
+			conn.acquireLocked()
+			k := i / 2
+			pool.recent[k], pool.recent[i] = pool.recent[i], pool.recent[k]
+			return conn, nil
+		}
+	}
+	pool.forceSizeLocked()
+
+	conn, err := pool.dial(ctx, target)
+	conn.acquireLocked()
+	pool.recent = append(pool.recent, conn)
+	return conn, err
+}
+
+// dial dials the specified node.
+func (pool *Pool) dial(ctx context.Context, target pb.Node) (*Conn, error) {
+	grpcconn, err := pool.transport.DialNode(ctx, &target)
+	return &Conn{
+		pool:     pool,
+		mu:       sync.Mutex{},
+		refcount: 0,
+		addr:     target.GetAddress().Address,
+		conn:     grpcconn,
+		client:   pb.NewNodesClient(grpcconn),
+	}, err
+}
+
+// acquireLocked increases refcount, requires holding pool.mu lock.
+func (conn *Conn) acquireLocked() {
+	conn.refcount++
+}
+
+// release releases the refcount of this connection.
+// must always be called after acquireLocked
+func (conn *Conn) release() {
+	conn.pool.mu.Lock()
+	conn.refcount--
+	conn.pool.mu.Unlock()
+}
+
+// disconnect disconnects this connection.
+func (conn *Conn) disconnect() error {
+	return conn.conn.Close()
 }
