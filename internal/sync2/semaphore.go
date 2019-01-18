@@ -3,8 +3,11 @@
 
 package sync2
 
+import "sync"
+
 // Semaphore implements a closable semaphore
 type Semaphore struct {
+	close sync.Once
 	queue chan struct{}
 }
 
@@ -22,7 +25,9 @@ func (sema *Semaphore) Init(size int) {
 
 // Close closes the semaphore from further use.
 func (sema *Semaphore) Close() {
-	close(sema.queue)
+	sema.close.Do(func() {
+		close(sema.queue)
+	})
 }
 
 // Lock locks the semaphore.
