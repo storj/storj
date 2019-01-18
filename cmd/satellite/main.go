@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,7 +26,6 @@ import (
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/discovery"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/payments"
@@ -42,9 +40,6 @@ import (
 
 // Satellite defines satellite configuration
 type Satellite struct {
-	CA       identity.CASetupConfig `setup:"true"`
-	Identity identity.SetupConfig   `setup:"true"`
-
 	Server      server.Config
 	Kademlia    kademlia.SatelliteConfig
 	PointerDB   pointerdb.Config
@@ -186,24 +181,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// TODO: handle setting base path *and* identity file paths via args
-	// NB: if base path is set this overrides identity and CA path options
-	if setupDir != defaultConfDir {
-		setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
-		setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
-		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
-		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
-	}
-	if setupCfg.Identity.Status() != identity.CertKey {
-		return errors.New("identity is missing")
-	}
-
-	o := map[string]interface{}{
-		"identity.cert-path": setupCfg.Identity.CertPath,
-		"identity.key-path":  setupCfg.Identity.KeyPath,
-	}
-
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {

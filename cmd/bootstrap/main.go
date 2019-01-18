@@ -4,7 +4,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,7 +13,6 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/server"
@@ -22,9 +20,6 @@ import (
 
 // Bootstrap defines a bootstrap node configuration
 type Bootstrap struct {
-	CA       identity.CASetupConfig `setup:"true"`
-	Identity identity.SetupConfig   `setup:"true"`
-
 	Server   server.Config
 	Kademlia kademlia.BootstrapConfig
 }
@@ -83,7 +78,7 @@ func init() {
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
-	if err := process.InitMetricsWithCertPath(ctx, nil, cfg.Identity.CertPath); err != nil {
+	if err := process.InitMetricsWithCertPath(ctx, nil, cfg.Server.Identity.CertPath); err != nil {
 		zap.S().Errorf("Failed to initialize telemetry batcher: %+v", err)
 	}
 	return cfg.Server.Run(ctx, nil, cfg.Kademlia)
@@ -105,20 +100,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if setupDir != defaultConfDir {
-		cfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
-		cfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
-		cfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
-		cfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
-	}
-
-	if cfg.Identity.Status() != identity.CertKey {
-		return errors.New("identity is missing")
-	}
-
 	overrides := map[string]interface{}{
-		"identity.cert-path":      cfg.Identity.CertPath,
-		"identity.key-path":       cfg.Identity.KeyPath,
 		"identity.server.address": defaultServerAddr,
 		"kademlia.bootstrap-addr": "localhost" + defaultServerAddr,
 	}
