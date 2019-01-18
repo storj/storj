@@ -263,7 +263,7 @@ func identitySetup(network *Processes) (*Processes, error) {
 
 		identity.Arguments = Arguments{
 			"setup": {
-				"--config-dir", process.Directory,
+				"--creds-dir", process.Directory,
 				"new", ".",
 			},
 		}
