@@ -14,6 +14,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 )
 
@@ -179,11 +180,11 @@ func TestNewNodeFiltering(t *testing.T) {
 			newNodeAuditThreshold: 1,
 		},
 	} {
-		server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay,
+		server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay.Service,
 			&pb.NodeStats{}, 2, tt.newNodeAuditThreshold, tt.newNodePercentage)
 
 		for i := 0; i <= tt.reputableNodes; i++ {
-			err := satellite.Overlay.Put(ctx, planet.StorageNodes[i].ID(), pb.Node{
+			err := satellite.Overlay.Service.Put(ctx, planet.StorageNodes[i].ID(), pb.Node{
 				Reputation: &pb.NodeStats{AuditCount: tt.newNodeAuditThreshold},
 			})
 			assert.NoError(t, err, tt.name)
@@ -205,7 +206,7 @@ func TestNewNodeFiltering(t *testing.T) {
 
 		// resetting audit count to 0
 		for i := 0; i <= tt.reputableNodes; i++ {
-			err := satellite.Overlay.Put(ctx, planet.StorageNodes[i].ID(), pb.Node{
+			err := satellite.Overlay.Service.Put(ctx, planet.StorageNodes[i].ID(), pb.Node{
 				Reputation: &pb.NodeStats{AuditCount: 0},
 			})
 			assert.NoError(t, err, tt.name)
