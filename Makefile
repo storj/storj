@@ -162,6 +162,12 @@ storagenode_%:
 .PHONY: uplink_%
 uplink_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=uplink $(MAKE) binary
+.PHONY: identity_%
+identity_%:
+	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=identity $(MAKE) binary
+.PHONY: certificates_%
+certificates_%:
+	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=certificates $(MAKE) binary
 
 COMPONENTLIST := gateway satellite storagenode uplink identity certificates
 OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm windows_amd64
