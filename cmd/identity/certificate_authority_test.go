@@ -13,12 +13,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/provider"
 )
-
-type newCACfg struct {
-	CA provider.CASetupConfig
-}
 
 func TestCA(t *testing.T) {
 	ctx := testcontext.New(t)
