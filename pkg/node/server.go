@@ -46,7 +46,7 @@ func (server *Server) Query(ctx context.Context, req *pb.QueryRequest) (*pb.Quer
 			if err != nil {
 				server.log.Error("could not respond to connection success", zap.Error(err))
 			} else {
-				server.log.Sugar().Infof("Successfully connected with %s", req.Sender.Address.Address)
+				server.log.Sugar().Debugf("Successfully connected with %s", req.Sender.Address.Address)
 			}
 		}
 	}
