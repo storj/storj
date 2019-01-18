@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	// Addr is the address of Capt Planet from command flags
-	Addr = flag.String("address", "localhost:7778", "address of captplanet to inspect")
+	// Addr is the address of peer from command flags
+	Addr = flag.String("address", "localhost:7778", "address of peer to inspect")
 
 	// ErrInspectorDial throws when there are errors dialing the inspector server
 	ErrInspectorDial = errs.Class("error dialing inspector server:")
@@ -286,14 +286,14 @@ func PingNode(cmd *cobra.Command, args []string) (err error) {
 	})
 
 	var okayString string
-	if p.Ok {
+	if p != nil && p.Ok {
 		okayString = "OK"
 	} else {
 		okayString = "Error"
 	}
 	fmt.Printf("\n -- Ping response: %s\n", okayString)
 	if err != nil {
-		fmt.Printf(" -- Error: %s", err)
+		fmt.Printf(" -- Error: %v\n", err)
 	}
 	return nil
 }

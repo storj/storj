@@ -70,7 +70,7 @@ proto: ## Rebuild protobuf files
 .PHONY: install-sim
 install-sim: ## install storj-sim
 	@echo "Running ${@}"
-	@go install -race -v storj.io/storj/cmd/storj-sim storj.io/storj/cmd/bootstrap storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode storj.io/storj/cmd/uplink storj.io/storj/cmd/gateway
+	@go install -race -v storj.io/storj/cmd/storj-sim storj.io/storj/cmd/bootstrap storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode storj.io/storj/cmd/uplink storj.io/storj/cmd/gateway storj.io/storj/cmd/identity storj.io/storj/cmd/certificates
 
 ##@ Test
 
@@ -78,11 +78,6 @@ install-sim: ## install storj-sim
 test: ## Run tests on source code (travis)
 	go test -race -v -cover -coverprofile=.coverprofile ./...
 	@echo done
-
-.PHONY: test-captplanet
-test-captplanet: ## Test source with captain planet (travis)
-	@echo "Running ${@}"
-	@./scripts/test-captplanet.sh
 
 .PHONY: test-sim
 test-sim: ## Test source with storj-sim (travis)

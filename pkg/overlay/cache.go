@@ -45,6 +45,8 @@ type DB interface {
 	Update(ctx context.Context, value *pb.Node) error
 	// Delete deletes node based on id
 	Delete(ctx context.Context, id storj.NodeID) error
+	//GetWalletAddress gets the node's wallet address
+	GetWalletAddress(ctx context.Context, id storj.NodeID) (string, error)
 }
 
 // Cache is used to store overlay data in Redis
@@ -57,6 +59,9 @@ type Cache struct {
 func NewCache(db DB, sdb statdb.DB) *Cache {
 	return &Cache{db: db, statDB: sdb}
 }
+
+// Close closes resources
+func (cache *Cache) Close() error { return nil }
 
 // Inspect lists limited number of items in the cache
 func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {

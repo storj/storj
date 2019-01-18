@@ -230,7 +230,7 @@ func TestBulkLookupV2(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cache := planet.Satellites[0].Overlay
+	cache := planet.Satellites[0].Overlay.Service
 
 	nid1 := storj.NodeID{1}
 	nid2 := storj.NodeID{2}

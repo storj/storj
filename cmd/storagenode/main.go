@@ -22,9 +22,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
@@ -37,15 +35,12 @@ import (
 
 // StorageNode defines storage node configuration
 type StorageNode struct {
-	CA              identity.CASetupConfig `setup:"true"`
-	Identity        identity.SetupConfig   `setup:"true"`
-	EditConf        bool                   `default:"false" help:"open config in default editor"`
-	SaveAllDefaults bool                   `default:"false" help:"save all default values to config.yaml file" setup:"true"`
+	EditConf        bool `default:"false" help:"open config in default editor"`
+	SaveAllDefaults bool `default:"false" help:"save all default values to config.yaml file" setup:"true"`
 
 	Server   server.Config
 	Kademlia kademlia.StorageNodeConfig
 	Storage  psserver.Config
-	Signer   certificates.CertClientConfig
 }
 
 var (
@@ -89,9 +84,11 @@ var (
 	diagCfg struct {
 	}
 
-	defaultConfDir string
-	defaultDiagDir string
-	confDir        string
+	defaultConfDir  string
+	defaultDiagDir  string
+	defaultCredsDir string
+	confDir         string
+	credsDir        string
 )
 
 const (
@@ -100,6 +97,8 @@ const (
 
 func init() {
 	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
+	// TODO: this path should be defined somewhere else
+	defaultCredsDir = fpath.ApplicationDir("storj", "identity")
 
 	dirParam := cfgstruct.FindConfigDirParam()
 	if dirParam != "" {
@@ -107,6 +106,11 @@ func init() {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
+	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
+	rootCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for storagenode identity credentials")
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
@@ -122,6 +126,12 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	if ident, err := runCfg.Server.Identity.Load(); err != nil {
+		zap.S().Fatal(err)
+	} else {
+		zap.S().Info("Node ID: ", ident.ID)
+	}
+
 	operatorConfig := runCfg.Kademlia.Operator
 	if err := isOperatorEmailValid(operatorConfig.Email); err != nil {
 		zap.S().Warn(err)
@@ -155,23 +165,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	err = os.MkdirAll(setupDir, 0700)
 	if err != nil {
 		return err
-	}
-
-	setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
-	setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
-	setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
-	setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
-
-	if setupCfg.Signer.AuthToken != "" && setupCfg.Signer.Address != "" {
-		err = setupCfg.Signer.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
-		if err != nil {
-			zap.S().Warn(err)
-		}
-	} else {
-		err = identity.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
-		if err != nil {
-			return err
-		}
 	}
 
 	overrides := map[string]interface{}{
@@ -345,7 +338,7 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		_, _ = heading.Printf("\nStorage Node Dashboard Stats\n")
 		_, _ = heading.Printf("\n===============================\n")
 
-		fmt.Fprintf(color.Output, "Node ID: %s\n", color.BlueString(data.GetNodeId()))
+		fmt.Fprintf(color.Output, "Node ID: %s\n", color.YellowString(data.GetNodeId()))
 
 		if data.GetConnection() {
 			fmt.Fprintf(color.Output, "%s ", color.GreenString("ONLINE"))
@@ -362,11 +355,11 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 
 		fmt.Fprintf(color.Output, "Node Connections: %+v\n", whiteInt(data.GetNodeConnections()))
 
-		color.Green("\nIO\t\tAvailable\tUsed\n--\t\t---------\t----")
+		color.Green("\nIO\t\t\tAvailable\t\t\tUsed\n--\t\t\t---------\t\t\t----")
 		stats := data.GetStats()
 		if stats != nil {
-			fmt.Fprintf(color.Output, "Bandwidth\t%+v\t%+v\n", whiteInt(stats.GetAvailableBandwidth()), whiteInt(stats.GetUsedBandwidth()))
-			fmt.Fprintf(color.Output, "Disk\t\t%+v\t%+v\n", whiteInt(stats.GetAvailableSpace()), whiteInt(stats.GetUsedSpace()))
+			fmt.Fprintf(color.Output, "Bandwidth\t\t%+v\t\t\t%+v\n", whiteInt(stats.GetAvailableBandwidth()), whiteInt(stats.GetUsedBandwidth()))
+			fmt.Fprintf(color.Output, "Disk\t\t\t%+v\t\t\t%+v\n", whiteInt(stats.GetAvailableSpace()), whiteInt(stats.GetUsedSpace()))
 		} else {
 			color.Yellow("Loading...")
 		}

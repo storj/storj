@@ -42,6 +42,7 @@ type Server struct {
 
 // NewServer creates instance of Server
 func NewServer(logger *zap.Logger, service *Service, cache *overlay.Cache, config Config, identity *provider.FullIdentity) *Server {
+	// TODO: reorder arguments
 	return &Server{
 		logger:   logger,
 		service:  service,
@@ -51,7 +52,18 @@ func NewServer(logger *zap.Logger, service *Service, cache *overlay.Cache, confi
 	}
 }
 
+// Close closes resources
+func (s *Server) Close() error { return nil }
+
+// TODO: ZZZ temporarily disabled until endpoint and service split
+const disableAuth = true
+
 func (s *Server) validateAuth(ctx context.Context) error {
+	// TODO: ZZZ temporarily disabled until endpoint and service split
+	if disableAuth {
+		return nil
+	}
+
 	APIKey, ok := auth.GetAPIKey(ctx)
 	if !ok || !pointerdbAuth.ValidateAPIKey(string(APIKey)) {
 		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))

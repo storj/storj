@@ -346,6 +346,20 @@ func (m *lockedProjects) Update(ctx context.Context, project *console.Project) e
 	return m.db.Update(ctx, project)
 }
 
+// QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
+func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.QueryPaymentInfo(ctx, start, end)
+}
+
+// TestPayments ... TODO REMOVE
+func (m *lockedAccounting) TestPayments(ctx context.Context) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.TestPayments(ctx)
+}
+
 // Users is a getter for Users repository
 func (m *lockedConsole) Users() console.Users {
 	m.Lock()
@@ -481,6 +495,13 @@ func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Update(ctx, value)
+}
+
+//GetWalletAddress gets the node's wallet address
+func (m *lockedOverlayCache) GetWalletAddress(ctx context.Context, id storj.NodeID) (string, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetWalletAddress(ctx, id)
 }
 
 // RepairQueue returns queue for segments that need repairing

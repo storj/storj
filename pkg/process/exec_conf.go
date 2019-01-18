@@ -106,7 +106,13 @@ func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 			fmt.Fprintf(w, "%s\n", value)
 		}
 	}
-	return ioutil.WriteFile(outfile, []byte(sb.String()), os.FileMode(0644))
+
+	err := ioutil.WriteFile(outfile, []byte(sb.String()), os.FileMode(0644))
+	if err != nil {
+		return err
+	}
+	fmt.Println("Configuration saved to:", outfile)
+	return nil
 }
 
 func readBoolAnnotation(flag *pflag.Flag, key string) bool {
@@ -194,7 +200,15 @@ func cleanup(cmd *cobra.Command) {
 			return err
 		}
 
-		logger.Sugar().Debug("Configuration loaded from: ", vip.ConfigFileUsed())
+		if vip.ConfigFileUsed() != "" {
+			path, err := filepath.Abs(vip.ConfigFileUsed())
+			if err != nil {
+				path = vip.ConfigFileUsed()
+				logger.Debug("unable to resolve path", zap.Error(err))
+			}
+
+			logger.Sugar().Info("Configuration loaded from: ", path)
+		}
 
 		defer func() { _ = logger.Sync() }()
 		defer zap.ReplaceGlobals(logger)()
