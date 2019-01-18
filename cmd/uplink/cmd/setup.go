@@ -5,11 +5,12 @@ package cmd
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	base58 "github.com/jbenet/go-base58"
+	"github.com/jbenet/go-base58"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
@@ -42,20 +43,24 @@ var (
 		Enc    miniogw.EncryptionConfig
 	}
 
-	cliConfDir *string
-	gwConfDir  *string
+	defaultConfDir  = fpath.ApplicationDir("storj", "uplink")
+	defaultCredsDir = fpath.ApplicationDir("storj", "identity", "uplink")
+
+	cliConfDir string
+	gwConfDir  string
+	credsDir   string
 )
 
 func init() {
-	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-
 	dirParam := cfgstruct.FindConfigDirParam()
 	if dirParam != "" {
 		defaultConfDir = dirParam
 	}
 
-	cliConfDir = CLICmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for setup configuration")
-	gwConfDir = GWCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for setup configuration")
+	CLICmd.PersistentFlags().StringVar(&cliConfDir, "config-dir", defaultConfDir, "main directory for setup configuration")
+	GWCmd.PersistentFlags().StringVar(&gwConfDir, "config-dir", defaultConfDir, "main directory for setup configuration")
+	CLICmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for storagenode identity credentials")
+	GWCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for storagenode identity credentials")
 
 	CLICmd.AddCommand(setupCmd)
 	GWCmd.AddCommand(setupCmd)
@@ -63,7 +68,7 @@ func init() {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*cliConfDir)
+	setupDir, err := filepath.Abs(cliConfDir)
 	if err != nil {
 		return err
 	}
@@ -82,23 +87,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-	// TODO: handle setting base path *and* identity file paths via args
-	// NB: if base path is set this overrides identity and CA path options
-	if setupDir != defaultConfDir {
-		setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
-		setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
-		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
-		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
-	}
-
 	if setupCfg.Identity.Status() == identity.CertKey {
-		// identity already exists
-	} else {
-		err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
-		if err != nil {
-			return err
-		}
+		return errors.New("identity is missing")
 	}
 
 	if setupCfg.GenerateMinioCerts {

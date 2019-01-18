@@ -99,19 +99,26 @@ var (
 		QListLimit int    `help:"maximum segments that can be requested" default:"1000"`
 	}
 
-	defaultConfDir string
-	confDir        *string
+	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
+	// TODO: this path should be defined somewhere else
+	defaultCredsDir = fpath.ApplicationDir("storj", "identity", "satellite")
+	confDir        string
+	credsDir        string
 )
 
 func init() {
-	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
 
 	dirParam := cfgstruct.FindConfigDirParam()
 	if dirParam != "" {
 		defaultConfDir = dirParam
 	}
 
-	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for satellite configuration")
+	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for satellite configuration")
+	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
+	rootCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for storagenode identity credentials")
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
@@ -161,7 +168,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*confDir)
+	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
