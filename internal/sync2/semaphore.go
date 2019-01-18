@@ -3,12 +3,17 @@
 
 package sync2
 
-import "sync"
+import (
+	"context"
+
+	"golang.org/x/sync/semaphore"
+)
 
 // Semaphore implements a closable semaphore
 type Semaphore struct {
-	close sync.Once
-	queue chan struct{}
+	ctx   context.Context
+	close func()
+	sema  semaphore.Weighted
 }
 
 // NewSemaphore creates a semaphore with the specified size.
@@ -20,32 +25,25 @@ func NewSemaphore(size int) *Semaphore {
 
 // Init initializes semaphore to the specified size.
 func (sema *Semaphore) Init(size int) {
-	sema.queue = make(chan struct{}, size)
+	ctx, cancel := context.WithCancel(context.Background())
+	*sema = Semaphore{
+		ctx:   ctx,
+		close: cancel,
+		sema:  *semaphore.NewWeighted(int64(size)),
+	}
 }
 
 // Close closes the semaphore from further use.
 func (sema *Semaphore) Close() {
-	sema.close.Do(func() {
-		close(sema.queue)
-	})
+	sema.close()
 }
 
 // Lock locks the semaphore.
 func (sema *Semaphore) Lock() bool {
-	defer func() {
-		_ = recover()
-	}()
-
-	sema.queue <- struct{}{}
-	return true
+	return sema.sema.Acquire(sema.ctx, 1) == nil
 }
 
 // Unlock unlocks the semaphore.
 func (sema *Semaphore) Unlock() {
-	select {
-	case <-sema.queue:
-	default:
-		// this will only fail when the semaphore has been misused
-		// or the semaphore is closed
-	}
+	sema.sema.Release(1)
 }
