@@ -6,6 +6,7 @@ package kademlia
 import (
 	"context"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -21,7 +22,7 @@ type Dialer struct {
 	limit     sync2.Semaphore
 }
 
-// Conn represents a kademlia conneciton
+// Conn represents a kademlia connection
 type Conn struct {
 	conn   *grpc.ClientConn
 	client pb.NodesClient
@@ -54,7 +55,6 @@ func (dialer *Dialer) Lookup(ctx context.Context, self pb.Node, ask pb.Node, fin
 	if err != nil {
 		return nil, err
 	}
-	defer conn.disconnect()
 
 	resp, err := conn.client.Query(ctx, &pb.QueryRequest{
 		Limit:    20,
@@ -63,10 +63,10 @@ func (dialer *Dialer) Lookup(ctx context.Context, self pb.Node, ask pb.Node, fin
 		Pingback: true,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errs.Combine(err, conn.disconnect())
 	}
 
-	return resp.Response, nil
+	return resp.Response, errs.Combine(err, conn.disconnect())
 }
 
 // Ping pings target.
@@ -80,11 +80,10 @@ func (dialer *Dialer) Ping(ctx context.Context, target pb.Node) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer conn.disconnect()
 
 	_, err = conn.client.Ping(ctx, &pb.PingRequest{})
 
-	return err == nil, err
+	return err == nil, errs.Combine(err, conn.disconnect())
 }
 
 // dial dials the specified node.
