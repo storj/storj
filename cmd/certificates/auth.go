@@ -4,10 +4,10 @@
 package main
 
 import (
+	"bufio"
 	"encoding/csv"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -77,6 +77,22 @@ func init() {
 	cfgstruct.Bind(authExportCmd.Flags(), &authExportCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
+func parseEmailsList(fileName, delimiter string) (emails []string, err error) {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "#") {
+			continue
+		}
+		emails = append(emails, line)
+	}
+	return emails, file.Close()
+}
+
 func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 	count, err := strconv.Atoi(args[0])
 	if err != nil {
@@ -94,11 +110,10 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 		}
 		emails = args[1:]
 	} else {
-		list, err := ioutil.ReadFile(authCreateCfg.EmailsPath)
+		emails, err = parseEmailsList(authCreateCfg.EmailsPath, authCreateCfg.Delimiter)
 		if err != nil {
 			return errs.Wrap(err)
 		}
-		emails = strings.Split(string(list), authCreateCfg.Delimiter)
 	}
 
 	var incErrs utils.ErrorGroup
@@ -122,7 +137,7 @@ func cmdInfoAuth(cmd *cobra.Command, args []string) error {
 			return errs.New("Either use `--emails-path` or positional args, not both.")
 		}
 		emails = args
-	} else if len(args) == 0 || authExportCfg.All {
+	} else if len(args) == 0 || authInfoCfg.All {
 		emails, err = authDB.UserIDs()
 		if err != nil {
 			return err
@@ -130,11 +145,10 @@ func cmdInfoAuth(cmd *cobra.Command, args []string) error {
 	} else if _, err := os.Stat(authInfoCfg.EmailsPath); err != nil {
 		return errs.New("Emails path error: %s", err)
 	} else {
-		list, err := ioutil.ReadFile(authInfoCfg.EmailsPath)
+		emails, err = parseEmailsList(authInfoCfg.EmailsPath, authInfoCfg.Delimiter)
 		if err != nil {
 			return errs.Wrap(err)
 		}
-		emails = strings.Split(string(list), authInfoCfg.Delimiter)
 	}
 
 	var emailErrs, printErrs utils.ErrorGroup
@@ -225,11 +239,10 @@ func cmdExportAuth(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	} else {
-		list, err := ioutil.ReadFile(authExportCfg.EmailsPath)
+		emails, err = parseEmailsList(authExportCfg.EmailsPath, authExportCfg.Delimiter)
 		if err != nil {
 			return errs.Wrap(err)
 		}
-		emails = strings.Split(string(list), authExportCfg.Delimiter)
 	}
 
 	var (
