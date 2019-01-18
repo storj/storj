@@ -40,6 +40,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return Error.New("programmer error: pointerdb responsibility unstarted")
 	}
 
+	allocation := pointerdb.LoadAllocationFromContext(ctx)
+	if pointers == nil {
+		return Error.New("programmer error: allocation responsibility unstarted")
+	}
+
 	overlay, err := overlay.NewClient(identity, c.SatelliteAddr)
 	if err != nil {
 		return err
@@ -47,7 +52,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	transport := transport.NewClient(identity)
 
 	log := zap.L()
-	service, err := NewService(ctx, log, c.SatelliteAddr, c.Interval, c.MaxRetriesStatDB, pointers, transport, overlay, *identity, c.APIKey)
+	service, err := NewService(ctx, log, c.SatelliteAddr, c.Interval, c.MaxRetriesStatDB, pointers, allocation, transport, overlay, *identity, c.APIKey)
 	if err != nil {
 		return err
 	}
@@ -59,11 +64,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(ctx context.Context, log *zap.Logger, statDBPort string, interval time.Duration, maxRetries int, pointers *pointerdb.Server, transport transport.Client, overlay overlay.Client,
+func NewService(ctx context.Context, log *zap.Logger, statDBPort string, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.Allocation, transport transport.Client, overlay overlay.Client,
 	identity provider.FullIdentity, apiKey string) (service *Service, err error) {
 
 	//TODO: instead of statDBPort pass in the actual database interface
-	cursor := NewCursor(pointers)
+	cursor := NewCursor(pointers, allocation, &identity)
 	verifier := NewVerifier(transport, overlay, identity)
 	reporter, err := NewReporter(ctx, statDBPort, maxRetries, apiKey)
 	if err != nil {

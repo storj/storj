@@ -24,7 +24,7 @@ type Tally interface {
 }
 
 type tally struct {
-	pointerdb     *pointerdb.Server
+	pointerdb     *pointerdb.Service
 	overlay       pb.OverlayServer
 	limit         int
 	logger        *zap.Logger
@@ -33,7 +33,7 @@ type tally struct {
 	bwAgreementDB bwagreement.DB // bwagreements database
 }
 
-func newTally(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Server, overlay pb.OverlayServer, limit int, interval time.Duration) *tally {
+func newTally(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Service, overlay pb.OverlayServer, limit int, interval time.Duration) *tally {
 	return &tally{
 		pointerdb:     pointerdb,
 		overlay:       overlay,
@@ -79,7 +79,7 @@ func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 	}
 
 	var nodeData = make(map[storj.NodeID]float64)
-	err = t.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
+	err = t.pointerdb.Iterate("", "", true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
 			for it.Next(&item) {

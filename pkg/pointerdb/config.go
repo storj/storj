@@ -26,6 +26,7 @@ const (
 	// BoltPointerBucket is the string representing the bucket used for `PointerEntries` in BoltDB
 	BoltPointerBucket                 = "pointers"
 	ctxKey            CtxKeyPointerdb = iota
+	ctxKeyAllocation
 )
 
 // Config is a configuration struct that is everything you need to start a
@@ -66,16 +67,26 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	dblogged := storelogger.New(zap.L().Named("pdb"), db)
 
 	service := NewService(zap.L(), dblogged)
-	s := NewServer(zap.L(), service, cache, c, server.Identity())
+	allocation := NewAllocation(server.Identity(), c.BwExpiration)
+	s := NewServer(zap.L(), service, allocation, cache, c, server.Identity())
 	pb.RegisterPointerDBServer(server.GRPC(), s)
 	// add the server to the context
-	ctx = context.WithValue(ctx, ctxKey, s)
+	ctx = context.WithValue(ctx, ctxKey, service)
+	ctx = context.WithValue(ctx, ctxKeyAllocation, allocation)
 	return server.Run(ctx)
 }
 
-// LoadFromContext gives access to the pointerdb server from the context, or returns nil
-func LoadFromContext(ctx context.Context) *Server {
-	if v, ok := ctx.Value(ctxKey).(*Server); ok {
+// LoadFromContext gives access to the pointerdb service from the context, or returns nil
+func LoadFromContext(ctx context.Context) *Service {
+	if v, ok := ctx.Value(ctxKey).(*Service); ok {
+		return v
+	}
+	return nil
+}
+
+// LoadAllocationFromContext gives access to the payer bandwidth allocation service from the context, or returns nil
+func LoadAllocationFromContext(ctx context.Context) *Allocation {
+	if v, ok := ctx.Value(ctxKeyAllocation).(*Allocation); ok {
 		return v
 	}
 	return nil

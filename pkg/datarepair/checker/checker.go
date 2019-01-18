@@ -30,7 +30,7 @@ type Checker interface {
 // Checker contains the information needed to do checks for missing pieces
 type checker struct {
 	statdb      statdb.DB
-	pointerdb   *pointerdb.Server
+	pointerdb   *pointerdb.Service
 	repairQueue queue.RepairQueue
 	overlay     pb.OverlayServer
 	irrdb       irreparable.DB
@@ -40,13 +40,13 @@ type checker struct {
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(pointerdb *pointerdb.Server, sdb statdb.DB, repairQueue queue.RepairQueue, overlay pb.OverlayServer, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) Checker {
+func NewChecker(pointerdb *pointerdb.Service, sdb statdb.DB, repairQueue queue.RepairQueue, overlay pb.OverlayServer, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) Checker {
 	// TODO: reorder arguments
 	return newChecker(pointerdb, sdb, repairQueue, overlay, irrdb, limit, logger, interval)
 }
 
 // newChecker creates a new instance of checker
-func newChecker(pointerdb *pointerdb.Server, sdb statdb.DB, repairQueue queue.RepairQueue, overlay pb.OverlayServer, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *checker {
+func newChecker(pointerdb *pointerdb.Service, sdb statdb.DB, repairQueue queue.RepairQueue, overlay pb.OverlayServer, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *checker {
 	return &checker{
 		statdb:      sdb,
 		pointerdb:   pointerdb,
@@ -84,7 +84,7 @@ func (c *checker) Close() error { return nil }
 func (c *checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = c.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
+	err = c.pointerdb.Iterate("", "", true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
 			lim := c.limit

@@ -94,10 +94,10 @@ func TestAuditSegment(t *testing.T) {
 
 	ctx := auth.WithAPIKey(tctx, nil)
 
-	pointers := planet.Satellites[0].Metainfo.Endpoint
-
+	pointers := planet.Satellites[0].Metainfo.Service
+	allocation := planet.Satellites[0].Metainfo.Allocation
 	// create a pdb client and instance of audit
-	cursor := NewCursor(pointers)
+	cursor := NewCursor(pointers, allocation, planet.Satellites[0].Identity)
 
 	// put 10 paths in db
 	t.Run("putToDB", func(t *testing.T) {
@@ -108,13 +108,10 @@ func TestAuditSegment(t *testing.T) {
 				// create a pointer and put in db
 				putRequest := makePutRequest(tt.path)
 
-				// create putreq. object
-				req := &pb.PutRequest{Path: tt.path, Pointer: putRequest.Pointer}
-
 				// put pointer into db
-				_, err := pointers.Put(ctx, req)
+				err := pointers.Put(tt.path, putRequest.Pointer)
 				if err != nil {
-					t.Fatalf("failed to put %v: error: %v", req.Pointer, err)
+					t.Fatalf("failed to put %v: error: %v", putRequest.Pointer, err)
 					assert1.NotNil(err)
 				}
 				if err != nil {
@@ -142,17 +139,8 @@ func TestAuditSegment(t *testing.T) {
 
 	// test to see how random paths are
 	t.Run("probabilisticTest", func(t *testing.T) {
-		listRes, err := pointers.List(ctx, &pb.ListRequest{
-			Prefix:     "",
-			StartAfter: "",
-			EndBefore:  "",
-			Recursive:  true,
-			Limit:      10,
-			MetaFlags:  meta.None,
-		})
+		list, _, err := pointers.List("", "", "", true, 10, meta.None)
 		require.NoError(t, err)
-
-		list := listRes.GetItems()
 		require.Len(t, list, 10)
 
 		// get count of items picked at random

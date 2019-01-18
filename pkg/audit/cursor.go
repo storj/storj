@@ -9,11 +9,15 @@ import (
 	"math/big"
 	"sync"
 
+	"storj.io/storj/pkg/identity"
+
 	"github.com/vivint/infectious"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 )
@@ -28,14 +32,16 @@ type Stripe struct {
 
 // Cursor keeps track of audit location in pointer db
 type Cursor struct {
-	pointers *pointerdb.Server
-	lastPath storj.Path
-	mutex    sync.Mutex
+	pointers   *pointerdb.Service
+	allocation *pointerdb.Allocation
+	identity   *provider.FullIdentity
+	lastPath   storj.Path
+	mutex      sync.Mutex
 }
 
 // NewCursor creates a Cursor which iterates over pointer db
-func NewCursor(pointers *pointerdb.Server) *Cursor {
-	return &Cursor{pointers: pointers}
+func NewCursor(pointers *pointerdb.Service, allocation *pointerdb.Allocation, identity *provider.FullIdentity) *Cursor {
+	return &Cursor{pointers: pointers, allocation: allocation, identity: identity}
 }
 
 // NextStripe returns a random stripe to be audited
@@ -47,20 +53,10 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	var path storj.Path
 	var more bool
 
-	listRes, err := cursor.pointers.List(ctx, &pb.ListRequest{
-		Prefix:     "",
-		StartAfter: cursor.lastPath,
-		EndBefore:  "",
-		Recursive:  true,
-		Limit:      0,
-		MetaFlags:  meta.None,
-	})
+	pointerItems, more, err = cursor.pointers.List("", cursor.lastPath, "", true, 0, meta.None)
 	if err != nil {
 		return nil, err
 	}
-
-	pointerItems = listRes.GetItems()
-	more = listRes.GetMore()
 
 	if len(pointerItems) == 0 {
 		return nil, nil
@@ -81,13 +77,25 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	}
 
 	// get pointer info
-	getRes, err := cursor.pointers.Get(ctx, &pb.GetRequest{Path: path})
+	pointer, err := cursor.pointers.Get(path)
 	if err != nil {
 		return nil, err
 	}
-	pointer := getRes.GetPointer()
-	pba := getRes.GetPba()
-	authorization := getRes.GetAuthorization()
+	peerIdentity := &identity.PeerIdentity{ID: cursor.identity.ID, Leaf: cursor.identity.Leaf}
+	pba, err := cursor.allocation.PayerBandwidthAllocation(ctx, peerIdentity, pb.PayerBandwidthAllocation_GET_AUDIT)
+	if err != nil {
+		return nil, err
+	}
+
+	signature, err := auth.GenerateSignature(cursor.identity.ID.Bytes(), cursor.identity)
+	if err != nil {
+		return nil, err
+	}
+
+	authorization, err := auth.NewSignedMessage(signature, cursor.identity)
+	if err != nil {
+		return nil, err
+	}
 
 	if pointer.GetType() != pb.Pointer_REMOTE {
 		return nil, nil
