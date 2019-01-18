@@ -3,9 +3,10 @@
 
 package audit
 
+// TODO: use audit_test as the test package to avoid import cycles
+
 import (
 	"crypto/rand"
-	"errors"
 	"math"
 	"math/big"
 	"reflect"
@@ -14,22 +15,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage/teststore"
-)
-
-var (
-	ErrNoList = errors.New("list error: failed to get list")
-	ErrNoNum  = errors.New("num error: failed to get num")
 )
 
 func TestAuditSegment(t *testing.T) {
@@ -101,13 +94,7 @@ func TestAuditSegment(t *testing.T) {
 
 	ctx := auth.WithAPIKey(tctx, nil)
 
-	// PointerDB instantiation
-	db := teststore.New()
-	c := pointerdb.Config{MaxInlineSegmentSize: 8000}
-
-	//TODO: use planet PointerDB directly
-	cache := planet.Satellites[0].Overlay
-	pointers := pointerdb.NewServer(db, cache, zap.NewNop(), c, planet.Satellites[0].Identity)
+	pointers := planet.Satellites[0].Metainfo.Endpoint
 
 	// create a pdb client and instance of audit
 	cursor := NewCursor(pointers)
@@ -163,11 +150,10 @@ func TestAuditSegment(t *testing.T) {
 			Limit:      10,
 			MetaFlags:  meta.None,
 		})
-		if err != nil {
-			t.Error(ErrNoList)
-		}
+		require.NoError(t, err)
 
 		list := listRes.GetItems()
+		require.Len(t, list, 10)
 
 		// get count of items picked at random
 		uniquePathCounted := []pathCount{}
@@ -177,7 +163,7 @@ func TestAuditSegment(t *testing.T) {
 		for i := 0; i < 100; i++ {
 			randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(list))))
 			if err != nil {
-				t.Error(ErrNoNum)
+				t.Error("num error: failed to get num")
 			}
 			pointerItem := list[randomNum.Int64()]
 			path := pointerItem.Path

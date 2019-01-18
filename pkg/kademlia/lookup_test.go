@@ -24,7 +24,7 @@ func TestLookupNodes(t *testing.T) {
 
 	planet.Start(ctx)
 
-	k := planet.Satellites[0].Kademlia
+	k := planet.Satellites[0].Kademlia.Service
 	err = k.Bootstrap(ctx)
 	assert.NoError(t, err)
 

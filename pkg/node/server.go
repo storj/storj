@@ -36,19 +36,19 @@ func (server *Server) Query(ctx context.Context, req *pb.QueryRequest) (*pb.Quer
 	if req.GetPingback() {
 		_, err = server.dht.Ping(ctx, *req.Sender)
 		if err != nil {
+			server.log.Debug("connection to node failed", zap.Error(err), zap.String("nodeID", req.Sender.Id.String()))
 			err = rt.ConnectionFailed(req.Sender)
 			if err != nil {
 				server.log.Error("could not respond to connection failed", zap.Error(err))
 			}
-			server.log.Debug("connection to node failed", zap.Error(err), zap.String("nodeID", req.Sender.Id.String()))
+		} else {
+			err = rt.ConnectionSuccess(req.Sender)
+			if err != nil {
+				server.log.Error("could not respond to connection success", zap.Error(err))
+			} else {
+				server.log.Sugar().Debugf("Successfully connected with %s", req.Sender.Address.Address)
+			}
 		}
-
-		err = rt.ConnectionSuccess(req.Sender)
-		if err != nil {
-			server.log.Error("could not respond to connection success", zap.Error(err))
-		}
-
-		server.log.Sugar().Infof("Successfully connected with %s", req.Sender.Address.Address)
 	}
 
 	nodes, err := rt.FindNear(req.Target.Id, int(req.Limit))

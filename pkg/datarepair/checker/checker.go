@@ -22,6 +22,9 @@ import (
 // Checker is the interface for data repair checker
 type Checker interface {
 	Run(ctx context.Context) error
+	IdentifyInjuredSegments(ctx context.Context) (err error)
+	OfflineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (offline []int32, err error)
+	Close() error
 }
 
 // Checker contains the information needed to do checks for missing pieces
@@ -34,6 +37,12 @@ type checker struct {
 	limit       int
 	logger      *zap.Logger
 	ticker      *time.Ticker
+}
+
+// NewChecker creates a new instance of checker
+func NewChecker(pointerdb *pointerdb.Server, sdb statdb.DB, repairQueue queue.RepairQueue, overlay pb.OverlayServer, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) Checker {
+	// TODO: reorder arguments
+	return newChecker(pointerdb, sdb, repairQueue, overlay, irrdb, limit, logger, interval)
 }
 
 // newChecker creates a new instance of checker
@@ -55,7 +64,7 @@ func (c *checker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
-		err = c.identifyInjuredSegments(ctx)
+		err = c.IdentifyInjuredSegments(ctx)
 		if err != nil {
 			c.logger.Error("Checker failed", zap.Error(err))
 		}
@@ -68,8 +77,11 @@ func (c *checker) Run(ctx context.Context) (err error) {
 	}
 }
 
-// identifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
-func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
+// Close closes resources
+func (c *checker) Close() error { return nil }
+
+// IdentifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
+func (c *checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = c.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
@@ -104,7 +116,7 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 				}
 
 				// Find all offline nodes
-				offlineNodes, err := c.offlineNodes(ctx, nodeIDs)
+				offlineNodes, err := c.OfflineNodes(ctx, nodeIDs)
 				if err != nil {
 					return Error.New("error getting offline nodes %s", err)
 				}
@@ -148,8 +160,8 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 	return err
 }
 
-// returns the indices of offline nodes
-func (c *checker) offlineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (offline []int32, err error) {
+// OfflineNodes returns the indices of offline nodes
+func (c *checker) OfflineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (offline []int32, err error) {
 	responses, err := c.overlay.BulkLookup(ctx, pb.NodeIDsToLookupRequests(nodeIDs))
 	if err != nil {
 		return []int32{}, err

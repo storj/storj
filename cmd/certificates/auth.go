@@ -4,10 +4,10 @@
 package main
 
 import (
+	"bufio"
 	"encoding/csv"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -58,6 +58,22 @@ func init() {
 	cfgstruct.Bind(authExportCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir))
 }
 
+func parseEmailsList(fileName, delimiter string) (emails []string, err error) {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "#") {
+			continue
+		}
+		emails = append(emails, line)
+	}
+	return emails, file.Close()
+}
+
 func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 	count, err := strconv.Atoi(args[0])
 	if err != nil {
@@ -75,11 +91,10 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 		}
 		emails = args[1:]
 	} else {
-		list, err := ioutil.ReadFile(config.EmailsPath)
+		emails, err = parseEmailsList(config.EmailsPath, config.Delimiter)
 		if err != nil {
 			return errs.Wrap(err)
 		}
-		emails = strings.Split(string(list), config.Delimiter)
 	}
 
 	var incErrs utils.ErrorGroup
@@ -111,11 +126,10 @@ func cmdInfoAuth(cmd *cobra.Command, args []string) error {
 	} else if _, err := os.Stat(config.EmailsPath); err != nil {
 		return errs.New("Emails path error: %s", err)
 	} else {
-		list, err := ioutil.ReadFile(config.EmailsPath)
+		emails, err = parseEmailsList(config.EmailsPath, config.Delimiter)
 		if err != nil {
 			return errs.Wrap(err)
 		}
-		emails = strings.Split(string(list), config.Delimiter)
 	}
 
 	var emailErrs, printErrs utils.ErrorGroup
@@ -206,11 +220,10 @@ func cmdExportAuth(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	} else {
-		list, err := ioutil.ReadFile(config.EmailsPath)
+		emails, err = parseEmailsList(config.EmailsPath, config.Delimiter)
 		if err != nil {
 			return errs.Wrap(err)
 		}
-		emails = strings.Split(string(list), config.Delimiter)
 	}
 
 	var (

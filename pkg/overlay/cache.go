@@ -60,6 +60,9 @@ func NewCache(db DB, sdb statdb.DB) *Cache {
 	return &Cache{db: db, statDB: sdb}
 }
 
+// Close closes resources
+func (cache *Cache) Close() error { return nil }
+
 // Inspect lists limited number of items in the cache
 func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
 	// TODO: implement inspection tools

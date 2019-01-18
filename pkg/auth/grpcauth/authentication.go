@@ -26,6 +26,7 @@ func NewAPIKeyInterceptor() grpc.UnaryServerInterceptor {
 		if !ok || len(apikeys) == 0 {
 			return handler(ctx, req)
 		}
+
 		return handler(auth.WithAPIKey(ctx, []byte(apikeys[0])), req)
 	}
 }
