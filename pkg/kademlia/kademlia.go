@@ -102,7 +102,7 @@ func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes [
 		bootstrapNodes: bootstrapNodes,
 		identity:       identity,
 
-		pool: NewPool(log.Named("pool"), transport.NewClient(identity)),
+		pool: NewPool(log.Named("pool"), transport.NewClient(identity, rt)),
 	}
 	return k, nil
 }
