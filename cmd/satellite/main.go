@@ -107,7 +107,6 @@ var (
 )
 
 func init() {
-
 	confDirParam := cfgstruct.FindConfigDirParam()
 	if confDirParam != "" {
 		defaultConfDir = confDirParam

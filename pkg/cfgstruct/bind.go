@@ -30,8 +30,8 @@ func ConfDir(confdir string) BindOpt {
 }
 
 // CredsDir sets a variable for the default option called $CREDSDIR.
-func CredsDir(confdir string) BindOpt {
-	val := filepath.Clean(os.ExpandEnv(confdir))
+func CredsDir(credsdir string) BindOpt {
+	val := filepath.Clean(os.ExpandEnv(credsdir))
 	return BindOpt(func(vars map[string]confVar) {
 		vars["CREDSDIR"] = confVar{val: val, nested: false}
 	})

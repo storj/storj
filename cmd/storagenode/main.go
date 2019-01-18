@@ -84,9 +84,10 @@ var (
 	diagCfg struct {
 	}
 
-	defaultConfDir  string
+	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
+	// TODO: this path should be defined somewhere else
+	defaultCredsDir = fpath.ApplicationDir("storj", "identity", "storagenode")
 	defaultDiagDir  string
-	defaultCredsDir string
 	confDir         string
 	credsDir        string
 )
@@ -96,13 +97,10 @@ const (
 )
 
 func init() {
-	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
-	// TODO: this path should be defined somewhere else
-	defaultCredsDir = fpath.ApplicationDir("storj", "identity", "storagenode")
 
-	dirParam := cfgstruct.FindConfigDirParam()
-	if dirParam != "" {
-		defaultConfDir = dirParam
+	confDirParam := cfgstruct.FindConfigDirParam()
+	if confDirParam != "" {
+		defaultConfDir = confDirParam
 	}
 	credsDirParam := cfgstruct.FindCredsDirParam()
 	if credsDirParam != "" {
