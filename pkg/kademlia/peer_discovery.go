@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
@@ -19,7 +18,8 @@ import (
 type peerDiscovery struct {
 	log *zap.Logger
 
-	client node.Client
+	pool   *Pool
+	self   pb.Node
 	target storj.NodeID
 	opts   discoveryOptions
 
@@ -30,10 +30,11 @@ type peerDiscovery struct {
 // ErrMaxRetries is used when a lookup has been retried the max number of times
 var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 
-func newPeerDiscovery(log *zap.Logger, nodes []*pb.Node, client node.Client, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
+func newPeerDiscovery(log *zap.Logger, self pb.Node, nodes []*pb.Node, pool *Pool, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
 	discovery := &peerDiscovery{
 		log:    log,
-		client: client,
+		pool:   pool,
+		self:   self,
 		target: target,
 		opts:   opts,
 		cond:   sync.Cond{L: &sync.Mutex{}},
@@ -93,7 +94,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (target *pb.Node, err erro
 					nodeType.DPanicOnInvalid("Peer Discovery Run")
 				}
 				next.Type.DPanicOnInvalid("next")
-				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target, Type: nodeType})
+				neighbors, err := lookup.pool.Lookup(ctx, lookup.self, *next, pb.Node{Id: lookup.target, Type: nodeType})
 
 				if err != nil && !isDone(ctx) {
 					// TODO: reenable retry after fixing logic
