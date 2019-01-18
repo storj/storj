@@ -223,11 +223,10 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 		return err
 	}
 
-	switch command {
-	case "setup":
+	if command == "setup" || process.Address == "" {
 		// during setup we aren't starting the addresses, so we can release the dependencies immediately
 		process.Status.Started.Release()
-	default:
+	} else {
 		// release started when we are able to connect to the process address
 		go process.monitorAddress()
 	}
