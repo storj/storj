@@ -9,9 +9,8 @@ import "node.proto";
 
 package inspector;
 
-service Inspector {
-  // Kad/Overlay commands:
-  // CountNodes returns the number of nodes in the cache and in the routing table
+service KadInspector {
+  // CountNodes returns the number of nodes in the routing table
   rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
   // GetBuckets returns the k buckets from a Kademlia instance
   rpc GetBuckets(GetBucketsRequest) returns (GetBucketsResponse);
@@ -21,8 +20,14 @@ service Inspector {
   rpc PingNode(PingNodeRequest) returns (PingNodeResponse);
   // LookupNode triggers a Kademlia FindNode and returns the response
   rpc LookupNode(LookupNodeRequest) returns (LookupNodeResponse);
+}
 
-  // StatDB commands:
+service OverlayInspector {
+  // CountNodes returns the number of nodes in the cache
+  rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
+}
+
+service StatDBInspector {
   // GetStats returns the stats for a particular node ID
   rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
   // CreateStats creates a node with specified stats
@@ -55,8 +60,7 @@ message CreateStatsResponse {
 
 // CountNodes
 message CountNodesResponse {
-  int64 kademlia = 1;
-  int64 overlay = 2;
+  int64 count = 1;
 }
 
 message CountNodesRequest {
@@ -88,7 +92,7 @@ message Bucket {
 message BucketList {
   repeated node.Node nodes = 1;
 }
-// PingNode 
+// PingNode
 message PingNodeRequest {
   bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
   string address = 2;
@@ -99,7 +103,7 @@ message PingNodeResponse {
 }
 
 message LookupNodeRequest {
-  string id = 1; 
+  string id = 1;
   string address = 2;
 }
 

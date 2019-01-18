@@ -95,7 +95,7 @@ func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID 
 		if err != nil || r.GetStatus() == pb.AgreementsSummary_FAIL {
 			as.log.Warn("Agreementsender failed to send agreement to satellite : will retry", zap.Error(err))
 			continue
-		} else if r.GetStatus() != pb.AgreementsSummary_REJECTED {
+		} else if r.GetStatus() == pb.AgreementsSummary_REJECTED {
 			//todo: something better than a delete here?
 			as.log.Error("Agreementsender had agreement explicitly rejected by satellite : will delete", zap.Error(err))
 		}

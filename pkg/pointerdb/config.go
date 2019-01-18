@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -30,14 +31,15 @@ const (
 // Config is a configuration struct that is everything you need to start a
 // PointerDB responsibility
 type Config struct {
-	DatabaseURL          string `help:"the database connection string to use" default:"bolt://$CONFDIR/pointerdb.db"`
-	MinRemoteSegmentSize int    `default:"1240" help:"minimum remote segment size"`
-	MaxInlineSegmentSize int    `default:"8000" help:"maximum inline segment size"`
-	Overlay              bool   `default:"true" help:"toggle flag if overlay is enabled"`
-	BwExpiration         int    `default:"45"   help:"lifespan of bandwidth agreements in days"`
+	DatabaseURL          string      `help:"the database connection string to use" default:"bolt://$CONFDIR/pointerdb.db"`
+	MinRemoteSegmentSize memory.Size `default:"1240" help:"minimum remote segment size"`
+	MaxInlineSegmentSize memory.Size `default:"8000" help:"maximum inline segment size"`
+	Overlay              bool        `default:"true" help:"toggle flag if overlay is enabled"`
+	BwExpiration         int         `default:"45"   help:"lifespan of bandwidth agreements in days"`
 }
 
-func newKeyValueStore(dbURLString string) (db storage.KeyValueStore, err error) {
+// NewStore returns database for storing pointer data
+func NewStore(dbURLString string) (db storage.KeyValueStore, err error) {
 	driver, source, err := utils.SplitDBURL(dbURLString)
 	if err != nil {
 		return nil, err
@@ -54,7 +56,7 @@ func newKeyValueStore(dbURLString string) (db storage.KeyValueStore, err error) 
 
 // Run implements the provider.Responsibility interface
 func (c Config) Run(ctx context.Context, server *provider.Provider) error {
-	db, err := newKeyValueStore(c.DatabaseURL)
+	db, err := NewStore(c.DatabaseURL)
 	if err != nil {
 		return err
 	}

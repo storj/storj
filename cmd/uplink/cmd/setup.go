@@ -14,6 +14,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
@@ -29,7 +30,6 @@ var (
 	setupCfg struct {
 		CA                 provider.CASetupConfig       `setup:"true"`
 		Identity           provider.IdentitySetupConfig `setup:"true"`
-		Overwrite          bool                         `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
 		APIKey             string                       `default:"" help:"the api key to use for the satellite" setup:"true"`
 		EncKey             string                       `default:"" help:"your root encryption key" setup:"true"`
 		GenerateMinioCerts bool                         `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
@@ -73,8 +73,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	valid, _ := fpath.IsValidSetupDir(setupDir)
-	if !setupCfg.Overwrite && !valid {
-		return fmt.Errorf("uplink configuration already exists (%v). Rerun with --overwrite", setupDir)
+	if !valid {
+		return fmt.Errorf("uplink configuration already exists (%v)", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
@@ -91,9 +91,14 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
 		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 	}
-	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
-	if err != nil {
-		return err
+
+	if setupCfg.Identity.Status() == identity.CertKey {
+		// identity already exists
+	} else {
+		err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
+		if err != nil {
+			return err
+		}
 	}
 
 	if setupCfg.GenerateMinioCerts {
@@ -130,7 +135,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"enc.key":                setupCfg.EncKey,
 	}
 
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
 }
 
 func generateAWSKey() (key string, err error) {

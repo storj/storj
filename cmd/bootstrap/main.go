@@ -4,11 +4,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
@@ -71,7 +73,11 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	return cfg.Server.Run(process.Ctx(cmd), nil, cfg.Kademlia)
+	ctx := process.Ctx(cmd)
+	if err := process.InitMetricsWithCertPath(ctx, nil, cfg.Identity.CertPath); err != nil {
+		zap.S().Errorf("Failed to initialize telemetry batcher: %+v", err)
+	}
+	return cfg.Server.Run(ctx, nil, cfg.Kademlia)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -80,12 +86,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	valid, err := fpath.IsValidSetupDir(setupDir)
-	if err != nil {
-		return err
-	}
+	valid, _ := fpath.IsValidSetupDir(setupDir)
 	if !valid {
-		return fmt.Errorf("bootstrap configuration already exists (%v). Rerun with --overwrite", setupDir)
+		return fmt.Errorf("bootstrap configuration already exists (%v)", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
@@ -99,9 +102,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		cfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
 		cfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 	}
-	err = identity.SetupIdentity(process.Ctx(cmd), cfg.CA, cfg.Identity)
-	if err != nil {
-		return err
+
+	if cfg.Identity.Status() != identity.CertKey {
+		return errors.New("identity is missing")
 	}
 
 	overrides := map[string]interface{}{
@@ -111,7 +114,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"kademlia.bootstrap-addr": "localhost" + defaultServerAddr,
 	}
 
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 }
 
 func main() {

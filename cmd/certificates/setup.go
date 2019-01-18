@@ -4,6 +4,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -69,14 +70,15 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 	if _, err := setupCfg.Signer.NewAuthDB(); err != nil {
 		return err
 	}
-	setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
-	setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
-	setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
-	setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 
-	err = identity.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
-	if err != nil {
-		return err
+	if setupDir != defaultConfDir {
+		setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
+		setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
+		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
+		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
+	}
+	if setupCfg.Identity.Status() != identity.CertKey {
+		return errors.New("identity is missing")
 	}
 
 	o := map[string]interface{}{
@@ -86,5 +88,5 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 		"identity.key-path":  setupCfg.Identity.KeyPath,
 		"log.level":          "info",
 	}
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
 }

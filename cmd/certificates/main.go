@@ -31,8 +31,8 @@ var (
 	}
 
 	runCfg struct {
-		CertSigner certificates.CertServerConfig
-		Server     server.Config
+		Signer certificates.CertServerConfig
+		Server server.Config
 	}
 
 	defaultConfDir = fpath.ApplicationDir("storj", "cert-signing")
@@ -44,7 +44,7 @@ func init() {
 	if dirParam != "" {
 		defaultConfDir = dirParam
 	}
-	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for captplanet configuration")
+	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for certificates configuration")
 
 	rootCmd.AddCommand(runCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
@@ -53,7 +53,7 @@ func init() {
 func cmdRun(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	return runCfg.Server.Run(ctx, nil, runCfg.CertSigner)
+	return runCfg.Server.Run(ctx, nil, runCfg.Signer)
 }
 
 func main() {

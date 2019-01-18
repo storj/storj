@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -17,7 +16,6 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
 )
 
 // ServerError creates class of errors for stack traces
@@ -47,6 +45,9 @@ func NewServer(log *zap.Logger, cache *Cache, minStats *pb.NodeStats, matchingNo
 		newNodePercentage:     newNodePercentage,
 	}
 }
+
+// Close closes resources
+func (server *Server) Close() error { return nil }
 
 // Lookup finds the address of a node in our overlay network
 func (server *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (*pb.LookupResponse, error) {
@@ -144,6 +145,7 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 	}, nil
 }
 
+// TODO: nicer method arguments
 // filterNodes removes nodes with duplicate IP addresses and updates excluded list with all nodes
 func (server *Server) filterNodes(ctx context.Context, nodes []*pb.Node, nodeRequirement int64, usedAddrs map[string]bool,
 	excluded storj.NodeIDList) (resultNodes []*pb.Node, updatedExcluded storj.NodeIDList, updatedUsed map[string]bool) {
@@ -186,7 +188,7 @@ func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeI
 	limit := int(float64(maxNodes) * server.matchingNodeRatio)
 	minReputation := server.minStats
 
-	keys, err := server.cache.db.List(startID.Bytes(), limit)
+	keys, err := server.cache.db.List(ctx, startID, limit)
 	if err != nil {
 		server.log.Error("Error listing nodes", zap.Error(err))
 		return nil, storj.NodeID{}, Error.Wrap(err)
@@ -204,7 +206,13 @@ func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeI
 	}
 
 	for _, v := range nodes {
+		if v == nil {
+			continue
+		}
+
+		nextStart = v.Id
 		if v.Type != pb.NodeType_STORAGE {
+			server.log.Debug("not storage node = " + v.Id.String() + " was " + v.Type.String())
 			continue
 		}
 
@@ -218,6 +226,7 @@ func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeI
 			reputation.GetAuditSuccessRatio() < minReputation.GetAuditSuccessRatio() ||
 			reputation.GetAuditCount() < minReputation.GetAuditCount() ||
 			contains(excluded, v.Id) {
+			server.log.Debug("excluded = " + v.Id.String())
 			continue
 		}
 		nodes = append(nodes, v)
@@ -275,14 +284,8 @@ func (server *Server) getNewNodes(ctx context.Context, startID storj.NodeID, max
 		}
 	}
 
-	var nextStart storj.NodeID
-	if len(keys) < limit {
-		nextStart = storj.NodeID{}
-	} else {
-		nextStart, err = storj.NodeIDFromBytes(keys[len(keys)-1])
-	}
-	if err != nil {
-		return nil, storj.NodeID{}, Error.Wrap(err)
+		server.log.Debug("append " + v.Id.String() + " - " + v.Type.String())
+		result = append(result, v)
 	}
 
 	return nodes, nextStart, nil

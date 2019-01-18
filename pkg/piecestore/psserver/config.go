@@ -13,6 +13,7 @@ import (
 	"golang.org/x/net/context"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	pstore "storj.io/storj/pkg/piecestore"
@@ -27,9 +28,9 @@ var (
 
 // Config contains everything necessary for a server
 type Config struct {
-	Path                         string        `help:"path to store data in" default:"$CONFDIR"`
-	AllocatedDiskSpace           int64         `help:"total allocated disk space in bytes, default(1GB)" default:"1073741824"`
-	AllocatedBandwidth           int64         `help:"total allocated bandwidth in bytes, default(100GB)" default:"107374182400"`
+	Path                         string        `help:"path to store data in" default:"$CONFDIR/storage"`
+	AllocatedDiskSpace           memory.Size   `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
+	AllocatedBandwidth           memory.Size   `user:"true" help:"total allocated bandwidth in bytes" default:"500GiB"`
 	KBucketRefreshInterval       time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
 	AgreementSenderCheckInterval time.Duration `help:"duration between agreement checks" default:"1h0m0s"`
 }
@@ -37,9 +38,8 @@ type Config struct {
 // Run implements provider.Responsibility
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	ctx, cancel := context.WithCancel(ctx)
 
-	//piecestore
+	// piecestore Storage Driver
 	storage := pstore.NewStorage(filepath.Join(c.Path, "piece-store-data"))
 
 	db, err := psdb.Open(ctx, storage, filepath.Join(c.Path, "piecestore.db"))
@@ -47,37 +47,43 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return ServerError.Wrap(err)
 	}
 
-	s, err := NewEndpoint(zap.L(), c, storage, db, server.Identity().Key)
+	// Load kademlia from context
+	kad := kademlia.LoadFromContext(ctx)
+	if kad == nil {
+		return ServerError.New("Failed to load Kademlia from context")
+	}
+
+	// Initialize piecestore server struct
+	s, err := NewEndpoint(zap.L(), c, storage, db, server.Identity().Key, kad)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if stopErr := s.Stop(ctx); stopErr != nil {
+			log.Fatal(stopErr)
+		}
+	}()
+
 	pb.RegisterPieceStoreRoutesServer(server.GRPC(), s)
 
-	//kademlia
-	k := kademlia.LoadFromContext(ctx)
-	if k == nil {
-		return ServerError.New("Failed to load Kademlia from context")
-	}
-	rt, err := k.GetRoutingTable(ctx)
+	rt, err := kad.GetRoutingTable(ctx)
 	if err != nil {
 		return ServerError.Wrap(err)
 	}
+
 	krt, ok := rt.(*kademlia.RoutingTable)
 	if !ok {
 		return ServerError.New("Could not convert dht.RoutingTable to *kademlia.RoutingTable")
 	}
-	refreshProcess := newService(zap.L(), c.KBucketRefreshInterval, krt, s)
-	go func() {
-		if err := refreshProcess.Run(ctx); err != nil {
-			cancel()
-		}
-	}()
 
-	//agreementsender
-	agreementSender := agreementsender.New(zap.L(), s.DB, server.Identity(), k, c.AgreementSenderCheckInterval)
+	// Initialize Refresh process for updating storage node meta in kademlia
+	refreshProcess := newService(zap.L(), c.KBucketRefreshInterval, krt, s)
+	go refreshProcess.Run(ctx)
+
+	// Initialize agreementsender process for sending received bandwidth agreements to satellites
+	agreementSender := agreementsender.New(zap.L(), s.DB, server.Identity(), kad, c.AgreementSenderCheckInterval)
 	go agreementSender.Run(ctx)
 
-	defer func() { log.Fatal(s.Stop(ctx)) }()
 	s.log.Info("Started Node", zap.String("ID", fmt.Sprint(server.Identity().ID)))
 	return server.Run(ctx)
 }

@@ -158,6 +158,27 @@ func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 	return PeerIdentityFromPeer(p)
 }
 
+// NodeIDFromCertPath loads a node ID from a certificate file path
+func NodeIDFromCertPath(certPath string) (storj.NodeID, error) {
+	certBytes, err := ioutil.ReadFile(certPath)
+	if err != nil {
+		return storj.NodeID{}, err
+	}
+	return NodeIDFromPEM(certBytes)
+}
+
+// NodeIDFromPEM loads a node ID from certificate bytes
+func NodeIDFromPEM(pemBytes []byte) (storj.NodeID, error) {
+	chain, err := DecodeAndParseChainPEM(pemBytes)
+	if err != nil {
+		return storj.NodeID{}, Error.New("invalid identity certificate")
+	}
+	if len(chain) < peertls.CAIndex+1 {
+		return storj.NodeID{}, Error.New("no CA in identity certificate")
+	}
+	return NodeIDFromKey(chain[peertls.CAIndex].PublicKey)
+}
+
 // NodeIDFromKey hashes a public key and creates a node ID from it
 func NodeIDFromKey(k crypto.PublicKey) (storj.NodeID, error) {
 	if ek, ok := k.(*ecdsa.PublicKey); ok {

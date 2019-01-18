@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
@@ -23,7 +24,7 @@ type Config struct {
 	Interval      time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
 	OverlayAddr   string        `help:"Address to contact overlay server through"`
 	PointerDBAddr string        `help:"Address to contact pointerdb server through"`
-	MaxBufferMem  int           `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"0x400000"`
+	MaxBufferMem  memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
 	APIKey        string        `help:"repairer-specific pointerdb access credential"`
 }
 
@@ -36,12 +37,12 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return Error.New("unable to get master db instance")
 	}
 
-	repairer, err := c.getSegmentRepairer(ctx, server.Identity())
+	repairer, err := c.GetSegmentRepairer(ctx, server.Identity())
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	service := newService(q.RepairQueue(), repairer, c.Interval, c.MaxRepair)
+	service := NewService(q.RepairQueue(), repairer, c.Interval, c.MaxRepair)
 
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -49,15 +50,15 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	go func() {
 		if err := service.Run(ctx); err != nil {
 			defer cancel()
-			zap.L().Error("Error running repair service", zap.Error(err))
+			zap.L().Debug("Repair service is shutting down", zap.Error(err))
 		}
 	}()
 
 	return server.Run(ctx)
 }
 
-// getSegmentRepairer creates a new segment repairer from storeConfig values
-func (c Config) getSegmentRepairer(ctx context.Context, identity *provider.FullIdentity) (ss SegmentRepairer, err error) {
+// GetSegmentRepairer creates a new segment repairer from storeConfig values
+func (c Config) GetSegmentRepairer(ctx context.Context, identity *provider.FullIdentity) (ss SegmentRepairer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var oc overlay.Client
@@ -71,7 +72,7 @@ func (c Config) getSegmentRepairer(ctx context.Context, identity *provider.FullI
 		return nil, err
 	}
 
-	ec := ecclient.NewClient(identity, c.MaxBufferMem)
+	ec := ecclient.NewClient(identity, c.MaxBufferMem.Int())
 
 	return segments.NewSegmentRepairer(oc, ec, pdb), nil
 }

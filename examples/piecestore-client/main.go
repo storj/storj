@@ -48,6 +48,11 @@ func main() {
 		Type: pb.NodeType_STORAGE,
 	}
 	tc := transport.NewClient(clientIdent)
+	// create a new liteclient for dashboard on localhost port 7777
+	liteClient, err := psclient.NewLiteClient(ctx, ":7777")
+	if err != nil {
+		log.Fatalf("could not initialize lite client: %s", err)
+	}
 	psClient, err := psclient.NewPSClient(ctx, tc, n, 0)
 	if err != nil {
 		log.Fatalf("could not initialize Client: %s", err)
@@ -232,7 +237,7 @@ func main() {
 		Short:   "Retrieve statistics",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var summary *pb.StatSummary
-			summary, err := psClient.Stats(context.Background())
+			summary, err := liteClient.Stats(context.Background())
 			if err != nil {
 				return err
 			}

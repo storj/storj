@@ -6,22 +6,26 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"text/tabwriter"
 
+	"github.com/fatih/color"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/process"
@@ -31,14 +35,12 @@ import (
 
 // StorageNode defines storage node configuration
 type StorageNode struct {
-	CA        identity.CASetupConfig `setup:"true"`
-	Identity  identity.SetupConfig   `setup:"true"`
-	Overwrite bool                   `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
+	EditConf        bool `default:"false" help:"open config in default editor"`
+	SaveAllDefaults bool `default:"false" help:"save all default values to config.yaml file" setup:"true"`
 
 	Server   server.Config
 	Kademlia kademlia.StorageNodeConfig
 	Storage  psserver.Config
-	Signer   certificates.CertClientConfig
 }
 
 var (
@@ -68,44 +70,68 @@ var (
 		Short: "Diagnostic Tool support",
 		RunE:  cmdDiag,
 	}
-
-	runCfg   StorageNode
-	setupCfg StorageNode
+	dashboardCmd = &cobra.Command{
+		Use:   "dashboard",
+		Short: "Display a dashbaord",
+		RunE:  dashCmd,
+	}
+	runCfg       StorageNode
+	setupCfg     StorageNode
+	dashboardCfg struct {
+		Address string `default:":28967" help:"address for dashboard service"`
+	}
 
 	diagCfg struct {
 	}
 
-	defaultConfDir string
-	defaultDiagDir string
-	confDir        *string
+	defaultConfDir  string
+	defaultDiagDir  string
+	defaultCredsDir string
+	confDir         string
+	credsDir        string
 )
 
 const (
-	defaultServerAddr    = ":28967"
-	defaultSatteliteAddr = "127.0.0.1:7778"
+	defaultServerAddr = ":28967"
 )
 
 func init() {
 	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
+	// TODO: this path should be defined somewhere else
+	defaultCredsDir = fpath.ApplicationDir("storj", "identity")
 
 	dirParam := cfgstruct.FindConfigDirParam()
 	if dirParam != "" {
 		defaultConfDir = dirParam
 	}
 
-	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for storagenode configuration")
+	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
+	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
+	rootCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for storagenode identity credentials")
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
+	rootCmd.AddCommand(dashboardCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir))
+	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg)
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	if ident, err := runCfg.Server.Identity.Load(); err != nil {
+		zap.S().Fatal(err)
+	} else {
+		zap.S().Info("Node ID: ", ident.ID)
+	}
+
 	operatorConfig := runCfg.Kademlia.Operator
 	if err := isOperatorEmailValid(operatorConfig.Email); err != nil {
 		zap.S().Warn(err)
@@ -117,25 +143,23 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	} else {
 		zap.S().Info("Operator wallet: ", operatorConfig.Wallet)
 	}
+	ctx := process.Ctx(cmd)
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Server.Identity.CertPath); err != nil {
+		zap.S().Error("Failed to initialize telemetry batcher:", err)
+	}
 
 	return runCfg.Server.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*confDir)
+	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
 
-	valid, err := fpath.IsValidSetupDir(setupDir)
-	if !setupCfg.Overwrite && !valid {
-		return fmt.Errorf("storagenode configuration already exists (%v). Rerun with --overwrite", setupDir)
-	} else if setupCfg.Overwrite && err == nil {
-		fmt.Println("overwriting existing storagenode config")
-		err = os.RemoveAll(setupDir)
-		if err != nil {
-			return err
-		}
+	valid, _ := fpath.IsValidSetupDir(setupDir)
+	if !valid {
+		return fmt.Errorf("storagenode configuration already exists (%v)", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
@@ -143,58 +167,47 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// TODO: this is only applicable once we stop deleting the entire config dir on overwrite
-	// (see https://storjlabs.atlassian.net/browse/V3-1013)
-	// (see https://storjlabs.atlassian.net/browse/V3-949)
-	if setupCfg.Overwrite {
-		setupCfg.CA.Overwrite = true
-		setupCfg.Identity.Overwrite = true
-	}
-	setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
-	setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
-	setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
-	setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
-
-	if setupCfg.Signer.AuthToken != "" && setupCfg.Signer.Address != "" {
-		err = setupCfg.Signer.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
-		if err != nil {
-			zap.S().Warn(err)
-		}
-	} else {
-		err = identity.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
-		if err != nil {
-			return err
-		}
-	}
-
 	overrides := map[string]interface{}{
-		"identity.cert-path":      setupCfg.Identity.CertPath,
-		"identity.key-path":       setupCfg.Identity.KeyPath,
-		"identity.server.address": defaultServerAddr,
-		"storage.path":            filepath.Join(setupDir, "storage"),
-		"kademlia.bootstrap-addr": defaultSatteliteAddr,
+		"log.level": "info",
+	}
+	serverAddress := cmd.Flag("server.address")
+	if !serverAddress.Changed {
+		overrides[serverAddress.Name] = defaultServerAddr
 	}
 
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	configFile := filepath.Join(setupDir, "config.yaml")
+	if setupCfg.SaveAllDefaults {
+		err = process.SaveConfigWithAllDefaults(cmd.Flags(), configFile, overrides)
+	} else {
+		err = process.SaveConfig(cmd.Flags(), configFile, overrides)
+	}
+	if err != nil {
+		return err
+	}
+
+	if setupCfg.EditConf {
+		return fpath.EditFile(configFile)
+	}
+
+	return err
 }
 
 func cmdConfig(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*confDir)
+	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
 	//run setup if we can't access the config file
 	conf := filepath.Join(setupDir, "config.yaml")
 	if _, err := os.Stat(conf); err != nil {
-		if err = cmdSetup(cmd, args); err != nil {
-			return err
-		}
+		return cmdSetup(cmd, args)
 	}
+
 	return fpath.EditFile(conf)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
-	diagDir, err := filepath.Abs(*confDir)
+	diagDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
@@ -295,6 +308,71 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	return err
 }
 
+func dashCmd(cmd *cobra.Command, args []string) (err error) {
+	ctx := context.Background()
+
+	// create new client
+	lc, err := psclient.NewLiteClient(ctx, dashboardCfg.Address)
+	if err != nil {
+		return err
+	}
+
+	stream, err := lc.Dashboard(ctx)
+	if err != nil {
+		return err
+	}
+
+	for {
+		data, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		clr()
+		heading := color.New(color.FgGreen, color.Bold)
+
+		_, _ = heading.Printf("\nStorage Node Dashboard Stats\n")
+		_, _ = heading.Printf("\n===============================\n")
+
+		fmt.Fprintf(color.Output, "Node ID: %s\n", color.YellowString(data.GetNodeId()))
+
+		if data.GetConnection() {
+			fmt.Fprintf(color.Output, "%s ", color.GreenString("ONLINE"))
+		} else {
+			fmt.Fprintf(color.Output, "%s ", color.RedString("OFFLINE"))
+		}
+
+		uptime, err := ptypes.Duration(data.GetUptime())
+		if err != nil {
+			color.Red(" %+v \n", err)
+		} else {
+			color.Yellow(" %s \n", uptime)
+		}
+
+		fmt.Fprintf(color.Output, "Node Connections: %+v\n", whiteInt(data.GetNodeConnections()))
+
+		color.Green("\nIO\t\t\tAvailable\t\t\tUsed\n--\t\t\t---------\t\t\t----")
+		stats := data.GetStats()
+		if stats != nil {
+			fmt.Fprintf(color.Output, "Bandwidth\t\t%+v\t\t\t%+v\n", whiteInt(stats.GetAvailableBandwidth()), whiteInt(stats.GetUsedBandwidth()))
+			fmt.Fprintf(color.Output, "Disk\t\t\t%+v\t\t\t%+v\n", whiteInt(stats.GetAvailableSpace()), whiteInt(stats.GetUsedSpace()))
+		} else {
+			color.Yellow("Loading...")
+		}
+
+	}
+
+	return nil
+}
+
+func whiteInt(value int64) string {
+	return color.WhiteString(fmt.Sprintf("%+v", value))
+}
+
 func isOperatorEmailValid(email string) error {
 	if email == "" {
 		return fmt.Errorf("Operator mail address isn't specified")
@@ -311,6 +389,42 @@ func isOperatorWalletValid(wallet string) error {
 		return fmt.Errorf("Operator wallet address isn't valid")
 	}
 	return nil
+}
+
+// clr clears the screen so it can be redrawn
+func clr() {
+	var clear = make(map[string]func())
+	clear["linux"] = func() {
+		cmd := exec.Command("clear")
+		cmd.Stdout = os.Stdout
+		err := cmd.Run()
+		if err != nil {
+			_ = fmt.Errorf("Linux clear screen command returned an error %+v", err)
+		}
+	}
+	clear["darwin"] = func() {
+		cmd := exec.Command("clear")
+		cmd.Stdout = os.Stdout
+		err := cmd.Run()
+		if err != nil {
+			_ = fmt.Errorf("MacOS clear screen command returned an error %+v", err)
+		}
+	}
+	clear["windows"] = func() {
+		cmd := exec.Command("cmd", "/c", "cls")
+		cmd.Stdout = os.Stdout
+		err := cmd.Run()
+		if err != nil {
+			_ = fmt.Errorf("Windows clear screen command returned an error %+v", err)
+		}
+	}
+
+	value, ok := clear[runtime.GOOS]
+	if ok {
+		value()
+	} else {
+		panic("Your platform is unsupported! I can't clear terminal screen :(")
+	}
 }
 
 func main() {

@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
-	"storj.io/storj/storage"
 )
 
 var (
@@ -68,7 +67,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	sdb, ok := ctx.Value("masterdb").(interface {
 		StatDB() statdb.DB
-		OverlayCache() storage.KeyValueStore
+		OverlayCache() DB
 	})
 	if !ok {
 		return Error.Wrap(errs.New("unable to get master db instance"))
@@ -85,6 +84,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	srv := NewServer(zap.L(), cache, minStats, c.Node.MatchingNodeRatio, c.Node.NewNodeAuditThreshold, c.Node.NewNodePercentage)
 	pb.RegisterOverlayServer(server.GRPC(), srv)
+
+	zap.S().Warn("Once the Peer refactor is done, the overlay inspector needs to be registered on a " +
+		"gRPC server that only listens on localhost")
+	// TODO: register on a private rpc server
+	pb.RegisterOverlayInspectorServer(server.GRPC(), NewInspector(cache))
 
 	ctx2 := context.WithValue(ctx, ctxKeyOverlay, cache)
 	ctx2 = context.WithValue(ctx2, ctxKeyOverlayServer, srv)

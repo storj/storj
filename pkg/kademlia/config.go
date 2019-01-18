@@ -37,8 +37,8 @@ const (
 
 // OperatorConfig defines properties related to storage node operator metadata
 type OperatorConfig struct {
-	Email  string `help:"operator email address" default:""`
-	Wallet string `help:"operator wallet adress" default:""`
+	Email  string `user:"true" help:"operator email address" default:""`
+	Wallet string `user:"true" help:"operator wallet adress" default:""`
 }
 
 // Config defines all of the things that are needed to start up Kademlia
@@ -47,7 +47,7 @@ type Config struct {
 	BootstrapAddr   string `help:"the Kademlia node to bootstrap against" default:"127.0.0.1:7778"`
 	DBPath          string `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia"`
 	Alpha           int    `help:"alpha is a system wide concurrency parameter" default:"5"`
-	ExternalAddress string `help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
+	ExternalAddress string `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
 	Operator        OperatorConfig
 }
 
@@ -85,6 +85,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider,
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO(coyle): I'm thinking we just remove this function and grab from the config.
+	zap.S().Debugf("kademlia bootstrap node: %q", c.BootstrapAddr)
 	in, err := GetIntroNode(c.BootstrapAddr)
 	if err != nil {
 		return err
@@ -108,13 +109,22 @@ func (c Config) Run(ctx context.Context, server *provider.Provider,
 	kad.StartRefresh(ctx)
 	defer func() { err = utils.CombineErrors(err, kad.Disconnect()) }()
 
-	pb.RegisterNodesServer(server.GRPC(), node.NewServer(logger, kad))
-
 	go func() {
 		if err = kad.Bootstrap(ctx); err != nil {
 			logger.Error("Failed to bootstrap Kademlia", zap.Any("ID", server.Identity().ID))
+		} else {
+			logger.Sugar().Infof("Successfully connected to Kademlia bootstrap node %s", c.BootstrapAddr)
 		}
 	}()
+
+	pb.RegisterNodesServer(server.GRPC(), node.NewServer(logger, kad))
+
+	zap.S().Infof("Kademlia external address: %s", addr)
+
+	zap.S().Warn("Once the Peer refactor is done, the kad inspector needs to be registered on a " +
+		"gRPC server that only listens on localhost")
+	// TODO: register on a private rpc server
+	pb.RegisterKadInspectorServer(server.GRPC(), NewInspector(kad, server.Identity()))
 
 	return server.Run(context.WithValue(ctx, ctxKeyKad, kad))
 }
