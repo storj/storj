@@ -33,6 +33,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
+	"storj.io/storj/storage/storelogger"
 )
 
 // DB is the master database for the satellite
@@ -228,7 +229,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Metainfo.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), db)
+		peer.Metainfo.Database = storelogger.New(peer.Log.Named("pdb"), db)
+		peer.Metainfo.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Metainfo.Database)
 		peer.Metainfo.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"), peer.Metainfo.Service, peer.Overlay.Service, config.PointerDB, peer.Identity)
 		pb.RegisterPointerDBServer(peer.Public.Server.GRPC(), peer.Metainfo.Endpoint)
 	}
