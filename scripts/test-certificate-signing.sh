@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -o errexit
+set -ueo pipefail
 
 trap "echo ERROR: exiting due to error; exit" ERR
 trap "exit" INT TERM

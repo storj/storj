@@ -92,7 +92,7 @@ func decodePEM(PEMBytes []byte) ([][]byte, error) {
 
 // writeChainData writes data to path ensuring permissions are appropriate for a cert
 func writeChainData(path string, data []byte) error {
-	err := writeFile(path, 0744, 0644, data)
+	err := writeFile(path, 0444, 0444, data)
 	if err != nil {
 		return errs.New("unable to write certificate to \"%s\": %v", path, err)
 	}
@@ -101,7 +101,7 @@ func writeChainData(path string, data []byte) error {
 
 // writeKeyData writes data to path ensuring permissions are appropriate for a cert
 func writeKeyData(path string, data []byte) error {
-	err := writeFile(path, 0700, 0600, data)
+	err := writeFile(path, 0400, 0400, data)
 	if err != nil {
 		return errs.New("unable to write key to \"%s\": %v", path, err)
 	}

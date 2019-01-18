@@ -123,8 +123,8 @@ func TestConfig_SaveIdentity(t *testing.T) {
 
 		// TODO (windows): ignoring for windows due to different default permissions
 		if runtime.GOOS != "windows" {
-			assert.Equal(t, os.FileMode(0644), certInfo.Mode())
-			assert.Equal(t, os.FileMode(0600), keyInfo.Mode())
+			assert.Equal(t, os.FileMode(0444), certInfo.Mode())
+			assert.Equal(t, os.FileMode(0400), keyInfo.Mode())
 		}
 	}
 
