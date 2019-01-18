@@ -66,7 +66,7 @@ func (dialer *Dialer) Lookup(ctx context.Context, self pb.Node, ask pb.Node, fin
 		return nil, errs.Combine(err, conn.disconnect())
 	}
 
-	return resp.Response, errs.Combine(err, conn.disconnect())
+	return resp.Response, conn.disconnect()
 }
 
 // Ping pings target.
