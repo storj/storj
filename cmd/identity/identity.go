@@ -13,26 +13,30 @@ import (
 
 var (
 	idCmd = &cobra.Command{
-		Use:   "id",
-		Short: "Manage identities",
+		Use:         "id",
+		Short:       "Manage identities",
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	newIDCmd = &cobra.Command{
-		Use:   "new",
-		Short: "Creates a new identity from an existing certificate authority",
-		RunE:  cmdNewID,
+		Use:         "new",
+		Short:       "Creates a new identity from an existing certificate authority",
+		RunE:        cmdNewID,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	leafExtCmd = &cobra.Command{
-		Use:   "extensions",
-		Short: "Prints the extensions attached to the identity leaf certificate",
-		RunE:  cmdLeafExtensions,
+		Use:         "extensions",
+		Short:       "Prints the extensions attached to the identity leaf certificate",
+		RunE:        cmdLeafExtensions,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	revokeLeafCmd = &cobra.Command{
-		Use:   "revoke",
-		Short: "Revoke the identity's leaf certificate (creates backup)",
-		RunE:  cmdRevokeLeaf,
+		Use:         "revoke",
+		Short:       "Revoke the identity's leaf certificate (creates backup)",
+		RunE:        cmdRevokeLeaf,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	newIDCfg struct {

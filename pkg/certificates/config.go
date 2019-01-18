@@ -87,7 +87,7 @@ func (c CertClientConfig) SetupIdentity(
 
 	signedChainBytes, err := c.Sign(ctx, ident)
 	if err != nil {
-		return errs.New("error occured while signing certificate: %s\n(identity files were still generated and saved, if you try again existnig files will be loaded)", err)
+		return errs.New("error occurred while signing certificate: %s\n(identity files were still generated and saved, if you try again existing files will be loaded)", err)
 	}
 
 	signedChain, err := identity.ParseCertChain(signedChainBytes)
