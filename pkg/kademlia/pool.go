@@ -195,6 +195,9 @@ func (conn *Conn) acquireLocked() {
 // release releases the refcount of this connection.
 // must always be called after acquireLocked
 func (conn *Conn) release() {
+	if conn == nil {
+		return
+	}
 	conn.pool.mu.Lock()
 	conn.refcount--
 	conn.pool.mu.Unlock()
