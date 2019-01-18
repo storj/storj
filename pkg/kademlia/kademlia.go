@@ -300,20 +300,28 @@ func GetIntroNode(addr string) (*pb.Node, error) {
 // StartRefresh occasionally refreshes stale kad buckets
 func (k *Kademlia) StartRefresh(ctx context.Context) {
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
-		time.Sleep(time.Duration(rand.Intn(300)) * time.Second) //stagger
-		for {
-			if err := k.refresh(ctx); err != nil {
-				k.log.Warn("bucket refresh failed", zap.Error(err))
-			}
-			select {
-			case <-ticker.C:
-			case <-ctx.Done():
-				ticker.Stop()
-				return
-			}
+		err := k.RunRefresh(ctx)
+		if err != nil && err != context.Canceled {
+			k.log.Error("refresh returned", zap.Error(err))
 		}
 	}()
+}
+
+// RunRefresh occasionally refreshes stale kad buckets
+func (k *Kademlia) RunRefresh(ctx context.Context) error {
+	ticker := time.NewTicker(5 * time.Minute)
+	time.Sleep(time.Duration(rand.Intn(300)) * time.Second) //stagger
+	for {
+		if err := k.refresh(ctx); err != nil {
+			k.log.Warn("bucket refresh failed", zap.Error(err))
+		}
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			ticker.Stop()
+			return ctx.Err()
+		}
+	}
 }
 
 // refresh updates each Kademlia bucket not contacted in the last hour

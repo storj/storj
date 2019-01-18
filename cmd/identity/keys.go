@@ -26,9 +26,10 @@ var (
 		Short: "Manage keys",
 	}
 	keyGenerateCmd = &cobra.Command{
-		Use:   "generate",
-		Short: "generate lots of keys",
-		RunE:  cmdKeyGenerate,
+		Use:         "generate",
+		Short:       "generate lots of keys",
+		RunE:        cmdKeyGenerate,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	keyCfg struct {

@@ -24,6 +24,6 @@ func TestCache_Refresh(t *testing.T) {
 
 	planet.Start(ctx)
 
-	err = planet.Satellites[0].Discovery.Refresh(ctx)
+	err = planet.Satellites[0].Discovery.Service.Refresh(ctx)
 	assert.NoError(t, err)
 }

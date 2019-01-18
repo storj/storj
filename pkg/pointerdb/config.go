@@ -38,7 +38,8 @@ type Config struct {
 	BwExpiration         int         `default:"45"   help:"lifespan of bandwidth agreements in days"`
 }
 
-func newKeyValueStore(dbURLString string) (db storage.KeyValueStore, err error) {
+// NewStore returns database for storing pointer data
+func NewStore(dbURLString string) (db storage.KeyValueStore, err error) {
 	driver, source, err := utils.SplitDBURL(dbURLString)
 	if err != nil {
 		return nil, err
@@ -55,7 +56,7 @@ func newKeyValueStore(dbURLString string) (db storage.KeyValueStore, err error) 
 
 // Run implements the provider.Responsibility interface
 func (c Config) Run(ctx context.Context, server *provider.Provider) error {
-	db, err := newKeyValueStore(c.DatabaseURL)
+	db, err := NewStore(c.DatabaseURL)
 	if err != nil {
 		return err
 	}

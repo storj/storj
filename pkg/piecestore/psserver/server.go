@@ -228,6 +228,10 @@ func (s *Server) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_Dashb
 	for {
 		select {
 		case <-ctx.Done():
+			if ctx.Err() == context.Canceled {
+				return nil
+			}
+
 			return ctx.Err()
 		case <-ticker.C:
 			data, err := s.getDashboardData(ctx)
@@ -343,7 +347,7 @@ func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, erro
 		return &pb.DashboardStats{}, ServerError.Wrap(err)
 	}
 
-	nodes, err := s.kad.GetNodes(ctx, rt.Local().Id, 10000)
+	nodes, err := s.kad.GetNodes(ctx, rt.Local().Id, 0)
 	if err != nil {
 		return &pb.DashboardStats{}, ServerError.Wrap(err)
 	}

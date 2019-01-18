@@ -4,9 +4,7 @@
 package server
 
 import (
-	"crypto/x509"
 	"io/ioutil"
-	"os"
 
 	"google.golang.org/grpc"
 
@@ -47,13 +45,20 @@ func (opts *Options) configure(c Config) (err error) {
 	var pcvs []peertls.PeerCertVerificationFunc
 	parseOpts := peertls.ParseExtOptions{}
 
-	if c.PeerCAWhitelistPath != "" {
-		caWhitelist, err := loadWhitelist(c.PeerCAWhitelistPath)
-		if err != nil {
-			return err
+	if c.UsePeerCAWhitelist {
+		whitelist := []byte(DefaultPeerCAWhitelist)
+		if c.PeerCAWhitelistPath != "" {
+			whitelist, err = ioutil.ReadFile(c.PeerCAWhitelistPath)
+			if err != nil {
+				return Error.New("unable to find whitelist file %v: %v", c.PeerCAWhitelistPath, err)
+			}
 		}
-		parseOpts.CAWhitelist = caWhitelist
-		pcvs = append(pcvs, peertls.VerifyCAWhitelist(caWhitelist))
+		parsed, err := identity.DecodeAndParseChainPEM(whitelist)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		parseOpts.CAWhitelist = parsed
+		pcvs = append(pcvs, peertls.VerifyCAWhitelist(parsed))
 	}
 
 	if c.Extensions.Revocation {
@@ -77,20 +82,4 @@ func (opts *Options) configure(c Config) (err error) {
 
 	opts.PCVFuncs = pcvs
 	return nil
-}
-
-func loadWhitelist(path string) ([]*x509.Certificate, error) {
-	w, err := ioutil.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, err
-	}
-
-	var whitelist []*x509.Certificate
-	if w != nil {
-		whitelist, err = identity.DecodeAndParseChainPEM(w)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-	}
-	return whitelist, nil
 }
