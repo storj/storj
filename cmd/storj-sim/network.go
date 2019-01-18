@@ -35,6 +35,18 @@ func networkExec(flags *Flags, args []string, command string) error {
 	ctx, cancel := NewCLIContext(context.Background())
 	defer cancel()
 
+	if command == "setup" {
+		identities, err := identitySetup(processes)
+		if err != nil {
+			return err
+		}
+
+		err = identities.Exec(ctx, command)
+		if err != nil {
+			return err
+		}
+	}
+
 	err = processes.Exec(ctx, command)
 	closeErr := processes.Close()
 
@@ -104,7 +116,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		bootstrapPort   = 9999
 		satellitePort   = 10000
 		storageNodePort = 11000
-		difficulty      = "10"
 	)
 
 	bootstrap := processes.New(Info{
@@ -115,9 +126,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	})
 
 	bootstrap.Arguments = withCommon(Arguments{
-		"setup": {
-			"--ca.difficulty", difficulty,
-		},
+		"setup": {},
 		"run": {
 			"--kademlia.bootstrap-addr", bootstrap.Address,
 			"--kademlia.operator.email", "bootstrap@example.com",
@@ -126,7 +135,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		},
 	})
 
-	// Create satellites making the first satellite bootstrap
+	// Create satellites making all satellites wait for bootstrap to start
 	var satellites []*Process
 	for i := 0; i < flags.SatelliteCount; i++ {
 		process := processes.New(Info{
@@ -141,9 +150,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.WaitForStart(bootstrap)
 
 		process.Arguments = withCommon(Arguments{
-			"setup": {
-				"--ca.difficulty", difficulty,
-			},
+			"setup": {},
 			"run": {
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--server.address", process.Address,
@@ -175,7 +182,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.Arguments = withCommon(Arguments{
 			"setup": {
 				"--satellite-addr", satellite.Address,
-				"--ca.difficulty", difficulty,
 			},
 			"run": {
 				"--server.address", process.Address,
@@ -198,7 +204,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("storagenode/%d", i),
 			Executable: "storagenode",
-			Directory:  filepath.Join(configDir, "storage", fmt.Sprint(i)),
+			Directory:  filepath.Join(configDir, "storagenode", fmt.Sprint(i)),
 			Address:    net.JoinHostPort(host, strconv.Itoa(storageNodePort+i)),
 		})
 
@@ -206,9 +212,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.WaitForStart(bootstrap)
 
 		process.Arguments = withCommon(Arguments{
-			"setup": {
-				"--ca.difficulty", difficulty,
-			},
+			"setup": {},
 			"run": {
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
@@ -237,6 +241,35 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	}
 
 	// Create directories for all processes
+	for _, process := range processes.List {
+		if err := os.MkdirAll(process.Directory, folderPermissions); err != nil {
+			return nil, err
+		}
+	}
+
+	return processes, nil
+}
+
+func identitySetup(network *Processes) (*Processes, error) {
+	processes := NewProcesses()
+
+	for _, process := range network.List {
+		identity := processes.New(Info{
+			Name:       "identity/" + process.Info.Name,
+			Executable: "identity",
+			Directory:  process.Directory,
+			Address:    "",
+		})
+
+		identity.Arguments = Arguments{
+			"setup": {
+				"--config-dir", process.Directory,
+				"new", ".",
+			},
+		}
+	}
+
+	// create directories for all processes
 	for _, process := range processes.List {
 		if err := os.MkdirAll(process.Directory, folderPermissions); err != nil {
 			return nil, err

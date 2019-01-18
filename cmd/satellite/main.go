@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/pkg/accounting/rollup"
+	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
@@ -27,6 +30,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/payments"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
@@ -52,6 +56,9 @@ type Satellite struct {
 	Discovery   discovery.Config
 	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 	StatDB      statdb.Config
+	Tally       tally.Config
+	Rollup      rollup.Config
+	Payments    payments.Config
 }
 
 var (
@@ -147,6 +154,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		runCfg.BwAgreement,
 		runCfg.Discovery,
 		runCfg.StatDB,
+		runCfg.Tally,
+		runCfg.Rollup,
+		runCfg.Payments,
 	)
 }
 
@@ -174,9 +184,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
 		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
 	}
-	err = identity.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
-	if err != nil {
-		return err
+	if setupCfg.Identity.Status() != identity.CertKey {
+		return errors.New("identity is missing")
 	}
 
 	o := map[string]interface{}{

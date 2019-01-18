@@ -70,6 +70,7 @@ func (t *tally) Run(ctx context.Context) (err error) {
 // calculateAtRestData iterates through the pieces on pointerdb and calculates
 // the amount of at-rest data stored on each respective node
 func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
+	t.logger.Info("Tally: Entering calculate at rest data")
 	defer mon.Task()(&ctx)(&err)
 
 	latestTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastAtRestTally)
@@ -109,6 +110,7 @@ func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 				}
 				pieceSize := segmentSize / int64(minReq)
 				for _, piece := range pieces {
+					t.logger.Info("found piece on Node ID" + piece.NodeId.String())
 					nodeData[piece.NodeId] += float64(pieceSize)
 				}
 			}
