@@ -206,14 +206,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		config := config.Overlay
 		peer.Overlay.Service = overlay.NewCache(peer.DB.OverlayCache(), peer.DB.StatDB())
 
-		ns := &pb.NodeStats{
+		minStats := &pb.NodeStats{
 			UptimeCount:       config.Node.UptimeCount,
 			UptimeRatio:       config.Node.UptimeRatio,
 			AuditSuccessRatio: config.Node.AuditSuccessRatio,
 			AuditCount:        config.Node.AuditCount,
 		}
 
-		peer.Overlay.Endpoint = overlay.NewServer(peer.Log.Named("overlay:endpoint"), peer.Overlay.Service, ns)
+		peer.Overlay.Endpoint = overlay.NewServer(peer.Log.Named("overlay:endpoint"), peer.Overlay.Service, minStats, 0, 1, 0)
 		pb.RegisterOverlayServer(peer.Public.Server.GRPC(), peer.Overlay.Endpoint)
 	}
 

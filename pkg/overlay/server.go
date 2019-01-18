@@ -162,44 +162,29 @@ func (server *Server) filterNodes(ctx context.Context, nodes []*pb.Node, nodeReq
 	return resultNodes, updatedExcluded, usedAddrs
 }
 
-func (server *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.Node, error) {
-	values, err := server.cache.db.GetAll(keys)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	nodes := []*pb.Node{}
-	for _, v := range values {
-		n := &pb.Node{}
-		if err := proto.Unmarshal(v, n); err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		nodes = append(nodes, n)
-	}
-
-	return nodes, nil
-
-}
-
 func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeID, maxNodes int64,
 	minRestrictions *pb.NodeRestrictions, excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
 
 	limit := int(float64(maxNodes) * server.matchingNodeRatio)
 	minReputation := server.minStats
 
-	keys, err := server.cache.db.List(ctx, startID, limit)
+	nodeList, err := server.cache.db.List(ctx, startID, limit)
 	if err != nil {
 		server.log.Error("Error listing nodes", zap.Error(err))
 		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
-	if len(keys) <= 0 {
+	if len(nodeList) <= 0 {
 		server.log.Info("No Keys returned from List operation")
 		return []*pb.Node{}, startID, nil
 	}
 
-	nodes, err := server.getNodes(ctx, keys)
+	var nodeIDs []storj.NodeID
+	for _, node := range nodeList {
+		nodeIDs = append(nodeIDs, node.Id)
+	}
+
+	nodes, err := server.cache.db.GetAll(ctx, nodeIDs)
 	if err != nil {
 		server.log.Error("Error getting nodes", zap.Error(err))
 		return nil, storj.NodeID{}, Error.Wrap(err)
@@ -210,7 +195,6 @@ func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeI
 			continue
 		}
 
-		nextStart = v.Id
 		if v.Type != pb.NodeType_STORAGE {
 			server.log.Debug("not storage node = " + v.Id.String() + " was " + v.Type.String())
 			continue
@@ -233,10 +217,10 @@ func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeI
 	}
 
 	var nextStart storj.NodeID
-	if len(keys) < limit {
+	if len(nodeList) < limit {
 		nextStart = storj.NodeID{}
 	} else {
-		nextStart, err = storj.NodeIDFromBytes(keys[len(keys)-1])
+		nextStart = nodeList[len(nodeList)-1].Id
 	}
 	if err != nil {
 		return nil, storj.NodeID{}, Error.Wrap(err)
@@ -249,18 +233,23 @@ func (server *Server) getNewNodes(ctx context.Context, startID storj.NodeID, max
 
 	limit := int(float64(maxNodes) * server.matchingNodeRatio)
 
-	keys, err := server.cache.db.List(startID.Bytes(), limit)
+	nodeList, err := server.cache.db.List(ctx, startID, limit)
 	if err != nil {
 		server.log.Error("Error listing nodes", zap.Error(err))
 		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
-	if len(keys) <= 0 {
+	if len(nodeList) <= 0 {
 		server.log.Info("No Keys returned from List operation")
 		return []*pb.Node{}, startID, nil
 	}
 
-	nodes, err := server.getNodes(ctx, keys)
+	var nodeIDs []storj.NodeID
+	for _, node := range nodeList {
+		nodeIDs = append(nodeIDs, node.Id)
+	}
+
+	nodes, err := server.cache.db.GetAll(ctx, nodeIDs)
 	if err != nil {
 		server.log.Error("Error getting nodes", zap.Error(err))
 		return nil, storj.NodeID{}, Error.Wrap(err)
@@ -280,12 +269,16 @@ func (server *Server) getNewNodes(ctx context.Context, startID storj.NodeID, max
 			continue
 
 		} else if nodeReputation.GetAuditCount() < server.newNodeAuditThreshold {
+			server.log.Debug("append " + v.Id.String() + " - " + v.Type.String())
 			nodes = append(nodes, v)
 		}
 	}
 
-		server.log.Debug("append " + v.Id.String() + " - " + v.Type.String())
-		result = append(result, v)
+	var nextStart storj.NodeID
+	if len(nodeList) < limit {
+		nextStart = storj.NodeID{}
+	} else {
+		nextStart = nodeList[len(nodeList)-1].Id
 	}
 
 	return nodes, nextStart, nil
