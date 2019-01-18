@@ -13,6 +13,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -285,10 +286,13 @@ func (ic Config) Save(fi *FullIdentity) error {
 		return writeErr
 	}
 
-	return utils.CombineErrors(
-		writeChainDataErr,
-		writeKeyDataErr,
-	)
+	dataErr := utils.CombineErrors(writeChainDataErr, writeKeyDataErr)
+	if dataErr != nil {
+		return dataErr
+	}
+	//Set Identity Folder to Read-Only
+	err := os.Chmod(ic.CertPath, 440)
+	return err
 }
 
 // SaveBackup saves the certificate of the config with a timestamped filename
