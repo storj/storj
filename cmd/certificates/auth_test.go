@@ -33,5 +33,4 @@ func TestCreateAuth(t *testing.T) {
 		t.Log(string(data))
 		assert.NoError(t, err)
 	}
-
 }

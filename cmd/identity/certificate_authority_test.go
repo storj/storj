@@ -20,14 +20,14 @@ type newCACfg struct {
 	CA provider.CASetupConfig
 }
 
-func TestCmdNewCA(t *testing.T) {
+func TestCA(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
 	identityexe := ctx.Compile("storj.io/storj/cmd/identity")
 	// certificatesexe := ctx.Compile("storj.io/cmd/certificates")
 
-	t.Run("with default cert & key paths", func(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
 		output, err := exec.Command(identityexe,
 			"--config-dir", ctx.Dir("basic"),
 			"--ca.difficulty", "4",
@@ -35,12 +35,6 @@ func TestCmdNewCA(t *testing.T) {
 		).CombinedOutput()
 		t.Log(string(output))
 		require.NoError(t, err)
-
-		identityConfig := identity.CASetupConfig{
-			CertPath: ctx.File("basic", "main", "identity.cert"),
-			KeyPath:  ctx.File("basic", "main", "identity.key"),
-		}
-		assert.Equal(t, identityConfig.Status(), identity.CertKey)
 
 		caConfig := identity.SetupConfig{
 			CertPath: ctx.File("basic", "main", "ca.cert"),
@@ -58,25 +52,76 @@ func TestCmdNewCA(t *testing.T) {
 
 			"--ca.cert-path", ctx.File("difficulty", "custom.ca.cert"),
 			"--ca.key-path", ctx.File("difficulty", "custom.ca.key"),
-			"--identity.cert-path", ctx.File("difficulty", "custom.identity.cert"),
-			"--identity.key-path", ctx.File("difficulty", "custom.identity.key"),
 
 			"ca", "new", "main",
 		).CombinedOutput()
 		t.Log(string(output))
 		require.NoError(t, err)
 
-		identityConfig := identity.CASetupConfig{
-			CertPath: ctx.File("difficulty", "custom.ca.cert"),
-			KeyPath:  ctx.File("difficulty", "custom.ca.key"),
-		}
-		assert.Equal(t, identityConfig.Status(), identity.CertKey)
-
 		caConfig := identity.SetupConfig{
 			CertPath: ctx.File("difficulty", "custom.identity.cert"),
 			KeyPath:  ctx.File("difficulty", "custom.identity.key"),
 		}
 		assert.Equal(t, caConfig.Status(), identity.CertKey)
+
+		ca, err := caConfig.FullConfig().Load()
+		require.NoError(t, err)
+
+		caDifficulty, err := ca.ID.Difficulty()
+		require.NoError(t, err)
+
+		assert.Condition(t, func() bool {
+			return uint16(expectedDifficulty) <= caDifficulty
+		})
+	})
+
+	t.Run("with parent", func(t *testing.T) {
+		output, err := exec.Command(identityexe,
+			"--config-dir", ctx.Dir("basic"),
+			"--ca.difficulty", "4",
+			"ca", "new", "main",
+		).CombinedOutput()
+		t.Log(string(output))
+		require.NoError(t, err)
+
+		caConfig := identity.SetupConfig{
+			CertPath: ctx.File("basic", "main", "ca.cert"),
+			KeyPath:  ctx.File("basic", "main", "ca.key"),
+		}
+		assert.Equal(t, caConfig.Status(), identity.CertKey)
+	})
+
+}
+
+func TestNew(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	identityexe := ctx.Compile("storj.io/storj/cmd/identity")
+	// certificatesexe := ctx.Compile("storj.io/cmd/certificates")
+
+	t.Run("default", func(t *testing.T) {
+		const expectedDifficulty = 4
+
+		output, err := exec.Command(identityexe,
+			"--config-dir", ctx.Dir("basic"),
+			"--difficulty", strconv.Itoa(expectedDifficulty),
+			"new", "main",
+		).CombinedOutput()
+		t.Log(string(output))
+		require.NoError(t, err)
+
+		caConfig := identity.CASetupConfig{
+			CertPath: ctx.File("basic", "main", "ca.cert"),
+			KeyPath:  ctx.File("basic", "main", "ca.key"),
+		}
+		assert.Equal(t, caConfig.Status(), identity.CertKey)
+
+		identityConfig := identity.SetupConfig{
+			CertPath: ctx.File("basic", "main", "identity.cert"),
+			KeyPath:  ctx.File("basic", "main", "identity.key"),
+		}
+		assert.Equal(t, identityConfig.Status(), identity.CertKey)
 
 		ca, err := caConfig.FullConfig().Load()
 		require.NoError(t, err)
@@ -101,28 +146,6 @@ func TestCmdNewCA(t *testing.T) {
 }
 
 /*
-	t.Run("with non-default cert & key paths", func(t *testing.T) {
-		credsPath := ctx.Dir("identity")
-		certPath := filepath.Join(credsPath, "ca-non-default.cert")
-		keyPath := filepath.Join(credsPath, "ca-non-default.key")
-
-		err := exec.Command(identityexe,
-			"ca", "new",
-			"--ca.cert-path", certPath,
-			"--ca.key-path", keyPath,
-		)
-		require.NoError(t, err)
-
-		assert.Equal(t, identity.CertKey.String(), newCACfg.CA.Status().String())
-		assert.Equal(t, certPath, certPath)
-		assert.Equal(t, keyPath, keyPath)
-
-		_, err = os.Stat(certPath)
-		assert.NoError(t, err)
-
-		_, err = os.Stat(keyPath)
-		assert.NoError(t, err)
-	})
 
 	t.Run("with parent cert & key paths", func(t *testing.T) {
 		// TODO: looks like this is broken; fix
