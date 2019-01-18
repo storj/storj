@@ -31,7 +31,6 @@ func (b *bandwidthagreement) GetAgreements(ctx context.Context) ([]bwagreement.A
 	if err != nil {
 		return nil, err
 	}
-
 	agreements := make([]bwagreement.Agreement, len(rows))
 	for i, entry := range rows {
 		agreement := &agreements[i]

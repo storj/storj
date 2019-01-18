@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 )
 
 // StorageNode defines storage node configuration
@@ -75,8 +76,9 @@ var (
 		Short: "Display a dashbaord",
 		RunE:  dashCmd,
 	}
-	runCfg       StorageNode
-	setupCfg     StorageNode
+	runCfg   StorageNode
+	setupCfg StorageNode
+
 	dashboardCfg struct {
 		Address string `default:":28967" help:"address for dashboard service"`
 	}
@@ -122,7 +124,7 @@ func init() {
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir))
-	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg)
+	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, cfgstruct.ConfDir(defaultDiagDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -311,8 +313,34 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 func dashCmd(cmd *cobra.Command, args []string) (err error) {
 	ctx := context.Background()
 
+	ident, err := runCfg.Server.Identity.Load()
+	if err != nil {
+		zap.S().Fatal(err)
+	} else {
+		zap.S().Info("Node ID: ", ident.ID)
+	}
+
+	// address of node to create client connection
+	address := dashboardCfg.Address
+	if dashboardCfg.Address == "" {
+		if runCfg.Server.Address == "" {
+			return fmt.Errorf("Storage Node address isn't specified")
+		}
+
+		address = runCfg.Server.Address
+	}
+
+	tc := transport.NewClient(ident)
+	n := &pb.Node{
+		Address: &pb.NodeAddress{
+			Address:   address,
+			Transport: 0,
+		},
+		Type: pb.NodeType_STORAGE,
+	}
+
 	// create new client
-	lc, err := psclient.NewLiteClient(ctx, dashboardCfg.Address)
+	lc, err := psclient.NewLiteClient(ctx, tc, n)
 	if err != nil {
 		return err
 	}
