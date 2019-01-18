@@ -163,11 +163,11 @@ storagenode_%:
 uplink_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=uplink $(MAKE) binary
 
-COMPONENTLIST := gateway satellite storagenode uplink
+COMPONENTLIST := gateway satellite storagenode uplink identity certificates
 OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm windows_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build gateway, satellite, storagenode, and uplink binaries (jenkins)
+binaries: ${BINARIES} ## Build gateway, satellite, storagenode, uplink, identity, and certificates binaries (jenkins)
 
 ##@ Deploy
 
