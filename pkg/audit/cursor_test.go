@@ -4,64 +4,33 @@
 package audit
 
 import (
-	"context"
 	"crypto/rand"
 	"errors"
 	"math"
 	"math/big"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 
-	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/teststore"
 )
 
 var (
-	ctx       = context.Background()
 	ErrNoList = errors.New("list error: failed to get list")
 	ErrNoNum  = errors.New("num error: failed to get num")
 )
-
-// pointerDBWrapper wraps pb.PointerDBServer to be compatible with pb.PointerDBClient
-type pointerDBWrapper struct {
-	s pb.PointerDBServer
-}
-
-func newPointerDBWrapper(pdbs pb.PointerDBServer) pb.PointerDBClient {
-	return &pointerDBWrapper{pdbs}
-}
-
-func (pbd *pointerDBWrapper) Put(ctx context.Context, in *pb.PutRequest, opts ...grpc.CallOption) (*pb.PutResponse, error) {
-	return pbd.s.Put(ctx, in)
-}
-
-func (pbd *pointerDBWrapper) Get(ctx context.Context, in *pb.GetRequest, opts ...grpc.CallOption) (*pb.GetResponse, error) {
-	return pbd.s.Get(ctx, in)
-}
-
-func (pbd *pointerDBWrapper) List(ctx context.Context, in *pb.ListRequest, opts ...grpc.CallOption) (*pb.ListResponse, error) {
-	return pbd.s.List(ctx, in)
-}
-
-func (pbd *pointerDBWrapper) Delete(ctx context.Context, in *pb.DeleteRequest, opts ...grpc.CallOption) (*pb.DeleteResponse, error) {
-	return pbd.s.Delete(ctx, in)
-}
-
-func (pbd *pointerDBWrapper) PayerBandwidthAllocation(ctx context.Context, in *pb.PayerBandwidthAllocationRequest, opts ...grpc.CallOption) (*pb.PayerBandwidthAllocationResponse, error) {
-	return pbd.s.PayerBandwidthAllocation(ctx, in)
-}
 
 func TestAuditSegment(t *testing.T) {
 	type pathCount struct {
@@ -69,10 +38,17 @@ func TestAuditSegment(t *testing.T) {
 		count int
 	}
 
-	ca, err := testidentity.NewTestCA(ctx)
-	assert.NoError(t, err)
-	identity, err := ca.NewIdentity()
-	assert.NoError(t, err)
+	tctx := testcontext.New(t)
+	defer tctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 4, 1)
+	require.NoError(t, err)
+	defer tctx.Check(planet.Shutdown)
+
+	planet.Start(tctx)
+
+	// we wait a second for all the nodes to complete bootstrapping off the satellite
+	time.Sleep(2 * time.Second)
 
 	// note: to simulate better,
 	// change limit in library to 5 in
@@ -123,16 +99,15 @@ func TestAuditSegment(t *testing.T) {
 		},
 	}
 
-	ctx = auth.WithAPIKey(ctx, nil)
+	ctx := auth.WithAPIKey(tctx, nil)
 
 	// PointerDB instantiation
 	db := teststore.New()
 	c := pointerdb.Config{MaxInlineSegmentSize: 8000}
 
-	cache := overlay.NewCache(teststore.New(), nil)
-
-	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c, identity))
-	pointers := pdbclient.New(pdbw)
+	//TODO: use planet PointerDB directly
+	cache := planet.Satellites[0].Overlay
+	pointers := pointerdb.NewServer(db, cache, zap.NewNop(), c, planet.Satellites[0].Identity)
 
 	// create a pdb client and instance of audit
 	cursor := NewCursor(pointers)
@@ -150,7 +125,7 @@ func TestAuditSegment(t *testing.T) {
 				req := &pb.PutRequest{Path: tt.path, Pointer: putRequest.Pointer}
 
 				// put pointer into db
-				_, err := pdbw.Put(ctx, req)
+				_, err := pointers.Put(ctx, req)
 				if err != nil {
 					t.Fatalf("failed to put %v: error: %v", req.Pointer, err)
 					assert1.NotNil(err)
@@ -180,10 +155,19 @@ func TestAuditSegment(t *testing.T) {
 
 	// test to see how random paths are
 	t.Run("probabilisticTest", func(t *testing.T) {
-		list, _, err := pointers.List(ctx, "", "", "", true, 10, meta.None)
+		listRes, err := pointers.List(ctx, &pb.ListRequest{
+			Prefix:     "",
+			StartAfter: "",
+			EndBefore:  "",
+			Recursive:  true,
+			Limit:      10,
+			MetaFlags:  meta.None,
+		})
 		if err != nil {
 			t.Error(ErrNoList)
 		}
+
+		list := listRes.GetItems()
 
 		// get count of items picked at random
 		uniquePathCounted := []pathCount{}

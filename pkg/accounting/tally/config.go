@@ -25,7 +25,13 @@ type Config struct {
 // Initialize a tally struct
 func (c Config) initialize(ctx context.Context) (Tally, error) {
 	pointerdb := pointerdb.LoadFromContext(ctx)
+	if pointerdb == nil {
+		return nil, Error.New("programmer error: pointerdb responsibility unstarted")
+	}
 	overlay := overlay.LoadServerFromContext(ctx)
+	if overlay == nil {
+		return nil, Error.New("programmer error: overlay responsibility unstarted")
+	}
 	db, ok := ctx.Value("masterdb").(interface {
 		BandwidthAgreement() bwagreement.DB
 		Accounting() accounting.DB
@@ -47,7 +53,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	go func() {
 		if err := tally.Run(ctx); err != nil {
 			defer cancel()
-			zap.L().Error("Error running tally", zap.Error(err))
+			zap.L().Debug("Tally is shutting down", zap.Error(err))
 		}
 	}()
 

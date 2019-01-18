@@ -36,10 +36,10 @@ var (
 
 // DB is a piece store database
 type DB struct {
-	dataPath string
-	mu       sync.Mutex
-	DB       *sql.DB // TODO: hide
-	check    *time.Ticker
+	storage *pstore.Storage
+	mu      sync.Mutex
+	DB      *sql.DB // TODO: hide
+	check   *time.Ticker
 }
 
 // Agreement is a struct that contains a bandwidth agreement and the associated signature
@@ -49,7 +49,7 @@ type Agreement struct {
 }
 
 // Open opens DB at DBPath
-func Open(ctx context.Context, dataPath, DBPath string) (db *DB, err error) {
+func Open(ctx context.Context, storage *pstore.Storage, DBPath string) (db *DB, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err = os.MkdirAll(filepath.Dir(DBPath), 0700); err != nil {
@@ -61,9 +61,9 @@ func Open(ctx context.Context, dataPath, DBPath string) (db *DB, err error) {
 		return nil, Error.Wrap(err)
 	}
 	db = &DB{
-		DB:       sqlite,
-		dataPath: dataPath,
-		check:    time.NewTicker(*defaultCheckInterval),
+		DB:      sqlite,
+		storage: storage,
+		check:   time.NewTicker(*defaultCheckInterval),
 	}
 	if err := db.init(); err != nil {
 		return nil, utils.CombineErrors(err, db.DB.Close())
@@ -75,7 +75,7 @@ func Open(ctx context.Context, dataPath, DBPath string) (db *DB, err error) {
 }
 
 // OpenInMemory opens sqlite DB inmemory
-func OpenInMemory(ctx context.Context, dataPath string) (db *DB, err error) {
+func OpenInMemory(ctx context.Context, storage *pstore.Storage) (db *DB, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	sqlite, err := sql.Open("sqlite3", ":memory:")
@@ -84,14 +84,15 @@ func OpenInMemory(ctx context.Context, dataPath string) (db *DB, err error) {
 	}
 
 	db = &DB{
-		DB:       sqlite,
-		dataPath: dataPath,
-		check:    time.NewTicker(*defaultCheckInterval),
+		DB:      sqlite,
+		storage: storage,
+		check:   time.NewTicker(*defaultCheckInterval),
 	}
 	if err := db.init(); err != nil {
 		return nil, utils.CombineErrors(err, db.DB.Close())
 	}
 
+	// TODO: make garbage collect calling piecestore service responsibility
 	go db.garbageCollect(ctx)
 
 	return db, nil
@@ -186,16 +187,15 @@ func (db *DB) DeleteExpired(ctx context.Context) (err error) {
 		return tx.Commit()
 	}()
 
-	var errs []error
-	for _, id := range expired {
-		err := pstore.Delete(id, db.dataPath)
-		if err != nil {
-			errs = append(errs, err)
+	if db.storage != nil {
+		var errlist errs.Group
+		for _, id := range expired {
+			errlist.Add(db.storage.Delete(id))
 		}
-	}
 
-	if len(errs) > 0 {
-		return utils.CombineErrors(errs...)
+		if len(errlist) > 0 {
+			return errlist.Err()
+		}
 	}
 
 	return nil

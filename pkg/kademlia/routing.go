@@ -86,6 +86,12 @@ func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.Key
 	return rt, nil
 }
 
+// SelfClose close without closing dependencies
+// TODO: rename to Close and remove Close
+func (rt *RoutingTable) SelfClose() error {
+	return nil
+}
+
 // Close closes underlying databases
 func (rt *RoutingTable) Close() error {
 	return utils.CombineErrors(

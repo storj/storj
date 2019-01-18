@@ -11,7 +11,12 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io/ioutil"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
@@ -72,6 +77,9 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 	chain, err := DecodeAndParseChainPEM(chainPEM)
 	if err != nil {
 		return nil, errs.Wrap(err)
+	}
+	if len(chain) < peertls.CAIndex+1 {
+		return nil, ErrChainLength.New("identity chain does not contain a CA certificate")
 	}
 	keysBytes, err := decodePEM(keyPEM)
 	if err != nil {
@@ -148,6 +156,27 @@ func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 	}
 
 	return PeerIdentityFromPeer(p)
+}
+
+// NodeIDFromCertPath loads a node ID from a certificate file path
+func NodeIDFromCertPath(certPath string) (storj.NodeID, error) {
+	certBytes, err := ioutil.ReadFile(certPath)
+	if err != nil {
+		return storj.NodeID{}, err
+	}
+	return NodeIDFromPEM(certBytes)
+}
+
+// NodeIDFromPEM loads a node ID from certificate bytes
+func NodeIDFromPEM(pemBytes []byte) (storj.NodeID, error) {
+	chain, err := DecodeAndParseChainPEM(pemBytes)
+	if err != nil {
+		return storj.NodeID{}, Error.New("invalid identity certificate")
+	}
+	if len(chain) < peertls.CAIndex+1 {
+		return storj.NodeID{}, Error.New("no CA in identity certificate")
+	}
+	return NodeIDFromKey(chain[peertls.CAIndex].PublicKey)
 }
 
 // NodeIDFromKey hashes a public key and creates a node ID from it
@@ -262,6 +291,13 @@ func (ic Config) Save(fi *FullIdentity) error {
 	)
 }
 
+// SaveBackup saves the certificate of the config with a timestamped filename
+func (ic Config) SaveBackup(fi *FullIdentity) error {
+	return Config{
+		CertPath: backupPath(ic.CertPath),
+	}.Save(fi)
+}
+
 // RestChainRaw returns the rest (excluding leaf and CA) of the certificate chain as a 2d byte slice
 func (fi *FullIdentity) RestChainRaw() [][]byte {
 	var chain [][]byte
@@ -338,4 +374,15 @@ func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
 
 		return nil
 	}
+}
+
+func backupPath(path string) string {
+	pathExt := filepath.Ext(path)
+	base := strings.TrimSuffix(path, pathExt)
+	return fmt.Sprintf(
+		"%s.%s%s",
+		base,
+		strconv.Itoa(int(time.Now().Unix())),
+		pathExt,
+	)
 }

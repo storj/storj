@@ -16,31 +16,36 @@ import (
 
 var (
 	caCmd = &cobra.Command{
-		Use:   "ca",
-		Short: "Manage certificate authorities",
+		Use:         "ca",
+		Short:       "Manage certificate authorities",
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	newCACmd = &cobra.Command{
-		Use:   "new",
-		Short: "Create a new certificate authority",
-		RunE:  cmdNewCA,
+		Use:         "new",
+		Short:       "Create a new certificate authority",
+		RunE:        cmdNewCA,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	getIDCmd = &cobra.Command{
-		Use:   "id",
-		Short: "Get the id of a CA",
-		RunE:  cmdGetID,
+		Use:         "id",
+		Short:       "Get the id of a CA",
+		RunE:        cmdGetID,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	caExtCmd = &cobra.Command{
-		Use:   "extensions",
-		Short: "Prints the extensions attached to the identity CA certificate",
-		RunE:  cmdCAExtensions,
+		Use:         "extensions",
+		Short:       "Prints the extensions attached to the identity CA certificate",
+		RunE:        cmdCAExtensions,
+		Annotations: map[string]string{"type": "setup"},
 	}
 	revokeCACmd = &cobra.Command{
-		Use:   "revoke",
-		Short: "Revoke the identity's CA certificate (creates backup)",
-		RunE:  cmdRevokeCA,
+		Use:         "revoke",
+		Short:       "Revoke the identity's CA certificate (creates backup)",
+		RunE:        cmdRevokeCA,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	newCACfg struct {
@@ -63,13 +68,15 @@ var (
 
 func init() {
 	rootCmd.AddCommand(caCmd)
+
 	caCmd.AddCommand(newCACmd)
-	cfgstruct.Bind(newCACmd.Flags(), &newCACfg, cfgstruct.ConfDir(defaultConfDir))
 	caCmd.AddCommand(getIDCmd)
-	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, cfgstruct.ConfDir(defaultConfDir))
 	caCmd.AddCommand(caExtCmd)
-	cfgstruct.Bind(caExtCmd.Flags(), &caExtCfg, cfgstruct.ConfDir(defaultConfDir))
 	caCmd.AddCommand(revokeCACmd)
+
+	cfgstruct.Bind(newCACmd.Flags(), &newCACfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(caExtCmd.Flags(), &caExtCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(revokeCACmd.Flags(), &revokeCACfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
@@ -95,9 +102,7 @@ func cmdRevokeCA(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// NB: backup original cert
-	var backupCfg provider.FullCAConfig
-	backupCfg.CertPath = backupPath(revokeCACfg.CA.CertPath)
-	if err := backupCfg.Save(ca); err != nil {
+	if err := revokeCACfg.CA.SaveBackup(ca); err != nil {
 		return err
 	}
 

@@ -20,7 +20,7 @@ import (
 )
 
 //GeneratePayerBandwidthAllocation creates a signed PayerBandwidthAllocation from a PayerBandwidthAllocation_Action
-func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action, satelliteKey crypto.PrivateKey, uplinkKey crypto.PrivateKey) (*pb.PayerBandwidthAllocation, error) {
+func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action, satelliteKey crypto.PrivateKey, uplinkKey crypto.PrivateKey, expiration time.Duration) (*pb.PayerBandwidthAllocation, error) {
 	satelliteKeyEcdsa, ok := satelliteKey.(*ecdsa.PrivateKey)
 	if !ok {
 		return nil, errs.New("Satellite Private Key is not a valid *ecdsa.PrivateKey")
@@ -41,7 +41,7 @@ func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action,
 		&pb.PayerBandwidthAllocation_Data{
 			SatelliteId:       teststorj.NodeIDFromString("SatelliteID"),
 			UplinkId:          teststorj.NodeIDFromString("UplinkID"),
-			ExpirationUnixSec: time.Now().Add(time.Hour * 24 * 10).Unix(),
+			ExpirationUnixSec: time.Now().Add(expiration).Unix(),
 			SerialNumber:      serialNum.String(),
 			Action:            action,
 			CreatedUnixSec:    time.Now().Unix(),

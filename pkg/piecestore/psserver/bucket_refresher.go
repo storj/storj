@@ -37,9 +37,7 @@ func newService(log *zap.Logger, interval time.Duration, rt *kademlia.RoutingTab
 }
 
 // Run runs the bucket refresher service
-func (service *refreshService) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
+func (service *refreshService) Run(ctx context.Context) {
 	for {
 		err := service.process(ctx)
 		if err != nil {
@@ -49,7 +47,7 @@ func (service *refreshService) Run(ctx context.Context) (err error) {
 		select {
 		case <-service.ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the bucket refresher service is canceled via context
-			return ctx.Err()
+			return
 		}
 	}
 }

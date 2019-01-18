@@ -47,6 +47,23 @@ func TestBasic(t *testing.T) {
 
 	message := client.SignedMessage()
 	t.Log(message)
+
+	nodeClient, err := planet.StorageNodes[0].NewNodeClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// ping a satellite
+	_, err = nodeClient.Ping(context.Background(), planet.Satellites[0].Local())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// ping a storage node
+	_, err = nodeClient.Ping(context.Background(), planet.StorageNodes[1].Local())
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func BenchmarkCreate(b *testing.B) {
