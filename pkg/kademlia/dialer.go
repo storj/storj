@@ -33,7 +33,7 @@ func NewDialer(log *zap.Logger, transport transport.Client) *Dialer {
 		log:       log,
 		transport: transport,
 	}
-	dialer.limit.Init(10)
+	dialer.limit.Init(32)
 	return dialer
 }
 
