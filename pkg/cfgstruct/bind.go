@@ -29,6 +29,14 @@ func ConfDir(confdir string) BindOpt {
 	})
 }
 
+// CredsDir sets a variable for the default option called $CREDSDIR.
+func CredsDir(confdir string) BindOpt {
+	val := filepath.Clean(os.ExpandEnv(confdir))
+	return BindOpt(func(vars map[string]confVar) {
+		vars["CREDSDIR"] = confVar{val: val, nested: false}
+	})
+}
+
 // ConfDirNested sets variables for default options called $CONFDIR and $CONFNAME.
 // ConfDirNested also appends the parent struct field name to the paths before
 // descending into substructs.

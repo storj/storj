@@ -98,7 +98,7 @@ const (
 func init() {
 	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
 	// TODO: this path should be defined somewhere else
-	defaultCredsDir = fpath.ApplicationDir("storj", "identity")
+	defaultCredsDir = fpath.ApplicationDir("storj", "identity", "storagenode")
 
 	dirParam := cfgstruct.FindConfigDirParam()
 	if dirParam != "" {
@@ -118,7 +118,7 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(dashboardCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir))
