@@ -82,7 +82,6 @@ func parseEmailsList(fileName, delimiter string) (emails []string, err error) {
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	defer file.Close()
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -91,7 +90,7 @@ func parseEmailsList(fileName, delimiter string) (emails []string, err error) {
 		}
 		emails = append(emails, line)
 	}
-	return emails, nil
+	return emails, file.Close()
 }
 
 func cmdCreateAuth(cmd *cobra.Command, args []string) error {
