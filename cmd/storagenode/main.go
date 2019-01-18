@@ -104,6 +104,10 @@ func init() {
 	if dirParam != "" {
 		defaultConfDir = dirParam
 	}
+	credsDirParam := cfgstruct.FindCredsDirParam()
+	if credsDirParam != "" {
+		defaultCredsDir = credsDirParam
+	}
 
 	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
 	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})

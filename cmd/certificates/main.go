@@ -51,6 +51,15 @@ var (
 )
 
 func init() {
+	confDirParam := cfgstruct.FindConfigDirParam()
+	if confDirParam != "" {
+		defaultCredsDir = confDirParam
+	}
+	credsDirParam := cfgstruct.FindCredsDirParam()
+	if credsDirParam != "" {
+		defaultCredsDir = credsDirParam
+	}
+
 	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for certificates configuration")
 	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
 	if err != nil {

@@ -196,10 +196,19 @@ func expand(vars map[string]string, val string) string {
 // FindConfigDirParam returns '--config-dir' param from os.Args (if exists)
 func FindConfigDirParam() string {
 	// workaround to have early access to 'dir' param
+	return FindFlagEarly("config-dir")
+}
+
+func FindCredsDirParam() string {
+	return FindFlagEarly("creds-dir")
+}
+
+// FindFlagEarly retrieves the value of a flag before `flag.Parse` has been called
+func FindFlagEarly(flagName string) string {
 	for i, arg := range os.Args {
-		if strings.HasPrefix(arg, "--config-dir=") {
-			return strings.TrimPrefix(arg, "--config-dir=")
-		} else if arg == "--config-dir" && i < len(os.Args)-1 {
+		if strings.HasPrefix(arg, fmt.Sprintf("--%s=", flagName)) {
+			return strings.TrimPrefix(arg, fmt.Sprintf("--%s=", flagName))
+		} else if arg == fmt.Sprintf("--%s", flagName) && i < len(os.Args)-1 {
 			return os.Args[i+1]
 		}
 	}

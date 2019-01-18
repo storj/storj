@@ -41,9 +41,13 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
 	defaultCredsDir := fpath.ApplicationDir("storj", "identity", "uplink")
 
-	dirParam := cfgstruct.FindConfigDirParam()
-	if dirParam != "" {
-		defaultConfDir = dirParam
+	confDirParam := cfgstruct.FindConfigDirParam()
+	if confDirParam != "" {
+		defaultConfDir = confDirParam
+	}
+	credsDirParam := cfgstruct.FindCredsDirParam()
+	if credsDirParam != "" {
+		defaultCredsDir = credsDirParam
 	}
 
 	cfgstruct.Bind(cmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))

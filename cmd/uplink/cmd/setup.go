@@ -52,15 +52,19 @@ var (
 )
 
 func init() {
-	dirParam := cfgstruct.FindConfigDirParam()
-	if dirParam != "" {
-		defaultConfDir = dirParam
+	confDirParam := cfgstruct.FindConfigDirParam()
+	if confDirParam != "" {
+		defaultConfDir = confDirParam
+	}
+	credsDirParam := cfgstruct.FindCredsDirParam()
+	if credsDirParam != "" {
+		defaultCredsDir = credsDirParam
 	}
 
 	CLICmd.PersistentFlags().StringVar(&cliConfDir, "config-dir", defaultConfDir, "main directory for setup configuration")
 	GWCmd.PersistentFlags().StringVar(&gwConfDir, "config-dir", defaultConfDir, "main directory for setup configuration")
-	CLICmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for storagenode identity credentials")
-	GWCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for storagenode identity credentials")
+	CLICmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for uplink identity credentials")
+	GWCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for uplink identity credentials")
 
 	CLICmd.AddCommand(setupCmd)
 	GWCmd.AddCommand(setupCmd)
