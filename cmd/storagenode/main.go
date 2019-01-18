@@ -338,7 +338,7 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		_, _ = heading.Printf("\nStorage Node Dashboard Stats\n")
 		_, _ = heading.Printf("\n===============================\n")
 
-		fmt.Fprintf(color.Output, "Node ID: %s\n", color.BlueString(data.GetNodeId()))
+		fmt.Fprintf(color.Output, "Node ID: %s\n", color.YellowString(data.GetNodeId()))
 
 		if data.GetConnection() {
 			fmt.Fprintf(color.Output, "%s ", color.GreenString("ONLINE"))
@@ -355,11 +355,11 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 
 		fmt.Fprintf(color.Output, "Node Connections: %+v\n", whiteInt(data.GetNodeConnections()))
 
-		color.Green("\nIO\t\tAvailable\tUsed\n--\t\t---------\t----")
+		color.Green("\nIO\t\t\tAvailable\t\t\tUsed\n--\t\t\t---------\t\t\t----")
 		stats := data.GetStats()
 		if stats != nil {
-			fmt.Fprintf(color.Output, "Bandwidth\t%+v\t%+v\n", whiteInt(stats.GetAvailableBandwidth()), whiteInt(stats.GetUsedBandwidth()))
-			fmt.Fprintf(color.Output, "Disk\t\t%+v\t%+v\n", whiteInt(stats.GetAvailableSpace()), whiteInt(stats.GetUsedSpace()))
+			fmt.Fprintf(color.Output, "Bandwidth\t\t%+v\t\t\t%+v\n", whiteInt(stats.GetAvailableBandwidth()), whiteInt(stats.GetUsedBandwidth()))
+			fmt.Fprintf(color.Output, "Disk\t\t\t%+v\t\t\t%+v\n", whiteInt(stats.GetAvailableSpace()), whiteInt(stats.GetUsedSpace()))
 		} else {
 			color.Yellow("Loading...")
 		}
