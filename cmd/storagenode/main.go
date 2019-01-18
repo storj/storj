@@ -76,8 +76,9 @@ var (
 		Short: "Display a dashbaord",
 		RunE:  dashCmd,
 	}
-	runCfg       StorageNode
-	setupCfg     StorageNode
+	runCfg   StorageNode
+	setupCfg StorageNode
+
 	dashboardCfg struct {
 		Address string `default:":28967" help:"address for dashboard service"`
 	}
@@ -320,14 +321,19 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// address of node to create client connection
+	address := dashboardCfg.Address
 	if dashboardCfg.Address == "" {
-		return fmt.Errorf("Storage Node address isn't specified")
+		if runCfg.Server.Address == "" {
+			return fmt.Errorf("Storage Node address isn't specified")
+		}
+
+		address = runCfg.Server.Address
 	}
 
 	tc := transport.NewClient(ident)
 	n := &pb.Node{
 		Address: &pb.NodeAddress{
-			Address:   dashboardCfg.Address,
+			Address:   address,
 			Transport: 0,
 		},
 		Type: pb.NodeType_STORAGE,
