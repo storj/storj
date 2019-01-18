@@ -291,7 +291,7 @@ func (ic Config) Save(fi *FullIdentity) error {
 		return dataErr
 	}
 	//Set Identity Folder to Read-Only
-	err := os.Chmod(ic.CertPath, 440)
+	err := os.Chmod(ic.CertPath, 0440)
 	return err
 }
 
