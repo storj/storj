@@ -40,8 +40,8 @@ type Config struct {
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
-func (config *Config) Verify(log *zap.Logger) error {
-	return config.Kademlia.Verify(log)
+func (config *Config) Verify() error {
+	return config.Kademlia.Verify()
 }
 
 // Peer is the representation of a Storage Node.
@@ -76,7 +76,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 	var err error
 
 	{ // setup listener and server
-		peer.Public.Listener, err = net.Listen("tcp", config.PublicAddress)
+		peer.Public.Listener, err = net.Listen("tcp", config.Server.Address)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

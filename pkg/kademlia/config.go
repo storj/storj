@@ -44,16 +44,16 @@ type OperatorConfig struct {
 }
 
 // Verify verifies whether operator config is valid.
-func (c OperatorConfig) Verify(log *zap.Logger) error {
+func (c OperatorConfig) Verify() error {
 	if err := isOperatorEmailValid(c.Email); err != nil {
 		return err
 	}
-	log.S().Info("Operator email: ", c.Email)
 
 	if err := isOperatorWalletValid(c.Wallet); err != nil {
 		return err
 	}
-	log.S().Info("Operator wallet: ", c.Wallet)
+	// TODO: log.Info("Operator email: ", c.Email)
+	// TODO: log.Info("Operator wallet: ", c.Wallet)
 
 	return nil
 }
@@ -87,8 +87,8 @@ type Config struct {
 }
 
 // Verify verifies whether kademlia config is valid.
-func (c Config) Verify(log *zap.Logger) error {
-	return config.Operator.Verify(log)
+func (c Config) Verify() error {
+	return c.Operator.Verify()
 }
 
 // StorageNodeConfig is a Config that implements provider.Responsibility as

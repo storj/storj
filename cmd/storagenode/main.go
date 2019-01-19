@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"sort"
 	"text/tabwriter"
@@ -19,19 +18,19 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
-	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/storagenodedb"
 )
 
 // StorageNodeFlags defines storage node configuration
@@ -126,7 +125,8 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	if identity, err := runCfg.Server.Identity.Load(); err != nil {
+	identity, err := runCfg.Server.Identity.Load()
+	if err != nil {
 		zap.S().Fatal(err)
 	} else {
 		zap.S().Info("Node ID: ", identity.ID)
@@ -134,7 +134,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	if err := runCfg.Verify(); err != nil {
 		zap.S().Error("Invalid configuration:", err)
-		return
+		return err
 	}
 
 	ctx := process.Ctx(cmd)
@@ -142,19 +142,20 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Error("Failed to initialize telemetry batcher:", err)
 	}
 
-	db, err := storagenodedb.New(runCfg.Storage.Path) // TODO: separate path
+	// TODO: use non-inmemory
+	db, err := storagenodedb.NewInMemory(runCfg.Storage.Path) // TODO: separate path
 	if err != nil {
 		return err
 	}
 
-	peer, err := storagenode.New(zap.L(), identity, db, runCfg)
+	peer, err := storagenode.New(zap.L(), identity, db, runCfg.Config)
 	if err != nil {
 		return err
 	}
 
-	runError := peer.Run(process.Context(cmd))
+	runError := peer.Run(ctx)
 	closeError := peer.Close()
-	
+
 	return errs.Combine(runError, closeError)
 }
 
