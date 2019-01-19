@@ -6,6 +6,8 @@ package kademlia
 import (
 	"context"
 	"flag"
+	"fmt"
+	"regexp"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -41,6 +43,39 @@ type OperatorConfig struct {
 	Wallet string `user:"true" help:"operator wallet adress" default:""`
 }
 
+// Verify verifies whether operator config is valid.
+func (c OperatorConfig) Verify(log *zap.Logger) error {
+	if err := isOperatorEmailValid(c.Email); err != nil {
+		return err
+	}
+	log.S().Info("Operator email: ", c.Email)
+
+	if err := isOperatorWalletValid(c.Wallet); err != nil {
+		return err
+	}
+	log.S().Info("Operator wallet: ", c.Wallet)
+
+	return nil
+}
+
+func isOperatorEmailValid(email string) error {
+	if email == "" {
+		return fmt.Errorf("Operator mail address isn't specified")
+	}
+	return nil
+}
+
+func isOperatorWalletValid(wallet string) error {
+	if wallet == "" {
+		return fmt.Errorf("Operator wallet address isn't specified")
+	}
+	r := regexp.MustCompile("^0x[a-fA-F0-9]{40}$")
+	if match := r.MatchString(wallet); !match {
+		return fmt.Errorf("Operator wallet address isn't valid")
+	}
+	return nil
+}
+
 // Config defines all of the things that are needed to start up Kademlia
 // server endpoints (and not necessarily client code).
 type Config struct {
@@ -49,6 +84,11 @@ type Config struct {
 	Alpha           int    `help:"alpha is a system wide concurrency parameter" default:"5"`
 	ExternalAddress string `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
 	Operator        OperatorConfig
+}
+
+// Verify verifies whether kademlia config is valid.
+func (c Config) Verify(log *zap.Logger) error {
+	return config.Operator.Verify(log)
 }
 
 // StorageNodeConfig is a Config that implements provider.Responsibility as

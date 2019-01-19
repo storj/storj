@@ -34,14 +34,12 @@ import (
 	"storj.io/storj/pkg/transport"
 )
 
-// StorageNode defines storage node configuration
-type StorageNode struct {
+// StorageNodeFlags defines storage node configuration
+type StorageNodeFlags struct {
 	EditConf        bool `default:"false" help:"open config in default editor"`
 	SaveAllDefaults bool `default:"false" help:"save all default values to config.yaml file" setup:"true"`
 
-	Server   server.Config
-	Kademlia kademlia.StorageNodeConfig
-	Storage  psserver.Config
+	storagenode.Config
 }
 
 var (
@@ -76,8 +74,8 @@ var (
 		Short: "Display a dashbaord",
 		RunE:  dashCmd,
 	}
-	runCfg   StorageNode
-	setupCfg StorageNode
+	runCfg   StorageNodeFlags
+	setupCfg StorageNodeFlags
 
 	dashboardCfg struct {
 		Address string `default:":28967" help:"address for dashboard service"`
@@ -128,29 +126,36 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	if ident, err := runCfg.Server.Identity.Load(); err != nil {
+	if identity, err := runCfg.Server.Identity.Load(); err != nil {
 		zap.S().Fatal(err)
 	} else {
-		zap.S().Info("Node ID: ", ident.ID)
+		zap.S().Info("Node ID: ", identity.ID)
 	}
 
-	operatorConfig := runCfg.Kademlia.Operator
-	if err := isOperatorEmailValid(operatorConfig.Email); err != nil {
-		zap.S().Warn(err)
-	} else {
-		zap.S().Info("Operator email: ", operatorConfig.Email)
+	if err := runCfg.Verify(); err != nil {
+		zap.S().Error("Invalid configuration:", err)
+		return
 	}
-	if err := isOperatorWalletValid(operatorConfig.Wallet); err != nil {
-		zap.S().Fatal(err)
-	} else {
-		zap.S().Info("Operator wallet: ", operatorConfig.Wallet)
-	}
+
 	ctx := process.Ctx(cmd)
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Server.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher:", err)
 	}
 
-	return runCfg.Server.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
+	db, err := storagenodedb.New(runCfg.Storage.Path) // TODO: separate path
+	if err != nil {
+		return err
+	}
+
+	peer, err := storagenode.New(zap.L(), identity, db, runCfg)
+	if err != nil {
+		return err
+	}
+
+	runError := peer.Run(process.Context(cmd))
+	closeError := peer.Close()
+	
+	return errs.Combine(runError, closeError)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -399,24 +404,6 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 
 func whiteInt(value int64) string {
 	return color.WhiteString(fmt.Sprintf("%+v", value))
-}
-
-func isOperatorEmailValid(email string) error {
-	if email == "" {
-		return fmt.Errorf("Operator mail address isn't specified")
-	}
-	return nil
-}
-
-func isOperatorWalletValid(wallet string) error {
-	if wallet == "" {
-		return fmt.Errorf("Operator wallet address isn't specified")
-	}
-	r := regexp.MustCompile("^0x[a-fA-F0-9]{40}$")
-	if match := r.MatchString(wallet); !match {
-		return fmt.Errorf("Operator wallet address isn't valid")
-	}
-	return nil
 }
 
 // clr clears the screen so it can be redrawn

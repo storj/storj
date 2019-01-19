@@ -34,17 +34,14 @@ type DB interface {
 
 // Config is all the configuration parameters for a Storage Node
 type Config struct {
-	Identity identity.Config
-
-	// TODO: switch to using server.Config when Identity has been removed from it
-	PublicAddress string `help:"public address to listen on" default:":7777"`
-	Kademlia      kademlia.Config
-	Storage       psserver.Config
+	Server   server.Config
+	Kademlia kademlia.Config
+	Storage  psserver.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
-func (config *Config) Verify() error {
-	return nil
+func (config *Config) Verify(log *zap.Logger) error {
+	return config.Kademlia.Verify(log)
 }
 
 // Peer is the representation of a Storage Node.
