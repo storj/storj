@@ -113,6 +113,10 @@ func init() {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
 	rootCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for storagenode identity credentials")
+	err = rootCmd.PersistentFlags().SetAnnotation("creds-dir", "user", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'user' annotation for 'creds-dir'")
+	}
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
