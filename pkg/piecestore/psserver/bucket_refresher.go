@@ -27,6 +27,7 @@ type Monitor struct { // TODO: rename to something clearer
 	server *Server
 }
 
+// NewMonitor creates a disk monitor
 func NewMonitor(log *zap.Logger, interval time.Duration, rt *kademlia.RoutingTable, server *Server) *Monitor {
 	return &Monitor{
 		log:    log,
@@ -37,7 +38,7 @@ func NewMonitor(log *zap.Logger, interval time.Duration, rt *kademlia.RoutingTab
 }
 
 // Run runs the bucket refresher service
-func (service *Monitor) Run(ctx context.Context) {
+func (service *Monitor) Run(ctx context.Context) error {
 	for {
 		err := service.process(ctx)
 		if err != nil {
@@ -47,7 +48,7 @@ func (service *Monitor) Run(ctx context.Context) {
 		select {
 		case <-service.ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the bucket refresher service is canceled via context
-			return
+			return ctx.Err()
 		}
 	}
 }

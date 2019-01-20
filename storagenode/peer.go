@@ -146,7 +146,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		pb.RegisterPieceStoreRoutesServer(peer.Public.Server.GRPC(), peer.Piecestore)
 
 		// TODO: organize better
-		peer.Monitor = psserver.NewMonitor(peer.Log.Named("piecestore:monitor"), config.KBucketRefreshInterval, peer.Kademlia.RoutingTable, peer.Piecestore)
+		peer.Monitor = psserver.NewMonitor(peer.Log.Named("piecestore:monitor"), config.KBucketRefreshInterval, peer.RoutingTable, peer.Piecestore)
 	}
 
 	{ // agreements
