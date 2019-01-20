@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver"
+	"storj.io/storj/pkg/piecestore/psserver/agreementsender"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
@@ -51,6 +52,8 @@ type Peer struct {
 	Identity *identity.FullIdentity
 	DB       DB
 
+	// TODO: add transport
+
 	// servers
 	Public struct {
 		Listener net.Listener
@@ -63,6 +66,11 @@ type Peer struct {
 	KademliaEndpoint *node.Server
 
 	Piecestore *psserver.Server // TODO: separate into endpoint and service
+	Monitor    *psserver.Monitor
+
+	Agreements struct {
+		Sender *agreementsender.AgreementSender
+	}
 }
 
 // New creates a new Storage Node.
@@ -135,6 +143,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		// TODO: psserver shouldn't need the private key
 		peer.Piecestore = psserver.New(peer.Log.Named("piecestore"), peer.DB.Storage(), peer.DB.PSDB(), config, peer.Identity.Key)
 		pb.RegisterPieceStoreRoutesServer(peer.Public.Server.GRPC(), peer.Piecestore)
+
+		// TODO: organize better
+		peer.Monitor = psserver.NewMonitor(peer.Log.Named("piecestore:monitor"), config.KBucketRefreshInterval, peer.Kademlia.RoutingTable, peer.Piecestore)
+	}
+
+	{ // agreements
+		config := config.Storage // TODO: separate config
+		peer.Agreements.Sender = agreementsender.New(
+			peer.Log.Named("agreements"),
+			peer.DB.PSDB(), peer.Identity, peer.Kademlia,
+			config.AgreementSenderCheckInterval,
+		)
 	}
 
 	return peer, nil
@@ -147,29 +167,29 @@ func (peer *Peer) Run(ctx context.Context) error {
 
 	var group errgroup.Group
 	group.Go(func() error {
-		err := peer.Kademlia.Bootstrap(ctx)
-		if ctx.Err() == context.Canceled {
-			// ignore err when when bootstrap was canceled
-			return nil
-		}
-		return err
+		return ignoreCancel(peer.Kademlia.Bootstrap(ctx))
 	})
 	group.Go(func() error {
-		err := peer.Kademlia.RunRefresh(ctx)
-		if err == context.Canceled || err == grpc.ErrServerStopped {
-			err = nil
-		}
-		return err
+		return ignoreCancel(peer.Kademlia.RunRefresh(ctx))
 	})
 	group.Go(func() error {
-		err := peer.Public.Server.Run(ctx)
-		if err == context.Canceled || err == grpc.ErrServerStopped {
-			err = nil
-		}
-		return err
+		return ignoreCancel(peer.Agreements.Sender.Run(ctx))
+	})
+	group.Go(func() error {
+		return ignoreCancel(peer.Monitor.Run(ctx))
+	})
+	group.Go(func() error {
+		return ignoreCancel(peer.Public.Server.Run(ctx))
 	})
 
 	return group.Wait()
+}
+
+func ignoreCancel(err error) error {
+	if err == context.Canceled || err == grpc.ErrServerStopped {
+		return nil
+	}
+	return err
 }
 
 // Close closes all the resources.

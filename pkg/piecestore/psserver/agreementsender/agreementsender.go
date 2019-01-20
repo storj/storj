@@ -24,13 +24,15 @@ var (
 )
 
 // AgreementSender maintains variables required for reading bandwidth agreements from a DB and sending them to a Payers
-type AgreementSender struct {
+type AgreementSender struct { // TODO: rename to service
 	DB            *psdb.DB
 	log           *zap.Logger
 	transport     transport.Client
 	kad           *kademlia.Kademlia
 	checkInterval time.Duration
 }
+
+// TODO: take transport instead of identity as argument
 
 // New creates an Agreement Sender
 func New(log *zap.Logger, DB *psdb.DB, identity *provider.FullIdentity, kad *kademlia.Kademlia, checkInterval time.Duration) *AgreementSender {
