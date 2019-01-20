@@ -137,7 +137,8 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 }
 
 // New creates a Server with custom db
-func New(log *zap.Logger, storage *pstore.Storage, db *psdb.DB, config Config, pkey crypto.PrivateKey) *Server {
+func New(log *zap.Logger, storage *pstore.Storage, db *psdb.DB, config Config, pkey crypto.PrivateKey, k *kademlia.Kademlia) *Server {
+	// TODO: checks into Config
 	return &Server{
 		log:              log,
 		storage:          storage,
@@ -146,6 +147,7 @@ func New(log *zap.Logger, storage *pstore.Storage, db *psdb.DB, config Config, p
 		totalAllocated:   config.AllocatedDiskSpace.Int64(),
 		totalBwAllocated: config.AllocatedBandwidth.Int64(),
 		verifier:         auth.NewSignedMessageVerifier(),
+		kad:              k,
 	}
 }
 
