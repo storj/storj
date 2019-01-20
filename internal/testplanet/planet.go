@@ -331,10 +331,11 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 				},
 			},
 			Storage: psserver.Config{
-				Path:                   "", // TODO: this argument won't be needed with master storagenodedb
-				AllocatedDiskSpace:     memory.TB,
-				AllocatedBandwidth:     memory.TB,
-				KBucketRefreshInterval: time.Minute,
+				Path:                         "", // TODO: this argument won't be needed with master storagenodedb
+				AllocatedDiskSpace:           memory.TB,
+				AllocatedBandwidth:           memory.TB,
+				KBucketRefreshInterval:       time.Hour,
+				AgreementSenderCheckInterval: time.Hour,
 			},
 		}
 
