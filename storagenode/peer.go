@@ -61,6 +61,7 @@ type Peer struct {
 	}
 
 	// services and endpoints
+	// TODO: similar grouping to satellite.Peer
 	RoutingTable     *kademlia.RoutingTable
 	Kademlia         *kademlia.Kademlia
 	KademliaEndpoint *node.Server
