@@ -646,6 +646,8 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 
 	planet.Start(ctx)
 
+	time.Sleep(2 * time.Seconds)
+
 	layer, metainfo, streams, err := initEnv(planet)
 	if !assert.NoError(t, err) {
 		return
