@@ -113,12 +113,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			Id:   peer.ID(),
 			Type: pb.NodeType_STORAGE,
 			Address: &pb.NodeAddress{
-				Address: config.ExternalAddress,
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				Address:   config.ExternalAddress,
 			},
 			Metadata: &pb.NodeMetadata{
 				Email:  config.Operator.Email,
 				Wallet: config.Operator.Wallet,
 			},
+		}
+
+		// TODO(coyle): I'm thinking we just remove this function and grab from the config.
+		in, err := kademlia.GetIntroNode(config.BootstrapAddr)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
 		}
 
 		kdb, ndb := peer.DB.RoutingTable()
@@ -128,7 +135,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		}
 
 		// TODO: reduce number of arguments
-		peer.Kademlia, err = kademlia.NewWith(peer.Log.Named("kademlia"), self, nil, peer.Identity, config.Alpha, peer.RoutingTable)
+		peer.Kademlia, err = kademlia.NewWith(peer.Log.Named("kademlia"), self, []pb.Node{*in}, peer.Identity, config.Alpha, peer.RoutingTable)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
