@@ -77,6 +77,7 @@ matrix:
 
     ### Docker tests ###
     - env: MODE=docker
+      if: commit_message =~ /(?i:docker)/
       services:
         - docker
       before_install:
