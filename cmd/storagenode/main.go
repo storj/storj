@@ -36,8 +36,8 @@ import (
 
 // StorageNode defines storage node configuration
 type StorageNode struct {
-	EditConf        bool `default:"false" help:"open config in default editor"`
-	SaveAllDefaults bool `default:"false" help:"save all default values to config.yaml file" setup:"true"`
+	EditConf        bool   `default:"false" help:"open config in default editor"`
+	SaveAllDefaults bool   `default:"false" help:"save all default values to config.yaml file" setup:"true"`
 
 	Server   server.Config
 	Kademlia kademlia.StorageNodeConfig
@@ -114,6 +114,10 @@ func init() {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
 	rootCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for storagenode identity credentials")
+	err = rootCmd.PersistentFlags().SetAnnotation("creds-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
@@ -122,17 +126,15 @@ func init() {
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(dashboardCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
+	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir), cfgstruct.CredsDir(defaultCredsDir))
 	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, cfgstruct.ConfDir(defaultDiagDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	if ident, err := runCfg.Server.Identity.Load(); err != nil {
+	if _, err := runCfg.Server.Identity.Load(); err != nil {
 		zap.S().Fatal(err)
-	} else {
-		zap.S().Info("Node ID: ", ident.ID)
 	}
 
 	operatorConfig := runCfg.Kademlia.Operator

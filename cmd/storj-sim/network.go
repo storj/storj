@@ -126,9 +126,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	})
 
 	bootstrap.Arguments = withCommon(Arguments{
-		"setup": {},
-		"run": {
+		"setup": {
 			"--creds-dir", bootstrap.Directory,
+		},
+		"run": {
 			"--kademlia.bootstrap-addr", bootstrap.Address,
 			"--kademlia.operator.email", "bootstrap@example.com",
 			"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
@@ -151,9 +152,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.WaitForStart(bootstrap)
 
 		process.Arguments = withCommon(Arguments{
-			"setup": {},
-			"run": {
+			"setup": {
 				"--creds-dir", process.Directory,
+			},
+			"run": {
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--server.address", process.Address,
 
@@ -183,10 +185,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
+				"--creds-dir", process.Directory,
 				"--satellite-addr", satellite.Address,
 			},
 			"run": {
-				"--creds-dir", process.Directory,
 				"--server.address", process.Address,
 				"--minio.access-key", accessKey,
 				"--minio.secret-key", secretKey,
@@ -215,9 +217,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.WaitForStart(bootstrap)
 
 		process.Arguments = withCommon(Arguments{
-			"setup": {},
-			"run": {
+			"setup": {
 				"--creds-dir", process.Directory,
+			},
+			"run": {
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
 				"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",

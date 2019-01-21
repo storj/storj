@@ -117,6 +117,10 @@ func init() {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
 	rootCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for satellite identity credentials")
+	err = rootCmd.PersistentFlags().SetAnnotation("creds-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
@@ -130,6 +134,9 @@ func init() {
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
+	if _, err := runCfg.Server.Identity.Load(); err != nil {
+		zap.S().Fatal(err)
+	}
 
 	database, err := satellitedb.New(runCfg.Database)
 	if err != nil {

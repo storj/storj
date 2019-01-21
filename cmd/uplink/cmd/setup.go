@@ -5,20 +5,18 @@ package cmd
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
+	"github.com/jbenet/go-base58"
+	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 	"os"
 	"path/filepath"
-
-	base58 "github.com/jbenet/go-base58"
-	"github.com/spf13/cobra"
+	"storj.io/storj/pkg/provider"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/provider"
 )
 
 var (
@@ -29,12 +27,11 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 	setupCfg struct {
-		CA                 provider.CASetupConfig       `setup:"true"`
-		Identity           provider.IdentitySetupConfig `setup:"true"`
-		APIKey             string                       `default:"" help:"the api key to use for the satellite" setup:"true"`
-		EncKey             string                       `default:"" help:"your root encryption key" setup:"true"`
-		GenerateMinioCerts bool                         `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
-		SatelliteAddr      string                       `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
+		Identity           provider.IdentitySetupConfig
+		APIKey             string `default:"" help:"the api key to use for the satellite" setup:"true"`
+		EncKey             string `default:"" help:"your root encryption key" setup:"true"`
+		GenerateMinioCerts bool   `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
+		SatelliteAddr      string `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
 
 		Server miniogw.ServerConfig
 		Minio  miniogw.MinioConfig
@@ -64,11 +61,19 @@ func init() {
 	CLICmd.PersistentFlags().StringVar(&cliConfDir, "config-dir", defaultConfDir, "main directory for setup configuration")
 	GWCmd.PersistentFlags().StringVar(&gwConfDir, "config-dir", defaultConfDir, "main directory for setup configuration")
 	CLICmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for uplink identity credentials")
-	GWCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for uplink identity credentials")
+	err := CLICmd.PersistentFlags().SetAnnotation("creds-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
+	GWCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for gateway identity credentials")
+	err = GWCmd.PersistentFlags().SetAnnotation("creds-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
 
 	CLICmd.AddCommand(setupCmd)
 	GWCmd.AddCommand(setupCmd)
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -89,10 +94,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	err = os.MkdirAll(setupDir, 0700)
 	if err != nil {
 		return err
-	}
-
-	if setupCfg.Identity.Status() == identity.CertKey {
-		return errors.New("identity is missing")
 	}
 
 	if setupCfg.GenerateMinioCerts {
@@ -119,8 +120,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	o := map[string]interface{}{
-		"identity.cert-path":     setupCfg.Identity.CertPath,
-		"identity.key-path":      setupCfg.Identity.KeyPath,
 		"client.api-key":         setupCfg.APIKey,
 		"client.pointer-db-addr": setupCfg.SatelliteAddr,
 		"client.overlay-addr":    setupCfg.SatelliteAddr,

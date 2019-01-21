@@ -67,8 +67,8 @@ type SetupConfig struct {
 // Config allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
 type Config struct {
-	CertPath string `help:"path to the certificate chain for this identity" default:"$CREDSDIR/identity.cert"`
-	KeyPath  string `help:"path to the private key for this identity" default:"$CREDSDIR/identity.key"`
+	CertPath string `help:"path to the certificate chain for this identity" default:"$CREDSDIR/identity.cert" user:"true"`
+	KeyPath  string `help:"path to the private key for this identity" default:"$CREDSDIR/identity.key" user:"true"`
 }
 
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and
