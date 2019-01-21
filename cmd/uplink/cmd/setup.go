@@ -6,11 +6,13 @@ package cmd
 import (
 	"crypto/rand"
 	"fmt"
-	"github.com/jbenet/go-base58"
-	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 	"os"
 	"path/filepath"
+
+	base58 "github.com/jbenet/go-base58"
+	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/provider"
 
 	"storj.io/storj/internal/fpath"

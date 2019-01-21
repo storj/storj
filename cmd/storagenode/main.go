@@ -36,8 +36,8 @@ import (
 
 // StorageNode defines storage node configuration
 type StorageNode struct {
-	EditConf        bool   `default:"false" help:"open config in default editor"`
-	SaveAllDefaults bool   `default:"false" help:"save all default values to config.yaml file" setup:"true"`
+	EditConf        bool `default:"false" help:"open config in default editor"`
+	SaveAllDefaults bool `default:"false" help:"save all default values to config.yaml file" setup:"true"`
 
 	Server   server.Config
 	Kademlia kademlia.StorageNodeConfig
