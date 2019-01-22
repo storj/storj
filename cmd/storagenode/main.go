@@ -142,12 +142,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Error("Failed to initialize telemetry batcher:", err)
 	}
 
-	// TODO: use non-inmemory
 	db, err := storagenodedb.New(storagenodedb.Config{
 		Storage:  runCfg.Storage.Path,
 		Info:     filepath.Join(runCfg.Storage.Path, "piecestore.db"),
 		Kademlia: runCfg.Kademlia.DBPath,
-	}) // TODO: separate path
+	})
 	if err != nil {
 		return err
 	}
