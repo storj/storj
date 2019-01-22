@@ -149,7 +149,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		config := config.Storage
 
 		// TODO: psserver shouldn't need the private key
-		peer.Piecestore = psserver.New(peer.Log.Named("piecestore"), peer.DB.Storage(), peer.DB.PSDB(), config, peer.Identity.Key, peer.Kademlia)
+		peer.Piecestore, err = psserver.NewEndpoint(peer.Log.Named("piecestore"), config, peer.DB.Storage(), peer.DB.PSDB(), peer.Identity.Key, peer.Kademlia)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 		pb.RegisterPieceStoreRoutesServer(peer.Public.Server.GRPC(), peer.Piecestore)
 
 		// TODO: organize better
