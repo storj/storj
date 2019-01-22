@@ -5,10 +5,12 @@ package main
 
 import (
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/server"
 )
@@ -30,30 +32,49 @@ var (
 		RunE:  cmdRun,
 	}
 
-	runCfg struct {
-		Signer certificates.CertServerConfig
-		Server server.Config
+	config struct {
+		batchCfg
+		CA         identity.CASetupConfig
+		Identity   identity.SetupConfig
+		Server     server.Config
+		Signer     certificates.CertServerConfig
+		All        bool   `help:"print the all authorizations for auth info/export subcommands" default:"false"`
+		Out        string `help:"output file path for auth export subcommand; if \"-\", will use STDOUT" default:"-"`
+		ShowTokens bool   `help:"if true, token strings will be printed for auth info command" default:"false"`
+		Overwrite  bool   `default:"false" help:"if true ca, identity, and authorization db will be overwritten/truncated"`
 	}
 
-	defaultConfDir = fpath.ApplicationDir("storj", "cert-signing")
-	confDir        *string
+	defaultConfDir     = fpath.ApplicationDir("storj", "cert-signing")
+	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "certificates")
+	confDir            string
+	identityDir        string
 )
 
 func init() {
-	dirParam := cfgstruct.FindConfigDirParam()
-	if dirParam != "" {
-		defaultConfDir = dirParam
+	confDirParam := cfgstruct.FindConfigDirParam()
+	if confDirParam != "" {
+		defaultIdentityDir = confDirParam
 	}
-	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for certificates configuration")
+	identityDirParam := cfgstruct.FindCredsDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
+	}
+
+	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for certificates configuration")
+	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
+	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
 
 	rootCmd.AddCommand(runCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(runCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultIdentityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	return runCfg.Server.Run(ctx, nil, runCfg.Signer)
+	return config.Server.Run(ctx, nil, config.Signer)
 }
 
 func main() {
