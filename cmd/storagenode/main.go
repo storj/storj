@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 )
 
 // StorageNode defines storage node configuration
@@ -75,8 +76,9 @@ var (
 		Short: "Display a dashbaord",
 		RunE:  dashCmd,
 	}
-	runCfg       StorageNode
-	setupCfg     StorageNode
+	runCfg   StorageNode
+	setupCfg StorageNode
+
 	dashboardCfg struct {
 		Address string `default:":28967" help:"address for dashboard service"`
 	}
@@ -84,11 +86,12 @@ var (
 	diagCfg struct {
 	}
 
-	defaultConfDir  string
-	defaultDiagDir  string
-	defaultCredsDir string
-	confDir         string
-	credsDir        string
+	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
+	// TODO: this path should be defined somewhere else
+	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "storagenode")
+	defaultDiagDir     string
+	confDir            string
+	identityDir        string
 )
 
 const (
@@ -96,13 +99,13 @@ const (
 )
 
 func init() {
-	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
-	// TODO: this path should be defined somewhere else
-	defaultCredsDir = fpath.ApplicationDir("storj", "identity")
-
-	dirParam := cfgstruct.FindConfigDirParam()
-	if dirParam != "" {
-		defaultConfDir = dirParam
+	confDirParam := cfgstruct.FindConfigDirParam()
+	if confDirParam != "" {
+		defaultConfDir = confDirParam
+	}
+	identityDirParam := cfgstruct.FindIdentityDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
 	}
 
 	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
@@ -110,7 +113,11 @@ func init() {
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
-	rootCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for storagenode identity credentials")
+	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
+	err = rootCmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
@@ -118,18 +125,16 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(dashboardCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir))
-	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg)
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, cfgstruct.ConfDir(defaultDiagDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	if ident, err := runCfg.Server.Identity.Load(); err != nil {
+	if _, err := runCfg.Server.Identity.Load(); err != nil {
 		zap.S().Fatal(err)
-	} else {
-		zap.S().Info("Node ID: ", ident.ID)
 	}
 
 	operatorConfig := runCfg.Kademlia.Operator
@@ -311,8 +316,34 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 func dashCmd(cmd *cobra.Command, args []string) (err error) {
 	ctx := context.Background()
 
+	ident, err := runCfg.Server.Identity.Load()
+	if err != nil {
+		zap.S().Fatal(err)
+	} else {
+		zap.S().Info("Node ID: ", ident.ID)
+	}
+
+	// address of node to create client connection
+	address := dashboardCfg.Address
+	if dashboardCfg.Address == "" {
+		if runCfg.Server.Address == "" {
+			return fmt.Errorf("Storage Node address isn't specified")
+		}
+
+		address = runCfg.Server.Address
+	}
+
+	tc := transport.NewClient(ident)
+	n := &pb.Node{
+		Address: &pb.NodeAddress{
+			Address:   address,
+			Transport: 0,
+		},
+		Type: pb.NodeType_STORAGE,
+	}
+
 	// create new client
-	lc, err := psclient.NewLiteClient(ctx, dashboardCfg.Address)
+	lc, err := psclient.NewLiteClient(ctx, tc, n)
 	if err != nil {
 		return err
 	}

@@ -45,7 +45,8 @@ func TestServicePut(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		db := teststore.New()
-		s := Server{DB: db, logger: zap.NewNop()}
+		service := NewService(zap.NewNop(), db)
+		s := Server{service: service, logger: zap.NewNop()}
 
 		path := "a/b/c"
 		pr := pb.Pointer{}
@@ -93,7 +94,9 @@ func TestServiceGet(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		db := teststore.New()
-		s := Server{DB: db, logger: zap.NewNop(), identity: identity}
+		service := NewService(zap.NewNop(), db)
+		allocation := NewAllocationSigner(identity, 45)
+		s := NewServer(zap.NewNop(), service, allocation, nil, Config{}, identity)
 
 		path := "a/b/c"
 
@@ -142,7 +145,8 @@ func TestServiceDelete(t *testing.T) {
 
 		db := teststore.New()
 		_ = db.Put(storage.Key(path), storage.Value("hello"))
-		s := Server{DB: db, logger: zap.NewNop()}
+		service := NewService(zap.NewNop(), db)
+		s := Server{service: service, logger: zap.NewNop()}
 
 		if tt.err != nil {
 			db.ForceError++
@@ -161,7 +165,8 @@ func TestServiceDelete(t *testing.T) {
 
 func TestServiceList(t *testing.T) {
 	db := teststore.New()
-	server := Server{DB: db, logger: zap.NewNop()}
+	service := NewService(zap.NewNop(), db)
+	server := Server{service: service, logger: zap.NewNop()}
 
 	pointer := &pb.Pointer{}
 	pointer.CreationDate = ptypes.TimestampNow()

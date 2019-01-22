@@ -107,5 +107,9 @@ func (r *rollup) Query(ctx context.Context) error {
 	//remove the latest day (which we cannot know is complete), then push to DB
 	latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
 	delete(rollupStats, latestTally)
+	if len(rollupStats) == 0 {
+		r.logger.Info("Rollup only found tallies for today")
+		return nil
+	}
 	return Error.Wrap(r.db.SaveRollup(ctx, latestTally, rollupStats))
 }
