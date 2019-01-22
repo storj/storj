@@ -75,6 +75,7 @@ func (server *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
 	opts := req.GetOpts()
+	// todo(nat): change name from MaxNodes to minRequestedNodes or similar
 	requiredReputableNodes := req.GetMaxNodes()
 	if requiredReputableNodes <= 0 {
 		requiredReputableNodes = opts.GetAmount()
@@ -96,12 +97,23 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		reputableNodes, excluded, usedAddrs = server.filterNodes(ctx, reputableNodes, requiredReputableNodes, usedAddrs, excluded)
+		fmt.Println("length reputable nodes", len(reputableNodes))
 
-		allReputableNodes = append(allReputableNodes, reputableNodes...)
+		reputableNodes, excluded, usedAddrs = server.filterNodes(ctx, reputableNodes, requiredReputableNodes, usedAddrs, excluded)
+		fmt.Println("length post filterNodes reputableNodes", len(reputableNodes))
+
+		allReputableNodes = append(allReputableNodes, reputableNodes[:requiredReputableNodes]...)
+		fmt.Println("another length all reputable nodes", len(allReputableNodes))
 
 		// this means we've exhausted the overlay cache looking for reputable nodes or we have enough
 		if reputableStartID == (storj.NodeID{}) || int64(len(allReputableNodes)) >= requiredReputableNodes {
+			fmt.Println("length all reputable nodes")
+			fmt.Println(len(allReputableNodes))
+
+			for _, node := range allReputableNodes {
+				fmt.Println("\n\n address", node.GetAddress())
+				fmt.Println("\n\n audit count", node.GetReputation().AuditCount)
+			}
 			break
 		}
 	}
@@ -152,6 +164,12 @@ func (server *Server) filterNodes(ctx context.Context, nodes []*pb.Node, nodeReq
 
 	for _, n := range nodes {
 		addr := n.Address.GetAddress()
+
+		// Todo(nat): why does this have to be here and not inside getReputableNodes
+		if n.GetType() != pb.NodeType_STORAGE {
+			continue
+		}
+
 		excluded = append(excluded, n.Id) // exclude all nodes on next iteration
 		updatedExcluded = excluded
 		if !usedAddrs[addr] {
