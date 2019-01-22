@@ -127,7 +127,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	bootstrap.Arguments = withCommon(Arguments{
 		"setup": {
-			"--creds-dir", bootstrap.Directory,
+			"--identity-dir", bootstrap.Directory,
 		},
 		"run": {
 			"--kademlia.bootstrap-addr", bootstrap.Address,
@@ -153,7 +153,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
-				"--creds-dir", process.Directory,
+				"--identity-dir", process.Directory,
 			},
 			"run": {
 				"--kademlia.bootstrap-addr", bootstrap.Address,
@@ -185,7 +185,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
-				"--creds-dir", process.Directory,
+				"--identity-dir", process.Directory,
 				"--satellite-addr", satellite.Address,
 			},
 			"run": {
@@ -218,7 +218,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
-				"--creds-dir", process.Directory,
+				"--identity-dir", process.Directory,
 			},
 			"run": {
 				"--kademlia.bootstrap-addr", bootstrap.Address,
@@ -270,7 +270,7 @@ func identitySetup(network *Processes) (*Processes, error) {
 
 		identity.Arguments = Arguments{
 			"setup": {
-				"--creds-dir", process.Directory,
+				"--identity-dir", process.Directory,
 				"new", ".",
 			},
 		}

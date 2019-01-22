@@ -198,9 +198,9 @@ func FindConfigDirParam() string {
 	return FindFlagEarly("config-dir")
 }
 
-// FindCredsDirParam returns '--creds-dir' param from os.Args (if exists)
+// FindCredsDirParam returns '--identity-dir' param from os.Args (if exists)
 func FindCredsDirParam() string {
-	return FindFlagEarly("creds-dir")
+	return FindFlagEarly("identity-dir")
 }
 
 // FindFlagEarly retrieves the value of a flag before `flag.Parse` has been called

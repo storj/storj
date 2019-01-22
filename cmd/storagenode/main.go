@@ -88,10 +88,10 @@ var (
 
 	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
 	// TODO: this path should be defined somewhere else
-	defaultCredsDir = fpath.ApplicationDir("storj", "identity", "storagenode")
-	defaultDiagDir  string
-	confDir         string
-	credsDir        string
+	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "storagenode")
+	defaultDiagDir     string
+	confDir            string
+	identityDir        string
 )
 
 const (
@@ -103,9 +103,9 @@ func init() {
 	if confDirParam != "" {
 		defaultConfDir = confDirParam
 	}
-	credsDirParam := cfgstruct.FindCredsDirParam()
-	if credsDirParam != "" {
-		defaultCredsDir = credsDirParam
+	identityDirParam := cfgstruct.FindCredsDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
 	}
 
 	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
@@ -113,8 +113,8 @@ func init() {
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
-	rootCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for storagenode identity credentials")
-	err = rootCmd.PersistentFlags().SetAnnotation("creds-dir", "setup", []string{"true"})
+	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
+	err = rootCmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
@@ -125,10 +125,10 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(dashboardCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
-	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
-	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir), cfgstruct.CredsDir(defaultCredsDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultIdentityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultIdentityDir))
+	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultIdentityDir))
+	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir), cfgstruct.CredsDir(defaultIdentityDir))
 	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, cfgstruct.ConfDir(defaultDiagDir))
 }
 

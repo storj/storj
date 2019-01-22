@@ -96,9 +96,9 @@ var (
 
 	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
 	// TODO: this path should be defined somewhere else
-	defaultCredsDir = fpath.ApplicationDir("storj", "identity", "satellite")
-	confDir         string
-	credsDir        string
+	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "satellite")
+	confDir            string
+	identityDir        string
 )
 
 func init() {
@@ -106,9 +106,9 @@ func init() {
 	if confDirParam != "" {
 		defaultConfDir = confDirParam
 	}
-	credsDirParam := cfgstruct.FindCredsDirParam()
-	if credsDirParam != "" {
-		defaultCredsDir = credsDirParam
+	identityDirParam := cfgstruct.FindCredsDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
 	}
 
 	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for satellite configuration")
@@ -116,8 +116,8 @@ func init() {
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
-	rootCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for satellite identity credentials")
-	err = rootCmd.PersistentFlags().SetAnnotation("creds-dir", "setup", []string{"true"})
+	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for satellite identity credentials")
+	err = rootCmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
@@ -126,10 +126,10 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(qdiagCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
-	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
-	cfgstruct.Bind(qdiagCmd.Flags(), &qdiagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultIdentityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultIdentityDir))
+	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultIdentityDir))
+	cfgstruct.Bind(qdiagCmd.Flags(), &qdiagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultIdentityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {

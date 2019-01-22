@@ -42,12 +42,12 @@ var (
 		Enc    miniogw.EncryptionConfig
 	}
 
-	defaultConfDir  = fpath.ApplicationDir("storj", "uplink")
-	defaultCredsDir = fpath.ApplicationDir("storj", "identity", "uplink")
+	defaultConfDir     = fpath.ApplicationDir("storj", "uplink")
+	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "uplink")
 
-	cliConfDir string
-	gwConfDir  string
-	credsDir   string
+	cliConfDir  string
+	gwConfDir   string
+	identityDir string
 )
 
 func init() {
@@ -55,27 +55,27 @@ func init() {
 	if confDirParam != "" {
 		defaultConfDir = confDirParam
 	}
-	credsDirParam := cfgstruct.FindCredsDirParam()
-	if credsDirParam != "" {
-		defaultCredsDir = credsDirParam
+	identityDirParam := cfgstruct.FindCredsDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
 	}
 
 	CLICmd.PersistentFlags().StringVar(&cliConfDir, "config-dir", defaultConfDir, "main directory for setup configuration")
 	GWCmd.PersistentFlags().StringVar(&gwConfDir, "config-dir", defaultConfDir, "main directory for setup configuration")
-	CLICmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for uplink identity credentials")
-	err := CLICmd.PersistentFlags().SetAnnotation("creds-dir", "setup", []string{"true"})
+	CLICmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for uplink identity credentials")
+	err := CLICmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
-	GWCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for gateway identity credentials")
-	err = GWCmd.PersistentFlags().SetAnnotation("creds-dir", "setup", []string{"true"})
+	GWCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for gateway identity credentials")
+	err = GWCmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
 
 	CLICmd.AddCommand(setupCmd)
 	GWCmd.AddCommand(setupCmd)
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultIdentityDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

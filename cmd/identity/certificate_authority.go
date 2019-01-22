@@ -74,10 +74,10 @@ func init() {
 	caCmd.AddCommand(caExtCmd)
 	caCmd.AddCommand(revokeCACmd)
 
-	cfgstruct.Bind(newCACmd.Flags(), &newCACfg, cfgstruct.CredsDir(defaultCredsDir))
-	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, cfgstruct.CredsDir(defaultCredsDir))
-	cfgstruct.Bind(caExtCmd.Flags(), &caExtCfg, cfgstruct.CredsDir(defaultCredsDir))
-	cfgstruct.Bind(revokeCACmd.Flags(), &revokeCACfg, cfgstruct.CredsDir(defaultCredsDir))
+	cfgstruct.Bind(newCACmd.Flags(), &newCACfg, cfgstruct.CredsDir(defaultIdentityDir))
+	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, cfgstruct.CredsDir(defaultIdentityDir))
+	cfgstruct.Bind(caExtCmd.Flags(), &caExtCfg, cfgstruct.CredsDir(defaultIdentityDir))
+	cfgstruct.Bind(revokeCACmd.Flags(), &revokeCACfg, cfgstruct.CredsDir(defaultIdentityDir))
 }
 
 func cmdNewCA(cmd *cobra.Command, args []string) error {

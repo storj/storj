@@ -51,18 +51,18 @@ var (
 		Signer         certificates.CertClientConfig
 	}
 
-	credsDir        string
-	defaultCredsDir = fpath.ApplicationDir("storj", "identity")
+	identityDir        string
+	defaultIdentityDir = fpath.ApplicationDir("storj", "identity")
 )
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "root directory for identity output")
+	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "root directory for identity output")
 
 	rootCmd.AddCommand(newServiceCmd)
 	rootCmd.AddCommand(csrCmd)
 
-	cfgstruct.Bind(newServiceCmd.Flags(), &config, cfgstruct.CredsDir(defaultCredsDir))
-	cfgstruct.Bind(csrCmd.Flags(), &config, cfgstruct.CredsDir(defaultCredsDir))
+	cfgstruct.Bind(newServiceCmd.Flags(), &config, cfgstruct.CredsDir(defaultIdentityDir))
+	cfgstruct.Bind(csrCmd.Flags(), &config, cfgstruct.CredsDir(defaultIdentityDir))
 }
 
 func main() {
@@ -70,7 +70,7 @@ func main() {
 }
 
 func serviceDirectory(serviceName string) string {
-	return filepath.Join(credsDir, serviceName)
+	return filepath.Join(identityDir, serviceName)
 }
 
 func cmdNewService(cmd *cobra.Command, args []string) error {

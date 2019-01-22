@@ -43,10 +43,10 @@ var (
 
 	cfg Bootstrap
 
-	defaultConfDir  = fpath.ApplicationDir("storj", "bootstrap")
-	defaultCredsDir = fpath.ApplicationDir("storj", "identity", "bootstrap")
-	confDir         string
-	credsDir        string
+	defaultConfDir     = fpath.ApplicationDir("storj", "bootstrap")
+	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "bootstrap")
+	confDir            string
+	identityDir        string
 )
 
 const (
@@ -58,9 +58,9 @@ func init() {
 	if confDirParam != "" {
 		defaultConfDir = confDirParam
 	}
-	credsDirParam := cfgstruct.FindCredsDirParam()
-	if credsDirParam != "" {
-		defaultCredsDir = credsDirParam
+	identityDirParam := cfgstruct.FindCredsDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
 	}
 
 	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for bootstrap configuration")
@@ -68,16 +68,16 @@ func init() {
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
-	rootCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for bootstrap identity credentials")
-	err = rootCmd.PersistentFlags().SetAnnotation("creds-dir", "setup", []string{"true"})
+	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for bootstrap identity credentials")
+	err = rootCmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(runCmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
+	cfgstruct.Bind(runCmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultIdentityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultIdentityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {

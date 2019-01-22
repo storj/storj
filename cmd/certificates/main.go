@@ -44,20 +44,20 @@ var (
 		Overwrite  bool   `default:"false" help:"if true ca, identity, and authorization db will be overwritten/truncated"`
 	}
 
-	defaultConfDir  = fpath.ApplicationDir("storj", "cert-signing")
-	defaultCredsDir = fpath.ApplicationDir("storj", "identity", "certificates")
-	confDir         string
-	credsDir        string
+	defaultConfDir     = fpath.ApplicationDir("storj", "cert-signing")
+	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "certificates")
+	confDir            string
+	identityDir        string
 )
 
 func init() {
 	confDirParam := cfgstruct.FindConfigDirParam()
 	if confDirParam != "" {
-		defaultCredsDir = confDirParam
+		defaultIdentityDir = confDirParam
 	}
-	credsDirParam := cfgstruct.FindCredsDirParam()
-	if credsDirParam != "" {
-		defaultCredsDir = credsDirParam
+	identityDirParam := cfgstruct.FindCredsDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
 	}
 
 	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for certificates configuration")
@@ -65,10 +65,10 @@ func init() {
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
-	rootCmd.PersistentFlags().StringVar(&credsDir, "creds-dir", defaultCredsDir, "main directory for storagenode identity credentials")
+	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
 
 	rootCmd.AddCommand(runCmd)
-	cfgstruct.Bind(runCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultCredsDir))
+	cfgstruct.Bind(runCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultIdentityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) error {
