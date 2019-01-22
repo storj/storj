@@ -61,8 +61,8 @@ func init() {
 	rootCmd.AddCommand(newServiceCmd)
 	rootCmd.AddCommand(csrCmd)
 
-	cfgstruct.Bind(newServiceCmd.Flags(), &config, cfgstruct.CredsDir(defaultIdentityDir))
-	cfgstruct.Bind(csrCmd.Flags(), &config, cfgstruct.CredsDir(defaultIdentityDir))
+	cfgstruct.Bind(newServiceCmd.Flags(), &config, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(csrCmd.Flags(), &config, cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func main() {
