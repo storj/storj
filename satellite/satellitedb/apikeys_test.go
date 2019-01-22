@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"testing"
 
-	"storj.io/storj/satellite/console"
-
 	"github.com/stretchr/testify/assert"
+
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/satellite/console"
 )
 
 func TestApiKeysRepository(t *testing.T) {
