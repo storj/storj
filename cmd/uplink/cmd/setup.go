@@ -55,7 +55,7 @@ func init() {
 	if confDirParam != "" {
 		defaultConfDir = confDirParam
 	}
-	identityDirParam := cfgstruct.FindCredsDirParam()
+	identityDirParam := cfgstruct.FindIdentityDirParam()
 	if identityDirParam != "" {
 		defaultIdentityDir = identityDirParam
 	}
@@ -75,7 +75,7 @@ func init() {
 
 	CLICmd.AddCommand(setupCmd)
 	GWCmd.AddCommand(setupCmd)
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultIdentityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

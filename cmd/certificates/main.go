@@ -55,7 +55,7 @@ func init() {
 	if confDirParam != "" {
 		defaultIdentityDir = confDirParam
 	}
-	identityDirParam := cfgstruct.FindCredsDirParam()
+	identityDirParam := cfgstruct.FindIdentityDirParam()
 	if identityDirParam != "" {
 		defaultIdentityDir = identityDirParam
 	}
@@ -68,7 +68,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
 
 	rootCmd.AddCommand(runCmd)
-	cfgstruct.Bind(runCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultIdentityDir))
+	cfgstruct.Bind(runCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) error {
