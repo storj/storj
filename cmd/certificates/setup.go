@@ -28,7 +28,7 @@ var (
 
 func init() {
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.BindSetup(setupCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultIdentityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) error {

@@ -17,7 +17,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/storage/buckets"
-	"storj.io/storj/pkg/storage/ec"
+	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"

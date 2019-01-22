@@ -21,19 +21,19 @@ import (
 type BindOpt func(vars map[string]confVar)
 
 // ConfDir sets variables for default options called $CONFDIR and $CONFNAME.
-func ConfDir(confdir string) BindOpt {
-	val := filepath.Clean(os.ExpandEnv(confdir))
+func ConfDir(path string) BindOpt {
+	val := filepath.Clean(os.ExpandEnv(path))
 	return BindOpt(func(vars map[string]confVar) {
 		vars["CONFDIR"] = confVar{val: val, nested: false}
 		vars["CONFNAME"] = confVar{val: val, nested: false}
 	})
 }
 
-// CredsDir sets a variable for the default option called $CREDSDIR.
-func CredsDir(credsdir string) BindOpt {
-	val := filepath.Clean(os.ExpandEnv(credsdir))
+// IdentityDir sets a variable for the default option called $IDENTITYDIR.
+func IdentityDir(path string) BindOpt {
+	val := filepath.Clean(os.ExpandEnv(path))
 	return BindOpt(func(vars map[string]confVar) {
-		vars["CREDSDIR"] = confVar{val: val, nested: false}
+		vars["IDENTITYDIR"] = confVar{val: val, nested: false}
 	})
 }
 
@@ -198,8 +198,8 @@ func FindConfigDirParam() string {
 	return FindFlagEarly("config-dir")
 }
 
-// FindCredsDirParam returns '--identity-dir' param from os.Args (if exists)
-func FindCredsDirParam() string {
+// FindIdentityDirParam returns '--identity-dir' param from os.Args (if exists)
+func FindIdentityDirParam() string {
 	return FindFlagEarly("identity-dir")
 }
 
