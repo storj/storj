@@ -481,13 +481,13 @@ func main() {
 }
 
 func doSelfUpdate() {
-	v, err := semver.NewVersion("1.2.3-beta.1+build345")
+	v, err := semver.NewVersion(version)
 	if err != nil {
 		log.Println("Invalid Version:", err)
 		return
 	}
 
-	latest, err := selfupdate.UpdateSelf(v, "myname/myrepo")
+	latest, err := selfupdate.UpdateSelf(v, "storj/storj/cmd/storagenode")
 	if err != nil {
 		log.Println("Binary update failed:", err)
 		return
