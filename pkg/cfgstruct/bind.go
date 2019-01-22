@@ -29,6 +29,14 @@ func ConfDir(confdir string) BindOpt {
 	})
 }
 
+// CredsDir sets a variable for the default option called $CREDSDIR.
+func CredsDir(credsdir string) BindOpt {
+	val := filepath.Clean(os.ExpandEnv(credsdir))
+	return BindOpt(func(vars map[string]confVar) {
+		vars["CREDSDIR"] = confVar{val: val, nested: false}
+	})
+}
+
 // ConfDirNested sets variables for default options called $CONFDIR and $CONFNAME.
 // ConfDirNested also appends the parent struct field name to the paths before
 // descending into substructs.
@@ -187,11 +195,21 @@ func expand(vars map[string]string, val string) string {
 
 // FindConfigDirParam returns '--config-dir' param from os.Args (if exists)
 func FindConfigDirParam() string {
+	return FindFlagEarly("config-dir")
+}
+
+// FindCredsDirParam returns '--identity-dir' param from os.Args (if exists)
+func FindCredsDirParam() string {
+	return FindFlagEarly("identity-dir")
+}
+
+// FindFlagEarly retrieves the value of a flag before `flag.Parse` has been called
+func FindFlagEarly(flagName string) string {
 	// workaround to have early access to 'dir' param
 	for i, arg := range os.Args {
-		if strings.HasPrefix(arg, "--config-dir=") {
-			return strings.TrimPrefix(arg, "--config-dir=")
-		} else if arg == "--config-dir" && i < len(os.Args)-1 {
+		if strings.HasPrefix(arg, fmt.Sprintf("--%s=", flagName)) {
+			return strings.TrimPrefix(arg, fmt.Sprintf("--%s=", flagName))
+		} else if arg == fmt.Sprintf("--%s", flagName) && i < len(os.Args)-1 {
 			return os.Args[i+1]
 		}
 	}

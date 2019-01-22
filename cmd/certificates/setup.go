@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/process"
@@ -25,24 +24,15 @@ var (
 		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
-
-	setupCfg struct {
-		// NB: cert and key paths overridden in setup
-		CA identity.CASetupConfig
-		// NB: cert and key paths overridden in setup
-		Identity  identity.SetupConfig
-		Signer    certificates.CertServerConfig
-		Overwrite bool `default:"false" help:"if true ca, identity, and authorization db will be overwritten/truncated"`
-	}
 )
 
 func init() {
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir), cfgstruct.CredsDir(defaultIdentityDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) error {
-	setupDir, err := filepath.Abs(*confDir)
+	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
@@ -56,36 +46,30 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if !setupCfg.Overwrite && !valid {
+	if !config.Overwrite && !valid {
 		fmt.Printf("certificate signer configuration already exists (%v). rerun with --overwrite\n", setupDir)
 		return nil
 	}
 
-	if setupCfg.Overwrite {
-		setupCfg.CA.Overwrite = true
-		setupCfg.Identity.Overwrite = true
-		setupCfg.Signer.Overwrite = true
+	if config.Overwrite {
+		config.CA.Overwrite = true
+		config.Identity.Overwrite = true
+		config.Signer.Overwrite = true
 	}
 
-	if _, err := setupCfg.Signer.NewAuthDB(); err != nil {
+	if _, err := config.Signer.NewAuthDB(); err != nil {
 		return err
 	}
 
-	if setupDir != defaultConfDir {
-		setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
-		setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
-		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
-		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
-	}
-	if setupCfg.Identity.Status() != identity.CertKey {
+	if config.Identity.Status() != identity.CertKey {
 		return errors.New("identity is missing")
 	}
 
 	o := map[string]interface{}{
-		"ca.cert-path":       setupCfg.CA.CertPath,
-		"ca.key-path":        setupCfg.CA.KeyPath,
-		"identity.cert-path": setupCfg.Identity.CertPath,
-		"identity.key-path":  setupCfg.Identity.KeyPath,
+		"ca.cert-path":       config.CA.CertPath,
+		"ca.key-path":        config.CA.KeyPath,
+		"identity.cert-path": config.Identity.CertPath,
+		"identity.key-path":  config.Identity.KeyPath,
 		"log.level":          "info",
 	}
 	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
