@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,9 +16,11 @@ import (
 	"sort"
 	"text/tabwriter"
 
+	"github.com/Masterminds/semver"
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/rhysd/go-github-selfupdate/selfupdate"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -32,6 +35,11 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+)
+
+const (
+	version           = "1.0.0-alpha"
+	defaultServerAddr = ":28967"
 )
 
 // StorageNode defines storage node configuration
@@ -74,8 +82,15 @@ var (
 	dashboardCmd = &cobra.Command{
 		Use:   "dashboard",
 		Short: "Display a dashbaord",
-		RunE:  dashCmd,
+		RunE:  cmdDash,
 	}
+	versionCmd = &cobra.Command{
+		Use:   "version",
+		Short: "Print the version number of storagenode",
+		Long:  `All software has versions. This is storagenode's`,
+		RunE:  cmdVersion,
+	}
+
 	runCfg   StorageNode
 	setupCfg StorageNode
 
@@ -92,10 +107,6 @@ var (
 	defaultDiagDir     string
 	confDir            string
 	identityDir        string
-)
-
-const (
-	defaultServerAddr = ":28967"
 )
 
 func init() {
@@ -120,6 +131,7 @@ func init() {
 	}
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
+	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(configCmd)
@@ -130,6 +142,12 @@ func init() {
 	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, cfgstruct.ConfDir(defaultDiagDir))
+}
+
+func cmdVersion(cmd *cobra.Command, args []string) (err error) {
+	_, err = fmt.Println(version)
+
+	return err
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -313,7 +331,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	return err
 }
 
-func dashCmd(cmd *cobra.Command, args []string) (err error) {
+func cmdDash(cmd *cobra.Command, args []string) (err error) {
 	ctx := context.Background()
 
 	ident, err := runCfg.Server.Identity.Load()
@@ -460,4 +478,25 @@ func clr() {
 
 func main() {
 	process.Exec(rootCmd)
+}
+
+func doSelfUpdate() {
+	v, err := semver.NewVersion("1.2.3-beta.1+build345")
+	if err != nil {
+		log.Println("Invalid Version:", err)
+		return
+	}
+
+	latest, err := selfupdate.UpdateSelf(v, "myname/myrepo")
+	if err != nil {
+		log.Println("Binary update failed:", err)
+		return
+	}
+	if latest.Version.Equals(v) {
+		// latest version is the same as current version. It means current binary is up to date.
+		log.Println("Current binary is the latest version", version)
+	} else {
+		log.Println("Successfully updated to version", latest.Version)
+		log.Println("Release note:\n", latest.ReleaseNotes)
+	}
 }
