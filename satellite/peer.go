@@ -109,9 +109,10 @@ type Peer struct {
 	}
 
 	Metainfo struct {
-		Database storage.KeyValueStore // TODO: move into pointerDB
-		Service  *pointerdb.Service
-		Endpoint *pointerdb.Server
+		Database   storage.KeyValueStore // TODO: move into pointerDB
+		Allocation *pointerdb.AllocationSigner
+		Service    *pointerdb.Service
+		Endpoint   *pointerdb.Server
 	}
 
 	Agreements struct {
@@ -231,7 +232,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		peer.Metainfo.Database = storelogger.New(peer.Log.Named("pdb"), db)
 		peer.Metainfo.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Metainfo.Database)
-		peer.Metainfo.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"), peer.Metainfo.Service, peer.Overlay.Service, config.PointerDB, peer.Identity)
+		peer.Metainfo.Allocation = pointerdb.NewAllocationSigner(peer.Identity, config.PointerDB.BwExpiration)
+		peer.Metainfo.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"), peer.Metainfo.Service, peer.Metainfo.Allocation, peer.Overlay.Service, config.PointerDB, peer.Identity)
 		pb.RegisterPointerDBServer(peer.Public.Server.GRPC(), peer.Metainfo.Endpoint)
 	}
 
@@ -243,7 +245,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	{ // setup datarepair
 		// TODO: simplify argument list somehow
 		peer.Repair.Checker = checker.NewChecker(
-			peer.Metainfo.Endpoint,
+			peer.Metainfo.Service,
 			peer.DB.StatDB(), peer.DB.RepairQueue(),
 			peer.Overlay.Endpoint, peer.DB.Irreparable(),
 			0, peer.Log.Named("checker"),

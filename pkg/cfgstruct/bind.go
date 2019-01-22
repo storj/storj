@@ -21,11 +21,19 @@ import (
 type BindOpt func(vars map[string]confVar)
 
 // ConfDir sets variables for default options called $CONFDIR and $CONFNAME.
-func ConfDir(confdir string) BindOpt {
-	val := filepath.Clean(os.ExpandEnv(confdir))
+func ConfDir(path string) BindOpt {
+	val := filepath.Clean(os.ExpandEnv(path))
 	return BindOpt(func(vars map[string]confVar) {
 		vars["CONFDIR"] = confVar{val: val, nested: false}
 		vars["CONFNAME"] = confVar{val: val, nested: false}
+	})
+}
+
+// IdentityDir sets a variable for the default option called $IDENTITYDIR.
+func IdentityDir(path string) BindOpt {
+	val := filepath.Clean(os.ExpandEnv(path))
+	return BindOpt(func(vars map[string]confVar) {
+		vars["IDENTITYDIR"] = confVar{val: val, nested: false}
 	})
 }
 
@@ -187,11 +195,21 @@ func expand(vars map[string]string, val string) string {
 
 // FindConfigDirParam returns '--config-dir' param from os.Args (if exists)
 func FindConfigDirParam() string {
+	return FindFlagEarly("config-dir")
+}
+
+// FindIdentityDirParam returns '--identity-dir' param from os.Args (if exists)
+func FindIdentityDirParam() string {
+	return FindFlagEarly("identity-dir")
+}
+
+// FindFlagEarly retrieves the value of a flag before `flag.Parse` has been called
+func FindFlagEarly(flagName string) string {
 	// workaround to have early access to 'dir' param
 	for i, arg := range os.Args {
-		if strings.HasPrefix(arg, "--config-dir=") {
-			return strings.TrimPrefix(arg, "--config-dir=")
-		} else if arg == "--config-dir" && i < len(os.Args)-1 {
+		if strings.HasPrefix(arg, fmt.Sprintf("--%s=", flagName)) {
+			return strings.TrimPrefix(arg, fmt.Sprintf("--%s=", flagName))
+		} else if arg == fmt.Sprintf("--%s", flagName) && i < len(os.Args)-1 {
 			return os.Args[i+1]
 		}
 	}

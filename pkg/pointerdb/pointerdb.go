@@ -5,12 +5,7 @@ package pointerdb
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/x509"
-	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -20,7 +15,6 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls"
 	pointerdbAuth "storj.io/storj/pkg/pointerdb/auth"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/storage"
@@ -33,22 +27,23 @@ var (
 
 // Server implements the network state RPC service
 type Server struct {
-	logger   *zap.Logger
-	service  *Service
-	cache    *overlay.Cache
-	config   Config
-	identity *provider.FullIdentity
+	logger     *zap.Logger
+	service    *Service
+	allocation *AllocationSigner
+	cache      *overlay.Cache
+	config     Config
+	identity   *provider.FullIdentity
 }
 
 // NewServer creates instance of Server
-func NewServer(logger *zap.Logger, service *Service, cache *overlay.Cache, config Config, identity *provider.FullIdentity) *Server {
-	// TODO: reorder arguments
+func NewServer(logger *zap.Logger, service *Service, allocation *AllocationSigner, cache *overlay.Cache, config Config, identity *provider.FullIdentity) *Server {
 	return &Server{
-		logger:   logger,
-		service:  service,
-		cache:    cache,
-		config:   config,
-		identity: identity,
+		logger:     logger,
+		service:    service,
+		allocation: allocation,
+		cache:      cache,
+		config:     config,
+		identity:   identity,
 	}
 }
 
@@ -220,14 +215,12 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 }
 
 // PayerBandwidthAllocation returns PayerBandwidthAllocation struct, signed and with given action type
-func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBandwidthAllocationRequest) (pba *pb.PayerBandwidthAllocationResponse, err error) {
+func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBandwidthAllocationRequest) (res *pb.PayerBandwidthAllocationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err = s.validateAuth(ctx); err != nil {
 		return nil, err
 	}
-
-	payer := s.identity.ID
 
 	// TODO(michal) should be replaced with renter id when available
 	// retrieve the public key
@@ -236,47 +229,12 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 		return nil, err
 	}
 
-	pk, ok := pi.Leaf.PublicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return nil, peertls.ErrUnsupportedKey.New("%T", pi.Leaf.PublicKey)
-	}
-
-	pubbytes, err := x509.MarshalPKIXPublicKey(pk)
+	pba, err := s.allocation.PayerBandwidthAllocation(ctx, pi, req.GetAction())
 	if err != nil {
-		s.logger.Error("Can't Marshal Public Key for PayerBandwidthAllocation: %+v", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	serialNum, err := uuid.New()
-	if err != nil {
-		return nil, err
-	}
-
-	created := time.Now().Unix()
-
-	// convert ttl from days to seconds
-	ttl := s.config.BwExpiration
-	ttl *= 86400
-
-	pbad := &pb.PayerBandwidthAllocation_Data{
-		SatelliteId:       payer,
-		UplinkId:          pi.ID,
-		CreatedUnixSec:    created,
-		ExpirationUnixSec: created + int64(ttl),
-		Action:            req.GetAction(),
-		SerialNumber:      serialNum.String(),
-		PubKey:            pubbytes,
-	}
-
-	data, err := proto.Marshal(pbad)
-	if err != nil {
-		return nil, err
-	}
-	signature, err := auth.GenerateSignature(data, s.identity)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.PayerBandwidthAllocationResponse{Pba: &pb.PayerBandwidthAllocation{Signature: signature, Data: data}}, nil
+	return &pb.PayerBandwidthAllocationResponse{Pba: pba}, nil
 }
 
 func (s *Server) getSignedMessage() (*pb.SignedMessage, error) {

@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/bwagreement/test"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
@@ -30,14 +29,13 @@ func TestQueryNoAgreements(t *testing.T) {
 	defer ctx.Cleanup()
 
 	service := pointerdb.NewService(zap.NewNop(), teststore.New())
-	pointerdb := pointerdb.NewServer(zap.NewNop(), service, &overlay.Cache{}, pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 	db, err := satellitedb.NewInMemory()
 	assert.NoError(t, err)
 	defer ctx.Check(db.Close)
 	assert.NoError(t, db.CreateTables())
 
-	tally := newTally(zap.NewNop(), db.Accounting(), db.BandwidthAgreement(), pointerdb, overlayServer, 0, time.Second)
+	tally := newTally(zap.NewNop(), db.Accounting(), db.BandwidthAgreement(), service, overlayServer, 0, time.Second)
 
 	err = tally.queryBW(ctx)
 	assert.NoError(t, err)
@@ -48,7 +46,6 @@ func TestQueryWithBw(t *testing.T) {
 	defer ctx.Cleanup()
 
 	service := pointerdb.NewService(zap.NewNop(), teststore.New())
-	pointerdb := pointerdb.NewServer(zap.NewNop(), service, &overlay.Cache{}, pointerdb.Config{}, nil)
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 
 	db, err := satellitedb.NewInMemory()
@@ -58,7 +55,7 @@ func TestQueryWithBw(t *testing.T) {
 	assert.NoError(t, db.CreateTables())
 
 	bwDb := db.BandwidthAgreement()
-	tally := newTally(zap.NewNop(), db.Accounting(), bwDb, pointerdb, overlayServer, 0, time.Second)
+	tally := newTally(zap.NewNop(), db.Accounting(), bwDb, service, overlayServer, 0, time.Second)
 
 	//get a private key
 	fiC, err := testidentity.NewTestIdentity(ctx)

@@ -57,7 +57,7 @@ goimports-fix: ## Applies goimports to every go file (excluding vendored files)
 
 .PHONY: goimports-st
 goimports-st: ## Applies goimports to every go file in `git status` (ignores untracked files)
-	git status --porcelain -uno|grep .go|grep -v "^D"|sed -E 's,\w+\s+(.+->\s+)?,,g'|xargs -I {} goimports -w -local storj.io {}
+	@git status --porcelain -uno|grep .go|grep -v "^D"|sed -E 's,\w+\s+(.+->\s+)?,,g'|xargs -I {} goimports -w -local storj.io {}
 
 .PHONY: proto
 proto: ## Rebuild protobuf files
