@@ -62,9 +62,10 @@ type Peer struct {
 
 	// services and endpoints
 	// TODO: similar grouping to satellite.Peer
-	RoutingTable     *kademlia.RoutingTable
-	Kademlia         *kademlia.Kademlia
-	KademliaEndpoint *node.Server
+	RoutingTable      *kademlia.RoutingTable
+	Kademlia          *kademlia.Kademlia
+	KademliaEndpoint  *node.Server
+	KademliaInspector *kademlia.Inspector
 
 	Piecestore *psserver.Server // TODO: separate into endpoint and service
 	Monitor    *psserver.Monitor
@@ -142,6 +143,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 
 		peer.KademliaEndpoint = node.NewServer(peer.Log.Named("kademlia:endpoint"), peer.Kademlia)
 		pb.RegisterNodesServer(peer.Public.Server.GRPC(), peer.KademliaEndpoint)
+
+		peer.KademliaInspector = kademlia.NewInspector(peer.Kademlia, peer.Identity)
+		pb.RegisterKadInspectorServer(peer.Public.Server.GRPC(), peer.KademliaInspector)
 	}
 
 	{ // setup piecestore
