@@ -143,7 +143,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// TODO: use non-inmemory
-	db, err := storagenodedb.NewInMemory(runCfg.Storage.Path) // TODO: separate path
+	db, err := storagenodedb.New(storagenodedb.Config{
+		Storage:  runCfg.Storage.Path,
+		Info:     filepath.Join(runCfg.Storage.Path, "piecestore.db"),
+		Kademlia: runCfg.Kademlia.DBPath,
+	}) // TODO: separate path
 	if err != nil {
 		return err
 	}
