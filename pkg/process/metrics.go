@@ -12,7 +12,7 @@ import (
 	hw "github.com/jtolds/monkit-hw"
 	"github.com/zeebo/admission/admproto"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"gopkg.in/spacemonkeygo/monkit.v2/environment"
 
 	"storj.io/storj/pkg/identity"
