@@ -9,12 +9,11 @@ import (
 	"math/big"
 	"sync"
 
-	"storj.io/storj/pkg/identity"
-
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
