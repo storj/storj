@@ -30,6 +30,7 @@ import (
 	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -64,6 +65,7 @@ type Server struct {
 	pkey             crypto.PrivateKey
 	totalAllocated   int64 // TODO: use memory.Size
 	totalBwAllocated int64 // TODO: use memory.Size
+	approvedSatIDs   []storj.NodeID
 	verifier         auth.SignedMessageVerifier
 	kad              *kademlia.Kademlia
 }
@@ -121,6 +123,18 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 		log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", allocatedDiskSpace))
 	}
 
+	// parse the comma separated list of approved satellite IDs into an array of storj.NodeIDs
+	var approvedSatIDs []storj.NodeID
+	if config.SatelliteIDRestriction {
+		idStrings := strings.Split(config.ApprovedSatelliteIDs, ",")
+		for i, s := range idStrings {
+			approvedSatIDs[i], err = storj.NodeIDFromString(s)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	return &Server{
 		startTime:        time.Now(),
 		log:              log,
@@ -129,6 +143,7 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 		pkey:             pkey,
 		totalAllocated:   allocatedDiskSpace,
 		totalBwAllocated: allocatedBandwidth,
+		approvedSatIDs:   approvedSatIDs,
 		verifier:         auth.NewSignedMessageVerifier(),
 		kad:              k,
 	}, nil
