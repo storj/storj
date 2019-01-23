@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/irreparable"
@@ -64,8 +65,7 @@ type Config struct {
 	Identity identity.Config
 
 	// TODO: switch to using server.Config when Identity has been removed from it
-	Database      string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
-	PublicAddress string `help:"public address to listen on" default:":7777"`
+	Server server.Config
 
 	Kademlia  kademlia.Config
 	Overlay   overlay.Config
@@ -77,6 +77,10 @@ type Config struct {
 	Checker  checker.Config
 	Repairer repairer.Config
 	// TODO: Audit    audit.Config
+
+	// Tally       tally.Config
+	// Rollup      rollup.Config
+	// Payments    payments.Config
 }
 
 // Peer is the satellite
@@ -106,6 +110,10 @@ type Peer struct {
 
 	Discovery struct {
 		Service *discovery.Discovery
+	}
+
+	Reputation struct {
+		Inspector *statdb.Inspector
 	}
 
 	Metainfo struct {
@@ -141,7 +149,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	var err error
 
 	{ // setup listener and server
-		peer.Public.Listener, err = net.Listen("tcp", config.PublicAddress)
+		peer.Public.Listener, err = net.Listen("tcp", config.Server.Address)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -152,7 +160,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Public.Server, err = server.NewServer(publicOptions, peer.Public.Listener, nil)
+		peer.Public.Server, err = server.NewServer(publicOptions, peer.Public.Listener, grpcauth.NewAPIKeyInterceptor())
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -217,6 +225,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		peer.Overlay.Endpoint = overlay.NewServer(peer.Log.Named("overlay:endpoint"), peer.Overlay.Service, ns)
 		pb.RegisterOverlayServer(peer.Public.Server.GRPC(), peer.Overlay.Endpoint)
+	}
+
+	{ // setup reputation
+		// TODO: find better structure with overlay
+		peer.Reputation.Inspector = statdb.NewInspector(peer.DB.StatDB())
+		pb.RegisterStatDBInspectorServer(peer.Public.Server.GRPC(), peer.Reputation.Inspector)
 	}
 
 	{ // setup discovery
