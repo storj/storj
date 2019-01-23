@@ -22,7 +22,7 @@ import (
 
 var mon = monkit.Package()
 
-type share struct {
+type Share struct {
 	Error       error
 	PieceNumber int
 	Data        []byte
@@ -35,7 +35,7 @@ type Verifier struct {
 
 type downloader interface {
 	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, pba *pb.PayerBandwidthAllocation,
-		authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]*pb.Node, err error)
+		authorization *pb.SignedMessage) (shares map[int]Share, nodes map[int]*pb.Node, err error)
 }
 
 // defaultDownloader downloads shares from networked storage nodes
@@ -58,7 +58,7 @@ func NewVerifier(transport transport.Client, overlay *overlay.Cache, id *provide
 
 // getShare use piece store clients to download shares from a given node
 func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize, pieceNumber int,
-	id psclient.PieceID, pieceSize int64, fromNode *pb.Node, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (s share, err error) {
+	id psclient.PieceID, pieceSize int64, fromNode *pb.Node, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (s Share, err error) {
 	// TODO: too many arguments use a struct
 	defer mon.Task()(&ctx)(&err)
 
@@ -97,7 +97,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 		return s, err
 	}
 
-	s = share{
+	s = Share{
 		Error:       nil,
 		PieceNumber: pieceNumber,
 		Data:        buf,
@@ -107,7 +107,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 
 // Download Shares downloads shares from the nodes where remote pieces are located
 func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
-	stripeIndex int, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]*pb.Node, err error) {
+	stripeIndex int, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (shares map[int]Share, nodes map[int]*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var nodeIds storj.NodeIDList
@@ -123,7 +123,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 		return nil, nodes, err
 	}
 
-	shares = make(map[int]share, len(nodeSlice))
+	shares = make(map[int]Share, len(nodeSlice))
 	nodes = make(map[int]*pb.Node, len(nodeSlice))
 
 	shareSize := int(pointer.Remote.Redundancy.GetErasureShareSize())
@@ -136,7 +136,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 
 		s, err := d.getShare(ctx, stripeIndex, shareSize, int(pieces[i].PieceNum), pieceID, pieceSize, node, pba, authorization)
 		if err != nil {
-			s = share{
+			s = Share{
 				Error:       err,
 				PieceNumber: int(pieces[i].PieceNum),
 				Data:        nil,
@@ -150,7 +150,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 	return shares, nodes, nil
 }
 
-func makeCopies(ctx context.Context, originals map[int]share) (copies []infectious.Share, err error) {
+func makeCopies(ctx context.Context, originals map[int]Share) (copies []infectious.Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 	copies = make([]infectious.Share, 0, len(originals))
 	for _, original := range originals {
@@ -166,7 +166,7 @@ func makeCopies(ctx context.Context, originals map[int]share) (copies []infectio
 
 // auditShares takes the downloaded shares and uses infectious's Correct function to check that they
 // haven't been altered. auditShares returns a slice containing the piece numbers of altered shares.
-func auditShares(ctx context.Context, required, total int, originals map[int]share) (pieceNums []int, err error) {
+func auditShares(ctx context.Context, required, total int, originals map[int]Share) (pieceNums []int, err error) {
 	defer mon.Task()(&ctx)(&err)
 	f, err := infectious.NewFEC(required, total)
 	if err != nil {
