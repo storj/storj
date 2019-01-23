@@ -22,33 +22,37 @@ for key in $@; do
     base=$(basename ${key})
     label=${base%.*}
     ext=${base##*.}
-    work_dir=${dir}/${label}
+
+    # Generate CA from key
+    cert=${dir}/${label}.cert
+    $identity ca new --ca.key-path ${key} \
+                     --ca.cert-path ${cert}
+
+    # Get node ID
+    id=$($identity ca id --ca.cert-path ${cert} | cut -c 1-10)
+    if [[ $? != 0 ]]; then
+        exit $?
+    fi
+    work_dir=${dir}/${id}
 
     echo "  - ${key}"
 
     mkdir ${work_dir}
     trap "temp_cleanup ${work_dir}" EXIT ERR INT
 
-    cp ${key} ${work_dir}
-    key_path=${work_dir}/${base}
-    cert_path=${work_dir}/${label}.cert
+    ca_key_path=${work_dir}/ca.key
+    ca_cert_path=${work_dir}/ca.cert
+    cp ${key} ${ca_key_path}
+    mv ${cert} ${ca_cert_path}
 
-    # Generate certificate from key
-    $identity ca new --ca.key-path ${key_path} \
-                     --ca.cert-path ${cert_path}
-
-    # Get node ID
-    id=$($identity ca id --ca.cert-path ${cert_path} | cut -c 1-10)
-    if [[ $? != 0 ]]; then
-        exit $?
-    fi
-
-    # Rename key and cert
-    mv ${key_path} ${work_dir}/${id}.${ext}
-    mv ${cert_path} ${work_dir}/${id}.cert
+    # Generate new identity from CA
+    $identity id new --ca.key-path ${ca_key_path} \
+                     --ca.cert-path ${ca_cert_path} \
+                     --identity.key-path ${work_dir}/identity.key \
+                     --identity.cert-path ${work_dir}/identity.cert
 
     # Create tarball
-    tar -C ${work_dir}/.. -cJf ${work_dir}.txz ${label}
+    tar -C ${work_dir}/.. -cJf ${label}.txz ${id}
 
     # Remove working directory
     rm -rf ${work_dir}

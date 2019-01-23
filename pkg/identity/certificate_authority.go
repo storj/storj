@@ -300,6 +300,8 @@ func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
 			pc.CertPath, err)
 	}
 
+	// NB: `peertls.LeafIndex` is used because `chain` should be a CA chain
+	//		(i.e. doesn't include a leaf certificate).
 	nodeID, err := NodeIDFromKey(chain[peertls.LeafIndex].PublicKey)
 	if err != nil {
 		return nil, err

@@ -30,7 +30,7 @@ var (
 		Short: "Manage keys",
 	}
 	keyEncodeCmd = &cobra.Command{
-		Use:   "encode <key path>[, ...]",
+		Use:   "encode <key path/glob>[, ...]",
 		Short: "encode binary key to PEM",
 		RunE:  cmdKeyEncode,
 		Args:  cobra.MinimumNArgs(1),
