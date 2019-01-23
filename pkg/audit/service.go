@@ -12,6 +12,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -33,13 +34,13 @@ type Config struct {
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(ctx context.Context, log *zap.Logger, statDBPort string, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, transport transport.Client, overlay overlay.Client,
+func NewService(log *zap.Logger, sdb statdb.DB, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, transport transport.Client, overlay overlay.Client,
 	identity provider.FullIdentity, apiKey string) (service *Service, err error) {
 
 	//TODO: instead of statDBPort pass in the actual database interface
 	cursor := NewCursor(pointers, allocation, &identity)
 	verifier := NewVerifier(transport, overlay, identity)
-	reporter, err := NewReporter(ctx, statDBPort, maxRetries, apiKey)
+	reporter, err := NewReporter(sdb, maxRetries, apiKey)
 	if err != nil {
 		return nil, err
 	}
