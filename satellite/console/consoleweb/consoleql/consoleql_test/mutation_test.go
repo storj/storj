@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package consoleql
+package consoleql_test
 
 import (
 	"bytes"
@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -27,7 +28,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 	log := zap.NewExample()
 
-	db, err := satellitedb.NewConsoleDB("sqlite3", "file::memory:?mode=memory&cache=shared")
+	db, err := satellitedb.NewInMemory()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,14 +40,14 @@ func TestGrapqhlMutation(t *testing.T) {
 	service, err := console.NewService(
 		log,
 		&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
-		db,
+		db.Console(),
 	)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	creator := TypeCreator{}
+	creator := consoleql.TypeCreator{}
 	if err = creator.Create(service); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +121,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		}
 
 		data := result.Data.(map[string]interface{})
-		id := data[createUserMutation].(string)
+		id := data[consoleql.CreateUserMutation].(string)
 
 		uID, err := uuid.Parse(id)
 		assert.NoError(t, err)
@@ -162,12 +163,12 @@ func TestGrapqhlMutation(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		user := data[updateAccountMutation].(map[string]interface{})
+		user := data[consoleql.UpdateAccountMutation].(map[string]interface{})
 
-		assert.Equal(t, rootUser.ID.String(), user[fieldID])
-		assert.Equal(t, email, user[fieldEmail])
-		assert.Equal(t, rootUser.FirstName, user[fieldFirstName])
-		assert.Equal(t, rootUser.LastName, user[fieldLastName])
+		assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
+		assert.Equal(t, email, user[consoleql.FieldEmail])
+		assert.Equal(t, rootUser.FirstName, user[consoleql.FieldFirstName])
+		assert.Equal(t, rootUser.LastName, user[consoleql.FieldLastName])
 	})
 
 	t.Run("Update account mutation firstName only", func(t *testing.T) {
@@ -180,12 +181,12 @@ func TestGrapqhlMutation(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		user := data[updateAccountMutation].(map[string]interface{})
+		user := data[consoleql.UpdateAccountMutation].(map[string]interface{})
 
-		assert.Equal(t, rootUser.ID.String(), user[fieldID])
-		assert.Equal(t, rootUser.Email, user[fieldEmail])
-		assert.Equal(t, firstName, user[fieldFirstName])
-		assert.Equal(t, rootUser.LastName, user[fieldLastName])
+		assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
+		assert.Equal(t, rootUser.Email, user[consoleql.FieldEmail])
+		assert.Equal(t, firstName, user[consoleql.FieldFirstName])
+		assert.Equal(t, rootUser.LastName, user[consoleql.FieldLastName])
 	})
 
 	t.Run("Update account mutation lastName only", func(t *testing.T) {
@@ -198,12 +199,12 @@ func TestGrapqhlMutation(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		user := data[updateAccountMutation].(map[string]interface{})
+		user := data[consoleql.UpdateAccountMutation].(map[string]interface{})
 
-		assert.Equal(t, rootUser.ID.String(), user[fieldID])
-		assert.Equal(t, rootUser.Email, user[fieldEmail])
-		assert.Equal(t, rootUser.FirstName, user[fieldFirstName])
-		assert.Equal(t, lastName, user[fieldLastName])
+		assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
+		assert.Equal(t, rootUser.Email, user[consoleql.FieldEmail])
+		assert.Equal(t, rootUser.FirstName, user[consoleql.FieldFirstName])
+		assert.Equal(t, lastName, user[consoleql.FieldLastName])
 	})
 
 	t.Run("Update account mutation all info", func(t *testing.T) {
@@ -221,15 +222,15 @@ func TestGrapqhlMutation(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		user := data[updateAccountMutation].(map[string]interface{})
+		user := data[consoleql.UpdateAccountMutation].(map[string]interface{})
 
-		assert.Equal(t, rootUser.ID.String(), user[fieldID])
-		assert.Equal(t, email, user[fieldEmail])
-		assert.Equal(t, firstName, user[fieldFirstName])
-		assert.Equal(t, lastName, user[fieldLastName])
+		assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
+		assert.Equal(t, email, user[consoleql.FieldEmail])
+		assert.Equal(t, firstName, user[consoleql.FieldFirstName])
+		assert.Equal(t, lastName, user[consoleql.FieldLastName])
 
 		createdAt := time.Time{}
-		err := createdAt.UnmarshalText([]byte(user[fieldCreatedAt].(string)))
+		err := createdAt.UnmarshalText([]byte(user[consoleql.FieldCreatedAt].(string)))
 
 		assert.NoError(t, err)
 		assert.Equal(t, rootUser.CreatedAt, createdAt)
@@ -247,15 +248,15 @@ func TestGrapqhlMutation(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		user := data[changePasswordMutation].(map[string]interface{})
+		user := data[consoleql.ChangePasswordMutation].(map[string]interface{})
 
-		assert.Equal(t, rootUser.ID.String(), user[fieldID])
-		assert.Equal(t, rootUser.Email, user[fieldEmail])
-		assert.Equal(t, rootUser.FirstName, user[fieldFirstName])
-		assert.Equal(t, rootUser.LastName, user[fieldLastName])
+		assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
+		assert.Equal(t, rootUser.Email, user[consoleql.FieldEmail])
+		assert.Equal(t, rootUser.FirstName, user[consoleql.FieldFirstName])
+		assert.Equal(t, rootUser.LastName, user[consoleql.FieldLastName])
 
 		createdAt := time.Time{}
-		err := createdAt.UnmarshalText([]byte(user[fieldCreatedAt].(string)))
+		err := createdAt.UnmarshalText([]byte(user[consoleql.FieldCreatedAt].(string)))
 
 		assert.NoError(t, err)
 		assert.Equal(t, rootUser.CreatedAt, createdAt)
@@ -300,12 +301,12 @@ func TestGrapqhlMutation(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		project := data[createProjectMutation].(map[string]interface{})
+		project := data[consoleql.CreateProjectMutation].(map[string]interface{})
 
-		assert.Equal(t, projectInfo.Name, project[fieldName])
-		assert.Equal(t, projectInfo.Description, project[fieldDescription])
+		assert.Equal(t, projectInfo.Name, project[consoleql.FieldName])
+		assert.Equal(t, projectInfo.Description, project[consoleql.FieldDescription])
 
-		projectID = project[fieldID].(string)
+		projectID = project[consoleql.FieldID].(string)
 	})
 
 	pID, err := uuid.Parse(projectID)
@@ -328,11 +329,11 @@ func TestGrapqhlMutation(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		proj := data[updateProjectDescriptionMutation].(map[string]interface{})
+		proj := data[consoleql.UpdateProjectDescriptionMutation].(map[string]interface{})
 
-		assert.Equal(t, project.ID.String(), proj[fieldID])
-		assert.Equal(t, project.Name, proj[fieldName])
-		assert.Equal(t, "", proj[fieldDescription])
+		assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
+		assert.Equal(t, project.Name, proj[consoleql.FieldName])
+		assert.Equal(t, "", proj[consoleql.FieldDescription])
 	})
 
 	user1, err := service.CreateUser(authCtx, console.CreateUser{
@@ -370,11 +371,11 @@ func TestGrapqhlMutation(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		proj := data[addProjectMembersMutation].(map[string]interface{})
+		proj := data[consoleql.AddProjectMembersMutation].(map[string]interface{})
 
-		assert.Equal(t, project.ID.String(), proj[fieldID])
-		assert.Equal(t, project.Name, proj[fieldName])
-		assert.Equal(t, 3, len(proj[fieldMembers].([]interface{})))
+		assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
+		assert.Equal(t, project.Name, proj[consoleql.FieldName])
+		assert.Equal(t, 3, len(proj[consoleql.FieldMembers].([]interface{})))
 	})
 
 	t.Run("Delete project members mutation", func(t *testing.T) {
@@ -388,16 +389,16 @@ func TestGrapqhlMutation(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		proj := data[deleteProjectMembersMutation].(map[string]interface{})
+		proj := data[consoleql.DeleteProjectMembersMutation].(map[string]interface{})
 
-		members := proj[fieldMembers].([]interface{})
-		rootMember := members[0].(map[string]interface{})[userType].(map[string]interface{})
+		members := proj[consoleql.FieldMembers].([]interface{})
+		rootMember := members[0].(map[string]interface{})[consoleql.UserType].(map[string]interface{})
 
-		assert.Equal(t, project.ID.String(), proj[fieldID])
-		assert.Equal(t, project.Name, proj[fieldName])
+		assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
+		assert.Equal(t, project.Name, proj[consoleql.FieldName])
 		assert.Equal(t, 1, len(members))
 
-		assert.Equal(t, rootUser.ID.String(), rootMember[fieldID])
+		assert.Equal(t, rootUser.ID.String(), rootMember[consoleql.FieldID])
 	})
 
 	var keyID string
@@ -412,17 +413,17 @@ func TestGrapqhlMutation(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		createAPIKey := data[createAPIKeyMutation].(map[string]interface{})
+		createAPIKey := data[consoleql.CreateAPIKeyMutation].(map[string]interface{})
 
-		key := createAPIKey[fieldKey].(string)
-		keyInfo := createAPIKey[apiKeyInfoType].(map[string]interface{})
+		key := createAPIKey[consoleql.FieldKey].(string)
+		keyInfo := createAPIKey[consoleql.APIKeyInfoType].(map[string]interface{})
 
 		assert.NotEqual(t, "", key)
 
-		assert.Equal(t, keyName, keyInfo[fieldName])
-		assert.Equal(t, project.ID.String(), keyInfo[fieldProjectID])
+		assert.Equal(t, keyName, keyInfo[consoleql.FieldName])
+		assert.Equal(t, project.ID.String(), keyInfo[consoleql.FieldProjectID])
 
-		keyID = keyInfo[fieldID].(string)
+		keyID = keyInfo[consoleql.FieldID].(string)
 	})
 
 	t.Run("Delete api key mutation", func(t *testing.T) {
@@ -444,10 +445,10 @@ func TestGrapqhlMutation(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		keyInfo := data[deleteAPIKeyMutation].(map[string]interface{})
+		keyInfo := data[consoleql.DeleteAPIKeyMutation].(map[string]interface{})
 
-		assert.Equal(t, info.Name, keyInfo[fieldName])
-		assert.Equal(t, project.ID.String(), keyInfo[fieldProjectID])
+		assert.Equal(t, info.Name, keyInfo[consoleql.FieldName])
+		assert.Equal(t, project.ID.String(), keyInfo[consoleql.FieldProjectID])
 	})
 
 	t.Run("Delete project mutation", func(t *testing.T) {
@@ -459,10 +460,10 @@ func TestGrapqhlMutation(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		proj := data[deleteProjectMutation].(map[string]interface{})
+		proj := data[consoleql.DeleteProjectMutation].(map[string]interface{})
 
-		assert.Equal(t, project.Name, proj[fieldName])
-		assert.Equal(t, project.ID.String(), proj[fieldID])
+		assert.Equal(t, project.Name, proj[consoleql.FieldName])
+		assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
 
 		_, err := service.GetProject(authCtx, project.ID)
 		assert.Error(t, err)
@@ -477,9 +478,9 @@ func TestGrapqhlMutation(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		user := data[deleteAccountMutation].(map[string]interface{})
+		user := data[consoleql.DeleteAccountMutation].(map[string]interface{})
 
-		assert.Equal(t, rootUser.ID.String(), user[fieldID])
+		assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
 
 		_, err := service.GetUser(authCtx, rootUser.ID)
 		assert.Error(t, err)

@@ -13,11 +13,14 @@ import (
 const (
 	// Query is immutable graphql request
 	Query = "query"
-
-	userQuery       = "user"
-	projectQuery    = "project"
-	myProjectsQuery = "myProjects"
-	tokenQuery      = "token"
+	// UserQuery is a query name for user
+	UserQuery = "user"
+	// ProjectQuery is a query name for project
+	ProjectQuery = "project"
+	// MyProjectsQuery is a query name for projects related to account
+	MyProjectsQuery = "myProjects"
+	// TokenQuery is a query name for token
+	TokenQuery = "token"
 )
 
 // rootQuery creates query for graphql populated by AccountsClient
@@ -25,15 +28,15 @@ func rootQuery(service *console.Service, types Types) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: Query,
 		Fields: graphql.Fields{
-			userQuery: &graphql.Field{
+			UserQuery: &graphql.Field{
 				Type: types.User(),
 				Args: graphql.FieldConfigArgument{
-					fieldID: &graphql.ArgumentConfig{
+					FieldID: &graphql.ArgumentConfig{
 						Type: graphql.String,
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					id, err := uuidIDAuthFallback(p, fieldID)
+					id, err := uuidIDAuthFallback(p, FieldID)
 					if err != nil {
 						return nil, err
 					}
@@ -41,15 +44,15 @@ func rootQuery(service *console.Service, types Types) *graphql.Object {
 					return service.GetUser(p.Context, *id)
 				},
 			},
-			projectQuery: &graphql.Field{
+			ProjectQuery: &graphql.Field{
 				Type: types.Project(),
 				Args: graphql.FieldConfigArgument{
-					fieldID: &graphql.ArgumentConfig{
+					FieldID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					inputID, _ := p.Args[fieldID].(string)
+					inputID, _ := p.Args[FieldID].(string)
 
 					id, err := uuid.Parse(inputID)
 					if err != nil {
@@ -59,25 +62,25 @@ func rootQuery(service *console.Service, types Types) *graphql.Object {
 					return service.GetProject(p.Context, *id)
 				},
 			},
-			myProjectsQuery: &graphql.Field{
+			MyProjectsQuery: &graphql.Field{
 				Type: graphql.NewList(types.Project()),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					return service.GetUsersProjects(p.Context)
 				},
 			},
-			tokenQuery: &graphql.Field{
+			TokenQuery: &graphql.Field{
 				Type: types.Token(),
 				Args: graphql.FieldConfigArgument{
-					fieldEmail: &graphql.ArgumentConfig{
+					FieldEmail: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
-					fieldPassword: &graphql.ArgumentConfig{
+					FieldPassword: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					email, _ := p.Args[fieldEmail].(string)
-					pass, _ := p.Args[fieldPassword].(string)
+					email, _ := p.Args[FieldEmail].(string)
+					pass, _ := p.Args[FieldPassword].(string)
 
 					token, err := service.Token(p.Context, email, pass)
 					if err != nil {

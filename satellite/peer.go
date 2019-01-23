@@ -9,6 +9,8 @@ import (
 	"net"
 	"path/filepath"
 
+	"storj.io/storj/satellite/console/consoleauth"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -132,7 +134,9 @@ type Peer struct {
 
 	// TODO: add console
 	Console struct {
-		Server *consoleweb.Server
+		Listener net.Listener
+		Service  *console.Service
+		Endpoint *consoleweb.Server
 	}
 }
 
@@ -271,7 +275,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup console
-		peer.Console.Server = consoleweb.NewServer(config.Console)
+		config := config.Console
+
+		peer.Console.Listener, err = net.Listen("tcp", config.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Console.Service, err = console.NewService(peer.Log.Named("console: service"),
+			// TODO: use satellite key
+			&consoleauth.Hmac{Secret: []byte("my-suppa-scret-key")},
+			peer.DB.Console())
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Console.Endpoint = consoleweb.NewServer(peer.Log.Named("console: server"),
+			config,
+			peer.Console.Service,
+			peer.Console.Listener)
 	}
 
 	return peer, nil
@@ -309,7 +332,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return ignoreCancel(peer.Public.Server.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Console.Server.Run(context.WithValue(ctx, "masterdb", peer.DB)))
+		return ignoreCancel(peer.Console.Endpoint.Run(ctx))
 	})
 
 	return group.Wait()
@@ -322,6 +345,14 @@ func (peer *Peer) Close() error {
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close services in reverse initialization order
+	if peer.Console.Endpoint != nil {
+		errlist.Add(peer.Console.Endpoint.Close())
+	} else {
+		if peer.Console.Endpoint != nil {
+			errlist.Add(peer.Public.Listener.Close())
+		}
+	}
+
 	if peer.Repair.Repairer != nil {
 		errlist.Add(peer.Repair.Repairer.Close())
 	}

@@ -12,17 +12,18 @@ import (
 )
 
 const (
-	projectMemberType = "projectMember"
-
-	fieldJoinedAt = "joinedAt"
+	// ProjectMemberType is a graphql type name for project member
+	ProjectMemberType = "projectMember"
+	// FieldJoinedAt is a field name for joined at timestamp
+	FieldJoinedAt = "joinedAt"
 )
 
 // graphqlProjectMember creates projectMember type
 func graphqlProjectMember(service *console.Service, types Types) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
-		Name: projectMemberType,
+		Name: ProjectMemberType,
 		Fields: graphql.Fields{
-			userType: &graphql.Field{
+			UserType: &graphql.Field{
 				Type: types.User(),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					member, _ := p.Source.(projectMember)
@@ -30,7 +31,7 @@ func graphqlProjectMember(service *console.Service, types Types) *graphql.Object
 					return member.User, nil
 				},
 			},
-			fieldJoinedAt: &graphql.Field{
+			FieldJoinedAt: &graphql.Field{
 				Type: graphql.DateTime,
 			},
 		},

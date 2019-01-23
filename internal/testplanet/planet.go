@@ -7,7 +7,6 @@ package testplanet
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -263,10 +262,13 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				APIKey:        "",
 			},
 			Console: consoleweb.Config{
-				Address: fmt.Sprintf("127.0.0.1:80%d", 80+count),
+				Address: "127.0.0.1:0",
 			},
 			// TODO: Audit    audit.Config
 		}
+
+		// TODO: for development only
+		config.Console.StaticPath = "./web/satellite"
 
 		peer, err := satellite.New(log, identity, db, &config)
 		if err != nil {

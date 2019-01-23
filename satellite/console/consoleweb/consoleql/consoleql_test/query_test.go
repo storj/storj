@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -25,7 +26,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 	log := zap.NewExample()
 
-	db, err := satellitedb.NewConsoleDB("sqlite3", "file::memory:?mode=memory&cache=shared")
+	db, err := satellitedb.NewInMemory()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,14 +38,14 @@ func TestGraphqlQuery(t *testing.T) {
 	service, err := console.NewService(
 		log,
 		&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
-		db,
+		db.Console(),
 	)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	creator := TypeCreator{}
+	creator := consoleql.TypeCreator{}
 	if err = creator.Create(service); err != nil {
 		t.Fatal(err)
 	}
@@ -105,13 +106,13 @@ func TestGraphqlQuery(t *testing.T) {
 
 	t.Run("User query", func(t *testing.T) {
 		testUser := func(t *testing.T, actual map[string]interface{}, expected *console.User) {
-			assert.Equal(t, expected.ID.String(), actual[fieldID])
-			assert.Equal(t, expected.Email, actual[fieldEmail])
-			assert.Equal(t, expected.FirstName, actual[fieldFirstName])
-			assert.Equal(t, expected.LastName, actual[fieldLastName])
+			assert.Equal(t, expected.ID.String(), actual[consoleql.FieldID])
+			assert.Equal(t, expected.Email, actual[consoleql.FieldEmail])
+			assert.Equal(t, expected.FirstName, actual[consoleql.FieldFirstName])
+			assert.Equal(t, expected.LastName, actual[consoleql.FieldLastName])
 
 			createdAt := time.Time{}
-			err := createdAt.UnmarshalText([]byte(actual[fieldCreatedAt].(string)))
+			err := createdAt.UnmarshalText([]byte(actual[consoleql.FieldCreatedAt].(string)))
 
 			assert.NoError(t, err)
 			assert.Equal(t, expected.CreatedAt, createdAt)
@@ -126,7 +127,7 @@ func TestGraphqlQuery(t *testing.T) {
 			result := testQuery(t, query)
 
 			data := result.(map[string]interface{})
-			user := data[userQuery].(map[string]interface{})
+			user := data[consoleql.UserQuery].(map[string]interface{})
 
 			testUser(t, user, rootUser)
 		})
@@ -137,7 +138,7 @@ func TestGraphqlQuery(t *testing.T) {
 			result := testQuery(t, query)
 
 			data := result.(map[string]interface{})
-			user := data[userQuery].(map[string]interface{})
+			user := data[consoleql.UserQuery].(map[string]interface{})
 
 			testUser(t, user, rootUser)
 		})
@@ -162,14 +163,14 @@ func TestGraphqlQuery(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		project := data[projectQuery].(map[string]interface{})
+		project := data[consoleql.ProjectQuery].(map[string]interface{})
 
-		assert.Equal(t, createdProject.ID.String(), project[fieldID])
-		assert.Equal(t, createdProject.Name, project[fieldName])
-		assert.Equal(t, createdProject.Description, project[fieldDescription])
+		assert.Equal(t, createdProject.ID.String(), project[consoleql.FieldID])
+		assert.Equal(t, createdProject.Name, project[consoleql.FieldName])
+		assert.Equal(t, createdProject.Description, project[consoleql.FieldDescription])
 
 		createdAt := time.Time{}
-		err := createdAt.UnmarshalText([]byte(project[fieldCreatedAt].(string)))
+		err := createdAt.UnmarshalText([]byte(project[consoleql.FieldCreatedAt].(string)))
 
 		assert.NoError(t, err)
 		assert.Equal(t, createdProject.CreatedAt, createdAt)
@@ -219,18 +220,18 @@ func TestGraphqlQuery(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		project := data[projectQuery].(map[string]interface{})
-		members := project[fieldMembers].([]interface{})
+		project := data[consoleql.ProjectQuery].(map[string]interface{})
+		members := project[consoleql.FieldMembers].([]interface{})
 
 		assert.Equal(t, 3, len(members))
 
 		testUser := func(t *testing.T, actual map[string]interface{}, expected *console.User) {
-			assert.Equal(t, expected.Email, actual[fieldEmail])
-			assert.Equal(t, expected.FirstName, actual[fieldFirstName])
-			assert.Equal(t, expected.LastName, actual[fieldLastName])
+			assert.Equal(t, expected.Email, actual[consoleql.FieldEmail])
+			assert.Equal(t, expected.FirstName, actual[consoleql.FieldFirstName])
+			assert.Equal(t, expected.LastName, actual[consoleql.FieldLastName])
 
 			createdAt := time.Time{}
-			err := createdAt.UnmarshalText([]byte(actual[fieldCreatedAt].(string)))
+			err := createdAt.UnmarshalText([]byte(actual[consoleql.FieldCreatedAt].(string)))
 
 			assert.NoError(t, err)
 			assert.Equal(t, expected.CreatedAt, createdAt)
@@ -240,9 +241,9 @@ func TestGraphqlQuery(t *testing.T) {
 
 		for _, entry := range members {
 			member := entry.(map[string]interface{})
-			user := member[userType].(map[string]interface{})
+			user := member[consoleql.UserType].(map[string]interface{})
 
-			id := user[fieldID].(string)
+			id := user[consoleql.FieldID].(string)
 			switch id {
 			case rootUser.ID.String():
 				foundRoot = true
@@ -280,17 +281,17 @@ func TestGraphqlQuery(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		project := data[projectQuery].(map[string]interface{})
-		keys := project[fieldAPIKeys].([]interface{})
+		project := data[consoleql.ProjectQuery].(map[string]interface{})
+		keys := project[consoleql.FieldAPIKeys].([]interface{})
 
 		assert.Equal(t, 2, len(keys))
 
 		testAPIKey := func(t *testing.T, actual map[string]interface{}, expected *console.APIKeyInfo) {
-			assert.Equal(t, expected.Name, actual[fieldName])
-			assert.Equal(t, expected.ProjectID.String(), actual[fieldProjectID])
+			assert.Equal(t, expected.Name, actual[consoleql.FieldName])
+			assert.Equal(t, expected.ProjectID.String(), actual[consoleql.FieldProjectID])
 
 			createdAt := time.Time{}
-			err := createdAt.UnmarshalText([]byte(actual[fieldCreatedAt].(string)))
+			err := createdAt.UnmarshalText([]byte(actual[consoleql.FieldCreatedAt].(string)))
 
 			assert.NoError(t, err)
 			assert.Equal(t, expected.CreatedAt, createdAt)
@@ -301,7 +302,7 @@ func TestGraphqlQuery(t *testing.T) {
 		for _, entry := range keys {
 			key := entry.(map[string]interface{})
 
-			id := key[fieldID].(string)
+			id := key[consoleql.FieldID].(string)
 			switch id {
 			case keyInfo1.ID.String():
 				foundKey1 = true
@@ -332,16 +333,16 @@ func TestGraphqlQuery(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		projectsList := data[myProjectsQuery].([]interface{})
+		projectsList := data[consoleql.MyProjectsQuery].([]interface{})
 
 		assert.Equal(t, 2, len(projectsList))
 
 		testProject := func(t *testing.T, actual map[string]interface{}, expected *console.Project) {
-			assert.Equal(t, expected.Name, actual[fieldName])
-			assert.Equal(t, expected.Description, actual[fieldDescription])
+			assert.Equal(t, expected.Name, actual[consoleql.FieldName])
+			assert.Equal(t, expected.Description, actual[consoleql.FieldDescription])
 
 			createdAt := time.Time{}
-			err := createdAt.UnmarshalText([]byte(actual[fieldCreatedAt].(string)))
+			err := createdAt.UnmarshalText([]byte(actual[consoleql.FieldCreatedAt].(string)))
 
 			assert.NoError(t, err)
 			assert.Equal(t, expected.CreatedAt, createdAt)
@@ -352,7 +353,7 @@ func TestGraphqlQuery(t *testing.T) {
 		for _, entry := range projectsList {
 			project := entry.(map[string]interface{})
 
-			id := project[fieldID].(string)
+			id := project[consoleql.FieldID].(string)
 			switch id {
 			case createdProject.ID.String():
 				foundProj1 = true
@@ -377,10 +378,10 @@ func TestGraphqlQuery(t *testing.T) {
 		result := testQuery(t, query)
 
 		data := result.(map[string]interface{})
-		queryToken := data[tokenQuery].(map[string]interface{})
+		queryToken := data[consoleql.TokenQuery].(map[string]interface{})
 
-		token := queryToken[tokenType].(string)
-		user := queryToken[userType].(map[string]interface{})
+		token := queryToken[consoleql.TokenType].(string)
+		user := queryToken[consoleql.UserType].(map[string]interface{})
 
 		tauth, err := service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
 		if err != nil {
@@ -388,13 +389,13 @@ func TestGraphqlQuery(t *testing.T) {
 		}
 
 		assert.Equal(t, rootUser.ID, tauth.User.ID)
-		assert.Equal(t, rootUser.ID.String(), user[fieldID])
-		assert.Equal(t, rootUser.Email, user[fieldEmail])
-		assert.Equal(t, rootUser.FirstName, user[fieldFirstName])
-		assert.Equal(t, rootUser.LastName, user[fieldLastName])
+		assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
+		assert.Equal(t, rootUser.Email, user[consoleql.FieldEmail])
+		assert.Equal(t, rootUser.FirstName, user[consoleql.FieldFirstName])
+		assert.Equal(t, rootUser.LastName, user[consoleql.FieldLastName])
 
 		createdAt := time.Time{}
-		err = createdAt.UnmarshalText([]byte(user[fieldCreatedAt].(string)))
+		err = createdAt.UnmarshalText([]byte(user[consoleql.FieldCreatedAt].(string)))
 
 		assert.NoError(t, err)
 		assert.Equal(t, rootUser.CreatedAt, createdAt)

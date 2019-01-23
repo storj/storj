@@ -10,35 +10,42 @@ import (
 )
 
 const (
-	userType      = "user"
-	userInputType = "userInput"
-
-	fieldID        = "id"
-	fieldEmail     = "email"
-	fieldPassword  = "password"
-	fieldFirstName = "firstName"
-	fieldLastName  = "lastName"
-	fieldCreatedAt = "createdAt"
+	// UserType is a graphql type for user
+	UserType = "user"
+	// UserInputType is a graphql type for user input
+	UserInputType = "userInput"
+	// FieldID is a field name for id
+	FieldID = "id"
+	// FieldEmail is a field name for email
+	FieldEmail = "email"
+	// FieldPassword is a field name for password
+	FieldPassword = "password"
+	// FieldFirstName is a field name for "first name"
+	FieldFirstName = "firstName"
+	// FieldLastName is a field name for "last name"
+	FieldLastName = "lastName"
+	// FieldCreatedAt is a field name for created at timestamp
+	FieldCreatedAt = "createdAt"
 )
 
 // base graphql config for user
 func baseUserConfig() graphql.ObjectConfig {
 	return graphql.ObjectConfig{
-		Name: userType,
+		Name: UserType,
 		Fields: graphql.Fields{
-			fieldID: &graphql.Field{
+			FieldID: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldEmail: &graphql.Field{
+			FieldEmail: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldFirstName: &graphql.Field{
+			FieldFirstName: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldLastName: &graphql.Field{
+			FieldLastName: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldCreatedAt: &graphql.Field{
+			FieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
 			},
 		},
@@ -54,18 +61,18 @@ func graphqlUser() *graphql.Object {
 // graphqlUserInput creates graphql.InputObject type needed to register/update satellite.User
 func graphqlUserInput(types Types) *graphql.InputObject {
 	return graphql.NewInputObject(graphql.InputObjectConfig{
-		Name: userInputType,
+		Name: UserInputType,
 		Fields: graphql.InputObjectConfigFieldMap{
-			fieldEmail: &graphql.InputObjectFieldConfig{
+			FieldEmail: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
-			fieldFirstName: &graphql.InputObjectFieldConfig{
+			FieldFirstName: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
-			fieldLastName: &graphql.InputObjectFieldConfig{
+			FieldLastName: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
-			fieldPassword: &graphql.InputObjectFieldConfig{
+			FieldPassword: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
 		},
@@ -74,15 +81,15 @@ func graphqlUserInput(types Types) *graphql.InputObject {
 
 // fromMapUserInfo creates UserInput from input args
 func fromMapUserInfo(args map[string]interface{}) (user console.UserInfo) {
-	user.Email, _ = args[fieldEmail].(string)
-	user.FirstName, _ = args[fieldFirstName].(string)
-	user.LastName, _ = args[fieldLastName].(string)
+	user.Email, _ = args[FieldEmail].(string)
+	user.FirstName, _ = args[FieldFirstName].(string)
+	user.LastName, _ = args[FieldLastName].(string)
 	return
 }
 
 func fromMapCreateUser(args map[string]interface{}) (user console.CreateUser) {
 	user.UserInfo = fromMapUserInfo(args)
-	user.Password, _ = args[fieldPassword].(string)
+	user.Password, _ = args[FieldPassword].(string)
 	return
 }
 
@@ -101,13 +108,13 @@ func fillUserInfo(user *console.User, args map[string]interface{}) console.UserI
 		}
 
 		switch fieldName {
-		case fieldEmail:
+		case FieldEmail:
 			info.Email = value
 			user.Email = value
-		case fieldFirstName:
+		case FieldFirstName:
 			info.FirstName = value
 			user.FirstName = value
-		case fieldLastName:
+		case FieldLastName:
 			info.LastName = value
 			user.LastName = value
 		}

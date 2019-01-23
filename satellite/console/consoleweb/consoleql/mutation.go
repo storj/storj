@@ -14,26 +14,37 @@ const (
 	// Mutation is graphql request that modifies data
 	Mutation = "mutation"
 
-	createUserMutation     = "createUser"
-	updateAccountMutation  = "updateAccount"
-	deleteAccountMutation  = "deleteAccount"
-	changePasswordMutation = "changePassword"
+	// CreateUserMutation is a user creation mutation name
+	CreateUserMutation = "createUser"
+	// UpdateAccountMutation is a mutation name for account updating
+	UpdateAccountMutation = "updateAccount"
+	// DeleteAccountMutation is a mutation name for account deletion
+	DeleteAccountMutation = "deleteAccount"
+	// ChangePasswordMutation is a mutation name for password changing
+	ChangePasswordMutation = "changePassword"
+	// CreateProjectMutation is a mutation name for project creation
+	CreateProjectMutation = "createProject"
+	// DeleteProjectMutation is a mutation name for project deletion
+	DeleteProjectMutation = "deleteProject"
+	// UpdateProjectDescriptionMutation is a mutation name for project updating
+	UpdateProjectDescriptionMutation = "updateProjectDescription"
 
-	createProjectMutation            = "createProject"
-	deleteProjectMutation            = "deleteProject"
-	updateProjectDescriptionMutation = "updateProjectDescription"
+	// AddProjectMembersMutation is a mutation name for adding new project members
+	AddProjectMembersMutation = "addProjectMembers"
+	// DeleteProjectMembersMutation is a mutation name for deleting project members
+	DeleteProjectMembersMutation = "deleteProjectMembers"
 
-	addProjectMembersMutation    = "addProjectMembers"
-	deleteProjectMembersMutation = "deleteProjectMembers"
+	// CreateAPIKeyMutation is a mutation name for api key creation
+	CreateAPIKeyMutation = "createAPIKey"
+	// DeleteAPIKeyMutation is a mutation name for api key deleting
+	DeleteAPIKeyMutation = "deleteAPIKey"
 
-	createAPIKeyMutation = "createAPIKey"
-	deleteAPIKeyMutation = "deleteAPIKey"
-
-	input = "input"
-
-	fieldProjectID = "projectID"
-
-	fieldNewPassword = "newPassword"
+	// InputArg is argument name for all input types
+	InputArg = "input"
+	// FieldProjectID is field name for projectID
+	FieldProjectID = "projectID"
+	// FieldNewPassword is a field name for new password
+	FieldNewPassword = "newPassword"
 )
 
 // rootMutation creates mutation for graphql populated by AccountsClient
@@ -41,16 +52,16 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: Mutation,
 		Fields: graphql.Fields{
-			createUserMutation: &graphql.Field{
+			CreateUserMutation: &graphql.Field{
 				Type: graphql.String,
 				Args: graphql.FieldConfigArgument{
-					input: &graphql.ArgumentConfig{
+					InputArg: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(types.UserInput()),
 					},
 				},
 				// creates user and company from input params and returns userID if succeed
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					input, _ := p.Args[input].(map[string]interface{})
+					input, _ := p.Args[InputArg].(map[string]interface{})
 					createUser := fromMapCreateUser(input)
 
 					user, err := service.CreateUser(p.Context, createUser)
@@ -61,15 +72,15 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 					return user.ID.String(), nil
 				},
 			},
-			updateAccountMutation: &graphql.Field{
+			UpdateAccountMutation: &graphql.Field{
 				Type: types.User(),
 				Args: graphql.FieldConfigArgument{
-					input: &graphql.ArgumentConfig{
+					InputArg: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(types.UserInput()),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					input, _ := p.Args[input].(map[string]interface{})
+					input, _ := p.Args[InputArg].(map[string]interface{})
 
 					auth, err := console.GetAuth(p.Context)
 					if err != nil {
@@ -86,19 +97,19 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 					return auth.User, nil
 				},
 			},
-			changePasswordMutation: &graphql.Field{
+			ChangePasswordMutation: &graphql.Field{
 				Type: types.User(),
 				Args: graphql.FieldConfigArgument{
-					fieldPassword: &graphql.ArgumentConfig{
+					FieldPassword: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
-					fieldNewPassword: &graphql.ArgumentConfig{
+					FieldNewPassword: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					pass, _ := p.Args[fieldPassword].(string)
-					newPass, _ := p.Args[fieldNewPassword].(string)
+					pass, _ := p.Args[FieldPassword].(string)
+					newPass, _ := p.Args[FieldNewPassword].(string)
 
 					auth, err := console.GetAuth(p.Context)
 					if err != nil {
@@ -113,15 +124,15 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 					return auth.User, nil
 				},
 			},
-			deleteAccountMutation: &graphql.Field{
+			DeleteAccountMutation: &graphql.Field{
 				Type: types.User(),
 				Args: graphql.FieldConfigArgument{
-					fieldPassword: &graphql.ArgumentConfig{
+					FieldPassword: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					password, _ := p.Args[fieldPassword].(string)
+					password, _ := p.Args[FieldPassword].(string)
 
 					auth, err := console.GetAuth(p.Context)
 					if err != nil {
@@ -137,29 +148,29 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 				},
 			},
 			// creates project from input params
-			createProjectMutation: &graphql.Field{
+			CreateProjectMutation: &graphql.Field{
 				Type: types.Project(),
 				Args: graphql.FieldConfigArgument{
-					input: &graphql.ArgumentConfig{
+					InputArg: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(types.ProjectInput()),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					var projectInput = fromMapProjectInfo(p.Args[input].(map[string]interface{}))
+					var projectInput = fromMapProjectInfo(p.Args[InputArg].(map[string]interface{}))
 
 					return service.CreateProject(p.Context, projectInput)
 				},
 			},
 			// deletes project by id, taken from input params
-			deleteProjectMutation: &graphql.Field{
+			DeleteProjectMutation: &graphql.Field{
 				Type: types.Project(),
 				Args: graphql.FieldConfigArgument{
-					fieldID: &graphql.ArgumentConfig{
+					FieldID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					inputID := p.Args[fieldID].(string)
+					inputID := p.Args[FieldID].(string)
 					projectID, err := uuid.Parse(inputID)
 					if err != nil {
 						return nil, err
@@ -178,20 +189,20 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 				},
 			},
 			// updates project description
-			updateProjectDescriptionMutation: &graphql.Field{
+			UpdateProjectDescriptionMutation: &graphql.Field{
 				Type: types.Project(),
 				Args: graphql.FieldConfigArgument{
-					fieldID: &graphql.ArgumentConfig{
+					FieldID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
-					fieldDescription: &graphql.ArgumentConfig{
+					FieldDescription: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					description := p.Args[fieldDescription].(string)
+					description := p.Args[FieldDescription].(string)
 
-					inputID := p.Args[fieldID].(string)
+					inputID := p.Args[FieldID].(string)
 					projectID, err := uuid.Parse(inputID)
 					if err != nil {
 						return nil, err
@@ -201,19 +212,19 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 				},
 			},
 			// add user as member of given project
-			addProjectMembersMutation: &graphql.Field{
+			AddProjectMembersMutation: &graphql.Field{
 				Type: types.Project(),
 				Args: graphql.FieldConfigArgument{
-					fieldProjectID: &graphql.ArgumentConfig{
+					FieldProjectID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
-					fieldEmail: &graphql.ArgumentConfig{
+					FieldEmail: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.NewList(graphql.String)),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					pID, _ := p.Args[fieldProjectID].(string)
-					emails, _ := p.Args[fieldEmail].([]interface{})
+					pID, _ := p.Args[FieldProjectID].(string)
+					emails, _ := p.Args[FieldEmail].([]interface{})
 
 					projectID, err := uuid.Parse(pID)
 					if err != nil {
@@ -234,19 +245,19 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 				},
 			},
 			// delete user membership for given project
-			deleteProjectMembersMutation: &graphql.Field{
+			DeleteProjectMembersMutation: &graphql.Field{
 				Type: types.Project(),
 				Args: graphql.FieldConfigArgument{
-					fieldProjectID: &graphql.ArgumentConfig{
+					FieldProjectID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
-					fieldEmail: &graphql.ArgumentConfig{
+					FieldEmail: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.NewList(graphql.String)),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					pID, _ := p.Args[fieldProjectID].(string)
-					emails, _ := p.Args[fieldEmail].([]interface{})
+					pID, _ := p.Args[FieldProjectID].(string)
+					emails, _ := p.Args[FieldEmail].([]interface{})
 
 					projectID, err := uuid.Parse(pID)
 					if err != nil {
@@ -267,19 +278,19 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 				},
 			},
 			// creates new api key
-			createAPIKeyMutation: &graphql.Field{
+			CreateAPIKeyMutation: &graphql.Field{
 				Type: types.CreateAPIKey(),
 				Args: graphql.FieldConfigArgument{
-					fieldProjectID: &graphql.ArgumentConfig{
+					FieldProjectID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
-					fieldName: &graphql.ArgumentConfig{
+					FieldName: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					projectID, _ := p.Args[fieldProjectID].(string)
-					name, _ := p.Args[fieldName].(string)
+					projectID, _ := p.Args[FieldProjectID].(string)
+					name, _ := p.Args[FieldName].(string)
 
 					pID, err := uuid.Parse(projectID)
 					if err != nil {
@@ -298,15 +309,15 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 				},
 			},
 			// deletes api key
-			deleteAPIKeyMutation: &graphql.Field{
+			DeleteAPIKeyMutation: &graphql.Field{
 				Type: types.APIKeyInfo(),
 				Args: graphql.FieldConfigArgument{
-					fieldID: &graphql.ArgumentConfig{
+					FieldID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					keyID, _ := p.Args[fieldID].(string)
+					keyID, _ := p.Args[FieldID].(string)
 
 					id, err := uuid.Parse(keyID)
 					if err != nil {
