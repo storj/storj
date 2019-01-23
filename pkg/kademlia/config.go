@@ -10,13 +10,12 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 var (
 	// Error defines a Kademlia error
 	Error = errs.Class("kademlia error")
-	mon   = monkit.Package()
+	// mon   = monkit.Package() // TODO: figure out whether this is needed
 )
 
 var (
