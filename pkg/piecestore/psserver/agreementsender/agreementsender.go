@@ -24,7 +24,7 @@ var (
 )
 
 // AgreementSender maintains variables required for reading bandwidth agreements from a DB and sending them to a Payers
-type AgreementSender struct {
+type AgreementSender struct { // TODO: rename to service
 	DB            *psdb.DB
 	log           *zap.Logger
 	transport     transport.Client
@@ -32,13 +32,15 @@ type AgreementSender struct {
 	checkInterval time.Duration
 }
 
+// TODO: take transport instead of identity as argument
+
 // New creates an Agreement Sender
 func New(log *zap.Logger, DB *psdb.DB, identity *provider.FullIdentity, kad *kademlia.Kademlia, checkInterval time.Duration) *AgreementSender {
 	return &AgreementSender{DB: DB, log: log, transport: transport.NewClient(identity), kad: kad, checkInterval: checkInterval}
 }
 
 // Run the agreement sender with a context to check for cancel
-func (as *AgreementSender) Run(ctx context.Context) {
+func (as *AgreementSender) Run(ctx context.Context) error {
 	//todo:  we likely don't want to stop on err, but consider returning errors via a channel
 	ticker := time.NewTicker(as.checkInterval)
 	defer ticker.Stop()
@@ -55,8 +57,7 @@ func (as *AgreementSender) Run(ctx context.Context) {
 		select {
 		case <-ticker.C:
 		case <-ctx.Done():
-			as.log.Debug("AgreementSender is shutting down", zap.Error(ctx.Err()))
-			return
+			return ctx.Err()
 		}
 	}
 }

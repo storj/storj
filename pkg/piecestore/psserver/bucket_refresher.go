@@ -19,16 +19,17 @@ var (
 	Error = errs.Class("kademlia bucket refresher error")
 )
 
-// refreshService contains the information needed to run the bucket refresher service
-type refreshService struct {
+// Monitor contains the information needed to run the bucket refresher service
+type Monitor struct { // TODO: rename to something clearer
 	log    *zap.Logger
 	ticker *time.Ticker
 	rt     *kademlia.RoutingTable
 	server *Server
 }
 
-func newService(log *zap.Logger, interval time.Duration, rt *kademlia.RoutingTable, server *Server) *refreshService {
-	return &refreshService{
+// NewMonitor creates a disk monitor
+func NewMonitor(log *zap.Logger, interval time.Duration, rt *kademlia.RoutingTable, server *Server) *Monitor {
+	return &Monitor{
 		log:    log,
 		ticker: time.NewTicker(interval),
 		rt:     rt,
@@ -37,7 +38,7 @@ func newService(log *zap.Logger, interval time.Duration, rt *kademlia.RoutingTab
 }
 
 // Run runs the bucket refresher service
-func (service *refreshService) Run(ctx context.Context) {
+func (service *Monitor) Run(ctx context.Context) error {
 	for {
 		err := service.process(ctx)
 		if err != nil {
@@ -47,13 +48,13 @@ func (service *refreshService) Run(ctx context.Context) {
 		select {
 		case <-service.ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the bucket refresher service is canceled via context
-			return
+			return ctx.Err()
 		}
 	}
 }
 
 // process will attempt to update the kademlia bucket with the latest information about the storage node
-func (service *refreshService) process(ctx context.Context) error {
+func (service *Monitor) process(ctx context.Context) error {
 	stats, err := service.server.Stats(ctx, nil)
 	if err != nil {
 		return Error.Wrap(err)
