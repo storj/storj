@@ -29,8 +29,8 @@ import (
 var ClientError = errs.Class("piecestore client error")
 
 var (
-	defaultBandwidthMsgSize memory.Size = 32 * memory.KB
-	maxBandwidthMsgSize     memory.Size = 64 * memory.KB
+	defaultBandwidthMsgSize = 32 * memory.KB
+	maxBandwidthMsgSize     = 64 * memory.KB
 )
 
 func init() {

@@ -19,6 +19,7 @@ import (
 
 var (
 	// mon = monkit.Package() //TODO: check whether this needs monitoring
+
 	// Error is a general error class of this package
 	Error = errs.Class("discovery error")
 )
