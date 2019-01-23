@@ -22,7 +22,7 @@ import (
 
 var (
 	// Error the default bwagreement errs class
-	Error = errs.Class("bwagreement error:")
+	Error = errs.Class("bwagreement error")
 	mon   = monkit.Package()
 )
 
