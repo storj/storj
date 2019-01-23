@@ -7,10 +7,7 @@ import (
 	"context"
 	"time"
 
-	"go.uber.org/zap"
-
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
@@ -26,35 +23,6 @@ type Config struct {
 	PointerDBAddr string        `help:"Address to contact pointerdb server through"`
 	MaxBufferMem  memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
 	APIKey        string        `help:"repairer-specific pointerdb access credential"`
-}
-
-// Run runs the repair service with configured values
-func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	q, ok := ctx.Value("masterdb").(interface {
-		RepairQueue() queue.RepairQueue
-	})
-	if !ok {
-		return Error.New("unable to get master db instance")
-	}
-
-	repairer, err := c.GetSegmentRepairer(ctx, server.Identity())
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	service := NewService(q.RepairQueue(), repairer, c.Interval, c.MaxRepair)
-
-	ctx, cancel := context.WithCancel(ctx)
-
-	// TODO(coyle): we need to figure out how to propagate the error up to cancel the service
-	go func() {
-		if err := service.Run(ctx); err != nil {
-			defer cancel()
-			zap.L().Debug("Repair service is shutting down", zap.Error(err))
-		}
-	}()
-
-	return server.Run(ctx)
 }
 
 // GetSegmentRepairer creates a new segment repairer from storeConfig values

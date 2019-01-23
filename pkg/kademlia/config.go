@@ -143,5 +143,5 @@ func (c Config) Run(ctx context.Context, server *provider.Provider,
 	// TODO: register on a private rpc server
 	pb.RegisterKadInspectorServer(server.GRPC(), NewInspector(kad, server.Identity()))
 
-	return server.Run(context.WithValue(ctx, ctxKeyKad, kad))
+	return server.Run(ctx)
 }
