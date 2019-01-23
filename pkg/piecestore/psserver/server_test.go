@@ -303,50 +303,50 @@ func TestStore(t *testing.T) {
 	satID := teststorj.NodeIDFromString("satelliteid")
 
 	tests := []struct {
-		id                 string
-		satelliteID        storj.NodeID
-		approvedSatellites []storj.NodeID
-		ttl                int64
-		content            []byte
-		message            string
-		totalReceived      int64
-		err                string
+		id            string
+		satelliteID   storj.NodeID
+		whitelist     []storj.NodeID
+		ttl           int64
+		content       []byte
+		message       string
+		totalReceived int64
+		err           string
 	}{
 		{ // should successfully store data with no approved satellites
-			id:                 "99999999999999999999",
-			satelliteID:        satID,
-			approvedSatellites: []storj.NodeID{},
-			ttl:                9999999999,
-			content:            []byte("xyzwq"),
-			message:            "OK",
-			totalReceived:      5,
-			err:                "",
+			id:            "99999999999999999999",
+			satelliteID:   satID,
+			whitelist:     []storj.NodeID{},
+			ttl:           9999999999,
+			content:       []byte("xyzwq"),
+			message:       "OK",
+			totalReceived: 5,
+			err:           "",
 		},
 		{ // should err with invalid id length
-			id:                 "butts",
-			satelliteID:        satID,
-			approvedSatellites: []storj.NodeID{satID},
-			ttl:                9999999999,
-			content:            []byte("xyzwq"),
-			message:            "",
-			totalReceived:      0,
-			err:                "rpc error: code = Unknown desc = piecestore error: invalid id length",
+			id:            "butts",
+			satelliteID:   satID,
+			whitelist:     []storj.NodeID{satID},
+			ttl:           9999999999,
+			content:       []byte("xyzwq"),
+			message:       "",
+			totalReceived: 0,
+			err:           "rpc error: code = Unknown desc = piecestore error: invalid id length",
 		},
 		{ // should err with piece ID not specified
-			id:                 "",
-			satelliteID:        satID,
-			approvedSatellites: []storj.NodeID{satID},
-			ttl:                9999999999,
-			content:            []byte("xyzwq"),
-			message:            "",
-			totalReceived:      0,
-			err:                "rpc error: code = Unknown desc = store error: piece ID not specified",
+			id:            "",
+			satelliteID:   satID,
+			whitelist:     []storj.NodeID{satID},
+			ttl:           9999999999,
+			content:       []byte("xyzwq"),
+			message:       "",
+			totalReceived: 0,
+			err:           "rpc error: code = Unknown desc = store error: piece ID not specified",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
-			TS := NewTestServer(t, tt.approvedSatellites)
+			TS := NewTestServer(t, tt.whitelist)
 			db := TS.s.DB.DB
 			defer TS.Stop()
 
@@ -438,16 +438,16 @@ func TestPbaValidation(t *testing.T) {
 	defer ctx.Cleanup()
 
 	tests := []struct {
-		satelliteID        storj.NodeID
-		uplinkID           storj.NodeID
-		approvedSatellites []storj.NodeID
-		action             pb.PayerBandwidthAllocation_Action
-		err                string
+		satelliteID storj.NodeID
+		uplinkID    storj.NodeID
+		whitelist   []storj.NodeID
+		action      pb.PayerBandwidthAllocation_Action
+		err         string
 	}{
 		{ // unapproved satellite id
 			satelliteID: teststorj.NodeIDFromString("bad-satellite"),
 			uplinkID:    teststorj.NodeIDFromString("uplinkid"),
-			approvedSatellites: []storj.NodeID{
+			whitelist: []storj.NodeID{
 				teststorj.NodeIDFromString("satelliteid1"),
 				teststorj.NodeIDFromString("satelliteid2"),
 				teststorj.NodeIDFromString("satelliteid3"),
@@ -458,7 +458,7 @@ func TestPbaValidation(t *testing.T) {
 		{ // missing satellite id
 			satelliteID: storj.NodeID{},
 			uplinkID:    teststorj.NodeIDFromString("uplinkid"),
-			approvedSatellites: []storj.NodeID{
+			whitelist: []storj.NodeID{
 				teststorj.NodeIDFromString("satelliteid1"),
 				teststorj.NodeIDFromString("satelliteid2"),
 				teststorj.NodeIDFromString("satelliteid3"),
@@ -469,7 +469,7 @@ func TestPbaValidation(t *testing.T) {
 		{ // missing uplink id
 			satelliteID: teststorj.NodeIDFromString("satelliteid1"),
 			uplinkID:    storj.NodeID{},
-			approvedSatellites: []storj.NodeID{
+			whitelist: []storj.NodeID{
 				teststorj.NodeIDFromString("satelliteid1"),
 				teststorj.NodeIDFromString("satelliteid2"),
 				teststorj.NodeIDFromString("satelliteid3"),
@@ -480,7 +480,7 @@ func TestPbaValidation(t *testing.T) {
 		{ // wrong action type
 			satelliteID: teststorj.NodeIDFromString("satelliteid1"),
 			uplinkID:    teststorj.NodeIDFromString("uplinkid"),
-			approvedSatellites: []storj.NodeID{
+			whitelist: []storj.NodeID{
 				teststorj.NodeIDFromString("satelliteid1"),
 				teststorj.NodeIDFromString("satelliteid2"),
 				teststorj.NodeIDFromString("satelliteid3"),
@@ -492,7 +492,7 @@ func TestPbaValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("should validate payer bandwidth allocation struct", func(t *testing.T) {
-			TS := NewTestServer(t, tt.approvedSatellites)
+			TS := NewTestServer(t, tt.whitelist)
 			defer TS.Stop()
 
 			assert := assert.New(t)
@@ -647,7 +647,7 @@ func newTestServerStruct(t *testing.T, ids []storj.NodeID) (*Server, func()) {
 		verifier:         verifier,
 		totalAllocated:   math.MaxInt64,
 		totalBwAllocated: math.MaxInt64,
-		approvedSatIDs:   ids,
+		whitelist:        ids,
 	}
 	return server, func() {
 		if serr := server.Stop(context.TODO()); serr != nil {

@@ -65,7 +65,7 @@ type Server struct {
 	pkey             crypto.PrivateKey
 	totalAllocated   int64 // TODO: use memory.Size
 	totalBwAllocated int64 // TODO: use memory.Size
-	approvedSatIDs   []storj.NodeID
+	whitelist        []storj.NodeID
 	verifier         auth.SignedMessageVerifier
 	kad              *kademlia.Kademlia
 }
@@ -124,11 +124,11 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 	}
 
 	// parse the comma separated list of approved satellite IDs into an array of storj.NodeIDs
-	var approvedSatIDs []storj.NodeID
+	var whitelist []storj.NodeID
 	if config.SatelliteIDRestriction {
-		idStrings := strings.Split(config.ApprovedSatelliteIDs, ",")
+		idStrings := strings.Split(config.WhitelistedSatelliteIDs, ",")
 		for i, s := range idStrings {
-			approvedSatIDs[i], err = storj.NodeIDFromString(s)
+			whitelist[i], err = storj.NodeIDFromString(s)
 			if err != nil {
 				return nil, err
 			}
@@ -143,7 +143,7 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 		pkey:             pkey,
 		totalAllocated:   allocatedDiskSpace,
 		totalBwAllocated: allocatedBandwidth,
-		approvedSatIDs:   approvedSatIDs,
+		whitelist:        whitelist,
 		verifier:         auth.NewSignedMessageVerifier(),
 		kad:              k,
 	}, nil
