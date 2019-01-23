@@ -5,6 +5,7 @@ package node
 
 import (
 	"context"
+	"sync/atomic"
 
 	"go.uber.org/zap"
 
@@ -16,6 +17,8 @@ import (
 type Server struct {
 	dht dht.DHT
 	log *zap.Logger
+
+	connected int32
 }
 
 // NewServer returns a newly instantiated Node Server
@@ -46,7 +49,12 @@ func (server *Server) Query(ctx context.Context, req *pb.QueryRequest) (*pb.Quer
 			if err != nil {
 				server.log.Error("could not respond to connection success", zap.Error(err))
 			} else {
-				server.log.Sugar().Debugf("Successfully connected with %s", req.Sender.Address.Address)
+				count := atomic.AddInt32(&server.connected, 1)
+				if count == 1 {
+					server.log.Sugar().Debugf("Successfully connected with %s", req.Sender.Address.Address)
+				} else if count%100 == 0 {
+					server.log.Sugar().Debugf("Successfully connected with %s %dx times", req.Sender.Address.Address, count)
+				}
 			}
 		}
 	}
