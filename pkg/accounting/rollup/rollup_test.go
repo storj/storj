@@ -21,20 +21,20 @@ import (
 func TestQueryOneDay(t *testing.T) {
 	// TODO: use testplanet
 
-	ctx, r, _, nodeData, cleanup := createRollup(t)
+	ctx, r, db, nodeData, cleanup := createRollup(t)
 	defer cleanup()
 
 	now := time.Now().UTC()
 	later := now.Add(time.Hour * 24)
 
-	err := r.db.SaveAtRestRaw(ctx, now, true, nodeData)
+	err := db.Accounting().SaveAtRestRaw(ctx, now, true, nodeData)
 	assert.NoError(t, err)
 
 	// test should return error because we delete latest day's rollup
 	err = r.Query(ctx)
 	assert.NoError(t, err)
 
-	rows, err := r.db.QueryPaymentInfo(ctx, now, later)
+	rows, err := db.Accounting().QueryPaymentInfo(ctx, now, later)
 	assert.Equal(t, 0, len(rows))
 	assert.NoError(t, err)
 }
@@ -42,20 +42,20 @@ func TestQueryOneDay(t *testing.T) {
 func TestQueryTwoDays(t *testing.T) {
 	// TODO: use testplanet
 
-	ctx, r, _, nodeData, cleanup := createRollup(t)
+	ctx, _, db, nodeData, cleanup := createRollup(t)
 	defer cleanup()
 
 	now := time.Now().UTC()
 	then := now.Add(time.Hour * -24)
 
-	err := r.db.SaveAtRestRaw(ctx, now, true, nodeData)
+	err := db.Accounting().SaveAtRestRaw(ctx, now, true, nodeData)
 	assert.NoError(t, err)
 
 	// db.db.Exec("UPDATE accounting_raws SET created_at= WHERE ")
 	// err = r.Query(ctx)
 	// assert.NoError(t, err)
 
-	_, err = r.db.QueryPaymentInfo(ctx, then, now)
+	_, err = db.Accounting().QueryPaymentInfo(ctx, then, now)
 	//assert.Equal(t, 10, len(rows))
 	assert.NoError(t, err)
 }
