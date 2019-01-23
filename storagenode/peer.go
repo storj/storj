@@ -188,6 +188,8 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return ignoreCancel(peer.Kademlia.RunRefresh(ctx))
 	})
 	group.Go(func() error {
+		// TODO: move the message into Server instead
+		peer.Log.Sugar().Infof("Node %s started on %s", peer.Identity.ID, peer.Public.Server.Addr().String())
 		return ignoreCancel(peer.Agreements.Sender.Run(ctx))
 	})
 	group.Go(func() error {
