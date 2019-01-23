@@ -66,18 +66,18 @@ func cmdKeyEncode(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		for _, path := range paths {
-			keyBytes, err := ioutil.ReadFile(path)
+			data, err := ioutil.ReadFile(path)
 			if err != nil {
 				keyErrs.Add(err)
 				continue
 			}
 
-			keyData := new(bytes.Buffer)
-			if err = pem.Encode(keyData, peertls.NewKeyBlock(keyBytes)); err != nil {
+			pemData := new(bytes.Buffer)
+			if err = pem.Encode(pemData, peertls.NewKeyBlock(data)); err != nil {
 				keyErrs.Add(err)
 				continue
 			}
-			if err = peertls.WriteKeyData(path, keyData.Bytes()); err != nil {
+			if err = peertls.WriteKeyData(path, pemData.Bytes()); err != nil {
 				keyErrs.Add(err)
 				continue
 			}
@@ -105,7 +105,15 @@ func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
 			}
 			filename := fmt.Sprintf("gen-%02d-%d.key", difficulty, atomic.AddUint32(counter, 1))
 			fmt.Println("writing", filename)
-			err = ioutil.WriteFile(filepath.Join(keyCfg.OutputDir, filename), data, 0600)
+
+			pemData := new(bytes.Buffer)
+			if err = pem.Encode(pemData, peertls.NewKeyBlock(data)); err != nil {
+				return false, err
+			}
+			if err = peertls.WriteKeyData(filepath.Join(keyCfg.OutputDir, filename), pemData.Bytes()); err != nil {
+				return false, err
+			}
+
 			return false, err
 		})
 }
