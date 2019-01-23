@@ -18,9 +18,15 @@ import (
 )
 
 var (
-	// DiscoveryError is a general error class of this package
-	DiscoveryError = errs.Class("discovery error")
+	// mon = monkit.Package() //TODO: check whether this needs monitoring
+	// Error is a general error class of this package
+	Error = errs.Class("discovery error")
 )
+
+// Config loads on the configuration values from run flags
+type Config struct {
+	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
+}
 
 // Discovery struct loads on cache, kad, and statdb
 type Discovery struct {
@@ -113,11 +119,11 @@ func (discovery *Discovery) Bootstrap(ctx context.Context) error {
 func (discovery *Discovery) Discovery(ctx context.Context) error {
 	r, err := randomID()
 	if err != nil {
-		return DiscoveryError.Wrap(err)
+		return Error.Wrap(err)
 	}
 	_, err = discovery.kad.FindNode(ctx, r)
 	if err != nil && !kademlia.NodeNotFound.Has(err) {
-		return DiscoveryError.Wrap(err)
+		return Error.Wrap(err)
 	}
 	return nil
 }
@@ -132,7 +138,7 @@ func randomID() (storj.NodeID, error) {
 	b := make([]byte, 32)
 	_, err := rand.Read(b)
 	if err != nil {
-		return storj.NodeID{}, DiscoveryError.Wrap(err)
+		return storj.NodeID{}, Error.Wrap(err)
 	}
 	return storj.NodeIDFromBytes(b)
 }

@@ -6,7 +6,6 @@ package payments
 import (
 	"context"
 	"encoding/csv"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -73,8 +72,9 @@ func (srv *Server) AdjustPrices(ctx context.Context, req *pb.AdjustPricesRequest
 }
 
 // GenerateCSV creates a csv file for payment purposes
-func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) (*pb.GenerateCSVResponse, error) {
-	fmt.Println("entering server generate csv")
+func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) (_ *pb.GenerateCSVResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	start, err := ptypes.Timestamp(req.StartTime)
 	if err != nil {
 		return nil, Error.Wrap(err)
