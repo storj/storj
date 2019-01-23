@@ -28,7 +28,7 @@ type RecordAuditsInfo struct {
 }
 
 // NewReporter instantiates a reporter
-func NewReporter(sdb statdb.DB, maxRetries int, apiKey string) (reporter *Reporter, err error) {
+func NewReporter(sdb statdb.DB, maxRetries int) (reporter *Reporter, err error) {
 	return &Reporter{statdb: sdb, maxRetries: maxRetries}, nil
 }
 

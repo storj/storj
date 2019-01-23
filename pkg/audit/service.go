@@ -27,20 +27,18 @@ type Service struct {
 
 // Config contains configurable values for audit service
 type Config struct {
-	APIKey           string        `help:"APIKey to access the statdb" default:""`
-	SatelliteAddr    string        `help:"address to contact services on the satellite"`
 	MaxRetriesStatDB int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
 	Interval         time.Duration `help:"how frequently segments are audited" default:"30s"`
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(log *zap.Logger, sdb statdb.DB, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, transport transport.Client, overlay overlay.Client,
-	identity provider.FullIdentity, apiKey string) (service *Service, err error) {
+	identity provider.FullIdentity) (service *Service, err error) {
 
 	//TODO: instead of statDBPort pass in the actual database interface
 	cursor := NewCursor(pointers, allocation, &identity)
 	verifier := NewVerifier(transport, overlay, identity)
-	reporter, err := NewReporter(sdb, maxRetries, apiKey)
+	reporter, err := NewReporter(sdb, maxRetries)
 	if err != nil {
 		return nil, err
 	}
