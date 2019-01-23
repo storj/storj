@@ -8,7 +8,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -84,7 +83,7 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, bandwidt
 
 			// if whitelist does not contain PBA satellite ID, reject storage request
 			if len(s.whitelist) != 0 {
-				if !approved(pbaData.SatelliteId, s.whitelist) {
+				if !s.approved(pbaData.SatelliteId) {
 					return nil, StoreError.New("Satellite ID not approved")
 				}
 			}
@@ -121,14 +120,4 @@ func (s *StreamReader) Read(b []byte) (int, error) {
 	}
 
 	return n, nil
-}
-
-// approved returns true if a node ID exists in a list of approved node IDs
-func approved(id storj.NodeID, list []storj.NodeID) bool {
-	for _, n := range list {
-		if n == id {
-			return true
-		}
-	}
-	return false
 }

@@ -312,6 +312,16 @@ func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation_Data, ac
 	return nil
 }
 
+// approved returns true if a node ID exists in a list of approved node IDs
+func (s *Server) approved(id storj.NodeID) bool {
+	for _, n := range s.whitelist {
+		if n == id {
+			return true
+		}
+	}
+	return false
+}
+
 func getBeginningOfMonth() time.Time {
 	t := time.Now()
 	y, m, _ := t.Date()
