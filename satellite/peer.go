@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 
 	"github.com/zeebo/errs"
@@ -15,6 +16,10 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/accounting/rollup"
+	"storj.io/storj/pkg/accounting/tally"
+	"storj.io/storj/pkg/audit"
+	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/irreparable"
@@ -25,11 +30,13 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/payments"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -64,19 +71,22 @@ type Config struct {
 	Identity identity.Config
 
 	// TODO: switch to using server.Config when Identity has been removed from it
-	Database      string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
-	PublicAddress string `help:"public address to listen on" default:":7777"`
+	Server server.Config
 
 	Kademlia  kademlia.Config
 	Overlay   overlay.Config
 	Discovery discovery.Config
 
 	PointerDB   pointerdb.Config
-	BwAgreement bwagreement.Config
+	BwAgreement bwagreement.Config // TODO: decide whether to keep empty configs for consistency
 
 	Checker  checker.Config
 	Repairer repairer.Config
-	// TODO: Audit    audit.Config
+	Audit    audit.Config
+
+	Tally    tally.Config
+	Rollup   rollup.Config
+	Payments payments.Config
 }
 
 // Peer is the satellite
@@ -94,18 +104,26 @@ type Peer struct {
 
 	// services and endpoints
 	Kademlia struct {
+		kdb, ndb storage.KeyValueStore // TODO: move these into DB
+
 		RoutingTable *kademlia.RoutingTable
 		Service      *kademlia.Kademlia
 		Endpoint     *node.Server
+		Inspector    *kademlia.Inspector
 	}
 
 	Overlay struct {
-		Service  *overlay.Cache
-		Endpoint *overlay.Server
+		Service   *overlay.Cache
+		Endpoint  *overlay.Server
+		Inspector *overlay.Inspector
 	}
 
 	Discovery struct {
 		Service *discovery.Discovery
+	}
+
+	Reputation struct {
+		Inspector *statdb.Inspector
 	}
 
 	Metainfo struct {
@@ -124,7 +142,16 @@ type Peer struct {
 		Repairer *repairer.Service
 	}
 	Audit struct {
-		// TODO: Service *audit.Service
+		Service *audit.Service
+	}
+
+	Accounting struct {
+		Tally  *tally.Tally
+		Rollup *rollup.Rollup
+	}
+
+	Payments struct {
+		Endpoint *payments.Server
 	}
 
 	// TODO: add console
@@ -141,7 +168,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	var err error
 
 	{ // setup listener and server
-		peer.Public.Listener, err = net.Listen("tcp", config.PublicAddress)
+		peer.Public.Listener, err = net.Listen("tcp", config.Server.Address)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -152,7 +179,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Public.Server, err = server.NewServer(publicOptions, peer.Public.Listener, nil)
+		peer.Public.Server, err = server.NewServer(publicOptions, peer.Public.Listener, grpcauth.NewAPIKeyInterceptor())
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -176,32 +203,44 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 				Wallet: config.Operator.Wallet,
 			},
 		}
+		// TODO(coyle): I'm thinking we just remove this function and grab from the config.
+		in, err := kademlia.GetIntroNode(config.BootstrapAddr)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 
 		{ // setup routing table
-			// TODO: clean this up
+			// TODO: clean this up, should be part of database
 			bucketIdentifier := peer.ID().String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
 			dbpath := filepath.Join(config.DBPath, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
+
+			if err := os.MkdirAll(config.DBPath, 0777); err != nil && !os.IsExist(err) {
+				return nil, err
+			}
 
 			dbs, err := boltdb.NewShared(dbpath, kademlia.KademliaBucket, kademlia.NodeBucket)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
-			kdb, ndb := dbs[0], dbs[1]
+			peer.Kademlia.kdb, peer.Kademlia.ndb = dbs[0], dbs[1]
 
-			peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb)
+			peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, peer.Kademlia.kdb, peer.Kademlia.ndb)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
 		}
 
 		// TODO: reduce number of arguments
-		peer.Kademlia.Service, err = kademlia.NewWith(peer.Log.Named("kademlia"), self, nil, peer.Identity, config.Alpha, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Service, err = kademlia.NewWith(peer.Log.Named("kademlia"), self, []pb.Node{*in}, peer.Identity, config.Alpha, peer.Kademlia.RoutingTable)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
 		peer.Kademlia.Endpoint = node.NewServer(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service)
 		pb.RegisterNodesServer(peer.Public.Server.GRPC(), peer.Kademlia.Endpoint)
+
+		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
+		pb.RegisterKadInspectorServer(peer.Public.Server.GRPC(), peer.Kademlia.Inspector)
 	}
 
 	{ // setup overlay
@@ -217,6 +256,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		peer.Overlay.Endpoint = overlay.NewServer(peer.Log.Named("overlay:endpoint"), peer.Overlay.Service, minStats, 0, 1, 0)
 		pb.RegisterOverlayServer(peer.Public.Server.GRPC(), peer.Overlay.Endpoint)
+
+		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
+		pb.RegisterOverlayInspectorServer(peer.Public.Server.GRPC(), peer.Overlay.Inspector)
+	}
+
+	{ // setup reputation
+		// TODO: find better structure with overlay
+		peer.Reputation.Inspector = statdb.NewInspector(peer.DB.StatDB())
+		pb.RegisterStatDBInspectorServer(peer.Public.Server.GRPC(), peer.Reputation.Inspector)
 	}
 
 	{ // setup discovery
@@ -261,7 +309,31 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup audit
-		// TODO: audit needs many fixes
+		config := config.Audit
+
+		// TODO: use common transport Client and close to avoid leak
+		transportClient := transport.NewClient(peer.Identity)
+
+		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
+			peer.DB.StatDB(),
+			config.Interval, config.MaxRetriesStatDB,
+			peer.Metainfo.Service, peer.Metainfo.Allocation,
+			transportClient, peer.Overlay.Service,
+			peer.Identity,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+	}
+
+	{ // setup accounting
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Metainfo.Service, peer.Overlay.Endpoint, 0, config.Tally.Interval)
+		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
+	}
+
+	{ // setup payments
+		peer.Payments.Endpoint = payments.New(peer.Log.Named("payments"), peer.DB.Accounting(), peer.DB.OverlayCache(), config.Payments.Filepath)
+		pb.RegisterPaymentsServer(peer.Public.Server.GRPC(), peer.Payments.Endpoint)
 	}
 
 	return peer, nil
@@ -296,6 +368,8 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return ignoreCancel(peer.Repair.Repairer.Run(ctx))
 	})
 	group.Go(func() error {
+		// TODO: move the message into Server instead
+		peer.Log.Sugar().Infof("Node %s started on %s", peer.Identity.ID, peer.Public.Server.Addr().String())
 		return ignoreCancel(peer.Public.Server.Run(ctx))
 	})
 
@@ -345,6 +419,11 @@ func (peer *Peer) Close() error {
 	if peer.Kademlia.RoutingTable != nil {
 		errlist.Add(peer.Kademlia.RoutingTable.SelfClose())
 	}
+
+	// if peer.Kademlia.ndb != nil || peer.Kademlia.kdb != nil {
+	// 	errlist.Add(peer.Kademlia.kdb.Close())
+	// 	errlist.Add(peer.Kademlia.ndb.Close())
+	// }
 
 	// close servers
 	if peer.Public.Server != nil {

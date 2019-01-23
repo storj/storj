@@ -30,7 +30,7 @@ type CertClientConfig struct {
 type CertServerConfig struct {
 	Overwrite          bool   `default:"false" help:"if true, overwrites config AND authorization db is truncated"`
 	AuthorizationDBURL string `default:"bolt://$CONFDIR/authorizations.db" help:"url to the certificate signing authorization database"`
-	MinDifficulty      uint   `default:"16" help:"minimum difficulty of the requester's identity required to claim an authorization"`
+	MinDifficulty      uint   `default:"30" help:"minimum difficulty of the requester's identity required to claim an authorization"`
 	CA                 identity.FullCAConfig
 }
 

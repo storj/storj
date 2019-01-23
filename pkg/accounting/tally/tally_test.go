@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package tally
+package tally_test
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/bwagreement/test"
 	"storj.io/storj/pkg/overlay/mocks"
@@ -28,6 +29,8 @@ func TestQueryNoAgreements(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	// TODO: use testplanet
+
 	service := pointerdb.NewService(zap.NewNop(), teststore.New())
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 	db, err := satellitedb.NewInMemory()
@@ -35,15 +38,17 @@ func TestQueryNoAgreements(t *testing.T) {
 	defer ctx.Check(db.Close)
 	assert.NoError(t, db.CreateTables())
 
-	tally := newTally(zap.NewNop(), db.Accounting(), db.BandwidthAgreement(), service, overlayServer, 0, time.Second)
+	tally := tally.New(zap.NewNop(), db.Accounting(), db.BandwidthAgreement(), service, overlayServer, 0, time.Second)
 
-	err = tally.queryBW(ctx)
+	err = tally.QueryBW(ctx)
 	assert.NoError(t, err)
 }
 
 func TestQueryWithBw(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
+	// TODO: use testplanet
 
 	service := pointerdb.NewService(zap.NewNop(), teststore.New())
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
@@ -55,7 +60,7 @@ func TestQueryWithBw(t *testing.T) {
 	assert.NoError(t, db.CreateTables())
 
 	bwDb := db.BandwidthAgreement()
-	tally := newTally(zap.NewNop(), db.Accounting(), bwDb, service, overlayServer, 0, time.Second)
+	tally := tally.New(zap.NewNop(), db.Accounting(), bwDb, service, overlayServer, 0, time.Second)
 
 	//get a private key
 	fiC, err := testidentity.NewTestIdentity(ctx)
@@ -70,7 +75,7 @@ func TestQueryWithBw(t *testing.T) {
 	makeBWA(ctx, t, bwDb, "5", k, pb.PayerBandwidthAllocation_PUT_REPAIR)
 
 	//check the db
-	err = tally.queryBW(ctx)
+	err = tally.QueryBW(ctx)
 	assert.NoError(t, err)
 }
 

@@ -14,27 +14,29 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// Rollup is the service for totalling data on storage nodes on daily intervals
-type Rollup interface {
-	Run(ctx context.Context) error
+// Config contains configurable values for rollup
+type Config struct {
+	Interval time.Duration `help:"how frequently rollup should run" default:"120s"`
 }
 
-type rollup struct {
+// Rollup is the service for totalling data on storage nodes on daily intervals
+type Rollup struct { // TODO: rename to service
 	logger *zap.Logger
 	ticker *time.Ticker
 	db     accounting.DB
 }
 
-func newRollup(logger *zap.Logger, db accounting.DB, interval time.Duration) *rollup {
-	return &rollup{
+// New creates a new rollup service
+func New(logger *zap.Logger, db accounting.DB, interval time.Duration) *Rollup {
+	return &Rollup{
 		logger: logger,
 		ticker: time.NewTicker(interval),
 		db:     db,
 	}
 }
 
-// Run the rollup loop
-func (r *rollup) Run(ctx context.Context) (err error) {
+// Run the Rollup loop
+func (r *Rollup) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	for {
 		err = r.Query(ctx)
@@ -43,14 +45,15 @@ func (r *rollup) Run(ctx context.Context) (err error) {
 		}
 		select {
 		case <-r.ticker.C: // wait for the next interval to happen
-		case <-ctx.Done(): // or the rollup is canceled via context
+		case <-ctx.Done(): // or the Rollup is canceled via context
 			return ctx.Err()
 		}
 	}
 }
 
-func (r *rollup) Query(ctx context.Context) error {
-	//only rollup new things - get LastRollup
+// Query rolls up raw tally
+func (r *Rollup) Query(ctx context.Context) error {
+	// only Rollup new things - get LastRollup
 	var latestTally time.Time
 	lastRollup, isNil, err := r.db.LastRawTime(ctx, accounting.LastRollup)
 	if err != nil {
@@ -70,7 +73,7 @@ func (r *rollup) Query(ctx context.Context) error {
 		r.logger.Info("Rollup found no new tallies")
 		return nil
 	}
-	//loop through tallies and build rollup
+	//loop through tallies and build Rollup
 	rollupStats := make(accounting.RollupStats)
 	for _, tallyRow := range tallies {
 		node := tallyRow.NodeID
@@ -101,7 +104,7 @@ func (r *rollup) Query(ctx context.Context) error {
 		case accounting.AtRest:
 			rollupStats[iDay][node].AtRestTotal += tallyRow.DataTotal
 		default:
-			return Error.Wrap(fmt.Errorf("Bad tally datatype in rollup : %d", tallyRow.DataType))
+			return Error.Wrap(fmt.Errorf("Bad tally datatype in Rollup : %d", tallyRow.DataType))
 		}
 	}
 	//remove the latest day (which we cannot know is complete), then push to DB

@@ -50,7 +50,9 @@ func NewServer(log *zap.Logger, cache *Cache, minStats *pb.NodeStats, matchingNo
 func (server *Server) Close() error { return nil }
 
 // Lookup finds the address of a node in our overlay network
-func (server *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (*pb.LookupResponse, error) {
+func (server *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (_ *pb.LookupResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	na, err := server.cache.Get(ctx, req.NodeId)
 
 	if err != nil {
@@ -64,7 +66,9 @@ func (server *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (*pb.Lo
 }
 
 // BulkLookup finds the addresses of nodes in our overlay network
-func (server *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (*pb.LookupResponses, error) {
+func (server *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (_ *pb.LookupResponses, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	ns, err := server.cache.GetAll(ctx, lookupRequestsToNodeIDs(reqs))
 	if err != nil {
 		return nil, ServerError.New("could not get nodes requested %s\n", err)
@@ -74,6 +78,8 @@ func (server *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	opts := req.GetOpts()
 	// todo(nat): change name from MaxNodes to minRequestedNodes or similar
 	requiredReputableNodes := req.GetMaxNodes()
