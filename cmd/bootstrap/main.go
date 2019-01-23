@@ -9,20 +9,15 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/bootstrap"
+	"storj.io/storj/bootstrap/bootstrapdb"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/server"
 )
-
-// Bootstrap defines a bootstrap node configuration
-type Bootstrap struct {
-	Server   server.Config
-	Kademlia kademlia.BootstrapConfig
-}
 
 var (
 	rootCmd = &cobra.Command{
@@ -41,7 +36,8 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 
-	cfg Bootstrap
+	runCfg   bootstrap.Config
+	setupCfg bootstrap.Config
 
 	defaultConfDir     = fpath.ApplicationDir("storj", "bootstrap")
 	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "bootstrap")
@@ -76,20 +72,44 @@ func init() {
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(runCmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
-	if _, err := cfg.Server.Identity.Load(); err != nil {
+	log := zap.L()
+
+	identity, err := runCfg.Server.Identity.Load()
+	if err != nil {
 		zap.S().Fatal(err)
 	}
 
-	if err := process.InitMetricsWithCertPath(ctx, nil, cfg.Server.Identity.CertPath); err != nil {
+	if err := runCfg.Verify(log); err != nil {
+		log.Sugar().Error("Invalid configuration: ", err)
+		return err
+	}
+
+	ctx := process.Ctx(cmd)
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Server.Identity.CertPath); err != nil {
 		zap.S().Errorf("Failed to initialize telemetry batcher: %+v", err)
 	}
-	return cfg.Server.Run(ctx, nil, cfg.Kademlia)
+
+	db, err := bootstrapdb.New(bootstrapdb.Config{
+		Kademlia: runCfg.Kademlia.DBPath,
+	})
+	if err != nil {
+		return err
+	}
+
+	peer, err := bootstrap.New(log, identity, db, runCfg)
+	if err != nil {
+		return err
+	}
+
+	runError := peer.Run(ctx)
+	closeError := peer.Close()
+
+	return errs.Combine(runError, closeError)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
