@@ -13,10 +13,22 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gtank/cryptopasta"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 )
+
+var (
+	// BwAgreementError the default bwagreement errs class
+	var BwAgreementError = errs.Class("bwagreement error")
+	mon = monkit.Package()
+)
+
+// Config is a configuration struct that is everything you need to start an
+// agreement receiver responsibility
+type Config struct {
+}
 
 // DB stores bandwidth agreements.
 type DB interface {

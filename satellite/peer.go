@@ -75,7 +75,7 @@ type Config struct {
 	Discovery discovery.Config
 
 	PointerDB   pointerdb.Config
-	BwAgreement bwagreement.Config
+	BwAgreement bwagreement.Config // TODO: decide whether to keep empty configs for consistency
 
 	Checker  checker.Config
 	Repairer repairer.Config
