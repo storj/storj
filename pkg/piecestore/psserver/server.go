@@ -246,7 +246,7 @@ func (s *Server) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_Dashb
 
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
-	s.log.Info("Deleting", zap.String("Piece ID", fmt.Sprint(in.GetId())))
+	s.log.Debug("Deleting", zap.String("Piece ID", fmt.Sprint(in.GetId())))
 
 	authorization := in.GetAuthorization()
 	if err := s.verifier(authorization); err != nil {

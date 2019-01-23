@@ -45,7 +45,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("PieceStore message is nil")
 	}
 
-	s.log.Debug("Storing", zap.String("Piece ID", fmt.Sprint(pd.GetId())))
+	s.log.Info("Storing", zap.String("Piece ID", fmt.Sprint(pd.GetId())))
 
 	if pd.GetId() == "" {
 		return StoreError.New("piece ID not specified")
