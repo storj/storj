@@ -114,7 +114,7 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 		"nodeID",
 		"nodeCreationDate",
 		"auditSuccessRatio",
-		"bytes/hr:AtRest",
+		"byte-hours:AtRest",
 		"bytes:BWRepair-GET",
 		"bytes:BWRepair-PUT",
 		"bytes:BWAudit",
