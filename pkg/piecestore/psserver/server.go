@@ -30,6 +30,7 @@ import (
 	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -64,6 +65,7 @@ type Server struct {
 	pkey             crypto.PrivateKey
 	totalAllocated   int64 // TODO: use memory.Size
 	totalBwAllocated int64 // TODO: use memory.Size
+	whitelist        []storj.NodeID
 	verifier         auth.SignedMessageVerifier
 	kad              *kademlia.Kademlia
 }
@@ -121,6 +123,18 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 		log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", allocatedDiskSpace))
 	}
 
+	// parse the comma separated list of approved satellite IDs into an array of storj.NodeIDs
+	var whitelist []storj.NodeID
+	if config.SatelliteIDRestriction {
+		idStrings := strings.Split(config.WhitelistedSatelliteIDs, ",")
+		for i, s := range idStrings {
+			whitelist[i], err = storj.NodeIDFromString(s)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	return &Server{
 		startTime:        time.Now(),
 		log:              log,
@@ -129,6 +143,7 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 		pkey:             pkey,
 		totalAllocated:   allocatedDiskSpace,
 		totalBwAllocated: allocatedBandwidth,
+		whitelist:        whitelist,
 		verifier:         auth.NewSignedMessageVerifier(),
 		kad:              k,
 	}, nil
@@ -306,6 +321,16 @@ func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation_Data, ac
 		return StoreError.New("payer bandwidth allocation: invalid action %v", pba.Action.String())
 	}
 	return nil
+}
+
+// approved returns true if a node ID exists in a list of approved node IDs
+func (s *Server) approved(id storj.NodeID) bool {
+	for _, n := range s.whitelist {
+		if n == id {
+			return true
+		}
+	}
+	return false
 }
 
 func getBeginningOfMonth() time.Time {
