@@ -134,7 +134,6 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 // Start starts all the nodes.
 func (planet *Planet) Start(ctx context.Context) {
-	// Now run all the rest
 	for _, peer := range planet.peers {
 		go func(peer Peer) {
 			err := peer.Run(ctx)
