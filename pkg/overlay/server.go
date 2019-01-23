@@ -93,36 +93,31 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 	var allReputableNodes []*pb.Node
 
 	for {
-		reputableNodes, reputableStartID, err := server.getReputableNodes(ctx, reputableStartID, requiredReputableNodes, restrictions, excluded)
+		var reputableNodes []*pb.Node
+		var err error
+		reputableNodes, reputableStartID, err = server.getReputableNodes(ctx, reputableStartID, requiredReputableNodes, restrictions, excluded)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		fmt.Println("length reputable nodes", len(reputableNodes))
 
 		reputableNodes, excluded, usedAddrs = server.filterNodes(ctx, reputableNodes, requiredReputableNodes, usedAddrs, excluded)
-		fmt.Println("length post filterNodes reputableNodes", len(reputableNodes))
 
-		allReputableNodes = append(allReputableNodes, reputableNodes[:requiredReputableNodes]...)
-		fmt.Println("another length all reputable nodes", len(allReputableNodes))
+		allReputableNodes = append(allReputableNodes, reputableNodes...)
 
 		// this means we've exhausted the overlay cache looking for reputable nodes or we have enough
 		if reputableStartID == (storj.NodeID{}) || int64(len(allReputableNodes)) >= requiredReputableNodes {
-			fmt.Println("length all reputable nodes")
-			fmt.Println(len(allReputableNodes))
-
-			for _, node := range allReputableNodes {
-				fmt.Println("\n\n address", node.GetAddress())
-				fmt.Println("\n\n audit count", node.GetReputation().AuditCount)
-			}
 			break
 		}
 	}
 
 	for {
-		newNodes, newStartID, err := server.getNewNodes(ctx, newStartID, requiredNewNodes, restrictions, excluded)
+		var newNodes []*pb.Node
+		var err error
+		newNodes, newStartID, err = server.getNewNodes(ctx, newStartID, requiredNewNodes, restrictions, excluded)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
+
 		newNodes, excluded, usedAddrs = server.filterNodes(ctx, newNodes, requiredNewNodes, usedAddrs, excluded)
 
 		allNewNodes = append(allNewNodes, newNodes...)
@@ -165,11 +160,6 @@ func (server *Server) filterNodes(ctx context.Context, nodes []*pb.Node, nodeReq
 	for _, n := range nodes {
 		addr := n.Address.GetAddress()
 
-		// Todo(nat): why does this have to be here and not inside getReputableNodes
-		if n.GetType() != pb.NodeType_STORAGE {
-			continue
-		}
-
 		excluded = append(excluded, n.Id) // exclude all nodes on next iteration
 		updatedExcluded = excluded
 		if !usedAddrs[addr] {
@@ -208,6 +198,8 @@ func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeI
 		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
+	var resultNodes []*pb.Node
+
 	for _, v := range nodes {
 		if v == nil {
 			continue
@@ -221,6 +213,10 @@ func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeI
 		restrictions := v.GetRestrictions()
 		reputation := v.GetReputation()
 
+		if reputation.GetAuditCount() < server.newNodeAuditThreshold {
+			continue
+		}
+
 		if restrictions.GetFreeBandwidth() < minRestrictions.GetFreeBandwidth() ||
 			restrictions.GetFreeDisk() < minRestrictions.GetFreeDisk() ||
 			reputation.GetUptimeRatio() < minReputation.GetUptimeRatio() ||
@@ -231,7 +227,7 @@ func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeI
 			server.log.Debug("excluded = " + v.Id.String())
 			continue
 		}
-		nodes = append(nodes, v)
+		resultNodes = append(resultNodes, v)
 	}
 
 	var nextStart storj.NodeID
@@ -243,7 +239,7 @@ func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeI
 	if err != nil {
 		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
-	return nodes, nextStart, nil
+	return resultNodes, nextStart, nil
 }
 
 func (server *Server) getNewNodes(ctx context.Context, startID storj.NodeID, maxNodes int64,
@@ -273,6 +269,8 @@ func (server *Server) getNewNodes(ctx context.Context, startID storj.NodeID, max
 		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
+	var resultNodes []*pb.Node
+
 	for _, v := range nodes {
 		if v.Type != pb.NodeType_STORAGE {
 			continue
@@ -288,7 +286,7 @@ func (server *Server) getNewNodes(ctx context.Context, startID storj.NodeID, max
 
 		} else if nodeReputation.GetAuditCount() < server.newNodeAuditThreshold {
 			server.log.Debug("append " + v.Id.String() + " - " + v.Type.String())
-			nodes = append(nodes, v)
+			resultNodes = append(resultNodes, v)
 		}
 	}
 
@@ -299,7 +297,7 @@ func (server *Server) getNewNodes(ctx context.Context, startID storj.NodeID, max
 		nextStart = nodeList[len(nodeList)-1].Id
 	}
 
-	return nodes, nextStart, nil
+	return resultNodes, nextStart, nil
 }
 
 // contains checks if item exists in list

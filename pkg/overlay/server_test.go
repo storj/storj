@@ -4,7 +4,7 @@
 package overlay_test
 
 import (
-	"fmt"
+	// "fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	// "storj.io/storj/pkg/statdb"
 )
 
 func TestServer(t *testing.T) {
@@ -82,7 +83,7 @@ func TestNewNodeFiltering(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	for i, tt := range []struct {
+	for _, tt := range []struct {
 		name                  string
 		newNodeAuditThreshold int64
 		newNodePercentage     float64
@@ -91,6 +92,42 @@ func TestNewNodeFiltering(t *testing.T) {
 		reputableNodes        int
 		totalNodes            int
 	}{
+		{
+			name:                  "case: 0% new nodes requested",
+			requestedNodeAmt:      1,
+			reputableNodes:        1,
+			newNodePercentage:     0,
+			expectedResultLength:  1,
+			newNodeAuditThreshold: 1,
+			totalNodes:            3,
+		},
+		{
+			name:                  "case: exactly the required amount of new and reputable nodes returned",
+			requestedNodeAmt:      1,
+			reputableNodes:        1,
+			newNodePercentage:     1,
+			expectedResultLength:  2,
+			newNodeAuditThreshold: 1,
+			totalNodes:            2,
+		},
+		{
+			name:                  "case: 50% new nodes requested",
+			requestedNodeAmt:      2,
+			reputableNodes:        2,
+			newNodePercentage:     0.5,
+			expectedResultLength:  3,
+			newNodeAuditThreshold: 1,
+			totalNodes:            3,
+		},
+		{
+			name:                  "case: more than required reputable nodes",
+			requestedNodeAmt:      2,
+			reputableNodes:        3,
+			newNodePercentage:     0,
+			expectedResultLength:  2,
+			newNodeAuditThreshold: 1,
+			totalNodes:            4,
+		},
 		{
 			name:                  "case: fewer than required reputable nodes",
 			requestedNodeAmt:      4,
@@ -101,28 +138,22 @@ func TestNewNodeFiltering(t *testing.T) {
 			totalNodes:            4,
 		},
 		// {
-		// 	name:                  "case: more than required reputable nodes",
-		// 	requestedNodeAmt:      2,
-		// 	reputableNodes:        3,
-		//	newNodePercentage:     0,
-		// 	expectedResultLength:  2,
-		// 	newNodeAuditThreshold: 1,
-		// },
-		// {
 		// 	name:                  "case: zero reputable nodes found, only new nodes",
 		// 	requestedNodeAmt:      2,
 		// 	reputableNodes:        0,
 		// 	expectedResultLength:  2,
 		// 	newNodeAuditThreshold: 1,
+		// 	newNodePercentage:     0,
+		// 	totalNodes:            3,
 		// },
 		// {
-		// 	name:              "case: fewer than required new nodes",
-		// 	requestedNodeAmt:  2,
-		// 	reputableNodes:    3,
-		// 	newNodePercentage: 0.5,
-		// 	// this gives extra reputable instead
+		// 	name:                  "case: fewer than required new nodes",
+		// 	requestedNodeAmt:      2,
+		// 	reputableNodes:        3,
+		// 	newNodePercentage:     0.5,
 		// 	expectedResultLength:  3,
 		// 	newNodeAuditThreshold: 1,
+		// 	totalNodes:            4,
 		// },
 		// {
 		// 	name:                  "case: more than required new nodes",
@@ -133,20 +164,11 @@ func TestNewNodeFiltering(t *testing.T) {
 		// 	newNodeAuditThreshold: 1,
 		// },
 		// {
-		// 	// todo(nat): fix nodes length issue
 		// 	name:                  "case: zero new nodes found, only reputable nodes",
 		// 	requestedNodeAmt:      3,
 		// 	reputableNodes:        3,
 		// 	newNodePercentage:     0.5,
 		// 	expectedResultLength:  4,
-		// 	newNodeAuditThreshold: 1,
-		// },
-		// {
-		// 	name:                  "case: exactly the required amount of new and reputable nodes returned",
-		// 	requestedNodeAmt:      1,
-		// 	reputableNodes:        1,
-		// 	newNodePercentage:     1,
-		// 	expectedResultLength:  2,
 		// 	newNodeAuditThreshold: 1,
 		// },
 		// {
@@ -165,14 +187,7 @@ func TestNewNodeFiltering(t *testing.T) {
 		// 	newNodePercentage:     3,
 		// 	expectedResultLength:  4,
 		// 	newNodeAuditThreshold: 1,
-		// },
-		// {
-		// 	name:                  "case: 0% new nodes requested",
-		// 	requestedNodeAmt:      1,
-		// 	reputableNodes:        1,
-		// 	newNodePercentage:     0,
-		// 	expectedResultLength:  1,
-		// 	newNodeAuditThreshold: 1,
+		// 	totalNodes:            5,
 		// },
 	} {
 
@@ -180,7 +195,6 @@ func TestNewNodeFiltering(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		// defer ctx.Check(planet.Shutdown)
 
 		planet.Start(ctx)
 		// we wait a second for all the nodes to complete bootstrapping off the satellite
@@ -192,58 +206,32 @@ func TestNewNodeFiltering(t *testing.T) {
 			&pb.NodeStats{}, 2, tt.newNodeAuditThreshold, tt.newNodePercentage)
 
 		for i := range planet.StorageNodes {
-			// auditCount := int64(0)
 
 			address := "127.0.0.1:555" + strconv.Itoa(i)
-			fmt.Println(address)
-			// if i > tt.reputableNodes {
-			// 	auditCount = tt.newNodeAuditThreshold
-			// }
-			fmt.Println(planet.StorageNodes[i].ID().String())
+
 			n := &pb.Node{
-				Id:         planet.StorageNodes[i].ID(),
-				Reputation: &pb.NodeStats{AuditCount: tt.newNodeAuditThreshold},
-				Address:    &pb.NodeAddress{Address: address},
+				Id:      planet.StorageNodes[i].ID(),
+				Address: &pb.NodeAddress{Address: address},
 			}
-			fmt.Println(n.Reputation.AuditCount)
+
+			// This sets a reputable audit count for a certain number of nodes.
+			if i < tt.reputableNodes {
+				for j := int64(0); j < tt.newNodeAuditThreshold; j++ {
+					_, err := satellite.DB.StatDB().UpdateAuditSuccess(ctx, n.Id, true)
+					assert.NoError(t, err, tt.name)
+				}
+			}
 
 			err = satellite.Overlay.Service.Put(ctx, n.Id, *n)
 			assert.NoError(t, err, tt.name)
 		}
-
-		// fmt.Println("all test planet nodes")
-		// for i := range planet.StorageNodes {
-		// 	auditCount := int64(0)
-		// 	address := "127.0.0.1:555" + strconv.Itoa(i)
-		// 	fmt.Println(address)
-		// 	if i < tt.reputableNodes {
-		// 		auditCount = tt.newNodeAuditThreshold
-		// 	}
-		// 	fmt.Println(planet.StorageNodes[i].ID().String())
-		// 	n := &pb.Node{
-		// 		Id:         planet.StorageNodes[i].ID(),
-		// 		Reputation: &pb.NodeStats{AuditCount: auditCount},
-		// 		Address:    &pb.NodeAddress{Address: address},
-		// 	}
-
-		// 	err = satellite.Overlay.Service.Put(ctx, n.Id, *n)
-		// 	assert.NoError(t, err, tt.name)
-		// }
-
-		// for i := 0; i <= tt.reputableNodes; i++ {
-		// 	err := satellite.Overlay.Service.Put(ctx, planet.StorageNodes[i].ID(), pb.Node{
-		// 		Id:         planet.StorageNodes[i].ID(),
-		// 		Reputation: &pb.NodeStats{AuditCount: tt.newNodeAuditThreshold},
-		// 	})
-		// 	assert.NoError(t, err, tt.name)
-		// }
 
 		result, err := server.FindStorageNodes(ctx,
 			&pb.FindStorageNodesRequest{
 				Opts: &pb.OverlayOptions{Amount: tt.requestedNodeAmt},
 			})
 
-		if i == 0 {
+		if int64(tt.expectedResultLength) < tt.requestedNodeAmt {
 			stat, ok := status.FromError(err)
 			assert.Equal(t, true, ok, tt.name)
 			assert.Equal(t, codes.ResourceExhausted, stat.Code(), tt.name)
@@ -251,11 +239,6 @@ func TestNewNodeFiltering(t *testing.T) {
 			assert.NoError(t, err, tt.name)
 		}
 
-		fmt.Println("\n\nactual nodes")
-		for _, node := range result.GetNodes() {
-			fmt.Println(node.Address)
-			fmt.Println(node.GetType())
-		}
 		assert.Equal(t, tt.expectedResultLength, len(result.GetNodes()), tt.name)
 
 		ctx.Check(planet.Shutdown)
