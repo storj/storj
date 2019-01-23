@@ -22,6 +22,8 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/accounting/rollup"
+	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
@@ -29,6 +31,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/payments"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/piecestore/psserver"
@@ -271,6 +274,15 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				APIKey:        "",
 			},
 			// TODO: Audit    audit.Config
+			Tally: tally.Config{
+				Interval: 30 * time.Second,
+			},
+			Rollup: rollup.Config{
+				Interval: 120 * time.Second,
+			},
+			Payments: payments.Config{
+				Filepath: filepath.Join(storageDir, "reports"),
+			},
 		}
 
 		peer, err := satellite.New(log, identity, db, &config)
