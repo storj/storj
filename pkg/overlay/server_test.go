@@ -4,12 +4,10 @@
 package overlay_test
 
 import (
-	// "fmt"
 	"strconv"
 	"testing"
 	"time"
 
-	// "github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -19,7 +17,6 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	// "storj.io/storj/pkg/statdb"
 )
 
 func TestServer(t *testing.T) {
@@ -137,58 +134,60 @@ func TestNewNodeFiltering(t *testing.T) {
 			newNodeAuditThreshold: 1,
 			totalNodes:            4,
 		},
-		// {
-		// 	name:                  "case: zero reputable nodes found, only new nodes",
-		// 	requestedNodeAmt:      2,
-		// 	reputableNodes:        0,
-		// 	expectedResultLength:  2,
-		// 	newNodeAuditThreshold: 1,
-		// 	newNodePercentage:     0,
-		// 	totalNodes:            3,
-		// },
-		// {
-		// 	name:                  "case: fewer than required new nodes",
-		// 	requestedNodeAmt:      2,
-		// 	reputableNodes:        3,
-		// 	newNodePercentage:     0.5,
-		// 	expectedResultLength:  3,
-		// 	newNodeAuditThreshold: 1,
-		// 	totalNodes:            4,
-		// },
-		// {
-		// 	name:                  "case: more than required new nodes",
-		// 	requestedNodeAmt:      2,
-		// 	reputableNodes:        2,
-		// 	newNodePercentage:     0.5,
-		// 	expectedResultLength:  3,
-		// 	newNodeAuditThreshold: 1,
-		// },
-		// {
-		// 	name:                  "case: zero new nodes found, only reputable nodes",
-		// 	requestedNodeAmt:      3,
-		// 	reputableNodes:        3,
-		// 	newNodePercentage:     0.5,
-		// 	expectedResultLength:  4,
-		// 	newNodeAuditThreshold: 1,
-		// },
-		// {
-		// 	name:              "case: low percentage of new nodes",
-		// 	requestedNodeAmt:  3,
-		// 	reputableNodes:    1,
-		// 	newNodePercentage: 0.01,
-		// 	// todo(nat): expect this result to be 1
-		// 	expectedResultLength:  3,
-		// 	newNodeAuditThreshold: 1,
-		// },
-		// {
-		// 	name:                  "case: high percentage of new nodes",
-		// 	requestedNodeAmt:      1,
-		// 	reputableNodes:        1,
-		// 	newNodePercentage:     3,
-		// 	expectedResultLength:  4,
-		// 	newNodeAuditThreshold: 1,
-		// 	totalNodes:            5,
-		// },
+		{
+			name:                  "case: zero reputable nodes found, only new nodes",
+			requestedNodeAmt:      2,
+			reputableNodes:        0,
+			expectedResultLength:  2,
+			newNodeAuditThreshold: 1,
+			newNodePercentage:     1,
+			totalNodes:            3,
+		},
+		{
+			name:                  "case: fewer than required new nodes",
+			requestedNodeAmt:      2,
+			reputableNodes:        3,
+			newNodePercentage:     0.5,
+			expectedResultLength:  3,
+			newNodeAuditThreshold: 1,
+			totalNodes:            4,
+		},
+		{
+			name:                  "case: more than required new nodes",
+			requestedNodeAmt:      2,
+			reputableNodes:        2,
+			newNodePercentage:     0.5,
+			expectedResultLength:  3,
+			newNodeAuditThreshold: 1,
+			totalNodes:            5,
+		},
+		{
+			name:                  "case: low percentage of new nodes",
+			requestedNodeAmt:      3,
+			reputableNodes:        1,
+			newNodePercentage:     0.01,
+			expectedResultLength:  1,
+			newNodeAuditThreshold: 1,
+			totalNodes:            4,
+		},
+		{
+			name:                  "case: high percentage of new nodes",
+			requestedNodeAmt:      1,
+			reputableNodes:        1,
+			newNodePercentage:     3,
+			expectedResultLength:  4,
+			newNodeAuditThreshold: 1,
+			totalNodes:            5,
+		},
+		{
+			name:                  "case: zero new nodes found, only reputable nodes",
+			requestedNodeAmt:      5,
+			reputableNodes:        10,
+			newNodePercentage:     0,
+			expectedResultLength:  5,
+			newNodeAuditThreshold: 1,
+			totalNodes:            10,
+		},
 	} {
 
 		planet, err := testplanet.New(t, 1, tt.totalNodes, 1)
