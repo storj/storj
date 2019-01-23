@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
@@ -19,15 +18,18 @@ import (
 // Error is satellite console error type
 var Error = errs.Class("satellite console error")
 
-// Config contains info needed for satellite account related services
-type Config struct {
-	GatewayConfig
-	SatelliteAddr string `help:"satellite main endpoint" default:""`
-	DatabaseURL   string `help:"" default:"sqlite3://$CONFDIR/satellitedb.db"`
+// Server represents console web server
+type Server struct {
+	config Config
+}
+
+// NewServer creates new instance of console server
+func NewServer(config Config) *Server {
+	return &Server{config: config}
 }
 
 // Run implements Responsibility interface
-func (c Config) Run(ctx context.Context, server *provider.Provider) error {
+func (s *Server) Run(ctx context.Context) error {
 	log := zap.NewExample()
 
 	db, ok := ctx.Value("masterdb").(interface {
@@ -63,12 +65,10 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 		return Error.Wrap(err)
 	}
 
-	go (&gateway{
+	return (&gateway{
 		log:     log,
 		schema:  schema,
 		service: service,
-		config:  c.GatewayConfig,
+		config:  s.config,
 	}).run()
-
-	return server.Run(ctx)
 }

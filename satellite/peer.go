@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
@@ -77,6 +78,8 @@ type Config struct {
 	Checker  checker.Config
 	Repairer repairer.Config
 	// TODO: Audit    audit.Config
+
+	Console consoleweb.Config
 }
 
 // Peer is the satellite
@@ -128,6 +131,9 @@ type Peer struct {
 	}
 
 	// TODO: add console
+	Console struct {
+		Server *consoleweb.Server
+	}
 }
 
 // New creates a new satellite
@@ -264,6 +270,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		// TODO: audit needs many fixes
 	}
 
+	{ // setup console
+		peer.Console.Server = consoleweb.NewServer(config.Console)
+	}
+
 	return peer, nil
 }
 
@@ -297,6 +307,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Public.Server.Run(ctx))
+	})
+	group.Go(func() error {
+		return ignoreCancel(peer.Console.Server.Run(context.WithValue(ctx, "masterdb", peer.DB)))
 	})
 
 	return group.Wait()

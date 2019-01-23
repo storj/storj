@@ -13,8 +13,8 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
-// GatewayConfig contains configuration for gateway
-type GatewayConfig struct {
+// Config contains configuration for console web server
+type Config struct {
 	Address    string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
 	StaticPath string `help:"path to static resources" default:""`
 }
@@ -26,13 +26,13 @@ type gateway struct {
 	service *console.Service
 
 	schema graphql.Schema
-	config GatewayConfig
+	config Config
 }
 
 // run starts http server
-func (gw *gateway) run() {
+func (gw *gateway) run() error {
 	mux := http.NewServeMux()
-	//gw.config.StaticPath = "./web/satellite"
+	gw.config.StaticPath = "./web/satellite"
 	fs := http.FileServer(http.Dir(gw.config.StaticPath))
 
 	mux.Handle("/api/graphql/v0", http.HandlerFunc(gw.grapqlHandler))
@@ -42,8 +42,8 @@ func (gw *gateway) run() {
 		mux.Handle("/static/", http.StripPrefix("/static", fs))
 	}
 
-	err := http.ListenAndServe(gw.config.Address, mux)
-	gw.log.Error("unexpected exit of satellite gateway server: ", zap.Error(err))
+	return http.ListenAndServe(gw.config.Address, mux)
+	//gw.log.Error("unexpected exit of satellite gateway server: ", zap.Error(err))
 }
 
 // appHandler is web app http handler function

@@ -7,6 +7,7 @@ package testplanet
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -36,6 +37,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -259,6 +261,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				PointerDBAddr: "", // overridden in satellite.New
 				MaxBufferMem:  4 * memory.MB,
 				APIKey:        "",
+			},
+			Console: consoleweb.Config{
+				Address: fmt.Sprintf("127.0.0.1:80%d", 80+count),
 			},
 			// TODO: Audit    audit.Config
 		}

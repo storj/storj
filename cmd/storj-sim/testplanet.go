@@ -82,6 +82,11 @@ func runTestPlanet(flags *Flags, command string, args []string) error {
 		)
 	}
 
+	if command == "run" {
+		<-ctx.Done()
+		return planet.Shutdown()
+	}
+
 	// run the specified program
 	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Env = env
@@ -89,6 +94,5 @@ func runTestPlanet(flags *Flags, command string, args []string) error {
 	processgroup.Setup(cmd)
 
 	errRun := cmd.Run()
-
 	return utils.CombineErrors(errRun, planet.Shutdown())
 }
