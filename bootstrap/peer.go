@@ -54,11 +54,12 @@ type Peer struct {
 	}
 
 	// services and endpoints
-	// TODO: similar grouping to satellite.Peer
-	RoutingTable      *kademlia.RoutingTable
-	Kademlia          *kademlia.Kademlia
-	KademliaEndpoint  *node.Server
-	KademliaInspector *kademlia.Inspector
+	Kademlia struct {
+		RoutingTable *kademlia.RoutingTable
+		Service      *kademlia.Kademlia
+		Endpoint     *node.Server
+		Inspector    *kademlia.Inspector
+	}
 }
 
 // New creates a new Bootstrap Node.
@@ -110,22 +111,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		}
 
 		kdb, ndb := peer.DB.RoutingTable()
-		peer.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb)
+		peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
 		// TODO: reduce number of arguments
-		peer.Kademlia, err = kademlia.NewWith(peer.Log.Named("kademlia"), self, nil, peer.Identity, config.Alpha, peer.RoutingTable)
+		peer.Kademlia.Service, err = kademlia.NewWith(peer.Log.Named("kademlia"), self, nil, peer.Identity, config.Alpha, peer.Kademlia.RoutingTable)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.KademliaEndpoint = node.NewServer(peer.Log.Named("kademlia:endpoint"), peer.Kademlia)
-		pb.RegisterNodesServer(peer.Public.Server.GRPC(), peer.KademliaEndpoint)
+		peer.Kademlia.Endpoint = node.NewServer(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service)
+		pb.RegisterNodesServer(peer.Public.Server.GRPC(), peer.Kademlia.Endpoint)
 
-		peer.KademliaInspector = kademlia.NewInspector(peer.Kademlia, peer.Identity)
-		pb.RegisterKadInspectorServer(peer.Public.Server.GRPC(), peer.KademliaInspector)
+		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
+		pb.RegisterKadInspectorServer(peer.Public.Server.GRPC(), peer.Kademlia.Inspector)
 	}
 
 	return peer, nil
@@ -138,7 +139,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 
 	var group errgroup.Group
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.RunRefresh(ctx))
+		return ignoreCancel(peer.Kademlia.Service.RunRefresh(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -163,11 +164,11 @@ func (peer *Peer) Close() error {
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close services in reverse initialization order
-	if peer.Kademlia != nil {
-		errlist.Add(peer.Kademlia.Close())
+	if peer.Kademlia.Service != nil {
+		errlist.Add(peer.Kademlia.Service.Close())
 	}
-	if peer.RoutingTable != nil {
-		errlist.Add(peer.RoutingTable.SelfClose())
+	if peer.Kademlia.RoutingTable != nil {
+		errlist.Add(peer.Kademlia.RoutingTable.SelfClose())
 	}
 
 	// close servers
@@ -186,7 +187,7 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() pb.Node { return peer.RoutingTable.Local() }
+func (peer *Peer) Local() pb.Node { return peer.Kademlia.RoutingTable.Local() }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Public.Server.Addr().String() }

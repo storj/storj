@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 )
@@ -190,22 +189,26 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return BootstrapErr.New("no bootstrap nodes provided")
 	}
 
-	var errs utils.ErrorGroup
+	var errs errs.Group
 	for _, node := range k.bootstrapNodes {
 		_, err := k.dialer.Ping(ctx, node)
-		if err != nil {
-			errs.Add(err)
+		if err == nil {
+			// We have pinged successfully one bootstrap node.
+			// Clear any errors and break the cycle.
+			errs = nil
+			break
 		}
+		errs.Add(err)
 	}
-	err := errs.Finish()
+	err := errs.Err()
 	if err != nil {
 		return err
 	}
 
 	bootstrapContext, bootstrapCancel := context.WithCancel(ctx)
 	atomic.StorePointer(&k.bootstrapCancel, unsafe.Pointer(&bootstrapCancel))
-	//find nodes most similar to self
 
+	//find nodes most similar to self
 	k.routingTable.mutex.Lock()
 	id := k.routingTable.self.Id
 	k.routingTable.mutex.Unlock()

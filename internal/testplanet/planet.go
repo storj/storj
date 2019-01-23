@@ -134,32 +134,24 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 // Start starts all the nodes.
 func (planet *Planet) Start(ctx context.Context) {
-	// First run the bootstrap nodes
-	for _, peer := range planet.peers {
-		if peer.Local().Type == pb.NodeType_BOOTSTRAP {
-			go run(ctx, peer)
-		}
-	}
-
 	// Now run all the rest
 	for _, peer := range planet.peers {
-		if peer.Local().Type != pb.NodeType_BOOTSTRAP {
-			go run(ctx, peer)
-		}
+		go func(peer Peer) {
+			err := peer.Run(ctx)
+			if err == grpc.ErrServerStopped {
+				err = nil
+			}
+			if err != nil {
+				// TODO: better error handling
+				panic(err)
+			}
+		}(peer)
 	}
 
 	planet.started = true
 }
 
 func run(ctx context.Context, peer Peer) {
-	err := peer.Run(ctx)
-	if err == grpc.ErrServerStopped {
-		err = nil
-	}
-	if err != nil {
-		// TODO: better error handling
-		panic(err)
-	}
 }
 
 // Size returns number of nodes in the network
@@ -331,7 +323,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 		config := storagenode.Config{
 			Server: server.Config{
 				Address:            "127.0.0.1:0",
-				RevocationDBURL:    "bolt://" + filepath.Join(planet.directory, "revocation.db"),
+				RevocationDBURL:    "bolt://" + filepath.Join(storageDir, "revocation.db"),
 				UsePeerCAWhitelist: false, // TODO: enable
 				Extensions: peertls.TLSExtConfig{
 					Revocation:          true,
@@ -400,7 +392,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 	config := bootstrap.Config{
 		Server: server.Config{
 			Address:            "127.0.0.1:0",
-			RevocationDBURL:    "bolt://" + filepath.Join(planet.directory, "revocation.db"),
+			RevocationDBURL:    "bolt://" + filepath.Join(dbDir, "revocation.db"),
 			UsePeerCAWhitelist: false, // TODO: enable
 			Extensions: peertls.TLSExtConfig{
 				Revocation:          true,
