@@ -56,7 +56,7 @@ func Open(ctx context.Context, storage *pstore.Storage, DBPath string) (db *DB, 
 		return nil, err
 	}
 
-	sqlite, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?cache=shared&mode=rwc&mutex=full", DBPath))
+	sqlite, err := sql.Open("sqlite3", fmt.Sprintf("file:%s", DBPath))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
