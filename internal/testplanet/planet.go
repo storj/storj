@@ -278,7 +278,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				MaxRetriesStatDB: 0,
 				Interval:         30 * time.Second,
 			},
-			// TODO: Audit    audit.Config
 			Tally: tally.Config{
 				Interval: 30 * time.Second,
 			},
