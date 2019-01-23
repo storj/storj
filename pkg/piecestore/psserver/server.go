@@ -147,7 +147,7 @@ func (s *Server) Stop(ctx context.Context) error {
 
 // Piece -- Send meta data about a piece stored by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
-	s.log.Info("Getting Meta", zap.String("Piece ID", in.GetId()))
+	s.log.Debug("Getting Meta", zap.String("Piece ID", in.GetId()))
 
 	authorization := in.GetAuthorization()
 	if err := s.verifier(authorization); err != nil {
@@ -190,7 +190,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 
 // Stats will return statistics about the Server
 func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, error) {
-	s.log.Info("Getting Stats...")
+	s.log.Debug("Getting Stats...")
 
 	statsSummary, err := s.retrieveStats()
 	if err != nil {
