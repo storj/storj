@@ -35,8 +35,8 @@ type Config struct {
 	// TODO: service should not write to disk, but return the result instead
 }
 
-// Server holds references to ...
-type Server struct { // TODO: separate endpoint and service, fix comment
+// Server holds references to info needed for the payments responsibility
+type Server struct { // TODO: separate endpoint and service
 	filepath     string
 	accountingDB accounting.DB
 	overlayDB    overlay.DB
