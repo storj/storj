@@ -261,6 +261,8 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 		return nil, err
 	}
 
+	s.log.Info("Successfully deleted", zap.String("Piece ID", fmt.Sprint(in.GetId())))
+
 	return &pb.PieceDeleteSummary{Message: OK}, nil
 }
 
@@ -272,8 +274,6 @@ func (s *Server) deleteByID(id string) error {
 	if err := s.DB.DeleteTTLByID(id); err != nil {
 		return err
 	}
-
-	s.log.Info("Successfully deleted", zap.String("Piece ID", id))
 
 	return nil
 }
