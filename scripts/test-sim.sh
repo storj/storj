@@ -21,6 +21,10 @@ storj-sim -x network setup
 storj-sim -x network test bash $SCRIPTDIR/test-sim-aws.sh
 storj-sim -x network destroy
 
+# run payments csv generation tests
+storj-sim -x network test bash $SCRIPTDIR/test-sim-payments.sh
+storj-sim -x network destroy
+
 # ipv6 tests disabled because aws-cli doesn't seem to support connecting to ipv6 host
 # # setup the network with ipv6
 # storj-sim -x --host "::1" network setup

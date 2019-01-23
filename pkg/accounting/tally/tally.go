@@ -50,7 +50,7 @@ func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreeme
 // Run the Tally loop
 func (t *Tally) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
+	t.logger.Info("IN TALLY RUN")
 	for {
 		err = t.calculateAtRestData(ctx)
 		if err != nil {
