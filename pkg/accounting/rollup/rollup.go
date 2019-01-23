@@ -26,6 +26,7 @@ type Rollup struct { // TODO: rename to service
 	db     accounting.DB
 }
 
+// New creates a new rollup service
 func New(logger *zap.Logger, db accounting.DB, interval time.Duration) *Rollup {
 	return &Rollup{
 		logger: logger,
@@ -50,8 +51,9 @@ func (r *Rollup) Run(ctx context.Context) (err error) {
 	}
 }
 
+// Query rolls up raw tally
 func (r *Rollup) Query(ctx context.Context) error {
-	//only Rollup new things - get LastRollup
+	// only Rollup new things - get LastRollup
 	var latestTally time.Time
 	lastRollup, isNil, err := r.db.LastRawTime(ctx, accounting.LastRollup)
 	if err != nil {

@@ -1,9 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package rollup
-
-// TODO: should be `package rollup_test`
+package rollup_test
 
 import (
 	"testing"
@@ -14,6 +12,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
@@ -61,7 +60,7 @@ func TestQueryTwoDays(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func createRollup(t *testing.T) (*testcontext.Context, *rollup, satellite.DB, map[storj.NodeID]float64, func()) {
+func createRollup(t *testing.T) (*testcontext.Context, *rollup.Rollup, satellite.DB, map[storj.NodeID]float64, func()) {
 	ctx := testcontext.New(t)
 	db, err := satellitedb.NewInMemory()
 	assert.NoError(t, err)
@@ -83,5 +82,5 @@ func createRollup(t *testing.T) (*testcontext.Context, *rollup, satellite.DB, ma
 		assert.NoError(t, err)
 	}
 
-	return ctx, NewRollup(zap.NewNop(), db.Accounting(), time.Second), db, nodeData, cleanup
+	return ctx, rollup.New(zap.NewNop(), db.Accounting(), time.Second), db, nodeData, cleanup
 }

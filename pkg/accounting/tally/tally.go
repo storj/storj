@@ -56,7 +56,7 @@ func (t *Tally) Run(ctx context.Context) (err error) {
 		if err != nil {
 			t.logger.Error("calculateAtRestData failed", zap.Error(err))
 		}
-		err = t.queryBW(ctx)
+		err = t.QueryBW(ctx)
 		if err != nil {
 			t.logger.Error("Query for bandwidth failed", zap.Error(err))
 		}
@@ -139,9 +139,9 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (err error) {
 	return Error.Wrap(t.accountingDB.SaveAtRestRaw(ctx, latestTally, isNil, nodeData))
 }
 
-// queryBW queries bandwidth allocation database, selecting all new contracts since the last collection run time.
+// QueryBW queries bandwidth allocation database, selecting all new contracts since the last collection run time.
 // Grouping by action type, storage node ID and adding total of bandwidth to granular data table.
-func (t *Tally) queryBW(ctx context.Context) error {
+func (t *Tally) QueryBW(ctx context.Context) error {
 	t.logger.Info("Tally: Querying Bandwidth Agreements")
 	lastBwTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastBandwidthTally)
 	if err != nil {
