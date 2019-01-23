@@ -44,34 +44,35 @@ type OperatorConfig struct {
 }
 
 // Verify verifies whether operator config is valid.
-func (c OperatorConfig) Verify() error {
-	if err := isOperatorEmailValid(c.Email); err != nil {
+func (c OperatorConfig) Verify(log *zap.Logger) error {
+	if err := isOperatorEmailValid(log, c.Email); err != nil {
 		return err
 	}
 
-	if err := isOperatorWalletValid(c.Wallet); err != nil {
+	if err := isOperatorWalletValid(log, c.Wallet); err != nil {
 		return err
 	}
-	// TODO: log.Info("Operator email: ", c.Email)
-	// TODO: log.Info("Operator wallet: ", c.Wallet)
+
+	log.Sugar().Info("Operator email: ", c.Email)
+	log.Sugar().Info("Operator wallet: ", c.Wallet)
 
 	return nil
 }
 
-func isOperatorEmailValid(email string) error {
+func isOperatorEmailValid(log *zap.Logger, email string) error {
 	if email == "" {
-		return fmt.Errorf("Operator mail address isn't specified")
+		log.Sugar().Warn("Operator email address isn't specified.")
 	}
 	return nil
 }
 
-func isOperatorWalletValid(wallet string) error {
+func isOperatorWalletValid(log *zap.Logger, wallet string) error {
 	if wallet == "" {
-		return fmt.Errorf("Operator wallet address isn't specified")
+		return fmt.Errorf("Operator wallet address isn't specified.")
 	}
 	r := regexp.MustCompile("^0x[a-fA-F0-9]{40}$")
 	if match := r.MatchString(wallet); !match {
-		return fmt.Errorf("Operator wallet address isn't valid")
+		return fmt.Errorf("Operator wallet address isn't valid.")
 	}
 	return nil
 }
@@ -87,17 +88,8 @@ type Config struct {
 }
 
 // Verify verifies whether kademlia config is valid.
-func (c Config) Verify() error {
-	return c.Operator.Verify()
-}
-
-// StorageNodeConfig is a Config that implements provider.Responsibility as
-// a storage node
-type StorageNodeConfig Config
-
-// Run implements provider.Responsibility
-func (c StorageNodeConfig) Run(ctx context.Context, server *provider.Provider) error {
-	return Config(c).Run(ctx, server, pb.NodeType_STORAGE)
+func (c Config) Verify(log *zap.Logger) error {
+	return c.Operator.Verify(log)
 }
 
 // BootstrapConfig is a Config that implements provider.Responsibility as

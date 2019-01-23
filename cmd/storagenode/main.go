@@ -130,19 +130,21 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	log := zap.L()
+
 	identity, err := runCfg.Server.Identity.Load()
 	if err != nil {
 		zap.S().Fatal(err)
 	}
 
-	if err := runCfg.Verify(); err != nil {
-		zap.S().Error("Invalid configuration:", err)
+	if err := runCfg.Verify(log); err != nil {
+		log.Sugar().Error("Invalid configuration: ", err)
 		return err
 	}
 
 	ctx := process.Ctx(cmd)
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Server.Identity.CertPath); err != nil {
-		zap.S().Error("Failed to initialize telemetry batcher:", err)
+		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
 	db, err := storagenodedb.New(storagenodedb.Config{
@@ -154,7 +156,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	peer, err := storagenode.New(zap.L(), identity, db, runCfg.Config)
+	peer, err := storagenode.New(log, identity, db, runCfg.Config)
 	if err != nil {
 		return err
 	}

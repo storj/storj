@@ -41,8 +41,8 @@ type Config struct {
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
-func (config *Config) Verify() error {
-	return config.Kademlia.Verify()
+func (config *Config) Verify(log *zap.Logger) error {
+	return config.Kademlia.Verify(log)
 }
 
 // Peer is the representation of a Storage Node.
