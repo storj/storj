@@ -138,9 +138,6 @@ func (peer *Peer) Run(ctx context.Context) error {
 
 	var group errgroup.Group
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Bootstrap(ctx))
-	})
-	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.RunRefresh(ctx))
 	})
 	group.Go(func() error {
