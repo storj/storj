@@ -150,9 +150,6 @@ func (planet *Planet) Start(ctx context.Context) {
 	planet.started = true
 }
 
-func run(ctx context.Context, peer Peer) {
-}
-
 // Size returns number of nodes in the network
 func (planet *Planet) Size() int { return len(planet.nodes) + len(planet.peers) }
 
