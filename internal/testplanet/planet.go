@@ -30,9 +30,11 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite"
@@ -311,7 +313,15 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 		planet.databases = append(planet.databases, db)
 
 		config := storagenode.Config{
-			PublicAddress: "127.0.0.1:0",
+			Server: server.Config{
+				Address:            "127.0.0.1:0",
+				RevocationDBURL:    "bolt://" + filepath.Join(planet.directory, "revocation.db"),
+				UsePeerCAWhitelist: false, // TODO: enable
+				Extensions: peertls.TLSExtConfig{
+					Revocation:          true,
+					WhitelistSignedLeaf: false,
+				},
+			},
 			Kademlia: kademlia.Config{
 				Alpha:  5,
 				DBPath: storageDir, // TODO: replace with master db
@@ -321,10 +331,11 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 				},
 			},
 			Storage: psserver.Config{
-				Path:                   "", // TODO: this argument won't be needed with master storagenodedb
-				AllocatedDiskSpace:     memory.TB,
-				AllocatedBandwidth:     memory.TB,
-				KBucketRefreshInterval: time.Minute,
+				Path:                         "", // TODO: this argument won't be needed with master storagenodedb
+				AllocatedDiskSpace:           memory.TB,
+				AllocatedBandwidth:           memory.TB,
+				KBucketRefreshInterval:       time.Hour,
+				AgreementSenderCheckInterval: time.Hour,
 			},
 		}
 
