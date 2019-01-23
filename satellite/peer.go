@@ -78,7 +78,7 @@ type Config struct {
 	Repairer repairer.Config
 	// TODO: Audit    audit.Config
 
-	// Tally       tally.Config
+	Tally tally.Config
 	// Rollup      rollup.Config
 	// Payments    payments.Config
 }
@@ -133,6 +133,10 @@ type Peer struct {
 	}
 	Audit struct {
 		// TODO: Service *audit.Service
+	}
+
+	Accounting struct {
+		Tally *tally.Tally
 	}
 
 	// TODO: add console
@@ -276,6 +280,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 	{ // setup audit
 		// TODO: audit needs many fixes
+	}
+
+	{ // setup accounting
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
 	}
 
 	return peer, nil

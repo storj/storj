@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package tally
+package Tally
 
 import (
 	"context"
@@ -18,14 +18,15 @@ import (
 	"storj.io/storj/storage"
 )
 
-// Tally is the service for accounting for data stored on each storage node
-type Tally interface {
-	Run(ctx context.Context) error
+// Config contains configurable values for tally
+type Config struct {
+	Interval time.Duration `help:"how frequently tally should run" default:"30s"`
 }
 
-type tally struct {
+// Tally is the service for accounting for data stored on each storage node
+type Tally struct { // TODO: rename Tally to Service
 	pointerdb     *pointerdb.Service
-	overlay       pb.OverlayServer
+	overlay       pb.OverlayServer // TODO: this should be *overlay.Service
 	limit         int
 	logger        *zap.Logger
 	ticker        *time.Ticker
@@ -33,8 +34,9 @@ type tally struct {
 	bwAgreementDB bwagreement.DB // bwagreements database
 }
 
-func newTally(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Service, overlay pb.OverlayServer, limit int, interval time.Duration) *tally {
-	return &tally{
+// New creates a new Tally
+func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Service, overlay pb.OverlayServer, limit int, interval time.Duration) *Tally {
+	return &Tally{
 		pointerdb:     pointerdb,
 		overlay:       overlay,
 		limit:         limit,
@@ -45,8 +47,8 @@ func newTally(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwag
 	}
 }
 
-// Run the tally loop
-func (t *tally) Run(ctx context.Context) (err error) {
+// Run the Tally loop
+func (t *Tally) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
@@ -61,7 +63,7 @@ func (t *tally) Run(ctx context.Context) (err error) {
 
 		select {
 		case <-t.ticker.C: // wait for the next interval to happen
-		case <-ctx.Done(): // or the tally is canceled via context
+		case <-ctx.Done(): // or the Tally is canceled via context
 			return ctx.Err()
 		}
 	}
@@ -69,7 +71,7 @@ func (t *tally) Run(ctx context.Context) (err error) {
 
 // calculateAtRestData iterates through the pieces on pointerdb and calculates
 // the amount of at-rest data stored on each respective node
-func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
+func (t *Tally) calculateAtRestData(ctx context.Context) (err error) {
 	t.logger.Info("Tally: Entering calculate at rest data")
 	defer mon.Task()(&ctx)(&err)
 
@@ -139,7 +141,7 @@ func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 
 // queryBW queries bandwidth allocation database, selecting all new contracts since the last collection run time.
 // Grouping by action type, storage node ID and adding total of bandwidth to granular data table.
-func (t *tally) queryBW(ctx context.Context) error {
+func (t *Tally) queryBW(ctx context.Context) error {
 	t.logger.Info("Tally: Querying Bandwidth Agreements")
 	lastBwTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastBandwidthTally)
 	if err != nil {
@@ -170,7 +172,7 @@ func (t *tally) queryBW(ctx context.Context) error {
 	for _, baRow := range bwAgreements {
 		rbad := &pb.RenterBandwidthAllocation_Data{}
 		if err := proto.Unmarshal(baRow.Agreement, rbad); err != nil {
-			t.logger.DPanic("Could not deserialize renter bwa in tally query")
+			t.logger.DPanic("Could not deserialize renter bwa in Tally query")
 			continue
 		}
 		pbad := &pb.PayerBandwidthAllocation_Data{}

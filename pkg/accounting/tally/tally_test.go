@@ -3,6 +3,8 @@
 
 package tally
 
+// TODO: this should be `package tally_test`
+
 import (
 	"context"
 	"crypto/ecdsa"
@@ -28,6 +30,8 @@ func TestQueryNoAgreements(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	// TODO: use testplanet
+
 	service := pointerdb.NewService(zap.NewNop(), teststore.New())
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 	db, err := satellitedb.NewInMemory()
@@ -35,7 +39,7 @@ func TestQueryNoAgreements(t *testing.T) {
 	defer ctx.Check(db.Close)
 	assert.NoError(t, db.CreateTables())
 
-	tally := newTally(zap.NewNop(), db.Accounting(), db.BandwidthAgreement(), service, overlayServer, 0, time.Second)
+	tally := NewTally(zap.NewNop(), db.Accounting(), db.BandwidthAgreement(), service, overlayServer, 0, time.Second)
 
 	err = tally.queryBW(ctx)
 	assert.NoError(t, err)
@@ -44,6 +48,8 @@ func TestQueryNoAgreements(t *testing.T) {
 func TestQueryWithBw(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
+	// TODO: use testplanet
 
 	service := pointerdb.NewService(zap.NewNop(), teststore.New())
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
@@ -55,7 +61,7 @@ func TestQueryWithBw(t *testing.T) {
 	assert.NoError(t, db.CreateTables())
 
 	bwDb := db.BandwidthAgreement()
-	tally := newTally(zap.NewNop(), db.Accounting(), bwDb, service, overlayServer, 0, time.Second)
+	tally := NewTally(zap.NewNop(), db.Accounting(), bwDb, service, overlayServer, 0, time.Second)
 
 	//get a private key
 	fiC, err := testidentity.NewTestIdentity(ctx)
