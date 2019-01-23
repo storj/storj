@@ -23,7 +23,7 @@ type Config struct {
 	Address             string `user:"true" help:"address to listen on" default:":7777"`
 	Extensions          peertls.TLSExtConfig
 
-	Identity identity.Config
+	Identity identity.Config // TODO: separate identity
 }
 
 // Run will run the given responsibilities with the configured identity.

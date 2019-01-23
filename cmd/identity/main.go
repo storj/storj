@@ -11,7 +11,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/certificates"
@@ -45,34 +44,25 @@ var (
 
 	//nolint
 	config struct {
-		Difficulty     uint64 `default:"15" help:"minimum difficulty for identity generation"`
+		Difficulty     uint64 `default:"30" help:"minimum difficulty for identity generation"`
 		Concurrency    uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
 		ParentCertPath string `help:"path to the parent authority's certificate chain"`
 		ParentKeyPath  string `help:"path to the parent authority's private key"`
 		Signer         certificates.CertClientConfig
 	}
 
-	confDir        string
-	defaultConfDir = fpath.ApplicationDir("storj", "identity")
+	identityDir        string
+	defaultIdentityDir = fpath.ApplicationDir("storj", "identity")
 )
 
 func init() {
-	dirParam := cfgstruct.FindConfigDirParam()
-	if dirParam != "" {
-		defaultConfDir = dirParam
-	}
-
-	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
-	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
-	if err != nil {
-		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
-	}
+	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "root directory for identity output")
 
 	rootCmd.AddCommand(newServiceCmd)
 	rootCmd.AddCommand(csrCmd)
 
-	cfgstruct.Bind(newServiceCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.Bind(csrCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(newServiceCmd.Flags(), &config, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(csrCmd.Flags(), &config, cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func main() {
@@ -80,7 +70,7 @@ func main() {
 }
 
 func serviceDirectory(serviceName string) string {
-	return filepath.Join(confDir, serviceName)
+	return filepath.Join(identityDir, serviceName)
 }
 
 func cmdNewService(cmd *cobra.Command, args []string) error {

@@ -23,6 +23,10 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	if _, err := cfg.Identity.Load(); err != nil {
+		zap.S().Fatal(err)
+	}
+
 	for _, flagname := range args {
 		return fmt.Errorf("Invalid argument %#v. Try 'uplink run'", flagname)
 	}

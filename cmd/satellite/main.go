@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,7 +26,6 @@ import (
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/discovery"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/payments"
@@ -42,9 +40,6 @@ import (
 
 // Satellite defines satellite configuration
 type Satellite struct {
-	CA       identity.CASetupConfig `setup:"true"`
-	Identity identity.SetupConfig   `setup:"true"`
-
 	Server      server.Config
 	Kademlia    kademlia.SatelliteConfig
 	PointerDB   pointerdb.Config
@@ -99,32 +94,49 @@ var (
 		QListLimit int    `help:"maximum segments that can be requested" default:"1000"`
 	}
 
-	defaultConfDir string
-	confDir        *string
+	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
+	// TODO: this path should be defined somewhere else
+	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "satellite")
+	confDir            string
+	identityDir        string
 )
 
 func init() {
-	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
-
-	dirParam := cfgstruct.FindConfigDirParam()
-	if dirParam != "" {
-		defaultConfDir = dirParam
+	confDirParam := cfgstruct.FindConfigDirParam()
+	if confDirParam != "" {
+		defaultConfDir = confDirParam
+	}
+	identityDirParam := cfgstruct.FindIdentityDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
 	}
 
-	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for satellite configuration")
+	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for satellite configuration")
+	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
+	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for satellite identity credentials")
+	err = rootCmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(qdiagCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.Bind(qdiagCmd.Flags(), &qdiagCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(qdiagCmd.Flags(), &qdiagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
+	if _, err := runCfg.Server.Identity.Load(); err != nil {
+		zap.S().Fatal(err)
+	}
 
 	database, err := satellitedb.New(runCfg.Database)
 	if err != nil {
@@ -161,7 +173,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*confDir)
+	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
@@ -176,24 +188,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// TODO: handle setting base path *and* identity file paths via args
-	// NB: if base path is set this overrides identity and CA path options
-	if setupDir != defaultConfDir {
-		setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
-		setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
-		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
-		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
-	}
-	if setupCfg.Identity.Status() != identity.CertKey {
-		return errors.New("identity is missing")
-	}
-
-	o := map[string]interface{}{
-		"identity.cert-path": setupCfg.Identity.CertPath,
-		"identity.key-path":  setupCfg.Identity.KeyPath,
-	}
-
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {

@@ -6,6 +6,8 @@ package kademlia
 import (
 	"context"
 	"flag"
+	"fmt"
+	"regexp"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -41,6 +43,41 @@ type OperatorConfig struct {
 	Wallet string `user:"true" help:"operator wallet adress" default:""`
 }
 
+// Verify verifies whether operator config is valid.
+func (c OperatorConfig) Verify(log *zap.Logger) error {
+	if err := isOperatorEmailValid(log, c.Email); err != nil {
+		return err
+	}
+
+	if err := isOperatorWalletValid(log, c.Wallet); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func isOperatorEmailValid(log *zap.Logger, email string) error {
+	if email == "" {
+		log.Sugar().Warn("Operator email address isn't specified.")
+	} else {
+		log.Sugar().Info("Operator email: ", email)
+	}
+	return nil
+}
+
+func isOperatorWalletValid(log *zap.Logger, wallet string) error {
+	if wallet == "" {
+		return fmt.Errorf("Operator wallet address isn't specified")
+	}
+	r := regexp.MustCompile("^0x[a-fA-F0-9]{40}$")
+	if match := r.MatchString(wallet); !match {
+		return fmt.Errorf("Operator wallet address isn't valid")
+	}
+
+	log.Sugar().Info("Operator wallet: ", wallet)
+	return nil
+}
+
 // Config defines all of the things that are needed to start up Kademlia
 // server endpoints (and not necessarily client code).
 type Config struct {
@@ -51,13 +88,9 @@ type Config struct {
 	Operator        OperatorConfig
 }
 
-// StorageNodeConfig is a Config that implements provider.Responsibility as
-// a storage node
-type StorageNodeConfig Config
-
-// Run implements provider.Responsibility
-func (c StorageNodeConfig) Run(ctx context.Context, server *provider.Provider) error {
-	return Config(c).Run(ctx, server, pb.NodeType_STORAGE)
+// Verify verifies whether kademlia config is valid.
+func (c Config) Verify(log *zap.Logger) error {
+	return c.Operator.Verify(log)
 }
 
 // BootstrapConfig is a Config that implements provider.Responsibility as
@@ -111,7 +144,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider,
 
 	go func() {
 		if err = kad.Bootstrap(ctx); err != nil {
-			logger.Error("Failed to bootstrap Kademlia", zap.Any("ID", server.Identity().ID))
+			logger.Sugar().Errorf("Failed to bootstrap Kademlia %s: %v", c.BootstrapAddr, err)
 		} else {
 			logger.Sugar().Infof("Successfully connected to Kademlia bootstrap node %s", c.BootstrapAddr)
 		}
