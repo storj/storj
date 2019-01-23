@@ -196,7 +196,14 @@ func NodeIDFromECDSAKey(k *ecdsa.PublicKey) (storj.NodeID, error) {
 	}
 	mid := sha256.Sum256(kb)
 	end := sha256.Sum256(mid[:])
-	return storj.NodeIDFromBytes(end[:])
+	return storj.NodeID(end), nil
+}
+
+// NodeIDFromKeyBytes turns key bytes into a node ID
+func NodeIDFromKeyBytes(kb []byte) storj.NodeID {
+	mid := sha256.Sum256(kb)
+	end := sha256.Sum256(mid[:])
+	return storj.NodeID(end)
 }
 
 // NewFullIdentity creates a new ID for nodes with difficulty and concurrency params

@@ -5,7 +5,6 @@ package psserver
 
 import (
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/hmac"
 	"crypto/sha512"
 	"errors"
@@ -17,19 +16,17 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/gtank/cryptopasta"
 	"github.com/mr-tron/base58/base58"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls"
 	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -262,12 +259,10 @@ func (s *Server) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_Dashb
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
 	s.log.Debug("Deleting", zap.String("Piece ID", fmt.Sprint(in.GetId())))
-
 	authorization := in.GetAuthorization()
 	if err := s.verifier(authorization); err != nil {
 		return nil, ServerError.Wrap(err)
 	}
-
 	id, err := getNamespacedPieceID([]byte(in.GetId()), getNamespace(authorization))
 	if err != nil {
 		return nil, err
@@ -285,28 +280,43 @@ func (s *Server) deleteByID(id string) error {
 	if err := s.storage.Delete(id); err != nil {
 		return err
 	}
-
 	if err := s.DB.DeleteTTLByID(id); err != nil {
 		return err
 	}
-
 	return nil
 }
 
-func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllocation) error {
+func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAllocation) error {
 	// TODO(security): detect replay attacks
-	pi, err := provider.PeerIdentityFromContext(ctx)
+	_, pba, pbad, err := rba.Unpack()
 	if err != nil {
 		return err
 	}
-
-	k, ok := pi.Leaf.PublicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return peertls.ErrUnsupportedKey.New("%T", pi.Leaf.PublicKey)
+	//verify message content
+	pi, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil || pbad.UplinkId != pi.ID {
+		return pb.BadID.New("Uplink Node ID: %s vs %s", pbad.UplinkId, pi.ID)
 	}
-
-	if ok := cryptopasta.Verify(ba.GetData(), ba.GetSignature(), k); !ok {
-		return ServerError.New("failed to verify Signature")
+	//todo:  use whitelist for uplinks?
+	//todo:  use whitelist for satelites?
+	switch {
+	case len(pbad.SerialNumber) == 0:
+		return pb.Payer.Wrap(pb.Missing.New("serial"))
+	case pbad.SatelliteId.IsZero():
+		return pb.Payer.Wrap(pb.Missing.New("satellite id"))
+	case pbad.UplinkId.IsZero():
+		return pb.Payer.Wrap(pb.Missing.New("uplink id"))
+	}
+	exp := time.Unix(pbad.GetExpirationUnixSec(), 0).UTC()
+	if exp.Before(time.Now().UTC()) {
+		return pb.Payer.Wrap(pb.Expired.New("%v vs %v", exp, time.Now().UTC()))
+	}
+	//verify message crypto
+	if err := pb.VerifyMsg(rba, pbad.UplinkId); err != nil {
+		return pb.Renter.Wrap(err)
+	}
+	if err := pb.VerifyMsg(pba, pbad.SatelliteId); err != nil {
+		return pb.Payer.Wrap(err)
 	}
 	return nil
 }

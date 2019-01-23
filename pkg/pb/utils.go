@@ -4,6 +4,7 @@
 package pb
 
 import (
+	proto "github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/storj"
@@ -79,4 +80,21 @@ func (nt NodeType) DPanicOnInvalid(from string) {
 	if nt == NodeType_INVALID {
 		zap.L().DPanic("INVALID NODE TYPE: " + from)
 	}
+}
+
+//Unpack helps get things out of a RenterBandwidthAllocation
+func (rba RenterBandwidthAllocation) Unpack() (*RenterBandwidthAllocation_Data, *PayerBandwidthAllocation, *PayerBandwidthAllocation_Data, error) {
+	rbad := &RenterBandwidthAllocation_Data{}
+	if err := proto.Unmarshal(rba.GetData(), rbad); err != nil {
+		return nil, nil, nil, Renter.Wrap(Unmarshal.Wrap(err))
+	}
+	pba := rbad.GetPayerAllocation()
+	if pba == nil {
+		return nil, nil, nil, Payer.Wrap(Missing.New("PayerAllocation"))
+	}
+	pbad := &PayerBandwidthAllocation_Data{}
+	if err := proto.Unmarshal(pba.GetData(), pbad); err != nil {
+		return nil, nil, nil, Payer.Wrap(Unmarshal.Wrap(err))
+	}
+	return rbad, pba, pbad, nil
 }

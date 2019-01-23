@@ -5,8 +5,6 @@ package pointerdb
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/x509"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -15,7 +13,6 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls"
 )
 
 // AllocationSigner structure
@@ -38,21 +35,13 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 		return nil, Error.New("missing peer identity")
 	}
 
-	pk, ok := peerIdentity.Leaf.PublicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return nil, peertls.ErrUnsupportedKey.New("%T", peerIdentity.Leaf.PublicKey)
-	}
-
-	pubbytes, err := x509.MarshalPKIXPublicKey(pk)
-	if err != nil {
-		return nil, err
-	}
+	certs := [][]byte{allocation.satelliteIdentity.Leaf.Raw, allocation.satelliteIdentity.CA.Raw}
+	certs = append(certs, allocation.satelliteIdentity.RestChainRaw()...) //todo:  do we need RestChain?
 
 	serialNum, err := uuid.New()
 	if err != nil {
 		return nil, err
 	}
-
 	created := time.Now().Unix()
 
 	// convert ttl from days to seconds
@@ -66,7 +55,6 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 		ExpirationUnixSec: created + int64(ttl),
 		Action:            action,
 		SerialNumber:      serialNum.String(),
-		PubKey:            pubbytes,
 	}
 
 	data, err := proto.Marshal(pbad)
@@ -77,5 +65,5 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-	return &pb.PayerBandwidthAllocation{Signature: signature, Data: data}, nil
+	return &pb.PayerBandwidthAllocation{Signature: signature, Data: data, Certs: certs}, nil
 }

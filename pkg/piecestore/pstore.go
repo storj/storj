@@ -51,6 +51,8 @@ const IDLength = 20
 // Errors
 var (
 	Error = errs.Class("piecestore error")
+	MkDir = errs.Class("piecestore MkdirAll")
+	Open  = errs.Class("piecestore OpenFile")
 )
 
 // PiecePath creates piece storage path from id and dir
@@ -58,7 +60,6 @@ func (storage *Storage) PiecePath(pieceID string) (string, error) {
 	if len(pieceID) < IDLength {
 		return "", Error.New("invalid id length")
 	}
-
 	folder1, folder2, filename := pieceID[0:2], pieceID[2:4], pieceID[4:]
 	return filepath.Join(storage.dir, folder1, folder2, filename), nil
 }
@@ -69,16 +70,13 @@ func (storage *Storage) Writer(pieceID string) (io.WriteCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return nil, Error.Wrap(err)
+		return nil, MkDir.Wrap(err)
 	}
-
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, Open.Wrap(err)
 	}
-
 	return file, nil
 }
 
@@ -88,30 +86,24 @@ func (storage *Storage) Reader(ctx context.Context, pieceID string, offset int64
 	if err != nil {
 		return nil, err
 	}
-
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
 	}
-
 	if offset >= info.Size() || offset < 0 {
 		return nil, Error.New("invalid offset: %v", offset)
 	}
-
 	if length <= -1 {
 		length = info.Size()
 	}
-
 	// If trying to read past the end of the file, just read to the end
 	if info.Size() < offset+length {
 		length = info.Size() - offset
 	}
-
 	rr, err := ranger.FileRanger(path)
 	if err != nil {
 		return nil, err
 	}
-
 	return rr.Range(ctx, offset, length)
 }
 
