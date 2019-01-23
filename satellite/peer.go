@@ -101,6 +101,8 @@ type Peer struct {
 
 	// services and endpoints
 	Kademlia struct {
+		kdb, ndb storage.KeyValueStore // TODO: move these into DB
+
 		RoutingTable *kademlia.RoutingTable
 		Service      *kademlia.Kademlia
 		Endpoint     *node.Server
@@ -198,6 +200,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 				Wallet: config.Operator.Wallet,
 			},
 		}
+		// TODO(coyle): I'm thinking we just remove this function and grab from the config.
+		in, err := kademlia.GetIntroNode(config.BootstrapAddr)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 
 		{ // setup routing table
 			// TODO: clean this up
@@ -208,7 +215,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
-			kdb, ndb := dbs[0], dbs[1]
+			peer.Kademlia.kdb, peer.Kademlia.ndb = dbs[0], dbs[1]
 
 			peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb)
 			if err != nil {
@@ -217,7 +224,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		}
 
 		// TODO: reduce number of arguments
-		peer.Kademlia.Service, err = kademlia.NewWith(peer.Log.Named("kademlia"), self, nil, peer.Identity, config.Alpha, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Service, err = kademlia.NewWith(peer.Log.Named("kademlia"), self, []pb.Node{*in}, peer.Identity, config.Alpha, peer.Kademlia.RoutingTable)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -390,6 +397,10 @@ func (peer *Peer) Close() error {
 	}
 	if peer.Kademlia.RoutingTable != nil {
 		errlist.Add(peer.Kademlia.RoutingTable.SelfClose())
+	}
+	if peer.Kademlia.ndb != nil || peer.Kademlia.kdb != nil {
+		errlist.Add(peer.Kademlia.kdb.Close())
+		errlist.Add(peer.Kademlia.ndb.Close())
 	}
 
 	// close servers
