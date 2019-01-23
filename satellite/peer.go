@@ -104,11 +104,13 @@ type Peer struct {
 		RoutingTable *kademlia.RoutingTable
 		Service      *kademlia.Kademlia
 		Endpoint     *node.Server
+		Inspector    *kademlia.Inspector
 	}
 
 	Overlay struct {
-		Service  *overlay.Cache
-		Endpoint *overlay.Server
+		Service   *overlay.Cache
+		Endpoint  *overlay.Server
+		Inspector *overlay.Inspector
 	}
 
 	Discovery struct {
@@ -222,6 +224,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		peer.Kademlia.Endpoint = node.NewServer(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service)
 		pb.RegisterNodesServer(peer.Public.Server.GRPC(), peer.Kademlia.Endpoint)
+
+		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
+		pb.RegisterKadInspectorServer(peer.Public.Server.GRPC(), peer.Kademlia.Endpoint)
 	}
 
 	{ // setup overlay
@@ -237,6 +242,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		peer.Overlay.Endpoint = overlay.NewServer(peer.Log.Named("overlay:endpoint"), peer.Overlay.Service, ns)
 		pb.RegisterOverlayServer(peer.Public.Server.GRPC(), peer.Overlay.Endpoint)
+
+		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
+		pb.RegisterOverlayInspectorServer(peer.Public.Server.GRPC(), peer.Overlay.Inspector)
 	}
 
 	{ // setup reputation

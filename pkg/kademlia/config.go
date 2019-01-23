@@ -30,13 +30,6 @@ var (
 	flagReplacementCacheSize = flag.Int("kademlia.replacement-cache-size", 5, "size of Kademlia replacement cache")
 )
 
-//CtxKey Used as kademlia key
-type CtxKey int
-
-const (
-	ctxKeyKad CtxKey = iota
-)
-
 // OperatorConfig defines properties related to storage node operator metadata
 type OperatorConfig struct {
 	Email  string `user:"true" help:"operator email address" default:""`
@@ -102,15 +95,6 @@ func (c BootstrapConfig) Run(ctx context.Context, server *provider.Provider) err
 	return Config(c).Run(ctx, server, pb.NodeType_BOOTSTRAP)
 }
 
-// SatelliteConfig is a Config that implements provider.Responsibility as
-// a satellite
-type SatelliteConfig Config
-
-// Run implements provider.Responsibility
-func (c SatelliteConfig) Run(ctx context.Context, server *provider.Provider) error {
-	return Config(c).Run(ctx, server, pb.NodeType_SATELLITE)
-}
-
 // Run does not implement provider.Responsibility. Please use a specific
 // SatelliteConfig or StorageNodeConfig
 func (c Config) Run(ctx context.Context, server *provider.Provider,
@@ -160,13 +144,4 @@ func (c Config) Run(ctx context.Context, server *provider.Provider,
 	pb.RegisterKadInspectorServer(server.GRPC(), NewInspector(kad, server.Identity()))
 
 	return server.Run(context.WithValue(ctx, ctxKeyKad, kad))
-}
-
-// LoadFromContext loads an existing Kademlia from the Provider context
-// stack if one exists.
-func LoadFromContext(ctx context.Context) *Kademlia {
-	if v, ok := ctx.Value(ctxKeyKad).(*Kademlia); ok {
-		return v
-	}
-	return nil
 }
