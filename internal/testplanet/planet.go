@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
+	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
@@ -272,6 +273,10 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				PointerDBAddr: "", // overridden in satellite.New
 				MaxBufferMem:  4 * memory.MB,
 				APIKey:        "",
+			},
+			Audit: audit.Config{
+				MaxRetriesStatDB: 0,
+				Interval:         30 * time.Second,
 			},
 			// TODO: Audit    audit.Config
 			Tally: tally.Config{

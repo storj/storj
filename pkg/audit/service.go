@@ -16,6 +16,12 @@ import (
 	"storj.io/storj/pkg/transport"
 )
 
+// Config contains configurable values for audit service
+type Config struct {
+	MaxRetriesStatDB int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
+	Interval         time.Duration `help:"how frequently segments are audited" default:"30s"`
+}
+
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
 type Service struct {
 	log      *zap.Logger
@@ -25,18 +31,10 @@ type Service struct {
 	ticker   *time.Ticker
 }
 
-// Config contains configurable values for audit service
-type Config struct {
-	MaxRetriesStatDB int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
-	Interval         time.Duration `help:"how frequently segments are audited" default:"30s"`
-}
-
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(log *zap.Logger, sdb statdb.DB, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, transport transport.Client, overlay overlay.Client,
-	identity provider.FullIdentity) (service *Service, err error) {
-
-	//TODO: instead of statDBPort pass in the actual database interface
-	cursor := NewCursor(pointers, allocation, &identity)
+func NewService(log *zap.Logger, sdb statdb.DB, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, transport transport.Client, overlay *overlay.Cache, identity *provider.FullIdentity) (service *Service, err error) {
+	// TODO: instead of overlay.Client use overlay.Service
+	cursor := NewCursor(pointers, allocation, identity)
 	verifier := NewVerifier(transport, overlay, identity)
 	reporter, err := NewReporter(sdb, maxRetries)
 	if err != nil {

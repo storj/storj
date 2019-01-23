@@ -41,24 +41,25 @@ type downloader interface {
 // defaultDownloader downloads shares from networked storage nodes
 type defaultDownloader struct {
 	transport transport.Client
-	overlay   overlay.Client
-	identity  provider.FullIdentity
+	overlay   *overlay.Cache
+	identity  *provider.FullIdentity
 	reporter
 }
 
 // newDefaultDownloader creates a defaultDownloader
-func newDefaultDownloader(transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *defaultDownloader {
+func newDefaultDownloader(transport transport.Client, overlay *overlay.Cache, id *provider.FullIdentity) *defaultDownloader {
 	return &defaultDownloader{transport: transport, overlay: overlay, identity: id}
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *Verifier {
+func NewVerifier(transport transport.Client, overlay *overlay.Cache, id *provider.FullIdentity) *Verifier {
 	return &Verifier{downloader: newDefaultDownloader(transport, overlay, id)}
 }
 
 // getShare use piece store clients to download shares from a given node
 func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize, pieceNumber int,
 	id psclient.PieceID, pieceSize int64, fromNode *pb.Node, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (s share, err error) {
+	// TODO: too many arguments use a struct
 	defer mon.Task()(&ctx)(&err)
 
 	if fromNode == nil {
@@ -87,6 +88,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 	if err != nil {
 		return s, err
 	}
+	// TODO: proper logging
 	defer utils.LogClose(rc)
 
 	buf := make([]byte, shareSize)
@@ -116,7 +118,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 	}
 
 	// TODO(moby) nodeSlice will not include offline nodes, so overlay should update uptime for these nodes
-	nodeSlice, err := d.overlay.BulkLookup(ctx, nodeIds)
+	nodeSlice, err := d.overlay.GetAll(ctx, nodeIds)
 	if err != nil {
 		return nil, nodes, err
 	}
