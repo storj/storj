@@ -22,6 +22,7 @@ import (
 
 var mon = monkit.Package()
 
+// Share represents required information about an audited share
 type Share struct {
 	Error       error
 	PieceNumber int
