@@ -12,6 +12,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gtank/cryptopasta"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -20,9 +21,9 @@ import (
 )
 
 var (
-	// BwAgreementError the default bwagreement errs class
-	var BwAgreementError = errs.Class("bwagreement error")
-	mon = monkit.Package()
+	// Error the default bwagreement errs class
+	Error = errs.Class("bwagreement error:")
+	mon   = monkit.Package()
 )
 
 // Config is a configuration struct that is everything you need to start an
@@ -80,27 +81,27 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 
 	// storagenode signature is empty
 	if len(ba.GetSignature()) == 0 {
-		return reply, BwAgreementError.New("Invalid Storage Node Signature length in the RenterBandwidthAllocation")
+		return reply, Error.New("Invalid Storage Node Signature length in the RenterBandwidthAllocation")
 	}
 
 	rbad := &pb.RenterBandwidthAllocation_Data{}
 	if err = proto.Unmarshal(ba.GetData(), rbad); err != nil {
-		return reply, BwAgreementError.New("Failed to unmarshal RenterBandwidthAllocation: %+v", err)
+		return reply, Error.New("Failed to unmarshal RenterBandwidthAllocation: %+v", err)
 	}
 
 	pba := rbad.GetPayerAllocation()
 	pbad := &pb.PayerBandwidthAllocation_Data{}
 	if err := proto.Unmarshal(pba.GetData(), pbad); err != nil {
-		return reply, BwAgreementError.New("Failed to unmarshal PayerBandwidthAllocation: %+v", err)
+		return reply, Error.New("Failed to unmarshal PayerBandwidthAllocation: %+v", err)
 	}
 
 	// satellite signature is empty
 	if len(pba.GetSignature()) == 0 {
-		return reply, BwAgreementError.New("Invalid Satellite Signature length in the PayerBandwidthAllocation")
+		return reply, Error.New("Invalid Satellite Signature length in the PayerBandwidthAllocation")
 	}
 
 	if len(pbad.SerialNumber) == 0 {
-		return reply, BwAgreementError.New("Invalid SerialNumber in the PayerBandwidthAllocation")
+		return reply, Error.New("Invalid SerialNumber in the PayerBandwidthAllocation")
 	}
 
 	if err = s.verifySignature(ctx, ba); err != nil {
@@ -112,7 +113,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 	// get and check expiration
 	exp := time.Unix(pbad.GetExpirationUnixSec(), 0).UTC()
 	if exp.Before(time.Now().UTC()) {
-		return reply, BwAgreementError.New("Bandwidth agreement is expired (%v)", exp)
+		return reply, Error.New("Bandwidth agreement is expired (%v)", exp)
 	}
 
 	err = s.db.CreateAgreement(ctx, serialNum, Agreement{
@@ -123,7 +124,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, ba *pb.RenterBandwidth
 
 	if err != nil {
 		//todo:  better classify transport errors (AgreementsSummary_FAIL) vs logical (AgreementsSummary_REJECTED)
-		return reply, BwAgreementError.New("SerialNumber already exists in the PayerBandwidthAllocation")
+		return reply, Error.New("SerialNumber already exists in the PayerBandwidthAllocation")
 	}
 
 	reply.Status = pb.AgreementsSummary_OK
@@ -137,18 +138,18 @@ func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllo
 	//Deserealize RenterBandwidthAllocation.GetData() so we can get public key
 	rbad := &pb.RenterBandwidthAllocation_Data{}
 	if err := proto.Unmarshal(ba.GetData(), rbad); err != nil {
-		return BwAgreementError.New("Failed to unmarshal RenterBandwidthAllocation: %+v", err)
+		return Error.New("Failed to unmarshal RenterBandwidthAllocation: %+v", err)
 	}
 
 	pba := rbad.GetPayerAllocation()
 	pbad := &pb.PayerBandwidthAllocation_Data{}
 	if err := proto.Unmarshal(pba.GetData(), pbad); err != nil {
-		return BwAgreementError.New("Failed to unmarshal PayerBandwidthAllocation: %+v", err)
+		return Error.New("Failed to unmarshal PayerBandwidthAllocation: %+v", err)
 	}
 	// Extract renter's public key from PayerBandwidthAllocation_Data
 	pubkey, err := x509.ParsePKIXPublicKey(pbad.GetPubKey())
 	if err != nil {
-		return BwAgreementError.New("Failed to extract Public Key from RenterBandwidthAllocation: %+v", err)
+		return Error.New("Failed to extract Public Key from RenterBandwidthAllocation: %+v", err)
 	}
 
 	// Typecast public key
@@ -159,11 +160,11 @@ func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllo
 
 	signatureLength := k.Curve.Params().P.BitLen() / 8
 	if len(ba.GetSignature()) < signatureLength {
-		return BwAgreementError.New("Invalid Renter's Signature Length")
+		return Error.New("Invalid Renter's Signature Length")
 	}
 	// verify Renter's (uplink) signature
 	if ok := cryptopasta.Verify(ba.GetData(), ba.GetSignature(), k); !ok {
-		return BwAgreementError.New("Failed to verify Renter's Signature")
+		return Error.New("Failed to verify Renter's Signature")
 	}
 
 	// satellite public key
@@ -174,11 +175,11 @@ func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllo
 
 	signatureLength = k.Curve.Params().P.BitLen() / 8
 	if len(rbad.GetPayerAllocation().GetSignature()) < signatureLength {
-		return BwAgreementError.New("Inavalid Payer's Signature Length")
+		return Error.New("Inavalid Payer's Signature Length")
 	}
 	// verify Payer's (satellite) signature
 	if ok := cryptopasta.Verify(rbad.GetPayerAllocation().GetData(), rbad.GetPayerAllocation().GetSignature(), k); !ok {
-		return BwAgreementError.New("Failed to verify Payer's Signature")
+		return Error.New("Failed to verify Payer's Signature")
 	}
 	return nil
 }
