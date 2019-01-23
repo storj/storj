@@ -145,9 +145,9 @@ func (s *Server) Stop(ctx context.Context) error {
 	)
 }
 
-// Piece -- Send meta data about a stored by by Id
+// Piece -- Send meta data about a piece stored by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
-	s.log.Debug("Getting Meta", zap.String("Piece ID", in.GetId()))
+	s.log.Info("Getting Meta", zap.String("Piece ID", in.GetId()))
 
 	authorization := in.GetAuthorization()
 	if err := s.verifier(authorization); err != nil {
@@ -184,14 +184,25 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 		return nil, err
 	}
 
-	s.log.Debug("Successfully retrieved meta", zap.String("Piece ID", in.GetId()))
+	s.log.Info("Successfully retrieved meta", zap.String("Piece ID", in.GetId()))
 	return &pb.PieceSummary{Id: in.GetId(), PieceSize: fileInfo.Size(), ExpirationUnixSec: ttl}, nil
 }
 
 // Stats will return statistics about the Server
 func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, error) {
-	s.log.Debug("Getting Stats...")
+	s.log.Info("Getting Stats...")
 
+	statsSummary, err := s.retrieveStats()
+	if err != nil {
+		return nil, err
+	}
+
+	s.log.Info("Succesfully retrieved Stats...")
+
+	return statsSummary, nil
+}
+
+func (s *Server) retrieveStats() (*pb.StatSummary, error) {
 	totalUsed, err := s.DB.SumTTLSizes()
 	if err != nil {
 		return nil, err
@@ -235,7 +246,7 @@ func (s *Server) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_Dashb
 
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
-	s.log.Debug("Deleting", zap.String("Piece ID", fmt.Sprint(in.GetId())))
+	s.log.Info("Deleting", zap.String("Piece ID", fmt.Sprint(in.GetId())))
 
 	authorization := in.GetAuthorization()
 	if err := s.verifier(authorization); err != nil {
@@ -262,7 +273,7 @@ func (s *Server) deleteByID(id string) error {
 		return err
 	}
 
-	s.log.Debug("Deleted", zap.String("Piece ID", id))
+	s.log.Info("Successfully deleted", zap.String("Piece ID", id))
 
 	return nil
 }
@@ -322,7 +333,7 @@ func getNamespace(signedMessage *pb.SignedMessage) []byte {
 }
 
 func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, error) {
-	statsSummary, err := s.Stats(ctx, &pb.StatsReq{})
+	statsSummary, err := s.retrieveStats()
 	if err != nil {
 		return &pb.DashboardStats{}, ServerError.Wrap(err)
 	}

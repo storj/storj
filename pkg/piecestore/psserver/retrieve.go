@@ -46,7 +46,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return RetrieveError.New("PieceStore message is nil")
 	}
 
-	s.log.Debug("Retrieving",
+	s.log.Info("Retrieving",
 		zap.String("Piece ID", fmt.Sprint(pd.GetId())),
 		zap.Int64("Offset", pd.GetOffset()),
 		zap.Int64("Size", pd.GetPieceSize()),
@@ -83,7 +83,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return err
 	}
 
-	s.log.Debug("Successfully retrieved",
+	s.log.Info("Successfully retrieved",
 		zap.String("Piece ID", fmt.Sprint(pd.GetId())),
 		zap.Int64("Allocated", allocated),
 		zap.Int64("Retrieved", retrieved),
