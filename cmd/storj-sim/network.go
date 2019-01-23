@@ -271,6 +271,8 @@ func identitySetup(network *Processes) (*Processes, error) {
 		identity.Arguments = Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
+				"--concurrency", "1",
+				"--difficulty", "8",
 				"new", ".",
 			},
 		}
