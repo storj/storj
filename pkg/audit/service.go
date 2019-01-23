@@ -32,37 +32,6 @@ type Config struct {
 	Interval         time.Duration `help:"how frequently segments are audited" default:"30s"`
 }
 
-// Run runs the repairer with the configured values
-func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	identity := server.Identity()
-	pointers := pointerdb.LoadFromContext(ctx)
-	if pointers == nil {
-		return Error.New("programmer error: pointerdb responsibility unstarted")
-	}
-
-	allocation := pointerdb.LoadAllocationFromContext(ctx)
-	if pointers == nil {
-		return Error.New("programmer error: allocation responsibility unstarted")
-	}
-
-	overlay, err := overlay.NewClient(identity, c.SatelliteAddr)
-	if err != nil {
-		return err
-	}
-	transport := transport.NewClient(identity)
-
-	log := zap.L()
-	service, err := NewService(ctx, log, c.SatelliteAddr, c.Interval, c.MaxRetriesStatDB, pointers, allocation, transport, overlay, *identity, c.APIKey)
-	if err != nil {
-		return err
-	}
-	go func() {
-		err := service.Run(ctx)
-		service.log.Error("audit service failed to run:", zap.Error(err))
-	}()
-	return server.Run(ctx)
-}
-
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(ctx context.Context, log *zap.Logger, statDBPort string, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, transport transport.Client, overlay overlay.Client,
 	identity provider.FullIdentity, apiKey string) (service *Service, err error) {
