@@ -217,7 +217,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			}
 			peer.Kademlia.kdb, peer.Kademlia.ndb = dbs[0], dbs[1]
 
-			peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb)
+			peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, peer.Kademlia.kdb, peer.Kademlia.ndb)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
@@ -233,7 +233,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		pb.RegisterNodesServer(peer.Public.Server.GRPC(), peer.Kademlia.Endpoint)
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
-		pb.RegisterKadInspectorServer(peer.Public.Server.GRPC(), peer.Kademlia.Endpoint)
+		pb.RegisterKadInspectorServer(peer.Public.Server.GRPC(), peer.Kademlia.Inspector)
 	}
 
 	{ // setup overlay
@@ -306,7 +306,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup accounting
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Metainfo.Service, peer.Overlay.Endpoint, 0, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
 	}
 
