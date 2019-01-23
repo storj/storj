@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 
 	"github.com/zeebo/errs"
@@ -212,6 +213,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			// TODO: clean this up, should be part of database
 			bucketIdentifier := peer.ID().String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
 			dbpath := filepath.Join(config.DBPath, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
+
+			if err := os.MkdirAll(dbpath, 0777); err != nil && !os.IsExist(err) {
+				return nil, err
+			}
 
 			dbs, err := boltdb.NewShared(dbpath, kademlia.KademliaBucket, kademlia.NodeBucket)
 			if err != nil {
