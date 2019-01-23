@@ -4,17 +4,12 @@
 package overlay
 
 import (
-	"context"
 	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
@@ -45,66 +40,6 @@ type NodeSelectionConfig struct {
 	UptimeCount       int64   `help:"the number of times a node's uptime has been checked" default:"0"`
 	AuditSuccessRatio float64 `help:"a node's ratio of successful audits" default:"0"`
 	AuditCount        int64   `help:"the number of times a node has been audited" default:"0"`
-}
-
-// CtxKey used for assigning cache and server
-type CtxKey int
-
-const (
-	ctxKeyOverlay CtxKey = iota
-	ctxKeyOverlayServer
-)
-
-// Run implements the provider.Responsibility interface. Run assumes a
-// Kademlia responsibility has been started before this one.
-func (c Config) Run(ctx context.Context, server *provider.Provider) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	sdb, ok := ctx.Value("masterdb").(interface {
-		StatDB() statdb.DB
-		OverlayCache() DB
-	})
-	if !ok {
-		return Error.Wrap(errs.New("unable to get master db instance"))
-	}
-
-	cache := NewCache(sdb.OverlayCache(), sdb.StatDB())
-
-	ns := &pb.NodeStats{
-		UptimeCount:       c.Node.UptimeCount,
-		UptimeRatio:       c.Node.UptimeRatio,
-		AuditSuccessRatio: c.Node.AuditSuccessRatio,
-		AuditCount:        c.Node.AuditCount,
-	}
-
-	srv := NewServer(zap.L(), cache, ns)
-	pb.RegisterOverlayServer(server.GRPC(), srv)
-
-	zap.S().Warn("Once the Peer refactor is done, the overlay inspector needs to be registered on a " +
-		"gRPC server that only listens on localhost")
-	// TODO: register on a private rpc server
-	pb.RegisterOverlayInspectorServer(server.GRPC(), NewInspector(cache))
-
-	ctx2 := context.WithValue(ctx, ctxKeyOverlay, cache)
-	ctx2 = context.WithValue(ctx2, ctxKeyOverlayServer, srv)
-	return server.Run(ctx2)
-}
-
-// LoadFromContext gives access to the cache from the context, or returns nil
-func LoadFromContext(ctx context.Context) *Cache {
-	if v, ok := ctx.Value(ctxKeyOverlay).(*Cache); ok {
-		return v
-	}
-	return nil
-}
-
-// LoadServerFromContext gives access to the overlay server from the context, or returns nil
-func LoadServerFromContext(ctx context.Context) *Server {
-	if v, ok := ctx.Value(ctxKeyOverlayServer).(*Server); ok {
-		return v
-	}
-	return nil
 }
 
 // ParseIDs converts the base58check encoded node ID strings from the config into node IDs

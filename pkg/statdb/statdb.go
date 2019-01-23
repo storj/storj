@@ -6,7 +6,14 @@ package statdb
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/storj"
+)
+
+var (
+	// Error is the default errs class
+	Error = errs.Class("statdb error")
 )
 
 // DB stores node statistics
