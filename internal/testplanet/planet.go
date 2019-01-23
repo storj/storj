@@ -21,6 +21,8 @@ import (
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/bootstrap"
+	"storj.io/storj/bootstrap/bootstrapdb"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/checker"
@@ -63,10 +65,9 @@ type Planet struct {
 
 	peers     []Peer
 	databases []io.Closer
-
-	nodeInfos []pb.Node
 	nodes     []*Node
 
+	Bootstrap    *bootstrap.Peer
 	Satellites   []*satellite.Peer
 	StorageNodes []*storagenode.Peer
 	Uplinks      []*Node
@@ -99,6 +100,11 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 		return nil, err
 	}
 
+	planet.Bootstrap, err = planet.newBootstrap()
+	if err != nil {
+		return nil, utils.CombineErrors(err, planet.Shutdown())
+	}
+
 	planet.Satellites, err = planet.newSatellites(satelliteCount)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
@@ -116,11 +122,11 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 	// init Satellites
 	for _, satellite := range planet.Satellites {
-		satellite.Kademlia.Service.SetBootstrapNodes(planet.nodeInfos)
+		satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
 	}
 	// init storage nodes
 	for _, storageNode := range planet.StorageNodes {
-		storageNode.Kademlia.SetBootstrapNodes(planet.nodeInfos)
+		storageNode.Kademlia.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
 	}
 
 	return planet, nil
@@ -128,20 +134,32 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 // Start starts all the nodes.
 func (planet *Planet) Start(ctx context.Context) {
+	// First run the bootstrap nodes
 	for _, peer := range planet.peers {
-		go func(peer Peer) {
-			err := peer.Run(ctx)
-			if err == grpc.ErrServerStopped {
-				err = nil
-			}
-			if err != nil {
-				// TODO: better error handling
-				panic(err)
-			}
-		}(peer)
+		if peer.Local().Type == pb.NodeType_BOOTSTRAP {
+			go run(ctx, peer)
+		}
+	}
+
+	// Now run all the rest
+	for _, peer := range planet.peers {
+		if peer.Local().Type != pb.NodeType_BOOTSTRAP {
+			go run(ctx, peer)
+		}
 	}
 
 	planet.started = true
+}
+
+func run(ctx context.Context, peer Peer) {
+	err := peer.Run(ctx)
+	if err == grpc.ErrServerStopped {
+		err = nil
+	}
+	if err != nil {
+		// TODO: better error handling
+		panic(err)
+	}
 }
 
 // Size returns number of nodes in the network
@@ -191,7 +209,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 	defer func() {
 		for _, x := range xs {
 			planet.peers = append(planet.peers, x)
-			planet.nodeInfos = append(planet.nodeInfos, x.Local())
 		}
 	}()
 
@@ -282,7 +299,6 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 	defer func() {
 		for _, x := range xs {
 			planet.peers = append(planet.peers, x)
-			planet.nodeInfos = append(planet.nodeInfos, x.Local())
 		}
 	}()
 
@@ -348,6 +364,67 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 		xs = append(xs, peer)
 	}
 	return xs, nil
+}
+
+// newBootstrap initializes the bootstrap node
+func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
+	defer func() {
+		planet.peers = append(planet.peers, peer)
+	}()
+
+	prefix := "bootstrap"
+	log := planet.log.Named(prefix)
+	dbDir := filepath.Join(planet.directory, prefix)
+
+	if err := os.MkdirAll(dbDir, 0700); err != nil {
+		return nil, err
+	}
+
+	identity, err := planet.NewIdentity()
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := bootstrapdb.NewInMemory(dbDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: err = db.CreateTables()
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	planet.databases = append(planet.databases, db)
+
+	config := bootstrap.Config{
+		Server: server.Config{
+			Address:            "127.0.0.1:0",
+			RevocationDBURL:    "bolt://" + filepath.Join(planet.directory, "revocation.db"),
+			UsePeerCAWhitelist: false, // TODO: enable
+			Extensions: peertls.TLSExtConfig{
+				Revocation:          true,
+				WhitelistSignedLeaf: false,
+			},
+		},
+		Kademlia: kademlia.Config{
+			Alpha:  5,
+			DBPath: dbDir, // TODO: replace with master db
+			Operator: kademlia.OperatorConfig{
+				Email:  prefix + "@example.com",
+				Wallet: "0x" + strings.Repeat("00", 20),
+			},
+		},
+	}
+
+	peer, err = bootstrap.New(log, identity, db, config)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
+
+	return peer, nil
 }
 
 // NewIdentity creates a new identity for a node
