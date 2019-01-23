@@ -15,6 +15,8 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/accounting/rollup"
+	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/checker"
@@ -78,8 +80,8 @@ type Config struct {
 	Repairer repairer.Config
 	// TODO: Audit    audit.Config
 
-	Tally tally.Config
-	// Rollup      rollup.Config
+	Tally  tally.Config
+	Rollup rollup.Config
 	// Payments    payments.Config
 }
 
@@ -136,7 +138,8 @@ type Peer struct {
 	}
 
 	Accounting struct {
-		Tally *tally.Tally
+		Tally  *tally.Tally
+		Rollup *rollup.Rollup
 	}
 
 	// TODO: add console
@@ -284,6 +287,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 	{ // setup accounting
 		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
+
+		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
 	}
 
 	return peer, nil

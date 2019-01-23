@@ -3,6 +3,8 @@
 
 package rollup
 
+// TODO: should be `package rollup_test`
+
 import (
 	"testing"
 	"time"
@@ -18,6 +20,8 @@ import (
 )
 
 func TestQueryOneDay(t *testing.T) {
+	// TODO: use testplanet
+
 	ctx, r, _, nodeData, cleanup := createRollup(t)
 	defer cleanup()
 
@@ -37,6 +41,8 @@ func TestQueryOneDay(t *testing.T) {
 }
 
 func TestQueryTwoDays(t *testing.T) {
+	// TODO: use testplanet
+
 	ctx, r, _, nodeData, cleanup := createRollup(t)
 	defer cleanup()
 
@@ -77,5 +83,5 @@ func createRollup(t *testing.T) (*testcontext.Context, *rollup, satellite.DB, ma
 		assert.NoError(t, err)
 	}
 
-	return ctx, newRollup(zap.NewNop(), db.Accounting(), time.Second), db, nodeData, cleanup
+	return ctx, NewRollup(zap.NewNop(), db.Accounting(), time.Second), db, nodeData, cleanup
 }
