@@ -222,7 +222,15 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		planet.databases = append(planet.databases, db)
 
 		config := satellite.Config{
-			PublicAddress: "127.0.0.1:0",
+			Server: server.Config{
+				Address:            "127.0.0.1:0",
+				RevocationDBURL:    "bolt://" + filepath.Join(planet.directory, "revocation.db"),
+				UsePeerCAWhitelist: false, // TODO: enable
+				Extensions: peertls.TLSExtConfig{
+					Revocation:          true,
+					WhitelistSignedLeaf: false,
+				},
+			},
 			Kademlia: kademlia.Config{
 				Alpha:  5,
 				DBPath: storageDir, // TODO: replace with master db
