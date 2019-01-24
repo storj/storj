@@ -53,7 +53,6 @@ func (r *Rollup) Run(ctx context.Context) (err error) {
 
 // Query rolls up raw tally
 func (r *Rollup) Query(ctx context.Context) error {
-	r.logger.Info("IN ROLLUP QUERY")
 	// only Rollup new things - get LastRollup
 	var latestTally time.Time
 	lastRollup, isNil, err := r.db.LastRawTime(ctx, accounting.LastRollup)
