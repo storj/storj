@@ -95,6 +95,9 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 	}
 
 	ca, caerr := caConfig.Create(process.Ctx(cmd))
+	if caerr != nil {
+		return caerr
+	}
 
 	identConfig := identity.SetupConfig{
 		CertPath: identCertPath,
@@ -106,10 +109,12 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 	}
 
 	_, iderr := identConfig.Create(ca)
+	if iderr != nil {
+		return iderr
+	}
 
 	fmt.Printf("Unsigned identity is located in %q", serviceDir)
-
-	return errs.Combine(caerr, iderr)
+	return nil
 }
 
 func cmdCSR(cmd *cobra.Command, args []string) error {
