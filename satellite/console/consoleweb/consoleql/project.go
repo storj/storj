@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package consoleql
@@ -10,66 +10,75 @@ import (
 )
 
 const (
-	projectType      = "project"
-	projectInputType = "projectInput"
-	fieldName        = "name"
-
-	fieldDescription = "description"
-	// Indicates if user accepted Terms & Conditions during project creation
+	// ProjectType is a graphql type name for project
+	ProjectType = "project"
+	// ProjectInputType is a graphql type name for project input
+	ProjectInputType = "projectInput"
+	// FieldName is a field name for "name"
+	FieldName = "name"
+	// FieldDescription is a field name for description
+	FieldDescription = "description"
+	// FieldIsTermsAccepted indicates if user accepted Terms & Conditions during project creation
 	// Used in input model
-	fieldIsTermsAccepted = "isTermsAccepted"
-	fieldMembers         = "members"
-	fieldAPIKeys         = "apiKeys"
+	FieldIsTermsAccepted = "isTermsAccepted"
+	// FieldMembers is field name for members
+	FieldMembers = "members"
+	// FieldAPIKeys is a field name for api keys
+	FieldAPIKeys = "apiKeys"
 
-	limit  = "limit"
-	offset = "offset"
-	search = "search"
-	order  = "order"
+	// LimitArg is argument name for limit
+	LimitArg = "limit"
+	// OffsetArg is argument name for offset
+	OffsetArg = "offset"
+	// SearchArg is argument name for search
+	SearchArg = "search"
+	// OrderArg is argument name for order
+	OrderArg = "order"
 )
 
 // graphqlProject creates *graphql.Object type representation of satellite.ProjectInfo
 func graphqlProject(service *console.Service, types Types) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
-		Name: projectType,
+		Name: ProjectType,
 		Fields: graphql.Fields{
-			fieldID: &graphql.Field{
+			FieldID: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldName: &graphql.Field{
+			FieldName: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldDescription: &graphql.Field{
+			FieldDescription: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldIsTermsAccepted: &graphql.Field{
+			FieldIsTermsAccepted: &graphql.Field{
 				Type: graphql.Int,
 			},
-			fieldCreatedAt: &graphql.Field{
+			FieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
 			},
-			fieldMembers: &graphql.Field{
+			FieldMembers: &graphql.Field{
 				Type: graphql.NewList(types.ProjectMember()),
 				Args: graphql.FieldConfigArgument{
-					offset: &graphql.ArgumentConfig{
+					OffsetArg: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.Int),
 					},
-					limit: &graphql.ArgumentConfig{
+					LimitArg: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.Int),
 					},
-					search: &graphql.ArgumentConfig{
+					SearchArg: &graphql.ArgumentConfig{
 						Type: graphql.String,
 					},
-					order: &graphql.ArgumentConfig{
+					OrderArg: &graphql.ArgumentConfig{
 						Type: graphql.Int,
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*console.Project)
 
-					offs, _ := p.Args[offset].(int)
-					lim, _ := p.Args[limit].(int)
-					search, _ := p.Args[search].(string)
-					order, _ := p.Args[order].(int)
+					offs, _ := p.Args[OffsetArg].(int)
+					lim, _ := p.Args[LimitArg].(int)
+					search, _ := p.Args[SearchArg].(string)
+					order, _ := p.Args[OrderArg].(int)
 
 					pagination := console.Pagination{
 						Limit:  lim,
@@ -99,7 +108,7 @@ func graphqlProject(service *console.Service, types Types) *graphql.Object {
 					return users, nil
 				},
 			},
-			fieldAPIKeys: &graphql.Field{
+			FieldAPIKeys: &graphql.Field{
 				Type: graphql.NewList(types.APIKeyInfo()),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*console.Project)
@@ -114,15 +123,15 @@ func graphqlProject(service *console.Service, types Types) *graphql.Object {
 // graphqlProjectInput creates graphql.InputObject type needed to create/update satellite.Project
 func graphqlProjectInput() *graphql.InputObject {
 	return graphql.NewInputObject(graphql.InputObjectConfig{
-		Name: projectInputType,
+		Name: ProjectInputType,
 		Fields: graphql.InputObjectConfigFieldMap{
-			fieldName: &graphql.InputObjectFieldConfig{
+			FieldName: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
-			fieldDescription: &graphql.InputObjectFieldConfig{
+			FieldDescription: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
-			fieldIsTermsAccepted: &graphql.InputObjectFieldConfig{
+			FieldIsTermsAccepted: &graphql.InputObjectFieldConfig{
 				Type: graphql.Boolean,
 			},
 		},
@@ -131,9 +140,9 @@ func graphqlProjectInput() *graphql.InputObject {
 
 // fromMapProjectInfo creates satellite.ProjectInfo from input args
 func fromMapProjectInfo(args map[string]interface{}) (project console.ProjectInfo) {
-	project.Name, _ = args[fieldName].(string)
-	project.Description, _ = args[fieldDescription].(string)
-	project.IsTermsAccepted, _ = args[fieldIsTermsAccepted].(bool)
+	project.Name, _ = args[FieldName].(string)
+	project.Description, _ = args[FieldDescription].(string)
+	project.IsTermsAccepted, _ = args[FieldIsTermsAccepted].(bool)
 
 	return
 }

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -19,7 +19,7 @@ var (
 	}
 
 	newIDCmd = &cobra.Command{
-		Use:         "new",
+		Use:         "create",
 		Short:       "Creates a new identity from an existing certificate authority",
 		RunE:        cmdNewID,
 		Annotations: map[string]string{"type": "setup"},

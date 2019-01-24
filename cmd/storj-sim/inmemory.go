@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -14,12 +14,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/processgroup"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/utils"
 )
 
 func inmemoryRun(flags *Flags) error {
@@ -44,7 +44,7 @@ func inmemoryRun(flags *Flags) error {
 		err = nil
 	}
 
-	return utils.CombineErrors(err, planet.Shutdown(), log.Sync())
+	return errs.Combine(err, planet.Shutdown(), log.Sync())
 }
 
 func inmemoryTest(flags *Flags, command string, args []string) error {
@@ -97,20 +97,20 @@ func inmemoryTest(flags *Flags, command string, args []string) error {
 	for i := 0; i < flags.Identities; i++ {
 		identity, err := planet.NewIdentity()
 		if err != nil {
-			return utils.CombineErrors(err, planet.Shutdown())
+			return errs.Combine(err, planet.Shutdown())
 		}
 
 		var chainPEM bytes.Buffer
 		errLeaf := pem.Encode(&chainPEM, peertls.NewCertBlock(identity.Leaf.Raw))
 		errCA := pem.Encode(&chainPEM, peertls.NewCertBlock(identity.CA.Raw))
 		if errLeaf != nil || errCA != nil {
-			return utils.CombineErrors(errLeaf, errCA, planet.Shutdown())
+			return errs.Combine(errLeaf, errCA, planet.Shutdown())
 		}
 
 		var key bytes.Buffer
 		errKey := peertls.WriteKey(&key, identity.Key)
 		if errKey != nil {
-			return utils.CombineErrors(errKey, planet.Shutdown())
+			return errs.Combine(errKey, planet.Shutdown())
 		}
 
 		env = append(env,
@@ -128,5 +128,5 @@ func inmemoryTest(flags *Flags, command string, args []string) error {
 
 	errRun := cmd.Run()
 
-	return utils.CombineErrors(errRun, planet.Shutdown(), log.Sync())
+	return errs.Combine(errRun, planet.Shutdown(), log.Sync())
 }

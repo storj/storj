@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -116,6 +116,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		bootstrapPort   = 9999
 		satellitePort   = 10000
 		storageNodePort = 11000
+		consolePort     = 10100
 	)
 
 	bootstrap := processes.New(Info{
@@ -156,6 +157,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--identity-dir", process.Directory,
 			},
 			"run": {
+				"--console.address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--server.address", process.Address,
 
@@ -272,7 +274,7 @@ func identitySetup(network *Processes) (*Processes, error) {
 				"--identity-dir", process.Directory,
 				"--concurrency", "1",
 				"--difficulty", "8",
-				"new", ".",
+				"create", ".",
 			},
 		}
 	}

@@ -84,10 +84,10 @@ func (m *lockedAccounting) SaveBWRaw(ctx context.Context, latestBwa time.Time, i
 }
 
 // SaveRollup records raw tallies of at rest data to the database
-func (m *lockedAccounting) SaveRollup(ctx context.Context, latestTally time.Time, stats accounting.RollupStats) error {
+func (m *lockedAccounting) SaveRollup(ctx context.Context, latestTally time.Time, isNew bool, stats accounting.RollupStats) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveRollup(ctx, latestTally, stats)
+	return m.db.SaveRollup(ctx, latestTally, isNew, stats)
 }
 
 // BandwidthAgreement returns database for storing bandwidth agreements
@@ -351,13 +351,6 @@ func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time
 	m.Lock()
 	defer m.Unlock()
 	return m.db.QueryPaymentInfo(ctx, start, end)
-}
-
-// TestPayments ... TODO REMOVE
-func (m *lockedAccounting) TestPayments(ctx context.Context) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.TestPayments(ctx)
 }
 
 // Users is a getter for Users repository
