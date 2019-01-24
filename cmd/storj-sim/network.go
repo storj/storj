@@ -274,7 +274,7 @@ func identitySetup(network *Processes) (*Processes, error) {
 				"--identity-dir", process.Directory,
 				"--concurrency", "1",
 				"--difficulty", "8",
-				"new", ".",
+				"create", ".",
 			},
 		}
 	}
