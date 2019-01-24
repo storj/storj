@@ -42,12 +42,6 @@ var (
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  generatecsv,
 	}
-
-	cmdTest = &cobra.Command{
-		Use:   "test",
-		Short: "test only: add records to accounting rollup",
-		RunE:  test,
-	}
 )
 
 // Payments gives access to the payments api
@@ -58,7 +52,6 @@ type Payments struct {
 func main() {
 	rootCmd.PersistentFlags().StringVarP(&port, "port", "p", ":10000", "satellite port")
 	rootCmd.AddCommand(cmdGenerate)
-	rootCmd.AddCommand(cmdTest)
 	err := rootCmd.Execute()
 	if err != nil {
 		fmt.Println("Error", err)
@@ -129,16 +122,4 @@ func generatecsv(cmd *cobra.Command, args []string) error {
 
 	fmt.Println("Created payments report at", resp.GetFilepath())
 	return nil
-}
-
-// test only: add records to accounting rollup
-func test(cmd *cobra.Command, args []string) error {
-	p, err := NewPayments()
-	if err != nil {
-		return err
-	}
-	req := &pb.TestRequest{}
-	_, err = p.client.Test(ctx, req)
-	fmt.Println("Added nodes to accounting rollup")
-	return err
 }

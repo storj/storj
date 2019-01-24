@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package tally
@@ -49,8 +49,8 @@ func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreeme
 
 // Run the Tally loop
 func (t *Tally) Run(ctx context.Context) (err error) {
+	t.logger.Info("Tally service starting up")
 	defer mon.Task()(&ctx)(&err)
-
 	for {
 		err = t.calculateAtRestData(ctx)
 		if err != nil {
@@ -72,7 +72,6 @@ func (t *Tally) Run(ctx context.Context) (err error) {
 // calculateAtRestData iterates through the pieces on pointerdb and calculates
 // the amount of at-rest data stored on each respective node
 func (t *Tally) calculateAtRestData(ctx context.Context) (err error) {
-	t.logger.Info("Tally: Entering calculate at rest data")
 	defer mon.Task()(&ctx)(&err)
 
 	latestTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastAtRestTally)
@@ -142,7 +141,6 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (err error) {
 // QueryBW queries bandwidth allocation database, selecting all new contracts since the last collection run time.
 // Grouping by action type, storage node ID and adding total of bandwidth to granular data table.
 func (t *Tally) QueryBW(ctx context.Context) error {
-	t.logger.Info("Tally: Querying Bandwidth Agreements")
 	lastBwTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastBandwidthTally)
 	if err != nil {
 		return Error.Wrap(err)

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -82,18 +82,32 @@ func main() {
 		},
 	)
 
-	testCmd := &cobra.Command{
-		Use:   "test <command>",
-		Short: "run command with an in-memory network",
-		Args:  cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			return runTestPlanet(&flags, args[0], args[1:])
-		},
+	inmemoryCmd := &cobra.Command{
+		Use:   "inmemory",
+		Short: "in-memory single process network",
 	}
+
+	inmemoryCmd.AddCommand(
+		&cobra.Command{
+			Use:   "run",
+			Short: "run an in-memory network",
+			RunE: func(cmd *cobra.Command, args []string) (err error) {
+				return inmemoryRun(&flags)
+			},
+		},
+		&cobra.Command{
+			Use:   "test <command>",
+			Short: "run command with an in-memory network",
+			Args:  cobra.MinimumNArgs(1),
+			RunE: func(cmd *cobra.Command, args []string) (err error) {
+				return inmemoryTest(&flags, args[0], args[1:])
+			},
+		},
+	)
 
 	rootCmd.AddCommand(
 		networkCmd,
-		testCmd,
+		inmemoryCmd,
 	)
 
 	rootCmd.SilenceUsage = true
