@@ -18,6 +18,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
@@ -28,7 +29,7 @@ import (
 // Satellite defines satellite configuration
 type Satellite struct {
 	Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
-
+	Identity identity.Config
 	satellite.Config
 }
 
@@ -111,13 +112,13 @@ func init() {
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	log := zap.L()
 
-	identity, err := runCfg.Server.Identity.Load()
+	identity, err := runCfg.Identity.Load()
 	if err != nil {
 		zap.S().Fatal(err)
 	}
 
 	ctx := process.Ctx(cmd)
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Server.Identity.CertPath); err != nil {
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Errorf("Failed to initialize telemetry batcher: %+v", err)
 	}
 

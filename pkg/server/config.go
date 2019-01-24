@@ -4,15 +4,7 @@
 package server
 
 import (
-	"context"
-	"net"
-
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/utils"
 )
 
 // Config holds server specific configuration parameters
@@ -22,44 +14,4 @@ type Config struct {
 	UsePeerCAWhitelist  bool   `help:"if true, uses peer ca whitelist checking" default:"false"`
 	Address             string `user:"true" help:"address to listen on" default:":7777"`
 	Extensions          peertls.TLSExtConfig
-
-	Identity identity.Config // TODO: separate identity
-}
-
-// Run will run the given responsibilities with the configured identity.
-func (sc Config) Run(ctx context.Context,
-	interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	ident, err := sc.Identity.Load()
-	if err != nil {
-		return err
-	}
-
-	lis, err := net.Listen("tcp", sc.Address)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = lis.Close() }()
-
-	opts, err := NewOptions(ident, sc)
-	if err != nil {
-		return err
-	}
-	defer func() { err = utils.CombineErrors(err, opts.RevDB.Close()) }()
-
-	s, err := NewServer(opts, lis, interceptor, services...)
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		<-ctx.Done()
-		if closeErr := s.Close(); closeErr != nil {
-			zap.S().Errorf("Failed to close server: %s", closeErr)
-		}
-	}()
-
-	zap.S().Infof("Node %s started on %s", s.Identity().ID, sc.Address)
-	return s.Run(ctx)
 }

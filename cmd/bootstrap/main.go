@@ -16,8 +16,14 @@ import (
 	"storj.io/storj/bootstrap/bootstrapdb"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/process"
 )
+
+type BootstrapFlags struct {
+	Identity identity.Config
+	bootstrap.Config
+}
 
 var (
 	rootCmd = &cobra.Command{
@@ -36,8 +42,8 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 
-	runCfg   bootstrap.Config
-	setupCfg bootstrap.Config
+	runCfg   BootstrapFlags
+	setupCfg BootstrapFlags
 
 	defaultConfDir     = fpath.ApplicationDir("storj", "bootstrap")
 	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "bootstrap")
@@ -79,7 +85,7 @@ func init() {
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	log := zap.L()
 
-	identity, err := runCfg.Server.Identity.Load()
+	identity, err := runCfg.Identity.Load()
 	if err != nil {
 		zap.S().Fatal(err)
 	}
@@ -90,7 +96,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	ctx := process.Ctx(cmd)
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Server.Identity.CertPath); err != nil {
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Errorf("Failed to initialize telemetry batcher: %+v", err)
 	}
 

@@ -68,9 +68,6 @@ type DB interface {
 
 // Config is the global config satellite
 type Config struct {
-	Identity identity.Config
-
-	// TODO: switch to using server.Config when Identity has been removed from it
 	Server server.Config
 
 	Kademlia  kademlia.Config

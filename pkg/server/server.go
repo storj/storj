@@ -12,27 +12,17 @@ import (
 	"storj.io/storj/pkg/identity"
 )
 
-// Service represents a specific gRPC method collection to be registered
-// on a shared gRPC server. PointerDB, OverlayCache, PieceStore, Kademlia,
-// StatDB, etc. are all examples of services.
-type Service interface {
-	Run(ctx context.Context, server *Server) error
-}
-
 // Server represents a bundle of services defined by a specific ID.
 // Examples of servers are the satellite, the storagenode, and the uplink.
 type Server struct {
 	lis      net.Listener
 	grpc     *grpc.Server
-	next     []Service
 	identity *identity.FullIdentity
 }
 
 // NewServer creates a Server out of an Identity, a net.Listener,
 // a UnaryServerInterceptor, and a set of services.
-func NewServer(opts *Options, lis net.Listener,
-	interceptor grpc.UnaryServerInterceptor, services ...Service) (
-	*Server, error) {
+func NewServer(opts *Options, lis net.Listener, interceptor grpc.UnaryServerInterceptor) (*Server, error) {
 	grpcOpts, err := opts.grpcOpts()
 	if err != nil {
 		return nil, err
@@ -50,7 +40,6 @@ func NewServer(opts *Options, lis net.Listener,
 			grpc.UnaryInterceptor(unaryInterceptor),
 			grpcOpts,
 		),
-		next:     services,
 		identity: opts.Ident,
 	}, nil
 }
@@ -73,14 +62,5 @@ func (p *Server) Close() error {
 // Run will run the server and all of its services
 func (p *Server) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	// are there any unstarted services? start those first. the
-	// services should know to call Run again once they're ready.
-	if len(p.next) > 0 {
-		next := p.next[0]
-		p.next = p.next[1:]
-		return next.Run(ctx, p)
-	}
-
 	return p.grpc.Serve(p.lis)
 }
