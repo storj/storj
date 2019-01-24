@@ -98,7 +98,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		Kademlia: runCfg.Kademlia.DBPath,
 	})
 	if err != nil {
-		return err
+		return errs.New("Error starting master database on bootstrap: %+v", err)
+	}
+
+	err = db.CreateTables()
+	if err != nil {
+		return errs.New("Error creating tables for master database on bootstrap: %+v", err)
 	}
 
 	peer, err := bootstrap.New(log, identity, db, runCfg)
@@ -109,7 +114,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	runError := peer.Run(ctx)
 	closeError := peer.Close()
 
-	return errs.Combine(runError, closeError)
+	return errs.Combine(runError, closeError, db.Close())
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

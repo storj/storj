@@ -23,6 +23,11 @@ import (
 
 // DB is the master database for Boostrap Node
 type DB interface {
+	// CreateTables initializes the database
+	CreateTables() error
+	// Close closes the database
+	Close() error
+
 	// TODO: use better interfaces
 	RoutingTable() (kdb, ndb storage.KeyValueStore)
 }

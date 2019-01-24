@@ -76,6 +76,11 @@ func NewInMemory(storageDir string) (*DB, error) {
 	}, nil
 }
 
+// CreateTables creates any necessary tables.
+func (db *DB) CreateTables() error {
+	return nil
+}
+
 // Close closes any resources.
 func (db *DB) Close() error {
 	return errs.Combine(

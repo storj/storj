@@ -153,10 +153,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		Kademlia: runCfg.Kademlia.DBPath,
 	})
 	if err != nil {
-		return err
+		return errs.New("Error starting master database on storagenode: %+v", err)
 	}
 
-	// TODO: add CreateTables for consistency
+	err = db.CreateTables()
+	if err != nil {
+		return errs.New("Error creating tables for master database on storagenode: %+v", err)
+	}
 
 	peer, err := storagenode.New(log, identity, db, runCfg.Config)
 	if err != nil {
