@@ -113,7 +113,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 		return iderr
 	}
 
-	fmt.Printf("Unsigned identity is located in %q", serviceDir)
+	fmt.Printf("Unsigned identity is located in %q\n", serviceDir)
 	return nil
 }
 
@@ -183,7 +183,7 @@ func cmdCSR(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Signed identity is in %q", serviceDir)
+	fmt.Printf("Signed identity is in %q\n", serviceDir)
 	return nil
 }
 
