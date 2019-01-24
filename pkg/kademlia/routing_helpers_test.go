@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"bytes"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -326,7 +325,6 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 			nodes, err := rt.nodeBucketDB.List(nil, 0)
 			assert.NoError(t, err)
 			furthest := rt.determineFurthestIDWithinK(teststorj.NodeIDsFromBytes(nodes.ByteSlices()...))
-			fmt.Println(furthest.Bytes())
 			assert.Equal(t, c.expectedFurthest, furthest[:2])
 		})
 	}
