@@ -30,7 +30,6 @@ func inmemoryRun(flags *Flags) error {
 	if err != nil {
 		return err
 	}
-	defer log.Sync()
 
 	planet, err := testplanet.NewWithLogger(log, flags.SatelliteCount, flags.StorageNodeCount, 0)
 	if err != nil {
@@ -45,7 +44,7 @@ func inmemoryRun(flags *Flags) error {
 		err = nil
 	}
 
-	return utils.CombineErrors(err, planet.Shutdown())
+	return utils.CombineErrors(err, planet.Shutdown(), log.Sync())
 }
 
 func inmemoryTest(flags *Flags, command string, args []string) error {
@@ -56,7 +55,6 @@ func inmemoryTest(flags *Flags, command string, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer log.Sync()
 
 	planet, err := testplanet.NewWithLogger(log, flags.SatelliteCount, flags.StorageNodeCount, 0)
 	if err != nil {
@@ -130,5 +128,5 @@ func inmemoryTest(flags *Flags, command string, args []string) error {
 
 	errRun := cmd.Run()
 
-	return utils.CombineErrors(errRun, planet.Shutdown())
+	return utils.CombineErrors(errRun, planet.Shutdown(), log.Sync())
 }
