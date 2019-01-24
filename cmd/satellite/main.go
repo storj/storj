@@ -57,6 +57,12 @@ var (
 		Short: "Repair Queue Diagnostic Tool support",
 		RunE:  cmdQDiag,
 	}
+	paymentsCmd = &cobra.Command{
+		Use:   "payments",
+		Short: "generates payment csv",
+		Args:  cobra.MinimumNArgs(2),
+		RunE:  cmdPayments,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -266,6 +272,10 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 
 	// display the data
 	return w.Flush()
+}
+
+func cmdPayments(cmd *cobra.Command, args []string) error {
+	return nil
 }
 
 func main() {
