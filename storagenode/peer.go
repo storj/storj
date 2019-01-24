@@ -27,6 +27,11 @@ import (
 
 // DB is the master database for Storage Node
 type DB interface {
+	// CreateTables initializes the database
+	CreateTables() error
+	// Close closes the database
+	Close() error
+
 	// TODO: use better interfaces
 	Storage() *pstore.Storage
 	PSDB() *psdb.DB
