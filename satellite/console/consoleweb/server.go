@@ -32,9 +32,15 @@ const (
 // Error is satellite console error type
 var Error = errs.Class("satellite console error")
 
+// Config contains configuration for console web server
+type Config struct {
+	Address   string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
+	StaticDir string `help:"path to static resources" default:""`
+}
+
 // Server represents console web server
 type Server struct {
-	logger *zap.Logger
+	log *zap.Logger
 
 	config   Config
 	service  *console.Service
@@ -47,7 +53,7 @@ type Server struct {
 // NewServer creates new instance of console server
 func NewServer(logger *zap.Logger, config Config, service *console.Service, listener net.Listener) *Server {
 	server := Server{
-		logger:   logger,
+		log:      logger,
 		service:  service,
 		config:   config,
 		listener: listener,
@@ -105,11 +111,11 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 
 	err = json.NewEncoder(w).Encode(result)
 	if err != nil {
-		s.logger.Error(err.Error())
+		s.log.Error(err.Error())
 		return
 	}
 
-	sugar := s.logger.Sugar()
+	sugar := s.log.Sugar()
 	sugar.Debug(result)
 }
 
