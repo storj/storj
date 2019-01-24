@@ -56,7 +56,7 @@ func TestGraphqlQuery(t *testing.T) {
 			UserInfo: console.UserInfo{
 				FirstName: "John",
 				LastName:  "",
-				Email:     "test@email.com",
+				Email:     "mtest@email.com",
 			},
 			Password: "123a123",
 		}
@@ -173,7 +173,7 @@ func TestGraphqlQuery(t *testing.T) {
 			UserInfo: console.UserInfo{
 				FirstName: "Mickey",
 				LastName:  "Last",
-				Email:     "uu1@email.com",
+				Email:     "muu1@email.com",
 			},
 			Password: "123a123",
 		})
@@ -186,7 +186,7 @@ func TestGraphqlQuery(t *testing.T) {
 			UserInfo: console.UserInfo{
 				FirstName: "Dubas",
 				LastName:  "Name",
-				Email:     "uu2@email.com",
+				Email:     "muu2@email.com",
 			},
 			Password: "123a123",
 		})
