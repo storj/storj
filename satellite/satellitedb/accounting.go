@@ -152,7 +152,7 @@ func (db *accountingDB) GetRawSince(ctx context.Context, latestRollup time.Time)
 }
 
 // SaveRollup records raw tallies of at rest data to the database
-func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, stats accounting.RollupStats) error {
+func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, isNew bool, stats accounting.RollupStats) error {
 	if len(stats) == 0 {
 		return Error.New("In SaveRollup with empty nodeData")
 	}
@@ -183,8 +183,13 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 			}
 		}
 	}
-	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestRollup)}
-	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup), update)
+	if isNew {
+		update := dbx.AccountingTimestamps_Value(latestRollup)
+		_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup), update)
+	} else {
+		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestRollup)}
+		_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup), update)
+	}
 	return Error.Wrap(err)
 }
 
