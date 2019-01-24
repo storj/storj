@@ -37,6 +37,7 @@ func New(logger *zap.Logger, db accounting.DB, interval time.Duration) *Rollup {
 
 // Run the Rollup loop
 func (r *Rollup) Run(ctx context.Context) (err error) {
+	r.logger.Info("Rollup service starting up")
 	defer mon.Task()(&ctx)(&err)
 	for {
 		err = r.Query(ctx)
