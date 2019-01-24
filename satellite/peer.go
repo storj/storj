@@ -90,7 +90,6 @@ type Config struct {
 	Tally    tally.Config
 	Rollup   rollup.Config
 	Payments payments.Config
-	// TODO: Audit    audit.Config
 
 	Console consoleweb.Config
 }
@@ -405,6 +404,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Accounting.Rollup.Run(ctx))
+	})
+	group.Go(func() error {
+		return ignoreCancel(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
