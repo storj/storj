@@ -116,6 +116,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		bootstrapPort   = 9999
 		satellitePort   = 10000
 		storageNodePort = 11000
+		consolePort     = 10148
 	)
 
 	bootstrap := processes.New(Info{
@@ -156,6 +157,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--identity-dir", process.Directory,
 			},
 			"run": {
+				"--console-address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--server.address", process.Address,
 
