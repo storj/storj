@@ -157,7 +157,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--identity-dir", process.Directory,
 			},
 			"run": {
-				"--console-address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
+				"--console.address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--server.address", process.Address,
 
