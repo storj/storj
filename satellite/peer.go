@@ -159,7 +159,6 @@ type Peer struct {
 		Endpoint *payments.Server
 	}
 
-	// TODO: add console
 	Console struct {
 		Listener net.Listener
 		Service  *console.Service
