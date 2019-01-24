@@ -22,11 +22,43 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
-func runTestPlanet(flags *Flags, command string, args []string) error {
+func inmemoryRun(flags *Flags) error {
 	ctx, cancel := NewCLIContext(context.Background())
 	defer cancel()
 
-	planet, err := testplanet.NewWithLogger(zap.L(), flags.SatelliteCount, flags.StorageNodeCount, 0)
+	log, err := zap.NewDevelopment()
+	if err != nil {
+		return err
+	}
+	defer log.Sync()
+
+	planet, err := testplanet.NewWithLogger(log, flags.SatelliteCount, flags.StorageNodeCount, 0)
+	if err != nil {
+		return err
+	}
+
+	planet.Start(ctx)
+
+	<-ctx.Done()
+	err = ctx.Err()
+	if err == context.Canceled {
+		err = nil
+	}
+
+	return utils.CombineErrors(err, planet.Shutdown())
+}
+
+func inmemoryTest(flags *Flags, command string, args []string) error {
+	ctx, cancel := NewCLIContext(context.Background())
+	defer cancel()
+
+	log, err := zap.NewDevelopment()
+	if err != nil {
+		return err
+	}
+	defer log.Sync()
+
+	planet, err := testplanet.NewWithLogger(log, flags.SatelliteCount, flags.StorageNodeCount, 0)
 	if err != nil {
 		return err
 	}
@@ -36,6 +68,14 @@ func runTestPlanet(flags *Flags, command string, args []string) error {
 	time.Sleep(time.Second * 2)
 
 	var env = os.Environ()
+
+	// add bootstrap to environment
+	bootstrap := planet.Bootstrap
+	env = append(env, (&Info{
+		Name:    "bootstrap/" + strconv.Itoa(0),
+		ID:      bootstrap.ID().String(),
+		Address: bootstrap.Addr(),
+	}).Env()...)
 
 	// add satellites to environment
 	for i, satellite := range planet.Satellites {

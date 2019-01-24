@@ -20,14 +20,10 @@ import (
 )
 
 var (
-	metricInterval = flag.Duration("metrics.interval", telemetry.DefaultInterval,
-		"how frequently to send up telemetry")
-	metricCollector = flag.String("metrics.addr", "collectora.storj.io:9000",
-		"address to send telemetry to")
-	metricApp = flag.String("metrics.app", filepath.Base(os.Args[0]),
-		"application name for telemetry identification")
-	metricAppSuffix = flag.String("metrics.app-suffix", "-dev",
-		"application suffix")
+	metricInterval  = flag.Duration("metrics.interval", telemetry.DefaultInterval, "how frequently to send up telemetry")
+	metricCollector = flag.String("metrics.addr", "collectora.storj.io:9000", "address to send telemetry to")
+	metricApp       = flag.String("metrics.app", filepath.Base(os.Args[0]), "application name for telemetry identification")
+	metricAppSuffix = flag.String("metrics.app-suffix", "-dev", "application suffix")
 )
 
 // InitMetrics initializes telemetry reporting. Makes a telemetry.Client and calls
