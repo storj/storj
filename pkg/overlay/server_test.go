@@ -80,126 +80,95 @@ func TestNewNodeFiltering(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	var totalNodes int
+	totalNodes = 10
+
+	planet, err := testplanet.New(t, 1, totalNodes, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	planet.Start(ctx)
+
+	defer ctx.Check(planet.Shutdown)
+
+	// we wait a second for all the nodes to complete bootstrapping off the satellite
+	time.Sleep(5 * time.Second)
+
+	satellite := planet.Satellites[0]
+
+	// This sets a reputable audit count for a certain number of nodes.
+	for i, node := range planet.StorageNodes {
+		for j := 0; j < i; j++ {
+			_, err := satellite.DB.StatDB().UpdateAuditSuccess(ctx, node.ID(), true)
+			assert.NoError(t, err)
+		}
+	}
+
 	for _, tt := range []struct {
 		name                  string
 		newNodeAuditThreshold int64
 		newNodePercentage     float64
 		requestedNodeAmt      int64
 		expectedResultLength  int
-		reputableNodes        int
-		totalNodes            int
 	}{
 		{
-			name:                  "case: 0% new nodes requested",
-			requestedNodeAmt:      1,
-			reputableNodes:        1,
+			name:                  "case: all reputable nodes, only reputable nodes requested",
+			newNodeAuditThreshold: 0,
 			newNodePercentage:     0,
-			expectedResultLength:  1,
-			newNodeAuditThreshold: 1,
-			totalNodes:            3,
-		},
-		{
-			name:                  "case: exactly the required amount of new and reputable nodes returned",
-			requestedNodeAmt:      1,
-			reputableNodes:        1,
-			newNodePercentage:     1,
-			expectedResultLength:  2,
-			newNodeAuditThreshold: 1,
-			totalNodes:            2,
-		},
-		{
-			name:                  "case: 50% new nodes requested",
-			requestedNodeAmt:      2,
-			reputableNodes:        2,
-			newNodePercentage:     0.5,
-			expectedResultLength:  3,
-			newNodeAuditThreshold: 1,
-			totalNodes:            3,
-		},
-		{
-			name:                  "case: more than required reputable nodes",
-			requestedNodeAmt:      2,
-			reputableNodes:        3,
-			newNodePercentage:     0,
-			expectedResultLength:  2,
-			newNodeAuditThreshold: 1,
-			totalNodes:            4,
-		},
-		{
-			name:                  "case: fewer than required reputable nodes",
-			requestedNodeAmt:      4,
-			newNodePercentage:     0,
-			reputableNodes:        3,
-			expectedResultLength:  3,
-			newNodeAuditThreshold: 1,
-			totalNodes:            4,
-		},
-		{
-			name:                  "case: zero reputable nodes found, only new nodes",
-			requestedNodeAmt:      2,
-			reputableNodes:        0,
-			expectedResultLength:  2,
-			newNodeAuditThreshold: 1,
-			newNodePercentage:     1,
-			totalNodes:            3,
-		},
-		{
-			name:                  "case: fewer than required new nodes",
-			requestedNodeAmt:      2,
-			reputableNodes:        3,
-			newNodePercentage:     0.5,
-			expectedResultLength:  3,
-			newNodeAuditThreshold: 1,
-			totalNodes:            4,
-		},
-		{
-			name:                  "case: more than required new nodes",
-			requestedNodeAmt:      2,
-			reputableNodes:        2,
-			newNodePercentage:     0.5,
-			expectedResultLength:  3,
-			newNodeAuditThreshold: 1,
-			totalNodes:            5,
-		},
-		{
-			name:                  "case: low percentage of new nodes",
-			requestedNodeAmt:      3,
-			reputableNodes:        1,
-			newNodePercentage:     0.01,
-			expectedResultLength:  1,
-			newNodeAuditThreshold: 1,
-			totalNodes:            4,
-		},
-		{
-			name:                  "case: high percentage of new nodes",
-			requestedNodeAmt:      1,
-			reputableNodes:        1,
-			newNodePercentage:     3,
-			expectedResultLength:  4,
-			newNodeAuditThreshold: 1,
-			totalNodes:            5,
-		},
-		{
-			name:                  "case: zero new nodes found, only reputable nodes",
 			requestedNodeAmt:      5,
-			reputableNodes:        10,
-			newNodePercentage:     0,
 			expectedResultLength:  5,
+		},
+		{
+			name:                  "case: all reputable nodes, reputable and new nodes requested",
+			newNodeAuditThreshold: 0,
+			newNodePercentage:     1,
+			requestedNodeAmt:      5,
+			expectedResultLength:  5,
+		},
+		{
+			name:                  "case: all reputable nodes except one, reputable and new nodes requested",
 			newNodeAuditThreshold: 1,
-			totalNodes:            10,
+			newNodePercentage:     1,
+			requestedNodeAmt:      5,
+			expectedResultLength:  6,
+		},
+		{
+			name:                  "case: 50-50 reputable and new nodes, reputable and new nodes requested (new node % 1)",
+			newNodeAuditThreshold: 5,
+			newNodePercentage:     1,
+			requestedNodeAmt:      2,
+			expectedResultLength:  4,
+		},
+		{
+			name:                  "case: 50-50 reputable and new nodes, reputable and new nodes requested (new node % .5)",
+			newNodeAuditThreshold: 5,
+			newNodePercentage:     0.5,
+			requestedNodeAmt:      4,
+			expectedResultLength:  6,
+		},
+		{
+			name:                  "case: all new nodes except one, reputable and new nodes requested (happy path)",
+			newNodeAuditThreshold: 9,
+			newNodePercentage:     1,
+			requestedNodeAmt:      1,
+			expectedResultLength:  2,
+		},
+		{
+			name:                  "case: all new nodes except one, reputable and new nodes requested (not happy path)",
+			newNodeAuditThreshold: 9,
+			newNodePercentage:     1,
+			requestedNodeAmt:      2,
+			expectedResultLength:  3,
+		},
+		{
+			name:                  "case: all new nodes, reputable and new nodes requested",
+			newNodeAuditThreshold: 50,
+			newNodePercentage:     1,
+			requestedNodeAmt:      2,
+			expectedResultLength:  2,
 		},
 	} {
-
-		planet, err := testplanet.New(t, 1, tt.totalNodes, 1)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		planet.Start(ctx)
-		// we wait a second for all the nodes to complete bootstrapping off the satellite
-		time.Sleep(2 * time.Second)
-
-		satellite := planet.Satellites[0]
 
 		server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay.Service,
 			&pb.NodeStats{}, 2, tt.newNodeAuditThreshold, tt.newNodePercentage)
@@ -211,14 +180,6 @@ func TestNewNodeFiltering(t *testing.T) {
 			n := &pb.Node{
 				Id:      planet.StorageNodes[i].ID(),
 				Address: &pb.NodeAddress{Address: address},
-			}
-
-			// This sets a reputable audit count for a certain number of nodes.
-			if i < tt.reputableNodes {
-				for j := int64(0); j < tt.newNodeAuditThreshold; j++ {
-					_, err := satellite.DB.StatDB().UpdateAuditSuccess(ctx, n.Id, true)
-					assert.NoError(t, err, tt.name)
-				}
 			}
 
 			err = satellite.Overlay.Service.Put(ctx, n.Id, *n)
@@ -240,6 +201,5 @@ func TestNewNodeFiltering(t *testing.T) {
 
 		assert.Equal(t, tt.expectedResultLength, len(result.GetNodes()), tt.name)
 
-		ctx.Check(planet.Shutdown)
 	}
 }
