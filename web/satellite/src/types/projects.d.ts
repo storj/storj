@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 // Project is a type, used for creating new project in backend

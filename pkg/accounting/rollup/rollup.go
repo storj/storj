@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package rollup
@@ -115,5 +115,5 @@ func (r *Rollup) Query(ctx context.Context) error {
 		r.logger.Info("Rollup only found tallies for today")
 		return nil
 	}
-	return Error.Wrap(r.db.SaveRollup(ctx, latestTally, rollupStats))
+	return Error.Wrap(r.db.SaveRollup(ctx, latestTally, isNil, rollupStats))
 }
