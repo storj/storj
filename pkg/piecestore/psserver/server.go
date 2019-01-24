@@ -160,7 +160,7 @@ func (s *Server) Stop(ctx context.Context) error {
 	)
 }
 
-// Piece -- Send meta data about a stored by by Id
+// Piece -- Send meta data about a piece stored by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
 	s.log.Debug("Getting Meta", zap.String("Piece ID", in.GetId()))
 
@@ -199,7 +199,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 		return nil, err
 	}
 
-	s.log.Debug("Successfully retrieved meta", zap.String("Piece ID", in.GetId()))
+	s.log.Info("Successfully retrieved meta", zap.String("Piece ID", in.GetId()))
 	return &pb.PieceSummary{Id: in.GetId(), PieceSize: fileInfo.Size(), ExpirationUnixSec: ttl}, nil
 }
 
@@ -207,6 +207,17 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, error) {
 	s.log.Debug("Getting Stats...")
 
+	statsSummary, err := s.retrieveStats()
+	if err != nil {
+		return nil, err
+	}
+
+	s.log.Info("Successfully retrieved Stats...")
+
+	return statsSummary, nil
+}
+
+func (s *Server) retrieveStats() (*pb.StatSummary, error) {
 	totalUsed, err := s.DB.SumTTLSizes()
 	if err != nil {
 		return nil, err
@@ -265,6 +276,8 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 		return nil, err
 	}
 
+	s.log.Info("Successfully deleted", zap.String("Piece ID", fmt.Sprint(in.GetId())))
+
 	return &pb.PieceDeleteSummary{Message: OK}, nil
 }
 
@@ -276,8 +289,6 @@ func (s *Server) deleteByID(id string) error {
 	if err := s.DB.DeleteTTLByID(id); err != nil {
 		return err
 	}
-
-	s.log.Debug("Deleted", zap.String("Piece ID", id))
 
 	return nil
 }
@@ -347,7 +358,7 @@ func getNamespace(signedMessage *pb.SignedMessage) []byte {
 }
 
 func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, error) {
-	statsSummary, err := s.Stats(ctx, &pb.StatsReq{})
+	statsSummary, err := s.retrieveStats()
 	if err != nil {
 		return &pb.DashboardStats{}, ServerError.Wrap(err)
 	}

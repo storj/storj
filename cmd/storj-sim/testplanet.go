@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -89,6 +89,5 @@ func runTestPlanet(flags *Flags, command string, args []string) error {
 	processgroup.Setup(cmd)
 
 	errRun := cmd.Run()
-
 	return utils.CombineErrors(errRun, planet.Shutdown())
 }

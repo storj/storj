@@ -13,10 +13,8 @@ service Payments {
     rpc Calculate(CalculateRequest) returns (CalculateResponse);
     // AdjustPrices sets the prices paid by a satellite for data at rest and bandwidth
     rpc AdjustPrices(AdjustPricesRequest) returns (AdjustPricesResponse);
-        // GenerateCSV creates a csv file for payment purposes
+    // GenerateCSV creates a csv file for payment purposes
     rpc GenerateCSV(GenerateCSVRequest) returns (GenerateCSVResponse);
-    //TODO REMOVE
-    rpc Test(TestRequest) returns (TestResponse);
 }
 
 // The request message containing the details needed to pay a storage node.
@@ -62,7 +60,3 @@ message GenerateCSVRequest {
 message GenerateCSVResponse {
     string filepath = 1;
 }
-
- message TestRequest {}
-
- message TestResponse {} 

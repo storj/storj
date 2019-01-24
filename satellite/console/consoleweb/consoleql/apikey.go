@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package consoleql
@@ -10,27 +10,30 @@ import (
 )
 
 const (
-	apiKeyInfoType   = "keyInfo"
-	createAPIKeyType = "graphqlCreateAPIKey"
-
-	fieldKey = "key"
+	// APIKeyInfoType is graphql type name for api key
+	APIKeyInfoType = "keyInfo"
+	// CreateAPIKeyType is graphql type name for createAPIKey struct
+	// which incapsulates the actual key and it's info
+	CreateAPIKeyType = "graphqlCreateAPIKey"
+	// FieldKey is field name for the actual key in createAPIKey
+	FieldKey = "key"
 )
 
 // graphqlAPIKeyInfo creates satellite.APIKeyInfo graphql object
 func graphqlAPIKeyInfo() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
-		Name: apiKeyInfoType,
+		Name: APIKeyInfoType,
 		Fields: graphql.Fields{
-			fieldID: &graphql.Field{
+			FieldID: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldProjectID: &graphql.Field{
+			FieldProjectID: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldName: &graphql.Field{
+			FieldName: &graphql.Field{
 				Type: graphql.String,
 			},
-			fieldCreatedAt: &graphql.Field{
+			FieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
 			},
 		},
@@ -40,12 +43,12 @@ func graphqlAPIKeyInfo() *graphql.Object {
 // graphqlCreateAPIKey creates createAPIKey graphql object
 func graphqlCreateAPIKey(types Types) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
-		Name: createAPIKeyType,
+		Name: CreateAPIKeyType,
 		Fields: graphql.Fields{
-			fieldKey: &graphql.Field{
+			FieldKey: &graphql.Field{
 				Type: graphql.String,
 			},
-			apiKeyInfoType: &graphql.Field{
+			APIKeyInfoType: &graphql.Field{
 				Type: types.APIKeyInfo(),
 			},
 		},

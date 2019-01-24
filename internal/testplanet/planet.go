@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
 // Package testplanet implements the full network wiring for testing
@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -291,7 +292,13 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Payments: payments.Config{
 				Filepath: filepath.Join(storageDir, "reports"),
 			},
+			Console: consoleweb.Config{
+				Address: "127.0.0.1:0",
+			},
 		}
+
+		// TODO: for development only
+		config.Console.StaticDir = "./web/satellite"
 
 		peer, err := satellite.New(log, identity, db, &config)
 		if err != nil {
