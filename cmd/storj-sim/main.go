@@ -84,7 +84,7 @@ func main() {
 
 	inmemoryCmd := &cobra.Command{
 		Use:   "inmemory",
-		Short: "inmemory single process network for testing",
+		Short: "in-memory single process network",
 	}
 
 	inmemoryCmd.AddCommand(
