@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package rollup
@@ -37,6 +37,7 @@ func New(logger *zap.Logger, db accounting.DB, interval time.Duration) *Rollup {
 
 // Run the Rollup loop
 func (r *Rollup) Run(ctx context.Context) (err error) {
+	r.logger.Info("Rollup service starting up")
 	defer mon.Task()(&ctx)(&err)
 	for {
 		err = r.Query(ctx)

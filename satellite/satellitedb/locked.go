@@ -353,13 +353,6 @@ func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time
 	return m.db.QueryPaymentInfo(ctx, start, end)
 }
 
-// TestPayments ... TODO REMOVE
-func (m *lockedAccounting) TestPayments(ctx context.Context) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.TestPayments(ctx)
-}
-
 // Users is a getter for Users repository
 func (m *lockedConsole) Users() console.Users {
 	m.Lock()

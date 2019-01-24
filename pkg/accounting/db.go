@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package accounting
@@ -56,6 +56,4 @@ type DB interface {
 	SaveRollup(ctx context.Context, latestTally time.Time, stats RollupStats) error
 	// QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
-	// Adds records to rollup for testing (TODO: remove before merge)
-	TestPayments(ctx context.Context) error
 }

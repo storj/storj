@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
 // Package testplanet implements the full network wiring for testing
@@ -42,8 +42,8 @@ import (
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -106,22 +106,22 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 	planet.Bootstrap, err = planet.newBootstrap()
 	if err != nil {
-		return nil, utils.CombineErrors(err, planet.Shutdown())
+		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
 	planet.Satellites, err = planet.newSatellites(satelliteCount)
 	if err != nil {
-		return nil, utils.CombineErrors(err, planet.Shutdown())
+		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
 	planet.StorageNodes, err = planet.newStorageNodes(storageNodeCount)
 	if err != nil {
-		return nil, utils.CombineErrors(err, planet.Shutdown())
+		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
 	planet.Uplinks, err = planet.newUplinks("uplink", uplinkCount)
 	if err != nil {
-		return nil, utils.CombineErrors(err, planet.Shutdown())
+		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
 	// init Satellites
@@ -130,7 +130,7 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 	}
 	// init storage nodes
 	for _, storageNode := range planet.StorageNodes {
-		storageNode.Kademlia.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+		storageNode.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
 	}
 
 	return planet, nil
@@ -292,7 +292,13 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Payments: payments.Config{
 				Filepath: filepath.Join(storageDir, "reports"),
 			},
+			Console: consoleweb.Config{
+				Address: "127.0.0.1:0",
+			},
 		}
+
+		// TODO: for development only
+		config.Console.StaticDir = "./web/satellite"
 
 		peer, err := satellite.New(log, identity, db, &config)
 		if err != nil {
@@ -333,10 +339,10 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 			return nil, err
 		}
 
-		// TODO: err = db.CreateTables()
-		// if err != nil {
-		// 	return nil, err
-		// }
+		err = db.CreateTables()
+		if err != nil {
+			return nil, err
+		}
 
 		planet.databases = append(planet.databases, db)
 
@@ -402,10 +408,10 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 		return nil, err
 	}
 
-	// TODO: err = db.CreateTables()
-	// if err != nil {
-	// 	return nil, err
-	// }
+	err = db.CreateTables()
+	if err != nil {
+		return nil, err
+	}
 
 	planet.databases = append(planet.databases, db)
 
