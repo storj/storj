@@ -20,6 +20,10 @@ import (
 	"storj.io/storj/pkg/process"
 )
 
+const (
+	defaultSignerAddress = "certs.alpha.storj.io:8888"
+)
+
 var (
 	rootCmd = &cobra.Command{
 		Use:   "identity",
@@ -95,6 +99,9 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 	}
 
 	ca, caerr := caConfig.Create(process.Ctx(cmd))
+	if caerr != nil {
+		return caerr
+	}
 
 	identConfig := identity.SetupConfig{
 		CertPath: identCertPath,
@@ -106,10 +113,12 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 	}
 
 	_, iderr := identConfig.Create(ca)
+	if iderr != nil {
+		return iderr
+	}
 
-	fmt.Printf("Unsigned identity is located in %q", serviceDir)
-
-	return errs.Combine(caerr, iderr)
+	fmt.Printf("Unsigned identity is located in %q\n", serviceDir)
+	return nil
 }
 
 func cmdCSR(cmd *cobra.Command, args []string) error {
@@ -138,6 +147,10 @@ func cmdCSR(cmd *cobra.Command, args []string) error {
 	ident, err := identConfig.Load()
 	if err != nil {
 		return err
+	}
+
+	if config.Signer.Address == "" {
+		config.Signer.Address = defaultSignerAddress
 	}
 
 	signedChainBytes, err := config.Signer.Sign(ctx, ident, authToken)
@@ -178,7 +191,7 @@ func cmdCSR(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Signed identity is in %q", serviceDir)
+	fmt.Printf("Signed identity is in %q\n", serviceDir)
 	return nil
 }
 
