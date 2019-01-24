@@ -16,13 +16,13 @@ import (
 
 var (
 	caCmd = &cobra.Command{
-		Use:         "ca",
+		Use:         "certificate-authority",
 		Short:       "Manage certificate authorities",
 		Annotations: map[string]string{"type": "setup"},
 	}
 
 	newCACmd = &cobra.Command{
-		Use:         "new",
+		Use:         "create",
 		Short:       "Create a new certificate authority",
 		RunE:        cmdNewCA,
 		Annotations: map[string]string{"type": "setup"},

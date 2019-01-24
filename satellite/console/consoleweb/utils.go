@@ -1,32 +1,18 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package consoleweb
 
 import (
-	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"strings"
 
-	"github.com/graphql-go/graphql"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/utils"
-	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
-)
-
-const (
-	authorization = "Authorization"
-	contentType   = "Content-Type"
-
-	authorizationBearer = "Bearer "
-
-	applicationJSON    = "application/json"
-	applicationGraphql = "application/graphql"
 )
 
 // JSON request from graphql clients
@@ -34,44 +20,6 @@ type graphqlJSON struct {
 	Query         string
 	OperationName string
 	Variables     map[string]interface{}
-}
-
-// grapqlHandler is graphql endpoint http handler function
-func (gw *gateway) grapqlHandler(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set(contentType, applicationJSON)
-
-	token := getToken(req)
-	query, err := getQuery(req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	ctx := auth.WithAPIKey(context.Background(), []byte(token))
-	auth, err := gw.service.Authorize(ctx)
-	if err != nil {
-		ctx = console.WithAuthFailure(ctx, err)
-	} else {
-		ctx = console.WithAuth(ctx, auth)
-	}
-
-	result := graphql.Do(graphql.Params{
-		Schema:         gw.schema,
-		Context:        ctx,
-		RequestString:  query.Query,
-		VariableValues: query.Variables,
-		OperationName:  query.OperationName,
-		RootObject:     make(map[string]interface{}),
-	})
-
-	err = json.NewEncoder(w).Encode(result)
-	if err != nil {
-		gw.log.Error(err.Error())
-		return
-	}
-
-	sugar := gw.log.Sugar()
-	sugar.Debug(result)
 }
 
 // getToken retrieves token from request

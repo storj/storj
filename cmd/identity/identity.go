@@ -19,7 +19,7 @@ var (
 	}
 
 	newIDCmd = &cobra.Command{
-		Use:         "new",
+		Use:         "create",
 		Short:       "Creates a new identity from an existing certificate authority",
 		RunE:        cmdNewID,
 		Annotations: map[string]string{"type": "setup"},
