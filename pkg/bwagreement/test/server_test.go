@@ -24,7 +24,6 @@ import (
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	e "storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -110,7 +109,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			assert.NoError(t, err)
 
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rbaNode1)
-			assert.True(t, e.Serial.Has(err))
+			assert.True(t, pb.Serial.Has(err))
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -119,7 +118,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		   For safety we will try it anyway to make sure nothing strange will happen */
 		{
 			reply, err := satellite.BandwidthAgreements(ctxSN2, rbaNode2)
-			assert.True(t, e.Serial.Has(err))
+			assert.True(t, pb.Serial.Has(err))
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 	}
@@ -209,7 +208,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 				Certs:     rba.GetCerts(),
 			})
 
-			assert.True(t, e.Verify.Has(err) && e.Renter.Has(err), err.Error())
+			assert.True(t, pb.Verify.Has(err) && pb.Renter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -226,7 +225,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 				Certs:     manipCerts,
 			})
 
-			assert.True(t, e.Signer.Has(err) && e.Renter.Has(err), err.Error())
+			assert.True(t, pb.Signer.Has(err) && pb.Renter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -256,7 +255,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 				Certs:     manipCerts,
 			})
 
-			assert.True(t, e.Signer.Has(err) && e.Renter.Has(err), err.Error())
+			assert.True(t, pb.Signer.Has(err) && pb.Renter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -289,7 +288,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 				Certs:     manipCerts,
 			})
 
-			assert.True(t, e.Verify.Has(err) && e.Payer.Has(err), err.Error())
+			assert.True(t, pb.Verify.Has(err) && pb.Payer.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -324,7 +323,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 				Certs:     manipCerts,
 			})
 
-			assert.True(t, e.Signer.Has(err) && e.Payer.Has(err), err.Error())
+			assert.True(t, pb.Signer.Has(err) && pb.Payer.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -360,7 +359,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 				Certs:     manipCerts,
 			})
 
-			assert.True(t, e.Payer.Has(err), err.Error())
+			assert.True(t, pb.Payer.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 	}
@@ -378,7 +377,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			rba.Signature = []byte("invalid")
 
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rba)
-			assert.True(t, e.SigLen.Has(err) && e.Renter.Has(err), err.Error())
+			assert.True(t, pb.SigLen.Has(err) && pb.Renter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -413,7 +412,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 				Data:      invalidrba,
 				Certs:     rba.GetCerts(),
 			})
-			assert.True(t, e.Verify.Has(err) && e.Renter.Has(err), err.Error())
+			assert.True(t, pb.Verify.Has(err) && pb.Renter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 	}

@@ -44,8 +44,8 @@ message PayerBandwidthAllocation { // Payer refers to satellite
     int64 created_unix_sec = 7;    // Unix timestamp for when PayerbandwidthAllocation was created
   }
 
-  repeated bytes certs = 1;   // Satellite Public Key 
-  bytes signature = 2; // Seralized Data signed by Satellite
+  repeated bytes certs = 1;   // Satellite certificate chain 
+  bytes signature = 2; // Proof that the data was signed by the Satellite
   bytes data = 3;      // Serialization of above Data Struct
 }
 
@@ -56,8 +56,8 @@ message RenterBandwidthAllocation { // Renter refers to uplink
     bytes storage_node_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Storage Node Identity
   }
 
-  repeated bytes certs = 1;   // Uplink Public Key
-  bytes signature = 2; // Seralized Data signed by Uplink
+  repeated bytes certs = 1;   // Uplink certificate chain
+  bytes signature = 2; // Proof that the data was signed by the Uplink
   bytes data = 3;      // Serialization of above Data Struct
 }
 

@@ -13,7 +13,6 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	e "storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -37,11 +36,11 @@ func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action,
 	// Sign the PayerBandwidthAllocation_Data with the "Satellite" Private Key
 	satPrivECDSA, ok := satID.Key.(*ecdsa.PrivateKey)
 	if !ok {
-		return nil, e.SatPrivKey.Wrap(e.ECDSA)
+		return nil, pb.SatPrivKey.Wrap(pb.ECDSA)
 	}
 	s, err := cryptopasta.Sign(data, satPrivECDSA)
 	if err != nil {
-		return nil, e.UpPrivKey.Wrap(e.Sign.Wrap(err))
+		return nil, pb.UpPrivKey.Wrap(pb.Sign.Wrap(err))
 	}
 	certs := [][]byte{satID.Leaf.Raw, satID.CA.Raw}
 	certs = append(certs, satID.RestChainRaw()...) //todo: do we need RestChain?
@@ -66,11 +65,11 @@ func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, storage
 	// Sign the PayerBandwidthAllocation_Data with the "Uplink" Private Key
 	upPrivECDSA, ok := upID.Key.(*ecdsa.PrivateKey)
 	if !ok {
-		return nil, e.UpPrivKey.Wrap(e.ECDSA)
+		return nil, pb.UpPrivKey.Wrap(pb.ECDSA)
 	}
 	s, err := cryptopasta.Sign(data, upPrivECDSA)
 	if err != nil {
-		return nil, e.UpPrivKey.Wrap(e.Sign.Wrap(err))
+		return nil, pb.UpPrivKey.Wrap(pb.Sign.Wrap(err))
 	}
 	certs := [][]byte{upID.Leaf.Raw, upID.CA.Raw}
 	certs = append(certs, upID.RestChainRaw()...) //todo: do we need RestChain?
