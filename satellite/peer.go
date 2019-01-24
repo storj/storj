@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -372,7 +373,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 }
 
 func ignoreCancel(err error) error {
-	if err == context.Canceled || err == grpc.ErrServerStopped {
+	if err == context.Canceled || err == grpc.ErrServerStopped || err == http.ErrServerClosed {
 		return nil
 	}
 	return err
