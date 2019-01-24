@@ -28,15 +28,14 @@ var (
 	Error = errs.Class("payments server error: ")
 )
 
-// Config is a configuration struct for everything you need to start the
-// Payments responsibility.
+// Config is a configuration struct for everything you need to start the Payments responsibility.
 type Config struct {
 	Filepath string `help:"the file path of the generated csv" default:"$CONFDIR/payments"`
 	// TODO: service should not write to disk, but return the result instead
 }
 
-// Server holds references to ...
-type Server struct { // TODO: separate endpoint and service, fix comment
+// Server holds references to info needed for the payments responsibility
+type Server struct { // TODO: separate endpoint and service
 	filepath     string
 	accountingDB accounting.DB
 	overlayDB    overlay.DB
@@ -114,7 +113,7 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 		"nodeID",
 		"nodeCreationDate",
 		"auditSuccessRatio",
-		"bytes/hr:AtRest",
+		"byte-hours:AtRest",
 		"bytes:BWRepair-GET",
 		"bytes:BWRepair-PUT",
 		"bytes:BWAudit",
@@ -148,12 +147,6 @@ func (srv *Server) GenerateCSV(ctx context.Context, req *pb.GenerateCSVRequest) 
 		return nil, err
 	}
 	return &pb.GenerateCSVResponse{Filepath: abs}, nil
-}
-
-// Test TODO: remove
-func (srv *Server) Test(ctx context.Context, req *pb.TestRequest) (*pb.TestResponse, error) {
-	err := srv.accountingDB.TestPayments(ctx)
-	return &pb.TestResponse{}, err
 }
 
 func structToStringSlice(s *accounting.CSVRow) []string {
