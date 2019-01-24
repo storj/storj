@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package consoleweb
@@ -10,12 +10,11 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"storj.io/storj/pkg/auth"
-
 	"github.com/graphql-go/graphql"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 )
@@ -55,11 +54,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, list
 	}
 
 	mux := http.NewServeMux()
-	fs := http.FileServer(http.Dir(server.config.StaticPath))
+	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
 	mux.Handle("/api/graphql/v0", http.HandlerFunc(server.grapqlHandler))
 
-	if server.config.StaticPath != "" {
+	if server.config.StaticDir != "" {
 		mux.Handle("/", http.HandlerFunc(server.appHandler))
 		mux.Handle("/static/", http.StripPrefix("/static", fs))
 	}
@@ -73,7 +72,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, list
 
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
-	http.ServeFile(w, req, filepath.Join(s.config.StaticPath, "dist", "public", "index.html"))
+	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "public", "index.html"))
 }
 
 // grapqlHandler is graphql endpoint http handler function

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
 // Package testplanet implements the full network wiring for testing
@@ -275,7 +275,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		}
 
 		// TODO: for development only
-		config.Console.StaticPath = "./web/satellite"
+		config.Console.StaticDir = "./web/satellite"
 
 		peer, err := satellite.New(log, identity, db, &config)
 		if err != nil {

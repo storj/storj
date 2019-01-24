@@ -9,8 +9,6 @@ import (
 	"net"
 	"path/filepath"
 
-	"storj.io/storj/satellite/console/consoleauth"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -33,6 +31,7 @@ import (
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -282,16 +281,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Console.Service, err = console.NewService(peer.Log.Named("console: service"),
+		peer.Console.Service, err = console.NewService(peer.Log.Named("console:service"),
 			// TODO: use satellite key
-			&consoleauth.Hmac{Secret: []byte("my-suppa-scret-key")},
+			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			peer.DB.Console())
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Console.Endpoint = consoleweb.NewServer(peer.Log.Named("console: server"),
+		peer.Console.Endpoint = consoleweb.NewServer(peer.Log.Named("console:endpoint"),
 			config,
 			peer.Console.Service,
 			peer.Console.Listener)
