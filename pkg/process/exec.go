@@ -12,7 +12,6 @@ import (
 )
 
 func init() {
-
 	cobra.MousetrapHelpText = "This is a command line tool.\n\n" +
 		"This needs to be run from a Command Prompt.\n"
 

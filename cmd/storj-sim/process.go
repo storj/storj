@@ -20,7 +20,6 @@ import (
 
 	"storj.io/storj/internal/processgroup"
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/utils"
 )
 
 // Processes contains list of processes
@@ -65,14 +64,11 @@ func (processes *Processes) Env() []string {
 
 // Close closes all the processes and their resources
 func (processes *Processes) Close() error {
-	var errs []error
+	var errlist errs.Group
 	for _, process := range processes.List {
-		err := process.Close()
-		if err != nil {
-			errs = append(errs, err)
-		}
+		errlist.Add(process.Close())
 	}
-	return utils.CombineErrors(errs...)
+	return errlist.Err()
 }
 
 // Info represents public information about the process
