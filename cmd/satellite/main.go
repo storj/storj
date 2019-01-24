@@ -17,43 +17,19 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/accounting/rollup"
-	"storj.io/storj/pkg/accounting/tally"
-	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/auth/grpcauth"
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/datarepair/checker"
-	"storj.io/storj/pkg/datarepair/repairer"
-	"storj.io/storj/pkg/discovery"
-	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/payments"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/server"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 )
 
 // Satellite defines satellite configuration
 type Satellite struct {
-	Server      server.Config
-	Kademlia    kademlia.SatelliteConfig
-	PointerDB   pointerdb.Config
-	Overlay     overlay.Config
-	Checker     checker.Config
-	Repairer    repairer.Config
-	Audit       audit.Config
-	BwAgreement bwagreement.Config
-	Discovery   discovery.Config
-	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
-	StatDB      statdb.Config
-	Tally       tally.Config
-	Rollup      rollup.Config
-	Payments    payments.Config
+	Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+
+	satellite.Config
 }
 
 var (
@@ -133,43 +109,36 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
-	if _, err := runCfg.Server.Identity.Load(); err != nil {
+	log := zap.L()
+
+	identity, err := runCfg.Server.Identity.Load()
+	if err != nil {
 		zap.S().Fatal(err)
 	}
 
-	database, err := satellitedb.New(runCfg.Database)
-	if err != nil {
-		return errs.New("Error starting master database on satellite: %+v", err)
-	}
-
-	err = database.CreateTables()
-	if err != nil {
-		return errs.New("Error creating tables for master database on satellite: %+v", err)
-	}
+	ctx := process.Ctx(cmd)
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Server.Identity.CertPath); err != nil {
 		zap.S().Errorf("Failed to initialize telemetry batcher: %+v", err)
 	}
 
-	//nolint ignoring context rules to not create cyclic dependency, will be removed later
-	ctx = context.WithValue(ctx, "masterdb", database)
+	db, err := satellitedb.New(runCfg.Database)
+	if err != nil {
+		return errs.New("Error starting master database on satellite: %+v", err)
+	}
+	err = db.CreateTables()
+	if err != nil {
+		return errs.New("Error creating tables for master database on satellite: %+v", err)
+	}
 
-	return runCfg.Server.Run(
-		ctx,
-		grpcauth.NewAPIKeyInterceptor(),
-		runCfg.Kademlia,
-		runCfg.Overlay,
-		runCfg.PointerDB,
-		runCfg.Checker,
-		runCfg.Repairer,
-		runCfg.Audit,
-		runCfg.BwAgreement,
-		runCfg.Discovery,
-		runCfg.StatDB,
-		runCfg.Tally,
-		runCfg.Rollup,
-		runCfg.Payments,
-	)
+	peer, err := satellite.New(log, identity, db, &runCfg.Config)
+	if err != nil {
+		return err
+	}
+
+	runError := peer.Run(ctx)
+	closeError := peer.Close()
+
+	return errs.Combine(runError, closeError, db.Close())
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

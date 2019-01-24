@@ -21,12 +21,8 @@ import (
 )
 
 var (
-	keysCmd = &cobra.Command{
-		Use:   "keys",
-		Short: "Manage keys",
-	}
 	keyGenerateCmd = &cobra.Command{
-		Use:         "generate",
+		Use:         "batch-generate",
 		Short:       "generate lots of keys",
 		RunE:        cmdKeyGenerate,
 		Annotations: map[string]string{"type": "setup"},
@@ -40,8 +36,7 @@ var (
 )
 
 func init() {
-	rootCmd.AddCommand(keysCmd)
-	keysCmd.AddCommand(keyGenerateCmd)
+	rootCmd.AddCommand(keyGenerateCmd)
 	cfgstruct.Bind(keyGenerateCmd.Flags(), &keyCfg)
 }
 

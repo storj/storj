@@ -156,6 +156,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	// TODO: add CreateTables for consistency
+
 	peer, err := storagenode.New(log, identity, db, runCfg.Config)
 	if err != nil {
 		return err
@@ -164,7 +166,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	runError := peer.Run(ctx)
 	closeError := peer.Close()
 
-	return errs.Combine(runError, closeError)
+	return errs.Combine(runError, closeError, db.Close())
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

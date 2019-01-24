@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package rollup
+package rollup_test
 
 import (
 	"testing"
@@ -12,50 +12,55 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 )
 
 func TestQueryOneDay(t *testing.T) {
-	ctx, r, _, nodeData, cleanup := createRollup(t)
+	// TODO: use testplanet
+
+	ctx, r, db, nodeData, cleanup := createRollup(t)
 	defer cleanup()
 
 	now := time.Now().UTC()
 	later := now.Add(time.Hour * 24)
 
-	err := r.db.SaveAtRestRaw(ctx, now, true, nodeData)
+	err := db.Accounting().SaveAtRestRaw(ctx, now, true, nodeData)
 	assert.NoError(t, err)
 
 	// test should return error because we delete latest day's rollup
 	err = r.Query(ctx)
 	assert.NoError(t, err)
 
-	rows, err := r.db.QueryPaymentInfo(ctx, now, later)
+	rows, err := db.Accounting().QueryPaymentInfo(ctx, now, later)
 	assert.Equal(t, 0, len(rows))
 	assert.NoError(t, err)
 }
 
 func TestQueryTwoDays(t *testing.T) {
-	ctx, r, _, nodeData, cleanup := createRollup(t)
+	// TODO: use testplanet
+
+	ctx, _, db, nodeData, cleanup := createRollup(t)
 	defer cleanup()
 
 	now := time.Now().UTC()
 	then := now.Add(time.Hour * -24)
 
-	err := r.db.SaveAtRestRaw(ctx, now, true, nodeData)
+	err := db.Accounting().SaveAtRestRaw(ctx, now, true, nodeData)
 	assert.NoError(t, err)
 
 	// db.db.Exec("UPDATE accounting_raws SET created_at= WHERE ")
 	// err = r.Query(ctx)
 	// assert.NoError(t, err)
 
-	_, err = r.db.QueryPaymentInfo(ctx, then, now)
+	_, err = db.Accounting().QueryPaymentInfo(ctx, then, now)
 	//assert.Equal(t, 10, len(rows))
 	assert.NoError(t, err)
 }
 
-func createRollup(t *testing.T) (*testcontext.Context, *rollup, satellite.DB, map[storj.NodeID]float64, func()) {
+func createRollup(t *testing.T) (*testcontext.Context, *rollup.Rollup, satellite.DB, map[storj.NodeID]float64, func()) {
 	ctx := testcontext.New(t)
 	db, err := satellitedb.NewInMemory()
 	assert.NoError(t, err)
@@ -77,5 +82,5 @@ func createRollup(t *testing.T) (*testcontext.Context, *rollup, satellite.DB, ma
 		assert.NoError(t, err)
 	}
 
-	return ctx, newRollup(zap.NewNop(), db.Accounting(), time.Second), db, nodeData, cleanup
+	return ctx, rollup.New(zap.NewNop(), db.Accounting(), time.Second), db, nodeData, cleanup
 }
