@@ -116,7 +116,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		bootstrapPort   = 9999
 		satellitePort   = 10000
 		storageNodePort = 11000
-		consolePort     = 10148
+		consolePort     = 10100
 	)
 
 	bootstrap := processes.New(Info{
