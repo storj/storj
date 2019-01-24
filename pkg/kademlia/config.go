@@ -4,37 +4,23 @@
 package kademlia
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"regexp"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-
-	"storj.io/storj/pkg/node"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/utils"
 )
 
 var (
 	// Error defines a Kademlia error
 	Error = errs.Class("kademlia error")
-	mon   = monkit.Package()
+	// mon   = monkit.Package() // TODO: figure out whether this is needed
 )
 
 var (
 	flagBucketSize           = flag.Int("kademlia.bucket-size", 20, "size of each Kademlia bucket")
 	flagReplacementCacheSize = flag.Int("kademlia.replacement-cache-size", 5, "size of Kademlia replacement cache")
-)
-
-//CtxKey Used as kademlia key
-type CtxKey int
-
-const (
-	ctxKeyKad CtxKey = iota
 )
 
 // OperatorConfig defines properties related to storage node operator metadata
@@ -91,82 +77,4 @@ type Config struct {
 // Verify verifies whether kademlia config is valid.
 func (c Config) Verify(log *zap.Logger) error {
 	return c.Operator.Verify(log)
-}
-
-// BootstrapConfig is a Config that implements provider.Responsibility as
-// a bootstrap server
-type BootstrapConfig Config
-
-// Run implements provider.Responsibility
-func (c BootstrapConfig) Run(ctx context.Context, server *provider.Provider) error {
-	return Config(c).Run(ctx, server, pb.NodeType_BOOTSTRAP)
-}
-
-// SatelliteConfig is a Config that implements provider.Responsibility as
-// a satellite
-type SatelliteConfig Config
-
-// Run implements provider.Responsibility
-func (c SatelliteConfig) Run(ctx context.Context, server *provider.Provider) error {
-	return Config(c).Run(ctx, server, pb.NodeType_SATELLITE)
-}
-
-// Run does not implement provider.Responsibility. Please use a specific
-// SatelliteConfig or StorageNodeConfig
-func (c Config) Run(ctx context.Context, server *provider.Provider,
-	nodeType pb.NodeType) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// TODO(coyle): I'm thinking we just remove this function and grab from the config.
-	zap.S().Debugf("kademlia bootstrap node: %q", c.BootstrapAddr)
-	in, err := GetIntroNode(c.BootstrapAddr)
-	if err != nil {
-		return err
-	}
-
-	metadata := &pb.NodeMetadata{
-		Email:  c.Operator.Email,
-		Wallet: c.Operator.Wallet,
-	}
-
-	addr := server.Addr().String()
-	if c.ExternalAddress != "" {
-		addr = c.ExternalAddress
-	}
-
-	logger := zap.L()
-	kad, err := NewKademlia(logger, nodeType, []pb.Node{*in}, addr, metadata, server.Identity(), c.DBPath, c.Alpha)
-	if err != nil {
-		return err
-	}
-	kad.StartRefresh(ctx)
-	defer func() { err = utils.CombineErrors(err, kad.Disconnect()) }()
-
-	go func() {
-		if err = kad.Bootstrap(ctx); err != nil {
-			logger.Sugar().Errorf("Failed to bootstrap Kademlia %s: %v", c.BootstrapAddr, err)
-		} else {
-			logger.Sugar().Infof("Successfully connected to Kademlia bootstrap node %s", c.BootstrapAddr)
-		}
-	}()
-
-	pb.RegisterNodesServer(server.GRPC(), node.NewServer(logger, kad))
-
-	zap.S().Infof("Kademlia external address: %s", addr)
-
-	zap.S().Warn("Once the Peer refactor is done, the kad inspector needs to be registered on a " +
-		"gRPC server that only listens on localhost")
-	// TODO: register on a private rpc server
-	pb.RegisterKadInspectorServer(server.GRPC(), NewInspector(kad, server.Identity()))
-
-	return server.Run(context.WithValue(ctx, ctxKeyKad, kad))
-}
-
-// LoadFromContext loads an existing Kademlia from the Provider context
-// stack if one exists.
-func LoadFromContext(ctx context.Context) *Kademlia {
-	if v, ok := ctx.Value(ctxKeyKad).(*Kademlia); ok {
-		return v
-	}
-	return nil
 }

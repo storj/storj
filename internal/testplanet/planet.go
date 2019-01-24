@@ -24,6 +24,9 @@ import (
 	"storj.io/storj/bootstrap"
 	"storj.io/storj/bootstrap/bootstrapdb"
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/accounting/rollup"
+	"storj.io/storj/pkg/accounting/tally"
+	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
@@ -31,6 +34,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/payments"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/piecestore/psserver"
@@ -228,7 +232,15 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		planet.databases = append(planet.databases, db)
 
 		config := satellite.Config{
-			PublicAddress: "127.0.0.1:0",
+			Server: server.Config{
+				Address:            "127.0.0.1:0",
+				RevocationDBURL:    "bolt://" + filepath.Join(planet.directory, "revocation.db"),
+				UsePeerCAWhitelist: false, // TODO: enable
+				Extensions: peertls.TLSExtConfig{
+					Revocation:          true,
+					WhitelistSignedLeaf: false,
+				},
+			},
 			Kademlia: kademlia.Config{
 				Alpha:  5,
 				DBPath: storageDir, // TODO: replace with master db
@@ -268,10 +280,22 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				MaxBufferMem:  4 * memory.MB,
 				APIKey:        "",
 			},
+			Audit: audit.Config{
+				MaxRetriesStatDB: 0,
+				Interval:         30 * time.Second,
+			},
+			Tally: tally.Config{
+				Interval: 30 * time.Second,
+			},
+			Rollup: rollup.Config{
+				Interval: 120 * time.Second,
+			},
+			Payments: payments.Config{
+				Filepath: filepath.Join(storageDir, "reports"),
+			},
 			Console: consoleweb.Config{
 				Address: "127.0.0.1:0",
 			},
-			// TODO: Audit    audit.Config
 		}
 
 		// TODO: for development only

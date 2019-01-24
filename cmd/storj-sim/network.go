@@ -159,7 +159,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--server.address", process.Address,
 
-				"--audit.satellite-addr", process.Address,
 				"--repairer.overlay-addr", process.Address,
 				"--repairer.pointer-db-addr", process.Address,
 			},
