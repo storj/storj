@@ -212,7 +212,7 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, e
 		return nil, err
 	}
 
-	s.log.Info("Succesfully retrieved Stats...")
+	s.log.Info("Successfully retrieved Stats...")
 
 	return statsSummary, nil
 }
