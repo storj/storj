@@ -212,7 +212,6 @@ func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeI
 		}
 
 		if v.Type != pb.NodeType_STORAGE {
-			server.log.Debug("not storage node = " + v.Id.String() + " was " + v.Type.String())
 			continue
 		}
 
@@ -230,7 +229,6 @@ func (server *Server) getReputableNodes(ctx context.Context, startID storj.NodeI
 			reputation.GetAuditSuccessRatio() < minReputation.GetAuditSuccessRatio() ||
 			reputation.GetAuditCount() < minReputation.GetAuditCount() ||
 			contains(excluded, v.Id) {
-			server.log.Debug("excluded = " + v.Id.String())
 			continue
 		}
 		resultNodes = append(resultNodes, v)
@@ -291,7 +289,6 @@ func (server *Server) getNewNodes(ctx context.Context, startID storj.NodeID, max
 			continue
 
 		} else if nodeReputation.GetAuditCount() < server.newNodeAuditThreshold {
-			server.log.Debug("append " + v.Id.String() + " - " + v.Type.String())
 			resultNodes = append(resultNodes, v)
 		}
 	}
