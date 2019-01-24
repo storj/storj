@@ -13,5 +13,5 @@ import (
 // TODO: this is temporary and only intended for tests
 func (peer *Peer) NewNodeClient() (node.Client, error) {
 	// TODO: handle disconnect verification
-	return node.NewNodeClient(peer.Identity, peer.Kademlia.RoutingTable.Local(), peer.Kademlia.Service)
+	return node.NewNodeClient(peer.Identity, peer.Local(), peer.Kademlia.Service)
 }
