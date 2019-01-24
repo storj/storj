@@ -83,7 +83,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return err
 	}
 
-	s.log.Debug("Successfully retrieved",
+	s.log.Info("Successfully retrieved",
 		zap.String("Piece ID", fmt.Sprint(pd.GetId())),
 		zap.Int64("Allocated", allocated),
 		zap.Int64("Retrieved", retrieved),
