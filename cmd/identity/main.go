@@ -20,6 +20,10 @@ import (
 	"storj.io/storj/pkg/process"
 )
 
+const (
+	defaultSignerAddress = "certs.alpha.storj.io:8888"
+)
+
 var (
 	rootCmd = &cobra.Command{
 		Use:   "identity",
@@ -143,6 +147,10 @@ func cmdCSR(cmd *cobra.Command, args []string) error {
 	ident, err := identConfig.Load()
 	if err != nil {
 		return err
+	}
+
+	if config.Signer.Address == "" {
+		config.Signer.Address = defaultSignerAddress
 	}
 
 	signedChainBytes, err := config.Signer.Sign(ctx, ident, authToken)
