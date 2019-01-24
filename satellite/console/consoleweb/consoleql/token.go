@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package consoleql
@@ -11,18 +11,19 @@ import (
 )
 
 const (
-	tokenType = "token"
+	// TokenType is graphql type name for token
+	TokenType = "token"
 )
 
 // graphqlToken creates *graphql.Object type that encapsulates user and token string
 func graphqlToken(service *console.Service, types Types) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
-		Name: tokenType,
+		Name: TokenType,
 		Fields: graphql.Fields{
-			tokenType: &graphql.Field{
+			TokenType: &graphql.Field{
 				Type: graphql.String,
 			},
-			userType: &graphql.Field{
+			UserType: &graphql.Field{
 				Type: types.User(),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					wrapper, _ := p.Source.(tokenWrapper)

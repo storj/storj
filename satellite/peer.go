@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -38,6 +39,8 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
@@ -87,6 +90,9 @@ type Config struct {
 	Tally    tally.Config
 	Rollup   rollup.Config
 	Payments payments.Config
+	// TODO: Audit    audit.Config
+
+	Console consoleweb.Config
 }
 
 // Peer is the satellite
@@ -154,7 +160,11 @@ type Peer struct {
 		Endpoint *payments.Server
 	}
 
-	// TODO: add console
+	Console struct {
+		Listener net.Listener
+		Service  *console.Service
+		Endpoint *consoleweb.Server
+	}
 }
 
 // New creates a new satellite
@@ -336,11 +346,34 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		pb.RegisterPaymentsServer(peer.Public.Server.GRPC(), peer.Payments.Endpoint)
 	}
 
+	{ // setup console
+		config := config.Console
+
+		peer.Console.Listener, err = net.Listen("tcp", config.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Console.Service, err = console.NewService(peer.Log.Named("console:service"),
+			// TODO: use satellite key
+			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
+			peer.DB.Console())
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Console.Endpoint = consoleweb.NewServer(peer.Log.Named("console:endpoint"),
+			config,
+			peer.Console.Service,
+			peer.Console.Listener)
+	}
+
 	return peer, nil
 }
 
 func ignoreCancel(err error) error {
-	if err == context.Canceled || err == grpc.ErrServerStopped {
+	if err == context.Canceled || err == grpc.ErrServerStopped || err == http.ErrServerClosed {
 		return nil
 	}
 	return err
@@ -372,6 +405,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 		peer.Log.Sugar().Infof("Node %s started on %s", peer.Identity.ID, peer.Public.Server.Addr().String())
 		return ignoreCancel(peer.Public.Server.Run(ctx))
 	})
+	group.Go(func() error {
+		return ignoreCancel(peer.Console.Endpoint.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -383,6 +419,14 @@ func (peer *Peer) Close() error {
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close services in reverse initialization order
+	if peer.Console.Endpoint != nil {
+		errlist.Add(peer.Console.Endpoint.Close())
+	} else {
+		if peer.Console.Endpoint != nil {
+			errlist.Add(peer.Public.Listener.Close())
+		}
+	}
+
 	if peer.Repair.Repairer != nil {
 		errlist.Add(peer.Repair.Repairer.Close())
 	}
