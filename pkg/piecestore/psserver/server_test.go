@@ -238,23 +238,27 @@ func TestRetrieve(t *testing.T) {
 			assert.NoError(err)
 
 			totalAllocated := int64(0)
-			var data string
 			var totalRetrieved = int64(0)
 			var resp *pb.PieceRetrievalStream
 			for totalAllocated < tt.respSize {
 				// Send bandwidth bandwidthAllocation
 				totalAllocated += tt.allocSize
 
-				ba := pb.RenterBandwidthAllocation{
-					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-						PayerAllocation: &pb.PayerBandwidthAllocation{},
-						Total:           totalAllocated,
-					}),
-				}
+				certs := [][]byte{upID.Leaf.Raw, upID.CA.Raw}
+				certs = append(certs, upID.RestChainRaw()...) //todo: do we need RestChain?
 
-				s, err := cryptopasta.Sign(ba.Data, upID.Key.(*ecdsa.PrivateKey))
+				data := serializeData(&pb.RenterBandwidthAllocation_Data{
+					PayerAllocation: &pb.PayerBandwidthAllocation{},
+					Total:           totalAllocated,
+				})
+				signature, err := cryptopasta.Sign(data, upID.Key.(*ecdsa.PrivateKey))
 				assert.NoError(err)
-				ba.Signature = s
+
+				ba := pb.RenterBandwidthAllocation{
+					Data:      data,
+					Signature: signature,
+					Certs:     certs,
+				}
 
 				err = stream.Send(
 					&pb.PieceRetrieval{
