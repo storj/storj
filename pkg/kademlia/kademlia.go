@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -54,6 +55,8 @@ type Kademlia struct {
 	dialer          *Dialer
 	identity        *provider.FullIdentity
 	bootstrapCancel unsafe.Pointer // context.CancelFunc
+
+	lookups sync.WaitGroup
 }
 
 // New returns a newly configured Kademlia instance
@@ -114,7 +117,11 @@ func (k *Kademlia) Close() error {
 	if ptr != nil {
 		(*(*context.CancelFunc)(ptr))()
 	}
-	return k.dialer.Close()
+
+	dialerErr := k.dialer.Close()
+	k.lookups.Wait()
+
+	return dialerErr
 }
 
 // Disconnect safely closes connections to the Kademlia network
@@ -124,8 +131,12 @@ func (k *Kademlia) Disconnect() error {
 	if ptr != nil {
 		(*(*context.CancelFunc)(ptr))()
 	}
+
+	dialerErr := k.dialer.Close()
+	k.lookups.Wait()
+
 	return errs.Combine(
-		k.dialer.Close(),
+		dialerErr,
 		k.routingTable.Close(),
 	)
 }
@@ -236,6 +247,9 @@ func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, erro
 
 //lookup initiates a kadmelia node lookup
 func (k *Kademlia) lookup(ctx context.Context, ID storj.NodeID, isBootstrap bool) (pb.Node, error) {
+	k.lookups.Add(1)
+	defer k.lookups.Done()
+
 	kb := k.routingTable.K()
 	var nodes []*pb.Node
 	if isBootstrap {
@@ -299,18 +313,11 @@ func GetIntroNode(addr string) (*pb.Node, error) {
 	}, nil
 }
 
-// StartRefresh occasionally refreshes stale kad buckets
-func (k *Kademlia) StartRefresh(ctx context.Context) {
-	go func() {
-		err := k.RunRefresh(ctx)
-		if err != nil && err != context.Canceled {
-			k.log.Error("refresh returned", zap.Error(err))
-		}
-	}()
-}
-
 // RunRefresh occasionally refreshes stale kad buckets
 func (k *Kademlia) RunRefresh(ctx context.Context) error {
+	k.lookups.Add(1)
+	defer k.lookups.Done()
+
 	ticker := time.NewTicker(5 * time.Minute)
 	time.Sleep(time.Duration(rand.Intn(300)) * time.Second) //stagger
 	for {
