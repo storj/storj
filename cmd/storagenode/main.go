@@ -23,6 +23,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
@@ -39,6 +40,11 @@ type StorageNodeFlags struct {
 	SaveAllDefaults bool `default:"false" help:"save all default values to config.yaml file" setup:"true"`
 
 	storagenode.Config
+}
+
+// Inspector holds the kad client for node inspection
+type Inspector struct {
+	kad pb.KadInspectorClient
 }
 
 var (
@@ -350,6 +356,7 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	tc := transport.NewClient(ident)
+
 	n := &pb.Node{
 		Address: &pb.NodeAddress{
 			Address:   address,
@@ -358,7 +365,6 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		Type: pb.NodeType_STORAGE,
 	}
 
-	// create new client
 	lc, err := psclient.NewLiteClient(ctx, tc, n)
 	if err != nil {
 		return err
@@ -367,6 +373,11 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 	stream, err := lc.Dashboard(ctx)
 	if err != nil {
 		return err
+	}
+
+	online, err := getConnectionStatus(ctx, tc, ident)
+	if err != nil {
+		zap.S().Error("error getting connection status %s", err.Error())
 	}
 
 	for {
@@ -387,7 +398,7 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 
 		fmt.Fprintf(color.Output, "Node ID: %s\n", color.YellowString(data.GetNodeId()))
 
-		if data.GetConnection() {
+		if online {
 			fmt.Fprintf(color.Output, "%s ", color.GreenString("ONLINE"))
 		} else {
 			fmt.Fprintf(color.Output, "%s ", color.RedString("OFFLINE"))
@@ -454,6 +465,49 @@ func clr() {
 	} else {
 		panic("Your platform is unsupported! I can't clear terminal screen :(")
 	}
+}
+
+func getConnectionStatus(ctx context.Context, tc transport.Client, id *identity.FullIdentity) (bool, error) {
+	bn := &pb.Node{
+		Address: &pb.NodeAddress{
+			Address:   "[::]:7777",
+			Transport: 0,
+		},
+		Type: pb.NodeType_BOOTSTRAP,
+	}
+
+	inspector, err := newInspectorClient(ctx, tc, bn)
+	if err != nil {
+		return false, err
+	}
+
+	resp, err := inspector.kad.PingNode(ctx, &pb.PingNodeRequest{
+		Id: id.ID,
+	})
+
+	if err != nil {
+		zap.S().Error(err)
+		return false, err
+	}
+
+	if resp.GetOk() {
+		return true, err
+	}
+
+	return false, err
+}
+
+func newInspectorClient(ctx context.Context, tc transport.Client, bn *pb.Node) (*Inspector, error) {
+	conn, err := tc.DialNode(ctx, bn)
+	if err != nil {
+		fmt.Printf("\n ERROR SETTING UP DIAL NODE %+v\n", err)
+		return &Inspector{}, err
+	}
+
+	return &Inspector{
+		kad: pb.NewKadInspectorClient(conn),
+	}, nil
+
 }
 
 func main() {
