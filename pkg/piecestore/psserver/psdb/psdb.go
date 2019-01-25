@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,8 +29,6 @@ var (
 	mon = monkit.Package()
 	// Error is the default psdb errs class
 	Error = errs.Class("psdb")
-
-	defaultCheckInterval = flag.Duration("piecestore.ttl.check-interval", time.Hour, "number of seconds to sleep between ttl checks")
 )
 
 // DB is a piece store database
@@ -63,7 +60,7 @@ func Open(ctx context.Context, storage *pstore.Storage, DBPath string) (db *DB, 
 	db = &DB{
 		DB:      sqlite,
 		storage: storage,
-		check:   time.NewTicker(*defaultCheckInterval),
+		check:   time.NewTicker(time.Hour), // TODO: make configurable
 	}
 	if err := db.init(); err != nil {
 		return nil, utils.CombineErrors(err, db.DB.Close())
@@ -86,7 +83,7 @@ func OpenInMemory(ctx context.Context, storage *pstore.Storage) (db *DB, err err
 	db = &DB{
 		DB:      sqlite,
 		storage: storage,
-		check:   time.NewTicker(*defaultCheckInterval),
+		check:   time.NewTicker(time.Hour), // TODO: make configurable
 	}
 	if err := db.init(); err != nil {
 		return nil, utils.CombineErrors(err, db.DB.Close())

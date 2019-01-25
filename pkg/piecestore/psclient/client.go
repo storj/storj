@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"crypto"
 	"crypto/ecdsa"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -31,16 +30,8 @@ var ClientError = errs.Class("piecestore client error")
 var (
 	defaultBandwidthMsgSize = 32 * memory.KB
 	maxBandwidthMsgSize     = 64 * memory.KB
+	// TODO: make these configurable flags, removed global flag for now
 )
-
-func init() {
-	flag.Var(&defaultBandwidthMsgSize,
-		"piecestore.rpc.client.default-bandwidth-msg-size",
-		"default bandwidth message size in bytes")
-	flag.Var(&maxBandwidthMsgSize,
-		"piecestore.rpc.client.max-bandwidth-msg-size",
-		"max bandwidth message size in bytes")
-}
 
 // Client is an interface describing the functions for interacting with piecestore nodes
 type Client interface {
