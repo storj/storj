@@ -129,13 +129,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	bootstrap.Arguments = withCommon(Arguments{
 		"setup": {
 			"--identity-dir", bootstrap.Directory,
-		},
-		"run": {
 			"--kademlia.bootstrap-addr", bootstrap.Address,
 			"--kademlia.operator.email", "bootstrap@example.com",
 			"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
 			"--server.address", bootstrap.Address,
 		},
+		"run": {},
 	})
 
 	// Create satellites making all satellites wait for bootstrap to start
@@ -155,15 +154,13 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.Arguments = withCommon(Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
-			},
-			"run": {
 				"--console.address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--server.address", process.Address,
-
 				"--repairer.overlay-addr", process.Address,
 				"--repairer.pointer-db-addr", process.Address,
 			},
+			"run": {},
 		})
 	}
 
@@ -188,8 +185,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"setup": {
 				"--identity-dir", process.Directory,
 				"--satellite-addr", satellite.Address,
-			},
-			"run": {
+
 				"--server.address", process.Address,
 				"--minio.access-key", accessKey,
 				"--minio.secret-key", secretKey,
@@ -202,6 +198,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--rs.success-threshold", strconv.Itoa(3 * flags.StorageNodeCount / 5),
 				"--rs.max-threshold", strconv.Itoa(4 * flags.StorageNodeCount / 5),
 			},
+			"run": {},
 		})
 	}
 
@@ -220,13 +217,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.Arguments = withCommon(Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
-			},
-			"run": {
+
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
 				"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
+
 				"--server.address", process.Address,
 			},
+			"run": {},
 		})
 	}
 
