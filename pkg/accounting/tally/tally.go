@@ -168,15 +168,8 @@ func (t *Tally) QueryBW(ctx context.Context) error {
 	}
 	var latestBwa time.Time
 	for _, baRow := range bwAgreements {
-		rbad := &pb.RenterBandwidthAllocation_Data{}
-		if err := proto.Unmarshal(baRow.Agreement, rbad); err != nil {
-			t.logger.DPanic("Could not deserialize renter bwa in Tally query")
-			continue
-		}
-		pbad := &pb.PayerBandwidthAllocation_Data{}
-		if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
-			return err
-		}
+		rbad := baRow.Agreement
+		pbad := rbad.GetPayerAllocation
 		if baRow.CreatedAt.After(latestBwa) {
 			latestBwa = baRow.CreatedAt
 		}

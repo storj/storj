@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
 
 	"storj.io/storj/internal/teststorj"
@@ -145,36 +144,21 @@ func TestHappyPath(t *testing.T) {
 		}
 	})
 
-	bandwidthAllocation := func(satelliteID storj.NodeID, total int64) []byte {
-		return serialize(t, &pb.RenterBandwidthAllocation_Data{
-			PayerAllocation: &pb.PayerBandwidthAllocation{
-				Data: serialize(t, &pb.PayerBandwidthAllocation_Data{
-					SatelliteId: satelliteID,
-				}),
-			},
-			Total: total,
-		})
+	bandwidthAllocation := func(signature string, satelliteID storj.NodeID, total int64) []byte {
+		return &pb.RenterBandwidthAllocation{
+			PayerAllocation: pb.PayerBandwidthAllocation{SatelliteId: satelliteID},
+			Total:           total,
+			Signature:       []byte(signature),
+		}
 	}
 
 	//TODO: use better data
 	nodeIDAB := teststorj.NodeIDFromString("AB")
 	allocationTests := []*pb.RenterBandwidthAllocation{
-		{
-			Signature: []byte("signed by test"),
-			Data:      bandwidthAllocation(nodeIDAB, 0),
-		},
-		{
-			Signature: []byte("signed by sigma"),
-			Data:      bandwidthAllocation(nodeIDAB, 10),
-		},
-		{
-			Signature: []byte("signed by sigma"),
-			Data:      bandwidthAllocation(nodeIDAB, 98),
-		},
-		{
-			Signature: []byte("signed by test"),
-			Data:      bandwidthAllocation(nodeIDAB, 3),
-		},
+		bandwidthAllocation("signed by test", nodeIDAB, 0),
+		bandwidthAllocation("signed by sigma", nodeIDAB, 10),
+		bandwidthAllocation("signed by sigma", nodeIDAB, 98),
+		bandwidthAllocation("signed by test", nodeIDAB, 3),
 	}
 
 	t.Run("Bandwidth Allocation", func(t *testing.T) {
@@ -305,30 +289,16 @@ func TestBandwidthUsage(t *testing.T) {
 func BenchmarkWriteBandwidthAllocation(b *testing.B) {
 	db, cleanup := newDB(b)
 	defer cleanup()
-
 	const WritesPerLoop = 10
-
-	data := serialize(b, &pb.RenterBandwidthAllocation_Data{
-		PayerAllocation: &pb.PayerBandwidthAllocation{},
-		Total:           156,
-	})
-
 	b.RunParallel(func(b *testing.PB) {
 		for b.Next() {
 			for i := 0; i < WritesPerLoop; i++ {
 				_ = db.WriteBandwidthAllocToDB(&pb.RenterBandwidthAllocation{
-					Signature: []byte("signed by test"),
-					Data:      data,
+					PayerAllocation: &pb.PayerBandwidthAllocation{},
+					Total:           156,
+					Signature:       []byte("signed by test"),
 				})
 			}
 		}
 	})
-}
-
-func serialize(t testing.TB, v proto.Message) []byte {
-	data, err := proto.Marshal(v)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return data
 }

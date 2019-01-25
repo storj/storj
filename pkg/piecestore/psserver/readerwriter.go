@@ -4,7 +4,6 @@
 package psserver
 
 import (
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
@@ -59,42 +58,26 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, bandwidt
 		}
 
 		pd := recv.GetPieceData()
-		ba := recv.GetBandwidthAllocation()
+		rba := recv.BandwidthAllocation
 
-		if ba != nil {
-			if err = s.verifySignature(stream.Context(), ba); err != nil {
-				return nil, err
-			}
-
-			deserializedData := &pb.RenterBandwidthAllocation_Data{}
-			err = proto.Unmarshal(ba.GetData(), deserializedData)
-			if err != nil {
-				return nil, err
-			}
-
-			pbaData := &pb.PayerBandwidthAllocation_Data{}
-			if err = proto.Unmarshal(deserializedData.GetPayerAllocation().GetData(), pbaData); err != nil {
-				return nil, err
-			}
-
-			if err = s.verifyPayerAllocation(pbaData, "PUT"); err != nil {
-				return nil, err
-			}
-
-			// if whitelist does not contain PBA satellite ID, reject storage request
-			if len(s.whitelist) != 0 {
-				if !s.approved(pbaData.SatelliteId) {
-					return nil, StoreError.New("Satellite ID not approved")
-				}
-			}
-
-			// Update bandwidthallocation to be stored
-			if deserializedData.GetTotal() > sr.currentTotal {
-				sr.bandwidthAllocation = ba
-				sr.currentTotal = deserializedData.GetTotal()
+		if err = s.verifySignature(stream.Context(), rba); err != nil {
+			return nil, err
+		}
+		pba := ba.PayerAllocation
+		if err = s.verifyPayerAllocation(pba, "PUT"); err != nil {
+			return nil, err
+		}
+		// if whitelist does not contain PBA satellite ID, reject storage request
+		if len(s.whitelist) != 0 {
+			if !s.approved(pbaData.SatelliteId) {
+				return nil, StoreError.New("Satellite ID not approved")
 			}
 		}
-
+		// Update bandwidthallocation to be stored
+		if rba.Total > sr.currentTotal {
+			sr.bandwidthAllocation = rba
+			sr.currentTotal = rba.Total
+		}
 		return pd.GetContent(), nil
 	})
 

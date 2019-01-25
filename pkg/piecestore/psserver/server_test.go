@@ -385,13 +385,10 @@ func TestStore(t *testing.T) {
 				err = rows.Scan(&agreement, &signature)
 				assert.NoError(err)
 
-				decoded := &pb.RenterBandwidthAllocation_Data{}
-
-				err = proto.Unmarshal(agreement, decoded)
 				assert.NoError(err)
 				assert.Equal(msg.BandwidthAllocation.GetSignature(), signature)
-				assert.True(proto.Equal(pba, decoded.GetPayerAllocation()))
-				assert.Equal(int64(len(tt.content)), decoded.GetTotal())
+				assert.True(proto.Equal(pba, agreement.PayerAllocation))
+				assert.Equal(int64(len(tt.content)), agreement.Total)
 
 			}
 			err = rows.Err()

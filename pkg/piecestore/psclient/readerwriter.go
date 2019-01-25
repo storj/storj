@@ -109,16 +109,10 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 				allocate = size - sr.allocated
 			}
 
-			allocationData := &pb.RenterBandwidthAllocation_Data{
+			allocationData := pb.RenterBandwidthAllocation{
 				PayerAllocation: pba,
 				Total:           sr.allocated + allocate,
 				StorageNodeId:   sr.client.remoteID,
-			}
-
-			serializedAllocation, err := proto.Marshal(allocationData)
-			if err != nil {
-				sr.pendingAllocs.Fail(err)
-				return
 			}
 
 			sig, err := client.sign(serializedAllocation)

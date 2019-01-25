@@ -15,7 +15,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/fatih/color"
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -281,17 +280,8 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 
 	for _, rbaVal := range bwAgreements {
 		for _, rbaDataVal := range rbaVal {
-			// deserializing rbad you get payerbwallocation, total & storage node id
-			rbad := &pb.RenterBandwidthAllocation_Data{}
-			if err := proto.Unmarshal(rbaDataVal.Agreement, rbad); err != nil {
-				return err
-			}
-
-			// deserializing pbad you get satelliteID, uplinkID, max size, exp, serial# & action
-			pbad := &pb.PayerBandwidthAllocation_Data{}
-			if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
-				return err
-			}
+			rbad := rbaDataVal.Agreement
+			pbad := rbad.GetPayerAllocation
 
 			summary, ok := summaries[pbad.SatelliteId]
 			if !ok {

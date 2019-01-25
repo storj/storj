@@ -176,21 +176,8 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, storageNode1, upID, 666)
 		assert.NoError(t, err)
 
-		// Unmarschal Renter and Payer bwagreements
-		rbaData := &pb.RenterBandwidthAllocation_Data{}
-		err = proto.Unmarshal(rba.GetData(), rbaData)
-		assert.NoError(t, err)
-
-		pbaData := &pb.PayerBandwidthAllocation_Data{}
-		err = proto.Unmarshal(pba.GetData(), pbaData)
-		assert.NoError(t, err)
-
 		// Storage node manipulates the bwagreement
-		rbaData.Total = 1337
-
-		// Marschal the manipulated bwagreement
-		maniprba, err := proto.Marshal(rbaData)
-		assert.NoError(t, err)
+		rba.Total = 1337
 
 		// Generate a new keypair for self signing bwagreements
 		manipID, err := testidentity.NewTestIdentity(ctx)
@@ -373,20 +360,12 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, storageNode2, upID, 666)
 			assert.NoError(t, err)
 
-			rbaData := &pb.RenterBandwidthAllocation_Data{}
-			err = proto.Unmarshal(rba.GetData(), rbaData)
-			assert.NoError(t, err)
-
-			pbaData := &pb.PayerBandwidthAllocation_Data{}
-			err = proto.Unmarshal(pba.GetData(), pbaData)
-			assert.NoError(t, err)
-
 			pba.Certs = nil
 
 			invalidpba, err := proto.Marshal(pbaData)
 			assert.NoError(t, err)
 
-			rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
+			rba.PayerAllocation = &pb.PayerBandwidthAllocation{
 				Signature: pba.GetSignature(),
 				Data:      invalidpba,
 				Certs:     pba.GetCerts(),

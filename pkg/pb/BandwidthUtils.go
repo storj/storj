@@ -4,7 +4,6 @@
 package pb
 
 import (
-	proto "github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 )
 
@@ -28,36 +27,36 @@ type SignedMsg interface {
 	GetSignature() []byte
 }
 
-// MsgComplete ensures a SignedMsg has no nulls
-func MsgComplete(sm SignedMsg) (bool, error) {
-	if sm == nil {
-		return false, Missing.New("message")
-	} else if sm.GetData() == nil {
-		return false, Missing.New("message data")
-	} else if sm.GetSignature() == nil {
-		return false, Missing.New("message signature")
-	} else if sm.GetCerts() == nil {
-		return false, Missing.New("message certificates")
-	}
-	return true, nil
-}
+// // MsgComplete ensures a SignedMsg has no nulls
+// func MsgComplete(sm SignedMsg) (bool, error) {
+// 	if sm == nil {
+// 		return false, Missing.New("message")
+// 	} else if sm.GetData() == nil {
+// 		return false, Missing.New("message data")
+// 	} else if sm.GetSignature() == nil {
+// 		return false, Missing.New("message signature")
+// 	} else if sm.GetCerts() == nil {
+// 		return false, Missing.New("message certificates")
+// 	}
+// 	return true, nil
+// }
 
-//Unpack helps get things out of a RenterBandwidthAllocation
-func (rba *RenterBandwidthAllocation) Unpack() (*RenterBandwidthAllocation_Data, *PayerBandwidthAllocation, *PayerBandwidthAllocation_Data, error) {
-	if ok, err := MsgComplete(rba); !ok {
-		return nil, nil, nil, Renter.Wrap(err)
-	}
-	rbad := &RenterBandwidthAllocation_Data{}
-	if err := proto.Unmarshal(rba.GetData(), rbad); err != nil {
-		return nil, nil, nil, Renter.Wrap(Unmarshal.Wrap(err))
-	}
-	if ok, err := MsgComplete(rba); !ok {
-		return nil, nil, nil, Payer.Wrap(err)
-	}
-	pba := rbad.GetPayerAllocation()
-	pbad := &PayerBandwidthAllocation_Data{}
-	if err := proto.Unmarshal(pba.GetData(), pbad); err != nil {
-		return nil, nil, nil, Payer.Wrap(Unmarshal.Wrap(err))
-	}
-	return rbad, pba, pbad, nil
-}
+// //Unpack helps get things out of a RenterBandwidthAllocation
+// func (rba *RenterBandwidthAllocation) Unpack() (*RenterBandwidthAllocation_Data, *PayerBandwidthAllocation, *PayerBandwidthAllocation_Data, error) {
+// 	if ok, err := MsgComplete(rba); !ok {
+// 		return nil, nil, nil, Renter.Wrap(err)
+// 	}
+// 	rbad := &RenterBandwidthAllocation_Data{}
+// 	if err := proto.Unmarshal(rba.GetData(), rbad); err != nil {
+// 		return nil, nil, nil, Renter.Wrap(Unmarshal.Wrap(err))
+// 	}
+// 	if ok, err := MsgComplete(rba); !ok {
+// 		return nil, nil, nil, Payer.Wrap(err)
+// 	}
+// 	pba := rbad.GetPayerAllocation()
+// 	pbad := &PayerBandwidthAllocation_Data{}
+// 	if err := proto.Unmarshal(pba.GetData(), pbad); err != nil {
+// 		return nil, nil, nil, Payer.Wrap(Unmarshal.Wrap(err))
+// 	}
+// 	return rbad, pba, pbad, nil
+// }

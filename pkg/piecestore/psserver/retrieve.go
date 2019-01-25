@@ -10,7 +10,6 @@ import (
 	"os"
 	"sync/atomic"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -126,50 +125,28 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 				allocationTracking.Fail(err)
 				return
 			}
-
-			alloc := recv.GetBandwidthAllocation()
-			allocData := &pb.RenterBandwidthAllocation_Data{}
-			if err = proto.Unmarshal(alloc.GetData(), allocData); err != nil {
+			rba := recv.BandwidthAllocation
+			if err = s.verifySignature(stream.Context(), rba); err != nil {
 				allocationTracking.Fail(err)
 				return
 			}
-
-			if err = s.verifySignature(stream.Context(), alloc); err != nil {
+			pba := rba.pba
+			if err = s.verifyPayerAllocation(pba, "GET"); err != nil {
 				allocationTracking.Fail(err)
 				return
 			}
-
-			if allocData.GetPayerAllocation() == nil {
-				allocationTracking.Fail(StoreError.New("no payer bandwidth allocation"))
-				return
-			}
-
-			pbaData := &pb.PayerBandwidthAllocation_Data{}
-			if err = proto.Unmarshal(allocData.GetPayerAllocation().GetData(), pbaData); err != nil {
-				allocationTracking.Fail(err)
-				return
-			}
-
-			if err = s.verifyPayerAllocation(pbaData, "GET"); err != nil {
-				allocationTracking.Fail(err)
-				return
-			}
-
 			// TODO: break when lastTotal >= allocData.GetPayer_allocation().GetData().GetMax_size()
-
-			if lastTotal > allocData.GetTotal() {
-				allocationTracking.Fail(fmt.Errorf("got lower allocation was %v got %v", lastTotal, allocData.GetTotal()))
+			if lastTotal > allocData.Total {
+				allocationTracking.Fail(fmt.Errorf("got lower allocation was %v got %v", lastTotal, allocData.Total)
 				return
 			}
-
-			atomic.StoreInt64(&totalAllocated, allocData.GetTotal())
-
-			if err = allocationTracking.Produce(allocData.GetTotal() - lastTotal); err != nil {
+			atomic.StoreInt64(&totalAllocated, allocData.Total)
+			if err = allocationTracking.Produce(allocData.Total - lastTotal); err != nil {
 				return
 			}
 
 			lastAllocation = alloc
-			lastTotal = allocData.GetTotal()
+			lastTotal = allocData.Total
 		}
 	}()
 

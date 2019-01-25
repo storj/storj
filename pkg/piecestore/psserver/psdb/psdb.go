@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3" // register sqlite to sql
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -212,35 +211,24 @@ func (db *DB) garbageCollect(ctx context.Context) {
 }
 
 // WriteBandwidthAllocToDB -- Insert bandwidth agreement into DB
-func (db *DB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) error {
+func (db *DB) WriteBandwidthAllocToDB(rba *pb.RenterBandwidthAllocation) error {
 	defer db.locked()()
 
 	// We begin extracting the satellite_id
 	// The satellite id can be used to sort the bandwidth agreements
 	// If the agreements are sorted we can send them in bulk streams to the satellite
-	rbad := &pb.RenterBandwidthAllocation_Data{}
-	if err := proto.Unmarshal(ba.GetData(), rbad); err != nil {
-		return err
-	}
-
-	pbad := &pb.PayerBandwidthAllocation_Data{}
-	if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
-		return err
-	}
-
-	_, err := db.DB.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature) VALUES (?, ?, ?)`, pbad.SatelliteId.Bytes(), ba.GetData(), ba.GetSignature())
+	_, err := db.DB.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature) VALUES (?, ?, ?)`,
+		prbad.PayerAllocation.SatelliteId.Bytes(), rba.GetData(), rba.GetSignature())
 	return err
 }
 
 // DeleteBandwidthAllocationBySignature finds an allocation by signature and deletes it
 func (db *DB) DeleteBandwidthAllocationBySignature(signature []byte) error {
 	defer db.locked()()
-
 	_, err := db.DB.Exec(`DELETE FROM bandwidth_agreements WHERE signature=?`, signature)
 	if err == sql.ErrNoRows {
 		err = nil
 	}
-
 	return err
 }
 
