@@ -189,6 +189,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	defer k.lookups.Done()
 
 	if len(k.bootstrapNodes) == 0 {
+		k.log.Warn("No bootstrap address specified.")
 		return nil
 	}
 
