@@ -188,8 +188,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"setup": {
 				"--identity-dir", process.Directory,
 				"--satellite-addr", satellite.Address,
-			},
-			"run": {
+
 				"--server.address", process.Address,
 				"--minio.access-key", accessKey,
 				"--minio.secret-key", secretKey,
@@ -202,6 +201,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--rs.success-threshold", strconv.Itoa(3 * flags.StorageNodeCount / 5),
 				"--rs.max-threshold", strconv.Itoa(4 * flags.StorageNodeCount / 5),
 			},
+			"run": {},
 		})
 	}
 
