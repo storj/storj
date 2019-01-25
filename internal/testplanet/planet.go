@@ -77,6 +77,8 @@ type Planet struct {
 	Uplinks      []*Node
 
 	identities *Identities
+
+	cancel func()
 }
 
 // New creates a new full system with the given number of nodes.
@@ -138,6 +140,9 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 // Start starts all the nodes.
 func (planet *Planet) Start(ctx context.Context) {
+	ctx, cancel := context.WithCancel(ctx)
+	planet.cancel = cancel
+
 	for _, peer := range planet.peers {
 		go func(peer Peer) {
 			err := peer.Run(ctx)
@@ -152,6 +157,13 @@ func (planet *Planet) Start(ctx context.Context) {
 	}
 
 	planet.started = true
+
+	for _, peer := range planet.Satellites {
+		peer.Kademlia.Service.WaitForBootstrap()
+	}
+	for _, peer := range planet.StorageNodes {
+		peer.Kademlia.Service.WaitForBootstrap()
+	}
 }
 
 // Size returns number of nodes in the network
@@ -159,11 +171,12 @@ func (planet *Planet) Size() int { return len(planet.nodes) + len(planet.peers) 
 
 // Shutdown shuts down all the nodes and deletes temporary directories.
 func (planet *Planet) Shutdown() error {
-	var errlist errs.Group
 	if !planet.started {
-		errlist.Add(errors.New("Start was never called"))
+		return errors.New("Start was never called")
 	}
+	planet.cancel()
 
+	var errlist errs.Group
 	// shutdown in reverse order
 	for i := len(planet.nodes) - 1; i >= 0; i-- {
 		node := planet.nodes[i]

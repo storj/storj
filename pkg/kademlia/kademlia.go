@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -53,6 +54,8 @@ type Kademlia struct {
 	dialer         *Dialer
 	identity       *provider.FullIdentity
 	lookups        sync.WaitGroup
+
+	bootstrapFinished sync2.Fence
 }
 
 // New returns a newly configured Kademlia instance
@@ -180,11 +183,13 @@ func (k *Kademlia) SetBootstrapNodes(nodes []pb.Node) { k.bootstrapNodes = nodes
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
 func (k *Kademlia) Bootstrap(ctx context.Context) error {
+	defer k.bootstrapFinished.Release()
+
 	k.lookups.Add(1)
 	defer k.lookups.Done()
 
 	if len(k.bootstrapNodes) == 0 {
-		return BootstrapErr.New("no bootstrap nodes provided")
+		return nil
 	}
 
 	var errs errs.Group
@@ -217,8 +222,13 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	return err
 }
 
+func (k *Kademlia) WaitForBootstrap() {
+	k.bootstrapFinished.Wait()
+}
+
 // Ping checks that the provided node is still accessible on the network
 func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
+
 	k.lookups.Add(1)
 	defer k.lookups.Done()
 
@@ -235,6 +245,7 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error) {
+
 	k.lookups.Add(1)
 	defer k.lookups.Done()
 
@@ -315,7 +326,6 @@ func (k *Kademlia) RunRefresh(ctx context.Context) error {
 	defer k.lookups.Done()
 
 	ticker := time.NewTicker(5 * time.Minute)
-	time.Sleep(time.Duration(rand.Intn(300)) * time.Second) //stagger
 	for {
 		if err := k.refresh(ctx); err != nil {
 			k.log.Warn("bucket refresh failed", zap.Error(err))
