@@ -16,7 +16,7 @@ import (
 
 // Config contains configurable values for rollup
 type Config struct {
-	Interval time.Duration `help:"how frequently rollup should run" default:"120s"`
+	Interval time.Duration `help:"how frequently rollup should run" default:"60s"`
 }
 
 // Rollup is the service for totalling data on storage nodes on daily intervals
@@ -83,7 +83,7 @@ func (r *Rollup) Query(ctx context.Context) error {
 		}
 		//create or get AccoutingRollup
 		iDay := tallyRow.IntervalEndTime
-		iDay = time.Date(iDay.Year(), iDay.Month(), iDay.Day(), 0, 0, 0, 0, iDay.Location())
+		iDay = time.Date(iDay.Year(), iDay.Month(), iDay.Day(), iDay.Hour(), iDay.Minute(), 0, 0, iDay.Location())
 		if rollupStats[iDay] == nil {
 			rollupStats[iDay] = make(map[storj.NodeID]*accounting.Rollup)
 		}
@@ -109,7 +109,7 @@ func (r *Rollup) Query(ctx context.Context) error {
 		}
 	}
 	//remove the latest day (which we cannot know is complete), then push to DB
-	latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
+	latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), latestTally.Hour(), latestTally.Minute(), 0, 0, latestTally.Location())
 	delete(rollupStats, latestTally)
 	if len(rollupStats) == 0 {
 		r.logger.Info("Rollup only found tallies for today")

@@ -23,5 +23,5 @@ type Config struct {
 	AllocatedDiskSpace           memory.Size   `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
 	AllocatedBandwidth           memory.Size   `user:"true" help:"total allocated bandwidth in bytes" default:"500GiB"`
 	KBucketRefreshInterval       time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
-	AgreementSenderCheckInterval time.Duration `help:"duration between agreement checks" default:"1h0m0s"`
+	AgreementSenderCheckInterval time.Duration `help:"duration between agreement checks" default:"30s"`
 }
