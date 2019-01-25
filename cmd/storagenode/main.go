@@ -347,21 +347,10 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Info("Node ID: ", ident.ID)
 	}
 
-	// address of node to create client connection
-	address := dashboardCfg.Address
-	if dashboardCfg.Address == "" {
-		if runCfg.Server.Address == "" {
-			return fmt.Errorf("Storage Node address isn't specified")
-		}
-
-		address = runCfg.Server.Address
-	}
-
 	tc := transport.NewClient(ident)
-
 	n := &pb.Node{
 		Address: &pb.NodeAddress{
-			Address:   address,
+			Address:   dashboardCfg.Address,
 			Transport: 0,
 		},
 		Type: pb.NodeType_STORAGE,
