@@ -624,7 +624,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 		AuthorizationDBURL: "bolt://" + filepath.Join(tmp, "authorizations.db"),
 		CA:                 caConfig,
 	}
-	signingCA, err := caSetupConfig.Create(ctx)
+	signingCA, err := caSetupConfig.Create(ctx, nil)
 	if !assert.NoError(t, err) {
 		t.Fatal(err)
 	}
@@ -818,7 +818,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 	config := CertServerConfig{
 		AuthorizationDBURL: "bolt://" + filepath.Join(tmp, "authorizations.db"),
 	}
-	signingCA, err := caSetupConfig.Create(ctx)
+	signingCA, err := caSetupConfig.Create(ctx, nil)
 	if !assert.NoError(t, err) {
 		t.Fatal(err)
 	}
