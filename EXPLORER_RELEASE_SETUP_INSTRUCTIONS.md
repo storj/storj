@@ -6,7 +6,7 @@ Hello Storj Node Operators! First off, we want to say thank you for your patienc
 Make sure you have an email with your personal single use authorization token. If you don’t have an authorization token yet, please join our [waitlist](https://storj.io/sign-up-farmer). Install the necessary dependencies and configure your network appropriately using the following steps: 
 
 - Install `docker` please visit: [docker.com](https://docs.docker.com/install/) and follow the installation guide for your operating system. 
-- Set up port forwarding! Please visit our [knowledge base article](https://storjlabs.atlassian.net/wiki/spaces/SCKB/pages/edit/4423868?draftId=4292802&draftShareId=dc880538-dc43-4ad1-9691-425adaea7c5c&) or follow the instructions for your router on [portforward.com](https://portforward.com/).
+- Set up port forwarding! Please follow the instructions for your router on [portforward.com](https://portforward.com/).
 
 Make sure you have an email with your personal single use authorization token. If you don’t have an authorization token yet, please join our waitlist. You will not be able to setup a storage node if you don't have an authorization token.
 
