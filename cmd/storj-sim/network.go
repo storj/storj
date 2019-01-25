@@ -128,11 +128,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	bootstrap.Arguments = withCommon(Arguments{
 		"setup": {
+			"--metrics.addr", "",
+
 			"--identity-dir", bootstrap.Directory,
+			"--server.address", bootstrap.Address,
+
 			"--kademlia.bootstrap-addr", bootstrap.Address,
 			"--kademlia.operator.email", "bootstrap@example.com",
 			"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
-			"--server.address", bootstrap.Address,
 		},
 		"run": {},
 	})
@@ -153,10 +156,13 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
+				"--metrics.addr", "",
+
 				"--identity-dir", process.Directory,
 				"--console.address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
-				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--server.address", process.Address,
+
+				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--repairer.overlay-addr", process.Address,
 				"--repairer.pointer-db-addr", process.Address,
 			},
@@ -183,6 +189,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
+				"--metrics.addr", "",
+
 				"--identity-dir", process.Directory,
 				"--satellite-addr", satellite.Address,
 
@@ -216,13 +224,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
+				"--metrics.addr", "",
+
 				"--identity-dir", process.Directory,
+				"--server.address", process.Address,
 
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
 				"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
-
-				"--server.address", process.Address,
 			},
 			"run": {},
 		})
