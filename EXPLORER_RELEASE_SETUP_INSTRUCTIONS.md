@@ -36,7 +36,7 @@ Make sure you have an email with your personal single use authorization token. I
     
 	`WALLET`: ethereum address for payments
     `EMAIL`: email address (optional)
-    `ADDRESS`: external IP address or the DDNS you configured and the number of the port you manually opened on your router, separated by a colon for example `127.0.0.1:4235`
+    `ADDRESS`: external IP address or the DDNS you configured and the number of the port you manually opened on your router, separated by a colon for example `<ip>:<port>`
     `<storage-dir>`: local directory where you want files to be stored on your hard drive for the network
 
 	`$ docker run -d -e WALLET="" -e EMAIL="" -e ADDRESS="" -v <identity-dir>:/app/identity -v <storage-dir>:/app/config --name storagenode storjlabs/storagenode:alpha`
