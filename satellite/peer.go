@@ -472,10 +472,10 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Kademlia.RoutingTable.SelfClose())
 	}
 
-	// if peer.Kademlia.ndb != nil || peer.Kademlia.kdb != nil {
-	// 	errlist.Add(peer.Kademlia.kdb.Close())
-	// 	errlist.Add(peer.Kademlia.ndb.Close())
-	// }
+	if peer.Kademlia.ndb != nil || peer.Kademlia.kdb != nil {
+		errlist.Add(peer.Kademlia.kdb.Close())
+		errlist.Add(peer.Kademlia.ndb.Close())
+	}
 
 	// close servers
 	if peer.Public.Server != nil {
