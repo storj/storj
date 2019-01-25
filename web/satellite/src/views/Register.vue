@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="register">
+    <div class="register" v-on:keyup.enter="onCreateClick">
         <div class="register-area">
             <div class="register-area__scrollable">
                 <div class="register-area__scrollable__navLabel">
