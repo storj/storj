@@ -469,7 +469,7 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Kademlia.Service.Close())
 	}
 	if peer.Kademlia.RoutingTable != nil {
-		errlist.Add(peer.Kademlia.RoutingTable.SelfClose())
+		errlist.Add(peer.Kademlia.RoutingTable.Close())
 	}
 
 	// if peer.Kademlia.ndb != nil || peer.Kademlia.kdb != nil {

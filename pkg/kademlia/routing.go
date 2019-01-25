@@ -15,7 +15,6 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -99,19 +98,9 @@ func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.Key
 	return rt, nil
 }
 
-// SelfClose close without closing dependencies
-// TODO: rename to Close and remove Close
-func (rt *RoutingTable) SelfClose() error {
-	return nil
-}
-
-// Close closes underlying databases
-// DEPRECATED: use SelfClose
+// Close close without closing dependencies
 func (rt *RoutingTable) Close() error {
-	return utils.CombineErrors(
-		rt.kadBucketDB.Close(),
-		rt.nodeBucketDB.Close(),
-	)
+	return nil
 }
 
 // Local returns the local nodes ID
