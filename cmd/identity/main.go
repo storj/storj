@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
@@ -21,7 +22,6 @@ import (
 )
 
 const (
-	infoColorLine        = "\033[1;36m%s\033[0m\n"
 	defaultSignerAddress = "certs.alpha.storj.io:8888"
 )
 
@@ -124,8 +124,8 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Unsigned identity is located in %q\n", serviceDir)
-	fmt.Printf(infoColorLine, "Please *move* CA key to secure storage - it is only needed for identity management!")
-	fmt.Printf(infoColorLine, fmt.Sprintf("\t%s", caConfig.KeyPath))
+	fmt.Println(color.CyanString("Please *move* CA key to secure storage - it is only needed for identity management!"))
+	fmt.Println(color.CyanString("\t%s", caConfig.KeyPath))
 	return nil
 }
 
