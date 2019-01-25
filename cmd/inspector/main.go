@@ -131,7 +131,7 @@ type Inspector struct {
 // and the overlay cache
 func NewInspector(address, path string) (*Inspector, error) {
 	ctx := context.Background()
-	identity, err := identity.Config{
+	id, err := identity.Config{
 		CertPath: fmt.Sprintf("%s/ca.cert", path),
 		KeyPath:  fmt.Sprintf("%s/ca.key", path),
 	}.Load()
@@ -140,14 +140,14 @@ func NewInspector(address, path string) (*Inspector, error) {
 		return &Inspector{}, ErrIdentity.Wrap(err)
 	}
 
-	tc := transport.NewClient(identity)
+	tc := transport.NewClient(id)
 	conn, err := tc.DialAddress(ctx, address)
 	if err != nil {
 		return &Inspector{}, ErrInspectorDial.Wrap(err)
 	}
 
 	return &Inspector{
-		identity:      identity,
+		identity:      id,
 		kadclient:     pb.NewKadInspectorClient(conn),
 		overlayclient: pb.NewOverlayInspectorClient(conn),
 		statdbclient:  pb.NewStatDBInspectorClient(conn),
