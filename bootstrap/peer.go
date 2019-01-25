@@ -34,6 +34,8 @@ type DB interface {
 
 // Config is all the configuration parameters for a Bootstrap Node
 type Config struct {
+	Identity identity.Config
+
 	Server   server.Config
 	Kademlia kademlia.Config
 }

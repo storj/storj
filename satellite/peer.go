@@ -31,7 +31,6 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/payments"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/server"
@@ -87,9 +86,8 @@ type Config struct {
 	Repairer repairer.Config
 	Audit    audit.Config
 
-	Tally    tally.Config
-	Rollup   rollup.Config
-	Payments payments.Config
+	Tally  tally.Config
+	Rollup rollup.Config
 
 	Console consoleweb.Config
 }
@@ -153,10 +151,6 @@ type Peer struct {
 	Accounting struct {
 		Tally  *tally.Tally
 		Rollup *rollup.Rollup
-	}
-
-	Payments struct {
-		Endpoint *payments.Server
 	}
 
 	Console struct {
@@ -295,7 +289,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup agreements
-		peer.Agreements.Endpoint = bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.Log.Named("agreements"), peer.Identity.Leaf.PublicKey)
+		bwServer := bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.Log.Named("agreements"), peer.Identity.ID)
+		peer.Agreements.Endpoint = bwServer
 		pb.RegisterBandwidthServer(peer.Public.Server.GRPC(), peer.Agreements.Endpoint)
 	}
 
@@ -338,11 +333,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	{ // setup accounting
 		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Metainfo.Service, peer.Overlay.Endpoint, 0, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
-	}
-
-	{ // setup payments
-		peer.Payments.Endpoint = payments.New(peer.Log.Named("payments"), peer.DB.Accounting(), peer.DB.OverlayCache(), config.Payments.Filepath)
-		pb.RegisterPaymentsServer(peer.Public.Server.GRPC(), peer.Payments.Endpoint)
 	}
 
 	{ // setup console

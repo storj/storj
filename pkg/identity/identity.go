@@ -196,7 +196,7 @@ func NodeIDFromECDSAKey(k *ecdsa.PublicKey) (storj.NodeID, error) {
 	}
 	mid := sha256.Sum256(kb)
 	end := sha256.Sum256(mid[:])
-	return storj.NodeIDFromBytes(end[:])
+	return storj.NodeID(end), nil
 }
 
 // NewFullIdentity creates a new ID for nodes with difficulty and concurrency params
@@ -298,6 +298,15 @@ func (ic Config) SaveBackup(fi *FullIdentity) error {
 	}.Save(fi)
 }
 
+// ChainRaw returns all of the certificate chain as a 2d byte slice
+func (fi *FullIdentity) ChainRaw() [][]byte {
+	chain := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
+	for _, cert := range fi.RestChain {
+		chain = append(chain, cert.Raw)
+	}
+	return chain
+}
+
 // RestChainRaw returns the rest (excluding leaf and CA) of the certificate chain as a 2d byte slice
 func (fi *FullIdentity) RestChainRaw() [][]byte {
 	var chain [][]byte
@@ -310,9 +319,7 @@ func (fi *FullIdentity) RestChainRaw() [][]byte {
 // ServerOption returns a grpc `ServerOption` for incoming connections
 // to the node with this full identity
 func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFunc) (grpc.ServerOption, error) {
-	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
-	ch = append(ch, fi.RestChainRaw()...)
-	c, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
+	c, err := peertls.TLSCert(fi.ChainRaw(), fi.Leaf, fi.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -337,9 +344,7 @@ func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFun
 // to the node with this peer identity
 // id is an optional id of the node we are dialing
 func (fi *FullIdentity) DialOption(id storj.NodeID) (grpc.DialOption, error) {
-	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
-	ch = append(ch, fi.RestChainRaw()...)
-	c, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
+	c, err := peertls.TLSCert(fi.ChainRaw(), fi.Leaf, fi.Key)
 	if err != nil {
 		return nil, err
 	}

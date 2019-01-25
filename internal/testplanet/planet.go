@@ -34,7 +34,6 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/payments"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/piecestore/psserver"
@@ -301,9 +300,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			},
 			Rollup: rollup.Config{
 				Interval: 120 * time.Second,
-			},
-			Payments: payments.Config{
-				Filepath: filepath.Join(storageDir, "reports"),
 			},
 			Console: consoleweb.Config{
 				Address: "127.0.0.1:0",

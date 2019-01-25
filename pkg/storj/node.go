@@ -4,6 +4,7 @@
 package storj
 
 import (
+	"crypto/sha256"
 	"math/bits"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -21,7 +22,7 @@ var (
 )
 
 // NodeID is a unique node identifier
-type NodeID [32]byte
+type NodeID [sha256.Size]byte
 
 // NodeIDList is a slice of NodeIDs (implements sort)
 type NodeIDList []NodeID
