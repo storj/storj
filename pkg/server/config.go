@@ -22,19 +22,11 @@ type Config struct {
 	UsePeerCAWhitelist  bool   `help:"if true, uses peer ca whitelist checking" default:"false"`
 	Address             string `user:"true" help:"address to listen on" default:":7777"`
 	Extensions          peertls.TLSExtConfig
-
-	Identity identity.Config // TODO: separate identity
 }
 
 // Run will run the given responsibilities with the configured identity.
-func (sc Config) Run(ctx context.Context,
-	interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
+func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	ident, err := sc.Identity.Load()
-	if err != nil {
-		return err
-	}
 
 	lis, err := net.Listen("tcp", sc.Address)
 	if err != nil {
@@ -42,7 +34,7 @@ func (sc Config) Run(ctx context.Context,
 	}
 	defer func() { _ = lis.Close() }()
 
-	opts, err := NewOptions(ident, sc)
+	opts, err := NewOptions(identity, sc)
 	if err != nil {
 		return err
 	}
