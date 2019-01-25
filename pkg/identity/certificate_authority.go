@@ -11,8 +11,8 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
-	"log"
 	"sync"
 	"sync/atomic"
 
@@ -85,6 +85,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 	defer mon.Task()(&ctx)(&err)
 	var (
 		highscore = new(uint32)
+		i         = new(uint32)
 
 		mu          sync.Mutex
 		selectedKey *ecdsa.PrivateKey
@@ -95,9 +96,19 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		opts.Concurrency = 1
 	}
 
-	log.Printf("Generating a certificate matching a difficulty of %d\n", opts.Difficulty)
+	fmt.Printf("Generating key with a minimum a difficulty of %d...\n", opts.Difficulty)
+	logStatus := func() {
+		count := atomic.LoadUint32(i)
+		hs := atomic.LoadUint32(highscore)
+		fmt.Printf("\rGenerated %d keys; best difficulty so far: %d", count, hs)
+	}
 	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency),
 		func(k *ecdsa.PrivateKey, id storj.NodeID) (done bool, err error) {
+			count := atomic.AddUint32(i, 1)
+			if count%100 == 0 {
+				logStatus()
+			}
+
 			difficulty, err := id.Difficulty()
 			if err != nil {
 				return false, err
@@ -105,11 +116,12 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 			if difficulty >= opts.Difficulty {
 				mu.Lock()
 				if selectedKey == nil {
-					log.Printf("Found a certificate matching difficulty of %d\n", difficulty)
+					logStatus()
 					selectedKey = k
 					selectedID = id
 				}
 				mu.Unlock()
+				fmt.Printf("\nFound a key with difficulty %d!\n", difficulty)
 				return true, nil
 			}
 			for {
@@ -118,7 +130,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 					return false, nil
 				}
 				if atomic.CompareAndSwapUint32(highscore, hs, uint32(difficulty)) {
-					log.Printf("Found a certificate matching difficulty of %d\n", difficulty)
+					logStatus()
 					return false, nil
 				}
 			}
