@@ -113,7 +113,7 @@ require (
 	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4
 	golang.org/x/sys v0.0.0-20190108104531-7fbe1cd0fcc2
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect
-	golang.org/x/tools v0.0.0-20181221235234-d00ac6d27372
+	golang.org/x/tools v0.0.0-20190124215303-cc6a436ffe6b
 	google.golang.org/genproto v0.0.0-20181221175505-bd9b4fb69e2f // indirect
 	google.golang.org/grpc v1.18.0
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
