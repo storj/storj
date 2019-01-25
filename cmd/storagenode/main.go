@@ -132,7 +132,7 @@ func init() {
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	log := zap.L()
 
-	identity, err := runCfg.Server.Identity.Load()
+	identity, err := runCfg.Identity.Load()
 	if err != nil {
 		zap.S().Fatal(err)
 	}
@@ -143,7 +143,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	ctx := process.Ctx(cmd)
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Server.Identity.CertPath); err != nil {
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
@@ -332,7 +332,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 func dashCmd(cmd *cobra.Command, args []string) (err error) {
 	ctx := context.Background()
 
-	ident, err := runCfg.Server.Identity.Load()
+	ident, err := runCfg.Identity.Load()
 	if err != nil {
 		zap.S().Fatal(err)
 	} else {
