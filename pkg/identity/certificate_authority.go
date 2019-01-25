@@ -104,11 +104,10 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 	}
 	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency),
 		func(k *ecdsa.PrivateKey, id storj.NodeID) (done bool, err error) {
-			count := atomic.LoadUint32(i)
+			count := atomic.AddUint32(i, 1)
 			if count%100 == 0 {
 				logStatus()
 			}
-			atomic.AddUint32(i, 1)
 
 			difficulty, err := id.Difficulty()
 			if err != nil {
