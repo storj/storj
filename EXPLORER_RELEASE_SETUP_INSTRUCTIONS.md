@@ -1,22 +1,24 @@
 # The Explorer Release has arrived!
 
-Hello Storj Node Operators! First off, we want to say thank you for your patience. We know many of you have been waiting several months to join the V3 network. Your patience is being rewarded; you are the first nodes to be invited to the Explorer release. This release is gated, which means that we are controlling how many nodes are able to join the network and how quickly they are able to do so. We want to give our early adopters a chance to start earning reputation and STORJ tokens. If we allowed too many nodes to join the network right away, you would be earning fewer STORJ tokens because the available data would have to be spread over a larger number of nodes. Storj Labs is going to be uploading enough data to the network during this release to ensure all storage nodes get payouts.
+Hello Storj Node Operators! First off, we want to say thank you for your patience. We know many of you have been waiting several months to join the V3 network. Your patience is being rewarded; you are the first nodes to be invited to the Explorer release. This release is gated, which means that we are controlling how many nodes are able to join the network and how quickly they are able to do so. We want to give our early adopters a chance to start earning reputation and STORJ tokens. If we allowed too many nodes to join the network right away, you would be earning fewer STORJ tokens because the available data would naturally be spread over a larger number of nodes. Storj Labs is going to be uploading enough data to the network during this release to ensure all storage nodes get payouts.
 
-Before you begin, install Docker on your machine.  If you already have Docker installed, skip this step. Next, setup port forwarding for your storage node. Make sure you have an email with your personal single use authorization token. If you don’t have an authorization token yet, please join our waitlist. You will not be able to setup a staorage node if you dont have an authorization token.
+####Before you begin
+Make sure you have an email with your personal single use authorization token. If you don’t have an authorization token yet, please join our [waitlist](https://storj.io/sign-up-farmer). Install the necessary dependencies and configure your network appropriately using the following steps: 
 
-- To install `docker` please visit: [docker.com](https://docs.docker.com/install/) and follow the installation guide for your operating system. 
+- Install `docker` please visit: [docker.com](https://docs.docker.com/install/) and follow the installation guide for your operating system. 
 - Set up port forwarding! Please visit our [knowledge base article](https://storjlabs.atlassian.net/wiki/spaces/SCKB/pages/edit/4423868?draftId=4292802&draftShareId=dc880538-dc43-4ad1-9691-425adaea7c5c&) or follow the instructions for your router on [portforward.com](https://portforward.com/).
 
+Make sure you have an email with your personal single use authorization token. If you don’t have an authorization token yet, please join our waitlist. You will not be able to setup a storage node if you don't have an authorization token.
 
 #### Setting up your Storage Node on the V3 Network!
 
 1) Download the Identity tool binary and create an Identity. The process of generating an identity could take several hours; it is dependent on your machine´s processing power & luck.
 
 	Download the correct binary for your operating system:
-	- Mac OS: [Darwin_amd64.zip](https://storj-v3-alpha-builds.storage.googleapis.com/a1027c7-go1.11/identity_darwin_amd64.zip )
-	- Linux: [Linux_amd64.zip](https://storj-v3-alpha-builds.storage.googleapis.com/a1027c7-go1.11/identity_linux_amd64.zip )
-	- Raspberry Pi: [Linux_arm.zip](https://storj-v3-alpha-builds.storage.googleapis.com/a1027c7-go1.11/identity_linux_arm.zip )
-	- Windows: [Windows_amd64.zip](https://storj-v3-alpha-builds.storage.googleapis.com/a1027c7-go1.11/identity_windows_amd64.zip )
+	- Mac OS: [identity_darwin_amd64.zip](https://storj-v3-alpha-builds.storage.googleapis.com/a1027c7-go1.11/identity_darwin_amd64.zip )
+	- Linux: [identity_linux_amd64.zip](https://storj-v3-alpha-builds.storage.googleapis.com/a1027c7-go1.11/identity_linux_amd64.zip )
+	- Raspberry Pi: [identity_linux_arm.zip](https://storj-v3-alpha-builds.storage.googleapis.com/a1027c7-go1.11/identity_linux_arm.zip )
+	- Windows: [identity_windows_amd64.zip](https://storj-v3-alpha-builds.storage.googleapis.com/a1027c7-go1.11/identity_windows_amd64.zip )
 
 2) Unzip the file and run the following command to start creating an identity (this example is for Mac OS, substitute the appropriate identity binary for your OS):
 
