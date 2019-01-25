@@ -110,23 +110,28 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	accessKey, err := generateAWSKey()
-	if err != nil {
-		return err
-	}
-
-	secretKey, err := generateAWSKey()
-	if err != nil {
-		return err
-	}
-
 	overrides := map[string]interface{}{
 		"client.api-key":         setupCfg.APIKey,
 		"client.pointer-db-addr": setupCfg.SatelliteAddr,
 		"client.overlay-addr":    setupCfg.SatelliteAddr,
-		"minio.access-key":       accessKey,
-		"minio.secret-key":       secretKey,
 		"enc.key":                setupCfg.EncKey,
+	}
+
+	accessKeyFlag := cmd.Flag("minio.access-key")
+	if !accessKeyFlag.Changed {
+		accessKey, err := generateAWSKey()
+		if err != nil {
+			return err
+		}
+		overrides[accessKeyFlag.Name] = accessKey
+	}
+	secretKeyFlag := cmd.Flag("minio.secret-key")
+	if !secretKeyFlag.Changed {
+		secretKey, err := generateAWSKey()
+		if err != nil {
+			return err
+		}
+		overrides[secretKeyFlag.Name] = secretKey
 	}
 
 	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
