@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package test
@@ -199,7 +199,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		assert.True(t, ok)
 
 		/* Storage node can't manipulate the bwagreement size (or any other field)
-		   Satellite will verify Renter's Signature */
+		   Satellite will verify Renter's Signature. */
 		{
 			// Using uplink signature
 			reply, err := satellite.BandwidthAgreements(ctxSN1, &pb.RenterBandwidthAllocation{
@@ -213,7 +213,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		}
 
 		/* Storage node can't sign the manipulated bwagreement
-		   Satellite will verify Renter's Signature */
+		   Satellite will verify Renter's Signature. */
 		{
 			manipSignature, err := cryptopasta.Sign(maniprba, manipPrivKey)
 			assert.NoError(t, err)
@@ -222,29 +222,16 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			reply, err := satellite.BandwidthAgreements(ctxSN1, &pb.RenterBandwidthAllocation{
 				Signature: manipSignature,
 				Data:      maniprba,
-				Certs:     manipCerts,
+				Certs:     rba.GetCerts(),
 			})
 
-			assert.True(t, pb.Signer.Has(err) && pb.Renter.Has(err), err.Error())
+			assert.True(t, pb.Verify.Has(err) && pb.Renter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
 		/* Storage node can't replace uplink Certs
-		   Satellite will check uplink Certs against uplink NodeId */
+		   Satellite will check uplink Certs against uplinkeId. */
 		{
-			manippba, err := proto.Marshal(pbaData)
-			assert.NoError(t, err)
-
-			// Overwrite the uplink public key with our own keypair
-			rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
-				Signature: pba.GetSignature(),
-				Data:      manippba,
-				Certs:     pba.GetCerts(),
-			}
-
-			maniprba, err := proto.Marshal(rbaData)
-			assert.NoError(t, err)
-
 			manipSignature, err := cryptopasta.Sign(maniprba, manipPrivKey)
 			assert.NoError(t, err)
 
@@ -260,9 +247,9 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		}
 
 		/* Storage node can't replace uplink NodeId
-		   Satellite will verify the Payer's Signature */
+		   Satellite will verify the Payer's Signature. */
 		{
-			// Overwrite the uplink NodeId with our own keypair
+			// Overwrite the uplinkId with our own keypair
 			pbaData.UplinkId = manipID.ID
 
 			manippba, err := proto.Marshal(pbaData)
@@ -293,10 +280,45 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		}
 
 		/* Storage node can't self sign the PayerBandwidthAllocation.
-		   Satellite will check satellite Certs against satellite NodeId */
+		   Satellite will verify the Payer's Signature. */
 		{
-			// Overwrite the uplink public key with our own keypair
-			pba.Certs = manipCerts
+			// Overwrite the uplinkId with our own keypair
+			pbaData.UplinkId = manipID.ID
+
+			manippba, err := proto.Marshal(pbaData)
+			assert.NoError(t, err)
+
+			manipSignature, err := cryptopasta.Sign(manippba, manipPrivKey)
+			assert.NoError(t, err)
+
+			rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
+				Signature: manipSignature,
+				Data:      manippba,
+				Certs:     pba.GetCerts(),
+			}
+
+			maniprba, err := proto.Marshal(rbaData)
+			assert.NoError(t, err)
+
+			manipSignature, err = cryptopasta.Sign(maniprba, manipPrivKey)
+			assert.NoError(t, err)
+
+			// Using self created Payer and Renter bwagreement signatures
+			reply, err := satellite.BandwidthAgreements(ctxSN1, &pb.RenterBandwidthAllocation{
+				Signature: manipSignature,
+				Data:      maniprba,
+				Certs:     manipCerts,
+			})
+
+			assert.True(t, pb.Verify.Has(err) && pb.Payer.Has(err), err.Error())
+			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
+		}
+
+		/* Storage node can't replace the satellite Certs.
+		   Satellite will check satellite certs against satelliteId. */
+		{
+			// Overwrite the uplinkId with our own keypair
+			pbaData.UplinkId = manipID.ID
 
 			manippba, err := proto.Marshal(pbaData)
 			assert.NoError(t, err)
@@ -328,9 +350,9 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		}
 
 		/* Storage node can't replace the satellite.
-		   Satellite will verify the Payer's Signature. */
+		   Satellite will verify the Satellite Id. */
 		{
-			// Overwrite the uplink NodeId and satellite NodeID with our own keypair
+			// Overwrite the uplinkId and satelliteID with our own keypair
 			pbaData.UplinkId = manipID.ID
 			pbaData.SatelliteId = manipID.ID
 

@@ -1,10 +1,9 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package psserver
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,7 +17,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/gtank/cryptopasta"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
@@ -124,8 +122,6 @@ func TestPiece(t *testing.T) {
 }
 
 func TestRetrieve(t *testing.T) {
-	t.Skip("broken test")
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -174,7 +170,7 @@ func TestRetrieve(t *testing.T) {
 			respSize:  3,
 			allocSize: 3,
 			offset:    0,
-			content:   []byte("but"),
+			content:   []byte("xyz"),
 			err:       "",
 		},
 		{ // should successfully retrieve data
@@ -213,7 +209,7 @@ func TestRetrieve(t *testing.T) {
 			respSize:  4,
 			allocSize: 5,
 			offset:    1,
-			content:   []byte("utts"),
+			content:   []byte("yzwq"),
 			err:       "",
 		},
 		{ // server should return expected content with reduced reqSize
@@ -222,7 +218,7 @@ func TestRetrieve(t *testing.T) {
 			respSize:  4,
 			allocSize: 5,
 			offset:    0,
-			content:   []byte("butt"),
+			content:   []byte("xyzw"),
 			err:       "",
 		},
 	}
@@ -237,32 +233,23 @@ func TestRetrieve(t *testing.T) {
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, PieceSize: tt.reqSize, Offset: tt.offset}})
 			assert.NoError(err)
 
+			pba, err := test.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, snID, upID, time.Hour)
+			assert.NoError(err)
+
 			totalAllocated := int64(0)
+			var data string
 			var totalRetrieved = int64(0)
 			var resp *pb.PieceRetrievalStream
 			for totalAllocated < tt.respSize {
 				// Send bandwidth bandwidthAllocation
 				totalAllocated += tt.allocSize
 
-				certs := [][]byte{upID.Leaf.Raw, upID.CA.Raw}
-				certs = append(certs, upID.RestChainRaw()...) //todo: do we need RestChain?
-
-				data := serializeData(&pb.RenterBandwidthAllocation_Data{
-					PayerAllocation: &pb.PayerBandwidthAllocation{},
-					Total:           totalAllocated,
-				})
-				signature, err := cryptopasta.Sign(data, upID.Key.(*ecdsa.PrivateKey))
+				rba, err := test.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, totalAllocated)
 				assert.NoError(err)
-
-				ba := pb.RenterBandwidthAllocation{
-					Data:      data,
-					Signature: signature,
-					Certs:     certs,
-				}
 
 				err = stream.Send(
 					&pb.PieceRetrieval{
-						BandwidthAllocation: &ba,
+						BandwidthAllocation: rba,
 					},
 				)
 				assert.NoError(err)
@@ -355,7 +342,7 @@ func TestStore(t *testing.T) {
 			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
 			assert.NoError(err)
 			// Send Bandwidth Allocation Data
-			pba, err := test.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_PUT, satID, upID, time.Hour)
+			pba, err := test.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_PUT, snID, upID, time.Hour)
 			assert.NoError(err)
 			rba, err := test.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, tt.totalReceived)
 			assert.NoError(err)
