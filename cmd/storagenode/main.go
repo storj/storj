@@ -483,6 +483,7 @@ func getConnectionStatus(ctx context.Context, tc transport.Client, id *identity.
 
 	resp, err := inspector.kad.PingNode(ctx, &pb.PingNodeRequest{
 		Id: id.ID,
+		Address: "localhost:28967",
 	})
 
 	if err != nil {
@@ -500,7 +501,6 @@ func getConnectionStatus(ctx context.Context, tc transport.Client, id *identity.
 func newInspectorClient(ctx context.Context, tc transport.Client, bn *pb.Node) (*Inspector, error) {
 	conn, err := tc.DialNode(ctx, bn)
 	if err != nil {
-		fmt.Printf("\n ERROR SETTING UP DIAL NODE %+v\n", err)
 		return &Inspector{}, err
 	}
 
