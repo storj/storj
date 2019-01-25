@@ -190,8 +190,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--satellite-addr", satellite.Address,
 
 				"--server.address", process.Address,
-				"--minio.access-key", accessKey,
-				"--minio.secret-key", secretKey,
 
 				"--client.overlay-addr", satellite.Address,
 				"--client.pointer-db-addr", satellite.Address,
@@ -201,7 +199,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--rs.success-threshold", strconv.Itoa(3 * flags.StorageNodeCount / 5),
 				"--rs.max-threshold", strconv.Itoa(4 * flags.StorageNodeCount / 5),
 			},
-			"run": {},
+			"run": {
+				// TODO: do not regenerate keys every time, but read from config file instead
+				"--minio.access-key", accessKey,
+				"--minio.secret-key", secretKey,
+			},
 		})
 	}
 
