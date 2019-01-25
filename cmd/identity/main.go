@@ -21,6 +21,7 @@ import (
 )
 
 const (
+	infoColorLine        = "\033[1;36m%s\033[0m\n"
 	defaultSignerAddress = "certs.alpha.storj.io:8888"
 )
 
@@ -38,11 +39,11 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 
-	csrCmd = &cobra.Command{
+	authorizeCmd = &cobra.Command{
 		Use:         "authorize <service> <auth-token>",
 		Short:       "Send a certificate signing request for a service's CA certificate",
 		Args:        cobra.ExactArgs(2),
-		RunE:        cmdCSR,
+		RunE:        cmdAuthorize,
 		Annotations: map[string]string{"type": "setup"},
 	}
 
@@ -60,13 +61,18 @@ var (
 )
 
 func init() {
+	identityDirParam := cfgstruct.FindIdentityDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
+	}
+
 	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "root directory for identity output")
 
 	rootCmd.AddCommand(newServiceCmd)
-	rootCmd.AddCommand(csrCmd)
+	rootCmd.AddCommand(authorizeCmd)
 
 	cfgstruct.Bind(newServiceCmd.Flags(), &config, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(csrCmd.Flags(), &config, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(authorizeCmd.Flags(), &config, cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func main() {
@@ -118,10 +124,12 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Unsigned identity is located in %q\n", serviceDir)
+	fmt.Printf(infoColorLine, "Please *move* CA key to secure storage - it is only needed for identity management!")
+	fmt.Printf(infoColorLine, fmt.Sprintf("\t%s", caConfig.KeyPath))
 	return nil
 }
 
-func cmdCSR(cmd *cobra.Command, args []string) error {
+func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
 	serviceDir := serviceDirectory(args[0])
@@ -191,7 +199,8 @@ func cmdCSR(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Signed identity is in %q\n", serviceDir)
+	fmt.Println("Identity successfully authorized using single use authorization token.")
+	fmt.Printf("Please back-up \"%s\" to a safe location.\n", serviceDir)
 	return nil
 }
 
