@@ -69,9 +69,8 @@ func (server *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
 // FilterNodesRequest are the requirements for nodes from the overlay cache
 type FilterNodesRequest struct {
 	MinReputation         *pb.NodeStats
-	Restrictions          *pb.NodeRestrictions
-	Excluded              []pb.NodeID
-	ReputableNodeAmount   int64
+	MinNodes              int64
+	Opts                  *pb.OverlayOptions
 	NewNodePercentage     float64
 	NewNodeAuditThreshold int64
 }
@@ -89,9 +88,8 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 
 	filterNodesReq := &FilterNodesRequest{
 		MinReputation:         minStats,
-		Restrictions:          req.GetOpts().GetRestrictions(),
-		Excluded:              req.GetOpts().ExcludedNodes,
-		ReputableNodeAmount:   req.GetMinNodes(),
+		MinNodes:              req.GetMinNodes(),
+		Opts:                  req.GetOpts(),
 		NewNodePercentage:     server.nodeSelectionConfig.NewNodePercentage,
 		NewNodeAuditThreshold: server.nodeSelectionConfig.NewNodeAuditThreshold,
 	}

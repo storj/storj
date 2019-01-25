@@ -119,20 +119,20 @@ func TestNewNodeFiltering(t *testing.T) {
 			requestedNodeAmt:      5,
 			expectedResultLength:  5,
 		},
-		// {
-		// 	name:                  "case: all reputable nodes, reputable and new nodes requested",
-		// 	newNodeAuditThreshold: 0,
-		// 	newNodePercentage:     1,
-		// 	requestedNodeAmt:      5,
-		// 	expectedResultLength:  5,
-		// },
-		// {
-		// 	name:                  "case: all reputable nodes except one, reputable and new nodes requested",
-		// 	newNodeAuditThreshold: 1,
-		// 	newNodePercentage:     1,
-		// 	requestedNodeAmt:      5,
-		// 	expectedResultLength:  6,
-		// },
+		{
+			name:                  "case: all reputable nodes, reputable and new nodes requested",
+			newNodeAuditThreshold: 0,
+			newNodePercentage:     1,
+			requestedNodeAmt:      5,
+			expectedResultLength:  5,
+		},
+		{
+			name:                  "case: all reputable nodes except one, reputable and new nodes requested",
+			newNodeAuditThreshold: 1,
+			newNodePercentage:     1,
+			requestedNodeAmt:      5,
+			expectedResultLength:  6,
+		},
 		// {
 		// 	name:                  "case: 50-50 reputable and new nodes, reputable and new nodes requested (new node % 1)",
 		// 	newNodeAuditThreshold: 5,
@@ -171,8 +171,8 @@ func TestNewNodeFiltering(t *testing.T) {
 	} {
 
 		nodeSelectionConfig := &overlay.NodeSelectionConfig{
-			UptimeCount:           0,
-			UptimeRatio:           0,
+			UptimeCount:           -1,
+			UptimeRatio:           -1,
 			AuditSuccessRatio:     0,
 			AuditCount:            0,
 			NewNodeAuditThreshold: tt.newNodeAuditThreshold,
@@ -196,7 +196,12 @@ func TestNewNodeFiltering(t *testing.T) {
 
 		result, err := server.FindStorageNodes(ctx,
 			&pb.FindStorageNodesRequest{
-				Opts: &pb.OverlayOptions{Amount: tt.requestedNodeAmt},
+				Opts: &pb.OverlayOptions{
+					Restrictions: &pb.NodeRestrictions{
+						FreeBandwidth: -1,
+						FreeDisk:      -1,
+					},
+					Amount: tt.requestedNodeAmt},
 			})
 
 		if int64(tt.expectedResultLength) < tt.requestedNodeAmt {
