@@ -4,107 +4,76 @@
 package test
 
 import (
-	"crypto"
 	"crypto/ecdsa"
-	"crypto/x509"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gtank/cryptopasta"
 	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
 //GeneratePayerBandwidthAllocation creates a signed PayerBandwidthAllocation from a PayerBandwidthAllocation_Action
-func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action, satelliteKey crypto.PrivateKey, uplinkKey crypto.PrivateKey, expiration time.Duration) (*pb.PayerBandwidthAllocation, error) {
-	satelliteKeyEcdsa, ok := satelliteKey.(*ecdsa.PrivateKey)
-	if !ok {
-		return nil, errs.New("Satellite Private Key is not a valid *ecdsa.PrivateKey")
-	}
-
-	pubbytes, err := getUplinkPubKey(uplinkKey)
-	if err != nil {
-		return nil, errs.New("Uplink Private Key is not a valid *ecdsa.PrivateKey")
-	}
-
+func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action, satID *identity.FullIdentity, upID *identity.FullIdentity, expiration time.Duration) (*pb.PayerBandwidthAllocation, error) {
 	serialNum, err := uuid.New()
 	if err != nil {
 		return nil, err
 	}
-
 	// Generate PayerBandwidthAllocation_Data
 	data, _ := proto.Marshal(
 		&pb.PayerBandwidthAllocation_Data{
-			SatelliteId:       teststorj.NodeIDFromString("SatelliteID"),
-			UplinkId:          teststorj.NodeIDFromString("UplinkID"),
+			SatelliteId:       satID.ID,
+			UplinkId:          upID.ID,
 			ExpirationUnixSec: time.Now().Add(expiration).Unix(),
 			SerialNumber:      serialNum.String(),
 			Action:            action,
 			CreatedUnixSec:    time.Now().Unix(),
-			PubKey:            pubbytes,
 		},
 	)
-
 	// Sign the PayerBandwidthAllocation_Data with the "Satellite" Private Key
-	s, err := cryptopasta.Sign(data, satelliteKeyEcdsa)
-	if err != nil {
-		return nil, errs.New("Failed to sign PayerBandwidthAllocation_Data with satellite Private Key: %+v", err)
+	satPrivECDSA, ok := satID.Key.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, pb.Payer.Wrap(auth.ECDSA)
 	}
-
+	s, err := cryptopasta.Sign(data, satPrivECDSA)
+	if err != nil {
+		return nil, pb.Payer.Wrap(auth.Sign.Wrap(err))
+	}
 	// Combine Signature and Data for PayerBandwidthAllocation
 	return &pb.PayerBandwidthAllocation{
 		Data:      data,
 		Signature: s,
+		Certs:     satID.ChainRaw(),
 	}, nil
 }
 
 //GenerateRenterBandwidthAllocation creates a signed RenterBandwidthAllocation from a PayerBandwidthAllocation
-func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, storageNodeID storj.NodeID, uplinkKey crypto.PrivateKey) (*pb.RenterBandwidthAllocation, error) {
-	// get "Uplink" Public Key
-	uplinkKeyEcdsa, ok := uplinkKey.(*ecdsa.PrivateKey)
-	if !ok {
-		return nil, errs.New("Uplink Private Key is not a valid *ecdsa.PrivateKey")
-	}
-
+func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, storageNodeID storj.NodeID, upID *identity.FullIdentity, total int64) (*pb.RenterBandwidthAllocation, error) {
 	// Generate RenterBandwidthAllocation_Data
 	data, _ := proto.Marshal(
 		&pb.RenterBandwidthAllocation_Data{
 			PayerAllocation: pba,
 			StorageNodeId:   storageNodeID,
-			Total:           int64(666),
+			Total:           total,
 		},
 	)
-
 	// Sign the PayerBandwidthAllocation_Data with the "Uplink" Private Key
-	s, err := cryptopasta.Sign(data, uplinkKeyEcdsa)
-	if err != nil {
-		return nil, errs.New("Failed to sign RenterBandwidthAllocation_Data with uplink Private Key: %+v", err)
+	upPrivECDSA, ok := upID.Key.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, pb.Payer.Wrap(auth.ECDSA)
 	}
-
+	s, err := cryptopasta.Sign(data, upPrivECDSA)
+	if err != nil {
+		return nil, pb.Payer.Wrap(auth.Sign.Wrap(err))
+	}
 	// Combine Signature and Data for RenterBandwidthAllocation
 	return &pb.RenterBandwidthAllocation{
 		Signature: s,
 		Data:      data,
+		Certs:     upID.ChainRaw(),
 	}, nil
-}
-
-// get uplink's public key
-func getUplinkPubKey(uplinkKey crypto.PrivateKey) ([]byte, error) {
-
-	// get "Uplink" Public Key
-	uplinkKeyEcdsa, ok := uplinkKey.(*ecdsa.PrivateKey)
-	if !ok {
-		return nil, errs.New("Uplink Private Key is not a valid *ecdsa.PrivateKey")
-	}
-
-	pubbytes, err := x509.MarshalPKIXPublicKey(&uplinkKeyEcdsa.PublicKey)
-	if err != nil {
-		return nil, errs.New("Could not generate byte array from Uplink Public key: %+v", err)
-	}
-
-	return pubbytes, nil
 }

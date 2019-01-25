@@ -223,30 +223,3 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 	}
 	return rows, nil
 }
-
-func (db *accountingDB) TestPayments(ctx context.Context) error {
-	rows, err := db.db.All_Node_Id(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	ids := [][]byte{}
-	for _, r := range rows {
-		ids = append(ids, r.Id)
-	}
-	for i, id := range ids {
-		nID := dbx.AccountingRollup_NodeId(id)
-		st := dbx.AccountingRollup_StartTime(time.Date(2018, time.Month(i+1), i+1, 0, 0, 0, 0, time.UTC))
-		pt := dbx.AccountingRollup_PutTotal(int64(i))
-		gt := dbx.AccountingRollup_GetTotal(int64(i))
-		gat := dbx.AccountingRollup_GetAuditTotal(int64(i))
-		grt := dbx.AccountingRollup_GetRepairTotal(int64(i))
-		prt := dbx.AccountingRollup_PutRepairTotal(int64(i))
-		art := dbx.AccountingRollup_AtRestTotal(float64(i))
-		_, err = db.db.Create_AccountingRollup(ctx, nID, st, pt, gt, gat, grt, prt, art)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	}
-
-	return nil
-}

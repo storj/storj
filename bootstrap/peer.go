@@ -34,6 +34,8 @@ type DB interface {
 
 // Config is all the configuration parameters for a Bootstrap Node
 type Config struct {
+	Identity identity.Config
+
 	Server   server.Config
 	Kademlia kademlia.Config
 }
@@ -143,6 +145,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 	defer cancel()
 
 	var group errgroup.Group
+	group.Go(func() error {
+		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
+	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.RunRefresh(ctx))
 	})

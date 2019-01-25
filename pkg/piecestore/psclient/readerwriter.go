@@ -25,13 +25,13 @@ type StreamWriter struct {
 // Write Piece data to a piece store server upload stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
 	updatedAllocation := s.totalWritten + int64(len(b))
-	allocationData := &pb.RenterBandwidthAllocation_Data{
+	renterBWA := &pb.RenterBandwidthAllocation_Data{
 		PayerAllocation: s.pba,
 		Total:           updatedAllocation,
-		StorageNodeId:   s.signer.nodeID,
+		StorageNodeId:   s.signer.remoteID,
 	}
 
-	serializedAllocation, err := proto.Marshal(allocationData)
+	serializedAllocation, err := proto.Marshal(renterBWA)
 	if err != nil {
 		return 0, err
 	}
@@ -44,7 +44,9 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 	msg := &pb.PieceStore{
 		PieceData: &pb.PieceStore_PieceData{Content: b},
 		BandwidthAllocation: &pb.RenterBandwidthAllocation{
-			Data: serializedAllocation, Signature: sig,
+			Data:      serializedAllocation,
+			Signature: sig,
+			Certs:     s.signer.certs(),
 		},
 	}
 
@@ -93,6 +95,7 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 	// TODO: make these flag/config-file configurable
 	trustLimit := int64(client.bandwidthMsgSize * 64)
 	sendThreshold := int64(client.bandwidthMsgSize * 8)
+	certs := client.certs()
 
 	// Send signed allocations to the piece store server
 	go func() {
@@ -109,7 +112,7 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 			allocationData := &pb.RenterBandwidthAllocation_Data{
 				PayerAllocation: pba,
 				Total:           sr.allocated + allocate,
-				StorageNodeId:   sr.client.nodeID,
+				StorageNodeId:   sr.client.remoteID,
 			}
 
 			serializedAllocation, err := proto.Marshal(allocationData)
@@ -128,6 +131,7 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 				BandwidthAllocation: &pb.RenterBandwidthAllocation{
 					Signature: sig,
 					Data:      serializedAllocation,
+					Certs:     certs,
 				},
 			}
 
