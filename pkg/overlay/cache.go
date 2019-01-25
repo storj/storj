@@ -35,6 +35,8 @@ var OverlayError = errs.Class("Overlay Error")
 
 // DB implements the database for overlay.Cache
 type DB interface {
+	// FilterNodes looks up nodes based on reputation requirements
+	FilterNodes(ctx context.Context, filterNodesRequest *FilterNodesRequest) ([]*pb.Node, error)
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error)
 	// GetAll looks up nodes based on the ids from the overlay cache
