@@ -93,7 +93,6 @@ func (discovery *Discovery) Run(ctx context.Context) error {
 func (discovery *Discovery) Refresh(ctx context.Context) error {
 	// TODO(coyle): make refresh work by looking on the network for new ndoes
 	nodes := discovery.kad.Seen()
-
 	for _, v := range nodes {
 		if err := discovery.cache.Put(ctx, v.Id, *v); err != nil {
 			return err
