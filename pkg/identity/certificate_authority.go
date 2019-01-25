@@ -105,7 +105,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		if opts.Logger != nil {
 			count := atomic.LoadUint32(i)
 			hs := atomic.LoadUint32(highscore)
-			_, err := opts.Logger.Write([]byte(fmt.Sprintf("\rGenerated %d keys; best difficulty so far: %d", count, hs)))
+			_, err := fmt.Fprintf(opts.Logger, "\rGenerated %d keys; best difficulty so far: %d", count, hs)
 			if err != nil {
 				log.Print(errs.Wrap(err))
 			}
@@ -114,8 +114,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency),
 		func(k *ecdsa.PrivateKey, id storj.NodeID) (done bool, err error) {
 			if opts.Logger != nil {
-				count := atomic.AddUint32(i, 1)
-				if count%100 == 0 {
+				if atomic.AddUint32(i, 1)%100 == 0 {
 					updateStatus()
 				}
 			}
@@ -133,7 +132,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 				}
 				mu.Unlock()
 				if opts.Logger != nil {
-					_, err := opts.Logger.Write([]byte(fmt.Sprintf("\nFound a key with difficulty %d!\n", difficulty)))
+					_, err := fmt.Fprintf(opts.Logger,"\nFound a key with difficulty %d!\n", difficulty)
 					if err != nil {
 						log.Print(errs.Wrap(err))
 					}
