@@ -298,7 +298,7 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAll
 		return pb.BadID.New("Uplink Node ID: %s vs %s", pbad.UplinkId, pi.ID)
 	}
 	//todo:  use whitelist for uplinks?
-	//todo:  use whitelist for satelites?
+	//todo:  use whitelist for satellites?
 	switch {
 	case len(pbad.SerialNumber) == 0:
 		return pb.Payer.Wrap(pb.Missing.New("serial"))

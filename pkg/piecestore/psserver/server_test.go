@@ -458,7 +458,7 @@ func TestPbaValidation(t *testing.T) {
 			assert.NoError(err)
 
 			//cleanup incase tests previously paniced
-			s.storage.Delete("99999999999999999999")
+			_ = s.storage.Delete("99999999999999999999")
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: "99999999999999999999", ExpirationUnixSec: 9999999999}})
 			assert.NoError(err)
@@ -600,7 +600,7 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	grpcServer, err := server.NewServer(publicOptions, listener, nil)
 	assert.NoError(t, err)
 	pb.RegisterPieceStoreRoutesServer(grpcServer.GRPC(), psServer)
-	go func() { grpcServer.Run(ctx) }()
+	go func() { assert.NoError(t, grpcServer.Run(ctx)) }()
 	//init client
 	co, err := upID.DialOption(storj.NodeID{})
 	assert.NoError(t, err)
@@ -610,16 +610,11 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	//cleanup callback
 	cleanup := func() {
 		assert.NoError(t, conn.Close())
-		psServer.Close()
+		assert.NoError(t, psServer.Close())
 		assert.NoError(t, psServer.Stop(ctx))
-		_ = os.RemoveAll(tmp)
+		assert.NoError(t, os.RemoveAll(tmp))
 	}
 	return psServer, psClient, cleanup
-}
-
-func serializeData(ba *pb.RenterBandwidthAllocation_Data) []byte {
-	data, _ := proto.Marshal(ba)
-	return data
 }
 
 func newTestID(ctx context.Context, t *testing.T) *identity.FullIdentity {
