@@ -1,5 +1,4 @@
 run:
-  concurrency: 1
   deadline: 10m
   issues-exit-code: 1
   tests: true
@@ -13,7 +12,7 @@ linters:
   enable:
     - govet       # check standard vet rules
     - golint      # check standard linting rules
-    - megacheck   # bunch of things
+    - staticcheck # comprehensive checks
     - errcheck    # find unchecked errors
     - ineffassign # find ineffective assignments
     - varcheck    # find unused global variables and constants
@@ -33,9 +32,9 @@ linters:
     - gosec       # needs tweaking
     - dupl        # slow
     - interfacer  # not that useful
-    - gosimple    # part of megacheck
-    - unused      # part of megacheck
-    - staticcheck # part of megacheck
+    - gosimple    # part of staticcheck
+    - unused      # part of staticcheck
+    - megacheck   # part of staticcheck
     - lll
   fast: false
 

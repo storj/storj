@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package pstore
@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/shirou/gopsutil/disk"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/ranger"
@@ -26,6 +27,23 @@ func NewStorage(dir string) *Storage {
 
 // Close closes resources
 func (storage *Storage) Close() error { return nil }
+
+// DiskInfo contains statistics about the disk
+type DiskInfo struct {
+	AvailableSpace int64 // TODO: use memory.Size
+}
+
+// Info returns information about the current state of the dir
+func (storage *Storage) Info() (DiskInfo, error) {
+	rootPath := filepath.Dir(filepath.Clean(storage.dir))
+	diskSpace, err := disk.Usage(rootPath)
+	if err != nil {
+		return DiskInfo{}, err
+	}
+	return DiskInfo{
+		AvailableSpace: int64(diskSpace.Free),
+	}, nil
+}
 
 // IDLength -- Minimum ID length
 const IDLength = 20

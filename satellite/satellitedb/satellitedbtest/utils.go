@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package satellitedbtest
@@ -17,7 +17,7 @@ import (
 const (
 	// postgres connstring that works with docker-compose
 	defaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
-	defaultSqliteConn   = "sqlite3://file::memory:?mode=memory&cache=shared"
+	defaultSqliteConn   = "sqlite3://file::memory:?mode=memory"
 )
 
 var (

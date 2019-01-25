@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package overlay
@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -17,7 +16,6 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
 )
 
 // ServerError creates class of errors for stack traces
@@ -41,8 +39,13 @@ func NewServer(log *zap.Logger, cache *Cache, nodeStats *pb.NodeStats) *Server {
 	}
 }
 
+// Close closes resources
+func (server *Server) Close() error { return nil }
+
 // Lookup finds the address of a node in our overlay network
-func (server *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (*pb.LookupResponse, error) {
+func (server *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (_ *pb.LookupResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	na, err := server.cache.Get(ctx, req.NodeId)
 
 	if err != nil {
@@ -56,7 +59,9 @@ func (server *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (*pb.Lo
 }
 
 // BulkLookup finds the addresses of nodes in our overlay network
-func (server *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (*pb.LookupResponses, error) {
+func (server *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (_ *pb.LookupResponses, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	ns, err := server.cache.GetAll(ctx, lookupRequestsToNodeIDs(reqs))
 	if err != nil {
 		return nil, ServerError.New("could not get nodes requested %s\n", err)
@@ -66,6 +71,8 @@ func (server *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	opts := req.GetOpts()
 	maxNodes := req.GetMaxNodes()
 	if maxNodes <= 0 {
@@ -120,51 +127,29 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 	}, nil
 }
 
-func (server *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.Node, error) {
-	values, err := server.cache.db.GetAll(keys)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	nodes := []*pb.Node{}
-	for _, v := range values {
-		n := &pb.Node{}
-		if err := proto.Unmarshal(v, n); err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		nodes = append(nodes, n)
-	}
-
-	return nodes, nil
-
-}
-
-func (server *Server) populate(ctx context.Context, startID storj.NodeID, maxNodes int64,
-	minRestrictions *pb.NodeRestrictions, minReputation *pb.NodeStats,
+// TODO: nicer method arguments
+func (server *Server) populate(ctx context.Context,
+	startID storj.NodeID, maxNodes int64,
+	minRestrictions *pb.NodeRestrictions,
+	minReputation *pb.NodeStats,
 	excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
 
+	// TODO: move the query into db
 	limit := int(maxNodes * 2)
-	keys, err := server.cache.db.List(startID.Bytes(), limit)
+	nodes, err := server.cache.db.List(ctx, startID, limit)
 	if err != nil {
 		server.log.Error("Error listing nodes", zap.Error(err))
 		return nil, storj.NodeID{}, Error.Wrap(err)
 	}
 
-	if len(keys) <= 0 {
-		server.log.Info("No Keys returned from List operation")
-		return []*pb.Node{}, startID, nil
-	}
-
-	// TODO: should this be `var result []*pb.Node` ?
+	var nextStart storj.NodeID
 	result := []*pb.Node{}
-	nodes, err := server.getNodes(ctx, keys)
-	if err != nil {
-		server.log.Error("Error getting nodes", zap.Error(err))
-		return nil, storj.NodeID{}, Error.Wrap(err)
-	}
-
 	for _, v := range nodes {
+		if v == nil {
+			continue
+		}
+
+		nextStart = v.Id
 		if v.Type != pb.NodeType_STORAGE {
 			continue
 		}
@@ -181,17 +166,8 @@ func (server *Server) populate(ctx context.Context, startID storj.NodeID, maxNod
 			contains(excluded, v.Id) {
 			continue
 		}
-		result = append(result, v)
-	}
 
-	var nextStart storj.NodeID
-	if len(keys) < limit {
-		nextStart = storj.NodeID{}
-	} else {
-		nextStart, err = storj.NodeIDFromBytes(keys[len(keys)-1])
-	}
-	if err != nil {
-		return nil, storj.NodeID{}, Error.Wrap(err)
+		result = append(result, v)
 	}
 
 	return result, nextStart, nil

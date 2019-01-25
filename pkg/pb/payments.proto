@@ -1,8 +1,9 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 syntax = "proto3";
 option go_package = "pb";
+import "google/protobuf/timestamp.proto";
 
 // The service definition for the Payments API
 service Payments {
@@ -12,6 +13,8 @@ service Payments {
     rpc Calculate(CalculateRequest) returns (CalculateResponse);
     // AdjustPrices sets the prices paid by a satellite for data at rest and bandwidth
     rpc AdjustPrices(AdjustPricesRequest) returns (AdjustPricesResponse);
+    // GenerateCSV creates a csv file for payment purposes
+    rpc GenerateCSV(GenerateCSVRequest) returns (GenerateCSVResponse);
 }
 
 // The request message containing the details needed to pay a storage node.
@@ -19,7 +22,6 @@ message PaymentRequest {
     // ID of the storage node to be paid
     string node_id = 1;
 }
-
 // The response message for payments.
 message PaymentResponse {}
 
@@ -47,3 +49,14 @@ message AdjustPricesRequest {
 
 // The response message from adjusting cost basis on satelittes.
 message AdjustPricesResponse {}
+
+// The request message for querying the data needed to generate a payments CSV
+message GenerateCSVRequest {
+    google.protobuf.Timestamp start_time = 1;
+    google.protobuf.Timestamp end_time = 2;
+}
+
+ // The response message for querying the data needed to generate a payments CSV
+message GenerateCSVResponse {
+    string filepath = 1;
+}

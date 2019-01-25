@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
 // Package testplanet implements the full network wiring for testing
@@ -21,17 +21,30 @@ import (
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/bootstrap"
+	"storj.io/storj/bootstrap/bootstrapdb"
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/accounting/rollup"
+	"storj.io/storj/pkg/accounting/tally"
+	"storj.io/storj/pkg/audit"
+	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/datarepair/checker"
+	"storj.io/storj/pkg/datarepair/repairer"
+	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/payments"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
-	"storj.io/storj/storage/teststore"
+	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
 )
@@ -56,12 +69,10 @@ type Planet struct {
 
 	peers     []Peer
 	databases []io.Closer
-
-	nodeInfos []pb.Node
-	nodeLinks []string
 	nodes     []*Node
 
-	Satellites   []*Node
+	Bootstrap    *bootstrap.Peer
+	Satellites   []*satellite.Peer
 	StorageNodes []*storagenode.Peer
 	Uplinks      []*Node
 
@@ -93,91 +104,33 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 		return nil, err
 	}
 
-	planet.Satellites, err = planet.newNodes("satellite", satelliteCount, pb.NodeType_SATELLITE)
+	planet.Bootstrap, err = planet.newBootstrap()
 	if err != nil {
-		return nil, utils.CombineErrors(err, planet.Shutdown())
+		return nil, errs.Combine(err, planet.Shutdown())
+	}
+
+	planet.Satellites, err = planet.newSatellites(satelliteCount)
+	if err != nil {
+		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
 	planet.StorageNodes, err = planet.newStorageNodes(storageNodeCount)
 	if err != nil {
-		return nil, utils.CombineErrors(err, planet.Shutdown())
+		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Uplinks, err = planet.newNodes("uplink", uplinkCount, pb.NodeType_UPLINK)
+	planet.Uplinks, err = planet.newUplinks("uplink", uplinkCount)
 	if err != nil {
-		return nil, utils.CombineErrors(err, planet.Shutdown())
-	}
-
-	for _, node := range planet.nodes {
-		err = node.initOverlay(planet)
-		if err != nil {
-			return nil, utils.CombineErrors(err, planet.Shutdown())
-		}
-	}
-
-	for _, n := range planet.nodes {
-		server := node.NewServer(n.Log.Named("node"), n.Kademlia)
-		pb.RegisterNodesServer(n.Provider.GRPC(), server)
-		// TODO: shutdown
+		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
 	// init Satellites
-	for _, node := range planet.Satellites {
-		pointerServer := pointerdb.NewServer(
-			teststore.New(),
-			node.Overlay,
-			node.Log.Named("pdb"),
-			pointerdb.Config{
-				MinRemoteSegmentSize: 1240,
-				MaxInlineSegmentSize: 8000,
-				Overlay:              true,
-			},
-			node.Identity)
-		pb.RegisterPointerDBServer(node.Provider.GRPC(), pointerServer)
-		// bootstrap satellite kademlia node
-		go func(n *Node) {
-			if err := n.Kademlia.Bootstrap(context.Background()); err != nil {
-				log.Error(err.Error())
-			}
-		}(node)
-
-		ns := &pb.NodeStats{
-			UptimeCount:       0,
-			UptimeRatio:       0,
-			AuditSuccessRatio: 0,
-			AuditCount:        0,
-		}
-
-		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, ns)
-		pb.RegisterOverlayServer(node.Provider.GRPC(), overlayServer)
-
-		node.Dependencies = append(node.Dependencies,
-			closerFunc(func() error {
-				// TODO: implement
-				return nil
-			}))
-
-		go func(n *Node) {
-			// refresh the interval every 500ms
-			t := time.NewTicker(500 * time.Millisecond).C
-			for {
-				<-t
-				if err := n.Discovery.Refresh(context.Background()); err != nil {
-					log.Error(err.Error())
-				}
-			}
-		}(node)
+	for _, satellite := range planet.Satellites {
+		satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
 	}
-
 	// init storage nodes
 	for _, storageNode := range planet.StorageNodes {
-		storageNode.Kademlia.SetBootstrapNodes(planet.nodeInfos)
-	}
-
-	// init Uplinks
-	for _, uplink := range planet.Uplinks {
-		// TODO: do we need here anything?
-		_ = uplink
+		storageNode.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
 	}
 
 	return planet, nil
@@ -185,20 +138,6 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 // Start starts all the nodes.
 func (planet *Planet) Start(ctx context.Context) {
-	for _, node := range planet.nodes {
-		go func(node *Node) {
-			node.Kademlia.StartRefresh(ctx)
-			err := node.Provider.Run(ctx)
-			if err == grpc.ErrServerStopped {
-				err = nil
-			}
-			if err != nil {
-				// TODO: better error handling
-				panic(err)
-			}
-		}(node)
-	}
-
 	for _, peer := range planet.peers {
 		go func(peer Peer) {
 			err := peer.Run(ctx)
@@ -242,11 +181,11 @@ func (planet *Planet) Shutdown() error {
 	return errlist.Err()
 }
 
-// newNodes creates initializes multiple nodes
-func (planet *Planet) newNodes(prefix string, count int, nodeType pb.NodeType) ([]*Node, error) {
+// newUplinks creates initializes uplinks
+func (planet *Planet) newUplinks(prefix string, count int) ([]*Node, error) {
 	var xs []*Node
 	for i := 0; i < count; i++ {
-		node, err := planet.newNode(prefix+strconv.Itoa(i), nodeType)
+		node, err := planet.newUplink(prefix + strconv.Itoa(i))
 		if err != nil {
 			return nil, err
 		}
@@ -256,13 +195,128 @@ func (planet *Planet) newNodes(prefix string, count int, nodeType pb.NodeType) (
 	return xs, nil
 }
 
+// newSatellites initializes satellites
+func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
+	var xs []*satellite.Peer
+	defer func() {
+		for _, x := range xs {
+			planet.peers = append(planet.peers, x)
+		}
+	}()
+
+	for i := 0; i < count; i++ {
+		prefix := "satellite" + strconv.Itoa(i)
+		log := planet.log.Named(prefix)
+
+		storageDir := filepath.Join(planet.directory, prefix)
+		if err := os.MkdirAll(storageDir, 0700); err != nil {
+			return nil, err
+		}
+
+		identity, err := planet.NewIdentity()
+		if err != nil {
+			return nil, err
+		}
+
+		db, err := satellitedb.NewInMemory()
+		if err != nil {
+			return nil, err
+		}
+
+		err = db.CreateTables()
+		if err != nil {
+			return nil, err
+		}
+
+		planet.databases = append(planet.databases, db)
+
+		config := satellite.Config{
+			Server: server.Config{
+				Address:            "127.0.0.1:0",
+				RevocationDBURL:    "bolt://" + filepath.Join(planet.directory, "revocation.db"),
+				UsePeerCAWhitelist: false, // TODO: enable
+				Extensions: peertls.TLSExtConfig{
+					Revocation:          true,
+					WhitelistSignedLeaf: false,
+				},
+			},
+			Kademlia: kademlia.Config{
+				Alpha:  5,
+				DBPath: storageDir, // TODO: replace with master db
+				Operator: kademlia.OperatorConfig{
+					Email:  prefix + "@example.com",
+					Wallet: "0x" + strings.Repeat("00", 20),
+				},
+			},
+			Overlay: overlay.Config{
+				RefreshInterval: 30 * time.Second,
+				Node: overlay.NodeSelectionConfig{
+					UptimeRatio:       0,
+					UptimeCount:       0,
+					AuditSuccessRatio: 0,
+					AuditCount:        0,
+				},
+			},
+			Discovery: discovery.Config{
+				RefreshInterval: 1 * time.Second,
+			},
+			PointerDB: pointerdb.Config{
+				DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),
+				MinRemoteSegmentSize: 0, // TODO: fix tests to work with 1024
+				MaxInlineSegmentSize: 8000,
+				Overlay:              true,
+				BwExpiration:         45,
+			},
+			BwAgreement: bwagreement.Config{},
+			Checker: checker.Config{
+				Interval: 30 * time.Second,
+			},
+			Repairer: repairer.Config{
+				MaxRepair:     10,
+				Interval:      time.Hour,
+				OverlayAddr:   "", // overridden in satellite.New
+				PointerDBAddr: "", // overridden in satellite.New
+				MaxBufferMem:  4 * memory.MB,
+				APIKey:        "",
+			},
+			Audit: audit.Config{
+				MaxRetriesStatDB: 0,
+				Interval:         30 * time.Second,
+			},
+			Tally: tally.Config{
+				Interval: 30 * time.Second,
+			},
+			Rollup: rollup.Config{
+				Interval: 120 * time.Second,
+			},
+			Payments: payments.Config{
+				Filepath: filepath.Join(storageDir, "reports"),
+			},
+			Console: consoleweb.Config{
+				Address: "127.0.0.1:0",
+			},
+		}
+
+		// TODO: for development only
+		config.Console.StaticDir = "./web/satellite"
+
+		peer, err := satellite.New(log, identity, db, &config)
+		if err != nil {
+			return xs, err
+		}
+
+		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
+		xs = append(xs, peer)
+	}
+	return xs, nil
+}
+
 // newStorageNodes initializes storage nodes
 func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 	var xs []*storagenode.Peer
 	defer func() {
 		for _, x := range xs {
 			planet.peers = append(planet.peers, x)
-			planet.nodeInfos = append(planet.nodeInfos, x.Local())
 		}
 	}()
 
@@ -270,6 +324,10 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 		prefix := "storage" + strconv.Itoa(i)
 		log := planet.log.Named(prefix)
 		storageDir := filepath.Join(planet.directory, prefix)
+
+		if err := os.MkdirAll(storageDir, 0700); err != nil {
+			return nil, err
+		}
 
 		identity, err := planet.NewIdentity()
 		if err != nil {
@@ -280,22 +338,38 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		err = db.CreateTables()
+		if err != nil {
+			return nil, err
+		}
+
 		planet.databases = append(planet.databases, db)
 
 		config := storagenode.Config{
-			PublicAddress: "127.0.0.1:0",
+			Server: server.Config{
+				Address:            "127.0.0.1:0",
+				RevocationDBURL:    "bolt://" + filepath.Join(storageDir, "revocation.db"),
+				UsePeerCAWhitelist: false, // TODO: enable
+				Extensions: peertls.TLSExtConfig{
+					Revocation:          true,
+					WhitelistSignedLeaf: false,
+				},
+			},
 			Kademlia: kademlia.Config{
-				Alpha: 5,
+				Alpha:  5,
+				DBPath: storageDir, // TODO: replace with master db
 				Operator: kademlia.OperatorConfig{
 					Email:  prefix + "@example.com",
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
 			},
 			Storage: psserver.Config{
-				Path:                   "", // TODO: this argument won't be needed with master storagenodedb
-				AllocatedDiskSpace:     memory.TB.Int64(),
-				AllocatedBandwidth:     memory.TB.Int64(),
-				KBucketRefreshInterval: time.Minute,
+				Path:                         "", // TODO: this argument won't be needed with master storagenodedb
+				AllocatedDiskSpace:           memory.TB,
+				AllocatedBandwidth:           memory.TB,
+				KBucketRefreshInterval:       time.Hour,
+				AgreementSenderCheckInterval: time.Hour,
 			},
 		}
 
@@ -310,12 +384,73 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 	return xs, nil
 }
 
+// newBootstrap initializes the bootstrap node
+func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
+	defer func() {
+		planet.peers = append(planet.peers, peer)
+	}()
+
+	prefix := "bootstrap"
+	log := planet.log.Named(prefix)
+	dbDir := filepath.Join(planet.directory, prefix)
+
+	if err := os.MkdirAll(dbDir, 0700); err != nil {
+		return nil, err
+	}
+
+	identity, err := planet.NewIdentity()
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := bootstrapdb.NewInMemory(dbDir)
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.CreateTables()
+	if err != nil {
+		return nil, err
+	}
+
+	planet.databases = append(planet.databases, db)
+
+	config := bootstrap.Config{
+		Server: server.Config{
+			Address:            "127.0.0.1:0",
+			RevocationDBURL:    "bolt://" + filepath.Join(dbDir, "revocation.db"),
+			UsePeerCAWhitelist: false, // TODO: enable
+			Extensions: peertls.TLSExtConfig{
+				Revocation:          true,
+				WhitelistSignedLeaf: false,
+			},
+		},
+		Kademlia: kademlia.Config{
+			Alpha:  5,
+			DBPath: dbDir, // TODO: replace with master db
+			Operator: kademlia.OperatorConfig{
+				Email:  prefix + "@example.com",
+				Wallet: "0x" + strings.Repeat("00", 20),
+			},
+		},
+	}
+
+	peer, err = bootstrap.New(log, identity, db, config)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
+
+	return peer, nil
+}
+
 // NewIdentity creates a new identity for a node
 func (planet *Planet) NewIdentity() (*provider.FullIdentity, error) {
 	return planet.identities.NewIdentity()
 }
 
-// newListener creates a new listener
-func (planet *Planet) newListener() (net.Listener, error) {
+// NewListener creates a new listener
+func (planet *Planet) NewListener() (net.Listener, error) {
 	return net.Listen("tcp", "127.0.0.1:0")
 }

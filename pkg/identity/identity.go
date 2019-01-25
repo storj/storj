@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package identity
@@ -58,8 +58,8 @@ type FullIdentity struct {
 // SetupConfig allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
 type SetupConfig struct {
-	CertPath  string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`
-	KeyPath   string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
+	CertPath  string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/identity.cert"`
+	KeyPath   string `help:"path to the private key for this identity" default:"$IDENTITYDIR/identity.key"`
 	Overwrite bool   `help:"if true, existing identity certs AND keys will overwritten for" default:"false"`
 	Version   string `help:"semantic version of identity storage format" default:"0"`
 }
@@ -67,8 +67,8 @@ type SetupConfig struct {
 // Config allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
 type Config struct {
-	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`
-	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
+	CertPath string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/identity.cert" user:"true"`
+	KeyPath  string `help:"path to the private key for this identity" default:"$IDENTITYDIR/identity.key" user:"true"`
 }
 
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and
@@ -156,6 +156,27 @@ func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 	}
 
 	return PeerIdentityFromPeer(p)
+}
+
+// NodeIDFromCertPath loads a node ID from a certificate file path
+func NodeIDFromCertPath(certPath string) (storj.NodeID, error) {
+	certBytes, err := ioutil.ReadFile(certPath)
+	if err != nil {
+		return storj.NodeID{}, err
+	}
+	return NodeIDFromPEM(certBytes)
+}
+
+// NodeIDFromPEM loads a node ID from certificate bytes
+func NodeIDFromPEM(pemBytes []byte) (storj.NodeID, error) {
+	chain, err := DecodeAndParseChainPEM(pemBytes)
+	if err != nil {
+		return storj.NodeID{}, Error.New("invalid identity certificate")
+	}
+	if len(chain) < peertls.CAIndex+1 {
+		return storj.NodeID{}, Error.New("no CA in identity certificate")
+	}
+	return NodeIDFromKey(chain[peertls.CAIndex].PublicKey)
 }
 
 // NodeIDFromKey hashes a public key and creates a node ID from it

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package psclient
@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
@@ -28,13 +29,18 @@ import (
 var ClientError = errs.Class("piecestore client error")
 
 var (
-	defaultBandwidthMsgSize = flag.Int(
-		"piecestore.rpc.client.default-bandwidth-msg-size", 32*1024,
-		"default bandwidth message size in bytes")
-	maxBandwidthMsgSize = flag.Int(
-		"piecestore.rpc.client.max-bandwidth-msg-size", 64*1024,
-		"max bandwidth message size in bytes")
+	defaultBandwidthMsgSize = 32 * memory.KB
+	maxBandwidthMsgSize     = 64 * memory.KB
 )
+
+func init() {
+	flag.Var(&defaultBandwidthMsgSize,
+		"piecestore.rpc.client.default-bandwidth-msg-size",
+		"default bandwidth message size in bytes")
+	flag.Var(&maxBandwidthMsgSize,
+		"piecestore.rpc.client.max-bandwidth-msg-size",
+		"max bandwidth message size in bytes")
+}
 
 // Client is an interface describing the functions for interacting with piecestore nodes
 type Client interface {
@@ -42,7 +48,6 @@ type Client interface {
 	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) error
 	Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error)
 	Delete(ctx context.Context, pieceID PieceID, authorization *pb.SignedMessage) error
-	Stats(ctx context.Context) (*pb.StatSummary, error)
 	io.Closer
 }
 
@@ -63,12 +68,12 @@ func NewPSClient(ctx context.Context, tc transport.Client, n *pb.Node, bandwidth
 		return nil, err
 	}
 
-	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
+	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize.Int() {
 		return nil, ClientError.New("invalid Bandwidth Message Size: %v", bandwidthMsgSize)
 	}
 
 	if bandwidthMsgSize == 0 {
-		bandwidthMsgSize = *defaultBandwidthMsgSize
+		bandwidthMsgSize = defaultBandwidthMsgSize.Int()
 	}
 
 	return &PieceStore{
@@ -83,12 +88,12 @@ func NewPSClient(ctx context.Context, tc transport.Client, n *pb.Node, bandwidth
 // NewCustomRoute creates new PieceStore with custom client interface
 func NewCustomRoute(client pb.PieceStoreRoutesClient, target *pb.Node, bandwidthMsgSize int, prikey crypto.PrivateKey) (*PieceStore, error) {
 	target.Type.DPanicOnInvalid("new custom route")
-	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
+	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize.Int() {
 		return nil, ClientError.New("invalid Bandwidth Message Size: %v", bandwidthMsgSize)
 	}
 
 	if bandwidthMsgSize == 0 {
-		bandwidthMsgSize = *defaultBandwidthMsgSize
+		bandwidthMsgSize = defaultBandwidthMsgSize.Int()
 	}
 
 	return &PieceStore{
@@ -176,11 +181,6 @@ func (ps *PieceStore) Delete(ctx context.Context, id PieceID, authorization *pb.
 	}
 	zap.S().Infof("Delete request route summary: %v", reply)
 	return nil
-}
-
-// Stats will retrieve stats about a piece storage node
-func (ps *PieceStore) Stats(ctx context.Context) (*pb.StatSummary, error) {
-	return ps.client.Stats(ctx, &pb.StatsReq{})
 }
 
 // sign a message using the clients private key

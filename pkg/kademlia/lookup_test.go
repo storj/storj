@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package kademlia_test
@@ -24,7 +24,7 @@ func TestLookupNodes(t *testing.T) {
 
 	planet.Start(ctx)
 
-	k := planet.Satellites[0].Kademlia
+	k := planet.Satellites[0].Kademlia.Service
 	err = k.Bootstrap(ctx)
 	assert.NoError(t, err)
 

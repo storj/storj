@@ -22,15 +22,14 @@ import (
 
 // CertClientConfig is a config struct for use with a certificate signing service client
 type CertClientConfig struct {
-	AuthToken string `help:"authorization token to use to claim a certificate signing request (only applicable for the alpha network)"`
-	Address   string `help:"address of the certificate signing rpc service"`
+	Address string `help:"address of the certificate signing rpc service"`
 }
 
 // CertServerConfig is a config struct for use with a certificate signing service server
 type CertServerConfig struct {
 	Overwrite          bool   `default:"false" help:"if true, overwrites config AND authorization db is truncated"`
 	AuthorizationDBURL string `default:"bolt://$CONFDIR/authorizations.db" help:"url to the certificate signing authorization database"`
-	MinDifficulty      uint   `default:"16" help:"minimum difficulty of the requester's identity required to claim an authorization"`
+	MinDifficulty      uint   `default:"30" help:"minimum difficulty of the requester's identity required to claim an authorization"`
 	CA                 identity.FullCAConfig
 }
 
@@ -40,6 +39,7 @@ func (c CertClientConfig) SetupIdentity(
 	ctx context.Context,
 	caConfig identity.CASetupConfig,
 	identConfig identity.SetupConfig,
+	authToken string,
 ) error {
 	caStatus := caConfig.Status()
 	var (
@@ -85,9 +85,9 @@ func (c CertClientConfig) SetupIdentity(
 		}
 	}
 
-	signedChainBytes, err := c.Sign(ctx, ident)
+	signedChainBytes, err := c.Sign(ctx, ident, authToken)
 	if err != nil {
-		return errs.New("error occured while signing certificate: %s\n(identity files were still generated and saved, if you try again existnig files will be loaded)", err)
+		return errs.New("error occurred while signing certificate: %s\n(identity files were still generated and saved, if you try again existing files will be loaded)", err)
 	}
 
 	signedChain, err := identity.ParseCertChain(signedChainBytes)
@@ -115,13 +115,13 @@ func (c CertClientConfig) SetupIdentity(
 }
 
 // Sign submits a certificate signing request given the config
-func (c CertClientConfig) Sign(ctx context.Context, ident *identity.FullIdentity) ([][]byte, error) {
+func (c CertClientConfig) Sign(ctx context.Context, ident *identity.FullIdentity, authToken string) ([][]byte, error) {
 	client, err := NewClient(ctx, ident, c.Address)
 	if err != nil {
 		return nil, err
 	}
 
-	return client.Sign(ctx, c.AuthToken)
+	return client.Sign(ctx, authToken)
 }
 
 // NewAuthDB creates or opens the authorization database specified by the config

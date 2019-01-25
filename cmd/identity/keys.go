@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -21,26 +21,22 @@ import (
 )
 
 var (
-	keysCmd = &cobra.Command{
-		Use:   "keys",
-		Short: "Manage keys",
-	}
 	keyGenerateCmd = &cobra.Command{
-		Use:   "generate",
-		Short: "generate lots of keys",
-		RunE:  cmdKeyGenerate,
+		Use:         "batch-generate",
+		Short:       "generate lots of keys",
+		RunE:        cmdKeyGenerate,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	keyCfg struct {
-		MinDifficulty int    `help:"minimum difficulty to output" default:"18"`
+		MinDifficulty int    `help:"minimum difficulty to output" default:"30"`
 		Concurrency   int    `help:"worker concurrency" default:"4"`
 		OutputDir     string `help:"output directory to place keys" default:"."`
 	}
 )
 
 func init() {
-	rootCmd.AddCommand(keysCmd)
-	keysCmd.AddCommand(keyGenerateCmd)
+	rootCmd.AddCommand(keyGenerateCmd)
 	cfgstruct.Bind(keyGenerateCmd.Flags(), &keyCfg)
 }
 

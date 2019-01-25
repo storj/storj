@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package psdb
@@ -56,7 +56,7 @@ func Open(ctx context.Context, storage *pstore.Storage, DBPath string) (db *DB, 
 		return nil, err
 	}
 
-	sqlite, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?cache=shared&mode=rwc&mutex=full", DBPath))
+	sqlite, err := sql.Open("sqlite3", fmt.Sprintf("file:%s", DBPath))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

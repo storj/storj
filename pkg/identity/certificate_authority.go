@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package identity
@@ -49,9 +49,9 @@ type FullCertificateAuthority struct {
 type CASetupConfig struct {
 	ParentCertPath string `help:"path to the parent authority's certificate chain"`
 	ParentKeyPath  string `help:"path to the parent authority's private key"`
-	CertPath       string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
-	KeyPath        string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
-	Difficulty     uint64 `help:"minimum difficulty for identity generation" default:"15"`
+	CertPath       string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/ca.cert"`
+	KeyPath        string `help:"path to the private key for this identity" default:"$IDENTITYDIR/ca.key"`
+	Difficulty     uint64 `help:"minimum difficulty for identity generation" default:"30"`
 	Timeout        string `help:"timeout for CA generation; golang duration string (0 no timeout)" default:"5m"`
 	Overwrite      bool   `help:"if true, existing CA certs AND keys will overwritten" default:"false"`
 	Concurrency    uint   `help:"number of concurrent workers for certificate authority generation" default:"4"`
@@ -71,13 +71,13 @@ type NewCAOptions struct {
 
 // PeerCAConfig is for locating a CA certificate without a private key
 type PeerCAConfig struct {
-	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
+	CertPath string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/ca.cert"`
 }
 
 // FullCAConfig is for locating a CA certificate and it's private key
 type FullCAConfig struct {
-	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
-	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
+	CertPath string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/ca.cert"`
+	KeyPath  string `help:"path to the private key for this identity" default:"$IDENTITYDIR/ca.key"`
 }
 
 // NewCA creates a new full identity with the given difficulty
@@ -162,9 +162,9 @@ func (caS CASetupConfig) Create(ctx context.Context) (*FullCertificateAuthority,
 			CertPath: caS.ParentCertPath,
 			KeyPath:  caS.ParentKeyPath,
 		}.Load()
-	}
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if parent == nil {
