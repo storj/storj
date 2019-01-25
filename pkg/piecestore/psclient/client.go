@@ -193,7 +193,5 @@ func (ps *PieceStore) sign(msg []byte) (signature []byte, err error) {
 
 //certs returns this uplink's certificates
 func (ps *PieceStore) certs() [][]byte {
-	certs := [][]byte{ps.selfID.Leaf.Raw, ps.selfID.CA.Raw}
-	certs = append(certs, ps.selfID.RestChainRaw()...) //todo:  do we need RestChain?
-	return certs
+	return ps.selfID.ChainRaw()
 }

@@ -193,8 +193,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		// Generate a new keypair for self signing bwagreements
 		manipID, err := testidentity.NewTestIdentity(ctx)
 		assert.NoError(t, err)
-		manipCerts := [][]byte{manipID.Leaf.Raw, manipID.CA.Raw}
-		manipCerts = append(manipCerts, manipID.RestChainRaw()...) //todo: do we need RestChain?
+		manipCerts := manipID.ChainRaw() //todo: do we need RestChain?
 		manipPrivKey, ok := manipID.Key.(*ecdsa.PrivateKey)
 		assert.True(t, ok)
 

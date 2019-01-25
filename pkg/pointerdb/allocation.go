@@ -35,9 +35,6 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 		return nil, Error.New("missing peer identity")
 	}
 
-	certs := [][]byte{allocation.satelliteIdentity.Leaf.Raw, allocation.satelliteIdentity.CA.Raw}
-	certs = append(certs, allocation.satelliteIdentity.RestChainRaw()...) //todo:  do we need RestChain?
-
 	serialNum, err := uuid.New()
 	if err != nil {
 		return nil, err
@@ -65,5 +62,6 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
+	certs := allocation.satelliteIdentity.ChainRaw()
 	return &pb.PayerBandwidthAllocation{Signature: signature, Data: data, Certs: certs}, nil
 }

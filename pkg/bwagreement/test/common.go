@@ -42,13 +42,11 @@ func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action,
 	if err != nil {
 		return nil, pb.UpPrivKey.Wrap(pb.Sign.Wrap(err))
 	}
-	certs := [][]byte{satID.Leaf.Raw, satID.CA.Raw}
-	certs = append(certs, satID.RestChainRaw()...) //todo: do we need RestChain?
 	// Combine Signature and Data for PayerBandwidthAllocation
 	return &pb.PayerBandwidthAllocation{
 		Data:      data,
 		Signature: s,
-		Certs:     certs,
+		Certs:     satID.ChainRaw(),
 	}, nil
 }
 
@@ -71,12 +69,10 @@ func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, storage
 	if err != nil {
 		return nil, pb.UpPrivKey.Wrap(pb.Sign.Wrap(err))
 	}
-	certs := [][]byte{upID.Leaf.Raw, upID.CA.Raw}
-	certs = append(certs, upID.RestChainRaw()...) //todo: do we need RestChain?
 	// Combine Signature and Data for RenterBandwidthAllocation
 	return &pb.RenterBandwidthAllocation{
 		Signature: s,
 		Data:      data,
-		Certs:     certs,
+		Certs:     upID.ChainRaw(),
 	}, nil
 }
