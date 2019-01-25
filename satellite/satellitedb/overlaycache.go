@@ -6,8 +6,6 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"strconv"
 
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/utils"
@@ -92,20 +90,21 @@ func (cache *overlaycache) filterReputableNodes(ctx context.Context, req *filter
 	}()
 
 	for rows.Next() {
-		node := &dbx.Node{}
-		err = rows.Scan(&node.Id)
+		overlayNode := &dbx.OverlayCacheNode{}
+		err = rows.Scan(&overlayNode.NodeId)
 		if err != nil {
 			return nil, err
 		}
-		id, err := storj.NodeIDFromBytes(node.Id)
+		// ,
+		// 	&overlayNode.Address, &overlayNode.FreeBandwidth, &overlayNode.FreeDisk,
+		// 	&overlayNode.AuditSuccessRatio, &overlayNode.AuditUptimeRatio,
+		// 	&overlayNode.AuditCount, &overlayNode.AuditSuccessCount,
+		// 	&overlayNode.UptimeCount, &overlayNode.UptimeSuccessCount
+		node, err := convertOverlayNode(overlayNode)
 		if err != nil {
 			return nil, err
 		}
-		info, err := cache.Get(ctx, id)
-		if err != nil {
-			continue
-		}
-		reputableNodes = append(reputableNodes, info)
+		reputableNodes = append(reputableNodes, node)
 	}
 
 	return reputableNodes, nil
@@ -121,20 +120,21 @@ func (cache *overlaycache) filterNewNodes(ctx context.Context, req *filterNewReq
 	}()
 
 	for rows.Next() {
-		node := &dbx.Node{}
-		err = rows.Scan(&node.Id)
+		overlayNode := &dbx.OverlayCacheNode{}
+		err = rows.Scan(&overlayNode.NodeId)
 		if err != nil {
 			return nil, err
 		}
-		id, err := storj.NodeIDFromBytes(node.Id)
+		// ,
+		// 	&overlayNode.Address, &overlayNode.FreeBandwidth, &overlayNode.FreeDisk,
+		// 	&overlayNode.AuditSuccessRatio, &overlayNode.AuditUptimeRatio,
+		// 	&overlayNode.AuditCount, &overlayNode.AuditSuccessCount,
+		// 	&overlayNode.UptimeCount, &overlayNode.UptimeSuccessCount
+		node, err := convertOverlayNode(overlayNode)
 		if err != nil {
 			return nil, err
 		}
-		info, err := cache.Get(ctx, id)
-		if err != nil {
-			continue
-		}
-		newNodes = append(newNodes, info)
+		newNodes = append(newNodes, node)
 	}
 
 	return newNodes, nil
@@ -147,16 +147,30 @@ func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *fil
 	} else {
 		auditCount = req.newNodeAuditThreshold
 	}
+	nodeAmt := req.reputableNodeAmount
+	auditSuccess := req.minReputation.AuditSuccessRatio
+	uptimeCount := req.minReputation.UptimeCount
+	uptimeRatio := req.minReputation.UptimeRatio
+
+	var args []interface{}
+	args = append(args, nodeAmt, auditCount, auditSuccess, uptimeCount, uptimeRatio)
 
 	// todo: add filtering for free bandwidth and free disk space and not in excluded
-	rows, err := cache.db.Query(cache.db.Rebind(`SELECT nodes.id,
-		FROM nodes
-		LIMIT ` + strconv.FormatInt(req.reputableNodeAmount, req.base) + `
-		WHERE nodes.total_audit_count >` + strconv.FormatInt(auditCount, req.base) + `
-		AND nodes.audit_success_ratio >` + fmt.Sprintf("%v", req.minReputation.AuditSuccessRatio) + `
-		AND nodes.total_uptime_count >` + strconv.FormatInt(req.minReputation.UptimeCount, req.base) + `
-		AND nodes.uptime_ratio >` + fmt.Sprintf("%v", req.minReputation.UptimeRatio),
-	))
+	// rows, err := cache.db.Query(cache.db.Rebind(`SELECT overlay_cache_nodes.node_id,
+	// 	FROM overlay_cache_nodes
+	// 	LIMIT ?
+	// 	WHERE overlay_cache_nodes.audit_count > ?
+	// 	AND overlay_cache_nodes.audit_success_ratio > ?
+	// 	AND overlay_cache_nodes.uptime_count > ?
+	// 	AND overlay_cache_nodes.uptime_ratio > ?`),
+	// 	args...)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	rows, err := cache.db.Query(cache.db.Rebind(`SELECT overlay_cache_nodes.node_id
+	FROM overlay_cache_nodes
+	LIMIT 2`))
 	if err != nil {
 		return nil, err
 	}
@@ -165,12 +179,22 @@ func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *fil
 }
 
 func (cache *overlaycache) findNewNodesQuery(ctx context.Context, req *filterNewRequest) (*sql.Rows, error) {
+	var args []interface{}
+	args = append(args, req.newNodeAmount, req.newNodeAuditThreshold)
+
 	// todo: add filtering for free bandwidth and free disk space and not in excluded
-	rows, err := cache.db.Query(cache.db.Rebind(`SELECT nodes.id,
-		FROM nodes
-		LIMIT ` + strconv.FormatInt(req.newNodeAmount, req.base) + `
-		WHERE nodes.total_audit_count <` + strconv.FormatInt(req.newNodeAuditThreshold, req.base),
-	))
+	// rows, err := cache.db.Query(cache.db.Rebind(`SELECT overlay_cache_nodes.node_id,
+	// 	FROM overlay_cache_nodes
+	// 	LIMIT ?
+	// 	WHERE overlay_cache_nodes.audit_count < ?`),
+	// 	args...)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	rows, err := cache.db.Query(cache.db.Rebind(`SELECT overlay_cache_nodes.node_id
+	FROM overlay_cache_nodes
+	LIMIT 2`))
 	if err != nil {
 		return nil, err
 	}
