@@ -84,7 +84,7 @@ var (
 
 	dashboardCfg struct {
 		Address       string `default:":28967" help:"address for dashboard service"`
-		BootstrapNode string `default:":7777" help:"address of server the storage node was bootstrapped against"`
+		BootstrapAddr string `default:"bootstrap.storj.io:8888" help:"address of server the storage node was bootstrapped against"`
 	}
 
 	diagCfg struct {
@@ -471,7 +471,7 @@ func clr() {
 func getConnectionStatus(ctx context.Context, tc transport.Client, id *identity.FullIdentity) (bool, error) {
 	bn := &pb.Node{
 		Address: &pb.NodeAddress{
-			Address:   dashboardCfg.BootstrapNode,
+			Address:   dashboardCfg.BootstrapAddr,
 			Transport: 0,
 		},
 		Type: pb.NodeType_BOOTSTRAP,
