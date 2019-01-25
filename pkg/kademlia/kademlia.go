@@ -222,6 +222,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	return err
 }
 
+// WaitForBootstrap waits for bootstrap pinging has been completed.
 func (k *Kademlia) WaitForBootstrap() {
 	k.bootstrapFinished.Wait()
 }
