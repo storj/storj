@@ -214,13 +214,8 @@ func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (*p
 		return nil, err
 	}
 
-	signedChainBytes := append(
-		[][]byte{
-			signedPeerCA.Raw,
-			c.signer.Cert.Raw,
-		},
-		c.signer.RestChainRaw()...,
-	)
+	signedChainBytes := [][]byte{signedPeerCA.Raw, c.signer.Cert.Raw}
+	signedChainBytes = append(signedChainBytes, c.signer.RestChainRaw()...)
 	err = c.authDB.Claim(&ClaimOpts{
 		Req:           req,
 		Peer:          grpcPeer,

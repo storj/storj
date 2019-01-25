@@ -5,7 +5,6 @@ package psclient
 
 import (
 	"bufio"
-	"crypto"
 	"crypto/ecdsa"
 	"flag"
 	"fmt"
@@ -19,6 +18,7 @@ import (
 	"golang.org/x/net/context"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
@@ -55,9 +55,9 @@ type Client interface {
 type PieceStore struct {
 	closeFunc        func() error              // function that closes the transport connection
 	client           pb.PieceStoreRoutesClient // PieceStore for interacting with Storage Node
-	prikey           crypto.PrivateKey         // Uplink private key
+	selfID           *identity.FullIdentity    // This client's (an uplink) identity
 	bandwidthMsgSize int                       // max bandwidth message size in bytes
-	nodeID           storj.NodeID              // Storage node being connected to
+	remoteID         storj.NodeID              // Storage node being connected to
 }
 
 // NewPSClient initilizes a piecestore client
@@ -80,13 +80,13 @@ func NewPSClient(ctx context.Context, tc transport.Client, n *pb.Node, bandwidth
 		closeFunc:        conn.Close,
 		client:           pb.NewPieceStoreRoutesClient(conn),
 		bandwidthMsgSize: bandwidthMsgSize,
-		prikey:           tc.Identity().Key,
-		nodeID:           n.Id,
+		selfID:           tc.Identity(),
+		remoteID:         n.Id,
 	}, nil
 }
 
 // NewCustomRoute creates new PieceStore with custom client interface
-func NewCustomRoute(client pb.PieceStoreRoutesClient, target *pb.Node, bandwidthMsgSize int, prikey crypto.PrivateKey) (*PieceStore, error) {
+func NewCustomRoute(client pb.PieceStoreRoutesClient, target *pb.Node, bandwidthMsgSize int, selfID *identity.FullIdentity) (*PieceStore, error) {
 	target.Type.DPanicOnInvalid("new custom route")
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize.Int() {
 		return nil, ClientError.New("invalid Bandwidth Message Size: %v", bandwidthMsgSize)
@@ -99,8 +99,8 @@ func NewCustomRoute(client pb.PieceStoreRoutesClient, target *pb.Node, bandwidth
 	return &PieceStore{
 		client:           client,
 		bandwidthMsgSize: bandwidthMsgSize,
-		prikey:           prikey,
-		nodeID:           target.Id,
+		selfID:           selfID,
+		remoteID:         target.Id,
 	}, nil
 }
 
@@ -185,10 +185,13 @@ func (ps *PieceStore) Delete(ctx context.Context, id PieceID, authorization *pb.
 
 // sign a message using the clients private key
 func (ps *PieceStore) sign(msg []byte) (signature []byte, err error) {
-	if ps.prikey == nil {
+	if ps.selfID == nil || ps.selfID.Key == nil {
 		return nil, ClientError.New("failed to sign msg: Private Key not Set")
 	}
+	return cryptopasta.Sign(msg, ps.selfID.Key.(*ecdsa.PrivateKey))
+}
 
-	// use c.pkey to sign msg
-	return cryptopasta.Sign(msg, ps.prikey.(*ecdsa.PrivateKey))
+//certs returns this uplink's certificates
+func (ps *PieceStore) certs() [][]byte {
+	return ps.selfID.ChainRaw()
 }
