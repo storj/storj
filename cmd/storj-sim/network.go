@@ -100,6 +100,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	withCommon := func(all Arguments) Arguments {
 		for command, args := range all {
 			all[command] = append([]string{
+				"--metrics.app-suffix", "sim",
 				"--log.level", "debug",
 				"--config-dir", ".",
 				command,
@@ -128,8 +129,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	bootstrap.Arguments = withCommon(Arguments{
 		"setup": {
-			"--metrics.app-suffix", "sim",
-
 			"--identity-dir", bootstrap.Directory,
 			"--server.address", bootstrap.Address,
 
@@ -156,8 +155,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
-				"--metrics.app-suffix", "sim",
-
 				"--identity-dir", process.Directory,
 				"--console.address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
 				"--server.address", process.Address,
@@ -189,11 +186,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
-				"--metrics.app-suffix", "sim",
-
 				"--identity-dir", process.Directory,
 				"--satellite-addr", satellite.Address,
-
+			},
+			"run": {
 				"--server.address", process.Address,
 				"--minio.access-key", accessKey,
 				"--minio.secret-key", secretKey,
@@ -206,7 +202,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--rs.success-threshold", strconv.Itoa(3 * flags.StorageNodeCount / 5),
 				"--rs.max-threshold", strconv.Itoa(4 * flags.StorageNodeCount / 5),
 			},
-			"run": {},
 		})
 	}
 
@@ -224,8 +219,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
-				"--metrics.app-suffix", "sim",
-
 				"--identity-dir", process.Directory,
 				"--server.address", process.Address,
 
