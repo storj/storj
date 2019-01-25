@@ -34,9 +34,12 @@ var (
 
 	config struct {
 		batchCfg
-		CA         identity.CASetupConfig
-		Identity   identity.SetupConfig
-		Server     server.Config
+		CA       identity.CASetupConfig
+		Identity identity.SetupConfig
+		Server   struct { // workaround server.Config change
+			Identity identity.Config
+			server.Config
+		}
 		Signer     certificates.CertServerConfig
 		All        bool   `help:"print the all authorizations for auth info/export subcommands" default:"false"`
 		Out        string `help:"output file path for auth export subcommand; if \"-\", will use STDOUT" default:"-"`
@@ -74,7 +77,12 @@ func init() {
 func cmdRun(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	return config.Server.Run(ctx, nil, config.Signer)
+	identity, err := config.Server.Identity.Load()
+	if err != nil {
+		zap.S().Fatal(err)
+	}
+
+	return config.Server.Run(ctx, identity, nil, config.Signer)
 }
 
 func main() {
