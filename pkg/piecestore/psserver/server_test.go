@@ -170,7 +170,7 @@ func TestRetrieve(t *testing.T) {
 			respSize:  3,
 			allocSize: 3,
 			offset:    0,
-			content:   []byte("but"),
+			content:   []byte("xyz"),
 			err:       "",
 		},
 		{ // should successfully retrieve data
@@ -209,7 +209,7 @@ func TestRetrieve(t *testing.T) {
 			respSize:  4,
 			allocSize: 5,
 			offset:    1,
-			content:   []byte("utts"),
+			content:   []byte("yzwq"),
 			err:       "",
 		},
 		{ // server should return expected content with reduced reqSize
@@ -218,7 +218,7 @@ func TestRetrieve(t *testing.T) {
 			respSize:  4,
 			allocSize: 5,
 			offset:    0,
-			content:   []byte("butt"),
+			content:   []byte("xyzw"),
 			err:       "",
 		},
 	}
@@ -233,7 +233,7 @@ func TestRetrieve(t *testing.T) {
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, PieceSize: tt.reqSize, Offset: tt.offset}})
 			assert.NoError(err)
 
-			pba, err := test.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_PUT, snID, upID, time.Hour)
+			pba, err := test.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, snID, upID, time.Hour)
 			assert.NoError(err)
 
 			totalAllocated := int64(0)
@@ -270,7 +270,7 @@ func TestRetrieve(t *testing.T) {
 			}
 
 			assert.NoError(err)
-			//assert.NotNil(resp)
+			assert.NotNil(resp)
 			if resp != nil {
 				assert.Equal(tt.respSize, totalRetrieved)
 				assert.Equal(string(tt.content), data)
