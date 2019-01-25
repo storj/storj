@@ -44,7 +44,8 @@ func generateCSV(ctx context.Context, start time.Time, end time.Time) (string, e
 		return "", err
 	}
 
-	filename := id.ID.String() + "--" + start.String() + "--" + end.String() + ".csv"
+	layout := "2006-01-02"
+	filename := id.ID.String() + "--" + start.Format(layout) + "--" + end.Format(layout) + ".csv"
 	path := filepath.Join(pDir, filename)
 	file, err := os.Create(path)
 	if err != nil {
