@@ -4,7 +4,6 @@
 package kademlia
 
 import (
-	"flag"
 	"fmt"
 	"regexp"
 
@@ -18,10 +17,23 @@ var (
 	// mon   = monkit.Package() // TODO: figure out whether this is needed
 )
 
-var (
-	flagBucketSize           = flag.Int("kademlia.bucket-size", 20, "size of each Kademlia bucket")
-	flagReplacementCacheSize = flag.Int("kademlia.replacement-cache-size", 5, "size of Kademlia replacement cache")
-)
+// Config defines all of the things that are needed to start up Kademlia
+// server endpoints (and not necessarily client code).
+type Config struct {
+	BootstrapAddr   string `help:"the Kademlia node to bootstrap against" default:"127.0.0.1:7778"`
+	DBPath          string `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia"`
+	ExternalAddress string `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
+	Operator        OperatorConfig
+
+	// TODO: reduce the number of flags here
+	Alpha int `help:"alpha is a system wide concurrency parameter" default:"5"`
+	RoutingTableConfig
+}
+
+// Verify verifies whether kademlia config is valid.
+func (c Config) Verify(log *zap.Logger) error {
+	return c.Operator.Verify(log)
+}
 
 // OperatorConfig defines properties related to storage node operator metadata
 type OperatorConfig struct {
@@ -34,11 +46,9 @@ func (c OperatorConfig) Verify(log *zap.Logger) error {
 	if err := isOperatorEmailValid(log, c.Email); err != nil {
 		return err
 	}
-
 	if err := isOperatorWalletValid(log, c.Wallet); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -62,19 +72,4 @@ func isOperatorWalletValid(log *zap.Logger, wallet string) error {
 
 	log.Sugar().Info("Operator wallet: ", wallet)
 	return nil
-}
-
-// Config defines all of the things that are needed to start up Kademlia
-// server endpoints (and not necessarily client code).
-type Config struct {
-	BootstrapAddr   string `help:"the Kademlia node to bootstrap against" default:"127.0.0.1:7778"`
-	DBPath          string `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia"`
-	Alpha           int    `help:"alpha is a system wide concurrency parameter" default:"5"`
-	ExternalAddress string `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
-	Operator        OperatorConfig
-}
-
-// Verify verifies whether kademlia config is valid.
-func (c Config) Verify(log *zap.Logger) error {
-	return c.Operator.Verify(log)
 }

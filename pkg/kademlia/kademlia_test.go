@@ -18,6 +18,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 
@@ -29,6 +31,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storage/teststore"
 )
 
 const (
@@ -50,7 +53,7 @@ func TestNewKademlia(t *testing.T) {
 		{
 			id: func() *identity.FullIdentity {
 				id, err := testidentity.NewTestIdentity(ctx)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				return id
 			}(),
 			bn:   []pb.Node{{Id: teststorj.NodeIDFromString("foo")}},
@@ -59,7 +62,7 @@ func TestNewKademlia(t *testing.T) {
 		{
 			id: func() *provider.FullIdentity {
 				id, err := testidentity.NewTestIdentity(ctx)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				return id
 			}(),
 			bn:   []pb.Node{{Id: teststorj.NodeIDFromString("foo")}},
@@ -70,8 +73,8 @@ func TestNewKademlia(t *testing.T) {
 	for i, v := range cases {
 		dir := filepath.Join(rootdir, strconv.Itoa(i))
 
-		kad, err := NewKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, v.bn, v.addr, nil, v.id, dir, defaultAlpha)
-		assert.NoError(t, err)
+		kad, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, v.bn, v.addr, nil, v.id, dir, defaultAlpha)
+		require.NoError(t, err)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
 		assert.NotNil(t, kad.dialer)
@@ -100,7 +103,7 @@ func TestPeerDiscovery(t *testing.T) {
 		Email:  "foo@bar.com",
 		Wallet: "OperatorWallet",
 	}
-	k, err := NewKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
+	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
 	assert.NoError(t, err)
 	rt, err := k.GetRoutingTable(ctx)
 	assert.NoError(t, err)
@@ -174,7 +177,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	dir, cleanup := mktempdir(t, "kademlia")
 
 	logger := zaptest.NewLogger(t)
-	k, err := NewKademlia(logger, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, dir, defaultAlpha)
+	k, err := newKademlia(logger, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
 	s := node.NewServer(logger, k)
 	// new ident opts
@@ -248,7 +251,7 @@ func TestGetNodes(t *testing.T) {
 	assert.NotEqual(t, fid.ID, fid2.ID)
 	dir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()
-	k, err := NewKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), nil, fid, dir, defaultAlpha)
+	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
 	defer func() {
 		assert.NoError(t, k.Disconnect())
@@ -531,4 +534,21 @@ func (mn *mockNodesServer) Query(ctx context.Context, req *pb.QueryRequest) (*pb
 func (mn *mockNodesServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
 	atomic.AddInt32(&mn.pingCalled, 1)
 	return &pb.PingResponse{}, nil
+}
+
+// newKademlia returns a newly configured Kademlia instance
+func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
+	self := pb.Node{
+		Id:       identity.ID,
+		Type:     nodeType,
+		Address:  &pb.NodeAddress{Address: address},
+		Metadata: metadata,
+	}
+
+	rt, err := NewRoutingTable(log, self, teststore.New(), teststore.New(), nil)
+	if err != nil {
+		return nil, BootstrapErr.Wrap(err)
+	}
+
+	return NewService(log, self, bootstrapNodes, identity, alpha, rt)
 }

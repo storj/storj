@@ -5,10 +5,7 @@ package kademlia
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
-	"os"
-	"path/filepath"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -23,7 +20,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
 )
 
 var (
@@ -56,45 +52,8 @@ type Kademlia struct {
 	bootstrapCancel unsafe.Pointer // context.CancelFunc
 }
 
-// New returns a newly configured Kademlia instance
-var New = NewKademlia
-
-// NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
-	self := pb.Node{
-		Id:       identity.ID,
-		Type:     nodeType,
-		Address:  &pb.NodeAddress{Address: address},
-		Metadata: metadata,
-	}
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err := os.MkdirAll(path, 0777); err != nil {
-			return nil, err
-		}
-	}
-
-	bucketIdentifier := self.Id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
-	dbpath := filepath.Join(path, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
-
-	dbs, err := boltdb.NewShared(dbpath, KademliaBucket, NodeBucket)
-	if err != nil {
-		return nil, BootstrapErr.Wrap(err)
-	}
-	kdb, ndb := dbs[0], dbs[1]
-
-	rt, err := NewRoutingTable(log, self, kdb, ndb)
-	if err != nil {
-		return nil, BootstrapErr.Wrap(err)
-	}
-
-	return NewKademliaWithRoutingTable(log, self, bootstrapNodes, identity, alpha, rt)
-}
-
-// NewWith returns a newly configured Kademlia instance
-var NewWith = NewKademliaWithRoutingTable
-
-// NewKademliaWithRoutingTable returns a newly configured Kademlia instance
-func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
+// NewService returns a newly configured Kademlia instance
+func NewService(log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
 	k := &Kademlia{
 		log:            log,
 		alpha:          alpha,
