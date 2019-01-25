@@ -206,47 +206,6 @@ func (m *lockedAPIKeys) Update(ctx context.Context, key console.APIKeyInfo) erro
 	return m.db.Update(ctx, key)
 }
 
-// Buckets is a getter for Buckets repository
-func (m *lockedConsole) Buckets() console.Buckets {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedBuckets{m.Locker, m.db.Buckets()}
-}
-
-// lockedBuckets implements locking wrapper for console.Buckets
-type lockedBuckets struct {
-	sync.Locker
-	db console.Buckets
-}
-
-// AttachBucket attaches a bucket to a project
-func (m *lockedBuckets) AttachBucket(ctx context.Context, name string, projectID uuid.UUID) (*console.Bucket, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.AttachBucket(ctx, name, projectID)
-}
-
-// DeattachBucket deletes bucket info for a bucket by name
-func (m *lockedBuckets) DeattachBucket(ctx context.Context, name string) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.DeattachBucket(ctx, name)
-}
-
-// GetBucket retrieves bucket info of bucket with given name
-func (m *lockedBuckets) GetBucket(ctx context.Context, name string) (*console.Bucket, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetBucket(ctx, name)
-}
-
-// ListBuckets returns bucket list of a given project
-func (m *lockedBuckets) ListBuckets(ctx context.Context, projectID uuid.UUID) ([]console.Bucket, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.ListBuckets(ctx, projectID)
-}
-
 // Close is used to close db connection
 func (m *lockedConsole) Close() error {
 	m.Lock()
