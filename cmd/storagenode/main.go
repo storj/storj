@@ -83,8 +83,9 @@ var (
 	setupCfg StorageNodeFlags
 
 	dashboardCfg struct {
-		Address       string `default:":28967" help:"address for dashboard service"`
-		BootstrapAddr string `default:"bootstrap.storj.io:8888" help:"address of server the storage node was bootstrapped against"`
+		Address         string `default:":28967" help:"address for dashboard service"`
+		ExternalAddress string `default:":28967" help:"address that your node is listening on if using a tunneling service"`
+		BootstrapAddr   string `default:"bootstrap.storj.io:8888" help:"address of server the storage node was bootstrapped against"`
 	}
 
 	diagCfg struct {
@@ -484,7 +485,7 @@ func getConnectionStatus(ctx context.Context, tc transport.Client, id *identity.
 
 	resp, err := inspector.kad.PingNode(ctx, &pb.PingNodeRequest{
 		Id:      id.ID,
-		Address: dashboardCfg.Address,
+		Address: dashboardCfg.ExternalAddress,
 	})
 
 	if err != nil {
