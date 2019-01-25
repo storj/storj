@@ -128,7 +128,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	bootstrap.Arguments = withCommon(Arguments{
 		"setup": {
-			"--metrics.addr", "",
+			"--metrics.app-suffix", "sim",
 
 			"--identity-dir", bootstrap.Directory,
 			"--server.address", bootstrap.Address,
@@ -156,7 +156,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
-				"--metrics.addr", "",
+				"--metrics.app-suffix", "sim",
 
 				"--identity-dir", process.Directory,
 				"--console.address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
@@ -189,7 +189,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
-				"--metrics.addr", "",
+				"--metrics.app-suffix", "sim",
 
 				"--identity-dir", process.Directory,
 				"--satellite-addr", satellite.Address,
@@ -224,7 +224,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
-				"--metrics.addr", "",
+				"--metrics.app-suffix", "sim",
 
 				"--identity-dir", process.Directory,
 				"--server.address", process.Address,
