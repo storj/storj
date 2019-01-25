@@ -11,6 +11,7 @@ import (
 	"github.com/gtank/cryptopasta"
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -36,11 +37,11 @@ func GeneratePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action,
 	// Sign the PayerBandwidthAllocation_Data with the "Satellite" Private Key
 	satPrivECDSA, ok := satID.Key.(*ecdsa.PrivateKey)
 	if !ok {
-		return nil, pb.SatPrivKey.Wrap(pb.ECDSA)
+		return nil, pb.Payer.Wrap(auth.ECDSA)
 	}
 	s, err := cryptopasta.Sign(data, satPrivECDSA)
 	if err != nil {
-		return nil, pb.UpPrivKey.Wrap(pb.Sign.Wrap(err))
+		return nil, pb.Payer.Wrap(auth.Sign.Wrap(err))
 	}
 	// Combine Signature and Data for PayerBandwidthAllocation
 	return &pb.PayerBandwidthAllocation{
@@ -63,11 +64,11 @@ func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, storage
 	// Sign the PayerBandwidthAllocation_Data with the "Uplink" Private Key
 	upPrivECDSA, ok := upID.Key.(*ecdsa.PrivateKey)
 	if !ok {
-		return nil, pb.UpPrivKey.Wrap(pb.ECDSA)
+		return nil, pb.Payer.Wrap(auth.ECDSA)
 	}
 	s, err := cryptopasta.Sign(data, upPrivECDSA)
 	if err != nil {
-		return nil, pb.UpPrivKey.Wrap(pb.Sign.Wrap(err))
+		return nil, pb.Payer.Wrap(auth.Sign.Wrap(err))
 	}
 	// Combine Signature and Data for RenterBandwidthAllocation
 	return &pb.RenterBandwidthAllocation{

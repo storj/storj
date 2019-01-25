@@ -295,7 +295,7 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAll
 	//verify message content
 	pi, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil || pbad.UplinkId != pi.ID {
-		return pb.BadID.New("Uplink Node ID: %s vs %s", pbad.UplinkId, pi.ID)
+		return auth.BadID.New("Uplink Node ID: %s vs %s", pbad.UplinkId, pi.ID)
 	}
 	//todo:  use whitelist for uplinks?
 	//todo:  use whitelist for satellites?
@@ -309,13 +309,13 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAll
 	}
 	exp := time.Unix(pbad.GetExpirationUnixSec(), 0).UTC()
 	if exp.Before(time.Now().UTC()) {
-		return pb.Payer.Wrap(pb.Expired.New("%v vs %v", exp, time.Now().UTC()))
+		return pb.Payer.Wrap(auth.Expired.New("%v vs %v", exp, time.Now().UTC()))
 	}
 	//verify message crypto
-	if err := pb.VerifyMsg(rba, pbad.UplinkId); err != nil {
+	if err := auth.VerifyMsg(rba, pbad.UplinkId); err != nil {
 		return pb.Renter.Wrap(err)
 	}
-	if err := pb.VerifyMsg(pba, pbad.SatelliteId); err != nil {
+	if err := auth.VerifyMsg(pba, pbad.SatelliteId); err != nil {
 		return pb.Payer.Wrap(err)
 	}
 	return nil

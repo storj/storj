@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -75,7 +76,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.RenterBandwidt
 	//verify message content
 	pi, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil || rbad.StorageNodeId != pi.ID {
-		return reply, pb.BadID.New("Storage Node ID: %s vs %s", rbad.StorageNodeId, pi.ID)
+		return reply, auth.BadID.New("Storage Node ID: %s vs %s", rbad.StorageNodeId, pi.ID)
 	}
 	//todo:  use whitelist for uplinks?
 	if pbad.SatelliteId != s.NodeID {
@@ -87,13 +88,13 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.RenterBandwidt
 	}
 	exp := time.Unix(pbad.GetExpirationUnixSec(), 0).UTC()
 	if exp.Before(time.Now().UTC()) {
-		return reply, pb.Payer.Wrap(pb.Expired.New("%v vs %v", exp, time.Now().UTC()))
+		return reply, pb.Payer.Wrap(auth.Expired.New("%v vs %v", exp, time.Now().UTC()))
 	}
 	//verify message crypto
-	if err := pb.VerifyMsg(rba, pbad.UplinkId); err != nil {
+	if err := auth.VerifyMsg(rba, pbad.UplinkId); err != nil {
 		return reply, pb.Renter.Wrap(err)
 	}
-	if err := pb.VerifyMsg(pba, pbad.SatelliteId); err != nil {
+	if err := auth.VerifyMsg(pba, pbad.SatelliteId); err != nil {
 		return reply, pb.Payer.Wrap(err)
 	}
 	//save and return rersults
@@ -104,7 +105,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.RenterBandwidt
 	})
 	if err != nil {
 		//todo:  better classify transport errors (AgreementsSummary_FAIL) vs logical (AgreementsSummary_REJECTED)
-		return reply, pb.Payer.Wrap(pb.Serial.Wrap(err))
+		return reply, pb.Payer.Wrap(auth.Serial.Wrap(err))
 	}
 	reply.Status = pb.AgreementsSummary_OK
 	s.logger.Debug("Stored Agreement...")
