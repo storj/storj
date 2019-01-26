@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/pkg/accounting/payments"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
@@ -296,7 +297,12 @@ func cmdPayments(cmd *cobra.Command, args []string) error {
 		return errs.New("Invalid time period (%v) - (%v)", start, end)
 	}
 
-	report, err := generateCSV(ctx, start, end)
+	id, err := runCfg.Identity.Load()
+	if err != nil {
+		return err
+	}
+
+	report, err := payments.GenerateCSV(ctx, confDir, runCfg.Database, id.ID.String(), start, end)
 	if err != nil {
 		return err
 	}

@@ -79,6 +79,12 @@ func main() {
 			RunE: func(cmd *cobra.Command, args []string) (err error) {
 				return networkDestroy(&flags, args)
 			},
+		}, &cobra.Command{
+			Use:   "payments",
+			Short: "generate a payment csv",
+			RunE: func(cmd *cobra.Command, args []string) (err error) {
+				return networkPayments(&flags, args)
+			},
 		},
 	)
 

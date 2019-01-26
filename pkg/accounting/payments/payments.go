@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package payments
 
 import (
 	"context"
@@ -19,10 +19,11 @@ import (
 	"storj.io/storj/satellite/satellitedb"
 )
 
-func generateCSV(ctx context.Context, start time.Time, end time.Time) (string, error) {
+// GenerateCSV generates a payment report for all nodes for a given period
+func GenerateCSV(ctx context.Context, cfgDir string, dbPath string, id string, start time.Time, end time.Time) (string, error) {
 
 	//TODO: make sure  we can get config-dir of storj-sim
-	db, err := satellitedb.New(runCfg.Database)
+	db, err := satellitedb.New(dbPath)
 	if err != nil {
 		return "", errs.New("error connecting to master database on satellite: %+v", err)
 	}
@@ -33,19 +34,14 @@ func generateCSV(ctx context.Context, start time.Time, end time.Time) (string, e
 		}
 	}()
 
-	id, err := runCfg.Identity.Load()
-	if err != nil {
-		return "", err
-	}
-
-	pDir := filepath.Join(defaultConfDir, "payments")
+	pDir := filepath.Join(cfgDir, "payments")
 
 	if err := os.MkdirAll(pDir, 0700); err != nil {
 		return "", err
 	}
 
 	layout := "2006-01-02"
-	filename := id.ID.String() + "--" + start.Format(layout) + "--" + end.Format(layout) + ".csv"
+	filename := id + "--" + start.Format(layout) + "--" + end.Format(layout) + ".csv"
 	path := filepath.Join(pDir, filename)
 	file, err := os.Create(path)
 	if err != nil {
