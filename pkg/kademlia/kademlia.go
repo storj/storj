@@ -213,6 +213,14 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	id := k.routingTable.self.Id
 	k.routingTable.mutex.Unlock()
 	_, err = k.lookup(bootstrapContext, id, true)
+
+	// TODO(dylan): We do not currently handle this last bit of behavior.
+	// ```
+	// Finally, u refreshes all k-buckets further away than its closest neighbor.
+	// During the refreshes, u both populates its own k-buckets and inserts
+	// itself into other nodes' k-buckets as necessary.
+	// ``
+
 	return err
 }
 
@@ -299,22 +307,11 @@ func GetIntroNode(addr string) (*pb.Node, error) {
 	}, nil
 }
 
-// StartRefresh occasionally refreshes stale kad buckets
-func (k *Kademlia) StartRefresh(ctx context.Context) {
-	go func() {
-		err := k.RunRefresh(ctx)
-		if err != nil && err != context.Canceled {
-			k.log.Error("refresh returned", zap.Error(err))
-		}
-	}()
-}
-
 // RunRefresh occasionally refreshes stale kad buckets
 func (k *Kademlia) RunRefresh(ctx context.Context) error {
-	ticker := time.NewTicker(5 * time.Minute)
-	time.Sleep(time.Duration(rand.Intn(300)) * time.Second) //stagger
+	ticker := time.NewTicker(10 * time.Second)
 	for {
-		if err := k.refresh(ctx); err != nil {
+		if err := k.refresh(ctx, time.Minute); err != nil {
 			k.log.Warn("bucket refresh failed", zap.Error(err))
 		}
 		select {
@@ -327,7 +324,7 @@ func (k *Kademlia) RunRefresh(ctx context.Context) error {
 }
 
 // refresh updates each Kademlia bucket not contacted in the last hour
-func (k *Kademlia) refresh(ctx context.Context) error {
+func (k *Kademlia) refresh(ctx context.Context, threshold time.Duration) error {
 	bIDs, err := k.routingTable.GetBucketIds()
 	if err != nil {
 		return Error.Wrap(err)
@@ -339,7 +336,7 @@ func (k *Kademlia) refresh(ctx context.Context) error {
 		ts, tErr := k.routingTable.GetBucketTimestamp(bID)
 		if tErr != nil {
 			errors.Add(tErr)
-		} else if now.After(ts.Add(time.Hour)) {
+		} else if now.After(ts.Add(threshold)) {
 			rID, _ := randomIDInRange(startID, keyToBucketID(bID))
 			_, _ = k.FindNode(ctx, rID) // ignore node not found
 		}
