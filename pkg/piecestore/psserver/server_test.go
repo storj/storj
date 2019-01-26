@@ -26,7 +26,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/pkg/bwagreement/test"
+	"storj.io/storj/pkg/bwagreement/testbwagreement"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	pstore "storj.io/storj/pkg/piecestore"
@@ -233,7 +233,7 @@ func TestRetrieve(t *testing.T) {
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, PieceSize: tt.reqSize, Offset: tt.offset}})
 			assert.NoError(err)
 
-			pba, err := test.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, snID, upID, time.Hour)
+			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, snID, upID, time.Hour)
 			assert.NoError(err)
 
 			totalAllocated := int64(0)
@@ -244,7 +244,7 @@ func TestRetrieve(t *testing.T) {
 				// Send bandwidth bandwidthAllocation
 				totalAllocated += tt.allocSize
 
-				rba, err := test.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, totalAllocated)
+				rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, totalAllocated)
 				assert.NoError(err)
 
 				err = stream.Send(
@@ -342,9 +342,9 @@ func TestStore(t *testing.T) {
 			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
 			assert.NoError(err)
 			// Send Bandwidth Allocation Data
-			pba, err := test.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_PUT, snID, upID, time.Hour)
+			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_PUT, snID, upID, time.Hour)
 			assert.NoError(err)
-			rba, err := test.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, tt.totalReceived)
+			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, tt.totalReceived)
 			assert.NoError(err)
 			msg := &pb.PieceStore{
 				PieceData:           &pb.PieceStore_PieceData{Content: tt.content},
@@ -464,9 +464,9 @@ func TestPbaValidation(t *testing.T) {
 			assert.NoError(err)
 			// Send Bandwidth Allocation Data
 			content := []byte("content")
-			pba, err := test.GeneratePayerBandwidthAllocation(tt.action, satID1, upID, time.Hour)
+			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(tt.action, satID1, upID, time.Hour)
 			assert.NoError(err)
-			rba, err := test.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, int64(len(content)))
+			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, int64(len(content)))
 			assert.NoError(err)
 			msg := &pb.PieceStore{
 				PieceData:           &pb.PieceStore_PieceData{Content: content},

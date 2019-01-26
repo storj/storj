@@ -25,8 +25,7 @@ func TestLookupNodes(t *testing.T) {
 	planet.Start(ctx)
 
 	k := planet.Satellites[0].Kademlia.Service
-	err = k.Bootstrap(ctx)
-	assert.NoError(t, err)
+	k.WaitForBootstrap() // redundant, but leaving here to be clear
 
 	seen := k.Seen()
 	assert.NotEqual(t, len(seen), 0)
