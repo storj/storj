@@ -281,10 +281,10 @@ func networkPayments(flags *Flags, args []string) error {
 	defer cancel()
 
 	dbPath := "postgres://cameron@localhost:5432/postgres?sslmode=disable"
-	cfgDir := flags.Directory + "/satellite/0"
+	cfgDir := filepath.Join(flags.Directory, "satellite", "0")
 	idCfg := identity.Config{
-		CertPath: cfgDir + "/identity.cert",
-		KeyPath:  cfgDir + "/identity.key",
+		CertPath: filepath.Join(cfgDir, "identity.cert"),
+		KeyPath:  filepath.Join(cfgDir, "identity.key"),
 	}
 
 	id, err := idCfg.Load()
