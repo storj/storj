@@ -274,13 +274,13 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	return processes, nil
 }
 
+// networkPayments generates a satellite's payment report for a given period
 func networkPayments(flags *Flags, args []string) error {
 	fmt.Println("entering payments generatecsv")
 
 	ctx, cancel := NewCLIContext(context.Background())
 	defer cancel()
 
-	dbPath := "postgres://cameron@localhost:5432/postgres?sslmode=disable"
 	cfgDir := filepath.Join(flags.Directory, "satellite", "0")
 	idCfg := identity.Config{
 		CertPath: filepath.Join(cfgDir, "identity.cert"),
@@ -307,7 +307,7 @@ func networkPayments(flags *Flags, args []string) error {
 		return errs.New("Invalid time period (%v) - (%v)", start, end)
 	}
 
-	report, err := payments.GenerateCSV(ctx, cfgDir, dbPath, id.ID.String(), start, end)
+	report, err := payments.GenerateCSV(ctx, cfgDir, database, id.ID.String(), start, end)
 	if err != nil {
 		return err
 	}
