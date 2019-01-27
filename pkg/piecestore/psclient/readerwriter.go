@@ -6,10 +6,10 @@ package psclient
 import (
 	"fmt"
 
-	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
 )
@@ -25,38 +25,24 @@ type StreamWriter struct {
 // Write Piece data to a piece store server upload stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
 	updatedAllocation := s.totalWritten + int64(len(b))
-	renterBWA := &pb.RenterBandwidthAllocation_Data{
-		PayerAllocation: s.pba,
+	rba := &pb.RenterBandwidthAllocation{
+		PayerAllocation: *s.pba,
 		Total:           updatedAllocation,
 		StorageNodeId:   s.signer.remoteID,
 	}
-
-	serializedAllocation, err := proto.Marshal(renterBWA)
+	err := auth.SignMsg(rba, *s.signer.selfID)
 	if err != nil {
 		return 0, err
 	}
-
-	sig, err := s.signer.sign(serializedAllocation)
-	if err != nil {
-		return 0, err
-	}
-
 	msg := &pb.PieceStore{
-		PieceData: &pb.PieceStore_PieceData{Content: b},
-		BandwidthAllocation: &pb.RenterBandwidthAllocation{
-			Data:      serializedAllocation,
-			Signature: sig,
-			Certs:     s.signer.certs(),
-		},
+		PieceData:           &pb.PieceStore_PieceData{Content: b},
+		BandwidthAllocation: rba,
 	}
-
 	s.totalWritten = updatedAllocation
-
 	// Second we send the actual content
 	if err := s.stream.Send(msg); err != nil {
 		return 0, fmt.Errorf("%v.Send() = %v", s.stream, err)
 	}
-
 	return len(b), nil
 }
 
@@ -91,11 +77,9 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 		stream:        stream,
 		size:          size,
 	}
-
 	// TODO: make these flag/config-file configurable
 	trustLimit := int64(client.bandwidthMsgSize * 64)
 	sendThreshold := int64(client.bandwidthMsgSize * 8)
-	certs := client.certs()
 
 	// Send signed allocations to the piece store server
 	go func() {
@@ -108,26 +92,16 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 			if sr.allocated+trustedSize > size {
 				allocate = size - sr.allocated
 			}
-
-			allocationData := pb.RenterBandwidthAllocation{
-				PayerAllocation: pba,
+			rba := &pb.RenterBandwidthAllocation{
+				PayerAllocation: *pba,
 				Total:           sr.allocated + allocate,
 				StorageNodeId:   sr.client.remoteID,
 			}
-
-			sig, err := client.sign(serializedAllocation)
+			err := auth.SignMsg(rba, *client.selfID)
 			if err != nil {
 				sr.pendingAllocs.Fail(err)
-				return
 			}
-
-			msg := &pb.PieceRetrieval{
-				BandwidthAllocation: &pb.RenterBandwidthAllocation{
-					Signature: sig,
-					Data:      serializedAllocation,
-					Certs:     certs,
-				},
-			}
+			msg := &pb.PieceRetrieval{BandwidthAllocation: rba}
 
 			if err = stream.Send(msg); err != nil {
 				sr.pendingAllocs.Fail(err)

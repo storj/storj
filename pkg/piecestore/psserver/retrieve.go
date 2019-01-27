@@ -130,23 +130,26 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 				allocationTracking.Fail(err)
 				return
 			}
-			pba := rba.pba
-			if err = s.verifyPayerAllocation(pba, "GET"); err != nil {
+			pba := rba.PayerAllocation
+			if err = s.verifyPayerAllocation(&pba, "GET"); err != nil {
 				allocationTracking.Fail(err)
 				return
 			}
-			// TODO: break when lastTotal >= allocData.GetPayer_allocation().GetData().GetMax_size()
-			if lastTotal > allocData.Total {
-				allocationTracking.Fail(fmt.Errorf("got lower allocation was %v got %v", lastTotal, allocData.Total)
+			if rba.Total > pba.MaxSize {
+				allocationTracking.Fail(fmt.Errorf("attempt to send more data than allocation %v got %v", rba.Total, pba.MaxSize))
 				return
 			}
-			atomic.StoreInt64(&totalAllocated, allocData.Total)
-			if err = allocationTracking.Produce(allocData.Total - lastTotal); err != nil {
+			if lastTotal > rba.Total {
+				allocationTracking.Fail(fmt.Errorf("got lower allocation was %v got %v", lastTotal, rba.Total))
+				return
+			}
+			atomic.StoreInt64(&totalAllocated, rba.Total)
+			if err = allocationTracking.Produce(rba.Total - lastTotal); err != nil {
 				return
 			}
 
-			lastAllocation = alloc
-			lastTotal = allocData.Total
+			lastAllocation = rba
+			lastTotal = rba.Total
 		}
 	}()
 

@@ -828,10 +828,10 @@ func (m *IterateRequest) GetReverse() bool {
 }
 
 type PayerBandwidthAllocationRequest struct {
-	Action               PayerBandwidthAllocation_Action `protobuf:"varint,1,opt,name=action,proto3,enum=piecestoreroutes.PayerBandwidthAllocation_Action" json:"action,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                        `json:"-"`
-	XXX_unrecognized     []byte                          `json:"-"`
-	XXX_sizecache        int32                           `json:"-"`
+	Action               BandwidthAction `protobuf:"varint,1,opt,name=action,proto3,enum=piecestoreroutes.BandwidthAction" json:"action,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
 }
 
 func (m *PayerBandwidthAllocationRequest) Reset()         { *m = PayerBandwidthAllocationRequest{} }
@@ -858,11 +858,11 @@ func (m *PayerBandwidthAllocationRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_PayerBandwidthAllocationRequest proto.InternalMessageInfo
 
-func (m *PayerBandwidthAllocationRequest) GetAction() PayerBandwidthAllocation_Action {
+func (m *PayerBandwidthAllocationRequest) GetAction() BandwidthAction {
 	if m != nil {
 		return m.Action
 	}
-	return PayerBandwidthAllocation_PUT
+	return BandwidthAction_PUT
 }
 
 type PayerBandwidthAllocationResponse struct {
@@ -1091,7 +1091,7 @@ func _PointerDB_Delete_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
-func _PointerDB_PayerBandwidthAllocation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _PointerDB_BandwidthAction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PayerBandwidthAllocationRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -1131,7 +1131,7 @@ var _PointerDB_serviceDesc = grpc.ServiceDesc{
 		},
 		{
 			MethodName: "PayerBandwidthAllocation",
-			Handler:    _PointerDB_PayerBandwidthAllocation_Handler,
+			Handler:    _PointerDB_BandwidthAction_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

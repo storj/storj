@@ -205,12 +205,12 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		// fill the summary info
-		summary.TotalBytes += rbad.GetTotal()
+		summary.TotalBytes += rbad.Total
 		summary.TotalTransactions++
 		switch pbad.GetAction() {
-		case pb.PayerBandwidthAllocation_PUT:
+		case pb.BandwidthAction_PUT:
 			summary.PutActionCount++
-		case pb.PayerBandwidthAllocation_GET:
+		case pb.BandwidthAction_GET:
 			summary.GetActionCount++
 		}
 	}

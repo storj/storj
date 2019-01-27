@@ -7,11 +7,11 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gtank/cryptopasta"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/storj"
 )
@@ -33,20 +33,80 @@ var (
 	Signer = errs.Class("Message public key did not match expected signer")
 	//BadID indicates a public key / node id mismatch
 	BadID = errs.Class("Node ID did not match expected id")
+
+	//Marshal indicates a failure during serialization
+	Marshal = errs.Class("Could not marshal item to bytes")
+	//Unmarshal indicates a failure during deserialization
+	Unmarshal = errs.Class("Could not unmarshal bytes to item")
+	//Missing indicates missing or empty information
+	Missing = errs.Class("Required field is empty")
 )
 
+//SignableMsg is a protocol buffer with a certs and a signature
+//Note that we assume proto.Message is a pointer receiver
+type SignableMsg interface {
+	proto.Message
+	GetCerts() [][]byte
+	GetSignature() []byte
+	SetCerts([][]byte) bool
+	SetSignature([]byte) bool
+}
+
+//IsPopulated ensures a SignedMsg has Certs and Signature
+func IsPopulated(sm SignableMsg) (bool, error) {
+	if sm == nil {
+		return false, Missing.New("message")
+	} else if sm.GetSignature() == nil {
+		return false, Missing.New("message signature")
+	} else if sm.GetCerts() == nil {
+		return false, Missing.New("message certificates")
+	}
+	return true, nil
+}
+
+//SignMsg adds the crypto-related aspects of signed message
+func SignMsg(msg SignableMsg, ID identity.FullIdentity) error {
+	if msg == nil {
+		return Missing.New("message")
+	}
+	_ = msg.SetSignature(nil)
+	_ = msg.SetCerts(nil)
+	msgBytes, err := proto.Marshal(msg)
+	if err != nil {
+		return Marshal.Wrap(err)
+	}
+	privECDSA, ok := ID.Key.(*ecdsa.PrivateKey)
+	if !ok {
+		return ECDSA
+	}
+	signature, err := cryptopasta.Sign(msgBytes, privECDSA)
+	if err != nil {
+		return Sign.Wrap(err)
+	}
+	_ = msg.SetSignature(signature)
+	_ = msg.SetCerts(ID.ChainRaw())
+	return nil
+}
+
 //VerifyMsg checks the crypto-related aspects of signed message
-func VerifyMsg(sm pb.SignedMsg, signer storj.NodeID) error {
-	//no null fields
-	if ok, err := pb.MsgComplete(sm); !ok {
+func VerifyMsg(msg SignableMsg, signer storj.NodeID) error {
+	//setup
+	if ok, err := IsPopulated(msg); !ok {
 		return err
 	}
-	certs := sm.GetCerts()
+	signature := msg.GetSignature()
+	certs := msg.GetCerts()
+	_ = msg.SetSignature(nil)
+	_ = msg.SetCerts(nil)
+	msgBytes, err := proto.Marshal(msg)
+	if err != nil {
+		return Marshal.Wrap(err)
+	}
+	//check certs
 	if len(certs) < 2 {
 		return Verify.New("Expected at least leaf and CA public keys")
 	}
-	//correct signature length
-	err := peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)(certs, nil)
+	err = peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)(certs, nil)
 	if err != nil {
 		return Verify.Wrap(err)
 	}
@@ -58,17 +118,20 @@ func VerifyMsg(sm pb.SignedMsg, signer storj.NodeID) error {
 	if err != nil {
 		return err
 	}
-	signatureLength := leafPubKey.Curve.Params().P.BitLen() / 8
-	if len(sm.GetSignature()) < signatureLength {
-		return SigLen.New("%s", sm.GetSignature())
-	}
 	// verify signature
+	signatureLength := leafPubKey.Curve.Params().P.BitLen() / 8
+	if len(msg.GetSignature()) < signatureLength {
+		return SigLen.New("%d vs %d", len(msg.GetSignature()), signatureLength)
+	}
 	if id, err := identity.NodeIDFromECDSAKey(caPubKey); err != nil || id != signer {
 		return Signer.New("%+v vs %+v", id, signer)
 	}
-	if ok := cryptopasta.Verify(sm.GetData(), sm.GetSignature(), leafPubKey); !ok {
+	if ok := cryptopasta.Verify(msgBytes, signature, leafPubKey); !ok {
 		return Verify.New("%+v", ok)
 	}
+	//cleanup
+	_ = msg.SetSignature(signature)
+	_ = msg.SetCerts(certs)
 	return nil
 }
 

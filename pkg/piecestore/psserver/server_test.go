@@ -19,6 +19,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/net/context"
@@ -225,7 +226,7 @@ func TestRetrieve(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
-			assert := assert.New(t)
+			assert := require.New(t)
 			stream, err := c.Retrieve(ctx)
 			assert.NoError(err)
 
@@ -233,7 +234,7 @@ func TestRetrieve(t *testing.T) {
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, PieceSize: tt.reqSize, Offset: tt.offset}})
 			assert.NoError(err)
 
-			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, snID, upID, time.Hour)
+			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, snID, upID, time.Hour)
 			assert.NoError(err)
 
 			totalAllocated := int64(0)
@@ -342,7 +343,7 @@ func TestStore(t *testing.T) {
 			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
 			assert.NoError(err)
 			// Send Bandwidth Allocation Data
-			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_PUT, snID, upID, time.Hour)
+			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_PUT, snID, upID, time.Hour)
 			assert.NoError(err)
 			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, tt.totalReceived)
 			assert.NoError(err)
@@ -384,11 +385,13 @@ func TestStore(t *testing.T) {
 
 				err = rows.Scan(&agreement, &signature)
 				assert.NoError(err)
+				rba := &pb.RenterBandwidthAllocation{}
+				proto.Unmarshal(agreement, rba)
 
 				assert.NoError(err)
 				assert.Equal(msg.BandwidthAllocation.GetSignature(), signature)
-				assert.True(proto.Equal(pba, agreement.PayerAllocation))
-				assert.Equal(int64(len(tt.content)), agreement.Total)
+				assert.True(proto.Equal(pba, &rba.PayerAllocation))
+				assert.Equal(int64(len(tt.content)), rba.Total)
 
 			}
 			err = rows.Err()
@@ -412,35 +415,35 @@ func TestPbaValidation(t *testing.T) {
 		satelliteID storj.NodeID
 		uplinkID    storj.NodeID
 		whitelist   []storj.NodeID
-		action      pb.PayerBandwidthAllocation_Action
+		action      pb.BandwidthAction
 		err         string
 	}{
 		{ // unapproved satellite id
 			satelliteID: satID1.ID,
 			uplinkID:    upID.ID,
 			whitelist:   []storj.NodeID{satID1.ID, satID2.ID, satID3.ID},
-			action:      pb.PayerBandwidthAllocation_PUT,
+			action:      pb.BandwidthAction_PUT,
 			err:         "rpc error: code = Unknown desc = store error: Satellite ID not approved",
 		},
 		{ // missing satellite id
 			satelliteID: storj.NodeID{},
 			uplinkID:    upID.ID,
 			whitelist:   []storj.NodeID{satID1.ID, satID2.ID, satID3.ID},
-			action:      pb.PayerBandwidthAllocation_PUT,
+			action:      pb.BandwidthAction_PUT,
 			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: missing satellite id",
 		},
 		{ // missing uplink id
 			satelliteID: satID1.ID,
 			uplinkID:    storj.NodeID{},
 			whitelist:   []storj.NodeID{satID1.ID, satID2.ID, satID3.ID},
-			action:      pb.PayerBandwidthAllocation_PUT,
+			action:      pb.BandwidthAction_PUT,
 			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: missing uplink id",
 		},
 		{ // wrong action type
 			satelliteID: satID1.ID,
 			uplinkID:    upID.ID,
 			whitelist:   []storj.NodeID{satID1.ID, satID2.ID, satID3.ID},
-			action:      pb.PayerBandwidthAllocation_GET,
+			action:      pb.BandwidthAction_GET,
 			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: invalid action GET",
 		},
 	}

@@ -4,7 +4,6 @@
 package psdb
 
 import (
-	"bytes"
 	"context"
 	"io/ioutil"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
 
 	"storj.io/storj/internal/teststorj"
@@ -144,7 +144,7 @@ func TestHappyPath(t *testing.T) {
 		}
 	})
 
-	bandwidthAllocation := func(signature string, satelliteID storj.NodeID, total int64) []byte {
+	bandwidthAllocation := func(signature string, satelliteID storj.NodeID, total int64) *pb.RenterBandwidthAllocation {
 		return &pb.RenterBandwidthAllocation{
 			PayerAllocation: pb.PayerBandwidthAllocation{SatelliteId: satelliteID},
 			Total:           total,
@@ -178,7 +178,7 @@ func TestHappyPath(t *testing.T) {
 
 					found := false
 					for _, agreement := range agreements {
-						if bytes.Equal(agreement, test.Data) {
+						if proto.Equal(agreement, test) {
 							found = true
 							break
 						}
@@ -206,7 +206,7 @@ func TestHappyPath(t *testing.T) {
 				for _, agreements := range agreementGroups {
 					for _, agreement := range agreements {
 						for _, test := range allocationTests {
-							if bytes.Equal(agreement.Agreement, test.Data) {
+							if proto.Equal(&agreement.Agreement, test) {
 								found = true
 								break
 							}
@@ -294,7 +294,7 @@ func BenchmarkWriteBandwidthAllocation(b *testing.B) {
 		for b.Next() {
 			for i := 0; i < WritesPerLoop; i++ {
 				_ = db.WriteBandwidthAllocToDB(&pb.RenterBandwidthAllocation{
-					PayerAllocation: &pb.PayerBandwidthAllocation{},
+					PayerAllocation: pb.PayerBandwidthAllocation{},
 					Total:           156,
 					Signature:       []byte("signed by test"),
 				})

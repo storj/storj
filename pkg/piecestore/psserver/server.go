@@ -288,40 +288,37 @@ func (s *Server) deleteByID(id string) error {
 
 func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAllocation) error {
 	// TODO(security): detect replay attacks
-	_, pba, pbad, err := rba.Unpack()
-	if err != nil {
-		return err
-	}
+	pba := rba.PayerAllocation
 	//verify message content
 	pi, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil || pbad.UplinkId != pi.ID {
-		return auth.BadID.New("Uplink Node ID: %s vs %s", pbad.UplinkId, pi.ID)
+	if err != nil || pba.UplinkId != pi.ID {
+		return auth.BadID.New("Uplink Node ID: %s vs %s", pba.UplinkId, pi.ID)
 	}
 	//todo:  use whitelist for uplinks?
 	//todo:  use whitelist for satellites?
 	switch {
-	case len(pbad.SerialNumber) == 0:
-		return pb.Payer.Wrap(pb.Missing.New("serial"))
-	case pbad.SatelliteId.IsZero():
-		return pb.Payer.Wrap(pb.Missing.New("satellite id"))
-	case pbad.UplinkId.IsZero():
-		return pb.Payer.Wrap(pb.Missing.New("uplink id"))
+	case len(pba.SerialNumber) == 0:
+		return pb.Payer.Wrap(auth.Missing.New("serial"))
+	case pba.SatelliteId.IsZero():
+		return pb.Payer.Wrap(auth.Missing.New("satellite id"))
+	case pba.UplinkId.IsZero():
+		return pb.Payer.Wrap(auth.Missing.New("uplink id"))
 	}
-	exp := time.Unix(pbad.GetExpirationUnixSec(), 0).UTC()
+	exp := time.Unix(pba.GetExpirationUnixSec(), 0).UTC()
 	if exp.Before(time.Now().UTC()) {
 		return pb.Payer.Wrap(auth.Expired.New("%v vs %v", exp, time.Now().UTC()))
 	}
 	//verify message crypto
-	if err := auth.VerifyMsg(rba, pbad.UplinkId); err != nil {
+	if err := auth.VerifyMsg(rba, pba.UplinkId); err != nil {
 		return pb.Renter.Wrap(err)
 	}
-	if err := auth.VerifyMsg(pba, pbad.SatelliteId); err != nil {
+	if err := auth.VerifyMsg(&pba, pba.SatelliteId); err != nil {
 		return pb.Payer.Wrap(err)
 	}
 	return nil
 }
 
-func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation_Data, actionPrefix string) (err error) {
+func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation, actionPrefix string) (err error) {
 	switch {
 	case pba.SatelliteId.IsZero():
 		return StoreError.New("payer bandwidth allocation: missing satellite id")

@@ -280,29 +280,29 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 
 	for _, rbaVal := range bwAgreements {
 		for _, rbaDataVal := range rbaVal {
-			rbad := rbaDataVal.Agreement
-			pbad := rbad.GetPayerAllocation
+			rba := rbaDataVal.Agreement
+			pba := rba.PayerAllocation
 
-			summary, ok := summaries[pbad.SatelliteId]
+			summary, ok := summaries[pba.SatelliteId]
 			if !ok {
-				summaries[pbad.SatelliteId] = &SatelliteSummary{}
-				satelliteIDs = append(satelliteIDs, pbad.SatelliteId)
-				summary = summaries[pbad.SatelliteId]
+				summaries[pba.SatelliteId] = &SatelliteSummary{}
+				satelliteIDs = append(satelliteIDs, pba.SatelliteId)
+				summary = summaries[pba.SatelliteId]
 			}
 
 			// fill the summary info
-			summary.TotalBytes += rbad.GetTotal()
+			summary.TotalBytes += rba.Total
 			summary.TotalTransactions++
-			switch pbad.GetAction() {
-			case pb.PayerBandwidthAllocation_PUT:
+			switch pba.Action {
+			case pb.BandwidthAction_PUT:
 				summary.PutActionCount++
-			case pb.PayerBandwidthAllocation_GET:
+			case pb.BandwidthAction_GET:
 				summary.GetActionCount++
-			case pb.PayerBandwidthAllocation_GET_AUDIT:
+			case pb.BandwidthAction_GET_AUDIT:
 				summary.GetAuditActionCount++
-			case pb.PayerBandwidthAllocation_GET_REPAIR:
+			case pb.BandwidthAction_GET_REPAIR:
 				summary.GetRepairActionCount++
-			case pb.PayerBandwidthAllocation_PUT_REPAIR:
+			case pb.BandwidthAction_PUT_REPAIR:
 				summary.PutRepairActionCount++
 			}
 		}

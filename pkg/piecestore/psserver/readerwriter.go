@@ -63,13 +63,13 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, bandwidt
 		if err = s.verifySignature(stream.Context(), rba); err != nil {
 			return nil, err
 		}
-		pba := ba.PayerAllocation
-		if err = s.verifyPayerAllocation(pba, "PUT"); err != nil {
+		pba := rba.PayerAllocation
+		if err = s.verifyPayerAllocation(&pba, "PUT"); err != nil {
 			return nil, err
 		}
 		// if whitelist does not contain PBA satellite ID, reject storage request
 		if len(s.whitelist) != 0 {
-			if !s.approved(pbaData.SatelliteId) {
+			if !s.approved(pba.SatelliteId) {
 				return nil, StoreError.New("Satellite ID not approved")
 			}
 		}
