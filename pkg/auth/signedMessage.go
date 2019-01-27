@@ -120,8 +120,8 @@ func VerifyMsg(msg SignableMsg, signer storj.NodeID) error {
 	}
 	// verify signature
 	signatureLength := leafPubKey.Curve.Params().P.BitLen() / 8
-	if len(msg.GetSignature()) < signatureLength {
-		return SigLen.New("%d vs %d", len(msg.GetSignature()), signatureLength)
+	if len(signature) < signatureLength {
+		return SigLen.New("%d vs %d", len(signature), signatureLength)
 	}
 	if id, err := identity.NodeIDFromECDSAKey(caPubKey); err != nil || id != signer {
 		return Signer.New("%+v vs %+v", id, signer)

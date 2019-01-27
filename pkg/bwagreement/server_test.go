@@ -317,11 +317,15 @@ func callBWA(ctx context.Context, t *testing.T, sat *bwagreement.Server, signatu
 //GetSignature returns the signature of the signed message
 func GetSignature(t *testing.T, msg auth.SignableMsg, privECDSA *ecdsa.PrivateKey) []byte {
 	require.NotNil(t, msg)
+	oldSignature := msg.GetSignature()
+	certs := msg.GetCerts()
 	_ = msg.SetSignature(nil)
 	_ = msg.SetCerts(nil)
 	msgBytes, err := proto.Marshal(msg)
 	require.NoError(t, err)
 	signature, err := cryptopasta.Sign(msgBytes, privECDSA)
 	require.NoError(t, err)
+	_ = msg.SetSignature(oldSignature)
+	_ = msg.SetCerts(certs)
 	return signature
 }

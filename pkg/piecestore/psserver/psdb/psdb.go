@@ -253,13 +253,13 @@ func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([]*pb.RenterB
 
 	agreements := []*pb.RenterBandwidthAllocation{}
 	for rows.Next() {
-		var agreement []byte
-		err := rows.Scan(&agreement)
+		var rbaBytes []byte
+		err := rows.Scan(&rbaBytes)
 		if err != nil {
 			return agreements, err
 		}
 		rba := &pb.RenterBandwidthAllocation{}
-		err = proto.Unmarshal(agreement, rba)
+		err = proto.Unmarshal(rbaBytes, rba)
 		if err != nil {
 			return agreements, err
 		}
@@ -287,7 +287,7 @@ func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
 		rbaBytes := []byte{}
 		agreement := &Agreement{}
 		var satellite []byte
-		err := rows.Scan(&satellite, rbaBytes, &agreement.Signature)
+		err := rows.Scan(&satellite, &rbaBytes, &agreement.Signature)
 		if err != nil {
 			return agreements, err
 		}
