@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
 
 	"storj.io/storj/internal/teststorj"
@@ -178,7 +177,7 @@ func TestHappyPath(t *testing.T) {
 
 					found := false
 					for _, agreement := range agreements {
-						if proto.Equal(agreement, test) {
+						if pb.Equal(agreement, test) {
 							found = true
 							break
 						}
@@ -206,7 +205,7 @@ func TestHappyPath(t *testing.T) {
 				for _, agreements := range agreementGroups {
 					for _, agreement := range agreements {
 						for _, test := range allocationTests {
-							if proto.Equal(&agreement.Agreement, test) {
+							if pb.Equal(&agreement.Agreement, test) {
 								found = true
 								break
 							}

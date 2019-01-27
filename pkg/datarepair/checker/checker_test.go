@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -260,7 +259,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 		sort.Slice(dequeued, func(i, k int) bool { return dequeued[i].Path < dequeued[k].Path })
 
 		for i := 0; i < len(segs); i++ {
-			assert.True(b, proto.Equal(segs[i], dequeued[i]))
+			assert.True(b, pb.Equal(segs[i], dequeued[i]))
 		}
 	}
 }

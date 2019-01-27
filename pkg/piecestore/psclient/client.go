@@ -186,8 +186,3 @@ func (ps *PieceStore) Delete(ctx context.Context, id PieceID, authorization *pb.
 func (ps *PieceStore) sign(rba *pb.RenterBandwidthAllocation) (err error) {
 	return auth.SignMsg(rba, *ps.selfID)
 }
-
-// //certs returns this uplink's certificates
-// func (ps *PieceStore) certs() [][]byte {
-// 	return ps.selfID.ChainRaw()
-// }

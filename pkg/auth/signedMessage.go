@@ -52,18 +52,6 @@ type SignableMsg interface {
 	SetSignature([]byte) bool
 }
 
-//IsPopulated ensures a SignedMsg has Certs and Signature
-func IsPopulated(sm SignableMsg) (bool, error) {
-	if sm == nil {
-		return false, Missing.New("message")
-	} else if sm.GetSignature() == nil {
-		return false, Missing.New("message signature")
-	} else if sm.GetCerts() == nil {
-		return false, Missing.New("message certificates")
-	}
-	return true, nil
-}
-
 //SignMsg adds the crypto-related aspects of signed message
 func SignMsg(msg SignableMsg, ID identity.FullIdentity) error {
 	if msg == nil {
@@ -91,8 +79,12 @@ func SignMsg(msg SignableMsg, ID identity.FullIdentity) error {
 //VerifyMsg checks the crypto-related aspects of signed message
 func VerifyMsg(msg SignableMsg, signer storj.NodeID) error {
 	//setup
-	if ok, err := IsPopulated(msg); !ok {
-		return err
+	if msg == nil {
+		return Missing.New("message")
+	} else if msg.GetSignature() == nil {
+		return Missing.New("message signature")
+	} else if msg.GetCerts() == nil {
+		return Missing.New("message certificates")
 	}
 	signature := msg.GetSignature()
 	certs := msg.GetCerts()
