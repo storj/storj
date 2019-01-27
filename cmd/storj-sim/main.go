@@ -59,6 +59,7 @@ func main() {
 
 	rootCmd.PersistentFlags().BoolVarP(&printCommands, "print-commands", "x", false, "print commands as they are run")
 
+	//TODO: programmatically access db connection string written to config
 	paymentsCmd.Flags().StringVar(&database, "db-string", "sqlite3://"+database, "satellite database connection string")
 
 	networkCmd := &cobra.Command{
