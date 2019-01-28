@@ -3,7 +3,9 @@
 
 package sync2
 
-import "sync"
+import (
+	"sync"
+)
 
 // WorkGroup implements waitable and closable group of workers
 type WorkGroup struct {
@@ -28,8 +30,10 @@ func (group *WorkGroup) Go(fn func()) bool {
 	if !group.Start() {
 		return false
 	}
-	defer group.Done()
-	fn()
+	go func() {
+		defer group.Done()
+		fn()
+	}()
 	return true
 }
 
@@ -66,6 +70,7 @@ func (group *WorkGroup) Wait() {
 	defer group.mu.Unlock()
 
 	group.init()
+
 	for group.workers != 0 {
 		group.cond.Wait()
 	}
