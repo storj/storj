@@ -5,7 +5,6 @@ package tally_test
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"testing"
 	"time"
 
@@ -17,7 +16,8 @@ import (
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/bwagreement"
-	"storj.io/storj/pkg/bwagreement/test"
+	"storj.io/storj/pkg/bwagreement/testbwagreement"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
@@ -65,25 +65,23 @@ func TestQueryWithBw(t *testing.T) {
 	//get a private key
 	fiC, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
-	k, ok := fiC.Key.(*ecdsa.PrivateKey)
-	assert.True(t, ok)
 
-	makeBWA(ctx, t, bwDb, "1", k, pb.PayerBandwidthAllocation_PUT)
-	makeBWA(ctx, t, bwDb, "2", k, pb.PayerBandwidthAllocation_GET)
-	makeBWA(ctx, t, bwDb, "3", k, pb.PayerBandwidthAllocation_GET_AUDIT)
-	makeBWA(ctx, t, bwDb, "4", k, pb.PayerBandwidthAllocation_GET_REPAIR)
-	makeBWA(ctx, t, bwDb, "5", k, pb.PayerBandwidthAllocation_PUT_REPAIR)
+	makeBWA(ctx, t, bwDb, "1", fiC, pb.PayerBandwidthAllocation_PUT)
+	makeBWA(ctx, t, bwDb, "2", fiC, pb.PayerBandwidthAllocation_GET)
+	makeBWA(ctx, t, bwDb, "3", fiC, pb.PayerBandwidthAllocation_GET_AUDIT)
+	makeBWA(ctx, t, bwDb, "4", fiC, pb.PayerBandwidthAllocation_GET_REPAIR)
+	makeBWA(ctx, t, bwDb, "5", fiC, pb.PayerBandwidthAllocation_PUT_REPAIR)
 
 	//check the db
 	err = tally.QueryBW(ctx)
 	assert.NoError(t, err)
 }
 
-func makeBWA(ctx context.Context, t *testing.T, bwDb bwagreement.DB, serialNum string, k *ecdsa.PrivateKey, action pb.PayerBandwidthAllocation_Action) {
+func makeBWA(ctx context.Context, t *testing.T, bwDb bwagreement.DB, serialNum string, fiC *identity.FullIdentity, action pb.PayerBandwidthAllocation_Action) {
 	//generate an agreement with the key
-	pba, err := test.GeneratePayerBandwidthAllocation(action, k, k, time.Hour)
+	pba, err := testbwagreement.GeneratePayerBandwidthAllocation(action, fiC, fiC, time.Hour)
 	assert.NoError(t, err)
-	rba, err := test.GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("StorageNodeID"), k)
+	rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("StorageNodeID"), fiC, 666)
 	assert.NoError(t, err)
 	//save to db
 	err = bwDb.CreateAgreement(ctx, serialNum, bwagreement.Agreement{Signature: rba.GetSignature(), Agreement: rba.GetData()})
