@@ -12,7 +12,9 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"log"
 	"sync"
 	"sync/atomic"
 
@@ -67,6 +69,8 @@ type NewCAOptions struct {
 	ParentCert *x509.Certificate
 	// ParentKey ()
 	ParentKey crypto.PrivateKey
+	// Logger is used to log generation status updates
+	Logger io.Writer
 }
 
 // PeerCAConfig is for locating a CA certificate without a private key
@@ -97,16 +101,22 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 	}
 
 	fmt.Printf("Generating key with a minimum a difficulty of %d...\n", opts.Difficulty)
-	logStatus := func() {
-		count := atomic.LoadUint32(i)
-		hs := atomic.LoadUint32(highscore)
-		fmt.Printf("\rGenerated %d keys; best difficulty so far: %d", count, hs)
+	updateStatus := func() {
+		if opts.Logger != nil {
+			count := atomic.LoadUint32(i)
+			hs := atomic.LoadUint32(highscore)
+			_, err := fmt.Fprintf(opts.Logger, "\rGenerated %d keys; best difficulty so far: %d", count, hs)
+			if err != nil {
+				log.Print(errs.Wrap(err))
+			}
+		}
 	}
 	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency),
 		func(k *ecdsa.PrivateKey, id storj.NodeID) (done bool, err error) {
-			count := atomic.AddUint32(i, 1)
-			if count%100 == 0 {
-				logStatus()
+			if opts.Logger != nil {
+				if atomic.AddUint32(i, 1)%100 == 0 {
+					updateStatus()
+				}
 			}
 
 			difficulty, err := id.Difficulty()
@@ -116,12 +126,17 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 			if difficulty >= opts.Difficulty {
 				mu.Lock()
 				if selectedKey == nil {
-					logStatus()
+					updateStatus()
 					selectedKey = k
 					selectedID = id
 				}
 				mu.Unlock()
-				fmt.Printf("\nFound a key with difficulty %d!\n", difficulty)
+				if opts.Logger != nil {
+					_, err := fmt.Fprintf(opts.Logger, "\nFound a key with difficulty %d!\n", difficulty)
+					if err != nil {
+						log.Print(errs.Wrap(err))
+					}
+				}
 				return true, nil
 			}
 			for {
@@ -130,7 +145,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 					return false, nil
 				}
 				if atomic.CompareAndSwapUint32(highscore, hs, uint32(difficulty)) {
-					logStatus()
+					updateStatus()
 					return false, nil
 				}
 			}
@@ -164,7 +179,7 @@ func (caS CASetupConfig) Status() TLSFilesStatus {
 }
 
 // Create generates and saves a CA using the config
-func (caS CASetupConfig) Create(ctx context.Context) (*FullCertificateAuthority, error) {
+func (caS CASetupConfig) Create(ctx context.Context, logger io.Writer) (*FullCertificateAuthority, error) {
 	var (
 		err    error
 		parent *FullCertificateAuthority
@@ -188,6 +203,7 @@ func (caS CASetupConfig) Create(ctx context.Context) (*FullCertificateAuthority,
 		Concurrency: caS.Concurrency,
 		ParentCert:  parent.Cert,
 		ParentKey:   parent.Key,
+		Logger:      logger,
 	})
 	if err != nil {
 		return nil, err

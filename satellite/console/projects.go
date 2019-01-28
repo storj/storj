@@ -32,8 +32,6 @@ type Project struct {
 
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	// stores last accepted version of terms of use.
-	TermsAccepted int `json:"termsAccepted"`
 
 	CreatedAt time.Time `json:"createdAt"`
 }
@@ -42,8 +40,6 @@ type Project struct {
 type ProjectInfo struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	// Indicates if user accepted Terms & Conditions during project creation on UI
-	IsTermsAccepted bool `json:"isTermsAccepted"`
 
 	CreatedAt time.Time `json:"createdAt"`
 }

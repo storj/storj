@@ -5,14 +5,9 @@ package provider
 
 import (
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/server"
 )
 
 type (
-	// Provider Transition: pkg/provider is going away.
-	Provider = server.Server
-	// ServerConfig Transition: pkg/provider is going away.
-	ServerConfig = server.Config
 	// FullIdentity Transition: pkg/provider is going away.
 	FullIdentity = identity.FullIdentity
 	// PeerIdentity Transition: pkg/provider is going away.
@@ -34,18 +29,10 @@ type (
 )
 
 var (
-	// NewServerOptions Transition: pkg/provider is going away.
-	NewServerOptions = server.NewOptions
-	// NewProvider Transition: pkg/provider is going away.
-	NewProvider = server.NewServer
 	// PeerIdentityFromContext Transition: pkg/provider is going away.
 	PeerIdentityFromContext = identity.PeerIdentityFromContext
 	// NewFullIdentity Transition: pkg/provider is going away.
 	NewFullIdentity = identity.NewFullIdentity
-	// SetupIdentity Transition: pkg/provider is going away.
-	SetupIdentity = identity.SetupIdentity
-	// SetupCA Transition: pkg/provider is going away.
-	SetupCA = identity.SetupCA
 	// NewCA Transition: pkg/provider is going away.
 	NewCA = identity.NewCA
 	// ErrSetup Transition: pkg/provider is going away.

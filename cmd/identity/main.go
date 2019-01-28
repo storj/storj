@@ -7,6 +7,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/fatih/color"
@@ -104,7 +105,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 		return errs.New("CA certificate and/or key already exits, NOT overwriting!")
 	}
 
-	ca, caerr := caConfig.Create(process.Ctx(cmd))
+	ca, caerr := caConfig.Create(process.Ctx(cmd), os.Stdout)
 	if caerr != nil {
 		return caerr
 	}

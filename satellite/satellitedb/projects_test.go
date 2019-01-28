@@ -64,9 +64,8 @@ func TestProjectsRepository(t *testing.T) {
 		assert.NotNil(t, owner)
 
 		project = &console.Project{
-			Name:          name,
-			Description:   description,
-			TermsAccepted: 1,
+			Name:        name,
+			Description: description,
 		}
 
 		project, err = projects.Insert(ctx, project)
@@ -80,7 +79,6 @@ func TestProjectsRepository(t *testing.T) {
 		assert.Equal(t, projectByID.ID, project.ID)
 		assert.Equal(t, projectByID.Name, name)
 		assert.Equal(t, projectByID.Description, description)
-		assert.Equal(t, projectByID.TermsAccepted, 1)
 	})
 
 	t.Run("Get by projectID success", func(t *testing.T) {
@@ -89,7 +87,6 @@ func TestProjectsRepository(t *testing.T) {
 		assert.Equal(t, projectByID.ID, project.ID)
 		assert.Equal(t, projectByID.Name, name)
 		assert.Equal(t, projectByID.Description, description)
-		assert.Equal(t, projectByID.TermsAccepted, 1)
 	})
 
 	t.Run("Update project success", func(t *testing.T) {
@@ -99,9 +96,8 @@ func TestProjectsRepository(t *testing.T) {
 
 		// creating new project with updated values
 		newProject := &console.Project{
-			ID:            oldProject.ID,
-			Description:   newDescription,
-			TermsAccepted: 2,
+			ID:          oldProject.ID,
+			Description: newDescription,
 		}
 
 		err = projects.Update(ctx, newProject)
@@ -112,7 +108,6 @@ func TestProjectsRepository(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, newProject.ID, oldProject.ID)
 		assert.Equal(t, newProject.Description, newDescription)
-		assert.Equal(t, newProject.TermsAccepted, 2)
 	})
 
 	t.Run("Delete project success", func(t *testing.T) {
@@ -133,9 +128,8 @@ func TestProjectsRepository(t *testing.T) {
 		assert.Equal(t, len(allProjects), 0)
 
 		newProject := &console.Project{
-			Description:   description,
-			Name:          name,
-			TermsAccepted: 1,
+			Description: description,
+			Name:        name,
 		}
 
 		_, err = projects.Insert(ctx, newProject)
@@ -146,9 +140,8 @@ func TestProjectsRepository(t *testing.T) {
 		assert.Equal(t, len(allProjects), 1)
 
 		newProject2 := &console.Project{
-			Description:   description,
-			Name:          name,
-			TermsAccepted: 1,
+			Description: description,
+			Name:        name,
 		}
 
 		_, err = projects.Insert(ctx, newProject2)

@@ -6,7 +6,6 @@ package certificates
 import (
 	"context"
 	"os"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -14,7 +13,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -31,87 +30,6 @@ type CertServerConfig struct {
 	AuthorizationDBURL string `default:"bolt://$CONFDIR/authorizations.db" help:"url to the certificate signing authorization database"`
 	MinDifficulty      uint   `default:"30" help:"minimum difficulty of the requester's identity required to claim an authorization"`
 	CA                 identity.FullCAConfig
-}
-
-// SetupIdentity loads or creates a CA and identity and submits a certificate
-// signing request request for the CA; if successful, updated chains are saved.
-func (c CertClientConfig) SetupIdentity(
-	ctx context.Context,
-	caConfig identity.CASetupConfig,
-	identConfig identity.SetupConfig,
-	authToken string,
-) error {
-	caStatus := caConfig.Status()
-	var (
-		ca    *identity.FullCertificateAuthority
-		ident *identity.FullIdentity
-		err   error
-	)
-	switch {
-	case caStatus == identity.CertKey && !caConfig.Overwrite:
-		ca, err = caConfig.FullConfig().Load()
-		if err != nil {
-			return err
-		}
-	case caStatus != identity.NoCertNoKey && !caConfig.Overwrite:
-		return identity.ErrSetup.New("certificate authority file(s) exist: %s", caStatus)
-	default:
-		t, err := time.ParseDuration(caConfig.Timeout)
-		if err != nil {
-			return errs.Wrap(err)
-		}
-		ctx, cancel := context.WithTimeout(ctx, t)
-		defer cancel()
-
-		ca, err = caConfig.Create(ctx)
-		if err != nil {
-			return err
-		}
-	}
-
-	identStatus := identConfig.Status()
-	switch {
-	case identStatus == identity.CertKey && !identConfig.Overwrite:
-		ident, err = identConfig.FullConfig().Load()
-		if err != nil {
-			return err
-		}
-	case identStatus != identity.NoCertNoKey && !identConfig.Overwrite:
-		return identity.ErrSetup.New("identity file(s) exist: %s", identStatus)
-	default:
-		ident, err = identConfig.Create(ca)
-		if err != nil {
-			return err
-		}
-	}
-
-	signedChainBytes, err := c.Sign(ctx, ident, authToken)
-	if err != nil {
-		return errs.New("error occurred while signing certificate: %s\n(identity files were still generated and saved, if you try again existing files will be loaded)", err)
-	}
-
-	signedChain, err := identity.ParseCertChain(signedChainBytes)
-	if err != nil {
-		return nil
-	}
-
-	ca.Cert = signedChain[0]
-	ca.RestChain = signedChain[1:]
-	err = identity.FullCAConfig{
-		CertPath: caConfig.FullConfig().CertPath,
-	}.Save(ca)
-	if err != nil {
-		return err
-	}
-
-	ident.RestChain = signedChain[1:]
-	err = identity.Config{
-		CertPath: identConfig.FullConfig().CertPath,
-	}.Save(ident)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // Sign submits a certificate signing request given the config
@@ -167,7 +85,7 @@ func (c CertServerConfig) NewAuthDB() (*AuthorizationDB, error) {
 }
 
 // Run implements the responsibility interface, starting a certificate signing server.
-func (c CertServerConfig) Run(ctx context.Context, server *provider.Provider) (err error) {
+func (c CertServerConfig) Run(ctx context.Context, server *server.Server) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	authDB, err := c.NewAuthDB()
