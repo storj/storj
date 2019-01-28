@@ -14,7 +14,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
@@ -22,8 +21,6 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/processgroup"
-	"storj.io/storj/pkg/accounting/payments"
-	"storj.io/storj/pkg/identity"
 )
 
 const folderPermissions = 0744
@@ -272,48 +269,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	}
 
 	return processes, nil
-}
-
-// networkPayments generates a satellite's payment report for a given period
-func networkPayments(flags *Flags, args []string) error {
-	fmt.Println("entering payments generatecsv")
-
-	ctx, cancel := NewCLIContext(context.Background())
-	defer cancel()
-
-	cfgDir := filepath.Join(flags.Directory, "satellite", "0")
-	idCfg := identity.Config{
-		CertPath: filepath.Join(cfgDir, "identity.cert"),
-		KeyPath:  filepath.Join(cfgDir, "identity.key"),
-	}
-
-	id, err := idCfg.Load()
-	if err != nil {
-		return err
-	}
-
-	layout := "2006-01-02"
-	start, err := time.Parse(layout, args[0])
-	if err != nil {
-		return errs.New("Invalid date format. Please use YYYY-MM-DD")
-	}
-	end, err := time.Parse(layout, args[1])
-	if err != nil {
-		return errs.New("Invalid date format. Please use YYYY-MM-DD")
-	}
-
-	// Ensure that start date is not after end date
-	if start.After(end) {
-		return errs.New("Invalid time period (%v) - (%v)", start, end)
-	}
-
-	report, err := payments.GenerateCSV(ctx, cfgDir, database, id.ID.String(), start, end)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Created payments report at", report)
-	return nil
 }
 
 func identitySetup(network *Processes) (*Processes, error) {

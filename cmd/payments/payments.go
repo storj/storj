@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package payments
+package main
 
 import (
 	"context"
@@ -19,10 +19,9 @@ import (
 	"storj.io/storj/satellite/satellitedb"
 )
 
-// GenerateCSV generates a payment report for all nodes for a given period
-func GenerateCSV(ctx context.Context, cfgDir string, dbPath string, id string, start time.Time, end time.Time) (string, error) {
+// generateCSV generates a payment report for all nodes for a given period
+func generateCSV(ctx context.Context, cfgDir string, dbPath string, id string, start time.Time, end time.Time) (string, error) {
 
-	//TODO: make sure  we can get config-dir of storj-sim
 	db, err := satellitedb.New(dbPath)
 	if err != nil {
 		return "", errs.New("error connecting to master database on satellite: %+v", err)

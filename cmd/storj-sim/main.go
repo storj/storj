@@ -5,7 +5,6 @@ package main
 
 import (
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -23,7 +22,6 @@ type Flags struct {
 }
 
 var printCommands bool
-var database string
 
 func main() {
 	cobra.EnableCommandSorting = false
@@ -35,20 +33,11 @@ func main() {
 		Short: "Storj Network Simulator",
 	}
 
-	paymentsCmd := &cobra.Command{
-		Use:   "payments",
-		Short: "generate a payment csv",
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			return networkPayments(&flags, args)
-		},
-	}
-
 	defaultConfigDir := fpath.ApplicationDir("storj", "local-network")
 	configDir := defaultConfigDir
 	if os.Getenv("STORJ_NETWORK_DIR") != "" {
 		configDir = os.Getenv("STORJ_NETWORK_DIR")
 	}
-	database = filepath.Join(configDir, "satellite", "0", "master.db")
 
 	rootCmd.PersistentFlags().StringVarP(&flags.Directory, "config-dir", "", configDir, "base project directory")
 	rootCmd.PersistentFlags().StringVarP(&flags.Host, "host", "", "127.0.0.1", "host to use for network")
@@ -58,9 +47,6 @@ func main() {
 	rootCmd.PersistentFlags().IntVarP(&flags.Identities, "identities", "", 10, "number of identities to create")
 
 	rootCmd.PersistentFlags().BoolVarP(&printCommands, "print-commands", "x", false, "print commands as they are run")
-
-	//TODO: programmatically access db connection string written to config
-	paymentsCmd.Flags().StringVar(&database, "db-string", "sqlite3://"+database, "satellite database connection string")
 
 	networkCmd := &cobra.Command{
 		Use:   "network",
@@ -93,7 +79,7 @@ func main() {
 			RunE: func(cmd *cobra.Command, args []string) (err error) {
 				return networkDestroy(&flags, args)
 			},
-		}, paymentsCmd,
+		},
 	)
 
 	inmemoryCmd := &cobra.Command{

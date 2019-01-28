@@ -10,14 +10,12 @@ import (
 	"path/filepath"
 	"sort"
 	"text/tabwriter"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/accounting/payments"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
@@ -58,12 +56,6 @@ var (
 		Use:   "qdiag",
 		Short: "Repair Queue Diagnostic Tool support",
 		RunE:  cmdQDiag,
-	}
-	paymentsCmd = &cobra.Command{
-		Use:   "payments",
-		Short: "generates payment csv",
-		Args:  cobra.MinimumNArgs(2),
-		RunE:  cmdPayments,
 	}
 
 	runCfg   Satellite
@@ -109,7 +101,6 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(qdiagCmd)
-	rootCmd.AddCommand(paymentsCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
@@ -275,40 +266,6 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 
 	// display the data
 	return w.Flush()
-}
-
-func cmdPayments(cmd *cobra.Command, args []string) error {
-	fmt.Println("entering payments generatecsv")
-
-	ctx := process.Ctx(cmd)
-
-	layout := "2006-01-02"
-	start, err := time.Parse(layout, args[0])
-	if err != nil {
-		return errs.New("Invalid date format. Please use YYYY-MM-DD")
-	}
-	end, err := time.Parse(layout, args[1])
-	if err != nil {
-		return errs.New("Invalid date format. Please use YYYY-MM-DD")
-	}
-
-	// Ensure that start date is not after end date
-	if start.After(end) {
-		return errs.New("Invalid time period (%v) - (%v)", start, end)
-	}
-
-	id, err := runCfg.Identity.Load()
-	if err != nil {
-		return err
-	}
-
-	report, err := payments.GenerateCSV(ctx, confDir, runCfg.Database, id.ID.String(), start, end)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Created payments report at", report)
-	return nil
 }
 
 func main() {
