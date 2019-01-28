@@ -199,7 +199,6 @@ describe('actions', () => {
 			name: '',
 			id: '',
 			description: '',
-			isTermsAccepted: false,
 			isSelected: false,
 			createdAt: ''
 		};
@@ -219,7 +218,6 @@ describe('actions', () => {
 			name: '',
 			id: '',
 			description: '',
-			isTermsAccepted: false,
 			isSelected: false,
 			createdAt: ''
 		};
@@ -245,7 +243,6 @@ describe('actions', () => {
 			name: '',
 			id: 'id',
 			description: 'desc',
-			isTermsAccepted: false,
 			isSelected: false,
 			createdAt: ''
 		};
@@ -263,7 +260,6 @@ describe('actions', () => {
 			name: '',
 			id: '',
 			description: '',
-			isTermsAccepted: false,
 			isSelected: false,
 			createdAt: ''
 		};
