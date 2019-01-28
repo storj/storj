@@ -140,7 +140,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"client.overlay-addr":    setupCfg.SatelliteAddr,
 		"minio.access-key":       accessKey,
 		"minio.secret-key":       secretKey,
-		"enc.key":                setupCfg.EncKey,
 	}
 
 	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
