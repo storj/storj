@@ -218,7 +218,7 @@ func TestRefresh(t *testing.T) {
 	assert.True(t, ts1.Equal(ts2))
 }
 
-func TestGetNodes(t *testing.T) {
+func TestFindNear(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -318,7 +318,7 @@ func TestGetNodes(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
-			ns, err := k.GetNodes(ctx, c.start, c.limit, c.restrictions...)
+			ns, err := k.FindNear(ctx, c.start, c.limit, c.restrictions...)
 			assert.NoError(t, err)
 			assert.Equal(t, len(c.expected), len(ns))
 			for i, n := range ns {

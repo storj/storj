@@ -129,9 +129,9 @@ func (k *Kademlia) Disconnect() error {
 	)
 }
 
-// GetNodes returns all nodes from a starting node up to a maximum limit
+// FindNear returns all nodes from a starting node up to a maximum limit
 // stored in the local routing table limiting the result by the specified restrictions
-func (k *Kademlia) GetNodes(ctx context.Context, start storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
+func (k *Kademlia) FindNear(ctx context.Context, start storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
 	nodes := []*pb.Node{}
 	iteratorMethod := func(it storage.Iterator) error {
 		var item storage.ListItem
