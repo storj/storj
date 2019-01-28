@@ -4,60 +4,57 @@
 package pb
 
 import (
+	"bytes"
+	reflect "reflect"
+
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 )
 
 var (
-	//Renter wraps errors related to renter bandwidth allocations
-	Renter = errs.Class("Renter agreement")
-	//Payer wraps errors related to payer bandwidth allocations
-	Payer = errs.Class("Payer agreement")
-	//Marshal indicates a failure during serialization
-	Marshal = errs.Class("Could not generate byte array from key")
-	//Unmarshal indicates a failure during deserialization
-	Unmarshal = errs.Class("Could not generate key from byte array")
-	//Missing indicates missing or empty information
-	Missing = errs.Class("Required field is empty")
+	//ErrRenter wraps errors related to renter bandwidth allocations
+	ErrRenter = errs.Class("Renter agreement")
+	//ErrPayer wraps errors related to payer bandwidth allocations
+	ErrPayer = errs.Class("Payer agreement")
 )
 
-//SignedMsg interface has a key, data, and signature
-type SignedMsg interface {
-	GetCerts() [][]byte
-	GetData() []byte
-	GetSignature() []byte
+//Equal compares two Protobuf messages via serialization
+func Equal(msg1, msg2 proto.Message) bool {
+	//reflect.DeepEqual and proto.Equal don't seem work in all cases
+	//todo:  see how slow this is compared to custom equality checks
+	if msg1 == nil {
+		return msg2 == nil
+	}
+	if reflect.TypeOf(msg1) != reflect.TypeOf(msg2) {
+		return false
+	}
+	msg1Bytes, err := proto.Marshal(msg1)
+	if err != nil {
+		return false
+	}
+	msg2Bytes, err := proto.Marshal(msg1)
+	if err != nil {
+		return false
+	}
+	return bytes.Compare(msg1Bytes, msg2Bytes) == 0
 }
 
-// MsgComplete ensures a SignedMsg has no nulls
-func MsgComplete(sm SignedMsg) (bool, error) {
-	if sm == nil {
-		return false, Missing.New("message")
-	} else if sm.GetData() == nil {
-		return false, Missing.New("message data")
-	} else if sm.GetSignature() == nil {
-		return false, Missing.New("message signature")
-	} else if sm.GetCerts() == nil {
-		return false, Missing.New("message certificates")
-	}
-	return true, nil
+//SetCerts updates the certs field, completing the auth.SignedMsg interface
+func (m *PayerBandwidthAllocation) SetCerts(certs [][]byte) {
+	m.Certs = certs
 }
 
-//Unpack helps get things out of a RenterBandwidthAllocation
-func (rba *RenterBandwidthAllocation) Unpack() (*RenterBandwidthAllocation_Data, *PayerBandwidthAllocation, *PayerBandwidthAllocation_Data, error) {
-	if ok, err := MsgComplete(rba); !ok {
-		return nil, nil, nil, Renter.Wrap(err)
-	}
-	rbad := &RenterBandwidthAllocation_Data{}
-	if err := proto.Unmarshal(rba.GetData(), rbad); err != nil {
-		return nil, nil, nil, Renter.Wrap(Unmarshal.Wrap(err))
-	}
-	if ok, err := MsgComplete(rba); !ok {
-		return nil, nil, nil, Payer.Wrap(err)
-	}
-	pba := rbad.GetPayerAllocation()
-	pbad := &PayerBandwidthAllocation_Data{}
-	if err := proto.Unmarshal(pba.GetData(), pbad); err != nil {
-		return nil, nil, nil, Payer.Wrap(Unmarshal.Wrap(err))
-	}
-	return rbad, pba, pbad, nil
+//SetSignature updates the signature field, completing the auth.SignedMsg interface
+func (m *PayerBandwidthAllocation) SetSignature(signature []byte) {
+	m.Signature = signature
+}
+
+//SetCerts updates the certs field, completing the auth.SignedMsg interface
+func (m *RenterBandwidthAllocation) SetCerts(certs [][]byte) {
+	m.Certs = certs
+}
+
+//SetSignature updates the signature field, completing the auth.SignedMsg interface
+func (m *RenterBandwidthAllocation) SetSignature(signature []byte) {
+	m.Signature = signature
 }

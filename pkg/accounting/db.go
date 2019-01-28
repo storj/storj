@@ -12,7 +12,7 @@ import (
 )
 
 //BWTally is a convenience alias
-type BWTally [pb.PayerBandwidthAllocation_PUT_REPAIR + 1]map[storj.NodeID]int64
+type BWTally [pb.BandwidthAction_PUT_REPAIR + 1]map[storj.NodeID]int64
 
 //RollupStats is a convenience alias
 type RollupStats map[time.Time]map[storj.NodeID]*Rollup

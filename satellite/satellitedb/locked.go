@@ -69,6 +69,13 @@ func (m *lockedAccounting) LastRawTime(ctx context.Context, timestampType string
 	return m.db.LastRawTime(ctx, timestampType)
 }
 
+// QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
+func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.QueryPaymentInfo(ctx, start, end)
+}
+
 // SaveAtRestRaw records raw tallies of at-rest-data.
 func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.Time, isNew bool, nodeData map[storj.NodeID]float64) error {
 	m.Lock()
@@ -104,10 +111,10 @@ type lockedBandwidthAgreement struct {
 }
 
 // CreateAgreement adds a new bandwidth agreement.
-func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 string, a2 bwagreement.Agreement) error {
+func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.RenterBandwidthAllocation) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.CreateAgreement(ctx, a1, a2)
+	return m.db.CreateAgreement(ctx, a1)
 }
 
 // GetAgreements gets all bandwidth agreements.
@@ -212,24 +219,28 @@ type lockedBuckets struct {
 	db console.Buckets
 }
 
+// AttachBucket attaches a bucket to a project
 func (m *lockedBuckets) AttachBucket(ctx context.Context, name string, projectID uuid.UUID) (*console.Bucket, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.AttachBucket(ctx, name, projectID)
 }
 
+// DeattachBucket deletes bucket info for a bucket by name
 func (m *lockedBuckets) DeattachBucket(ctx context.Context, name string) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.DeattachBucket(ctx, name)
 }
 
+// GetBucket retrieves bucket info of bucket with given name
 func (m *lockedBuckets) GetBucket(ctx context.Context, name string) (*console.Bucket, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetBucket(ctx, name)
 }
 
+// ListBuckets returns bucket list of a given project
 func (m *lockedBuckets) ListBuckets(ctx context.Context, projectID uuid.UUID) ([]console.Bucket, error) {
 	m.Lock()
 	defer m.Unlock()
@@ -344,13 +355,6 @@ func (m *lockedProjects) Update(ctx context.Context, project *console.Project) e
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Update(ctx, project)
-}
-
-// QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
-func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.QueryPaymentInfo(ctx, start, end)
 }
 
 // Users is a getter for Users repository
@@ -476,6 +480,13 @@ func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDLis
 	return m.db.GetAll(ctx, nodeIDs)
 }
 
+// GetWalletAddress gets the node's wallet address
+func (m *lockedOverlayCache) GetWalletAddress(ctx context.Context, id storj.NodeID) (string, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetWalletAddress(ctx, id)
+}
+
 // List lists nodes starting from cursor
 func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
 	m.Lock()
@@ -488,13 +499,6 @@ func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Update(ctx, value)
-}
-
-//GetWalletAddress gets the node's wallet address
-func (m *lockedOverlayCache) GetWalletAddress(ctx context.Context, id storj.NodeID) (string, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetWalletAddress(ctx, id)
 }
 
 // RepairQueue returns queue for segments that need repairing
