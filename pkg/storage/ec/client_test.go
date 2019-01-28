@@ -170,7 +170,7 @@ TestLoop:
 }
 
 func mockNewPSClient(clients map[*pb.Node]psclient.Client) psClientFunc {
-	return func(_ context.Context, _ transport.Client, n *pb.Node, _ int) (psclient.Client, error) {
+	return func(_ context.Context, _ transport.Client, n *pb.Node, _ psclient.Config) (psclient.Client, error) {
 		n.Type.DPanicOnInvalid("mock new ps client")
 		c, ok := clients[n]
 		if !ok {

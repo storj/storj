@@ -6,7 +6,6 @@ package psclient
 import (
 	"bufio"
 	"crypto/ecdsa"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -28,20 +27,6 @@ import (
 // ClientError is any error returned by the client
 var ClientError = errs.Class("piecestore client error")
 
-var (
-	defaultBandwidthMsgSize = 32 * memory.KB
-	maxBandwidthMsgSize     = 64 * memory.KB
-)
-
-func init() {
-	flag.Var(&defaultBandwidthMsgSize,
-		"piecestore.rpc.client.default-bandwidth-msg-size",
-		"default bandwidth message size in bytes")
-	flag.Var(&maxBandwidthMsgSize,
-		"piecestore.rpc.client.max-bandwidth-msg-size",
-		"max bandwidth message size in bytes")
-}
-
 // Client is an interface describing the functions for interacting with piecestore nodes
 type Client interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
@@ -51,56 +36,79 @@ type Client interface {
 	io.Closer
 }
 
+// Config describes piecestore client parameters
+type Config struct {
+	MessageSize    memory.Size `help:"starting bandwidth message size" default:"32KiB"`
+	MaxMessageSize memory.Size `help:"maximum bandwidth message size" default:"64KiB"`
+}
+
+// resetToDefaults ensures that the config arguments have been assigned
+func (config *Config) resetToDefaults() {
+	if config.MessageSize == 0 {
+		config.MessageSize = 32 * memory.KiB
+	}
+	if config.MaxMessageSize == 0 {
+		config.MaxMessageSize = 64 * memory.KiB
+	}
+}
+
 // PieceStore -- Struct Info needed for protobuf api calls
 type PieceStore struct {
-	closeFunc        func() error              // function that closes the transport connection
-	client           pb.PieceStoreRoutesClient // PieceStore for interacting with Storage Node
-	selfID           *identity.FullIdentity    // This client's (an uplink) identity
-	bandwidthMsgSize int                       // max bandwidth message size in bytes
-	remoteID         storj.NodeID              // Storage node being connected to
+	closeFunc func() error              // function that closes the transport connection
+	client    pb.PieceStoreRoutesClient // PieceStore for interacting with Storage Node
+	selfID    *identity.FullIdentity    // This client's (an uplink) identity
+	remoteID  storj.NodeID              // Storage node being connected to
+
+	config Config
 }
 
 // NewPSClient initilizes a piecestore client
-func NewPSClient(ctx context.Context, tc transport.Client, n *pb.Node, bandwidthMsgSize int) (Client, error) {
+func NewPSClient(ctx context.Context, tc transport.Client, n *pb.Node, config Config) (Client, error) {
 	n.Type.DPanicOnInvalid("new ps client")
+
 	conn, err := tc.DialNode(ctx, n)
 	if err != nil {
 		return nil, err
 	}
 
-	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize.Int() {
-		return nil, ClientError.New("invalid Bandwidth Message Size: %v", bandwidthMsgSize)
-	}
+	config.resetToDefaults()
 
-	if bandwidthMsgSize == 0 {
-		bandwidthMsgSize = defaultBandwidthMsgSize.Int()
+	if config.MessageSize < 0 || config.MessageSize > config.MaxMessageSize {
+		return nil, ClientError.New("invalid bandwidth message size: %v", config.MessageSize)
+	}
+	if config.MaxMessageSize < 0 {
+		return nil, ClientError.New("invalid max bandwidth message size: %v", config.MaxMessageSize)
 	}
 
 	return &PieceStore{
-		closeFunc:        conn.Close,
-		client:           pb.NewPieceStoreRoutesClient(conn),
-		bandwidthMsgSize: bandwidthMsgSize,
-		selfID:           tc.Identity(),
-		remoteID:         n.Id,
+		closeFunc: conn.Close,
+		client:    pb.NewPieceStoreRoutesClient(conn),
+		selfID:    tc.Identity(),
+		remoteID:  n.Id,
+
+		config: config,
 	}, nil
 }
 
 // NewCustomRoute creates new PieceStore with custom client interface
-func NewCustomRoute(client pb.PieceStoreRoutesClient, target *pb.Node, bandwidthMsgSize int, selfID *identity.FullIdentity) (*PieceStore, error) {
+func NewCustomRoute(client pb.PieceStoreRoutesClient, target *pb.Node, config Config, selfID *identity.FullIdentity) (*PieceStore, error) {
 	target.Type.DPanicOnInvalid("new custom route")
-	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize.Int() {
-		return nil, ClientError.New("invalid Bandwidth Message Size: %v", bandwidthMsgSize)
-	}
 
-	if bandwidthMsgSize == 0 {
-		bandwidthMsgSize = defaultBandwidthMsgSize.Int()
+	config.resetToDefaults()
+
+	if config.MessageSize < 0 || config.MessageSize > config.MaxMessageSize {
+		return nil, ClientError.New("invalid bandwidth message size: %v", config.MessageSize)
+	}
+	if config.MaxMessageSize < 0 {
+		return nil, ClientError.New("invalid max bandwidth message size: %v", config.MaxMessageSize)
 	}
 
 	return &PieceStore{
-		client:           client,
-		bandwidthMsgSize: bandwidthMsgSize,
-		selfID:           selfID,
-		remoteID:         target.Id,
+		client:   client,
+		selfID:   selfID,
+		remoteID: target.Id,
+
+		config: config,
 	}, nil
 }
 

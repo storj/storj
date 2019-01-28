@@ -68,7 +68,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 		return s, Error.New("no node returned from overlay for piece %s", id.String())
 	}
 	fromNode.Type.DPanicOnInvalid("audit getShare")
-	ps, err := psclient.NewPSClient(ctx, d.transport, fromNode, 0)
+	ps, err := psclient.NewPSClient(ctx, d.transport, fromNode, psclient.Config{})
 	if err != nil {
 		return s, err
 	}

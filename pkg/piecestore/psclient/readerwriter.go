@@ -93,14 +93,14 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 	}
 
 	// TODO: make these flag/config-file configurable
-	trustLimit := int64(client.bandwidthMsgSize * 64)
-	sendThreshold := int64(client.bandwidthMsgSize * 8)
+	trustLimit := int64(client.config.MessageSize * 64)
+	sendThreshold := int64(client.config.MessageSize * 8)
 	certs := client.certs()
 
 	// Send signed allocations to the piece store server
 	go func() {
 		// TODO: make this flag/config-file configurable
-		trustedSize := int64(client.bandwidthMsgSize * 8)
+		trustedSize := int64(client.config.MessageSize * 8)
 
 		// Allocate until we've reached the file size
 		for sr.allocated < size {

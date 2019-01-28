@@ -34,7 +34,7 @@ type Client interface {
 	Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, authorization *pb.SignedMessage) error
 }
 
-type psClientFunc func(context.Context, transport.Client, *pb.Node, int) (psclient.Client, error)
+type psClientFunc func(context.Context, transport.Client, *pb.Node, psclient.Config) (psclient.Client, error)
 type psClientHelper func(context.Context, *pb.Node) (psclient.Client, error)
 
 type ecClient struct {
@@ -55,7 +55,7 @@ func NewClient(identity *provider.FullIdentity, memoryLimit int) Client {
 
 func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (psclient.Client, error) {
 	n.Type.DPanicOnInvalid("new ps client")
-	return ec.newPSClientFunc(ctx, ec.transport, n, 0)
+	return ec.newPSClientFunc(ctx, ec.transport, n, psclient.Config{})
 }
 
 func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
