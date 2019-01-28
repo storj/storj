@@ -108,7 +108,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Public.Server, err = server.NewServer(publicOptions, peer.Public.Listener, nil)
+		peer.Public.Server, err = server.New(publicOptions, peer.Public.Listener, nil)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
