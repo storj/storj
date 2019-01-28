@@ -154,11 +154,12 @@ func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *fil
 	var args []interface{}
 	var rows *sql.Rows
 	var err error
+	var nodeTypeStorage int32 = 2
 
 	if len(req.excluded) == 0 {
 		args = append(args, auditCount, req.newNodeAuditThreshold,
 			auditSuccessRatio, uptimeCount, uptimeRatio,
-			req.freeBandwidth, req.freeDisk, nodeAmt)
+			req.freeBandwidth, req.freeDisk, nodeTypeStorage, nodeAmt)
 
 		rows, err = cache.db.Query(cache.db.Rebind(`SELECT overlay_cache_nodes.node_id,
 	overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.free_bandwidth,
@@ -174,6 +175,7 @@ func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *fil
 	AND overlay_cache_nodes.audit_uptime_ratio > ?
 	AND overlay_cache_nodes.free_bandwidth > ?
 	AND overlay_cache_nodes.free_disk > ?
+	AND overlay_cache_nodes.node_type == ?
 	LIMIT ?
 	`),
 			args...)
@@ -183,7 +185,7 @@ func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *fil
 	} else {
 		args = append(args, auditCount, req.newNodeAuditThreshold,
 			auditSuccessRatio, uptimeCount, uptimeRatio,
-			req.freeBandwidth, req.freeDisk, req.excluded, nodeAmt)
+			req.freeBandwidth, req.freeDisk, req.excluded, nodeTypeStorage, nodeAmt)
 
 		rows, err = cache.db.Query(cache.db.Rebind(`SELECT overlay_cache_nodes.node_id,
 	overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.free_bandwidth,
@@ -200,6 +202,7 @@ func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *fil
 	AND overlay_cache_nodes.free_bandwidth > ?
 	AND overlay_cache_nodes.free_disk > ?
 	AND overlay_cache_nodes.node_id NOT IN (?`+strings.Repeat(", ?", len(req.excluded)-1)+`)
+	AND overlay_cache_nodes.node_type == ?
 	LIMIT ?
 	`),
 			args...)
@@ -216,9 +219,11 @@ func (cache *overlaycache) findNewNodesQuery(ctx context.Context, req *filterNew
 	var rows *sql.Rows
 	var err error
 
+	var nodeTypeStorage int32 = 2
+
 	if len(req.excluded) == 0 {
 		args = append(args, req.newNodeAuditThreshold,
-			req.freeBandwidth, req.freeDisk, req.newNodeAmount)
+			req.freeBandwidth, req.freeDisk, nodeTypeStorage, req.newNodeAmount)
 
 		rows, err = cache.db.Query(cache.db.Rebind(`SELECT overlay_cache_nodes.node_id,
 	overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.free_bandwidth,
@@ -230,6 +235,7 @@ func (cache *overlaycache) findNewNodesQuery(ctx context.Context, req *filterNew
 	WHERE overlay_cache_nodes.audit_count < ?
 	AND overlay_cache_nodes.free_bandwidth > ?
 	AND overlay_cache_nodes.free_disk > ?
+	AND overlay_cache_nodes.node_type == ?
 	LIMIT ?
 	`),
 			args...)
@@ -238,7 +244,7 @@ func (cache *overlaycache) findNewNodesQuery(ctx context.Context, req *filterNew
 		}
 	} else {
 		args = append(args, req.newNodeAuditThreshold,
-			req.freeBandwidth, req.freeDisk, req.newNodeAmount)
+			req.freeBandwidth, req.freeDisk, nodeTypeStorage, req.newNodeAmount)
 
 		rows, err = cache.db.Query(cache.db.Rebind(`SELECT overlay_cache_nodes.node_id,
 	overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.free_bandwidth,
@@ -251,6 +257,7 @@ func (cache *overlaycache) findNewNodesQuery(ctx context.Context, req *filterNew
 	AND overlay_cache_nodes.free_bandwidth > ?
 	AND overlay_cache_nodes.free_disk > ?
 	AND overlay_cache_nodes.node_id NOT IN (?`+strings.Repeat(", ?", len(req.excluded)-1)+`)
+	AND overlay_cache_nodes.node_type == ?
 	LIMIT ?
 	`),
 			args...)
