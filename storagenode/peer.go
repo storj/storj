@@ -226,6 +226,16 @@ func (peer *Peer) Close() error {
 
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
+	// close servers, to avoid new connections to closing subsystems
+	if peer.Public.Server != nil {
+		errlist.Add(peer.Public.Server.Close())
+	} else {
+		// peer.Public.Server automatically closes listener
+		if peer.Public.Listener != nil {
+			errlist.Add(peer.Public.Listener.Close())
+		}
+	}
+
 	// close services in reverse initialization order
 	if peer.Storage.Endpoint != nil {
 		errlist.Add(peer.Storage.Endpoint.Close())
@@ -237,15 +247,6 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Kademlia.RoutingTable.SelfClose())
 	}
 
-	// close servers
-	if peer.Public.Server != nil {
-		errlist.Add(peer.Public.Server.Close())
-	} else {
-		// peer.Public.Server automatically closes listener
-		if peer.Public.Listener != nil {
-			errlist.Add(peer.Public.Listener.Close())
-		}
-	}
 	return errlist.Err()
 }
 
