@@ -56,4 +56,6 @@ type DB interface {
 	SaveRollup(ctx context.Context, latestTally time.Time, isNew bool, stats RollupStats) error
 	// QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
+	//SetTimeHook provides a way to alter the timestamps sent to the database, for testing
+	SetTimeHook(timeHook func() time.Time)
 }

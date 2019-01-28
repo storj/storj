@@ -18,6 +18,7 @@ type bandwidthagreement struct {
 	db *dbx.DB
 }
 
+//CreateAgreement stores a bandwidth agreement with a timestamp
 func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.RenterBandwidthAllocation) error {
 	rbaBytes, err := proto.Marshal(rba)
 	if err != nil {
@@ -36,6 +37,7 @@ func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.Renter
 	return err
 }
 
+//GetAgreements returns all bandwidth agreements
 func (b *bandwidthagreement) GetAgreements(ctx context.Context) ([]bwagreement.Agreement, error) {
 	rows, err := b.db.All_Bwagreement(ctx)
 	if err != nil {
@@ -55,6 +57,7 @@ func (b *bandwidthagreement) GetAgreements(ctx context.Context) ([]bwagreement.A
 	return agreements, nil
 }
 
+//GetAgreements returns all bandwidth agreements added to the database after some date/time
 func (b *bandwidthagreement) GetAgreementsSince(ctx context.Context, since time.Time) ([]bwagreement.Agreement, error) {
 	rows, err := b.db.All_Bwagreement_By_CreatedAt_Greater(ctx, dbx.Bwagreement_CreatedAt(since))
 	if err != nil {
@@ -75,6 +78,7 @@ func (b *bandwidthagreement) GetAgreementsSince(ctx context.Context, since time.
 	return agreements, nil
 }
 
+//DeletePaidAndExpired removed payed and expired bandwidth agreements
 func (b *bandwidthagreement) DeletePaidAndExpired(ctx context.Context) error {
 	// TODO: implement deletion of paid and expired BWAs
 	return Error.New("DeletePaidAndExpired not implemented")

@@ -76,6 +76,13 @@ func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time
 	return m.db.QueryPaymentInfo(ctx, start, end)
 }
 
+//SetTimeHook provides a way to alter the timestamps sent to the database, for testing
+func (m *lockedAccounting) SetTimeHook(timeHook func() time.Time) {
+	m.Lock()
+	defer m.Unlock()
+	m.db.SetTimeHook(timeHook)
+}
+
 // SaveAtRestRaw records raw tallies of at-rest-data.
 func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.Time, isNew bool, nodeData map[storj.NodeID]float64) error {
 	m.Lock()

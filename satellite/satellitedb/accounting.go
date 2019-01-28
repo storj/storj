@@ -223,3 +223,8 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 	}
 	return rows, nil
 }
+
+//SetTimeHook provides a way to alter the timestamps sent to the database, for testing
+func (db *accountingDB) SetTimeHook(timeHook func() time.Time) {
+	db.db.Hooks.Now = timeHook
+}

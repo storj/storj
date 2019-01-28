@@ -41,21 +41,28 @@ func TestQueryOneDay(t *testing.T) {
 
 func TestQueryTwoDays(t *testing.T) {
 	// TODO: use testplanet
-
 	ctx, _, db, nodeData, cleanup := createRollup(t)
 	defer cleanup()
 
 	now := time.Now().UTC()
-	then := now.Add(time.Hour * -24)
+	later := now.Add(time.Hour * 48)
 
+	db.Accounting().SetTimeHook(func() time.Time { return now })
 	err := db.Accounting().SaveAtRestRaw(ctx, now, true, nodeData)
 	assert.NoError(t, err)
 
-	// db.db.Exec("UPDATE accounting_raws SET created_at= WHERE ")
-	// err = r.Query(ctx)
-	// assert.NoError(t, err)
+	db.Accounting().SetTimeHook(func() time.Time { return later })
+	err = db.Accounting().SaveAtRestRaw(ctx, later, false, nodeData)
+	assert.NoError(t, err)
 
-	_, err = db.Accounting().QueryPaymentInfo(ctx, then, now)
+	allRaw, err := db.Accounting().GetRawSince(ctx, now)
+	assert.Equal(t, 20, len(allRaw))
+	assert.Equal(t, now, allRaw[5].CreatedAt)
+	assert.Equal(t, later, allRaw[15].CreatedAt)
+
+	_, err = db.Accounting().QueryPaymentInfo(ctx, now, later)
+	//todo: fix QueryPaymentInfo to be awesome
+	//rows, err := db.Accounting().QueryPaymentInfo(ctx, now, later)
 	//assert.Equal(t, 10, len(rows))
 	assert.NoError(t, err)
 }
