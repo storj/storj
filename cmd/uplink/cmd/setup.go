@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package cmd
@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
@@ -18,53 +19,63 @@ import (
 )
 
 var (
-	uplinkSetupCmd = &cobra.Command{
+	setupCmd = &cobra.Command{
 		Use:         "setup",
 		Short:       "Create an uplink config file",
-		RunE:        cmdUplinkSetup,
+		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
-	// gatewaySetupCmd = &cobra.Command{
-	// 	Use:         "setup",
-	// 	Short:       "Create an gateway config file",
-	// 	RunE:        cmdGatewaySetup,
-	// 	Annotations: map[string]string{"type": "setup"},
-	// }
-	uplinkCfg struct {
-		CA            provider.CASetupConfig       `setup:"true"`
-		Identity      provider.IdentitySetupConfig `setup:"true"`
-		Overwrite     bool                         `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
-		SatelliteAddr string                       `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
+	setupCfg struct {
+		Identity           provider.IdentitySetupConfig
+		APIKey             string `default:"" help:"the api key to use for the satellite" setup:"true"`
+		EncKey             string `default:"" help:"your root encryption key" setup:"true"`
+		GenerateMinioCerts bool   `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
+		SatelliteAddr      string `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
 
+		Server miniogw.ServerConfig
+		//Minio  miniogw.MinioConfig
 		Client miniogw.ClientConfig
 		RS     miniogw.RSConfig
 		Enc    miniogw.EncryptionConfig
 	}
 
-	cliConfDir *string
+	defaultConfDir     = fpath.ApplicationDir("storj", "uplink")
+	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "uplink")
+
+	cliConfDir  string
+	identityDir string
 )
 
 func init() {
-	defaultUplinkConfDir := fpath.ApplicationDir("storj", "uplink")
-	//defaultGatewayConfDir := fpath.ApplicationDir("storj", "gateway")
-
-	dirParam := cfgstruct.FindConfigDirParam()
-	if dirParam != "" {
-		defaultUplinkConfDir = dirParam
-		//defaultGatewayConfDir = dirParam
+	confDirParam := cfgstruct.FindConfigDirParam()
+	if confDirParam != "" {
+		defaultConfDir = confDirParam
+	}
+	identityDirParam := cfgstruct.FindIdentityDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
 	}
 
-	cliConfDir = CLICmd.PersistentFlags().String("config-dir", defaultUplinkConfDir, "main directory for setup configuration")
-	//gwConfDir = GWCmd.PersistentFlags().String("config-dir", defaultGatewayConfDir, "main directory for setup configuration")
+	CLICmd.PersistentFlags().StringVar(&cliConfDir, "config-dir", defaultConfDir, "main directory for setup configuration")
+	//GWCmd.PersistentFlags().StringVar(&gwConfDir, "config-dir", defaultConfDir, "main directory for setup configuration")
+	CLICmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for uplink identity credentials")
+	err := CLICmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
+	// GWCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for gateway identity credentials")
+	// err = GWCmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
+	// if err != nil {
+	// 	zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	// }
 
-	CLICmd.AddCommand(uplinkSetupCmd)
-	//GWCmd.AddCommand(gatewaySetupCmd)
-	cfgstruct.BindSetup(uplinkSetupCmd.Flags(), &uplinkCfg, cfgstruct.ConfDir(defaultUplinkConfDir))
-	//cfgstruct.BindSetup(gatewaySetupCmd.Flags(), &gatewayCfg, cfgstruct.ConfDir(defaultGatewayConfDir))
+	CLICmd.AddCommand(setupCmd)
+	// GWCmd.AddCommand(setupCmd)
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
-func cmdUplinkSetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*cliConfDir)
+func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	setupDir, err := filepath.Abs(cliConfDir)
 	if err != nil {
 		return err
 	}
@@ -74,8 +85,8 @@ func cmdUplinkSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	valid, _ := fpath.IsValidSetupDir(setupDir)
-	if !uplinkCfg.Overwrite && !valid {
-		return fmt.Errorf("%s configuration already exists (%v). Rerun with --overwrite", "uplink", setupDir)
+	if !valid {
+		return fmt.Errorf("uplink configuration already exists (%v)", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
@@ -83,26 +94,36 @@ func cmdUplinkSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-	// TODO: handle setting base path *and* identity file paths via args
-	// NB: if base path is set this overrides identity and CA path options
-	if setupDir != defaultConfDir {
-		uplinkCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
-		uplinkCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
-		uplinkCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
-		uplinkCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
+	if setupCfg.GenerateMinioCerts {
+		minioCerts := filepath.Join(setupDir, "minio", "certs")
+		if err := os.MkdirAll(minioCerts, 0744); err != nil {
+			return err
+		}
+		if err := os.Link(setupCfg.Identity.CertPath, filepath.Join(minioCerts, "public.crt")); err != nil {
+			return err
+		}
+		if err := os.Link(setupCfg.Identity.KeyPath, filepath.Join(minioCerts, "private.key")); err != nil {
+			return err
+		}
 	}
-	err = provider.SetupIdentity(process.Ctx(cmd), uplinkCfg.CA, uplinkCfg.Identity)
-	if err != nil {
-		return err
-	}
+
+	// accessKey, err := generateAWSKey()
+	// if err != nil {
+	// 	return err
+	// }
+	// secretKey, err := generateAWSKey()
+	// if err != nil {
+	// 	return err
+	// }
 
 	o := map[string]interface{}{
-		"identity.cert-path":     uplinkCfg.Identity.CertPath,
-		"identity.key-path":      uplinkCfg.Identity.KeyPath,
-		"client.pointer-db-addr": uplinkCfg.SatelliteAddr,
-		"client.overlay-addr":    uplinkCfg.SatelliteAddr,
+		"client.api-key":         setupCfg.APIKey,
+		"client.pointer-db-addr": setupCfg.SatelliteAddr,
+		"client.overlay-addr":    setupCfg.SatelliteAddr,
+		//"minio.access-key":       accessKey,
+		//"minio.secret-key":       secretKey,
+		"enc.key": setupCfg.EncKey,
 	}
 
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
 }

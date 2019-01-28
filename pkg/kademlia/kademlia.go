@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package kademlia
@@ -9,19 +9,19 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"sync/atomic"
+	"sync"
 	"time"
-	"unsafe"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 )
@@ -47,13 +47,15 @@ type discoveryOptions struct {
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
 type Kademlia struct {
-	log             *zap.Logger
-	alpha           int // alpha is a system wide concurrency parameter
-	routingTable    *RoutingTable
-	bootstrapNodes  []pb.Node
-	nodeClient      node.Client
-	identity        *provider.FullIdentity
-	bootstrapCancel unsafe.Pointer // context.CancelFunc
+	log            *zap.Logger
+	alpha          int // alpha is a system wide concurrency parameter
+	routingTable   *RoutingTable
+	bootstrapNodes []pb.Node
+	dialer         *Dialer
+	identity       *provider.FullIdentity
+	lookups        sync.WaitGroup
+
+	bootstrapFinished sync2.Fence
 }
 
 // New returns a newly configured Kademlia instance
@@ -101,36 +103,27 @@ func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes [
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
 		identity:       identity,
+
+		dialer: NewDialer(log.Named("dialer"), transport.NewClient(identity, rt)),
 	}
 
-	nc, err := node.NewNodeClient(identity, self, k, rt)
-
-	if err != nil {
-		return nil, BootstrapErr.Wrap(err)
-	}
-	k.nodeClient = nc
 	return k, nil
 }
 
 // Close closes all kademlia connections and prevents new ones from being created.
 func (k *Kademlia) Close() error {
-	// Cancel the bootstrap context
-	ptr := atomic.LoadPointer(&k.bootstrapCancel)
-	if ptr != nil {
-		(*(*context.CancelFunc)(ptr))()
-	}
-	return k.nodeClient.Disconnect()
+	dialerErr := k.dialer.Close()
+	k.lookups.Wait()
+	return dialerErr
 }
 
 // Disconnect safely closes connections to the Kademlia network
 func (k *Kademlia) Disconnect() error {
-	// Cancel the bootstrap context
-	ptr := atomic.LoadPointer(&k.bootstrapCancel)
-	if ptr != nil {
-		(*(*context.CancelFunc)(ptr))()
-	}
+	dialerErr := k.dialer.Close()
+	k.lookups.Wait()
+
 	return errs.Combine(
-		k.nodeClient.Disconnect(),
+		dialerErr,
 		k.routingTable.Close(),
 	)
 }
@@ -190,23 +183,58 @@ func (k *Kademlia) SetBootstrapNodes(nodes []pb.Node) { k.bootstrapNodes = nodes
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
 func (k *Kademlia) Bootstrap(ctx context.Context) error {
-	if len(k.bootstrapNodes) == 0 {
-		return BootstrapErr.New("no bootstrap nodes provided")
-	}
-	bootstrapContext, bootstrapCancel := context.WithCancel(ctx)
-	atomic.StorePointer(&k.bootstrapCancel, unsafe.Pointer(&bootstrapCancel))
-	//find nodes most similar to self
+	defer k.bootstrapFinished.Release()
 
+	k.lookups.Add(1)
+	defer k.lookups.Done()
+
+	if len(k.bootstrapNodes) == 0 {
+		k.log.Warn("No bootstrap address specified.")
+		return nil
+	}
+
+	var errs errs.Group
+	for _, node := range k.bootstrapNodes {
+		if ctx.Err() != nil {
+			errs.Add(ctx.Err())
+			return errs.Err()
+		}
+
+		_, err := k.dialer.Ping(ctx, node)
+		if err == nil {
+			// We have pinged successfully one bootstrap node.
+			// Clear any errors and break the cycle.
+			errs = nil
+			break
+		}
+		errs.Add(err)
+	}
+	err := errs.Err()
+	if err != nil {
+		return err
+	}
+
+	//find nodes most similar to self
 	k.routingTable.mutex.Lock()
 	id := k.routingTable.self.Id
 	k.routingTable.mutex.Unlock()
-	_, err := k.lookup(bootstrapContext, id, true)
+
+	_, err = k.lookup(ctx, id, true)
 	return err
+}
+
+// WaitForBootstrap waits for bootstrap pinging has been completed.
+func (k *Kademlia) WaitForBootstrap() {
+	k.bootstrapFinished.Wait()
 }
 
 // Ping checks that the provided node is still accessible on the network
 func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
-	ok, err := k.nodeClient.Ping(ctx, node)
+
+	k.lookups.Add(1)
+	defer k.lookups.Done()
+
+	ok, err := k.dialer.Ping(ctx, node)
 	if err != nil {
 		return pb.Node{}, NodeErr.Wrap(err)
 	}
@@ -219,11 +247,18 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error) {
+
+	k.lookups.Add(1)
+	defer k.lookups.Done()
+
 	return k.lookup(ctx, ID, false)
 }
 
 //lookup initiates a kadmelia node lookup
 func (k *Kademlia) lookup(ctx context.Context, ID storj.NodeID, isBootstrap bool) (pb.Node, error) {
+	k.lookups.Add(1)
+	defer k.lookups.Done()
+
 	kb := k.routingTable.K()
 	var nodes []*pb.Node
 	if isBootstrap {
@@ -237,7 +272,7 @@ func (k *Kademlia) lookup(ctx context.Context, ID storj.NodeID, isBootstrap bool
 			return pb.Node{}, err
 		}
 	}
-	lookup := newPeerDiscovery(k.log, nodes, k.nodeClient, ID, discoveryOptions{
+	lookup := newPeerDiscovery(k.log, k.routingTable.Local(), nodes, k.dialer, ID, discoveryOptions{
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: isBootstrap, bootstrapNodes: k.bootstrapNodes,
 	})
 	target, err := lookup.Run(ctx)
@@ -283,29 +318,27 @@ func GetIntroNode(addr string) (*pb.Node, error) {
 			Transport: defaultTransport,
 			Address:   addr,
 		},
-		// TODO: nodetype is an assumption for now, but we shouldn't need to know
-		// or care for bootstrapping
-		Type: pb.NodeType_SATELLITE,
+		Type: pb.NodeType_BOOTSTRAP,
 	}, nil
 }
 
-// StartRefresh occasionally refreshes stale kad buckets
-func (k *Kademlia) StartRefresh(ctx context.Context) {
-	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
-		time.Sleep(time.Duration(rand.Intn(300)) * time.Second) //stagger
-		for {
-			if err := k.refresh(ctx); err != nil {
-				k.log.Warn("bucket refresh failed", zap.Error(err))
-			}
-			select {
-			case <-ticker.C:
-			case <-ctx.Done():
-				ticker.Stop()
-				return
-			}
+// RunRefresh occasionally refreshes stale kad buckets
+func (k *Kademlia) RunRefresh(ctx context.Context) error {
+	k.lookups.Add(1)
+	defer k.lookups.Done()
+
+	ticker := time.NewTicker(5 * time.Minute)
+	for {
+		if err := k.refresh(ctx); err != nil {
+			k.log.Warn("bucket refresh failed", zap.Error(err))
 		}
-	}()
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			ticker.Stop()
+			return ctx.Err()
+		}
+	}
 }
 
 // refresh updates each Kademlia bucket not contacted in the last hour

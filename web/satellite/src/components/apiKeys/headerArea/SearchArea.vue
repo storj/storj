@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -58,7 +58,6 @@ export default class SearchArea extends Vue {
                     padding-left: 20px;
                     font-family: 'montserrat_regular';
                     font-size: 16px;
-                    color: #AFB7C1;
                     outline: none;
                     box-shadow: none;
 

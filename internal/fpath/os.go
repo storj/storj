@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package fpath
@@ -90,12 +90,9 @@ func IsValidSetupDir(name string) (ok bool, err error) {
 		}
 
 		for _, filename := range filenames {
-			// allow log files to exist in the folder
-			if strings.EqualFold(filepath.Ext(filename), ".log") {
-				continue
+			if filename == "config.yaml" {
+				return false, nil
 			}
-
-			return false, nil
 		}
 	}
 }

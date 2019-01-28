@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
 package sync2
@@ -9,13 +9,11 @@ import (
 	"io/ioutil"
 	"math"
 	"sync"
-	"sync/atomic"
 )
 
 // pipe is a io.Reader/io.Writer pipe backed by ReadAtWriteAtCloser
 type pipe struct {
 	buffer ReadAtWriteAtCloser
-	open   int32 // number of halves open (starts at 2)
 
 	mu     sync.Mutex
 	nodata sync.Cond
@@ -37,21 +35,23 @@ func NewPipeFile(tempdir string) (PipeReader, PipeWriter, error) {
 		return nil, nil, err
 	}
 
+	handles := int64(2)
 	pipe := &pipe{
-		buffer: tempfile,
-		open:   2,
-		limit:  math.MaxInt64,
+		buffer: &offsetFile{
+			file: tempfile,
+			open: &handles,
+		},
+		limit: math.MaxInt64,
 	}
 	pipe.nodata.L = &pipe.mu
 
 	return pipeReader{pipe}, pipeWriter{pipe}, nil
 }
 
-// NewPipeMemory returns a pipe that uses an inmemory buffer
+// NewPipeMemory returns a pipe that uses an in-memory buffer
 func NewPipeMemory(pipeSize int64) (PipeReader, PipeWriter, error) {
 	pipe := &pipe{
 		buffer: make(memory, pipeSize),
-		open:   2,
 		limit:  pipeSize,
 	}
 	pipe.nodata.L = &pipe.mu
@@ -62,13 +62,17 @@ type pipeReader struct{ pipe *pipe }
 type pipeWriter struct{ pipe *pipe }
 
 // Close implements io.Reader Close
-func (reader pipeReader) Close() error { return reader.CloseWithError(io.ErrClosedPipe) }
+func (reader pipeReader) Close() error { return reader.CloseWithError(nil) }
 
 // Close implements io.Writer Close
-func (writer pipeWriter) Close() error { return writer.CloseWithError(io.EOF) }
+func (writer pipeWriter) Close() error { return writer.CloseWithError(nil) }
 
 // CloseWithError implements closing with error
 func (reader pipeReader) CloseWithError(err error) error {
+	if err == nil {
+		err = io.ErrClosedPipe
+	}
+
 	pipe := reader.pipe
 	pipe.mu.Lock()
 	if pipe.readerDone {
@@ -79,11 +83,15 @@ func (reader pipeReader) CloseWithError(err error) error {
 	pipe.readerErr = err
 	pipe.mu.Unlock()
 
-	return pipe.closeHalf()
+	return pipe.buffer.Close()
 }
 
 // CloseWithError implements closing with error
 func (writer pipeWriter) CloseWithError(err error) error {
+	if err == nil {
+		err = io.EOF
+	}
+
 	pipe := writer.pipe
 	pipe.mu.Lock()
 	if pipe.writerDone {
@@ -95,15 +103,7 @@ func (writer pipeWriter) CloseWithError(err error) error {
 	pipe.nodata.Broadcast()
 	pipe.mu.Unlock()
 
-	return pipe.closeHalf()
-}
-
-// closeHalf closes one side of the pipe
-func (pipe *pipe) closeHalf() error {
-	if atomic.AddInt32(&pipe.open, -1) == 0 {
-		return pipe.buffer.Close()
-	}
-	return nil
+	return pipe.buffer.Close()
 }
 
 // Write writes to the pipe returning io.ErrClosedPipe when pipeSize is reached
@@ -215,7 +215,6 @@ func (reader pipeReader) Read(data []byte) (n int, err error) {
 // MultiPipe is a multipipe backed by a single file
 type MultiPipe struct {
 	pipes []pipe
-	open  int64 // number of pipes open
 }
 
 // NewMultiPipeFile returns a new MultiPipe that is created in tempdir
@@ -237,15 +236,15 @@ func NewMultiPipeFile(tempdir string, pipeCount, pipeSize int64) (*MultiPipe, er
 
 	multipipe := &MultiPipe{
 		pipes: make([]pipe, pipeCount),
-		open:  pipeCount,
 	}
 
+	handles := 2 * pipeCount
 	for i := range multipipe.pipes {
 		pipe := &multipipe.pipes[i]
 		pipe.buffer = offsetFile{
 			file:   tempfile,
 			offset: int64(i) * pipeSize,
-			open:   &multipipe.open,
+			open:   &handles,
 		}
 		pipe.limit = pipeSize
 		pipe.nodata.L = &pipe.mu
@@ -260,7 +259,6 @@ func NewMultiPipeMemory(pipeCount, pipeSize int64) (*MultiPipe, error) {
 
 	multipipe := &MultiPipe{
 		pipes: make([]pipe, pipeCount),
-		open:  pipeCount,
 	}
 
 	for i := range multipipe.pipes {

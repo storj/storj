@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package testcontext
@@ -118,7 +118,7 @@ func (ctx *Context) Dir(subs ...string) string {
 	})
 
 	dir := filepath.Join(append([]string{ctx.directory}, subs...)...)
-	_ = os.MkdirAll(dir, 0644)
+	_ = os.MkdirAll(dir, 0744)
 	return dir
 }
 

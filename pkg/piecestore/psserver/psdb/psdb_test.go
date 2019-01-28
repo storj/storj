@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package psdb
@@ -18,6 +18,7 @@ import (
 
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -32,13 +33,19 @@ func newDB(t testing.TB) (*DB, func()) {
 	}
 	dbpath := filepath.Join(tmpdir, "psdb.db")
 
-	db, err := Open(ctx, "", dbpath)
+	storage := pstore.NewStorage(tmpdir)
+
+	db, err := Open(ctx, storage, dbpath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	return db, func() {
 		err := db.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = storage.Close()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -51,7 +58,7 @@ func newDB(t testing.TB) (*DB, func()) {
 }
 
 func TestNewInmemory(t *testing.T) {
-	db, err := OpenInMemory(context.Background(), "")
+	db, err := OpenInMemory(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

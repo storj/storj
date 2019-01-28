@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package tally
@@ -18,14 +18,15 @@ import (
 	"storj.io/storj/storage"
 )
 
-// Tally is the service for accounting for data stored on each storage node
-type Tally interface {
-	Run(ctx context.Context) error
+// Config contains configurable values for tally
+type Config struct {
+	Interval time.Duration `help:"how frequently tally should run" default:"30s"`
 }
 
-type tally struct {
-	pointerdb     *pointerdb.Server
-	overlay       pb.OverlayServer
+// Tally is the service for accounting for data stored on each storage node
+type Tally struct { // TODO: rename Tally to Service
+	pointerdb     *pointerdb.Service
+	overlay       pb.OverlayServer // TODO: this should be *overlay.Service
 	limit         int
 	logger        *zap.Logger
 	ticker        *time.Ticker
@@ -33,8 +34,9 @@ type tally struct {
 	bwAgreementDB bwagreement.DB // bwagreements database
 }
 
-func newTally(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Server, overlay pb.OverlayServer, limit int, interval time.Duration) *tally {
-	return &tally{
+// New creates a new Tally
+func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Service, overlay pb.OverlayServer, limit int, interval time.Duration) *Tally {
+	return &Tally{
 		pointerdb:     pointerdb,
 		overlay:       overlay,
 		limit:         limit,
@@ -45,23 +47,23 @@ func newTally(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwag
 	}
 }
 
-// Run the tally loop
-func (t *tally) Run(ctx context.Context) (err error) {
+// Run the Tally loop
+func (t *Tally) Run(ctx context.Context) (err error) {
+	t.logger.Info("Tally service starting up")
 	defer mon.Task()(&ctx)(&err)
-
 	for {
 		err = t.calculateAtRestData(ctx)
 		if err != nil {
 			t.logger.Error("calculateAtRestData failed", zap.Error(err))
 		}
-		err = t.queryBW(ctx)
+		err = t.QueryBW(ctx)
 		if err != nil {
 			t.logger.Error("Query for bandwidth failed", zap.Error(err))
 		}
 
 		select {
 		case <-t.ticker.C: // wait for the next interval to happen
-		case <-ctx.Done(): // or the tally is canceled via context
+		case <-ctx.Done(): // or the Tally is canceled via context
 			return ctx.Err()
 		}
 	}
@@ -69,10 +71,16 @@ func (t *tally) Run(ctx context.Context) (err error) {
 
 // calculateAtRestData iterates through the pieces on pointerdb and calculates
 // the amount of at-rest data stored on each respective node
-func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
+func (t *Tally) calculateAtRestData(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	var nodeData = make(map[storj.NodeID]int64)
-	err = t.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
+
+	latestTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastAtRestTally)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	var nodeData = make(map[storj.NodeID]float64)
+	err = t.pointerdb.Iterate("", "", true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
 			for it.Next(&item) {
@@ -103,34 +111,36 @@ func (t *tally) calculateAtRestData(ctx context.Context) (err error) {
 				}
 				pieceSize := segmentSize / int64(minReq)
 				for _, piece := range pieces {
-					nodeData[piece.NodeId] += pieceSize
+					t.logger.Info("found piece on Node ID" + piece.NodeId.String())
+					nodeData[piece.NodeId] += float64(pieceSize)
 				}
 			}
 			return nil
 		},
 	)
-	if err != nil {
-		return Error.Wrap(err)
-	}
 	if len(nodeData) == 0 {
 		return nil
 	}
-	latestTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastAtRestTally)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	if err != nil {
-		return Error.Wrap(err)
+	//store byte hours, not just bytes
+	numHours := 1.0 //todo: something more considered?
+	if !isNil {
+		numHours = time.Now().UTC().Sub(latestTally).Hours()
 	}
-	if isNil {
-		latestTally = time.Now().UTC()
+
+	latestTally = time.Now().UTC()
+
+	for k := range nodeData {
+		nodeData[k] *= numHours
 	}
-	return Error.Wrap(t.accountingDB.SaveAtRestRaw(ctx, latestTally, nodeData))
+	return Error.Wrap(t.accountingDB.SaveAtRestRaw(ctx, latestTally, isNil, nodeData))
 }
 
-// queryBW queries bandwidth allocation database, selecting all new contracts since the last collection run time.
+// QueryBW queries bandwidth allocation database, selecting all new contracts since the last collection run time.
 // Grouping by action type, storage node ID and adding total of bandwidth to granular data table.
-func (t *tally) queryBW(ctx context.Context) error {
+func (t *Tally) QueryBW(ctx context.Context) error {
 	lastBwTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastBandwidthTally)
 	if err != nil {
 		return Error.Wrap(err)
@@ -146,7 +156,6 @@ func (t *tally) queryBW(ctx context.Context) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
 	if len(bwAgreements) == 0 {
 		t.logger.Info("Tally found no new bandwidth allocations")
 		return nil
@@ -155,25 +164,23 @@ func (t *tally) queryBW(ctx context.Context) error {
 	// sum totals by node id ... todo: add nodeid as SQL column so DB can do this?
 	var bwTotals accounting.BWTally
 	for i := range bwTotals {
-		bwTotals[i] = make(map[string]int64)
+		bwTotals[i] = make(map[storj.NodeID]int64)
 	}
 	var latestBwa time.Time
 	for _, baRow := range bwAgreements {
 		rbad := &pb.RenterBandwidthAllocation_Data{}
 		if err := proto.Unmarshal(baRow.Agreement, rbad); err != nil {
-			t.logger.DPanic("Could not deserialize renter bwa in tally query")
+			t.logger.DPanic("Could not deserialize renter bwa in Tally query")
 			continue
 		}
 		pbad := &pb.PayerBandwidthAllocation_Data{}
 		if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
 			return err
 		}
-
 		if baRow.CreatedAt.After(latestBwa) {
 			latestBwa = baRow.CreatedAt
 		}
-		bwTotals[pbad.GetAction()][rbad.StorageNodeId.String()] += rbad.GetTotal()
+		bwTotals[pbad.GetAction()][rbad.StorageNodeId] += rbad.GetTotal()
 	}
-
-	return Error.Wrap(t.accountingDB.SaveBWRaw(ctx, lastBwTally, bwTotals))
+	return Error.Wrap(t.accountingDB.SaveBWRaw(ctx, latestBwa, isNil, bwTotals))
 }

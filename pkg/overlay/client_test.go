@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package overlay_test
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
@@ -43,6 +44,22 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestChoose(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 4, 1)
+	require.NoError(t, err)
+
+	planet.Start(ctx)
+	// we wait a second for all the nodes to complete bootstrapping off the satellite
+	time.Sleep(2 * time.Second)
+	defer ctx.Check(planet.Shutdown)
+
+	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	n1 := &pb.Node{Id: storj.NodeID{1}, Type: pb.NodeType_STORAGE}
 	n2 := &pb.Node{Id: storj.NodeID{2}, Type: pb.NodeType_STORAGE}
 	n3 := &pb.Node{Id: storj.NodeID{3}, Type: pb.NodeType_STORAGE}
@@ -56,13 +73,6 @@ func TestChoose(t *testing.T) {
 	id2 := storj.NodeID{2}
 	id3 := storj.NodeID{3}
 	id4 := storj.NodeID{4}
-
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet, cleanup := getPlanet(ctx, t)
-	defer cleanup()
-	oc := getOverlayClient(t, planet)
 
 	cases := []struct {
 		limit        int
@@ -122,9 +132,18 @@ func TestLookup(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, cleanup := getPlanet(ctx, t)
-	defer cleanup()
-	oc := getOverlayClient(t, planet)
+	planet, err := testplanet.New(t, 1, 4, 1)
+	require.NoError(t, err)
+
+	planet.Start(ctx)
+	// we wait a second for all the nodes to complete bootstrapping off the satellite
+	time.Sleep(2 * time.Second)
+	defer ctx.Check(planet.Shutdown)
+
+	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	nid1 := planet.StorageNodes[0].ID()
 
@@ -158,9 +177,18 @@ func TestBulkLookup(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, cleanup := getPlanet(ctx, t)
-	defer cleanup()
-	oc := getOverlayClient(t, planet)
+	planet, err := testplanet.New(t, 1, 4, 1)
+	require.NoError(t, err)
+
+	planet.Start(ctx)
+	// we wait a second for all the nodes to complete bootstrapping off the satellite
+	time.Sleep(2 * time.Second)
+	defer ctx.Check(planet.Shutdown)
+
+	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	nid1 := planet.StorageNodes[0].ID()
 	nid2 := planet.StorageNodes[1].ID()
@@ -189,11 +217,20 @@ func TestBulkLookupV2(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, cleanup := getPlanet(ctx, t)
-	defer cleanup()
-	oc := getOverlayClient(t, planet)
+	planet, err := testplanet.New(t, 1, 4, 1)
+	require.NoError(t, err)
 
-	cache := planet.Satellites[0].Overlay
+	planet.Start(ctx)
+	// we wait a second for all the nodes to complete bootstrapping off the satellite
+	time.Sleep(2 * time.Second)
+	defer ctx.Check(planet.Shutdown)
+
+	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cache := planet.Satellites[0].Overlay.Service
 
 	nid1 := storj.NodeID{1}
 	nid2 := storj.NodeID{2}
@@ -247,30 +284,4 @@ func TestBulkLookupV2(t *testing.T) {
 			}
 		}
 	}
-}
-
-func getPlanet(ctx *testcontext.Context, t *testing.T) (planet *testplanet.Planet, f func()) {
-	planet, err := testplanet.New(t, 1, 4, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	planet.Start(ctx)
-	// we wait a second for all the nodes to complete bootstrapping off the satellite
-	time.Sleep(2 * time.Second)
-
-	f = func() {
-		ctx.Check(planet.Shutdown)
-	}
-
-	return planet, f
-}
-
-func getOverlayClient(t *testing.T, planet *testplanet.Planet) (oc overlay.Client) {
-	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return oc
 }

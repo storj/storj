@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 import apollo from '@/utils/apolloManager';
@@ -97,7 +97,7 @@ export async function updateProjectRequest(projectID: string, description: strin
 						updateProjectDescription(
 							id: "${projectID}",
 							description: "${description}"
-						)
+						) {name}
 					}`
                 ),
                 fetchPolicy: 'no-cache',
@@ -131,7 +131,7 @@ export async function deleteProjectRequest(projectID: string): Promise<RequestRe
 					mutation {
 						deleteProject(
 							id: "${projectID}"
-						)
+						) {name}
 					}`
                 ),
                 fetchPolicy: 'no-cache',

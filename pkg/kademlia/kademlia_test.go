@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 // See LICENSE for copying information.
 
@@ -74,7 +74,7 @@ func TestNewKademlia(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
-		assert.NotNil(t, kad.nodeClient)
+		assert.NotNil(t, kad.dialer)
 		assert.NotNil(t, kad.routingTable)
 		assert.NoError(t, kad.Disconnect())
 	}

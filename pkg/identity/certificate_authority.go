@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package identity
@@ -11,6 +11,8 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"sync"
@@ -49,9 +51,9 @@ type FullCertificateAuthority struct {
 type CASetupConfig struct {
 	ParentCertPath string `help:"path to the parent authority's certificate chain"`
 	ParentKeyPath  string `help:"path to the parent authority's private key"`
-	CertPath       string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
-	KeyPath        string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
-	Difficulty     uint64 `help:"minimum difficulty for identity generation" default:"15"`
+	CertPath       string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/ca.cert"`
+	KeyPath        string `help:"path to the private key for this identity" default:"$IDENTITYDIR/ca.key"`
+	Difficulty     uint64 `help:"minimum difficulty for identity generation" default:"30"`
 	Timeout        string `help:"timeout for CA generation; golang duration string (0 no timeout)" default:"5m"`
 	Overwrite      bool   `help:"if true, existing CA certs AND keys will overwritten" default:"false"`
 	Concurrency    uint   `help:"number of concurrent workers for certificate authority generation" default:"4"`
@@ -67,17 +69,19 @@ type NewCAOptions struct {
 	ParentCert *x509.Certificate
 	// ParentKey ()
 	ParentKey crypto.PrivateKey
+	// Logger is used to log generation status updates
+	Logger io.Writer
 }
 
 // PeerCAConfig is for locating a CA certificate without a private key
 type PeerCAConfig struct {
-	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
+	CertPath string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/ca.cert"`
 }
 
 // FullCAConfig is for locating a CA certificate and it's private key
 type FullCAConfig struct {
-	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
-	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
+	CertPath string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/ca.cert"`
+	KeyPath  string `help:"path to the private key for this identity" default:"$IDENTITYDIR/ca.key"`
 }
 
 // NewCA creates a new full identity with the given difficulty
@@ -85,6 +89,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 	defer mon.Task()(&ctx)(&err)
 	var (
 		highscore = new(uint32)
+		i         = new(uint32)
 
 		mu          sync.Mutex
 		selectedKey *ecdsa.PrivateKey
@@ -95,9 +100,25 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		opts.Concurrency = 1
 	}
 
-	log.Printf("Generating a certificate matching a difficulty of %d\n", opts.Difficulty)
+	fmt.Printf("Generating key with a minimum a difficulty of %d...\n", opts.Difficulty)
+	updateStatus := func() {
+		if opts.Logger != nil {
+			count := atomic.LoadUint32(i)
+			hs := atomic.LoadUint32(highscore)
+			_, err := fmt.Fprintf(opts.Logger, "\rGenerated %d keys; best difficulty so far: %d", count, hs)
+			if err != nil {
+				log.Print(errs.Wrap(err))
+			}
+		}
+	}
 	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency),
 		func(k *ecdsa.PrivateKey, id storj.NodeID) (done bool, err error) {
+			if opts.Logger != nil {
+				if atomic.AddUint32(i, 1)%100 == 0 {
+					updateStatus()
+				}
+			}
+
 			difficulty, err := id.Difficulty()
 			if err != nil {
 				return false, err
@@ -105,11 +126,17 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 			if difficulty >= opts.Difficulty {
 				mu.Lock()
 				if selectedKey == nil {
-					log.Printf("Found a certificate matching difficulty of %d\n", difficulty)
+					updateStatus()
 					selectedKey = k
 					selectedID = id
 				}
 				mu.Unlock()
+				if opts.Logger != nil {
+					_, err := fmt.Fprintf(opts.Logger, "\nFound a key with difficulty %d!\n", difficulty)
+					if err != nil {
+						log.Print(errs.Wrap(err))
+					}
+				}
 				return true, nil
 			}
 			for {
@@ -118,7 +145,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 					return false, nil
 				}
 				if atomic.CompareAndSwapUint32(highscore, hs, uint32(difficulty)) {
-					log.Printf("Found a certificate matching difficulty of %d\n", difficulty)
+					updateStatus()
 					return false, nil
 				}
 			}
@@ -152,7 +179,7 @@ func (caS CASetupConfig) Status() TLSFilesStatus {
 }
 
 // Create generates and saves a CA using the config
-func (caS CASetupConfig) Create(ctx context.Context) (*FullCertificateAuthority, error) {
+func (caS CASetupConfig) Create(ctx context.Context, logger io.Writer) (*FullCertificateAuthority, error) {
 	var (
 		err    error
 		parent *FullCertificateAuthority
@@ -162,9 +189,9 @@ func (caS CASetupConfig) Create(ctx context.Context) (*FullCertificateAuthority,
 			CertPath: caS.ParentCertPath,
 			KeyPath:  caS.ParentKeyPath,
 		}.Load()
-	}
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if parent == nil {
@@ -176,6 +203,7 @@ func (caS CASetupConfig) Create(ctx context.Context) (*FullCertificateAuthority,
 		Concurrency: caS.Concurrency,
 		ParentCert:  parent.Cert,
 		ParentKey:   parent.Key,
+		Logger:      logger,
 	})
 	if err != nil {
 		return nil, err
@@ -227,33 +255,6 @@ func (fc FullCAConfig) PeerConfig() PeerCAConfig {
 	}
 }
 
-// Load loads a CA from the given configuration
-func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
-	chainPEM, err := ioutil.ReadFile(pc.CertPath)
-	if err != nil {
-		return nil, peertls.ErrNotExist.Wrap(err)
-	}
-
-	chain, err := DecodeAndParseChainPEM(chainPEM)
-	if err != nil {
-		return nil, errs.New("failed to load identity %#v: %v",
-			pc.CertPath, err)
-	}
-
-	nodeID, err := NodeIDFromKey(chain[peertls.LeafIndex].PublicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return &PeerCertificateAuthority{
-		// NB: `CAIndex` is in the context of a complete chain (incl. leaf).
-		// Here we're loading the CA chain (nodeID.e. without leaf).
-		RestChain: chain[peertls.CAIndex:],
-		Cert:      chain[peertls.CAIndex-1],
-		ID:        nodeID,
-	}, nil
-}
-
 // Save saves a CA with the given configuration
 func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	var (
@@ -287,6 +288,40 @@ func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	}
 
 	return writeErrs.Finish()
+}
+
+// SaveBackup saves the certificate of the config wth a timestamped filename
+func (fc FullCAConfig) SaveBackup(ca *FullCertificateAuthority) error {
+	return FullCAConfig{
+		CertPath: backupPath(fc.CertPath),
+	}.Save(ca)
+}
+
+// Load loads a CA from the given configuration
+func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
+	chainPEM, err := ioutil.ReadFile(pc.CertPath)
+	if err != nil {
+		return nil, peertls.ErrNotExist.Wrap(err)
+	}
+
+	chain, err := DecodeAndParseChainPEM(chainPEM)
+	if err != nil {
+		return nil, errs.New("failed to load identity %#v: %v",
+			pc.CertPath, err)
+	}
+
+	nodeID, err := NodeIDFromKey(chain[peertls.LeafIndex].PublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PeerCertificateAuthority{
+		// NB: `CAIndex` is in the context of a complete chain (incl. leaf).
+		// Here we're loading the CA chain (nodeID.e. without leaf).
+		RestChain: chain[peertls.CAIndex:],
+		Cert:      chain[peertls.CAIndex-1],
+		ID:        nodeID,
+	}, nil
 }
 
 // NewIdentity generates a new `FullIdentity` based on the CA. The CA

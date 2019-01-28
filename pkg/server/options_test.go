@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package server_test
@@ -52,6 +52,7 @@ func TestNewOptions(t *testing.T) {
 			"ca whitelist verification",
 			server.Config{
 				PeerCAWhitelistPath: whitelistPath,
+				UsePeerCAWhitelist:  true,
 			},
 			1,
 		}, {
@@ -59,6 +60,7 @@ func TestNewOptions(t *testing.T) {
 			server.Config{
 				// NB: file doesn't actually exist
 				PeerCAWhitelistPath: whitelistPath,
+				UsePeerCAWhitelist:  true,
 				Extensions: peertls.TLSExtConfig{
 					WhitelistSignedLeaf: true,
 				},
@@ -69,6 +71,7 @@ func TestNewOptions(t *testing.T) {
 			server.Config{
 				// NB: file doesn't actually exist
 				PeerCAWhitelistPath: whitelistPath,
+				UsePeerCAWhitelist:  true,
 				RevocationDBURL:     "bolt://" + ctx.File("revocation2.db"),
 				Extensions: peertls.TLSExtConfig{
 					Revocation: true,
@@ -80,6 +83,7 @@ func TestNewOptions(t *testing.T) {
 			server.Config{
 				// NB: file doesn't actually exist
 				PeerCAWhitelistPath: whitelistPath,
+				UsePeerCAWhitelist:  true,
 				RevocationDBURL:     "bolt://" + ctx.File("revocation3.db"),
 				Extensions: peertls.TLSExtConfig{
 					Revocation:          true,

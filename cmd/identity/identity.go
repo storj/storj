@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -13,26 +13,30 @@ import (
 
 var (
 	idCmd = &cobra.Command{
-		Use:   "id",
-		Short: "Manage identities",
+		Use:         "id",
+		Short:       "Manage identities",
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	newIDCmd = &cobra.Command{
-		Use:   "new",
-		Short: "Creates a new identity from an existing certificate authority",
-		RunE:  cmdNewID,
+		Use:         "create",
+		Short:       "Creates a new identity from an existing certificate authority",
+		RunE:        cmdNewID,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	leafExtCmd = &cobra.Command{
-		Use:   "extensions",
-		Short: "Prints the extensions attached to the identity leaf certificate",
-		RunE:  cmdLeafExtensions,
+		Use:         "extensions",
+		Short:       "Prints the extensions attached to the identity leaf certificate",
+		RunE:        cmdLeafExtensions,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	revokeLeafCmd = &cobra.Command{
-		Use:   "revoke",
-		Short: "Revoke the identity's leaf certificate (creates backup)",
-		RunE:  cmdRevokeLeaf,
+		Use:         "revoke",
+		Short:       "Revoke the identity's leaf certificate (creates backup)",
+		RunE:        cmdRevokeLeaf,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	newIDCfg struct {
@@ -54,11 +58,12 @@ var (
 func init() {
 	rootCmd.AddCommand(idCmd)
 	idCmd.AddCommand(newIDCmd)
-	cfgstruct.Bind(newIDCmd.Flags(), &newIDCfg, cfgstruct.ConfDir(defaultConfDir))
 	idCmd.AddCommand(leafExtCmd)
-	cfgstruct.Bind(leafExtCmd.Flags(), &leafExtCfg, cfgstruct.ConfDir(defaultConfDir))
 	idCmd.AddCommand(revokeLeafCmd)
-	cfgstruct.Bind(revokeLeafCmd.Flags(), &revokeLeafCfg, cfgstruct.ConfDir(defaultConfDir))
+
+	cfgstruct.Bind(newIDCmd.Flags(), &newIDCfg, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(leafExtCmd.Flags(), &leafExtCfg, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(revokeLeafCmd.Flags(), &revokeLeafCfg, cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdNewID(cmd *cobra.Command, args []string) (err error) {
@@ -104,9 +109,7 @@ func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// NB: backup original cert
-	var backupCfg provider.IdentityConfig
-	backupCfg.CertPath = backupPath(revokeLeafCfg.Identity.CertPath)
-	if err := backupCfg.Save(originalIdent); err != nil {
+	if err := revokeLeafCfg.Identity.SaveBackup(originalIdent); err != nil {
 		return err
 	}
 

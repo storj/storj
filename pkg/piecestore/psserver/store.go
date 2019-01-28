@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package psserver
@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -69,7 +68,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	if err = s.DB.AddBandwidthUsed(total); err != nil {
 		return StoreError.New("failed to write bandwidth info to database: %v", err)
 	}
-	s.log.Debug("Successfully stored", zap.String("Piece ID", fmt.Sprint(pd.GetId())))
+	s.log.Info("Successfully stored", zap.String("Piece ID", fmt.Sprint(pd.GetId())))
 
 	return reqStream.SendAndClose(&pb.PieceStoreSummary{Message: OK, TotalReceived: total})
 }
@@ -87,7 +86,7 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	}()
 
 	// Initialize file for storing data
-	storeFile, err := pstore.StoreWriter(id, s.DataDir)
+	storeFile, err := s.storage.Writer(id)
 	if err != nil {
 		return 0, err
 	}

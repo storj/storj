@@ -1,68 +1,54 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package psserver
 
 import (
-	"bytes"
-	"crypto"
-	"crypto/ecdsa"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"math"
 	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/gtank/cryptopasta"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/bwagreement/testbwagreement"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 )
 
-var ctx = context.Background()
-
-func writeFileToDir(name, dir string) error {
-	file, err := pstore.StoreWriter(name, dir)
-	if err != nil {
-		return err
-	}
-
-	// Close when finished
-	_, err = io.Copy(file, bytes.NewReader([]byte("butts")))
-	if err != nil {
-		_ = file.Close()
-		return err
-	}
-	return file.Close()
-}
-
 func TestPiece(t *testing.T) {
-	TS := NewTestServer(t)
-	defer TS.Stop()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
+	snID, upID := newTestID(ctx, t), newTestID(ctx, t)
+	s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
+	defer cleanup()
+
+	if err := writeFile(s, "11111111111111111111"); err != nil {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
 
-	defer func() { _ = pstore.Delete("11111111111111111111", TS.s.DataDir) }()
+	defer func() { _ = s.storage.Delete("11111111111111111111") }()
 
 	// set up test cases
 	tests := []struct {
@@ -81,13 +67,16 @@ func TestPiece(t *testing.T) {
 			id:         "123",
 			size:       5,
 			expiration: 9999999999,
-			err:        "rpc error: code = Unknown desc = argError: invalid id length",
+			err:        "rpc error: code = Unknown desc = piecestore error: invalid id length",
 		},
 		{ // server should err with nonexistent file
 			id:         "22222222222222222222",
 			size:       5,
 			expiration: 9999999999,
-			err:        fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(TS.s.DataDir, "/22/22/2222222222222222")),
+			err: fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", func() string {
+				path, _ := s.storage.PiecePath("22222222222222222222")
+				return path
+			}()),
 		},
 		{ // server should err with invalid TTL
 			id:         "22222222222222222222;DELETE*FROM TTL;;;;",
@@ -102,16 +91,16 @@ func TestPiece(t *testing.T) {
 			assert := assert.New(t)
 
 			// simulate piece TTL entry
-			_, err := TS.s.DB.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, tt.expiration))
+			_, err := s.DB.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, tt.expiration))
 			assert.NoError(err)
 
 			defer func() {
-				_, err := TS.s.DB.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
+				_, err := s.DB.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 				assert.NoError(err)
 			}()
 
 			req := &pb.PieceId{Id: tt.id}
-			resp, err := TS.c.Piece(ctx, req)
+			resp, err := c.Piece(ctx, req)
 
 			if tt.err != "" {
 				assert.NotNil(err)
@@ -133,18 +122,19 @@ func TestPiece(t *testing.T) {
 }
 
 func TestRetrieve(t *testing.T) {
-	t.Skip("broken test")
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	TS := NewTestServer(t)
-	defer TS.Stop()
+	snID, upID := newTestID(ctx, t), newTestID(ctx, t)
+	s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
+	defer cleanup()
 
-	// simulate piece stored with storagenode
-	if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
+	if err := writeFile(s, "11111111111111111111"); err != nil {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
 
-	defer func() { _ = pstore.Delete("11111111111111111111", TS.s.DataDir) }()
+	defer func() { _ = s.storage.Delete("11111111111111111111") }()
 
 	// set up test cases
 	tests := []struct {
@@ -162,7 +152,7 @@ func TestRetrieve(t *testing.T) {
 			respSize:  5,
 			allocSize: 5,
 			offset:    0,
-			content:   []byte("butts"),
+			content:   []byte("xyzwq"),
 			err:       "",
 		},
 		{ // should successfully retrieve data in customizeable increments
@@ -171,7 +161,7 @@ func TestRetrieve(t *testing.T) {
 			respSize:  5,
 			allocSize: 2,
 			offset:    0,
-			content:   []byte("butts"),
+			content:   []byte("xyzwq"),
 			err:       "",
 		},
 		{ // should successfully retrieve data with lower allocations
@@ -180,7 +170,7 @@ func TestRetrieve(t *testing.T) {
 			respSize:  3,
 			allocSize: 3,
 			offset:    0,
-			content:   []byte("but"),
+			content:   []byte("xyz"),
 			err:       "",
 		},
 		{ // should successfully retrieve data
@@ -189,7 +179,7 @@ func TestRetrieve(t *testing.T) {
 			respSize:  5,
 			allocSize: 5,
 			offset:    0,
-			content:   []byte("butts"),
+			content:   []byte("xyzwq"),
 			err:       "",
 		},
 		{ // server should err with invalid id
@@ -198,8 +188,8 @@ func TestRetrieve(t *testing.T) {
 			respSize:  5,
 			allocSize: 5,
 			offset:    0,
-			content:   []byte("butts"),
-			err:       "rpc error: code = Unknown desc = argError: invalid id length",
+			content:   []byte("xyzwq"),
+			err:       "rpc error: code = Unknown desc = piecestore error: invalid id length",
 		},
 		{ // server should err with nonexistent file
 			id:        "22222222222222222222",
@@ -207,8 +197,11 @@ func TestRetrieve(t *testing.T) {
 			respSize:  5,
 			allocSize: 5,
 			offset:    0,
-			content:   []byte("butts"),
-			err:       fmt.Sprintf("rpc error: code = Unknown desc = retrieve error: stat %s: no such file or directory", path.Join(TS.s.DataDir, "/22/22/2222222222222222")),
+			content:   []byte("xyzwq"),
+			err: fmt.Sprintf("rpc error: code = Unknown desc = retrieve error: stat %s: no such file or directory", func() string {
+				path, _ := s.storage.PiecePath("22222222222222222222")
+				return path
+			}()),
 		},
 		{ // server should return expected content and respSize with offset and excess reqSize
 			id:        "11111111111111111111",
@@ -216,7 +209,7 @@ func TestRetrieve(t *testing.T) {
 			respSize:  4,
 			allocSize: 5,
 			offset:    1,
-			content:   []byte("utts"),
+			content:   []byte("yzwq"),
 			err:       "",
 		},
 		{ // server should return expected content with reduced reqSize
@@ -225,7 +218,7 @@ func TestRetrieve(t *testing.T) {
 			respSize:  4,
 			allocSize: 5,
 			offset:    0,
-			content:   []byte("butt"),
+			content:   []byte("xyzw"),
 			err:       "",
 		},
 	}
@@ -233,11 +226,14 @@ func TestRetrieve(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
 			assert := assert.New(t)
-			stream, err := TS.c.Retrieve(ctx)
+			stream, err := c.Retrieve(ctx)
 			assert.NoError(err)
 
 			// send piece database
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, PieceSize: tt.reqSize, Offset: tt.offset}})
+			assert.NoError(err)
+
+			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, snID, upID, time.Hour)
 			assert.NoError(err)
 
 			totalAllocated := int64(0)
@@ -248,20 +244,12 @@ func TestRetrieve(t *testing.T) {
 				// Send bandwidth bandwidthAllocation
 				totalAllocated += tt.allocSize
 
-				ba := pb.RenterBandwidthAllocation{
-					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-						PayerAllocation: &pb.PayerBandwidthAllocation{},
-						Total:           totalAllocated,
-					}),
-				}
-
-				s, err := cryptopasta.Sign(ba.Data, TS.k.(*ecdsa.PrivateKey))
+				rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, totalAllocated)
 				assert.NoError(err)
-				ba.Signature = s
 
 				err = stream.Send(
 					&pb.PieceRetrieval{
-						BandwidthAllocation: &ba,
+						BandwidthAllocation: rba,
 					},
 				)
 				assert.NoError(err)
@@ -292,39 +280,47 @@ func TestRetrieve(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	TS := NewTestServer(t)
-	defer TS.Stop()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	db := TS.s.DB.DB
+	satID := newTestID(ctx, t)
 
 	tests := []struct {
 		id            string
+		satelliteID   storj.NodeID
+		whitelist     []storj.NodeID
 		ttl           int64
 		content       []byte
 		message       string
 		totalReceived int64
 		err           string
 	}{
-		{ // should successfully store data
+		{ // should successfully store data with no approved satellites
 			id:            "99999999999999999999",
+			satelliteID:   satID.ID,
+			whitelist:     []storj.NodeID{},
 			ttl:           9999999999,
-			content:       []byte("butts"),
+			content:       []byte("xyzwq"),
 			message:       "OK",
 			totalReceived: 5,
 			err:           "",
 		},
 		{ // should err with invalid id length
 			id:            "butts",
+			satelliteID:   satID.ID,
+			whitelist:     []storj.NodeID{satID.ID},
 			ttl:           9999999999,
-			content:       []byte("butts"),
+			content:       []byte("xyzwq"),
 			message:       "",
 			totalReceived: 0,
-			err:           "rpc error: code = Unknown desc = argError: invalid id length",
+			err:           "rpc error: code = Unknown desc = piecestore error: invalid id length",
 		},
 		{ // should err with piece ID not specified
 			id:            "",
+			satelliteID:   satID.ID,
+			whitelist:     []storj.NodeID{satID.ID},
 			ttl:           9999999999,
-			content:       []byte("butts"),
+			content:       []byte("xyzwq"),
 			message:       "",
 			totalReceived: 0,
 			err:           "rpc error: code = Unknown desc = store error: piece ID not specified",
@@ -333,37 +329,27 @@ func TestStore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
+			snID, upID := newTestID(ctx, t), newTestID(ctx, t)
+			s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
+			defer cleanup()
+			db := s.DB.DB
+
 			assert := assert.New(t)
-			stream, err := TS.c.Store(ctx)
+			stream, err := c.Store(ctx)
 			assert.NoError(err)
 
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
 			assert.NoError(err)
-
-			pbad := &pb.PayerBandwidthAllocation_Data{
-				SatelliteId: teststorj.NodeIDFromString("satelliteid"),
-				UplinkId:    teststorj.NodeIDFromString("uplinkid"),
-				Action:      pb.PayerBandwidthAllocation_PUT,
-			}
-			pbaData, err := proto.Marshal(pbad)
-			assert.NoError(err)
-			pba := &pb.PayerBandwidthAllocation{Data: pbaData}
 			// Send Bandwidth Allocation Data
-			msg := &pb.PieceStore{
-				PieceData: &pb.PieceStore_PieceData{Content: tt.content},
-				BandwidthAllocation: &pb.RenterBandwidthAllocation{
-					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-						PayerAllocation: pba,
-						Total:           int64(len(tt.content)),
-					}),
-				},
-			}
-
-			s, err := cryptopasta.Sign(msg.BandwidthAllocation.Data, TS.k.(*ecdsa.PrivateKey))
+			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_PUT, snID, upID, time.Hour)
 			assert.NoError(err)
-			msg.BandwidthAllocation.Signature = s
-
+			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, tt.totalReceived)
+			assert.NoError(err)
+			msg := &pb.PieceStore{
+				PieceData:           &pb.PieceStore_PieceData{Content: tt.content},
+				BandwidthAllocation: rba,
+			}
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(msg)
 			if err != io.EOF && err != nil {
@@ -373,11 +359,12 @@ func TestStore(t *testing.T) {
 			resp, err := stream.CloseAndRecv()
 			if tt.err != "" {
 				assert.NotNil(err)
-				assert.Equal(tt.err, err.Error())
+				assert.True(strings.HasPrefix(err.Error(), tt.err), "expected")
 				return
 			}
-
-			assert.NoError(err)
+			if !assert.NoError(err) {
+				t.Fatal(err)
+			}
 
 			defer func() {
 				_, err := db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
@@ -409,7 +396,9 @@ func TestStore(t *testing.T) {
 			}
 			err = rows.Err()
 			assert.NoError(err)
-
+			if !assert.NotNil(resp) {
+				t.Fatalf("resp is null")
+			}
 			assert.Equal(tt.message, resp.Message)
 			assert.Equal(tt.totalReceived, resp.TotalReceived)
 		})
@@ -417,30 +406,43 @@ func TestStore(t *testing.T) {
 }
 
 func TestPbaValidation(t *testing.T) {
-	TS := NewTestServer(t)
-	defer TS.Stop()
+	ctx := testcontext.New(t)
+	snID, upID := newTestID(ctx, t), newTestID(ctx, t)
+	satID1, satID2, satID3 := newTestID(ctx, t), newTestID(ctx, t), newTestID(ctx, t)
+	defer ctx.Cleanup()
 
 	tests := []struct {
 		satelliteID storj.NodeID
 		uplinkID    storj.NodeID
+		whitelist   []storj.NodeID
 		action      pb.PayerBandwidthAllocation_Action
 		err         string
 	}{
+		{ // unapproved satellite id
+			satelliteID: satID1.ID,
+			uplinkID:    upID.ID,
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID, satID3.ID},
+			action:      pb.PayerBandwidthAllocation_PUT,
+			err:         "rpc error: code = Unknown desc = store error: Satellite ID not approved",
+		},
 		{ // missing satellite id
 			satelliteID: storj.NodeID{},
-			uplinkID:    teststorj.NodeIDFromString("uplinkid"),
+			uplinkID:    upID.ID,
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID, satID3.ID},
 			action:      pb.PayerBandwidthAllocation_PUT,
 			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: missing satellite id",
 		},
 		{ // missing uplink id
-			satelliteID: teststorj.NodeIDFromString("satelliteid"),
+			satelliteID: satID1.ID,
 			uplinkID:    storj.NodeID{},
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID, satID3.ID},
 			action:      pb.PayerBandwidthAllocation_PUT,
 			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: missing uplink id",
 		},
 		{ // wrong action type
-			satelliteID: teststorj.NodeIDFromString("satelliteid"),
-			uplinkID:    teststorj.NodeIDFromString("uplinkid"),
+			satelliteID: satID1.ID,
+			uplinkID:    upID.ID,
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID, satID3.ID},
 			action:      pb.PayerBandwidthAllocation_GET,
 			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: invalid action GET",
 		},
@@ -448,37 +450,28 @@ func TestPbaValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("should validate payer bandwidth allocation struct", func(t *testing.T) {
+			s, c, cleanup := NewTest(ctx, t, snID, upID, tt.whitelist)
+			defer cleanup()
+
 			assert := assert.New(t)
-			stream, err := TS.c.Store(ctx)
+			stream, err := c.Store(ctx)
 			assert.NoError(err)
 
+			//cleanup incase tests previously paniced
+			_ = s.storage.Delete("99999999999999999999")
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: "99999999999999999999", ExpirationUnixSec: 9999999999}})
 			assert.NoError(err)
-
-			pbad := &pb.PayerBandwidthAllocation_Data{
-				SatelliteId: tt.satelliteID,
-				UplinkId:    tt.uplinkID,
-				Action:      tt.action,
-			}
-			pbaData, err := proto.Marshal(pbad)
-			assert.NoError(err)
-			pba := &pb.PayerBandwidthAllocation{Data: pbaData}
 			// Send Bandwidth Allocation Data
 			content := []byte("content")
-			msg := &pb.PieceStore{
-				PieceData: &pb.PieceStore_PieceData{Content: content},
-				BandwidthAllocation: &pb.RenterBandwidthAllocation{
-					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-						PayerAllocation: pba,
-						Total:           int64(len(content)),
-					}),
-				},
-			}
-
-			s, err := cryptopasta.Sign(msg.BandwidthAllocation.Data, TS.k.(*ecdsa.PrivateKey))
+			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(tt.action, satID1, upID, time.Hour)
 			assert.NoError(err)
-			msg.BandwidthAllocation.Signature = s
+			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, int64(len(content)))
+			assert.NoError(err)
+			msg := &pb.PieceStore{
+				PieceData:           &pb.PieceStore_PieceData{Content: content},
+				BandwidthAllocation: rba,
+			}
 
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(msg)
@@ -489,6 +482,8 @@ func TestPbaValidation(t *testing.T) {
 			_, err = stream.CloseAndRecv()
 			if err != nil {
 				//assert.NotNil(err)
+				t.Log("Expected err string", tt.err)
+				t.Log("Actual err.Error:", err.Error())
 				assert.Equal(tt.err, err.Error())
 				return
 			}
@@ -497,10 +492,14 @@ func TestPbaValidation(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	TS := NewTestServer(t)
-	defer TS.Stop()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	db := TS.s.DB.DB
+	snID, upID := newTestID(ctx, t), newTestID(ctx, t)
+	s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
+	defer cleanup()
+
+	db := s.DB.DB
 
 	// set up test cases
 	tests := []struct {
@@ -515,8 +514,8 @@ func TestDelete(t *testing.T) {
 		},
 		{ // should err with invalid id length
 			id:      "123",
-			message: "rpc error: code = Unknown desc = argError: invalid id length",
-			err:     "rpc error: code = Unknown desc = argError: invalid id length",
+			message: "rpc error: code = Unknown desc = piecestore error: invalid id length",
+			err:     "rpc error: code = Unknown desc = piecestore error: invalid id length",
 		},
 		{ // should return OK with nonexistent file
 			id:      "22222222222222222223",
@@ -530,7 +529,7 @@ func TestDelete(t *testing.T) {
 			assert := assert.New(t)
 
 			// simulate piece stored with storagenode
-			if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
+			if err := writeFile(s, "11111111111111111111"); err != nil {
 				t.Errorf("Error: %v\nCould not create test piece", err)
 				return
 			}
@@ -545,11 +544,11 @@ func TestDelete(t *testing.T) {
 			}()
 
 			defer func() {
-				assert.NoError(pstore.Delete("11111111111111111111", TS.s.DataDir))
+				assert.NoError(s.storage.Delete("11111111111111111111"))
 			}()
 
 			req := &pb.PieceDelete{Id: tt.id}
-			resp, err := TS.c.Delete(ctx, req)
+			resp, err := c.Delete(ctx, req)
 
 			if tt.err != "" {
 				assert.Equal(tt.err, err.Error())
@@ -560,7 +559,7 @@ func TestDelete(t *testing.T) {
 			assert.Equal(tt.message, resp.GetMessage())
 
 			// if test passes, check if file was indeed deleted
-			filePath, err := pstore.PathByID(tt.id, TS.s.DataDir)
+			filePath, err := s.storage.PiecePath(tt.id)
 			assert.NoError(err)
 			if _, err = os.Stat(filePath); os.IsExist(err) {
 				t.Errorf("File not deleted")
@@ -570,120 +569,67 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-func newTestServerStruct(t *testing.T) (*Server, func()) {
+func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentity,
+	ids []storj.NodeID) (*Server, pb.PieceStoreRoutesClient, func()) {
+	//init ps server backend
 	tmp, err := ioutil.TempDir("", "storj-piecestore")
-	if err != nil {
-		log.Fatalf("failed temp-dir: %v", err)
-	}
-
+	assert.NoError(t, err)
 	tempDBPath := filepath.Join(tmp, "test.db")
 	tempDir := filepath.Join(tmp, "test-data", "3000")
-
-	psDB, err := psdb.Open(ctx, tempDir, tempDBPath)
-	if err != nil {
-		t.Fatalf("failed open psdb: %v", err)
-	}
-
+	storage := pstore.NewStorage(tempDir)
+	psDB, err := psdb.Open(ctx, storage, tempDBPath)
+	assert.NoError(t, err)
 	verifier := func(authorization *pb.SignedMessage) error {
 		return nil
 	}
-	server := &Server{
+	psServer := &Server{
 		log:              zaptest.NewLogger(t),
-		DataDir:          tempDir,
+		storage:          storage,
 		DB:               psDB,
 		verifier:         verifier,
 		totalAllocated:   math.MaxInt64,
 		totalBwAllocated: math.MaxInt64,
+		whitelist:        ids,
 	}
-	return server, func() {
-		if serr := server.Stop(ctx); serr != nil {
-			t.Fatal(serr)
-		}
-		// TODO:fix this error check
-		_ = os.RemoveAll(tmp)
-		// if err := os.RemoveAll(tmp); err != nil {
-		// 	t.Fatal(err)
-		// }
+	//init ps server grpc
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	assert.NoError(t, err)
+	publicConfig := server.Config{Address: "127.0.0.1:0"}
+	publicOptions, err := server.NewOptions(snID, publicConfig)
+	assert.NoError(t, err)
+	grpcServer, err := server.NewServer(publicOptions, listener, nil)
+	assert.NoError(t, err)
+	pb.RegisterPieceStoreRoutesServer(grpcServer.GRPC(), psServer)
+	go func() { assert.NoError(t, grpcServer.Run(ctx)) }()
+	//init client
+	co, err := upID.DialOption(storj.NodeID{})
+	assert.NoError(t, err)
+	conn, err := grpc.Dial(listener.Addr().String(), co)
+	assert.NoError(t, err)
+	psClient := pb.NewPieceStoreRoutesClient(conn)
+	//cleanup callback
+	cleanup := func() {
+		assert.NoError(t, conn.Close())
+		assert.NoError(t, psServer.Close())
+		assert.NoError(t, psServer.Stop(ctx))
+		assert.NoError(t, os.RemoveAll(tmp))
 	}
+	return psServer, psClient, cleanup
 }
 
-func connect(addr string, o ...grpc.DialOption) (pb.PieceStoreRoutesClient, *grpc.ClientConn) {
-	conn, err := grpc.Dial(addr, o...)
+func newTestID(ctx context.Context, t *testing.T) *identity.FullIdentity {
+	id, err := testidentity.NewTestIdentity(ctx)
 	if err != nil {
-		log.Fatalf("did not connect: %v", err)
+		t.Fatal(err)
 	}
-
-	c := pb.NewPieceStoreRoutesClient(conn)
-
-	return c, conn
+	return id
 }
 
-type TestServer struct {
-	s        *Server
-	scleanup func()
-	grpcs    *grpc.Server
-	conn     *grpc.ClientConn
-	c        pb.PieceStoreRoutesClient
-	k        crypto.PrivateKey
-}
-
-func NewTestServer(t *testing.T) *TestServer {
-	check := func(e error) {
-		if !assert.NoError(t, e) {
-			t.Fail()
-		}
-	}
-
-	caS, err := testidentity.NewTestCA(context.Background())
-	check(err)
-	fiS, err := caS.NewIdentity()
-	check(err)
-	so, err := fiS.ServerOption()
-	check(err)
-
-	caC, err := testidentity.NewTestCA(context.Background())
-	check(err)
-	fiC, err := caC.NewIdentity()
-	check(err)
-	co, err := fiC.DialOption(storj.NodeID{})
-	check(err)
-
-	s, cleanup := newTestServerStruct(t)
-	grpcs := grpc.NewServer(so)
-
-	k, ok := fiC.Key.(*ecdsa.PrivateKey)
-	assert.True(t, ok)
-	ts := &TestServer{s: s, scleanup: cleanup, grpcs: grpcs, k: k}
-	addr := ts.start()
-	ts.c, ts.conn = connect(addr, co)
-
-	return ts
-}
-
-func (TS *TestServer) start() (addr string) {
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
+func writeFile(s *Server, pieceID string) error {
+	file, err := s.storage.Writer(pieceID)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		return err
 	}
-	pb.RegisterPieceStoreRoutesServer(TS.grpcs, TS.s)
-
-	go func() {
-		if err := TS.grpcs.Serve(lis); err != nil {
-			log.Fatalf("failed to serve: %v", err)
-		}
-	}()
-	return lis.Addr().String()
-}
-
-func (TS *TestServer) Stop() {
-	if err := TS.conn.Close(); err != nil {
-		panic(err)
-	}
-	TS.grpcs.Stop()
-	TS.scleanup()
-}
-
-func serializeData(ba *pb.RenterBandwidthAllocation_Data) []byte {
-	data, _ := proto.Marshal(ba)
-	return data
+	_, err = file.Write([]byte("xyzwq"))
+	return errs.Combine(err, file.Close())
 }

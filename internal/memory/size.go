@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package memory
@@ -10,15 +10,22 @@ import (
 	"strings"
 )
 
-// different sizes
+// base 2 and base 10 sizes
 const (
 	B Size = 1 << (10 * iota)
-	KB
-	MB
-	GB
-	TB
-	PB
-	EB
+	KiB
+	MiB
+	GiB
+	TiB
+	PiB
+	EiB
+
+	KB Size = 1e3
+	MB Size = 1e6
+	GB Size = 1e9
+	TB Size = 1e12
+	PB Size = 1e15
+	EB Size = 1e18
 )
 
 // Size implements flag.Value for collecting memory size in bytes
@@ -36,6 +43,24 @@ func (size Size) Int64() int64 { return int64(size) }
 // Float64 returns bytes size as float64
 func (size Size) Float64() float64 { return float64(size) }
 
+// KiB returns size in kibibytes
+func (size Size) KiB() float64 { return size.Float64() / KiB.Float64() }
+
+// MiB returns size in mebibytes
+func (size Size) MiB() float64 { return size.Float64() / MiB.Float64() }
+
+// GiB returns size in gibibytes
+func (size Size) GiB() float64 { return size.Float64() / GiB.Float64() }
+
+// TiB returns size in tebibytes
+func (size Size) TiB() float64 { return size.Float64() / TiB.Float64() }
+
+// PiB returns size in pebibytes
+func (size Size) PiB() float64 { return size.Float64() / PiB.Float64() }
+
+// EiB returns size in exbibytes
+func (size Size) EiB() float64 { return size.Float64() / EiB.Float64() }
+
 // KB returns size in kilobytes
 func (size Size) KB() float64 { return size.Float64() / KB.Float64() }
 
@@ -51,11 +76,55 @@ func (size Size) TB() float64 { return size.Float64() / TB.Float64() }
 // PB returns size in petabytes
 func (size Size) PB() float64 { return size.Float64() / PB.Float64() }
 
-// EB returns size in etabytes
+// EB returns size in exabytes
 func (size Size) EB() float64 { return size.Float64() / EB.Float64() }
 
-// String converts size to a string
+// String converts size to a string using base-2 prefixes, unless the number
+// appears to be in base 10.
 func (size Size) String() string {
+	if countZeros(int64(size), 1000) > countZeros(int64(size), 1024) {
+		return size.Base10String()
+	}
+	return size.Base2String()
+}
+
+// countZeros considers a number num in base base. It counts zeros of that
+// number in that base from least significant to most, stopping when a non-zero
+// value is hit.
+func countZeros(num, base int64) (count int) {
+	for num != 0 && num%base == 0 {
+		num /= base
+		count++
+	}
+	return count
+}
+
+// Base2String converts size to a string using base-2 prefixes
+func (size Size) Base2String() string {
+	if size == 0 {
+		return "0"
+	}
+
+	switch {
+	case size >= EiB*2/3:
+		return fmt.Sprintf("%.1f EiB", size.EiB())
+	case size >= PiB*2/3:
+		return fmt.Sprintf("%.1f PiB", size.PiB())
+	case size >= TiB*2/3:
+		return fmt.Sprintf("%.1f TiB", size.TiB())
+	case size >= GiB*2/3:
+		return fmt.Sprintf("%.1f GiB", size.GiB())
+	case size >= MiB*2/3:
+		return fmt.Sprintf("%.1f MiB", size.MiB())
+	case size >= KiB*2/3:
+		return fmt.Sprintf("%.1f KiB", size.KiB())
+	}
+
+	return strconv.Itoa(size.Int()) + " B"
+}
+
+// Base10String converts size to a string using base-10 prefixes
+func (size Size) Base10String() string {
 	if size == 0 {
 		return "0"
 	}
@@ -89,10 +158,11 @@ func (size *Size) Set(s string) error {
 	}
 
 	p := len(s)
-	if isLetter(s[len(s)-1]) {
+	for isLetter(s[p-1]) {
 		p--
-		if len(s)-2 >= 0 && isLetter(s[len(s)-2]) {
-			p--
+
+		if p < 0 {
+			return errors.New("p out of bounds")
 		}
 	}
 
@@ -111,16 +181,28 @@ func (size *Size) Set(s string) error {
 	switch suffix {
 	case "EB":
 		*size = Size(v * EB.Float64())
+	case "EIB":
+		*size = Size(v * EiB.Float64())
 	case "PB":
 		*size = Size(v * PB.Float64())
+	case "PIB":
+		*size = Size(v * PiB.Float64())
 	case "TB":
 		*size = Size(v * TB.Float64())
+	case "TIB":
+		*size = Size(v * TiB.Float64())
 	case "GB":
 		*size = Size(v * GB.Float64())
+	case "GIB":
+		*size = Size(v * GiB.Float64())
 	case "MB":
 		*size = Size(v * MB.Float64())
+	case "MIB":
+		*size = Size(v * MiB.Float64())
 	case "KB":
 		*size = Size(v * KB.Float64())
+	case "KIB":
+		*size = Size(v * KiB.Float64())
 	case "B", "":
 		*size = Size(v)
 	default:
@@ -129,3 +211,6 @@ func (size *Size) Set(s string) error {
 
 	return nil
 }
+
+// Type implements pflag.Value
+func (Size) Type() string { return "memory.Size" }

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package audit
@@ -12,8 +12,15 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/transport"
 )
+
+// Config contains configurable values for audit service
+type Config struct {
+	MaxRetriesStatDB int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
+	Interval         time.Duration `help:"how frequently segments are audited" default:"30s"`
+}
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
 type Service struct {
@@ -24,45 +31,12 @@ type Service struct {
 	ticker   *time.Ticker
 }
 
-// Config contains configurable values for audit service
-type Config struct {
-	APIKey           string        `help:"APIKey to access the statdb" default:""`
-	SatelliteAddr    string        `help:"address to contact services on the satellite"`
-	MaxRetriesStatDB int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
-	Interval         time.Duration `help:"how frequently segments are audited" default:"30s"`
-}
-
-// Run runs the repairer with the configured values
-func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	identity := server.Identity()
-	pointers := pointerdb.LoadFromContext(ctx)
-	if err != nil {
-		return err
-	}
-	overlay, err := overlay.NewClient(identity, c.SatelliteAddr)
-	if err != nil {
-		return err
-	}
-	transport := transport.NewClient(identity)
-
-	log := zap.L()
-	service, err := NewService(ctx, log, c.SatelliteAddr, c.Interval, c.MaxRetriesStatDB, pointers, transport, overlay, *identity, c.APIKey)
-	if err != nil {
-		return err
-	}
-	go func() {
-		err := service.Run(ctx)
-		service.log.Error("audit service failed to run:", zap.Error(err))
-	}()
-	return server.Run(ctx)
-}
-
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(ctx context.Context, log *zap.Logger, statDBPort string, interval time.Duration, maxRetries int, pointers *pointerdb.Server, transport transport.Client, overlay overlay.Client,
-	identity provider.FullIdentity, apiKey string) (service *Service, err error) {
-	cursor := NewCursor(pointers)
+func NewService(log *zap.Logger, sdb statdb.DB, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, transport transport.Client, overlay *overlay.Cache, identity *provider.FullIdentity) (service *Service, err error) {
+	// TODO: instead of overlay.Client use overlay.Service
+	cursor := NewCursor(pointers, allocation, identity)
 	verifier := NewVerifier(transport, overlay, identity)
-	reporter, err := NewReporter(ctx, statDBPort, maxRetries, apiKey)
+	reporter, err := NewReporter(sdb, maxRetries)
 	if err != nil {
 		return nil, err
 	}

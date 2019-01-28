@@ -57,13 +57,20 @@ goimports-fix: ## Applies goimports to every go file (excluding vendored files)
 
 .PHONY: goimports-st
 goimports-st: ## Applies goimports to every go file in `git status` (ignores untracked files)
-	git status --porcelain -uno|grep .go|grep -v "^D"|sed -E 's,\w+\s+(.+->\s+)?,,g'|xargs -I {} goimports -w -local storj.io {}
+	@git status --porcelain -uno|grep .go|grep -v "^D"|sed -E 's,\w+\s+(.+->\s+)?,,g'|xargs -I {} goimports -w -local storj.io {}
 
 .PHONY: proto
 proto: ## Rebuild protobuf files
 	@echo "Running ${@}"
 	go run scripts/protobuf.go install
 	go run scripts/protobuf.go generate
+
+##@ Simulator
+
+.PHONY: install-sim
+install-sim: ## install storj-sim
+	@echo "Running ${@}"
+	@go install -race -v storj.io/storj/cmd/storj-sim storj.io/storj/cmd/bootstrap storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode storj.io/storj/cmd/uplink storj.io/storj/cmd/gateway storj.io/storj/cmd/identity storj.io/storj/cmd/certificates
 
 ##@ Test
 
@@ -72,15 +79,10 @@ test: ## Run tests on source code (travis)
 	go test -race -v -cover -coverprofile=.coverprofile ./...
 	@echo done
 
-.PHONY: test-captplanet
-test-captplanet: ## Test source with captain planet (travis)
+.PHONY: test-sim
+test-sim: ## Test source with storj-sim (travis)
 	@echo "Running ${@}"
-	@./scripts/test-captplanet.sh
-
-.PHONY: test-storj-sdk
-test-storj-sdk: ## Test source with storj-sdk (travis)
-	@echo "Running ${@}"
-	@./scripts/test-storj-sdk.sh
+	@./scripts/test-sim.sh
 
 .PHONY: test-certificate-signing
 test-certificate-signing: ## Test certificate signing service and storagenode setup (travis)
@@ -160,12 +162,18 @@ storagenode_%:
 .PHONY: uplink_%
 uplink_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=uplink $(MAKE) binary
+.PHONY: identity_%
+identity_%:
+	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=identity $(MAKE) binary
+.PHONY: certificates_%
+certificates_%:
+	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=certificates $(MAKE) binary
 
-COMPONENTLIST := gateway satellite storagenode uplink
+COMPONENTLIST := gateway satellite storagenode uplink identity certificates
 OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm windows_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build gateway, satellite, storagenode, and uplink binaries (jenkins)
+binaries: ${BINARIES} ## Build gateway, satellite, storagenode, uplink, identity, and certificates binaries (jenkins)
 
 ##@ Deploy
 

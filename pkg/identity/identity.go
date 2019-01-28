@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package identity
@@ -11,7 +11,12 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io/ioutil"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
@@ -53,8 +58,8 @@ type FullIdentity struct {
 // SetupConfig allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
 type SetupConfig struct {
-	CertPath  string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`
-	KeyPath   string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
+	CertPath  string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/identity.cert"`
+	KeyPath   string `help:"path to the private key for this identity" default:"$IDENTITYDIR/identity.key"`
 	Overwrite bool   `help:"if true, existing identity certs AND keys will overwritten for" default:"false"`
 	Version   string `help:"semantic version of identity storage format" default:"0"`
 }
@@ -62,8 +67,8 @@ type SetupConfig struct {
 // Config allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
 type Config struct {
-	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`
-	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
+	CertPath string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/identity.cert" user:"true"`
+	KeyPath  string `help:"path to the private key for this identity" default:"$IDENTITYDIR/identity.key" user:"true"`
 }
 
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and
@@ -72,6 +77,9 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 	chain, err := DecodeAndParseChainPEM(chainPEM)
 	if err != nil {
 		return nil, errs.Wrap(err)
+	}
+	if len(chain) < peertls.CAIndex+1 {
+		return nil, ErrChainLength.New("identity chain does not contain a CA certificate")
 	}
 	keysBytes, err := decodePEM(keyPEM)
 	if err != nil {
@@ -150,6 +158,27 @@ func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 	return PeerIdentityFromPeer(p)
 }
 
+// NodeIDFromCertPath loads a node ID from a certificate file path
+func NodeIDFromCertPath(certPath string) (storj.NodeID, error) {
+	certBytes, err := ioutil.ReadFile(certPath)
+	if err != nil {
+		return storj.NodeID{}, err
+	}
+	return NodeIDFromPEM(certBytes)
+}
+
+// NodeIDFromPEM loads a node ID from certificate bytes
+func NodeIDFromPEM(pemBytes []byte) (storj.NodeID, error) {
+	chain, err := DecodeAndParseChainPEM(pemBytes)
+	if err != nil {
+		return storj.NodeID{}, Error.New("invalid identity certificate")
+	}
+	if len(chain) < peertls.CAIndex+1 {
+		return storj.NodeID{}, Error.New("no CA in identity certificate")
+	}
+	return NodeIDFromKey(chain[peertls.CAIndex].PublicKey)
+}
+
 // NodeIDFromKey hashes a public key and creates a node ID from it
 func NodeIDFromKey(k crypto.PublicKey) (storj.NodeID, error) {
 	if ek, ok := k.(*ecdsa.PublicKey); ok {
@@ -167,7 +196,7 @@ func NodeIDFromECDSAKey(k *ecdsa.PublicKey) (storj.NodeID, error) {
 	}
 	mid := sha256.Sum256(kb)
 	end := sha256.Sum256(mid[:])
-	return storj.NodeIDFromBytes(end[:])
+	return storj.NodeID(end), nil
 }
 
 // NewFullIdentity creates a new ID for nodes with difficulty and concurrency params
@@ -262,6 +291,22 @@ func (ic Config) Save(fi *FullIdentity) error {
 	)
 }
 
+// SaveBackup saves the certificate of the config with a timestamped filename
+func (ic Config) SaveBackup(fi *FullIdentity) error {
+	return Config{
+		CertPath: backupPath(ic.CertPath),
+	}.Save(fi)
+}
+
+// ChainRaw returns all of the certificate chain as a 2d byte slice
+func (fi *FullIdentity) ChainRaw() [][]byte {
+	chain := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
+	for _, cert := range fi.RestChain {
+		chain = append(chain, cert.Raw)
+	}
+	return chain
+}
+
 // RestChainRaw returns the rest (excluding leaf and CA) of the certificate chain as a 2d byte slice
 func (fi *FullIdentity) RestChainRaw() [][]byte {
 	var chain [][]byte
@@ -274,9 +319,7 @@ func (fi *FullIdentity) RestChainRaw() [][]byte {
 // ServerOption returns a grpc `ServerOption` for incoming connections
 // to the node with this full identity
 func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFunc) (grpc.ServerOption, error) {
-	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
-	ch = append(ch, fi.RestChainRaw()...)
-	c, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
+	c, err := peertls.TLSCert(fi.ChainRaw(), fi.Leaf, fi.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -301,9 +344,7 @@ func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFun
 // to the node with this peer identity
 // id is an optional id of the node we are dialing
 func (fi *FullIdentity) DialOption(id storj.NodeID) (grpc.DialOption, error) {
-	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
-	ch = append(ch, fi.RestChainRaw()...)
-	c, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
+	c, err := peertls.TLSCert(fi.ChainRaw(), fi.Leaf, fi.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -338,4 +379,15 @@ func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
 
 		return nil
 	}
+}
+
+func backupPath(path string) string {
+	pathExt := filepath.Ext(path)
+	base := strings.TrimSuffix(path, pathExt)
+	return fmt.Sprintf(
+		"%s.%s%s",
+		base,
+		strconv.Itoa(int(time.Now().Unix())),
+		pathExt,
+	)
 }

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	"github.com/mr-tron/base58/base58"
 
@@ -30,13 +31,11 @@ type Config struct {
 }
 
 type Gateway struct {
-	CA                 provider.CASetupConfig       `setup:"true"`
-	Identity           provider.IdentitySetupConfig `setup:"true"`
-	Overwrite          bool                         `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
-	APIKey             string                       `default:"" help:"the api key to use for the satellite" setup:"true"`
-	EncKey             string                       `default:"" help:"your root encryption key" setup:"true"`
-	GenerateMinioCerts bool                         `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
-	SatelliteAddr      string                       `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
+	Identity           provider.IdentitySetupConfig
+	APIKey             string `default:"" help:"the api key to use for the satellite" setup:"true"`
+	EncKey             string `default:"" help:"your root encryption key" setup:"true"`
+	GenerateMinioCerts bool   `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
+	SatelliteAddr      string `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
 
 	Server miniogw.ServerConfig
 	Minio  miniogw.MinioConfig
@@ -65,30 +64,46 @@ var (
 		RunE:  cmdRun,
 	}
 
+	defaultConfDir     = fpath.ApplicationDir("storj", "gateway")
+	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "gateway")
+
 	setupCfg Gateway
 	runCfg   Gateway
 
-	gwConfDir *string
+	gwConfDir   string
+	identityDir string
 )
 
 func init() {
-	defaultConfDir := fpath.ApplicationDir("storj", "gateway")
-
 	dirParam := cfgstruct.FindConfigDirParam()
 	if dirParam != "" {
 		defaultConfDir = dirParam
 	}
+	identityDirParam := cfgstruct.FindIdentityDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
+	}
 
-	gwConfDir = GWCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for setup configuration")
+	GWCmd.PersistentFlags().StringVar(&gwConfDir, "config-dir", defaultConfDir, "main directory for setup configuration")
+	err := GWCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
+
+	GWCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for gateway identity credentials")
+	err = GWCmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
 
 	GWCmd.AddCommand(runCmd)
 	GWCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*gwConfDir)
+	setupDir, err := filepath.Abs(gwConfDir)
 	if err != nil {
 		return err
 	}
@@ -98,25 +113,11 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	valid, _ := fpath.IsValidSetupDir(setupDir)
-	if !setupCfg.Overwrite && !valid {
-		return fmt.Errorf("%s configuration already exists (%v). Rerun with --overwrite", "gateway", setupDir)
+	if !valid {
+		return fmt.Errorf("gateway configuration already exists (%v)", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
-	if err != nil {
-		return err
-	}
-
-	defaultConfDir := fpath.ApplicationDir("storj", "gateway")
-	// TODO: handle setting base path *and* identity file paths via args
-	// NB: if base path is set this overrides identity and CA path options
-	if setupDir != defaultConfDir {
-		setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
-		setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
-		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
-		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
-	}
-	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
 		return err
 	}
@@ -174,8 +175,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	fmt.Printf("Starting Storj S3-compatible gateway!\n\n")
 	fmt.Printf("Endpoint: %s\n", address)
-	fmt.Printf("Access key: %s\n", cfg.Minio.AccessKey)
-	fmt.Printf("Secret key: %s\n", cfg.Minio.SecretKey)
+	fmt.Printf("Access key: %s\n", runCfg.Minio.AccessKey)
+	fmt.Printf("Secret key: %s\n", runCfg.Minio.SecretKey)
 
 	ctx := process.Ctx(cmd)
 	metainfo, _, err := cfg.Metainfo(ctx)
@@ -189,7 +190,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			"Perhaps your configuration is invalid?\n%s", err)
 	}
 
-	return runCfg.Server.Run(process.Ctx(cmd))
+	return cfg.Run(process.Ctx(cmd))
 }
 
 func generateAWSKey() (key string, err error) {

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package agreementsender
@@ -24,7 +24,7 @@ var (
 )
 
 // AgreementSender maintains variables required for reading bandwidth agreements from a DB and sending them to a Payers
-type AgreementSender struct {
+type AgreementSender struct { // TODO: rename to service
 	DB            *psdb.DB
 	log           *zap.Logger
 	transport     transport.Client
@@ -32,13 +32,15 @@ type AgreementSender struct {
 	checkInterval time.Duration
 }
 
+// TODO: take transport instead of identity as argument
+
 // New creates an Agreement Sender
 func New(log *zap.Logger, DB *psdb.DB, identity *provider.FullIdentity, kad *kademlia.Kademlia, checkInterval time.Duration) *AgreementSender {
 	return &AgreementSender{DB: DB, log: log, transport: transport.NewClient(identity), kad: kad, checkInterval: checkInterval}
 }
 
 // Run the agreement sender with a context to check for cancel
-func (as *AgreementSender) Run(ctx context.Context) {
+func (as *AgreementSender) Run(ctx context.Context) error {
 	//todo:  we likely don't want to stop on err, but consider returning errors via a channel
 	ticker := time.NewTicker(as.checkInterval)
 	defer ticker.Stop()
@@ -55,8 +57,7 @@ func (as *AgreementSender) Run(ctx context.Context) {
 		select {
 		case <-ticker.C:
 		case <-ctx.Done():
-			as.log.Debug("AgreementSender is shutting down", zap.Error(ctx.Err()))
-			return
+			return ctx.Err()
 		}
 	}
 }
@@ -67,23 +68,24 @@ func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID 
 	// Get satellite ip from kademlia
 	satellite, err := as.kad.FindNode(ctx, satID)
 	if err != nil {
-		as.log.Error("Agreementsender could not find satellite", zap.Error(err))
+		as.log.Warn("Agreementsender could not find satellite", zap.Error(err))
 		return
 	}
 	// Create client from satellite ip
 	conn, err := as.transport.DialNode(ctx, &satellite)
 	if err != nil {
-		as.log.Error("Agreementsender could not dial satellite", zap.Error(err))
+		as.log.Warn("Agreementsender could not dial satellite", zap.Error(err))
 		return
 	}
 	client := pb.NewBandwidthClient(conn)
 	defer func() {
 		err := conn.Close()
 		if err != nil {
-			as.log.Error("Agreementsender failed to close connection", zap.Error(err))
+			as.log.Warn("Agreementsender failed to close connection", zap.Error(err))
 		}
 	}()
 
+	//todo:  stop sending these one-by-one, send all at once
 	for _, agreement := range agreements {
 		msg := &pb.RenterBandwidthAllocation{
 			Data:      agreement.Agreement,
@@ -91,14 +93,16 @@ func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID 
 		}
 		// Send agreement to satellite
 		r, err := client.BandwidthAgreements(ctx, msg)
-		if err != nil || r.GetStatus() != pb.AgreementsSummary_OK {
-			as.log.Error("Agreementsender failed to send agreement to satellite", zap.Error(err))
-			return
+		if err != nil || r.GetStatus() == pb.AgreementsSummary_FAIL {
+			as.log.Warn("Agreementsender failed to send agreement to satellite : will retry", zap.Error(err))
+			continue
+		} else if r.GetStatus() == pb.AgreementsSummary_REJECTED {
+			//todo: something better than a delete here?
+			as.log.Error("Agreementsender had agreement explicitly rejected by satellite : will delete", zap.Error(err))
 		}
 		// Delete from PSDB by signature
 		if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {
 			as.log.Error("Agreementsender failed to delete bandwidth allocation", zap.Error(err))
-			return
 		}
 	}
 }
