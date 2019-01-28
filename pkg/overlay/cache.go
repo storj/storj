@@ -69,6 +69,11 @@ func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
 	return nil, errors.New("not implemented")
 }
 
+// List returns a list of nodes from the cache DB
+func (cache *Cache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
+	return cache.db.List(ctx, cursor, limit)
+}
+
 // Get looks up the provided nodeID from the overlay cache
 func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
 	if nodeID.IsZero() {

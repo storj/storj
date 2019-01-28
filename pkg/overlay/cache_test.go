@@ -5,11 +5,11 @@ package overlay_test
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -95,6 +95,14 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.D
 		assert.True(t, overlay.OverlayError.Has(err))
 
 		// TODO: add erroring database test
+	}
+
+	{
+		// List
+		list, err := cache.List(ctx, storj.NodeID{}, 3)
+		fmt.Printf("\n \nList; %+v\n", list)
+		assert.NoError(t, err)
+		assert.NotNil(t, list)
 	}
 
 	{ // Delete
