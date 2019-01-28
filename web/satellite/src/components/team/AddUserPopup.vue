@@ -132,6 +132,13 @@ import { validateEmail } from '@/utils/validation';
                 }
 
                 this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members successfully added to project!');
+				this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+
+				const fetchMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
+				if (!fetchMembersResponse.isSuccess) {
+					this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                }
+
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
             },
             addInput: function(): void {
