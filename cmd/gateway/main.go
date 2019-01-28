@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mr-tron/base58/base58"
+	base58 "github.com/jbenet/go-base58"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
