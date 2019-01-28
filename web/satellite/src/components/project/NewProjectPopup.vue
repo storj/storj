@@ -131,7 +131,7 @@ export default class NewProjectPopup extends Vue {
     .new-project-popup {
         width: 100%;
         max-width: 845px;
-        height: 440px;
+        height: 400px;
         background-color: #FFFFFF;
         border-radius: 6px;
         display: flex;
@@ -155,7 +155,7 @@ export default class NewProjectPopup extends Vue {
                  line-height: 39px;
                  color: #384B65;
                  margin-bottom: 60px;
-                 margin-top: 0;
+                 margin-top: 50px;
             }
         }
 
