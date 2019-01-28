@@ -125,12 +125,12 @@ func (m *NodeRestrictions) GetFreeDisk() int64 {
 // Node is info for a updating a single storagenode, used in the Update rpc calls
 type Node struct {
 	Id                   NodeID            `protobuf:"bytes,1,opt,name=id,proto3,customtype=NodeID" json:"id"`
-	Address              *NodeAddress      `protobuf:"bytes,2,opt,name=address" json:"address,omitempty"`
+	Address              *NodeAddress      `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
 	Type                 NodeType          `protobuf:"varint,3,opt,name=type,proto3,enum=node.NodeType" json:"type,omitempty"`
-	Restrictions         *NodeRestrictions `protobuf:"bytes,4,opt,name=restrictions" json:"restrictions,omitempty"`
-	Reputation           *NodeStats        `protobuf:"bytes,5,opt,name=reputation" json:"reputation,omitempty"`
-	Metadata             *NodeMetadata     `protobuf:"bytes,6,opt,name=metadata" json:"metadata,omitempty"`
-	LatencyList          []int64           `protobuf:"varint,7,rep,packed,name=latency_list,json=latencyList" json:"latency_list,omitempty"`
+	Restrictions         *NodeRestrictions `protobuf:"bytes,4,opt,name=restrictions,proto3" json:"restrictions,omitempty"`
+	Reputation           *NodeStats        `protobuf:"bytes,5,opt,name=reputation,proto3" json:"reputation,omitempty"`
+	Metadata             *NodeMetadata     `protobuf:"bytes,6,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	LatencyList          []int64           `protobuf:"varint,7,rep,packed,name=latency_list,json=latencyList,proto3" json:"latency_list,omitempty"`
 	AuditSuccess         bool              `protobuf:"varint,8,opt,name=audit_success,json=auditSuccess,proto3" json:"audit_success,omitempty"`
 	IsUp                 bool              `protobuf:"varint,9,opt,name=is_up,json=isUp,proto3" json:"is_up,omitempty"`
 	UpdateLatency        bool              `protobuf:"varint,10,opt,name=update_latency,json=updateLatency,proto3" json:"update_latency,omitempty"`

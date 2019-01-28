@@ -14,7 +14,7 @@ import (
 
 // DHT is the interface for the DHT in the Storj network
 type DHT interface {
-	GetNodes(ctx context.Context, start storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error)
+	FindNear(ctx context.Context, start storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error)
 	GetRoutingTable(ctx context.Context) (RoutingTable, error)
 	Bootstrap(ctx context.Context) error
 	Ping(ctx context.Context, node pb.Node) (pb.Node, error)
@@ -29,7 +29,6 @@ type RoutingTable interface {
 	Local() pb.Node
 	K() int
 	CacheSize() int
-	GetNodes(id storj.NodeID) (nodes []*pb.Node, ok bool)
 	GetBucketIds() (storage.Keys, error)
 	FindNear(id storj.NodeID, limit int) ([]*pb.Node, error)
 	ConnectionSuccess(node *pb.Node) error
