@@ -2,9 +2,6 @@
 set -euo pipefail
 
 if [[ ! -f "${CONF_PATH}/config.yaml" ]]; then
-	if [[ -n "${CA_DIFFICULTY:-}" ]]; then
-		SETUP_PARAMS="--ca.difficulty ${CA_DIFFICULTY}"
-	fi
 	./gateway setup
 fi
 
