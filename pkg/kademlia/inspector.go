@@ -62,24 +62,6 @@ func (srv *Inspector) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest)
 	}, nil
 }
 
-// GetBucket retrieves all of a given K buckets contents
-// func (srv *Inspector) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb.GetBucketResponse, error) {
-// 	rt, err := srv.dht.GetRoutingTable(ctx)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	// TODO(bryanchriswhite): should use bucketID type
-// 	nodes, ok := rt.GetNodes(req.Id)
-// 	if !ok {
-// 		return &pb.GetBucketResponse{}, Error.New("GetBuckets returned non-OK response")
-// 	}
-//
-// 	return &pb.GetBucketResponse{
-// 		Id:    req.Id,
-// 		Nodes: nodes,
-// 	}, nil
-// }
-
 // FindNear sends back limit of near nodes
 func (srv *Inspector) FindNear(ctx context.Context, req *pb.FindNearRequest) (*pb.FindNearResponse, error) {
 	start := req.Start

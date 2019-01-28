@@ -379,7 +379,6 @@ func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, erro
 	}
 
 	nodes, err := s.kad.FindNear(ctx, storj.NodeID{}, 10000000)
-	fmt.Printf("\n ####FIND NEAR NODES %+v\n", nodes)
 	if err != nil {
 		return &pb.DashboardStats{}, ServerError.Wrap(err)
 	}
