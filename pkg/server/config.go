@@ -52,6 +52,6 @@ func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, inter
 		}
 	}()
 
-	zap.S().Infof("Node %s started on %s", s.Identity().ID, sc.Address)
+	zap.S().Infof("Node %s started on %s", server.Identity().ID, sc.Address)
 	return server.Run(ctx)
 }
