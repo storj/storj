@@ -34,9 +34,8 @@ func TestApiKeysRepository(t *testing.T) {
 	apikeys := db.APIKeys()
 
 	project, err := projects.Insert(ctx, &console.Project{
-		Name:          "ProjectName",
-		TermsAccepted: 1,
-		Description:   "projects description",
+		Name:        "ProjectName",
+		Description: "projects description",
 	})
 	assert.NotNil(t, project)
 	assert.NoError(t, err)

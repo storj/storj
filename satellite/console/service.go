@@ -215,14 +215,9 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, err
 	}
 
-	if !projectInfo.IsTermsAccepted {
-		return nil, errs.New("terms of use should be accepted!")
-	}
-
 	project := &Project{
-		Description:   projectInfo.Description,
-		Name:          projectInfo.Name,
-		TermsAccepted: 1, //TODO: get lat version of Term of Use
+		Description: projectInfo.Description,
+		Name:        projectInfo.Name,
 	}
 
 	transaction, err := s.store.BeginTx(ctx)

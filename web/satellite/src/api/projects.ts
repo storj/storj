@@ -21,7 +21,6 @@ export async function createProjectRequest(project: Project): Promise<RequestRes
 							input: {
 								name: "${project.name}",
 								description: "${project.description}",
-								isTermsAccepted: ${project.isTermsAccepted},
 							}
 						) {id}
 					}`
