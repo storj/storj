@@ -55,7 +55,7 @@ func (cache *overlaycache) FilterNodes(ctx context.Context, req *overlay.FilterN
 		return nil, err
 	}
 
-	newNodeAmount := reputableNodeAmount * int64(float64(reputableNodeAmount)*req.NewNodePercentage)
+	newNodeAmount := int64(float64(reputableNodeAmount) * req.NewNodePercentage)
 
 	getNewReq := &getNodesRequest{
 		freeBandwidth:         req.Opts.GetRestrictions().FreeBandwidth,
@@ -149,13 +149,15 @@ func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *get
 			auditSuccessRatio, uptimeCount, uptimeRatio,
 			req.freeBandwidth, req.freeDisk, nodeTypeStorage, nodeAmt)
 
+		// This queries for nodes whose audit counts are greater than or equal to
+		// the new node audit threshold and the minimum reputation audit count.
 		rows, err = cache.db.Query(cache.db.Rebind(`SELECT node_id,
 	node_type, address, free_bandwidth, free_disk, audit_success_ratio,
-	audit_uptime_ratio, audit_count,audit_success_count, uptime_count,
+	audit_uptime_ratio, audit_count, audit_success_count, uptime_count,
 	uptime_success_count
 	FROM overlay_cache_nodes
-	WHERE audit_count > ?
-	AND audit_count > ?
+	WHERE audit_count >= ?
+	AND audit_count >= ?
 	AND audit_success_ratio > ?
 	AND uptime_count > ?
 	AND audit_uptime_ratio > ?
@@ -173,13 +175,15 @@ func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *get
 			auditSuccessRatio, uptimeCount, uptimeRatio,
 			req.freeBandwidth, req.freeDisk, pq.Array(req.excluded), nodeTypeStorage, nodeAmt)
 
+		// This queries for nodes whose audit counts are greater than or equal to
+		// the new node audit threshold and the minimum reputation audit count.
 		rows, err = cache.db.Query(cache.db.Rebind(`SELECT node_id,
 	node_type, address, free_bandwidth, free_disk, audit_success_ratio,
 	audit_uptime_ratio, audit_count, audit_success_count, uptime_count,
 	uptime_success_count
 	FROM overlay_cache_nodes
-	WHERE audit_count > ?
-	AND audit_count > ?
+	WHERE audit_count >= ?
+	AND audit_count >= ?
 	AND audit_success_ratio > ?
 	AND uptime_count > ?
 	AND audit_uptime_ratio > ?
