@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -81,7 +82,7 @@ func init() {
 }
 
 func cmdNewCA(cmd *cobra.Command, args []string) error {
-	_, err := newCACfg.CA.Create(process.Ctx(cmd))
+	_, err := newCACfg.CA.Create(process.Ctx(cmd), os.Stdout)
 	return err
 }
 
