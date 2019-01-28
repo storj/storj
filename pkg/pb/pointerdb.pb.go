@@ -187,10 +187,10 @@ func (m *RemotePiece) GetPieceNum() int32 {
 }
 
 type RemoteSegment struct {
-	Redundancy *RedundancyScheme `protobuf:"bytes,1,opt,name=redundancy,proto3" json:"redundancy,omitempty"`
+	Redundancy *RedundancyScheme `protobuf:"bytes,1,opt,name=redundancy" json:"redundancy,omitempty"`
 	// TODO: may want to use customtype and fixed-length byte slice
 	PieceId              string         `protobuf:"bytes,2,opt,name=piece_id,json=pieceId,proto3" json:"piece_id,omitempty"`
-	RemotePieces         []*RemotePiece `protobuf:"bytes,3,rep,name=remote_pieces,json=remotePieces,proto3" json:"remote_pieces,omitempty"`
+	RemotePieces         []*RemotePiece `protobuf:"bytes,3,rep,name=remote_pieces,json=remotePieces" json:"remote_pieces,omitempty"`
 	MerkleRoot           []byte         `protobuf:"bytes,4,opt,name=merkle_root,json=merkleRoot,proto3" json:"merkle_root,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
@@ -252,10 +252,10 @@ func (m *RemoteSegment) GetMerkleRoot() []byte {
 type Pointer struct {
 	Type                 Pointer_DataType     `protobuf:"varint,1,opt,name=type,proto3,enum=pointerdb.Pointer_DataType" json:"type,omitempty"`
 	InlineSegment        []byte               `protobuf:"bytes,3,opt,name=inline_segment,json=inlineSegment,proto3" json:"inline_segment,omitempty"`
-	Remote               *RemoteSegment       `protobuf:"bytes,4,opt,name=remote,proto3" json:"remote,omitempty"`
+	Remote               *RemoteSegment       `protobuf:"bytes,4,opt,name=remote" json:"remote,omitempty"`
 	SegmentSize          int64                `protobuf:"varint,5,opt,name=segment_size,json=segmentSize,proto3" json:"segment_size,omitempty"`
-	CreationDate         *timestamp.Timestamp `protobuf:"bytes,6,opt,name=creation_date,json=creationDate,proto3" json:"creation_date,omitempty"`
-	ExpirationDate       *timestamp.Timestamp `protobuf:"bytes,7,opt,name=expiration_date,json=expirationDate,proto3" json:"expiration_date,omitempty"`
+	CreationDate         *timestamp.Timestamp `protobuf:"bytes,6,opt,name=creation_date,json=creationDate" json:"creation_date,omitempty"`
+	ExpirationDate       *timestamp.Timestamp `protobuf:"bytes,7,opt,name=expiration_date,json=expirationDate" json:"expiration_date,omitempty"`
 	Metadata             []byte               `protobuf:"bytes,8,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
@@ -338,7 +338,7 @@ func (m *Pointer) GetMetadata() []byte {
 // PutRequest is a request message for the Put rpc call
 type PutRequest struct {
 	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Pointer              *Pointer `protobuf:"bytes,2,opt,name=pointer,proto3" json:"pointer,omitempty"`
+	Pointer              *Pointer `protobuf:"bytes,2,opt,name=pointer" json:"pointer,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -533,10 +533,10 @@ var xxx_messageInfo_PutResponse proto.InternalMessageInfo
 
 // GetResponse is a response message for the Get rpc call
 type GetResponse struct {
-	Pointer              *Pointer                  `protobuf:"bytes,1,opt,name=pointer,proto3" json:"pointer,omitempty"`
-	Nodes                []*Node                   `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
-	Pba                  *PayerBandwidthAllocation `protobuf:"bytes,3,opt,name=pba,proto3" json:"pba,omitempty"`
-	Authorization        *SignedMessage            `protobuf:"bytes,4,opt,name=authorization,proto3" json:"authorization,omitempty"`
+	Pointer              *Pointer                  `protobuf:"bytes,1,opt,name=pointer" json:"pointer,omitempty"`
+	Nodes                []*Node                   `protobuf:"bytes,2,rep,name=nodes" json:"nodes,omitempty"`
+	Pba                  *PayerBandwidthAllocation `protobuf:"bytes,3,opt,name=pba" json:"pba,omitempty"`
+	Authorization        *SignedMessage            `protobuf:"bytes,4,opt,name=authorization" json:"authorization,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
 	XXX_unrecognized     []byte                    `json:"-"`
 	XXX_sizecache        int32                     `json:"-"`
@@ -596,7 +596,7 @@ func (m *GetResponse) GetAuthorization() *SignedMessage {
 
 // ListResponse is a response message for the List rpc call
 type ListResponse struct {
-	Items                []*ListResponse_Item `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Items                []*ListResponse_Item `protobuf:"bytes,1,rep,name=items" json:"items,omitempty"`
 	More                 bool                 `protobuf:"varint,2,opt,name=more,proto3" json:"more,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
@@ -643,7 +643,7 @@ func (m *ListResponse) GetMore() bool {
 
 type ListResponse_Item struct {
 	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Pointer              *Pointer `protobuf:"bytes,2,opt,name=pointer,proto3" json:"pointer,omitempty"`
+	Pointer              *Pointer `protobuf:"bytes,2,opt,name=pointer" json:"pointer,omitempty"`
 	IsPrefix             bool     `protobuf:"varint,3,opt,name=is_prefix,json=isPrefix,proto3" json:"is_prefix,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -866,7 +866,7 @@ func (m *PayerBandwidthAllocationRequest) GetAction() BandwidthAction {
 }
 
 type PayerBandwidthAllocationResponse struct {
-	Pba                  *PayerBandwidthAllocation `protobuf:"bytes,1,opt,name=pba,proto3" json:"pba,omitempty"`
+	Pba                  *PayerBandwidthAllocation `protobuf:"bytes,1,opt,name=pba" json:"pba,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
 	XXX_unrecognized     []byte                    `json:"-"`
 	XXX_sizecache        int32                     `json:"-"`
