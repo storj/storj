@@ -121,7 +121,6 @@ type Inspector struct {
 func NewInspector(address, path string) (*Inspector, error) {
 	ctx := context.Background()
 
-	fmt.Printf("\n \n #LOADING %+v\n ", path)
 	id, err := identity.Config{
 		CertPath: fmt.Sprintf("%s/identity.cert", path),
 		KeyPath:  fmt.Sprintf("%s/identity.key", path),
