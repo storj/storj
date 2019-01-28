@@ -30,7 +30,7 @@ func NewInspector(kad dht.DHT, identity *identity.FullIdentity) *Inspector {
 // CountNodes returns the number of nodes in the routing table
 func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*pb.CountNodesResponse, error) {
 	// TODO: this is definitely the wrong way to get this
-	kadNodes, err := srv.dht.FindNear(ctx, srv.identity.ID, 0)
+	kadNodes, err := srv.dht.FindNear(ctx, srv.identity.ID, 100000)
 	if err != nil {
 		return nil, err
 	}
