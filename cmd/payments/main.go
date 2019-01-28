@@ -25,7 +25,7 @@ var (
 	}
 
 	configDir string
-	id        identity.Config
+	idConfig  identity.Config
 	database  string
 	test      bool
 )
@@ -46,8 +46,8 @@ func readConfig() {
 		os.Exit(1)
 	}
 	database = viper.GetString("database")
-	id.CertPath = viper.GetString("identity.cert-path")
-	id.KeyPath = viper.GetString("identity.key-path")
+	idConfig.CertPath = viper.GetString("identity.cert-path")
+	idConfig.KeyPath = viper.GetString("identity.key-path")
 }
 
 func cmdPayments(cmd *cobra.Command, args []string) error {
@@ -70,7 +70,7 @@ func cmdPayments(cmd *cobra.Command, args []string) error {
 		return errs.New("Invalid time period (%v) - (%v)", start, end)
 	}
 
-	id, err := id.Load()
+	id, err := idConfig.Load()
 	if err != nil {
 		return err
 	}
