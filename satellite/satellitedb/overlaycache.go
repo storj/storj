@@ -24,19 +24,12 @@ type overlaycache struct {
 	db *dbx.DB
 }
 
-type filterReputableRequest struct {
+type getNodesRequest struct {
 	minReputation         *pb.NodeStats
 	freeBandwidth         int64
 	freeDisk              int64
 	excluded              []pb.NodeID
 	reputableNodeAmount   int64
-	newNodeAuditThreshold int64
-}
-
-type filterNewRequest struct {
-	freeBandwidth         int64
-	freeDisk              int64
-	excluded              []pb.NodeID
 	newNodeAmount         int64
 	newNodeAuditThreshold int64
 }
@@ -48,7 +41,7 @@ func (cache *overlaycache) FilterNodes(ctx context.Context, req *overlay.FilterN
 		reputableNodeAmount = req.Opts.GetAmount()
 	}
 
-	filterReputableReq := &filterReputableRequest{
+	getReputableReq := &getNodesRequest{
 		minReputation:         req.MinReputation,
 		freeBandwidth:         req.Opts.GetRestrictions().FreeBandwidth,
 		freeDisk:              req.Opts.GetRestrictions().FreeDisk,
@@ -57,14 +50,14 @@ func (cache *overlaycache) FilterNodes(ctx context.Context, req *overlay.FilterN
 		newNodeAuditThreshold: req.NewNodeAuditThreshold,
 	}
 
-	reputableNodes, err := cache.filterReputableNodes(ctx, filterReputableReq)
+	reputableNodes, err := cache.getReputableNodes(ctx, getReputableReq)
 	if err != nil {
 		return nil, err
 	}
 
 	newNodeAmount := reputableNodeAmount * int64(float64(reputableNodeAmount)*req.NewNodePercentage)
 
-	filterNewReq := &filterNewRequest{
+	getNewReq := &getNodesRequest{
 		freeBandwidth:         req.Opts.GetRestrictions().FreeBandwidth,
 		freeDisk:              req.Opts.GetRestrictions().FreeDisk,
 		excluded:              req.Opts.ExcludedNodes,
@@ -72,7 +65,7 @@ func (cache *overlaycache) FilterNodes(ctx context.Context, req *overlay.FilterN
 		newNodeAuditThreshold: req.NewNodeAuditThreshold,
 	}
 
-	newNodes, err := cache.filterNewNodes(ctx, filterNewReq)
+	newNodes, err := cache.getNewNodes(ctx, getNewReq)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +77,7 @@ func (cache *overlaycache) FilterNodes(ctx context.Context, req *overlay.FilterN
 	return allNodes, nil
 }
 
-func (cache *overlaycache) filterReputableNodes(ctx context.Context, req *filterReputableRequest) (reputableNodes []*pb.Node, err error) {
+func (cache *overlaycache) getReputableNodes(ctx context.Context, req *getNodesRequest) ([]*pb.Node, error) {
 	rows, err := cache.findReputableNodesQuery(ctx, req)
 	if err != nil {
 		return nil, err
@@ -93,28 +86,15 @@ func (cache *overlaycache) filterReputableNodes(ctx context.Context, req *filter
 		err = utils.CombineErrors(err, rows.Close())
 	}()
 
-	for rows.Next() {
-		overlayNode := &dbx.OverlayCacheNode{}
-		err = rows.Scan(&overlayNode.NodeId, &overlayNode.NodeType,
-			&overlayNode.Address, &overlayNode.FreeBandwidth, &overlayNode.FreeDisk,
-			&overlayNode.AuditSuccessRatio, &overlayNode.AuditUptimeRatio,
-			&overlayNode.AuditCount, &overlayNode.AuditSuccessCount,
-			&overlayNode.UptimeCount, &overlayNode.UptimeSuccessCount)
-		if err != nil {
-			return nil, err
-		}
-
-		node, err := convertOverlayNode(overlayNode)
-		if err != nil {
-			return nil, err
-		}
-		reputableNodes = append(reputableNodes, node)
+	reputableNodes, err := sqlRowsToNodes(rows)
+	if err != nil {
+		return nil, err
 	}
 
 	return reputableNodes, nil
 }
 
-func (cache *overlaycache) filterNewNodes(ctx context.Context, req *filterNewRequest) (newNodes []*pb.Node, err error) {
+func (cache *overlaycache) getNewNodes(ctx context.Context, req *getNodesRequest) ([]*pb.Node, error) {
 	rows, err := cache.findNewNodesQuery(ctx, req)
 	if err != nil {
 		return nil, err
@@ -123,6 +103,15 @@ func (cache *overlaycache) filterNewNodes(ctx context.Context, req *filterNewReq
 		err = utils.CombineErrors(err, rows.Close())
 	}()
 
+	newNodes, err := sqlRowsToNodes(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	return newNodes, nil
+}
+
+func sqlRowsToNodes(rows *sql.Rows) (nodes []*pb.Node, err error) {
 	for rows.Next() {
 		overlayNode := &dbx.OverlayCacheNode{}
 		err = rows.Scan(&overlayNode.NodeId, &overlayNode.NodeType,
@@ -138,13 +127,12 @@ func (cache *overlaycache) filterNewNodes(ctx context.Context, req *filterNewReq
 		if err != nil {
 			return nil, err
 		}
-		newNodes = append(newNodes, node)
+		nodes = append(nodes, node)
 	}
-
-	return newNodes, nil
+	return nodes, nil
 }
 
-func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *filterReputableRequest) (*sql.Rows, error) {
+func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *getNodesRequest) (*sql.Rows, error) {
 	auditCount := req.minReputation.AuditCount
 	auditSuccessRatio := req.minReputation.AuditSuccessRatio
 	uptimeCount := req.minReputation.UptimeCount
@@ -210,7 +198,7 @@ func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *fil
 	return rows, nil
 }
 
-func (cache *overlaycache) findNewNodesQuery(ctx context.Context, req *filterNewRequest) (*sql.Rows, error) {
+func (cache *overlaycache) findNewNodesQuery(ctx context.Context, req *getNodesRequest) (*sql.Rows, error) {
 	var args []interface{}
 	var rows *sql.Rows
 	var err error
