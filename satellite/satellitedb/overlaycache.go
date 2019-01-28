@@ -9,11 +9,11 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
-	"storj.io/storj/pkg/utils"
 
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )
