@@ -272,8 +272,6 @@ model project (
 
     field name           text
     field description    text      ( updatable )
-    // stores last accepted version of terms of use
-    field terms_accepted int       ( updatable )
 
     field created_at     timestamp ( autoinsert )
 )

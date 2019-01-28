@@ -138,8 +138,7 @@ func TestGraphqlQuery(t *testing.T) {
 		})
 
 		createdProject, err := service.CreateProject(authCtx, console.ProjectInfo{
-			Name:            "TestProject",
-			IsTermsAccepted: true,
+			Name: "TestProject",
 		})
 
 		if err != nil {
@@ -311,9 +310,8 @@ func TestGraphqlQuery(t *testing.T) {
 		})
 
 		project2, err := service.CreateProject(authCtx, console.ProjectInfo{
-			Name:            "Project2",
-			Description:     "Test desc",
-			IsTermsAccepted: true,
+			Name:        "Project2",
+			Description: "Test desc",
 		})
 
 		if err != nil {
