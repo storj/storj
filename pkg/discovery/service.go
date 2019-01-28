@@ -100,6 +100,23 @@ func (discovery *Discovery) Refresh(ctx context.Context) error {
 		}
 	}
 
+	list, err := discovery.cache.List(ctx, storj.NodeID{}, 100)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	for _, node := range list {
+		ping, err := discovery.kad.Ping(ctx, *node)
+		if err != nil {
+			discovery.log.Info("could not pinging node")
+			discovery.statdb.UpdateUptime(ctx, ping.Id, false)
+			continue
+		}
+
+		discovery.statdb.UpdateUptime(ctx, ping.Id, true)
+		discovery.cache.Put(ctx, ping.Id, ping)
+	}
+
 	return nil
 }
 
