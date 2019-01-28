@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"encoding/csv"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,7 +14,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/accounting"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -27,10 +25,7 @@ func generateCSV(ctx context.Context, cfgDir string, dbPath string, id string, s
 		return "", errs.New("error connecting to master database on satellite: %+v", err)
 	}
 	defer func() {
-		err := db.Close()
-		if err != nil {
-			fmt.Printf("error closing connection to master database on satellite: %+v\n", err)
-		}
+		err = errs.Combine(err, db.Close())
 	}()
 
 	pDir := filepath.Join(cfgDir, "payments")
@@ -46,7 +41,9 @@ func generateCSV(ctx context.Context, cfgDir string, dbPath string, id string, s
 	if err != nil {
 		return "", err
 	}
-	defer utils.LogClose(file)
+	defer func() {
+		err = errs.Combine(err, file.Close())
+	}()
 
 	rows, err := db.Accounting().QueryPaymentInfo(ctx, start, end)
 	if err != nil {
@@ -91,7 +88,7 @@ func generateCSV(ctx context.Context, cfgDir string, dbPath string, id string, s
 	if err != nil {
 		return "", err
 	}
-	return abs, nil
+	return abs, err
 }
 
 func structToStringSlice(s *accounting.CSVRow) []string {
