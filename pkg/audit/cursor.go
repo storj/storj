@@ -81,7 +81,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 	peerIdentity := &identity.PeerIdentity{ID: cursor.identity.ID, Leaf: cursor.identity.Leaf}
-	pba, err := cursor.allocation.PayerBandwidthAllocation(ctx, peerIdentity, pb.PayerBandwidthAllocation_GET_AUDIT)
+	pba, err := cursor.allocation.PayerBandwidthAllocation(ctx, peerIdentity, pb.BandwidthAction_GET_AUDIT)
 	if err != nil {
 		return nil, err
 	}

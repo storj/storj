@@ -87,18 +87,19 @@ func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID 
 
 	//todo:  stop sending these one-by-one, send all at once
 	for _, agreement := range agreements {
-		msg := &pb.RenterBandwidthAllocation{
-			Data:      agreement.Agreement,
-			Signature: agreement.Signature,
-		}
-		// Send agreement to satellite
-		r, err := client.BandwidthAgreements(ctx, msg)
-		if err != nil || r.GetStatus() == pb.AgreementsSummary_FAIL {
-			as.log.Warn("Agreementsender failed to send agreement to satellite : will retry", zap.Error(err))
-			continue
-		} else if r.GetStatus() == pb.AgreementsSummary_REJECTED {
-			//todo: something better than a delete here?
-			as.log.Error("Agreementsender had agreement explicitly rejected by satellite : will delete", zap.Error(err))
+		rba := agreement.Agreement
+		if err != nil {
+			as.log.Warn("Agreementsender failed to deserialize agreement : will delete", zap.Error(err))
+		} else {
+			// Send agreement to satellite
+			r, err := client.BandwidthAgreements(ctx, &rba)
+			if err != nil || r.GetStatus() == pb.AgreementsSummary_FAIL {
+				as.log.Warn("Agreementsender failed to send agreement to satellite : will retry", zap.Error(err))
+				continue
+			} else if r.GetStatus() == pb.AgreementsSummary_REJECTED {
+				//todo: something better than a delete here?
+				as.log.Error("Agreementsender had agreement explicitly rejected by satellite : will delete", zap.Error(err))
+			}
 		}
 		// Delete from PSDB by signature
 		if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {

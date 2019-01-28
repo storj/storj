@@ -208,13 +208,13 @@ func TestRefresh(t *testing.T) {
 	err := rt.SetBucketTimestamp(bID[:], now.Add(-2*time.Hour))
 	assert.NoError(t, err)
 	//refresh should  call FindNode, updating the time
-	err = k.refresh(ctx)
+	err = k.refresh(ctx, time.Minute)
 	assert.NoError(t, err)
 	ts1, err := rt.GetBucketTimestamp(bID[:])
 	assert.NoError(t, err)
 	assert.True(t, now.Add(-5*time.Minute).Before(ts1))
 	//refresh should not call FindNode, leaving the previous time
-	err = k.refresh(ctx)
+	err = k.refresh(ctx, time.Minute)
 	assert.NoError(t, err)
 	ts2, err := rt.GetBucketTimestamp(bID[:])
 	assert.NoError(t, err)

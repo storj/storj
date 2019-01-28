@@ -66,24 +66,24 @@ func TestQueryWithBw(t *testing.T) {
 	fiC, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
 
-	makeBWA(ctx, t, bwDb, "1", fiC, pb.PayerBandwidthAllocation_PUT)
-	makeBWA(ctx, t, bwDb, "2", fiC, pb.PayerBandwidthAllocation_GET)
-	makeBWA(ctx, t, bwDb, "3", fiC, pb.PayerBandwidthAllocation_GET_AUDIT)
-	makeBWA(ctx, t, bwDb, "4", fiC, pb.PayerBandwidthAllocation_GET_REPAIR)
-	makeBWA(ctx, t, bwDb, "5", fiC, pb.PayerBandwidthAllocation_PUT_REPAIR)
+	makeBWA(ctx, t, bwDb, fiC, pb.BandwidthAction_PUT)
+	makeBWA(ctx, t, bwDb, fiC, pb.BandwidthAction_GET)
+	makeBWA(ctx, t, bwDb, fiC, pb.BandwidthAction_GET_AUDIT)
+	makeBWA(ctx, t, bwDb, fiC, pb.BandwidthAction_GET_REPAIR)
+	makeBWA(ctx, t, bwDb, fiC, pb.BandwidthAction_PUT_REPAIR)
 
 	//check the db
 	err = tally.QueryBW(ctx)
 	assert.NoError(t, err)
 }
 
-func makeBWA(ctx context.Context, t *testing.T, bwDb bwagreement.DB, serialNum string, fiC *identity.FullIdentity, action pb.PayerBandwidthAllocation_Action) {
+func makeBWA(ctx context.Context, t *testing.T, bwDb bwagreement.DB, fiC *identity.FullIdentity, action pb.BandwidthAction) {
 	//generate an agreement with the key
 	pba, err := testbwagreement.GeneratePayerBandwidthAllocation(action, fiC, fiC, time.Hour)
 	assert.NoError(t, err)
 	rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("StorageNodeID"), fiC, 666)
 	assert.NoError(t, err)
 	//save to db
-	err = bwDb.CreateAgreement(ctx, serialNum, bwagreement.Agreement{Signature: rba.GetSignature(), Agreement: rba.GetData()})
+	err = bwDb.CreateAgreement(ctx, rba)
 	assert.NoError(t, err)
 }

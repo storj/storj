@@ -5,19 +5,18 @@ package psclient
 
 import (
 	"bufio"
-	"crypto/ecdsa"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"time"
 
-	"github.com/gtank/cryptopasta"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
@@ -184,14 +183,6 @@ func (ps *PieceStore) Delete(ctx context.Context, id PieceID, authorization *pb.
 }
 
 // sign a message using the clients private key
-func (ps *PieceStore) sign(msg []byte) (signature []byte, err error) {
-	if ps.selfID == nil || ps.selfID.Key == nil {
-		return nil, ClientError.New("failed to sign msg: Private Key not Set")
-	}
-	return cryptopasta.Sign(msg, ps.selfID.Key.(*ecdsa.PrivateKey))
-}
-
-//certs returns this uplink's certificates
-func (ps *PieceStore) certs() [][]byte {
-	return ps.selfID.ChainRaw()
+func (ps *PieceStore) sign(rba *pb.RenterBandwidthAllocation) (err error) {
+	return auth.SignMessage(rba, *ps.selfID)
 }

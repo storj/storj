@@ -118,7 +118,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	}
 
 	signedMessage := s.pdb.SignedMessage()
-	pbaGet, err := s.pdb.PayerBandwidthAllocation(ctx, pb.PayerBandwidthAllocation_GET_REPAIR)
+	pbaGet, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_GET_REPAIR)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -134,7 +134,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	}
 	defer utils.LogClose(r)
 
-	pbaPut, err := s.pdb.PayerBandwidthAllocation(ctx, pb.PayerBandwidthAllocation_PUT_REPAIR)
+	pbaPut, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT_REPAIR)
 	if err != nil {
 		return Error.Wrap(err)
 	}

@@ -10,7 +10,6 @@ import (
 	"os"
 	"sync/atomic"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -126,50 +125,32 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 				allocationTracking.Fail(err)
 				return
 			}
-
-			alloc := recv.GetBandwidthAllocation()
-			allocData := &pb.RenterBandwidthAllocation_Data{}
-			if err = proto.Unmarshal(alloc.GetData(), allocData); err != nil {
+			rba := recv.BandwidthAllocation
+			if err = s.verifySignature(stream.Context(), rba); err != nil {
 				allocationTracking.Fail(err)
 				return
 			}
-
-			if err = s.verifySignature(stream.Context(), alloc); err != nil {
+			pba := rba.PayerAllocation
+			if err = s.verifyPayerAllocation(&pba, "GET"); err != nil {
 				allocationTracking.Fail(err)
 				return
 			}
-
-			if allocData.GetPayerAllocation() == nil {
-				allocationTracking.Fail(StoreError.New("no payer bandwidth allocation"))
+			//todo: figure out why this fails tests
+			// if rba.Total > pba.MaxSize {
+			// 	allocationTracking.Fail(fmt.Errorf("attempt to send more data than allocation %v got %v", rba.Total, pba.MaxSize))
+			// 	return
+			// }
+			if lastTotal > rba.Total {
+				allocationTracking.Fail(fmt.Errorf("got lower allocation was %v got %v", lastTotal, rba.Total))
+				return
+			}
+			atomic.StoreInt64(&totalAllocated, rba.Total)
+			if err = allocationTracking.Produce(rba.Total - lastTotal); err != nil {
 				return
 			}
 
-			pbaData := &pb.PayerBandwidthAllocation_Data{}
-			if err = proto.Unmarshal(allocData.GetPayerAllocation().GetData(), pbaData); err != nil {
-				allocationTracking.Fail(err)
-				return
-			}
-
-			if err = s.verifyPayerAllocation(pbaData, "GET"); err != nil {
-				allocationTracking.Fail(err)
-				return
-			}
-
-			// TODO: break when lastTotal >= allocData.GetPayer_allocation().GetData().GetMax_size()
-
-			if lastTotal > allocData.GetTotal() {
-				allocationTracking.Fail(fmt.Errorf("got lower allocation was %v got %v", lastTotal, allocData.GetTotal()))
-				return
-			}
-
-			atomic.StoreInt64(&totalAllocated, allocData.GetTotal())
-
-			if err = allocationTracking.Produce(allocData.GetTotal() - lastTotal); err != nil {
-				return
-			}
-
-			lastAllocation = alloc
-			lastTotal = allocData.GetTotal()
+			lastAllocation = rba
+			lastTotal = rba.Total
 		}
 	}()
 
