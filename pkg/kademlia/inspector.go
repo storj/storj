@@ -30,7 +30,7 @@ func NewInspector(kad dht.DHT, identity *identity.FullIdentity) *Inspector {
 // CountNodes returns the number of nodes in the routing table
 func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*pb.CountNodesResponse, error) {
 	// TODO: this is definitely the wrong way to get this
-	kadNodes, err := srv.dht.GetNodes(ctx, srv.identity.ID, 0)
+	kadNodes, err := srv.dht.FindNear(ctx, srv.identity.ID, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -63,19 +63,32 @@ func (srv *Inspector) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest)
 }
 
 // GetBucket retrieves all of a given K buckets contents
-func (srv *Inspector) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb.GetBucketResponse, error) {
-	rt, err := srv.dht.GetRoutingTable(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// TODO(bryanchriswhite): should use bucketID type
-	nodes, ok := rt.GetNodes(req.Id)
-	if !ok {
-		return &pb.GetBucketResponse{}, Error.New("GetBuckets returned non-OK response")
-	}
+// func (srv *Inspector) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb.GetBucketResponse, error) {
+// 	rt, err := srv.dht.GetRoutingTable(ctx)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	// TODO(bryanchriswhite): should use bucketID type
+// 	nodes, ok := rt.GetNodes(req.Id)
+// 	if !ok {
+// 		return &pb.GetBucketResponse{}, Error.New("GetBuckets returned non-OK response")
+// 	}
+//
+// 	return &pb.GetBucketResponse{
+// 		Id:    req.Id,
+// 		Nodes: nodes,
+// 	}, nil
+// }
 
-	return &pb.GetBucketResponse{
-		Id:    req.Id,
+// FindNear sends back limit of near nodes
+func (srv *Inspector) FindNear(ctx context.Context, req *pb.FindNearRequest) (*pb.FindNearResponse, error) {
+	start := req.Start
+	limit := req.Limit
+	nodes, err := srv.dht.FindNear(ctx, start, int(limit))
+	if err != nil {
+		return &pb.FindNearResponse{}, err
+	}
+	return &pb.FindNearResponse{
 		Nodes: nodes,
 	}, nil
 }
