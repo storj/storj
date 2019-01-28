@@ -40,7 +40,7 @@ func TestPiece(t *testing.T) {
 	defer ctx.Cleanup()
 
 	snID, upID := newTestID(ctx, t), newTestID(ctx, t)
-	s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
+	s, c, cleanup := NewTest(ctx, t, "1", snID, upID, []storj.NodeID{})
 	defer cleanup()
 
 	if err := writeFile(s, "11111111111111111111"); err != nil {
@@ -126,7 +126,7 @@ func TestRetrieve(t *testing.T) {
 	defer ctx.Cleanup()
 
 	snID, upID := newTestID(ctx, t), newTestID(ctx, t)
-	s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
+	s, c, cleanup := NewTest(ctx, t, "2", snID, upID, []storj.NodeID{})
 	defer cleanup()
 
 	if err := writeFile(s, "11111111111111111111"); err != nil {
@@ -326,7 +326,7 @@ func TestStore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
 			snID, upID := newTestID(ctx, t), newTestID(ctx, t)
-			s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
+			s, c, cleanup := NewTest(ctx, t, "3", snID, upID, []storj.NodeID{})
 			defer cleanup()
 			db := s.DB.DB
 
@@ -434,7 +434,7 @@ func TestPbaValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("should validate payer bandwidth allocation struct", func(t *testing.T) {
-			s, c, cleanup := NewTest(ctx, t, snID, upID, tt.whitelist)
+			s, c, cleanup := NewTest(ctx, t, "4", snID, upID, tt.whitelist)
 			defer cleanup()
 
 			require := require.New(t)
@@ -480,7 +480,7 @@ func TestDelete(t *testing.T) {
 	defer ctx.Cleanup()
 
 	snID, upID := newTestID(ctx, t), newTestID(ctx, t)
-	s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
+	s, c, cleanup := NewTest(ctx, t, "5", snID, upID, []storj.NodeID{})
 	defer cleanup()
 
 	db := s.DB.DB
@@ -553,10 +553,10 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentity,
+func NewTest(ctx context.Context, t *testing.T, id string, snID, upID *identity.FullIdentity,
 	ids []storj.NodeID) (*Server, pb.PieceStoreRoutesClient, func()) {
 	//init ps server backend
-	tmp, err := ioutil.TempDir("", "storj-piecestore")
+	tmp, err := ioutil.TempDir("", "storj-piecestore-"+id)
 	require.NoError(t, err)
 	tempDBPath := filepath.Join(tmp, "test.db")
 	tempDir := filepath.Join(tmp, "test-data", "3000")
