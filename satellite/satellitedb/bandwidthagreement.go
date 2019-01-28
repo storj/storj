@@ -7,7 +7,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+
 	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/pb"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -15,13 +18,20 @@ type bandwidthagreement struct {
 	db *dbx.DB
 }
 
-func (b *bandwidthagreement) CreateAgreement(ctx context.Context, serialNum string, agreement bwagreement.Agreement) error {
-	_, err := b.db.Create_Bwagreement(
+func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.RenterBandwidthAllocation) error {
+	rbaBytes, err := proto.Marshal(rba)
+	if err != nil {
+		return err
+	}
+	expiration := time.Unix(rba.PayerAllocation.ExpirationUnixSec, 0)
+	_, err = b.db.Create_Bwagreement(
 		ctx,
-		dbx.Bwagreement_Signature(agreement.Signature),
-		dbx.Bwagreement_Serialnum(serialNum),
-		dbx.Bwagreement_Data(agreement.Agreement),
-		dbx.Bwagreement_ExpiresAt(agreement.ExpiresAt),
+		dbx.Bwagreement_Serialnum(rba.PayerAllocation.SerialNumber+rba.StorageNodeId.String()),
+		dbx.Bwagreement_Data(rbaBytes),
+		dbx.Bwagreement_StorageNode(rba.StorageNodeId.Bytes()),
+		dbx.Bwagreement_Action(int64(rba.PayerAllocation.Action)),
+		dbx.Bwagreement_Total(rba.Total),
+		dbx.Bwagreement_ExpiresAt(expiration),
 	)
 	return err
 }
@@ -33,9 +43,13 @@ func (b *bandwidthagreement) GetAgreements(ctx context.Context) ([]bwagreement.A
 	}
 	agreements := make([]bwagreement.Agreement, len(rows))
 	for i, entry := range rows {
+		rba := pb.RenterBandwidthAllocation{}
+		err := proto.Unmarshal(entry.Data, &rba)
+		if err != nil {
+			return nil, err
+		}
 		agreement := &agreements[i]
-		agreement.Signature = entry.Signature
-		agreement.Agreement = entry.Data
+		agreement.Agreement = rba
 		agreement.CreatedAt = entry.CreatedAt
 	}
 	return agreements, nil
@@ -49,9 +63,13 @@ func (b *bandwidthagreement) GetAgreementsSince(ctx context.Context, since time.
 
 	agreements := make([]bwagreement.Agreement, len(rows))
 	for i, entry := range rows {
+		rba := pb.RenterBandwidthAllocation{}
+		err := proto.Unmarshal(entry.Data, &rba)
+		if err != nil {
+			return nil, err
+		}
 		agreement := &agreements[i]
-		agreement.Signature = entry.Signature
-		agreement.Agreement = entry.Data
+		agreement.Agreement = rba
 		agreement.CreatedAt = entry.CreatedAt
 	}
 	return agreements, nil

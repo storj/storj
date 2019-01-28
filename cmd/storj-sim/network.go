@@ -100,6 +100,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	withCommon := func(all Arguments) Arguments {
 		for command, args := range all {
 			all[command] = append([]string{
+				"--metrics.app-suffix", "sim",
 				"--log.level", "debug",
 				"--config-dir", ".",
 				command,
@@ -129,13 +130,13 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	bootstrap.Arguments = withCommon(Arguments{
 		"setup": {
 			"--identity-dir", bootstrap.Directory,
-		},
-		"run": {
+			"--server.address", bootstrap.Address,
+
 			"--kademlia.bootstrap-addr", bootstrap.Address,
 			"--kademlia.operator.email", "bootstrap@example.com",
 			"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
-			"--server.address", bootstrap.Address,
 		},
+		"run": {},
 	})
 
 	// Create satellites making all satellites wait for bootstrap to start
@@ -155,15 +156,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.Arguments = withCommon(Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
-			},
-			"run": {
 				"--console.address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
-				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--server.address", process.Address,
 
+				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--repairer.overlay-addr", process.Address,
 				"--repairer.pointer-db-addr", process.Address,
 			},
+			"run": {},
 		})
 	}
 
@@ -188,11 +188,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"setup": {
 				"--identity-dir", process.Directory,
 				"--satellite-addr", satellite.Address,
-			},
-			"run": {
+
 				"--server.address", process.Address,
-				"--minio.access-key", accessKey,
-				"--minio.secret-key", secretKey,
 
 				"--client.overlay-addr", satellite.Address,
 				"--client.pointer-db-addr", satellite.Address,
@@ -201,6 +198,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--rs.repair-threshold", strconv.Itoa(2 * flags.StorageNodeCount / 5),
 				"--rs.success-threshold", strconv.Itoa(3 * flags.StorageNodeCount / 5),
 				"--rs.max-threshold", strconv.Itoa(4 * flags.StorageNodeCount / 5),
+			},
+			"run": {
+				// TODO: do not regenerate keys every time, but read from config file instead
+				"--minio.access-key", accessKey,
+				"--minio.secret-key", secretKey,
 			},
 		})
 	}
@@ -220,13 +222,13 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.Arguments = withCommon(Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
-			},
-			"run": {
+				"--server.address", process.Address,
+
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
 				"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
-				"--server.address", process.Address,
 			},
+			"run": {},
 		})
 	}
 

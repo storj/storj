@@ -11,7 +11,6 @@ import (
 	"sort"
 	"text/tabwriter"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -118,7 +117,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	ctx := process.Ctx(cmd)
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Errorf("Failed to initialize telemetry batcher: %+v", err)
+		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
 	db, err := satellitedb.New(runCfg.Database)
@@ -195,17 +194,8 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 
 	for _, baRow := range baRows {
 		// deserializing rbad you get payerbwallocation, total & storage node id
-		rbad := &pb.RenterBandwidthAllocation_Data{}
-		if err := proto.Unmarshal(baRow.Agreement, rbad); err != nil {
-			return err
-		}
-
-		// deserializing pbad you get satelliteID, uplinkID, max size, exp, serial# & action
-		pbad := &pb.PayerBandwidthAllocation_Data{}
-		if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
-			return err
-		}
-
+		rbad := baRow.Agreement
+		pbad := rbad.PayerAllocation
 		uplinkID := pbad.UplinkId
 		summary, ok := summaries[uplinkID]
 		if !ok {
@@ -215,12 +205,12 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		// fill the summary info
-		summary.TotalBytes += rbad.GetTotal()
+		summary.TotalBytes += rbad.Total
 		summary.TotalTransactions++
 		switch pbad.GetAction() {
-		case pb.PayerBandwidthAllocation_PUT:
+		case pb.BandwidthAction_PUT:
 			summary.PutActionCount++
-		case pb.PayerBandwidthAllocation_GET:
+		case pb.BandwidthAction_GET:
 			summary.GetActionCount++
 		}
 	}

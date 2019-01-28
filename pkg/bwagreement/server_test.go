@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package test
+package bwagreement_test
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gtank/cryptopasta"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
@@ -23,6 +24,7 @@ import (
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/bwagreement/testbwagreement"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -65,15 +67,15 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 	satellite := bwagreement.NewServer(bwdb, zap.NewNop(), satID.ID)
 
 	{ // TestSameSerialNumberBandwidthAgreements
-		pbaFile1, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satID, upID, time.Hour)
+		pbaFile1, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, time.Hour)
 		assert.NoError(t, err)
 
 		ctxSN1, storageNode1 := getPeerContext(ctx, t)
-		rbaNode1, err := GenerateRenterBandwidthAllocation(pbaFile1, storageNode1, upID, 666)
+		rbaNode1, err := testbwagreement.GenerateRenterBandwidthAllocation(pbaFile1, storageNode1, upID, 666)
 		assert.NoError(t, err)
 
 		ctxSN2, storageNode2 := getPeerContext(ctx, t)
-		rbaNode2, err := GenerateRenterBandwidthAllocation(pbaFile1, storageNode2, upID, 666)
+		rbaNode2, err := testbwagreement.GenerateRenterBandwidthAllocation(pbaFile1, storageNode2, upID, 666)
 		assert.NoError(t, err)
 
 		/* More than one storage node can submit bwagreements with the same serial number.
@@ -93,10 +95,10 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		/* Storage node can submit a second bwagreement with a different sequence value.
 		   Uplink downloads another file. New PayerBandwidthAllocation with a new sequence. */
 		{
-			pbaFile2, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satID, upID, time.Hour)
+			pbaFile2, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, time.Hour)
 			assert.NoError(t, err)
 
-			rbaNode1, err := GenerateRenterBandwidthAllocation(pbaFile2, storageNode1, upID, 666)
+			rbaNode1, err := testbwagreement.GenerateRenterBandwidthAllocation(pbaFile2, storageNode1, upID, 666)
 			assert.NoError(t, err)
 
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rbaNode1)
@@ -106,11 +108,11 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 
 		/* Storage nodes can't submit a second bwagreement with the same sequence. */
 		{
-			rbaNode1, err := GenerateRenterBandwidthAllocation(pbaFile1, storageNode1, upID, 666)
+			rbaNode1, err := testbwagreement.GenerateRenterBandwidthAllocation(pbaFile1, storageNode1, upID, 666)
 			assert.NoError(t, err)
 
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rbaNode1)
-			assert.True(t, auth.Serial.Has(err))
+			assert.True(t, auth.ErrSerial.Has(err))
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -119,18 +121,18 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		   For safety we will try it anyway to make sure nothing strange will happen */
 		{
 			reply, err := satellite.BandwidthAgreements(ctxSN2, rbaNode2)
-			assert.True(t, auth.Serial.Has(err))
+			assert.True(t, auth.ErrSerial.Has(err))
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 	}
 
 	{ // TestExpiredBandwidthAgreements
-		{ // storage nodes can submit a bwagreement that will expire in one second
-			pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satID, upID, time.Second)
+		{ // storage nodes can submit a bwagreement that will expire in 30 seconds
+			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, 30*time.Second)
 			assert.NoError(t, err)
 
 			ctxSN1, storageNode1 := getPeerContext(ctx, t)
-			rba, err := GenerateRenterBandwidthAllocation(pba, storageNode1, upID, 666)
+			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, storageNode1, upID, 666)
 			assert.NoError(t, err)
 
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rba)
@@ -139,11 +141,11 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		}
 
 		{ // storage nodes can't submit a bwagreement that expires right now
-			pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satID, upID, 0*time.Second)
+			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, 0*time.Second)
 			assert.NoError(t, err)
 
 			ctxSN1, storageNode1 := getPeerContext(ctx, t)
-			rba, err := GenerateRenterBandwidthAllocation(pba, storageNode1, upID, 666)
+			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, storageNode1, upID, 666)
 			assert.NoError(t, err)
 
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rba)
@@ -152,11 +154,11 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		}
 
 		{ // storage nodes can't submit a bwagreement that expires yesterday
-			pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satID, upID, -23*time.Hour-55*time.Second)
+			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, -23*time.Hour-55*time.Second)
 			assert.NoError(t, err)
 
 			ctxSN1, storageNode1 := getPeerContext(ctx, t)
-			rba, err := GenerateRenterBandwidthAllocation(pba, storageNode1, upID, 666)
+			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, storageNode1, upID, 666)
 			assert.NoError(t, err)
 
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rba)
@@ -166,187 +168,116 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 	}
 
 	{ // TestManipulatedBandwidthAgreements
-		pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satID, upID, time.Hour)
+		pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, time.Hour)
 		if !assert.NoError(t, err) {
 			t.Fatal(err)
 		}
 
 		ctxSN1, storageNode1 := getPeerContext(ctx, t)
-		rba, err := GenerateRenterBandwidthAllocation(pba, storageNode1, upID, 666)
-		assert.NoError(t, err)
-
-		// Unmarschal Renter and Payer bwagreements
-		rbaData := &pb.RenterBandwidthAllocation_Data{}
-		err = proto.Unmarshal(rba.GetData(), rbaData)
-		assert.NoError(t, err)
-
-		pbaData := &pb.PayerBandwidthAllocation_Data{}
-		err = proto.Unmarshal(pba.GetData(), pbaData)
+		rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, storageNode1, upID, 666)
 		assert.NoError(t, err)
 
 		// Storage node manipulates the bwagreement
-		rbaData.Total = 1337
-
-		// Marschal the manipulated bwagreement
-		maniprba, err := proto.Marshal(rbaData)
-		assert.NoError(t, err)
+		rba.Total = 1337
 
 		// Generate a new keypair for self signing bwagreements
 		manipID, err := testidentity.NewTestIdentity(ctx)
 		assert.NoError(t, err)
-		manipCerts := manipID.ChainRaw() //todo: do we need RestChain?
+		manipCerts := manipID.ChainRaw()
 		manipPrivKey, ok := manipID.Key.(*ecdsa.PrivateKey)
 		assert.True(t, ok)
 
 		/* Storage node can't manipulate the bwagreement size (or any other field)
 		   Satellite will verify Renter's Signature. */
 		{
+			manipRBA := *rba
 			// Using uplink signature
-			reply, err := callBWA(ctxSN1, satellite, rba.GetSignature(), maniprba, rba.GetCerts())
-			assert.True(t, auth.Verify.Has(err) && pb.Renter.Has(err), err.Error())
+			reply, err := callBWA(ctxSN1, t, satellite, rba.GetSignature(), &manipRBA, rba.GetCerts())
+			assert.True(t, auth.ErrVerify.Has(err) && pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
 		/* Storage node can't sign the manipulated bwagreement
 		   Satellite will verify Renter's Signature. */
 		{
-			manipSignature, err := cryptopasta.Sign(maniprba, manipPrivKey)
+			manipRBA := *rba
+			manipSignature := GetSignature(t, &manipRBA, manipPrivKey)
 			assert.NoError(t, err)
-
 			// Using self created signature
-			reply, err := callBWA(ctxSN1, satellite, manipSignature, maniprba, rba.GetCerts())
-			assert.True(t, auth.Verify.Has(err) && pb.Renter.Has(err), err.Error())
+			reply, err := callBWA(ctxSN1, t, satellite, manipSignature, rba, rba.GetCerts())
+			assert.True(t, auth.ErrVerify.Has(err) && pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
 		/* Storage node can't replace uplink Certs
 		   Satellite will check uplink Certs against uplinkeId. */
 		{
-			manipSignature, err := cryptopasta.Sign(maniprba, manipPrivKey)
-			assert.NoError(t, err)
-
+			manipRBA := *rba
+			manipSignature := GetSignature(t, &manipRBA, manipPrivKey)
 			// Using self created signature + public key
-			reply, err := callBWA(ctxSN1, satellite, manipSignature, maniprba, manipCerts)
-			assert.True(t, auth.Signer.Has(err) && pb.Renter.Has(err), err.Error())
+			reply, err := callBWA(ctxSN1, t, satellite, manipSignature, &manipRBA, manipCerts)
+			assert.True(t, auth.ErrSigner.Has(err) && pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
 		/* Storage node can't replace uplink NodeId
 		   Satellite will verify the Payer's Signature. */
 		{
+			manipRBA := *rba
 			// Overwrite the uplinkId with our own keypair
-			pbaData.UplinkId = manipID.ID
-
-			manippba, err := proto.Marshal(pbaData)
-			assert.NoError(t, err)
-
-			// Overwrite the uplink public key with our own keypair
-			rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
-				Signature: pba.GetSignature(),
-				Data:      manippba,
-				Certs:     pba.GetCerts(),
-			}
-
-			maniprba, err := proto.Marshal(rbaData)
-			assert.NoError(t, err)
-
-			manipSignature, err := cryptopasta.Sign(maniprba, manipPrivKey)
-			assert.NoError(t, err)
-
+			manipRBA.PayerAllocation.UplinkId = manipID.ID
+			manipSignature := GetSignature(t, &manipRBA, manipPrivKey)
 			// Using self created signature + public key
-			reply, err := callBWA(ctxSN1, satellite, manipSignature, maniprba, manipCerts)
-			assert.True(t, auth.Verify.Has(err) && pb.Payer.Has(err), err.Error())
+			reply, err := callBWA(ctxSN1, t, satellite, manipSignature, &manipRBA, manipCerts)
+			assert.True(t, auth.ErrVerify.Has(err) && pb.ErrPayer.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
 		/* Storage node can't self sign the PayerBandwidthAllocation.
 		   Satellite will verify the Payer's Signature. */
 		{
+			manipRBA := *rba
 			// Overwrite the uplinkId with our own keypair
-			pbaData.UplinkId = manipID.ID
-
-			manippba, err := proto.Marshal(pbaData)
-			assert.NoError(t, err)
-
-			manipSignature, err := cryptopasta.Sign(manippba, manipPrivKey)
-			assert.NoError(t, err)
-
-			rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
-				Signature: manipSignature,
-				Data:      manippba,
-				Certs:     pba.GetCerts(),
-			}
-
-			maniprba, err := proto.Marshal(rbaData)
-			assert.NoError(t, err)
-
-			manipSignature, err = cryptopasta.Sign(maniprba, manipPrivKey)
-			assert.NoError(t, err)
-
+			manipRBA.PayerAllocation.UplinkId = manipID.ID
+			manipSignature := GetSignature(t, &manipRBA.PayerAllocation, manipPrivKey)
+			manipRBA.PayerAllocation.Signature = manipSignature
+			manipSignature = GetSignature(t, &manipRBA, manipPrivKey)
 			// Using self created Payer and Renter bwagreement signatures
-			reply, err := callBWA(ctxSN1, satellite, manipSignature, maniprba, manipCerts)
-			assert.True(t, auth.Verify.Has(err) && pb.Payer.Has(err), err.Error())
+			reply, err := callBWA(ctxSN1, t, satellite, manipSignature, &manipRBA, manipCerts)
+			assert.True(t, auth.ErrVerify.Has(err) && pb.ErrPayer.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
 		/* Storage node can't replace the satellite Certs.
 		   Satellite will check satellite certs against satelliteId. */
 		{
+			manipRBA := *rba
 			// Overwrite the uplinkId with our own keypair
-			pbaData.UplinkId = manipID.ID
-
-			manippba, err := proto.Marshal(pbaData)
-			assert.NoError(t, err)
-
-			manipSignature, err := cryptopasta.Sign(manippba, manipPrivKey)
-			assert.NoError(t, err)
-
-			rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
-				Signature: manipSignature,
-				Data:      manippba,
-				Certs:     manipCerts,
-			}
-
-			maniprba, err := proto.Marshal(rbaData)
-			assert.NoError(t, err)
-
-			manipSignature, err = cryptopasta.Sign(maniprba, manipPrivKey)
-			assert.NoError(t, err)
-
+			manipRBA.PayerAllocation.UplinkId = manipID.ID
+			manipSignature := GetSignature(t, &manipRBA.PayerAllocation, manipPrivKey)
+			manipRBA.PayerAllocation.Signature = manipSignature
+			manipRBA.PayerAllocation.Certs = manipCerts
+			manipSignature = GetSignature(t, &manipRBA, manipPrivKey)
 			// Using self created Payer and Renter bwagreement signatures
-			reply, err := callBWA(ctxSN1, satellite, manipSignature, maniprba, manipCerts)
-			assert.True(t, auth.Signer.Has(err) && pb.Payer.Has(err), err.Error())
+			reply, err := callBWA(ctxSN1, t, satellite, manipSignature, &manipRBA, manipCerts)
+			assert.True(t, auth.ErrSigner.Has(err) && pb.ErrPayer.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
 		/* Storage node can't replace the satellite.
 		   Satellite will verify the Satellite Id. */
 		{
+			manipRBA := *rba
 			// Overwrite the uplinkId and satelliteID with our own keypair
-			pbaData.UplinkId = manipID.ID
-			pbaData.SatelliteId = manipID.ID
-
-			manippba, err := proto.Marshal(pbaData)
-			assert.NoError(t, err)
-
-			manipSignature, err := cryptopasta.Sign(manippba, manipPrivKey)
-			assert.NoError(t, err)
-
-			rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
-				Signature: manipSignature,
-				Data:      manippba,
-				Certs:     manipCerts,
-			}
-
-			maniprba, err := proto.Marshal(rbaData)
-			assert.NoError(t, err)
-
-			manipSignature, err = cryptopasta.Sign(maniprba, manipPrivKey)
-			assert.NoError(t, err)
-
+			manipRBA.PayerAllocation.UplinkId = manipID.ID
+			manipRBA.PayerAllocation.SatelliteId = manipID.ID
+			manipSignature := GetSignature(t, &manipRBA.PayerAllocation, manipPrivKey)
+			manipRBA.PayerAllocation.Signature = manipSignature
+			manipRBA.PayerAllocation.Certs = manipCerts
+			manipSignature = GetSignature(t, &manipRBA, manipPrivKey)
 			// Using self created Payer and Renter bwagreement signatures
-			reply, err := callBWA(ctxSN1, satellite, manipSignature, maniprba, manipCerts)
-			assert.True(t, pb.Payer.Has(err), err.Error())
+			reply, err := callBWA(ctxSN1, t, satellite, manipSignature, &manipRBA, manipCerts)
+			assert.True(t, pb.ErrPayer.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 	}
@@ -354,54 +285,47 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 	{ //TestInvalidBandwidthAgreements
 		ctxSN1, storageNode1 := getPeerContext(ctx, t)
 		ctxSN2, storageNode2 := getPeerContext(ctx, t)
-		pba, err := GeneratePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, satID, upID, time.Hour)
+		pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, time.Hour)
 		assert.NoError(t, err)
 
 		{ // Storage node sends an corrupted signuature to force a satellite crash
-			rba, err := GenerateRenterBandwidthAllocation(pba, storageNode1, upID, 666)
+			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, storageNode1, upID, 666)
 			assert.NoError(t, err)
-
 			rba.Signature = []byte("invalid")
-
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rba)
-			assert.True(t, auth.SigLen.Has(err) && pb.Renter.Has(err), err.Error())
+			assert.True(t, auth.ErrSigLen.Has(err) && pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
 		{ // Storage node sends an corrupted uplink Certs to force a crash
-			rba, err := GenerateRenterBandwidthAllocation(pba, storageNode2, upID, 666)
+			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, storageNode2, upID, 666)
 			assert.NoError(t, err)
-
-			rbaData := &pb.RenterBandwidthAllocation_Data{}
-			err = proto.Unmarshal(rba.GetData(), rbaData)
-			assert.NoError(t, err)
-
-			pbaData := &pb.PayerBandwidthAllocation_Data{}
-			err = proto.Unmarshal(pba.GetData(), pbaData)
-			assert.NoError(t, err)
-
-			pba.Certs = nil
-
-			invalidpba, err := proto.Marshal(pbaData)
-			assert.NoError(t, err)
-
-			rbaData.PayerAllocation = &pb.PayerBandwidthAllocation{
-				Signature: pba.GetSignature(),
-				Data:      invalidpba,
-				Certs:     pba.GetCerts(),
-			}
-
-			invalidrba, err := proto.Marshal(rbaData)
-			assert.NoError(t, err)
-
-			reply, err := callBWA(ctxSN2, satellite, rba.GetSignature(), invalidrba, rba.GetCerts())
-			assert.True(t, auth.Verify.Has(err) && pb.Renter.Has(err), err.Error())
+			rba.PayerAllocation.Certs = nil
+			reply, err := callBWA(ctxSN2, t, satellite, rba.GetSignature(), rba, rba.GetCerts())
+			assert.True(t, auth.ErrVerify.Has(err) && pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 	}
 }
 
-func callBWA(ctx context.Context, sat *bwagreement.Server, signature, data []byte, certs [][]byte) (*pb.AgreementsSummary, error) {
-	rba := &pb.RenterBandwidthAllocation{Signature: signature, Data: data, Certs: certs}
+func callBWA(ctx context.Context, t *testing.T, sat *bwagreement.Server, signature []byte, rba *pb.RenterBandwidthAllocation, certs [][]byte) (*pb.AgreementsSummary, error) {
+	rba.SetCerts(certs)
+	rba.SetSignature(signature)
 	return sat.BandwidthAgreements(ctx, rba)
+}
+
+//GetSignature returns the signature of the signed message
+func GetSignature(t *testing.T, msg auth.SignableMessage, privECDSA *ecdsa.PrivateKey) []byte {
+	require.NotNil(t, msg)
+	oldSignature := msg.GetSignature()
+	certs := msg.GetCerts()
+	msg.SetSignature(nil)
+	msg.SetCerts(nil)
+	msgBytes, err := proto.Marshal(msg)
+	require.NoError(t, err)
+	signature, err := cryptopasta.Sign(msgBytes, privECDSA)
+	require.NoError(t, err)
+	msg.SetSignature(oldSignature)
+	msg.SetCerts(certs)
+	return signature
 }

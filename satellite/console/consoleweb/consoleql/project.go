@@ -18,9 +18,6 @@ const (
 	FieldName = "name"
 	// FieldDescription is a field name for description
 	FieldDescription = "description"
-	// FieldIsTermsAccepted indicates if user accepted Terms & Conditions during project creation
-	// Used in input model
-	FieldIsTermsAccepted = "isTermsAccepted"
 	// FieldMembers is field name for members
 	FieldMembers = "members"
 	// FieldAPIKeys is a field name for api keys
@@ -49,9 +46,6 @@ func graphqlProject(service *console.Service, types Types) *graphql.Object {
 			},
 			FieldDescription: &graphql.Field{
 				Type: graphql.String,
-			},
-			FieldIsTermsAccepted: &graphql.Field{
-				Type: graphql.Int,
 			},
 			FieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
@@ -131,9 +125,6 @@ func graphqlProjectInput() *graphql.InputObject {
 			FieldDescription: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
-			FieldIsTermsAccepted: &graphql.InputObjectFieldConfig{
-				Type: graphql.Boolean,
-			},
 		},
 	})
 }
@@ -142,7 +133,6 @@ func graphqlProjectInput() *graphql.InputObject {
 func fromMapProjectInfo(args map[string]interface{}) (project console.ProjectInfo) {
 	project.Name, _ = args[FieldName].(string)
 	project.Description, _ = args[FieldDescription].(string)
-	project.IsTermsAccepted, _ = args[FieldIsTermsAccepted].(bool)
 
 	return
 }

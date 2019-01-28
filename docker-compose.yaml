@@ -18,7 +18,6 @@ services:
   satellite:
     image: storjlabs/satellite:${VERSION:-latest}
     environment:
-    - CA_DIFFICULTY=4
     - API_KEY=abc123
     - BOOTSTRAP_ADDR=localhost:8080
     - STORJ_CHECKER_QUEUE_ADDRESS=redis://redis:6379/?db=0
@@ -38,7 +37,6 @@ services:
   storagenode:
     image: storjlabs/storagenode:${VERSION:-latest}
     environment:
-    - CA_DIFFICULTY=4
     - SATELLITE_ADDR=satellite:7777
     - STORJ_KADEMLIA_EXTERNAL_ADDRESS=storagenode:7777
     - STORJ_KADEMLIA_OPERATOR_EMAIL=hello@storj.io
@@ -51,7 +49,6 @@ services:
     image: storjlabs/gateway:${VERSION:-latest}
     command: --rs.min-threshold 1 --rs.max-threshold 1 --rs.repair-threshold 1 --rs.success-threshold 1
     environment:
-    - CA_DIFFICULTY=4
     - API_KEY=abc123
     - SATELLITE_ADDR=satellite:7777
     - STORJ_LOG_LEVEL=debug

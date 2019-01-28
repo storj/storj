@@ -111,10 +111,10 @@ type lockedBandwidthAgreement struct {
 }
 
 // CreateAgreement adds a new bandwidth agreement.
-func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 string, a2 bwagreement.Agreement) error {
+func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.RenterBandwidthAllocation) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.CreateAgreement(ctx, a1, a2)
+	return m.db.CreateAgreement(ctx, a1)
 }
 
 // GetAgreements gets all bandwidth agreements.
