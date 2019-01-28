@@ -114,7 +114,7 @@ var xxx_messageInfo_LookupRequest proto.InternalMessageInfo
 
 // LookupResponse is is response message for the lookup rpc call
 type LookupResponse struct {
-	Node                 *Node    `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	Node                 *Node    `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -153,7 +153,7 @@ func (m *LookupResponse) GetNode() *Node {
 
 // LookupRequests is a list of LookupRequest
 type LookupRequests struct {
-	LookupRequest        []*LookupRequest `protobuf:"bytes,1,rep,name=lookup_request,json=lookupRequest" json:"lookup_request,omitempty"`
+	LookupRequest        []*LookupRequest `protobuf:"bytes,1,rep,name=lookup_request,json=lookupRequest,proto3" json:"lookup_request,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -192,7 +192,7 @@ func (m *LookupRequests) GetLookupRequest() []*LookupRequest {
 
 // LookupResponse is a list of LookupResponse
 type LookupResponses struct {
-	LookupResponse       []*LookupResponse `protobuf:"bytes,1,rep,name=lookup_response,json=lookupResponse" json:"lookup_response,omitempty"`
+	LookupResponse       []*LookupResponse `protobuf:"bytes,1,rep,name=lookup_response,json=lookupResponse,proto3" json:"lookup_response,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -231,7 +231,7 @@ func (m *LookupResponses) GetLookupResponse() []*LookupResponse {
 
 // FindStorageNodesResponse is is response message for the FindStorageNodes rpc call
 type FindStorageNodesResponse struct {
-	Nodes                []*Node  `protobuf:"bytes,1,rep,name=nodes" json:"nodes,omitempty"`
+	Nodes                []*Node  `protobuf:"bytes,1,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -271,8 +271,8 @@ func (m *FindStorageNodesResponse) GetNodes() []*Node {
 // FindStorageNodesRequest is is request message for the FindStorageNodes rpc call
 type FindStorageNodesRequest struct {
 	ObjectSize           int64              `protobuf:"varint,1,opt,name=object_size,json=objectSize,proto3" json:"object_size,omitempty"`
-	ContractLength       *duration.Duration `protobuf:"bytes,2,opt,name=contract_length,json=contractLength" json:"contract_length,omitempty"`
-	Opts                 *OverlayOptions    `protobuf:"bytes,3,opt,name=opts" json:"opts,omitempty"`
+	ContractLength       *duration.Duration `protobuf:"bytes,2,opt,name=contract_length,json=contractLength,proto3" json:"contract_length,omitempty"`
+	Opts                 *OverlayOptions    `protobuf:"bytes,3,opt,name=opts,proto3" json:"opts,omitempty"`
 	Start                NodeID             `protobuf:"bytes,4,opt,name=start,proto3,customtype=NodeID" json:"start"`
 	MaxNodes             int64              `protobuf:"varint,5,opt,name=max_nodes,json=maxNodes,proto3" json:"max_nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
@@ -334,12 +334,12 @@ func (m *FindStorageNodesRequest) GetMaxNodes() int64 {
 
 // OverlayOptions is a set of criteria that a node must meet to be considered for a storage opportunity
 type OverlayOptions struct {
-	MaxLatency           *duration.Duration `protobuf:"bytes,1,opt,name=max_latency,json=maxLatency" json:"max_latency,omitempty"`
-	MinStats             *NodeStats         `protobuf:"bytes,2,opt,name=min_stats,json=minStats" json:"min_stats,omitempty"`
+	MaxLatency           *duration.Duration `protobuf:"bytes,1,opt,name=max_latency,json=maxLatency,proto3" json:"max_latency,omitempty"`
+	MinStats             *NodeStats         `protobuf:"bytes,2,opt,name=min_stats,json=minStats,proto3" json:"min_stats,omitempty"`
 	MinSpeedKbps         int64              `protobuf:"varint,3,opt,name=min_speed_kbps,json=minSpeedKbps,proto3" json:"min_speed_kbps,omitempty"`
 	Amount               int64              `protobuf:"varint,4,opt,name=amount,proto3" json:"amount,omitempty"`
-	Restrictions         *NodeRestrictions  `protobuf:"bytes,5,opt,name=restrictions" json:"restrictions,omitempty"`
-	ExcludedNodes        []NodeID           `protobuf:"bytes,6,rep,name=excluded_nodes,json=excludedNodes,customtype=NodeID" json:"excluded_nodes,omitempty"`
+	Restrictions         *NodeRestrictions  `protobuf:"bytes,5,opt,name=restrictions,proto3" json:"restrictions,omitempty"`
+	ExcludedNodes        []NodeID           `protobuf:"bytes,6,rep,name=excluded_nodes,json=excludedNodes,proto3,customtype=NodeID" json:"excluded_nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -405,8 +405,8 @@ func (m *OverlayOptions) GetRestrictions() *NodeRestrictions {
 }
 
 type QueryRequest struct {
-	Sender               *Node    `protobuf:"bytes,1,opt,name=sender" json:"sender,omitempty"`
-	Target               *Node    `protobuf:"bytes,2,opt,name=target" json:"target,omitempty"`
+	Sender               *Node    `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
+	Target               *Node    `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
 	Limit                int64    `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 	Pingback             bool     `protobuf:"varint,4,opt,name=pingback,proto3" json:"pingback,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -467,8 +467,8 @@ func (m *QueryRequest) GetPingback() bool {
 }
 
 type QueryResponse struct {
-	Sender               *Node    `protobuf:"bytes,1,opt,name=sender" json:"sender,omitempty"`
-	Response             []*Node  `protobuf:"bytes,2,rep,name=response" json:"response,omitempty"`
+	Sender               *Node    `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
+	Response             []*Node  `protobuf:"bytes,2,rep,name=response,proto3" json:"response,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
