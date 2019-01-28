@@ -26,9 +26,6 @@ if [[ -n "${BOOTSTRAP_ADDR:-}" ]]; then
 fi
 
 if [[ ! -f "${CONF_PATH}/config.yaml" ]]; then
-	if [[ -n "${CA_DIFFICULTY:-}" ]]; then
-		SETUP_PARAMS="--ca.difficulty ${CA_DIFFICULTY}"
-	fi
 	./satellite setup $SETUP_PARAMS
 fi
 
