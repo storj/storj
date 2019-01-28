@@ -29,7 +29,6 @@ type RoutingTable interface {
 	Local() pb.Node
 	K() int
 	CacheSize() int
-	// GetNodes(id storj.NodeID) (nodes []*pb.Node, ok bool)
 	GetBucketIds() (storage.Keys, error)
 	FindNear(id storj.NodeID, limit int) ([]*pb.Node, error)
 	ConnectionSuccess(node *pb.Node) error

@@ -63,17 +63,6 @@ var (
 		Short: "count nodes in kademlia and overlay",
 		RunE:  CountNodes,
 	}
-	// getBucketsCmd = &cobra.Command{
-	// 	Use:   "list-buckets",
-	// 	Short: "get all buckets in overlay",
-	// 	RunE:  GetBuckets,
-	// }
-	// getBucketCmd = &cobra.Command{
-	// 	Use:   "ls <bucket_id>",
-	// 	Short: "get all nodes in bucket",
-	// 	Args:  cobra.MinimumNArgs(1),
-	// 	RunE:  GetBucket,
-	// }
 	pingNodeCmd = &cobra.Command{
 		Use:   "ping <node_id> <ip:port>",
 		Short: "ping node at provided ID",
@@ -420,8 +409,6 @@ func init() {
 	rootCmd.AddCommand(statsCmd)
 
 	kadCmd.AddCommand(countNodeCmd)
-	// kadCmd.AddCommand(getBucketsCmd)
-	// kadCmd.AddCommand(getBucketCmd)
 	kadCmd.AddCommand(pingNodeCmd)
 	kadCmd.AddCommand(lookupNodeCmd)
 	kadCmd.AddCommand(dumpNodesCmd)
