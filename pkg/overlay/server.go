@@ -4,7 +4,6 @@
 package overlay
 
 import (
-	"bytes"
 	"context"
 
 	"github.com/zeebo/errs"

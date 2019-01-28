@@ -6,8 +6,8 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"strings"
 
+	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/utils"
 
@@ -161,21 +161,19 @@ func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *fil
 			auditSuccessRatio, uptimeCount, uptimeRatio,
 			req.freeBandwidth, req.freeDisk, nodeTypeStorage, nodeAmt)
 
-		rows, err = cache.db.Query(cache.db.Rebind(`SELECT overlay_cache_nodes.node_id,
-	overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.free_bandwidth,
-	overlay_cache_nodes.free_disk, overlay_cache_nodes.audit_success_ratio,
-	overlay_cache_nodes.audit_uptime_ratio, overlay_cache_nodes.audit_count,
-	overlay_cache_nodes.audit_success_count, overlay_cache_nodes.uptime_count,
-	overlay_cache_nodes.uptime_success_count
+		rows, err = cache.db.Query(cache.db.Rebind(`SELECT node_id,
+	node_type, address, free_bandwidth, free_disk, audit_success_ratio,
+	audit_uptime_ratio, audit_count,audit_success_count, uptime_count,
+	uptime_success_count
 	FROM overlay_cache_nodes
-	WHERE overlay_cache_nodes.audit_count > ?
-	AND overlay_cache_nodes.audit_count > ?
-	AND overlay_cache_nodes.audit_success_ratio > ?
-	AND overlay_cache_nodes.uptime_count > ?
-	AND overlay_cache_nodes.audit_uptime_ratio > ?
-	AND overlay_cache_nodes.free_bandwidth > ?
-	AND overlay_cache_nodes.free_disk > ?
-	AND overlay_cache_nodes.node_type == ?
+	WHERE audit_count > ?
+	AND audit_count > ?
+	AND audit_success_ratio > ?
+	AND uptime_count > ?
+	AND audit_uptime_ratio > ?
+	AND free_bandwidth > ?
+	AND free_disk > ?
+	AND node_type == ?
 	LIMIT ?
 	`),
 			args...)
@@ -185,24 +183,22 @@ func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *fil
 	} else {
 		args = append(args, auditCount, req.newNodeAuditThreshold,
 			auditSuccessRatio, uptimeCount, uptimeRatio,
-			req.freeBandwidth, req.freeDisk, req.excluded, nodeTypeStorage, nodeAmt)
+			req.freeBandwidth, req.freeDisk, pq.Array(req.excluded), nodeTypeStorage, nodeAmt)
 
-		rows, err = cache.db.Query(cache.db.Rebind(`SELECT overlay_cache_nodes.node_id,
-	overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.free_bandwidth,
-	overlay_cache_nodes.free_disk, overlay_cache_nodes.audit_success_ratio,
-	overlay_cache_nodes.audit_uptime_ratio, overlay_cache_nodes.audit_count,
-	overlay_cache_nodes.audit_success_count, overlay_cache_nodes.uptime_count,
-	overlay_cache_nodes.uptime_success_count
+		rows, err = cache.db.Query(cache.db.Rebind(`SELECT node_id,
+	node_type, address, free_bandwidth, free_disk, audit_success_ratio,
+	audit_uptime_ratio, audit_count, audit_success_count, uptime_count,
+	uptime_success_count
 	FROM overlay_cache_nodes
-	WHERE overlay_cache_nodes.audit_count > ?
-	AND overlay_cache_nodes.audit_count > ?
-	AND overlay_cache_nodes.audit_success_ratio > ?
-	AND overlay_cache_nodes.uptime_count > ?
-	AND overlay_cache_nodes.audit_uptime_ratio > ?
-	AND overlay_cache_nodes.free_bandwidth > ?
-	AND overlay_cache_nodes.free_disk > ?
-	AND overlay_cache_nodes.node_id NOT IN (?`+strings.Repeat(", ?", len(req.excluded)-1)+`)
-	AND overlay_cache_nodes.node_type == ?
+	WHERE audit_count > ?
+	AND audit_count > ?
+	AND audit_success_ratio > ?
+	AND uptime_count > ?
+	AND audit_uptime_ratio > ?
+	AND free_bandwidth > ?
+	AND free_disk > ?
+	AND node_id NOT IN ?::text[]
+	AND node_type == ?
 	LIMIT ?
 	`),
 			args...)
@@ -225,18 +221,16 @@ func (cache *overlaycache) findNewNodesQuery(ctx context.Context, req *filterNew
 		args = append(args, req.newNodeAuditThreshold,
 			req.freeBandwidth, req.freeDisk, nodeTypeStorage, req.newNodeAmount)
 
-		rows, err = cache.db.Query(cache.db.Rebind(`SELECT overlay_cache_nodes.node_id,
-	overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.free_bandwidth,
-	overlay_cache_nodes.free_disk, overlay_cache_nodes.audit_success_ratio,
-	overlay_cache_nodes.audit_uptime_ratio, overlay_cache_nodes.audit_count,
-	overlay_cache_nodes.audit_success_count, overlay_cache_nodes.uptime_count,
-	overlay_cache_nodes.uptime_success_count
-	FROM overlay_cache_nodes
-	WHERE overlay_cache_nodes.audit_count < ?
-	AND overlay_cache_nodes.free_bandwidth > ?
-	AND overlay_cache_nodes.free_disk > ?
-	AND overlay_cache_nodes.node_type == ?
-	LIMIT ?
+		rows, err = cache.db.Query(cache.db.Rebind(`SELECT node_id,
+		node_type, address, free_bandwidth, free_disk, audit_success_ratio,
+		audit_uptime_ratio, audit_count, audit_success_count, uptime_count,
+		uptime_success_count
+		FROM overlay_cache_nodes
+		WHERE audit_count < ?
+		AND free_bandwidth > ?
+		AND free_disk > ?
+		AND node_type == ?
+		LIMIT ?
 	`),
 			args...)
 		if err != nil {
@@ -244,21 +238,19 @@ func (cache *overlaycache) findNewNodesQuery(ctx context.Context, req *filterNew
 		}
 	} else {
 		args = append(args, req.newNodeAuditThreshold,
-			req.freeBandwidth, req.freeDisk, nodeTypeStorage, req.newNodeAmount)
+			req.freeBandwidth, req.freeDisk, pq.Array(req.excluded), nodeTypeStorage, req.newNodeAmount)
 
-		rows, err = cache.db.Query(cache.db.Rebind(`SELECT overlay_cache_nodes.node_id,
-	overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.free_bandwidth,
-	overlay_cache_nodes.free_disk, overlay_cache_nodes.audit_success_ratio,
-	overlay_cache_nodes.audit_uptime_ratio, overlay_cache_nodes.audit_count,
-	overlay_cache_nodes.audit_success_count, overlay_cache_nodes.uptime_count,
-	overlay_cache_nodes.uptime_success_count
-	FROM overlay_cache_nodes
-	WHERE overlay_cache_nodes.audit_count < ?
-	AND overlay_cache_nodes.free_bandwidth > ?
-	AND overlay_cache_nodes.free_disk > ?
-	AND overlay_cache_nodes.node_id NOT IN (?`+strings.Repeat(", ?", len(req.excluded)-1)+`)
-	AND overlay_cache_nodes.node_type == ?
-	LIMIT ?
+		rows, err = cache.db.Query(cache.db.Rebind(`SELECT node_id,
+		node_type, address, free_bandwidth, free_disk, audit_success_ratio,
+		audit_uptime_ratio, audit_count, audit_success_count, uptime_count,
+		uptime_success_count
+		FROM overlay_cache_nodes
+		WHERE audit_count < ?
+		AND free_bandwidth > ?
+		AND free_disk > ?
+		AND node_id NOT IN ?::text[]
+		AND node_type == ?
+		LIMIT ?
 	`),
 			args...)
 		if err != nil {
