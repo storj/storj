@@ -675,7 +675,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	service, err := server.NewServer(opts, listener, nil, config)
+	service, err := server.New(opts, listener, nil, config)
 	if !assert.NoError(t, err) || !assert.NotNil(t, service) {
 		t.Fatal(err)
 	}
