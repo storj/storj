@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -87,10 +87,11 @@ export default class App extends Vue {
         font-family: inherit;
         font-weight: 600;
         border: 1px solid rgba(56, 75, 101, 0.4);
+        color: #354049;
     }
 
     input:hover,
     textarea:hover {
-        border-color: #737791 !important;
+        border-color: #2683FF !important;
     }
 </style>

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 syntax = "proto3";
@@ -6,7 +6,9 @@ option go_package = "pb";
 
 package piecestoreroutes;
 
+import "node.proto";
 import "gogo.proto";
+import "google/protobuf/duration.proto";
 
 service PieceStoreRoutes {
   rpc Piece(PieceId) returns (PieceSummary) {}
@@ -18,6 +20,8 @@ service PieceStoreRoutes {
   rpc Delete(PieceDelete) returns (PieceDeleteSummary) {}
 
   rpc Stats(StatsReq) returns (StatSummary) {}
+
+  rpc Dashboard(DashboardReq) returns (stream DashboardStats) {}
 }
 
 message PayerBandwidthAllocation { // Payer refers to satellite
@@ -38,11 +42,11 @@ message PayerBandwidthAllocation { // Payer refers to satellite
     string serial_number = 5;      // Unique serial number
     Action action = 6;             // GET or PUT
     int64 created_unix_sec = 7;    // Unix timestamp for when PayerbandwidthAllocation was created
-    bytes pub_key = 8;             // Renter Public Key 
   }
 
-  bytes signature = 1; // Seralized Data signed by Satellite
-  bytes data = 2;      // Serialization of above Data Struct
+  repeated bytes certs = 1;   // Satellite certificate chain 
+  bytes signature = 2; // Proof that the data was signed by the Satellite
+  bytes data = 3;      // Serialization of above Data Struct
 }
 
 message RenterBandwidthAllocation { // Renter refers to uplink
@@ -52,8 +56,9 @@ message RenterBandwidthAllocation { // Renter refers to uplink
     bytes storage_node_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Storage Node Identity
   }
 
-  bytes signature = 1; // Seralized Data signed by Uplink
-  bytes data = 2;      // Serialization of above Data Struct
+  repeated bytes certs = 1;   // Uplink certificate chain
+  bytes signature = 2; // Proof that the data was signed by the Uplink
+  bytes data = 3;      // Serialization of above Data Struct
 }
 
 message PieceStore {
@@ -128,4 +133,15 @@ message SignedMessage {
   bytes data = 1;
   bytes signature = 2;
   bytes public_key = 3;
+}
+
+message DashboardReq { }
+
+message DashboardStats {
+  string node_id = 1;
+  int64 node_connections = 2;
+  string address = 3;
+  StatSummary stats = 4;
+  bool connection = 5;
+  google.protobuf.Duration uptime = 6;
 }

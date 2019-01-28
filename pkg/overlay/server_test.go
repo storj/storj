@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package overlay_test
@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 )
 
@@ -30,21 +30,25 @@ func TestServer(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	satellite := planet.Satellites[0]
-	server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay, &pb.NodeStats{})
+	server := satellite.Overlay.Endpoint
 	// TODO: handle cleanup
 
 	{ // FindStorageNodes
-		result, err := server.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{Opts: &pb.OverlayOptions{Amount: 2}})
-		if assert.NoError(t, err) && assert.NotNil(t, result) {
-			assert.Len(t, result.Nodes, 2)
-		}
+		result, err := server.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{
+			Opts: &pb.OverlayOptions{Amount: 2},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		assert.Len(t, result.Nodes, 2)
 	}
 
 	{ // Lookup
-		result, err := server.Lookup(ctx, &pb.LookupRequest{NodeId: planet.StorageNodes[0].ID()})
-		if assert.NoError(t, err) && assert.NotNil(t, result) {
-			assert.Equal(t, result.Node.Address.Address, planet.StorageNodes[0].Addr())
-		}
+		result, err := server.Lookup(ctx, &pb.LookupRequest{
+			NodeId: planet.StorageNodes[0].ID(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		assert.Equal(t, result.Node.Address.Address, planet.StorageNodes[0].Addr())
 	}
 
 	{ // BulkLookup
@@ -56,11 +60,13 @@ func TestServer(t *testing.T) {
 			},
 		})
 
-		if assert.NoError(t, err) && assert.NotNil(t, result) && assert.Len(t, result.LookupResponse, 3) {
-			for i, resp := range result.LookupResponse {
-				if assert.NotNil(t, resp.Node) {
-					assert.Equal(t, resp.Node.Address.Address, planet.StorageNodes[i].Addr())
-				}
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.Len(t, result.LookupResponse, 3)
+
+		for i, resp := range result.LookupResponse {
+			if assert.NotNil(t, resp.Node) {
+				assert.Equal(t, resp.Node.Address.Address, planet.StorageNodes[i].Addr())
 			}
 		}
 	}

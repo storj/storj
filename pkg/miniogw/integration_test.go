@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package miniogw_test
@@ -13,6 +13,7 @@ import (
 
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -42,7 +43,7 @@ func TestUploadDownload(t *testing.T) {
 
 	// bind default values to config
 	var gwCfg miniogw.Config
-	cfgstruct.Bind(&flag.FlagSet{}, &gwCfg)
+	cfgstruct.Bind(&pflag.FlagSet{}, &gwCfg)
 
 	// minio config directory
 	gwCfg.Minio.Dir = ctx.Dir("minio")

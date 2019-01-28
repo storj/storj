@@ -1,35 +1,27 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package audit
+package audit_test
 
 import (
-	"context"
 	"crypto/rand"
-	"errors"
 	"math"
 	"math/big"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
+	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage/teststore"
-)
-
-var (
-	ctx       = context.Background()
-	ErrNoList = errors.New("list error: failed to get list")
-	ErrNoNum  = errors.New("num error: failed to get num")
 )
 
 func TestAuditSegment(t *testing.T) {
@@ -38,10 +30,17 @@ func TestAuditSegment(t *testing.T) {
 		count int
 	}
 
-	ca, err := testidentity.NewTestCA(ctx)
-	assert.NoError(t, err)
-	identity, err := ca.NewIdentity()
-	assert.NoError(t, err)
+	tctx := testcontext.New(t)
+	defer tctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 4, 1)
+	require.NoError(t, err)
+	defer tctx.Check(planet.Shutdown)
+
+	planet.Start(tctx)
+
+	// we wait a second for all the nodes to complete bootstrapping off the satellite
+	time.Sleep(2 * time.Second)
 
 	// note: to simulate better,
 	// change limit in library to 5 in
@@ -92,18 +91,12 @@ func TestAuditSegment(t *testing.T) {
 		},
 	}
 
-	ctx = auth.WithAPIKey(ctx, nil)
+	ctx := auth.WithAPIKey(tctx, nil)
 
-	// PointerDB instantiation
-	db := teststore.New()
-	c := pointerdb.Config{MaxInlineSegmentSize: 8000}
-
-	cache := overlay.NewCache(teststore.New(), nil)
-
-	pointers := pointerdb.NewServer(db, cache, zap.NewNop(), c, identity)
-
+	pointers := planet.Satellites[0].Metainfo.Service
+	allocation := planet.Satellites[0].Metainfo.Allocation
 	// create a pdb client and instance of audit
-	cursor := NewCursor(pointers)
+	cursor := audit.NewCursor(pointers, allocation, planet.Satellites[0].Identity)
 
 	// put 10 paths in db
 	t.Run("putToDB", func(t *testing.T) {
@@ -114,13 +107,10 @@ func TestAuditSegment(t *testing.T) {
 				// create a pointer and put in db
 				putRequest := makePutRequest(tt.path)
 
-				// create putreq. object
-				req := &pb.PutRequest{Path: tt.path, Pointer: putRequest.Pointer}
-
 				// put pointer into db
-				_, err := pointers.Put(ctx, req)
+				err := pointers.Put(tt.path, putRequest.Pointer)
 				if err != nil {
-					t.Fatalf("failed to put %v: error: %v", req.Pointer, err)
+					t.Fatalf("failed to put %v: error: %v", putRequest.Pointer, err)
 					assert1.NotNil(err)
 				}
 				if err != nil {
@@ -148,19 +138,9 @@ func TestAuditSegment(t *testing.T) {
 
 	// test to see how random paths are
 	t.Run("probabilisticTest", func(t *testing.T) {
-		listRes, err := pointers.List(ctx, &pb.ListRequest{
-			Prefix:     "",
-			StartAfter: "",
-			EndBefore:  "",
-			Recursive:  true,
-			Limit:      10,
-			MetaFlags:  meta.None,
-		})
-		if err != nil {
-			t.Error(ErrNoList)
-		}
-
-		list := listRes.GetItems()
+		list, _, err := pointers.List("", "", "", true, 10, meta.None)
+		require.NoError(t, err)
+		require.Len(t, list, 10)
 
 		// get count of items picked at random
 		uniquePathCounted := []pathCount{}
@@ -170,7 +150,7 @@ func TestAuditSegment(t *testing.T) {
 		for i := 0; i < 100; i++ {
 			randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(list))))
 			if err != nil {
-				t.Error(ErrNoNum)
+				t.Error("num error: failed to get num")
 			}
 			pointerItem := list[randomNum.Int64()]
 			path := pointerItem.Path

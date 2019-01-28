@@ -1,13 +1,10 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package psclient
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,6 +13,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
 )
@@ -45,8 +44,10 @@ func TestPieceRanger(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		assert.Nil(t, err)
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+		id, err := testidentity.NewTestIdentity(ctx)
+		assert.NoError(t, err)
 
 		route := pb.NewMockPieceStoreRoutesClient(ctrl)
 
@@ -74,8 +75,6 @@ func TestPieceRanger(t *testing.T) {
 			stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF)
 		}
 
-		ctx := context.Background()
-
 		target := &pb.Node{
 			Address: &pb.NodeAddress{
 				Address:   "",
@@ -85,7 +84,7 @@ func TestPieceRanger(t *testing.T) {
 			Type: pb.NodeType_STORAGE,
 		}
 		target.Type.DPanicOnInvalid("pr test")
-		c, err := NewCustomRoute(route, target, 32*1024, priv)
+		c, err := NewCustomRoute(route, target, 32*1024, id)
 		assert.NoError(t, err)
 		rr, err := PieceRanger(ctx, c, stream, pid, &pb.PayerBandwidthAllocation{}, nil)
 		if assert.NoError(t, err, errTag) {
@@ -107,6 +106,11 @@ func TestPieceRanger(t *testing.T) {
 func TestPieceRangerSize(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	id, err := testidentity.NewTestIdentity(ctx)
+	assert.NoError(t, err)
 
 	for i, tt := range []struct {
 		data                 string
@@ -133,9 +137,6 @@ func TestPieceRangerSize(t *testing.T) {
 		pid := NewPieceID()
 
 		stream := pb.NewMockPieceStoreRoutes_RetrieveClient(ctrl)
-
-		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		assert.Nil(t, err)
 
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
 			msg1 := &pb.PieceRetrieval{
@@ -165,7 +166,7 @@ func TestPieceRangerSize(t *testing.T) {
 			Type: pb.NodeType_STORAGE,
 		}
 		target.Type.DPanicOnInvalid("pr test 2")
-		c, err := NewCustomRoute(route, target, 32*1024, priv)
+		c, err := NewCustomRoute(route, target, 32*1024, id)
 		assert.NoError(t, err)
 		rr := PieceRangerSize(c, stream, pid, tt.size, &pb.PayerBandwidthAllocation{}, nil)
 		assert.Equal(t, tt.size, rr.Size(), errTag)

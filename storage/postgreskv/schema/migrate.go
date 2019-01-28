@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 //go:generate go-bindata -o data.go -pkg schema -ignore ".*go" .
@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang-migrate/migrate/v3"
 	"github.com/golang-migrate/migrate/v3/database/postgres"
-	"github.com/golang-migrate/migrate/v3/source/go_bindata"
+	bindata "github.com/golang-migrate/migrate/v3/source/go_bindata"
 )
 
 // PrepareDB applies schema migrations as necessary to the given database to

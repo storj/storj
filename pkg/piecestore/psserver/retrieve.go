@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package psserver
@@ -83,7 +83,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return err
 	}
 
-	s.log.Debug("Successfully retrieved",
+	s.log.Info("Successfully retrieved",
 		zap.String("Piece ID", fmt.Sprint(pd.GetId())),
 		zap.Int64("Allocated", allocated),
 		zap.Int64("Retrieved", retrieved),
@@ -134,7 +134,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 				return
 			}
 
-			if err = s.verifySignature(ctx, alloc); err != nil {
+			if err = s.verifySignature(stream.Context(), alloc); err != nil {
 				allocationTracking.Fail(err)
 				return
 			}

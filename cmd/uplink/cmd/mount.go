@@ -1,7 +1,7 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build linux darwin netbsd freebsd openbsd
+// +build linux darwin
 
 package cmd
 
@@ -49,6 +49,10 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 	metainfo, streams, err := cfg.Metainfo(ctx)
 	if err != nil {
 		return err
+	}
+
+	if err := process.InitMetricsWithCertPath(ctx, nil, cfg.Identity.CertPath); err != nil {
+		zap.S().Errorf("Failed to initialize telemetry batcher: %v", err)
 	}
 
 	src, err := fpath.New(args[0])

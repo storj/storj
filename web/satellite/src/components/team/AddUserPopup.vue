@@ -1,8 +1,8 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
-    <div class='add-user-container'>
+    <div class='add-user-container' v-on:keyup.enter="onAddUsersClick" v-on:keyup.esc="onClose">
         <div class='add-user' id="addTeamMemberPopup">
             <div class='add-user__info-panel-container'>
                 <h2 class='add-user__info-panel-container__main-label-text'>Add New User</h2>

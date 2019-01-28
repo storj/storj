@@ -42,10 +42,6 @@ var (
 	PeerIdentityFromContext = identity.PeerIdentityFromContext
 	// NewFullIdentity Transition: pkg/provider is going away.
 	NewFullIdentity = identity.NewFullIdentity
-	// SetupIdentity Transition: pkg/provider is going away.
-	SetupIdentity = identity.SetupIdentity
-	// SetupCA Transition: pkg/provider is going away.
-	SetupCA = identity.SetupCA
 	// NewCA Transition: pkg/provider is going away.
 	NewCA = identity.NewCA
 	// ErrSetup Transition: pkg/provider is going away.

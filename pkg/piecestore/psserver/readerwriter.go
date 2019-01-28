@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package psserver
@@ -79,6 +79,13 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, bandwidt
 
 			if err = s.verifyPayerAllocation(pbaData, "PUT"); err != nil {
 				return nil, err
+			}
+
+			// if whitelist does not contain PBA satellite ID, reject storage request
+			if len(s.whitelist) != 0 {
+				if !s.approved(pbaData.SatelliteId) {
+					return nil, StoreError.New("Satellite ID not approved")
+				}
 			}
 
 			// Update bandwidthallocation to be stored

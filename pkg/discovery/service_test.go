@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package discovery_test
@@ -24,6 +24,6 @@ func TestCache_Refresh(t *testing.T) {
 
 	planet.Start(ctx)
 
-	err = planet.Satellites[0].Discovery.Refresh(ctx)
+	err = planet.Satellites[0].Discovery.Service.Refresh(ctx)
 	assert.NoError(t, err)
 }

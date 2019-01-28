@@ -1,9 +1,9 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
-    <div class="new-project-popup-container">
-        <div class="new-project-popup" id="newProjectPopup">
+    <div class="new-project-popup-container" v-on:keyup.enter="createProject" v-on:keyup.esc="onCloseClick">
+        <div class="new-project-popup" id="newProjectPopup" >
             <div class="new-project-popup__info-panel-container">
                 <h2 class="new-project-popup__info-panel-container__main-label-text">Create New Project</h2>
                 <img src="@/../static/images/dashboard/CreateNewProject.png" alt="">

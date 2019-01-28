@@ -1,8 +1,8 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
-    <div class="register">
+    <div class="register" v-on:keyup.enter="onCreateClick">
         <div class="register-area">
             <div class="register-area__scrollable">
                 <div class="register-area__scrollable__navLabel">
@@ -211,7 +211,6 @@ export default class Register extends Vue {
 
         &__scrollable {
             height: 100vh;
-            overflow-y: scroll;
             display: flex;
             flex-direction: column;
             justify-content: flex-start;

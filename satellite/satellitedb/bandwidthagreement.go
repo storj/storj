@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package satellitedb
@@ -31,7 +31,6 @@ func (b *bandwidthagreement) GetAgreements(ctx context.Context) ([]bwagreement.A
 	if err != nil {
 		return nil, err
 	}
-
 	agreements := make([]bwagreement.Agreement, len(rows))
 	for i, entry := range rows {
 		agreement := &agreements[i]
