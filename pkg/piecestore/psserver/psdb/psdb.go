@@ -44,7 +44,7 @@ type DB struct {
 
 // Agreement is a struct that contains a bandwidth agreement and the associated signature
 type Agreement struct {
-	Agreement []byte
+	Agreement pb.RenterBandwidthAllocation
 	Signature []byte
 }
 
@@ -212,40 +212,33 @@ func (db *DB) garbageCollect(ctx context.Context) {
 }
 
 // WriteBandwidthAllocToDB -- Insert bandwidth agreement into DB
-func (db *DB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) error {
+func (db *DB) WriteBandwidthAllocToDB(rba *pb.RenterBandwidthAllocation) error {
+	rbaBytes, err := proto.Marshal(rba)
+	if err != nil {
+		return err
+	}
 	defer db.locked()()
 
 	// We begin extracting the satellite_id
 	// The satellite id can be used to sort the bandwidth agreements
 	// If the agreements are sorted we can send them in bulk streams to the satellite
-	rbad := &pb.RenterBandwidthAllocation_Data{}
-	if err := proto.Unmarshal(ba.GetData(), rbad); err != nil {
-		return err
-	}
-
-	pbad := &pb.PayerBandwidthAllocation_Data{}
-	if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
-		return err
-	}
-
-	_, err := db.DB.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature) VALUES (?, ?, ?)`, pbad.SatelliteId.Bytes(), ba.GetData(), ba.GetSignature())
+	_, err = db.DB.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature) VALUES (?, ?, ?)`,
+		rba.PayerAllocation.SatelliteId.Bytes(), rbaBytes, rba.GetSignature())
 	return err
 }
 
 // DeleteBandwidthAllocationBySignature finds an allocation by signature and deletes it
 func (db *DB) DeleteBandwidthAllocationBySignature(signature []byte) error {
 	defer db.locked()()
-
 	_, err := db.DB.Exec(`DELETE FROM bandwidth_agreements WHERE signature=?`, signature)
 	if err == sql.ErrNoRows {
 		err = nil
 	}
-
 	return err
 }
 
 // GetBandwidthAllocationBySignature finds allocation info by signature
-func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([][]byte, error) {
+func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([]*pb.RenterBandwidthAllocation, error) {
 	defer db.locked()()
 
 	rows, err := db.DB.Query(`SELECT agreement FROM bandwidth_agreements WHERE signature = ?`, signature)
@@ -258,14 +251,19 @@ func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([][]byte, err
 		}
 	}()
 
-	agreements := [][]byte{}
+	agreements := []*pb.RenterBandwidthAllocation{}
 	for rows.Next() {
-		var agreement []byte
-		err := rows.Scan(&agreement)
+		var rbaBytes []byte
+		err := rows.Scan(&rbaBytes)
 		if err != nil {
 			return agreements, err
 		}
-		agreements = append(agreements, agreement)
+		rba := &pb.RenterBandwidthAllocation{}
+		err = proto.Unmarshal(rbaBytes, rba)
+		if err != nil {
+			return agreements, err
+		}
+		agreements = append(agreements, rba)
 	}
 	return agreements, nil
 }
@@ -286,13 +284,17 @@ func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
 
 	agreements := make(map[storj.NodeID][]*Agreement)
 	for rows.Next() {
+		rbaBytes := []byte{}
 		agreement := &Agreement{}
 		var satellite []byte
-		err := rows.Scan(&satellite, &agreement.Agreement, &agreement.Signature)
+		err := rows.Scan(&satellite, &rbaBytes, &agreement.Signature)
 		if err != nil {
 			return agreements, err
 		}
-
+		err = proto.Unmarshal(rbaBytes, &agreement.Agreement)
+		if err != nil {
+			return agreements, err
+		}
 		// if !satellite.Valid {
 		// 	return agreements, nil
 		// }

@@ -7,48 +7,100 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gtank/cryptopasta"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/storj"
 )
 
 var (
-	//ECDSA indicates a key was not an ECDSA key
-	ECDSA = errs.New("Key is not ecdsa key")
-	//Sign indicates a failure during signing
-	Sign = errs.Class("Failed to sign message")
-	//Verify indicates a failure during signature validation
-	Verify = errs.Class("Failed to validate message signature")
-	//SigLen indicates an invalid signature length
-	SigLen = errs.Class("Invalid signature length")
-	//Serial indicates an invalid serial number length
-	Serial = errs.Class("Invalid SerialNumber")
-	//Expired indicates the agreement is expired
-	Expired = errs.Class("Agreement is expired")
-	//Signer indicates a public key / node id mismatch
-	Signer = errs.Class("Message public key did not match expected signer")
-	//BadID indicates a public key / node id mismatch
-	BadID = errs.Class("Node ID did not match expected id")
+	//ErrECDSA indicates a key was not an ECDSA key
+	ErrECDSA = errs.New("Key is not ecdsa key")
+	//ErrSign indicates a failure during signing
+	ErrSign = errs.Class("Failed to sign message")
+	//ErrVerify indicates a failure during signature validation
+	ErrVerify = errs.Class("Failed to validate message signature")
+	//ErrSigLen indicates an invalid signature length
+	ErrSigLen = errs.Class("Invalid signature length")
+	//ErrSerial indicates an invalid serial number length
+	ErrSerial = errs.Class("Invalid SerialNumber")
+	//ErrExpired indicates the agreement is expired
+	ErrExpired = errs.Class("Agreement is expired")
+	//ErrSigner indicates a public key / node id mismatch
+	ErrSigner = errs.Class("Message public key did not match expected signer")
+	//ErrBadID indicates a public key / node id mismatch
+	ErrBadID = errs.Class("Node ID did not match expected id")
+
+	//ErrMarshal indicates a failure during serialization
+	ErrMarshal = errs.Class("Could not marshal item to bytes")
+	//ErrUnmarshal indicates a failure during deserialization
+	ErrUnmarshal = errs.Class("Could not unmarshal bytes to item")
+	//ErrMissing indicates missing or empty information
+	ErrMissing = errs.Class("Required field is empty")
 )
 
-//VerifyMsg checks the crypto-related aspects of signed message
-func VerifyMsg(sm pb.SignedMsg, signer storj.NodeID) error {
-	//no null fields
-	if ok, err := pb.MsgComplete(sm); !ok {
-		return err
+//SignableMessage is a protocol buffer with a certs and a signature
+//Note that we assume proto.Message is a pointer receiver
+type SignableMessage interface {
+	proto.Message
+	GetCerts() [][]byte
+	GetSignature() []byte
+	SetCerts([][]byte)
+	SetSignature([]byte)
+}
+
+//SignMessage adds the crypto-related aspects of signed message
+func SignMessage(msg SignableMessage, ID identity.FullIdentity) error {
+	if msg == nil {
+		return ErrMissing.New("message")
 	}
-	certs := sm.GetCerts()
-	if len(certs) < 2 {
-		return Verify.New("Expected at least leaf and CA public keys")
-	}
-	//correct signature length
-	err := peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)(certs, nil)
+	msg.SetSignature(nil)
+	msg.SetCerts(nil)
+	msgBytes, err := proto.Marshal(msg)
 	if err != nil {
-		return Verify.Wrap(err)
+		return ErrMarshal.Wrap(err)
+	}
+	privECDSA, ok := ID.Key.(*ecdsa.PrivateKey)
+	if !ok {
+		return ErrECDSA
+	}
+	signature, err := cryptopasta.Sign(msgBytes, privECDSA)
+	if err != nil {
+		return ErrSign.Wrap(err)
+	}
+	msg.SetSignature(signature)
+	msg.SetCerts(ID.ChainRaw())
+	return nil
+}
+
+//VerifyMsg checks the crypto-related aspects of signed message
+func VerifyMsg(msg SignableMessage, signer storj.NodeID) error {
+	//setup
+	if msg == nil {
+		return ErrMissing.New("message")
+	} else if msg.GetSignature() == nil {
+		return ErrMissing.New("message signature")
+	} else if msg.GetCerts() == nil {
+		return ErrMissing.New("message certificates")
+	}
+	signature := msg.GetSignature()
+	certs := msg.GetCerts()
+	msg.SetSignature(nil)
+	msg.SetCerts(nil)
+	msgBytes, err := proto.Marshal(msg)
+	if err != nil {
+		return ErrMarshal.Wrap(err)
+	}
+	//check certs
+	if len(certs) < 2 {
+		return ErrVerify.New("Expected at least leaf and CA public keys")
+	}
+	err = peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)(certs, nil)
+	if err != nil {
+		return ErrVerify.Wrap(err)
 	}
 	leafPubKey, err := parseECDSA(certs[0])
 	if err != nil {
@@ -58,28 +110,31 @@ func VerifyMsg(sm pb.SignedMsg, signer storj.NodeID) error {
 	if err != nil {
 		return err
 	}
-	signatureLength := leafPubKey.Curve.Params().P.BitLen() / 8
-	if len(sm.GetSignature()) < signatureLength {
-		return SigLen.New("%s", sm.GetSignature())
-	}
 	// verify signature
+	signatureLength := leafPubKey.Curve.Params().P.BitLen() / 8
+	if len(signature) < signatureLength {
+		return ErrSigLen.New("%d vs %d", len(signature), signatureLength)
+	}
 	if id, err := identity.NodeIDFromECDSAKey(caPubKey); err != nil || id != signer {
-		return Signer.New("%+v vs %+v", id, signer)
+		return ErrSigner.New("%+v vs %+v", id, signer)
 	}
-	if ok := cryptopasta.Verify(sm.GetData(), sm.GetSignature(), leafPubKey); !ok {
-		return Verify.New("%+v", ok)
+	if ok := cryptopasta.Verify(msgBytes, signature, leafPubKey); !ok {
+		return ErrVerify.New("%+v", ok)
 	}
+	//cleanup
+	msg.SetSignature(signature)
+	msg.SetCerts(certs)
 	return nil
 }
 
 func parseECDSA(rawCert []byte) (*ecdsa.PublicKey, error) {
 	cert, err := x509.ParseCertificate(rawCert)
 	if err != nil {
-		return nil, Verify.Wrap(err)
+		return nil, ErrVerify.Wrap(err)
 	}
 	ecdsa, ok := cert.PublicKey.(*ecdsa.PublicKey)
 	if !ok {
-		return nil, ECDSA
+		return nil, ErrECDSA
 	}
 	return ecdsa, nil
 }
