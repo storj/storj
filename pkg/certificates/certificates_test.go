@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
@@ -668,13 +669,13 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	serverConfig := provider.ServerConfig{Address: listener.Addr().String()}
-	opts, err := provider.NewServerOptions(serverIdent, serverConfig)
+	serverConfig := server.Config{Address: listener.Addr().String()}
+	opts, err := server.NewOptions(serverIdent, serverConfig)
 	if !assert.NoError(t, err) || !assert.NotNil(t, opts) {
 		t.Fatal(err)
 	}
 
-	service, err := provider.NewProvider(opts, listener, nil, config)
+	service, err := server.NewServer(opts, listener, nil, config)
 	if !assert.NoError(t, err) || !assert.NotNil(t, service) {
 		t.Fatal(err)
 	}
