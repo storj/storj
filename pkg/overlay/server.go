@@ -104,16 +104,6 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 	}, nil
 }
 
-// contains checks if item exists in list
-func contains(nodeIDs storj.NodeIDList, searchID storj.NodeID) bool {
-	for _, id := range nodeIDs {
-		if bytes.Equal(id.Bytes(), searchID.Bytes()) {
-			return true
-		}
-	}
-	return false
-}
-
 // lookupRequestsToNodeIDs returns the nodeIDs from the LookupRequests
 func lookupRequestsToNodeIDs(reqs *pb.LookupRequests) (ids storj.NodeIDList) {
 	for _, v := range reqs.LookupRequest {
