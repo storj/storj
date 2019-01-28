@@ -91,7 +91,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	ctx := process.Ctx(cmd)
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Errorf("Failed to initialize telemetry batcher: %+v", err)
+		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
 	db, err := bootstrapdb.New(bootstrapdb.Config{
@@ -133,9 +133,16 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	overrides := map[string]interface{}{
-		"identity.server.address": defaultServerAddr,
-		"kademlia.bootstrap-addr": "localhost" + defaultServerAddr,
+	overrides := map[string]interface{}{}
+
+	serverAddress := cmd.Flag("server.address")
+	if !serverAddress.Changed {
+		overrides[serverAddress.Name] = defaultServerAddr
+	}
+
+	kademliaBootstrapAddr := cmd.Flag("kademlia.bootstrap-addr")
+	if !kademliaBootstrapAddr.Changed {
+		overrides[kademliaBootstrapAddr.Name] = "localhost" + defaultServerAddr
 	}
 
 	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
