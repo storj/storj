@@ -27,12 +27,6 @@
                     width="100%"
                     @setData="setProjectDescription">
                 </HeaderedInput>
-                <div class="new-project-popup__form-container__terms-area">
-                    <Checkbox class="new-project-popup__form-container__terms-area__checkbox"
-                              @setData="setTermsAccepted"
-                              :isCheckboxError="termsAcceptedError"/>
-                    <h2>I agree to the Storj Bridge Hosting <a>Terms & Conditions</a></h2>
-                </div>
                 <div class="new-project-popup__form-container__button-container">
                     <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite/>
                     <Button label="Create Project" width="205px" height="48px" :onPress="createProject"/>
@@ -61,8 +55,6 @@ import { validateProjectName } from '@/utils/validation';
             return {
                 projectName: '',
                 description: '',
-                isTermsAccepted: false,
-                termsAcceptedError: false,
                 nameError: '',
             };
         },
@@ -74,19 +66,11 @@ import { validateProjectName } from '@/utils/validation';
             setProjectDescription: function (value: string): void {
                 this.$data.description = value;
             },
-            setTermsAccepted: function (value: boolean): void {
-                this.$data.isTermsAccepted = value;
-                this.$data.termsAcceptedError = false;
-            },
             onCloseClick: function (): void {
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
             },
             createProject: async function (): Promise<any> {
                 let projectName = this.$data.projectName.trim();
-
-                if (!this.$data.isTermsAccepted) {
-                    this.$data.termsAcceptedError = true;
-                }
 
                 if (!validateProjectName(projectName)) {
                     this.$data.nameError = 'Name for project is invalid!';
@@ -96,7 +80,7 @@ import { validateProjectName } from '@/utils/validation';
                     this.$data.nameError = 'Name should be less than 21 character!';
                 }
 
-                if (this.$data.nameError || this.$data.termsAcceptedError) {
+                if (this.$data.nameError) {
                     return;
                 }
 
@@ -178,29 +162,6 @@ export default class NewProjectPopup extends Vue {
         &__form-container {
              width: 100%;
              max-width: 520px;
-
-            &__terms-area {
-                 display: flex;
-                 flex-direction: row;
-                 justify-content: flex-start;
-                 margin-top: 20px;
-
-                &__checkbox {
-                     align-self: center;
-                };
-
-                h2 {
-                    font-family: 'montserrat_regular';
-                    font-size: 14px;
-                    line-height: 20px;
-                    margin-top: 20px;
-                    margin-left: 0;
-                };
-                a {
-                    color: #2683FF;
-                    font-family: 'montserrat_bold';
-                }
-            }
 
             &__button-container {
                  width: 100%;

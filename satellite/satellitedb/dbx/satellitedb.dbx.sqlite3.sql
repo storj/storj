@@ -83,7 +83,6 @@ CREATE TABLE projects (
 	id BLOB NOT NULL,
 	name TEXT NOT NULL,
 	description TEXT NOT NULL,
-	terms_accepted INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
