@@ -121,30 +121,37 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	accessKey, err := generateAWSKey()
-	if err != nil {
-		return err
-	}
-
-	secretKey, err := generateAWSKey()
-	if err != nil {
-		return err
-	}
-
-	o := map[string]interface{}{
-		"identity.cert-path":     setupCfg.Identity.CertPath,
-		"identity.key-path":      setupCfg.Identity.KeyPath,
+	overrides := map[string]interface{}{
 		"client.api-key":         setupCfg.APIKey,
 		"client.pointer-db-addr": setupCfg.SatelliteAddr,
 		"client.overlay-addr":    setupCfg.SatelliteAddr,
-		"minio.access-key":       accessKey,
-		"minio.secret-key":       secretKey,
 	}
 
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
+	accessKeyFlag := cmd.Flag("minio.access-key")
+	if !accessKeyFlag.Changed {
+		accessKey, err := generateAWSKey()
+		if err != nil {
+			return err
+		}
+		overrides[accessKeyFlag.Name] = accessKey
+	}
+	secretKeyFlag := cmd.Flag("minio.secret-key")
+	if !secretKeyFlag.Changed {
+		secretKey, err := generateAWSKey()
+		if err != nil {
+			return err
+		}
+		overrides[secretKeyFlag.Name] = secretKey
+	}
+
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	if _, err := runCfg.Identity.Load(); err != nil {
+		zap.S().Fatal(err)
+	}
+
 	for _, flagname := range args {
 		return fmt.Errorf("Invalid argument %#v. Try 'uplink run'", flagname)
 	}
@@ -169,13 +176,16 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Error("Failed to initialize telemetry batcher: ", err)
+	}
 	_, err = metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
 	if err != nil {
 		return fmt.Errorf("Failed to contact Satellite.\n"+
 			"Perhaps your configuration is invalid?\n%s", err)
 	}
 
-	return runCfg.Run(process.Ctx(cmd))
+	return runCfg.Run(ctx)
 }
 
 func generateAWSKey() (key string, err error) {

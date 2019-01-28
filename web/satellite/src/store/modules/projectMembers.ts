@@ -99,10 +99,10 @@ export const projectMembersModule = {
 
 			if (response.isSuccess) {
 				commit(PROJECT_MEMBER_MUTATIONS.FETCH, response.data);
-			}
 
-			if (response.data.length > 0) {
-				commit(PROJECT_MEMBER_MUTATIONS.ADD_OFFSET);
+				if (response.data.length > 0) {
+					commit(PROJECT_MEMBER_MUTATIONS.ADD_OFFSET);
+				}
 			}
 
 			return response;
