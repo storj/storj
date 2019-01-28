@@ -585,7 +585,7 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	publicConfig := server.Config{Address: "127.0.0.1:0"}
 	publicOptions, err := server.NewOptions(snID, publicConfig)
 	require.NoError(t, err)
-	grpcServer, err := server.NewServer(publicOptions, listener, nil)
+	grpcServer, err := server.New(publicOptions, listener, nil)
 	require.NoError(t, err)
 	pb.RegisterPieceStoreRoutesServer(grpcServer.GRPC(), psServer)
 	go func() { require.NoError(t, grpcServer.Run(ctx)) }()

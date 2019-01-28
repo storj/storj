@@ -52,7 +52,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if err := process.InitMetricsWithCertPath(ctx, nil, cfg.Identity.CertPath); err != nil {
-		zap.S().Errorf("Failed to initialize telemetry batcher: %v", err)
+		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 	_, err = metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
 	if err != nil {
