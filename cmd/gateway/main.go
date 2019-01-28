@@ -11,10 +11,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/mr-tron/base58/base58"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-
-	"github.com/mr-tron/base58/base58"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
