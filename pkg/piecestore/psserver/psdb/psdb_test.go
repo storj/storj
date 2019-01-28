@@ -24,8 +24,8 @@ var ctx = context.Background()
 
 const concurrency = 10
 
-func newDB(t testing.TB) (*DB, func()) {
-	tmpdir, err := ioutil.TempDir("", "storj-psdb")
+func newDB(t testing.TB, id string) (*DB, func()) {
+	tmpdir, err := ioutil.TempDir("", "storj-psdb-"+id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestNewInmemory(t *testing.T) {
 }
 
 func TestHappyPath(t *testing.T) {
-	db, cleanup := newDB(t)
+	db, cleanup := newDB(t, "1")
 	defer cleanup()
 
 	type TTL struct {
@@ -222,7 +222,7 @@ func TestHappyPath(t *testing.T) {
 }
 
 func TestBandwidthUsage(t *testing.T) {
-	db, cleanup := newDB(t)
+	db, cleanup := newDB(t, "2")
 	defer cleanup()
 
 	type BWUSAGE struct {
@@ -286,7 +286,7 @@ func TestBandwidthUsage(t *testing.T) {
 }
 
 func BenchmarkWriteBandwidthAllocation(b *testing.B) {
-	db, cleanup := newDB(b)
+	db, cleanup := newDB(b, "3")
 	defer cleanup()
 	const WritesPerLoop = 10
 	b.RunParallel(func(b *testing.PB) {

@@ -247,11 +247,7 @@ func TestRetrieve(t *testing.T) {
 				rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, totalAllocated)
 				require.NoError(err)
 
-				err = stream.Send(
-					&pb.PieceRetrieval{
-						BandwidthAllocation: rba,
-					},
-				)
+				err = stream.Send(&pb.PieceRetrieval{BandwidthAllocation: rba})
 				require.NoError(err)
 
 				resp, err = stream.Recv()
