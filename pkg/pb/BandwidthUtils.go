@@ -18,10 +18,10 @@ var (
 	Payer = errs.Class("Payer agreement")
 )
 
-//Equal compares to Protobuf messages via serialization
+//Equal compares two Protobuf messages via serialization
 func Equal(msg1, msg2 proto.Message) bool {
 	//reflect.DeepEqual and proto.Equal don't seem work in all cases
-	//todo:  see how slow this is compared to customer equality checks
+	//todo:  see how slow this is compared to custom equality checks
 	if msg1 == nil {
 		return msg2 == nil
 	}
