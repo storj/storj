@@ -292,28 +292,28 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAll
 	//verify message content
 	pi, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil || pba.UplinkId != pi.ID {
-		return auth.BadID.New("Uplink Node ID: %s vs %s", pba.UplinkId, pi.ID)
+		return auth.ErrBadID.New("Uplink Node ID: %s vs %s", pba.UplinkId, pi.ID)
 	}
 	//todo:  use whitelist for uplinks?
 	//todo:  use whitelist for satellites?
 	switch {
 	case len(pba.SerialNumber) == 0:
-		return pb.Payer.Wrap(auth.Missing.New("serial"))
+		return pb.ErrPayer.Wrap(auth.ErrMissing.New("serial"))
 	case pba.SatelliteId.IsZero():
-		return pb.Payer.Wrap(auth.Missing.New("satellite id"))
+		return pb.ErrPayer.Wrap(auth.ErrMissing.New("satellite id"))
 	case pba.UplinkId.IsZero():
-		return pb.Payer.Wrap(auth.Missing.New("uplink id"))
+		return pb.ErrPayer.Wrap(auth.ErrMissing.New("uplink id"))
 	}
 	exp := time.Unix(pba.GetExpirationUnixSec(), 0).UTC()
 	if exp.Before(time.Now().UTC()) {
-		return pb.Payer.Wrap(auth.Expired.New("%v vs %v", exp, time.Now().UTC()))
+		return pb.ErrPayer.Wrap(auth.ErrExpired.New("%v vs %v", exp, time.Now().UTC()))
 	}
 	//verify message crypto
 	if err := auth.VerifyMsg(rba, pba.UplinkId); err != nil {
-		return pb.Renter.Wrap(err)
+		return pb.ErrRenter.Wrap(err)
 	}
 	if err := auth.VerifyMsg(&pba, pba.SatelliteId); err != nil {
-		return pb.Payer.Wrap(err)
+		return pb.ErrPayer.Wrap(err)
 	}
 	return nil
 }

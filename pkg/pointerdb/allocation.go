@@ -49,7 +49,7 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 		Action:            action,
 		SerialNumber:      serialNum.String(),
 	}
-	if err := auth.SignMsg(pba, *allocation.satelliteIdentity); err != nil {
+	if err := auth.SignMessage(pba, *allocation.satelliteIdentity); err != nil {
 		return nil, err
 	}
 	return pba, nil

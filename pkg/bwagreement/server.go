@@ -71,29 +71,29 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.RenterBandwidt
 	//verify message content
 	pi, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil || rba.StorageNodeId != pi.ID {
-		return reply, auth.BadID.New("Storage Node ID: %s vs %s", rba.StorageNodeId, pi.ID)
+		return reply, auth.ErrBadID.New("Storage Node ID: %s vs %s", rba.StorageNodeId, pi.ID)
 	}
 	//todo:  use whitelist for uplinks?
 	if pba.SatelliteId != s.NodeID {
-		return reply, pb.Payer.New("Satellite ID: %s vs %s", pba.SatelliteId, s.NodeID)
+		return reply, pb.ErrPayer.New("Satellite ID: %s vs %s", pba.SatelliteId, s.NodeID)
 	}
 	exp := time.Unix(pba.GetExpirationUnixSec(), 0).UTC()
 	if exp.Before(time.Now().UTC()) {
-		return reply, pb.Payer.Wrap(auth.Expired.New("%v vs %v", exp, time.Now().UTC()))
+		return reply, pb.ErrPayer.Wrap(auth.ErrExpired.New("%v vs %v", exp, time.Now().UTC()))
 	}
 	//verify message crypto
 	if err := auth.VerifyMsg(rba, pba.UplinkId); err != nil {
-		return reply, pb.Renter.Wrap(err)
+		return reply, pb.ErrRenter.Wrap(err)
 	}
 	if err := auth.VerifyMsg(&pba, pba.SatelliteId); err != nil {
-		return reply, pb.Payer.Wrap(err)
+		return reply, pb.ErrPayer.Wrap(err)
 	}
 
 	//save and return rersults
 	err = s.db.CreateAgreement(ctx, rba)
 	if err != nil {
 		//todo:  better classify transport errors (AgreementsSummary_FAIL) vs logical (AgreementsSummary_REJECTED)
-		return reply, pb.Payer.Wrap(auth.Serial.Wrap(err))
+		return reply, pb.ErrPayer.Wrap(auth.ErrSerial.Wrap(err))
 	}
 	reply.Status = pb.AgreementsSummary_OK
 	s.logger.Debug("Stored Agreement...")

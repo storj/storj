@@ -30,7 +30,7 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 		Total:           updatedAllocation,
 		StorageNodeId:   s.signer.remoteID,
 	}
-	err := auth.SignMsg(rba, *s.signer.selfID)
+	err := auth.SignMessage(rba, *s.signer.selfID)
 	if err != nil {
 		return 0, err
 	}
@@ -97,7 +97,7 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 				Total:           sr.allocated + allocate,
 				StorageNodeId:   sr.client.remoteID,
 			}
-			err := auth.SignMsg(rba, *client.selfID)
+			err := auth.SignMessage(rba, *client.selfID)
 			if err != nil {
 				sr.pendingAllocs.Fail(err)
 			}

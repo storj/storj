@@ -112,7 +112,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			assert.NoError(t, err)
 
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rbaNode1)
-			assert.True(t, auth.Serial.Has(err))
+			assert.True(t, auth.ErrSerial.Has(err))
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -121,7 +121,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		   For safety we will try it anyway to make sure nothing strange will happen */
 		{
 			reply, err := satellite.BandwidthAgreements(ctxSN2, rbaNode2)
-			assert.True(t, auth.Serial.Has(err))
+			assert.True(t, auth.ErrSerial.Has(err))
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 	}
@@ -193,7 +193,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			manipRBA := *rba
 			// Using uplink signature
 			reply, err := callBWA(ctxSN1, t, satellite, rba.GetSignature(), &manipRBA, rba.GetCerts())
-			assert.True(t, auth.Verify.Has(err) && pb.Renter.Has(err), err.Error())
+			assert.True(t, auth.ErrVerify.Has(err) && pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -205,7 +205,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			assert.NoError(t, err)
 			// Using self created signature
 			reply, err := callBWA(ctxSN1, t, satellite, manipSignature, rba, rba.GetCerts())
-			assert.True(t, auth.Verify.Has(err) && pb.Renter.Has(err), err.Error())
+			assert.True(t, auth.ErrVerify.Has(err) && pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -216,7 +216,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			manipSignature := GetSignature(t, &manipRBA, manipPrivKey)
 			// Using self created signature + public key
 			reply, err := callBWA(ctxSN1, t, satellite, manipSignature, &manipRBA, manipCerts)
-			assert.True(t, auth.Signer.Has(err) && pb.Renter.Has(err), err.Error())
+			assert.True(t, auth.ErrSigner.Has(err) && pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -229,7 +229,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			manipSignature := GetSignature(t, &manipRBA, manipPrivKey)
 			// Using self created signature + public key
 			reply, err := callBWA(ctxSN1, t, satellite, manipSignature, &manipRBA, manipCerts)
-			assert.True(t, auth.Verify.Has(err) && pb.Payer.Has(err), err.Error())
+			assert.True(t, auth.ErrVerify.Has(err) && pb.ErrPayer.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -244,7 +244,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			manipSignature = GetSignature(t, &manipRBA, manipPrivKey)
 			// Using self created Payer and Renter bwagreement signatures
 			reply, err := callBWA(ctxSN1, t, satellite, manipSignature, &manipRBA, manipCerts)
-			assert.True(t, auth.Verify.Has(err) && pb.Payer.Has(err), err.Error())
+			assert.True(t, auth.ErrVerify.Has(err) && pb.ErrPayer.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -260,7 +260,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			manipSignature = GetSignature(t, &manipRBA, manipPrivKey)
 			// Using self created Payer and Renter bwagreement signatures
 			reply, err := callBWA(ctxSN1, t, satellite, manipSignature, &manipRBA, manipCerts)
-			assert.True(t, auth.Signer.Has(err) && pb.Payer.Has(err), err.Error())
+			assert.True(t, auth.ErrSigner.Has(err) && pb.ErrPayer.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -277,7 +277,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			manipSignature = GetSignature(t, &manipRBA, manipPrivKey)
 			// Using self created Payer and Renter bwagreement signatures
 			reply, err := callBWA(ctxSN1, t, satellite, manipSignature, &manipRBA, manipCerts)
-			assert.True(t, pb.Payer.Has(err), err.Error())
+			assert.True(t, pb.ErrPayer.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 	}
@@ -293,7 +293,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			assert.NoError(t, err)
 			rba.Signature = []byte("invalid")
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rba)
-			assert.True(t, auth.SigLen.Has(err) && pb.Renter.Has(err), err.Error())
+			assert.True(t, auth.ErrSigLen.Has(err) && pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -302,30 +302,30 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			assert.NoError(t, err)
 			rba.PayerAllocation.Certs = nil
 			reply, err := callBWA(ctxSN2, t, satellite, rba.GetSignature(), rba, rba.GetCerts())
-			assert.True(t, auth.Verify.Has(err) && pb.Renter.Has(err), err.Error())
+			assert.True(t, auth.ErrVerify.Has(err) && pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 	}
 }
 
 func callBWA(ctx context.Context, t *testing.T, sat *bwagreement.Server, signature []byte, rba *pb.RenterBandwidthAllocation, certs [][]byte) (*pb.AgreementsSummary, error) {
-	require.True(t, rba.SetCerts(certs))
-	require.True(t, rba.SetSignature(signature))
+	rba.SetCerts(certs)
+	rba.SetSignature(signature)
 	return sat.BandwidthAgreements(ctx, rba)
 }
 
 //GetSignature returns the signature of the signed message
-func GetSignature(t *testing.T, msg auth.SignableMsg, privECDSA *ecdsa.PrivateKey) []byte {
+func GetSignature(t *testing.T, msg auth.SignableMessage, privECDSA *ecdsa.PrivateKey) []byte {
 	require.NotNil(t, msg)
 	oldSignature := msg.GetSignature()
 	certs := msg.GetCerts()
-	_ = msg.SetSignature(nil)
-	_ = msg.SetCerts(nil)
+	msg.SetSignature(nil)
+	msg.SetCerts(nil)
 	msgBytes, err := proto.Marshal(msg)
 	require.NoError(t, err)
 	signature, err := cryptopasta.Sign(msgBytes, privECDSA)
 	require.NoError(t, err)
-	_ = msg.SetSignature(oldSignature)
-	_ = msg.SetCerts(certs)
+	msg.SetSignature(oldSignature)
+	msg.SetCerts(certs)
 	return signature
 }

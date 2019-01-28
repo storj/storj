@@ -184,5 +184,5 @@ func (ps *PieceStore) Delete(ctx context.Context, id PieceID, authorization *pb.
 
 // sign a message using the clients private key
 func (ps *PieceStore) sign(rba *pb.RenterBandwidthAllocation) (err error) {
-	return auth.SignMsg(rba, *ps.selfID)
+	return auth.SignMessage(rba, *ps.selfID)
 }

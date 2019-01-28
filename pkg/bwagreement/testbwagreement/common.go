@@ -28,7 +28,7 @@ func GeneratePayerBandwidthAllocation(action pb.BandwidthAction, satID *identity
 		Action:            action,
 		CreatedUnixSec:    time.Now().Unix(),
 	}
-	return pba, auth.SignMsg(pba, *satID)
+	return pba, auth.SignMessage(pba, *satID)
 }
 
 //GenerateRenterBandwidthAllocation creates a signed RenterBandwidthAllocation from a PayerBandwidthAllocation
@@ -39,5 +39,5 @@ func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, storage
 		Total:           total,
 	}
 	// Combine Signature and Data for RenterBandwidthAllocation
-	return rba, auth.SignMsg(rba, *upID)
+	return rba, auth.SignMessage(rba, *upID)
 }

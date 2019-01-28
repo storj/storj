@@ -12,10 +12,10 @@ import (
 )
 
 var (
-	//Renter wraps errors related to renter bandwidth allocations
-	Renter = errs.Class("Renter agreement")
-	//Payer wraps errors related to payer bandwidth allocations
-	Payer = errs.Class("Payer agreement")
+	//ErrRenter wraps errors related to renter bandwidth allocations
+	ErrRenter = errs.Class("Renter agreement")
+	//ErrPayer wraps errors related to payer bandwidth allocations
+	ErrPayer = errs.Class("Payer agreement")
 )
 
 //Equal compares two Protobuf messages via serialization
@@ -40,37 +40,21 @@ func Equal(msg1, msg2 proto.Message) bool {
 }
 
 //SetCerts updates the certs field, completing the auth.SignedMsg interface
-func (m *PayerBandwidthAllocation) SetCerts(certs [][]byte) bool {
-	if m != nil {
-		m.Certs = certs
-		return true
-	}
-	return false
+func (m *PayerBandwidthAllocation) SetCerts(certs [][]byte) {
+	m.Certs = certs
 }
 
 //SetSignature updates the signature field, completing the auth.SignedMsg interface
-func (m *PayerBandwidthAllocation) SetSignature(signature []byte) bool {
-	if m != nil {
-		m.Signature = signature
-		return true
-	}
-	return false
+func (m *PayerBandwidthAllocation) SetSignature(signature []byte) {
+	m.Signature = signature
 }
 
 //SetCerts updates the certs field, completing the auth.SignedMsg interface
-func (m *RenterBandwidthAllocation) SetCerts(certs [][]byte) bool {
-	if m != nil {
-		m.Certs = certs
-		return true
-	}
-	return false
+func (m *RenterBandwidthAllocation) SetCerts(certs [][]byte) {
+	m.Certs = certs
 }
 
 //SetSignature updates the signature field, completing the auth.SignedMsg interface
-func (m *RenterBandwidthAllocation) SetSignature(signature []byte) bool {
-	if m != nil {
-		m.Signature = signature
-		return true
-	}
-	return false
+func (m *RenterBandwidthAllocation) SetSignature(signature []byte) {
+	m.Signature = signature
 }
