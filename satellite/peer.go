@@ -182,7 +182,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Public.Server, err = server.NewServer(publicOptions, peer.Public.Listener, grpcauth.NewAPIKeyInterceptor())
+		peer.Public.Server, err = server.New(publicOptions, peer.Public.Listener, grpcauth.NewAPIKeyInterceptor())
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
