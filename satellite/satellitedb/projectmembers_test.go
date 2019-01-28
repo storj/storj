@@ -207,14 +207,12 @@ func prepareUsersAndProjects(ctx context.Context, t *testing.T, users console.Us
 
 	projectList := []*console.Project{
 		{
-			Name:          "projName1",
-			TermsAccepted: 1,
-			Description:   "Test project 1",
+			Name:        "projName1",
+			Description: "Test project 1",
 		},
 		{
-			Name:          "projName2",
-			TermsAccepted: 1,
-			Description:   "Test project 1",
+			Name:        "projName2",
+			Description: "Test project 1",
 		},
 	}
 

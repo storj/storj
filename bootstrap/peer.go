@@ -91,7 +91,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Public.Server, err = server.NewServer(publicOptions, peer.Public.Listener, nil)
+		peer.Public.Server, err = server.New(publicOptions, peer.Public.Listener, nil)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -173,15 +173,7 @@ func (peer *Peer) Close() error {
 
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
-	// close services in reverse initialization order
-	if peer.Kademlia.Service != nil {
-		errlist.Add(peer.Kademlia.Service.Close())
-	}
-	if peer.Kademlia.RoutingTable != nil {
-		errlist.Add(peer.Kademlia.RoutingTable.Close())
-	}
-
-	// close servers
+	// close servers, to avoid new connections to closing subsystems
 	if peer.Public.Server != nil {
 		errlist.Add(peer.Public.Server.Close())
 	} else {
@@ -190,6 +182,15 @@ func (peer *Peer) Close() error {
 			errlist.Add(peer.Public.Listener.Close())
 		}
 	}
+
+	// close services in reverse initialization order
+	if peer.Kademlia.Service != nil {
+		errlist.Add(peer.Kademlia.Service.Close())
+	}
+	if peer.Kademlia.RoutingTable != nil {
+		errlist.Add(peer.Kademlia.RoutingTable.Close())
+	}
+
 	return errlist.Err()
 }
 

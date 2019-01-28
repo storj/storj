@@ -83,7 +83,6 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	terms_accepted integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );

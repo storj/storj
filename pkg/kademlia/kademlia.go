@@ -6,7 +6,6 @@ package kademlia
 import (
 	"context"
 	"math/rand"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -49,7 +48,7 @@ type Kademlia struct {
 	bootstrapNodes []pb.Node
 	dialer         *Dialer
 	identity       *provider.FullIdentity
-	lookups        sync.WaitGroup
+	lookups        sync2.WorkGroup
 
 	bootstrapFinished sync2.Fence
 }
@@ -72,6 +71,7 @@ func NewService(log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, identit
 // Close closes all kademlia connections and prevents new ones from being created.
 func (k *Kademlia) Close() error {
 	dialerErr := k.dialer.Close()
+	k.lookups.Close()
 	k.lookups.Wait()
 	return dialerErr
 }
@@ -79,6 +79,7 @@ func (k *Kademlia) Close() error {
 // Disconnect safely closes connections to the Kademlia network
 func (k *Kademlia) Disconnect() error {
 	dialerErr := k.dialer.Close()
+	k.lookups.Close()
 	k.lookups.Wait()
 
 	return errs.Combine(
@@ -144,7 +145,9 @@ func (k *Kademlia) SetBootstrapNodes(nodes []pb.Node) { k.bootstrapNodes = nodes
 func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	defer k.bootstrapFinished.Release()
 
-	k.lookups.Add(1)
+	if !k.lookups.Start() {
+		return context.Canceled
+	}
 	defer k.lookups.Done()
 
 	if len(k.bootstrapNodes) == 0 {
@@ -189,8 +192,9 @@ func (k *Kademlia) WaitForBootstrap() {
 
 // Ping checks that the provided node is still accessible on the network
 func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
-
-	k.lookups.Add(1)
+	if !k.lookups.Start() {
+		return pb.Node{}, context.Canceled
+	}
 	defer k.lookups.Done()
 
 	ok, err := k.dialer.Ping(ctx, node)
@@ -206,8 +210,9 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error) {
-
-	k.lookups.Add(1)
+	if !k.lookups.Start() {
+		return pb.Node{}, context.Canceled
+	}
 	defer k.lookups.Done()
 
 	return k.lookup(ctx, ID, false)
@@ -215,7 +220,9 @@ func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, erro
 
 //lookup initiates a kadmelia node lookup
 func (k *Kademlia) lookup(ctx context.Context, ID storj.NodeID, isBootstrap bool) (pb.Node, error) {
-	k.lookups.Add(1)
+	if !k.lookups.Start() {
+		return pb.Node{}, context.Canceled
+	}
 	defer k.lookups.Done()
 
 	kb := k.routingTable.K()
@@ -283,7 +290,9 @@ func GetIntroNode(addr string) (*pb.Node, error) {
 
 // RunRefresh occasionally refreshes stale kad buckets
 func (k *Kademlia) RunRefresh(ctx context.Context) error {
-	k.lookups.Add(1)
+	if !k.lookups.Start() {
+		return context.Canceled
+	}
 	defer k.lookups.Done()
 
 	ticker := time.NewTicker(5 * time.Minute)

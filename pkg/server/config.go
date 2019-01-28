@@ -40,18 +40,18 @@ func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, inter
 	}
 	defer func() { err = utils.CombineErrors(err, opts.RevDB.Close()) }()
 
-	s, err := NewServer(opts, lis, interceptor, services...)
+	server, err := New(opts, lis, interceptor, services...)
 	if err != nil {
 		return err
 	}
 
 	go func() {
 		<-ctx.Done()
-		if closeErr := s.Close(); closeErr != nil {
+		if closeErr := server.Close(); closeErr != nil {
 			zap.S().Errorf("Failed to close server: %s", closeErr)
 		}
 	}()
 
-	zap.S().Infof("Node %s started on %s", s.Identity().ID, sc.Address)
-	return s.Run(ctx)
+	zap.S().Infof("Node %s started on %s", server.Identity().ID, sc.Address)
+	return server.Run(ctx)
 }

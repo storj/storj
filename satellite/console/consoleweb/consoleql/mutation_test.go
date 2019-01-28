@@ -286,7 +286,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			}
 
 			query := fmt.Sprintf(
-				"mutation {createProject(input:{name:\"%s\",description:\"%s\",isTermsAccepted:true}){name,description,id,createdAt}}",
+				"mutation {createProject(input:{name:\"%s\",description:\"%s\"}){name,description,id,createdAt}}",
 				projectInfo.Name,
 				projectInfo.Description,
 			)

@@ -182,7 +182,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Public.Server, err = server.NewServer(publicOptions, peer.Public.Listener, grpcauth.NewAPIKeyInterceptor())
+		peer.Public.Server, err = server.New(publicOptions, peer.Public.Listener, grpcauth.NewAPIKeyInterceptor())
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -416,7 +416,16 @@ func (peer *Peer) Close() error {
 
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
-	// close services in reverse initialization order
+	// close servers, to avoid new connections to closing subsystems
+	if peer.Public.Server != nil {
+		errlist.Add(peer.Public.Server.Close())
+	} else {
+		// peer.Public.Server automatically closes listener
+		if peer.Public.Listener != nil {
+			errlist.Add(peer.Public.Listener.Close())
+		}
+	}
+
 	if peer.Console.Endpoint != nil {
 		errlist.Add(peer.Console.Endpoint.Close())
 	} else {
@@ -425,6 +434,7 @@ func (peer *Peer) Close() error {
 		}
 	}
 
+	// close services in reverse initialization order
 	if peer.Repair.Repairer != nil {
 		errlist.Add(peer.Repair.Repairer.Close())
 	}
@@ -467,15 +477,6 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Kademlia.ndb.Close())
 	}
 
-	// close servers
-	if peer.Public.Server != nil {
-		errlist.Add(peer.Public.Server.Close())
-	} else {
-		// peer.Public.Server automatically closes listener
-		if peer.Public.Listener != nil {
-			errlist.Add(peer.Public.Listener.Close())
-		}
-	}
 	return errlist.Err()
 }
 
