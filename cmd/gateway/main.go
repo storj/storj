@@ -20,31 +20,18 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 )
 
-// Config is miniogw.Config configuration
-type Config struct {
-	miniogw.Config
-}
-
+// Gateway configuration
 type Gateway struct {
-	Identity           provider.IdentitySetupConfig
 	APIKey             string `default:"" help:"the api key to use for the satellite" setup:"true"`
-	EncKey             string `default:"" help:"your root encryption key" setup:"true"`
 	GenerateMinioCerts bool   `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
 	SatelliteAddr      string `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
 
-	Server miniogw.ServerConfig
-	Minio  miniogw.MinioConfig
-	Client miniogw.ClientConfig
-	RS     miniogw.RSConfig
-	Enc    miniogw.EncryptionConfig
+	miniogw.Config
 }
-
-var cfg Config
 
 var (
 	// GWCmd represents the base gateway command when called without any subcommands
@@ -156,7 +143,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"enc.key":                setupCfg.EncKey,
 	}
 
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -179,7 +166,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	fmt.Printf("Secret key: %s\n", runCfg.Minio.SecretKey)
 
 	ctx := process.Ctx(cmd)
-	metainfo, _, err := cfg.Metainfo(ctx)
+	metainfo, _, err := runCfg.Metainfo(ctx)
 	if err != nil {
 		return err
 	}
@@ -190,7 +177,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			"Perhaps your configuration is invalid?\n%s", err)
 	}
 
-	return cfg.Run(process.Ctx(cmd))
+	return runCfg.Run(process.Ctx(cmd))
 }
 
 func generateAWSKey() (key string, err error) {
@@ -206,7 +193,7 @@ func generateAWSKey() (key string, err error) {
 //
 // Temporarily it also returns an instance of streams.Store until we improve
 // the metainfo and streas implementations.
-func (c *Config) Metainfo(ctx context.Context) (storj.Metainfo, streams.Store, error) {
+func (c *Gateway) Metainfo(ctx context.Context) (storj.Metainfo, streams.Store, error) {
 	identity, err := c.Identity.Load()
 	if err != nil {
 		return nil, nil, err
