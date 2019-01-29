@@ -561,7 +561,7 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	tempDBPath := filepath.Join(tmp, "test.db")
 	tempDir := filepath.Join(tmp, "test-data", "3000")
 	storage := pstore.NewStorage(tempDir)
-	psDB, err := psdb.Open(ctx, storage, tempDBPath)
+	psDB, err := psdb.Open(tempDBPath)
 	require.NoError(t, err)
 	verifier := func(authorization *pb.SignedMessage) error {
 		return nil

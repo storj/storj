@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,7 +20,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
-	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
@@ -30,16 +28,12 @@ var (
 	mon = monkit.Package()
 	// Error is the default psdb errs class
 	Error = errs.Class("psdb")
-
-	defaultCheckInterval = flag.Duration("piecestore.ttl.check-interval", time.Hour, "number of seconds to sleep between ttl checks")
 )
 
 // DB is a piece store database
 type DB struct {
-	storage *pstore.Storage
-	mu      sync.Mutex
-	DB      *sql.DB // TODO: hide
-	check   *time.Ticker
+	mu sync.Mutex
+	DB *sql.DB // TODO: hide
 }
 
 // Agreement is a struct that contains a bandwidth agreement and the associated signature
@@ -49,9 +43,7 @@ type Agreement struct {
 }
 
 // Open opens DB at DBPath
-func Open(ctx context.Context, storage *pstore.Storage, DBPath string) (db *DB, err error) {
-	defer mon.Task()(&ctx)(&err)
-
+func Open(DBPath string) (db *DB, err error) {
 	if err = os.MkdirAll(filepath.Dir(DBPath), 0700); err != nil {
 		return nil, err
 	}
@@ -61,39 +53,28 @@ func Open(ctx context.Context, storage *pstore.Storage, DBPath string) (db *DB, 
 		return nil, Error.Wrap(err)
 	}
 	db = &DB{
-		DB:      sqlite,
-		storage: storage,
-		check:   time.NewTicker(*defaultCheckInterval),
+		DB: sqlite,
 	}
 	if err := db.init(); err != nil {
 		return nil, utils.CombineErrors(err, db.DB.Close())
 	}
 
-	go db.garbageCollect(ctx)
-
 	return db, nil
 }
 
 // OpenInMemory opens sqlite DB inmemory
-func OpenInMemory(ctx context.Context, storage *pstore.Storage) (db *DB, err error) {
-	defer mon.Task()(&ctx)(&err)
-
+func OpenInMemory() (db *DB, err error) {
 	sqlite, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		return nil, err
 	}
 
 	db = &DB{
-		DB:      sqlite,
-		storage: storage,
-		check:   time.NewTicker(*defaultCheckInterval),
+		DB: sqlite,
 	}
 	if err := db.init(); err != nil {
 		return nil, utils.CombineErrors(err, db.DB.Close())
 	}
-
-	// TODO: make garbage collect calling piecestore service responsibility
-	go db.garbageCollect(ctx)
 
 	return db, nil
 }
@@ -147,71 +128,46 @@ func (db *DB) locked() func() {
 	return db.mu.Unlock
 }
 
-// DeleteExpired checks for expired TTLs in the DB and removes data from both the DB and the FS
-func (db *DB) DeleteExpired(ctx context.Context) (err error) {
+// DeleteExpired deletes expired pieces
+func (db *DB) DeleteExpired(ctx context.Context) (expired []string, err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer db.locked()()
 
-	var expired []string
-	err = func() error {
-		defer db.locked()()
+	const Limit = 100
 
-		tx, err := db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = tx.Rollback() }()
+	tx, err := db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
 
-		now := time.Now().Unix()
+	now := time.Now().Unix()
 
-		rows, err := tx.Query("SELECT id FROM ttl WHERE 0 < expires AND ? < expires", now)
-		if err != nil {
-			return err
-		}
-
-		for rows.Next() {
-			var id string
-			if err := rows.Scan(&id); err != nil {
-				return err
-			}
-			expired = append(expired, id)
-		}
-		if err := rows.Close(); err != nil {
-			return err
-		}
-
-		_, err = tx.Exec(`DELETE FROM ttl WHERE 0 < expires AND ? < expires`, now)
-		if err != nil {
-			return err
-		}
-
-		return tx.Commit()
-	}()
-
-	if db.storage != nil {
-		var errlist errs.Group
-		for _, id := range expired {
-			errlist.Add(db.storage.Delete(id))
-		}
-
-		if len(errlist) > 0 {
-			return errlist.Err()
-		}
+	rows, err := tx.Query("SELECT id FROM ttl WHERE 0 < expires AND ? < expires LIMIT ?", now, Limit)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
-}
-
-// garbageCollect will periodically run DeleteExpired
-func (db *DB) garbageCollect(ctx context.Context) {
-	for range db.check.C {
-		err := db.DeleteExpired(ctx)
-		if err != nil {
-			zap.S().Errorf("failed checking entries: %+v", err)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
 		}
+		expired = append(expired, id)
 	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec(`DELETE FROM ttl WHERE 0 < expires AND ? < expires`, now)
+	if err != nil {
+		return nil, err
+	}
+
+	return expired, tx.Commit()
 }
 
-// WriteBandwidthAllocToDB -- Insert bandwidth agreement into DB
+// WriteBandwidthAllocToDB inserts bandwidth agreement into DB
 func (db *DB) WriteBandwidthAllocToDB(rba *pb.RenterBandwidthAllocation) error {
 	rbaBytes, err := proto.Marshal(rba)
 	if err != nil {
