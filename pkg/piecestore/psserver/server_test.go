@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -88,8 +87,8 @@ func TestPiece(t *testing.T) {
 		},
 	}
 
-	for i, tt := range tests {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
 			// simulate piece TTL entry
 			_, err := s.DB.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, tt.expiration))
 			require.NoError(t, err)
@@ -224,8 +223,8 @@ func TestRetrieve(t *testing.T) {
 		},
 	}
 
-	for i, tt := range tests {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
 			stream, err := c.Retrieve(ctx)
 			require.NoError(t, err)
 
@@ -324,7 +323,7 @@ func TestStore(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
+		t.Run("", func(t *testing.T) {
 			snID, upID := newTestID(ctx, t), newTestID(ctx, t)
 			s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
 			defer cleanup()
@@ -432,7 +431,7 @@ func TestPbaValidation(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run("should validate payer bandwidth allocation struct", func(t *testing.T) {
+		t.Run("", func(t *testing.T) {
 			s, c, cleanup := NewTest(ctx, t, snID, upID, tt.whitelist)
 			defer cleanup()
 
@@ -507,7 +506,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run("should return expected PieceDeleteSummary values", func(t *testing.T) {
+		t.Run("", func(t *testing.T) {
 			// simulate piece stored with storagenode
 			if err := writeFile(s, "11111111111111111111"); err != nil {
 				t.Errorf("Error: %v\nCould not create test piece", err)
