@@ -6,6 +6,7 @@ package console
 import (
 	"context"
 	"crypto/subtle"
+	"fmt"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -24,7 +25,8 @@ var (
 
 const (
 	// maxLimit specifies the limit for all paged queries
-	maxLimit = 50
+	maxLimit            = 50
+	tokenExpirationTime = time.Hour * 24
 )
 
 // Service is handling accounts related logic
@@ -52,28 +54,99 @@ func NewService(log *zap.Logger, signer Signer, store DB) (*Service, error) {
 	return &Service{Signer: signer, store: store, log: log}, nil
 }
 
-// CreateUser gets password hash value and creates new User
+// CreateUser gets password hash value and creates new inactive User
 func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if err := user.IsValid(); err != nil {
 		return nil, err
 	}
 
-	//TODO: store original email input in the db,
+	// TODO: store original email input in the db,
 	// add normalization
 	email := normalizeEmail(user.Email)
+
+	u, err = s.store.Users().GetByEmail(ctx, email)
+	if u != nil {
+		return nil, errs.New(fmt.Sprintf("%s is already in use", email))
+	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.store.Users().Insert(ctx, &User{
-		Email:        email,
+	u, err = s.store.Users().Insert(ctx, &User{
 		FirstName:    user.FirstName,
 		LastName:     user.LastName,
 		PasswordHash: hash,
 	})
+
+	// TODO: send "finish registration email" when email service will be ready
+
+	//activationToken, err := s.GenerateActivationToken(ctx, u.ID, email, u.CreatedAt.Add(tokenExpirationTime))
+
+	return u, err
+}
+
+// GenerateActivationToken - is a method for generating activation token
+func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string, expirationDate time.Time) (activationToken string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	claims := &consoleauth.Claims{
+		ID:         id,
+		Email:      email,
+		Expiration: expirationDate,
+	}
+
+	return s.createToken(claims)
+}
+
+// ActivateAccount - is a method for activating user account after registration
+func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (authToken string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	token, err := consoleauth.FromBase64URLString(activationToken)
+	if err != nil {
+		return
+	}
+
+	claims, err := s.authenticate(token)
+	if err != nil {
+		return
+	}
+
+	user, err := s.store.Users().Get(ctx, claims.ID)
+	if err != nil {
+		return
+	}
+
+	now := time.Now()
+
+	if user.Email != "" {
+		return "", errs.New("account is already active")
+	}
+
+	if now.After(user.CreatedAt.Add(tokenExpirationTime)) {
+		return "", errs.New("activation token is expired")
+	}
+
+	user.Email = normalizeEmail(claims.Email)
+	err = s.store.Users().Update(ctx, user)
+	if err != nil {
+		return "", err
+	}
+
+	claims = &consoleauth.Claims{
+		ID:         user.ID,
+		Expiration: time.Now().Add(tokenExpirationTime),
+	}
+
+	authToken, err = s.createToken(claims)
+	if err != nil {
+		return "", err
+	}
+
+	return authToken, err
 }
 
 // Token authenticates User by credentials and returns auth token
@@ -92,10 +165,9 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 		return "", ErrUnauthorized.New("password is incorrect: %s", err.Error())
 	}
 
-	// TODO: move expiration time to constants
 	claims := consoleauth.Claims{
 		ID:         user.ID,
-		Expiration: time.Now().Add(time.Minute * 15),
+		Expiration: time.Now().Add(tokenExpirationTime),
 	}
 
 	token, err = s.createToken(&claims)

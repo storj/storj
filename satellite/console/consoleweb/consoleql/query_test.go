@@ -66,6 +66,21 @@ func TestGraphqlQuery(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		activationToken, err := service.GenerateActivationToken(
+			ctx,
+			rootUser.ID,
+			"mtest@email.com",
+			rootUser.CreatedAt.Add(time.Hour*24),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = service.ActivateAccount(ctx, activationToken)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rootUser.Email = "mtest@email.com"
+
 		token, err := service.Token(ctx, createUser.Email, createUser.Password)
 		if err != nil {
 			t.Fatal(err)
@@ -176,10 +191,23 @@ func TestGraphqlQuery(t *testing.T) {
 			},
 			Password: "123a123",
 		})
-
 		if err != nil {
 			t.Fatal(err)
 		}
+		activationToken1, err := service.GenerateActivationToken(
+			ctx,
+			user1.ID,
+			"muu1@email.com",
+			user1.CreatedAt.Add(time.Hour*24),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = service.ActivateAccount(ctx, activationToken1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		user1.Email = "muu1@email.com"
 
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
@@ -189,10 +217,23 @@ func TestGraphqlQuery(t *testing.T) {
 			},
 			Password: "123a123",
 		})
-
 		if err != nil {
 			t.Fatal(err)
 		}
+		activationToken2, err := service.GenerateActivationToken(
+			ctx,
+			user2.ID,
+			"muu2@email.com",
+			user2.CreatedAt.Add(time.Hour*24),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = service.ActivateAccount(ctx, activationToken2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		user2.Email = "muu2@email.com"
 
 		err = service.AddProjectMembers(authCtx, createdProject.ID, []string{
 			user1.Email,
