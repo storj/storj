@@ -205,7 +205,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.ExecBefore["run"] = func(process *Process) error {
 			vip := viper.New()
-			vip.AddConfigPath(filepath.Join(process.Directory, "config.yaml"))
+			vip.AddConfigPath(process.Directory)
 			if err := vip.ReadInConfig(); err != nil {
 				return err
 			}

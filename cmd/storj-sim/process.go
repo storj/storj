@@ -208,17 +208,17 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 		}
 	}
 
-	if exec, ok := process.ExecBefore[command]; ok {
-		if err := exec(process); err != nil {
-			return err
-		}
-	}
-
 	if printCommands {
 		fmt.Fprintf(process.processes.Output, "%s running: %v\n", process.Name, strings.Join(cmd.Args, " "))
 		defer func() {
 			fmt.Fprintf(process.processes.Output, "%s exited: %v\n", process.Name, err)
 		}()
+	}
+
+	if exec, ok := process.ExecBefore[command]; ok {
+		if err := exec(process); err != nil {
+			return err
+		}
 	}
 
 	// start the process
