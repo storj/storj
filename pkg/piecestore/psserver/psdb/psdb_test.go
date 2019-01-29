@@ -4,7 +4,6 @@
 package psdb
 
 import (
-	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -18,8 +17,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
-
-var ctx = context.Background()
 
 const concurrency = 10
 
