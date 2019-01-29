@@ -5,7 +5,6 @@ package overlay_test
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"testing"
 
@@ -97,12 +96,16 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.D
 		// TODO: add erroring database test
 	}
 
-	{
-		// List
+	{ // List
 		list, err := cache.List(ctx, storj.NodeID{}, 3)
-		fmt.Printf("\n \nList; %+v\n", list)
 		assert.NoError(t, err)
 		assert.NotNil(t, list)
+	}
+
+	{ // Paginate
+		nodes, err := cache.Paginate(ctx, 0, 3)
+		assert.NoError(t, err)
+		assert.Equal(t, len(nodes), 3)
 	}
 
 	{ // Delete
