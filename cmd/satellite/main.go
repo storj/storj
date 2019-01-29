@@ -121,14 +121,14 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	db, err := satellitedb.New(runCfg.Database)
-	
+
 	if err != nil {
 		return errs.New("Error starting master database on satellite: %+v", err)
 	}
 
-	defer func(){
+	defer func() {
 		err = errs.Combine(err, db.Close())
-    }()
+	}()
 
 	err = db.CreateTables()
 	if err != nil {
@@ -142,8 +142,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	runError := peer.Run(ctx)
 	closeError := peer.Close()
-	err = errs.Combine(err, runError, closeError)
-	return err
+	return errs.Combine(runError, closeError)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
