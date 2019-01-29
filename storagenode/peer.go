@@ -77,8 +77,9 @@ type Peer struct {
 	}
 
 	Storage struct {
-		Endpoint *psserver.Server // TODO: separate into endpoint and service
-		Monitor  *psserver.Monitor
+		Endpoint  *psserver.Server // TODO: separate into endpoint and service
+		Monitor   *psserver.Monitor
+		Collector *psserver.Collector
 	}
 
 	Agreements struct {
@@ -141,13 +142,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		}
 
 		kdb, ndb := peer.DB.RoutingTable()
-		peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb)
+		peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb, &config.RoutingTableConfig)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
 		// TODO: reduce number of arguments
-		peer.Kademlia.Service, err = kademlia.NewWith(peer.Log.Named("kademlia"), self, []pb.Node{*in}, peer.Identity, config.Alpha, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, []pb.Node{*in}, peer.Identity, config.Alpha, peer.Kademlia.RoutingTable)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -172,6 +173,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 
 		// TODO: organize better
 		peer.Storage.Monitor = psserver.NewMonitor(peer.Log.Named("piecestore:monitor"), config.KBucketRefreshInterval, peer.Kademlia.RoutingTable, peer.Storage.Endpoint)
+		peer.Storage.Collector = psserver.NewCollector(peer.Log.Named("piecestore:collector"), peer.DB.PSDB(), peer.DB.Storage(), config.CollectorInterval)
 	}
 
 	{ // agreements
@@ -203,6 +205,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Storage.Monitor.Run(ctx))
+	})
+	group.Go(func() error {
+		return ignoreCancel(peer.Storage.Collector.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -244,7 +249,7 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Kademlia.Service.Close())
 	}
 	if peer.Kademlia.RoutingTable != nil {
-		errlist.Add(peer.Kademlia.RoutingTable.SelfClose())
+		errlist.Add(peer.Kademlia.RoutingTable.Close())
 	}
 
 	return errlist.Err()

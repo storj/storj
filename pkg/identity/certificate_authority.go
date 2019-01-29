@@ -100,7 +100,9 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		opts.Concurrency = 1
 	}
 
-	fmt.Printf("Generating key with a minimum a difficulty of %d...\n", opts.Difficulty)
+	if opts.Logger != nil {
+		fmt.Fprintf(opts.Logger, "Generating key with a minimum a difficulty of %d...\n", opts.Difficulty)
+	}
 	updateStatus := func() {
 		if opts.Logger != nil {
 			count := atomic.LoadUint32(i)
