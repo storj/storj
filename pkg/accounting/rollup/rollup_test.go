@@ -56,6 +56,7 @@ func TestQueryTwoDays(t *testing.T) {
 	assert.NoError(t, err)
 
 	allRaw, err := db.Accounting().GetRawSince(ctx, now)
+	assert.NoError(t, err)
 	assert.Equal(t, 20, len(allRaw))
 	assert.Equal(t, now, allRaw[5].CreatedAt)
 	assert.Equal(t, later, allRaw[15].CreatedAt)
