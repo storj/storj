@@ -143,6 +143,9 @@ func sqlRowsToNodes(rows *sql.Rows) (nodes []*pb.Node, err error) {
 
 func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *getNodesRequest) (*sql.Rows, error) {
 	auditCount := req.minReputation.AuditCount
+	if req.newNodeAuditThreshold > auditCount {
+		auditCount = req.newNodeAuditThreshold
+	}
 	auditSuccessRatio := req.minReputation.AuditSuccessRatio
 	uptimeCount := req.minReputation.UptimeCount
 	uptimeRatio := req.minReputation.UptimeRatio
@@ -157,8 +160,7 @@ func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *get
 		args[i] = id.Bytes()
 	}
 
-	args = append(args, auditCount, req.newNodeAuditThreshold,
-		auditSuccessRatio, uptimeCount, uptimeRatio,
+	args = append(args, auditCount, auditSuccessRatio, uptimeCount, uptimeRatio,
 		req.freeBandwidth, req.freeDisk, nodeTypeStorage, nodeAmt)
 
 	// This queries for nodes whose audit counts are greater than or equal to
@@ -169,7 +171,6 @@ func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *get
 	uptime_success_count
 	FROM overlay_cache_nodes
 	WHERE node_id NOT IN (`+strings.Join(sliceOfCopies("?", len(req.excluded)), ", ")+`)
-	AND audit_count >= ?
 	AND audit_count >= ?
 	AND audit_success_ratio >= ?
 	AND uptime_count >= ?
