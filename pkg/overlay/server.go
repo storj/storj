@@ -8,7 +8,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
@@ -96,12 +95,6 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 
 	foundNodes, err := server.cache.db.FilterNodes(ctx, filterNodesReq)
 	if err != nil {
-		_, ok := status.FromError(err)
-		if ok {
-			return &pb.FindStorageNodesResponse{
-				Nodes: foundNodes,
-			}, err
-		}
 		return nil, Error.Wrap(err)
 	}
 

@@ -6,12 +6,9 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"strings"
 
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -76,12 +73,6 @@ func (cache *overlaycache) FilterNodes(ctx context.Context, req *overlay.FilterN
 	var allNodes []*pb.Node
 	allNodes = append(allNodes, reputableNodes...)
 	allNodes = append(allNodes, newNodes...)
-
-	if int64(len(reputableNodes)) < reputableNodeAmount {
-		err := status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d reputable nodes, only %d reputable nodes matched the criteria requested",
-			reputableNodeAmount, len(reputableNodes)))
-		return allNodes, err
-	}
 
 	return allNodes, nil
 }

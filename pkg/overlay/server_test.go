@@ -10,8 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -36,15 +34,6 @@ func TestServer(t *testing.T) {
 	satellite := planet.Satellites[0]
 	server := satellite.Overlay.Endpoint
 	// TODO: handle cleanup
-
-	{ // FindStorageNodes
-		result, err := server.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{
-			Opts: &pb.OverlayOptions{Amount: 2},
-		})
-		require.NoError(t, err)
-		require.NotNil(t, result)
-		assert.Len(t, result.Nodes, 2)
-	}
 
 	{ // Lookup
 		result, err := server.Lookup(ctx, &pb.LookupRequest{
@@ -112,7 +101,6 @@ func TestNewNodeFiltering(t *testing.T) {
 		requestedNodeAmt      int64
 		expectedResultLength  int
 		excludedAmt           int
-		notEnoughRepNodes     bool
 	}{
 		{
 			name:                  "case: all reputable nodes, only reputable nodes requested",
@@ -162,7 +150,6 @@ func TestNewNodeFiltering(t *testing.T) {
 			newNodePercentage:     1,
 			requestedNodeAmt:      2,
 			expectedResultLength:  3,
-			notEnoughRepNodes:     true,
 		},
 		{
 			name:                  "case: all new nodes, reputable and new nodes requested",
@@ -170,7 +157,6 @@ func TestNewNodeFiltering(t *testing.T) {
 			newNodePercentage:     1,
 			requestedNodeAmt:      2,
 			expectedResultLength:  2,
-			notEnoughRepNodes:     true,
 		},
 		{
 			name:                  "case: audit threshold edge case (1)",
@@ -193,7 +179,6 @@ func TestNewNodeFiltering(t *testing.T) {
 			newNodePercentage:     0,
 			requestedNodeAmt:      5,
 			expectedResultLength:  3,
-			notEnoughRepNodes:     true,
 		},
 	} {
 
@@ -237,15 +222,7 @@ func TestNewNodeFiltering(t *testing.T) {
 					ExcludedNodes: excludedNodes,
 				},
 			})
-
-		if tt.notEnoughRepNodes {
-			stat, ok := status.FromError(err)
-			assert.Equal(t, true, ok, tt.name)
-			assert.Equal(t, codes.ResourceExhausted, stat.Code(), tt.name)
-		} else {
-			assert.NoError(t, err, tt.name)
-		}
-
+		assert.NoError(t, err, tt.name)
 		assert.Equal(t, tt.expectedResultLength, len(result.GetNodes()), tt.name)
 	}
 }
