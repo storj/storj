@@ -59,11 +59,11 @@ func (service *Collector) Run(ctx context.Context) error {
 func (service *Collector) Collect(ctx context.Context) error {
 	for {
 		expired, err := service.db.DeleteExpired(ctx)
-		if len(expired) == 0 {
-			return nil
-		}
 		if err != nil {
 			return ErrorCollector.Wrap(err)
+		}
+		if len(expired) == 0 {
+			return nil
 		}
 
 		var errlist errs.Group
