@@ -15,7 +15,6 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/utils"
 )
 
 // RetrieveError is a type of error for failures in Server.Retrieve()
@@ -98,7 +97,9 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 		return 0, 0, err
 	}
 
-	defer utils.LogClose(storeFile)
+	defer func() {
+		err = errs.Combine(err, storeFile.Close())
+	}()
 
 	writer := NewStreamWriter(s, stream)
 	allocationTracking := sync2.NewThrottle()
