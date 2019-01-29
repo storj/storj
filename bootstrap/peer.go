@@ -153,7 +153,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
-		peer.Log.Sugar().Infof("Bootstrap node %s started on %s", peer.Identity.ID, peer.Public.Server.Addr().String())
+		peer.Log.Sugar().Infof("Node %s started on %s", peer.Identity.ID, peer.Public.Server.Addr().String())
 		return ignoreCancel(peer.Public.Server.Run(ctx))
 	})
 
