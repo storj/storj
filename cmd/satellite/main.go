@@ -65,6 +65,7 @@ var (
 	paymentsCmd = &cobra.Command{
 		Use:   "payments [start] [end]",
 		Short: "Generate a payment report for a given period",
+		Long:  "Generate a payment report for a given period. Format dates using YYYY-MM-DD",
 		RunE:  cmdPayments,
 	}
 
@@ -111,7 +112,7 @@ func init() {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
 
-	reportsCmd.PersistentFlags().StringVar(&out, "out", "", "destination of report output. Default stdout")
+	reportsCmd.PersistentFlags().StringVar(&out, "output", "", "destination of report output (default stdout)")
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)

@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"encoding/csv"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -65,6 +66,9 @@ func generateCSV(ctx context.Context, start time.Time, end time.Time, output *os
 		return err
 	}
 	w.Flush()
+	if output != os.Stdout {
+		fmt.Println("Generated payment report")
+	}
 	return err
 }
 
