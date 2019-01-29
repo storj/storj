@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/csv"
 	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -18,39 +17,21 @@ import (
 )
 
 // generateCSV generates a payment report for all nodes for a given period
-func generateCSV(ctx context.Context, cfgDir string, dbPath string, id string, start time.Time, end time.Time) (string, error) {
-
-	db, err := satellitedb.New(dbPath)
+func generateCSV(ctx context.Context, start time.Time, end time.Time, output *os.File) error {
+	db, err := satellitedb.New(paymentsCfg.Database)
 	if err != nil {
-		return "", errs.New("error connecting to master database on satellite: %+v", err)
+		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pDir := filepath.Join(cfgDir, "payments")
-
-	if err := os.MkdirAll(pDir, 0700); err != nil {
-		return "", err
-	}
-
-	layout := "2006-01-02"
-	filename := id + "--" + start.Format(layout) + "--" + end.Format(layout) + ".csv"
-	path := filepath.Join(pDir, filename)
-	file, err := os.Create(path)
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		err = errs.Combine(err, file.Close())
-	}()
-
 	rows, err := db.Accounting().QueryPaymentInfo(ctx, start, end)
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	w := csv.NewWriter(file)
+	w := csv.NewWriter(output)
 	headers := []string{
 		"nodeID",
 		"nodeCreationDate",
@@ -65,30 +46,26 @@ func generateCSV(ctx context.Context, cfgDir string, dbPath string, id string, s
 		"walletAddress",
 	}
 	if err := w.Write(headers); err != nil {
-		return "", err
+		return err
 	}
 
 	for _, row := range rows {
 		nid := row.NodeID
 		wallet, err := db.OverlayCache().GetWalletAddress(ctx, nid)
 		if err != nil {
-			return "", err
+			return err
 		}
 		row.Wallet = wallet
 		record := structToStringSlice(row)
 		if err := w.Write(record); err != nil {
-			return "", err
+			return err
 		}
 	}
 	if err := w.Error(); err != nil {
-		return "", err
+		return err
 	}
 	w.Flush()
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return "", err
-	}
-	return abs, err
+	return err
 }
 
 func structToStringSlice(s *accounting.CSVRow) []string {

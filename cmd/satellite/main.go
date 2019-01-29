@@ -18,7 +18,6 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
@@ -81,8 +80,6 @@ var (
 	}
 	paymentsCfg struct {
 		Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
-
-		identity.Config
 	}
 
 	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
@@ -90,6 +87,7 @@ var (
 	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "satellite")
 	confDir            string
 	identityDir        string
+	out                string
 )
 
 func init() {
@@ -112,6 +110,8 @@ func init() {
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
+
+	reportsCmd.PersistentFlags().StringVar(&out, "out", "", "destination of report output. Default stdout")
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
@@ -288,8 +288,6 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdPayments(cmd *cobra.Command, args []string) (err error) {
-	fmt.Println("Generating payment report...")
-
 	ctx := process.Ctx(cmd)
 
 	layout := "2006-01-02"
@@ -307,18 +305,19 @@ func cmdPayments(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Invalid time period (%v) - (%v)", start, end)
 	}
 
-	id, err := paymentsCfg.Load()
-	if err != nil {
-		return err
+	output := os.Stdout
+	if out != "" {
+		file, err := os.Create(out)
+		if err != nil {
+			return err
+		}
+		output = file
 	}
+	defer func() {
+		err = errs.Combine(err, output.Close())
+	}()
 
-	report, err := generateCSV(ctx, confDir, paymentsCfg.Database, id.ID.String(), start, end)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Created payments report at", report)
-	return nil
+	return generateCSV(ctx, start, end, output)
 }
 
 func main() {
