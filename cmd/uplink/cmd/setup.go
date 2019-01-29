@@ -22,9 +22,7 @@ type UplinkFlags struct {
 	APIKey        string `default:"" help:"the api key to use for the satellite" setup:"true"`
 	SatelliteAddr string `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
 
-	Client miniogw.ClientConfig
-	RS     miniogw.RSConfig
-	Enc    miniogw.EncryptionConfig
+	miniogw.Config // TODO remove when GetMetainfo will be moved from minio
 }
 
 var (
