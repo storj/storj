@@ -23,7 +23,7 @@ func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string)
 	lastTally, err := db.db.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
 	if lastTally == nil {
 		update := dbx.AccountingTimestamps_Value(time.Time{})
-		_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
+		_, err = db.db.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
 		return time.Time{}, err
 	}
 	return lastTally.Value, err

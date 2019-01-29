@@ -63,7 +63,7 @@ func (m *lockedAccounting) GetRawSince(ctx context.Context, latestRollup time.Ti
 }
 
 // LastTimestamp records the latest last tallied time.
-func (m *lockedAccounting) LastTimestamp(ctx context.Context, timestampType string) (time.Time, bool, error) {
+func (m *lockedAccounting) LastTimestamp(ctx context.Context, timestampType string) (time.Time, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.LastTimestamp(ctx, timestampType)
@@ -117,11 +117,18 @@ func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.R
 	return m.db.CreateAgreement(ctx, a1)
 }
 
-// GetTotals returns the sum of each bandwidth type after (exluding) a given date range
+// GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
 func (m *lockedBandwidthAgreement) GetTotals(ctx context.Context, a1 time.Time, a2 time.Time) (map[storj.NodeID][5]int64, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetTotals(ctx, a1, a2)
+}
+
+// GetTotals returns stats about an uplink
+func (m *lockedBandwidthAgreement) GetUplinkStats(ctx context.Context, a1 time.Time, a2 time.Time) (map[storj.NodeID][4]int64, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetUplinkStats(ctx, a1, a2)
 }
 
 // Close closes the database
