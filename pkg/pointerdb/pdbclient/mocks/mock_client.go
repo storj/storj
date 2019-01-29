@@ -79,7 +79,7 @@ func (mr *MockClientMockRecorder) List(arg0, arg1, arg2, arg3, arg4, arg5, arg6 
 }
 
 // PayerBandwidthAllocation mocks base method
-func (m *MockClient) PayerBandwidthAllocation(arg0 context.Context, arg1 pb.PayerBandwidthAllocation_Action) (*pb.PayerBandwidthAllocation, error) {
+func (m *MockClient) PayerBandwidthAllocation(arg0 context.Context, arg1 pb.BandwidthAction) (*pb.PayerBandwidthAllocation, error) {
 	ret := m.ctrl.Call(m, "PayerBandwidthAllocation", arg0, arg1)
 	ret0, _ := ret[0].(*pb.PayerBandwidthAllocation)
 	ret1, _ := ret[1].(error)

@@ -118,7 +118,7 @@ func TestServiceGet(t *testing.T) {
 		} else {
 			assert.NoError(t, err, errTag)
 			assert.NoError(t, err, errTag)
-			assert.True(t, proto.Equal(pr, resp.Pointer), errTag)
+			assert.True(t, pb.Equal(pr, resp.Pointer), errTag)
 
 			assert.NotNil(t, resp.GetAuthorization())
 			assert.NotNil(t, resp.GetPba())
@@ -345,7 +345,7 @@ func TestServiceList(t *testing.T) {
 			test.Error(i, err)
 		}
 
-		if diff := cmp.Diff(test.Expected, resp, cmp.Comparer(proto.Equal)); diff != "" {
+		if diff := cmp.Diff(test.Expected, resp, cmp.Comparer(pb.Equal)); diff != "" {
 			t.Errorf("%d: (-want +got) %v\n%s", i, test.Request.String(), diff)
 		}
 	}

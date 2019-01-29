@@ -3,23 +3,24 @@
 //--- bwagreement ---//
 
 model bwagreement (
-	key signature
-	unique serialnum
+	key serialnum
 
-	field signature  blob
-	field serialnum  text
-	field data       blob
+	field serialnum    text
+	field data         blob
+	field storage_node blob
+	field action       int64
+	field total        int64
 	field created_at timestamp ( autoinsert )
 	field expires_at timestamp
 )
 
 create bwagreement ( )
-delete bwagreement ( where bwagreement.signature = ? )
+delete bwagreement ( where bwagreement.serialnum = ? )
 delete bwagreement ( where bwagreement.expires_at <= ?)
 
 read one (
 	select bwagreement
-	where  bwagreement.signature = ?
+	where  bwagreement.serialnum = ?
 )
 
 read limitoffset (
@@ -272,8 +273,6 @@ model project (
 
     field name           text
     field description    text      ( updatable )
-    // stores last accepted version of terms of use
-    field terms_accepted int       ( updatable )
 
     field created_at     timestamp ( autoinsert )
 )

@@ -5,11 +5,7 @@ package kademlia
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
-	"os"
-	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -23,7 +19,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
 )
 
 var (
@@ -53,50 +48,13 @@ type Kademlia struct {
 	bootstrapNodes []pb.Node
 	dialer         *Dialer
 	identity       *provider.FullIdentity
-	lookups        sync.WaitGroup
+	lookups        sync2.WorkGroup
 
 	bootstrapFinished sync2.Fence
 }
 
-// New returns a newly configured Kademlia instance
-var New = NewKademlia
-
-// NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
-	self := pb.Node{
-		Id:       identity.ID,
-		Type:     nodeType,
-		Address:  &pb.NodeAddress{Address: address},
-		Metadata: metadata,
-	}
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err := os.MkdirAll(path, 0777); err != nil {
-			return nil, err
-		}
-	}
-
-	bucketIdentifier := self.Id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
-	dbpath := filepath.Join(path, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
-
-	dbs, err := boltdb.NewShared(dbpath, KademliaBucket, NodeBucket)
-	if err != nil {
-		return nil, BootstrapErr.Wrap(err)
-	}
-	kdb, ndb := dbs[0], dbs[1]
-
-	rt, err := NewRoutingTable(log, self, kdb, ndb)
-	if err != nil {
-		return nil, BootstrapErr.Wrap(err)
-	}
-
-	return NewKademliaWithRoutingTable(log, self, bootstrapNodes, identity, alpha, rt)
-}
-
-// NewWith returns a newly configured Kademlia instance
-var NewWith = NewKademliaWithRoutingTable
-
-// NewKademliaWithRoutingTable returns a newly configured Kademlia instance
-func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
+// NewService returns a newly configured Kademlia instance
+func NewService(log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
 	k := &Kademlia{
 		log:            log,
 		alpha:          alpha,
@@ -113,6 +71,7 @@ func NewKademliaWithRoutingTable(log *zap.Logger, self pb.Node, bootstrapNodes [
 // Close closes all kademlia connections and prevents new ones from being created.
 func (k *Kademlia) Close() error {
 	dialerErr := k.dialer.Close()
+	k.lookups.Close()
 	k.lookups.Wait()
 	return dialerErr
 }
@@ -120,6 +79,7 @@ func (k *Kademlia) Close() error {
 // Disconnect safely closes connections to the Kademlia network
 func (k *Kademlia) Disconnect() error {
 	dialerErr := k.dialer.Close()
+	k.lookups.Close()
 	k.lookups.Wait()
 
 	return errs.Combine(
@@ -128,9 +88,9 @@ func (k *Kademlia) Disconnect() error {
 	)
 }
 
-// GetNodes returns all nodes from a starting node up to a maximum limit
+// FindNear returns all nodes from a starting node up to a maximum limit
 // stored in the local routing table limiting the result by the specified restrictions
-func (k *Kademlia) GetNodes(ctx context.Context, start storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
+func (k *Kademlia) FindNear(ctx context.Context, start storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
 	nodes := []*pb.Node{}
 	iteratorMethod := func(it storage.Iterator) error {
 		var item storage.ListItem
@@ -185,7 +145,9 @@ func (k *Kademlia) SetBootstrapNodes(nodes []pb.Node) { k.bootstrapNodes = nodes
 func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	defer k.bootstrapFinished.Release()
 
-	k.lookups.Add(1)
+	if !k.lookups.Start() {
+		return context.Canceled
+	}
 	defer k.lookups.Done()
 
 	if len(k.bootstrapNodes) == 0 {
@@ -218,8 +180,15 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	k.routingTable.mutex.Lock()
 	id := k.routingTable.self.Id
 	k.routingTable.mutex.Unlock()
-
 	_, err = k.lookup(ctx, id, true)
+
+	// TODO(dylan): We do not currently handle this last bit of behavior.
+	// ```
+	// Finally, u refreshes all k-buckets further away than its closest neighbor.
+	// During the refreshes, u both populates its own k-buckets and inserts
+	// itself into other nodes' k-buckets as necessary.
+	// ``
+
 	return err
 }
 
@@ -230,8 +199,9 @@ func (k *Kademlia) WaitForBootstrap() {
 
 // Ping checks that the provided node is still accessible on the network
 func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
-
-	k.lookups.Add(1)
+	if !k.lookups.Start() {
+		return pb.Node{}, context.Canceled
+	}
 	defer k.lookups.Done()
 
 	ok, err := k.dialer.Ping(ctx, node)
@@ -247,8 +217,9 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error) {
-
-	k.lookups.Add(1)
+	if !k.lookups.Start() {
+		return pb.Node{}, context.Canceled
+	}
 	defer k.lookups.Done()
 
 	return k.lookup(ctx, ID, false)
@@ -256,7 +227,9 @@ func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, erro
 
 //lookup initiates a kadmelia node lookup
 func (k *Kademlia) lookup(ctx context.Context, ID storj.NodeID, isBootstrap bool) (pb.Node, error) {
-	k.lookups.Add(1)
+	if !k.lookups.Start() {
+		return pb.Node{}, context.Canceled
+	}
 	defer k.lookups.Done()
 
 	kb := k.routingTable.K()
@@ -324,12 +297,14 @@ func GetIntroNode(addr string) (*pb.Node, error) {
 
 // RunRefresh occasionally refreshes stale kad buckets
 func (k *Kademlia) RunRefresh(ctx context.Context) error {
-	k.lookups.Add(1)
+	if !k.lookups.Start() {
+		return context.Canceled
+	}
 	defer k.lookups.Done()
 
 	ticker := time.NewTicker(5 * time.Minute)
 	for {
-		if err := k.refresh(ctx); err != nil {
+		if err := k.refresh(ctx, time.Minute); err != nil {
 			k.log.Warn("bucket refresh failed", zap.Error(err))
 		}
 		select {
@@ -342,7 +317,7 @@ func (k *Kademlia) RunRefresh(ctx context.Context) error {
 }
 
 // refresh updates each Kademlia bucket not contacted in the last hour
-func (k *Kademlia) refresh(ctx context.Context) error {
+func (k *Kademlia) refresh(ctx context.Context, threshold time.Duration) error {
 	bIDs, err := k.routingTable.GetBucketIds()
 	if err != nil {
 		return Error.Wrap(err)
@@ -354,7 +329,7 @@ func (k *Kademlia) refresh(ctx context.Context) error {
 		ts, tErr := k.routingTable.GetBucketTimestamp(bID)
 		if tErr != nil {
 			errors.Add(tErr)
-		} else if now.After(ts.Add(time.Hour)) {
+		} else if now.After(ts.Add(threshold)) {
 			rID, _ := randomIDInRange(startID, keyToBucketID(bID))
 			_, _ = k.FindNode(ctx, rID) // ignore node not found
 		}

@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/pkg/auth"
@@ -30,22 +29,19 @@ func NewAllocationSigner(satelliteIdentity *identity.FullIdentity, bwExpiration 
 }
 
 // PayerBandwidthAllocation returns generated payer bandwidth allocation
-func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context, peerIdentity *identity.PeerIdentity, action pb.PayerBandwidthAllocation_Action) (pba *pb.PayerBandwidthAllocation, err error) {
+func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context, peerIdentity *identity.PeerIdentity, action pb.BandwidthAction) (pba *pb.PayerBandwidthAllocation, err error) {
 	if peerIdentity == nil {
 		return nil, Error.New("missing peer identity")
 	}
-
 	serialNum, err := uuid.New()
 	if err != nil {
 		return nil, err
 	}
 	created := time.Now().Unix()
-
 	// convert ttl from days to seconds
 	ttl := allocation.bwExpiration
 	ttl *= 86400
-
-	pbad := &pb.PayerBandwidthAllocation_Data{
+	pba = &pb.PayerBandwidthAllocation{
 		SatelliteId:       allocation.satelliteIdentity.ID,
 		UplinkId:          peerIdentity.ID,
 		CreatedUnixSec:    created,
@@ -53,15 +49,8 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 		Action:            action,
 		SerialNumber:      serialNum.String(),
 	}
-
-	data, err := proto.Marshal(pbad)
-	if err != nil {
+	if err := auth.SignMessage(pba, *allocation.satelliteIdentity); err != nil {
 		return nil, err
 	}
-	signature, err := auth.GenerateSignature(data, allocation.satelliteIdentity)
-	if err != nil {
-		return nil, err
-	}
-	certs := allocation.satelliteIdentity.ChainRaw()
-	return &pb.PayerBandwidthAllocation{Signature: signature, Data: data, Certs: certs}, nil
+	return pba, nil
 }

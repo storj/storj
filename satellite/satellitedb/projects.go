@@ -59,8 +59,7 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),
 		dbx.Project_Name(project.Name),
-		dbx.Project_Description(project.Description),
-		dbx.Project_TermsAccepted(project.TermsAccepted))
+		dbx.Project_Description(project.Description))
 
 	if err != nil {
 		return nil, err
@@ -79,8 +78,7 @@ func (projects *projects) Delete(ctx context.Context, id uuid.UUID) error {
 // Update is a method for updating project entity
 func (projects *projects) Update(ctx context.Context, project *console.Project) error {
 	updateFields := dbx.Project_Update_Fields{
-		Description:   dbx.Project_Description(project.Description),
-		TermsAccepted: dbx.Project_TermsAccepted(project.TermsAccepted),
+		Description: dbx.Project_Description(project.Description),
 	}
 
 	_, err := projects.db.Update_Project_By_Id(ctx,
@@ -102,11 +100,10 @@ func projectFromDBX(project *dbx.Project) (*console.Project, error) {
 	}
 
 	u := &console.Project{
-		ID:            id,
-		Name:          project.Name,
-		Description:   project.Description,
-		TermsAccepted: project.TermsAccepted,
-		CreatedAt:     project.CreatedAt,
+		ID:          id,
+		Name:        project.Name,
+		Description: project.Description,
+		CreatedAt:   project.CreatedAt,
 	}
 
 	return u, nil

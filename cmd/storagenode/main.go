@@ -15,7 +15,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/fatih/color"
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -26,7 +25,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
-	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -88,9 +86,6 @@ var (
 		BootstrapAddr   string `default:"bootstrap.storj.io:8888" help:"address of server the storage node was bootstrapped against"`
 	}
 
-	diagCfg struct {
-	}
-
 	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
 	// TODO: this path should be defined somewhere else
 	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "storagenode")
@@ -133,8 +128,16 @@ func init() {
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(diagCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultDiagDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, cfgstruct.ConfDir(defaultDiagDir))
+}
+
+func databaseConfig(config storagenode.Config) storagenodedb.Config {
+	return storagenodedb.Config{
+		Storage:  config.Storage.Path,
+		Info:     filepath.Join(config.Storage.Path, "piecestore.db"),
+		Kademlia: config.Kademlia.DBPath,
+	}
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -155,11 +158,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
-	db, err := storagenodedb.New(storagenodedb.Config{
-		Storage:  runCfg.Storage.Path,
-		Info:     filepath.Join(runCfg.Storage.Path, "piecestore.db"),
-		Kademlia: runCfg.Kademlia.DBPath,
-	})
+	db, err := storagenodedb.New(databaseConfig(runCfg.Config))
 	if err != nil {
 		return errs.New("Error starting master database on storagenode: %+v", err)
 	}
@@ -248,18 +247,18 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// open the sql db
-	dbpath := filepath.Join(diagDir, "storage", "piecestore.db")
-	db, err := psdb.Open(context.Background(), nil, dbpath)
+	db, err := storagenodedb.New(databaseConfig(runCfg.Config))
 	if err != nil {
-		fmt.Println("Storagenode database couldnt open:", dbpath)
-		return err
+		return errs.New("Error starting master database on storagenode: %v", err)
 	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
 
 	//get all bandwidth aggrements entries already ordered
-	bwAgreements, err := db.GetBandwidthAllocations()
+	bwAgreements, err := db.PSDB().GetBandwidthAllocations()
 	if err != nil {
-		fmt.Println("storage node 'bandwidth_agreements' table read error:", dbpath)
+		fmt.Printf("storage node 'bandwidth_agreements' table read error: %v\n", err)
 		return err
 	}
 
@@ -281,38 +280,29 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 
 	for _, rbaVal := range bwAgreements {
 		for _, rbaDataVal := range rbaVal {
-			// deserializing rbad you get payerbwallocation, total & storage node id
-			rbad := &pb.RenterBandwidthAllocation_Data{}
-			if err := proto.Unmarshal(rbaDataVal.Agreement, rbad); err != nil {
-				return err
-			}
+			rba := rbaDataVal.Agreement
+			pba := rba.PayerAllocation
 
-			// deserializing pbad you get satelliteID, uplinkID, max size, exp, serial# & action
-			pbad := &pb.PayerBandwidthAllocation_Data{}
-			if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
-				return err
-			}
-
-			summary, ok := summaries[pbad.SatelliteId]
+			summary, ok := summaries[pba.SatelliteId]
 			if !ok {
-				summaries[pbad.SatelliteId] = &SatelliteSummary{}
-				satelliteIDs = append(satelliteIDs, pbad.SatelliteId)
-				summary = summaries[pbad.SatelliteId]
+				summaries[pba.SatelliteId] = &SatelliteSummary{}
+				satelliteIDs = append(satelliteIDs, pba.SatelliteId)
+				summary = summaries[pba.SatelliteId]
 			}
 
 			// fill the summary info
-			summary.TotalBytes += rbad.GetTotal()
+			summary.TotalBytes += rba.Total
 			summary.TotalTransactions++
-			switch pbad.GetAction() {
-			case pb.PayerBandwidthAllocation_PUT:
+			switch pba.Action {
+			case pb.BandwidthAction_PUT:
 				summary.PutActionCount++
-			case pb.PayerBandwidthAllocation_GET:
+			case pb.BandwidthAction_GET:
 				summary.GetActionCount++
-			case pb.PayerBandwidthAllocation_GET_AUDIT:
+			case pb.BandwidthAction_GET_AUDIT:
 				summary.GetAuditActionCount++
-			case pb.PayerBandwidthAllocation_GET_REPAIR:
+			case pb.BandwidthAction_GET_REPAIR:
 				summary.GetRepairActionCount++
-			case pb.PayerBandwidthAllocation_PUT_REPAIR:
+			case pb.BandwidthAction_PUT_REPAIR:
 				summary.PutRepairActionCount++
 			}
 		}

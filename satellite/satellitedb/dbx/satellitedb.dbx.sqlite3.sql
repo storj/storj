@@ -27,13 +27,14 @@ CREATE TABLE accounting_timestamps (
 	PRIMARY KEY ( name )
 );
 CREATE TABLE bwagreements (
-	signature BLOB NOT NULL,
 	serialnum TEXT NOT NULL,
 	data BLOB NOT NULL,
+	storage_node BLOB NOT NULL,
+	action INTEGER NOT NULL,
+	total INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	expires_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( signature ),
-	UNIQUE ( serialnum )
+	PRIMARY KEY ( serialnum )
 );
 CREATE TABLE injuredsegments (
 	id INTEGER NOT NULL,
@@ -83,7 +84,6 @@ CREATE TABLE projects (
 	id BLOB NOT NULL,
 	name TEXT NOT NULL,
 	description TEXT NOT NULL,
-	terms_accepted INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
