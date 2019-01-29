@@ -125,9 +125,9 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 	//store byte hours, not just bytes
-	numHours := 1.0 //todo: something more considered?
-	if !isNil {
-		numHours = time.Now().UTC().Sub(latestTally).Hours()
+	numHours := time.Now().UTC().Sub(latestTally).Hours()
+	if latestTally.IsZero() {
+		numHours = 1.0 //todo: something more considered?
 	}
 
 	latestTally = time.Now().UTC()
@@ -135,7 +135,7 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (err error) {
 	for k := range nodeData {
 		nodeData[k] *= numHours
 	}
-	return Error.Wrap(t.accountingDB.SaveAtRestRaw(ctx, latestTally, isNil, nodeData))
+	return Error.Wrap(t.accountingDB.SaveAtRestRaw(ctx, latestTally, nodeData))
 }
 
 // QueryBW queries bandwidth allocation database, selecting all new contracts since the last collection run time.
