@@ -36,7 +36,6 @@ type DB struct {
 func New(config Config) (*DB, error) {
 	storage := pstore.NewStorage(config.Storage)
 
-	// TODO: Open shouldn't need context argument
 	psdb, err := psdb.Open(config.Info)
 	if err != nil {
 		return nil, err
@@ -60,7 +59,6 @@ func New(config Config) (*DB, error) {
 func NewInMemory(storageDir string) (*DB, error) {
 	storage := pstore.NewStorage(storageDir)
 
-	// TODO: OpenInMemory shouldn't need context argument
 	psdb, err := psdb.OpenInMemory()
 	if err != nil {
 		return nil, err
