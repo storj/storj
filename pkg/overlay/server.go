@@ -8,6 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -96,8 +97,8 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 
 	foundNodes, err := server.cache.db.FilterNodes(ctx, filterNodesReq)
 	if err != nil {
-		_, ok := status.FromError(err)
-		if ok {
+		stat, _ := status.FromError(err)
+		if stat.Code() == codes.ResourceExhausted {
 			return &pb.FindStorageNodesResponse{
 				Nodes: foundNodes,
 			}, err
