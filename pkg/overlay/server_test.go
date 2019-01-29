@@ -111,6 +111,8 @@ func TestNewNodeFiltering(t *testing.T) {
 		newNodePercentage     float64
 		requestedNodeAmt      int64
 		expectedResultLength  int
+		excludedAmt           int
+		notEnoughRepNodes     bool
 	}{
 		{
 			name:                  "case: all reputable nodes, only reputable nodes requested",
@@ -160,6 +162,7 @@ func TestNewNodeFiltering(t *testing.T) {
 			newNodePercentage:     1,
 			requestedNodeAmt:      2,
 			expectedResultLength:  3,
+			notEnoughRepNodes:     true,
 		},
 		{
 			name:                  "case: all new nodes, reputable and new nodes requested",
@@ -167,6 +170,7 @@ func TestNewNodeFiltering(t *testing.T) {
 			newNodePercentage:     1,
 			requestedNodeAmt:      2,
 			expectedResultLength:  2,
+			notEnoughRepNodes:     true,
 		},
 		{
 			name:                  "case: audit threshold edge case (1)",
@@ -182,6 +186,15 @@ func TestNewNodeFiltering(t *testing.T) {
 			requestedNodeAmt:      1,
 			expectedResultLength:  1,
 		},
+		{
+			name:                  "case: excluded node ids being excluded",
+			excludedAmt:           7,
+			newNodeAuditThreshold: 5,
+			newNodePercentage:     0,
+			requestedNodeAmt:      5,
+			expectedResultLength:  3,
+			notEnoughRepNodes:     true,
+		},
 	} {
 
 		nodeSelectionConfig := &overlay.NodeSelectionConfig{
@@ -195,13 +208,18 @@ func TestNewNodeFiltering(t *testing.T) {
 
 		server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay.Service, nodeSelectionConfig)
 
-		for i := range planet.StorageNodes {
+		var excludedNodes []pb.NodeID
 
+		for i := range planet.StorageNodes {
 			address := "127.0.0.1:555" + strconv.Itoa(i)
 
 			n := &pb.Node{
 				Id:      planet.StorageNodes[i].ID(),
 				Address: &pb.NodeAddress{Address: address},
+			}
+
+			if tt.excludedAmt != 0 && i < tt.excludedAmt {
+				excludedNodes = append(excludedNodes, n.Id)
 			}
 
 			err = satellite.Overlay.Service.Put(ctx, n.Id, *n)
@@ -215,10 +233,12 @@ func TestNewNodeFiltering(t *testing.T) {
 						FreeBandwidth: -1,
 						FreeDisk:      -1,
 					},
-					Amount: tt.requestedNodeAmt},
+					Amount:        tt.requestedNodeAmt,
+					ExcludedNodes: excludedNodes,
+				},
 			})
 
-		if int64(tt.expectedResultLength) < tt.requestedNodeAmt {
+		if tt.notEnoughRepNodes {
 			stat, ok := status.FromError(err)
 			assert.Equal(t, true, ok, tt.name)
 			assert.Equal(t, codes.ResourceExhausted, stat.Code(), tt.name)
