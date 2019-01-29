@@ -52,7 +52,6 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	}
 
 	var file *os.File
-	var err error
 	if src.Base() == "-" {
 		file = os.Stdin
 	} else {
