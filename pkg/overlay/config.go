@@ -40,7 +40,7 @@ type NodeSelectionConfig struct {
 	UptimeCount           int64   `help:"the number of times a node's uptime has been checked" default:"0"`
 	AuditSuccessRatio     float64 `help:"a node's ratio of successful audits" default:"0"`
 	AuditCount            int64   `help:"the number of times a node has been audited" default:"0"`
-	NewNodeAuditThreshold int64   `help:"the number of audits a node must have to not be considered a New Node" default:"1"`
+	NewNodeAuditThreshold int64   `help:"the number of audits a node must have to not be considered a New Node" default:"0"`
 	NewNodePercentage     float64 `help:"the percentage of new nodes allowed per request" default:"0.05"`
 }
 
