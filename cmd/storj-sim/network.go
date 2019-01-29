@@ -5,8 +5,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -181,7 +179,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		// gateway must wait for the corresponding satellite to start up
 		process.WaitForStart(satellite)
 
-		accessKey, secretKey := randomKey(), randomKey()
 		process.Arguments = withCommon(Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
@@ -196,9 +193,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--rs.repair-threshold", strconv.Itoa(2 * flags.StorageNodeCount / 5),
 				"--rs.success-threshold", strconv.Itoa(3 * flags.StorageNodeCount / 5),
 				"--rs.max-threshold", strconv.Itoa(4 * flags.StorageNodeCount / 5),
-
-				"--minio.access-key", accessKey,
-				"--minio.secret-key", secretKey,
 			},
 			"run": {},
 		})
@@ -306,10 +300,4 @@ func identitySetup(network *Processes) (*Processes, error) {
 	}
 
 	return processes, nil
-}
-
-func randomKey() string {
-	var data [10]byte
-	_, _ = rand.Read(data[:])
-	return hex.EncodeToString(data[:])
 }
