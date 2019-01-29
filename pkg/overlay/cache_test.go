@@ -114,7 +114,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.D
 		zero, more, err := cache.Paginate(ctx, 0, 0)
 		assert.NoError(t, err)
 		assert.NotNil(t, more)
-		assert.Equal(t, len(zero), 0)
+		assert.NotEqual(t, len(zero), 0)
 	}
 
 	{ // Delete

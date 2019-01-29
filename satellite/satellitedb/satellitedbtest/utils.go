@@ -32,7 +32,7 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 		dbURL     string
 		dbMessage string
 	}{
-		//{"Sqlite", defaultSqliteConn, ""},
+		{"Sqlite", defaultSqliteConn, ""},
 		{"Postgres", *testPostgres, "Postgres flag missing, example: -postgres-test-db=" + defaultPostgresConn},
 	} {
 		t.Run(dbInfo.dbName, func(t *testing.T) {

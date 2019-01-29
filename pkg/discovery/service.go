@@ -6,7 +6,6 @@ package discovery
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -102,12 +101,10 @@ func (discovery *Discovery) Refresh(ctx context.Context) error {
 		}
 	}
 
-	list, more, err := discovery.cache.Paginate(ctx, 100, int64(offset))
+	list, more, err := discovery.cache.Paginate(ctx, 1, int64(offset))
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
-	fmt.Printf("\n offset %d - more %+v", offset, more)
 
 	// more means there are more rows to page through in the cache
 	if more == false {
@@ -120,12 +117,22 @@ func (discovery *Discovery) Refresh(ctx context.Context) error {
 		ping, err := discovery.kad.Ping(ctx, *node)
 		if err != nil {
 			discovery.log.Info("could not pinging node")
-			discovery.statdb.UpdateUptime(ctx, ping.Id, false)
+			_, err := discovery.statdb.UpdateUptime(ctx, ping.Id, false)
+			if err != nil {
+				discovery.log.Error("error updating node uptime in statdb")
+			}
 			continue
 		}
 
-		discovery.statdb.UpdateUptime(ctx, ping.Id, true)
-		discovery.cache.Put(ctx, ping.Id, ping)
+		_, err = discovery.statdb.UpdateUptime(ctx, ping.Id, true)
+		if err != nil {
+			discovery.log.Error("error updating node uptime in statdb")
+		}
+
+		err = discovery.cache.Put(ctx, ping.Id, ping)
+		if err != nil {
+			discovery.log.Error("error putting node into cache")
+		}
 	}
 
 	return nil
