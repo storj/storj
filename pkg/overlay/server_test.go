@@ -183,8 +183,8 @@ func TestNewNodeFiltering(t *testing.T) {
 	} {
 
 		nodeSelectionConfig := &overlay.NodeSelectionConfig{
-			UptimeCount:           -1,
-			UptimeRatio:           -1,
+			UptimeCount:           0,
+			UptimeRatio:           0,
 			AuditSuccessRatio:     0,
 			AuditCount:            0,
 			NewNodeAuditThreshold: tt.newNodeAuditThreshold,
