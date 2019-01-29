@@ -451,9 +451,9 @@ func (f *storjFile) Flush() fuse.Status {
 
 func (f *storjFile) closeReader() {
 	if f.reader != nil {
-		err := f.reader.Close()
-		if err != nil {
-			zap.S().Errorf("error closing reader: %v", err)
+		closeErr := f.reader.Close()
+		if closeErr != nil {
+			zap.S().Errorf("error closing reader: %v", closeErr)
 		}
 		f.reader = nil
 	}
@@ -463,8 +463,9 @@ func (f *storjFile) closeWriter() {
 	if f.writer != nil {
 		closeErr := f.writer.Close()
 		if closeErr != nil {
-			zap.S().Errorf("error closing writer: %v", err)
+			zap.S().Errorf("error closing writer: %v", closeErr)
 		}
+
 		f.FS.removeCreatedFile(f.name)
 		err := f.mutableObject.Commit(f.ctx)
 		if err != nil {
