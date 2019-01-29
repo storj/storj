@@ -82,10 +82,17 @@ func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit 
 
 // Paginate will run through
 func (cache *overlaycache) Paginate(ctx context.Context, limit int, offset int64) ([]*pb.Node, error) {
+	//cursor := storj.NodeID{}
 	if limit <= 0 || limit > storage.LookupLimit {
 		limit = storage.LookupLimit
 	}
+
 	dbxInfos, err := cache.db.Limited_OverlayCacheNode(ctx, limit, offset)
+
+	// dbxInfos, err := cache.db.Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx,
+	// 	dbx.OverlayCacheNode_NodeId(cursor.Bytes()),
+	// 	limit, offset,
+	// )
 	if err != nil {
 		return nil, err
 	}
