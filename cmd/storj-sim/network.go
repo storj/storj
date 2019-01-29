@@ -212,8 +212,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 			// TODO: maybe all the config flags should be exposed for all processes?
 
-			accessKey := vip.GetString("--minio.access-key")
-			secretKey := vip.GetString("--minio.secret-key")
+			accessKey := vip.GetString("minio.access-key")
+			secretKey := vip.GetString("minio.secret-key")
 
 			process.Extra = append(process.Extra,
 				"ACCESS_KEY="+accessKey,
