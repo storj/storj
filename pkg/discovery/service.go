@@ -22,9 +22,6 @@ var (
 
 	// Error is a general error class of this package
 	Error = errs.Class("discovery error")
-
-	// Pagination
-	offset = 0
 )
 
 // Config loads on the configuration values for the cache
@@ -33,13 +30,19 @@ type Config struct {
 	RefreshLimit    int           `help:"the amount of nodes refreshed at each interval" default:"100"`
 }
 
+// Refresh tracks the offset of the current refresh cycle
+type Refresh struct {
+	offset int64
+}
+
 // Discovery struct loads on cache, kad, and statdb
 type Discovery struct {
-	log    *zap.Logger
-	cache  *overlay.Cache
-	kad    *kademlia.Kademlia
-	statdb statdb.DB
-	config Config
+	log     *zap.Logger
+	cache   *overlay.Cache
+	kad     *kademlia.Kademlia
+	statdb  statdb.DB
+	config  Config
+	refresh Refresh
 }
 
 // New returns a new discovery service.
@@ -50,6 +53,9 @@ func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat sta
 		kad:    kad,
 		statdb: stat,
 		config: config,
+		refresh: Refresh{
+			offset: 0,
+		},
 	}
 }
 
@@ -102,16 +108,16 @@ func (discovery *Discovery) Refresh(ctx context.Context) error {
 		}
 	}
 
-	list, more, err := discovery.cache.Paginate(ctx, discovery.config.RefreshLimit, int64(offset))
+	list, more, err := discovery.cache.Paginate(ctx, discovery.refresh.offset, discovery.config.RefreshLimit)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	// more means there are more rows to page through in the cache
 	if more == false {
-		offset = 0
+		discovery.refresh.offset = 0
 	} else {
-		offset = offset + len(list)
+		discovery.refresh.offset = discovery.refresh.offset + int64(len(list))
 	}
 
 	for _, node := range list {
@@ -168,7 +174,6 @@ func (discovery *Discovery) Discovery(ctx context.Context) error {
 // Walk iterates over each node in each bucket to traverse the network
 func (discovery *Discovery) Walk(ctx context.Context) error {
 	// TODO: This should walk the cache, rather than be a duplicate of refresh
-
 	return nil
 }
 

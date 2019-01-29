@@ -495,10 +495,10 @@ func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limi
 }
 
 // Paginate will page through the database nodes
-func (m *lockedOverlayCache) Paginate(ctx context.Context, start int, limit int64) ([]*pb.Node, bool, error) {
+func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Paginate(ctx, start, limit)
+	return m.db.Paginate(ctx, offset, limit)
 }
 
 // Update updates node information

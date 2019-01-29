@@ -105,7 +105,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.D
 	{ // Paginate
 
 		// should return two nodes
-		nodes, more, err := cache.Paginate(ctx, 2, 0)
+		nodes, more, err := cache.Paginate(ctx, 0, 2)
 		assert.NotNil(t, more)
 		assert.NoError(t, err)
 		assert.Equal(t, len(nodes), 2)
