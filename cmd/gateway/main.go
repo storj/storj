@@ -23,8 +23,8 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// Gateway configuration
-type Gateway struct {
+// GatewayFlags configuration flags
+type GatewayFlags struct {
 	APIKey             string `default:"" help:"the api key to use for the satellite" setup:"true"`
 	GenerateMinioCerts bool   `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
 	SatelliteAddr      string `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
@@ -53,8 +53,8 @@ var (
 	defaultConfDir     = fpath.ApplicationDir("storj", "gateway")
 	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "gateway")
 
-	setupCfg Gateway
-	runCfg   Gateway
+	setupCfg GatewayFlags
+	runCfg   GatewayFlags
 
 	gwConfDir   string
 	identityDir string
@@ -201,7 +201,7 @@ func generateAWSKey() (key string, err error) {
 //
 // Temporarily it also returns an instance of streams.Store until we improve
 // the metainfo and streas implementations.
-func (c *Gateway) Metainfo(ctx context.Context) (storj.Metainfo, streams.Store, error) {
+func (c *GatewayFlags) Metainfo(ctx context.Context) (storj.Metainfo, streams.Store, error) {
 	identity, err := c.Identity.Load()
 	if err != nil {
 		return nil, nil, err

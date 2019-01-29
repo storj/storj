@@ -17,8 +17,8 @@ import (
 	"storj.io/storj/pkg/process"
 )
 
-// Uplink configuration
-type Uplink struct {
+// UplinkFlags configuration flags
+type UplinkFlags struct {
 	APIKey        string `default:"" help:"the api key to use for the satellite" setup:"true"`
 	SatelliteAddr string `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
 
@@ -35,7 +35,7 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 
-	setupCfg Uplink
+	setupCfg UplinkFlags
 
 	defaultConfDir     = fpath.ApplicationDir("storj", "uplink")
 	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "uplink")
