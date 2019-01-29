@@ -6,6 +6,7 @@ package discovery
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -106,6 +107,8 @@ func (discovery *Discovery) Refresh(ctx context.Context) error {
 		return Error.Wrap(err)
 	}
 
+	fmt.Printf("\n offset %d - more %+v", offset, more)
+
 	// more means there are more rows to page through in the cache
 	if more == false {
 		offset = 0
@@ -157,6 +160,7 @@ func (discovery *Discovery) Discovery(ctx context.Context) error {
 // Walk iterates over each node in each bucket to traverse the network
 func (discovery *Discovery) Walk(ctx context.Context) error {
 	// TODO: This should walk the cache, rather than be a duplicate of refresh
+
 	return nil
 }
 
