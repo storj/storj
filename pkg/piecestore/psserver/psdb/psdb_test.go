@@ -40,11 +40,6 @@ func newDB(t testing.TB, id string) (*DB, func()) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = storage.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-
 		err = os.RemoveAll(tmpdir)
 		if err != nil {
 			t.Fatal(err)
