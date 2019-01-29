@@ -133,7 +133,7 @@ func (db *DB) DeleteExpired(ctx context.Context) (expired []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer db.locked()()
 
-	const Limit = 100
+	// TODO: add limit
 
 	tx, err := db.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -143,7 +143,7 @@ func (db *DB) DeleteExpired(ctx context.Context) (expired []string, err error) {
 
 	now := time.Now().Unix()
 
-	rows, err := tx.Query("SELECT id FROM ttl WHERE 0 < expires AND ? < expires LIMIT ?", now, Limit)
+	rows, err := tx.Query("SELECT id FROM ttl WHERE 0 < expires AND ? < expires", now)
 	if err != nil {
 		return nil, err
 	}
