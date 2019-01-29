@@ -26,9 +26,11 @@ func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.Renter
 	expiration := time.Unix(rba.PayerAllocation.ExpirationUnixSec, 0)
 	_, err = b.db.Create_Bwagreement(
 		ctx,
-		dbx.Bwagreement_Signature(rba.Signature),
 		dbx.Bwagreement_Serialnum(rba.PayerAllocation.SerialNumber+rba.StorageNodeId.String()),
 		dbx.Bwagreement_Data(rbaBytes),
+		dbx.Bwagreement_StorageNode(rba.StorageNodeId.Bytes()),
+		dbx.Bwagreement_Action(int64(rba.PayerAllocation.Action)),
+		dbx.Bwagreement_Total(rba.Total),
 		dbx.Bwagreement_ExpiresAt(expiration),
 	)
 	return err
