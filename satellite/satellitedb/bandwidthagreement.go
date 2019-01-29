@@ -31,13 +31,26 @@ func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.Renter
 	return err
 }
 
-//GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date
-func (b *bandwidthagreement) GetTotalsSince(ctx context.Context, since time.Time) (bwa map[storj.NodeID][5]int64, err error) {
+//GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
+func (b *bandwidthagreement) GetCountsSince(ctx context.Context, from, to time.Time) (bwa map[storj.NodeID][5]int64, err error) {
+	//note:  filter is currently only supported in sqlite and postgres (https://modern-sql.com/feature/filter)
+	sql := `SELECT storage_node, COUNT(*) FILTER(action=0), COUNT(*) FILTER(action=1),
+	COUNT(*) FILTER(action=2), COUNT(*) FILTER(action=3), COUNT(*) FILTER(action=4)
+	FROM bwagreement WHERE created_at > ? GROUP BY storage_node ORDER BY storage_node`
+	return getSummary(ctx, sql, from, to)
+}
+
+//GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
+func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) (bwa map[storj.NodeID][5]int64, err error) {
 	//note:  filter is currently only supported in sqlite and postgres (https://modern-sql.com/feature/filter)
 	sql := `SELECT storage_node, SUM(total) FILTER(action=0), SUM(total) FILTER(action=1),
 	    SUM(total) FILTER(action=2), SUM(total) FILTER(action=3), SUM(total) FILTER(action=4)
-		FROM bwagreement WHERE created_at > ? GROUP BY storage_node ORDER BY storage_node`
-	rows, err := b.db.DB.Query(sql, since)
+		FROM bwagreement WHERE created_at > ? AND created_at <= ? GROUP BY storage_node ORDER BY storage_node`
+	return getSummary(ctx, sql, from, to)
+}
+
+func (b *bandwidthagreement) getSummary(ctx context.Context, sql string, from, to time.Time) {
+	rows, err := b.db.DB.Query(sql, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -46,9 +59,9 @@ func (b *bandwidthagreement) GetTotalsSince(ctx context.Context, since time.Time
 	totals := make(map[storj.NodeID][5]int64)
 	for i := 0; rows.Next(); i++ {
 		var storageNodeID [len(storj.NodeID{})]byte
-		var sums [5]int64
-		err := rows.Scan(&storageNodeID, &sums[0], &sums[1], &sums[3], &sums[3], &sums[4])
-		totals[storj.NodeID(storageNodeID)] = sums
+		var data [5]int64
+		err := rows.Scan(&storageNodeID, &data[0], &data[1], &data[3], &data[3], &data[4])
+		totals[storj.NodeID(storageNodeID)] = data
 	}
 	return totals, nil
 }

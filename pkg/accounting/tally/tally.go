@@ -74,7 +74,7 @@ func (t *Tally) Run(ctx context.Context) (err error) {
 func (t *Tally) calculateAtRestData(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	latestTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastAtRestTally)
+	latestTally, err := t.accountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -141,22 +141,16 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (err error) {
 // QueryBW queries bandwidth allocation database, selecting all new contracts since the last collection run time.
 // Grouping by action type, storage node ID and adding total of bandwidth to granular data table.
 func (t *Tally) QueryBW(ctx context.Context) error {
-	lastBwTally, isNil, err := t.accountingDB.LastRawTime(ctx, accounting.LastBandwidthTally)
+	now := time.Now().UTC()
+	lastBwTally, err := t.accountingDB.LastTimestamp(ctx, accounting.LastBandwidthTally)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
-	var bwAgreements []bwagreement.Agreement
-	if isNil {
-		t.logger.Info("Tally found no existing bandwidth tracking data")
-		bwAgreements, err = t.bwAgreementDB.GetAgreements(ctx)
-	} else {
-		bwAgreements, err = t.bwAgreementDB.GetAgreementsSince(ctx, lastBwTally)
-	}
+	totals, err := t.bwAgreementDB.GetTotals(ctx, lastBwTally, now)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	if len(bwAgreements) == 0 {
+	if len(totals) == 0 {
 		t.logger.Info("Tally found no new bandwidth allocations")
 		return nil
 	}
@@ -166,13 +160,5 @@ func (t *Tally) QueryBW(ctx context.Context) error {
 	for i := range bwTotals {
 		bwTotals[i] = make(map[storj.NodeID]int64)
 	}
-	var latestBwa time.Time
-	for _, baRow := range bwAgreements {
-		rba := baRow.Agreement
-		if baRow.CreatedAt.After(latestBwa) {
-			latestBwa = baRow.CreatedAt
-		}
-		bwTotals[rba.PayerAllocation.Action][rba.StorageNodeId] += rba.Total
-	}
-	return Error.Wrap(t.accountingDB.SaveBWRaw(ctx, latestBwa, isNil, bwTotals))
+	return Error.Wrap(t.accountingDB.SaveBWRaw(ctx, now, bwTotals))
 }

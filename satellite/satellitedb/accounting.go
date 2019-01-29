@@ -18,18 +18,20 @@ type accountingDB struct {
 	db *dbx.DB
 }
 
-// LastRawTime records the greatest last tallied time
-func (db *accountingDB) LastRawTime(ctx context.Context, timestampType string) (time.Time, bool, error) {
+// LastTimestamp records the greatest last tallied time
+func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string) (time.Time, error) {
 	lastTally, err := db.db.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
 	if lastTally == nil {
-		return time.Time{}, true, err
+		update := dbx.AccountingTimestamps_Value(time.Time{})
+		_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
+		return time.Time{}, err
 	}
-	return lastTally.Value, false, err
+	return lastTally.Value, err
 }
 
 // SaveBWRaw records granular tallies (sums of bw agreement values) to the database
-// and updates the LastRawTime
-func (db *accountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, isNew bool, bwTotals accounting.BWTally) (err error) {
+// and updates the LastTimestamp
+func (db *accountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTotals accounting.BWTally) (err error) {
 	// We use the latest bandwidth agreement value of a batch of records as the start of the next batch
 	// todo:  consider finding the sum of bwagreements using SQL sum() direct against the bwa table
 	if len(bwTotals) == 0 {
@@ -61,14 +63,8 @@ func (db *accountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, isNe
 		}
 	}
 	//save this batch's greatest time
-
-	if isNew {
-		update := dbx.AccountingTimestamps_Value(latestBwa)
-		_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
-	} else {
-		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestBwa)}
-		_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
-	}
+	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestBwa)}
+	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
 	return err
 }
 

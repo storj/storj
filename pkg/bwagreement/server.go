@@ -33,7 +33,7 @@ type DB interface {
 	// CreateAgreement adds a new bandwidth agreement.
 	CreateAgreement(context.Context, *pb.RenterBandwidthAllocation) error
 	// GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date
-	GetTotalsSince(context.Context, time.Time) (map[storj.NodeID][5]int64, error)
+	GetTotals(context.Context, time.Time, time.Time) (map[storj.NodeID][5]int64, error)
 }
 
 // Server is an implementation of the pb.BandwidthServer interface
@@ -41,12 +41,6 @@ type Server struct {
 	db     DB
 	NodeID storj.NodeID
 	logger *zap.Logger
-}
-
-// Agreement is a struct that contains a bandwidth agreement and the associated signature
-type Agreement struct {
-	Agreement pb.RenterBandwidthAllocation
-	CreatedAt time.Time
 }
 
 // NewServer creates instance of Server
