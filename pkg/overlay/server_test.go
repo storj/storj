@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -101,6 +103,7 @@ func TestNewNodeFiltering(t *testing.T) {
 		requestedNodeAmt      int64
 		expectedResultLength  int
 		excludedAmt           int
+		notEnoughRepNodes     bool
 	}{
 		{
 			name:                  "case: all reputable nodes, only reputable nodes requested",
@@ -150,6 +153,7 @@ func TestNewNodeFiltering(t *testing.T) {
 			newNodePercentage:     1,
 			requestedNodeAmt:      2,
 			expectedResultLength:  3,
+			notEnoughRepNodes:     true,
 		},
 		{
 			name:                  "case: all new nodes, reputable and new nodes requested",
@@ -157,6 +161,7 @@ func TestNewNodeFiltering(t *testing.T) {
 			newNodePercentage:     1,
 			requestedNodeAmt:      2,
 			expectedResultLength:  2,
+			notEnoughRepNodes:     true,
 		},
 		{
 			name:                  "case: audit threshold edge case (1)",
@@ -179,6 +184,7 @@ func TestNewNodeFiltering(t *testing.T) {
 			newNodePercentage:     0,
 			requestedNodeAmt:      5,
 			expectedResultLength:  3,
+			notEnoughRepNodes:     true,
 		},
 	} {
 
@@ -215,14 +221,22 @@ func TestNewNodeFiltering(t *testing.T) {
 			&pb.FindStorageNodesRequest{
 				Opts: &pb.OverlayOptions{
 					Restrictions: &pb.NodeRestrictions{
-						FreeBandwidth: -1,
-						FreeDisk:      -1,
+						FreeBandwidth: 0,
+						FreeDisk:      0,
 					},
 					Amount:        tt.requestedNodeAmt,
 					ExcludedNodes: excludedNodes,
 				},
 			})
-		assert.NoError(t, err, tt.name)
+
+		if tt.notEnoughRepNodes {
+			stat, ok := status.FromError(err)
+			assert.Equal(t, true, ok, tt.name)
+			assert.Equal(t, codes.ResourceExhausted, stat.Code(), tt.name)
+		} else {
+			assert.NoError(t, err, tt.name)
+		}
+
 		assert.Equal(t, tt.expectedResultLength, len(result.GetNodes()), tt.name)
 	}
 }
