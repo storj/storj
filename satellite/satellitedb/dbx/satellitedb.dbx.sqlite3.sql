@@ -28,7 +28,6 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bwagreements (
 	serialnum TEXT NOT NULL,
-	data BLOB NOT NULL,
 	storage_node BLOB NOT NULL,
 	action INTEGER NOT NULL,
 	total INTEGER NOT NULL,

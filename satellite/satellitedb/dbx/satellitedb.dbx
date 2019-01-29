@@ -6,7 +6,6 @@ model bwagreement (
 	key serialnum
 
 	field serialnum    text
-	field data         blob
 	field storage_node blob
 	field action       int64
 	field total        int64
