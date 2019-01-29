@@ -25,5 +25,5 @@ type Config struct {
 	KBucketRefreshInterval  time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
 
 	AgreementSenderCheckInterval time.Duration `help:"duration between agreement checks" default:"1h0m0s"`
-	ExpiredCollectorInterval     time.Duration `help:"interval to check for expired pieces" default:"1h0m0s"`
+	CollectorInterval            time.Duration `help:"interval to check for expired pieces" default:"1h0m0s"`
 }

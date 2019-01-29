@@ -79,7 +79,7 @@ type Peer struct {
 	Storage struct {
 		Endpoint  *psserver.Server // TODO: separate into endpoint and service
 		Monitor   *psserver.Monitor
-		Collector *psserver.ExpiredCollector
+		Collector *psserver.Collector
 	}
 
 	Agreements struct {
@@ -173,7 +173,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 
 		// TODO: organize better
 		peer.Storage.Monitor = psserver.NewMonitor(peer.Log.Named("piecestore:monitor"), config.KBucketRefreshInterval, peer.Kademlia.RoutingTable, peer.Storage.Endpoint)
-		peer.Storage.Collector = psserver.NewExpiredCollector(peer.Log.Named("piecestore:collector"), peer.DB.PSDB(), peer.DB.Storage(), config.ExpiredCollectorInterval)
+		peer.Storage.Collector = psserver.NewCollector(peer.Log.Named("piecestore:collector"), peer.DB.PSDB(), peer.DB.Storage(), config.CollectorInterval)
 	}
 
 	{ // agreements

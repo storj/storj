@@ -14,10 +14,11 @@ import (
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 )
 
+// ErrorCollector is error class for piece collector
 var ErrorCollector = errs.Class("piecestore collector")
 
-// ExpiredCollector collects expired pieces from database and disk.
-type ExpiredCollector struct {
+// Collector collects expired pieces from database and disk.
+type Collector struct {
 	log     *zap.Logger
 	db      *psdb.DB
 	storage *pstore.Storage
@@ -25,9 +26,9 @@ type ExpiredCollector struct {
 	interval time.Duration
 }
 
-// NewExpiredCollector returns a new expired collector
-func NewExpiredCollector(log *zap.Logger, db *psdb.DB, storage *pstore.Storage, interval time.Duration) *ExpiredCollector {
-	return &ExpiredCollector{
+// NewCollector returns a new piece collector
+func NewCollector(log *zap.Logger, db *psdb.DB, storage *pstore.Storage, interval time.Duration) *Collector {
+	return &Collector{
 		log:      log,
 		db:       db,
 		storage:  storage,
@@ -36,7 +37,7 @@ func NewExpiredCollector(log *zap.Logger, db *psdb.DB, storage *pstore.Storage, 
 }
 
 // Run runs the collector at regular intervals
-func (service *ExpiredCollector) Run(ctx context.Context) error {
+func (service *Collector) Run(ctx context.Context) error {
 	ticker := time.NewTicker(service.interval)
 	defer ticker.Stop()
 
@@ -54,8 +55,8 @@ func (service *ExpiredCollector) Run(ctx context.Context) error {
 	}
 }
 
-// Collects runs a single collect
-func (service *ExpiredCollector) Collect(ctx context.Context) error {
+// Collect collects expired pieces att this moment.
+func (service *Collector) Collect(ctx context.Context) error {
 	for {
 		expired, err := service.db.DeleteExpired(ctx)
 		if len(expired) == 0 {
