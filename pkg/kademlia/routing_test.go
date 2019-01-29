@@ -74,7 +74,7 @@ func TestGetBucket(t *testing.T) {
 	}
 }
 
-func TestFindNear(t *testing.T) {
+func TestKademliaFindNear(t *testing.T) {
 	rt, cleanup := createRoutingTable(t, teststorj.NodeIDFromString("AA"))
 	defer cleanup()
 	node1 := teststorj.MockNode("AA")

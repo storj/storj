@@ -375,7 +375,7 @@ func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, erro
 		return &pb.DashboardStats{}, ServerError.Wrap(err)
 	}
 
-	nodes, err := s.kad.GetNodes(ctx, rt.Local().Id, 0)
+	nodes, err := s.kad.FindNear(ctx, storj.NodeID{}, 10000000)
 	if err != nil {
 		return &pb.DashboardStats{}, ServerError.Wrap(err)
 	}
