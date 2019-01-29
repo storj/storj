@@ -9,6 +9,7 @@ import (
 	"io"
 
 	"github.com/vivint/infectious"
+	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/overlay"
@@ -17,7 +18,6 @@ import (
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/pkg/utils"
 )
 
 var mon = monkit.Package()
@@ -89,8 +89,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 	if err != nil {
 		return s, err
 	}
-	// TODO: proper logging
-	defer utils.LogClose(rc)
+	defer func() { err = errs.Combine(err, rc.Close()) }()
 
 	buf := make([]byte, shareSize)
 	_, err = io.ReadFull(rc, buf)

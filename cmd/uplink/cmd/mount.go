@@ -25,7 +25,6 @@ import (
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
-	"storj.io/storj/pkg/utils"
 )
 
 func init() {
@@ -212,7 +211,11 @@ func (sf *storjFS) Mkdir(name string, mode uint32, context *fuse.Context) fuse.S
 	}
 
 	upload := stream.NewUpload(sf.ctx, mutableStream, sf.streams)
-	defer utils.LogClose(upload)
+	defer func() {
+		if err := upload.Close(); err != nil {
+			zap.S().Errorf("Failed to close file: %s", err)
+		}
+	}()
 
 	_, err = upload.Write(nil)
 	if err != nil {
@@ -448,14 +451,20 @@ func (f *storjFile) Flush() fuse.Status {
 
 func (f *storjFile) closeReader() {
 	if f.reader != nil {
-		utils.LogClose(f.reader)
+		err := f.reader.Close()
+		if err != nil {
+			zap.S().Errorf("error closing reader: %v", err)
+		}
 		f.reader = nil
 	}
 }
 
 func (f *storjFile) closeWriter() {
 	if f.writer != nil {
-		utils.LogClose(f.writer)
+		closeErr := f.writer.Close()
+		if closeErr != nil {
+			zap.S().Errorf("error closing writer: %v", err)
+		}
 		f.FS.removeCreatedFile(f.name)
 		err := f.mutableObject.Commit(f.ctx)
 		if err != nil {
