@@ -123,7 +123,7 @@ func init() {
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	log := zap.L()
-	fmt.Println(runCfg.Database)
+
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
 		zap.S().Fatal(err)
