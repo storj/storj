@@ -59,9 +59,13 @@ var (
 		Short: "Repair Queue Diagnostic Tool support",
 		RunE:  cmdQDiag,
 	}
+	reportsCmd = &cobra.Command{
+		Use:   "reports",
+		Short: "Generate a report",
+	}
 	paymentsCmd = &cobra.Command{
-		Use:   "payments",
-		Short: "Generate a payment report for nodes on your network",
+		Use:   "payments [start] [end]",
+		Short: "Generate a payment report for a given period",
 		RunE:  cmdPayments,
 	}
 
@@ -113,7 +117,8 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(qdiagCmd)
-	rootCmd.AddCommand(paymentsCmd)
+	rootCmd.AddCommand(reportsCmd)
+	reportsCmd.AddCommand(paymentsCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
