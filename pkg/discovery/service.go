@@ -23,13 +23,14 @@ var (
 	// Error is a general error class of this package
 	Error = errs.Class("discovery error")
 
-	// Pagination trackers
+	// Pagination
 	offset = 0
 )
 
-// Config loads on the configuration values from run flags
+// Config loads on the configuration values for the cache
 type Config struct {
 	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
+	RefreshLimit    int           `help:"the amount of nodes refreshed at each interval" default:"100"`
 }
 
 // Discovery struct loads on cache, kad, and statdb
@@ -38,28 +39,28 @@ type Discovery struct {
 	cache  *overlay.Cache
 	kad    *kademlia.Kademlia
 	statdb statdb.DB
-
-	refreshInterval time.Duration
+	config Config
 }
 
 // New returns a new discovery service.
-func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB, refreshInterval time.Duration) *Discovery {
-	return &Discovery{
-		log:             logger,
-		cache:           ol,
-		kad:             kad,
-		statdb:          stat,
-		refreshInterval: refreshInterval,
-	}
-}
-
-// NewDiscovery Returns a new Discovery instance with cache, kad, and statdb loaded on
-func NewDiscovery(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB) *Discovery {
+func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB, config Config) *Discovery {
 	return &Discovery{
 		log:    logger,
 		cache:  ol,
 		kad:    kad,
 		statdb: stat,
+		config: config,
+	}
+}
+
+// NewDiscovery Returns a new Discovery instance with cache, kad, and statdb loaded on
+func NewDiscovery(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB, config Config) *Discovery {
+	return &Discovery{
+		log:    logger,
+		cache:  ol,
+		kad:    kad,
+		statdb: stat,
+		config: config,
 	}
 }
 
@@ -68,7 +69,7 @@ func (discovery *Discovery) Close() error { return nil }
 
 // Run runs the discovery service
 func (discovery *Discovery) Run(ctx context.Context) error {
-	ticker := time.NewTicker(discovery.refreshInterval)
+	ticker := time.NewTicker(discovery.config.RefreshInterval)
 	defer ticker.Stop()
 
 	for {
@@ -101,7 +102,7 @@ func (discovery *Discovery) Refresh(ctx context.Context) error {
 		}
 	}
 
-	list, more, err := discovery.cache.Paginate(ctx, 1, int64(offset))
+	list, more, err := discovery.cache.Paginate(ctx, discovery.config.RefreshLimit, int64(offset))
 	if err != nil {
 		return Error.Wrap(err)
 	}
