@@ -4,9 +4,7 @@
 package overlay
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -23,19 +21,19 @@ var ServerError = errs.Class("Server Error")
 
 // Server implements our overlay RPC service
 type Server struct {
-	log       *zap.Logger
-	cache     *Cache
-	metrics   *monkit.Registry
-	nodeStats *pb.NodeStats
+	log                 *zap.Logger
+	cache               *Cache
+	metrics             *monkit.Registry
+	nodeSelectionConfig *NodeSelectionConfig
 }
 
 // NewServer creates a new Overlay Server
-func NewServer(log *zap.Logger, cache *Cache, nodeStats *pb.NodeStats) *Server {
+func NewServer(log *zap.Logger, cache *Cache, nodeSelectionConfig *NodeSelectionConfig) *Server {
 	return &Server{
-		cache:     cache,
-		log:       log,
-		metrics:   monkit.Default,
-		nodeStats: nodeStats,
+		cache:               cache,
+		log:                 log,
+		metrics:             monkit.Default,
+		nodeSelectionConfig: nodeSelectionConfig,
 	}
 }
 
@@ -69,118 +67,48 @@ func (server *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
 	return nodesToLookupResponses(ns), nil
 }
 
+// FilterNodesRequest are the requirements for nodes from the overlay cache
+type FilterNodesRequest struct {
+	MinReputation         *pb.NodeStats
+	MinNodes              int64
+	Opts                  *pb.OverlayOptions
+	NewNodePercentage     float64
+	NewNodeAuditThreshold int64
+}
+
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	opts := req.GetOpts()
-	maxNodes := req.GetMaxNodes()
-	if maxNodes <= 0 {
-		maxNodes = opts.GetAmount()
+	minStats := &pb.NodeStats{
+		AuditCount:        server.nodeSelectionConfig.AuditCount,
+		AuditSuccessRatio: server.nodeSelectionConfig.AuditSuccessRatio,
+		UptimeCount:       server.nodeSelectionConfig.UptimeCount,
+		UptimeRatio:       server.nodeSelectionConfig.UptimeRatio,
 	}
 
-	excluded := opts.ExcludedNodes
-	restrictions := opts.GetRestrictions()
-	reputation := server.nodeStats
-
-	var startID storj.NodeID
-	result := []*pb.Node{}
-	for {
-		var nodes []*pb.Node
-		nodes, startID, err = server.populate(ctx, req.Start, maxNodes, restrictions, reputation, excluded)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		resultNodes := []*pb.Node{}
-		usedAddrs := make(map[string]bool)
-		for _, n := range nodes {
-			addr := n.Address.GetAddress()
-			excluded = append(excluded, n.Id) // exclude all nodes on next iteration
-			if !usedAddrs[addr] {
-				resultNodes = append(resultNodes, n)
-				usedAddrs[addr] = true
-			}
-		}
-		if len(resultNodes) <= 0 {
-			break
-		}
-
-		result = append(result, resultNodes...)
-
-		if len(result) >= int(maxNodes) || startID == (storj.NodeID{}) {
-			break
-		}
-
+	filterNodesReq := &FilterNodesRequest{
+		MinReputation:         minStats,
+		MinNodes:              req.GetMinNodes(),
+		Opts:                  req.GetOpts(),
+		NewNodePercentage:     server.nodeSelectionConfig.NewNodePercentage,
+		NewNodeAuditThreshold: server.nodeSelectionConfig.NewNodeAuditThreshold,
 	}
 
-	if len(result) < int(maxNodes) {
-		return nil, status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d nodes, only %d nodes matched the criteria requested", maxNodes, len(result)))
-	}
-
-	if len(result) > int(maxNodes) {
-		result = result[:maxNodes]
+	foundNodes, err := server.cache.db.FilterNodes(ctx, filterNodesReq)
+	if err != nil {
+		stat, _ := status.FromError(err)
+		if stat.Code() == codes.ResourceExhausted {
+			return &pb.FindStorageNodesResponse{
+				Nodes: foundNodes,
+			}, err
+		}
+		return nil, Error.Wrap(err)
 	}
 
 	return &pb.FindStorageNodesResponse{
-		Nodes: result,
+		Nodes: foundNodes,
 	}, nil
-}
-
-// TODO: nicer method arguments
-func (server *Server) populate(ctx context.Context,
-	startID storj.NodeID, maxNodes int64,
-	minRestrictions *pb.NodeRestrictions,
-	minReputation *pb.NodeStats,
-	excluded storj.NodeIDList) ([]*pb.Node, storj.NodeID, error) {
-
-	// TODO: move the query into db
-	limit := int(maxNodes * 2)
-	nodes, err := server.cache.db.List(ctx, startID, limit)
-	if err != nil {
-		server.log.Error("Error listing nodes", zap.Error(err))
-		return nil, storj.NodeID{}, Error.Wrap(err)
-	}
-
-	var nextStart storj.NodeID
-	result := []*pb.Node{}
-	for _, v := range nodes {
-		if v == nil {
-			continue
-		}
-
-		nextStart = v.Id
-		if v.Type != pb.NodeType_STORAGE {
-			continue
-		}
-
-		restrictions := v.GetRestrictions()
-		reputation := v.GetReputation()
-
-		if restrictions.GetFreeBandwidth() < minRestrictions.GetFreeBandwidth() ||
-			restrictions.GetFreeDisk() < minRestrictions.GetFreeDisk() ||
-			reputation.GetUptimeRatio() < minReputation.GetUptimeRatio() ||
-			reputation.GetUptimeCount() < minReputation.GetUptimeCount() ||
-			reputation.GetAuditSuccessRatio() < minReputation.GetAuditSuccessRatio() ||
-			reputation.GetAuditCount() < minReputation.GetAuditCount() ||
-			contains(excluded, v.Id) {
-			continue
-		}
-
-		result = append(result, v)
-	}
-
-	return result, nextStart, nil
-}
-
-// contains checks if item exists in list
-func contains(nodeIDs storj.NodeIDList, searchID storj.NodeID) bool {
-	for _, id := range nodeIDs {
-		if bytes.Equal(id.Bytes(), searchID.Bytes()) {
-			return true
-		}
-	}
-	return false
 }
 
 // lookupRequestsToNodeIDs returns the nodeIDs from the LookupRequests
