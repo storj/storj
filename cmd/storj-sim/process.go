@@ -209,7 +209,9 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	}
 
 	if exec, ok := process.ExecBefore[command]; ok {
-		exec(process)
+		if err := exec(process); err != nil {
+			return err
+		}
 	}
 
 	if printCommands {

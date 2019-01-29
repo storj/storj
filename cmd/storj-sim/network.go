@@ -219,6 +219,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"ACCESS_KEY="+accessKey,
 				"SECRET_KEY="+secretKey,
 			)
+
+			return nil
 		}
 	}
 
