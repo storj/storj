@@ -81,30 +81,37 @@ func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit 
 }
 
 // Paginate will run through
-func (cache *overlaycache) Paginate(ctx context.Context, limit int, offset int64) ([]*pb.Node, error) {
-	//cursor := storj.NodeID{}
+func (cache *overlaycache) Paginate(ctx context.Context, limit int, offset int64) ([]*pb.Node, bool, error) {
+	cursor := storj.NodeID{}
+
+	// more represents end of table. If there are more rows in the database, more will be true.
+	more := true
+
 	if limit <= 0 || limit > storage.LookupLimit {
 		limit = storage.LookupLimit
 	}
 
-	dbxInfos, err := cache.db.Limited_OverlayCacheNode(ctx, limit, offset)
+	dbxInfos, err := cache.db.Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx,
+		dbx.OverlayCacheNode_NodeId(cursor.Bytes()),
+		limit, offset,
+	)
 
-	// dbxInfos, err := cache.db.Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx,
-	// 	dbx.OverlayCacheNode_NodeId(cursor.Bytes()),
-	// 	limit, offset,
-	// )
 	if err != nil {
-		return nil, err
+		return nil, false, err
+	}
+
+	if len(dbxInfos) < limit {
+		more = false
 	}
 
 	infos := make([]*pb.Node, len(dbxInfos))
 	for i, dbxInfo := range dbxInfos {
 		infos[i], err = convertOverlayNode(dbxInfo)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 	}
-	return infos, nil
+	return infos, more, nil
 }
 
 // Update updates node information

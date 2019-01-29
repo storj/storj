@@ -3328,41 +3328,6 @@ func (obj *postgresImpl) Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx c
 
 }
 
-func (obj *postgresImpl) Limited_OverlayCacheNode(ctx context.Context,
-	limit int, offset int64) (
-	rows []*OverlayCacheNode, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.node_id, overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.protocol, overlay_cache_nodes.operator_email, overlay_cache_nodes.operator_wallet, overlay_cache_nodes.free_bandwidth, overlay_cache_nodes.free_disk, overlay_cache_nodes.latency_90, overlay_cache_nodes.audit_success_ratio, overlay_cache_nodes.audit_uptime_ratio, overlay_cache_nodes.audit_count, overlay_cache_nodes.audit_success_count, overlay_cache_nodes.uptime_count, overlay_cache_nodes.uptime_success_count FROM overlay_cache_nodes LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		overlay_cache_node := &OverlayCacheNode{}
-		err = __rows.Scan(&overlay_cache_node.NodeId, &overlay_cache_node.NodeType, &overlay_cache_node.Address, &overlay_cache_node.Protocol, &overlay_cache_node.OperatorEmail, &overlay_cache_node.OperatorWallet, &overlay_cache_node.FreeBandwidth, &overlay_cache_node.FreeDisk, &overlay_cache_node.Latency90, &overlay_cache_node.AuditSuccessRatio, &overlay_cache_node.AuditUptimeRatio, &overlay_cache_node.AuditCount, &overlay_cache_node.AuditSuccessCount, &overlay_cache_node.UptimeCount, &overlay_cache_node.UptimeSuccessCount)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, overlay_cache_node)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
 func (obj *postgresImpl) First_Injuredsegment(ctx context.Context) (
 	injuredsegment *Injuredsegment, err error) {
 
@@ -5498,41 +5463,6 @@ func (obj *sqlite3Impl) Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx co
 
 	var __values []interface{}
 	__values = append(__values, overlay_cache_node_node_id_greater_or_equal.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		overlay_cache_node := &OverlayCacheNode{}
-		err = __rows.Scan(&overlay_cache_node.NodeId, &overlay_cache_node.NodeType, &overlay_cache_node.Address, &overlay_cache_node.Protocol, &overlay_cache_node.OperatorEmail, &overlay_cache_node.OperatorWallet, &overlay_cache_node.FreeBandwidth, &overlay_cache_node.FreeDisk, &overlay_cache_node.Latency90, &overlay_cache_node.AuditSuccessRatio, &overlay_cache_node.AuditUptimeRatio, &overlay_cache_node.AuditCount, &overlay_cache_node.AuditSuccessCount, &overlay_cache_node.UptimeCount, &overlay_cache_node.UptimeSuccessCount)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, overlay_cache_node)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Limited_OverlayCacheNode(ctx context.Context,
-	limit int, offset int64) (
-	rows []*OverlayCacheNode, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.node_id, overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.protocol, overlay_cache_nodes.operator_email, overlay_cache_nodes.operator_wallet, overlay_cache_nodes.free_bandwidth, overlay_cache_nodes.free_disk, overlay_cache_nodes.latency_90, overlay_cache_nodes.audit_success_ratio, overlay_cache_nodes.audit_uptime_ratio, overlay_cache_nodes.audit_count, overlay_cache_nodes.audit_success_count, overlay_cache_nodes.uptime_count, overlay_cache_nodes.uptime_success_count FROM overlay_cache_nodes LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values)
 
 	__values = append(__values, limit, offset)
 
@@ -7801,16 +7731,6 @@ func (rx *Rx) Limited_Injuredsegment(ctx context.Context,
 	return tx.Limited_Injuredsegment(ctx, limit, offset)
 }
 
-func (rx *Rx) Limited_OverlayCacheNode(ctx context.Context,
-	limit int, offset int64) (
-	rows []*OverlayCacheNode, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Limited_OverlayCacheNode(ctx, limit, offset)
-}
-
 func (rx *Rx) Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx context.Context,
 	overlay_cache_node_node_id_greater_or_equal OverlayCacheNode_NodeId_Field,
 	limit int, offset int64) (
@@ -8178,10 +8098,6 @@ type Methods interface {
 	Limited_Injuredsegment(ctx context.Context,
 		limit int, offset int64) (
 		rows []*Injuredsegment, err error)
-
-	Limited_OverlayCacheNode(ctx context.Context,
-		limit int, offset int64) (
-		rows []*OverlayCacheNode, err error)
 
 	Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx context.Context,
 		overlay_cache_node_node_id_greater_or_equal OverlayCacheNode_NodeId_Field,

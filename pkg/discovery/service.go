@@ -22,6 +22,9 @@ var (
 
 	// Error is a general error class of this package
 	Error = errs.Class("discovery error")
+
+	// Pagination trackers
+	offset = 0
 )
 
 // Config loads on the configuration values from run flags
@@ -91,7 +94,6 @@ func (discovery *Discovery) Run(ctx context.Context) error {
 // We currently do not penalize nodes that are unresponsive,
 // but should in the future.
 func (discovery *Discovery) Refresh(ctx context.Context) error {
-	// TODO(coyle): make refresh work by looking on the network for new ndoes
 	nodes := discovery.kad.Seen()
 	for _, v := range nodes {
 		if err := discovery.cache.Put(ctx, v.Id, *v); err != nil {
@@ -99,9 +101,16 @@ func (discovery *Discovery) Refresh(ctx context.Context) error {
 		}
 	}
 
-	list, err := discovery.cache.List(ctx, storj.NodeID{}, 100)
+	list, more, err := discovery.cache.Paginate(ctx, 100, int64(offset))
 	if err != nil {
 		return Error.Wrap(err)
+	}
+
+	// more means there are more rows to page through in the cache
+	if more == false {
+		offset = 0
+	} else {
+		offset = offset + len(list)
 	}
 
 	for _, node := range list {

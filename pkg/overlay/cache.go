@@ -42,7 +42,7 @@ type DB interface {
 	// List lists nodes starting from cursor
 	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error)
 	// Paginate will page through the database nodes
-	Paginate(ctx context.Context, start int, limit int64) ([]*pb.Node, error)
+	Paginate(ctx context.Context, start int, limit int64) ([]*pb.Node, bool, error)
 	// Update updates node information
 	Update(ctx context.Context, value *pb.Node) error
 	// Delete deletes node based on id
@@ -77,8 +77,8 @@ func (cache *Cache) List(ctx context.Context, cursor storj.NodeID, limit int) ([
 }
 
 // Paginate returns a list of `limit` nodes starting from `start` offset.
-func (cache *Cache) Paginate(ctx context.Context, start int, limit int64) ([]*pb.Node, error) {
-	return cache.db.Paginate(ctx, start, limit)
+func (cache *Cache) Paginate(ctx context.Context, limit int, offset int64) ([]*pb.Node, bool, error) {
+	return cache.db.Paginate(ctx, limit, offset)
 }
 
 // Get looks up the provided nodeID from the overlay cache
