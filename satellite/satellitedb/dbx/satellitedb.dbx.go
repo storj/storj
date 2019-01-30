@@ -365,7 +365,7 @@ CREATE TABLE users (
 	id bytea NOT NULL,
 	first_name text NOT NULL,
 	last_name text NOT NULL,
-	email text NOT NULL,
+	email text,
 	password_hash bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
@@ -548,7 +548,7 @@ CREATE TABLE users (
 	id BLOB NOT NULL,
 	first_name TEXT NOT NULL,
 	last_name TEXT NOT NULL,
-	email TEXT NOT NULL,
+	email TEXT,
 	password_hash BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id ),
@@ -1939,12 +1939,16 @@ type User struct {
 	Id           []byte
 	FirstName    string
 	LastName     string
-	Email        string
+	Email        *string
 	PasswordHash []byte
 	CreatedAt    time.Time
 }
 
 func (User) _Table() string { return "users" }
+
+type User_Create_Fields struct {
+	Email User_Email_Field
+}
 
 type User_Update_Fields struct {
 	FirstName    User_FirstName_Field
@@ -2013,12 +2017,25 @@ func (User_LastName_Field) _Column() string { return "last_name" }
 type User_Email_Field struct {
 	_set   bool
 	_null  bool
-	_value string
+	_value *string
 }
 
 func User_Email(v string) User_Email_Field {
-	return User_Email_Field{_set: true, _value: v}
+	return User_Email_Field{_set: true, _value: &v}
 }
+
+func User_Email_Raw(v *string) User_Email_Field {
+	if v == nil {
+		return User_Email_Null()
+	}
+	return User_Email(*v)
+}
+
+func User_Email_Null() User_Email_Field {
+	return User_Email_Field{_set: true, _null: true}
+}
+
+func (f User_Email_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f User_Email_Field) value() interface{} {
 	if !f._set || f._null {
@@ -2751,15 +2768,15 @@ func (obj *postgresImpl) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_first_name User_FirstName_Field,
 	user_last_name User_LastName_Field,
-	user_email User_Email_Field,
-	user_password_hash User_PasswordHash_Field) (
+	user_password_hash User_PasswordHash_Field,
+	optional User_Create_Fields) (
 	user *User, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_id.value()
 	__first_name_val := user_first_name.value()
 	__last_name_val := user_last_name.value()
-	__email_val := user_email.value()
+	__email_val := optional.Email.value()
 	__password_hash_val := user_password_hash.value()
 	__created_at_val := __now
 
@@ -3422,10 +3439,17 @@ func (obj *postgresImpl) Get_User_By_Email(ctx context.Context,
 	user_email User_Email_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE users.email = ?")
+	var __cond_0 = &__sqlbundle_Condition{Left: "users.email", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE "), __cond_0}}
 
 	var __values []interface{}
-	__values = append(__values, user_email.value())
+	__values = append(__values)
+
+	if !user_email.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_email.value())
+	}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -4845,15 +4869,15 @@ func (obj *sqlite3Impl) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_first_name User_FirstName_Field,
 	user_last_name User_LastName_Field,
-	user_email User_Email_Field,
-	user_password_hash User_PasswordHash_Field) (
+	user_password_hash User_PasswordHash_Field,
+	optional User_Create_Fields) (
 	user *User, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_id.value()
 	__first_name_val := user_first_name.value()
 	__last_name_val := user_last_name.value()
-	__email_val := user_email.value()
+	__email_val := optional.Email.value()
 	__password_hash_val := user_password_hash.value()
 	__created_at_val := __now
 
@@ -5531,10 +5555,17 @@ func (obj *sqlite3Impl) Get_User_By_Email(ctx context.Context,
 	user_email User_Email_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE users.email = ?")
+	var __cond_0 = &__sqlbundle_Condition{Left: "users.email", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE "), __cond_0}}
 
 	var __values []interface{}
-	__values = append(__values, user_email.value())
+	__values = append(__values)
+
+	if !user_email.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_email.value())
+	}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -7335,14 +7366,14 @@ func (rx *Rx) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_first_name User_FirstName_Field,
 	user_last_name User_LastName_Field,
-	user_email User_Email_Field,
-	user_password_hash User_PasswordHash_Field) (
+	user_password_hash User_PasswordHash_Field,
+	optional User_Create_Fields) (
 	user *User, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_User(ctx, user_id, user_first_name, user_last_name, user_email, user_password_hash)
+	return tx.Create_User(ctx, user_id, user_first_name, user_last_name, user_password_hash, optional)
 
 }
 
@@ -7870,8 +7901,8 @@ type Methods interface {
 		user_id User_Id_Field,
 		user_first_name User_FirstName_Field,
 		user_last_name User_LastName_Field,
-		user_email User_Email_Field,
-		user_password_hash User_PasswordHash_Field) (
+		user_password_hash User_PasswordHash_Field,
+		optional User_Create_Fields) (
 		user *User, err error)
 
 	Delete_AccountingRaw_By_Id(ctx context.Context,

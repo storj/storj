@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 )
@@ -33,13 +32,13 @@ type Stripe struct {
 type Cursor struct {
 	pointers   *pointerdb.Service
 	allocation *pointerdb.AllocationSigner
-	identity   *provider.FullIdentity
+	identity   *identity.FullIdentity
 	lastPath   storj.Path
 	mutex      sync.Mutex
 }
 
 // NewCursor creates a Cursor which iterates over pointer db
-func NewCursor(pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, identity *provider.FullIdentity) *Cursor {
+func NewCursor(pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, identity *identity.FullIdentity) *Cursor {
 	return &Cursor{pointers: pointers, allocation: allocation, identity: identity}
 }
 
