@@ -38,7 +38,7 @@ var (
 	defaultConfDir     = fpath.ApplicationDir("storj", "uplink")
 	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "uplink")
 
-	cliConfDir  string
+	confDir     string
 	identityDir string
 )
 
@@ -52,30 +52,26 @@ func init() {
 		defaultIdentityDir = identityDirParam
 	}
 
-	CLICmd.PersistentFlags().StringVar(&cliConfDir, "config-dir", defaultConfDir, "main directory for setup configuration")
-	err := CLICmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
+	RootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for setup configuration")
+	err := RootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
 
-	CLICmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for uplink identity credentials")
-	err = CLICmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
+	RootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for uplink identity credentials")
+	err = RootCmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
 
-	CLICmd.AddCommand(setupCmd)
+	RootCmd.AddCommand(setupCmd)
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(cliConfDir)
+	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
-	}
-
-	for _, flagname := range args {
-		return fmt.Errorf("%s - Invalid flag. Pleas see --help", flagname)
 	}
 
 	valid, _ := fpath.IsValidSetupDir(setupDir)

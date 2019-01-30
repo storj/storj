@@ -17,10 +17,11 @@ import (
 
 var cfg UplinkFlags
 
-// CLICmd represents the base CLI command when called without any subcommands
-var CLICmd = &cobra.Command{
+// RootCmd represents the base CLI command when called without any subcommands
+var RootCmd = &cobra.Command{
 	Use:   "uplink",
 	Short: "The Storj client-side CLI",
+	Args:  cobra.OnlyValidArgs,
 }
 
 func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
