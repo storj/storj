@@ -14,8 +14,8 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
@@ -47,14 +47,14 @@ type Kademlia struct {
 	routingTable   *RoutingTable
 	bootstrapNodes []pb.Node
 	dialer         *Dialer
-	identity       *provider.FullIdentity
+	identity       *identity.FullIdentity
 	lookups        sync2.WorkGroup
 
 	bootstrapFinished sync2.Fence
 }
 
 // NewService returns a newly configured Kademlia instance
-func NewService(log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
+func NewService(log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, identity *identity.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
 	k := &Kademlia{
 		log:            log,
 		alpha:          alpha,
@@ -74,18 +74,6 @@ func (k *Kademlia) Close() error {
 	k.lookups.Close()
 	k.lookups.Wait()
 	return dialerErr
-}
-
-// Disconnect safely closes connections to the Kademlia network
-func (k *Kademlia) Disconnect() error {
-	dialerErr := k.dialer.Close()
-	k.lookups.Close()
-	k.lookups.Wait()
-
-	return errs.Combine(
-		dialerErr,
-		k.routingTable.Close(),
-	)
 }
 
 // FindNear returns all nodes from a starting node up to a maximum limit
@@ -139,6 +127,9 @@ func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error
 // SetBootstrapNodes sets the bootstrap nodes.
 // Must be called before anything starting to use kademlia.
 func (k *Kademlia) SetBootstrapNodes(nodes []pb.Node) { k.bootstrapNodes = nodes }
+
+// GetBootstrapNodes gets the bootstrap nodes.
+func (k *Kademlia) GetBootstrapNodes() []pb.Node { return k.bootstrapNodes }
 
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
