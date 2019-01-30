@@ -60,9 +60,26 @@ type Peer interface {
 	NewNodeClient() (node.Client, error)
 }
 
+// Config describes planet configuration
+type Config struct {
+	SatelliteCount   int
+	StorageNodeCount int
+	UplinkCount      int
+
+	Reconfigure Reconfigure
+}
+
+// Reconfigure allows to change node configurations
+type Reconfigure struct {
+	Bootstrap   func(planet *Planet, index int, config *bootstrap.Config)
+	Satellite   func(planet *Planet, index int, config *satellite.Config)
+	StorageNode func(planet *Planet, index int, config *storagenode.Config)
+}
+
 // Planet is a full storj system setup.
 type Planet struct {
 	log       *zap.Logger
+	config    Config
 	directory string // TODO: ensure that everything is in-memory to speed things up
 	started   bool
 
@@ -92,10 +109,19 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 	return NewWithLogger(log, satelliteCount, storageNodeCount, uplinkCount)
 }
 
-// NewWithLogger creates a new full system with the given number of nodes.
 func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+	return NewCustom(log, Config{
+		SatelliteCount:   satelliteCount,
+		StorageNodeCount: storageNodeCount,
+		UplinkCount:      uplinkCount,
+	})
+}
+
+// NewCustom creates a new full system with the given number of nodes.
+func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	planet := &Planet{
 		log:        log,
+		config:     config,
 		identities: NewPregeneratedIdentities(),
 	}
 
@@ -110,17 +136,17 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Satellites, err = planet.newSatellites(satelliteCount)
+	planet.Satellites, err = planet.newSatellites(config.SatelliteCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.StorageNodes, err = planet.newStorageNodes(storageNodeCount)
+	planet.StorageNodes, err = planet.newStorageNodes(config.StorageNodeCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Uplinks, err = planet.newUplinks("uplink", uplinkCount)
+	planet.Uplinks, err = planet.newUplinks("uplink", config.UplinkCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
@@ -307,6 +333,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Address: "127.0.0.1:0",
 			},
 		}
+		if planet.config.Reconfigure.Satellite != nil {
+			planet.config.Reconfigure.Satellite(planet, i, &config)
+		}
 
 		// TODO: for development only
 		config.Console.StaticDir = "./web/satellite"
@@ -385,6 +414,9 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 				CollectorInterval:            time.Hour,
 			},
 		}
+		if planet.config.Reconfigure.StorageNode != nil {
+			planet.config.Reconfigure.StorageNode(planet, i, &config)
+		}
 
 		peer, err := storagenode.New(log, identity, db, config)
 		if err != nil {
@@ -446,6 +478,9 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 				Wallet: "0x" + strings.Repeat("00", 20),
 			},
 		},
+	}
+	if planet.config.Reconfigure.Bootstrap != nil {
+		planet.config.Reconfigure.Bootstrap(planet, 0, &config)
 	}
 
 	peer, err = bootstrap.New(log, identity, db, config)
