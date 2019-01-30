@@ -12,10 +12,10 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
@@ -43,17 +43,17 @@ type downloader interface {
 type defaultDownloader struct {
 	transport transport.Client
 	overlay   *overlay.Cache
-	identity  *provider.FullIdentity
+	identity  *identity.FullIdentity
 	reporter
 }
 
 // newDefaultDownloader creates a defaultDownloader
-func newDefaultDownloader(transport transport.Client, overlay *overlay.Cache, id *provider.FullIdentity) *defaultDownloader {
+func newDefaultDownloader(transport transport.Client, overlay *overlay.Cache, id *identity.FullIdentity) *defaultDownloader {
 	return &defaultDownloader{transport: transport, overlay: overlay, identity: id}
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(transport transport.Client, overlay *overlay.Cache, id *provider.FullIdentity) *Verifier {
+func NewVerifier(transport transport.Client, overlay *overlay.Cache, id *identity.FullIdentity) *Verifier {
 	return &Verifier{downloader: newDefaultDownloader(transport, overlay, id)}
 }
 

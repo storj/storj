@@ -245,13 +245,14 @@ model user (
     key id
     unique email
 
-    field id            blob
-    field first_name    text      ( updatable )
-    field last_name     text      ( updatable )
-    field email         text      ( updatable )
-    field password_hash blob      ( updatable )
+    field id               blob
+    field first_name       text      ( updatable )
+    field last_name        text      ( updatable )
 
-    field created_at    timestamp ( autoinsert )
+    field email            text      ( updatable, nullable )
+    field password_hash    blob      ( updatable )
+
+    field created_at       timestamp ( autoinsert )
 )
 read one (
     select user

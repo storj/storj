@@ -15,8 +15,8 @@ import (
 	"go/format"
 	"os"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/provider"
 )
 
 func main() {
@@ -38,7 +38,7 @@ func main() {
 
 	for k := 0; k < *count; k++ {
 		fmt.Println("Creating", k)
-		ca, err := provider.NewCA(context.Background(), provider.NewCAOptions{
+		ca, err := identity.NewCA(context.Background(), identity.NewCAOptions{
 			Difficulty:  12,
 			Concurrency: 4,
 		})

@@ -24,9 +24,10 @@ var (
 	Error = errs.Class("discovery error")
 )
 
-// Config loads on the configuration values from run flags
+// Config loads on the configuration values for the cache
 type Config struct {
 	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
+	RefreshLimit    int           `help:"the amount of nodes refreshed at each interval" default:"100"`
 }
 
 // Discovery struct loads on cache, kad, and statdb
@@ -35,28 +36,33 @@ type Discovery struct {
 	cache  *overlay.Cache
 	kad    *kademlia.Kademlia
 	statdb statdb.DB
+	config Config
 
-	refreshInterval time.Duration
+	// refreshOffset tracks the offset of the current refresh cycle
+	refreshOffset int64
 }
 
 // New returns a new discovery service.
-func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB, refreshInterval time.Duration) *Discovery {
-	return &Discovery{
-		log:             logger,
-		cache:           ol,
-		kad:             kad,
-		statdb:          stat,
-		refreshInterval: refreshInterval,
-	}
-}
-
-// NewDiscovery Returns a new Discovery instance with cache, kad, and statdb loaded on
-func NewDiscovery(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB) *Discovery {
+func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB, config Config) *Discovery {
 	return &Discovery{
 		log:    logger,
 		cache:  ol,
 		kad:    kad,
 		statdb: stat,
+		config: config,
+
+		refreshOffset: 0,
+	}
+}
+
+// NewDiscovery Returns a new Discovery instance with cache, kad, and statdb loaded on
+func NewDiscovery(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB, config Config) *Discovery {
+	return &Discovery{
+		log:    logger,
+		cache:  ol,
+		kad:    kad,
+		statdb: stat,
+		config: config,
 	}
 }
 
@@ -65,16 +71,16 @@ func (discovery *Discovery) Close() error { return nil }
 
 // Run runs the discovery service
 func (discovery *Discovery) Run(ctx context.Context) error {
-	ticker := time.NewTicker(discovery.refreshInterval)
+	ticker := time.NewTicker(discovery.config.RefreshInterval)
 	defer ticker.Stop()
 
 	for {
-		err := discovery.Refresh(ctx)
+		err := discovery.refresh(ctx)
 		if err != nil {
 			discovery.log.Error("Error with cache refresh: ", zap.Error(err))
 		}
 
-		err = discovery.Discovery(ctx)
+		err = discovery.discover(ctx)
 		if err != nil {
 			discovery.log.Error("Error with cache discovery: ", zap.Error(err))
 		}
@@ -87,15 +93,48 @@ func (discovery *Discovery) Run(ctx context.Context) error {
 	}
 }
 
-// Refresh updates the cache db with the current DHT.
+// refresh updates the cache db with the current DHT.
 // We currently do not penalize nodes that are unresponsive,
 // but should in the future.
-func (discovery *Discovery) Refresh(ctx context.Context) error {
-	// TODO(coyle): make refresh work by looking on the network for new ndoes
+func (discovery *Discovery) refresh(ctx context.Context) error {
 	nodes := discovery.kad.Seen()
 	for _, v := range nodes {
 		if err := discovery.cache.Put(ctx, v.Id, *v); err != nil {
 			return err
+		}
+	}
+
+	list, more, err := discovery.cache.Paginate(ctx, discovery.refreshOffset, discovery.config.RefreshLimit)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// more means there are more rows to page through in the cache
+	if more == false {
+		discovery.refreshOffset = 0
+	} else {
+		discovery.refreshOffset = discovery.refreshOffset + int64(len(list))
+	}
+
+	for _, node := range list {
+		ping, err := discovery.kad.Ping(ctx, *node)
+		if err != nil {
+			discovery.log.Info("could not pinging node")
+			_, err := discovery.statdb.UpdateUptime(ctx, ping.Id, false)
+			if err != nil {
+				discovery.log.Error("error updating node uptime in statdb")
+			}
+			continue
+		}
+
+		_, err = discovery.statdb.UpdateUptime(ctx, ping.Id, true)
+		if err != nil {
+			discovery.log.Error("error updating node uptime in statdb")
+		}
+
+		err = discovery.cache.Put(ctx, ping.Id, ping)
+		if err != nil {
+			discovery.log.Error("error putting node into cache")
 		}
 	}
 
@@ -116,7 +155,7 @@ func (discovery *Discovery) Bootstrap(ctx context.Context) error {
 }
 
 // Discovery runs lookups for random node ID's to find new nodes in the network
-func (discovery *Discovery) Discovery(ctx context.Context) error {
+func (discovery *Discovery) discover(ctx context.Context) error {
 	r, err := randomID()
 	if err != nil {
 		return Error.Wrap(err)
@@ -129,7 +168,7 @@ func (discovery *Discovery) Discovery(ctx context.Context) error {
 }
 
 // Walk iterates over each node in each bucket to traverse the network
-func (discovery *Discovery) Walk(ctx context.Context) error {
+func (discovery *Discovery) walk(ctx context.Context) error {
 	// TODO: This should walk the cache, rather than be a duplicate of refresh
 	return nil
 }

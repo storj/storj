@@ -23,8 +23,8 @@ import (
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/miniogw"
-	"storj.io/storj/pkg/provider"
 )
 
 func TestUploadDownload(t *testing.T) {
@@ -120,7 +120,7 @@ func TestUploadDownload(t *testing.T) {
 }
 
 // runGateway creates and starts a gateway
-func runGateway(ctx context.Context, c miniogw.Config, log *zap.Logger, identity *provider.FullIdentity) (err error) {
+func runGateway(ctx context.Context, c miniogw.Config, log *zap.Logger, identity *identity.FullIdentity) (err error) {
 
 	// set gateway flags
 	flags := flag.NewFlagSet("gateway", flag.ExitOnError)
