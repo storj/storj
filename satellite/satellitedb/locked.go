@@ -377,7 +377,7 @@ func (m *lockedUsers) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.db.Delete(ctx, id)
 }
 
-// Get is a method for querying user from the database by id
+// Get is a method for querying user from the database by id.
 func (m *lockedUsers) Get(ctx context.Context, id uuid.UUID) (*console.User, error) {
 	m.Lock()
 	defer m.Unlock()
@@ -391,14 +391,14 @@ func (m *lockedUsers) GetByEmail(ctx context.Context, email string) (*console.Us
 	return m.db.GetByEmail(ctx, email)
 }
 
-// Insert is a method for inserting user into the database
+// Insert is a method for inserting user into the database.
 func (m *lockedUsers) Insert(ctx context.Context, user *console.User) (*console.User, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Insert(ctx, user)
 }
 
-// Update is a method for updating user entity
+// Update is a method for updating user entity.
 func (m *lockedUsers) Update(ctx context.Context, user *console.User) error {
 	m.Lock()
 	defer m.Unlock()

@@ -393,7 +393,7 @@ export default class Register extends Vue {
         }
     }
 
-    @media screen and (max-width: 720px) {
+    @media screen and (max-width: 720px), screen and (max-height: 880px) {
         .register {
             flex-direction: column;
         }
@@ -407,7 +407,8 @@ export default class Register extends Vue {
         }
         .register-area {
             width: 100vw;
-            margin-bottom: 200px;
+            overflow-y: scroll;
+            height: calc(100vh - 200px);
 
             &__scrollable {
                  width: auto;
@@ -415,7 +416,7 @@ export default class Register extends Vue {
                 &__form-area {
 
                     &__create-button {
-                         margin-bottom: 250px;
+                         margin-bottom: 50px;
                     }
                 }
 
