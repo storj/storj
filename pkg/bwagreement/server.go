@@ -5,6 +5,7 @@ package bwagreement
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -85,7 +86,12 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.RenterBandwidt
 
 	//save and return rersults
 	if err = s.db.CreateAgreement(ctx, rba); err != nil {
-		return reply, pb.ErrPayer.Wrap(err)
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return reply, pb.ErrPayer.Wrap(auth.ErrSerial.Wrap(err))
+		} else {
+			reply.Status = pb.AgreementsSummary_FAIL
+			return reply, pb.ErrPayer.Wrap(err)
+		}
 	}
 	reply.Status = pb.AgreementsSummary_OK
 	s.logger.Debug("Stored Agreement...")

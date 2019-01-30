@@ -27,7 +27,6 @@ CREATE TABLE accounting_timestamps (
 	PRIMARY KEY ( name )
 );
 CREATE TABLE bwagreements (
-	id INTEGER NOT NULL,
 	serialnum TEXT NOT NULL,
 	storage_node_id BLOB NOT NULL,
 	uplink_id BLOB NOT NULL,
@@ -35,7 +34,7 @@ CREATE TABLE bwagreements (
 	total INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	expires_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( serialnum )
 );
 CREATE TABLE injuredsegments (
 	id INTEGER NOT NULL,

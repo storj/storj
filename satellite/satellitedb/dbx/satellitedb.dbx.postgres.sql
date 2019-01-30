@@ -27,7 +27,6 @@ CREATE TABLE accounting_timestamps (
 	PRIMARY KEY ( name )
 );
 CREATE TABLE bwagreements (
-	id bigserial NOT NULL,
 	serialnum text NOT NULL,
 	storage_node_id bytea NOT NULL,
 	uplink_id bytea NOT NULL,
@@ -35,7 +34,7 @@ CREATE TABLE bwagreements (
 	total bigint NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( serialnum )
 );
 CREATE TABLE injuredsegments (
 	id bigserial NOT NULL,

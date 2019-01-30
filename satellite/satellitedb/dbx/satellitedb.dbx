@@ -3,9 +3,8 @@
 //--- bwagreement ---//
 
 model bwagreement (
-	key id
+	key serialnum
 
-	field id              serial64
 	field serialnum       text
 	field storage_node_id blob
 	field uplink_id       blob
@@ -16,21 +15,8 @@ model bwagreement (
 )
 
 create bwagreement ( )
-
-read has (
-	select bwagreement
-	where  bwagreement.serialnum = ?
-	where  bwagreement.action = 0
-)
-
-read limitoffset (
-	select bwagreement
-)
-
-read all (
-	select bwagreement
-)
-
+read limitoffset ( select bwagreement)
+read all ( select bwagreement)
 read all (
 	select bwagreement
 	where  bwagreement.created_at > ?
