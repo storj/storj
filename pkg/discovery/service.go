@@ -26,7 +26,7 @@ var (
 
 // Config loads on the configuration values for the cache
 type Config struct {
-	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
+	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"30s"`
 	RefreshLimit    int           `help:"the amount of nodes refreshed at each interval" default:"100"`
 }
 
