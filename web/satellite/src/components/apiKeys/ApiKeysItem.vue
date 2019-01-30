@@ -34,10 +34,8 @@ export default class ApiKeysItem extends Vue {}
         align-items: center;
         justify-content: center;
         border-radius: 6px;
-        height: 140px;
+        height: 180px;
         background-color: #fff;
-        margin-bottom: 24px;
-        padding: 30px 0;
         cursor: pointer;
         transition: box-shadow .2s ease-out;
 
