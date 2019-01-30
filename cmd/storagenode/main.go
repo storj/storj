@@ -424,9 +424,10 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		w = tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
-		fmt.Fprintf(w, "\nBootstrap\t%s\n", color.WhiteString(data.GetBootstrapAddress()))
-		fmt.Fprintf(w, "Internal\t%s\n", color.WhiteString(data.GetInternalAddress())
-		fmt.Fprintf(w, "External\t%s\n", color.WhiteString(data.GetExternalAddress()))
+		// TODO: Get addresses from server data
+		fmt.Fprintf(w, "\nBootstrap\t%s\n", color.WhiteString(dashboardCfg.BootstrapAddr))
+		fmt.Fprintf(w, "Internal\t%s\n", color.WhiteString(dashboardCfg.Address))
+		fmt.Fprintf(w, "External\t%s\n", color.WhiteString(dashboardCfg.ExternalAddress))
 		fmt.Fprintf(w, "\nNeighborhood Size %+v\n", whiteInt(data.GetNodeConnections()))
 		if err = w.Flush(); err != nil {
 			return err
