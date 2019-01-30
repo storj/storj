@@ -5,7 +5,6 @@
     <div>
         <EmptyState
             mainTitle="Create your first new project"
-            :additional-text="additionalText"
             :imageSource="emptyImage" />
     </div>
 </template>
@@ -20,7 +19,6 @@
             data: function () {
                 return {
                     emptyImage: EMPTY_STATE_IMAGES.PROJECT,
-                    additionalText:'bla <b>bla</b> bla',
                 };
             },
             components: {
