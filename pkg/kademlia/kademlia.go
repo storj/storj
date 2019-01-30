@@ -140,6 +140,9 @@ func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error
 // Must be called before anything starting to use kademlia.
 func (k *Kademlia) SetBootstrapNodes(nodes []pb.Node) { k.bootstrapNodes = nodes }
 
+// GetBootstrapNodes gets the bootstrap nodes.
+func (k *Kademlia) GetBootstrapNodes() []pb.Node { return k.bootstrapNodes }
+
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
 func (k *Kademlia) Bootstrap(ctx context.Context) error {

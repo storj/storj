@@ -56,11 +56,6 @@ type checker struct {
 // NewChecker creates a new instance of checker
 func NewChecker(pointerdb *pointerdb.Service, sdb statdb.DB, repairQueue queue.RepairQueue, overlay pb.OverlayServer, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) Checker {
 	// TODO: reorder arguments
-	return newChecker(pointerdb, sdb, repairQueue, overlay, irrdb, limit, logger, interval)
-}
-
-// newChecker creates a new instance of checker
-func newChecker(pointerdb *pointerdb.Service, sdb statdb.DB, repairQueue queue.RepairQueue, overlay pb.OverlayServer, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *checker {
 	return &checker{
 		statdb:      sdb,
 		pointerdb:   pointerdb,
