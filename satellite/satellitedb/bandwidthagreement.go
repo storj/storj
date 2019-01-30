@@ -9,20 +9,47 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	satellitedb "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type bandwidthagreement struct {
 	db *dbx.DB
 }
 
-func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.RenterBandwidthAllocation) error {
+func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.RenterBandwidthAllocation) (err error) {
+	var db satellitedb.Methods = b.db
+	serialNum := rba.PayerAllocation.SerialNumber + rba.StorageNodeId.String()
+	//if this is a PUT, make sure one doesn't already exist
+	if rba.PayerAllocation.Action == pb.BandwidthAction_PUT {
+		tx, err := b.db.Open(ctx)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		db = tx
+		defer func() {
+			if err == nil {
+				err = tx.Commit()
+			} else {
+				err = utils.CombineErrors(err, tx.Rollback())
+			}
+		}()
+		//test to see if we already have a PUT for this serial number
+		exists, err := tx.Has_Bwagreement_By_Serialnum_And_Action_Equal_Number(ctx, dbx.Bwagreement_Serialnum(serialNum))
+		if exists {
+			return auth.ErrSerial.New(serialNum)
+		} else if err != nil {
+			return err
+		}
+	}
 	expiration := time.Unix(rba.PayerAllocation.ExpirationUnixSec, 0)
-	_, err := b.db.Create_Bwagreement(
+	_, err = db.Create_Bwagreement(
 		ctx,
-		dbx.Bwagreement_Serialnum(rba.PayerAllocation.SerialNumber+rba.StorageNodeId.String()),
+		dbx.Bwagreement_Serialnum(serialNum),
 		dbx.Bwagreement_StorageNodeId(rba.StorageNodeId.Bytes()),
 		dbx.Bwagreement_UplinkId(rba.PayerAllocation.UplinkId.Bytes()),
 		dbx.Bwagreement_Action(int64(rba.PayerAllocation.Action)),

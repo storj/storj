@@ -3,24 +3,24 @@
 //--- bwagreement ---//
 
 model bwagreement (
-	key serialnum
+	key id
 
-	field serialnum    text
+	field id              serial64
+	field serialnum       text
 	field storage_node_id blob
-	field uplink_id blob
-	field action       int64
-	field total        int64
-	field created_at timestamp ( autoinsert )
-	field expires_at timestamp
+	field uplink_id       blob
+	field action          int64
+	field total           int64
+	field created_at      timestamp ( autoinsert )
+	field expires_at      timestamp
 )
 
 create bwagreement ( )
-delete bwagreement ( where bwagreement.serialnum = ? )
-delete bwagreement ( where bwagreement.expires_at <= ?)
 
-read one (
+read has (
 	select bwagreement
 	where  bwagreement.serialnum = ?
+	where  bwagreement.action = 0
 )
 
 read limitoffset (

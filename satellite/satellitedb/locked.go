@@ -459,18 +459,18 @@ type lockedOverlayCache struct {
 	db overlay.DB
 }
 
-// FilterNodes looks up nodes based on reputation requirements
-func (m *lockedOverlayCache) FilterNodes(ctx context.Context, req *overlay.FilterNodesRequest) ([]*pb.Node, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.FilterNodes(ctx, req)
-}
-
 // Delete deletes node based on id
 func (m *lockedOverlayCache) Delete(ctx context.Context, id storj.NodeID) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Delete(ctx, id)
+}
+
+// FilterNodes looks up nodes based on reputation requirements
+func (m *lockedOverlayCache) FilterNodes(ctx context.Context, filterNodesRequest *overlay.FilterNodesRequest) ([]*pb.Node, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.FilterNodes(ctx, filterNodesRequest)
 }
 
 // Get looks up the node by nodeID

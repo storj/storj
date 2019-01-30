@@ -84,10 +84,8 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.RenterBandwidt
 	}
 
 	//save and return rersults
-	err = s.db.CreateAgreement(ctx, rba)
-	if err != nil {
-		//todo:  better classify transport errors (AgreementsSummary_FAIL) vs logical (AgreementsSummary_REJECTED)
-		return reply, pb.ErrPayer.Wrap(auth.ErrSerial.Wrap(err))
+	if err = s.db.CreateAgreement(ctx, rba); err != nil {
+		return reply, pb.ErrPayer.Wrap(err)
 	}
 	reply.Status = pb.AgreementsSummary_OK
 	s.logger.Debug("Stored Agreement...")
