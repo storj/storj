@@ -30,19 +30,16 @@ type Config struct {
 	RefreshLimit    int           `help:"the amount of nodes refreshed at each interval" default:"100"`
 }
 
-// Refresh tracks the offset of the current refresh cycle
-type Refresh struct {
-	offset int64
-}
-
 // Discovery struct loads on cache, kad, and statdb
 type Discovery struct {
-	log     *zap.Logger
-	cache   *overlay.Cache
-	kad     *kademlia.Kademlia
-	statdb  statdb.DB
-	config  Config
-	refresh Refresh
+	log    *zap.Logger
+	cache  *overlay.Cache
+	kad    *kademlia.Kademlia
+	statdb statdb.DB
+	config Config
+
+	// refreshOffset tracks the offset of the current refresh cycle
+	refreshOffset int64
 }
 
 // New returns a new discovery service.
@@ -53,9 +50,8 @@ func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat sta
 		kad:    kad,
 		statdb: stat,
 		config: config,
-		refresh: Refresh{
-			offset: 0,
-		},
+
+		refreshOffset: 0,
 	}
 }
 
@@ -79,12 +75,12 @@ func (discovery *Discovery) Run(ctx context.Context) error {
 	defer ticker.Stop()
 
 	for {
-		err := discovery.Refresh(ctx)
+		err := discovery.refresh(ctx)
 		if err != nil {
 			discovery.log.Error("Error with cache refresh: ", zap.Error(err))
 		}
 
-		err = discovery.Discovery(ctx)
+		err = discovery.discover(ctx)
 		if err != nil {
 			discovery.log.Error("Error with cache discovery: ", zap.Error(err))
 		}
@@ -97,10 +93,10 @@ func (discovery *Discovery) Run(ctx context.Context) error {
 	}
 }
 
-// Refresh updates the cache db with the current DHT.
+// refresh updates the cache db with the current DHT.
 // We currently do not penalize nodes that are unresponsive,
 // but should in the future.
-func (discovery *Discovery) Refresh(ctx context.Context) error {
+func (discovery *Discovery) refresh(ctx context.Context) error {
 	nodes := discovery.kad.Seen()
 	for _, v := range nodes {
 		if err := discovery.cache.Put(ctx, v.Id, *v); err != nil {
@@ -108,16 +104,16 @@ func (discovery *Discovery) Refresh(ctx context.Context) error {
 		}
 	}
 
-	list, more, err := discovery.cache.Paginate(ctx, discovery.refresh.offset, discovery.config.RefreshLimit)
+	list, more, err := discovery.cache.Paginate(ctx, discovery.refreshOffset, discovery.config.RefreshLimit)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	// more means there are more rows to page through in the cache
 	if more == false {
-		discovery.refresh.offset = 0
+		discovery.refreshOffset = 0
 	} else {
-		discovery.refresh.offset = discovery.refresh.offset + int64(len(list))
+		discovery.refreshOffset = discovery.refreshOffset + int64(len(list))
 	}
 
 	for _, node := range list {
@@ -162,7 +158,7 @@ func (discovery *Discovery) Bootstrap(ctx context.Context) error {
 }
 
 // Discovery runs lookups for random node ID's to find new nodes in the network
-func (discovery *Discovery) Discovery(ctx context.Context) error {
+func (discovery *Discovery) discover(ctx context.Context) error {
 	r, err := randomID()
 	if err != nil {
 		return Error.Wrap(err)
@@ -175,7 +171,7 @@ func (discovery *Discovery) Discovery(ctx context.Context) error {
 }
 
 // Walk iterates over each node in each bucket to traverse the network
-func (discovery *Discovery) Walk(ctx context.Context) error {
+func (discovery *Discovery) walk(ctx context.Context) error {
 	// TODO: This should walk the cache, rather than be a duplicate of refresh
 	return nil
 }
