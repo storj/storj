@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/fatih/color"
@@ -377,28 +378,31 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 
-		clr()
+		clearScreen()
 		heading := color.New(color.FgGreen, color.Bold)
 
 		_, _ = heading.Printf("\nStorage Node Dashboard Stats\n")
-		_, _ = heading.Printf("\n===============================\n")
+		_, _ = heading.Printf("\n===============================\n\n")
 
-		fmt.Fprintf(color.Output, "Node ID: %s\n", color.YellowString(data.GetNodeId()))
+		w := tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
+		fmt.Fprintf(w, "ID\t%s\n", color.YellowString(data.GetNodeId()))
 
 		if online {
-			fmt.Fprintf(color.Output, "%s ", color.GreenString("ONLINE"))
+			fmt.Fprintf(w, "Status\t%s\n", color.GreenString("ONLINE"))
 		} else {
-			fmt.Fprintf(color.Output, "%s ", color.RedString("OFFLINE"))
+			fmt.Fprintf(w, "Status\t%s\n", color.RedString("OFFLINE"))
 		}
 
 		uptime, err := ptypes.Duration(data.GetUptime())
 		if err != nil {
-			color.Red(" %+v \n", err)
+			fmt.Fprintf(w, "Uptime\t%s\n", color.RedString(uptime.String()))
 		} else {
-			color.Yellow(" %s \n", uptime)
+			fmt.Fprintf(w, "Uptime\t%s\n", color.YellowString(uptime.String()))
 		}
 
-		fmt.Fprintf(color.Output, "Node Connections: %+v\n", whiteInt(data.GetNodeConnections()))
+		if err = w.Flush(); err != nil {
+			return err
+		}
 
 		stats := data.GetStats()
 		if stats != nil {
@@ -407,16 +411,26 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 			availableSpace := color.WhiteString(memory.Size(stats.GetAvailableSpace()).String())
 			usedSpace := color.WhiteString(memory.Size(stats.GetUsedSpace()).String())
 
-			w := tabwriter.NewWriter(color.Output, 0, 0, 5, ' ', tabwriter.AlignRight)
+			w = tabwriter.NewWriter(color.Output, 0, 0, 5, ' ', tabwriter.AlignRight)
 			fmt.Fprintf(w, "\n\t%s\t%s\t\n", color.GreenString("Available"), color.GreenString("Used"))
 			fmt.Fprintf(w, "Bandwidth\t%s\t%s\t\n", availableBandwidth, usedBandwidth)
 			fmt.Fprintf(w, "Disk\t%s\t%s\t\n", availableSpace, usedSpace)
-			err = w.Flush()
+			if err = w.Flush(); err != nil {
+				return err
+			}
 
 		} else {
-			color.Yellow("Loading...")
+			color.Yellow("Loading...\n")
 		}
 
+		w = tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
+		fmt.Fprintf(w, "\nBootstrap\t%s\n", color.WhiteString(""))
+		fmt.Fprintf(w, "Internal\t%s\n", color.WhiteString(""))
+		fmt.Fprintf(w, "External\t%s\n", color.WhiteString(""))
+		fmt.Fprintf(w, "\nNeighborhood Size %+v\n", whiteInt(data.GetNodeConnections()))
+		if err = w.Flush(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -426,39 +440,19 @@ func whiteInt(value int64) string {
 	return color.WhiteString(fmt.Sprintf("%+v", value))
 }
 
-// clr clears the screen so it can be redrawn
-func clr() {
-	var clear = make(map[string]func())
-	clear["linux"] = func() {
+// clearScreen clears the screen so it can be redrawn
+func clearScreen() {
+	switch runtime.GOOS {
+	case "linux", "darwin":
 		cmd := exec.Command("clear")
 		cmd.Stdout = os.Stdout
-		err := cmd.Run()
-		if err != nil {
-			_ = fmt.Errorf("Linux clear screen command returned an error %+v", err)
-		}
-	}
-	clear["darwin"] = func() {
-		cmd := exec.Command("clear")
-		cmd.Stdout = os.Stdout
-		err := cmd.Run()
-		if err != nil {
-			_ = fmt.Errorf("MacOS clear screen command returned an error %+v", err)
-		}
-	}
-	clear["windows"] = func() {
+		_ = cmd.Run()
+	case "windows":
 		cmd := exec.Command("cmd", "/c", "cls")
 		cmd.Stdout = os.Stdout
-		err := cmd.Run()
-		if err != nil {
-			_ = fmt.Errorf("Windows clear screen command returned an error %+v", err)
-		}
-	}
-
-	value, ok := clear[runtime.GOOS]
-	if ok {
-		value()
-	} else {
-		panic("Your platform is unsupported! I can't clear terminal screen :(")
+		_ = cmd.Run()
+	default:
+		fmt.Print(strings.Repeat("\n", 100))
 	}
 }
 
