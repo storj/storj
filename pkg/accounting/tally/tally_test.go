@@ -40,7 +40,9 @@ func TestQueryNoAgreements(t *testing.T) {
 
 	tally := tally.New(zap.NewNop(), db.Accounting(), db.BandwidthAgreement(), service, overlayServer, 0, time.Second)
 
-	err = tally.QueryBW(ctx)
+	tallyEnd, bwTotals, err := tally.QueryBW(ctx)
+	assert.NoError(t, err)
+	err = tally.SaveBWRaw(ctx, tallyEnd, bwTotals)
 	assert.NoError(t, err)
 }
 
@@ -73,7 +75,9 @@ func TestQueryWithBw(t *testing.T) {
 	makeBWA(ctx, t, bwDb, fiC, pb.BandwidthAction_PUT_REPAIR)
 
 	//check the db
-	err = tally.QueryBW(ctx)
+	tallyEnd, bwTotals, err := tally.QueryBW(ctx)
+	assert.NoError(t, err)
+	err = tally.SaveBWRaw(ctx, tallyEnd, bwTotals)
 	assert.NoError(t, err)
 }
 

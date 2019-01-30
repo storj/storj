@@ -45,7 +45,7 @@ type DB interface {
 	// LastTimestamp records the latest last tallied time.
 	LastTimestamp(ctx context.Context, timestampType string) (time.Time, error)
 	// SaveBWRaw records raw sums of agreement values to the database and updates the LastTimestamp.
-	SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTotals BWTally) error
+	SaveBWRaw(ctx context.Context, tallyEnd time.Time, bwTotals BWTally) error
 	// SaveAtRestRaw records raw tallies of at-rest-data.
 	SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) error
 	// GetRaw retrieves all raw tallies

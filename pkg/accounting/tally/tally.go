@@ -52,13 +52,23 @@ func (t *Tally) Run(ctx context.Context) (err error) {
 	t.logger.Info("Tally service starting up")
 	defer mon.Task()(&ctx)(&err)
 	for {
-		err = t.calculateAtRestData(ctx)
+		//data at rest
+		latestTally, nodeData, err := t.calculateAtRestData(ctx)
 		if err != nil {
-			t.logger.Error("calculateAtRestData failed", zap.Error(err))
+			t.logger.Error("Query for data-at-rest failed", zap.Error(err))
 		}
-		err = t.QueryBW(ctx)
+		t.SaveAtRestRaw(ctx, latestTally, nodeData)
+		if err != nil {
+			t.logger.Error("Saving data-at-rest failed", zap.Error(err))
+		}
+		//bandwdith
+		tallyEnd, bwTotals, err := t.QueryBW(ctx)
 		if err != nil {
 			t.logger.Error("Query for bandwidth failed", zap.Error(err))
+		}
+		err = t.SaveBWRaw(ctx, tallyEnd, bwTotals)
+		if err != nil {
+			t.logger.Error("Saving for bandwidth failed", zap.Error(err))
 		}
 
 		select {
@@ -71,15 +81,14 @@ func (t *Tally) Run(ctx context.Context) (err error) {
 
 // calculateAtRestData iterates through the pieces on pointerdb and calculates
 // the amount of at-rest data stored on each respective node
-func (t *Tally) calculateAtRestData(ctx context.Context) (err error) {
+func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time, nodeData map[storj.NodeID]float64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	latestTally, err := t.accountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
+	latestTally, err = t.accountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
 	if err != nil {
-		return Error.Wrap(err)
+		return latestTally, nodeData, Error.Wrap(err)
 	}
 
-	var nodeData = make(map[storj.NodeID]float64)
 	err = t.pointerdb.Iterate("", "", true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
@@ -119,46 +128,52 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (err error) {
 		},
 	)
 	if len(nodeData) == 0 {
-		return nil
+		return latestTally, nodeData, nil
 	}
 	if err != nil {
-		return Error.Wrap(err)
+		return latestTally, nodeData, Error.Wrap(err)
 	}
 	//store byte hours, not just bytes
 	numHours := time.Now().UTC().Sub(latestTally).Hours()
 	if latestTally.IsZero() {
 		numHours = 1.0 //todo: something more considered?
 	}
-
 	latestTally = time.Now().UTC()
-
 	for k := range nodeData {
-		nodeData[k] *= numHours
+		nodeData[k] *= numHours //calculate byte hours
 	}
-	return Error.Wrap(t.accountingDB.SaveAtRestRaw(ctx, latestTally, nodeData))
+	return latestTally, nodeData, err
+}
+
+// SaveAtRestRaw records raw tallies of at-rest-data and updates the LastTimestamp
+func (t *Tally) SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) error {
+	return t.accountingDB.SaveAtRestRaw(ctx, latestTally, nodeData)
 }
 
 // QueryBW queries bandwidth allocation database, selecting all new contracts since the last collection run time.
 // Grouping by action type, storage node ID and adding total of bandwidth to granular data table.
-func (t *Tally) QueryBW(ctx context.Context) error {
+func (t *Tally) QueryBW(ctx context.Context) (time.Time, accounting.BWTally, error) {
+	var bwTotals accounting.BWTally
 	now := time.Now().UTC()
 	lastBwTally, err := t.accountingDB.LastTimestamp(ctx, accounting.LastBandwidthTally)
 	if err != nil {
-		return Error.Wrap(err)
+		return now, bwTotals, Error.Wrap(err)
 	}
 	totals, err := t.bwAgreementDB.GetTotals(ctx, lastBwTally, now)
 	if err != nil {
-		return Error.Wrap(err)
+		return now, bwTotals, Error.Wrap(err)
 	}
 	if len(totals) == 0 {
 		t.logger.Info("Tally found no new bandwidth allocations")
-		return nil
+		return now, bwTotals, nil
 	}
-
-	// sum totals by node id ... todo: add nodeid as SQL column so DB can do this?
-	var bwTotals accounting.BWTally
 	for i := range bwTotals {
 		bwTotals[i] = make(map[storj.NodeID]int64)
 	}
-	return Error.Wrap(t.accountingDB.SaveBWRaw(ctx, now, bwTotals))
+	return now, bwTotals, nil
+}
+
+// SaveBWRaw records granular tallies (sums of bw agreement values) to the database and updates the LastTimestamp
+func (t *Tally) SaveBWRaw(ctx context.Context, tallyEnd time.Time, bwTotals accounting.BWTally) error {
+	return t.accountingDB.SaveBWRaw(ctx, tallyEnd, bwTotals)
 }

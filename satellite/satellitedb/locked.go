@@ -84,10 +84,10 @@ func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.T
 }
 
 // SaveBWRaw records raw sums of agreement values to the database and updates the LastTimestamp.
-func (m *lockedAccounting) SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTotals accounting.BWTally) error {
+func (m *lockedAccounting) SaveBWRaw(ctx context.Context, tallyEnd time.Time, bwTotals accounting.BWTally) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveBWRaw(ctx, latestBwa, bwTotals)
+	return m.db.SaveBWRaw(ctx, tallyEnd, bwTotals)
 }
 
 // SaveRollup records raw tallies of at rest data to the database

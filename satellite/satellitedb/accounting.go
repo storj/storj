@@ -29,9 +29,8 @@ func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string)
 	return lastTally.Value, err
 }
 
-// SaveBWRaw records granular tallies (sums of bw agreement values) to the database
-// and updates the LastTimestamp
-func (db *accountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTotals accounting.BWTally) (err error) {
+// SaveBWRaw records granular tallies (sums of bw agreement values) to the database and updates the LastTimestamp
+func (db *accountingDB) SaveBWRaw(ctx context.Context, tallyEnd time.Time, bwTotals accounting.BWTally) (err error) {
 	// We use the latest bandwidth agreement value of a batch of records as the start of the next batch
 	// todo:  consider finding the sum of bwagreements using SQL sum() direct against the bwa table
 	if len(bwTotals) == 0 {
@@ -53,7 +52,7 @@ func (db *accountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTo
 	for actionType, bwActionTotals := range bwTotals {
 		for k, v := range bwActionTotals {
 			nID := dbx.AccountingRaw_NodeId(k.Bytes())
-			end := dbx.AccountingRaw_IntervalEndTime(latestBwa)
+			end := dbx.AccountingRaw_IntervalEndTime(tallyEnd)
 			total := dbx.AccountingRaw_DataTotal(float64(v))
 			dataType := dbx.AccountingRaw_DataType(actionType)
 			_, err = tx.Create_AccountingRaw(ctx, nID, end, total, dataType)
@@ -63,7 +62,7 @@ func (db *accountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, bwTo
 		}
 	}
 	//save this batch's greatest time
-	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestBwa)}
+	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(tallyEnd)}
 	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
 	return err
 }
