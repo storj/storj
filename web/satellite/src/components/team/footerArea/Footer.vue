@@ -6,7 +6,7 @@
         <!-- if selection mode -->
         <DeleteUserArea />
         <!-- approval after delete click -->
-        <!-- <ApproveDeleteUserArea /> -->
+         <!--<ApproveDeleteUserArea />-->
     </div>
 </template>
 
