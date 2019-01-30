@@ -119,22 +119,25 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 	for _, node := range list {
 		ping, err := discovery.kad.Ping(ctx, *node)
 		if err != nil {
-			discovery.log.Info("could not pinging node")
+			discovery.log.Info("could not ping node")
 			_, err := discovery.statdb.UpdateUptime(ctx, ping.Id, false)
 			if err != nil {
-				discovery.log.Error("error updating node uptime in statdb")
+				discovery.log.Error("could not update node uptime in statdb")
+			}
+			err = discovery.cache.Delete(ctx, node.Id)
+			if err != nil {
+				discovery.log.Error("deleting unresponsive node from cache:", zap.Error(err))
 			}
 			continue
 		}
 
 		_, err = discovery.statdb.UpdateUptime(ctx, ping.Id, true)
 		if err != nil {
-			discovery.log.Error("error updating node uptime in statdb")
+			discovery.log.Error("could not update node uptime in statdb")
 		}
-
 		err = discovery.cache.Put(ctx, ping.Id, ping)
 		if err != nil {
-			discovery.log.Error("error putting node into cache")
+			discovery.log.Error("could not put node into cache")
 		}
 	}
 
