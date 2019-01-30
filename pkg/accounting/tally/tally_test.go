@@ -45,8 +45,8 @@ func TestQueryWithBw(t *testing.T) {
 		tallyEnd, bwTotals, err := tally.QueryBW(ctx)
 		require.NoError(t, err)
 		require.Len(t, bwTotals, 5)
-		for action, _ := range bwTotals {
-			for id, total := range bwTotals[action] {
+		for _, actionTotals := range bwTotals {
+			for id, total := range actionTotals {
 				require.Equal(t, id, planet.StorageNodes[0].Identity.ID)
 				require.Equal(t, total, 1000)
 			}

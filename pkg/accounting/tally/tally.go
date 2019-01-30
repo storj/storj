@@ -57,7 +57,7 @@ func (t *Tally) Run(ctx context.Context) (err error) {
 		if err != nil {
 			t.logger.Error("Query for data-at-rest failed", zap.Error(err))
 		}
-		t.SaveAtRestRaw(ctx, latestTally, nodeData)
+		err = t.SaveAtRestRaw(ctx, latestTally, nodeData)
 		if err != nil {
 			t.logger.Error("Saving data-at-rest failed", zap.Error(err))
 		}
