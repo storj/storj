@@ -250,14 +250,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		config := config.Overlay
 		peer.Overlay.Service = overlay.NewCache(peer.DB.OverlayCache(), peer.DB.StatDB())
 
-		ns := &pb.NodeStats{
-			UptimeCount:       config.Node.UptimeCount,
-			UptimeRatio:       config.Node.UptimeRatio,
-			AuditSuccessRatio: config.Node.AuditSuccessRatio,
-			AuditCount:        config.Node.AuditCount,
+		nodeSelectionConfig := &overlay.NodeSelectionConfig{
+			UptimeCount:           config.Node.UptimeCount,
+			UptimeRatio:           config.Node.UptimeRatio,
+			AuditSuccessRatio:     config.Node.AuditSuccessRatio,
+			AuditCount:            config.Node.AuditCount,
+			NewNodeAuditThreshold: config.Node.NewNodeAuditThreshold,
+			NewNodePercentage:     config.Node.NewNodePercentage,
 		}
 
-		peer.Overlay.Endpoint = overlay.NewServer(peer.Log.Named("overlay:endpoint"), peer.Overlay.Service, ns)
+		peer.Overlay.Endpoint = overlay.NewServer(peer.Log.Named("overlay:endpoint"), peer.Overlay.Service, nodeSelectionConfig)
 		pb.RegisterOverlayServer(peer.Public.Server.GRPC(), peer.Overlay.Endpoint)
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)

@@ -124,7 +124,7 @@ func (layer *gatewayLayer) GetObject(ctx context.Context, bucket, object string,
 	}
 
 	download := stream.NewDownload(ctx, readOnlyStream, layer.gateway.streams)
-	defer utils.LogClose(download)
+	defer func() { err = errs.Combine(err, download.Close()) }()
 
 	_, err = download.Seek(startOffset, io.SeekStart)
 	if err != nil {
@@ -347,7 +347,7 @@ func (layer *gatewayLayer) CopyObject(ctx context.Context, srcBucket, srcObject,
 	}
 
 	download := stream.NewDownload(ctx, readOnlyStream, layer.gateway.streams)
-	defer utils.LogClose(download)
+	defer func() { err = errs.Combine(err, download.Close()) }()
 
 	info := readOnlyStream.Info()
 	createInfo := storj.CreateObject{
