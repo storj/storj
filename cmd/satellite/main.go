@@ -66,6 +66,7 @@ var (
 		Use:   "payments [start] [end]",
 		Short: "Generate a payment report for a given period",
 		Long:  "Generate a payment report for a given period. Format dates using YYYY-MM-DD",
+		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdPayments,
 	}
 
