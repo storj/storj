@@ -79,7 +79,7 @@ func TestNewKademlia(t *testing.T) {
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
 		assert.NotNil(t, kad.dialer)
 		assert.NotNil(t, kad.routingTable)
-		assert.NoError(t, kad.Disconnect())
+		assert.NoError(t, kad.Close())
 	}
 
 }
@@ -189,7 +189,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 
 	return k, grpcServer, func() {
 		defer cleanup()
-		assert.NoError(t, k.Disconnect())
+		assert.NoError(t, k.Close())
 	}
 }
 
@@ -251,9 +251,7 @@ func TestFindNear(t *testing.T) {
 	defer cleanup()
 	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
-	defer func() {
-		assert.NoError(t, k.Disconnect())
-	}()
+	defer ctx.Check(k.Close)
 
 	// add nodes
 	ids := storj.NodeIDList{nodeIDA, nodeIDB, nodeIDC, nodeIDD}
