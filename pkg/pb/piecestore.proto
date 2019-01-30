@@ -127,8 +127,10 @@ message DashboardReq { }
 message DashboardStats {
   string node_id = 1;
   int64 node_connections = 2;
-  string address = 3;
-  StatSummary stats = 4;
-  bool connection = 5;
-  google.protobuf.Duration uptime = 6;
+  string bootstrap_address = 3;
+  string internal_address = 4;
+  string external_address = 5;
+  StatSummary stats = 6;
+  bool connection = 7;
+  google.protobuf.Duration uptime = 8;
 }

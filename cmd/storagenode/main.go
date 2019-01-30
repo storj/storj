@@ -424,9 +424,9 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		w = tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
-		fmt.Fprintf(w, "\nBootstrap\t%s\n", color.WhiteString(""))
-		fmt.Fprintf(w, "Internal\t%s\n", color.WhiteString(""))
-		fmt.Fprintf(w, "External\t%s\n", color.WhiteString(""))
+		fmt.Fprintf(w, "\nBootstrap\t%s\n", color.WhiteString(data.GetBootstrapAddress()))
+		fmt.Fprintf(w, "Internal\t%s\n", color.WhiteString(data.GetInternalAddress())
+		fmt.Fprintf(w, "External\t%s\n", color.WhiteString(data.GetExternalAddress()))
 		fmt.Fprintf(w, "\nNeighborhood Size %+v\n", whiteInt(data.GetNodeConnections()))
 		if err = w.Flush(); err != nil {
 			return err

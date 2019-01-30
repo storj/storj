@@ -381,11 +381,13 @@ func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, erro
 	}
 
 	return &pb.DashboardStats{
-		NodeId:          rt.Local().Id.String(),
-		NodeConnections: int64(len(nodes)),
-		Address:         "",
-		Connection:      true,
-		Uptime:          ptypes.DurationProto(time.Since(s.startTime)),
-		Stats:           statsSummary,
+		NodeId:           rt.Local().Id.String(),
+		NodeConnections:  int64(len(nodes)),
+		BootstrapAddress: "",
+		InternalAddress:  "",
+		ExternalAddress:  "",
+		Connection:       true,
+		Uptime:           ptypes.DurationProto(time.Since(s.startTime)),
+		Stats:            statsSummary,
 	}, nil
 }
