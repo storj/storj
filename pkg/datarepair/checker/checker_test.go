@@ -49,7 +49,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	for i := len(pieces); i < numberOfNodes; i++ {
 		pieces = append(pieces, &pb.RemotePiece{
 			PieceNum: int32(i),
-			NodeId:   teststorj.NodeIDFromString("offline" + strconv.Itoa(i)),
+			NodeId:   storj.NodeID{byte(i)},
 		})
 		expectedLostPieces[int32(i)] = true
 	}
@@ -109,8 +109,7 @@ func TestOfflineNodes(t *testing.T) {
 	// simulate offline nodes
 	expectedOffline := make([]int32, 0)
 	for i := len(nodeIDs); i < numberOfNodes; i++ {
-		id := teststorj.NodeIDFromString("offline" + strconv.Itoa(i))
-		nodeIDs = append(nodeIDs, id)
+		nodeIDs = append(nodeIDs, storj.NodeID{byte(i)})
 		expectedOffline = append(expectedOffline, int32(i))
 	}
 
