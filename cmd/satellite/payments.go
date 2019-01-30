@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"time"
@@ -18,7 +19,7 @@ import (
 )
 
 // generateCSV generates a payment report for all nodes for a given period
-func generateCSV(ctx context.Context, start time.Time, end time.Time, output *os.File) error {
+func generateCSV(ctx context.Context, start time.Time, end time.Time, output io.Writer) error {
 	db, err := satellitedb.New(paymentsCfg.Database)
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)

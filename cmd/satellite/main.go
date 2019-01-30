@@ -82,6 +82,7 @@ var (
 	}
 	paymentsCfg struct {
 		Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+		Output   string `help:"destination of report output" default:""`
 	}
 
 	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
@@ -89,7 +90,6 @@ var (
 	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "satellite")
 	confDir            string
 	identityDir        string
-	out                string
 )
 
 func init() {
@@ -112,8 +112,6 @@ func init() {
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
-
-	reportsCmd.PersistentFlags().StringVar(&out, "output", "", "destination of report output (default stdout)")
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
@@ -307,19 +305,22 @@ func cmdPayments(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Invalid time period (%v) - (%v)", start, end)
 	}
 
-	output := os.Stdout
-	if out != "" {
-		file, err := os.Create(out)
-		if err != nil {
-			return err
-		}
-		output = file
+	// send output to stdout
+	if paymentsCfg.Output == "" {
+		return generateCSV(ctx, start, end, os.Stdout)
 	}
+
+	// send output to file
+	file, err := os.Create(paymentsCfg.Output)
+	if err != nil {
+		return err
+	}
+
 	defer func() {
-		err = errs.Combine(err, output.Close())
+		err = errs.Combine(err, file.Close())
 	}()
 
-	return generateCSV(ctx, start, end, output)
+	return generateCSV(ctx, start, end, file)
 }
 
 func main() {
