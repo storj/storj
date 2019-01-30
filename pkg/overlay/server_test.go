@@ -84,13 +84,13 @@ func TestNewNodeFiltering(t *testing.T) {
 	defer ctx.Check(planet.Shutdown)
 
 	// we wait a second for all the nodes to complete bootstrapping off the satellite
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	satellite := planet.Satellites[0]
 
 	// This sets a reputable audit count for a certain number of nodes.
 	for i, node := range planet.StorageNodes {
-		for j := 0; j < i; j++ {
+		for k := 0; k < i; k++ {
 			_, err := satellite.DB.StatDB().UpdateAuditSuccess(ctx, node.ID(), true)
 			assert.NoError(t, err)
 		}

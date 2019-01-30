@@ -5,6 +5,7 @@ package overlay
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 
 	"github.com/zeebo/errs"
@@ -35,8 +36,11 @@ var OverlayError = errs.Class("Overlay Error")
 
 // DB implements the database for overlay.Cache
 type DB interface {
-	// FilterNodes looks up nodes based on reputation requirements
-	FilterNodes(ctx context.Context, filterNodesRequest *FilterNodesRequest) ([]*pb.Node, error)
+	// SelectNodes looks up nodes based on criteria
+	SelectNodes(ctx context.Context, criteria *NodeCriteria) ([]*pb.Node, error)
+	// SelectNewNodes looks up nodes based on new node criteria
+	SelectNewNodes(ctx context.Context, count int, criteria *NewNodeCriteria) (*sql.Rows, error)
+
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error)
 	// GetAll looks up nodes based on the ids from the overlay cache
@@ -47,7 +51,7 @@ type DB interface {
 	Update(ctx context.Context, value *pb.Node) error
 	// Delete deletes node based on id
 	Delete(ctx context.Context, id storj.NodeID) error
-	//GetWalletAddress gets the node's wallet address
+	// GetWalletAddress gets the node's wallet address
 	GetWalletAddress(ctx context.Context, id storj.NodeID) (string, error)
 }
 
@@ -78,6 +82,11 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, err
 	}
 
 	return cache.db.Get(ctx, nodeID)
+}
+
+// FindStorageNodes searches the overlay network for nodes that meet the provided criteria
+func (cache *Cache) FindStorageNodes(ctx context.Context, ...) ([]*pb.Node, error) {
+	...
 }
 
 // GetAll looks up the provided ids from the overlay cache
