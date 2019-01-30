@@ -107,9 +107,9 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					input, _ := p.Args[InputArg].(string)
+					activationToken, _ := p.Args[InputArg].(string)
 
-					token, err := service.ActivateAccount(p.Context, input)
+					token, err := service.ActivateAccount(p.Context, activationToken)
 					if err != nil {
 						return nil, err
 					}

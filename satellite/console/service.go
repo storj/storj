@@ -26,7 +26,7 @@ var (
 const (
 	// maxLimit specifies the limit for all paged queries
 	maxLimit            = 50
-	tokenExpirationTime = time.Hour * 24
+	tokenExpirationTime = 24 * time.Hour
 )
 
 // Service is handling accounts related logic
