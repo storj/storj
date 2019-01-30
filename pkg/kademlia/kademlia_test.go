@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/teststore"
 )
@@ -60,7 +59,7 @@ func TestNewKademlia(t *testing.T) {
 			addr: "127.0.0.1:8080",
 		},
 		{
-			id: func() *provider.FullIdentity {
+			id: func() *identity.FullIdentity {
 				id, err := testidentity.NewTestIdentity(ctx)
 				require.NoError(t, err)
 				return id
@@ -79,7 +78,7 @@ func TestNewKademlia(t *testing.T) {
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
 		assert.NotNil(t, kad.dialer)
 		assert.NotNil(t, kad.routingTable)
-		assert.NoError(t, kad.Disconnect())
+		assert.NoError(t, kad.Close())
 	}
 
 }
@@ -110,9 +109,7 @@ func TestPeerDiscovery(t *testing.T) {
 	assert.Equal(t, rt.Local().Metadata.Email, "foo@bar.com")
 	assert.Equal(t, rt.Local().Metadata.Wallet, "OperatorWallet")
 
-	defer func() {
-		assert.NoError(t, k.Disconnect())
-	}()
+	defer ctx.Check(k.Close)
 
 	cases := []struct {
 		target      storj.NodeID
@@ -191,7 +188,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 
 	return k, grpcServer, func() {
 		defer cleanup()
-		assert.NoError(t, k.Disconnect())
+		assert.NoError(t, k.Close())
 	}
 }
 
@@ -253,9 +250,7 @@ func TestFindNear(t *testing.T) {
 	defer cleanup()
 	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
-	defer func() {
-		assert.NoError(t, k.Disconnect())
-	}()
+	defer ctx.Check(k.Close)
 
 	// add nodes
 	ids := storj.NodeIDList{nodeIDA, nodeIDB, nodeIDC, nodeIDD}
@@ -434,7 +429,7 @@ func mktempdir(t *testing.T, dir string) (string, func()) {
 	return rootdir, cleanup
 }
 
-func startTestNodeServer(ctx context.Context) (*grpc.Server, *mockNodesServer, *provider.FullIdentity, string) {
+func startTestNodeServer(ctx context.Context) (*grpc.Server, *mockNodesServer, *identity.FullIdentity, string) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, nil, nil, ""
@@ -537,7 +532,7 @@ func (mn *mockNodesServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.P
 }
 
 // newKademlia returns a newly configured Kademlia instance
-func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
+func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *identity.FullIdentity, path string, alpha int) (*Kademlia, error) {
 	self := pb.Node{
 		Id:       identity.ID,
 		Type:     nodeType,
