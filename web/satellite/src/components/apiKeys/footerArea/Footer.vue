@@ -6,7 +6,7 @@
         <!-- if selection mode -->
         <DeleteApiKeysArea />
         <!-- approval after delete click -->
-        <!-- <ApproveDeleteApiKeysArea /> -->
+         <!--<ApproveDeleteApiKeysArea />-->
     </div>
 </template>
 
