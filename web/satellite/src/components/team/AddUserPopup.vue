@@ -6,6 +6,7 @@
         <div class='add-user' id="addTeamMemberPopup">
             <div class='add-user__info-panel-container'>
                 <h2 class='add-user__info-panel-container__main-label-text'>Add New User</h2>
+                <p class="add-user__info-panel-container__text">You can only add users who are already registered on Storj Satellite</p>
                 <div v-html='imageSource'></div>
             </div>
             <div class='add-user__form-container'>
@@ -37,7 +38,7 @@
                         <p v-bind:class="[isMaxInputsCount ? 'inactive-label' : '']">Add Another</p>
                     </div>
                     <div class="add-user-row__item">
-                        <p>You can add only those user who already registred on Storj Satellite</p>
+                        <p>Be careful! All new team members will have full admin rights. Otherwise use API Keys to share limited access.</p>
                     </div>
                 </div>
                 <div class='add-user__form-container__button-container'>
@@ -204,7 +205,7 @@ export default class AddUserPopup extends Vue {}
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 81px 0 47px;
+        padding: 0 45px 0 47px;
 
         &__item {
             display: flex;
@@ -232,10 +233,10 @@ export default class AddUserPopup extends Vue {}
 
             &:last-child {
                 p {
-                    font-size: 14px !important;
+                    font-size: 12px !important;
                     margin: 0 !important;
-                    text-align: right;
-                    padding-left: 0;
+                    text-align: left;
+                    padding-left: 60px;
                 }
             }
         }  
@@ -295,12 +296,20 @@ export default class AddUserPopup extends Vue {}
             align-items: center;
             margin-right: 100px;
 
+            &__text {
+                font-family: 'montserrat_regular';
+                font-size: 16px;
+                margin-top: 0;
+                margin-left: 50px;
+                margin-bottom: 50px;
+            }
+
             &__main-label-text {
                 font-family: 'montserrat_bold';
                 font-size: 32px;
-                line-height: 39px;
+                line-height: 29px;
                 color: #384B65;
-                margin-bottom: 60px;
+                /*margin-bottom: 60px;*/
                 margin-top: 0;
             }
         }

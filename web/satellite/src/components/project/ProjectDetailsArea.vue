@@ -36,7 +36,8 @@
                     </div>
                 </div>
             </div>
-            <!--<div class="project-details-info-container">-->
+            <!--Commented out section for future purpose-->
+            <!--<div class="project-details-info-container" >-->
                 <!--<div class="project-details-info-container__portability-container">-->
                     <!--<div class="project-details-info-container__portability-container__info">-->
                         <!--<img src="../../../static/images/projectDetails/Portability.png" alt="">-->
@@ -55,9 +56,10 @@
                 <Button class="delete-project" label="Delete project" width="180px" height="48px" :onPress="toggleDeleteDialog" isDeletion/>
             </div>
         </div>
-        <EmptyState 
+        <EmptyState
             v-if="!isProjectSelected"
-            mainTitle="Choose or Create new project"
+            mainTitle="Create your first project"
+            additional-text='<p>Please click the button <span style="font-family: montserrat_bold">"New Project"</span> in the right corner</p>'
             :imageSource="emptyImage" />
         <DeleteProjectPopup v-if="isPopupShown" />
     </div>
@@ -80,6 +82,7 @@ import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
                 isEditing: false,
                 newDescription: '',
                 emptyImage: EMPTY_STATE_IMAGES.PROJECT,
+                additionalEmptyText:'Please click the button {{<b>New Project</b>}} in the right corner'
             };
         },
         methods: {
@@ -119,7 +122,7 @@ import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
             },
             description: function (): string {
 
-                return this.$store.getters.selectedProject.description ? 
+                return this.$store.getters.selectedProject.description ?
                     this.$store.getters.selectedProject.description :
                     'No description yet. Please enter some information about the project if any.';
             },
@@ -195,7 +198,7 @@ export default class ProjectDetailsArea extends Vue {
             &__checkbox {
                 align-self: center;
             }
-            
+
             h2 {
                 font-family: 'montserrat_regular';
                 font-size: 14px;
@@ -228,7 +231,7 @@ export default class ProjectDetailsArea extends Vue {
             align-items: flex-start;
             padding: 28px;
             background-color: #fff;
-            
+
             &:hover {
                 box-shadow: 0px 12px 24px rgba(175, 183, 193, 0.4);
             }
