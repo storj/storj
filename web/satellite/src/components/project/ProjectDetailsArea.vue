@@ -36,21 +36,21 @@
                     </div>
                 </div>
             </div>
-            <div class="project-details-info-container">
-                <div class="project-details-info-container__portability-container">
-                    <div class="project-details-info-container__portability-container__info">
-                        <img src="../../../static/images/projectDetails/Portability.png" alt="">
-                        <div class="project-details-info-container__portability-container__info__text">
-                            <h4>Data Portability</h4>
-                            <h2>Backup project data to recover or move between Satellites</h2>
-                        </div>
-                    </div>
-                    <div class="project-details-info-container__portability-container__buttons-area">
-                        <Button label="Export" width="170px" height="48px" :onPress="onExportClick" isWhite/>
-                        <Button label="Import" width="170px" height="48px" :onPress="onImportClick"/>
-                    </div>
-                </div>
-            </div>
+            <!--<div class="project-details-info-container">-->
+                <!--<div class="project-details-info-container__portability-container">-->
+                    <!--<div class="project-details-info-container__portability-container__info">-->
+                        <!--<img src="../../../static/images/projectDetails/Portability.png" alt="">-->
+                        <!--<div class="project-details-info-container__portability-container__info__text">-->
+                            <!--<h4>Data Portability</h4>-->
+                            <!--<h2>Backup project data to recover or move between Satellites</h2>-->
+                        <!--</div>-->
+                    <!--</div>-->
+                    <!--<div class="project-details-info-container__portability-container__buttons-area">-->
+                        <!--<Button label="Export" width="170px" height="48px" :onPress="onExportClick" isWhite/>-->
+                        <!--<Button label="Import" width="170px" height="48px" :onPress="onImportClick"/>-->
+                    <!--</div>-->
+                <!--</div>-->
+            <!--</div>-->
             <div class="project-details__button-area" id="deleteProjectPopupButton">
                 <Button class="delete-project" label="Delete project" width="180px" height="48px" :onPress="toggleDeleteDialog" isDeletion/>
             </div>
@@ -150,7 +150,7 @@ export default class ProjectDetailsArea extends Vue {
 
 <style scoped lang="scss">
     .project-details {
-        padding: 55px 55px 55px 55px;
+        padding: 44px 55px 55px 55px;
         position: relative;
         overflow-y: auto;
         overflow-x: hidden;
@@ -207,26 +207,26 @@ export default class ProjectDetailsArea extends Vue {
 
         &__button-area {
             margin-top: 3vh;
-            margin-bottom: 5vh;
+            margin-bottom: 100px;
         }
     }
     .project-details-info-container {
         height: auto;
-        margin-top: 4vh;
+        margin-top: 24px;
         display: flex;
         flex-direction: row;
         justify-content: space-between;
         align-items: flex-start;
 
         &__name-container {
-            height: 10vh;
-            width: 72vw;
+            min-height: 67px;
+            width: 100%;
             border-radius: 6px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: flex-start;
-            padding: 3vh 3vh 3vh 3vh;
+            padding: 28px;
             background-color: #fff;
             
             &:hover {
@@ -236,8 +236,8 @@ export default class ProjectDetailsArea extends Vue {
 
         &__description-container {
             @extend .project-details-info-container__name-container;
+            min-height: 67px;
             height: auto;
-            width: 72vw;
             flex-direction: row;
             justify-content: space-between;
             align-items: center;
