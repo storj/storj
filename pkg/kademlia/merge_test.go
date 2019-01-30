@@ -44,5 +44,13 @@ func TestMergePlanets(t *testing.T) {
 	alpha.Start(ctx)
 	beta.Start(ctx)
 
+	// wait until everyone is reachable or fail
 	time.Sleep(10 * time.Second)
+
+	for _, node := range beta.StorageNodes {
+		for _, target := range alpha.StorageNodes {
+			// TODO: test whether is in routing table
+			_, _ = node, target
+		}
+	}
 }
