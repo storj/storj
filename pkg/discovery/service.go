@@ -6,6 +6,7 @@ package discovery
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -15,6 +16,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -26,8 +28,10 @@ var (
 
 // Config loads on the configuration values for the cache
 type Config struct {
-	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
-	RefreshLimit    int           `help:"the amount of nodes refreshed at each interval" default:"100"`
+	RefreshInterval   time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
+	GraveyardInterval time.Duration `help:"the interval at which the satellite attempts to contact previously unresponsive nodes" default:"1h"`
+	DiscoveryInterval time.Duration `help:"the interval at which the satellite attempts to find new nodes via random node ID lookups" default:"1s"`
+	RefreshLimit      int           `help:"the amount of nodes refreshed at each interval" default:"100"`
 }
 
 // Refresh tracks the offset of the current refresh cycle
@@ -75,24 +79,37 @@ func (discovery *Discovery) Close() error { return nil }
 
 // Run runs the discovery service
 func (discovery *Discovery) Run(ctx context.Context) error {
-	ticker := time.NewTicker(discovery.config.RefreshInterval)
-	defer ticker.Stop()
+	refresh := time.NewTicker(discovery.config.RefreshInterval)
+	graveyard := time.NewTicker(discovery.config.GraveyardInterval)
+	discover := time.NewTicker(discovery.config.DiscoveryInterval)
+	defer refresh.Stop()
+	defer graveyard.Stop()
+	defer discover.Stop()
 
 	for {
-		err := discovery.Refresh(ctx)
-		if err != nil {
-			discovery.log.Error("Error with cache refresh: ", zap.Error(err))
-		}
-
-		err = discovery.Discovery(ctx)
-		if err != nil {
-			discovery.log.Error("Error with cache discovery: ", zap.Error(err))
-		}
-
 		select {
-		case <-ticker.C: // redo
+		case <-refresh.C:
+			discovery.log.Info("REFRESH STARTING")
+			err := discovery.Refresh(ctx)
+			if err != nil {
+				discovery.log.Error("Error with cache refresh: ", zap.Error(err))
+			}
+		case <-discover.C:
+			discovery.log.Info("DISCOVERY STARTING")
+			err := discovery.Discovery(ctx)
+			if err != nil {
+				discovery.log.Error("Error with cache discovery: ", zap.Error(err))
+			}
+		case <-graveyard.C:
+			discovery.log.Info("GRAVEYARD RESURRECTION STARTING")
+			err := discovery.graveyard(ctx)
+			if err != nil {
+				discovery.log.Error("graveyard resurrection failed")
+			}
 		case <-ctx.Done():
+			discovery.log.Info("DISCOVERY DONE FIRED")
 			return ctx.Err()
+		default: // don't block
 		}
 	}
 }
@@ -101,13 +118,15 @@ func (discovery *Discovery) Run(ctx context.Context) error {
 // We currently do not penalize nodes that are unresponsive,
 // but should in the future.
 func (discovery *Discovery) Refresh(ctx context.Context) error {
-	nodes := discovery.kad.Seen()
-	for _, v := range nodes {
-		if err := discovery.cache.Put(ctx, v.Id, *v); err != nil {
-			return err
+	seen := discovery.kad.Seen()
+	for _, n := range seen {
+		discovery.log.Info(fmt.Sprintf("putting %s into cache", n.Id))
+		err := discovery.cache.Put(ctx, n.Id, *n)
+		if err != nil {
+			discovery.log.Error("could not put node in cache from #Seen")
 		}
 	}
-
+	discovery.log.Info("finished putting Seen into cache")
 	list, more, err := discovery.cache.Paginate(ctx, discovery.refresh.offset, discovery.config.RefreshLimit)
 	if err != nil {
 		return Error.Wrap(err)
@@ -146,6 +165,37 @@ func (discovery *Discovery) Refresh(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// graveyard attempts to ping all nodes in the Seen() map from Kademlia and adds them to the cache
+// if they respond. This is an attempt to resurrect nodes that may have gone offline in the last hour
+// and were removed from the cache due to an unsuccessful response.
+func (discovery *Discovery) graveyard(ctx context.Context) error {
+	discovery.log.Debug("starting node graveyard resurrection")
+	seen := discovery.kad.Seen()
+	var errors utils.ErrorGroup
+
+	for _, n := range seen {
+		ping, err := discovery.kad.Ping(ctx, *n)
+		if err != nil {
+			discovery.log.Debug("could not ping node in graveyard check")
+			// we don't want to report the ping error to ErrorGroup because it's to be expected here.
+			continue
+		}
+
+		err = discovery.cache.Put(ctx, ping.Id, ping)
+		if err != nil {
+			discovery.log.Warn("could not update node uptime")
+			errors.Add(err)
+		}
+
+		_, err = discovery.statdb.UpdateUptime(ctx, ping.Id, true)
+		if err != nil {
+			discovery.log.Warn("could not update node uptime")
+			errors.Add(err)
+		}
+	}
+	return errors.Finish()
 }
 
 // Bootstrap walks the initialized network and populates the cache
