@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
@@ -29,7 +31,7 @@ func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string)
 		if err == nil {
 			err = tx.Commit()
 		} else {
-			err = utils.CombineErrors(err, tx.Rollback())
+			err = errs.Combine(err, tx.Rollback())
 		}
 	}()
 	lastTally, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
