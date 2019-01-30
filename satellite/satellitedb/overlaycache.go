@@ -288,6 +288,40 @@ func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit 
 	return infos, nil
 }
 
+// Paginate will run through
+func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
+	cursor := storj.NodeID{}
+
+	// more represents end of table. If there are more rows in the database, more will be true.
+	more := true
+
+	if limit <= 0 || limit > storage.LookupLimit {
+		limit = storage.LookupLimit
+	}
+
+	dbxInfos, err := cache.db.Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx,
+		dbx.OverlayCacheNode_NodeId(cursor.Bytes()),
+		limit, offset,
+	)
+
+	if err != nil {
+		return nil, false, err
+	}
+
+	if len(dbxInfos) < limit {
+		more = false
+	}
+
+	infos := make([]*pb.Node, len(dbxInfos))
+	for i, dbxInfo := range dbxInfos {
+		infos[i], err = convertOverlayNode(dbxInfo)
+		if err != nil {
+			return nil, false, err
+		}
+	}
+	return infos, more, nil
+}
+
 // Update updates node information
 func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error) {
 	if info == nil || info.Id.IsZero() {
