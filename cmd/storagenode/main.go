@@ -21,6 +21,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -402,8 +403,12 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		color.Green("\nIO\t\t\tAvailable\t\t\tUsed\n--\t\t\t---------\t\t\t----")
 		stats := data.GetStats()
 		if stats != nil {
-			fmt.Fprintf(color.Output, "Bandwidth\t\t%+v\t\t\t%+v\n", whiteInt(stats.GetAvailableBandwidth()), whiteInt(stats.GetUsedBandwidth()))
-			fmt.Fprintf(color.Output, "Disk\t\t\t%+v\t\t\t%+v\n", whiteInt(stats.GetAvailableSpace()), whiteInt(stats.GetUsedSpace()))
+			availableBandwidth := color.WhiteString(memory.Size(stats.GetAvailableBandwidth()).String())
+			usedBandwidth := color.WhiteString(memory.Size(stats.GetUsedBandwidth()).String())
+			availableSpace := color.WhiteString(memory.Size(stats.GetAvailableSpace()).String())
+			usedSpace := color.WhiteString(memory.Size(stats.GetUsedSpace()).String())
+			fmt.Fprintf(color.Output, "Bandwidth\t\t%s\t\t\t%s\n", availableBandwidth, usedBandwidth)
+			fmt.Fprintf(color.Output, "Disk\t\t\t%s\t\t\t%s\n", availableSpace, usedSpace)
 		} else {
 			color.Yellow("Loading...")
 		}
