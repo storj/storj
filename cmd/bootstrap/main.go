@@ -101,6 +101,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error starting master database on bootstrap: %+v", err)
 	}
 
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
 	err = db.CreateTables()
 	if err != nil {
 		return errs.New("Error creating tables for master database on bootstrap: %+v", err)
@@ -114,7 +118,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	runError := peer.Run(ctx)
 	closeError := peer.Close()
 
-	return errs.Combine(runError, closeError, db.Close())
+	return errs.Combine(runError, closeError)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

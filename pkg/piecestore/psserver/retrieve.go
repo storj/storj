@@ -15,7 +15,6 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/utils"
 )
 
 // RetrieveError is a type of error for failures in Server.Retrieve()
@@ -95,10 +94,12 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 
 	storeFile, err := s.storage.Reader(ctx, id, offset, length)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, RetrieveError.Wrap(err)
 	}
 
-	defer utils.LogClose(storeFile)
+	defer func() {
+		err = errs.Combine(err, storeFile.Close())
+	}()
 
 	writer := NewStreamWriter(s, stream)
 	allocationTracking := sync2.NewThrottle()
@@ -122,17 +123,17 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 		for {
 			recv, err := stream.Recv()
 			if err != nil {
-				allocationTracking.Fail(err)
+				allocationTracking.Fail(RetrieveError.Wrap(err))
 				return
 			}
 			rba := recv.BandwidthAllocation
 			if err = s.verifySignature(stream.Context(), rba); err != nil {
-				allocationTracking.Fail(err)
+				allocationTracking.Fail(RetrieveError.Wrap(err))
 				return
 			}
 			pba := rba.PayerAllocation
 			if err = s.verifyPayerAllocation(&pba, "GET"); err != nil {
-				allocationTracking.Fail(err)
+				allocationTracking.Fail(RetrieveError.Wrap(err))
 				return
 			}
 			//todo: figure out why this fails tests
@@ -161,7 +162,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 	for used < length {
 		nextMessageSize, err := allocationTracking.ConsumeOrWait(messageSize)
 		if err != nil {
-			allocationTracking.Fail(err)
+			allocationTracking.Fail(RetrieveError.Wrap(err))
 			break
 		}
 
@@ -176,14 +177,14 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 		}
 		// break on error
 		if err != nil {
-			allocationTracking.Fail(err)
+			allocationTracking.Fail(RetrieveError.Wrap(err))
 			break
 		}
 	}
 
 	// write to bandwidth usage table
 	if err = s.DB.AddBandwidthUsed(used); err != nil {
-		return retrieved, allocated, StoreError.New("failed to write bandwidth info to database: %v", err)
+		return retrieved, allocated, RetrieveError.New("failed to write bandwidth info to database: %v", err)
 	}
 
 	// TODO: handle errors

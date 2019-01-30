@@ -47,7 +47,7 @@ func TestChoose(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 4, 1)
+	planet, err := testplanet.New(t, 1, 8, 1)
 	require.NoError(t, err)
 
 	planet.Start(ctx)
@@ -60,70 +60,29 @@ func TestChoose(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	n1 := &pb.Node{Id: storj.NodeID{1}, Type: pb.NodeType_STORAGE}
-	n2 := &pb.Node{Id: storj.NodeID{2}, Type: pb.NodeType_STORAGE}
-	n3 := &pb.Node{Id: storj.NodeID{3}, Type: pb.NodeType_STORAGE}
-	n4 := &pb.Node{Id: storj.NodeID{4}, Type: pb.NodeType_STORAGE}
-	n5 := &pb.Node{Id: storj.NodeID{5}, Type: pb.NodeType_STORAGE}
-	n6 := &pb.Node{Id: storj.NodeID{6}, Type: pb.NodeType_STORAGE}
-	n7 := &pb.Node{Id: storj.NodeID{7}, Type: pb.NodeType_STORAGE}
-	n8 := &pb.Node{Id: storj.NodeID{8}, Type: pb.NodeType_STORAGE}
-
-	id1 := storj.NodeID{1}
-	id2 := storj.NodeID{2}
-	id3 := storj.NodeID{3}
-	id4 := storj.NodeID{4}
-
 	cases := []struct {
-		limit        int
-		space        int64
-		bandwidth    int64
-		uptime       float64
-		uptimeCount  int64
-		auditSuccess float64
-		auditCount   int64
-		allNodes     []*pb.Node
-		excluded     storj.NodeIDList
+		limit     int
+		space     int64
+		bandwidth int64
 	}{
 		{
-			limit:        4,
-			space:        0,
-			bandwidth:    0,
-			uptime:       0,
-			uptimeCount:  0,
-			auditSuccess: 0,
-			auditCount:   0,
-			allNodes:     []*pb.Node{n1, n2, n3, n4, n5, n6, n7, n8},
-			excluded:     storj.NodeIDList{id1, id2, id3, id4},
+			limit:     4,
+			space:     0,
+			bandwidth: 0,
 		},
 	}
 
 	for _, v := range cases {
 		newNodes, err := oc.Choose(ctx, overlay.Options{
-			Amount:       v.limit,
-			Space:        v.space,
-			Uptime:       v.uptime,
-			UptimeCount:  v.uptimeCount,
-			AuditSuccess: v.auditSuccess,
-			AuditCount:   v.auditCount,
-			Excluded:     v.excluded,
+			Amount: v.limit,
+			Space:  v.space,
 		})
 		assert.NoError(t, err)
 
-		excludedNodes := make(map[storj.NodeID]bool)
-		for _, e := range v.excluded {
-			excludedNodes[e] = true
-		}
 		assert.Len(t, newNodes, v.limit)
 		for _, n := range newNodes {
-			assert.NotContains(t, excludedNodes, n.Id)
 			assert.True(t, n.GetRestrictions().GetFreeDisk() >= v.space)
 			assert.True(t, n.GetRestrictions().GetFreeBandwidth() >= v.bandwidth)
-			assert.True(t, n.GetReputation().GetUptimeRatio() >= v.uptime)
-			assert.True(t, n.GetReputation().GetUptimeCount() >= v.uptimeCount)
-			assert.True(t, n.GetReputation().GetAuditSuccessRatio() >= v.auditSuccess)
-			assert.True(t, n.GetReputation().GetAuditCount() >= v.auditCount)
-
 		}
 	}
 }
