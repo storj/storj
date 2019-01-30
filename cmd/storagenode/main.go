@@ -400,15 +400,19 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 
 		fmt.Fprintf(color.Output, "Node Connections: %+v\n", whiteInt(data.GetNodeConnections()))
 
-		color.Green("\nIO\t\t\tAvailable\t\t\tUsed\n--\t\t\t---------\t\t\t----")
 		stats := data.GetStats()
 		if stats != nil {
 			availableBandwidth := color.WhiteString(memory.Size(stats.GetAvailableBandwidth()).String())
 			usedBandwidth := color.WhiteString(memory.Size(stats.GetUsedBandwidth()).String())
 			availableSpace := color.WhiteString(memory.Size(stats.GetAvailableSpace()).String())
 			usedSpace := color.WhiteString(memory.Size(stats.GetUsedSpace()).String())
-			fmt.Fprintf(color.Output, "Bandwidth\t\t%s\t\t\t%s\n", availableBandwidth, usedBandwidth)
-			fmt.Fprintf(color.Output, "Disk\t\t\t%s\t\t\t%s\n", availableSpace, usedSpace)
+
+			w := tabwriter.NewWriter(color.Output, 0, 0, 5, ' ', tabwriter.AlignRight)
+			fmt.Fprintf(w, "\n\t%s\t%s\t\n", color.GreenString("Available"), color.GreenString("Used"))
+			fmt.Fprintf(w, "Bandwidth\t%s\t%s\t\n", availableBandwidth, usedBandwidth)
+			fmt.Fprintf(w, "Disk\t%s\t%s\t\n", availableSpace, usedSpace)
+			err = w.Flush()
+
 		} else {
 			color.Yellow("Loading...")
 		}
