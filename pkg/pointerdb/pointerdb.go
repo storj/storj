@@ -13,10 +13,10 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	pointerdbAuth "storj.io/storj/pkg/pointerdb/auth"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/storage"
 )
 
@@ -32,11 +32,11 @@ type Server struct {
 	allocation *AllocationSigner
 	cache      *overlay.Cache
 	config     Config
-	identity   *provider.FullIdentity
+	identity   *identity.FullIdentity
 }
 
 // NewServer creates instance of Server
-func NewServer(logger *zap.Logger, service *Service, allocation *AllocationSigner, cache *overlay.Cache, config Config, identity *provider.FullIdentity) *Server {
+func NewServer(logger *zap.Logger, service *Service, allocation *AllocationSigner, cache *overlay.Cache, config Config, identity *identity.FullIdentity) *Server {
 	return &Server{
 		logger:     logger,
 		service:    service,
@@ -224,7 +224,7 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 
 	// TODO(michal) should be replaced with renter id when available
 	// retrieve the public key
-	pi, err := provider.PeerIdentityFromContext(ctx)
+	pi, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}

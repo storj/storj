@@ -19,7 +19,6 @@ type DHT interface {
 	Bootstrap(ctx context.Context) error
 	Ping(ctx context.Context, node pb.Node) (pb.Node, error)
 	FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error)
-	Disconnect() error
 	Seen() []*pb.Node
 }
 
