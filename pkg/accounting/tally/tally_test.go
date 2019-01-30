@@ -51,7 +51,6 @@ func TestQueryWithBw(t *testing.T) {
 	defer ctx.Cleanup()
 
 	// TODO: use testplanet
-
 	service := pointerdb.NewService(zap.NewNop(), teststore.New())
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 

@@ -32,11 +32,15 @@ func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.Renter
 	return err
 }
 
+const uplinkSQL = `SELECT uplink_id, SUM(total), 
+ SUM(CASE WHEN action = 0 THEN total END), 
+ SUM(CASE WHEN action = 1 THEN total END), COUNT(*)
+FROM bwagreements WHERE created_at > ? 
+AND created_at <= ? GROUP BY uplink_id ORDER BY uplink_id`
+
 //GetTotals returns stats about an uplink
 func (b *bandwidthagreement) GetUplinkStats(ctx context.Context, from, to time.Time) (bwa map[storj.NodeID][4]int64, err error) {
-	sql := `SELECT uplink_id, SUM(total), SUM(CASE WHEN action = 0 THEN total END), SUM(CASE WHEN action = 1 THEN total END), COUNT(*)
-		FROM bwagreements WHERE created_at > ? AND created_at <= ? GROUP BY uplink_id ORDER BY uplink_id`
-	rows, err := b.db.DB.Query(sql, from, to)
+	rows, err := b.db.DB.Query(uplinkSQL, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -59,13 +63,18 @@ func (b *bandwidthagreement) GetUplinkStats(ctx context.Context, from, to time.T
 	return totals, nil
 }
 
+const getTotalsSQL = `SELECT storage_node_id, 
+ SUM(CASE WHEN action = 0 THEN total END),
+ SUM(CASE WHEN action = 1 THEN total END), 
+ SUM(CASE WHEN action = 2 THEN total END),
+ SUM(CASE WHEN action = 3 THEN total END), 
+ SUM(CASE WHEN action = 4 THEN total END)
+FROM bwagreements WHERE created_at > ? AND created_at <= ? 
+GROUP BY storage_node_id ORDER BY storage_node_id`
+
 //GetTotals returns the sum of each bandwidth type after (exluding) a given date range
 func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) (bwa map[storj.NodeID][5]int64, err error) {
-	sql := `SELECT storage_node_id, SUM(CASE WHEN action = 0 THEN total END),
-		SUM(CASE WHEN action = 1 THEN total END), SUM(CASE WHEN action = 2 THEN total END),
-		SUM(CASE WHEN action = 3 THEN total END), SUM(CASE WHEN action = 4 THEN total END)
-		FROM bwagreements WHERE created_at > ? AND created_at <= ? GROUP BY storage_node_id ORDER BY storage_node_id`
-	rows, err := b.db.DB.Query(sql, from, to)
+	rows, err := b.db.DB.Query(getTotalsSQL, from, to)
 	if err != nil {
 		return nil, err
 	}
