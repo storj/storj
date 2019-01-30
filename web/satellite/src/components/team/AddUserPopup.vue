@@ -14,7 +14,7 @@
                     <img src="../../../static/images/register/ErrorInfo.svg"/>
                     <p>{{formError}}</p>
                 </div>
-                <div class="add-user__form-container__inputs-group">
+                <div :class="[inputs.length > 4 ? 'add-user__form-container__inputs-group scrollable' : 'add-user__form-container__inputs-group']">
                     <div v-for="(input, index) in inputs" 
                         class="add-user__form-container__inputs-group__item" 
                         v-bind:key="index" >
@@ -30,8 +30,8 @@
                     <div v-on:click='addInput' class="add-user-row__item" id="addUserButton">
                         <div v-bind:class="[isMaxInputsCount ? 'inactive-image' : '']">
                             <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <rect width="40" height="40" rx="20" fill="#2683FF"/>
-                                <path d="M25 18.977V21.046H20.9722V25H19.0046V21.046H15V18.977H19.0046V15H20.9722V18.977H25Z" fill="white"/>
+                                <rect width="40" height="40" rx="20" fill="#2683FF" />
+                                <path d="M25 18.977V21.046H20.9722V25H19.0046V21.046H15V18.977H19.0046V15H20.9722V18.977H25Z" fill="white" />
                             </svg>
                         </div>
                         <p v-bind:class="[isMaxInputsCount ? 'inactive-label' : '']">Add Another</p>
@@ -324,9 +324,13 @@ export default class AddUserPopup extends Vue {}
 
             &__inputs-group {
                 max-height: 35vh;
-                overflow-y: scroll;
+                overflow-y: hidden;
                 padding-left: 50px;
                 padding-right: 50px;
+
+                &.scrollable {
+                    overflow-y: scroll;
+                }
 
                 &__item {
                     display: flex;
@@ -398,12 +402,16 @@ export default class AddUserPopup extends Vue {}
         &__close-cross-container {
             display: flex;
             justify-content: center;
-            align-items: flex-start;
+            align-items: center;
             position: absolute;
             right: 30px;
             top: 40px;
-            svg {
-                cursor: pointer;
+            height: 24px;
+            width: 24px;
+            cursor: pointer;
+
+            &:hover svg path {
+                fill: #2683FF;
             }
         }
     }
