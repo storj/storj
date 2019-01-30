@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"text/tabwriter"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -177,33 +175,20 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	//get all bandwidth agreements rows already ordered
-	stats, err := database.BandwidthAgreement().GetTotals(context.Background(), time.Time{}, time.Now())
+	stats, err := database.BandwidthAgreement().GetUplinkStats(context.Background(), time.Time{}, time.Now())
 	if err != nil {
 		fmt.Printf("error reading satellite database %v: %v\n", diagCfg.Database, err)
 		return err
 	}
-
-	// Agreement is a struct that contains a bandwidth agreement and the associated signature
-	const TotalBytes = 0
-	const PutActionCount = 1
-	const GetActionCount = 2
-	const TotalTransactions = 3
 
 	// initialize the table header (fields)
 	const padding = 3
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
 	fmt.Fprintln(w, "UplinkID\tTotal\t# Of Transactions\tPUT Action\tGET Action\t")
 
-	uplinkIDs := make(storj.NodeIDList, 0)
-	for k := range stats {
-		uplinkIDs = append(uplinkIDs, k)
-	}
-	sort.Sort(uplinkIDs)
-
 	// populate the row fields
-	for _, uplinkID := range uplinkIDs {
-		u := stats[uplinkID]
-		fmt.Fprint(w, uplinkID, "\t", u[TotalBytes], "\t", u[TotalTransactions], "\t", u[PutActionCount], "\t", u[GetActionCount], "\t\n")
+	for _, s := range stats {
+		fmt.Fprint(w, s.NodeID, "\t", s.TotalBytes, "\t", s.TotalTransactions, "\t", s.PutActionCount, "\t", s.GetActionCount, "\t\n")
 	}
 
 	// display the data
