@@ -14,8 +14,8 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
@@ -47,14 +47,14 @@ type Kademlia struct {
 	routingTable   *RoutingTable
 	bootstrapNodes []pb.Node
 	dialer         *Dialer
-	identity       *provider.FullIdentity
+	identity       *identity.FullIdentity
 	lookups        sync2.WorkGroup
 
 	bootstrapFinished sync2.Fence
 }
 
 // NewService returns a newly configured Kademlia instance
-func NewService(log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
+func NewService(log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, identity *identity.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
 	k := &Kademlia{
 		log:            log,
 		alpha:          alpha,

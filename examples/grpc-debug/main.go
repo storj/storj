@@ -11,14 +11,14 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
 )
 
 var (
 	targetAddr = pflag.String("target", "satellite.staging.storj.io:7777", "address of target")
 
-	identityConfig provider.IdentityConfig
+	identityConfig identity.Config
 )
 
 func init() {

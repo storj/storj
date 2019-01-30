@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/provider"
 )
 
 var (
@@ -50,19 +50,19 @@ var (
 	}
 
 	newCACfg struct {
-		CA provider.CASetupConfig
+		CA identity.CASetupConfig
 	}
 
 	getIDCfg struct {
-		CA provider.PeerCAConfig
+		CA identity.PeerCAConfig
 	}
 
 	caExtCfg struct {
-		CA provider.FullCAConfig
+		CA identity.FullCAConfig
 	}
 
 	revokeCACfg struct {
-		CA provider.FullCAConfig
+		CA identity.FullCAConfig
 		// TODO: add "broadcast" option to send revocation to network nodes
 	}
 )
@@ -111,7 +111,7 @@ func cmdRevokeCA(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	updateCfg := provider.FullCAConfig{
+	updateCfg := identity.FullCAConfig{
 		CertPath: revokeCACfg.CA.CertPath,
 	}
 	if err := updateCfg.Save(ca); err != nil {
