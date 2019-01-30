@@ -128,6 +128,10 @@ func (discovery *Discovery) Refresh(ctx context.Context) error {
 			if err != nil {
 				discovery.log.Error("error updating node uptime in statdb")
 			}
+			err = discovery.cache.Delete(ctx, node.Id)
+			if err != nil {
+				discovery.log.Error("error deleting unresponsive node from cache:", zap.Error(err))
+			}
 			continue
 		}
 
@@ -135,7 +139,6 @@ func (discovery *Discovery) Refresh(ctx context.Context) error {
 		if err != nil {
 			discovery.log.Error("error updating node uptime in statdb")
 		}
-
 		err = discovery.cache.Put(ctx, ping.Id, ping)
 		if err != nil {
 			discovery.log.Error("error putting node into cache")
