@@ -145,7 +145,7 @@ func TestUserFromDbx(t *testing.T) {
 			Id:           []byte("qweqwe"),
 			FirstName:    "FirstName",
 			LastName:     "LastName",
-			Email:        "email@ukr.net",
+			Email:        nil,
 			PasswordHash: []byte("ihqerfgnu238723huagsd"),
 			CreatedAt:    time.Now(),
 		}

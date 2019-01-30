@@ -10,10 +10,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
@@ -35,7 +35,7 @@ type AgreementSender struct { // TODO: rename to service
 // TODO: take transport instead of identity as argument
 
 // New creates an Agreement Sender
-func New(log *zap.Logger, DB *psdb.DB, identity *provider.FullIdentity, kad *kademlia.Kademlia, checkInterval time.Duration) *AgreementSender {
+func New(log *zap.Logger, DB *psdb.DB, identity *identity.FullIdentity, kad *kademlia.Kademlia, checkInterval time.Duration) *AgreementSender {
 	return &AgreementSender{DB: DB, log: log, transport: transport.NewClient(identity), kad: kad, checkInterval: checkInterval}
 }
 

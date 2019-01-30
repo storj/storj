@@ -46,12 +46,22 @@ func (users *users) Insert(ctx context.Context, user *console.User) (*console.Us
 		return nil, err
 	}
 
+	var email dbx.User_Email_Field
+	if user.Email != "" {
+		email = dbx.User_Email(user.Email)
+	} else {
+		email = dbx.User_Email_Null()
+	}
+
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(userID[:]),
 		dbx.User_FirstName(user.FirstName),
 		dbx.User_LastName(user.LastName),
-		dbx.User_Email(user.Email),
-		dbx.User_PasswordHash(user.PasswordHash))
+		dbx.User_PasswordHash(user.PasswordHash),
+		dbx.User_Create_Fields{
+			Email: email,
+		},
+	)
 
 	if err != nil {
 		return nil, err
@@ -105,12 +115,17 @@ func userFromDBX(user *dbx.User) (*console.User, error) {
 		return nil, err
 	}
 
-	return &console.User{
+	result := console.User{
 		ID:           id,
 		FirstName:    user.FirstName,
 		LastName:     user.LastName,
-		Email:        user.Email,
 		PasswordHash: user.PasswordHash,
 		CreatedAt:    user.CreatedAt,
-	}, nil
+	}
+
+	if user.Email != nil {
+		result.Email = *user.Email
+	}
+
+	return &result, nil
 }

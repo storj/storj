@@ -68,6 +68,41 @@ func TestGrapqhlMutation(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		t.Run("Activate account mutation", func(t *testing.T) {
+			activationToken, err := service.GenerateActivationToken(
+				ctx,
+				rootUser.ID,
+				createUser.Email,
+				rootUser.CreatedAt.Add(time.Hour*24),
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			query := fmt.Sprintf("mutation {activateAccount(input:\"%s\")}", activationToken)
+
+			result := graphql.Do(graphql.Params{
+				Schema:        schema,
+				Context:       ctx,
+				RequestString: query,
+				RootObject:    make(map[string]interface{}),
+			})
+
+			for _, err := range result.Errors {
+				assert.NoError(t, err)
+			}
+
+			if result.HasErrors() {
+				t.Fatal()
+			}
+
+			data := result.Data.(map[string]interface{})
+			token := data[consoleql.ActivateAccountMutation].(string)
+
+			assert.NotEqual(t, "", token)
+			rootUser.Email = createUser.Email
+		})
+
 		token, err := service.Token(ctx, createUser.Email, createUser.Password)
 		if err != nil {
 			t.Fatal(err)
@@ -122,7 +157,6 @@ func TestGrapqhlMutation(t *testing.T) {
 			user, err := service.GetUser(authCtx, *uID)
 			assert.NoError(t, err)
 
-			assert.Equal(t, newUser.Email, user.Email)
 			assert.Equal(t, newUser.FirstName, user.FirstName)
 			assert.Equal(t, newUser.LastName, user.LastName)
 		})
@@ -336,10 +370,24 @@ func TestGrapqhlMutation(t *testing.T) {
 			},
 			Password: "123a123",
 		})
-
 		if err != nil {
 			t.Fatal(err, project)
 		}
+
+		activationToken1, err := service.GenerateActivationToken(
+			ctx,
+			user1.ID,
+			"u1@email.net",
+			user1.CreatedAt.Add(time.Hour*24),
+		)
+		if err != nil {
+			t.Fatal(err, project)
+		}
+		_, err = service.ActivateAccount(ctx, activationToken1)
+		if err != nil {
+			t.Fatal(err, project)
+		}
+		user1.Email = "u1@email.net"
 
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
@@ -348,10 +396,23 @@ func TestGrapqhlMutation(t *testing.T) {
 			},
 			Password: "123a123",
 		})
-
 		if err != nil {
 			t.Fatal(err, project)
 		}
+		activationToken2, err := service.GenerateActivationToken(
+			ctx,
+			user2.ID,
+			"u2@email.net",
+			user2.CreatedAt.Add(time.Hour*24),
+		)
+		if err != nil {
+			t.Fatal(err, project)
+		}
+		_, err = service.ActivateAccount(ctx, activationToken2)
+		if err != nil {
+			t.Fatal(err, project)
+		}
+		user2.Email = "u2@email.net"
 
 		t.Run("Add project members mutation", func(t *testing.T) {
 			query := fmt.Sprintf(

@@ -92,7 +92,7 @@ CREATE TABLE users (
 	id BLOB NOT NULL,
 	first_name TEXT NOT NULL,
 	last_name TEXT NOT NULL,
-	email TEXT NOT NULL,
+	email TEXT,
 	password_hash BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id ),

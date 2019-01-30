@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/discovery"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
@@ -38,7 +39,6 @@ import (
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
@@ -273,6 +273,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			},
 			Discovery: discovery.Config{
 				RefreshInterval: 1 * time.Second,
+				RefreshLimit:    100,
 			},
 			PointerDB: pointerdb.Config{
 				DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),
@@ -459,7 +460,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 }
 
 // NewIdentity creates a new identity for a node
-func (planet *Planet) NewIdentity() (*provider.FullIdentity, error) {
+func (planet *Planet) NewIdentity() (*identity.FullIdentity, error) {
 	return planet.identities.NewIdentity()
 }
 
