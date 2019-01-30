@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/provider"
 )
 
 var (
@@ -40,17 +40,17 @@ var (
 	}
 
 	newIDCfg struct {
-		CA       provider.FullCAConfig
-		Identity provider.IdentitySetupConfig
+		CA       identity.FullCAConfig
+		Identity identity.SetupConfig
 	}
 
 	leafExtCfg struct {
-		Identity provider.IdentityConfig
+		Identity identity.Config
 	}
 
 	revokeLeafCfg struct {
-		CA       provider.FullCAConfig
-		Identity provider.IdentityConfig
+		CA       identity.FullCAConfig
+		Identity identity.Config
 		// TODO: add "broadcast" option to send revocation to network nodes
 	}
 )
@@ -73,11 +73,11 @@ func cmdNewID(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	s := newIDCfg.Identity.Status()
-	if s == provider.NoCertNoKey || newIDCfg.Identity.Overwrite {
+	if s == identity.NoCertNoKey || newIDCfg.Identity.Overwrite {
 		_, err := newIDCfg.Identity.Create(ca)
 		return err
 	}
-	return provider.ErrSetup.New("identity file(s) exist: %s", s)
+	return identity.ErrSetup.New("identity file(s) exist: %s", s)
 }
 
 func cmdLeafExtensions(cmd *cobra.Command, args []string) (err error) {
@@ -113,7 +113,7 @@ func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	updateCfg := provider.IdentityConfig{
+	updateCfg := identity.Config{
 		CertPath: revokeLeafCfg.Identity.CertPath,
 	}
 	if err := updateCfg.Save(updatedIdent); err != nil {
