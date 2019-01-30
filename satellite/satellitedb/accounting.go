@@ -19,11 +19,23 @@ type accountingDB struct {
 }
 
 // LastTimestamp records the greatest last tallied time
-func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string) (time.Time, error) {
-	lastTally, err := db.db.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
+func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string) (last time.Time, err error) {
+	// todo: use WithTx https://github.com/spacemonkeygo/dbx#transactions
+	tx, err := db.db.Open(ctx)
+	if err != nil {
+		return last, Error.Wrap(err)
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		} else {
+			err = utils.CombineErrors(err, tx.Rollback())
+		}
+	}()
+	lastTally, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
 	if lastTally == nil {
 		update := dbx.AccountingTimestamps_Value(time.Time{})
-		_, err = db.db.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
+		_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
 		return time.Time{}, err
 	}
 	return lastTally.Value, err
