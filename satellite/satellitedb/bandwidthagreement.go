@@ -5,10 +5,12 @@ package satellitedb
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -32,59 +34,59 @@ func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.Renter
 	return err
 }
 
-const uplinkSQL = `SELECT uplink_id, SUM(total), 
- SUM(CASE WHEN action = 0 THEN total ELSE 0 END), 
- SUM(CASE WHEN action = 1 THEN total ELSE 0 END), 
- COUNT(*)
+var uplinkSQL = fmt.Sprintf(`SELECT uplink_id, SUM(total), 
+ COUNT(CASE WHEN action = %d THEN total ELSE null END), 
+ COUNT(CASE WHEN action = %d THEN total ELSE null END), COUNT(*)
 FROM bwagreements WHERE created_at > ? 
-AND created_at <= ? GROUP BY uplink_id ORDER BY uplink_id`
+AND created_at <= ? GROUP BY uplink_id ORDER BY uplink_id`, pb.BandwidthAction_PUT, pb.BandwidthAction_GET)
 
 //GetTotals returns stats about an uplink
-func (b *bandwidthagreement) GetUplinkStats(ctx context.Context, from, to time.Time) (bwa map[storj.NodeID][4]int64, err error) {
+func (b *bandwidthagreement) GetUplinkStats(ctx context.Context, from, to time.Time) (stats []bwagreement.UplinkStat, err error) {
 	rows, err := b.db.DB.Query(uplinkSQL, from, to)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
-
-	totals := make(map[storj.NodeID][4]int64)
-	for i := 0; rows.Next(); i++ {
+	for rows.Next() {
 		var nodeID []byte
-		var data [4]int64
-		err := rows.Scan(&nodeID, &data[0], &data[1], &data[2], &data[3])
+		stat := bwagreement.UplinkStat{}
+		err := rows.Scan(&nodeID, &stat.TotalBytes, &stat.PutActionCount, &stat.GetActionCount, &stat.TotalTransactions)
 		if err != nil {
-			return totals, err
+			return stats, err
 		}
 		id, err := storj.NodeIDFromBytes(nodeID)
 		if err != nil {
-			return totals, err
+			return stats, err
 		}
-		totals[id] = data
+		stat.NodeID = id
+		stats = append(stats, stat)
 	}
-	return totals, nil
+	return stats, nil
 }
 
-const getTotalsSQL = `SELECT storage_node_id, 
- SUM(CASE WHEN action = 0 THEN total ELSE 0 END),
- SUM(CASE WHEN action = 1 THEN total ELSE 0 END), 
- SUM(CASE WHEN action = 2 THEN total ELSE 0 END),
- SUM(CASE WHEN action = 3 THEN total ELSE 0 END), 
- SUM(CASE WHEN action = 4 THEN total ELSE 0 END)
+var getTotalsSQL = fmt.Sprintf(`SELECT storage_node_id, 
+ SUM(CASE WHEN action = %d THEN total ELSE 0 END),
+ SUM(CASE WHEN action = %d THEN total ELSE 0 END), 
+ SUM(CASE WHEN action = %d THEN total ELSE 0 END),
+ SUM(CASE WHEN action = %d THEN total ELSE 0 END), 
+ SUM(CASE WHEN action = %d THEN total ELSE 0 END)
 FROM bwagreements WHERE created_at > ? AND created_at <= ? 
-GROUP BY storage_node_id ORDER BY storage_node_id`
+GROUP BY storage_node_id ORDER BY storage_node_id`, pb.BandwidthAction_PUT,
+	pb.BandwidthAction_GET, pb.BandwidthAction_GET_AUDIT,
+	pb.BandwidthAction_GET_REPAIR, pb.BandwidthAction_PUT_REPAIR)
 
 //GetTotals returns the sum of each bandwidth type after (exluding) a given date range
-func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) (bwa map[storj.NodeID][5]int64, err error) {
+func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) (bwa map[storj.NodeID][]int64, err error) {
 	rows, err := b.db.DB.Query(getTotalsSQL, from, to)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	totals := make(map[storj.NodeID][5]int64)
+	totals := make(map[storj.NodeID][]int64)
 	for i := 0; rows.Next(); i++ {
 		var nodeID []byte
-		var data [5]int64
+		data := make([]int64, len(pb.BandwidthAction_value))
 		err := rows.Scan(&nodeID, &data[0], &data[1], &data[2], &data[3], &data[4])
 		if err != nil {
 			return totals, err

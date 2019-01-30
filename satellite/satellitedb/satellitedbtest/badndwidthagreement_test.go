@@ -41,11 +41,11 @@ func testGetUplinkStats(ctx context.Context, t *testing.T, b bwagreement.DB) {
 	stats, err := b.GetUplinkStats(ctx, time.Time{}, time.Now().UTC())
 	require.NoError(t, err)
 	require.Len(t, stats, 1)
-	require.Len(t, stats[storj.NodeID{}], 4)
-	require.Equal(t, int64(2000), stats[storj.NodeID{}][0])
-	require.Equal(t, int64(1000), stats[storj.NodeID{}][1])
-	require.Equal(t, int64(1000), stats[storj.NodeID{}][2])
-	require.Equal(t, int64(2), stats[storj.NodeID{}][3])
+	require.Equal(t, storj.NodeID{}, stats[0].NodeID)
+	require.Equal(t, int64(2000), stats[0].TotalBytes)
+	require.Equal(t, 1, stats[0].GetActionCount)
+	require.Equal(t, 1, stats[0].PutActionCount)
+	require.Equal(t, 2, stats[0].TotalTransactions)
 }
 
 func testGetTotals(ctx context.Context, t *testing.T, b bwagreement.DB) {
@@ -53,9 +53,8 @@ func testGetTotals(ctx context.Context, t *testing.T, b bwagreement.DB) {
 	require.NoError(t, err)
 	require.Len(t, totals, 1)
 	require.Len(t, totals[storj.NodeID{}], 5)
-	require.Equal(t, int64(1000), totals[storj.NodeID{}][pb.BandwidthAction_PUT])
-	require.Equal(t, int64(1000), totals[storj.NodeID{}][pb.BandwidthAction_GET])
-	require.Equal(t, int64(0), totals[storj.NodeID{}][pb.BandwidthAction_GET_AUDIT])
-	require.Equal(t, int64(0), totals[storj.NodeID{}][pb.BandwidthAction_GET_REPAIR])
-	require.Equal(t, int64(0), totals[storj.NodeID{}][pb.BandwidthAction_PUT_REPAIR])
+	expected := []int64{1000, 1000, 0, 0, 0}
+	for i, e := range expected {
+		require.Equal(t, e, totals[storj.NodeID{}][i])
+	}
 }

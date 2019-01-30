@@ -29,14 +29,23 @@ var (
 type Config struct {
 }
 
+//UplinkStat contains information about an uplink's returned bandwidth agreement
+type UplinkStat struct {
+	NodeID            storj.NodeID
+	TotalBytes        int64
+	PutActionCount    int
+	GetActionCount    int
+	TotalTransactions int
+}
+
 // DB stores bandwidth agreements.
 type DB interface {
 	// CreateAgreement adds a new bandwidth agreement.
 	CreateAgreement(context.Context, *pb.RenterBandwidthAllocation) error
 	// GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
-	GetTotals(context.Context, time.Time, time.Time) (map[storj.NodeID][5]int64, error)
+	GetTotals(context.Context, time.Time, time.Time) (map[storj.NodeID][]int64, error)
 	//GetTotals returns stats about an uplink
-	GetUplinkStats(context.Context, time.Time, time.Time) (map[storj.NodeID][4]int64, error)
+	GetUplinkStats(context.Context, time.Time, time.Time) ([]UplinkStat, error)
 }
 
 // Server is an implementation of the pb.BandwidthServer interface

@@ -118,14 +118,14 @@ func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.R
 }
 
 // GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
-func (m *lockedBandwidthAgreement) GetTotals(ctx context.Context, a1 time.Time, a2 time.Time) (map[storj.NodeID][5]int64, error) {
+func (m *lockedBandwidthAgreement) GetTotals(ctx context.Context, a1 time.Time, a2 time.Time) (map[storj.NodeID][]int64, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetTotals(ctx, a1, a2)
 }
 
 // GetTotals returns stats about an uplink
-func (m *lockedBandwidthAgreement) GetUplinkStats(ctx context.Context, a1 time.Time, a2 time.Time) (map[storj.NodeID][4]int64, error) {
+func (m *lockedBandwidthAgreement) GetUplinkStats(ctx context.Context, a1 time.Time, a2 time.Time) ([]bwagreement.UplinkStat, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetUplinkStats(ctx, a1, a2)
