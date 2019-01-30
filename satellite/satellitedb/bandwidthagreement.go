@@ -60,8 +60,9 @@ func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.Renter
 }
 
 const uplinkSQL = `SELECT uplink_id, SUM(total), 
- SUM(CASE WHEN action = 0 THEN total END), 
- SUM(CASE WHEN action = 1 THEN total END), COUNT(*)
+ SUM(CASE WHEN action = 0 THEN total ELSE 0 END), 
+ SUM(CASE WHEN action = 1 THEN total ELSE 0 END), 
+ COUNT(*)
 FROM bwagreements WHERE created_at > ? 
 AND created_at <= ? GROUP BY uplink_id ORDER BY uplink_id`
 
@@ -77,7 +78,7 @@ func (b *bandwidthagreement) GetUplinkStats(ctx context.Context, from, to time.T
 	for i := 0; rows.Next(); i++ {
 		var nodeID []byte
 		var data [4]int64
-		err := rows.Scan(&nodeID, &data[0], &data[1], &data[3], &data[3])
+		err := rows.Scan(&nodeID, &data[0], &data[1], &data[2], &data[3])
 		if err != nil {
 			return totals, err
 		}
@@ -91,11 +92,11 @@ func (b *bandwidthagreement) GetUplinkStats(ctx context.Context, from, to time.T
 }
 
 const getTotalsSQL = `SELECT storage_node_id, 
- SUM(CASE WHEN action = 0 THEN total END),
- SUM(CASE WHEN action = 1 THEN total END), 
- SUM(CASE WHEN action = 2 THEN total END),
- SUM(CASE WHEN action = 3 THEN total END), 
- SUM(CASE WHEN action = 4 THEN total END)
+ SUM(CASE WHEN action = 0 THEN total ELSE 0 END),
+ SUM(CASE WHEN action = 1 THEN total ELSE 0 END), 
+ SUM(CASE WHEN action = 2 THEN total ELSE 0 END),
+ SUM(CASE WHEN action = 3 THEN total ELSE 0 END), 
+ SUM(CASE WHEN action = 4 THEN total ELSE 0 END)
 FROM bwagreements WHERE created_at > ? AND created_at <= ? 
 GROUP BY storage_node_id ORDER BY storage_node_id`
 
@@ -111,7 +112,7 @@ func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) 
 	for i := 0; rows.Next(); i++ {
 		var nodeID []byte
 		var data [5]int64
-		err := rows.Scan(&nodeID, &data[0], &data[1], &data[3], &data[3], &data[4])
+		err := rows.Scan(&nodeID, &data[0], &data[1], &data[2], &data[3], &data[4])
 		if err != nil {
 			return totals, err
 		}
