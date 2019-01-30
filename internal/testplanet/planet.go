@@ -304,7 +304,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Interval: 120 * time.Second,
 			},
 			Console: consoleweb.Config{
-				Address: "127.0.0.1:8081",
+				Address: "127.0.0.1:0",
 			},
 		}
 
