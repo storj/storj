@@ -76,18 +76,6 @@ func (k *Kademlia) Close() error {
 	return dialerErr
 }
 
-// Disconnect safely closes connections to the Kademlia network
-func (k *Kademlia) Disconnect() error {
-	dialerErr := k.dialer.Close()
-	k.lookups.Close()
-	k.lookups.Wait()
-
-	return errs.Combine(
-		dialerErr,
-		k.routingTable.Close(),
-	)
-}
-
 // FindNear returns all nodes from a starting node up to a maximum limit
 // stored in the local routing table limiting the result by the specified restrictions
 func (k *Kademlia) FindNear(ctx context.Context, start storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {

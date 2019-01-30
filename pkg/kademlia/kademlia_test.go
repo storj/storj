@@ -110,9 +110,7 @@ func TestPeerDiscovery(t *testing.T) {
 	assert.Equal(t, rt.Local().Metadata.Email, "foo@bar.com")
 	assert.Equal(t, rt.Local().Metadata.Wallet, "OperatorWallet")
 
-	defer func() {
-		assert.NoError(t, k.Disconnect())
-	}()
+	defer ctx.Check(k.Close)
 
 	cases := []struct {
 		target      storj.NodeID
