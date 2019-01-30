@@ -4,7 +4,6 @@
 package psdb
 
 import (
-	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -16,11 +15,8 @@ import (
 
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
-	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/storj"
 )
-
-var ctx = context.Background()
 
 const concurrency = 10
 
@@ -31,9 +27,7 @@ func newDB(t testing.TB, id string) (*DB, func()) {
 	}
 	dbpath := filepath.Join(tmpdir, "psdb.db")
 
-	storage := pstore.NewStorage(tmpdir)
-
-	db, err := Open(ctx, storage, dbpath)
+	db, err := Open(dbpath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,11 +37,6 @@ func newDB(t testing.TB, id string) (*DB, func()) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = storage.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-
 		err = os.RemoveAll(tmpdir)
 		if err != nil {
 			t.Fatal(err)
@@ -56,7 +45,7 @@ func newDB(t testing.TB, id string) (*DB, func()) {
 }
 
 func TestNewInmemory(t *testing.T) {
-	db, err := OpenInMemory(context.Background(), nil)
+	db, err := OpenInMemory()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -130,7 +130,8 @@ type Process struct {
 		Exited  sync2.Fence
 	}
 
-	Arguments Arguments
+	ExecBefore map[string]func(*Process) error
+	Arguments  Arguments
 
 	stdout io.Writer
 	stderr io.Writer
@@ -143,8 +144,9 @@ func (processes *Processes) New(info Info) *Process {
 	process := &Process{
 		processes: processes,
 
-		Info:      info,
-		Arguments: Arguments{},
+		Info:       info,
+		ExecBefore: map[string]func(*Process) error{},
+		Arguments:  Arguments{},
 
 		stdout: output,
 		stderr: output,
@@ -211,6 +213,12 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 		defer func() {
 			fmt.Fprintf(process.processes.Output, "%s exited: %v\n", process.Name, err)
 		}()
+	}
+
+	if exec, ok := process.ExecBefore[command]; ok {
+		if err := exec(process); err != nil {
+			return err
+		}
 	}
 
 	// start the process

@@ -91,7 +91,9 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 		return 0, err
 	}
 
-	defer utils.LogClose(storeFile)
+	defer func() {
+		err = errs.Combine(err, storeFile.Close())
+	}()
 
 	bwUsed, err := s.DB.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
 	if err != nil {

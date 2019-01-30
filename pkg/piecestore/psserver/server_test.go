@@ -18,6 +18,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
@@ -87,36 +88,35 @@ func TestPiece(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run("should return expected PieceSummary values", func(t *testing.T) {
-			require := require.New(t)
-
+		t.Run("", func(t *testing.T) {
 			// simulate piece TTL entry
 			_, err := s.DB.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, tt.expiration))
-			require.NoError(err)
+			require.NoError(t, err)
 
 			defer func() {
 				_, err := s.DB.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
-				require.NoError(err)
+				require.NoError(t, err)
 			}()
 
 			req := &pb.PieceId{Id: tt.id}
 			resp, err := c.Piece(ctx, req)
 
 			if tt.err != "" {
-				require.NotNil(err)
+				require.NotNil(t, err)
 				if runtime.GOOS == "windows" && strings.Contains(tt.err, "no such file or directory") {
 					//TODO (windows): ignoring for windows due to different underlying error
 					return
 				}
-				require.Equal(tt.err, err.Error())
+				require.Equal(t, tt.err, err.Error())
 				return
 			}
 
-			require.NoError(err)
+			assert.NoError(t, err)
+			require.NotNil(t, resp)
 
-			require.Equal(tt.id, resp.GetId())
-			require.Equal(tt.size, resp.GetPieceSize())
-			require.Equal(tt.expiration, resp.GetExpirationUnixSec())
+			assert.Equal(t, tt.id, resp.GetId())
+			assert.Equal(t, tt.size, resp.GetPieceSize())
+			assert.Equal(t, tt.expiration, resp.GetExpirationUnixSec())
 		})
 	}
 }
@@ -224,17 +224,16 @@ func TestRetrieve(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
-			require := require.New(t)
+		t.Run("", func(t *testing.T) {
 			stream, err := c.Retrieve(ctx)
-			require.NoError(err)
+			require.NoError(t, err)
 
 			// send piece database
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, PieceSize: tt.reqSize, Offset: tt.offset}})
-			require.NoError(err)
+			require.NoError(t, err)
 
 			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, snID, upID, time.Hour)
-			require.NoError(err)
+			require.NoError(t, err)
 
 			totalAllocated := int64(0)
 			var data string
@@ -245,32 +244,32 @@ func TestRetrieve(t *testing.T) {
 				totalAllocated += tt.allocSize
 
 				rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, totalAllocated)
-				require.NoError(err)
+				require.NoError(t, err)
 
 				err = stream.Send(&pb.PieceRetrieval{BandwidthAllocation: rba})
-				require.NoError(err)
+				require.NoError(t, err)
 
 				resp, err = stream.Recv()
 				if tt.err != "" {
-					require.NotNil(err)
+					require.NotNil(t, err)
 					if runtime.GOOS == "windows" && strings.Contains(tt.err, "no such file or directory") {
 						//TODO (windows): ignoring for windows due to different underlying error
 						return
 					}
-					require.Equal(tt.err, err.Error())
+					require.Equal(t, tt.err, err.Error())
 					return
 				}
+				assert.NoError(t, err)
 
 				data = fmt.Sprintf("%s%s", data, string(resp.GetContent()))
 				totalRetrieved += resp.GetPieceSize()
 			}
 
-			require.NoError(err)
-			require.NotNil(resp)
-			if resp != nil {
-				require.Equal(tt.respSize, totalRetrieved)
-				require.Equal(string(tt.content), data)
-			}
+			assert.NoError(t, err)
+			require.NotNil(t, resp)
+
+			assert.Equal(t, tt.respSize, totalRetrieved)
+			assert.Equal(t, string(tt.content), data)
 		})
 	}
 }
@@ -324,24 +323,23 @@ func TestStore(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
+		t.Run("", func(t *testing.T) {
 			snID, upID := newTestID(ctx, t), newTestID(ctx, t)
 			s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
 			defer cleanup()
 			db := s.DB.DB
 
-			require := require.New(t)
 			stream, err := c.Store(ctx)
-			require.NoError(err)
+			require.NoError(t, err)
 
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
-			require.NoError(err)
+			require.NoError(t, err)
 			// Send Bandwidth Allocation Data
 			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_PUT, snID, upID, time.Hour)
-			require.NoError(err)
+			require.NoError(t, err)
 			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, tt.totalReceived)
-			require.NoError(err)
+			require.NoError(t, err)
 			msg := &pb.PieceStore{
 				PieceData:           &pb.PieceStore_PieceData{Content: tt.content},
 				BandwidthAllocation: rba,
@@ -349,42 +347,42 @@ func TestStore(t *testing.T) {
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(msg)
 			if err != io.EOF && err != nil {
-				require.NoError(err)
+				require.NoError(t, err)
 			}
 
 			resp, err := stream.CloseAndRecv()
 			if tt.err != "" {
-				require.NotNil(err)
-				require.True(strings.HasPrefix(err.Error(), tt.err), "expected")
+				require.NotNil(t, err)
+				require.True(t, strings.HasPrefix(err.Error(), tt.err))
 				return
 			}
 
 			defer func() {
 				_, err := db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
-				require.NoError(err)
+				require.NoError(t, err)
 			}()
 
 			// check db to make sure agreement and signature were stored correctly
 			rows, err := db.Query(`SELECT agreement, signature FROM bandwidth_agreements`)
-			require.NoError(err)
+			require.NoError(t, err)
 
-			defer func() { require.NoError(rows.Close()) }()
+			defer func() { require.NoError(t, rows.Close()) }()
 			for rows.Next() {
 				var agreement, signature []byte
 				err = rows.Scan(&agreement, &signature)
-				require.NoError(err)
+				require.NoError(t, err)
 				rba := &pb.RenterBandwidthAllocation{}
-				require.NoError(proto.Unmarshal(agreement, rba))
-				require.Equal(msg.BandwidthAllocation.GetSignature(), signature)
-				require.True(pb.Equal(pba, &rba.PayerAllocation))
-				require.Equal(int64(len(tt.content)), rba.Total)
+				require.NoError(t, proto.Unmarshal(agreement, rba))
+				require.Equal(t, msg.BandwidthAllocation.GetSignature(), signature)
+				require.True(t, pb.Equal(pba, &rba.PayerAllocation))
+				require.Equal(t, int64(len(tt.content)), rba.Total)
 
 			}
 			err = rows.Err()
-			require.NoError(err)
-			require.NotNil(resp)
-			require.Equal(tt.message, resp.Message)
-			require.Equal(tt.totalReceived, resp.TotalReceived)
+			require.NoError(t, err)
+			require.NotNil(t, resp)
+			require.Equal(t, tt.message, resp.Message)
+			require.Equal(t, tt.totalReceived, resp.TotalReceived)
 		})
 	}
 }
@@ -433,25 +431,24 @@ func TestPbaValidation(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run("should validate payer bandwidth allocation struct", func(t *testing.T) {
+		t.Run("", func(t *testing.T) {
 			s, c, cleanup := NewTest(ctx, t, snID, upID, tt.whitelist)
 			defer cleanup()
 
-			require := require.New(t)
 			stream, err := c.Store(ctx)
-			require.NoError(err)
+			require.NoError(t, err)
 
 			//cleanup incase tests previously paniced
 			_ = s.storage.Delete("99999999999999999999")
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: "99999999999999999999", ExpirationUnixSec: 9999999999}})
-			require.NoError(err)
+			require.NoError(t, err)
 			// Send Bandwidth Allocation Data
 			content := []byte("content")
 			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(tt.action, satID1, upID, time.Hour)
-			require.NoError(err)
+			require.NoError(t, err)
 			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, int64(len(content)))
-			require.NoError(err)
+			require.NoError(t, err)
 			msg := &pb.PieceStore{
 				PieceData:           &pb.PieceStore_PieceData{Content: content},
 				BandwidthAllocation: rba,
@@ -460,15 +457,15 @@ func TestPbaValidation(t *testing.T) {
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(msg)
 			if err != io.EOF && err != nil {
-				require.NoError(err)
+				require.NoError(t, err)
 			}
 
 			_, err = stream.CloseAndRecv()
 			if err != nil {
-				//require.NotNil(err)
+				//require.NotNil(t, err)
 				t.Log("Expected err string", tt.err)
 				t.Log("Actual err.Error:", err.Error())
-				require.Equal(tt.err, err.Error())
+				require.Equal(t, tt.err, err.Error())
 				return
 			}
 		})
@@ -509,9 +506,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run("should return expected PieceDeleteSummary values", func(t *testing.T) {
-			require := require.New(t)
-
+		t.Run("", func(t *testing.T) {
 			// simulate piece stored with storagenode
 			if err := writeFile(s, "11111111111111111111"); err != nil {
 				t.Errorf("Error: %v\nCould not create test piece", err)
@@ -520,31 +515,31 @@ func TestDelete(t *testing.T) {
 
 			// simulate piece TTL entry
 			_, err := db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, 1234567890))
-			require.NoError(err)
+			require.NoError(t, err)
 
 			defer func() {
 				_, err := db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
-				require.NoError(err)
+				require.NoError(t, err)
 			}()
 
 			defer func() {
-				require.NoError(s.storage.Delete("11111111111111111111"))
+				require.NoError(t, s.storage.Delete("11111111111111111111"))
 			}()
 
 			req := &pb.PieceDelete{Id: tt.id}
 			resp, err := c.Delete(ctx, req)
 
 			if tt.err != "" {
-				require.Equal(tt.err, err.Error())
+				require.Equal(t, tt.err, err.Error())
 				return
 			}
 
-			require.NoError(err)
-			require.Equal(tt.message, resp.GetMessage())
+			require.NoError(t, err)
+			require.Equal(t, tt.message, resp.GetMessage())
 
 			// if test passes, check if file was indeed deleted
 			filePath, err := s.storage.PiecePath(tt.id)
-			require.NoError(err)
+			require.NoError(t, err)
 			if _, err = os.Stat(filePath); os.IsExist(err) {
 				t.Errorf("File not deleted")
 				return
@@ -561,7 +556,7 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	tempDBPath := filepath.Join(tmp, "test.db")
 	tempDir := filepath.Join(tmp, "test-data", "3000")
 	storage := pstore.NewStorage(tempDir)
-	psDB, err := psdb.Open(ctx, storage, tempDBPath)
+	psDB, err := psdb.Open(tempDBPath)
 	require.NoError(t, err)
 	verifier := func(authorization *pb.SignedMessage) error {
 		return nil
