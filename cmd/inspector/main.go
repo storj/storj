@@ -63,17 +63,6 @@ var (
 		Short: "count nodes in kademlia and overlay",
 		RunE:  CountNodes,
 	}
-	getBucketsCmd = &cobra.Command{
-		Use:   "list-buckets",
-		Short: "get all buckets in overlay",
-		RunE:  GetBuckets,
-	}
-	getBucketCmd = &cobra.Command{
-		Use:   "ls <bucket_id>",
-		Short: "get all nodes in bucket",
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  GetBucket,
-	}
 	pingNodeCmd = &cobra.Command{
 		Use:   "ping <node_id> <ip:port>",
 		Short: "ping node at provided ID",
@@ -131,9 +120,10 @@ type Inspector struct {
 // and the overlay cache
 func NewInspector(address, path string) (*Inspector, error) {
 	ctx := context.Background()
+
 	id, err := identity.Config{
-		CertPath: fmt.Sprintf("%s/ca.cert", path),
-		KeyPath:  fmt.Sprintf("%s/ca.key", path),
+		CertPath: fmt.Sprintf("%s/identity.cert", path),
+		KeyPath:  fmt.Sprintf("%s/identity.key", path),
 	}.Load()
 
 	if err != nil {
@@ -170,49 +160,6 @@ func CountNodes(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-// GetBuckets returns all buckets in the overlay cache's routing table
-func GetBuckets(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	buckets, err := i.kadclient.GetBuckets(context.Background(), &pb.GetBucketsRequest{})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	fmt.Printf("Buckets ---------------- \n Total Buckets: %+v\n", buckets.Total)
-
-	for index, b := range buckets.Ids {
-		fmt.Printf("%+v %+v\n", index, b)
-	}
-	return nil
-}
-
-// GetBucket returns a bucket with given `id`
-func GetBucket(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-	nodeID, err := storj.NodeIDFromString(args[0])
-	if err != nil {
-		return err
-	}
-
-	bucket, err := i.kadclient.GetBucket(context.Background(), &pb.GetBucketRequest{
-		Id: nodeID,
-	})
-
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	fmt.Println(prettyPrint(bucket))
-	return nil
-}
-
 // LookupNode starts a Kademlia lookup for the provided Node ID
 func LookupNode(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr, *IdentityPath)
@@ -240,27 +187,16 @@ func DumpNodes(cmd *cobra.Command, args []string) (err error) {
 		return ErrInspectorDial.Wrap(err)
 	}
 
-	buckets, err := i.kadclient.GetBuckets(context.Background(), &pb.GetBucketsRequest{})
+	nodes, err := i.kadclient.FindNear(context.Background(), &pb.FindNearRequest{
+		Start: storj.NodeID{},
+		Limit: 100000,
+	})
 	if err != nil {
-		return ErrRequest.Wrap(err)
+		return err
 	}
 
-	for _, bucket := range buckets.Ids {
-		b, err := i.kadclient.GetBucket(context.Background(), &pb.GetBucketRequest{
-			Id: bucket,
-		})
-		if err != nil {
-			return err
-		}
-		fmt.Println("-------------------------------")
-		fmt.Println("Bucket ID:", b.Id)
-		fmt.Println("Nodes in Bucket:", len(b.Nodes))
+	fmt.Println(prettyPrint(nodes))
 
-		for i, node := range b.Nodes {
-			fmt.Printf("\nNode %d:\n", i)
-			fmt.Println(prettyPrint(node))
-		}
-	}
 	return nil
 }
 
@@ -472,8 +408,6 @@ func init() {
 	rootCmd.AddCommand(statsCmd)
 
 	kadCmd.AddCommand(countNodeCmd)
-	kadCmd.AddCommand(getBucketsCmd)
-	kadCmd.AddCommand(getBucketCmd)
 	kadCmd.AddCommand(pingNodeCmd)
 	kadCmd.AddCommand(lookupNodeCmd)
 	kadCmd.AddCommand(dumpNodesCmd)

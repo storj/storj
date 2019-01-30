@@ -5,8 +5,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -17,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
@@ -169,16 +168,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	// Create gateways for each satellite
 	for i, satellite := range satellites {
-		accessKey, secretKey := randomKey(), randomKey()
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("gateway/%d", i),
 			Executable: "gateway",
 			Directory:  filepath.Join(configDir, "gateway", fmt.Sprint(i)),
 			Address:    net.JoinHostPort(host, strconv.Itoa(gatewayPort+i)),
-			Extra: []string{
-				"ACCESS_KEY=" + accessKey,
-				"SECRET_KEY=" + secretKey,
-			},
+			Extra:      []string{},
 		})
 
 		// gateway must wait for the corresponding satellite to start up
@@ -199,12 +194,28 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--rs.success-threshold", strconv.Itoa(3 * flags.StorageNodeCount / 5),
 				"--rs.max-threshold", strconv.Itoa(4 * flags.StorageNodeCount / 5),
 			},
-			"run": {
-				// TODO: do not regenerate keys every time, but read from config file instead
-				"--minio.access-key", accessKey,
-				"--minio.secret-key", secretKey,
-			},
+			"run": {},
 		})
+
+		process.ExecBefore["run"] = func(process *Process) error {
+			vip := viper.New()
+			vip.AddConfigPath(process.Directory)
+			if err := vip.ReadInConfig(); err != nil {
+				return err
+			}
+
+			// TODO: maybe all the config flags should be exposed for all processes?
+
+			accessKey := vip.GetString("minio.access-key")
+			secretKey := vip.GetString("minio.secret-key")
+
+			process.Extra = append(process.Extra,
+				"ACCESS_KEY="+accessKey,
+				"SECRET_KEY="+secretKey,
+			)
+
+			return nil
+		}
 	}
 
 	// Create storage nodes
@@ -289,10 +300,4 @@ func identitySetup(network *Processes) (*Processes, error) {
 	}
 
 	return processes, nil
-}
-
-func randomKey() string {
-	var data [10]byte
-	_, _ = rand.Read(data[:])
-	return hex.EncodeToString(data[:])
 }

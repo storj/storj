@@ -71,7 +71,7 @@ func (m *SigningRequest) GetTimestamp() int64 {
 }
 
 type SigningResponse struct {
-	Chain                [][]byte `protobuf:"bytes,1,rep,name=chain" json:"chain,omitempty"`
+	Chain                [][]byte `protobuf:"bytes,1,rep,name=chain,proto3" json:"chain,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

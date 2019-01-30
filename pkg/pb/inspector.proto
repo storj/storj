@@ -12,14 +12,12 @@ package inspector;
 service KadInspector {
   // CountNodes returns the number of nodes in the routing table
   rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
-  // GetBuckets returns the k buckets from a Kademlia instance
-  rpc GetBuckets(GetBucketsRequest) returns (GetBucketsResponse);
-  // GetBucket returns the details of a single k bucket from the kademlia instance
-  rpc GetBucket(GetBucketRequest) returns (GetBucketResponse);
   // PingNodes sends a PING RPC to a node and returns it's availability
   rpc PingNode(PingNodeRequest) returns (PingNodeResponse);
   // LookupNode triggers a Kademlia FindNode and returns the response
   rpc LookupNode(LookupNodeRequest) returns (LookupNodeResponse);
+  // FindNear returns limit number of IDs "near" the Start ID
+  rpc FindNear(FindNearRequest) returns (FindNearResponse);
 }
 
 service OverlayInspector {
@@ -110,4 +108,14 @@ message LookupNodeRequest {
 message LookupNodeResponse {
   node.Node node = 1;
   node.NodeMetadata meta = 2;
+}
+
+message FindNearRequest {
+  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes start = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  int64 limit = 3;
+}
+
+message FindNearResponse {
+  repeated node.Node nodes = 2;
 }
