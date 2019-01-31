@@ -21,6 +21,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -270,7 +271,7 @@ func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	}
 
 	if fc.KeyPath != "" {
-		if err := peertls.WriteKey(&keyData, ca.Key); err != nil {
+		if err := pkcrypto.WriteKey(&keyData, ca.Key); err != nil {
 			writeErrs.Add(err)
 			return writeErrs.Err()
 		}
@@ -356,7 +357,7 @@ func (ca *FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 	if err != nil {
 		return nil, err
 	}
-	leafKey, err := peertls.NewKey()
+	leafKey, err := pkcrypto.GeneratePrivateKey()
 	if err != nil {
 		return nil, err
 	}

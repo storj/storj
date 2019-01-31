@@ -8,13 +8,14 @@ import (
 	"crypto/x509"
 
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 )
 
 // NewCertChain creates a valid peertls certificate chain (and respective keys) of the desired length.
 // NB: keys are in the reverse order compared to certs (i.e. first key belongs to last cert)!
 func NewCertChain(length int) (keys []crypto.PrivateKey, certs []*x509.Certificate, _ error) {
 	for i := 0; i < length; i++ {
-		key, err := peertls.NewKey()
+		key, err := pkcrypto.GeneratePrivateKey()
 		if err != nil {
 			return nil, nil, err
 		}
