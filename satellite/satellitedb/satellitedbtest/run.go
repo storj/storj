@@ -6,9 +6,13 @@ package satellitedbtest
 // This package should be referenced only in test files!
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"flag"
 	"os"
 	"testing"
+
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
@@ -45,18 +49,19 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 				t.Fatal(err)
 			}
 
+			schemaName := randomSchemaName()
+			err := db.SetSchema(schemaName)
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			defer func() {
-				err := db.Close()
+				dropErr := db.DropSchema(schemaName)
+				err := errs.Combine(dropErr, db.Close())
 				if err != nil {
 					t.Fatal(err)
 				}
 			}()
-
-			// TODO: figure out a better way to do this safely
-			err = satellitedb.DROP_ALL_TABLES(db) //nolint ignore warning
-			if err != nil {
-				t.Fatal(err)
-			}
 
 			err = db.CreateTables()
 			if err != nil {
@@ -66,4 +71,10 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 			test(t, db)
 		})
 	}
+}
+
+func randomSchemaName() string {
+	var data [8]byte
+	_, _ = rand.Read(data[:])
+	return "s" + hex.Encode(data[:])
 }
