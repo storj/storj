@@ -97,7 +97,7 @@ func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageN
 	defer mon.Task()(&ctx)(&err)
 	// TODO: ...
 	nodes, err := server.cache.FindStorageNodes(ctx, req, server.preferences) // TODO: use better structs
-	return &pb.FindStorageNodesRequest{
+	return &pb.FindStorageNodesResponse{
 		Nodes: nodes,
 	}, err
 }

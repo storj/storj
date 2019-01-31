@@ -103,13 +103,6 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNod
 	excludedNodes := req.GetOpts().ExcludedNodes
 	requestedCount := int(req.GetOpts().GetAmount())
 
-	minReputation := &pb.NodeStats{
-		AuditCount:        preferences.AuditCount,
-		AuditSuccessRatio: preferences.AuditSuccessRatio,
-		UptimeCount:       preferences.UptimeCount,
-		UptimeRatio:       preferences.UptimeRatio,
-	}
-
 	// TODO: figure out whether this selection logic is correct
 	requestedNodeCount := minimumRequiredNodes
 	if requestedNodeCount <= requestedCount {

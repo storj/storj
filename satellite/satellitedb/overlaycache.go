@@ -37,7 +37,7 @@ func (cache *overlaycache) SelectNodes(ctx context.Context, count int, criteria 
 	)
 }
 
-func (cache *overlaycache) SelectNewNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) []*pb.Node {
+func (cache *overlaycache) SelectNewNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
 	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
 		WHERE node_type == ?
 		  AND free_bandwidth >= ?
@@ -54,7 +54,7 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 		if safeQuery == "" {
 			safeExcludeNodes = `AND`
 		}
-		safeExcludedNodes += ` node_id NOT IN (?` + strings.Repeat(", ?", len(excluded)-1) + `)`
+		safeExcludeNodes += ` node_id NOT IN (?` + strings.Repeat(", ?", len(excluded)-1) + `)`
 	}
 	for i, id := range excluded {
 		args = append(args, id.Bytes())
@@ -65,11 +65,12 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 		audit_uptime_ratio, audit_count, audit_success_count, uptime_count,
 		uptime_success_count
 		FROM overlay_cache_nodes
-	`+safeQuery+safeExcludeNodes, args...))
+	`+safeQuery+safeExcludeNodes), args...)
 	if err != nil {
 		return nil, err
 	}
 
+	var nodes []*pb.Node
 	for rows.Next() {
 		overlayNode := &dbx.OverlayCacheNode{}
 		err = rows.Scan(&overlayNode.NodeId, &overlayNode.NodeType,
