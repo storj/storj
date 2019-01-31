@@ -412,6 +412,13 @@ func (m *locked) CreateTables() error {
 	return m.db.CreateTables()
 }
 
+// DropSchema drops the named schema
+func (m *locked) DropSchema(schema string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DropSchema(schema)
+}
+
 // Irreparable returns database for failed repairs
 func (m *locked) Irreparable() irreparable.DB {
 	m.Lock()
@@ -459,18 +466,18 @@ type lockedOverlayCache struct {
 	db overlay.DB
 }
 
-// FilterNodes looks up nodes based on reputation requirements
-func (m *lockedOverlayCache) FilterNodes(ctx context.Context, req *overlay.FilterNodesRequest) ([]*pb.Node, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.FilterNodes(ctx, req)
-}
-
 // Delete deletes node based on id
 func (m *lockedOverlayCache) Delete(ctx context.Context, id storj.NodeID) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Delete(ctx, id)
+}
+
+// FilterNodes looks up nodes based on reputation requirements
+func (m *lockedOverlayCache) FilterNodes(ctx context.Context, filterNodesRequest *overlay.FilterNodesRequest) ([]*pb.Node, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.FilterNodes(ctx, filterNodesRequest)
 }
 
 // Get looks up the node by nodeID
@@ -547,6 +554,13 @@ func (m *lockedRepairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.Inju
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Peekqueue(ctx, limit)
+}
+
+// SetSchema sets the schema for testings
+func (m *locked) SetSchema(schema string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SetSchema(schema)
 }
 
 // StatDB returns database for storing node statistics
