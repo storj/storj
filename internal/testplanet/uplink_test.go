@@ -4,7 +4,6 @@
 package testplanet_test
 
 import (
-	"bytes"
 	"crypto/rand"
 	"testing"
 	"time"
@@ -37,5 +36,5 @@ func TestUploadDownload(t *testing.T) {
 	data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "test/bucket", "test/path")
 	assert.NoError(t, err)
 
-	assert.Equal(t, true, bytes.Equal(expectedData, data))
+	assert.Equal(t, expectedData, data)
 }

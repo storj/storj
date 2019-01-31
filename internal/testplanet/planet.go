@@ -68,7 +68,7 @@ type Planet struct {
 
 	peers     []Peer
 	databases []io.Closer
-	nodes     []*Uplink
+	uplinks   []*Uplink
 
 	Bootstrap    *bootstrap.Peer
 	Satellites   []*satellite.Peer
@@ -120,7 +120,7 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Uplinks, err = planet.newUplinks("uplink", uplinkCount)
+	planet.Uplinks, err = planet.newUplinks("uplink", uplinkCount, storageNodeCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
@@ -166,7 +166,7 @@ func (planet *Planet) Start(ctx context.Context) {
 }
 
 // Size returns number of nodes in the network
-func (planet *Planet) Size() int { return len(planet.nodes) + len(planet.peers) }
+func (planet *Planet) Size() int { return len(planet.uplinks) + len(planet.peers) }
 
 // Shutdown shuts down all the nodes and deletes temporary directories.
 func (planet *Planet) Shutdown() error {
@@ -177,8 +177,8 @@ func (planet *Planet) Shutdown() error {
 
 	var errlist errs.Group
 	// shutdown in reverse order
-	for i := len(planet.nodes) - 1; i >= 0; i-- {
-		node := planet.nodes[i]
+	for i := len(planet.uplinks) - 1; i >= 0; i-- {
+		node := planet.uplinks[i]
 		errlist.Add(node.Shutdown())
 	}
 	for i := len(planet.peers) - 1; i >= 0; i-- {
@@ -194,10 +194,10 @@ func (planet *Planet) Shutdown() error {
 }
 
 // newUplinks creates initializes uplinks
-func (planet *Planet) newUplinks(prefix string, count int) ([]*Uplink, error) {
+func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]*Uplink, error) {
 	var xs []*Uplink
 	for i := 0; i < count; i++ {
-		uplink, err := planet.newUplink(prefix + strconv.Itoa(i))
+		uplink, err := planet.newUplink(prefix+strconv.Itoa(i), storageNodeCount)
 		if err != nil {
 			return nil, err
 		}

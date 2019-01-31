@@ -37,11 +37,11 @@ type Uplink struct {
 	Info             pb.Node
 	Identity         *identity.FullIdentity
 	Transport        transport.Client
-	storageNodeCount int
+	StorageNodeCount int
 }
 
 // newUplink creates a new uplink
-func (planet *Planet) newUplink(name string) (*Uplink, error) {
+func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, error) {
 	identity, err := planet.NewIdentity()
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func (planet *Planet) newUplink(name string) (*Uplink, error) {
 	uplink := &Uplink{
 		Log:              planet.log.Named(name),
 		Identity:         identity,
-		storageNodeCount: len(planet.StorageNodes),
+		StorageNodeCount: storageNodeCount,
 	}
 
 	uplink.Log.Debug("id=" + identity.ID.String())
@@ -66,7 +66,7 @@ func (planet *Planet) newUplink(name string) (*Uplink, error) {
 		},
 	}
 
-	planet.nodes = append(planet.nodes, uplink)
+	planet.uplinks = append(planet.uplinks, uplink)
 
 	return uplink, nil
 }
@@ -246,16 +246,16 @@ func (uplink *Uplink) getMetainfo(satellite *satellite.Peer) (db storj.Metainfo,
 func (uplink *Uplink) getRedundancyScheme() storj.RedundancyScheme {
 	return storj.RedundancyScheme{
 		Algorithm:      storj.ReedSolomon,
-		RequiredShares: int16(1 * uplink.storageNodeCount / 5),
-		RepairShares:   int16(2 * uplink.storageNodeCount / 5),
-		OptimalShares:  int16(3 * uplink.storageNodeCount / 5),
-		TotalShares:    int16(4 * uplink.storageNodeCount / 5),
+		RequiredShares: int16(1 * uplink.StorageNodeCount / 5),
+		RepairShares:   int16(2 * uplink.StorageNodeCount / 5),
+		OptimalShares:  int16(3 * uplink.StorageNodeCount / 5),
+		TotalShares:    int16(4 * uplink.StorageNodeCount / 5),
 	}
 }
 
 func (uplink *Uplink) getEncryptionScheme() storj.EncryptionScheme {
 	return storj.EncryptionScheme{
 		Cipher:    storj.Cipher(1),
-		BlockSize: int32(1 * memory.KB),
+		BlockSize: 1 * memory.KB.Int32(),
 	}
 }
