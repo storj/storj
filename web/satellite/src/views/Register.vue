@@ -69,6 +69,7 @@
         </div>
 
         <img class="layout-image" src="../../static/images/register/RegisterImage.svg"/>
+        <!--<RegistrationSuccessPopup />-->
     </div>
 </template>
 
@@ -77,6 +78,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
 import Button from '@/components/common/Button.vue';
+import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup';
 import { validateEmail, validatePassword } from '@/utils/validation';
 import ROUTES from '../utils/constants/routerConstants';
 import { NOTIFICATION_ACTIONS } from '../utils/constants/actionNames';
@@ -177,7 +179,8 @@ import { createUserRequest } from '@/api/users';
         components: {
             HeaderedInput,
             Checkbox,
-            Button
+            Button,
+            RegistrationSuccessPopup
         }
     })
 

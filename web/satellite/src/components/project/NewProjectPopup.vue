@@ -21,6 +21,7 @@
                 <HeaderedInput
                     label="Description"
                     placeholder="Enter Project Description"
+                    additional-label="Optional"
                     class="full-input"
                     isMultiline
                     height="100px"
