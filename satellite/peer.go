@@ -248,7 +248,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 	{ // setup overlay
 		config := config.Overlay
-		peer.Overlay.Service = overlay.NewCache(peer.DB.OverlayCache(), peer.DB.StatDB())
+		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay:cache"), peer.DB.OverlayCache(), peer.DB.StatDB())
 
 		nodeSelectionConfig := &overlay.NodeSelectionConfig{
 			UptimeCount:           config.Node.UptimeCount,

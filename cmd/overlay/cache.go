@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/satellite/satellitedb"
@@ -30,5 +31,5 @@ func (c cacheConfig) open(ctx context.Context) (cache *overlay.Cache, dbClose fu
 		}
 	}
 
-	return overlay.NewCache(database.OverlayCache(), database.StatDB()), dbClose, nil
+	return overlay.NewCache(zap.L(), database.OverlayCache(), database.StatDB()), dbClose, nil
 }

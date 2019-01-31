@@ -55,13 +55,14 @@ type DB interface {
 
 // Cache is used to store overlay data in Redis
 type Cache struct {
+	log    *zap.Logger
 	db     DB
 	statDB statdb.DB
 }
 
 // NewCache returns a new Cache
-func NewCache(db DB, sdb statdb.DB) *Cache {
-	return &Cache{db: db, statDB: sdb}
+func NewCache(log *zap.Logger, db DB, sdb statdb.DB) *Cache {
+	return &Cache{log: log, db: db, statDB: sdb}
 }
 
 // Close closes resources
@@ -111,6 +112,8 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if nodeID != value.Id {
 		return errors.New("invalid request")
 	}
+
+	cache.log.Debug("Putting node", zap.String("ID", nodeID.String()), zap.String("Address", value.Address.Address))
 
 	// get existing node rep, or create a new statdb node with 0 rep
 	stats, err := cache.statDB.CreateEntryIfNotExists(ctx, nodeID)

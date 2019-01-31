@@ -103,7 +103,7 @@ func (rt *RoutingTable) Close() error {
 	return nil
 }
 
-// Local returns the local nodes ID
+// Local returns the local node ID
 func (rt *RoutingTable) Local() pb.Node {
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
