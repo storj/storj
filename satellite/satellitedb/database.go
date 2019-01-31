@@ -57,7 +57,7 @@ func NewInMemory() (satellite.DB, error) {
 	return New("sqlite3://file::memory:?mode=memory")
 }
 
-// SetSchema sets the schema for testings
+// SetSchema sets the schema
 func (db *DB) SetSchema(schema string) error {
 	switch db.driver {
 	case "postgres":

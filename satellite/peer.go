@@ -52,9 +52,9 @@ type DB interface {
 	// Close closes the database
 	Close() error
 
-	// SetSchema sets the schema for testings
+	// SetSchema sets the schema
 	SetSchema(schema string) error
-	// DropSchema drops the named schema
+	// DropSchema drops the schema
 	DropSchema(schema string) error
 
 	// BandwidthAgreement returns database for storing bandwidth agreements

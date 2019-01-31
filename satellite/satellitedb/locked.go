@@ -412,7 +412,7 @@ func (m *locked) CreateTables() error {
 	return m.db.CreateTables()
 }
 
-// DropSchema drops the named schema
+// DropSchema drops the schema
 func (m *locked) DropSchema(schema string) error {
 	m.Lock()
 	defer m.Unlock()
@@ -556,7 +556,7 @@ func (m *lockedRepairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.Inju
 	return m.db.Peekqueue(ctx, limit)
 }
 
-// SetSchema sets the schema for testings
+// SetSchema sets the schema
 func (m *locked) SetSchema(schema string) error {
 	m.Lock()
 	defer m.Unlock()
