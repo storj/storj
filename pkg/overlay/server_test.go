@@ -91,18 +91,9 @@ func TestNodeSelection(t *testing.T) {
 	type test struct {
 		Preferences   overlay.NodeSelectionConfig
 		ExcludeCount  int
-		RequestCount  int
+		RequestCount  int64
 		ExpectedCount int
 		ShouldFail    bool
-	}
-
-	nodeSelectionConfig := &overlay.NodeSelectionConfig{
-		UptimeCount:           0,
-		UptimeRatio:           0,
-		AuditSuccessRatio:     0,
-		AuditCount:            0,
-		NewNodeAuditThreshold: tt.newNodeAuditThreshold,
-		NewNodePercentage:     tt.newNodePercentage,
 	}
 
 	for i, tt := range []test{
@@ -203,8 +194,8 @@ func TestNodeSelection(t *testing.T) {
 		service := planet.Satellites[0].Overlay.Service
 
 		var excludedNodes []storj.NodeID
-		for _, storageNode := range planet.StorageNodes[:tt.excludedAmt] {
-			excludedNoddes = append(excludedNodes, storageNode.ID())
+		for _, storageNode := range planet.StorageNodes[:tt.ExcludeCount] {
+			excludedNodes = append(excludedNodes, storageNode.ID())
 		}
 
 		result, err := service.FindStorageNodes(ctx,
@@ -214,7 +205,7 @@ func TestNodeSelection(t *testing.T) {
 						FreeBandwidth: 0,
 						FreeDisk:      0,
 					},
-					Amount:        tt.requestedNodeAmt,
+					Amount:        tt.RequestCount,
 					ExcludedNodes: excludedNodes,
 				},
 			}, &tt.Preferences)

@@ -56,7 +56,7 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 		}
 		safeExcludeNodes += ` node_id NOT IN (?` + strings.Repeat(", ?", len(excluded)-1) + `)`
 	}
-	for i, id := range excluded {
+	for _, id := range excluded {
 		args = append(args, id.Bytes())
 	}
 
