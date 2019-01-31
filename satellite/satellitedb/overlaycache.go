@@ -25,9 +25,7 @@ type overlaycache struct {
 
 func (cache *overlaycache) SelectNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
-		WHERE node_type == ?
-		  AND free_bandwidth >= ?
-		  AND free_disk >= ?
+		WHERE node_type == ? AND free_bandwidth >= ? AND free_disk >= ?
 		  AND audit_count >= ?
 		  AND audit_success_ratio >= ?
 		  AND uptime_count >= ?
@@ -39,9 +37,7 @@ func (cache *overlaycache) SelectNodes(ctx context.Context, count int, criteria 
 
 func (cache *overlaycache) SelectNewNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
 	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
-		WHERE node_type == ?
-		  AND free_bandwidth >= ?
-		  AND free_disk >= ?
+		WHERE node_type == ? AND free_bandwidth >= ? AND free_disk >= ?
 		  AND audit_count < ?
 	`, int64(criteria.Type), criteria.FreeBandwidth, criteria.FreeDisk,
 		criteria.AuditThreshold,
@@ -49,6 +45,10 @@ func (cache *overlaycache) SelectNewNodes(ctx context.Context, count int, criter
 }
 
 func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []storj.NodeID, count int, safeQuery string, args ...interface{}) ([]*pb.Node, error) {
+	if count == 0 {
+		return nil, nil
+	}
+
 	safeExcludeNodes := ""
 	if len(excluded) > 0 {
 		if safeQuery == "" {
@@ -59,13 +59,14 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 	for _, id := range excluded {
 		args = append(args, id.Bytes())
 	}
+	args = append(args, count)
 
 	rows, err := cache.db.Query(cache.db.Rebind(`SELECT node_id,
 		node_type, address, free_bandwidth, free_disk, audit_success_ratio,
 		audit_uptime_ratio, audit_count, audit_success_count, uptime_count,
 		uptime_success_count
 		FROM overlay_cache_nodes
-	`+safeQuery+safeExcludeNodes), args...)
+	`+safeQuery+safeExcludeNodes+` LIMIT ?`), args...)
 	if err != nil {
 		return nil, err
 	}

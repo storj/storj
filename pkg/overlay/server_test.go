@@ -190,7 +190,7 @@ func TestNodeSelection(t *testing.T) {
 			ShouldFail:    true,
 		},
 	} {
-		name := fmt.Sprintf("%d. %+v", i, tt)
+		name := fmt.Sprintf("#%d. %+v", i, tt)
 		service := planet.Satellites[0].Overlay.Service
 
 		var excludedNodes []storj.NodeID
