@@ -66,6 +66,7 @@ type Config struct {
 	StorageNodeCount int
 	UplinkCount      int
 
+	Identities  *Identities
 	Reconfigure Reconfigure
 }
 
@@ -119,10 +120,14 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 // NewCustom creates a new full system with the given number of nodes.
 func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
+	if config.Identities == nil {
+		config.Identities = pregeneratedIdentities
+	}
+
 	planet := &Planet{
 		log:        log,
 		config:     config,
-		identities: NewPregeneratedIdentities(),
+		identities: config.Identities,
 	}
 
 	var err error
@@ -492,6 +497,11 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 	log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
 
 	return peer, nil
+}
+
+// Identities returns the identity provider for this planet.
+func (planet *Planet) Identities() *Identities {
+	return planet.identities
 }
 
 // NewIdentity creates a new identity for a node

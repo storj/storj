@@ -33,6 +33,7 @@ func TestMergePlanets(t *testing.T) {
 	beta, err := testplanet.NewCustom(log.Named("B"), testplanet.Config{
 		SatelliteCount:   2,
 		StorageNodeCount: 5,
+		Identities:       alpha.Identities(),
 		Reconfigure: testplanet.Reconfigure{
 			Bootstrap: func(planet *testplanet.Planet, index int, config *bootstrap.Config) {
 				config.Kademlia.BootstrapAddr = alpha.Bootstrap.Addr()
@@ -48,7 +49,7 @@ func TestMergePlanets(t *testing.T) {
 	beta.Start(ctx)
 
 	// wait until everyone is reachable or fail
-	time.Sleep(10 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	satellites := []*satellite.Peer{}
 	satellites = append(satellites, alpha.Satellites...)
