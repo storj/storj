@@ -116,6 +116,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			if err != nil {
 				fmt.Println(err.Error())
 			}
+			assert.Error(t, err)
 			assert.True(t, auth.ErrSerial.Has(err), err)
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
