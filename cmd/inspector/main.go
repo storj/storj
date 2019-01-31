@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
@@ -110,7 +109,7 @@ var (
 
 // Inspector gives access to kademlia and overlay cache
 type Inspector struct {
-	identity      *provider.FullIdentity
+	identity      *identity.FullIdentity
 	kadclient     pb.KadInspectorClient
 	overlayclient pb.OverlayInspectorClient
 	statdbclient  pb.StatDBInspectorClient

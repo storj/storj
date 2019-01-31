@@ -3,8 +3,8 @@
 
 <template>
     <div class="user-container">
-        <div class="user-container__avatar">
-            <h1>{{projectMember.user.firstName.slice(0,1)}}</h1>
+        <div class="user-container__avatar" :style="avatarData.style">
+            <h1>{{avatarData.letter}}</h1>
         </div>
         <p class="user-container__user-name">{{userInfo.fullName}}</p>
         <p class="user-container__user-email">{{userInfo.email}}</p>
@@ -14,6 +14,7 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import { getColor } from '@/utils/avatarColorManager';
 
 @Component({
     props: {
@@ -35,6 +36,18 @@ import { Component, Vue } from 'vue-property-decorator';
 
             return { fullName, email };
         },
+        avatarData: function (): object {
+            const letter = this.$props.projectMember.user.firstName.slice(0, 1).toLocaleUpperCase();
+
+            const style = {
+                background: getColor(letter)
+            };
+
+            return {
+                letter,
+                style
+            };
+        }
     }
 })
 
@@ -51,7 +64,6 @@ export default class TeamMemberItem extends Vue {
         border-radius: 6px;
         height: 180px;
         background-color: #fff;
-        margin-bottom: 24px;
         padding: 30px 0;
         cursor: pointer;
         transition: box-shadow .2s ease-out;

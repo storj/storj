@@ -47,6 +47,8 @@ export default class HeaderArea extends Vue {
 <style scoped lang="scss">
     .api-keys-header-container {
 
+        margin-bottom: 4px;
+
         &__item {
             display: flex;
             align-items: center;
