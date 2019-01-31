@@ -29,7 +29,7 @@ const (
 	committedPrefix = "l/"
 )
 
-var defaultRS = storj.RedundancyScheme{
+var DefaultRS = storj.RedundancyScheme{
 	Algorithm:      storj.ReedSolomon,
 	RequiredShares: 20,
 	RepairShares:   30,
@@ -38,7 +38,7 @@ var defaultRS = storj.RedundancyScheme{
 	ShareSize:      1 * memory.KB.Int32(),
 }
 
-var defaultES = storj.EncryptionScheme{
+var DefaultES = storj.EncryptionScheme{
 	Cipher:    storj.AESGCM,
 	BlockSize: 1 * memory.KB.Int32(),
 }
@@ -104,12 +104,12 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 	// if info.ContentType == "" {}
 
 	if info.RedundancyScheme.IsZero() {
-		info.RedundancyScheme = defaultRS
+		info.RedundancyScheme = DefaultRS
 	}
 
 	if info.EncryptionScheme.IsZero() {
 		info.EncryptionScheme = storj.EncryptionScheme{
-			Cipher:    defaultES.Cipher,
+			Cipher:    DefaultES.Cipher,
 			BlockSize: info.RedundancyScheme.ShareSize,
 		}
 	}
