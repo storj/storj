@@ -5,17 +5,12 @@ package overlay
 
 import (
 	"context"
-	"database/sql"
 	"errors"
-	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -41,9 +36,9 @@ var OverlayError = errs.Class("Overlay Error")
 // DB implements the database for overlay.Cache
 type DB interface {
 	// SelectNodes looks up nodes based on criteria
-	SelectNodes(ctx context.Context, criteria *NodeCriteria) ([]*pb.Node, error)
+	SelectNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*pb.Node, error)
 	// SelectNewNodes looks up nodes based on new node criteria
-	SelectNewNodes(ctx context.Context, count int, criteria *NewNodeCriteria) (*sql.Rows, error)
+	SelectNewNodes(ctx context.Context, count int, criteria *NewNodeCriteria) ([]*pb.Node, error)
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error)
@@ -100,92 +95,85 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, err
 	return cache.db.Get(ctx, nodeID)
 }
 
-type getNodesRequest struct {
-	minReputation         *pb.NodeStats
-	freeBandwidth         int64
-	freeDisk              int64
-	excluded              []pb.NodeID
-	reputableNodeAmount   int64
-	newNodeAmount         int64
-	newNodeAuditThreshold int64
-}
-
 // FindStorageNodes searches the overlay network for nodes that meet the provided criteria
 func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest, preferences *NodeSelectionConfig) ([]*pb.Node, error) {
-	minStats := &pb.NodeStats{
-		AuditCount:        server.nodeSelectionConfig.AuditCount,
-		AuditSuccessRatio: server.nodeSelectionConfig.AuditSuccessRatio,
-		UptimeCount:       server.nodeSelectionConfig.UptimeCount,
-		UptimeRatio:       server.nodeSelectionConfig.UptimeRatio,
+	minimumRequiredNodes := int(req.GetMinNodes())
+	freeBandwidth := req.GetOpts().GetRestrictions().FreeBandwidth
+	freeDisk := req.GetOpts().GetRestrictions().FreeDisk
+	excludedNodes := req.GetOpts().ExcludedNodes
+	requestedCount := int(req.GetOpts().GetAmount())
+
+	minReputation := &pb.NodeStats{
+		AuditCount:        preferences.AuditCount,
+		AuditSuccessRatio: preferences.AuditSuccessRatio,
+		UptimeCount:       preferences.UptimeCount,
+		UptimeRatio:       preferences.UptimeRatio,
 	}
 
-	filterNodesReq := &FilterNodesRequest{
-		MinReputation:         minStats,
-		MinNodes:              req.GetMinNodes(),
-		Opts:                  req.GetOpts(),
-		NewNodePercentage:     server.nodeSelectionConfig.NewNodePercentage,
-		NewNodeAuditThreshold: server.nodeSelectionConfig.NewNodeAuditThreshold,
+	// TODO: figure out whether this selection logic is correct
+	requestedNodeCount := minimumRequiredNodes
+	if requestedNodeCount <= requestedCount {
+		requestedNodeCount = requestedCount
 	}
 
-	foundNodes, err := server.cache.db.FilterNodes(ctx, filterNodesReq)
+	// TODO: add sanity limits to requested node count
+	// TODO: add sanity limits to excluded nodes
 
-	reputableNodeAmount := req.MinNodes
-	if reputableNodeAmount <= 0 {
-		reputableNodeAmount = req.Opts.GetAmount()
-	}
+	// first get some number of new nodes
 
-	getReputableReq := &getNodesRequest{
-		minReputation:         req.MinReputation,
-		freeBandwidth:         req.Opts.GetRestrictions().FreeBandwidth,
-		freeDisk:              req.Opts.GetRestrictions().FreeDisk,
-		excluded:              req.Opts.ExcludedNodes,
-		reputableNodeAmount:   reputableNodeAmount,
-		newNodeAuditThreshold: req.NewNodeAuditThreshold,
-	}
+	// TODO: figure out whether this is needed
+	// auditCount := req.minReputation.AuditCount
+	// if req.newNodeAuditThreshold > auditCount {
+	// 	auditCount = req.newNodeAuditThreshold
+	// }
 
-	reputableNodes, err := cache.getReputableNodes(ctx, getReputableReq)
+	newNodeCount := int64(float64(requestedNodeCount) * preferences.NewNodePercentage)
+	newNodes, err := cache.db.SelectNewNodes(ctx, int(newNodeCount), &NewNodeCriteria{
+		Type: pb.NodeType_STORAGE,
+
+		FreeBandwidth: freeBandwidth,
+		FreeDisk:      freeDisk,
+
+		AuditThreshold: preferences.NewNodeAuditThreshold,
+
+		Excluded: excludedNodes,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	newNodeAmount := int64(float64(reputableNodeAmount) * req.NewNodePercentage)
+	// get the rest as reputable nodes
+	reputableNodeCount := requestedNodeCount - len(newNodes)
+	reputableNodes, err := cache.db.SelectNodes(ctx, reputableNodeCount, &NodeCriteria{
+		Type: pb.NodeType_STORAGE,
 
-	getNewReq := &getNodesRequest{
-		freeBandwidth:         req.Opts.GetRestrictions().FreeBandwidth,
-		freeDisk:              req.Opts.GetRestrictions().FreeDisk,
-		excluded:              req.Opts.ExcludedNodes,
-		newNodeAmount:         newNodeAmount,
-		newNodeAuditThreshold: req.NewNodeAuditThreshold,
-	}
+		FreeBandwidth: freeBandwidth,
+		FreeDisk:      freeDisk,
 
-	newNodes, err := cache.getNewNodes(ctx, getNewReq)
+		AuditCount:         preferences.AuditCount,
+		AuditSuccessRatio:  preferences.AuditSuccessRatio,
+		UptimeCount:        preferences.UptimeCount,
+		UptimeSuccessRatio: preferences.UptimeRatio,
+
+		Excluded: excludedNodes,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	var allNodes []*pb.Node
-	allNodes = append(allNodes, reputableNodes...)
-	allNodes = append(allNodes, newNodes...)
+	// TODO: check whether we have enough nodes
+	// if int64(len(reputableNodes)) < reputableNodeAmount {
+	// 	err := status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d reputable nodes, only %d reputable nodes matched the criteria requested",
+	// 		reputableNodeAmount, len(reputableNodes)))
+	// 	return allNodes, err
+	// }
+	// return allNodes, nil
 
-	if int64(len(reputableNodes)) < reputableNodeAmount {
-		err := status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d reputable nodes, only %d reputable nodes matched the criteria requested",
-			reputableNodeAmount, len(reputableNodes)))
-		return allNodes, err
-	}
+	nodes := []*pb.Node{}
+	nodes = append(nodes, newNodes...)
+	nodes = append(nodes, reputableNodes...)
 
-	return allNodes, nil
-}
-
-func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *getNodesRequest) (*sql.Rows, error) {
-	auditCount := req.minReputation.AuditCount
-	if req.newNodeAuditThreshold > auditCount {
-		auditCount = req.newNodeAuditThreshold
-	}
-	auditSuccessRatio := req.minReputation.AuditSuccessRatio
-	uptimeCount := req.minReputation.UptimeCount
-	uptimeRatio := req.minReputation.UptimeRatio
-	nodeAmt := req.reputableNodeAmount
-	// ...
+	return nodes, nil
 }
 
 // GetAll looks up the provided ids from the overlay cache

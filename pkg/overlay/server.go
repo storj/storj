@@ -73,9 +73,9 @@ type NodeCriteria struct {
 	FreeDisk      int64
 
 	AuditCount         int64
-	AuditSuccessRatio  int64
+	AuditSuccessRatio  float64
 	UptimeCount        int64
-	UptimeSuccessRatio int64
+	UptimeSuccessRatio float64
 
 	Excluded []storj.NodeID
 }

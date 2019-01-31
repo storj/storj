@@ -23,26 +23,29 @@ type overlaycache struct {
 	db *dbx.DB
 }
 
-func (cache *overlaycache) SelectNodes(ctx context.Context, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
+func (cache *overlaycache) SelectNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
-		WHERE audit_count >= ?
+		WHERE node_type == ?
+		  AND free_bandwidth >= ?
+		  AND free_disk >= ?
+		  AND audit_count >= ?
 		  AND audit_success_ratio >= ?
 		  AND uptime_count >= ?
 		  AND audit_uptime_ratio >= ?
-		  AND free_bandwidth >= ?
-		  AND free_disk >= ?
-		  AND node_type == ?
-		`, criteria.AuditCount, criteria.AuditSuccessRatio, criteria.UptimeCount, criteria.UptimeSuccessRatio,
-		criteria.FreeBandwidth, criteria.FreeDisk, int64(criteria.Type))
+		`, int64(criteria.Type), criteria.FreeBandwidth, criteria.FreeDisk,
+		criteria.AuditCount, criteria.AuditSuccessRatio, criteria.UptimeCount, criteria.UptimeSuccessRatio,
+	)
 }
 
-func (cache *overlaycache) SelectNewNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) (*sql.Rows, error) {
+func (cache *overlaycache) SelectNewNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) []*pb.Node {
 	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
-		WHERE audit_count < ?
+		WHERE node_type == ?
 		  AND free_bandwidth >= ?
 		  AND free_disk >= ?
-		  AND node_type == ?
-	`, criteria.AuditThreshold, criteria.FreeBandwidth, criteria.FreeDisk, int64(criteria.Type))
+		  AND audit_count < ?
+	`, int64(criteria.Type), criteria.FreeBandwidth, criteria.FreeDisk,
+		criteria.AuditThreshold,
+	)
 }
 
 func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []storj.NodeID, count int, safeQuery string, args ...interface{}) ([]*pb.Node, error) {
