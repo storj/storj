@@ -29,6 +29,7 @@ const (
 	committedPrefix = "l/"
 )
 
+// DefaultRS default values for RedundancyScheme
 var DefaultRS = storj.RedundancyScheme{
 	Algorithm:      storj.ReedSolomon,
 	RequiredShares: 20,
@@ -38,6 +39,7 @@ var DefaultRS = storj.RedundancyScheme{
 	ShareSize:      1 * memory.KB.Int32(),
 }
 
+// DefaultES default values for EncryptionScheme
 var DefaultES = storj.EncryptionScheme{
 	Cipher:    storj.AESGCM,
 	BlockSize: 1 * memory.KB.Int32(),
