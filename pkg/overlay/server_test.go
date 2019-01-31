@@ -4,7 +4,6 @@
 package overlay_test
 
 import (
-	"strconv"
 	"testing"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 func TestServer(t *testing.T) {
@@ -99,49 +99,49 @@ func TestNodeSelection(t *testing.T) {
 		notEnoughRepNodes     bool
 	}{
 		{
-			name:                  "case: all reputable nodes, only reputable nodes requested",
+			name:                  "all reputable nodes, only reputable nodes requested",
 			newNodeAuditThreshold: 0,
 			newNodePercentage:     0,
 			requestedNodeAmt:      5,
 			expectedResultLength:  5,
 		},
 		{
-			name:                  "case: all reputable nodes, reputable and new nodes requested",
+			name:                  "all reputable nodes, reputable and new nodes requested",
 			newNodeAuditThreshold: 0,
 			newNodePercentage:     1,
 			requestedNodeAmt:      5,
 			expectedResultLength:  5,
 		},
 		{
-			name:                  "case: all reputable nodes except one, reputable and new nodes requested",
+			name:                  "all reputable nodes except one, reputable and new nodes requested",
 			newNodeAuditThreshold: 1,
 			newNodePercentage:     1,
 			requestedNodeAmt:      5,
 			expectedResultLength:  6,
 		},
 		{
-			name:                  "case: 50-50 reputable and new nodes, reputable and new nodes requested (new node % 1)",
+			name:                  "50-50 reputable and new nodes, reputable and new nodes requested (new node % 1)",
 			newNodeAuditThreshold: 5,
 			newNodePercentage:     1,
 			requestedNodeAmt:      2,
 			expectedResultLength:  4,
 		},
 		{
-			name:                  "case: 50-50 reputable and new nodes, reputable and new nodes requested (new node % .5)",
+			name:                  "50-50 reputable and new nodes, reputable and new nodes requested (new node % .5)",
 			newNodeAuditThreshold: 5,
 			newNodePercentage:     0.5,
 			requestedNodeAmt:      4,
 			expectedResultLength:  6,
 		},
 		{
-			name:                  "case: all new nodes except one, reputable and new nodes requested (happy path)",
+			name:                  "all new nodes except one, reputable and new nodes requested (happy path)",
 			newNodeAuditThreshold: 8,
 			newNodePercentage:     1,
 			requestedNodeAmt:      1,
 			expectedResultLength:  2,
 		},
 		{
-			name:                  "case: all new nodes except one, reputable and new nodes requested (not happy path)",
+			name:                  "all new nodes except one, reputable and new nodes requested (not happy path)",
 			newNodeAuditThreshold: 9,
 			newNodePercentage:     1,
 			requestedNodeAmt:      2,
@@ -149,7 +149,7 @@ func TestNodeSelection(t *testing.T) {
 			notEnoughRepNodes:     true,
 		},
 		{
-			name:                  "case: all new nodes, reputable and new nodes requested",
+			name:                  "all new nodes, reputable and new nodes requested",
 			newNodeAuditThreshold: 50,
 			newNodePercentage:     1,
 			requestedNodeAmt:      2,
@@ -157,21 +157,21 @@ func TestNodeSelection(t *testing.T) {
 			notEnoughRepNodes:     true,
 		},
 		{
-			name:                  "case: audit threshold edge case (1)",
+			name:                  "audit threshold edge case (1)",
 			newNodeAuditThreshold: 9,
 			newNodePercentage:     0,
 			requestedNodeAmt:      1,
 			expectedResultLength:  1,
 		},
 		{
-			name:                  "case: audit threshold edge case (2)",
+			name:                  "audit threshold edge case (2)",
 			newNodeAuditThreshold: 0,
 			newNodePercentage:     1,
 			requestedNodeAmt:      1,
 			expectedResultLength:  1,
 		},
 		{
-			name:                  "case: excluded node ids being excluded",
+			name:                  "excluded node ids being excluded",
 			excludedAmt:           7,
 			newNodeAuditThreshold: 5,
 			newNodePercentage:     0,
@@ -192,22 +192,9 @@ func TestNodeSelection(t *testing.T) {
 
 		server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay.Service, nodeSelectionConfig)
 
-		var excludedNodes []pb.NodeID
-
-		for i := range planet.StorageNodes {
-			address := "127.0.0.1:555" + strconv.Itoa(i)
-
-			n := &pb.Node{
-				Id:      planet.StorageNodes[i].ID(),
-				Address: &pb.NodeAddress{Address: address},
-			}
-
-			if tt.excludedAmt != 0 && i < tt.excludedAmt {
-				excludedNodes = append(excludedNodes, n.Id)
-			}
-
-			err = satellite.Overlay.Service.Put(ctx, n.Id, *n)
-			assert.NoError(t, err, tt.name)
+		var excludedNodes []storj.NodeID
+		for _, storageNode := range planet.StorageNodes[:tt.excludedAmt] {
+			excludedNoddes = append(excludedNodes, storageNode.ID())
 		}
 
 		result, err := server.FindStorageNodes(ctx,
