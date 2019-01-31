@@ -87,7 +87,7 @@ func DROP_ALL_TABLES(dbAny satellite.DB) (err error) { //nolint: ignore all caps
 				return err
 			}
 
-			_, err = db.db.Exec(`drop table '` + tablename + `' cascade;`)
+			_, err = db.db.Exec(`drop table "` + tablename + `" cascade;`)
 			if err != nil {
 				return err
 			}
