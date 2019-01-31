@@ -412,6 +412,13 @@ func (m *locked) CreateTables() error {
 	return m.db.CreateTables()
 }
 
+// DropSchema drops the schema
+func (m *locked) DropSchema(schema string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DropSchema(schema)
+}
+
 // Irreparable returns database for failed repairs
 func (m *locked) Irreparable() irreparable.DB {
 	m.Lock()
@@ -554,6 +561,13 @@ func (m *lockedRepairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.Inju
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Peekqueue(ctx, limit)
+}
+
+// SetSchema sets the schema
+func (m *locked) SetSchema(schema string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SetSchema(schema)
 }
 
 // StatDB returns database for storing node statistics
