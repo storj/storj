@@ -51,14 +51,14 @@ func TestMergePlanets(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 
-	test := func(tag string, satellites []*satellite.Peer, storagenodes []*storagenode.Peer) string {
+	test := func(tag string, satellites []*satellite.Peer, storageNodes []*storagenode.Peer) string {
 		found, missing := 0, 0
 		for _, satellite := range satellites {
-			for _, storagenode := range storagenodes {
-				node, err := satellite.Overlay.Service.Get(ctx, storagenode.ID())
+			for _, storageNode := range storageNodes {
+				node, err := satellite.Overlay.Service.Get(ctx, storageNode.ID())
 				if assert.NoError(t, err, tag) {
 					found++
-					assert.Equal(t, storagenode.Addr(), node.Address.Address, tag)
+					assert.Equal(t, storageNode.Addr(), node.Address.Address, tag)
 				} else {
 					missing++
 				}

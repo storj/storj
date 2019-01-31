@@ -158,11 +158,15 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 
 	// init Satellites
 	for _, satellite := range planet.Satellites {
-		satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+		if len(satellite.Kademlia.Service.GetBootstrapNodes()) == 0 {
+			satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+		}
 	}
 	// init storage nodes
 	for _, storageNode := range planet.StorageNodes {
-		storageNode.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+		if len(storageNode.Kademlia.Service.GetBootstrapNodes()) == 0 {
+			storageNode.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+		}
 	}
 
 	return planet, nil
