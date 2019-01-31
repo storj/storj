@@ -110,6 +110,9 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNod
 
 	// TODO: this logic looks wrong
 
+	// TODO: add sanity limits to requested node count
+	// TODO: add sanity limits to excluded nodes
+
 	reputableNodeCount := minimumRequiredNodes
 	if reputableNodeCount <= 0 {
 		reputableNodeCount = requestedCount
