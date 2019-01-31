@@ -321,7 +321,7 @@ func runTest(t *testing.T, test func(context.Context, *kvmetainfo.DB, buckets.St
 
 	planet.Start(ctx)
 
-	db, buckets, streams, err := newDB(planet)
+	db, buckets, streams, err := newMetainfoParts(planet)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -329,7 +329,7 @@ func runTest(t *testing.T, test func(context.Context, *kvmetainfo.DB, buckets.St
 	test(ctx, db, buckets, streams)
 }
 
-func newDB(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store, streams.Store, error) {
+func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
 	err := flag.Set("pointer-db.auth.api-key", TestAPIKey)
 	if err != nil {
