@@ -28,7 +28,8 @@ var (
 
 // DB contains access to different database tables
 type DB struct {
-	db *dbx.DB
+	db     *dbx.DB
+	driver string
 }
 
 // New creates instance of database (supports: postgres, sqlite3)
@@ -44,7 +45,7 @@ func New(databaseURL string) (satellite.DB, error) {
 			driver, source, err)
 	}
 
-	core := &DB{db: db}
+	core := &DB{db: db, driver: driver}
 	if driver == "sqlite3" {
 		return newLocked(core), nil
 	}
@@ -54,6 +55,27 @@ func New(databaseURL string) (satellite.DB, error) {
 // NewInMemory creates instance of Sqlite in memory satellite database
 func NewInMemory() (satellite.DB, error) {
 	return New("sqlite3://file::memory:?mode=memory")
+}
+
+// SetSchema sets the schema
+func (db *DB) SetSchema(schema string) error {
+	switch db.driver {
+	case "postgres":
+		// TODO: proper escaping
+		_, err := db.db.Exec("create schema " + schema + "; set search_path to " + schema + ";")
+		return err
+	}
+	return nil
+}
+
+// DropSchema drops the named schema
+func (db *DB) DropSchema(schema string) error {
+	switch db.driver {
+	case "postgres":
+		_, err := db.db.Exec("drop schema " + schema + " cascade;")
+		return err
+	}
+	return nil
 }
 
 // BandwidthAgreement is a getter for bandwidth agreement repository
