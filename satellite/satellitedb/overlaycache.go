@@ -30,7 +30,7 @@ func (cache *overlaycache) SelectNodes(ctx context.Context, count int, criteria 
 		  AND audit_success_ratio >= ?
 		  AND uptime_count >= ?
 		  AND audit_uptime_ratio >= ?
-		`, int64(criteria.Type), criteria.FreeBandwidth, criteria.FreeDisk,
+		`, int(criteria.Type), criteria.FreeBandwidth, criteria.FreeDisk,
 		criteria.AuditCount, criteria.AuditSuccessRatio, criteria.UptimeCount, criteria.UptimeSuccessRatio,
 	)
 }
@@ -39,12 +39,12 @@ func (cache *overlaycache) SelectNewNodes(ctx context.Context, count int, criter
 	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
 		WHERE node_type == ? AND free_bandwidth >= ? AND free_disk >= ?
 		  AND audit_count < ?
-	`, int64(criteria.Type), criteria.FreeBandwidth, criteria.FreeDisk,
+	`, int(criteria.Type), criteria.FreeBandwidth, criteria.FreeDisk,
 		criteria.AuditThreshold,
 	)
 }
 
-func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []storj.NodeID, count int, safeQuery string, args ...interface{}) ([]*pb.Node, error) {
+func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*pb.Node, err error) {
 	if count == 0 {
 		return nil, nil
 	}
@@ -67,6 +67,7 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 	if err != nil {
 		return nil, err
 	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	var nodes []*pb.Node
 	for rows.Next() {
@@ -87,7 +88,7 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 		nodes = append(nodes, node)
 	}
 
-	return nodes, nil
+	return nodes, rows.Err()
 }
 
 // Get looks up the node by nodeID

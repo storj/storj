@@ -127,7 +127,7 @@ func TestNodeSelection(t *testing.T) {
 			RequestCount:  5,
 			ExpectedCount: 6,
 		},
-		{ // 50-50 reputable and new nodes, reputable and new nodes requested (new node % 1)
+		{ // 50-50 reputable and new nodes, reputable and new nodes requested (new node ratio 1.0)
 			Preferences: overlay.NodeSelectionConfig{
 				NewNodeAuditThreshold: 5,
 				NewNodePercentage:     1,
@@ -135,7 +135,7 @@ func TestNodeSelection(t *testing.T) {
 			RequestCount:  2,
 			ExpectedCount: 4,
 		},
-		{ // 50-50 reputable and new nodes, reputable and new nodes requested (new node % .5)
+		{ // 50-50 reputable and new nodes, reputable and new nodes requested (new node ratio 0.5)
 			Preferences: overlay.NodeSelectionConfig{
 				NewNodeAuditThreshold: 5,
 				NewNodePercentage:     0.5,

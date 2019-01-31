@@ -111,13 +111,18 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNod
 		reputableNodeCount = requestedCount
 	}
 
+	auditCount := preferences.AuditCount
+	if auditCount < preferences.NewNodeAuditThreshold {
+		auditCount = preferences.NewNodeAuditThreshold
+	}
+
 	reputableNodes, err := cache.db.SelectNodes(ctx, reputableNodeCount, &NodeCriteria{
 		Type: pb.NodeType_STORAGE,
 
 		FreeBandwidth: freeBandwidth,
 		FreeDisk:      freeDisk,
 
-		AuditCount:         preferences.AuditCount,
+		AuditCount:         auditCount,
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,
 		UptimeCount:        preferences.UptimeCount,
 		UptimeSuccessRatio: preferences.UptimeRatio,
