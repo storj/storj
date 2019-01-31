@@ -28,7 +28,8 @@ func TestUploadDownload(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	expectedData := make([]byte, 1024*1024*5)
-	rand.Read(expectedData)
+	_, err = rand.Read(expectedData)
+	assert.NoError(t, err)
 
 	err = planet.Uplinks[0].Upload(tctx, planet.Satellites[0], "test/bucket", "test/path", expectedData)
 	assert.NoError(t, err)
