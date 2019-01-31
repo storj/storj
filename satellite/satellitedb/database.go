@@ -74,7 +74,7 @@ func DROP_ALL_TABLES(dbAny satellite.DB) (err error) { //nolint: ignore all caps
 
 	switch db.driver {
 	case "postgres":
-		rows, err := db.db.Query(`select tablename from pg_tables;`)
+		rows, err := db.db.Query(`select tablename from pg_tables where schemaname = 'public';`)
 		if err != nil {
 			return err
 		}
