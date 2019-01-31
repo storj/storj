@@ -123,7 +123,7 @@ func TestGraphqlQuery(t *testing.T) {
 				err := createdAt.UnmarshalText([]byte(actual[consoleql.FieldCreatedAt].(string)))
 
 				assert.NoError(t, err)
-				assert.Equal(t, expected.CreatedAt, createdAt)
+				assert.Equal(t, expected.CreatedAt.UTC(), createdAt.UTC())
 			}
 
 			t.Run("With ID", func(t *testing.T) {
@@ -180,7 +180,7 @@ func TestGraphqlQuery(t *testing.T) {
 			err := createdAt.UnmarshalText([]byte(project[consoleql.FieldCreatedAt].(string)))
 
 			assert.NoError(t, err)
-			assert.Equal(t, createdProject.CreatedAt, createdAt)
+			assert.Equal(t, createdProject.CreatedAt.UTC(), createdAt.UTC())
 		})
 
 		user1, err := service.CreateUser(authCtx, console.CreateUser{
@@ -267,7 +267,7 @@ func TestGraphqlQuery(t *testing.T) {
 				err := createdAt.UnmarshalText([]byte(actual[consoleql.FieldCreatedAt].(string)))
 
 				assert.NoError(t, err)
-				assert.Equal(t, expected.CreatedAt, createdAt)
+				assert.Equal(t, expected.CreatedAt.UTC(), createdAt.UTC())
 			}
 
 			var foundRoot, foundU1, foundU2 bool
@@ -327,7 +327,7 @@ func TestGraphqlQuery(t *testing.T) {
 				err := createdAt.UnmarshalText([]byte(actual[consoleql.FieldCreatedAt].(string)))
 
 				assert.NoError(t, err)
-				assert.Equal(t, expected.CreatedAt, createdAt)
+				assert.Equal(t, expected.CreatedAt.UTC(), createdAt.UTC())
 			}
 
 			var foundKey1, foundKey2 bool
@@ -377,7 +377,7 @@ func TestGraphqlQuery(t *testing.T) {
 				err := createdAt.UnmarshalText([]byte(actual[consoleql.FieldCreatedAt].(string)))
 
 				assert.NoError(t, err)
-				assert.Equal(t, expected.CreatedAt, createdAt)
+				assert.Equal(t, expected.CreatedAt.UTC(), createdAt.UTC())
 			}
 
 			var foundProj1, foundProj2 bool
@@ -430,7 +430,7 @@ func TestGraphqlQuery(t *testing.T) {
 			err = createdAt.UnmarshalText([]byte(user[consoleql.FieldCreatedAt].(string)))
 
 			assert.NoError(t, err)
-			assert.Equal(t, rootUser.CreatedAt, createdAt)
+			assert.Equal(t, rootUser.CreatedAt.UTC(), createdAt.UTC())
 		})
 	})
 }
