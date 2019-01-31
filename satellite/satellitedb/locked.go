@@ -473,13 +473,6 @@ func (m *lockedOverlayCache) Delete(ctx context.Context, id storj.NodeID) error 
 	return m.db.Delete(ctx, id)
 }
 
-// FilterNodes looks up nodes based on reputation requirements
-func (m *lockedOverlayCache) FilterNodes(ctx context.Context, filterNodesRequest *overlay.FilterNodesRequest) ([]*pb.Node, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.FilterNodes(ctx, filterNodesRequest)
-}
-
 // Get looks up the node by nodeID
 func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
 	m.Lock()
