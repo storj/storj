@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"storj.io/storj/satellite/console"
 
@@ -215,6 +216,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			if apiKey == "" {
 				parts := strings.Split(satellite.Address, ":")
 				consoleAddress := fmt.Sprintf("http://%s:%d/api/graphql/v0", parts[0], consolePort)
+
+				// wait for console server to start
+				time.Sleep(3 * time.Second)
 
 				if err := addExampleProjectWithKey(&apiKey, consoleAddress); err != nil {
 					return err

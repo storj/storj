@@ -84,6 +84,15 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 	// TODO: send "finish registration email" when email service will be ready
 	//activationToken, err := s.GenerateActivationToken(ctx, u.ID, email, u.CreatedAt.Add(tokenExpirationTime))
 
+	activationToken, err := s.GenerateActivationToken(ctx, u.ID, email, u.CreatedAt.Add(tokenExpirationTime))
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.ActivateAccount(ctx, activationToken)
+	if err != nil {
+		return nil, err
+	}
 	return u, err
 }
 
