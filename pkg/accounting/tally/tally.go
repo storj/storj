@@ -71,7 +71,7 @@ func (t *Tally) Tally(ctx context.Context) error {
 	latestTally, nodeData, err := t.calculateAtRestData(ctx)
 	if err != nil {
 		errAtRest = errs.New("Query for data-at-rest failed : %v", err)
-	} else {
+	} else if len(nodeData) > 0 {
 		err = t.SaveAtRestRaw(ctx, latestTally, nodeData)
 		if err != nil {
 			errAtRest = errs.New("Saving data-at-rest failed : %v", err)
@@ -81,7 +81,7 @@ func (t *Tally) Tally(ctx context.Context) error {
 	tallyEnd, bwTotals, err := t.QueryBW(ctx)
 	if err != nil {
 		errBWA = errs.New("Query for bandwidth failed: %v", err)
-	} else {
+	} else if len(bwTotals) > 0 {
 		err = t.SaveBWRaw(ctx, tallyEnd, bwTotals)
 		if err != nil {
 			errBWA = errs.New("Saving for bandwidth failed : %v", err)
