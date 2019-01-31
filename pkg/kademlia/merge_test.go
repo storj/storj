@@ -4,6 +4,7 @@
 package kademlia_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -33,7 +34,7 @@ func TestMergePlanets(t *testing.T) {
 	beta, err := testplanet.NewCustom(log.Named("B"), testplanet.Config{
 		SatelliteCount:   2,
 		StorageNodeCount: 5,
-		Identities:       alpha.Identities(),
+		Identities:       alpha.Identities(), // avoid using the same pregenerated identities
 		Reconfigure: testplanet.Reconfigure{
 			Bootstrap: func(planet *testplanet.Planet, index int, config *bootstrap.Config) {
 				config.Kademlia.BootstrapAddr = alpha.Bootstrap.Addr()
@@ -48,23 +49,31 @@ func TestMergePlanets(t *testing.T) {
 	alpha.Start(ctx)
 	beta.Start(ctx)
 
-	// wait until everyone is reachable or fail
 	time.Sleep(2 * time.Second)
 
-	satellites := []*satellite.Peer{}
-	satellites = append(satellites, alpha.Satellites...)
-	satellites = append(satellites, beta.Satellites...)
-
-	storagenodes := []*storagenode.Peer{}
-	storagenodes = append(storagenodes, alpha.StorageNodes...)
-	storagenodes = append(storagenodes, beta.StorageNodes...)
-
-	for _, satellite := range satellites {
-		for _, storagenode := range storagenodes {
-			node, err := satellite.Overlay.Service.Get(ctx, storagenode.ID())
-			if assert.NoError(t, err) {
-				assert.Equal(t, storagenode.Addr(), node.Address.Address)
+	test := func(tag string, satellites []*satellite.Peer, storagenodes []*storagenode.Peer) string {
+		found, missing := 0, 0
+		for _, satellite := range satellites {
+			for _, storagenode := range storagenodes {
+				node, err := satellite.Overlay.Service.Get(ctx, storagenode.ID())
+				if assert.NoError(t, err, tag) {
+					found++
+					assert.Equal(t, storagenode.Addr(), node.Address.Address, tag)
+				} else {
+					missing++
+				}
 			}
 		}
+		return fmt.Sprintf("%s: Found %v out of %v (missing %v)", tag, found, found+missing, missing)
 	}
+
+	sumAA := test("A-A", alpha.Satellites, alpha.StorageNodes)
+	sumAB := test("A-B", alpha.Satellites, beta.StorageNodes)
+	sumBB := test("B-B", beta.Satellites, beta.StorageNodes)
+	sumBA := test("B-A", beta.Satellites, alpha.StorageNodes)
+
+	t.Log(sumAA)
+	t.Log(sumAB)
+	t.Log(sumBB)
+	t.Log(sumBA)
 }
