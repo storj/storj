@@ -112,7 +112,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			assert.NoError(t, err)
 
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rbaNode1)
-			assert.True(t, auth.ErrSerial.Has(err))
+			assert.True(t, auth.ErrSerial.Has(err), err)
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
