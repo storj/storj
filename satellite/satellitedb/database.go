@@ -72,7 +72,7 @@ func (db *DB) SetSchema(schema string) error {
 func (db *DB) DropSchema(schema string) error {
 	switch db.driver {
 	case "postgres":
-		_, err := db.db.Exec("drop schema $1 cascade", schema)
+		_, err := db.db.Exec("drop schema "+schema+" cascade;", schema)
 		return err
 	}
 	return nil
