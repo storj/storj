@@ -412,6 +412,13 @@ func (m *locked) CreateTables() error {
 	return m.db.CreateTables()
 }
 
+// DropSchema drops the schema
+func (m *locked) DropSchema(schema string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DropSchema(schema)
+}
+
 // Irreparable returns database for failed repairs
 func (m *locked) Irreparable() irreparable.DB {
 	m.Lock()
@@ -459,13 +466,6 @@ type lockedOverlayCache struct {
 	db overlay.DB
 }
 
-// FilterNodes looks up nodes based on reputation requirements
-func (m *lockedOverlayCache) FilterNodes(ctx context.Context, req *overlay.FilterNodesRequest) ([]*pb.Node, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.FilterNodes(ctx, req)
-}
-
 // Delete deletes node based on id
 func (m *lockedOverlayCache) Delete(ctx context.Context, id storj.NodeID) error {
 	m.Lock()
@@ -508,6 +508,20 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	return m.db.Paginate(ctx, offset, limit)
 }
 
+// SelectNewNodes looks up nodes based on new node criteria
+func (m *lockedOverlayCache) SelectNewNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SelectNewNodes(ctx, count, criteria)
+}
+
+// SelectNodes looks up nodes based on criteria
+func (m *lockedOverlayCache) SelectNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SelectNodes(ctx, count, criteria)
+}
+
 // Update updates node information
 func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 	m.Lock()
@@ -547,6 +561,13 @@ func (m *lockedRepairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.Inju
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Peekqueue(ctx, limit)
+}
+
+// SetSchema sets the schema
+func (m *locked) SetSchema(schema string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SetSchema(schema)
 }
 
 // StatDB returns database for storing node statistics
