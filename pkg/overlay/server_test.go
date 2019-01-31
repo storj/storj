@@ -67,20 +67,13 @@ func TestServer(t *testing.T) {
 	}
 }
 
-func TestNewNodeFiltering(t *testing.T) {
+func TestNodeSelection(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	var totalNodes int
-	totalNodes = 10
-
-	planet, err := testplanet.New(t, 1, totalNodes, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	planet, err := testplanet.New(t, 1, 10, 0)
+	require.NoError(t, err)
 	planet.Start(ctx)
-
 	defer ctx.Check(planet.Shutdown)
 
 	// we wait a second for all the nodes to complete bootstrapping off the satellite
