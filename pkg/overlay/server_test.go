@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -87,13 +88,18 @@ func TestNodeSelection(t *testing.T) {
 			assert.NoError(t, err)
 		}
 	}
+	// ensure all storagenodes are in overlay service
+	for _, storageNode := range planet.StorageNodes {
+		err = satellite.Overlay.Service.Put(ctx, storageNode.ID(), storageNode.Local())
+		assert.NoError(t, err)
+	}
 
 	type test struct {
-		Preferences   overlay.NodeSelectionConfig
-		ExcludeCount  int
-		RequestCount  int64
-		ExpectedCount int
-		ShouldFail    bool
+		Preferences    overlay.NodeSelectionConfig
+		ExcludeCount   int
+		RequestCount   int64
+		ExpectedCount  int
+		ShouldFailWith errs.Class
 	}
 
 	for i, tt := range []test{
@@ -150,18 +156,18 @@ func TestNodeSelection(t *testing.T) {
 				NewNodeAuditThreshold: 9,
 				NewNodePercentage:     1,
 			},
-			RequestCount:  2,
-			ExpectedCount: 3,
-			ShouldFail:    true,
+			RequestCount:   2,
+			ExpectedCount:  3,
+			ShouldFailWith: overlay.ErrNotEnoughNodes,
 		},
 		{ // all new nodes, reputable and new nodes requested
 			Preferences: overlay.NodeSelectionConfig{
 				NewNodeAuditThreshold: 50,
 				NewNodePercentage:     1,
 			},
-			RequestCount:  2,
-			ExpectedCount: 2,
-			ShouldFail:    true,
+			RequestCount:   2,
+			ExpectedCount:  2,
+			ShouldFailWith: overlay.ErrNotEnoughNodes,
 		},
 		{ // audit threshold edge case (1)
 			Preferences: overlay.NodeSelectionConfig{
@@ -184,10 +190,10 @@ func TestNodeSelection(t *testing.T) {
 				NewNodeAuditThreshold: 5,
 				NewNodePercentage:     0,
 			},
-			ExcludeCount:  7,
-			RequestCount:  5,
-			ExpectedCount: 3,
-			ShouldFail:    true,
+			ExcludeCount:   7,
+			RequestCount:   5,
+			ExpectedCount:  3,
+			ShouldFailWith: overlay.ErrNotEnoughNodes,
 		},
 	} {
 		name := fmt.Sprintf("#%d. %+v", i, tt)
@@ -196,11 +202,6 @@ func TestNodeSelection(t *testing.T) {
 		var excludedNodes []storj.NodeID
 		for _, storageNode := range planet.StorageNodes[:tt.ExcludeCount] {
 			excludedNodes = append(excludedNodes, storageNode.ID())
-		}
-
-		for _, storageNode := range planet.StorageNodes {
-			err = satellite.Overlay.Service.Put(ctx, storageNode.ID(), storageNode.Local())
-			assert.NoError(t, err, name)
 		}
 
 		result, err := service.FindStorageNodes(ctx,
@@ -215,8 +216,9 @@ func TestNodeSelection(t *testing.T) {
 				},
 			}, &tt.Preferences)
 
-		if tt.ShouldFail {
+		if tt.ShouldFailWith != "" {
 			assert.Error(t, err, name)
+			assert.True(t, tt.ShouldFailWith.Has(err), name)
 		} else {
 			assert.NoError(t, err, name)
 		}
