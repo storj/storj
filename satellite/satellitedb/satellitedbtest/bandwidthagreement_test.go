@@ -11,9 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 )
 
@@ -21,40 +22,58 @@ func TestBandwidthAgreement(t *testing.T) {
 	Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
-		require.NoError(t, testCreateAgreement(ctx, t, db.BandwidthAgreement(), pb.BandwidthAction_PUT, "1"))
-		require.Error(t, testCreateAgreement(ctx, t, db.BandwidthAgreement(), pb.BandwidthAction_GET, "1"))
-		require.NoError(t, testCreateAgreement(ctx, t, db.BandwidthAgreement(), pb.BandwidthAction_GET, "2"))
-		testGetTotals(ctx, t, db.BandwidthAgreement())
-		testGetUplinkStats(ctx, t, db.BandwidthAgreement())
+
+		upID, err := testidentity.NewTestIdentity(ctx)
+		require.NoError(t, err)
+		snID, err := testidentity.NewTestIdentity(ctx)
+		require.NoError(t, err)
+
+		require.NoError(t, testCreateAgreement(ctx, t, db.BandwidthAgreement(), pb.BandwidthAction_PUT, "1", upID, snID))
+		require.Error(t, testCreateAgreement(ctx, t, db.BandwidthAgreement(), pb.BandwidthAction_GET, "1", upID, snID))
+		require.NoError(t, testCreateAgreement(ctx, t, db.BandwidthAgreement(), pb.BandwidthAction_GET, "2", upID, snID))
+		testGetTotals(ctx, t, db.BandwidthAgreement(), snID)
+		testGetUplinkStats(ctx, t, db.BandwidthAgreement(), upID)
 	})
 }
 
-func testCreateAgreement(ctx context.Context, t *testing.T, b bwagreement.DB, action pb.BandwidthAction, serialNum string) error {
+func testCreateAgreement(ctx context.Context, t *testing.T, b bwagreement.DB, action pb.BandwidthAction,
+	serialNum string, upID, snID *identity.FullIdentity) error {
 	rba := &pb.RenterBandwidthAllocation{
-		PayerAllocation: pb.PayerBandwidthAllocation{Action: action, SerialNumber: serialNum},
-		Total:           1000,
+		PayerAllocation: pb.PayerBandwidthAllocation{
+			Action:       action,
+			SerialNumber: serialNum,
+			UplinkId:     upID.ID,
+		},
+		Total:         1000,
+		StorageNodeId: snID.ID,
 	}
 	return b.CreateAgreement(ctx, rba)
 }
 
-func testGetUplinkStats(ctx context.Context, t *testing.T, b bwagreement.DB) {
+func testGetUplinkStats(ctx context.Context, t *testing.T, b bwagreement.DB, upID *identity.FullIdentity) {
 	stats, err := b.GetUplinkStats(ctx, time.Time{}, time.Now().UTC())
 	require.NoError(t, err)
-	require.Len(t, stats, 1)
-	require.Equal(t, storj.NodeID{}, stats[0].NodeID)
-	require.Equal(t, int64(2000), stats[0].TotalBytes)
-	require.Equal(t, 1, stats[0].GetActionCount)
-	require.Equal(t, 1, stats[0].PutActionCount)
-	require.Equal(t, 2, stats[0].TotalTransactions)
+	var found int
+	for _, s := range stats {
+		if upID.ID == s.NodeID {
+			found++
+			require.Equal(t, int64(2000), s.TotalBytes)
+			require.Equal(t, 1, s.GetActionCount)
+			require.Equal(t, 1, s.PutActionCount)
+			require.Equal(t, 2, s.TotalTransactions)
+		}
+	}
+	require.Equal(t, 1, found)
 }
 
-func testGetTotals(ctx context.Context, t *testing.T, b bwagreement.DB) {
+func testGetTotals(ctx context.Context, t *testing.T, b bwagreement.DB, snID *identity.FullIdentity) {
 	totals, err := b.GetTotals(ctx, time.Time{}, time.Now().UTC())
 	require.NoError(t, err)
-	require.Len(t, totals, 1)
-	require.Len(t, totals[storj.NodeID{}], 5)
-	expected := []int64{1000, 1000, 0, 0, 0}
-	for i, e := range expected {
-		require.Equal(t, e, totals[storj.NodeID{}][i])
-	}
+	total := totals[snID.ID]
+	require.Len(t, total, 5)
+	require.Equal(t, int64(1000), total[pb.BandwidthAction_PUT])
+	require.Equal(t, int64(1000), total[pb.BandwidthAction_GET])
+	require.Equal(t, int64(0), total[pb.BandwidthAction_GET_AUDIT])
+	require.Equal(t, int64(0), total[pb.BandwidthAction_GET_REPAIR])
+	require.Equal(t, int64(0), total[pb.BandwidthAction_PUT_REPAIR])
 }
