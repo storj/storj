@@ -100,11 +100,15 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, err
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided criteria
 func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest, preferences *NodeSelectionConfig) ([]*pb.Node, error) {
+	// TODO: use a nicer struct for input
+
 	minimumRequiredNodes := int(req.GetMinNodes())
 	freeBandwidth := req.GetOpts().GetRestrictions().FreeBandwidth
 	freeDisk := req.GetOpts().GetRestrictions().FreeDisk
 	excludedNodes := req.GetOpts().ExcludedNodes
 	requestedCount := int(req.GetOpts().GetAmount())
+
+	// TODO: this logic looks wrong
 
 	reputableNodeCount := minimumRequiredNodes
 	if reputableNodeCount <= 0 {
@@ -157,73 +161,6 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNod
 	}
 
 	return nodes, nil
-
-	/*
-		// TODO: figure out whether this selection logic is correct
-		requestedNodeCount := minimumRequiredNodes
-		if requestedNodeCount <= requestedCount {
-			requestedNodeCount = requestedCount
-		}
-
-		// TODO: add sanity limits to requested node count
-		// TODO: add sanity limits to excluded nodes
-
-		// first get some number of new nodes
-
-		// TODO: figure out whether this is needed
-		// auditCount := req.minReputation.AuditCount
-		// if req.newNodeAuditThreshold > auditCount {
-		// 	auditCount = req.newNodeAuditThreshold
-		// }
-
-		newNodeCount := int64(float64(requestedNodeCount) * preferences.NewNodePercentage)
-		newNodes, err := cache.db.SelectNewNodes(ctx, int(newNodeCount), &NewNodeCriteria{
-			Type: pb.NodeType_STORAGE,
-
-			FreeBandwidth: freeBandwidth,
-			FreeDisk:      freeDisk,
-
-			AuditThreshold: preferences.NewNodeAuditThreshold,
-
-			Excluded: excludedNodes,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		// get the rest as reputable nodes
-		reputableNodeCount := requestedNodeCount - len(newNodes)
-		reputableNodes, err := cache.db.SelectNodes(ctx, reputableNodeCount, &NodeCriteria{
-			Type: pb.NodeType_STORAGE,
-
-			FreeBandwidth: freeBandwidth,
-			FreeDisk:      freeDisk,
-
-			AuditCount:         preferences.AuditCount,
-			AuditSuccessRatio:  preferences.AuditSuccessRatio,
-			UptimeCount:        preferences.UptimeCount,
-			UptimeSuccessRatio: preferences.UptimeRatio,
-
-			Excluded: excludedNodes,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		// TODO: check whether we have enough nodes
-		// if int64(len(reputableNodes)) < reputableNodeAmount {
-		// 	err := status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d reputable nodes, only %d reputable nodes matched the criteria requested",
-		// 		reputableNodeAmount, len(reputableNodes)))
-		// 	return allNodes, err
-		// }
-		// return allNodes, nil
-
-		nodes := []*pb.Node{}
-		nodes = append(nodes, newNodes...)
-		nodes = append(nodes, reputableNodes...)
-
-		return nodes, nil
-	*/
 }
 
 // GetAll looks up the provided ids from the overlay cache
