@@ -68,7 +68,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		return nil, Error.Wrap(err)
 	}
 
-	options := append([]grpc.DialOption{dialOpt}, opts...)
+	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock()}, opts...)
 
 	ctx, cf := context.WithTimeout(ctx, timeout)
 	defer cf()
