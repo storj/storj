@@ -93,7 +93,7 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 		return nil, Error.Wrap(err)
 	}
 
-	options := append([]grpc.DialOption{dialOpt}, opts...)
+	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock()}, opts...)
 	conn, err = grpc.Dial(address, options...)
 	return conn, Error.Wrap(err)
 }
