@@ -198,6 +198,11 @@ func TestNodeSelection(t *testing.T) {
 			excludedNodes = append(excludedNodes, storageNode.ID())
 		}
 
+		for _, storageNode := range planet.StorageNodes {
+			err = satellite.Overlay.Service.Put(ctx, storageNode.ID(), storageNode.Local())
+			assert.NoError(t, err, name)
+		}
+
 		result, err := service.FindStorageNodes(ctx,
 			&pb.FindStorageNodesRequest{
 				Opts: &pb.OverlayOptions{
