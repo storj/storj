@@ -49,8 +49,9 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 				t.Fatal(err)
 			}
 
-			schemaName := randomSchemaName()
-			err := db.SetSchema(schemaName)
+			schemaName := randomSchemaName() // TODO: create schema name based on t.Name()
+
+			err = db.SetSchema(schemaName)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -76,5 +77,5 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 func randomSchemaName() string {
 	var data [8]byte
 	_, _ = rand.Read(data[:])
-	return "s" + hex.Encode(data[:])
+	return "s" + hex.EncodeToString(data[:])
 }
