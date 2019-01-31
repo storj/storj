@@ -63,7 +63,7 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 		audit_uptime_ratio, audit_count, audit_success_count, uptime_count,
 		uptime_success_count
 		FROM overlay_cache_nodes
-	`+safeQuery+safeExcludeNodes+` LIMIT ?`), args...)
+	`+safeQuery+safeExcludeNodes+` ORDER BY RANDOM() LIMIT ?`), args...)
 	if err != nil {
 		return nil, err
 	}
