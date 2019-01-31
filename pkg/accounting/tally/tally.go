@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/accounting"
@@ -52,31 +53,41 @@ func (t *Tally) Run(ctx context.Context) (err error) {
 	t.logger.Info("Tally service starting up")
 	defer mon.Task()(&ctx)(&err)
 	for {
-		//data at rest
-		latestTally, nodeData, err := t.calculateAtRestData(ctx)
-		if err != nil {
-			t.logger.Error("Query for data-at-rest failed", zap.Error(err))
+		if err = t.Tally(ctx); err != nil {
+			t.logger.Error("Tally failed", zap.Error(err))
 		}
-		err = t.SaveAtRestRaw(ctx, latestTally, nodeData)
-		if err != nil {
-			t.logger.Error("Saving data-at-rest failed", zap.Error(err))
-		}
-		//bandwdith
-		tallyEnd, bwTotals, err := t.QueryBW(ctx)
-		if err != nil {
-			t.logger.Error("Query for bandwidth failed", zap.Error(err))
-		}
-		err = t.SaveBWRaw(ctx, tallyEnd, bwTotals)
-		if err != nil {
-			t.logger.Error("Saving for bandwidth failed", zap.Error(err))
-		}
-
 		select {
 		case <-t.ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the Tally is canceled via context
 			return ctx.Err()
 		}
 	}
+}
+
+//Tally calculates data-at-rest and bandwidth usage once
+func (t *Tally) Tally(ctx context.Context) error {
+	//data at rest
+	var errAtRest, errBWA error
+	latestTally, nodeData, err := t.calculateAtRestData(ctx)
+	if err != nil {
+		errAtRest = errs.New("Query for data-at-rest failed : %v", err)
+	} else {
+		err = t.SaveAtRestRaw(ctx, latestTally, nodeData)
+		if err != nil {
+			errAtRest = errs.New("Saving data-at-rest failed : %v", err)
+		}
+	}
+	//bandwdith
+	tallyEnd, bwTotals, err := t.QueryBW(ctx)
+	if err != nil {
+		errBWA = errs.New("Query for bandwidth failed: %v", err)
+	} else {
+		err = t.SaveBWRaw(ctx, tallyEnd, bwTotals)
+		if err != nil {
+			errBWA = errs.New("Saving for bandwidth failed : %v", err)
+		}
+	}
+	return errs.Combine(errAtRest, errBWA)
 }
 
 // calculateAtRestData iterates through the pieces on pointerdb and calculates
@@ -152,28 +163,25 @@ func (t *Tally) SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeDa
 
 // QueryBW queries bandwidth allocation database, selecting all new contracts since the last collection run time.
 // Grouping by action type, storage node ID and adding total of bandwidth to granular data table.
-func (t *Tally) QueryBW(ctx context.Context) (time.Time, accounting.BWTally, error) {
-	var bwTotals accounting.BWTally
+func (t *Tally) QueryBW(ctx context.Context) (time.Time, map[storj.NodeID][]int64, error) {
+	var bwTotals map[storj.NodeID][]int64
 	now := time.Now().UTC()
 	lastBwTally, err := t.accountingDB.LastTimestamp(ctx, accounting.LastBandwidthTally)
 	if err != nil {
 		return now, bwTotals, Error.Wrap(err)
 	}
-	totals, err := t.bwAgreementDB.GetTotals(ctx, lastBwTally, now)
+	bwTotals, err = t.bwAgreementDB.GetTotals(ctx, lastBwTally, now)
 	if err != nil {
 		return now, bwTotals, Error.Wrap(err)
 	}
-	if len(totals) == 0 {
+	if len(bwTotals) == 0 {
 		t.logger.Info("Tally found no new bandwidth allocations")
 		return now, bwTotals, nil
-	}
-	for i := range bwTotals {
-		bwTotals[i] = make(map[storj.NodeID]int64)
 	}
 	return now, bwTotals, nil
 }
 
 // SaveBWRaw records granular tallies (sums of bw agreement values) to the database and updates the LastTimestamp
-func (t *Tally) SaveBWRaw(ctx context.Context, tallyEnd time.Time, bwTotals accounting.BWTally) error {
+func (t *Tally) SaveBWRaw(ctx context.Context, tallyEnd time.Time, bwTotals map[storj.NodeID][]int64) error {
 	return t.accountingDB.SaveBWRaw(ctx, tallyEnd, bwTotals)
 }

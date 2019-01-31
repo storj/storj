@@ -37,14 +37,14 @@ func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string)
 	lastTally, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
 	if lastTally == nil {
 		update := dbx.AccountingTimestamps_Value(time.Time{})
-		_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
+		_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(timestampType), update)
 		return time.Time{}, err
 	}
 	return lastTally.Value, err
 }
 
 // SaveBWRaw records granular tallies (sums of bw agreement values) to the database and updates the LastTimestamp
-func (db *accountingDB) SaveBWRaw(ctx context.Context, tallyEnd time.Time, bwTotals accounting.BWTally) (err error) {
+func (db *accountingDB) SaveBWRaw(ctx context.Context, tallyEnd time.Time, bwTotals map[storj.NodeID][]int64) (err error) {
 	// We use the latest bandwidth agreement value of a batch of records as the start of the next batch
 	// todo:  consider finding the sum of bwagreements using SQL sum() direct against the bwa table
 	if len(bwTotals) == 0 {
@@ -63,11 +63,11 @@ func (db *accountingDB) SaveBWRaw(ctx context.Context, tallyEnd time.Time, bwTot
 		}
 	}()
 	//create a granular record per node id
-	for actionType, bwActionTotals := range bwTotals {
-		for k, v := range bwActionTotals {
-			nID := dbx.AccountingRaw_NodeId(k.Bytes())
+	for nodeID, totals := range bwTotals {
+		for actionType, total := range totals {
+			nID := dbx.AccountingRaw_NodeId(nodeID.Bytes())
 			end := dbx.AccountingRaw_IntervalEndTime(tallyEnd)
-			total := dbx.AccountingRaw_DataTotal(float64(v))
+			total := dbx.AccountingRaw_DataTotal(float64(total))
 			dataType := dbx.AccountingRaw_DataType(actionType)
 			_, err = tx.Create_AccountingRaw(ctx, nID, end, total, dataType)
 			if err != nil {

@@ -7,12 +7,8 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
-
-//BWTally is a convenience alias
-type BWTally [pb.BandwidthAction_PUT_REPAIR + 1]map[storj.NodeID]int64
 
 //RollupStats is a convenience alias
 type RollupStats map[time.Time]map[storj.NodeID]*Rollup
@@ -45,7 +41,7 @@ type DB interface {
 	// LastTimestamp records the latest last tallied time.
 	LastTimestamp(ctx context.Context, timestampType string) (time.Time, error)
 	// SaveBWRaw records raw sums of agreement values to the database and updates the LastTimestamp.
-	SaveBWRaw(ctx context.Context, tallyEnd time.Time, bwTotals BWTally) error
+	SaveBWRaw(ctx context.Context, tallyEnd time.Time, bwTotals map[storj.NodeID][]int64) error
 	// SaveAtRestRaw records raw tallies of at-rest-data.
 	SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) error
 	// GetRaw retrieves all raw tallies

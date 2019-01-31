@@ -21,6 +21,7 @@ func runPlanet(t *testing.T, f func(context.Context, *testplanet.Planet)) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 	planet, err := testplanet.New(t, 1, 1, 1)
+	//time.Sleep(5 * time.Second)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 	planet.Start(ctx)
@@ -30,10 +31,9 @@ func runPlanet(t *testing.T, f func(context.Context, *testplanet.Planet)) {
 func TestQueryNoAgreements(t *testing.T) {
 	runPlanet(t, func(ctx context.Context, planet *testplanet.Planet) {
 		tally := planet.Satellites[0].Accounting.Tally
-		tallyEnd, bwTotals, err := tally.QueryBW(ctx)
+		_, bwTotals, err := tally.QueryBW(ctx)
 		require.NoError(t, err)
-		err = tally.SaveBWRaw(ctx, tallyEnd, bwTotals)
-		require.NoError(t, err)
+		require.Len(t, bwTotals, 0)
 	})
 }
 
@@ -44,9 +44,10 @@ func TestQueryWithBw(t *testing.T) {
 		//check the db
 		tallyEnd, bwTotals, err := tally.QueryBW(ctx)
 		require.NoError(t, err)
-		require.Len(t, bwTotals, 5)
-		for _, actionTotals := range bwTotals {
-			for id, total := range actionTotals {
+		require.Len(t, bwTotals, 1)
+		for id, nodeTotals := range bwTotals {
+			require.Len(t, nodeTotals, 5)
+			for _, total := range nodeTotals {
 				require.Equal(t, id, planet.StorageNodes[0].Identity.ID)
 				require.Equal(t, total, 1000)
 			}
