@@ -65,18 +65,7 @@ func (server *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
 	return nodesToLookupResponses(ns), nil
 }
 
-type NewNodeCriteria struct {
-	Type pb.NodeType
-
-	FreeBandwidth int64
-	FreeDisk      int64
-
-	AuditThreshold int64
-
-	Excluded []storj.NodeID
-}
-
-// NodeCriteria are the requirements for nodes from the overlay cache
+// NodeCriteria are the requirements for selecting nodes
 type NodeCriteria struct {
 	Type pb.NodeType
 
@@ -91,14 +80,26 @@ type NodeCriteria struct {
 	Excluded []storj.NodeID
 }
 
+// NewNodeCriteria are the requirement for selecting new nodes
+type NewNodeCriteria struct {
+	Type pb.NodeType
+
+	FreeBandwidth int64
+	FreeDisk      int64
+
+	AuditThreshold int64
+
+	Excluded []storj.NodeID
+}
+
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// TODO: ...
-	nodes, err := server.cache.FindStorageNodes(ctx, ...) // TODO: use better structs
+	nodes, err := server.cache.FindStorageNodes(ctx, req, server.preferences) // TODO: use better structs
 	return &pb.FindStorageNodesRequest{
 		Nodes: nodes,
-	}
+	}, err
 }
 
 // lookupRequestsToNodeIDs returns the nodeIDs from the LookupRequests
