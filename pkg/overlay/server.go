@@ -95,8 +95,14 @@ type NewNodeCriteria struct {
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	return server.FindStorageNodesWithPreferences(ctx, req, server.preferences)
+}
+
+// FindStorageNodesWithPreferences searches the overlay network for nodes that meet the provided requirements
+// exposed mainly for testing
+func (server *Server) FindStorageNodesWithPreferences(ctx context.Context, req *pb.FindStorageNodesRequest, preferences *NodeSelectionConfig) (resp *pb.FindStorageNodesResponse, err error) {
 	// TODO: use better structs for find storage nodes
-	nodes, err := server.cache.FindStorageNodes(ctx, req, server.preferences)
+	nodes, err := server.cache.FindStorageNodes(ctx, req, preferences)
 	return &pb.FindStorageNodesResponse{
 		Nodes: nodes,
 	}, err

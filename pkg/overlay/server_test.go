@@ -197,14 +197,14 @@ func TestNodeSelection(t *testing.T) {
 		},
 	} {
 		name := fmt.Sprintf("#%d. %+v", i, tt)
-		service := planet.Satellites[0].Overlay.Service
+		endpoint := planet.Satellites[0].Overlay.Endpoint
 
 		var excludedNodes []storj.NodeID
 		for _, storageNode := range planet.StorageNodes[:tt.ExcludeCount] {
 			excludedNodes = append(excludedNodes, storageNode.ID())
 		}
 
-		result, err := service.FindStorageNodes(ctx,
+		response, err := endpoint.FindStorageNodesWithPreferences(ctx,
 			&pb.FindStorageNodesRequest{
 				Opts: &pb.OverlayOptions{
 					Restrictions: &pb.NodeRestrictions{
@@ -223,6 +223,6 @@ func TestNodeSelection(t *testing.T) {
 			assert.NoError(t, err, name)
 		}
 
-		assert.Equal(t, tt.ExpectedCount, len(result), name)
+		assert.Equal(t, tt.ExpectedCount, len(response.Nodes), name)
 	}
 }
