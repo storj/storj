@@ -216,6 +216,7 @@ func TestNodeSelection(t *testing.T) {
 				},
 			}, &tt.Preferences)
 
+		t.Log(name, len(response.Nodes), err)
 		if tt.ShouldFailWith != "" {
 			assert.Error(t, err, name)
 			assert.True(t, tt.ShouldFailWith.Has(err), name)
