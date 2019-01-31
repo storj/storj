@@ -4,8 +4,6 @@
 package satellitedb
 
 import (
-	"errors"
-
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/migrate"
@@ -59,47 +57,24 @@ func NewInMemory() (satellite.DB, error) {
 	return New("sqlite3://file::memory:?mode=memory")
 }
 
-// DROP_ALL_TABLES drops all tables in the database.
-// Deprected: do not use in production.
-func DROP_ALL_TABLES(dbAny satellite.DB) (err error) { //nolint: ignore all caps requirement for dangerous function
-	var db *DB
-	switch temp := dbAny.(type) {
-	case *DB:
-		db = temp
-	case *locked:
-		return DROP_ALL_TABLES(temp.db)
-	default:
-		return errors.New("unsupported implementation")
-	}
-
+// SetSchema sets the schema
+func (db *DB) SetSchema(schema string) error {
 	switch db.driver {
 	case "postgres":
-		rows, err := db.db.Query(`select tablename from pg_tables where schemaname = 'public';`)
-		if err != nil {
-			return err
-		}
-		defer func() { err = errs.Combine(err, rows.Close()) }()
-
-		for rows.Next() {
-			var tablename string
-			err := rows.Scan(&tablename)
-			if err != nil {
-				return err
-			}
-
-			_, err = db.db.Exec(`drop table "` + tablename + `" cascade;`)
-			if err != nil {
-				return err
-			}
-		}
-
-		if err := rows.Err(); err != nil {
-			return err
-		}
-
-		return nil
+		// TODO: proper escaping
+		_, err := db.db.Exec("create schema " + schema + "; set search_path to " + schema + ";")
+		return err
 	}
+	return nil
+}
 
+// DropSchema drops the named schema
+func (db *DB) DropSchema(schema string) error {
+	switch db.driver {
+	case "postgres":
+		_, err := db.db.Exec("drop schema " + schema + " cascade;")
+		return err
+	}
 	return nil
 }
 
