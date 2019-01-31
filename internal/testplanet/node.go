@@ -16,11 +16,11 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
@@ -36,7 +36,7 @@ import (
 type Node struct {
 	Log              *zap.Logger
 	Info             pb.Node
-	Identity         *provider.FullIdentity
+	Identity         *identity.FullIdentity
 	Transport        transport.Client
 	storageNodeCount int
 }

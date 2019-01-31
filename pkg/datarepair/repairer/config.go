@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
-	"storj.io/storj/pkg/provider"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 )
@@ -26,7 +26,7 @@ type Config struct {
 }
 
 // GetSegmentRepairer creates a new segment repairer from storeConfig values
-func (c Config) GetSegmentRepairer(ctx context.Context, identity *provider.FullIdentity) (ss SegmentRepairer, err error) {
+func (c Config) GetSegmentRepairer(ctx context.Context, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var oc overlay.Client

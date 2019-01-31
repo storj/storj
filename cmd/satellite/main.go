@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -57,6 +58,17 @@ var (
 		Short: "Repair Queue Diagnostic Tool support",
 		RunE:  cmdQDiag,
 	}
+	reportsCmd = &cobra.Command{
+		Use:   "reports",
+		Short: "Generate a report",
+	}
+	paymentsCmd = &cobra.Command{
+		Use:   "payments [start] [end]",
+		Short: "Generate a payment report for a given period",
+		Long:  "Generate a payment report for a given period. Format dates using YYYY-MM-DD",
+		Args:  cobra.MinimumNArgs(2),
+		RunE:  cmdPayments,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -67,6 +79,10 @@ var (
 	qdiagCfg struct {
 		Database   string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 		QListLimit int    `help:"maximum segments that can be requested" default:"1000"`
+	}
+	paymentsCfg struct {
+		Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+		Output   string `help:"destination of report output" default:""`
 	}
 
 	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
@@ -101,10 +117,13 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(qdiagCmd)
+	rootCmd.AddCommand(reportsCmd)
+	reportsCmd.AddCommand(paymentsCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.Bind(qdiagCmd.Flags(), &qdiagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(paymentsCmd.Flags(), &paymentsCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -266,6 +285,42 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 
 	// display the data
 	return w.Flush()
+}
+
+func cmdPayments(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
+
+	layout := "2006-01-02"
+	start, err := time.Parse(layout, args[0])
+	if err != nil {
+		return errs.New("Invalid date format. Please use YYYY-MM-DD")
+	}
+	end, err := time.Parse(layout, args[1])
+	if err != nil {
+		return errs.New("Invalid date format. Please use YYYY-MM-DD")
+	}
+
+	// Ensure that start date is not after end date
+	if start.After(end) {
+		return errs.New("Invalid time period (%v) - (%v)", start, end)
+	}
+
+	// send output to stdout
+	if paymentsCfg.Output == "" {
+		return generateCSV(ctx, start, end, os.Stdout)
+	}
+
+	// send output to file
+	file, err := os.Create(paymentsCfg.Output)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err = errs.Combine(err, file.Close())
+	}()
+
+	return generateCSV(ctx, start, end, file)
 }
 
 func main() {

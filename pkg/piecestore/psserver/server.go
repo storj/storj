@@ -380,12 +380,22 @@ func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, erro
 		return &pb.DashboardStats{}, ServerError.Wrap(err)
 	}
 
+	bootstrapNodes := s.kad.GetBootstrapNodes()
+
+	bsNodes := make([]string, len(bootstrapNodes))
+
+	for i, node := range bootstrapNodes {
+		bsNodes[i] = node.Address.Address
+	}
+
 	return &pb.DashboardStats{
-		NodeId:          rt.Local().Id.String(),
-		NodeConnections: int64(len(nodes)),
-		Address:         "",
-		Connection:      true,
-		Uptime:          ptypes.DurationProto(time.Since(s.startTime)),
-		Stats:           statsSummary,
+		NodeId:           rt.Local().Id.String(),
+		NodeConnections:  int64(len(nodes)),
+		BootstrapAddress: strings.Join(bsNodes[:], ", "),
+		InternalAddress:  "",
+		ExternalAddress:  rt.Local().Address.Address,
+		Connection:       true,
+		Uptime:           ptypes.DurationProto(time.Since(s.startTime)),
+		Stats:            statsSummary,
 	}, nil
 }

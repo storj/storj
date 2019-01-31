@@ -8,13 +8,13 @@ import (
 
 	"github.com/gtank/cryptopasta"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/provider"
 )
 
 // GenerateSignature creates signature from identity id
-func GenerateSignature(data []byte, identity *provider.FullIdentity) ([]byte, error) {
+func GenerateSignature(data []byte, identity *identity.FullIdentity) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
@@ -31,7 +31,7 @@ func GenerateSignature(data []byte, identity *provider.FullIdentity) ([]byte, er
 }
 
 // NewSignedMessage creates instance of signed message
-func NewSignedMessage(signature []byte, identity *provider.FullIdentity) (*pb.SignedMessage, error) {
+func NewSignedMessage(signature []byte, identity *identity.FullIdentity) (*pb.SignedMessage, error) {
 	k, ok := identity.Leaf.PublicKey.(*ecdsa.PublicKey)
 	if !ok {
 		return nil, peertls.ErrUnsupportedKey.New("%T", identity.Leaf.PublicKey)
