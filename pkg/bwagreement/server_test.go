@@ -8,7 +8,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -113,11 +112,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			assert.NoError(t, err)
 
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rbaNode1)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-			assert.Error(t, err)
-			assert.True(t, auth.ErrSerial.Has(err), err)
+			assert.True(t, auth.ErrSerial.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
