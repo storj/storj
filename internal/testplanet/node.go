@@ -28,7 +28,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite"
 )
 
@@ -111,17 +110,21 @@ func (node *Node) DialOverlay(destination Peer) (overlay.Client, error) {
 	return overlay.NewClientFrom(pb.NewOverlayClient(conn)), nil
 }
 
-// Upload test
+// Upload data to specific satellite
 func (node *Node) Upload(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte) error {
 	metainfo, streams, err := node.getMetainfo(satellite)
 	if err != nil {
 		return err
 	}
 
+	encScheme := node.getEncryptionScheme()
+	redScheme := node.getRedundancyScheme()
+
+	// create bucket if not exists
 	_, err = metainfo.GetBucket(ctx, bucket)
 	if err != nil {
 		if storj.ErrBucketNotFound.Has(err) {
-			_, err := metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: storj.Cipher(1)})
+			_, err := metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: encScheme.Cipher})
 			if err != nil {
 				return err
 			}
@@ -131,8 +134,8 @@ func (node *Node) Upload(ctx context.Context, satellite *satellite.Peer, bucket 
 	}
 
 	createInfo := storj.CreateObject{
-		RedundancyScheme: node.getRedundancyScheme(),
-		EncryptionScheme: node.getEncryptionScheme(),
+		RedundancyScheme: redScheme,
+		EncryptionScheme: encScheme,
 	}
 	obj, err := metainfo.CreateObject(ctx, bucket, path, &createInfo)
 	if err != nil {
@@ -158,12 +161,11 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 
 	_, err = io.Copy(upload, reader)
 
-	return utils.CombineErrors(err, upload.Close())
+	return errs.Combine(err, upload.Close())
 }
 
-// Download test
+// Download data from specific satellite
 func (node *Node) Download(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) ([]byte, error) {
-
 	metainfo, streams, err := node.getMetainfo(satellite)
 	if err != nil {
 		return []byte{}, err
@@ -186,49 +188,52 @@ func (node *Node) Download(ctx context.Context, satellite *satellite.Peer, bucke
 }
 
 func (node *Node) getMetainfo(satellite *satellite.Peer) (db storj.Metainfo, ss streams.Store, err error) {
-	redundancyScheme := node.getRedundancyScheme()
-	minThreshold := int(redundancyScheme.RequiredShares)
-	repairThreshold := int(redundancyScheme.RepairShares)
-	successThreshold := int(redundancyScheme.OptimalShares)
-	maxThreshold := int(redundancyScheme.TotalShares)
+	encScheme := node.getEncryptionScheme()
+	redScheme := node.getRedundancyScheme()
 
-	maxBufferMem := int(4 * memory.MB)
-	erasureShareSize := int(1 * memory.KB)
-	blockSize := int(1 * memory.KB)
-	maxInlineSize := int(4 * memory.KB)
-	segmentSize := int64(64 * memory.MB)
+	// redundancy settings
+	minThreshold := int(redScheme.RequiredShares)
+	repairThreshold := int(redScheme.RepairShares)
+	successThreshold := int(redScheme.OptimalShares)
+	maxThreshold := int(redScheme.TotalShares)
+	erasureShareSize := 1 * memory.KB
+	maxBufferMem := 4 * memory.MB
+
+	// client settings
+	maxInlineSize := 4 * memory.KB
+	segmentSize := 64 * memory.MB
 
 	oc, err := node.DialOverlay(satellite)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	pdb, err := node.DialPointerDB(satellite, "")
+	pdb, err := node.DialPointerDB(satellite, "") // TODO pass api key?
 	if err != nil {
 		return nil, nil, err
 	}
 
-	ec := ecclient.NewClient(node.Identity, maxBufferMem)
+	ec := ecclient.NewClient(node.Identity, maxBufferMem.Int())
 	fc, err := infectious.NewFEC(minThreshold, maxThreshold)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, erasureShareSize), repairThreshold, successThreshold)
+	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, erasureShareSize.Int()), repairThreshold, successThreshold)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, maxInlineSize)
+	segments := segments.NewSegmentStore(oc, ec, pdb, rs, maxInlineSize.Int())
 
-	if erasureShareSize*minThreshold%blockSize != 0 {
+	if erasureShareSize.Int()*minThreshold%int(encScheme.BlockSize) != 0 {
 		return nil, nil, fmt.Errorf("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
 	}
 
 	key := new(storj.Key)
 	copy(key[:], "enc.key")
 
-	streams, err := streams.NewStreamStore(segments, segmentSize, key, blockSize, storj.Cipher(1))
+	streams, err := streams.NewStreamStore(segments, segmentSize.Int64(), key, int(encScheme.BlockSize), encScheme.Cipher)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -251,6 +256,6 @@ func (node *Node) getRedundancyScheme() storj.RedundancyScheme {
 func (node *Node) getEncryptionScheme() storj.EncryptionScheme {
 	return storj.EncryptionScheme{
 		Cipher:    storj.Cipher(1),
-		BlockSize: int32(1 * memory.KiB),
+		BlockSize: memory.KiB.Int32(),
 	}
 }
