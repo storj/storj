@@ -40,7 +40,8 @@ func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUI
 	searchSubQuery := "%" + pagination.Search + "%"
 	//`+getOrder(pagination.Order)+`
 
-	rebindedQuery := pm.db.Rebind(`
+	// TODO: LIKE is case-sensitive postgres, however this should be case-insensitive and possibly allow typos
+	reboundQuery := pm.db.Rebind(`
 		SELECT pm.*
 			FROM project_members pm
 				INNER JOIN users u ON pm.member_id = u.id
@@ -52,7 +53,7 @@ func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUI
 						LIMIT ? OFFSET ?
 					`)
 
-	rows, err := pm.db.Query(rebindedQuery, projectID[:], searchSubQuery, searchSubQuery, searchSubQuery, pagination.Limit, pagination.Offset)
+	rows, err := pm.db.Query(reboundQuery, projectID[:], searchSubQuery, searchSubQuery, searchSubQuery, pagination.Limit, pagination.Offset)
 
 	defer func() {
 		err = errs.Combine(err, rows.Close())
