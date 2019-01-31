@@ -5,7 +5,8 @@
     <div class="empty-state">
         <div class="empty-state__wrap">
             <h1>{{mainTitle}}</h1>
-            <p>{{additionalText}}</p>
+            <!--<p>{{additionalText}}</p>-->
+            <div class="empty-state__wrap__additional-text" v-html="additionalText"/>
             <Button
                 v-if="isButtonShown"
                 @onPress="onButtonClick"
@@ -54,6 +55,16 @@ export default class EmptyStateProjectArea extends Vue {
             display: flex;
             flex-direction: column;
             align-items: center;
+
+            &__additional-text {
+                font-family: 'montserrat_regular';
+                font-size: 16px;
+
+                b {
+                    font-family: 'montserrat_bold' !important;
+                    font-size: 16px;
+                }
+            }
 
              &__img {
                 margin-top: 90px;

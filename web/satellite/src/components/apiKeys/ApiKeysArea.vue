@@ -17,6 +17,7 @@
         <EmptyState
             v-if="!apiKeyItems"
             mainTitle="You have no API Keys yet"
+            additional-text="<p>We recommend you to create your first API Key for this project. API Keys allow developers to manage their project and build applications over Storj Network through our Uplink CLI.</p>"
             :imageSource="emptyImage"
             buttonLabel="New Api Key"
             isButtonShown />

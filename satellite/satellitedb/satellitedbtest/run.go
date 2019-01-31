@@ -52,6 +52,12 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 				}
 			}()
 
+			// TODO: figure out a better way to do this safely
+			err = satellitedb.DROP_ALL_TABLES(db) //nolint ignore warning
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			err = db.CreateTables()
 			if err != nil {
 				t.Fatal(err)
