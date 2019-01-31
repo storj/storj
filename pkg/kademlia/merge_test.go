@@ -7,12 +7,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/bootstrap"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/satellite"
+	"storj.io/storj/storagenode"
 )
 
 func TestMergePlanets(t *testing.T) {
@@ -47,10 +50,20 @@ func TestMergePlanets(t *testing.T) {
 	// wait until everyone is reachable or fail
 	time.Sleep(10 * time.Second)
 
-	for _, node := range beta.StorageNodes {
-		for _, target := range alpha.StorageNodes {
-			// TODO: test whether is in routing table
-			_, _ = node, target
+	satellites := []*satellite.Peer{}
+	satellites = append(satellites, alpha.Satellites...)
+	satellites = append(satellites, beta.Satellites...)
+
+	storagenodes := []*storagenode.Peer{}
+	storagenodes = append(storagenodes, alpha.StorageNodes...)
+	storagenodes = append(storagenodes, beta.StorageNodes...)
+
+	for _, satellite := range satellites {
+		for _, storagenode := range storagenodes {
+			node, err := satellite.Overlay.Service.Get(ctx, storagenode.ID())
+			if assert.NoError(t, err) {
+				assert.Equal(t, storagenode.Addr(), node.Address.Address)
+			}
 		}
 	}
 }
