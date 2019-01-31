@@ -61,7 +61,8 @@ func NewInMemory() (satellite.DB, error) {
 func (db *DB) SetSchema(schema string) error {
 	switch db.driver {
 	case "postgres":
-		_, err := db.db.Exec("create schema $1; set search_path to $1;", schema)
+		// TODO: proper escaping
+		_, err := db.db.Exec("create schema " + schema + "; set search_path to " + schema + ";")
 		return err
 	}
 	return nil
