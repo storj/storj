@@ -110,6 +110,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 	return NewWithLogger(log, satelliteCount, storageNodeCount, uplinkCount)
 }
 
+// NewWithLogger creates a new full system with the given number of nodes.
 func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	return NewCustom(log, Config{
 		SatelliteCount:   satelliteCount,
@@ -118,7 +119,7 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 	})
 }
 
-// NewCustom creates a new full system with the given number of nodes.
+// NewCustom creates a new full system with the specified configuration.
 func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	if config.Identities == nil {
 		config.Identities = pregeneratedIdentities
