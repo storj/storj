@@ -99,7 +99,7 @@ func TestNodeSelection(t *testing.T) {
 		ExcludeCount   int
 		RequestCount   int64
 		ExpectedCount  int
-		ShouldFailWith errs.Class
+		ShouldFailWith *errs.Class
 	}
 
 	for i, tt := range []test{
@@ -158,7 +158,7 @@ func TestNodeSelection(t *testing.T) {
 			},
 			RequestCount:   2,
 			ExpectedCount:  3,
-			ShouldFailWith: overlay.ErrNotEnoughNodes,
+			ShouldFailWith: &overlay.ErrNotEnoughNodes,
 		},
 		{ // all new nodes, reputable and new nodes requested
 			Preferences: overlay.NodeSelectionConfig{
@@ -167,7 +167,7 @@ func TestNodeSelection(t *testing.T) {
 			},
 			RequestCount:   2,
 			ExpectedCount:  2,
-			ShouldFailWith: overlay.ErrNotEnoughNodes,
+			ShouldFailWith: &overlay.ErrNotEnoughNodes,
 		},
 		{ // audit threshold edge case (1)
 			Preferences: overlay.NodeSelectionConfig{
@@ -193,7 +193,7 @@ func TestNodeSelection(t *testing.T) {
 			ExcludeCount:   7,
 			RequestCount:   5,
 			ExpectedCount:  3,
-			ShouldFailWith: overlay.ErrNotEnoughNodes,
+			ShouldFailWith: &overlay.ErrNotEnoughNodes,
 		},
 	} {
 		t.Logf("#%2d. %+v", i, tt)
@@ -217,7 +217,7 @@ func TestNodeSelection(t *testing.T) {
 			}, &tt.Preferences)
 
 		t.Log(len(response.Nodes), err)
-		if tt.ShouldFailWith != "" {
+		if tt.ShouldFailWith != nil {
 			assert.Error(t, err)
 			assert.True(t, tt.ShouldFailWith.Has(err))
 		} else {
