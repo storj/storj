@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedbtest
+package bwagreement_test
 
 import (
 	"context"
@@ -16,10 +16,11 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestBandwidthAgreement(t *testing.T) {
-	Run(t, func(t *testing.T, db satellite.DB) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
