@@ -68,12 +68,12 @@ type Planet struct {
 
 	peers     []Peer
 	databases []io.Closer
-	nodes     []*Node
+	nodes     []*Uplink
 
 	Bootstrap    *bootstrap.Peer
 	Satellites   []*satellite.Peer
 	StorageNodes []*storagenode.Peer
-	Uplinks      []*Node
+	Uplinks      []*Uplink
 
 	identities *Identities
 
@@ -194,14 +194,14 @@ func (planet *Planet) Shutdown() error {
 }
 
 // newUplinks creates initializes uplinks
-func (planet *Planet) newUplinks(prefix string, count int) ([]*Node, error) {
-	var xs []*Node
+func (planet *Planet) newUplinks(prefix string, count int) ([]*Uplink, error) {
+	var xs []*Uplink
 	for i := 0; i < count; i++ {
-		node, err := planet.newUplink(prefix + strconv.Itoa(i))
+		uplink, err := planet.newUplink(prefix + strconv.Itoa(i))
 		if err != nil {
 			return nil, err
 		}
-		xs = append(xs, node)
+		xs = append(xs, uplink)
 	}
 
 	return xs, nil

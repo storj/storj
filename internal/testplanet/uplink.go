@@ -31,8 +31,8 @@ import (
 	"storj.io/storj/satellite"
 )
 
-// Node is a general purpose
-type Node struct {
+// Uplink is a general purpose
+type Uplink struct {
 	Log              *zap.Logger
 	Info             pb.Node
 	Identity         *identity.FullIdentity
@@ -41,24 +41,24 @@ type Node struct {
 }
 
 // newUplink creates a new uplink
-func (planet *Planet) newUplink(name string) (*Node, error) {
+func (planet *Planet) newUplink(name string) (*Uplink, error) {
 	identity, err := planet.NewIdentity()
 	if err != nil {
 		return nil, err
 	}
 
-	node := &Node{
+	uplink := &Uplink{
 		Log:              planet.log.Named(name),
 		Identity:         identity,
 		storageNodeCount: len(planet.StorageNodes),
 	}
 
-	node.Log.Debug("id=" + identity.ID.String())
+	uplink.Log.Debug("id=" + identity.ID.String())
 
-	node.Transport = transport.NewClient(identity)
+	uplink.Transport = transport.NewClient(identity)
 
-	node.Info = pb.Node{
-		Id:   node.Identity.ID,
+	uplink.Info = pb.Node{
+		Id:   uplink.Identity.ID,
 		Type: pb.NodeType_UPLINK,
 		Address: &pb.NodeAddress{
 			Transport: pb.NodeTransport_TCP_TLS_GRPC,
@@ -66,25 +66,25 @@ func (planet *Planet) newUplink(name string) (*Node, error) {
 		},
 	}
 
-	planet.nodes = append(planet.nodes, node)
+	planet.nodes = append(planet.nodes, uplink)
 
-	return node, nil
+	return uplink, nil
 }
 
-// ID returns node id
-func (node *Node) ID() storj.NodeID { return node.Info.Id }
+// ID returns uplink id
+func (uplink *Uplink) ID() storj.NodeID { return uplink.Info.Id }
 
-// Addr returns node address
-func (node *Node) Addr() string { return node.Info.Address.Address }
+// Addr returns uplink address
+func (uplink *Uplink) Addr() string { return uplink.Info.Address.Address }
 
-// Local returns node info
-func (node *Node) Local() pb.Node { return node.Info }
+// Local returns uplink info
+func (uplink *Uplink) Local() pb.Node { return uplink.Info }
 
-// Shutdown shuts down all node dependencies
-func (node *Node) Shutdown() error { return nil }
+// Shutdown shuts down all uplink dependencies
+func (uplink *Uplink) Shutdown() error { return nil }
 
 // DialPointerDB dials destination with apikey and returns pointerdb Client
-func (node *Node) DialPointerDB(destination Peer, apikey string) (pdbclient.Client, error) {
+func (uplink *Uplink) DialPointerDB(destination Peer, apikey string) (pdbclient.Client, error) {
 	// TODO: use node.Transport instead of pdbclient.NewClient
 	/*
 		conn, err := node.Transport.DialNode(context.Background(), &destination.Info)
@@ -95,13 +95,13 @@ func (node *Node) DialPointerDB(destination Peer, apikey string) (pdbclient.Clie
 	*/
 
 	// TODO: handle disconnect
-	return pdbclient.NewClient(node.Identity, destination.Addr(), apikey)
+	return pdbclient.NewClient(uplink.Identity, destination.Addr(), apikey)
 }
 
 // DialOverlay dials destination and returns an overlay.Client
-func (node *Node) DialOverlay(destination Peer) (overlay.Client, error) {
+func (uplink *Uplink) DialOverlay(destination Peer) (overlay.Client, error) {
 	info := destination.Local()
-	conn, err := node.Transport.DialNode(context.Background(), &info, grpc.WithBlock())
+	conn, err := uplink.Transport.DialNode(context.Background(), &info, grpc.WithBlock())
 	if err != nil {
 		return nil, err
 	}
@@ -111,14 +111,14 @@ func (node *Node) DialOverlay(destination Peer) (overlay.Client, error) {
 }
 
 // Upload data to specific satellite
-func (node *Node) Upload(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte) error {
-	metainfo, streams, err := node.getMetainfo(satellite)
+func (uplink *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte) error {
+	metainfo, streams, err := uplink.getMetainfo(satellite)
 	if err != nil {
 		return err
 	}
 
-	encScheme := node.getEncryptionScheme()
-	redScheme := node.getRedundancyScheme()
+	encScheme := uplink.getEncryptionScheme()
+	redScheme := uplink.getRedundancyScheme()
 
 	// create bucket if not exists
 	_, err = metainfo.GetBucket(ctx, bucket)
@@ -165,8 +165,8 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 }
 
 // Download data from specific satellite
-func (node *Node) Download(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) ([]byte, error) {
-	metainfo, streams, err := node.getMetainfo(satellite)
+func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) ([]byte, error) {
+	metainfo, streams, err := uplink.getMetainfo(satellite)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -187,9 +187,9 @@ func (node *Node) Download(ctx context.Context, satellite *satellite.Peer, bucke
 	return buffer.Bytes(), nil
 }
 
-func (node *Node) getMetainfo(satellite *satellite.Peer) (db storj.Metainfo, ss streams.Store, err error) {
-	encScheme := node.getEncryptionScheme()
-	redScheme := node.getRedundancyScheme()
+func (uplink *Uplink) getMetainfo(satellite *satellite.Peer) (db storj.Metainfo, ss streams.Store, err error) {
+	encScheme := uplink.getEncryptionScheme()
+	redScheme := uplink.getRedundancyScheme()
 
 	// redundancy settings
 	minThreshold := int(redScheme.RequiredShares)
@@ -203,17 +203,17 @@ func (node *Node) getMetainfo(satellite *satellite.Peer) (db storj.Metainfo, ss 
 	maxInlineSize := 4 * memory.KB
 	segmentSize := 64 * memory.MB
 
-	oc, err := node.DialOverlay(satellite)
+	oc, err := uplink.DialOverlay(satellite)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	pdb, err := node.DialPointerDB(satellite, "") // TODO pass api key?
+	pdb, err := uplink.DialPointerDB(satellite, "") // TODO pass api key?
 	if err != nil {
 		return nil, nil, err
 	}
 
-	ec := ecclient.NewClient(node.Identity, maxBufferMem.Int())
+	ec := ecclient.NewClient(uplink.Identity, maxBufferMem.Int())
 	fc, err := infectious.NewFEC(minThreshold, maxThreshold)
 	if err != nil {
 		return nil, nil, err
@@ -243,19 +243,19 @@ func (node *Node) getMetainfo(satellite *satellite.Peer) (db storj.Metainfo, ss 
 	return kvmetainfo.New(buckets, streams, segments, pdb, key), streams, nil
 }
 
-func (node *Node) getRedundancyScheme() storj.RedundancyScheme {
+func (uplink *Uplink) getRedundancyScheme() storj.RedundancyScheme {
 	return storj.RedundancyScheme{
 		Algorithm:      storj.ReedSolomon,
-		RequiredShares: int16(1 * node.storageNodeCount / 5),
-		RepairShares:   int16(2 * node.storageNodeCount / 5),
-		OptimalShares:  int16(3 * node.storageNodeCount / 5),
-		TotalShares:    int16(4 * node.storageNodeCount / 5),
+		RequiredShares: int16(1 * uplink.storageNodeCount / 5),
+		RepairShares:   int16(2 * uplink.storageNodeCount / 5),
+		OptimalShares:  int16(3 * uplink.storageNodeCount / 5),
+		TotalShares:    int16(4 * uplink.storageNodeCount / 5),
 	}
 }
 
-func (node *Node) getEncryptionScheme() storj.EncryptionScheme {
+func (uplink *Uplink) getEncryptionScheme() storj.EncryptionScheme {
 	return storj.EncryptionScheme{
 		Cipher:    storj.Cipher(1),
-		BlockSize: memory.KiB.Int32(),
+		BlockSize: int32(1 * memory.KB),
 	}
 }
