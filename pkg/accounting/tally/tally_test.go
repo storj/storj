@@ -48,8 +48,8 @@ func TestQueryWithBw(t *testing.T) {
 		for id, nodeTotals := range bwTotals {
 			require.Len(t, nodeTotals, 5)
 			for _, total := range nodeTotals {
-				require.Equal(t, id, planet.StorageNodes[0].Identity.ID)
-				require.Equal(t, total, 1000)
+				require.Equal(t, planet.StorageNodes[0].Identity.ID, id)
+				require.Equal(t, int64(1000), total)
 			}
 		}
 		err = tally.SaveBWRaw(ctx, tallyEnd, bwTotals)
@@ -72,5 +72,6 @@ func makeBWAs(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
 		require.NoError(t, err)
 		agreements[i] = &psdb.Agreement{Agreement: *rba}
 	}
-	sender.SendAgreementsToSatellite(ctx, snID.ID, agreements)
+	sender.SendAgreementsToSatellite(ctx, satID.ID, agreements)
+
 }
