@@ -515,6 +515,20 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	return m.db.Paginate(ctx, offset, limit)
 }
 
+// SelectNewNodes looks up nodes based on new node criteria
+func (m *lockedOverlayCache) SelectNewNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SelectNewNodes(ctx, count, criteria)
+}
+
+// SelectNodes looks up nodes based on criteria
+func (m *lockedOverlayCache) SelectNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SelectNodes(ctx, count, criteria)
+}
+
 // Update updates node information
 func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 	m.Lock()
