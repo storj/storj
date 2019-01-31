@@ -74,15 +74,30 @@ func DROP_ALL_TABLES(dbAny satellite.DB) (err error) { //nolint: ignore all caps
 
 	switch db.driver {
 	case "postgres":
-		_, err := db.db.Exec(`
-			DO $$ DECLARE
-				r RECORD;
-			BEGIN
-				FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = current_schema()) LOOP
-					EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
-				END LOOP;
-			END $$;`)
-		return err
+		rows, err := db.db.Query(`select tablename from pg_tables where schemaname = 'public';`)
+		if err != nil {
+			return err
+		}
+		defer func() { err = errs.Combine(err, rows.Close()) }()
+
+		for rows.Next() {
+			var tablename string
+			err := rows.Scan(&tablename)
+			if err != nil {
+				return err
+			}
+
+			_, err = db.db.Exec(`drop table "` + tablename + `" cascade;`)
+			if err != nil {
+				return err
+			}
+		}
+
+		if err := rows.Err(); err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	return nil
