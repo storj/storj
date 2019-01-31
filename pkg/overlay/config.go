@@ -42,7 +42,7 @@ type NodeSelectionConfig struct {
 	AuditCount        int64   `help:"the number of times a node has been audited" default:"0"`
 
 	NewNodeAuditThreshold int64   `help:"the number of audits a node must have to not be considered a New Node" default:"0"`
-	NewNodePercentage     float64 `help:"the percentage of new nodes allowed per request" default:"0.05"`
+	NewNodePercentage     float64 `help:"the percentage of new nodes allowed per request" default:"0.05"` // TODO: fix, this is not percentage, it's ratio
 }
 
 // ParseIDs converts the base58check encoded node ID strings from the config into node IDs

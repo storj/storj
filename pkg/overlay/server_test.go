@@ -4,13 +4,12 @@
 package overlay_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -89,115 +88,126 @@ func TestNodeSelection(t *testing.T) {
 		}
 	}
 
-	for _, tt := range []struct {
-		name                  string
-		newNodeAuditThreshold int64
-		newNodePercentage     float64
-		requestedNodeAmt      int64
-		expectedResultLength  int
-		excludedAmt           int
-		notEnoughRepNodes     bool
-	}{
-		{
-			name:                  "all reputable nodes, only reputable nodes requested",
-			newNodeAuditThreshold: 0,
-			newNodePercentage:     0,
-			requestedNodeAmt:      5,
-			expectedResultLength:  5,
+	type test struct {
+		Preferences   overlay.NodeSelectionConfig
+		ExcludeCount  int
+		RequestCount  int
+		ExpectedCount int
+		ShouldFail    bool
+	}
+
+	nodeSelectionConfig := &overlay.NodeSelectionConfig{
+		UptimeCount:           0,
+		UptimeRatio:           0,
+		AuditSuccessRatio:     0,
+		AuditCount:            0,
+		NewNodeAuditThreshold: tt.newNodeAuditThreshold,
+		NewNodePercentage:     tt.newNodePercentage,
+	}
+
+	for i, tt := range []test{
+		{ // all reputable nodes, only reputable nodes requested
+			Preferences: overlay.NodeSelectionConfig{
+				NewNodeAuditThreshold: 0,
+				NewNodePercentage:     0,
+			},
+			RequestCount:  5,
+			ExpectedCount: 5,
 		},
-		{
-			name:                  "all reputable nodes, reputable and new nodes requested",
-			newNodeAuditThreshold: 0,
-			newNodePercentage:     1,
-			requestedNodeAmt:      5,
-			expectedResultLength:  5,
+		{ // all reputable nodes, reputable and new nodes requested
+			Preferences: overlay.NodeSelectionConfig{
+				NewNodeAuditThreshold: 0,
+				NewNodePercentage:     1,
+			},
+			RequestCount:  5,
+			ExpectedCount: 5,
 		},
-		{
-			name:                  "all reputable nodes except one, reputable and new nodes requested",
-			newNodeAuditThreshold: 1,
-			newNodePercentage:     1,
-			requestedNodeAmt:      5,
-			expectedResultLength:  6,
+		{ // all reputable nodes except one, reputable and new nodes requested
+			Preferences: overlay.NodeSelectionConfig{
+				NewNodeAuditThreshold: 1,
+				NewNodePercentage:     1,
+			},
+			RequestCount:  5,
+			ExpectedCount: 6,
 		},
-		{
-			name:                  "50-50 reputable and new nodes, reputable and new nodes requested (new node % 1)",
-			newNodeAuditThreshold: 5,
-			newNodePercentage:     1,
-			requestedNodeAmt:      2,
-			expectedResultLength:  4,
+		{ // 50-50 reputable and new nodes, reputable and new nodes requested (new node % 1)
+			Preferences: overlay.NodeSelectionConfig{
+				NewNodeAuditThreshold: 5,
+				NewNodePercentage:     1,
+			},
+			RequestCount:  2,
+			ExpectedCount: 4,
 		},
-		{
-			name:                  "50-50 reputable and new nodes, reputable and new nodes requested (new node % .5)",
-			newNodeAuditThreshold: 5,
-			newNodePercentage:     0.5,
-			requestedNodeAmt:      4,
-			expectedResultLength:  6,
+		{ // 50-50 reputable and new nodes, reputable and new nodes requested (new node % .5)
+			Preferences: overlay.NodeSelectionConfig{
+				NewNodeAuditThreshold: 5,
+				NewNodePercentage:     0.5,
+			},
+			RequestCount:  4,
+			ExpectedCount: 6,
 		},
-		{
-			name:                  "all new nodes except one, reputable and new nodes requested (happy path)",
-			newNodeAuditThreshold: 8,
-			newNodePercentage:     1,
-			requestedNodeAmt:      1,
-			expectedResultLength:  2,
+		{ // all new nodes except one, reputable and new nodes requested (happy path)
+			Preferences: overlay.NodeSelectionConfig{
+				NewNodeAuditThreshold: 8,
+				NewNodePercentage:     1,
+			},
+			RequestCount:  1,
+			ExpectedCount: 2,
 		},
-		{
-			name:                  "all new nodes except one, reputable and new nodes requested (not happy path)",
-			newNodeAuditThreshold: 9,
-			newNodePercentage:     1,
-			requestedNodeAmt:      2,
-			expectedResultLength:  3,
-			notEnoughRepNodes:     true,
+		{ // all new nodes except one, reputable and new nodes requested (not happy path)
+			Preferences: overlay.NodeSelectionConfig{
+				NewNodeAuditThreshold: 9,
+				NewNodePercentage:     1,
+			},
+			RequestCount:  2,
+			ExpectedCount: 3,
+			ShouldFail:    true,
 		},
-		{
-			name:                  "all new nodes, reputable and new nodes requested",
-			newNodeAuditThreshold: 50,
-			newNodePercentage:     1,
-			requestedNodeAmt:      2,
-			expectedResultLength:  2,
-			notEnoughRepNodes:     true,
+		{ // all new nodes, reputable and new nodes requested
+			Preferences: overlay.NodeSelectionConfig{
+				NewNodeAuditThreshold: 50,
+				NewNodePercentage:     1,
+			},
+			RequestCount:  2,
+			ExpectedCount: 2,
+			ShouldFail:    true,
 		},
-		{
-			name:                  "audit threshold edge case (1)",
-			newNodeAuditThreshold: 9,
-			newNodePercentage:     0,
-			requestedNodeAmt:      1,
-			expectedResultLength:  1,
+		{ // audit threshold edge case (1)
+			Preferences: overlay.NodeSelectionConfig{
+				NewNodeAuditThreshold: 9,
+				NewNodePercentage:     0,
+			},
+			RequestCount:  1,
+			ExpectedCount: 1,
 		},
-		{
-			name:                  "audit threshold edge case (2)",
-			newNodeAuditThreshold: 0,
-			newNodePercentage:     1,
-			requestedNodeAmt:      1,
-			expectedResultLength:  1,
+		{ // audit threshold edge case (2)
+			Preferences: overlay.NodeSelectionConfig{
+				NewNodeAuditThreshold: 0,
+				NewNodePercentage:     1,
+			},
+			RequestCount:  1,
+			ExpectedCount: 1,
 		},
-		{
-			name:                  "excluded node ids being excluded",
-			excludedAmt:           7,
-			newNodeAuditThreshold: 5,
-			newNodePercentage:     0,
-			requestedNodeAmt:      5,
-			expectedResultLength:  3,
-			notEnoughRepNodes:     true,
+		{ // excluded node ids being excluded
+			Preferences: overlay.NodeSelectionConfig{
+				NewNodeAuditThreshold: 5,
+				NewNodePercentage:     0,
+			},
+			ExcludeCount:  7,
+			RequestCount:  5,
+			ExpectedCount: 3,
+			ShouldFail:    true,
 		},
 	} {
-
-		nodeSelectionConfig := &overlay.NodeSelectionConfig{
-			UptimeCount:           0,
-			UptimeRatio:           0,
-			AuditSuccessRatio:     0,
-			AuditCount:            0,
-			NewNodeAuditThreshold: tt.newNodeAuditThreshold,
-			NewNodePercentage:     tt.newNodePercentage,
-		}
-
-		server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay.Service, nodeSelectionConfig)
+		name := fmt.Sprintf("%d. %+v", i, tt)
+		service := planet.Satellites[0].Overlay.Service
 
 		var excludedNodes []storj.NodeID
 		for _, storageNode := range planet.StorageNodes[:tt.excludedAmt] {
 			excludedNoddes = append(excludedNodes, storageNode.ID())
 		}
 
-		result, err := server.FindStorageNodes(ctx,
+		result, err := service.FindStorageNodes(ctx,
 			&pb.FindStorageNodesRequest{
 				Opts: &pb.OverlayOptions{
 					Restrictions: &pb.NodeRestrictions{
@@ -207,16 +217,14 @@ func TestNodeSelection(t *testing.T) {
 					Amount:        tt.requestedNodeAmt,
 					ExcludedNodes: excludedNodes,
 				},
-			})
+			}, &tt.Preferences)
 
-		if tt.notEnoughRepNodes {
-			stat, ok := status.FromError(err)
-			assert.Equal(t, true, ok, tt.name)
-			assert.Equal(t, codes.ResourceExhausted, stat.Code(), tt.name)
+		if tt.ShouldFail {
+			assert.Error(t, err, name)
 		} else {
-			assert.NoError(t, err, tt.name)
+			assert.NoError(t, err, name)
 		}
 
-		assert.Equal(t, tt.expectedResultLength, len(result.GetNodes()), tt.name)
+		assert.Equal(t, tt.ExpectedCount, len(result), name)
 	}
 }
