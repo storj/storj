@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"strings"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -37,7 +38,7 @@ func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUI
 	}
 
 	var projectMembers []console.ProjectMember
-	searchSubQuery := "%" + pagination.Search + "%"
+	searchSubQuery := "%" + strings.Replace(pagination.Search, " ", "%", -1) + "%"
 	//`+getOrder(pagination.Order)+`
 
 	rebindedQuery := pm.db.Rebind(`
@@ -46,8 +47,8 @@ func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUI
 				INNER JOIN users u ON pm.member_id = u.id
 					WHERE pm.project_id = ?
 					AND ( u.email LIKE ? OR 
-						  u.first_name LIKE ? OR 
-						  u.last_name LIKE ? )
+						  u.first_name || u.last_name LIKE ? OR
+						  u.last_name || u.first_name LIKE ? )
 						ORDER BY ` + sanitizedOrderColumnName(pagination.Order) + ` ASC
 						LIMIT ? OFFSET ?
 					`)
