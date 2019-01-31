@@ -4,7 +4,6 @@
 package overlay_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -76,10 +75,10 @@ func TestNodeSelection(t *testing.T) {
 	planet.Start(ctx)
 	defer ctx.Check(planet.Shutdown)
 
+	satellite := planet.Satellites[0]
+
 	// we wait a second for all the nodes to complete bootstrapping off the satellite
 	time.Sleep(2 * time.Second)
-
-	satellite := planet.Satellites[0]
 
 	// This sets a reputable audit count for a certain number of nodes.
 	for i, node := range planet.StorageNodes {
@@ -88,6 +87,7 @@ func TestNodeSelection(t *testing.T) {
 			assert.NoError(t, err)
 		}
 	}
+
 	// ensure all storagenodes are in overlay service
 	for _, storageNode := range planet.StorageNodes {
 		err = satellite.Overlay.Service.Put(ctx, storageNode.ID(), storageNode.Local())
@@ -196,7 +196,7 @@ func TestNodeSelection(t *testing.T) {
 			ShouldFailWith: overlay.ErrNotEnoughNodes,
 		},
 	} {
-		name := fmt.Sprintf("#%d. %+v", i, tt)
+		t.Logf("#%2d. %+v", i, tt)
 		endpoint := planet.Satellites[0].Overlay.Endpoint
 
 		var excludedNodes []storj.NodeID
@@ -216,14 +216,14 @@ func TestNodeSelection(t *testing.T) {
 				},
 			}, &tt.Preferences)
 
-		t.Log(name, len(response.Nodes), err)
+		t.Log(len(response.Nodes), err)
 		if tt.ShouldFailWith != "" {
-			assert.Error(t, err, name)
-			assert.True(t, tt.ShouldFailWith.Has(err), name)
+			assert.Error(t, err)
+			assert.True(t, tt.ShouldFailWith.Has(err))
 		} else {
-			assert.NoError(t, err, name)
+			assert.NoError(t, err)
 		}
 
-		assert.Equal(t, tt.ExpectedCount, len(response.Nodes), name)
+		assert.Equal(t, tt.ExpectedCount, len(response.Nodes))
 	}
 }
