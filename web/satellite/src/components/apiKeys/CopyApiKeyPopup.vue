@@ -6,7 +6,7 @@
         <div class="save-api-popup" v-if="true">
             <div class="save-api-popup__content">
                 <h1 class="save-api-popup__content__title">Save you API Key or download it in .txt file.</h1>
-                <p class="save-api-popup__content__name">You will need to have it to share access to the project with your team members.</p>
+                <p class="save-api-popup__content__name">You will need this to share access to the project with your team members.</p>
                 <div class="save-api-popup__content__copy-area">
                     <p class="save-api-popup__content__copy-area__save-api">ab4923re124NSVDLkvdmsfv mwm45678gnhab4923rewm45678gn</p>
                     <Button class="save-api-popup__content__copy-area__save-btn" label="Copy" width="140px" height="48px" />
