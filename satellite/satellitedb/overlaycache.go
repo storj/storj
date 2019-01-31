@@ -178,6 +178,7 @@ func (cache *overlaycache) findReputableNodesQuery(ctx context.Context, req *get
 	AND free_bandwidth >= ?
 	AND free_disk >= ?
 	AND node_type == ?
+	ORDER BY RANDOM()
 	LIMIT ?
 	`,
 		args...)
@@ -215,11 +216,12 @@ func (cache *overlaycache) findNewNodesQuery(ctx context.Context, req *getNodesR
 		audit_uptime_ratio, audit_count, audit_success_count, uptime_count,
 		uptime_success_count
 		FROM overlay_cache_nodes
-		WHERE node_id NOT IN (`+strings.Join(sliceOfCopies("?", len(req.excluded)), ", ")+`)	
+		WHERE node_id NOT IN (`+strings.Join(sliceOfCopies("?", len(req.excluded)), ", ")+`)
 		AND audit_count < ?
 		AND free_bandwidth >= ?
 		AND free_disk >= ?
 		AND node_type == ?
+		ORDER BY RANDOM()
 		LIMIT ?
 	`),
 		args...)
