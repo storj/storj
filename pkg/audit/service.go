@@ -9,9 +9,9 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/transport"
 )
@@ -32,7 +32,7 @@ type Service struct {
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(log *zap.Logger, sdb statdb.DB, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, transport transport.Client, overlay *overlay.Cache, identity *provider.FullIdentity) (service *Service, err error) {
+func NewService(log *zap.Logger, sdb statdb.DB, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, transport transport.Client, overlay *overlay.Cache, identity *identity.FullIdentity) (service *Service, err error) {
 	// TODO: instead of overlay.Client use overlay.Service
 	cursor := NewCursor(pointers, allocation, identity)
 	verifier := NewVerifier(transport, overlay, identity)

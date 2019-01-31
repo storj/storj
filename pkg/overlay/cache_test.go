@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -95,6 +94,27 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.D
 		assert.True(t, overlay.OverlayError.Has(err))
 
 		// TODO: add erroring database test
+	}
+
+	{ // List
+		list, err := cache.List(ctx, storj.NodeID{}, 3)
+		assert.NoError(t, err)
+		assert.NotNil(t, list)
+	}
+
+	{ // Paginate
+
+		// should return two nodes
+		nodes, more, err := cache.Paginate(ctx, 0, 2)
+		assert.NotNil(t, more)
+		assert.NoError(t, err)
+		assert.Equal(t, len(nodes), 2)
+
+		// should return no nodes
+		zero, more, err := cache.Paginate(ctx, 0, 0)
+		assert.NoError(t, err)
+		assert.NotNil(t, more)
+		assert.NotEqual(t, len(zero), 0)
 	}
 
 	{ // Delete
