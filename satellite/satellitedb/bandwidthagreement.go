@@ -34,15 +34,16 @@ func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.Renter
 	return err
 }
 
-var uplinkSQL = fmt.Sprintf(`SELECT uplink_id, SUM(total), 
- COUNT(CASE WHEN action = %d THEN total ELSE null END), 
- COUNT(CASE WHEN action = %d THEN total ELSE null END), COUNT(*)
-FROM bwagreements WHERE created_at > $1 
-AND created_at <= $2 GROUP BY uplink_id ORDER BY uplink_id`, pb.BandwidthAction_PUT, pb.BandwidthAction_GET)
-
 //GetTotals returns stats about an uplink
 func (b *bandwidthagreement) GetUplinkStats(ctx context.Context, from, to time.Time) (stats []bwagreement.UplinkStat, err error) {
-	rows, err := b.db.DB.Query(uplinkSQL, from, to)
+
+	var uplinkSQL = fmt.Sprintf(`SELECT uplink_id, SUM(total), 
+		COUNT(CASE WHEN action = %d THEN total ELSE null END), 
+		COUNT(CASE WHEN action = %d THEN total ELSE null END), COUNT(*)
+		FROM bwagreements WHERE created_at > ? 
+		AND created_at <= ? GROUP BY uplink_id ORDER BY uplink_id`,
+		pb.BandwidthAction_PUT, pb.BandwidthAction_GET)
+	rows, err := b.db.DB.Query(b.db.Rebind(uplinkSQL), from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -64,20 +65,19 @@ func (b *bandwidthagreement) GetUplinkStats(ctx context.Context, from, to time.T
 	return stats, nil
 }
 
-var getTotalsSQL = fmt.Sprintf(`SELECT storage_node_id, 
- SUM(CASE WHEN action = %d THEN total ELSE 0 END),
- SUM(CASE WHEN action = %d THEN total ELSE 0 END), 
- SUM(CASE WHEN action = %d THEN total ELSE 0 END),
- SUM(CASE WHEN action = %d THEN total ELSE 0 END), 
- SUM(CASE WHEN action = %d THEN total ELSE 0 END)
-FROM bwagreements WHERE created_at > $1 AND created_at <= $2 
-GROUP BY storage_node_id ORDER BY storage_node_id`, pb.BandwidthAction_PUT,
-	pb.BandwidthAction_GET, pb.BandwidthAction_GET_AUDIT,
-	pb.BandwidthAction_GET_REPAIR, pb.BandwidthAction_PUT_REPAIR)
-
 //GetTotals returns the sum of each bandwidth type after (exluding) a given date range
 func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) (bwa map[storj.NodeID][]int64, err error) {
-	rows, err := b.db.DB.Query(getTotalsSQL, from, to)
+	var getTotalsSQL = fmt.Sprintf(`SELECT storage_node_id, 
+		SUM(CASE WHEN action = %d THEN total ELSE 0 END),
+		SUM(CASE WHEN action = %d THEN total ELSE 0 END), 
+		SUM(CASE WHEN action = %d THEN total ELSE 0 END),
+		SUM(CASE WHEN action = %d THEN total ELSE 0 END), 
+		SUM(CASE WHEN action = %d THEN total ELSE 0 END)
+		FROM bwagreements WHERE created_at > ? AND created_at <= ? 
+		GROUP BY storage_node_id ORDER BY storage_node_id`, pb.BandwidthAction_PUT,
+		pb.BandwidthAction_GET, pb.BandwidthAction_GET_AUDIT,
+		pb.BandwidthAction_GET_REPAIR, pb.BandwidthAction_PUT_REPAIR)
+	rows, err := b.db.DB.Query(b.db.Rebind(getTotalsSQL), from, to)
 	if err != nil {
 		return nil, err
 	}
