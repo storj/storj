@@ -61,7 +61,7 @@ func NewInMemory() (satellite.DB, error) {
 func (db *DB) SetSchema(schema string) error {
 	switch db.driver {
 	case "postgres":
-		_, err := db.db.Exec("create schema ?; set search_path to ?;", schema, schema)
+		_, err := db.db.Exec("create schema $1; set search_path to $1;", schema)
 		return err
 	}
 	return nil
@@ -71,7 +71,7 @@ func (db *DB) SetSchema(schema string) error {
 func (db *DB) DropSchema(schema string) error {
 	switch db.driver {
 	case "postgres":
-		_, err := db.db.Exec("drop schema ? cascade", schema)
+		_, err := db.db.Exec("drop schema $1 cascade", schema)
 		return err
 	}
 	return nil
