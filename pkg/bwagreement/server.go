@@ -95,7 +95,8 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.RenterBandwidt
 
 	//save and return rersults
 	if err = s.db.CreateAgreement(ctx, rba); err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") ||
+			strings.Contains(err.Error(), "violates unique constraint") {
 			return reply, pb.ErrPayer.Wrap(auth.ErrSerial.Wrap(err))
 		}
 		reply.Status = pb.AgreementsSummary_FAIL
