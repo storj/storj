@@ -108,7 +108,7 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNod
 	excludedNodes := req.GetOpts().ExcludedNodes
 	requestedCount := int(req.GetOpts().GetAmount())
 
-	// TODO: this logic looks wrong
+	// TODO: verify logic
 
 	// TODO: add sanity limits to requested node count
 	// TODO: add sanity limits to excluded nodes
