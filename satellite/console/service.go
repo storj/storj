@@ -93,6 +93,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 	if err != nil {
 		return nil, err
 	}
+
+	u.Email = email
 	return u, err
 }
 
