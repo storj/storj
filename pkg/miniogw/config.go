@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
@@ -120,7 +119,7 @@ func (c Config) Run(ctx context.Context) (err error) {
 	return Error.New("unexpected minio exit")
 }
 
-func (c Config) action(ctx context.Context, cliCtx *cli.Context, identity *provider.FullIdentity) (err error) {
+func (c Config) action(ctx context.Context, cliCtx *cli.Context, identity *identity.FullIdentity) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	gw, err := c.NewGateway(ctx, identity)
@@ -133,7 +132,7 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context, identity *provi
 }
 
 // GetMetainfo returns an implementation of storj.Metainfo
-func (c Config) GetMetainfo(ctx context.Context, identity *provider.FullIdentity) (db storj.Metainfo, ss streams.Store, err error) {
+func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity) (db storj.Metainfo, ss streams.Store, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if c.Client.OverlayAddr == "" || c.Client.PointerDBAddr == "" {
@@ -207,7 +206,7 @@ func (c Config) GetEncryptionScheme() storj.EncryptionScheme {
 }
 
 // NewGateway creates a new minio Gateway
-func (c Config) NewGateway(ctx context.Context, identity *provider.FullIdentity) (gw minio.Gateway, err error) {
+func (c Config) NewGateway(ctx context.Context, identity *identity.FullIdentity) (gw minio.Gateway, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	metainfo, streams, err := c.GetMetainfo(ctx, identity)
