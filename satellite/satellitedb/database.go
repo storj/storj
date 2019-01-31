@@ -4,6 +4,8 @@
 package satellitedb
 
 import (
+	"errors"
+
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/migrate"
@@ -28,7 +30,8 @@ var (
 
 // DB contains access to different database tables
 type DB struct {
-	db *dbx.DB
+	db     *dbx.DB
+	driver string
 }
 
 // New creates instance of database (supports: postgres, sqlite3)
@@ -44,7 +47,7 @@ func New(databaseURL string) (satellite.DB, error) {
 			driver, source, err)
 	}
 
-	core := &DB{db: db}
+	core := &DB{db: db, driver: driver}
 	if driver == "sqlite3" {
 		return newLocked(core), nil
 	}
@@ -54,6 +57,48 @@ func New(databaseURL string) (satellite.DB, error) {
 // NewInMemory creates instance of Sqlite in memory satellite database
 func NewInMemory() (satellite.DB, error) {
 	return New("sqlite3://file::memory:?mode=memory")
+}
+
+// DROP_ALL_TABLES drops all tables in the database.
+// Deprected: do not use in production.
+func DROP_ALL_TABLES(dbAny satellite.DB) (err error) { //nolint: ignore all caps requirement for dangerous function
+	var db *DB
+	switch temp := dbAny.(type) {
+	case *DB:
+		db = temp
+	case *locked:
+		return DROP_ALL_TABLES(temp.db)
+	default:
+		return errors.New("unsupported implementation")
+	}
+
+	switch db.driver {
+	case "postgres":
+		rows, err := db.db.Query(`select tablename from pg_tables;`)
+		if err != nil {
+			return err
+		}
+		defer func() { err = errs.Combine(err, rows.Close()) }()
+
+		for rows.Next() {
+			var tablename string
+			err := rows.Scan(&tablename)
+			if err != nil {
+				return err
+			}
+
+			_, err = db.db.Exec(`drop table '` + tablename + `' cascade;`)
+			if err != nil {
+				return err
+			}
+		}
+
+		if err := rows.Err(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // BandwidthAgreement is a getter for bandwidth agreement repository
