@@ -50,7 +50,7 @@ func TestMergePlanets(t *testing.T) {
 	alpha.Start(ctx)
 	beta.Start(ctx)
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	test := func(tag string, satellites []*satellite.Peer, storageNodes []*storagenode.Peer) string {
 		found, missing := 0, 0
