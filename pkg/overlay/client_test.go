@@ -11,37 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
-
-func TestNewClient(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	cases := []struct {
-		address string
-	}{
-		{
-			address: "127.0.0.1:8080",
-		},
-	}
-
-	for _, v := range cases {
-		ca, err := testidentity.NewTestCA(ctx)
-		assert.NoError(t, err)
-		identity, err := ca.NewIdentity()
-		assert.NoError(t, err)
-
-		oc, err := overlay.NewClient(identity, v.address)
-		assert.NoError(t, err)
-
-		assert.NotNil(t, oc)
-	}
-}
 
 func TestChoose(t *testing.T) {
 	ctx := testcontext.New(t)
@@ -49,11 +23,11 @@ func TestChoose(t *testing.T) {
 
 	planet, err := testplanet.New(t, 1, 8, 1)
 	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
 	// we wait a second for all the nodes to complete bootstrapping off the satellite
 	time.Sleep(2 * time.Second)
-	defer ctx.Check(planet.Shutdown)
 
 	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
 	if err != nil {
@@ -93,11 +67,11 @@ func TestLookup(t *testing.T) {
 
 	planet, err := testplanet.New(t, 1, 4, 1)
 	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
 	// we wait a second for all the nodes to complete bootstrapping off the satellite
 	time.Sleep(2 * time.Second)
-	defer ctx.Check(planet.Shutdown)
 
 	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
 	if err != nil {
