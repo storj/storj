@@ -8,8 +8,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
@@ -21,19 +19,19 @@ var ServerError = errs.Class("Server Error")
 
 // Server implements our overlay RPC service
 type Server struct {
-	log                 *zap.Logger
-	cache               *Cache
-	metrics             *monkit.Registry
-	nodeSelectionConfig *NodeSelectionConfig
+	log         *zap.Logger
+	cache       *Cache
+	metrics     *monkit.Registry
+	preferences *NodeSelectionConfig
 }
 
 // NewServer creates a new Overlay Server
-func NewServer(log *zap.Logger, cache *Cache, nodeSelectionConfig *NodeSelectionConfig) *Server {
+func NewServer(log *zap.Logger, cache *Cache, preferences *NodeSelectionConfig) *Server {
 	return &Server{
-		cache:               cache,
-		log:                 log,
-		metrics:             monkit.Default,
-		nodeSelectionConfig: nodeSelectionConfig,
+		cache:       cache,
+		log:         log,
+		metrics:     monkit.Default,
+		preferences: preferences,
 	}
 }
 
@@ -67,48 +65,47 @@ func (server *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
 	return nodesToLookupResponses(ns), nil
 }
 
-// FilterNodesRequest are the requirements for nodes from the overlay cache
-type FilterNodesRequest struct {
-	MinReputation         *pb.NodeStats
-	MinNodes              int64
-	Opts                  *pb.OverlayOptions
-	NewNodePercentage     float64
-	NewNodeAuditThreshold int64
+// NodeCriteria are the requirements for selecting nodes
+type NodeCriteria struct {
+	Type pb.NodeType
+
+	FreeBandwidth int64
+	FreeDisk      int64
+
+	AuditCount         int64
+	AuditSuccessRatio  float64
+	UptimeCount        int64
+	UptimeSuccessRatio float64
+
+	Excluded []storj.NodeID
+}
+
+// NewNodeCriteria are the requirement for selecting new nodes
+type NewNodeCriteria struct {
+	Type pb.NodeType
+
+	FreeBandwidth int64
+	FreeDisk      int64
+
+	AuditThreshold int64
+
+	Excluded []storj.NodeID
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	return server.FindStorageNodesWithPreferences(ctx, req, server.preferences)
+}
 
-	minStats := &pb.NodeStats{
-		AuditCount:        server.nodeSelectionConfig.AuditCount,
-		AuditSuccessRatio: server.nodeSelectionConfig.AuditSuccessRatio,
-		UptimeCount:       server.nodeSelectionConfig.UptimeCount,
-		UptimeRatio:       server.nodeSelectionConfig.UptimeRatio,
-	}
-
-	filterNodesReq := &FilterNodesRequest{
-		MinReputation:         minStats,
-		MinNodes:              req.GetMinNodes(),
-		Opts:                  req.GetOpts(),
-		NewNodePercentage:     server.nodeSelectionConfig.NewNodePercentage,
-		NewNodeAuditThreshold: server.nodeSelectionConfig.NewNodeAuditThreshold,
-	}
-
-	foundNodes, err := server.cache.db.FilterNodes(ctx, filterNodesReq)
-	if err != nil {
-		stat, _ := status.FromError(err)
-		if stat.Code() == codes.ResourceExhausted {
-			return &pb.FindStorageNodesResponse{
-				Nodes: foundNodes,
-			}, err
-		}
-		return nil, Error.Wrap(err)
-	}
-
+// FindStorageNodesWithPreferences searches the overlay network for nodes that meet the provided requirements
+// exposed mainly for testing
+func (server *Server) FindStorageNodesWithPreferences(ctx context.Context, req *pb.FindStorageNodesRequest, preferences *NodeSelectionConfig) (resp *pb.FindStorageNodesResponse, err error) {
+	// TODO: use better structs for find storage nodes
+	nodes, err := server.cache.FindStorageNodes(ctx, req, preferences)
 	return &pb.FindStorageNodesResponse{
-		Nodes: foundNodes,
-	}, nil
+		Nodes: nodes,
+	}, err
 }
 
 // lookupRequestsToNodeIDs returns the nodeIDs from the LookupRequests
