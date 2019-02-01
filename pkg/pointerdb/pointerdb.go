@@ -152,14 +152,15 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 	for _, piece := range pointer.Remote.RemotePieces {
 		node, err := s.cache.Get(ctx, piece.NodeId)
 		if err != nil {
-			s.logger.Error("Error getting node from cache")
-			continue
+			s.logger.Error("Error getting node from cache", zap.String("ID", piece.NodeId.String()), zap.Error(err))
 		}
 		nodes = append(nodes, node)
 	}
 
 	for _, v := range nodes {
-		v.Type.DPanicOnInvalid("pdb server Get")
+		if v != nil {
+			v.Type.DPanicOnInvalid("pdb server Get")
+		}
 	}
 	r = &pb.GetResponse{
 		Pointer:       pointer,
