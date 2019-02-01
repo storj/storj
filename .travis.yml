@@ -62,7 +62,7 @@ matrix:
         - go run ./scripts/check-imports.go ./...
         - go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint
         - golangci-lint run
-        - [ $(git diff --name-only $TRAVIS_COMMIT_RANGE -- go.mod go.sum) ] && gospace tidy || true
+        - ./scripts/check-travis-tidy.sh
 
     ### integration tests ###
     - env: MODE=integration
