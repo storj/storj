@@ -124,7 +124,9 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			return Meta{}, Error.Wrap(err)
 		}
 		for _, v := range nodes {
-			v.Type.DPanicOnInvalid("ss put")
+			if v != nil {
+				v.Type.DPanicOnInvalid("ss put")
+			}
 		}
 
 		pieceID := psclient.NewPieceID()
