@@ -14,6 +14,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"go.uber.org/zap"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
@@ -49,6 +50,23 @@ var (
 )
 
 func init() {
+	// NB: init functions are executed in lexicographical order of filename
+	confDirParam := cfgstruct.FindConfigDirParam()
+	if confDirParam != "" {
+		defaultIdentityDir = confDirParam
+	}
+	identityDirParam := cfgstruct.FindIdentityDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
+	}
+
+	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for certificates configuration")
+	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
+	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
+
 	rootCmd.AddCommand(authCmd)
 	authCmd.AddCommand(authCreateCmd)
 	cfgstruct.Bind(authCreateCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir))

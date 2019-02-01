@@ -71,16 +71,19 @@ type Config struct {
 	KeyPath  string `help:"path to the private key for this identity" default:"$IDENTITYDIR/identity.key" user:"true"`
 }
 
+// PeerConfig allows you to interact with a peer identity (cert, no key) on disk.
+type PeerConfig struct {
+	CertPath string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/identity.cert" user:"true"`
+}
+
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and
 // private key PEM-encoded bytes
 func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
-	chain, err := DecodeAndParseChainPEM(chainPEM)
+	peerIdent, err := PeerIdentityFromPEM(chainPEM)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, err
 	}
-	if len(chain) < peertls.CAIndex+1 {
-		return nil, ErrChainLength.New("identity chain does not contain a CA certificate")
-	}
+
 	keysBytes, err := decodePEM(keyPEM)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -91,16 +94,35 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 	if err != nil {
 		return nil, errs.New("unable to parse EC private key: %v", err)
 	}
+
+	return &FullIdentity{
+		RestChain: peerIdent.RestChain,
+		CA:        peerIdent.CA,
+		Leaf:      peerIdent.Leaf,
+		Key:       key,
+		ID:        peerIdent.ID,
+	}, nil
+}
+
+// PeerIdentityFromPEM loads a PeerIdentity from a certificate chain and
+// private key PEM-encoded bytes
+func PeerIdentityFromPEM(chainPEM []byte) (*PeerIdentity, error) {
+	chain, err := DecodeAndParseChainPEM(chainPEM)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	if len(chain) < peertls.CAIndex+1 {
+		return nil, ErrChainLength.New("identity chain does not contain a CA certificate")
+	}
 	nodeID, err := NodeIDFromKey(chain[peertls.CAIndex].PublicKey)
 	if err != nil {
 		return nil, err
 	}
 
-	return &FullIdentity{
+	return &PeerIdentity{
 		RestChain: chain[peertls.CAIndex+1:],
 		CA:        chain[peertls.CAIndex],
 		Leaf:      chain[peertls.LeafIndex],
-		Key:       key,
 		ID:        nodeID,
 	}, nil
 }
@@ -295,7 +317,61 @@ func (ic Config) Save(fi *FullIdentity) error {
 func (ic Config) SaveBackup(fi *FullIdentity) error {
 	return Config{
 		CertPath: backupPath(ic.CertPath),
+		KeyPath:  backupPath(ic.KeyPath),
 	}.Save(fi)
+}
+
+// PeerConfig converts a Config to a PeerConfig
+func (ic Config) PeerConfig() *PeerConfig {
+	return &PeerConfig{
+		CertPath: ic.CertPath,
+	}
+}
+
+// Load loads a PeerIdentity from the config
+func (ic PeerConfig) Load() (*PeerIdentity, error) {
+	c, err := ioutil.ReadFile(ic.CertPath)
+	if err != nil {
+		return nil, peertls.ErrNotExist.Wrap(err)
+	}
+	pi, err := PeerIdentityFromPEM(c)
+	if err != nil {
+		return nil, errs.New("failed to load identity %#v: %v",
+			ic.CertPath, err)
+	}
+	return pi, nil
+}
+
+// Save saves a PeerIdentity according to the config
+func (ic PeerConfig) Save(fi *PeerIdentity) error {
+	var (
+		certData                         bytes.Buffer
+		writeChainErr, writeChainDataErr error
+	)
+
+	chain := []*x509.Certificate{fi.Leaf, fi.CA}
+	chain = append(chain, fi.RestChain...)
+
+	if ic.CertPath != "" {
+		writeChainErr = peertls.WriteChain(&certData, chain...)
+		writeChainDataErr = writeChainData(ic.CertPath, certData.Bytes())
+	}
+
+	writeErr := utils.CombineErrors(writeChainErr)
+	if writeErr != nil {
+		return writeErr
+	}
+
+	return utils.CombineErrors(
+		writeChainDataErr,
+	)
+}
+
+// SaveBackup saves the certificate of the config with a timestamped filename
+func (ic PeerConfig) SaveBackup(pi *PeerIdentity) error {
+	return PeerConfig{
+		CertPath: backupPath(ic.CertPath),
+	}.Save(pi)
 }
 
 // ChainRaw returns all of the certificate chain as a 2d byte slice
@@ -359,6 +435,16 @@ func (fi *FullIdentity) DialOption(id storj.NodeID) (grpc.DialOption, error) {
 	}
 
 	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), nil
+}
+
+// PeerIdentity converts a FullIdentity into a PeerIdentity
+func (fi *FullIdentity) PeerIdentity() *PeerIdentity {
+	return &PeerIdentity{
+		CA:        fi.CA,
+		Leaf:      fi.Leaf,
+		ID:        fi.ID,
+		RestChain: fi.RestChain,
+	}
 }
 
 func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {

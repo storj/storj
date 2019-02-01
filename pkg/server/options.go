@@ -16,7 +16,7 @@ import (
 type Options struct {
 	Config   Config
 	Ident    *identity.FullIdentity
-	RevDB    *peertls.RevocationDB
+	RevDB    *identity.RevocationDB
 	PCVFuncs []peertls.PeerCertVerificationFunc
 }
 
@@ -62,11 +62,11 @@ func (opts *Options) configure(c Config) (err error) {
 	}
 
 	if c.Extensions.Revocation {
-		opts.RevDB, err = peertls.NewRevDB(c.RevocationDBURL)
+		opts.RevDB, err = identity.NewRevDB(c.RevocationDBURL)
 		if err != nil {
 			return err
 		}
-		pcvs = append(pcvs, peertls.VerifyUnrevokedChainFunc(opts.RevDB))
+		pcvs = append(pcvs, identity.VerifyUnrevokedChainFunc(opts.RevDB))
 	}
 
 	exts := peertls.ParseExtensions(c.Extensions, parseOpts)

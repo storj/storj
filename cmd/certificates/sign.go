@@ -5,6 +5,8 @@ package main
 
 import (
 	"crypto/x509"
+	"fmt"
+	"log"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -15,14 +17,15 @@ import (
 
 var (
 	signCmd = &cobra.Command{
-		Use:   "sign",
+		Use:   "sign [signee identity-dir]",
 		Short: "Sign a CA and update corresponding CA and identity certificate chains",
+		Args:  cobra.ExactArgs(1),
 		RunE:  cmdSign,
 	}
 
 	signCfg struct {
-		CA       identity.FullCAConfig
-		Identity identity.Config
+		signeeCACfg    identity.PeerCAConfig
+		signeeIdentCfg identity.PeerConfig
 		// NB: defaults to same as CA
 		Signer identity.FullCAConfig
 	}
@@ -30,34 +33,35 @@ var (
 
 func init() {
 	rootCmd.AddCommand(signCmd)
-	cfgstruct.Bind(signCmd.Flags(), &signCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(signCmd.Flags(), &signCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdSign(cmd *cobra.Command, args []string) error {
-	ca, err := signCfg.CA.Load()
+	ca, err := signCfg.signeeCACfg.Load()
 	if err != nil {
 		return err
 	}
 
-	ident, err := signCfg.Identity.Load()
+	ident, err := signCfg.signeeIdentCfg.Load()
 	if err != nil {
-		return err
+		log.Printf("unable to load identity: %s\n", err.Error())
 	}
 
 	signer, err := signCfg.Signer.Load()
 	if err != nil {
+		fmt.Println("two")
 		return err
 	}
 	restChain := []*x509.Certificate{signer.Cert}
 
 	// NB: backup ca and identity
-	err = signCfg.CA.SaveBackup(ca)
+	err = signCfg.signeeCACfg.SaveBackup(ca)
 	if err != nil {
 		return err
 	}
-	err = signCfg.Identity.SaveBackup(ident)
+	err = signCfg.signeeIdentCfg.SaveBackup(ident)
 	if err != nil {
-		return err
+		log.Printf("unable to save backup of identity: %s\n", err.Error())
 	}
 
 	ca.Cert, err = signer.Sign(ca.Cert)
@@ -67,9 +71,7 @@ func cmdSign(cmd *cobra.Command, args []string) error {
 	ca.RestChain = restChain
 
 	writeErrs := new(errs.Group)
-	err = identity.FullCAConfig{
-		CertPath: signCfg.CA.CertPath,
-	}.Save(ca)
+	err = signCfg.signeeCACfg.Save(ca)
 	if err != nil {
 		writeErrs.Add(err)
 	}
@@ -77,11 +79,9 @@ func cmdSign(cmd *cobra.Command, args []string) error {
 	ident.CA = ca.Cert
 	ident.RestChain = restChain
 
-	err = identity.Config{
-		CertPath: signCfg.Identity.CertPath,
-	}.Save(ident)
+	err = signCfg.signeeIdentCfg.Save(ident)
 	if err != nil {
-		writeErrs.Add(err)
+		log.Printf("unable to save identity: %s\n", err.Error())
 	}
 
 	return writeErrs.Err()

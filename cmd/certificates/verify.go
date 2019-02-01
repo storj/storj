@@ -42,7 +42,7 @@ type checkOpts struct {
 
 func init() {
 	rootCmd.AddCommand(verifyCmd)
-	cfgstruct.Bind(verifyCmd.Flags(), &verifyCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(verifyCmd.Flags(), &verifyCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdVerify(cmd *cobra.Command, args []string) error {
