@@ -87,7 +87,8 @@ func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) 
 	for i := 0; rows.Next(); i++ {
 		var nodeID []byte
 		data := make([]int64, len(pb.BandwidthAction_value))
-		err := rows.Scan(&nodeID, &data[0], &data[1], &data[2], &data[3], &data[4])
+		err := rows.Scan(&nodeID, &data[pb.BandwidthAction_PUT], &data[pb.BandwidthAction_GET],
+			&data[pb.BandwidthAction_GET_AUDIT], &data[pb.BandwidthAction_GET_REPAIR], &data[pb.BandwidthAction_PUT_REPAIR])
 		if err != nil {
 			return totals, err
 		}

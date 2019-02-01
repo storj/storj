@@ -145,11 +145,11 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 		return latestTally, nodeData, Error.Wrap(err)
 	}
 	//store byte hours, not just bytes
-	numHours := time.Now().UTC().Sub(latestTally).Hours()
+	numHours := time.Now().Sub(latestTally).Hours()
 	if latestTally.IsZero() {
 		numHours = 1.0 //todo: something more considered?
 	}
-	latestTally = time.Now().UTC()
+	latestTally = time.Now()
 	for k := range nodeData {
 		nodeData[k] *= numHours //calculate byte hours
 	}
@@ -165,7 +165,7 @@ func (t *Tally) SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeDa
 // Grouping by action type, storage node ID and adding total of bandwidth to granular data table.
 func (t *Tally) QueryBW(ctx context.Context) (time.Time, map[storj.NodeID][]int64, error) {
 	var bwTotals map[storj.NodeID][]int64
-	now := time.Now().UTC()
+	now := time.Now()
 	lastBwTally, err := t.accountingDB.LastTimestamp(ctx, accounting.LastBandwidthTally)
 	if err != nil {
 		return now, bwTotals, Error.Wrap(err)
