@@ -11,19 +11,12 @@ import (
 	"net/http"
 
 	"github.com/zeebo/errs"
-
-	"storj.io/storj/satellite/console"
 )
 
-type graphqlResponse struct {
-	Data   []byte
-	Errors []interface{}
-}
-
-func graphqlDo(client *http.Client, request *http.Request) (graphqlResponse, error) {
+func graphqlDo(client *http.Client, request *http.Request, jsonResponse interface{}) error {
 	resp, err := client.Do(request)
 	if err != nil {
-		return graphqlResponse{}, err
+		return err
 	}
 	defer func() {
 		err = resp.Body.Close()
@@ -31,7 +24,7 @@ func graphqlDo(client *http.Client, request *http.Request) (graphqlResponse, err
 
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return graphqlResponse{}, err
+		return err
 	}
 
 	fmt.Println(string(b))
@@ -41,62 +34,32 @@ func graphqlDo(client *http.Client, request *http.Request) (graphqlResponse, err
 		Errors []interface{}
 	}
 
-	err = json.NewDecoder(bytes.NewReader(b)).Decode(&response)
-	if err != nil {
-		return graphqlResponse{}, err
+	if err = json.NewDecoder(bytes.NewReader(b)).Decode(&response); err != nil {
+		return err
 	}
 
-	return graphqlResponse{
-		Data:   []byte(response.Data),
-		Errors: response.Errors,
-	}, nil
+	if response.Errors != nil {
+		return errs.New("inner graphql error")
+	}
+
+	if jsonResponse == nil {
+		return nil
+	}
+
+	return json.NewDecoder(bytes.NewReader(response.Data)).Decode(jsonResponse)
 }
 
 func addExampleProjectWithKey(key *string, address string) error {
 	client := http.Client{}
 
-	var (
-		createUserFormat    = "mutation {createUser(input:{email:\"%s\",password:\"%s\",firstName:\"%s\",lastName:\"%s\"})}"
-		createProjectFormat = "mutation {createProject(input:{name:\"%s\",description:\"%s\"}){id}}"
-		createAPIKeyFormat  = "mutation {createAPIKey(projectID:\"%s\",name:\"%s\"){key}}"
-		tokenFormat         = "query {token(email:\"%s\",password:\"%s\"){token}}"
-	)
-
-	alice := console.CreateUser{
-		UserInfo: console.UserInfo{
-			FirstName: "Alice",
-			Email:     "example@mail.com",
-		},
-		Password: "123a123",
-	}
-
-	testProject := console.ProjectInfo{
-		Name: "TestProject",
-	}
-
-	testKey := console.APIKeyInfo{
-		Name: "testKey",
-	}
-
-	createUserQuery := fmt.Sprintf(
-		createUserFormat,
-		alice.Email,
-		alice.Password,
-		alice.FirstName,
-		alice.LastName)
-
-	createProjectQuery := fmt.Sprintf(
-		createProjectFormat,
-		testProject.Name,
-		testProject.Description)
-
-	tokenQuery := fmt.Sprintf(
-		tokenFormat,
-		alice.Email,
-		alice.Password)
-
 	// create user
 	{
+		createUserQuery := fmt.Sprintf(
+			"mutation {createUser(input:{email:\"%s\",password:\"%s\",firstName:\"%s\",lastName:\"\"})}",
+			"example@mail.com",
+			"123a123",
+			"Alice")
+
 		request, err := http.NewRequest(
 			http.MethodPost,
 			address,
@@ -108,13 +71,8 @@ func addExampleProjectWithKey(key *string, address string) error {
 
 		request.Header.Add("Content-Type", "application/graphql")
 
-		resp, err := graphqlDo(&client, request)
-		if err != nil {
+		if err := graphqlDo(&client, request, nil); err != nil {
 			return err
-		}
-
-		if resp.Errors != nil {
-			return errs.New("inner graphql error")
 		}
 	}
 
@@ -125,6 +83,11 @@ func addExampleProjectWithKey(key *string, address string) error {
 		}
 	}
 	{
+		tokenQuery := fmt.Sprintf(
+			"mutation {createAPIKey(projectID:\"%s\",name:\"%s\"){key}}",
+			"example@mail.com",
+			"123a123")
+
 		request, err := http.NewRequest(
 			http.MethodPost,
 			address,
@@ -136,16 +99,7 @@ func addExampleProjectWithKey(key *string, address string) error {
 
 		request.Header.Add("Content-Type", "application/graphql")
 
-		resp, err := graphqlDo(&client, request)
-		if err != nil {
-			return err
-		}
-
-		if resp.Errors != nil {
-			return errs.New("inner graphql error")
-		}
-
-		if err = json.NewDecoder(bytes.NewReader(resp.Data)).Decode(&token); err != nil {
+		if err := graphqlDo(&client, request, &token); err != nil {
 			return err
 		}
 	}
@@ -157,6 +111,10 @@ func addExampleProjectWithKey(key *string, address string) error {
 		}
 	}
 	{
+		createProjectQuery := fmt.Sprintf(
+			"mutation {createProject(input:{name:\"%s\",description:\"\"}){id}}",
+			"TestProject")
+
 		request, err := http.NewRequest(
 			http.MethodPost,
 			address,
@@ -169,32 +127,23 @@ func addExampleProjectWithKey(key *string, address string) error {
 		request.Header.Add("Content-Type", "application/graphql")
 		request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token.Token.Token))
 
-		resp, err := graphqlDo(&client, request)
-		if err != nil {
-			return err
-		}
-
-		if resp.Errors != nil {
-			return errs.New("inner graphql error")
-		}
-
-		if err = json.NewDecoder(bytes.NewReader(resp.Data)).Decode(&createProject); err != nil {
+		if err := graphqlDo(&client, request, &createProject); err != nil {
 			return err
 		}
 	}
 
 	// create api key
-	createAPIKeyQuery := fmt.Sprintf(
-		createAPIKeyFormat,
-		createProject.CreateProject.ID,
-		testKey.Name)
-
 	var createAPIKey struct {
 		CreateAPIKey struct {
 			Key string
 		}
 	}
 	{
+		createAPIKeyQuery := fmt.Sprintf(
+			"mutation {createAPIKey(projectID:\"%s\",name:\"%s\"){key}}",
+			createProject.CreateProject.ID,
+			"testKey")
+
 		request, err := http.NewRequest(
 			http.MethodPost,
 			address,
@@ -207,16 +156,7 @@ func addExampleProjectWithKey(key *string, address string) error {
 		request.Header.Add("Content-Type", "application/graphql")
 		request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token.Token.Token))
 
-		resp, err := graphqlDo(&client, request)
-		if err != nil {
-			return err
-		}
-
-		if resp.Errors != nil {
-			return errs.New("inner graphql error")
-		}
-
-		if err = json.NewDecoder(bytes.NewReader(resp.Data)).Decode(&createAPIKey); err != nil {
+		if err := graphqlDo(&client, request, &createAPIKey); err != nil {
 			return err
 		}
 	}
