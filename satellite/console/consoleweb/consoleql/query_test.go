@@ -205,20 +205,20 @@ func TestGraphqlQuery(t *testing.T) {
 			t.Skip("skip it until we will have activation flow ready")
 
 			//TODO(yar): skip it until we will have activation flow ready
-			//activationToken1, err := service.GenerateActivationToken(
-			//	ctx,
-			//	user1.ID,
-			//	"muu1@email.com",
-			//	user1.CreatedAt.Add(time.Hour*24),
-			//)
-			//if err != nil {
-			//	t.Fatal(err)
-			//}
-			//_, err = service.ActivateAccount(ctx, activationToken1)
-			//if err != nil {
-			//	t.Fatal(err)
-			//}
-			//user1.Email = "muu1@email.com"
+			activationToken1, err := service.GenerateActivationToken(
+				ctx,
+				user1.ID,
+				"muu1@email.com",
+				user1.CreatedAt.Add(time.Hour*24),
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = service.ActivateAccount(ctx, activationToken1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			user1.Email = "muu1@email.com"
 
 		})
 
