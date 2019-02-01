@@ -30,8 +30,8 @@ import (
 // RSConfig is a configuration struct that keeps details about default
 // redundancy strategy information
 type RSConfig struct {
-	MaxBufferMem     memory.Size `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
-	ErasureShareSize memory.Size `help:"the size of each new erasure sure in bytes" default:"1K"`
+	MaxBufferMem     memory.Size `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4MiB"`
+	ErasureShareSize memory.Size `help:"the size of each new erasure sure in bytes" default:"1KiB"`
 	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." default:"29"`
 	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." default:"35"`
 	SuccessThreshold int         `help:"the desired total pieces for a segment. o." default:"80"`
@@ -42,7 +42,7 @@ type RSConfig struct {
 // encrypting segments
 type EncryptionConfig struct {
 	Key       string      `help:"root key for encrypting the data"`
-	BlockSize memory.Size `help:"size (in bytes) of encrypted blocks" default:"1K"`
+	BlockSize memory.Size `help:"size (in bytes) of encrypted blocks" default:"1KiB"`
 	DataType  int         `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
 	PathType  int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
 }
@@ -63,8 +63,8 @@ type ClientConfig struct {
 	PointerDBAddr string `help:"Address to contact pointerdb server through"`
 
 	APIKey        string      `help:"API Key (TODO: this needs to change to macaroons somehow)"`
-	MaxInlineSize memory.Size `help:"max inline segment size in bytes" default:"4K"`
-	SegmentSize   memory.Size `help:"the size of a segment in bytes" default:"64M"`
+	MaxInlineSize memory.Size `help:"max inline segment size in bytes" default:"4KiB"`
+	SegmentSize   memory.Size `help:"the size of a segment in bytes" default:"64MiB"`
 }
 
 // ServerConfig determines how minio listens for requests

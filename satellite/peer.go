@@ -305,13 +305,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			0, peer.Log.Named("checker"),
 			config.Checker.Interval)
 
-		// TODO: close segment repairer, currently this leaks connections
-		segmentRepairer, err := config.Repairer.GetSegmentRepairer(context.TODO(), peer.Identity)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(), segmentRepairer, config.Repairer.Interval, config.Repairer.MaxRepair)
+		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(), &config.Repairer, peer.Identity, config.Repairer.Interval, config.Repairer.MaxRepair)
 	}
 
 	{ // setup audit
