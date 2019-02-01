@@ -10,11 +10,10 @@ import (
 	"os"
 	"sync/atomic"
 
-	"storj.io/storj/internal/memory"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 )
