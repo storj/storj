@@ -76,8 +76,6 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 	}
 
 	u, err = s.store.Users().Insert(ctx, &User{
-		// TODO: remove email when email service will be ready
-		Email:        user.Email,
 		FirstName:    user.FirstName,
 		LastName:     user.LastName,
 		PasswordHash: hash,
