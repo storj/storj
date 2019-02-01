@@ -35,8 +35,7 @@ type Verifier struct {
 }
 
 type downloader interface {
-	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, pba *pb.PayerBandwidthAllocation,
-		authorization *pb.SignedMessage) (shares map[int]Share, nodes map[int]*pb.Node, err error)
+	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (shares map[int]Share, nodes map[int]storj.NodeID, err error)
 }
 
 // defaultDownloader downloads shares from networked storage nodes
@@ -107,7 +106,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 
 // Download Shares downloads shares from the nodes where remote pieces are located
 func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
-	stripeIndex int, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (shares map[int]Share, nodes map[int]*pb.Node, err error) {
+	stripeIndex int, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (shares map[int]Share, nodes map[int]storj.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var nodeIds storj.NodeIDList
@@ -124,7 +123,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 	}
 
 	shares = make(map[int]Share, len(nodeSlice))
-	nodes = make(map[int]*pb.Node, len(nodeSlice))
+	nodes = make(map[int]storj.NodeID, len(nodeSlice))
 
 	shareSize := int(pointer.Remote.Redundancy.GetErasureShareSize())
 	pieceID := psclient.PieceID(pointer.Remote.GetPieceId())
@@ -144,7 +143,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 		}
 
 		shares[s.PieceNumber] = s
-		nodes[s.PieceNumber] = node
+		nodes[s.PieceNumber] = nodeIds[i]
 	}
 
 	return shares, nodes, nil
@@ -210,7 +209,7 @@ func (verifier *Verifier) verify(ctx context.Context, stripe *Stripe) (verifiedN
 	var offlineNodes storj.NodeIDList
 	for pieceNum := range shares {
 		if shares[pieceNum].Error != nil {
-			offlineNodes = append(offlineNodes, nodes[pieceNum].Id)
+			offlineNodes = append(offlineNodes, nodes[pieceNum])
 		}
 	}
 
@@ -224,7 +223,7 @@ func (verifier *Verifier) verify(ctx context.Context, stripe *Stripe) (verifiedN
 
 	var failedNodes storj.NodeIDList
 	for _, pieceNum := range pieceNums {
-		failedNodes = append(failedNodes, nodes[pieceNum].Id)
+		failedNodes = append(failedNodes, nodes[pieceNum])
 	}
 
 	successNodes := getSuccessNodes(ctx, nodes, failedNodes, offlineNodes)
@@ -237,7 +236,7 @@ func (verifier *Verifier) verify(ctx context.Context, stripe *Stripe) (verifiedN
 }
 
 // getSuccessNodes uses the failed nodes and offline nodes arrays to determine which nodes passed the audit
-func getSuccessNodes(ctx context.Context, nodes map[int]*pb.Node, failedNodes, offlineNodes storj.NodeIDList) (successNodes storj.NodeIDList) {
+func getSuccessNodes(ctx context.Context, nodes map[int]storj.NodeID, failedNodes, offlineNodes storj.NodeIDList) (successNodes storj.NodeIDList) {
 	fails := make(map[storj.NodeID]bool)
 	for _, fail := range failedNodes {
 		fails[fail] = true
@@ -247,9 +246,10 @@ func getSuccessNodes(ctx context.Context, nodes map[int]*pb.Node, failedNodes, o
 	}
 
 	for _, node := range nodes {
-		if !fails[node.Id] {
-			successNodes = append(successNodes, node.Id)
+		if !fails[node] {
+			successNodes = append(successNodes, node)
 		}
 	}
+
 	return successNodes
 }
