@@ -5,13 +5,14 @@
     <div class="empty-state">
         <div class="empty-state__wrap">
             <h1>{{mainTitle}}</h1>
-            <!--<p>{{additionalText}}</p>-->
             <div class="empty-state__wrap__additional-text" v-html="additionalText"/>
-            <Button
-                v-if="isButtonShown"
-                @onPress="onButtonClick"
-                :label="buttonLabel"
-                width="170px" />
+            <div id="addApiKeysPopupEmptyButton">
+                <Button
+                    v-if="isButtonShown"
+                    :onPress="onButtonClick"
+                    :label="buttonLabel"
+                    width="170px" />
+            </div>
             <div class="empty-state__wrap__img" v-html="imageSource"></div>
         </div>
     </div>
@@ -59,6 +60,8 @@ export default class EmptyStateProjectArea extends Vue {
             &__additional-text {
                 font-family: 'montserrat_regular';
                 font-size: 16px;
+                width: 50%;
+                margin-bottom: 10px;
 
                 b {
                     font-family: 'montserrat_bold' !important;
