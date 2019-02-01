@@ -3,23 +3,28 @@
 
 <template>
     <div>
-        <div v-if="apiKeyItems" class="api-keys-header">
+        <div v-if="!isEmpty" class="api-keys-header">
             <HeaderArea/>
         </div>
-        <div v-if="apiKeyItems" class="api-keys-container">
+        <div v-if="!isEmpty" class="api-keys-container">
             <div class="api-keys-container__content">
-                <ApiKeysItem class="selected"/>
-                <ApiKeysItem />
-                <ApiKeysItem />
+                <div v-for="apiKey in apiKeys" v-on:click="toggleSelection(apiKey.id)">
+                    <ApiKeysItem
+                        v-bind:class="[apiKey.isSelected ? 'selected': null]"
+                        :apiKey="apiKey" />
+                </div>
             </div>
-            <Footer/>
+            <Footer v-if="isSelected"/>
         </div>
         <EmptyState
-            v-if="!apiKeyItems"
+            :onButtonClick="togglePopup"
+            v-if="isEmpty"
             mainTitle="You have no API Keys yet"
+            additional-text="<p>We recommend you to create your first API Key for this project. API Keys allow developers to manage their project and build applications over Storj Network through our Uplink CLI.</p>"
             :imageSource="emptyImage"
             buttonLabel="New Api Key"
             isButtonShown />
+        <AddAPIKeyPopup v-if="isPopupShown"/>
     </div>
 </template>
 
@@ -29,23 +34,45 @@ import EmptyState from '@/components/common/EmptyStateArea.vue';
 import HeaderArea from '@/components/apiKeys/headerArea/HeaderArea.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
+import AddAPIKeyPopup from '@/components/apiKeys/AddApiKeyPopup.vue';
 import Footer from '@/components/apiKeys/footerArea/Footer.vue';
+import { API_KEYS_ACTIONS, APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 
 @Component({
     data: function () {
         return {
             emptyImage: EMPTY_STATE_IMAGES.API_KEY,
-            apiKeyItems: true,
         };
     },
-    methods: {},
-    computed: {},
+    methods: {
+        toggleSelection: function(id: string): void {
+            this.$store.dispatch(API_KEYS_ACTIONS.TOGGLE_SELECTION, id);
+        },
+        togglePopup: function (): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
+        },
+    },
+    computed: {
+        apiKeys: function (): any {
+            return this.$store.state.apiKeysModule.apiKeys;
+        },
+        isEmpty: function (): boolean {
+            return this.$store.state.apiKeysModule.apiKeys.length === 0;
+        },
+        isSelected: function (): boolean {
+            return this.$store.getters.selectedAPIKeys.length > 0;
+        },
+        isPopupShown: function (): boolean {
+            return this.$store.state.appStateModule.appState.isNewAPIKeyPopupShown;
+        }
+    },
     components: {
         EmptyState,
         HeaderArea,
         ApiKeysItem,
+        AddAPIKeyPopup,
         Footer
-    }
+    },
 })
 
 export default class ApiKeysArea extends Vue {

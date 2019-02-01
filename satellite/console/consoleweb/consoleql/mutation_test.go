@@ -12,7 +12,7 @@ import (
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
@@ -28,7 +28,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		log := zap.NewExample()
+		log := zaptest.NewLogger(t)
 
 		service, err := console.NewService(
 			log,

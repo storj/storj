@@ -272,20 +272,6 @@ func (k *Kademlia) Seen() []*pb.Node {
 	return nodes
 }
 
-// GetIntroNode determines the best node to bootstrap a new node onto the network
-func GetIntroNode(addr string) (*pb.Node, error) {
-	if addr == "" {
-		addr = "bootstrap.storj.io:8080"
-	}
-	return &pb.Node{
-		Address: &pb.NodeAddress{
-			Transport: defaultTransport,
-			Address:   addr,
-		},
-		Type: pb.NodeType_BOOTSTRAP,
-	}, nil
-}
-
 // RunRefresh occasionally refreshes stale kad buckets
 func (k *Kademlia) RunRefresh(ctx context.Context) error {
 	if !k.lookups.Start() {
