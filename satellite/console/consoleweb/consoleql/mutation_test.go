@@ -69,9 +69,9 @@ func TestGrapqhlMutation(t *testing.T) {
 		}
 
 		t.Run("Activate account mutation", func(t *testing.T) {
-			//TODO(yar): skip it until we will have activation flow ready
-			t.Skip("TODO(yar): skip it until we will have activation flow ready")
+			t.Skip("skip it until we will have activation flow ready")
 
+			//TODO(yar): skip it until we will have activation flow ready
 			activationToken, err := service.GenerateActivationToken(
 				ctx,
 				rootUser.ID,
@@ -377,21 +377,25 @@ func TestGrapqhlMutation(t *testing.T) {
 			t.Fatal(err, project)
 		}
 
-		//TODO(yar): skip it until we will have activation flow ready
-		//activationToken1, err := service.GenerateActivationToken(
-		//	ctx,
-		//	user1.ID,
-		//	"u1@email.net",
-		//	user1.CreatedAt.Add(time.Hour*24),
-		//)
-		//if err != nil {
-		//	t.Fatal(err, project)
-		//}
-		//_, err = service.ActivateAccount(ctx, activationToken1)
-		//if err != nil {
-		//	t.Fatal(err, project)
-		//}
-		//user1.Email = "u1@email.net"
+		t.Run("Activation", func(t *testing.T) {
+			t.Skip("skip it until we will have activation flow ready")
+
+			//TODO(yar): skip it until we will have activation flow ready
+			activationToken1, err := service.GenerateActivationToken(
+				ctx,
+				user1.ID,
+				"u1@email.net",
+				user1.CreatedAt.Add(time.Hour*24),
+			)
+			if err != nil {
+				t.Fatal(err, project)
+			}
+			_, err = service.ActivateAccount(ctx, activationToken1)
+			if err != nil {
+				t.Fatal(err, project)
+			}
+			user1.Email = "u1@email.net"
+		})
 
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
@@ -405,21 +409,25 @@ func TestGrapqhlMutation(t *testing.T) {
 			t.Fatal(err, project)
 		}
 
-		//TODO(yar): skip it until we will have activation flow ready
-		//activationToken2, err := service.GenerateActivationToken(
-		//	ctx,
-		//	user2.ID,
-		//	"u2@email.net",
-		//	user2.CreatedAt.Add(time.Hour*24),
-		//)
-		//if err != nil {
-		//	t.Fatal(err, project)
-		//}
-		//_, err = service.ActivateAccount(ctx, activationToken2)
-		//if err != nil {
-		//	t.Fatal(err, project)
-		//}
-		//user2.Email = "u2@email.net"
+		t.Run("Activation", func(t *testing.T) {
+			t.Skip("skip it until we will have activation flow ready")
+
+			//TODO(yar): skip it until we will have activation flow ready
+			activationToken2, err := service.GenerateActivationToken(
+				ctx,
+				user2.ID,
+				"u2@email.net",
+				user2.CreatedAt.Add(time.Hour*24),
+			)
+			if err != nil {
+				t.Fatal(err, project)
+			}
+			_, err = service.ActivateAccount(ctx, activationToken2)
+			if err != nil {
+				t.Fatal(err, project)
+			}
+			user2.Email = "u2@email.net"
+		})
 
 		t.Run("Add project members mutation", func(t *testing.T) {
 			query := fmt.Sprintf(

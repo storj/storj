@@ -379,10 +379,6 @@ func TestServiceList(t *testing.T) {
 		ctx := context.Background()
 		ctx = auth.WithAPIKey(ctx, []byte(test.APIKey))
 
-		//for i, _ := range test.Expected.Items {
-		//
-		//}
-
 		resp, err := server.List(ctx, &test.Request)
 		if test.Error == nil {
 			if err != nil {

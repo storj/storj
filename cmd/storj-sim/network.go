@@ -206,6 +206,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			}
 
 			// TODO: maybe all the config flags should be exposed for all processes?
+			// check if gateway config has an api key, if it's not
+			// create example project with key and add it to the config
+			// so that gateway can have access to the satellite
 			apiKey := vip.GetString("client.api-key")
 			if apiKey == "" {
 				consoleAddress := fmt.Sprintf(
