@@ -27,8 +27,6 @@ func graphqlDo(client *http.Client, request *http.Request, jsonResponse interfac
 		return err
 	}
 
-	fmt.Println(string(b))
-
 	var response struct {
 		Data   json.RawMessage
 		Errors []interface{}
