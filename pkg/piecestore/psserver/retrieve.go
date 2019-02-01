@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 )
@@ -44,16 +45,16 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return RetrieveError.New("PieceStore message is nil")
 	}
 
-	s.log.Debug("Retrieving",
-		zap.String("Piece ID", fmt.Sprint(pd.GetId())),
-		zap.Int64("Offset", pd.GetOffset()),
-		zap.Int64("Size", pd.GetPieceSize()),
-	)
-
 	id, err := getNamespacedPieceID([]byte(pd.GetId()), getNamespace(authorization))
 	if err != nil {
 		return err
 	}
+
+	s.log.Debug("Retrieving",
+		zap.String("Piece ID", id),
+		zap.Int64("Offset", pd.GetOffset()),
+		zap.Int64("Size", pd.GetPieceSize()),
+	)
 
 	// Get path to data being retrieved
 	path, err := s.storage.PiecePath(id)
@@ -82,7 +83,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 	}
 
 	s.log.Info("Successfully retrieved",
-		zap.String("Piece ID", fmt.Sprint(pd.GetId())),
+		zap.String("Piece ID", id),
 		zap.Int64("Allocated", allocated),
 		zap.Int64("Retrieved", retrieved),
 	)
@@ -156,7 +157,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 	}()
 
 	// Data send loop
-	messageSize := int64(32 << 10)
+	messageSize := int64(32 * memory.KiB)
 	used := int64(0)
 
 	for used < length {
@@ -166,19 +167,25 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			break
 		}
 
+		toCopy := nextMessageSize
+		if length-used < nextMessageSize {
+			toCopy = length - used
+		}
+
 		used += nextMessageSize
-		n, err := io.CopyN(writer, storeFile, nextMessageSize)
+
+		n, err := io.CopyN(writer, storeFile, toCopy)
+		if err != nil {
+			// break on error
+			allocationTracking.Fail(RetrieveError.Wrap(err))
+			break
+		}
 		// correct errors when needed
 		if n != nextMessageSize {
-			if pErr := allocationTracking.Produce(nextMessageSize - n); pErr != nil {
+			if err := allocationTracking.Produce(nextMessageSize - n); err != nil {
 				break
 			}
 			used -= nextMessageSize - n
-		}
-		// break on error
-		if err != nil {
-			allocationTracking.Fail(RetrieveError.Wrap(err))
-			break
 		}
 	}
 
