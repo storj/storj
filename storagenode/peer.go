@@ -135,12 +135,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			},
 		}
 
-		// TODO(coyle): I'm thinking we just remove this function and grab from the config.
-		in, err := kademlia.GetIntroNode(config.BootstrapAddr)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
 		kdb, ndb := peer.DB.RoutingTable()
 		peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb, &config.RoutingTableConfig)
 		if err != nil {
@@ -148,7 +142,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		}
 
 		// TODO: reduce number of arguments
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, []pb.Node{*in}, peer.Identity, config.Alpha, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, config.BootstrapNodes(), peer.Identity, config.Alpha, peer.Kademlia.RoutingTable)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
