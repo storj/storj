@@ -18,6 +18,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -102,6 +103,7 @@ type Claim struct {
 
 // Client implements pb.CertificateClient
 type Client struct {
+	conn   *grpc.ClientConn
 	client pb.CertificatesClient
 }
 
@@ -129,6 +131,7 @@ func NewClient(ctx context.Context, ident *identity.FullIdentity, address string
 	}
 
 	return &Client{
+		conn:   conn,
 		client: pb.NewCertificatesClient(conn),
 	}, nil
 }
@@ -139,6 +142,14 @@ func NewClientFrom(client pb.CertificatesClient) (*Client, error) {
 	return &Client{
 		client: client,
 	}, nil
+}
+
+// Close closes underlying connection
+func (client *Client) Close() error {
+	if client.conn != nil {
+		return client.conn.Close()
+	}
+	return nil
 }
 
 // NewAuthorization creates a new, unclaimed authorization with a random token value
