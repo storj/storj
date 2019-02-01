@@ -363,7 +363,9 @@ func lookupAndAlignNodes(ctx context.Context, oc overlay.Client, nodes []*pb.Nod
 		}
 	}
 	for _, v := range nodes {
-		v.Type.DPanicOnInvalid("lookup and align nodes")
+		if v != nil {
+			v.Type.DPanicOnInvalid("lookup and align nodes")
+		}
 	}
 
 	// Realign the nodes
