@@ -33,11 +33,14 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import VueClipboards from 'vue-clipboards';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import CopyApiKeyPopup from './CopyApiKeyPopup.vue';
 import Button from '@/components/common/Button.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, API_KEYS_ACTIONS } from "@/utils/constants/actionNames";
+
+Vue.use(VueClipboards);
 
 @Component(
     {
@@ -65,6 +68,7 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, API_KEYS_ACTIONS } from "@/uti
                     return;
                 }
 
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, "Successfully created new api key");
                 this.$data.key = result.data.key;
             },
             onChangeName: function (value: string): void {

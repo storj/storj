@@ -60,6 +60,8 @@ export default class EmptyStateProjectArea extends Vue {
             &__additional-text {
                 font-family: 'montserrat_regular';
                 font-size: 16px;
+                width: 50%;
+                margin-bottom: 10px;
 
                 b {
                     font-family: 'montserrat_bold' !important;

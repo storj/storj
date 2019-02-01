@@ -18,7 +18,7 @@
         </div>
         <EmptyState
             :onButtonClick="togglePopup"
-            v-if="!apiKeyItems"
+            v-if="isEmpty"
             mainTitle="You have no API Keys yet"
             additional-text="<p>We recommend you to create your first API Key for this project. API Keys allow developers to manage their project and build applications over Storj Network through our Uplink CLI.</p>"
             :imageSource="emptyImage"
@@ -37,7 +37,6 @@ import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
 import AddAPIKeyPopup from '@/components/apiKeys/AddApiKeyPopup.vue';
 import Footer from '@/components/apiKeys/footerArea/Footer.vue';
 import { API_KEYS_ACTIONS, APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
-
 
 @Component({
     data: function () {

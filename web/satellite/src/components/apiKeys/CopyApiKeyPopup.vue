@@ -9,7 +9,7 @@
                 <p class="save-api-popup__content__name">You will need this to share access to the project with your team members.</p>
                 <div class="save-api-popup__content__copy-area">
                     <p class="save-api-popup__content__copy-area__save-api">{{apiKey}}</p>
-                    <Button class="save-api-popup__content__copy-area__save-btn" label="Copy" width="140px" height="48px" :onPress="onCopyClick" />
+                    <Button class="save-api-popup__content__copy-area__save-btn" v-clipboard="apiKey" label="Copy" width="140px" height="48px" :onPress="onCopyClick" />
                     <!--<Button label="Download" width="140px" height="48px" isWhite/>-->
                 </div>
                 <div class="save-api-popup__content__info-area">
@@ -72,10 +72,9 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from "@/utils/constants/actio
         methods: {
             onCloseClick: function (): void {
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, "Successfully created new api key");
             },
             onCopyClick: function (): void {
-                //TODO: save to clipboard
+                //TODO: save to clipboardt
                 this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, "Key saved to clipboard");
             }
         },
