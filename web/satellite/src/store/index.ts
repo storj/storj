@@ -10,6 +10,7 @@ import { projectsModule } from '@/store/modules/projects';
 import { projectMembersModule } from '@/store/modules/projectMembers';
 import { notificationsModule } from '@/store/modules/notifications';
 import { appStateModule } from '@/store/modules/appState';
+import { apiKeysModule } from '@/store/modules/apiKeys';
 
 Vue.use(Vuex);
 
@@ -21,6 +22,7 @@ const store = new Vuex.Store({
 		projectMembersModule,
 		notificationsModule,
 		appStateModule,
+        apiKeysModule
 	}
 });
 
