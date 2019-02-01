@@ -24,5 +24,5 @@ storj-sim -x network destroy
 # setup the network with ipv6
 storj-sim -x --host "::1" network setup
 # run aws-cli tests using ipv6
-storj-sim -x --host "::1" network test bash $SCRIPTDIR/test-storj-sim-aws.sh
+storj-sim -x --host "::1" network test bash $SCRIPTDIR/test-sim-aws.sh
 storj-sim -x network destroy
