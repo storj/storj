@@ -133,6 +133,8 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 				}
 				mu.Unlock()
 				if opts.Logger != nil {
+					atomic.SwapUint32(highscore, uint32(difficulty))
+					updateStatus()
 					_, err := fmt.Fprintf(opts.Logger, "\nFound a key with difficulty %d!\n", difficulty)
 					if err != nil {
 						log.Print(errs.Wrap(err))
