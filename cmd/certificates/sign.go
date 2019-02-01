@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 )
 
@@ -24,25 +23,20 @@ var (
 	}
 
 	signCfg struct {
-		signeeCACfg    identity.PeerCAConfig
-		signeeIdentCfg identity.PeerConfig
+		SigneeCACfg    identity.PeerCAConfig
+		SigneeIdentCfg identity.PeerConfig
 		// NB: defaults to same as CA
 		Signer identity.FullCAConfig
 	}
 )
 
-func init() {
-	rootCmd.AddCommand(signCmd)
-	cfgstruct.Bind(signCmd.Flags(), &signCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-}
-
 func cmdSign(cmd *cobra.Command, args []string) error {
-	ca, err := signCfg.signeeCACfg.Load()
+	ca, err := signCfg.SigneeCACfg.Load()
 	if err != nil {
 		return err
 	}
 
-	ident, err := signCfg.signeeIdentCfg.Load()
+	ident, err := signCfg.SigneeIdentCfg.Load()
 	if err != nil {
 		log.Printf("unable to load identity: %s\n", err.Error())
 	}
@@ -55,11 +49,11 @@ func cmdSign(cmd *cobra.Command, args []string) error {
 	restChain := []*x509.Certificate{signer.Cert}
 
 	// NB: backup ca and identity
-	err = signCfg.signeeCACfg.SaveBackup(ca)
+	err = signCfg.SigneeCACfg.SaveBackup(ca)
 	if err != nil {
 		return err
 	}
-	err = signCfg.signeeIdentCfg.SaveBackup(ident)
+	err = signCfg.SigneeIdentCfg.SaveBackup(ident)
 	if err != nil {
 		log.Printf("unable to save backup of identity: %s\n", err.Error())
 	}
@@ -71,7 +65,7 @@ func cmdSign(cmd *cobra.Command, args []string) error {
 	ca.RestChain = restChain
 
 	writeErrs := new(errs.Group)
-	err = signCfg.signeeCACfg.Save(ca)
+	err = signCfg.SigneeCACfg.Save(ca)
 	if err != nil {
 		writeErrs.Add(err)
 	}
@@ -79,7 +73,7 @@ func cmdSign(cmd *cobra.Command, args []string) error {
 	ident.CA = ca.Cert
 	ident.RestChain = restChain
 
-	err = signCfg.signeeIdentCfg.Save(ident)
+	err = signCfg.SigneeIdentCfg.Save(ident)
 	if err != nil {
 		log.Printf("unable to save identity: %s\n", err.Error())
 	}

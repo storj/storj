@@ -53,11 +53,6 @@ var (
 	identityDir        string
 )
 
-func init() {
-	rootCmd.AddCommand(runCmd)
-	cfgstruct.Bind(runCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-}
-
 func cmdRun(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
@@ -70,5 +65,39 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 }
 
 func main() {
+	confDirParam := cfgstruct.FindConfigDirParam()
+	if confDirParam != "" {
+		defaultIdentityDir = confDirParam
+	}
+	identityDirParam := cfgstruct.FindIdentityDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
+	}
+
+	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for certificates configuration")
+	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
+	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
+
+	rootCmd.AddCommand(authCmd)
+	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(setupCmd)
+	rootCmd.AddCommand(signCmd)
+	rootCmd.AddCommand(verifyCmd)
+
+	authCmd.AddCommand(authCreateCmd)
+	authCmd.AddCommand(authInfoCmd)
+	authCmd.AddCommand(authExportCmd)
+
+	cfgstruct.Bind(authCreateCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(authInfoCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(authExportCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(runCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(signCmd.Flags(), &signCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(verifyCmd.Flags(), &verifyCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+
 	process.Exec(rootCmd)
 }
