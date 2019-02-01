@@ -105,7 +105,9 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 		}
 	}
 	for _, v := range repairNodes {
-		v.Type.DPanicOnInvalid("repair 2")
+		if v != nil {
+			v.Type.DPanicOnInvalid("repair 2")
+		}
 	}
 
 	// Check that all nil nodes have a replacement prepared
