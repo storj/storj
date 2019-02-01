@@ -28,8 +28,8 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bwagreements (
 	serialnum text NOT NULL,
-	data bytea NOT NULL,
-	storage_node bytea NOT NULL,
+	storage_node_id bytea NOT NULL,
+	uplink_id bytea NOT NULL,
 	action bigint NOT NULL,
 	total bigint NOT NULL,
 	created_at timestamp with time zone NOT NULL,
