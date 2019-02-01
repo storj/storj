@@ -144,14 +144,6 @@ func NewClientFrom(client pb.CertificatesClient) (*Client, error) {
 	}, nil
 }
 
-// Close closes underlying connection
-func (client *Client) Close() error {
-	if client.conn != nil {
-		return client.conn.Close()
-	}
-	return nil
-}
-
 // NewAuthorization creates a new, unclaimed authorization with a random token value
 func NewAuthorization(userID string) (*Authorization, error) {
 	token := Token{UserID: userID}
@@ -193,9 +185,17 @@ func ParseToken(tokenString string) (*Token, error) {
 	return t, nil
 }
 
+// Close closes the client
+func (c *Client) Close() error {
+	if c.conn != nil {
+		return c.conn.Close()
+	}
+	return nil
+}
+
 // Sign claims an authorization using the token string and returns a signed
 // copy of the client's CA certificate
-func (c Client) Sign(ctx context.Context, tokenStr string) ([][]byte, error) {
+func (c *Client) Sign(ctx context.Context, tokenStr string) ([][]byte, error) {
 	res, err := c.client.Sign(ctx, &pb.SigningRequest{
 		AuthToken: tokenStr,
 		Timestamp: time.Now().Unix(),
