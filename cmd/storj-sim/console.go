@@ -82,7 +82,7 @@ func addExampleProjectWithKey(key *string, address string) error {
 	}
 	{
 		tokenQuery := fmt.Sprintf(
-			"mutation {createAPIKey(projectID:\"%s\",name:\"%s\"){key}}",
+			"query {token(email:\"%s\",password:\"%s\"){token}}",
 			"example@mail.com",
 			"123a123")
 
