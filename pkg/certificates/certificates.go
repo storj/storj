@@ -305,7 +305,24 @@ func (a *AuthorizationDB) UserIDs() ([]string, error) {
 	return keys.Strings(), nil
 }
 
-// Claim marks an authorization as claimed and records claim information
+// List returns all authorizations in the database.
+func (a *AuthorizationDB) List() (auths Authorizations, _ error) {
+	uids, err := a.UserIDs()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, uid := range uids {
+		idAuths, err := a.Get(uid)
+		if err != nil {
+			return nil, err
+		}
+		auths = append(auths, idAuths...)
+	}
+	return auths, nil
+}
+
+// Claim marks an authorization as claimed and records claim information.
 func (a *AuthorizationDB) Claim(opts *ClaimOpts) error {
 	now := time.Now().Unix()
 	if !(now-MaxClaimDelaySeconds < opts.Req.Timestamp) ||
