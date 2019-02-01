@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
@@ -85,7 +84,7 @@ func (node *Node) DialPointerDB(destination Peer, apikey string) (pdbclient.Clie
 // DialOverlay dials destination and returns an overlay.Client
 func (node *Node) DialOverlay(destination Peer) (overlay.Client, error) {
 	info := destination.Local()
-	conn, err := node.Transport.DialNode(context.Background(), &info, grpc.WithBlock())
+	conn, err := node.Transport.DialNode(context.Background(), &info)
 	if err != nil {
 		return nil, err
 	}
