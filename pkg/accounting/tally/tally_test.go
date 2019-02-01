@@ -12,7 +12,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/bwagreement/bwagreement_test"
+	"storj.io/storj/pkg/bwagreement/testbwagreement"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 )
@@ -66,9 +66,9 @@ func makeBWAs(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
 		pb.BandwidthAction_GET_AUDIT, pb.BandwidthAction_GET_REPAIR, pb.BandwidthAction_PUT_REPAIR}
 	agreements := make([]*psdb.Agreement, len(actions))
 	for i, action := range actions {
-		pba, err := bwagreement_test.GeneratePayerBandwidthAllocation(action, satID, upID, time.Hour)
+		pba, err := testbwagreement.GeneratePayerBandwidthAllocation(action, satID, upID, time.Hour)
 		require.NoError(t, err)
-		rba, err := bwagreement_test.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, 1000)
+		rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, 1000)
 		require.NoError(t, err)
 		agreements[i] = &psdb.Agreement{Agreement: *rba}
 	}

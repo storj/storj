@@ -27,7 +27,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/pkg/bwagreement/bwagreement_test"
+	"storj.io/storj/pkg/bwagreement/testbwagreement"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	pstore "storj.io/storj/pkg/piecestore"
@@ -232,7 +232,7 @@ func TestRetrieve(t *testing.T) {
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, PieceSize: tt.reqSize, Offset: tt.offset}})
 			require.NoError(t, err)
 
-			pba, err := bwagreement_test.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, snID, upID, time.Hour)
+			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, snID, upID, time.Hour)
 			require.NoError(t, err)
 
 			totalAllocated := int64(0)
@@ -243,7 +243,7 @@ func TestRetrieve(t *testing.T) {
 				// Send bandwidth bandwidthAllocation
 				totalAllocated += tt.allocSize
 
-				rba, err := bwagreement_test.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, totalAllocated)
+				rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, totalAllocated)
 				require.NoError(t, err)
 
 				err = stream.Send(&pb.PieceRetrieval{BandwidthAllocation: rba})
@@ -336,9 +336,9 @@ func TestStore(t *testing.T) {
 			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
 			require.NoError(t, err)
 			// Send Bandwidth Allocation Data
-			pba, err := bwagreement_test.GeneratePayerBandwidthAllocation(pb.BandwidthAction_PUT, snID, upID, time.Hour)
+			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_PUT, snID, upID, time.Hour)
 			require.NoError(t, err)
-			rba, err := bwagreement_test.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, tt.totalReceived)
+			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, tt.totalReceived)
 			require.NoError(t, err)
 			msg := &pb.PieceStore{
 				PieceData:           &pb.PieceStore_PieceData{Content: tt.content},
@@ -445,9 +445,9 @@ func TestPbaValidation(t *testing.T) {
 			require.NoError(t, err)
 			// Send Bandwidth Allocation Data
 			content := []byte("content")
-			pba, err := bwagreement_test.GeneratePayerBandwidthAllocation(tt.action, satID1, upID, time.Hour)
+			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(tt.action, satID1, upID, time.Hour)
 			require.NoError(t, err)
-			rba, err := bwagreement_test.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, int64(len(content)))
+			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, int64(len(content)))
 			require.NoError(t, err)
 			msg := &pb.PieceStore{
 				PieceData:           &pb.PieceStore_PieceData{Content: content},
