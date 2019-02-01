@@ -211,11 +211,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 				Wallet: config.Operator.Wallet,
 			},
 		}
-		// TODO(coyle): I'm thinking we just remove this function and grab from the config.
-		in, err := kademlia.GetIntroNode(config.BootstrapAddr)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 
 		{ // setup routing table
 			// TODO: clean this up, should be part of database
@@ -239,7 +234,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		}
 
 		// TODO: reduce number of arguments
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, []pb.Node{*in}, peer.Identity, config.Alpha, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, config.BootstrapNodes(), peer.Identity, config.Alpha, peer.Kademlia.RoutingTable)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
