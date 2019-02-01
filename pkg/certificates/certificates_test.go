@@ -10,7 +10,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"net"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -510,11 +509,9 @@ func TestParseToken_Valid(t *testing.T) {
 			b58Data := base58.CheckEncode(data[:], tokenVersion)
 			tokenString := c.userID + tokenDelimiter + b58Data
 			token, err := ParseToken(tokenString)
+			require.NoError(t, err)
+			require.NotNil(t, token)
 
-			assert.NoError(t, err)
-			if !assert.NotNil(t, token) {
-				t.FailNow()
-			}
 			assert.Equal(t, c.userID, token.UserID)
 			assert.Equal(t, data[:], token.Data[:])
 		})
@@ -752,9 +749,7 @@ func TestNewClient(t *testing.T) {
 		defer ctx.Check(conn.Close)
 
 		pbClient := pb.NewCertificatesClient(conn)
-		if !assert.NotNil(t, pbClient) {
-			t.FailNow()
-		}
+		require.NotNil(t, pbClient)
 
 		client, err := NewClientFrom(pbClient)
 		assert.NoError(t, err)
@@ -861,7 +856,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 }
 
 func newTestAuthDB(ctx *testcontext.Context) (*AuthorizationDB, error) {
-	dbPath := "bolt://" + filepath.Join(ctx.Dir(), "authorizations.db")
+	dbPath := "bolt://" + ctx.File("authorizations.db")
 	config := CertServerConfig{
 		AuthorizationDBURL: dbPath,
 	}
