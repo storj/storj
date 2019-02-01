@@ -10,6 +10,8 @@ import (
 	"os"
 	"sync/atomic"
 
+	"storj.io/storj/internal/memory"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -156,7 +158,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 	}()
 
 	// Data send loop
-	messageSize := int64(32 << 10)
+	messageSize := int64(32 * memory.KiB)
 	used := int64(0)
 
 	for used < length {
@@ -166,9 +168,15 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			break
 		}
 
+		toCopy := nextMessageSize
+		if length-used < nextMessageSize {
+			toCopy = length - used
+		}
+
 		used += nextMessageSize
-		n, err := io.CopyN(writer, storeFile, nextMessageSize)
-		if err != nil && err != io.EOF {
+
+		n, err := io.CopyN(writer, storeFile, toCopy)
+		if err != nil {
 			// break on error
 			allocationTracking.Fail(RetrieveError.Wrap(err))
 			break
