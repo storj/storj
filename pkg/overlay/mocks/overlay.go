@@ -1,17 +1,14 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package mocks
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -29,13 +26,6 @@ func NewOverlay(nodes []*pb.Node) *Overlay {
 	return rv
 
 }
-
-//CtxKey Used as kademlia key
-type CtxKey int
-
-const (
-	ctxKeyMockOverlay CtxKey = iota
-)
 
 // FindStorageNodes is the mock implementation
 func (mo *Overlay) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
@@ -72,38 +62,4 @@ func (mo *Overlay) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
 // Config specifies static nodes for mock overlay
 type Config struct {
 	Nodes string `help:"a comma-separated list of <node-id>:<ip>:<port>" default:""`
-}
-
-// Run runs server with mock overlay
-func (c Config) Run(ctx context.Context, server *provider.Provider) error {
-	var nodes []*pb.Node
-	for _, nodestr := range strings.Split(c.Nodes, ",") {
-		parts := strings.SplitN(nodestr, ":", 2)
-		if len(parts) != 2 {
-			return fmt.Errorf("malformed node config: %#v", nodestr)
-		}
-		id, err := storj.NodeIDFromString(parts[0])
-		if err != nil {
-			return err
-		}
-		addr := parts[1]
-		nodes = append(nodes, &pb.Node{
-			Id: id,
-			Address: &pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   addr,
-			}})
-	}
-	srv := NewOverlay(nodes)
-	pb.RegisterOverlayServer(server.GRPC(), srv)
-	ctx = context.WithValue(ctx, ctxKeyMockOverlay, srv)
-	return server.Run(ctx)
-}
-
-// LoadServerFromContext gives access to the overlay server from the context, or returns nil
-func LoadServerFromContext(ctx context.Context) *Overlay {
-	if v, ok := ctx.Value(ctxKeyMockOverlay).(*Overlay); ok {
-		return v
-	}
-	return nil
 }

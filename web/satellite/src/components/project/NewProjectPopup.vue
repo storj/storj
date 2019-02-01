@@ -1,9 +1,9 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
-    <div class="new-project-popup-container">
-        <div class="new-project-popup" id="newProjectPopup">
+    <div class="new-project-popup-container" v-on:keyup.enter="createProject" v-on:keyup.esc="onCloseClick">
+        <div class="new-project-popup" id="newProjectPopup" >
             <div class="new-project-popup__info-panel-container">
                 <h2 class="new-project-popup__info-panel-container__main-label-text">Create New Project</h2>
                 <img src="@/../static/images/dashboard/CreateNewProject.png" alt="">
@@ -21,18 +21,13 @@
                 <HeaderedInput
                     label="Description"
                     placeholder="Enter Project Description"
+                    additional-label="Optional"
                     class="full-input"
                     isMultiline
                     height="100px"
                     width="100%"
                     @setData="setProjectDescription">
                 </HeaderedInput>
-                <div class="new-project-popup__form-container__terms-area">
-                    <Checkbox class="new-project-popup__form-container__terms-area__checkbox"
-                              @setData="setTermsAccepted"
-                              :isCheckboxError="termsAcceptedError"/>
-                    <h2>I agree to the Storj Bridge Hosting <a>Terms & Conditions</a></h2>
-                </div>
                 <div class="new-project-popup__form-container__button-container">
                     <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite/>
                     <Button label="Create Project" width="205px" height="48px" :onPress="createProject"/>
@@ -61,8 +56,6 @@ import { validateProjectName } from '@/utils/validation';
             return {
                 projectName: '',
                 description: '',
-                isTermsAccepted: false,
-                termsAcceptedError: false,
                 nameError: '',
             };
         },
@@ -74,19 +67,11 @@ import { validateProjectName } from '@/utils/validation';
             setProjectDescription: function (value: string): void {
                 this.$data.description = value;
             },
-            setTermsAccepted: function (value: boolean): void {
-                this.$data.isTermsAccepted = value;
-                this.$data.termsAcceptedError = false;
-            },
             onCloseClick: function (): void {
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
             },
             createProject: async function (): Promise<any> {
                 let projectName = this.$data.projectName.trim();
-
-                if (!this.$data.isTermsAccepted) {
-                    this.$data.termsAcceptedError = true;
-                }
 
                 if (!validateProjectName(projectName)) {
                     this.$data.nameError = 'Name for project is invalid!';
@@ -96,7 +81,7 @@ import { validateProjectName } from '@/utils/validation';
                     this.$data.nameError = 'Name should be less than 21 character!';
                 }
 
-                if (this.$data.nameError || this.$data.termsAcceptedError) {
+                if (this.$data.nameError) {
                     return;
                 }
 
@@ -147,7 +132,7 @@ export default class NewProjectPopup extends Vue {
     .new-project-popup {
         width: 100%;
         max-width: 845px;
-        height: 440px;
+        height: 400px;
         background-color: #FFFFFF;
         border-radius: 6px;
         display: flex;
@@ -171,36 +156,13 @@ export default class NewProjectPopup extends Vue {
                  line-height: 39px;
                  color: #384B65;
                  margin-bottom: 60px;
-                 margin-top: 0;
+                 margin-top: 50px;
             }
         }
 
         &__form-container {
              width: 100%;
              max-width: 520px;
-
-            &__terms-area {
-                 display: flex;
-                 flex-direction: row;
-                 justify-content: flex-start;
-                 margin-top: 20px;
-
-                &__checkbox {
-                     align-self: center;
-                };
-
-                h2 {
-                    font-family: 'montserrat_regular';
-                    font-size: 14px;
-                    line-height: 20px;
-                    margin-top: 20px;
-                    margin-left: 0;
-                };
-                a {
-                    color: #2683FF;
-                    font-family: 'montserrat_bold';
-                }
-            }
 
             &__button-container {
                  width: 100%;
@@ -213,14 +175,18 @@ export default class NewProjectPopup extends Vue {
         }
 
         &__close-cross-container {
-             display: flex;
-             justify-content: center;
-             align-items: flex-start;
-             position: absolute;
-             right: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: absolute;
+            right: 30px;
             top: 40px;
-            svg {
-                cursor: pointer;
+            height: 24px;
+            width: 24px;
+            cursor: pointer;
+
+            &:hover svg path {
+                fill: #2683FF;
             }
         }
     }

@@ -1,10 +1,11 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package discovery_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -16,14 +17,20 @@ func TestCache_Refresh(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 30, 0)
+	planet, err := testplanet.New(t, 1, 10, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
+	time.Sleep(5 * time.Second)
 
-	err = planet.Satellites[0].Discovery.Refresh(ctx)
-	assert.NoError(t, err)
+	satellite := planet.Satellites[0]
+	for _, storageNode := range planet.StorageNodes {
+		node, err := satellite.Overlay.Service.Get(ctx, storageNode.ID())
+		if assert.NoError(t, err) {
+			assert.Equal(t, storageNode.Addr(), node.Address.Address)
+		}
+	}
 }

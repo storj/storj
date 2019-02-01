@@ -1,14 +1,31 @@
 #!/bin/sh
 set -euo pipefail
 
-if [[ -n "${API_KEY}" ]]; then
+SETUP_PARAMS=""
+
+if [[ -n "${API_KEY:-}" ]]; then
 	export STORJ_POINTER_DB_AUTH_API_KEY="${API_KEY}"
+  export STORJ_AUDIT_API_KEY="${API_KEY}"
+  export STORJ_POINTER_DB_AUTH_API_KEY="${API_KEY}"
+  export STORJ_REPAIRER_API_KEY="${API_KEY}"
+fi
+
+if [[ -n "${OVERLAY_URL:-}" ]]; then
+	export STORJ_POINTER_DB_DATABASE_URL="${OVERLAY_URL}"
+else
+  export STORJ_POINTER_DB_DATABASE_URL="${STORJ_DATABASE}"
+fi
+
+
+if [[ -n "${IDENTITY_ADDR:-}" ]]; then
+	export STORJ_SERVER_ADDRESS="${IDENTITY_ADDR}"
+fi
+
+if [[ -n "${BOOTSTRAP_ADDR:-}" ]]; then
+	export STORJ_KADEMLIA_BOOTSTRAP_ADDR="${BOOTSTRAP_ADDR}"
 fi
 
 if [[ ! -f "${CONF_PATH}/config.yaml" ]]; then
-	if [[ -n "${CA_DIFFICULTY}" ]]; then
-		SETUP_PARAMS="--ca.difficulty ${CA_DIFFICULTY}"
-	fi
 	./satellite setup $SETUP_PARAMS
 fi
 

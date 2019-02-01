@@ -1,11 +1,19 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 import { usersModule } from '@/store/modules/users';
+import * as api from '@/api/users';
 import { changePasswordRequest, deleteAccountRequest, getUserRequest, updateAccountRequest } from '@/api/users';
 import { USER_MUTATIONS } from '@/store/mutationConstants';
+import Vuex from 'vuex';
+import { createLocalVue } from '@vue/test-utils';
+
+const mutations = usersModule.mutations;
 
 describe('mutations', () => {
+	beforeEach(() => {
+		createLocalVue().use(Vuex);
+	});
 	it('Set user info', () => {
 		const state = {
 			user: {
@@ -15,13 +23,15 @@ describe('mutations', () => {
 			}
 		};
 
+		const store = new Vuex.Store({state, mutations});
+
 		const user = {
 			firstName: 'firstName',
 			lastName: 'lastName',
 			email: 'email'
 		};
 
-		usersModule.mutations.SET_USER_INFO(state, user);
+		store.commit(USER_MUTATIONS.SET_USER_INFO, user);
 
 		expect(state.user.email).toBe('email');
 		expect(state.user.firstName).toBe('firstName');
@@ -37,7 +47,9 @@ describe('mutations', () => {
 			}
 		};
 
-		usersModule.mutations.REVERT_TO_DEFAULT_USER_INFO(state);
+		const store = new Vuex.Store({state, mutations});
+
+		store.commit(USER_MUTATIONS.REVERT_TO_DEFAULT_USER_INFO);
 
 		expect(state.user.email).toBe('');
 		expect(state.user.firstName).toBe('');
@@ -58,7 +70,9 @@ describe('mutations', () => {
 			email: 'email'
 		};
 
-		usersModule.mutations.UPDATE_USER_INFO(state, user);
+		const store = new Vuex.Store({state, mutations});
+
+		store.commit(USER_MUTATIONS.UPDATE_USER_INFO, user);
 
 		expect(state.user.email).toBe('email');
 		expect(state.user.firstName).toBe('firstName');
@@ -67,14 +81,18 @@ describe('mutations', () => {
 });
 
 describe('actions', () => {
+	beforeEach(() => {
+		jest.resetAllMocks();
+	});
 	it('success update account', async () => {
-		updateAccountRequest = jest.fn().mockReturnValue({
-			isSuccess: true, data: {
-				firstName: 'firstName',
-				lastName: 'lastName',
-				email: 'email',
-			}
-		});
+		jest.spyOn(api, 'updateAccountRequest').mockReturnValue(
+			{
+				isSuccess: true, data: {
+					firstName: 'firstName',
+					lastName: 'lastName',
+					email: 'email',
+				}
+			});
 		const commit = jest.fn();
 		const user = {
 			firstName: '',
@@ -82,8 +100,9 @@ describe('actions', () => {
 			email: ''
 		};
 
-		await usersModule.actions.updateAccount({commit}, user);
+		const dispatchResponse = await usersModule.actions.updateAccount({commit}, user);
 
+		expect(dispatchResponse.isSuccess).toBeTruthy();
 		expect(commit).toHaveBeenCalledWith(USER_MUTATIONS.UPDATE_USER_INFO, {
 			firstName: 'firstName',
 			lastName: 'lastName',
@@ -92,9 +111,10 @@ describe('actions', () => {
 	});
 
 	it('error update account', async () => {
-		updateAccountRequest = jest.fn().mockReturnValue({
-			isSuccess: false
-		});
+		jest.spyOn(api, 'updateAccountRequest').mockReturnValue(
+			{
+				isSuccess: false
+			});
 		const commit = jest.fn();
 		const user = {
 			firstName: '',
@@ -102,13 +122,14 @@ describe('actions', () => {
 			email: ''
 		};
 
-		await usersModule.actions.updateAccount({commit}, user);
+		const dispatchResponse = await usersModule.actions.updateAccount({commit}, user);
 
+		expect(dispatchResponse.isSuccess).toBeFalsy();
 		expect(commit).toHaveBeenCalledTimes(0);
 	});
 
 	it('password change', async () => {
-		changePasswordRequest = jest.fn().mockReturnValue({isSuccess: true});
+		jest.spyOn(api, 'changePasswordRequest').mockReturnValue({isSuccess: true});
 		const commit = jest.fn();
 		const updatePasswordModel = {oldPassword: 'o', newPassword: 'n'};
 
@@ -118,17 +139,17 @@ describe('actions', () => {
 	});
 
 	it('delete account', async () => {
-		deleteAccountRequest = jest.fn().mockReturnValue({isSuccess: true});
+		jest.spyOn(api, 'deleteAccountRequest').mockReturnValue({isSuccess: true});
 		const commit = jest.fn();
 		const password = '';
 
-		const requestResponse = await usersModule.actions.deleteAccount(commit, password);
+		const dispatchResponse = await usersModule.actions.deleteAccount(commit, password);
 
-		expect(requestResponse.isSuccess).toBeTruthy();
+		expect(dispatchResponse.isSuccess).toBeTruthy();
 	});
 
 	it('success get user', async () => {
-		getUserRequest = jest.fn().mockReturnValue({
+		jest.spyOn(api, 'getUserRequest').mockReturnValue({
 			isSuccess: true,
 			data: {
 				firstName: '',
@@ -144,7 +165,7 @@ describe('actions', () => {
 	});
 
 	it('error get user', async () => {
-		getUserRequest = jest.fn().mockReturnValue({isSuccess: false});
+		jest.spyOn(api, 'getUserRequest').mockReturnValue({isSuccess: false});
 		const commit = jest.fn();
 
 		const requestResponse = await usersModule.actions.getUser({commit});

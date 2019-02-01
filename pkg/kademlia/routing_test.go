@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
 package kademlia
@@ -74,7 +74,7 @@ func TestGetBucket(t *testing.T) {
 	}
 }
 
-func TestFindNear(t *testing.T) {
+func TestKademliaFindNear(t *testing.T) {
 	rt, cleanup := createRoutingTable(t, teststorj.NodeIDFromString("AA"))
 	defer cleanup()
 	node1 := teststorj.MockNode("AA")

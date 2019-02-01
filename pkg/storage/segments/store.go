@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package segments
@@ -130,7 +130,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		pieceID := psclient.NewPieceID()
 
 		authorization := s.pdb.SignedMessage()
-		pba, err := s.pdb.PayerBandwidthAllocation(ctx, pb.PayerBandwidthAllocation_PUT)
+		pba, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}

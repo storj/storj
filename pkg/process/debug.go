@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package process
@@ -16,8 +16,7 @@ import (
 )
 
 var (
-	debugAddr = flag.String("debug.addr", "localhost:0",
-		"address to listen on for debug endpoints")
+	debugAddr = flag.String("debug.addr", "localhost:0", "address to listen on for debug endpoints")
 )
 
 func init() {
@@ -26,8 +25,7 @@ func init() {
 	*http.DefaultServeMux = http.ServeMux{}
 }
 
-func initDebug(logger *zap.Logger, r *monkit.Registry) (
-	err error) {
+func initDebug(logger *zap.Logger, r *monkit.Registry) (err error) {
 	var mux http.ServeMux
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)

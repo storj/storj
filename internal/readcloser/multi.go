@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package readcloser
@@ -45,7 +45,7 @@ func (mr *multiReadCloser) Read(p []byte) (n int, err error) {
 		}
 		n, err = mr.readers[0].Read(p)
 		if err == io.EOF {
-			utils.LogClose(mr.readers[0])
+			err = mr.readers[0].Close()
 			// Use eofReader instead of nil to avoid nil panic
 			// after performing flatten (Issue 18232).
 			mr.readers[0] = eofReadCloser{} // permit earlier GC

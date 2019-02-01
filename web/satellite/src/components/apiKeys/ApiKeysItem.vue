@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -36,10 +36,8 @@ export default class ApiKeysItem extends Vue {}
         align-items: center;
         justify-content: center;
         border-radius: 6px;
-        height: 140px;
+        height: 180px;
         background-color: #fff;
-        margin-bottom: 24px;
-        padding: 30px 0;
         cursor: pointer;
         transition: box-shadow .2s ease-out;
 

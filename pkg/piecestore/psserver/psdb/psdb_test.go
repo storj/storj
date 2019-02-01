@@ -1,11 +1,9 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package psdb
 
 import (
-	"bytes"
-	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -13,29 +11,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
 
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
-	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/storj"
 )
 
-var ctx = context.Background()
-
 const concurrency = 10
 
-func newDB(t testing.TB) (*DB, func()) {
-	tmpdir, err := ioutil.TempDir("", "storj-psdb")
+func newDB(t testing.TB, id string) (*DB, func()) {
+	tmpdir, err := ioutil.TempDir("", "storj-psdb-"+id)
 	if err != nil {
 		t.Fatal(err)
 	}
 	dbpath := filepath.Join(tmpdir, "psdb.db")
 
-	storage := pstore.NewStorage(tmpdir)
-
-	db, err := Open(ctx, storage, dbpath)
+	db, err := Open(dbpath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,11 +37,6 @@ func newDB(t testing.TB) (*DB, func()) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = storage.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-
 		err = os.RemoveAll(tmpdir)
 		if err != nil {
 			t.Fatal(err)
@@ -58,7 +45,7 @@ func newDB(t testing.TB) (*DB, func()) {
 }
 
 func TestNewInmemory(t *testing.T) {
-	db, err := OpenInMemory(context.Background(), nil)
+	db, err := OpenInMemory()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +55,7 @@ func TestNewInmemory(t *testing.T) {
 }
 
 func TestHappyPath(t *testing.T) {
-	db, cleanup := newDB(t)
+	db, cleanup := newDB(t, "1")
 	defer cleanup()
 
 	type TTL struct {
@@ -145,36 +132,21 @@ func TestHappyPath(t *testing.T) {
 		}
 	})
 
-	bandwidthAllocation := func(satelliteID storj.NodeID, total int64) []byte {
-		return serialize(t, &pb.RenterBandwidthAllocation_Data{
-			PayerAllocation: &pb.PayerBandwidthAllocation{
-				Data: serialize(t, &pb.PayerBandwidthAllocation_Data{
-					SatelliteId: satelliteID,
-				}),
-			},
-			Total: total,
-		})
+	bandwidthAllocation := func(signature string, satelliteID storj.NodeID, total int64) *pb.RenterBandwidthAllocation {
+		return &pb.RenterBandwidthAllocation{
+			PayerAllocation: pb.PayerBandwidthAllocation{SatelliteId: satelliteID},
+			Total:           total,
+			Signature:       []byte(signature),
+		}
 	}
 
 	//TODO: use better data
 	nodeIDAB := teststorj.NodeIDFromString("AB")
 	allocationTests := []*pb.RenterBandwidthAllocation{
-		{
-			Signature: []byte("signed by test"),
-			Data:      bandwidthAllocation(nodeIDAB, 0),
-		},
-		{
-			Signature: []byte("signed by sigma"),
-			Data:      bandwidthAllocation(nodeIDAB, 10),
-		},
-		{
-			Signature: []byte("signed by sigma"),
-			Data:      bandwidthAllocation(nodeIDAB, 98),
-		},
-		{
-			Signature: []byte("signed by test"),
-			Data:      bandwidthAllocation(nodeIDAB, 3),
-		},
+		bandwidthAllocation("signed by test", nodeIDAB, 0),
+		bandwidthAllocation("signed by sigma", nodeIDAB, 10),
+		bandwidthAllocation("signed by sigma", nodeIDAB, 98),
+		bandwidthAllocation("signed by test", nodeIDAB, 3),
 	}
 
 	t.Run("Bandwidth Allocation", func(t *testing.T) {
@@ -194,7 +166,7 @@ func TestHappyPath(t *testing.T) {
 
 					found := false
 					for _, agreement := range agreements {
-						if bytes.Equal(agreement, test.Data) {
+						if pb.Equal(agreement, test) {
 							found = true
 							break
 						}
@@ -222,7 +194,7 @@ func TestHappyPath(t *testing.T) {
 				for _, agreements := range agreementGroups {
 					for _, agreement := range agreements {
 						for _, test := range allocationTests {
-							if bytes.Equal(agreement.Agreement, test.Data) {
+							if pb.Equal(&agreement.Agreement, test) {
 								found = true
 								break
 							}
@@ -239,7 +211,7 @@ func TestHappyPath(t *testing.T) {
 }
 
 func TestBandwidthUsage(t *testing.T) {
-	db, cleanup := newDB(t)
+	db, cleanup := newDB(t, "2")
 	defer cleanup()
 
 	type BWUSAGE struct {
@@ -303,32 +275,18 @@ func TestBandwidthUsage(t *testing.T) {
 }
 
 func BenchmarkWriteBandwidthAllocation(b *testing.B) {
-	db, cleanup := newDB(b)
+	db, cleanup := newDB(b, "3")
 	defer cleanup()
-
 	const WritesPerLoop = 10
-
-	data := serialize(b, &pb.RenterBandwidthAllocation_Data{
-		PayerAllocation: &pb.PayerBandwidthAllocation{},
-		Total:           156,
-	})
-
 	b.RunParallel(func(b *testing.PB) {
 		for b.Next() {
 			for i := 0; i < WritesPerLoop; i++ {
 				_ = db.WriteBandwidthAllocToDB(&pb.RenterBandwidthAllocation{
-					Signature: []byte("signed by test"),
-					Data:      data,
+					PayerAllocation: pb.PayerBandwidthAllocation{},
+					Total:           156,
+					Signature:       []byte("signed by test"),
 				})
 			}
 		}
 	})
-}
-
-func serialize(t testing.TB, v proto.Message) []byte {
-	data, err := proto.Marshal(v)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return data
 }

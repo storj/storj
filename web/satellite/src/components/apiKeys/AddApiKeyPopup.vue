@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -163,14 +163,18 @@ export default class AddApiKeyPopup extends Vue {
         }
 
         &__close-cross-container {
-             display: flex;
-             justify-content: center;
-             align-items: flex-start;
-             position: absolute;
-             right: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: absolute;
+            right: 30px;
             top: 40px;
-            svg {
-                cursor: pointer;
+            height: 24px;
+            width: 24px;
+            cursor: pointer;
+
+            &:hover svg path {
+                fill: #2683FF;
             }
         }
     }

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package satellitedb
@@ -11,11 +11,12 @@ import (
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/storage"
 )
 
 var (
@@ -27,7 +28,8 @@ var (
 
 // DB contains access to different database tables
 type DB struct {
-	db *dbx.DB
+	db     *dbx.DB
+	driver string
 }
 
 // New creates instance of database (supports: postgres, sqlite3)
@@ -43,7 +45,7 @@ func New(databaseURL string) (satellite.DB, error) {
 			driver, source, err)
 	}
 
-	core := &DB{db: db}
+	core := &DB{db: db, driver: driver}
 	if driver == "sqlite3" {
 		return newLocked(core), nil
 	}
@@ -52,7 +54,28 @@ func New(databaseURL string) (satellite.DB, error) {
 
 // NewInMemory creates instance of Sqlite in memory satellite database
 func NewInMemory() (satellite.DB, error) {
-	return New("sqlite3://file::memory:?mode=memory&cache=shared")
+	return New("sqlite3://file::memory:?mode=memory")
+}
+
+// SetSchema sets the schema
+func (db *DB) SetSchema(schema string) error {
+	switch db.driver {
+	case "postgres":
+		// TODO: proper escaping
+		_, err := db.db.Exec("create schema " + schema + "; set search_path to " + schema + ";")
+		return err
+	}
+	return nil
+}
+
+// DropSchema drops the named schema
+func (db *DB) DropSchema(schema string) error {
+	switch db.driver {
+	case "postgres":
+		_, err := db.db.Exec("drop schema " + schema + " cascade;")
+		return err
+	}
+	return nil
 }
 
 // BandwidthAgreement is a getter for bandwidth agreement repository
@@ -71,7 +94,7 @@ func (db *DB) StatDB() statdb.DB {
 }
 
 // OverlayCache is a getter for overlay cache repository
-func (db *DB) OverlayCache() storage.KeyValueStore {
+func (db *DB) OverlayCache() overlay.DB {
 	return &overlaycache{db: db.db}
 }
 
@@ -88,6 +111,14 @@ func (db *DB) Accounting() accounting.DB {
 // Irreparable returns database for storing segments that failed repair
 func (db *DB) Irreparable() irreparable.DB {
 	return &irreparableDB{db: db.db}
+}
+
+// Console returns database for storing users, projects and api keys
+func (db *DB) Console() console.DB {
+	return &ConsoleDB{
+		db:      db.db,
+		methods: db.db,
+	}
 }
 
 // CreateTables is a method for creating all tables for database

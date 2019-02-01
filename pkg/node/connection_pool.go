@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
 package node
@@ -12,8 +12,8 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
@@ -43,7 +43,7 @@ type Conn struct {
 func NewConn(addr string) *Conn { return &Conn{addr: addr} }
 
 // NewConnectionPool initializes a new in memory pool
-func NewConnectionPool(identity *provider.FullIdentity, obs ...transport.Observer) *ConnectionPool {
+func NewConnectionPool(identity *identity.FullIdentity, obs ...transport.Observer) *ConnectionPool {
 	return &ConnectionPool{
 		tc:    transport.NewClient(identity, obs...),
 		items: make(map[storj.NodeID]*Conn),

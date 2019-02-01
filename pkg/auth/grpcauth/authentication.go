@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package grpcauth
@@ -26,6 +26,7 @@ func NewAPIKeyInterceptor() grpc.UnaryServerInterceptor {
 		if !ok || len(apikeys) == 0 {
 			return handler(ctx, req)
 		}
+
 		return handler(auth.WithAPIKey(ctx, []byte(apikeys[0])), req)
 	}
 }

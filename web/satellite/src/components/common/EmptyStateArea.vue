@@ -1,11 +1,11 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
     <div class="empty-state">
         <div class="empty-state__wrap">
             <h1>{{mainTitle}}</h1>
-            <p>{{additionalText}}</p>
+            <div class="empty-state__wrap__additional-text" v-html="additionalText"/>
             <div id="addApiKeysPopupEmptyButton">
                 <Button
                     v-if="isButtonShown"
@@ -56,6 +56,16 @@ export default class EmptyStateProjectArea extends Vue {
             display: flex;
             flex-direction: column;
             align-items: center;
+
+            &__additional-text {
+                font-family: 'montserrat_regular';
+                font-size: 16px;
+
+                b {
+                    font-family: 'montserrat_bold' !important;
+                    font-size: 16px;
+                }
+            }
 
              &__img {
                 margin-top: 90px;

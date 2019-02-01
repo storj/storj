@@ -1,15 +1,16 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package cfgstruct
 
 import (
-	"flag"
 	"fmt"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/spf13/pflag"
 )
 
 func assertEqual(actual, expected interface{}) {
@@ -19,7 +20,7 @@ func assertEqual(actual, expected interface{}) {
 }
 
 func TestBind(t *testing.T) {
-	f := flag.NewFlagSet("test", flag.PanicOnError)
+	f := pflag.NewFlagSet("test", pflag.PanicOnError)
 	var c struct {
 		String   string        `default:""`
 		Bool     bool          `default:"false"`
@@ -77,7 +78,7 @@ func TestBind(t *testing.T) {
 }
 
 func TestConfDir(t *testing.T) {
-	f := flag.NewFlagSet("test", flag.PanicOnError)
+	f := pflag.NewFlagSet("test", pflag.PanicOnError)
 	var c struct {
 		String    string `default:"-$CONFDIR+"`
 		MyStruct1 struct {
@@ -94,7 +95,7 @@ func TestConfDir(t *testing.T) {
 }
 
 func TestNesting(t *testing.T) {
-	f := flag.NewFlagSet("test", flag.PanicOnError)
+	f := pflag.NewFlagSet("test", pflag.PanicOnError)
 	var c struct {
 		String    string `default:"-$CONFDIR+"`
 		MyStruct1 struct {

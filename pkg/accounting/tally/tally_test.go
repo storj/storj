@@ -1,11 +1,10 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package tally
+package tally_test
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"testing"
 	"time"
 
@@ -15,9 +14,10 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/bwagreement"
-	"storj.io/storj/pkg/bwagreement/test"
-	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/bwagreement/testbwagreement"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
@@ -29,16 +29,18 @@ func TestQueryNoAgreements(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
+	// TODO: use testplanet
+
+	service := pointerdb.NewService(zap.NewNop(), teststore.New())
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 	db, err := satellitedb.NewInMemory()
 	assert.NoError(t, err)
 	defer ctx.Check(db.Close)
 	assert.NoError(t, db.CreateTables())
 
-	tally := newTally(zap.NewNop(), db.Accounting(), db.BandwidthAgreement(), pointerdb, overlayServer, 0, time.Second)
+	tally := tally.New(zap.NewNop(), db.Accounting(), db.BandwidthAgreement(), service, overlayServer, 0, time.Second)
 
-	err = tally.queryBW(ctx)
+	err = tally.QueryBW(ctx)
 	assert.NoError(t, err)
 }
 
@@ -46,7 +48,9 @@ func TestQueryWithBw(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, zap.NewNop(), pointerdb.Config{}, nil)
+	// TODO: use testplanet
+
+	service := pointerdb.NewService(zap.NewNop(), teststore.New())
 	overlayServer := mocks.NewOverlay([]*pb.Node{})
 
 	db, err := satellitedb.NewInMemory()
@@ -56,32 +60,30 @@ func TestQueryWithBw(t *testing.T) {
 	assert.NoError(t, db.CreateTables())
 
 	bwDb := db.BandwidthAgreement()
-	tally := newTally(zap.NewNop(), db.Accounting(), bwDb, pointerdb, overlayServer, 0, time.Second)
+	tally := tally.New(zap.NewNop(), db.Accounting(), bwDb, service, overlayServer, 0, time.Second)
 
 	//get a private key
 	fiC, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
-	k, ok := fiC.Key.(*ecdsa.PrivateKey)
-	assert.True(t, ok)
 
-	makeBWA(ctx, t, bwDb, "1", k, pb.PayerBandwidthAllocation_PUT)
-	makeBWA(ctx, t, bwDb, "2", k, pb.PayerBandwidthAllocation_GET)
-	makeBWA(ctx, t, bwDb, "3", k, pb.PayerBandwidthAllocation_GET_AUDIT)
-	makeBWA(ctx, t, bwDb, "4", k, pb.PayerBandwidthAllocation_GET_REPAIR)
-	makeBWA(ctx, t, bwDb, "5", k, pb.PayerBandwidthAllocation_PUT_REPAIR)
+	makeBWA(ctx, t, bwDb, fiC, pb.BandwidthAction_PUT)
+	makeBWA(ctx, t, bwDb, fiC, pb.BandwidthAction_GET)
+	makeBWA(ctx, t, bwDb, fiC, pb.BandwidthAction_GET_AUDIT)
+	makeBWA(ctx, t, bwDb, fiC, pb.BandwidthAction_GET_REPAIR)
+	makeBWA(ctx, t, bwDb, fiC, pb.BandwidthAction_PUT_REPAIR)
 
 	//check the db
-	err = tally.queryBW(ctx)
+	err = tally.QueryBW(ctx)
 	assert.NoError(t, err)
 }
 
-func makeBWA(ctx context.Context, t *testing.T, bwDb bwagreement.DB, serialNum string, k *ecdsa.PrivateKey, action pb.PayerBandwidthAllocation_Action) {
+func makeBWA(ctx context.Context, t *testing.T, bwDb bwagreement.DB, fiC *identity.FullIdentity, action pb.BandwidthAction) {
 	//generate an agreement with the key
-	pba, err := test.GeneratePayerBandwidthAllocation(action, k, k, false)
+	pba, err := testbwagreement.GeneratePayerBandwidthAllocation(action, fiC, fiC, time.Hour)
 	assert.NoError(t, err)
-	rba, err := test.GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("StorageNodeID"), k)
+	rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("StorageNodeID"), fiC, 666)
 	assert.NoError(t, err)
 	//save to db
-	err = bwDb.CreateAgreement(ctx, serialNum, bwagreement.Agreement{Signature: rba.GetSignature(), Agreement: rba.GetData()})
+	err = bwDb.CreateAgreement(ctx, rba)
 	assert.NoError(t, err)
 }

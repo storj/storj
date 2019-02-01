@@ -1,11 +1,11 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
     <div class="account-button-container" id="accountDropdownButton">
         <div class="account-button-toggle-container" v-on:click="toggleSelection" >
             <!-- background of this div generated and stores in store -->
-            <div class="account-button-toggle-container__avatar" :style="style">
+            <div class="account-button-toggle-container__avatar">
                 <!-- First digit of firstName after Registration -->
                 <!-- img if avatar was set -->
                 <h1>{{avatarLetter}}</h1>
@@ -28,10 +28,6 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 @Component(
     {
         computed: {
-            style: function (): object {
-                // Color from $store
-                return {background: '#95D486'};
-            },
             // May change later
             avatarLetter: function (): string {
                 return this.$store.getters.userName.slice(0, 1).toUpperCase();
@@ -102,6 +98,8 @@ export default class AccountButton extends Vue {
             display: flex;
             align-items: center;
             justify-content: center;
+            background: #E8EAF2;
+
             h1 {
                 font-family: 'montserrat_medium';
                 font-size: 16px;

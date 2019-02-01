@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -15,9 +15,9 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
 )
 
@@ -199,7 +199,7 @@ func prettyPrint(unformatted proto.Message) string {
 }
 
 func newPDBClient(ctx context.Context, port, apiKey string) (*pdbclient.PointerDB, error) {
-	identity, err := provider.NewFullIdentity(ctx, 12, 4)
+	identity, err := identity.NewFullIdentity(ctx, 12, 4)
 	if err != nil {
 		return nil, err
 	}

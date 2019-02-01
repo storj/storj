@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
 package testplanet
@@ -6,19 +6,19 @@ package testplanet
 import (
 	"errors"
 
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/identity"
 )
 
 //go:generate go run gen_identities.go -count 150 -out identities_table.go
 
 // Identities is a pregenerated full identity table.
 type Identities struct {
-	list []*provider.FullIdentity
+	list []*identity.FullIdentity
 	next int
 }
 
 // NewIdentities creates a new table from provided identities.
-func NewIdentities(list ...*provider.FullIdentity) *Identities {
+func NewIdentities(list ...*identity.FullIdentity) *Identities {
 	return &Identities{
 		list: list,
 		next: 0,
@@ -26,7 +26,7 @@ func NewIdentities(list ...*provider.FullIdentity) *Identities {
 }
 
 // PregeneratedIdentity returns a pregenerated identity from a list
-func PregeneratedIdentity(index int) (*provider.FullIdentity, error) {
+func PregeneratedIdentity(index int) (*identity.FullIdentity, error) {
 	if pregeneratedIdentities.next >= len(pregeneratedIdentities.list) {
 		return nil, errors.New("out of pregenerated identities")
 	}
@@ -44,7 +44,7 @@ func (identities *Identities) Clone() *Identities {
 }
 
 // NewIdentity gets a new identity from the list.
-func (identities *Identities) NewIdentity() (*provider.FullIdentity, error) {
+func (identities *Identities) NewIdentity() (*identity.FullIdentity, error) {
 	if identities.next >= len(identities.list) {
 		return nil, errors.New("out of pregenerated identities")
 	}
@@ -55,9 +55,9 @@ func (identities *Identities) NewIdentity() (*provider.FullIdentity, error) {
 }
 
 // mustParsePEM parses pem encoded chain and key strings.
-func mustParsePEM(chain, key string) *provider.FullIdentity {
+func mustParsePEM(chain, key string) *identity.FullIdentity {
 	// TODO: add whitelist handling somehow
-	fi, err := provider.FullIdentityFromPEM([]byte(chain), []byte(key))
+	fi, err := identity.FullIdentityFromPEM([]byte(chain), []byte(key))
 	if err != nil {
 		panic(err)
 	}

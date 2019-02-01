@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package kademlia
@@ -15,7 +15,6 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -46,6 +45,12 @@ var firstBucketID = bucketID{
 
 var emptyBucketID = bucketID{}
 
+// RoutingTableConfig configures the routing table
+type RoutingTableConfig struct {
+	BucketSize           int `help:"size of each Kademlia bucket" default:"20"`
+	ReplacementCacheSize int `help:"size of Kademlia replacement cache" default:"5"`
+}
+
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
 	log              *zap.Logger
@@ -58,12 +63,19 @@ type RoutingTable struct {
 	replacementCache map[bucketID][]*pb.Node
 	bucketSize       int // max number of nodes stored in a kbucket = 20 (k)
 	rcBucketSize     int // replacementCache bucket max length
-
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
+func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.KeyValueStore, config *RoutingTableConfig) (*RoutingTable, error) {
 	localNode.Type.DPanicOnInvalid("new routing table")
+
+	if config == nil || config.BucketSize == 0 || config.ReplacementCacheSize == 0 {
+		// TODO: handle this more nicely
+		config = &RoutingTableConfig{
+			BucketSize:           20,
+			ReplacementCacheSize: 5,
+		}
+	}
 
 	rt := &RoutingTable{
 		log:          logger,
@@ -76,8 +88,8 @@ func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.Key
 		seen:             make(map[storj.NodeID]*pb.Node),
 		replacementCache: make(map[bucketID][]*pb.Node),
 
-		bucketSize:   *flagBucketSize,
-		rcBucketSize: *flagReplacementCacheSize,
+		bucketSize:   config.BucketSize,
+		rcBucketSize: config.ReplacementCacheSize,
 	}
 	ok, err := rt.addNode(&localNode)
 	if !ok || err != nil {
@@ -86,18 +98,9 @@ func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.Key
 	return rt, nil
 }
 
-// SelfClose close without closing dependencies
-// TODO: rename to Close and remove Close
-func (rt *RoutingTable) SelfClose() error {
-	return nil
-}
-
-// Close closes underlying databases
+// Close close without closing dependencies
 func (rt *RoutingTable) Close() error {
-	return utils.CombineErrors(
-		rt.kadBucketDB.Close(),
-		rt.nodeBucketDB.Close(),
-	)
+	return nil
 }
 
 // Local returns the local nodes ID

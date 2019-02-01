@@ -1,7 +1,9 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package audit
+// +build ignore
+
+package audit_test
 
 import (
 	"context"
@@ -13,16 +15,18 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 type mockDownloader struct {
-	shares map[int]share
+	shares map[int]audit.Share
 }
 
 func TestPassingAudit(t *testing.T) {
 	ctx := context.Background()
-	mockShares := make(map[int]share)
+	mockShares := make(map[int]audit.Share)
 
 	for _, tt := range []struct {
 		nodeAmt  int
@@ -35,16 +39,16 @@ func TestPassingAudit(t *testing.T) {
 	} {
 		someData := randData(32 * 1024)
 		for i := 0; i < tt.shareAmt; i++ {
-			mockShares[i] = share{
+			mockShares[i] = audit.Share{
 				Error:       tt.err,
 				PieceNumber: i,
 				Data:        someData,
 			}
 		}
 		md := mockDownloader{shares: mockShares}
-		verifier := &Verifier{downloader: &md}
+		verifier := &audit.Verifier{downloader: &md}
 		pointer := makePointer(tt.nodeAmt)
-		verifiedNodes, err := verifier.verify(ctx, &Stripe{Index: 6, Segment: pointer, PBA: nil, Authorization: nil})
+		verifiedNodes, err := verifier.Verify(ctx, &audit.Stripe{Index: 6, Segment: pointer, PBA: nil, Authorization: nil})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -86,9 +90,9 @@ func TestSomeNodesPassAudit(t *testing.T) {
 		}
 
 		md := mockDownloader{shares: mockShares}
-		verifier := &Verifier{downloader: &md}
+		verifier := &audit.Verifier{downloader: &md}
 		pointer := makePointer(tt.nodeAmt)
-		verifiedNodes, err := verifier.verify(ctx, &Stripe{Index: 6, Segment: pointer, PBA: nil, Authorization: nil})
+		verifiedNodes, err := verifier.verify(ctx, &audit.Stripe{Index: 6, Segment: pointer, PBA: nil, Authorization: nil})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -133,9 +137,9 @@ func TestFailingAudit(t *testing.T) {
 	badPieceNums := []int{0, 2, 3, 4}
 
 	ctx := context.Background()
-	auditPkgShares := make(map[int]share, len(modifiedShares))
+	auditPkgShares := make(map[int]audit.Share, len(modifiedShares))
 	for i := range modifiedShares {
-		auditPkgShares[modifiedShares[i].Number] = share{
+		auditPkgShares[modifiedShares[i].Number] = audit.Share{
 			PieceNumber: modifiedShares[i].Number,
 			Data:        append([]byte(nil), modifiedShares[i].Data...),
 		}
@@ -201,18 +205,12 @@ func TestCalcPadded(t *testing.T) {
 }
 
 func (m *mockDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int,
-	pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]*pb.Node, err error) {
+	pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]storj.NodeID, err error) {
 
 	nodes = make(map[int]*pb.Node, 30)
 
 	for i := 0; i < 30; i++ {
-		nodes[i] = &pb.Node{
-			Id:   teststorj.NodeIDFromString(strconv.Itoa(i)),
-			Type: pb.NodeType_STORAGE,
-			Address: &pb.NodeAddress{
-				Address: strconv.Itoa(i),
-			},
-		}
+		nodes[i] = teststorj.NodeIDFromString(strconv.Itoa(i))
 	}
 	return m.shares, nodes, nil
 }

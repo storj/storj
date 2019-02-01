@@ -1,80 +1,88 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/provider"
 )
 
 var (
 	caCmd = &cobra.Command{
-		Use:   "ca",
-		Short: "Manage certificate authorities",
+		Use:         "certificate-authority",
+		Short:       "Manage certificate authorities",
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	newCACmd = &cobra.Command{
-		Use:   "new",
-		Short: "Create a new certificate authority",
-		RunE:  cmdNewCA,
+		Use:         "create",
+		Short:       "Create a new certificate authority",
+		RunE:        cmdNewCA,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	getIDCmd = &cobra.Command{
-		Use:   "id",
-		Short: "Get the id of a CA",
-		RunE:  cmdGetID,
+		Use:         "id",
+		Short:       "Get the id of a CA",
+		RunE:        cmdGetID,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	caExtCmd = &cobra.Command{
-		Use:   "extensions",
-		Short: "Prints the extensions attached to the identity CA certificate",
-		RunE:  cmdCAExtensions,
+		Use:         "extensions",
+		Short:       "Prints the extensions attached to the identity CA certificate",
+		RunE:        cmdCAExtensions,
+		Annotations: map[string]string{"type": "setup"},
 	}
 	revokeCACmd = &cobra.Command{
-		Use:   "revoke",
-		Short: "Revoke the identity's CA certificate (creates backup)",
-		RunE:  cmdRevokeCA,
+		Use:         "revoke",
+		Short:       "Revoke the identity's CA certificate (creates backup)",
+		RunE:        cmdRevokeCA,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	newCACfg struct {
-		CA provider.CASetupConfig
+		CA identity.CASetupConfig
 	}
 
 	getIDCfg struct {
-		CA provider.PeerCAConfig
+		CA identity.PeerCAConfig
 	}
 
 	caExtCfg struct {
-		CA provider.FullCAConfig
+		CA identity.FullCAConfig
 	}
 
 	revokeCACfg struct {
-		CA provider.FullCAConfig
+		CA identity.FullCAConfig
 		// TODO: add "broadcast" option to send revocation to network nodes
 	}
 )
 
 func init() {
 	rootCmd.AddCommand(caCmd)
+
 	caCmd.AddCommand(newCACmd)
-	cfgstruct.Bind(newCACmd.Flags(), &newCACfg, cfgstruct.ConfDir(defaultConfDir))
 	caCmd.AddCommand(getIDCmd)
-	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, cfgstruct.ConfDir(defaultConfDir))
 	caCmd.AddCommand(caExtCmd)
-	cfgstruct.Bind(caExtCmd.Flags(), &caExtCfg, cfgstruct.ConfDir(defaultConfDir))
 	caCmd.AddCommand(revokeCACmd)
-	cfgstruct.Bind(revokeCACmd.Flags(), &revokeCACfg, cfgstruct.ConfDir(defaultConfDir))
+
+	cfgstruct.Bind(newCACmd.Flags(), &newCACfg, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(caExtCmd.Flags(), &caExtCfg, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(revokeCACmd.Flags(), &revokeCACfg, cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdNewCA(cmd *cobra.Command, args []string) error {
-	_, err := newCACfg.CA.Create(process.Ctx(cmd))
+	_, err := newCACfg.CA.Create(process.Ctx(cmd), os.Stdout)
 	return err
 }
 
@@ -103,7 +111,7 @@ func cmdRevokeCA(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	updateCfg := provider.FullCAConfig{
+	updateCfg := identity.FullCAConfig{
 		CertPath: revokeCACfg.CA.CertPath,
 	}
 	if err := updateCfg.Save(ca); err != nil {

@@ -1,10 +1,11 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package node
 
 import (
 	"context"
+	"sync/atomic"
 
 	"go.uber.org/zap"
 
@@ -16,6 +17,8 @@ import (
 type Server struct {
 	dht dht.DHT
 	log *zap.Logger
+
+	connected int32
 }
 
 // NewServer returns a newly instantiated Node Server
@@ -36,16 +39,23 @@ func (server *Server) Query(ctx context.Context, req *pb.QueryRequest) (*pb.Quer
 	if req.GetPingback() {
 		_, err = server.dht.Ping(ctx, *req.Sender)
 		if err != nil {
+			server.log.Debug("connection to node failed", zap.Error(err), zap.String("nodeID", req.Sender.Id.String()))
 			err = rt.ConnectionFailed(req.Sender)
 			if err != nil {
 				server.log.Error("could not respond to connection failed", zap.Error(err))
 			}
-			server.log.Error("connection to node failed", zap.Error(err), zap.String("nodeID", req.Sender.Id.String()))
-		}
-
-		err = rt.ConnectionSuccess(req.Sender)
-		if err != nil {
-			server.log.Error("could not respond to connection success", zap.Error(err))
+		} else {
+			err = rt.ConnectionSuccess(req.Sender)
+			if err != nil {
+				server.log.Error("could not respond to connection success", zap.Error(err))
+			} else {
+				count := atomic.AddInt32(&server.connected, 1)
+				if count == 1 {
+					server.log.Sugar().Debugf("Successfully connected with %s", req.Sender.Address.Address)
+				} else if count%100 == 0 {
+					server.log.Sugar().Debugf("Successfully connected with %s %dx times", req.Sender.Address.Address, count)
+				}
+			}
 		}
 	}
 

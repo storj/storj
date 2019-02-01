@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -14,20 +14,23 @@ import (
 	"strconv"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
 
 var (
-	// Addr is the address of Capt Planet from command flags
-	Addr = flag.String("address", "localhost:7778", "address of captplanet to inspect")
+	// Addr is the address of peer from command flags
+	Addr = flag.String("address", "localhost:7778", "address of peer to inspect")
+
+	// IdentityPath is the path to the identity the inspector should use for network communication
+	IdentityPath = flag.String("identity-path", "", "path to the identity certificate for use on the network")
 
 	// ErrInspectorDial throws when there are errors dialing the inspector server
 	ErrInspectorDial = errs.Class("error dialing inspector server:")
@@ -58,17 +61,6 @@ var (
 		Use:   "count",
 		Short: "count nodes in kademlia and overlay",
 		RunE:  CountNodes,
-	}
-	getBucketsCmd = &cobra.Command{
-		Use:   "list-buckets",
-		Short: "get all buckets in overlay",
-		RunE:  GetBuckets,
-	}
-	getBucketCmd = &cobra.Command{
-		Use:   "ls <bucket_id>",
-		Short: "get all nodes in bucket",
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  GetBucket,
 	}
 	pingNodeCmd = &cobra.Command{
 		Use:   "ping <node_id> <ip:port>",
@@ -117,100 +109,64 @@ var (
 
 // Inspector gives access to kademlia and overlay cache
 type Inspector struct {
-	identity *provider.FullIdentity
-	client   pb.InspectorClient
+	identity      *identity.FullIdentity
+	kadclient     pb.KadInspectorClient
+	overlayclient pb.OverlayInspectorClient
+	statdbclient  pb.StatDBInspectorClient
 }
 
 // NewInspector creates a new gRPC inspector server for access to kad
 // and the overlay cache
-func NewInspector(address string) (*Inspector, error) {
+func NewInspector(address, path string) (*Inspector, error) {
 	ctx := context.Background()
-	identity, err := provider.NewFullIdentity(ctx, 12, 4)
+
+	id, err := identity.Config{
+		CertPath: fmt.Sprintf("%s/identity.cert", path),
+		KeyPath:  fmt.Sprintf("%s/identity.key", path),
+	}.Load()
+
 	if err != nil {
 		return &Inspector{}, ErrIdentity.Wrap(err)
 	}
 
-	tc := transport.NewClient(identity)
+	tc := transport.NewClient(id)
 	conn, err := tc.DialAddress(ctx, address)
 	if err != nil {
 		return &Inspector{}, ErrInspectorDial.Wrap(err)
 	}
 
-	c := pb.NewInspectorClient(conn)
-
 	return &Inspector{
-		identity: identity,
-		client:   c,
+		identity:      id,
+		kadclient:     pb.NewKadInspectorClient(conn),
+		overlayclient: pb.NewOverlayInspectorClient(conn),
+		statdbclient:  pb.NewStatDBInspectorClient(conn),
 	}, nil
 }
 
-// CountNodes returns the number of nodes in the cache and kademlia
+// CountNodes returns the number of nodes in kademlia
 func CountNodes(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
 
-	count, err := i.client.CountNodes(context.Background(), &pb.CountNodesRequest{})
+	kadcount, err := i.kadclient.CountNodes(context.Background(), &pb.CountNodesRequest{})
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
 
-	fmt.Printf("---------- \n - Kademlia: %+v\n - Overlay: %+v\n", count.Kademlia, count.Overlay)
-	return nil
-}
-
-// GetBuckets returns all buckets in the overlay cache's routing table
-func GetBuckets(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	buckets, err := i.client.GetBuckets(context.Background(), &pb.GetBucketsRequest{})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	fmt.Printf("Buckets ---------------- \n Total Buckets: %+v\n", buckets.Total)
-
-	for index, b := range buckets.Ids {
-		fmt.Printf("%+v %+v\n", index, b)
-	}
-	return nil
-}
-
-// GetBucket returns a bucket with given `id`
-func GetBucket(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-	nodeID, err := storj.NodeIDFromString(args[0])
-	if err != nil {
-		return err
-	}
-
-	bucket, err := i.client.GetBucket(context.Background(), &pb.GetBucketRequest{
-		Id: nodeID,
-	})
-
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	fmt.Println(prettyPrintBucket(bucket))
+	fmt.Printf("Kademlia node count: %+v\n", kadcount.Count)
 	return nil
 }
 
 // LookupNode starts a Kademlia lookup for the provided Node ID
 func LookupNode(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
 
-	n, err := i.client.LookupNode(context.Background(), &pb.LookupNodeRequest{
+	n, err := i.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
 		Id: args[0],
 	})
 
@@ -218,58 +174,39 @@ func LookupNode(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	fmt.Println(prettyPrintNode(n))
+	fmt.Println(prettyPrint(n))
 
 	return nil
 }
 
 // DumpNodes outputs a json list of every node in every bucket in the satellite
 func DumpNodes(cmd *cobra.Command, args []string) (err error) {
-	fmt.Println("querying for buckets and nodes, sit tight....")
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
 
-	nodes := []pb.Node{}
-
-	buckets, err := i.client.GetBuckets(context.Background(), &pb.GetBucketsRequest{})
+	nodes, err := i.kadclient.FindNear(context.Background(), &pb.FindNearRequest{
+		Start: storj.NodeID{},
+		Limit: 100000,
+	})
 	if err != nil {
-		return ErrRequest.Wrap(err)
+		return err
 	}
 
-	for _, bucket := range buckets.Ids {
-		b, err := i.client.GetBucket(context.Background(), &pb.GetBucketRequest{
-			Id: bucket,
-		})
-		if err != nil {
-			return err
-		}
+	fmt.Println(prettyPrint(nodes))
 
-		for _, node := range b.Nodes {
-			nodes = append(nodes, *node)
-		}
-	}
-	fmt.Printf("%+v\n", nodes)
 	return nil
 }
 
-func prettyPrintNode(n *pb.LookupNodeResponse) string {
-	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: false}
-	s, err := m.MarshalToString(n)
+func prettyPrint(unformatted proto.Message) string {
+	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: true}
+	formatted, err := m.MarshalToString(unformatted)
 	if err != nil {
-		zap.S().Error("error marshaling node: %s", n)
+		fmt.Println("Error", err)
+		os.Exit(1)
 	}
-	return s
-}
-
-func prettyPrintBucket(b *pb.GetBucketResponse) string {
-	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: false}
-	s, err := m.MarshalToString(b)
-	if err != nil {
-		zap.S().Error("error marshaling bucket: %s", b.Id)
-	}
-	return s
+	return formatted
 }
 
 // PingNode sends a PING RPC across the Kad network to check node availability
@@ -279,34 +216,34 @@ func PingNode(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
 
 	fmt.Printf("Pinging node %s at %s", args[0], args[1])
 
-	p, err := i.client.PingNode(context.Background(), &pb.PingNodeRequest{
+	p, err := i.kadclient.PingNode(context.Background(), &pb.PingNodeRequest{
 		Id:      nodeID,
 		Address: args[1],
 	})
 
 	var okayString string
-	if p.Ok {
+	if p != nil && p.Ok {
 		okayString = "OK"
 	} else {
 		okayString = "Error"
 	}
 	fmt.Printf("\n -- Ping response: %s\n", okayString)
 	if err != nil {
-		fmt.Printf(" -- Error: %s", err)
+		fmt.Printf(" -- Error: %v\n", err)
 	}
 	return nil
 }
 
 // GetStats gets a node's stats from statdb
 func GetStats(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -316,7 +253,7 @@ func GetStats(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	res, err := i.client.GetStats(context.Background(), &pb.GetStatsRequest{
+	res, err := i.statdbclient.GetStats(context.Background(), &pb.GetStatsRequest{
 		NodeId: nodeID,
 	})
 	if err != nil {
@@ -331,7 +268,7 @@ func GetStats(cmd *cobra.Command, args []string) (err error) {
 
 // GetCSVStats gets node stats from statdb based on a csv
 func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -352,7 +289,7 @@ func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
-		res, err := i.client.GetStats(context.Background(), &pb.GetStatsRequest{
+		res, err := i.statdbclient.GetStats(context.Background(), &pb.GetStatsRequest{
 			NodeId: nodeID,
 		})
 		if err != nil {
@@ -368,7 +305,7 @@ func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
 
 // CreateStats creates a node with stats in statdb
 func CreateStats(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -394,7 +331,7 @@ func CreateStats(cmd *cobra.Command, args []string) (err error) {
 		return ErrArgs.New("uptime success count must be an int")
 	}
 
-	_, err = i.client.CreateStats(context.Background(), &pb.CreateStatsRequest{
+	_, err = i.statdbclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
 		NodeId:             nodeID,
 		AuditCount:         auditCount,
 		AuditSuccessCount:  auditSuccessCount,
@@ -411,7 +348,7 @@ func CreateStats(cmd *cobra.Command, args []string) (err error) {
 
 // CreateCSVStats creates node with stats in statdb based on a CSV
 func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
+	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -449,7 +386,7 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 			return ErrArgs.New("uptime success count must be an int")
 		}
 
-		_, err = i.client.CreateStats(context.Background(), &pb.CreateStatsRequest{
+		_, err = i.statdbclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
 			NodeId:             nodeID,
 			AuditCount:         auditCount,
 			AuditSuccessCount:  auditSuccessCount,
@@ -470,8 +407,6 @@ func init() {
 	rootCmd.AddCommand(statsCmd)
 
 	kadCmd.AddCommand(countNodeCmd)
-	kadCmd.AddCommand(getBucketsCmd)
-	kadCmd.AddCommand(getBucketCmd)
 	kadCmd.AddCommand(pingNodeCmd)
 	kadCmd.AddCommand(lookupNodeCmd)
 	kadCmd.AddCommand(dumpNodesCmd)

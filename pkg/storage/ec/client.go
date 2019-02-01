@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package ecclient
@@ -10,13 +10,14 @@ import (
 	"sort"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -44,7 +45,7 @@ type ecClient struct {
 }
 
 // NewClient from the given identity and max buffer memory
-func NewClient(identity *provider.FullIdentity, memoryLimit int) Client {
+func NewClient(identity *identity.FullIdentity, memoryLimit int) Client {
 	tc := transport.NewClient(identity)
 	return &ecClient{
 		transport:       tc,
@@ -114,7 +115,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 			err = ps.Put(ctx, derivedPieceID, readers[i], expiration, pba, authorization)
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
-			utils.LogClose(ps)
+			err = errs.Combine(err, ps.Close())
 			// io.ErrUnexpectedEOF means the piece upload was interrupted due to slow connection.
 			// No error logging for this case.
 			if err != nil && err != io.ErrUnexpectedEOF {
@@ -231,7 +232,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, authorization *pb.SignedMessage) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	errs := make(chan error, len(nodes))
+	errch := make(chan error, len(nodes))
 	for _, v := range nodes {
 		if v != nil {
 			v.Type.DPanicOnInvalid("ec client delete")
@@ -239,7 +240,7 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclie
 	}
 	for _, n := range nodes {
 		if n == nil {
-			errs <- nil
+			errch <- nil
 			continue
 		}
 
@@ -247,29 +248,29 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclie
 			derivedPieceID, err := pieceID.Derive(n.Id.Bytes())
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
-				errs <- err
+				errch <- err
 				return
 			}
 			ps, err := ec.newPSClient(ctx, n)
 			if err != nil {
 				zap.S().Errorf("Failed dialing for deleting piece %s -> %s from node %s: %v",
 					pieceID, derivedPieceID, n.Id, err)
-				errs <- err
+				errch <- err
 				return
 			}
 			err = ps.Delete(ctx, derivedPieceID, authorization)
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
-			utils.LogClose(ps)
+			err = errs.Combine(err, ps.Close())
 			if err != nil {
 				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v",
 					pieceID, derivedPieceID, n.Id, err)
 			}
-			errs <- err
+			errch <- err
 		}(n)
 	}
 
-	allerrs := collectErrors(errs, len(nodes))
+	allerrs := collectErrors(errch, len(nodes))
 	for _, v := range nodes {
 		if v != nil {
 			v.Type.DPanicOnInvalid("ec client delete 2")
