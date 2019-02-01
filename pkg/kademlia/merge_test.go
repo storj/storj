@@ -38,6 +38,7 @@ func TestMergePlanets(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Bootstrap: func(planet *testplanet.Planet, index int, config *bootstrap.Config) {
 				config.Kademlia.BootstrapAddr = alpha.Bootstrap.Addr()
+
 			},
 		},
 	})
@@ -49,7 +50,7 @@ func TestMergePlanets(t *testing.T) {
 	alpha.Start(ctx)
 	beta.Start(ctx)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(4 * time.Second)
 
 	test := func(tag string, satellites []*satellite.Peer, storageNodes []*storagenode.Peer) string {
 		found, missing := 0, 0
