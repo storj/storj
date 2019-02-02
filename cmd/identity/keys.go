@@ -43,7 +43,7 @@ var (
 	}
 
 	keyCfg struct {
-		MinDifficulty int    `help:"minimum difficulty to output" default:"18"`
+		MinDifficulty int    `help:"minimum difficulty to output" default:"30"`
 		Concurrency   int    `help:"worker concurrency" default:"4"`
 		OutputDir     string `help:"output directory to place keys" default:"."`
 	}

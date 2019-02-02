@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
@@ -19,8 +21,20 @@ import (
 	"storj.io/storj/storage"
 )
 
+// Error is a standard error class for this package.
+var (
+	Error = errs.Class("checker error")
+	mon   = monkit.Package()
+)
+
+// Config contains configurable values for checker
+type Config struct {
+	Interval time.Duration `help:"how frequently checker should audit segments" default:"30s"`
+}
+
 // Checker is the interface for data repair checker
 type Checker interface {
+	// TODO: remove interface
 	Run(ctx context.Context) error
 	IdentifyInjuredSegments(ctx context.Context) (err error)
 	OfflineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (offline []int32, err error)

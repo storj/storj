@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"sort"
 	"text/tabwriter"
@@ -19,29 +18,27 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
-	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/storagenodedb"
 )
 
-// StorageNode defines storage node configuration
-type StorageNode struct {
+// StorageNodeFlags defines storage node configuration
+type StorageNodeFlags struct {
 	EditConf        bool `default:"false" help:"open config in default editor"`
 	SaveAllDefaults bool `default:"false" help:"save all default values to config.yaml file" setup:"true"`
 
-	Server   server.Config
-	Kademlia kademlia.StorageNodeConfig
-	Storage  psserver.Config
+	storagenode.Config
 }
 
 var (
@@ -76,8 +73,8 @@ var (
 		Short: "Display a dashbaord",
 		RunE:  dashCmd,
 	}
-	runCfg   StorageNode
-	setupCfg StorageNode
+	runCfg   StorageNodeFlags
+	setupCfg StorageNodeFlags
 
 	dashboardCfg struct {
 		Address string `default:":28967" help:"address for dashboard service"`
@@ -133,27 +130,43 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	if _, err := runCfg.Server.Identity.Load(); err != nil {
+	log := zap.L()
+
+	identity, err := runCfg.Server.Identity.Load()
+	if err != nil {
 		zap.S().Fatal(err)
 	}
 
-	operatorConfig := runCfg.Kademlia.Operator
-	if err := isOperatorEmailValid(operatorConfig.Email); err != nil {
-		zap.S().Warn(err)
-	} else {
-		zap.S().Info("Operator email: ", operatorConfig.Email)
+	if err := runCfg.Verify(log); err != nil {
+		log.Sugar().Error("Invalid configuration: ", err)
+		return err
 	}
-	if err := isOperatorWalletValid(operatorConfig.Wallet); err != nil {
-		zap.S().Fatal(err)
-	} else {
-		zap.S().Info("Operator wallet: ", operatorConfig.Wallet)
-	}
+
 	ctx := process.Ctx(cmd)
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Server.Identity.CertPath); err != nil {
-		zap.S().Error("Failed to initialize telemetry batcher:", err)
+		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
-	return runCfg.Server.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
+	db, err := storagenodedb.New(storagenodedb.Config{
+		Storage:  runCfg.Storage.Path,
+		Info:     filepath.Join(runCfg.Storage.Path, "piecestore.db"),
+		Kademlia: runCfg.Kademlia.DBPath,
+	})
+	if err != nil {
+		return err
+	}
+
+	// TODO: add CreateTables for consistency
+
+	peer, err := storagenode.New(log, identity, db, runCfg.Config)
+	if err != nil {
+		return err
+	}
+
+	runError := peer.Run(ctx)
+	closeError := peer.Close()
+
+	return errs.Combine(runError, closeError, db.Close())
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -402,24 +415,6 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 
 func whiteInt(value int64) string {
 	return color.WhiteString(fmt.Sprintf("%+v", value))
-}
-
-func isOperatorEmailValid(email string) error {
-	if email == "" {
-		return fmt.Errorf("Operator mail address isn't specified")
-	}
-	return nil
-}
-
-func isOperatorWalletValid(wallet string) error {
-	if wallet == "" {
-		return fmt.Errorf("Operator wallet address isn't specified")
-	}
-	r := regexp.MustCompile("^0x[a-fA-F0-9]{40}$")
-	if match := r.MatchString(wallet); !match {
-		return fmt.Errorf("Operator wallet address isn't valid")
-	}
-	return nil
 }
 
 // clr clears the screen so it can be redrawn

@@ -19,7 +19,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/gtank/cryptopasta"
 	"github.com/mr-tron/base58/base58"
-	"github.com/shirou/gopsutil/disk"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
@@ -31,6 +30,7 @@ import (
 	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -63,13 +63,14 @@ type Server struct {
 	storage          *pstore.Storage
 	DB               *psdb.DB
 	pkey             crypto.PrivateKey
-	totalAllocated   int64
-	totalBwAllocated int64
+	totalAllocated   int64 // TODO: use memory.Size
+	totalBwAllocated int64 // TODO: use memory.Size
+	whitelist        []storj.NodeID
 	verifier         auth.SignedMessageVerifier
 	kad              *kademlia.Kademlia
 }
 
-// NewEndpoint -- initializes a new endpoint for a piecestore server
+// NewEndpoint creates a new endpoint
 func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *psdb.DB, pkey crypto.PrivateKey, k *kademlia.Kademlia) (*Server, error) {
 	// read the allocated disk space from the config file
 	allocatedDiskSpace := config.AllocatedDiskSpace.Int64()
@@ -77,18 +78,17 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 
 	// get the disk space details
 	// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
-	rootPath := filepath.Dir(filepath.Clean(config.Path))
-	diskSpace, err := disk.Usage(rootPath)
+	info, err := storage.Info()
 	if err != nil {
 		return nil, ServerError.Wrap(err)
 	}
-	freeDiskSpace := int64(diskSpace.Free)
+	freeDiskSpace := info.AvailableSpace
 
 	// get how much is currently used, if for the first time totalUsed = 0
 	totalUsed, err := db.SumTTLSizes()
 	if err != nil {
 		//first time setup
-		totalUsed = 0x00
+		totalUsed = 0
 	}
 
 	usedBandwidth, err := db.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
@@ -104,7 +104,7 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 
 	// check your hard drive is big enough
 	// first time setup as a piece node server
-	if (totalUsed == 0x00) && (freeDiskSpace < allocatedDiskSpace) {
+	if totalUsed == 0 && freeDiskSpace < allocatedDiskSpace {
 		allocatedDiskSpace = freeDiskSpace
 		log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", allocatedDiskSpace))
 	}
@@ -118,9 +118,21 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 
 	// the available diskspace is less than remaining allocated space,
 	// due to change of setting before restarting
-	if freeDiskSpace < (allocatedDiskSpace - totalUsed) {
+	if freeDiskSpace < allocatedDiskSpace-totalUsed {
 		allocatedDiskSpace = freeDiskSpace
 		log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", allocatedDiskSpace))
+	}
+
+	// parse the comma separated list of approved satellite IDs into an array of storj.NodeIDs
+	var whitelist []storj.NodeID
+	if config.SatelliteIDRestriction {
+		idStrings := strings.Split(config.WhitelistedSatelliteIDs, ",")
+		for i, s := range idStrings {
+			whitelist[i], err = storj.NodeIDFromString(s)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	return &Server{
@@ -131,22 +143,10 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 		pkey:             pkey,
 		totalAllocated:   allocatedDiskSpace,
 		totalBwAllocated: allocatedBandwidth,
+		whitelist:        whitelist,
 		verifier:         auth.NewSignedMessageVerifier(),
 		kad:              k,
 	}, nil
-}
-
-// New creates a Server with custom db
-func New(log *zap.Logger, storage *pstore.Storage, db *psdb.DB, config Config, pkey crypto.PrivateKey) *Server {
-	return &Server{
-		log:              log,
-		storage:          storage,
-		DB:               db,
-		pkey:             pkey,
-		totalAllocated:   config.AllocatedDiskSpace.Int64(),
-		totalBwAllocated: config.AllocatedBandwidth.Int64(),
-		verifier:         auth.NewSignedMessageVerifier(),
-	}
 }
 
 // Close stops the server
@@ -310,6 +310,16 @@ func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation_Data, ac
 		return StoreError.New("payer bandwidth allocation: invalid action %v", pba.Action.String())
 	}
 	return nil
+}
+
+// approved returns true if a node ID exists in a list of approved node IDs
+func (s *Server) approved(id storj.NodeID) bool {
+	for _, n := range s.whitelist {
+		if n == id {
+			return true
+		}
+	}
+	return false
 }
 
 func getBeginningOfMonth() time.Time {

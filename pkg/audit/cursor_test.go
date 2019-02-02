@@ -1,9 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package audit
-
-// TODO: use audit_test as the test package to avoid import cycles
+package audit_test
 
 import (
 	"crypto/rand"
@@ -19,6 +17,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
@@ -97,7 +96,7 @@ func TestAuditSegment(t *testing.T) {
 	pointers := planet.Satellites[0].Metainfo.Service
 	allocation := planet.Satellites[0].Metainfo.Allocation
 	// create a pdb client and instance of audit
-	cursor := NewCursor(pointers, allocation, planet.Satellites[0].Identity)
+	cursor := audit.NewCursor(pointers, allocation, planet.Satellites[0].Identity)
 
 	// put 10 paths in db
 	t.Run("putToDB", func(t *testing.T) {
