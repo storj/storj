@@ -10,7 +10,7 @@ example: ${cmd} ./keys/first.key ./keys/second.key
 
 ${cmd} creates a tarball of a directory containing the key and a CA certificate derived from that key, for each key passed. Tarballs (and temp directories) are created as siblings to their respective key input files.
 
-The tarball and directory are named after their respective key file but keys and certificates are (re)named to the first 10 characters of the cert's string-encoded node ID."
+The tarballs are named after their respective key file. It contains a directory named after first 10 characters of the cert's string-encoded node ID."
 
 temp_build identity
 trap "temp_cleanup" EXIT ERR INT
@@ -52,7 +52,7 @@ for key in $@; do
                      --identity.cert-path ${work_dir}/identity.cert
 
     # Create tarball
-    tar -C ${work_dir}/.. -cJf ${label}.txz ${id}
+    tar -C ${work_dir}/.. -cJf ${dir}/${label}.txz ${id}
 
     # Remove working directory
     rm -rf ${work_dir}
