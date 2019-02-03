@@ -99,6 +99,7 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 	if err != nil {
 		return latestTally, nodeData, Error.Wrap(err)
 	}
+	nodeData = make(map[storj.NodeID]float64)
 
 	err = t.pointerdb.Iterate("", "", true, false,
 		func(it storage.Iterator) error {
