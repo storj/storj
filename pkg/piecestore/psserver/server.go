@@ -339,6 +339,9 @@ func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation, actionP
 
 //isOnWhitelist returns true if a node ID exists in a list of approved node IDs
 func (s *Server) isOnWhitelist(id storj.NodeID) bool {
+	if len(s.whitelist) == 0 {
+		return true // don't whitelist if the whitelist is empty
+	}
 	_, found := s.whitelist[id]
 	return found
 }

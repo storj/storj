@@ -326,7 +326,7 @@ func TestStore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
 			snID, upID := newTestID(ctx, t), newTestID(ctx, t)
-			s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
+			s, c, cleanup := NewTest(ctx, t, snID, upID, tt.whitelist)
 			defer cleanup()
 			db := s.DB.DB
 
@@ -353,7 +353,7 @@ func TestStore(t *testing.T) {
 
 			resp, err := stream.CloseAndRecv()
 			if tt.err != "" {
-				require.NotNil(t, err)
+				require.Error(t, err)
 				require.True(t, strings.HasPrefix(err.Error(), tt.err))
 				return
 			}
@@ -564,7 +564,7 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	}
 	whitelist := make(map[storj.NodeID]*ecdsa.PublicKey)
 	for _, id := range ids {
-		whitelist[id] = &ecdsa.PublicKey{}
+		whitelist[id] = nil
 	}
 	psServer := &Server{
 		log:              zaptest.NewLogger(t),
