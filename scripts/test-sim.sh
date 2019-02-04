@@ -12,7 +12,7 @@ cleanup(){
 }
 trap cleanup EXIT
 
-export STORJ_LOCAL_NETWORK=$TMP
+export STORJ_NETWORK_DIR=$TMP
 
 # setup the network
 storj-sim -x network setup
@@ -24,7 +24,7 @@ storj-sim -x network destroy
 # setup the network with ipv6
 storj-sim -x --host "::1" network setup
 # aws-cli doesn't support gateway with ipv6 address, so change it to use localhost
-find $STORJ_LOCAL_NETWORK/gateway -type f -exec sed -i 's/server.address: "[::1]/server.address: "127.0.0.1:/' \;
+find $STORJ_NETWORK_DIR/gateway -type f -exec sed -i 's/server.address: "[::1]/server.address: "127.0.0.1:/' \;
 # run aws-cli tests using ipv6
 storj-sim -x --host "::1" network test bash $SCRIPTDIR/test-sim-aws.sh
 storj-sim -x network destroy
