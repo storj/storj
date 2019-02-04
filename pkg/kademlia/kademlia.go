@@ -188,6 +188,19 @@ func (k *Kademlia) WaitForBootstrap() {
 	k.bootstrapFinished.Wait()
 }
 
+// GetPeerIdentity connects to a node and returns its peer identity
+func (k *Kademlia) GetPeerIdentity(ctx context.Context, nodeID storj.NodeID) (*identity.PeerIdentity, error) {
+	if !k.lookups.Start() {
+		return nil, context.Canceled
+	}
+	defer k.lookups.Done()
+	node, err := k.FindNode(ctx, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	return k.dialer.Ping(ctx, node)
+}
+
 // Ping checks that the provided node is still accessible on the network
 func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 	if !k.lookups.Start() {
@@ -195,11 +208,11 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 	}
 	defer k.lookups.Done()
 
-	ok, err := k.dialer.Ping(ctx, node)
+	pID, err := k.dialer.Ping(ctx, node)
 	if err != nil {
 		return pb.Node{}, NodeErr.Wrap(err)
 	}
-	if !ok {
+	if pID == nil {
 		return pb.Node{}, NodeErr.New("Failed pinging node")
 	}
 	return node, nil

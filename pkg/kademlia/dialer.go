@@ -6,9 +6,12 @@ package kademlia
 import (
 	"context"
 
+	"storj.io/storj/pkg/identity"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
@@ -70,20 +73,25 @@ func (dialer *Dialer) Lookup(ctx context.Context, self pb.Node, ask pb.Node, fin
 }
 
 // Ping pings target.
-func (dialer *Dialer) Ping(ctx context.Context, target pb.Node) (bool, error) {
+func (dialer *Dialer) Ping(ctx context.Context, target pb.Node) (pID *identity.PeerIdentity, err error) {
 	if !dialer.limit.Lock() {
-		return false, context.Canceled
+		return nil, context.Canceled
 	}
 	defer dialer.limit.Unlock()
 
 	conn, err := dialer.dial(ctx, target)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
+	defer func() {
+		err = errs.Combine(err, conn.disconnect())
+	}()
 
-	_, err = conn.client.Ping(ctx, &pb.PingRequest{})
-
-	return err == nil, errs.Combine(err, conn.disconnect())
+	p := &peer.Peer{}
+	pCall := grpc.Peer(p)
+	_, err = conn.client.Ping(ctx, &pb.PingRequest{}, pCall)
+	pID, err = identity.PeerIdentityFromPeer(p)
+	return pID, errs.Combine(err, conn.disconnect())
 }
 
 // dial dials the specified node.
