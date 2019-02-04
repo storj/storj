@@ -181,7 +181,7 @@ func (d *deferredIdentity) writeTar(idPathPart string) error {
 		return errs.Wrap(err)
 	}
 
-	err := ioutil.WriteFile(d.path + ".tar", tarData.Bytes(), os.FileMode(keyCfg.Permissions))
+	err := ioutil.WriteFile(d.path+".tar", tarData.Bytes(), os.FileMode(keyCfg.Permissions))
 	if err != nil {
 		return errs.Wrap(err)
 	}
