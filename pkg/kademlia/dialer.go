@@ -90,8 +90,7 @@ func (dialer *Dialer) Ping(ctx context.Context, target pb.Node) (pID *identity.P
 	p := &peer.Peer{}
 	pCall := grpc.Peer(p)
 	_, err = conn.client.Ping(ctx, &pb.PingRequest{}, pCall)
-	pID, err = identity.PeerIdentityFromPeer(p)
-	return pID, errs.Combine(err, conn.disconnect())
+	return identity.PeerIdentityFromPeer(p)
 }
 
 // dial dials the specified node.
