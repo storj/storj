@@ -36,7 +36,7 @@ func TestMergePlanets(t *testing.T) {
 		StorageNodeCount: 5,
 		Identities:       alpha.Identities(), // avoid using the same pregenerated identities
 		Reconfigure: testplanet.Reconfigure{
-			Bootstrap: func(planet *testplanet.Planet, index int, config *bootstrap.Config) {
+			Bootstrap: func(index int, config *bootstrap.Config) {
 				config.Kademlia.BootstrapAddr = alpha.Bootstrap.Addr()
 
 			},
