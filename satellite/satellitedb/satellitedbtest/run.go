@@ -9,7 +9,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"flag"
+	"net/url"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/zeebo/errs"
@@ -45,6 +47,14 @@ func Databases() []Database {
 	}
 }
 
+// WithSchema adds schema param to connection string.
+func WithSchema(connstring string, schema string) string {
+	if strings.HasPrefix(connstring, "postgres") {
+		return connstring + "&search_path=" + url.QueryEscape(schema)
+	}
+	return connstring
+}
+
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
 func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
@@ -57,14 +67,13 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 				t.Skipf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
 			}
 
-			db, err := satellitedb.New(dbInfo.URL)
+			schema := strings.ToLower(t.Name() + "-satellite/x-" + schemaSuffix)
+			db, err := satellitedb.New(WithSchema(dbInfo.URL, schema))
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			schema := t.Name() + "-satellite/x-" + schemaSuffix
-
-			err = db.SetSchema(schema)
+			err = db.CreateSchema(schema)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -59,11 +59,11 @@ func NewInMemory() (satellite.DB, error) {
 	return New("sqlite3://file::memory:?mode=memory")
 }
 
-// SetSchema sets the schema
-func (db *DB) SetSchema(schema string) error {
+// CreateSchema creates a schema if it doesn't exist.
+func (db *DB) CreateSchema(schema string) error {
 	switch db.driver {
 	case "postgres":
-		_, err := db.db.Exec(`create schema ` + quoteSchema(schema) + `; set search_path to ` + quoteSchema(schema) + `;`)
+		_, err := db.db.Exec(`create schema if not exists ` + quoteSchema(schema) + `;`)
 		return err
 	}
 	return nil

@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/zeebo/errs"
@@ -36,14 +37,13 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 			planetConfig := config
 			planetConfig.Reconfigure.NewBootstrapDB = nil
 			planetConfig.Reconfigure.NewSatelliteDB = func(index int) (satellite.DB, error) {
-				db, err := satellitedb.New(satelliteDB.URL)
+				schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-" + schemaSuffix)
+				db, err := satellitedb.New(satellitedbtest.WithSchema(satelliteDB.URL, schema))
 				if err != nil {
 					t.Fatal(err)
 				}
 
-				schema := t.Name() + "-satellite/" + strconv.Itoa(index) + "-" + schemaSuffix
-
-				err = db.SetSchema(schema)
+				err = db.CreateSchema(schema)
 				if err != nil {
 					t.Fatal(err)
 				}
