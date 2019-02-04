@@ -87,12 +87,12 @@ type Planet struct {
 
 	peers     []closablePeer
 	databases []io.Closer
-	nodes     []*Node
+	uplinks   []*Uplink
 
 	Bootstrap    *bootstrap.Peer
 	Satellites   []*satellite.Peer
 	StorageNodes []*storagenode.Peer
-	Uplinks      []*Node
+	Uplinks      []*Uplink
 
 	identities *Identities
 
@@ -172,7 +172,7 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Uplinks, err = planet.newUplinks("uplink", config.UplinkCount)
+	planet.Uplinks, err = planet.newUplinks("uplink", config.UplinkCount, config.StorageNodeCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
@@ -235,7 +235,7 @@ func (planet *Planet) StopPeer(peer Peer) error {
 }
 
 // Size returns number of nodes in the network
-func (planet *Planet) Size() int { return len(planet.nodes) + len(planet.peers) }
+func (planet *Planet) Size() int { return len(planet.uplinks) + len(planet.peers) }
 
 // Shutdown shuts down all the nodes and deletes temporary directories.
 func (planet *Planet) Shutdown() error {
@@ -246,8 +246,8 @@ func (planet *Planet) Shutdown() error {
 
 	var errlist errs.Group
 	// shutdown in reverse order
-	for i := len(planet.nodes) - 1; i >= 0; i-- {
-		node := planet.nodes[i]
+	for i := len(planet.uplinks) - 1; i >= 0; i-- {
+		node := planet.uplinks[i]
 		errlist.Add(node.Shutdown())
 	}
 	for i := len(planet.peers) - 1; i >= 0; i-- {
@@ -263,14 +263,14 @@ func (planet *Planet) Shutdown() error {
 }
 
 // newUplinks creates initializes uplinks
-func (planet *Planet) newUplinks(prefix string, count int) ([]*Node, error) {
-	var xs []*Node
+func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]*Uplink, error) {
+	var xs []*Uplink
 	for i := 0; i < count; i++ {
-		node, err := planet.newUplink(prefix + strconv.Itoa(i))
+		uplink, err := planet.newUplink(prefix+strconv.Itoa(i), storageNodeCount)
 		if err != nil {
 			return nil, err
 		}
-		xs = append(xs, node)
+		xs = append(xs, uplink)
 	}
 
 	return xs, nil
