@@ -13,11 +13,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-
-	"storj.io/storj/internal/testcontext"
 )
 
 // Run runs testplanet in multiple configurations.
