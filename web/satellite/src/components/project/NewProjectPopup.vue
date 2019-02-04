@@ -21,6 +21,7 @@
                 <HeaderedInput
                     label="Description"
                     placeholder="Enter Project Description"
+                    additional-label="Optional"
                     class="full-input"
                     isMultiline
                     height="100px"
@@ -174,14 +175,18 @@ export default class NewProjectPopup extends Vue {
         }
 
         &__close-cross-container {
-             display: flex;
-             justify-content: center;
-             align-items: flex-start;
-             position: absolute;
-             right: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: absolute;
+            right: 30px;
             top: 40px;
-            svg {
-                cursor: pointer;
+            height: 24px;
+            width: 24px;
+            cursor: pointer;
+
+            &:hover svg path {
+                fill: #2683FF;
             }
         }
     }

@@ -69,6 +69,7 @@
         </div>
 
         <img class="layout-image" src="../../static/images/register/RegisterImage.svg"/>
+        <!--<RegistrationSuccessPopup />-->
     </div>
 </template>
 
@@ -77,6 +78,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
 import Button from '@/components/common/Button.vue';
+import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup';
 import { validateEmail, validatePassword } from '@/utils/validation';
 import ROUTES from '../utils/constants/routerConstants';
 import { NOTIFICATION_ACTIONS } from '../utils/constants/actionNames';
@@ -177,7 +179,8 @@ import { createUserRequest } from '@/api/users';
         components: {
             HeaderedInput,
             Checkbox,
-            Button
+            Button,
+            RegistrationSuccessPopup
         }
     })
 
@@ -393,7 +396,7 @@ export default class Register extends Vue {
         }
     }
 
-    @media screen and (max-width: 720px) {
+    @media screen and (max-width: 720px), screen and (max-height: 880px) {
         .register {
             flex-direction: column;
         }
@@ -407,7 +410,8 @@ export default class Register extends Vue {
         }
         .register-area {
             width: 100vw;
-            margin-bottom: 200px;
+            overflow-y: scroll;
+            height: calc(100vh - 200px);
 
             &__scrollable {
                  width: auto;
@@ -415,7 +419,7 @@ export default class Register extends Vue {
                 &__form-area {
 
                     &__create-button {
-                         margin-bottom: 250px;
+                         margin-bottom: 50px;
                     }
                 }
 

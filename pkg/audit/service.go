@@ -9,9 +9,9 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/transport"
 )
@@ -24,29 +24,25 @@ type Config struct {
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
 type Service struct {
-	log      *zap.Logger
+	log *zap.Logger
+
 	Cursor   *Cursor
 	Verifier *Verifier
 	Reporter reporter
-	ticker   *time.Ticker
+
+	ticker *time.Ticker
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(log *zap.Logger, sdb statdb.DB, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, transport transport.Client, overlay *overlay.Cache, identity *provider.FullIdentity) (service *Service, err error) {
-	// TODO: instead of overlay.Client use overlay.Service
-	cursor := NewCursor(pointers, allocation, identity)
-	verifier := NewVerifier(transport, overlay, identity)
-	reporter, err := NewReporter(sdb, maxRetries)
-	if err != nil {
-		return nil, err
-	}
-
+func NewService(log *zap.Logger, sdb statdb.DB, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, transport transport.Client, overlay *overlay.Cache, identity *identity.FullIdentity) (service *Service, err error) {
 	return &Service{
-		log:      log,
-		Cursor:   cursor,
-		Verifier: verifier,
-		Reporter: reporter,
-		ticker:   time.NewTicker(interval),
+		log: log,
+		// TODO: instead of overlay.Client use overlay.Service
+		Cursor:   NewCursor(pointers, allocation, identity),
+		Verifier: NewVerifier(transport, overlay, identity),
+		Reporter: NewReporter(sdb, maxRetries),
+
+		ticker: time.NewTicker(interval),
 	}, nil
 }
 
@@ -54,7 +50,6 @@ func NewService(log *zap.Logger, sdb statdb.DB, interval time.Duration, maxRetri
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Info("Audit cron is starting up")
-
 	for {
 		err := service.process(ctx)
 		if err != nil {

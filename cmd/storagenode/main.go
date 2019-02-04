@@ -4,30 +4,21 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"text/tabwriter"
 
-	"github.com/fatih/color"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
 )
@@ -128,7 +119,7 @@ func init() {
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(diagCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultDiagDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(diagCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, cfgstruct.ConfDir(defaultDiagDir))
 }
 
@@ -330,170 +321,6 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	// display the data
 	err = w.Flush()
 	return err
-}
-
-func dashCmd(cmd *cobra.Command, args []string) (err error) {
-	ctx := context.Background()
-
-	ident, err := runCfg.Identity.Load()
-	if err != nil {
-		zap.S().Fatal(err)
-	} else {
-		zap.S().Info("Node ID: ", ident.ID)
-	}
-
-	tc := transport.NewClient(ident)
-	n := &pb.Node{
-		Address: &pb.NodeAddress{
-			Address:   dashboardCfg.Address,
-			Transport: 0,
-		},
-		Type: pb.NodeType_STORAGE,
-	}
-
-	lc, err := psclient.NewLiteClient(ctx, tc, n)
-	if err != nil {
-		return err
-	}
-
-	stream, err := lc.Dashboard(ctx)
-	if err != nil {
-		return err
-	}
-
-	online, err := getConnectionStatus(ctx, tc, ident)
-	if err != nil {
-		zap.S().Error("error getting connection status %s", err.Error())
-	}
-
-	for {
-		data, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-
-		if err != nil {
-			return err
-		}
-
-		clr()
-		heading := color.New(color.FgGreen, color.Bold)
-
-		_, _ = heading.Printf("\nStorage Node Dashboard Stats\n")
-		_, _ = heading.Printf("\n===============================\n")
-
-		fmt.Fprintf(color.Output, "Node ID: %s\n", color.YellowString(data.GetNodeId()))
-
-		if online {
-			fmt.Fprintf(color.Output, "%s ", color.GreenString("ONLINE"))
-		} else {
-			fmt.Fprintf(color.Output, "%s ", color.RedString("OFFLINE"))
-		}
-
-		uptime, err := ptypes.Duration(data.GetUptime())
-		if err != nil {
-			color.Red(" %+v \n", err)
-		} else {
-			color.Yellow(" %s \n", uptime)
-		}
-
-		fmt.Fprintf(color.Output, "Node Connections: %+v\n", whiteInt(data.GetNodeConnections()))
-
-		color.Green("\nIO\t\t\tAvailable\t\t\tUsed\n--\t\t\t---------\t\t\t----")
-		stats := data.GetStats()
-		if stats != nil {
-			fmt.Fprintf(color.Output, "Bandwidth\t\t%+v\t\t\t%+v\n", whiteInt(stats.GetAvailableBandwidth()), whiteInt(stats.GetUsedBandwidth()))
-			fmt.Fprintf(color.Output, "Disk\t\t\t%+v\t\t\t%+v\n", whiteInt(stats.GetAvailableSpace()), whiteInt(stats.GetUsedSpace()))
-		} else {
-			color.Yellow("Loading...")
-		}
-
-	}
-
-	return nil
-}
-
-func whiteInt(value int64) string {
-	return color.WhiteString(fmt.Sprintf("%+v", value))
-}
-
-// clr clears the screen so it can be redrawn
-func clr() {
-	var clear = make(map[string]func())
-	clear["linux"] = func() {
-		cmd := exec.Command("clear")
-		cmd.Stdout = os.Stdout
-		err := cmd.Run()
-		if err != nil {
-			_ = fmt.Errorf("Linux clear screen command returned an error %+v", err)
-		}
-	}
-	clear["darwin"] = func() {
-		cmd := exec.Command("clear")
-		cmd.Stdout = os.Stdout
-		err := cmd.Run()
-		if err != nil {
-			_ = fmt.Errorf("MacOS clear screen command returned an error %+v", err)
-		}
-	}
-	clear["windows"] = func() {
-		cmd := exec.Command("cmd", "/c", "cls")
-		cmd.Stdout = os.Stdout
-		err := cmd.Run()
-		if err != nil {
-			_ = fmt.Errorf("Windows clear screen command returned an error %+v", err)
-		}
-	}
-
-	value, ok := clear[runtime.GOOS]
-	if ok {
-		value()
-	} else {
-		panic("Your platform is unsupported! I can't clear terminal screen :(")
-	}
-}
-
-func getConnectionStatus(ctx context.Context, tc transport.Client, id *identity.FullIdentity) (bool, error) {
-	bn := &pb.Node{
-		Address: &pb.NodeAddress{
-			Address:   dashboardCfg.BootstrapAddr,
-			Transport: 0,
-		},
-		Type: pb.NodeType_BOOTSTRAP,
-	}
-
-	inspector, err := newInspectorClient(ctx, tc, bn)
-	if err != nil {
-		return false, err
-	}
-
-	resp, err := inspector.kad.PingNode(ctx, &pb.PingNodeRequest{
-		Id:      id.ID,
-		Address: dashboardCfg.ExternalAddress,
-	})
-
-	if err != nil {
-		zap.S().Error(err)
-		return false, err
-	}
-
-	if resp.GetOk() {
-		return true, err
-	}
-
-	return false, err
-}
-
-func newInspectorClient(ctx context.Context, tc transport.Client, bn *pb.Node) (*Inspector, error) {
-	conn, err := tc.DialNode(ctx, bn)
-	if err != nil {
-		return &Inspector{}, err
-	}
-
-	return &Inspector{
-		kad: pb.NewKadInspectorClient(conn),
-	}, nil
-
 }
 
 func main() {

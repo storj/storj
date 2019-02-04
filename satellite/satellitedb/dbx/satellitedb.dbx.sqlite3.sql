@@ -28,8 +28,8 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bwagreements (
 	serialnum TEXT NOT NULL,
-	data BLOB NOT NULL,
-	storage_node BLOB NOT NULL,
+	storage_node_id BLOB NOT NULL,
+	uplink_id BLOB NOT NULL,
 	action INTEGER NOT NULL,
 	total INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
@@ -91,7 +91,7 @@ CREATE TABLE users (
 	id BLOB NOT NULL,
 	first_name TEXT NOT NULL,
 	last_name TEXT NOT NULL,
-	email TEXT NOT NULL,
+	email TEXT,
 	password_hash BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id ),

@@ -11,8 +11,8 @@ import (
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -35,17 +35,17 @@ type Observer interface {
 type Client interface {
 	DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
-	Identity() *provider.FullIdentity
+	Identity() *identity.FullIdentity
 }
 
 // Transport interface structure
 type Transport struct {
-	identity  *provider.FullIdentity
+	identity  *identity.FullIdentity
 	observers []Observer
 }
 
 // NewClient returns a newly instantiated Transport Client
-func NewClient(identity *provider.FullIdentity, obs ...Observer) Client {
+func NewClient(identity *identity.FullIdentity, obs ...Observer) Client {
 	return &Transport{
 		identity:  identity,
 		observers: obs,
@@ -68,7 +68,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		return nil, Error.Wrap(err)
 	}
 
-	options := append([]grpc.DialOption{dialOpt}, opts...)
+	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock()}, opts...)
 
 	ctx, cf := context.WithTimeout(ctx, timeout)
 	defer cf()
@@ -93,13 +93,13 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 		return nil, Error.Wrap(err)
 	}
 
-	options := append([]grpc.DialOption{dialOpt}, opts...)
+	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock()}, opts...)
 	conn, err = grpc.Dial(address, options...)
 	return conn, Error.Wrap(err)
 }
 
 // Identity is a getter for the transport's identity
-func (transport *Transport) Identity() *provider.FullIdentity {
+func (transport *Transport) Identity() *identity.FullIdentity {
 	return transport.identity
 }
 

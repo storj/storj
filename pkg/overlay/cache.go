@@ -30,24 +30,32 @@ var ErrNodeNotFound = errs.New("Node not found")
 // ErrBucketNotFound is returned if a bucket is unable to be found in the routing table
 var ErrBucketNotFound = errs.New("Bucket not found")
 
+// ErrNotEnoughNodes is when selecting nodes failed with the given parameters
+var ErrNotEnoughNodes = errs.Class("not enough nodes")
+
 // OverlayError creates class of errors for stack traces
 var OverlayError = errs.Class("Overlay Error")
 
 // DB implements the database for overlay.Cache
 type DB interface {
-	// FilterNodes looks up nodes based on reputation requirements
-	FilterNodes(ctx context.Context, filterNodesRequest *FilterNodesRequest) ([]*pb.Node, error)
+	// SelectNodes looks up nodes based on criteria
+	SelectNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*pb.Node, error)
+	// SelectNewNodes looks up nodes based on new node criteria
+	SelectNewNodes(ctx context.Context, count int, criteria *NewNodeCriteria) ([]*pb.Node, error)
+
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error)
 	// GetAll looks up nodes based on the ids from the overlay cache
 	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
 	// List lists nodes starting from cursor
 	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error)
+	// Paginate will page through the database nodes
+	Paginate(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error)
 	// Update updates node information
 	Update(ctx context.Context, value *pb.Node) error
 	// Delete deletes node based on id
 	Delete(ctx context.Context, id storj.NodeID) error
-	//GetWalletAddress gets the node's wallet address
+	// GetWalletAddress gets the node's wallet address
 	GetWalletAddress(ctx context.Context, id storj.NodeID) (string, error)
 }
 
@@ -71,6 +79,16 @@ func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
 	return nil, errors.New("not implemented")
 }
 
+// List returns a list of nodes from the cache DB
+func (cache *Cache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
+	return cache.db.List(ctx, cursor, limit)
+}
+
+// Paginate returns a list of `limit` nodes starting from `start` offset.
+func (cache *Cache) Paginate(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
+	return cache.db.Paginate(ctx, offset, limit)
+}
+
 // Get looks up the provided nodeID from the overlay cache
 func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
 	if nodeID.IsZero() {
@@ -78,6 +96,74 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, err
 	}
 
 	return cache.db.Get(ctx, nodeID)
+}
+
+// FindStorageNodes searches the overlay network for nodes that meet the provided criteria
+func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest, preferences *NodeSelectionConfig) ([]*pb.Node, error) {
+	// TODO: use a nicer struct for input
+
+	minimumRequiredNodes := int(req.GetMinNodes())
+	freeBandwidth := req.GetOpts().GetRestrictions().FreeBandwidth
+	freeDisk := req.GetOpts().GetRestrictions().FreeDisk
+	excludedNodes := req.GetOpts().ExcludedNodes
+	requestedCount := int(req.GetOpts().GetAmount())
+
+	// TODO: verify logic
+
+	// TODO: add sanity limits to requested node count
+	// TODO: add sanity limits to excluded nodes
+
+	reputableNodeCount := minimumRequiredNodes
+	if reputableNodeCount <= 0 {
+		reputableNodeCount = requestedCount
+	}
+
+	auditCount := preferences.AuditCount
+	if auditCount < preferences.NewNodeAuditThreshold {
+		auditCount = preferences.NewNodeAuditThreshold
+	}
+
+	reputableNodes, err := cache.db.SelectNodes(ctx, reputableNodeCount, &NodeCriteria{
+		Type: pb.NodeType_STORAGE,
+
+		FreeBandwidth: freeBandwidth,
+		FreeDisk:      freeDisk,
+
+		AuditCount:         auditCount,
+		AuditSuccessRatio:  preferences.AuditSuccessRatio,
+		UptimeCount:        preferences.UptimeCount,
+		UptimeSuccessRatio: preferences.UptimeRatio,
+
+		Excluded: excludedNodes,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	newNodeCount := int64(float64(reputableNodeCount) * preferences.NewNodePercentage)
+	newNodes, err := cache.db.SelectNewNodes(ctx, int(newNodeCount), &NewNodeCriteria{
+		Type: pb.NodeType_STORAGE,
+
+		FreeBandwidth: freeBandwidth,
+		FreeDisk:      freeDisk,
+
+		AuditThreshold: preferences.NewNodeAuditThreshold,
+
+		Excluded: excludedNodes,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	nodes := []*pb.Node{}
+	nodes = append(nodes, newNodes...)
+	nodes = append(nodes, reputableNodes...)
+
+	if len(reputableNodes) < reputableNodeCount {
+		return nodes, ErrNotEnoughNodes.New("requested %d found %d", reputableNodeCount, len(reputableNodes))
+	}
+
+	return nodes, nil
 }
 
 // GetAll looks up the provided ids from the overlay cache

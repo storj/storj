@@ -13,10 +13,10 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	pointerdbAuth "storj.io/storj/pkg/pointerdb/auth"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/storage"
 )
 
@@ -32,11 +32,11 @@ type Server struct {
 	allocation *AllocationSigner
 	cache      *overlay.Cache
 	config     Config
-	identity   *provider.FullIdentity
+	identity   *identity.FullIdentity
 }
 
 // NewServer creates instance of Server
-func NewServer(logger *zap.Logger, service *Service, allocation *AllocationSigner, cache *overlay.Cache, config Config, identity *provider.FullIdentity) *Server {
+func NewServer(logger *zap.Logger, service *Service, allocation *AllocationSigner, cache *overlay.Cache, config Config, identity *identity.FullIdentity) *Server {
 	return &Server{
 		logger:     logger,
 		service:    service,
@@ -152,13 +152,15 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 	for _, piece := range pointer.Remote.RemotePieces {
 		node, err := s.cache.Get(ctx, piece.NodeId)
 		if err != nil {
-			s.logger.Error("Error getting node from cache")
+			s.logger.Error("Error getting node from cache", zap.String("ID", piece.NodeId.String()), zap.Error(err))
 		}
 		nodes = append(nodes, node)
 	}
 
 	for _, v := range nodes {
-		v.Type.DPanicOnInvalid("pdb server Get")
+		if v != nil {
+			v.Type.DPanicOnInvalid("pdb server Get")
+		}
 	}
 	r = &pb.GetResponse{
 		Pointer:       pointer,
@@ -224,7 +226,7 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 
 	// TODO(michal) should be replaced with renter id when available
 	// retrieve the public key
-	pi, err := provider.PeerIdentityFromContext(ctx)
+	pi, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
