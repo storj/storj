@@ -32,7 +32,7 @@ func init() {
 		Use:   "cp",
 		Short: "Copies a local file or Storj object to another location locally or in Storj",
 		RunE:  copyMain,
-	}, CLICmd)
+	}, RootCmd)
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 }
 
