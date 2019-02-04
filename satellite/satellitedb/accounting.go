@@ -5,7 +5,6 @@ package satellitedb
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -71,11 +70,10 @@ func (db *accountingDB) SaveBWRaw(ctx context.Context, tallyEnd time.Time, creat
 			total := dbx.AccountingRaw_DataTotal(float64(total))
 			dataType := dbx.AccountingRaw_DataType(actionType)
 			timestamp := dbx.AccountingRaw_CreatedAt(created)
-			b, err := tx.Create_AccountingRaw(ctx, nID, end, total, dataType, timestamp)
+			_, err = tx.Create_AccountingRaw(ctx, nID, end, total, dataType, timestamp)
 			if err != nil {
 				return Error.Wrap(err)
 			}
-			fmt.Println("SaveBWRaw:", b)
 		}
 	}
 	//save this batch's greatest time
@@ -100,18 +98,16 @@ func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time
 			err = utils.CombineErrors(err, tx.Rollback())
 		}
 	}()
-	fmt.Println("created:", created)
 	for k, v := range nodeData {
 		nID := dbx.AccountingRaw_NodeId(k.Bytes())
 		end := dbx.AccountingRaw_IntervalEndTime(latestTally)
 		total := dbx.AccountingRaw_DataTotal(v)
 		dataType := dbx.AccountingRaw_DataType(accounting.AtRest)
 		timestamp := dbx.AccountingRaw_CreatedAt(created)
-		raw, err := tx.Create_AccountingRaw(ctx, nID, end, total, dataType, timestamp)
+		_, err = tx.Create_AccountingRaw(ctx, nID, end, total, dataType, timestamp)
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		fmt.Println("SaveAtRestRaw:", raw)
 	}
 	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestTally)}
 	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastAtRestTally), update)
@@ -186,11 +182,10 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 			getRepair := dbx.AccountingRollup_GetRepairTotal(ar.GetRepairTotal)
 			putRepair := dbx.AccountingRollup_PutRepairTotal(ar.PutRepairTotal)
 			atRest := dbx.AccountingRollup_AtRestTotal(ar.AtRestTotal)
-			r, err := tx.Create_AccountingRollup(ctx, nID, start, put, get, audit, getRepair, putRepair, atRest)
+			_, err = tx.Create_AccountingRollup(ctx, nID, start, put, get, audit, getRepair, putRepair, atRest)
 			if err != nil {
 				return Error.Wrap(err)
 			}
-			fmt.Println("SaveRollup", r)
 		}
 	}
 	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestRollup)}

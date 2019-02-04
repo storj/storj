@@ -4,7 +4,6 @@
 package rollup_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -16,10 +15,6 @@ import (
 )
 
 func TestQueryOneDay(t *testing.T) {
-	// TODO: use testplanet
-	// change dbx accounting_raw created at to not be autoinsert
-	// we'll then have to add a timestamp argument to saveAtRestRaw and SaveBWRaw
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -30,18 +25,41 @@ func TestQueryOneDay(t *testing.T) {
 	planet.Start(ctx)
 	time.Sleep(2 * time.Second)
 
-	fmt.Println("Node stats:")
-	nodeData := make(map[storj.NodeID]float64)
-	bwTotals := make(map[storj.NodeID][]int64)
-	totals := []int64{1000, 2000, 3000, 4000, 5000}
-	for _, n := range planet.StorageNodes {
-		id := n.Identity.ID
-		stats, err := planet.Satellites[0].DB.StatDB().Get(ctx, id)
-		assert.NoError(t, err)
-		fmt.Println(stats)
-		nodeData[id] = float64(1000)
-		bwTotals[id] = totals
-	}
+	nodeData, bwTotals := createData(planet)
+
+	now := time.Now().UTC()
+	before := now.Add(time.Hour * -48)
+
+	err = planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, before, before, nodeData)
+	assert.NoError(t, err)
+
+	err = planet.Satellites[0].DB.Accounting().SaveBWRaw(ctx, before, before, bwTotals)
+	assert.NoError(t, err)
+
+	err = planet.Satellites[0].Accounting.Rollup.Query(ctx)
+	assert.NoError(t, err)
+
+	// rollup.Query cuts off the hr/min/sec before saving, we need to do the same when querying
+	now = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	before = time.Date(before.Year(), before.Month(), before.Day(), 0, 0, 0, 0, before.Location())
+
+	rows, err := planet.Satellites[0].DB.Accounting().QueryPaymentInfo(ctx, before, now)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(rows))
+}
+
+func TestQueryTwoDays(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 4, 0)
+	assert.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+	time.Sleep(2 * time.Second)
+
+	nodeData, bwTotals := createData(planet)
 
 	now := time.Now().UTC()
 	before := now.Add(time.Hour * -48)
@@ -61,29 +79,23 @@ func TestQueryOneDay(t *testing.T) {
 	err = planet.Satellites[0].Accounting.Rollup.Query(ctx)
 	assert.NoError(t, err)
 
+	// rollup.Query cuts off the hr/min/sec before saving, we need to do the same when querying
+	now = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	before = time.Date(before.Year(), before.Month(), before.Day(), 0, 0, 0, 0, before.Location())
+
 	rows, err := planet.Satellites[0].DB.Accounting().QueryPaymentInfo(ctx, before, now)
-	fmt.Println("QueryPaymentInfo:", rows)
-	assert.Equal(t, 0, len(rows))
+	assert.Equal(t, 4, len(rows))
 	assert.NoError(t, err)
 }
 
-func TestQueryTwoDays(t *testing.T) {
-	// TODO: use testplanet
-
-	// ctx, _, db, nodeData, cleanup := createRollup(t)
-	// defer cleanup()
-
-	// now := time.Now().UTC()
-	// then := now.Add(time.Hour * -24)
-
-	// err := db.Accounting().SaveAtRestRaw(ctx, now, nodeData)
-	// assert.NoError(t, err)
-
-	// // db.db.Exec("UPDATE accounting_raws SET created_at= WHERE ")
-	// // err = r.Query(ctx)
-	// // assert.NoError(t, err)
-
-	// _, err = db.Accounting().QueryPaymentInfo(ctx, then, now)
-	// //assert.Equal(t, 10, len(rows))
-	// assert.NoError(t, err)
+func createData(planet *testplanet.Planet) (nodeData map[storj.NodeID]float64, bwTotals map[storj.NodeID][]int64) {
+	nodeData = make(map[storj.NodeID]float64)
+	bwTotals = make(map[storj.NodeID][]int64)
+	totals := []int64{1000, 2000, 3000, 4000, 5000}
+	for _, n := range planet.StorageNodes {
+		id := n.Identity.ID
+		nodeData[id] = float64(6000)
+		bwTotals[id] = totals
+	}
+	return nodeData, bwTotals
 }

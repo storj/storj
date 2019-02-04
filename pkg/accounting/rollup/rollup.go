@@ -68,7 +68,6 @@ func (r *Rollup) Query(ctx context.Context) error {
 		r.logger.Info("Rollup found no new tallies")
 		return nil
 	}
-	fmt.Println("tallies:", tallies)
 	//loop through tallies and build Rollup
 	rollupStats := make(accounting.RollupStats)
 	for _, tallyRow := range tallies {
