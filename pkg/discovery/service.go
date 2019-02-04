@@ -84,25 +84,21 @@ func (discovery *Discovery) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-refresh.C:
-			discovery.log.Info("starting refresh")
 			err := discovery.refresh(ctx)
 			if err != nil {
 				discovery.log.Error("error with cache refresh: ", zap.Error(err))
 			}
 		case <-discover.C:
-			discovery.log.Info("starting discovery")
 			err := discovery.discover(ctx)
 			if err != nil {
 				discovery.log.Error("error with cache discovery: ", zap.Error(err))
 			}
 		case <-graveyard.C:
-			discovery.log.Info("starting graveyard search")
 			err := discovery.searchGraveyard(ctx)
 			if err != nil {
 				discovery.log.Error("graveyard resurrection failed")
 			}
 		case <-ctx.Done():
-			discovery.log.Info("shutting down discovery service")
 			return ctx.Err()
 		default: // don't block
 		}
