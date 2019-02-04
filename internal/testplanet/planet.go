@@ -273,7 +273,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 
 		var db satellite.DB
 		if planet.config.Reconfigure.NewSatelliteDB != nil {
-			db, err = planet.config.Reconfigure.NewSatelliteDB
+			db, err = planet.config.Reconfigure.NewSatelliteDB(i)
 		} else {
 			db, err = satellitedb.NewInMemory()
 		}

@@ -28,32 +28,29 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 				t.Skipf("Database %s connection string not provided. %s", satelliteDB.Name, satelliteDB.Message)
 			}
 
-			planet, err := NewCustom(zaptest.NewLogger(t), Config{
-				SatelliteCount:   config.SatelliteCount,
-				StorageNodeCount: config.StorageNodeCount,
-				UplinkCount:      config.UplinkCount,
+			planetConfig := config
+			planetConfig.Reconfigure.NewBootstrapDB = nil
+			planetConfig.Reconfigure.NewSatelliteDB = func(index int) (satellite.DB, error) {
+				db, err := satellitedb.New(satelliteDB.URL)
+				if err != nil {
+					t.Fatal(err)
+				}
 
-				Reconfigure: Reconfigure{
-					NewSatelliteDB: func(index int) (satellite.DB, error) {
-						db, err := satellitedb.New(satelliteDB.URL)
-						if err != nil {
-							t.Fatal(err)
-						}
+				schema := satelliteDB.Name + "-" + strconv.Itoa(index)
 
-						schema := satelliteDB.Name + "-" + strconv.Itoa(index)
+				err = db.SetSchema(schema)
+				if err != nil {
+					t.Fatal(err)
+				}
 
-						err = db.SetSchema(schema)
-						if err != nil {
-							t.Fatal(err)
-						}
+				return &satelliteSchema{
+					DB:     db,
+					schema: schema,
+				}, err
+			}
+			planetConfig.Reconfigure.NewStorageNodeDB = nil
 
-						return &satelliteSchema{
-							DB:     db,
-							schema: schema,
-						}, err
-					},
-				},
-			})
+			planet, err := NewCustom(zaptest.NewLogger(t), planetConfig)
 			if err != nil {
 				t.Fatal(err)
 			}
