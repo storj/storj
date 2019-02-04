@@ -96,7 +96,7 @@ func (discovery *Discovery) Run(ctx context.Context) error {
 		case <-graveyard.C:
 			err := discovery.searchGraveyard(ctx)
 			if err != nil {
-				discovery.log.Error("graveyard resurrection failed")
+				discovery.log.Error("graveyard resurrection failed: ", zap.Error(err))
 			}
 		case <-ctx.Done():
 			return ctx.Err()
