@@ -105,7 +105,7 @@ func (rs *RedundancyStrategy) OptimalThreshold() int {
 
 type encodedReader struct {
 	rs     RedundancyStrategy
-	pieces map[int](*encodedPiece)
+	pieces map[int]*encodedPiece
 }
 
 // EncodeReader takes a Reader and a RedundancyStrategy and returns a slice of
@@ -113,7 +113,7 @@ type encodedReader struct {
 func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy) ([]io.ReadCloser, error) {
 	er := &encodedReader{
 		rs:     rs,
-		pieces: make(map[int](*encodedPiece), rs.TotalCount()),
+		pieces: make(map[int]*encodedPiece, rs.TotalCount()),
 	}
 
 	pipeReaders, pipeWriter, err := sync2.NewTeeFile(rs.TotalCount(), os.TempDir())
