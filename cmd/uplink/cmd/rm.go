@@ -17,7 +17,7 @@ func init() {
 		Use:   "rm",
 		Short: "Delete an object",
 		RunE:  deleteObject,
-	}, CLICmd)
+	}, RootCmd)
 }
 
 func deleteObject(cmd *cobra.Command, args []string) error {

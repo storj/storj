@@ -52,8 +52,8 @@ type DB interface {
 	// Close closes the database
 	Close() error
 
-	// SetSchema sets the schema
-	SetSchema(schema string) error
+	// CreateSchema sets the schema
+	CreateSchema(schema string) error
 	// DropSchema drops the schema
 	DropSchema(schema string) error
 
