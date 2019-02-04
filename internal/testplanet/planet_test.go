@@ -56,6 +56,7 @@ func TestBasic(t *testing.T) {
 	err = planet.StopPeer(planet.StorageNodes[0])
 	require.NoError(t, err)
 
+	// wait a bit to see whether some failures occur
 	time.Sleep(time.Second)
 }
 
