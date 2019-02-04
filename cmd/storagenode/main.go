@@ -6,8 +6,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
+	"syscall"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -169,8 +171,15 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	var closeError error
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-c
+		closeError = peer.Close()
+	}()
+
 	runError := peer.Run(ctx)
-	closeError := peer.Close()
 
 	return errs.Combine(runError, closeError)
 }
