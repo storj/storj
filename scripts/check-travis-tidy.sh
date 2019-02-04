@@ -8,5 +8,5 @@ then
     echo "go modules not changed"
 else
     echo "go module changes detected"
-    gospace tidy
+    gospace istidy
 fi
