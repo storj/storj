@@ -256,6 +256,6 @@ func (uplink *Uplink) getRedundancyScheme() storj.RedundancyScheme {
 func (uplink *Uplink) getEncryptionScheme() storj.EncryptionScheme {
 	return storj.EncryptionScheme{
 		Cipher:    storj.AESGCM,
-		BlockSize: 1 * memory.KB.Int32(),
+		BlockSize: 1 * memory.KiB.Int32(),
 	}
 }
