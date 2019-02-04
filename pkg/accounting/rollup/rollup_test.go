@@ -4,37 +4,65 @@
 package rollup_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/pkg/accounting/rollup"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/satellitedb"
 )
 
 func TestQueryOneDay(t *testing.T) {
 	// TODO: use testplanet
+	// change dbx accounting_raw created at to not be autoinsert
+	// we'll then have to add a timestamp argument to saveAtRestRaw and SaveBWRaw
 
-	ctx, r, db, nodeData, cleanup := createRollup(t)
-	defer cleanup()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 4, 0)
+	assert.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+	time.Sleep(2 * time.Second)
+
+	fmt.Println("Node stats:")
+	nodeData := make(map[storj.NodeID]float64)
+	bwTotals := make(map[storj.NodeID][]int64)
+	totals := []int64{1000, 2000, 3000, 4000, 5000}
+	for _, n := range planet.StorageNodes {
+		id := n.Identity.ID
+		stats, err := planet.Satellites[0].DB.StatDB().Get(ctx, id)
+		assert.NoError(t, err)
+		fmt.Println(stats)
+		nodeData[id] = float64(1000)
+		bwTotals[id] = totals
+	}
 
 	now := time.Now().UTC()
-	later := now.Add(time.Hour * 24)
+	before := now.Add(time.Hour * -48)
 
-	err := db.Accounting().SaveAtRestRaw(ctx, now, nodeData)
+	err = planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, before, before, nodeData)
 	assert.NoError(t, err)
 
-	// test should return error because we delete latest day's rollup
-	err = r.Query(ctx)
+	err = planet.Satellites[0].DB.Accounting().SaveBWRaw(ctx, before, before, bwTotals)
 	assert.NoError(t, err)
 
-	rows, err := db.Accounting().QueryPaymentInfo(ctx, now, later)
+	err = planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, now, now, nodeData)
+	assert.NoError(t, err)
+
+	err = planet.Satellites[0].DB.Accounting().SaveBWRaw(ctx, now, now, bwTotals)
+	assert.NoError(t, err)
+
+	err = planet.Satellites[0].Accounting.Rollup.Query(ctx)
+	assert.NoError(t, err)
+
+	rows, err := planet.Satellites[0].DB.Accounting().QueryPaymentInfo(ctx, before, now)
+	fmt.Println("QueryPaymentInfo:", rows)
 	assert.Equal(t, 0, len(rows))
 	assert.NoError(t, err)
 }
@@ -42,45 +70,20 @@ func TestQueryOneDay(t *testing.T) {
 func TestQueryTwoDays(t *testing.T) {
 	// TODO: use testplanet
 
-	ctx, _, db, nodeData, cleanup := createRollup(t)
-	defer cleanup()
+	// ctx, _, db, nodeData, cleanup := createRollup(t)
+	// defer cleanup()
 
-	now := time.Now().UTC()
-	then := now.Add(time.Hour * -24)
+	// now := time.Now().UTC()
+	// then := now.Add(time.Hour * -24)
 
-	err := db.Accounting().SaveAtRestRaw(ctx, now, nodeData)
-	assert.NoError(t, err)
-
-	// db.db.Exec("UPDATE accounting_raws SET created_at= WHERE ")
-	// err = r.Query(ctx)
+	// err := db.Accounting().SaveAtRestRaw(ctx, now, nodeData)
 	// assert.NoError(t, err)
 
-	_, err = db.Accounting().QueryPaymentInfo(ctx, then, now)
-	//assert.Equal(t, 10, len(rows))
-	assert.NoError(t, err)
-}
+	// // db.db.Exec("UPDATE accounting_raws SET created_at= WHERE ")
+	// // err = r.Query(ctx)
+	// // assert.NoError(t, err)
 
-func createRollup(t *testing.T) (*testcontext.Context, *rollup.Rollup, satellite.DB, map[storj.NodeID]float64, func()) {
-	ctx := testcontext.New(t)
-	db, err := satellitedb.NewInMemory()
-	assert.NoError(t, err)
-
-	assert.NoError(t, db.CreateTables())
-	cleanup := func() {
-		defer ctx.Cleanup()
-		defer ctx.Check(db.Close)
-	}
-	statdb := db.StatDB()
-	// generate nodeData
-	nodeData := make(map[storj.NodeID]float64)
-	for i := 1; i <= 10; i++ {
-		id := teststorj.NodeIDFromString(string(i))
-		nodeData[id] = float64(i * 100)
-		_, err := statdb.Create(ctx, id, nil)
-		assert.NoError(t, err)
-		_, err = statdb.Get(ctx, id)
-		assert.NoError(t, err)
-	}
-
-	return ctx, rollup.New(zap.NewNop(), db.Accounting(), time.Second), db, nodeData, cleanup
+	// _, err = db.Accounting().QueryPaymentInfo(ctx, then, now)
+	// //assert.Equal(t, 10, len(rows))
+	// assert.NoError(t, err)
 }
