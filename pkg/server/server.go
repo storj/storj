@@ -82,5 +82,12 @@ func (p *Server) Run(ctx context.Context) (err error) {
 		return next.Run(ctx, p)
 	}
 
+	go func() {
+		select {
+		case <-ctx.Done():
+			p.Close()
+		}
+	}()
+
 	return p.grpc.Serve(p.lis)
 }
