@@ -1,122 +1,117 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package segments
+package segments_test
 
 import (
+	"math/rand"
 	"testing"
-	"time"
+	time "time"
 
-	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/ptypes"
+	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/teststorj"
-	mock_overlay "storj.io/storj/pkg/overlay/mocks"
+	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
-	mock_pointerdb "storj.io/storj/pkg/pointerdb/pdbclient/mocks"
-	"storj.io/storj/pkg/ranger"
-	mock_ecclient "storj.io/storj/pkg/storage/ec/mocks"
+	ecclient "storj.io/storj/pkg/storage/ec"
+	"storj.io/storj/pkg/storage/segments"
+	storj "storj.io/storj/pkg/storj"
+	"storj.io/storj/storage"
 )
 
-func TestNewSegmentRepairer(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockOC := mock_overlay.NewMockClient(ctrl)
-	mockEC := mock_ecclient.NewMockClient(ctrl)
-	mockPDB := mock_pointerdb.NewMockClient(ctrl)
-
-	ss := NewSegmentRepairer(mockOC, mockEC, mockPDB)
-	assert.NotNil(t, ss)
-}
-
 func TestSegmentStoreRepairRemote(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	ti := time.Unix(0, 0).UTC()
-	someTime, err := ptypes.TimestampProto(ti)
+	planet, err := testplanet.New(t, 1, 20, 1)
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+	time.Sleep(2 * time.Second)
+
+	// generate test data
+	expectedData := make([]byte, 5*memory.MiB.Int())
+	_, err = rand.Read(expectedData)
 	assert.NoError(t, err)
 
-	for _, tt := range []struct {
-		pathInput               string
-		thresholdSize           int
-		pointerType             pb.Pointer_DataType
-		size                    int64
-		metadata                []byte
-		lostPieces              []int32
-		newNodes                []*pb.Node
-		data                    string
-		strsize, offset, length int64
-		substr                  string
-		meta                    Meta
-	}{
-		{
-			"path/1/2/3",
-			10,
-			pb.Pointer_REMOTE,
-			int64(3),
-			[]byte("metadata"),
-			[]int32{},
-			[]*pb.Node{
-				teststorj.MockNode("1"),
-				teststorj.MockNode("2"),
-			},
-			"abcdefghijkl",
-			12,
-			1,
-			4,
-			"bcde",
-			Meta{},
-		},
-	} {
-		mockOC := mock_overlay.NewMockClient(ctrl)
-		mockEC := mock_ecclient.NewMockClient(ctrl)
-		mockPDB := mock_pointerdb.NewMockClient(ctrl)
+	// upload test data
+	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test/bucket", "test/path", expectedData)
+	assert.NoError(t, err)
 
-		sr := Repairer{mockOC, mockEC, mockPDB, &pb.NodeStats{}}
-		assert.NotNil(t, sr)
+	// get uploaded data pointer
+	var item storage.ListItem
+	pointerdb := planet.Satellites[0].Metainfo.Service
+	err = pointerdb.Iterate("", "", true, false,
+		func(it storage.Iterator) error {
+			// bucket
+			it.Next(&item)
+			// object
+			it.Next(&item)
+			return nil
+		})
+	pointer := &pb.Pointer{}
+	err = proto.Unmarshal(item.Value, pointer)
+	assert.NoError(t, err)
 
-		calls := []*gomock.Call{
-			mockPDB.EXPECT().Get(
-				gomock.Any(), gomock.Any(),
-			).Return(&pb.Pointer{
-				Type: tt.pointerType,
-				Remote: &pb.RemoteSegment{
-					Redundancy: &pb.RedundancyScheme{
-						Type:             pb.RedundancyScheme_RS,
-						MinReq:           1,
-						Total:            2,
-						RepairThreshold:  1,
-						SuccessThreshold: 2,
-					},
-					PieceId:      "here's my piece id",
-					RemotePieces: []*pb.RemotePiece{},
-				},
-				CreationDate:   someTime,
-				ExpirationDate: someTime,
-				SegmentSize:    tt.size,
-				Metadata:       tt.metadata,
-			}, nil, nil, nil),
-			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
-			mockOC.EXPECT().Choose(gomock.Any(), gomock.Any()).Return(tt.newNodes, nil),
-			mockPDB.EXPECT().SignedMessage(),
-			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any()),
-			mockEC.EXPECT().Get(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			).Return(ranger.ByteRanger([]byte(tt.data)), nil),
-			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any()),
-			mockEC.EXPECT().Put(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			).Return(tt.newNodes, nil),
-			mockPDB.EXPECT().Put(
-				gomock.Any(), gomock.Any(), gomock.Any(),
-			).Return(nil),
-		}
-		gomock.InOrder(calls...)
-
-		err := sr.Repair(ctx, tt.pathInput, tt.lostPieces)
-		assert.NoError(t, err)
+	unusedNodes := make(map[storj.NodeID]bool)
+	for _, node := range planet.StorageNodes {
+		unusedNodes[node.ID()] = true
 	}
+
+	const numberOfLostPieces = 4
+	lostPieces := make([]int32, 0)
+	oldNodes := make(map[storj.NodeID]bool)
+	for _, piece := range pointer.Remote.RemotePieces {
+		if piece != nil {
+			// defines how many pieces will be marked as lost
+			if len(lostPieces) < numberOfLostPieces {
+				lostPieces = append(lostPieces, piece.PieceNum)
+			} else {
+				oldNodes[piece.NodeId] = true
+			}
+		}
+		delete(unusedNodes, piece.NodeId)
+	}
+
+	// create segment repairer
+	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+	assert.NoError(t, err)
+	pdb, err := planet.Uplinks[0].DialPointerDB(planet.Satellites[0], "")
+	assert.NoError(t, err)
+	ec := ecclient.NewClient(planet.Uplinks[0].Identity, 4*memory.MiB.Int())
+	repairer := segments.NewSegmentRepairer(oc, ec, pdb)
+	assert.NotNil(t, repairer)
+
+	// repair
+	err = repairer.Repair(ctx, string(item.Key), lostPieces)
+	assert.NoError(t, err)
+
+	updatedPointer, err := pointerdb.Get(string(item.Key))
+
+	// check if unused nodes were used for storing repaired pieces
+	newPieces := 0
+	unknownePiece := 0
+	for _, piece := range updatedPointer.Remote.RemotePieces {
+		if piece != nil {
+			if unusedNodes[piece.NodeId] {
+				newPieces++
+			} else if !oldNodes[piece.NodeId] {
+				unknownePiece++
+			}
+		}
+	}
+
+	assert.True(t, newPieces > 0) // TODO more accurate assertion?
+	assert.Equal(t, 0, unknownePiece)
+	assert.Equal(t, len(updatedPointer.Remote.RemotePieces), len(oldNodes)+newPieces)
+
+	// download and check if its equal to input data
+	data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "test/bucket", "test/path")
+	assert.NoError(t, err)
+
+	assert.Equal(t, expectedData, data)
 }
