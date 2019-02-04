@@ -5,6 +5,7 @@ package debugging
 
 import (
 	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
@@ -42,7 +43,7 @@ func PrintJSON(data interface{}, label string) {
 		data = NewDebugCert(d)
 	case *x509.Certificate:
 		data = NewDebugCert(*d)
-	case ecdsa.PublicKey:
+	case *ecdsa.PublicKey:
 		data = struct {
 			X *big.Int
 			Y *big.Int
@@ -56,6 +57,22 @@ func PrintJSON(data interface{}, label string) {
 			D *big.Int
 		}{
 			d.X, d.Y, d.D,
+		}
+	case *rsa.PublicKey:
+		data = struct {
+			N *big.Int
+			E int
+		}{
+			d.N, d.E,
+		}
+	case *rsa.PrivateKey:
+		data = struct {
+			N      *big.Int
+			E      int
+			D      *big.Int
+			Primes []*big.Int
+		}{
+			d.N, d.E, d.D, d.Primes,
 		}
 	}
 

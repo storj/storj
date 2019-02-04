@@ -173,7 +173,7 @@ func AddRevocationExt(key crypto.PrivateKey, revokedCert, newCert *x509.Certific
 // AddSignedCertExt generates a signed certificate extension for a cert and attaches
 // it to that cert.
 func AddSignedCertExt(key crypto.PrivateKey, cert *x509.Certificate) error {
-	signature, err := pkcrypto.SignHashOf(key, cert.RawTBSCertificate)
+	signature, err := pkcrypto.HashAndSign(key, cert.RawTBSCertificate)
 	if err != nil {
 		return err
 	}
@@ -238,7 +238,7 @@ func (r Revocation) Verify(signingCert *x509.Certificate) error {
 	}
 
 	data := r.TBSBytes()
-	if err := pkcrypto.VerifySignature(r.Signature, data, pubKey); err != nil {
+	if err := pkcrypto.HashAndVerifySignature(pubKey, data, r.Signature); err != nil {
 		return err
 	}
 	return nil
@@ -257,7 +257,7 @@ func (r *Revocation) TBSBytes() []byte {
 // Sign generates a signature using the passed key and attaches it to the revocation.
 func (r *Revocation) Sign(key crypto.PrivateKey) error {
 	data := r.TBSBytes()
-	sig, err := pkcrypto.SignHashOf(key, data)
+	sig, err := pkcrypto.HashAndSign(key, data)
 	if err != nil {
 		return err
 	}
@@ -296,7 +296,7 @@ func verifyCAWhitelistSignedLeafFunc(caWhitelist []*x509.Certificate) extensionV
 
 		leaf := chains[0][LeafIndex]
 		for _, ca := range caWhitelist {
-			err := pkcrypto.VerifySignature(certExt.Value, leaf.RawTBSCertificate, ca.PublicKey)
+			err := pkcrypto.HashAndVerifySignature(ca.PublicKey, leaf.RawTBSCertificate, certExt.Value)
 			if err == nil {
 				return nil
 			}
