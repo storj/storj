@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
@@ -179,12 +180,11 @@ func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 	download := stream.NewDownload(ctx, readOnlyStream, streams)
 	defer func() { err = errs.Combine(err, download.Close()) }()
 
-	buffer := bytes.NewBuffer([]byte{})
-	_, err = io.Copy(buffer, download)
+	data, err := ioutil.ReadAll(download)
 	if err != nil {
 		return []byte{}, err
 	}
-	return buffer.Bytes(), nil
+	return data, nil
 }
 
 func (uplink *Uplink) getMetainfo(satellite *satellite.Peer) (db storj.Metainfo, ss streams.Store, err error) {
@@ -196,12 +196,12 @@ func (uplink *Uplink) getMetainfo(satellite *satellite.Peer) (db storj.Metainfo,
 	repairThreshold := int(redScheme.RepairShares)
 	successThreshold := int(redScheme.OptimalShares)
 	maxThreshold := int(redScheme.TotalShares)
-	erasureShareSize := 1 * memory.KB
-	maxBufferMem := 4 * memory.MB
+	erasureShareSize := 1 * memory.KiB
+	maxBufferMem := 4 * memory.MiB
 
 	// client settings
-	maxInlineSize := 4 * memory.KB
-	segmentSize := 64 * memory.MB
+	maxInlineSize := 4 * memory.KiB
+	segmentSize := 64 * memory.MiB
 
 	oc, err := uplink.DialOverlay(satellite)
 	if err != nil {
@@ -255,7 +255,7 @@ func (uplink *Uplink) getRedundancyScheme() storj.RedundancyScheme {
 
 func (uplink *Uplink) getEncryptionScheme() storj.EncryptionScheme {
 	return storj.EncryptionScheme{
-		Cipher:    storj.Cipher(1),
+		Cipher:    storj.AESGCM,
 		BlockSize: 1 * memory.KB.Int32(),
 	}
 }

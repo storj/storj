@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 )
@@ -26,7 +27,7 @@ func TestUploadDownload(t *testing.T) {
 	planet.Start(ctx)
 	time.Sleep(2 * time.Second)
 
-	expectedData := make([]byte, 1024*1024*5)
+	expectedData := make([]byte, 5*memory.MiB)
 	_, err = rand.Read(expectedData)
 	assert.NoError(t, err)
 
