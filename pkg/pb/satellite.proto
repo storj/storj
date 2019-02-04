@@ -1,0 +1,28 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package satellite;
+
+service Satellite {
+    rpc Health(FileFealthRequest) returns (FileHealthResponse) {}
+}
+  
+message FileFealthRequest {
+    bytes file_id = 1;
+}
+
+message FileHealthResponse {
+    message SegmentInfo{
+        int64 good_nodes = 1; // How many pieces are currently on good nodes
+        int64 bad_nodes = 2; // How many pieces are currently on bad nodes
+        int64 offline_nodes = 3; // How many pieces are currently on offline nodes
+        int64 below_recover = 4; // How many pieces are needed to recover
+        int64 below_repair = 5; // How many pieces are needed for being above the repair threshold
+        int64 below_success = 6; // How many pieces are needed to be at the success threshold
+    }
+
+    repeated SegmentInfo segments = 1;
+}
