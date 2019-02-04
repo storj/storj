@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -6,7 +6,7 @@
         <div class="delete-api-key-container__wrap">
             <div class="delete-api-key-container__selected-api-keys-count">
                 <span class="delete-api-key-container__selected-api-keys-count__button"></span>
-                <p class="delete-api-key-container__selected-api-keys-count__count">1</p>
+                <p class="delete-api-key-container__selected-api-keys-count__count">{{ count }}</p>
                 <p class="delete-api-key-container__selected-api-keys-count__total-count"> of <span>X</span> API Keys Selected</p>
             </div>
             <div class="delete-api-key-container__buttons-group">
@@ -14,13 +14,13 @@
                     class="delete-api-key-container__buttons-group__cancel" 
                     label="Cancel" 
                     width="140px" 
-                    height="58px" 
+                    height="48px"
                     :onPress="onClearSelection"
                     isWhite />
                 <Button 
                     label="Delete" 
                     width="140px" 
-                    height="58px" 
+                    height="48px"
                     :onPress="onDelete" />
             </div>
         </div>
@@ -30,19 +30,25 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
+import { API_KEYS_ACTIONS } from "@/utils/constants/actionNames";
 
 @Component({
     methods: {
         onDelete: async function () {
-           
+           let selectedKeys: any[] = this.$store.getters.selectedAPIKeys;
+
+           for (let i = 0; i < selectedKeys.length; i++) {
+               this.$store.dispatch(API_KEYS_ACTIONS.DELETE, selectedKeys[i].id);
+           }
         },
-        onClearSelection: function () {
-
-        }
-
+        onClearSelection: function (): void {
+            this.$store.dispatch(API_KEYS_ACTIONS.CLEAR_SELECTION);
+        },
     },
     computed: {
-
+        count: function (): number {
+            return this.$store.getters.selectedAPIKeys.length;
+        }
     },
     components: {
         Button
@@ -62,7 +68,7 @@ export default class DeleteApiKeysArea extends Vue {
         width: 100%;
 
         &__wrap {
-            padding: 0 50px;
+            padding: 0 32px;
             height: 98px;
             background-color: #fff;
             display: flex;
@@ -126,7 +132,13 @@ export default class DeleteApiKeysArea extends Vue {
 
     @media screen and (max-width: 1120px) {
         .delete-api-key-container {
-            max-width: 82.7%;
+            max-width: 65%;
+        }
+    }
+
+    @media screen and (max-width: 1025px) {
+        .delete-api-key-container {
+            max-width: 84%;
         }
     }
 </style>

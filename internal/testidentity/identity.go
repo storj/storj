@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package testidentity
@@ -6,13 +6,13 @@ package testidentity
 import (
 	"context"
 
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/identity"
 )
 
 // NewTestIdentity is a helper function to generate new node identities with
 // correct difficulty and concurrency
-func NewTestIdentity(ctx context.Context) (*provider.FullIdentity, error) {
-	ca, err := provider.NewCA(ctx, provider.NewCAOptions{
+func NewTestIdentity(ctx context.Context) (*identity.FullIdentity, error) {
+	ca, err := identity.NewCA(ctx, identity.NewCAOptions{
 		Difficulty:  4,
 		Concurrency: 1,
 	})
@@ -27,8 +27,8 @@ func NewTestIdentity(ctx context.Context) (*provider.FullIdentity, error) {
 }
 
 // NewTestCA returns a ca with a default difficulty and concurrency for use in tests
-func NewTestCA(ctx context.Context) (*provider.FullCertificateAuthority, error) {
-	return provider.NewCA(ctx, provider.NewCAOptions{
+func NewTestCA(ctx context.Context) (*identity.FullCertificateAuthority, error) {
+	return identity.NewCA(ctx, identity.NewCAOptions{
 		Difficulty:  4,
 		Concurrency: 1,
 	})

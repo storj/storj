@@ -36,7 +36,7 @@ func (m *GetStatsRequest) Reset()         { *m = GetStatsRequest{} }
 func (m *GetStatsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetStatsRequest) ProtoMessage()    {}
 func (*GetStatsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_4d95b6ca0d033b47, []int{0}
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{0}
 }
 func (m *GetStatsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetStatsRequest.Unmarshal(m, b)
@@ -70,7 +70,7 @@ func (m *GetStatsResponse) Reset()         { *m = GetStatsResponse{} }
 func (m *GetStatsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetStatsResponse) ProtoMessage()    {}
 func (*GetStatsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_4d95b6ca0d033b47, []int{1}
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{1}
 }
 func (m *GetStatsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetStatsResponse.Unmarshal(m, b)
@@ -134,7 +134,7 @@ func (m *CreateStatsRequest) Reset()         { *m = CreateStatsRequest{} }
 func (m *CreateStatsRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateStatsRequest) ProtoMessage()    {}
 func (*CreateStatsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_4d95b6ca0d033b47, []int{2}
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{2}
 }
 func (m *CreateStatsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateStatsRequest.Unmarshal(m, b)
@@ -192,7 +192,7 @@ func (m *CreateStatsResponse) Reset()         { *m = CreateStatsResponse{} }
 func (m *CreateStatsResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateStatsResponse) ProtoMessage()    {}
 func (*CreateStatsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_4d95b6ca0d033b47, []int{3}
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{3}
 }
 func (m *CreateStatsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateStatsResponse.Unmarshal(m, b)
@@ -214,8 +214,7 @@ var xxx_messageInfo_CreateStatsResponse proto.InternalMessageInfo
 
 // CountNodes
 type CountNodesResponse struct {
-	Kademlia             int64    `protobuf:"varint,1,opt,name=kademlia,proto3" json:"kademlia,omitempty"`
-	Overlay              int64    `protobuf:"varint,2,opt,name=overlay,proto3" json:"overlay,omitempty"`
+	Count                int64    `protobuf:"varint,1,opt,name=count,proto3" json:"count,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -225,7 +224,7 @@ func (m *CountNodesResponse) Reset()         { *m = CountNodesResponse{} }
 func (m *CountNodesResponse) String() string { return proto.CompactTextString(m) }
 func (*CountNodesResponse) ProtoMessage()    {}
 func (*CountNodesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_4d95b6ca0d033b47, []int{4}
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{4}
 }
 func (m *CountNodesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CountNodesResponse.Unmarshal(m, b)
@@ -245,16 +244,9 @@ func (m *CountNodesResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_CountNodesResponse proto.InternalMessageInfo
 
-func (m *CountNodesResponse) GetKademlia() int64 {
+func (m *CountNodesResponse) GetCount() int64 {
 	if m != nil {
-		return m.Kademlia
-	}
-	return 0
-}
-
-func (m *CountNodesResponse) GetOverlay() int64 {
-	if m != nil {
-		return m.Overlay
+		return m.Count
 	}
 	return 0
 }
@@ -269,7 +261,7 @@ func (m *CountNodesRequest) Reset()         { *m = CountNodesRequest{} }
 func (m *CountNodesRequest) String() string { return proto.CompactTextString(m) }
 func (*CountNodesRequest) ProtoMessage()    {}
 func (*CountNodesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_4d95b6ca0d033b47, []int{5}
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{5}
 }
 func (m *CountNodesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CountNodesRequest.Unmarshal(m, b)
@@ -300,7 +292,7 @@ func (m *GetBucketsRequest) Reset()         { *m = GetBucketsRequest{} }
 func (m *GetBucketsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetBucketsRequest) ProtoMessage()    {}
 func (*GetBucketsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_4d95b6ca0d033b47, []int{6}
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{6}
 }
 func (m *GetBucketsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetBucketsRequest.Unmarshal(m, b)
@@ -322,7 +314,7 @@ var xxx_messageInfo_GetBucketsRequest proto.InternalMessageInfo
 
 type GetBucketsResponse struct {
 	Total                int64    `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
-	Ids                  []NodeID `protobuf:"bytes,2,rep,name=ids,customtype=NodeID" json:"ids,omitempty"`
+	Ids                  []NodeID `protobuf:"bytes,2,rep,name=ids,proto3,customtype=NodeID" json:"ids,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -332,7 +324,7 @@ func (m *GetBucketsResponse) Reset()         { *m = GetBucketsResponse{} }
 func (m *GetBucketsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetBucketsResponse) ProtoMessage()    {}
 func (*GetBucketsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_4d95b6ca0d033b47, []int{7}
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{7}
 }
 func (m *GetBucketsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetBucketsResponse.Unmarshal(m, b)
@@ -371,7 +363,7 @@ func (m *GetBucketRequest) Reset()         { *m = GetBucketRequest{} }
 func (m *GetBucketRequest) String() string { return proto.CompactTextString(m) }
 func (*GetBucketRequest) ProtoMessage()    {}
 func (*GetBucketRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_4d95b6ca0d033b47, []int{8}
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{8}
 }
 func (m *GetBucketRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetBucketRequest.Unmarshal(m, b)
@@ -393,7 +385,7 @@ var xxx_messageInfo_GetBucketRequest proto.InternalMessageInfo
 
 type GetBucketResponse struct {
 	Id                   NodeID   `protobuf:"bytes,1,opt,name=id,proto3,customtype=NodeID" json:"id"`
-	Nodes                []*Node  `protobuf:"bytes,2,rep,name=nodes" json:"nodes,omitempty"`
+	Nodes                []*Node  `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -403,7 +395,7 @@ func (m *GetBucketResponse) Reset()         { *m = GetBucketResponse{} }
 func (m *GetBucketResponse) String() string { return proto.CompactTextString(m) }
 func (*GetBucketResponse) ProtoMessage()    {}
 func (*GetBucketResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_4d95b6ca0d033b47, []int{9}
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{9}
 }
 func (m *GetBucketResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetBucketResponse.Unmarshal(m, b)
@@ -431,7 +423,7 @@ func (m *GetBucketResponse) GetNodes() []*Node {
 }
 
 type Bucket struct {
-	Nodes                []*Node  `protobuf:"bytes,2,rep,name=nodes" json:"nodes,omitempty"`
+	Nodes                []*Node  `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -441,7 +433,7 @@ func (m *Bucket) Reset()         { *m = Bucket{} }
 func (m *Bucket) String() string { return proto.CompactTextString(m) }
 func (*Bucket) ProtoMessage()    {}
 func (*Bucket) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_4d95b6ca0d033b47, []int{10}
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{10}
 }
 func (m *Bucket) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Bucket.Unmarshal(m, b)
@@ -469,7 +461,7 @@ func (m *Bucket) GetNodes() []*Node {
 }
 
 type BucketList struct {
-	Nodes                []*Node  `protobuf:"bytes,1,rep,name=nodes" json:"nodes,omitempty"`
+	Nodes                []*Node  `protobuf:"bytes,1,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -479,7 +471,7 @@ func (m *BucketList) Reset()         { *m = BucketList{} }
 func (m *BucketList) String() string { return proto.CompactTextString(m) }
 func (*BucketList) ProtoMessage()    {}
 func (*BucketList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_4d95b6ca0d033b47, []int{11}
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{11}
 }
 func (m *BucketList) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BucketList.Unmarshal(m, b)
@@ -519,7 +511,7 @@ func (m *PingNodeRequest) Reset()         { *m = PingNodeRequest{} }
 func (m *PingNodeRequest) String() string { return proto.CompactTextString(m) }
 func (*PingNodeRequest) ProtoMessage()    {}
 func (*PingNodeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_4d95b6ca0d033b47, []int{12}
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{12}
 }
 func (m *PingNodeRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PingNodeRequest.Unmarshal(m, b)
@@ -557,7 +549,7 @@ func (m *PingNodeResponse) Reset()         { *m = PingNodeResponse{} }
 func (m *PingNodeResponse) String() string { return proto.CompactTextString(m) }
 func (*PingNodeResponse) ProtoMessage()    {}
 func (*PingNodeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_4d95b6ca0d033b47, []int{13}
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{13}
 }
 func (m *PingNodeResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PingNodeResponse.Unmarshal(m, b)
@@ -596,7 +588,7 @@ func (m *LookupNodeRequest) Reset()         { *m = LookupNodeRequest{} }
 func (m *LookupNodeRequest) String() string { return proto.CompactTextString(m) }
 func (*LookupNodeRequest) ProtoMessage()    {}
 func (*LookupNodeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_4d95b6ca0d033b47, []int{14}
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{14}
 }
 func (m *LookupNodeRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LookupNodeRequest.Unmarshal(m, b)
@@ -631,8 +623,8 @@ func (m *LookupNodeRequest) GetAddress() string {
 }
 
 type LookupNodeResponse struct {
-	Node                 *Node         `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
-	Meta                 *NodeMetadata `protobuf:"bytes,2,opt,name=meta" json:"meta,omitempty"`
+	Node                 *Node         `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
+	Meta                 *NodeMetadata `protobuf:"bytes,2,opt,name=meta,proto3" json:"meta,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -642,7 +634,7 @@ func (m *LookupNodeResponse) Reset()         { *m = LookupNodeResponse{} }
 func (m *LookupNodeResponse) String() string { return proto.CompactTextString(m) }
 func (*LookupNodeResponse) ProtoMessage()    {}
 func (*LookupNodeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_inspector_4d95b6ca0d033b47, []int{15}
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{15}
 }
 func (m *LookupNodeResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LookupNodeResponse.Unmarshal(m, b)
@@ -676,6 +668,84 @@ func (m *LookupNodeResponse) GetMeta() *NodeMetadata {
 	return nil
 }
 
+type FindNearRequest struct {
+	Id                   NodeID   `protobuf:"bytes,1,opt,name=id,proto3,customtype=NodeID" json:"id"`
+	Start                NodeID   `protobuf:"bytes,2,opt,name=start,proto3,customtype=NodeID" json:"start"`
+	Limit                int64    `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *FindNearRequest) Reset()         { *m = FindNearRequest{} }
+func (m *FindNearRequest) String() string { return proto.CompactTextString(m) }
+func (*FindNearRequest) ProtoMessage()    {}
+func (*FindNearRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{16}
+}
+func (m *FindNearRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FindNearRequest.Unmarshal(m, b)
+}
+func (m *FindNearRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FindNearRequest.Marshal(b, m, deterministic)
+}
+func (dst *FindNearRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FindNearRequest.Merge(dst, src)
+}
+func (m *FindNearRequest) XXX_Size() int {
+	return xxx_messageInfo_FindNearRequest.Size(m)
+}
+func (m *FindNearRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_FindNearRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FindNearRequest proto.InternalMessageInfo
+
+func (m *FindNearRequest) GetLimit() int64 {
+	if m != nil {
+		return m.Limit
+	}
+	return 0
+}
+
+type FindNearResponse struct {
+	Nodes                []*Node  `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *FindNearResponse) Reset()         { *m = FindNearResponse{} }
+func (m *FindNearResponse) String() string { return proto.CompactTextString(m) }
+func (*FindNearResponse) ProtoMessage()    {}
+func (*FindNearResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_inspector_3c76240ddc9521cd, []int{17}
+}
+func (m *FindNearResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FindNearResponse.Unmarshal(m, b)
+}
+func (m *FindNearResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FindNearResponse.Marshal(b, m, deterministic)
+}
+func (dst *FindNearResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FindNearResponse.Merge(dst, src)
+}
+func (m *FindNearResponse) XXX_Size() int {
+	return xxx_messageInfo_FindNearResponse.Size(m)
+}
+func (m *FindNearResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_FindNearResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FindNearResponse proto.InternalMessageInfo
+
+func (m *FindNearResponse) GetNodes() []*Node {
+	if m != nil {
+		return m.Nodes
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*GetStatsRequest)(nil), "inspector.GetStatsRequest")
 	proto.RegisterType((*GetStatsResponse)(nil), "inspector.GetStatsResponse")
@@ -693,6 +763,8 @@ func init() {
 	proto.RegisterType((*PingNodeResponse)(nil), "inspector.PingNodeResponse")
 	proto.RegisterType((*LookupNodeRequest)(nil), "inspector.LookupNodeRequest")
 	proto.RegisterType((*LookupNodeResponse)(nil), "inspector.LookupNodeResponse")
+	proto.RegisterType((*FindNearRequest)(nil), "inspector.FindNearRequest")
+	proto.RegisterType((*FindNearResponse)(nil), "inspector.FindNearResponse")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -703,328 +775,389 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// InspectorClient is the client API for Inspector service.
+// KadInspectorClient is the client API for KadInspector service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type InspectorClient interface {
-	// Kad/Overlay commands:
-	// CountNodes returns the number of nodes in the cache and in the routing table
+type KadInspectorClient interface {
+	// CountNodes returns the number of nodes in the routing table
 	CountNodes(ctx context.Context, in *CountNodesRequest, opts ...grpc.CallOption) (*CountNodesResponse, error)
-	// GetBuckets returns the k buckets from a Kademlia instance
-	GetBuckets(ctx context.Context, in *GetBucketsRequest, opts ...grpc.CallOption) (*GetBucketsResponse, error)
-	// GetBucket returns the details of a single k bucket from the kademlia instance
-	GetBucket(ctx context.Context, in *GetBucketRequest, opts ...grpc.CallOption) (*GetBucketResponse, error)
 	// PingNodes sends a PING RPC to a node and returns it's availability
 	PingNode(ctx context.Context, in *PingNodeRequest, opts ...grpc.CallOption) (*PingNodeResponse, error)
 	// LookupNode triggers a Kademlia FindNode and returns the response
 	LookupNode(ctx context.Context, in *LookupNodeRequest, opts ...grpc.CallOption) (*LookupNodeResponse, error)
-	// StatDB commands:
-	// GetStats returns the stats for a particular node ID
-	GetStats(ctx context.Context, in *GetStatsRequest, opts ...grpc.CallOption) (*GetStatsResponse, error)
-	// CreateStats creates a node with specified stats
-	CreateStats(ctx context.Context, in *CreateStatsRequest, opts ...grpc.CallOption) (*CreateStatsResponse, error)
+	// FindNear returns limit number of IDs "near" the Start ID
+	FindNear(ctx context.Context, in *FindNearRequest, opts ...grpc.CallOption) (*FindNearResponse, error)
 }
 
-type inspectorClient struct {
+type kadInspectorClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewInspectorClient(cc *grpc.ClientConn) InspectorClient {
-	return &inspectorClient{cc}
+func NewKadInspectorClient(cc *grpc.ClientConn) KadInspectorClient {
+	return &kadInspectorClient{cc}
 }
 
-func (c *inspectorClient) CountNodes(ctx context.Context, in *CountNodesRequest, opts ...grpc.CallOption) (*CountNodesResponse, error) {
+func (c *kadInspectorClient) CountNodes(ctx context.Context, in *CountNodesRequest, opts ...grpc.CallOption) (*CountNodesResponse, error) {
 	out := new(CountNodesResponse)
-	err := c.cc.Invoke(ctx, "/inspector.Inspector/CountNodes", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/inspector.KadInspector/CountNodes", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *inspectorClient) GetBuckets(ctx context.Context, in *GetBucketsRequest, opts ...grpc.CallOption) (*GetBucketsResponse, error) {
-	out := new(GetBucketsResponse)
-	err := c.cc.Invoke(ctx, "/inspector.Inspector/GetBuckets", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *inspectorClient) GetBucket(ctx context.Context, in *GetBucketRequest, opts ...grpc.CallOption) (*GetBucketResponse, error) {
-	out := new(GetBucketResponse)
-	err := c.cc.Invoke(ctx, "/inspector.Inspector/GetBucket", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *inspectorClient) PingNode(ctx context.Context, in *PingNodeRequest, opts ...grpc.CallOption) (*PingNodeResponse, error) {
+func (c *kadInspectorClient) PingNode(ctx context.Context, in *PingNodeRequest, opts ...grpc.CallOption) (*PingNodeResponse, error) {
 	out := new(PingNodeResponse)
-	err := c.cc.Invoke(ctx, "/inspector.Inspector/PingNode", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/inspector.KadInspector/PingNode", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *inspectorClient) LookupNode(ctx context.Context, in *LookupNodeRequest, opts ...grpc.CallOption) (*LookupNodeResponse, error) {
+func (c *kadInspectorClient) LookupNode(ctx context.Context, in *LookupNodeRequest, opts ...grpc.CallOption) (*LookupNodeResponse, error) {
 	out := new(LookupNodeResponse)
-	err := c.cc.Invoke(ctx, "/inspector.Inspector/LookupNode", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/inspector.KadInspector/LookupNode", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *inspectorClient) GetStats(ctx context.Context, in *GetStatsRequest, opts ...grpc.CallOption) (*GetStatsResponse, error) {
-	out := new(GetStatsResponse)
-	err := c.cc.Invoke(ctx, "/inspector.Inspector/GetStats", in, out, opts...)
+func (c *kadInspectorClient) FindNear(ctx context.Context, in *FindNearRequest, opts ...grpc.CallOption) (*FindNearResponse, error) {
+	out := new(FindNearResponse)
+	err := c.cc.Invoke(ctx, "/inspector.KadInspector/FindNear", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *inspectorClient) CreateStats(ctx context.Context, in *CreateStatsRequest, opts ...grpc.CallOption) (*CreateStatsResponse, error) {
-	out := new(CreateStatsResponse)
-	err := c.cc.Invoke(ctx, "/inspector.Inspector/CreateStats", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// InspectorServer is the server API for Inspector service.
-type InspectorServer interface {
-	// Kad/Overlay commands:
-	// CountNodes returns the number of nodes in the cache and in the routing table
+// KadInspectorServer is the server API for KadInspector service.
+type KadInspectorServer interface {
+	// CountNodes returns the number of nodes in the routing table
 	CountNodes(context.Context, *CountNodesRequest) (*CountNodesResponse, error)
-	// GetBuckets returns the k buckets from a Kademlia instance
-	GetBuckets(context.Context, *GetBucketsRequest) (*GetBucketsResponse, error)
-	// GetBucket returns the details of a single k bucket from the kademlia instance
-	GetBucket(context.Context, *GetBucketRequest) (*GetBucketResponse, error)
 	// PingNodes sends a PING RPC to a node and returns it's availability
 	PingNode(context.Context, *PingNodeRequest) (*PingNodeResponse, error)
 	// LookupNode triggers a Kademlia FindNode and returns the response
 	LookupNode(context.Context, *LookupNodeRequest) (*LookupNodeResponse, error)
-	// StatDB commands:
-	// GetStats returns the stats for a particular node ID
-	GetStats(context.Context, *GetStatsRequest) (*GetStatsResponse, error)
-	// CreateStats creates a node with specified stats
-	CreateStats(context.Context, *CreateStatsRequest) (*CreateStatsResponse, error)
+	// FindNear returns limit number of IDs "near" the Start ID
+	FindNear(context.Context, *FindNearRequest) (*FindNearResponse, error)
 }
 
-func RegisterInspectorServer(s *grpc.Server, srv InspectorServer) {
-	s.RegisterService(&_Inspector_serviceDesc, srv)
+func RegisterKadInspectorServer(s *grpc.Server, srv KadInspectorServer) {
+	s.RegisterService(&_KadInspector_serviceDesc, srv)
 }
 
-func _Inspector_CountNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _KadInspector_CountNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CountNodesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(InspectorServer).CountNodes(ctx, in)
+		return srv.(KadInspectorServer).CountNodes(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/inspector.Inspector/CountNodes",
+		FullMethod: "/inspector.KadInspector/CountNodes",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(InspectorServer).CountNodes(ctx, req.(*CountNodesRequest))
+		return srv.(KadInspectorServer).CountNodes(ctx, req.(*CountNodesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Inspector_GetBuckets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetBucketsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(InspectorServer).GetBuckets(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/inspector.Inspector/GetBuckets",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(InspectorServer).GetBuckets(ctx, req.(*GetBucketsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Inspector_GetBucket_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetBucketRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(InspectorServer).GetBucket(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/inspector.Inspector/GetBucket",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(InspectorServer).GetBucket(ctx, req.(*GetBucketRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Inspector_PingNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _KadInspector_PingNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PingNodeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(InspectorServer).PingNode(ctx, in)
+		return srv.(KadInspectorServer).PingNode(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/inspector.Inspector/PingNode",
+		FullMethod: "/inspector.KadInspector/PingNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(InspectorServer).PingNode(ctx, req.(*PingNodeRequest))
+		return srv.(KadInspectorServer).PingNode(ctx, req.(*PingNodeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Inspector_LookupNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _KadInspector_LookupNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(LookupNodeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(InspectorServer).LookupNode(ctx, in)
+		return srv.(KadInspectorServer).LookupNode(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/inspector.Inspector/LookupNode",
+		FullMethod: "/inspector.KadInspector/LookupNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(InspectorServer).LookupNode(ctx, req.(*LookupNodeRequest))
+		return srv.(KadInspectorServer).LookupNode(ctx, req.(*LookupNodeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Inspector_GetStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetStatsRequest)
+func _KadInspector_FindNear_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FindNearRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(InspectorServer).GetStats(ctx, in)
+		return srv.(KadInspectorServer).FindNear(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/inspector.Inspector/GetStats",
+		FullMethod: "/inspector.KadInspector/FindNear",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(InspectorServer).GetStats(ctx, req.(*GetStatsRequest))
+		return srv.(KadInspectorServer).FindNear(ctx, req.(*FindNearRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Inspector_CreateStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateStatsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(InspectorServer).CreateStats(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/inspector.Inspector/CreateStats",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(InspectorServer).CreateStats(ctx, req.(*CreateStatsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-var _Inspector_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "inspector.Inspector",
-	HandlerType: (*InspectorServer)(nil),
+var _KadInspector_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "inspector.KadInspector",
+	HandlerType: (*KadInspectorServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "CountNodes",
-			Handler:    _Inspector_CountNodes_Handler,
-		},
-		{
-			MethodName: "GetBuckets",
-			Handler:    _Inspector_GetBuckets_Handler,
-		},
-		{
-			MethodName: "GetBucket",
-			Handler:    _Inspector_GetBucket_Handler,
+			Handler:    _KadInspector_CountNodes_Handler,
 		},
 		{
 			MethodName: "PingNode",
-			Handler:    _Inspector_PingNode_Handler,
+			Handler:    _KadInspector_PingNode_Handler,
 		},
 		{
 			MethodName: "LookupNode",
-			Handler:    _Inspector_LookupNode_Handler,
+			Handler:    _KadInspector_LookupNode_Handler,
 		},
 		{
-			MethodName: "GetStats",
-			Handler:    _Inspector_GetStats_Handler,
-		},
-		{
-			MethodName: "CreateStats",
-			Handler:    _Inspector_CreateStats_Handler,
+			MethodName: "FindNear",
+			Handler:    _KadInspector_FindNear_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "inspector.proto",
 }
 
-func init() { proto.RegisterFile("inspector.proto", fileDescriptor_inspector_4d95b6ca0d033b47) }
+// OverlayInspectorClient is the client API for OverlayInspector service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type OverlayInspectorClient interface {
+	// CountNodes returns the number of nodes in the cache
+	CountNodes(ctx context.Context, in *CountNodesRequest, opts ...grpc.CallOption) (*CountNodesResponse, error)
+}
 
-var fileDescriptor_inspector_4d95b6ca0d033b47 = []byte{
-	// 636 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x55, 0xdd, 0x8e, 0xd2, 0x40,
-	0x18, 0xb5, 0xa5, 0xcb, 0xc2, 0x07, 0x81, 0x65, 0x58, 0x13, 0x52, 0x70, 0xc1, 0xb9, 0x50, 0xe2,
-	0x05, 0x31, 0x78, 0x67, 0xe2, 0x0d, 0x18, 0x57, 0x14, 0x8d, 0xe9, 0xc6, 0x1b, 0x63, 0xb2, 0x99,
-	0xa5, 0x13, 0xd2, 0xf0, 0x33, 0xb5, 0x33, 0x35, 0xf1, 0x1d, 0x7c, 0x02, 0x9f, 0xc8, 0x67, 0xf0,
-	0x62, 0x6f, 0x7c, 0x11, 0xd3, 0x99, 0xe9, 0x1f, 0x2d, 0xd9, 0x8d, 0x77, 0xcc, 0x77, 0xce, 0x9c,
-	0xf9, 0xce, 0x9c, 0x8f, 0x29, 0xb4, 0xbd, 0x3d, 0xf7, 0xe9, 0x4a, 0xb0, 0x60, 0xe2, 0x07, 0x4c,
-	0x30, 0x54, 0x4f, 0x0a, 0x36, 0xac, 0xd9, 0x9a, 0xa9, 0xb2, 0x0d, 0x7b, 0xe6, 0x52, 0xf5, 0x1b,
-	0xbf, 0x84, 0xf6, 0x25, 0x15, 0x57, 0x82, 0x08, 0xee, 0xd0, 0x6f, 0x21, 0xe5, 0x02, 0x3d, 0x85,
-	0xd3, 0x88, 0x70, 0xed, 0xb9, 0x3d, 0x63, 0x64, 0x8c, 0x9b, 0xb3, 0xd6, 0xef, 0xdb, 0xe1, 0x83,
-	0x3f, 0xb7, 0xc3, 0xea, 0x47, 0xe6, 0xd2, 0xc5, 0x6b, 0xa7, 0x1a, 0xc1, 0x0b, 0x17, 0xff, 0x32,
-	0xe0, 0x2c, 0xdd, 0xcc, 0x7d, 0xb6, 0xe7, 0x14, 0x0d, 0xa1, 0x41, 0x42, 0xd7, 0x13, 0xd7, 0x2b,
-	0x16, 0xee, 0x85, 0x54, 0xa8, 0x38, 0x20, 0x4b, 0xf3, 0xa8, 0x92, 0x12, 0x02, 0x22, 0x3c, 0xd6,
-	0x33, 0x47, 0xc6, 0xd8, 0xd0, 0x04, 0x27, 0xaa, 0xa0, 0xc7, 0xd0, 0x0c, 0x7d, 0xe1, 0xed, 0xa8,
-	0x96, 0xa8, 0x48, 0x89, 0x86, 0xaa, 0x29, 0x8d, 0x94, 0xa2, 0x44, 0x2c, 0x29, 0xa2, 0x29, 0x52,
-	0x05, 0xff, 0x35, 0x00, 0xcd, 0x03, 0x4a, 0x04, 0xfd, 0x2f, 0x73, 0x87, 0x3e, 0xcc, 0x82, 0x8f,
-	0x09, 0x74, 0x15, 0x81, 0x87, 0xab, 0x15, 0xe5, 0x3c, 0xd7, 0x6d, 0x47, 0x42, 0x57, 0x0a, 0x39,
-	0xec, 0x59, 0x11, 0xad, 0xa2, 0xad, 0xe7, 0x70, 0xae, 0x29, 0x79, 0xcd, 0x13, 0x49, 0x45, 0x0a,
-	0xcb, 0x8a, 0xe2, 0x87, 0xd0, 0xcd, 0x99, 0x54, 0x21, 0xe0, 0x77, 0x80, 0x24, 0x1e, 0x79, 0x4a,
-	0xa3, 0xb1, 0xa1, 0xb6, 0x21, 0x2e, 0xdd, 0x6d, 0x3d, 0xa2, 0x73, 0x49, 0xd6, 0xa8, 0x07, 0xa7,
-	0xec, 0x3b, 0x0d, 0xb6, 0xe4, 0x87, 0xb6, 0x1a, 0x2f, 0x71, 0x17, 0x3a, 0x59, 0x2d, 0x79, 0x8d,
-	0x51, 0xf1, 0x92, 0x8a, 0x59, 0xb8, 0xda, 0xd0, 0xe4, 0x6e, 0xf1, 0x5b, 0x40, 0xd9, 0xa2, 0x3e,
-	0xf5, 0x1c, 0x4e, 0x04, 0x13, 0x64, 0xab, 0x8f, 0x54, 0x0b, 0x34, 0x80, 0x8a, 0xe7, 0xf2, 0x9e,
-	0x39, 0xaa, 0x8c, 0x9b, 0x33, 0xc8, 0xdc, 0x7f, 0x54, 0xc6, 0x53, 0x39, 0x58, 0x4a, 0x29, 0x4e,
-	0xee, 0x02, 0xcc, 0xa3, 0xa1, 0x99, 0x9e, 0x8b, 0x3f, 0x67, 0x5a, 0x4a, 0x0e, 0xbf, 0x63, 0x13,
-	0x1a, 0xc1, 0x49, 0x94, 0xb7, 0x6a, 0xa4, 0x31, 0x85, 0x89, 0xfc, 0x6b, 0x44, 0x04, 0x47, 0x01,
-	0xf8, 0x19, 0x54, 0x95, 0xe6, 0x3d, 0xb8, 0x13, 0x00, 0xc5, 0x5d, 0x7a, 0x3c, 0xc3, 0x37, 0x8e,
-	0xf1, 0xdf, 0x43, 0xfb, 0x93, 0xb7, 0x5f, 0xcb, 0xd2, 0xfd, 0x5c, 0x46, 0x39, 0x11, 0xd7, 0x0d,
-	0x28, 0xe7, 0x32, 0xa7, 0xba, 0x13, 0x2f, 0x31, 0x86, 0xb3, 0x54, 0x4c, 0xdb, 0x6f, 0x81, 0xc9,
-	0x36, 0x52, 0xad, 0xe6, 0x98, 0x6c, 0x83, 0x5f, 0x41, 0x67, 0xc9, 0xd8, 0x26, 0xf4, 0xb3, 0x47,
-	0xb6, 0x92, 0x23, 0xeb, 0x77, 0x1c, 0xf1, 0x15, 0x50, 0x76, 0x7b, 0x72, 0xc7, 0x56, 0x64, 0x47,
-	0x2a, 0xe4, 0x6d, 0xca, 0x3a, 0x7a, 0x02, 0xd6, 0x8e, 0x0a, 0x22, 0xc5, 0x1a, 0x53, 0x94, 0xe2,
-	0x1f, 0xa8, 0x20, 0x2e, 0x11, 0xc4, 0x91, 0xf8, 0xf4, 0xa7, 0x05, 0xf5, 0x45, 0xfc, 0x60, 0xa1,
-	0x05, 0x40, 0x3a, 0x76, 0x68, 0x30, 0x49, 0xdf, 0xb6, 0xc2, 0x34, 0xda, 0x8f, 0x8e, 0xa0, 0xba,
-	0xc1, 0x05, 0x40, 0x3a, 0x97, 0x39, 0xa9, 0xc2, 0x0c, 0xe7, 0xa4, 0x4a, 0x86, 0xf9, 0x0d, 0xd4,
-	0x93, 0x2a, 0xea, 0x97, 0x71, 0x63, 0xa1, 0x41, 0x39, 0xa8, 0x75, 0xe6, 0x50, 0x8b, 0xc3, 0x42,
-	0x76, 0x86, 0x79, 0x30, 0x0e, 0x76, 0xbf, 0x14, 0x4b, 0x7d, 0xa5, 0x71, 0xe4, 0x7c, 0x15, 0x42,
-	0xce, 0xf9, 0x2a, 0xc9, 0x70, 0x0e, 0xb5, 0xf8, 0x25, 0xcf, 0xf5, 0x73, 0xf0, 0x6d, 0xb0, 0xfb,
-	0xa5, 0x98, 0x16, 0x59, 0x42, 0x23, 0xf3, 0x18, 0xa1, 0x5c, 0x2a, 0x85, 0x97, 0xd8, 0xbe, 0x38,
-	0x06, 0x2b, 0xb5, 0x99, 0xf5, 0xc5, 0xf4, 0x6f, 0x6e, 0xaa, 0xf2, 0x33, 0xf5, 0xe2, 0x5f, 0x00,
-	0x00, 0x00, 0xff, 0xff, 0x1b, 0x61, 0x84, 0xdb, 0xdc, 0x06, 0x00, 0x00,
+type overlayInspectorClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewOverlayInspectorClient(cc *grpc.ClientConn) OverlayInspectorClient {
+	return &overlayInspectorClient{cc}
+}
+
+func (c *overlayInspectorClient) CountNodes(ctx context.Context, in *CountNodesRequest, opts ...grpc.CallOption) (*CountNodesResponse, error) {
+	out := new(CountNodesResponse)
+	err := c.cc.Invoke(ctx, "/inspector.OverlayInspector/CountNodes", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// OverlayInspectorServer is the server API for OverlayInspector service.
+type OverlayInspectorServer interface {
+	// CountNodes returns the number of nodes in the cache
+	CountNodes(context.Context, *CountNodesRequest) (*CountNodesResponse, error)
+}
+
+func RegisterOverlayInspectorServer(s *grpc.Server, srv OverlayInspectorServer) {
+	s.RegisterService(&_OverlayInspector_serviceDesc, srv)
+}
+
+func _OverlayInspector_CountNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CountNodesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OverlayInspectorServer).CountNodes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/inspector.OverlayInspector/CountNodes",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OverlayInspectorServer).CountNodes(ctx, req.(*CountNodesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _OverlayInspector_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "inspector.OverlayInspector",
+	HandlerType: (*OverlayInspectorServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CountNodes",
+			Handler:    _OverlayInspector_CountNodes_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "inspector.proto",
+}
+
+// StatDBInspectorClient is the client API for StatDBInspector service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type StatDBInspectorClient interface {
+	// GetStats returns the stats for a particular node ID
+	GetStats(ctx context.Context, in *GetStatsRequest, opts ...grpc.CallOption) (*GetStatsResponse, error)
+	// CreateStats creates a node with specified stats
+	CreateStats(ctx context.Context, in *CreateStatsRequest, opts ...grpc.CallOption) (*CreateStatsResponse, error)
+}
+
+type statDBInspectorClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewStatDBInspectorClient(cc *grpc.ClientConn) StatDBInspectorClient {
+	return &statDBInspectorClient{cc}
+}
+
+func (c *statDBInspectorClient) GetStats(ctx context.Context, in *GetStatsRequest, opts ...grpc.CallOption) (*GetStatsResponse, error) {
+	out := new(GetStatsResponse)
+	err := c.cc.Invoke(ctx, "/inspector.StatDBInspector/GetStats", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *statDBInspectorClient) CreateStats(ctx context.Context, in *CreateStatsRequest, opts ...grpc.CallOption) (*CreateStatsResponse, error) {
+	out := new(CreateStatsResponse)
+	err := c.cc.Invoke(ctx, "/inspector.StatDBInspector/CreateStats", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// StatDBInspectorServer is the server API for StatDBInspector service.
+type StatDBInspectorServer interface {
+	// GetStats returns the stats for a particular node ID
+	GetStats(context.Context, *GetStatsRequest) (*GetStatsResponse, error)
+	// CreateStats creates a node with specified stats
+	CreateStats(context.Context, *CreateStatsRequest) (*CreateStatsResponse, error)
+}
+
+func RegisterStatDBInspectorServer(s *grpc.Server, srv StatDBInspectorServer) {
+	s.RegisterService(&_StatDBInspector_serviceDesc, srv)
+}
+
+func _StatDBInspector_GetStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StatDBInspectorServer).GetStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/inspector.StatDBInspector/GetStats",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StatDBInspectorServer).GetStats(ctx, req.(*GetStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _StatDBInspector_CreateStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StatDBInspectorServer).CreateStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/inspector.StatDBInspector/CreateStats",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StatDBInspectorServer).CreateStats(ctx, req.(*CreateStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _StatDBInspector_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "inspector.StatDBInspector",
+	HandlerType: (*StatDBInspectorServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetStats",
+			Handler:    _StatDBInspector_GetStats_Handler,
+		},
+		{
+			MethodName: "CreateStats",
+			Handler:    _StatDBInspector_CreateStats_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "inspector.proto",
+}
+
+func init() { proto.RegisterFile("inspector.proto", fileDescriptor_inspector_3c76240ddc9521cd) }
+
+var fileDescriptor_inspector_3c76240ddc9521cd = []byte{
+	// 673 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x55, 0xcb, 0x6e, 0x13, 0x31,
+	0x14, 0x65, 0x26, 0x8f, 0xa6, 0x37, 0x51, 0x93, 0xba, 0x45, 0x8a, 0x42, 0x69, 0x83, 0x85, 0xa0,
+	0xea, 0x22, 0x42, 0x81, 0x15, 0x12, 0x9b, 0xa4, 0xa2, 0x44, 0x2d, 0x05, 0x4d, 0xc5, 0x06, 0x81,
+	0x2a, 0x37, 0xb6, 0x2a, 0x2b, 0x4d, 0x3c, 0x8c, 0x3d, 0x48, 0xfc, 0x0a, 0x6b, 0xd6, 0x7c, 0x07,
+	0xdf, 0xc0, 0xa2, 0x1b, 0x7e, 0x04, 0xd9, 0x9e, 0x89, 0xe7, 0xd1, 0xa8, 0x15, 0x12, 0xbb, 0xf1,
+	0x3d, 0x67, 0xce, 0x7d, 0x1c, 0x3f, 0xa0, 0xcd, 0x17, 0x32, 0x64, 0x53, 0x25, 0xa2, 0x41, 0x18,
+	0x09, 0x25, 0xd0, 0xfa, 0x32, 0xd0, 0x83, 0x4b, 0x71, 0x29, 0x6c, 0xb8, 0x07, 0x0b, 0x41, 0x99,
+	0xfd, 0xc6, 0x2f, 0xa1, 0x7d, 0xc4, 0xd4, 0x99, 0x22, 0x4a, 0x06, 0xec, 0x4b, 0xcc, 0xa4, 0x42,
+	0x4f, 0x61, 0x4d, 0x13, 0xce, 0x39, 0xed, 0x7a, 0x7d, 0x6f, 0xbf, 0x35, 0xda, 0xf8, 0x75, 0xbd,
+	0x77, 0xef, 0xf7, 0xf5, 0x5e, 0xfd, 0x54, 0x50, 0x36, 0x39, 0x0c, 0xea, 0x1a, 0x9e, 0x50, 0xfc,
+	0xdd, 0x83, 0x8e, 0xfb, 0x59, 0x86, 0x62, 0x21, 0x19, 0xda, 0x83, 0x26, 0x89, 0x29, 0x57, 0xe7,
+	0x53, 0x11, 0x2f, 0x94, 0x51, 0xa8, 0x04, 0x60, 0x42, 0x63, 0x1d, 0x71, 0x84, 0x88, 0x28, 0x2e,
+	0xba, 0x7e, 0xdf, 0xdb, 0xf7, 0x12, 0x42, 0xa0, 0x23, 0xe8, 0x11, 0xb4, 0xe2, 0x50, 0xf1, 0x39,
+	0x4b, 0x24, 0x2a, 0x46, 0xa2, 0x69, 0x63, 0x56, 0xc3, 0x51, 0xac, 0x48, 0xd5, 0x88, 0x24, 0x14,
+	0xa3, 0x82, 0xff, 0x78, 0x80, 0xc6, 0x11, 0x23, 0x8a, 0xfd, 0x53, 0x73, 0xc5, 0x3e, 0xfc, 0x52,
+	0x1f, 0x03, 0xd8, 0xb2, 0x04, 0x19, 0x4f, 0xa7, 0x4c, 0xca, 0x5c, 0xb5, 0x9b, 0x06, 0x3a, 0xb3,
+	0x48, 0xb1, 0x66, 0x4b, 0xac, 0x96, 0xdb, 0x7a, 0x06, 0xdb, 0x09, 0x25, 0xaf, 0x59, 0x33, 0x54,
+	0x64, 0xb1, 0xac, 0x28, 0xbe, 0x0f, 0x5b, 0xb9, 0x26, 0xad, 0x09, 0xf8, 0x00, 0x90, 0xc1, 0x75,
+	0x4f, 0xce, 0x9a, 0x6d, 0xa8, 0x65, 0x4d, 0xb1, 0x0b, 0xbc, 0x05, 0x9b, 0x59, 0xae, 0x19, 0x93,
+	0x0e, 0x1e, 0x31, 0x35, 0x8a, 0xa7, 0x33, 0xb6, 0x9c, 0x1d, 0x7e, 0x03, 0x28, 0x1b, 0x74, 0xaa,
+	0x4a, 0x28, 0x72, 0x95, 0xaa, 0x9a, 0x05, 0xda, 0x81, 0x0a, 0xa7, 0xb2, 0xeb, 0xf7, 0x2b, 0xfb,
+	0xad, 0x11, 0x64, 0xe6, 0xab, 0xc3, 0x78, 0x68, 0x36, 0x8e, 0x55, 0x4a, 0x9d, 0xd9, 0x05, 0x7f,
+	0xa5, 0x29, 0x3e, 0xa7, 0xf8, 0x43, 0xa6, 0xa4, 0x65, 0xf2, 0x5b, 0x7e, 0x42, 0x7d, 0xa8, 0x69,
+	0x3f, 0x6d, 0x21, 0xcd, 0x21, 0x0c, 0xcc, 0xd6, 0xd7, 0x84, 0xc0, 0x02, 0xf8, 0x00, 0xea, 0x56,
+	0xf3, 0x0e, 0xdc, 0x01, 0x80, 0xe5, 0x9e, 0x70, 0x99, 0xe1, 0x7b, 0xab, 0xf8, 0xc7, 0xd0, 0x7e,
+	0xcf, 0x17, 0x97, 0x26, 0x74, 0xb7, 0x2e, 0x51, 0x17, 0xd6, 0x08, 0xa5, 0x11, 0x93, 0xd2, 0x6c,
+	0xb9, 0xf5, 0x20, 0x5d, 0x62, 0x0c, 0x1d, 0x27, 0x96, 0xb4, 0xbf, 0x01, 0xbe, 0x98, 0x19, 0xb5,
+	0x46, 0xe0, 0x8b, 0x19, 0x7e, 0x05, 0x9b, 0x27, 0x42, 0xcc, 0xe2, 0x30, 0x9b, 0x72, 0x63, 0x99,
+	0x72, 0xfd, 0x96, 0x14, 0x9f, 0x00, 0x65, 0x7f, 0x5f, 0xce, 0xb8, 0xaa, 0xdb, 0x31, 0x0a, 0xf9,
+	0x36, 0x4d, 0x1c, 0x3d, 0x81, 0xea, 0x9c, 0x29, 0x62, 0xc4, 0x9a, 0x43, 0xe4, 0xf0, 0xb7, 0x4c,
+	0x11, 0x4a, 0x14, 0x09, 0x0c, 0x8e, 0xe7, 0xd0, 0x7e, 0xcd, 0x17, 0xf4, 0x94, 0x91, 0xe8, 0xae,
+	0xd3, 0x78, 0x0c, 0x35, 0xa9, 0x48, 0x64, 0x8f, 0x5f, 0x99, 0x62, 0x41, 0xbd, 0x03, 0xaf, 0xf8,
+	0x9c, 0xa7, 0x67, 0xcf, 0x2e, 0xf0, 0x0b, 0xe8, 0xb8, 0x74, 0x49, 0x2b, 0xb7, 0x5a, 0x3c, 0xfc,
+	0xe9, 0x43, 0xeb, 0x98, 0xd0, 0x49, 0x7a, 0x71, 0xa2, 0x09, 0x80, 0x3b, 0x1e, 0x68, 0x67, 0xe0,
+	0xee, 0xd8, 0xd2, 0xa9, 0xe9, 0x3d, 0x5c, 0x81, 0x26, 0xd9, 0xc7, 0xd0, 0x48, 0x1d, 0x44, 0xbd,
+	0x0c, 0xb5, 0xb0, 0x47, 0x7a, 0x0f, 0x6e, 0xc4, 0x12, 0x91, 0x09, 0x80, 0xf3, 0x28, 0x57, 0x4f,
+	0xc9, 0xf9, 0x5c, 0x3d, 0x37, 0x18, 0x3b, 0x86, 0x46, 0x3a, 0xa1, 0x5c, 0x3d, 0x05, 0x97, 0x72,
+	0xf5, 0x14, 0x47, 0x3a, 0xfc, 0x0c, 0x9d, 0x77, 0x5f, 0x59, 0x74, 0x45, 0xbe, 0xfd, 0x8f, 0x99,
+	0x0d, 0x7f, 0x78, 0xd0, 0xd6, 0x77, 0xdb, 0xe1, 0xc8, 0xc9, 0x8f, 0xa1, 0x91, 0x3e, 0x3b, 0xb9,
+	0xba, 0x0b, 0x0f, 0x59, 0xae, 0xee, 0xd2, 0x3b, 0x75, 0x02, 0xcd, 0xcc, 0xcd, 0x89, 0x72, 0x65,
+	0x94, 0x9e, 0x8d, 0xde, 0xee, 0x2a, 0xd8, 0xaa, 0x8d, 0xaa, 0x1f, 0xfd, 0xf0, 0xe2, 0xa2, 0x6e,
+	0xde, 0xd4, 0xe7, 0x7f, 0x03, 0x00, 0x00, 0xff, 0xff, 0xca, 0xf7, 0xf6, 0x6e, 0x89, 0x07, 0x00,
+	0x00,
 }

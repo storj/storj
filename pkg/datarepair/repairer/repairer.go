@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package repairer
@@ -11,6 +11,7 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
@@ -20,26 +21,39 @@ type SegmentRepairer interface {
 	Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error)
 }
 
-// repairService contains the information needed to run the repair service
-type repairService struct {
+// Service contains the information needed to run the repair service
+type Service struct {
 	queue    queue.RepairQueue
+	config   *Config
+	identity *identity.FullIdentity
 	repairer SegmentRepairer
 	limiter  *sync2.Limiter
 	ticker   *time.Ticker
 }
 
-func newService(queue queue.RepairQueue, repairer SegmentRepairer, interval time.Duration, concurrency int) *repairService {
-	return &repairService{
+// NewService creates repairing service
+func NewService(queue queue.RepairQueue, config *Config, identity *identity.FullIdentity, interval time.Duration, concurrency int) *Service {
+	return &Service{
 		queue:    queue,
-		repairer: repairer,
+		config:   config,
+		identity: identity,
 		limiter:  sync2.NewLimiter(concurrency),
 		ticker:   time.NewTicker(interval),
 	}
 }
 
+// Close closes resources
+func (service *Service) Close() error { return nil }
+
 // Run runs the repairer service
-func (service *repairService) Run(ctx context.Context) (err error) {
+func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// TODO: close segment repairer, currently this leaks connections
+	service.repairer, err = service.config.GetSegmentRepairer(ctx, service.identity)
+	if err != nil {
+		return err
+	}
 
 	// wait for all repairs to complete
 	defer service.limiter.Wait()
@@ -59,7 +73,7 @@ func (service *repairService) Run(ctx context.Context) (err error) {
 }
 
 // process picks an item from repair queue and spawns a repair worker
-func (service *repairService) process(ctx context.Context) error {
+func (service *Service) process(ctx context.Context) error {
 	seg, err := service.queue.Dequeue(ctx)
 	if err != nil {
 		if storage.ErrEmptyQueue.Has(err) {

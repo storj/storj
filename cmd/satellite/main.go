@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -8,48 +8,25 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"text/tabwriter"
+	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/auth/grpcauth"
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/datarepair/checker"
-	"storj.io/storj/pkg/datarepair/repairer"
-	"storj.io/storj/pkg/discovery"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/server"
-	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 )
 
 // Satellite defines satellite configuration
 type Satellite struct {
-	CA        identity.CASetupConfig `setup:"true"`
-	Identity  identity.SetupConfig   `setup:"true"`
-	Overwrite bool                   `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
+	Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 
-	Server      server.Config
-	Kademlia    kademlia.SatelliteConfig
-	PointerDB   pointerdb.Config
-	Overlay     overlay.Config
-	Checker     checker.Config
-	Repairer    repairer.Config
-	Audit       audit.Config
-	BwAgreement bwagreement.Config
-	Discovery   discovery.Config
-	Database    string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+	satellite.Config
 }
 
 var (
@@ -78,6 +55,17 @@ var (
 		Short: "Repair Queue Diagnostic Tool support",
 		RunE:  cmdQDiag,
 	}
+	reportsCmd = &cobra.Command{
+		Use:   "reports",
+		Short: "Generate a report",
+	}
+	paymentsCmd = &cobra.Command{
+		Use:   "payments [start] [end]",
+		Short: "Generate a payment report for a given period",
+		Long:  "Generate a payment report for a given period. Format dates using YYYY-MM-DD",
+		Args:  cobra.MinimumNArgs(2),
+		RunE:  cmdPayments,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -89,76 +77,99 @@ var (
 		Database   string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 		QListLimit int    `help:"maximum segments that can be requested" default:"1000"`
 	}
+	paymentsCfg struct {
+		Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+		Output   string `help:"destination of report output" default:""`
+	}
 
-	defaultConfDir string
-	confDir        *string
+	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
+	// TODO: this path should be defined somewhere else
+	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "satellite")
+	confDir            string
+	identityDir        string
 )
 
 func init() {
-	defaultConfDir = fpath.ApplicationDir("storj", "satellite")
-
-	dirParam := cfgstruct.FindConfigDirParam()
-	if dirParam != "" {
-		defaultConfDir = dirParam
+	confDirParam := cfgstruct.FindConfigDirParam()
+	if confDirParam != "" {
+		defaultConfDir = confDirParam
+	}
+	identityDirParam := cfgstruct.FindIdentityDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
 	}
 
-	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for satellite configuration")
+	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for satellite configuration")
+	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
+	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for satellite identity credentials")
+	err = rootCmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(qdiagCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.Bind(qdiagCmd.Flags(), &qdiagCfg, cfgstruct.ConfDir(defaultConfDir))
+	rootCmd.AddCommand(reportsCmd)
+	reportsCmd.AddCommand(paymentsCmd)
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(qdiagCmd.Flags(), &qdiagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(paymentsCmd.Flags(), &paymentsCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
+	log := zap.L()
 
-	database, err := satellitedb.New(runCfg.Database)
+	identity, err := runCfg.Identity.Load()
+	if err != nil {
+		zap.S().Fatal(err)
+	}
+
+	ctx := process.Ctx(cmd)
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Error("Failed to initialize telemetry batcher: ", err)
+	}
+
+	db, err := satellitedb.New(runCfg.Database)
+
 	if err != nil {
 		return errs.New("Error starting master database on satellite: %+v", err)
 	}
 
-	err = database.CreateTables()
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
+	err = db.CreateTables()
 	if err != nil {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
 
-	//nolint ignoring context rules to not create cyclic dependency, will be removed later
-	ctx = context.WithValue(ctx, "masterdb", database)
-
-	return runCfg.Server.Run(
-		ctx,
-		grpcauth.NewAPIKeyInterceptor(),
-		runCfg.Kademlia,
-		runCfg.Overlay,
-		runCfg.PointerDB,
-		runCfg.Checker,
-		runCfg.Repairer,
-		runCfg.Audit,
-		runCfg.BwAgreement,
-		runCfg.Discovery,
-	)
-}
-
-func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*confDir)
+	peer, err := satellite.New(log, identity, db, &runCfg.Config)
 	if err != nil {
 		return err
 	}
 
-	valid, err := fpath.IsValidSetupDir(setupDir)
-	if !setupCfg.Overwrite && !valid {
-		return fmt.Errorf("satellite configuration already exists (%v). Rerun with --overwrite", setupDir)
-	} else if setupCfg.Overwrite && err == nil {
-		fmt.Println("overwriting existing satellite config")
-		err = os.RemoveAll(setupDir)
-		if err != nil {
-			return err
-		}
+	runError := peer.Run(ctx)
+	closeError := peer.Close()
+	return errs.Combine(runError, closeError)
+}
+
+func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	setupDir, err := filepath.Abs(confDir)
+	if err != nil {
+		return err
+	}
+
+	valid, _ := fpath.IsValidSetupDir(setupDir)
+	if !valid {
+		return fmt.Errorf("satellite configuration already exists (%v)", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
@@ -166,25 +177,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// TODO: handle setting base path *and* identity file paths via args
-	// NB: if base path is set this overrides identity and CA path options
-	if setupDir != defaultConfDir {
-		setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
-		setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
-		setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
-		setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
-	}
-	err = identity.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
-	if err != nil {
-		return err
-	}
-
-	o := map[string]interface{}{
-		"identity.cert-path": setupCfg.Identity.CertPath,
-		"identity.key-path":  setupCfg.Identity.KeyPath,
-	}
-
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), o)
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
@@ -200,55 +193,10 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	//get all bandwidth agreements rows already ordered
-	baRows, err := database.BandwidthAgreement().GetAgreements(context.Background())
+	stats, err := database.BandwidthAgreement().GetUplinkStats(context.Background(), time.Time{}, time.Now())
 	if err != nil {
 		fmt.Printf("error reading satellite database %v: %v\n", diagCfg.Database, err)
 		return err
-	}
-
-	// Agreement is a struct that contains a bandwidth agreement and the associated signature
-	type UplinkSummary struct {
-		TotalBytes        int64
-		PutActionCount    int64
-		GetActionCount    int64
-		TotalTransactions int64
-		// additional attributes add here ...
-	}
-
-	// attributes per uplinkid
-	summaries := make(map[storj.NodeID]*UplinkSummary)
-	uplinkIDs := storj.NodeIDList{}
-
-	for _, baRow := range baRows {
-		// deserializing rbad you get payerbwallocation, total & storage node id
-		rbad := &pb.RenterBandwidthAllocation_Data{}
-		if err := proto.Unmarshal(baRow.Agreement, rbad); err != nil {
-			return err
-		}
-
-		// deserializing pbad you get satelliteID, uplinkID, max size, exp, serial# & action
-		pbad := &pb.PayerBandwidthAllocation_Data{}
-		if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
-			return err
-		}
-
-		uplinkID := pbad.UplinkId
-		summary, ok := summaries[uplinkID]
-		if !ok {
-			summaries[uplinkID] = &UplinkSummary{}
-			uplinkIDs = append(uplinkIDs, uplinkID)
-			summary = summaries[uplinkID]
-		}
-
-		// fill the summary info
-		summary.TotalBytes += rbad.GetTotal()
-		summary.TotalTransactions++
-		switch pbad.GetAction() {
-		case pb.PayerBandwidthAllocation_PUT:
-			summary.PutActionCount++
-		case pb.PayerBandwidthAllocation_GET:
-			summary.GetActionCount++
-		}
 	}
 
 	// initialize the table header (fields)
@@ -257,10 +205,8 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	fmt.Fprintln(w, "UplinkID\tTotal\t# Of Transactions\tPUT Action\tGET Action\t")
 
 	// populate the row fields
-	sort.Sort(uplinkIDs)
-	for _, uplinkID := range uplinkIDs {
-		summary := summaries[uplinkID]
-		fmt.Fprint(w, uplinkID, "\t", summary.TotalBytes, "\t", summary.TotalTransactions, "\t", summary.PutActionCount, "\t", summary.GetActionCount, "\t\n")
+	for _, s := range stats {
+		fmt.Fprint(w, s.NodeID, "\t", s.TotalBytes, "\t", s.TotalTransactions, "\t", s.PutActionCount, "\t", s.GetActionCount, "\t\n")
 	}
 
 	// display the data
@@ -298,6 +244,42 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 
 	// display the data
 	return w.Flush()
+}
+
+func cmdPayments(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
+
+	layout := "2006-01-02"
+	start, err := time.Parse(layout, args[0])
+	if err != nil {
+		return errs.New("Invalid date format. Please use YYYY-MM-DD")
+	}
+	end, err := time.Parse(layout, args[1])
+	if err != nil {
+		return errs.New("Invalid date format. Please use YYYY-MM-DD")
+	}
+
+	// Ensure that start date is not after end date
+	if start.After(end) {
+		return errs.New("Invalid time period (%v) - (%v)", start, end)
+	}
+
+	// send output to stdout
+	if paymentsCfg.Output == "" {
+		return generateCSV(ctx, start, end, os.Stdout)
+	}
+
+	// send output to file
+	file, err := os.Create(paymentsCfg.Output)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err = errs.Combine(err, file.Close())
+	}()
+
+	return generateCSV(ctx, start, end, file)
 }
 
 func main() {

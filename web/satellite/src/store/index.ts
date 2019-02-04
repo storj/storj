@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 import Vue from 'vue';
@@ -10,6 +10,7 @@ import { projectsModule } from '@/store/modules/projects';
 import { projectMembersModule } from '@/store/modules/projectMembers';
 import { notificationsModule } from '@/store/modules/notifications';
 import { appStateModule } from '@/store/modules/appState';
+import { apiKeysModule } from '@/store/modules/apiKeys';
 
 Vue.use(Vuex);
 
@@ -21,6 +22,7 @@ const store = new Vuex.Store({
 		projectMembersModule,
 		notificationsModule,
 		appStateModule,
+        apiKeysModule
 	}
 });
 

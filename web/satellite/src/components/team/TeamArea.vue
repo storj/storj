@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -92,10 +92,10 @@ export default class TeamArea extends Vue {
     .team-header {
         position: fixed;
         top: 100px;
-        padding: 55px 30px 25px 64px;
+        padding: 55px 30px 0px 64px;
         max-width: 79.7%;
         width: 100%;
-        background-color: rgba(255,255,255,0.6);
+        background-color: #F5F6FA;
         z-index: 999;
     }
     .team-container {
@@ -106,50 +106,67 @@ export default class TeamArea extends Vue {
 
        &__content {
             display: grid;
-            grid-template-columns: 260px 260px 260px 260px 260px;
+            grid-template-columns: 230px 230px 230px 230px 230px 230px;
             width: 100%;
+            grid-column-gap: 20px;
             grid-row-gap: 20px;
             justify-content: space-between;
-            margin-top: 175px;
+            margin-top: 150px;
             margin-bottom: 100px;
         }
    }
+
+    .user-container {
+        height: 160px;
+    }
 
    @media screen and (max-width: 1600px) {
        .team-container {
 
             &__content {
-                grid-template-columns: 240px 240px 240px 240px;
+                grid-template-columns: 220px 220px 220px 220px 220px;
             }
-        }
+       }
+
         .team-header {
-            max-width: 73.7%;
+            max-width: 75%;
         }
+
+       .user-container {
+           height: 160px;
+       }
    }
 
-     @media screen and (max-width: 1366px) {
+    @media screen and (max-width: 1366px) {
        .team-container {
 
             &__content {
-                grid-template-columns: 260px 260px 260px;
+                grid-template-columns: 210px 210px 210px 210px;
             }
         }
 
         .team-header {
-            max-width: 72%;
+            max-width: 70.2%;
         }
+
+         .user-container {
+             height: 160px;
+         }
    }
 
    @media screen and (max-width: 1120px) {
        .team-container {
 
-       &__content {
-            grid-template-columns: 270px 270px 270px;
-            grid-row-gap: 0px;
+           &__content {
+                grid-template-columns: 200px 200px 200px 200px;
             }
         }
         .team-header {
             max-width: 82.7%;
         }
+
+       .user-container {
+           height: 150px;
+       }
    }
 </style>

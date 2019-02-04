@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package audit
@@ -9,20 +9,21 @@ import (
 	"io"
 
 	"github.com/vivint/infectious"
+	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/pkg/utils"
 )
 
 var mon = monkit.Package()
 
-type share struct {
+// Share represents required information about an audited share
+type Share struct {
 	Error       error
 	PieceNumber int
 	Data        []byte
@@ -34,31 +35,31 @@ type Verifier struct {
 }
 
 type downloader interface {
-	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, pba *pb.PayerBandwidthAllocation,
-		authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]*pb.Node, err error)
+	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (shares map[int]Share, nodes map[int]storj.NodeID, err error)
 }
 
 // defaultDownloader downloads shares from networked storage nodes
 type defaultDownloader struct {
 	transport transport.Client
-	overlay   overlay.Client
-	identity  provider.FullIdentity
+	overlay   *overlay.Cache
+	identity  *identity.FullIdentity
 	reporter
 }
 
 // newDefaultDownloader creates a defaultDownloader
-func newDefaultDownloader(transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *defaultDownloader {
+func newDefaultDownloader(transport transport.Client, overlay *overlay.Cache, id *identity.FullIdentity) *defaultDownloader {
 	return &defaultDownloader{transport: transport, overlay: overlay, identity: id}
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *Verifier {
+func NewVerifier(transport transport.Client, overlay *overlay.Cache, id *identity.FullIdentity) *Verifier {
 	return &Verifier{downloader: newDefaultDownloader(transport, overlay, id)}
 }
 
 // getShare use piece store clients to download shares from a given node
 func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize, pieceNumber int,
-	id psclient.PieceID, pieceSize int64, fromNode *pb.Node, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (s share, err error) {
+	id psclient.PieceID, pieceSize int64, fromNode *pb.Node, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (s Share, err error) {
+	// TODO: too many arguments use a struct
 	defer mon.Task()(&ctx)(&err)
 
 	if fromNode == nil {
@@ -87,7 +88,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 	if err != nil {
 		return s, err
 	}
-	defer utils.LogClose(rc)
+	defer func() { err = errs.Combine(err, rc.Close()) }()
 
 	buf := make([]byte, shareSize)
 	_, err = io.ReadFull(rc, buf)
@@ -95,7 +96,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 		return s, err
 	}
 
-	s = share{
+	s = Share{
 		Error:       nil,
 		PieceNumber: pieceNumber,
 		Data:        buf,
@@ -105,7 +106,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 
 // Download Shares downloads shares from the nodes where remote pieces are located
 func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
-	stripeIndex int, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]*pb.Node, err error) {
+	stripeIndex int, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (shares map[int]Share, nodes map[int]storj.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var nodeIds storj.NodeIDList
@@ -116,13 +117,13 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 	}
 
 	// TODO(moby) nodeSlice will not include offline nodes, so overlay should update uptime for these nodes
-	nodeSlice, err := d.overlay.BulkLookup(ctx, nodeIds)
+	nodeSlice, err := d.overlay.GetAll(ctx, nodeIds)
 	if err != nil {
 		return nil, nodes, err
 	}
 
-	shares = make(map[int]share, len(nodeSlice))
-	nodes = make(map[int]*pb.Node, len(nodeSlice))
+	shares = make(map[int]Share, len(nodeSlice))
+	nodes = make(map[int]storj.NodeID, len(nodeSlice))
 
 	shareSize := int(pointer.Remote.Redundancy.GetErasureShareSize())
 	pieceID := psclient.PieceID(pointer.Remote.GetPieceId())
@@ -134,7 +135,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 
 		s, err := d.getShare(ctx, stripeIndex, shareSize, int(pieces[i].PieceNum), pieceID, pieceSize, node, pba, authorization)
 		if err != nil {
-			s = share{
+			s = Share{
 				Error:       err,
 				PieceNumber: int(pieces[i].PieceNum),
 				Data:        nil,
@@ -142,13 +143,13 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 		}
 
 		shares[s.PieceNumber] = s
-		nodes[s.PieceNumber] = node
+		nodes[s.PieceNumber] = nodeIds[i]
 	}
 
 	return shares, nodes, nil
 }
 
-func makeCopies(ctx context.Context, originals map[int]share) (copies []infectious.Share, err error) {
+func makeCopies(ctx context.Context, originals map[int]Share) (copies []infectious.Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 	copies = make([]infectious.Share, 0, len(originals))
 	for _, original := range originals {
@@ -164,7 +165,7 @@ func makeCopies(ctx context.Context, originals map[int]share) (copies []infectio
 
 // auditShares takes the downloaded shares and uses infectious's Correct function to check that they
 // haven't been altered. auditShares returns a slice containing the piece numbers of altered shares.
-func auditShares(ctx context.Context, required, total int, originals map[int]share) (pieceNums []int, err error) {
+func auditShares(ctx context.Context, required, total int, originals map[int]Share) (pieceNums []int, err error) {
 	defer mon.Task()(&ctx)(&err)
 	f, err := infectious.NewFEC(required, total)
 	if err != nil {
@@ -208,7 +209,7 @@ func (verifier *Verifier) verify(ctx context.Context, stripe *Stripe) (verifiedN
 	var offlineNodes storj.NodeIDList
 	for pieceNum := range shares {
 		if shares[pieceNum].Error != nil {
-			offlineNodes = append(offlineNodes, nodes[pieceNum].Id)
+			offlineNodes = append(offlineNodes, nodes[pieceNum])
 		}
 	}
 
@@ -222,7 +223,7 @@ func (verifier *Verifier) verify(ctx context.Context, stripe *Stripe) (verifiedN
 
 	var failedNodes storj.NodeIDList
 	for _, pieceNum := range pieceNums {
-		failedNodes = append(failedNodes, nodes[pieceNum].Id)
+		failedNodes = append(failedNodes, nodes[pieceNum])
 	}
 
 	successNodes := getSuccessNodes(ctx, nodes, failedNodes, offlineNodes)
@@ -235,7 +236,7 @@ func (verifier *Verifier) verify(ctx context.Context, stripe *Stripe) (verifiedN
 }
 
 // getSuccessNodes uses the failed nodes and offline nodes arrays to determine which nodes passed the audit
-func getSuccessNodes(ctx context.Context, nodes map[int]*pb.Node, failedNodes, offlineNodes storj.NodeIDList) (successNodes storj.NodeIDList) {
+func getSuccessNodes(ctx context.Context, nodes map[int]storj.NodeID, failedNodes, offlineNodes storj.NodeIDList) (successNodes storj.NodeIDList) {
 	fails := make(map[storj.NodeID]bool)
 	for _, fail := range failedNodes {
 		fails[fail] = true
@@ -245,9 +246,10 @@ func getSuccessNodes(ctx context.Context, nodes map[int]*pb.Node, failedNodes, o
 	}
 
 	for _, node := range nodes {
-		if !fails[node.Id] {
-			successNodes = append(successNodes, node.Id)
+		if !fails[node] {
+			successNodes = append(successNodes, node)
 		}
 	}
+
 	return successNodes
 }

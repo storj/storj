@@ -1,16 +1,16 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>   
-    <div>
+    <div id="addApiKeyPopup">
         <div class="save-api-popup" v-if="true">
             <div class="save-api-popup__content">
                 <h1 class="save-api-popup__content__title">Save you API Key or download it in .txt file.</h1>
-                <p class="save-api-popup__content__name">You will need to have it to share access to the project with your team members.</p>
+                <p class="save-api-popup__content__name">You will need this to share access to the project with your team members.</p>
                 <div class="save-api-popup__content__copy-area">
-                    <p class="save-api-popup__content__copy-area__save-api">ab4923re124NSVDLkvdmsfv mwm45678gnhab4923rewm45678gn</p>
-                    <Button class="save-api-popup__content__copy-area__save-btn" label="Copy" width="140px" height="48px" />
-                    <Button label="Download" width="140px" height="48px" isWhite/>
+                    <p class="save-api-popup__content__copy-area__save-api">{{apiKey}}</p>
+                    <Button class="save-api-popup__content__copy-area__save-btn" v-clipboard="apiKey" label="Copy" width="140px" height="48px" :onPress="onCopyClick" />
+                    <!--<Button label="Download" width="140px" height="48px" isWhite/>-->
                 </div>
                 <div class="save-api-popup__content__info-area">
                     <img src="../../../static/images/register/ErrorInfo.svg"/>
@@ -54,6 +54,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from "@/utils/constants/actionNames";
 
 @Component(
     {
@@ -61,6 +62,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
             onClose: {
                 type: Function
             },
+            apiKey: String
         },
         data: function () {
             return {
@@ -69,9 +71,12 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
         },
         methods: {
             onCloseClick: function (): void {
-                // TODO: save popup states in store
-                this.$emit('onClose');
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
             },
+            onCopyClick: function (): void {
+                //TODO: save to clipboardt
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, "Key saved to clipboard");
+            }
         },
         components: {
             Button,

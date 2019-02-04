@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -14,9 +14,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
 )
 
@@ -36,7 +36,7 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer printError(logger.Sync)
 
-	identity, err := provider.NewFullIdentity(ctx, 12, 4)
+	identity, err := identity.NewFullIdentity(ctx, 12, 4)
 	if err != nil {
 		logger.Error("Failed to create full identity: ", zap.Error(err))
 		os.Exit(1)

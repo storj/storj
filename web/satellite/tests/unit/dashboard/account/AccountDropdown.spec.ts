@@ -1,8 +1,8 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 import { mount, shallowMount } from '@vue/test-utils';
-import AccountDropdown from '@/components/dashboard/account/AccountDropdown.vue';
+import AccountDropdown from '@/components/header/AccountDropdown.vue';
 import * as sinon from 'sinon';
 
 describe('AccountDropdown.vue', () => {

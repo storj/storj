@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package statdb
@@ -6,7 +6,14 @@ package statdb
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/storj"
+)
+
+var (
+	// Error is the default errs class
+	Error = errs.Class("statdb error")
 )
 
 // DB stores node statistics

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package psserver
@@ -10,13 +10,12 @@ import (
 	"os"
 	"sync/atomic"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/utils"
 )
 
 // RetrieveError is a type of error for failures in Server.Retrieve()
@@ -46,16 +45,16 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return RetrieveError.New("PieceStore message is nil")
 	}
 
-	s.log.Debug("Retrieving",
-		zap.String("Piece ID", fmt.Sprint(pd.GetId())),
-		zap.Int64("Offset", pd.GetOffset()),
-		zap.Int64("Size", pd.GetPieceSize()),
-	)
-
 	id, err := getNamespacedPieceID([]byte(pd.GetId()), getNamespace(authorization))
 	if err != nil {
 		return err
 	}
+
+	s.log.Debug("Retrieving",
+		zap.String("Piece ID", id),
+		zap.Int64("Offset", pd.GetOffset()),
+		zap.Int64("Size", pd.GetPieceSize()),
+	)
 
 	// Get path to data being retrieved
 	path, err := s.storage.PiecePath(id)
@@ -83,8 +82,8 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return err
 	}
 
-	s.log.Debug("Successfully retrieved",
-		zap.String("Piece ID", fmt.Sprint(pd.GetId())),
+	s.log.Info("Successfully retrieved",
+		zap.String("Piece ID", id),
 		zap.Int64("Allocated", allocated),
 		zap.Int64("Retrieved", retrieved),
 	)
@@ -96,10 +95,12 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 
 	storeFile, err := s.storage.Reader(ctx, id, offset, length)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, RetrieveError.Wrap(err)
 	}
 
-	defer utils.LogClose(storeFile)
+	defer func() {
+		err = errs.Combine(err, storeFile.Close())
+	}()
 
 	writer := NewStreamWriter(s, stream)
 	allocationTracking := sync2.NewThrottle()
@@ -123,86 +124,74 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 		for {
 			recv, err := stream.Recv()
 			if err != nil {
-				allocationTracking.Fail(err)
+				allocationTracking.Fail(RetrieveError.Wrap(err))
+				return
+			}
+			rba := recv.BandwidthAllocation
+			if err = s.verifySignature(stream.Context(), rba); err != nil {
+				allocationTracking.Fail(RetrieveError.Wrap(err))
+				return
+			}
+			pba := rba.PayerAllocation
+			if err = s.verifyPayerAllocation(&pba, "GET"); err != nil {
+				allocationTracking.Fail(RetrieveError.Wrap(err))
+				return
+			}
+			//todo: figure out why this fails tests
+			// if rba.Total > pba.MaxSize {
+			// 	allocationTracking.Fail(fmt.Errorf("attempt to send more data than allocation %v got %v", rba.Total, pba.MaxSize))
+			// 	return
+			// }
+			if lastTotal > rba.Total {
+				allocationTracking.Fail(fmt.Errorf("got lower allocation was %v got %v", lastTotal, rba.Total))
+				return
+			}
+			atomic.StoreInt64(&totalAllocated, rba.Total)
+			if err = allocationTracking.Produce(rba.Total - lastTotal); err != nil {
 				return
 			}
 
-			alloc := recv.GetBandwidthAllocation()
-			allocData := &pb.RenterBandwidthAllocation_Data{}
-			if err = proto.Unmarshal(alloc.GetData(), allocData); err != nil {
-				allocationTracking.Fail(err)
-				return
-			}
-
-			if err = s.verifySignature(ctx, alloc); err != nil {
-				allocationTracking.Fail(err)
-				return
-			}
-
-			if allocData.GetPayerAllocation() == nil {
-				allocationTracking.Fail(StoreError.New("no payer bandwidth allocation"))
-				return
-			}
-
-			pbaData := &pb.PayerBandwidthAllocation_Data{}
-			if err = proto.Unmarshal(allocData.GetPayerAllocation().GetData(), pbaData); err != nil {
-				allocationTracking.Fail(err)
-				return
-			}
-
-			if err = s.verifyPayerAllocation(pbaData, "GET"); err != nil {
-				allocationTracking.Fail(err)
-				return
-			}
-
-			// TODO: break when lastTotal >= allocData.GetPayer_allocation().GetData().GetMax_size()
-
-			if lastTotal > allocData.GetTotal() {
-				allocationTracking.Fail(fmt.Errorf("got lower allocation was %v got %v", lastTotal, allocData.GetTotal()))
-				return
-			}
-
-			atomic.StoreInt64(&totalAllocated, allocData.GetTotal())
-
-			if err = allocationTracking.Produce(allocData.GetTotal() - lastTotal); err != nil {
-				return
-			}
-
-			lastAllocation = alloc
-			lastTotal = allocData.GetTotal()
+			lastAllocation = rba
+			lastTotal = rba.Total
 		}
 	}()
 
 	// Data send loop
-	messageSize := int64(32 << 10)
+	messageSize := int64(32 * memory.KiB)
 	used := int64(0)
 
 	for used < length {
 		nextMessageSize, err := allocationTracking.ConsumeOrWait(messageSize)
 		if err != nil {
-			allocationTracking.Fail(err)
+			allocationTracking.Fail(RetrieveError.Wrap(err))
 			break
 		}
 
+		toCopy := nextMessageSize
+		if length-used < nextMessageSize {
+			toCopy = length - used
+		}
+
 		used += nextMessageSize
-		n, err := io.CopyN(writer, storeFile, nextMessageSize)
+
+		n, err := io.CopyN(writer, storeFile, toCopy)
+		if err != nil {
+			// break on error
+			allocationTracking.Fail(RetrieveError.Wrap(err))
+			break
+		}
 		// correct errors when needed
 		if n != nextMessageSize {
-			if pErr := allocationTracking.Produce(nextMessageSize - n); pErr != nil {
+			if err := allocationTracking.Produce(nextMessageSize - n); err != nil {
 				break
 			}
 			used -= nextMessageSize - n
-		}
-		// break on error
-		if err != nil {
-			allocationTracking.Fail(err)
-			break
 		}
 	}
 
 	// write to bandwidth usage table
 	if err = s.DB.AddBandwidthUsed(used); err != nil {
-		return retrieved, allocated, StoreError.New("failed to write bandwidth info to database: %v", err)
+		return retrieved, allocated, RetrieveError.New("failed to write bandwidth info to database: %v", err)
 	}
 
 	// TODO: handle errors

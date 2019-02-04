@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -14,13 +14,13 @@
                     class="delete-user-container__buttons-group__cancel" 
                     label="Cancel" 
                     width="140px" 
-                    height="58px" 
+                    height="48px"
                     :onPress="onClearSelection"
                     isWhite />
                 <Button 
                     label="Delete" 
                     width="140px" 
-                    height="58px" 
+                    height="48px"
                     :onPress="onDelete" />
             </div>
         </div>
@@ -80,7 +80,7 @@ export default class DeleteUserArea extends Vue {
         width: 100%;
 
         &__wrap {
-            padding: 0 50px;
+            padding: 0 32px;
             height: 98px;
             background-color: #fff;
             display: flex;
@@ -144,7 +144,13 @@ export default class DeleteUserArea extends Vue {
 
     @media screen and (max-width: 1120px) {
         .delete-user-container {
-            max-width: 82.7%;
+            max-width: 65%;
+        }
+    }
+
+    @media screen and (max-width: 1025px) {
+        .delete-user-container {
+            max-width: 84%;
         }
     }
 </style>

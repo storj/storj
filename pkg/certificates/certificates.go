@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package certificates
@@ -18,6 +18,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -102,6 +103,7 @@ type Claim struct {
 
 // Client implements pb.CertificateClient
 type Client struct {
+	conn   *grpc.ClientConn
 	client pb.CertificatesClient
 }
 
@@ -129,6 +131,7 @@ func NewClient(ctx context.Context, ident *identity.FullIdentity, address string
 	}
 
 	return &Client{
+		conn:   conn,
 		client: pb.NewCertificatesClient(conn),
 	}, nil
 }
@@ -182,9 +185,17 @@ func ParseToken(tokenString string) (*Token, error) {
 	return t, nil
 }
 
+// Close closes the client
+func (c *Client) Close() error {
+	if c.conn != nil {
+		return c.conn.Close()
+	}
+	return nil
+}
+
 // Sign claims an authorization using the token string and returns a signed
 // copy of the client's CA certificate
-func (c Client) Sign(ctx context.Context, tokenStr string) ([][]byte, error) {
+func (c *Client) Sign(ctx context.Context, tokenStr string) ([][]byte, error) {
 	res, err := c.client.Sign(ctx, &pb.SigningRequest{
 		AuthToken: tokenStr,
 		Timestamp: time.Now().Unix(),
@@ -214,13 +225,8 @@ func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (*p
 		return nil, err
 	}
 
-	signedChainBytes := append(
-		[][]byte{
-			signedPeerCA.Raw,
-			c.signer.Cert.Raw,
-		},
-		c.signer.RestChainRaw()...,
-	)
+	signedChainBytes := [][]byte{signedPeerCA.Raw, c.signer.Cert.Raw}
+	signedChainBytes = append(signedChainBytes, c.signer.RestChainRaw()...)
 	err = c.authDB.Claim(&ClaimOpts{
 		Req:           req,
 		Peer:          grpcPeer,

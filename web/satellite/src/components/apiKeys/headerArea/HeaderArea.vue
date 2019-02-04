@@ -1,16 +1,17 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
     <div class="api-keys-header-container">
         <div class="api-keys-header-container__item">
             <SearchArea />
-            <Button label="New API Key" width="240px" height="54px" :onPress="toggleSelection" />
+            <div id="addApiKeyPopupButton">
+                <Button label="New API Key" width="240px" height="54px" :onPress="togglePopup" />
+            </div>
         </div>
         <div class="api-keys-header-container__item">
             <!-- <SortApiKeysHeader /> -->
         </div>
-        <AddApiKeyPopup v-if="isPopupShown" @onClose="toggleSelection" />
     </div>
 </template>
 
@@ -19,25 +20,19 @@ import { Component, Vue } from 'vue-property-decorator';
 import SearchArea from './SearchArea.vue';
 import Button from '@/components/common/Button.vue';
 import SortApiKeysHeader from '@/components/apiKeys/headerArea/SortApiKeysHeader.vue';
-import AddApiKeyPopup from '@/components/apiKeys/AddApiKeyPopup.vue';
+import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 
 @Component({
-    data: function() {
-        return {
-            isPopupShown: false,
-        };
-    },
     components: {
         SearchArea,
         Button,
         SortApiKeysHeader,
-        AddApiKeyPopup,
     },
     methods: {
-        toggleSelection: function () {
-            this.$data.isPopupShown = !this.$data.isPopupShown;
-        }
-    }
+        togglePopup: function () {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
+        },
+    },
 })
 
 export default class HeaderArea extends Vue {
@@ -46,6 +41,8 @@ export default class HeaderArea extends Vue {
 
 <style scoped lang="scss">
     .api-keys-header-container {
+
+        margin-bottom: 4px;
 
         &__item {
             display: flex;

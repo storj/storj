@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -11,8 +11,8 @@
                 <path d="M10.7756 14.334C10.4108 14.334 10.1226 14.6283 10.1226 15.0007C10.1226 15.3731 10.4108 15.6673 10.7756 15.6673C11.1404 15.6673 11.4287 15.3731 11.4287 15.0007C11.4287 14.6283 11.1404 14.334 10.7756 14.334Z" fill="#2683FF"/>
             </svg>
         </div>
-        <p class="apikey-item-container__name">test</p>
-        <p class="apikey-item-container__date">date</p>
+        <p class="apikey-item-container__name">{{ apiKey.name }}</p>
+        <p class="apikey-item-container__date">{{ new Date(apiKey.createdAt).toLocaleDateString() }}</p>
     </div>
 </template>
 
@@ -21,7 +21,9 @@ import { Component, Vue } from 'vue-property-decorator';
 
 @Component(
     {
-
+        props: {
+            apiKey: Object,
+        }
     }
 )
 export default class ApiKeysItem extends Vue {}
@@ -34,10 +36,8 @@ export default class ApiKeysItem extends Vue {}
         align-items: center;
         justify-content: center;
         border-radius: 6px;
-        height: 140px;
+        height: 180px;
         background-color: #fff;
-        margin-bottom: 24px;
-        padding: 30px 0;
         cursor: pointer;
         transition: box-shadow .2s ease-out;
 

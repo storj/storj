@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 package transport_test
 
@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -60,7 +59,7 @@ func TestDialNode(t *testing.T) {
 			tag := fmt.Sprintf("%+v", target)
 
 			timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-			conn, err := client.DialNode(timedCtx, target, grpc.WithBlock())
+			conn, err := client.DialNode(timedCtx, target)
 			cancel()
 			assert.Error(t, err, tag)
 			assert.Nil(t, conn, tag)
@@ -76,7 +75,7 @@ func TestDialNode(t *testing.T) {
 				Address:   planet.StorageNodes[1].Addr(),
 			},
 			Type: pb.NodeType_STORAGE,
-		}, grpc.WithBlock())
+		})
 		cancel()
 
 		assert.NoError(t, err)
@@ -87,7 +86,7 @@ func TestDialNode(t *testing.T) {
 
 	{ // DialAddress with valid address
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-		conn, err := client.DialAddress(timedCtx, planet.StorageNodes[1].Addr(), grpc.WithBlock())
+		conn, err := client.DialAddress(timedCtx, planet.StorageNodes[1].Addr())
 		cancel()
 
 		assert.NoError(t, err)

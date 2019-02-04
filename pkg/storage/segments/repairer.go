@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package segments
@@ -6,13 +6,14 @@ package segments
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 )
 
 // Repairer for segments
@@ -104,7 +105,9 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 		}
 	}
 	for _, v := range repairNodes {
-		v.Type.DPanicOnInvalid("repair 2")
+		if v != nil {
+			v.Type.DPanicOnInvalid("repair 2")
+		}
 	}
 
 	// Check that all nil nodes have a replacement prepared
@@ -118,7 +121,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	}
 
 	signedMessage := s.pdb.SignedMessage()
-	pbaGet, err := s.pdb.PayerBandwidthAllocation(ctx, pb.PayerBandwidthAllocation_GET_REPAIR)
+	pbaGet, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_GET_REPAIR)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -132,9 +135,9 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	defer utils.LogClose(r)
+	defer func() { err = errs.Combine(err, r.Close()) }()
 
-	pbaPut, err := s.pdb.PayerBandwidthAllocation(ctx, pb.PayerBandwidthAllocation_PUT_REPAIR)
+	pbaPut, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT_REPAIR)
 	if err != nil {
 		return Error.Wrap(err)
 	}

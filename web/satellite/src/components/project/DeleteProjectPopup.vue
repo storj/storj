@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -11,7 +11,7 @@
             <div class="delete-project-popup__form-container">
                 <p>Are you sure that you want to delete your project? You will lose all your buckets and files that linked to this project.</p>
                 <div>
-                    <p class="text" v-if="!nameError">Project Name</p>
+                    <p class="text" v-if="!nameError">To proceed with deletion, enter full project name</p>
                     <div v-if="nameError" class="delete-project-popup__form-container__label">
                         <img src="../../../static/images/register/ErrorInfo.svg"/>
                         <p class="text">{{nameError}}</p>
@@ -26,7 +26,7 @@
                 <div class="delete-project-popup__form-container__button-container">
                     <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite/>
                     <Button 
-                        label="Delete Project" 
+                        label="Delete"
                         width="205px" 
                         height="48px" 
                         class="red"
@@ -211,12 +211,16 @@ export default class DeleteProjectPopup extends Vue {
         &__close-cross-container {
             display: flex;
             justify-content: center;
-            align-items: flex-start;
+            align-items: center;
             position: absolute;
             right: 30px;
             top: 40px;
-            svg {
-                cursor: pointer;
+            height: 24px;
+            width: 24px;
+            cursor: pointer;
+
+            &:hover svg path {
+                fill: #2683FF;
             }
         }
     }

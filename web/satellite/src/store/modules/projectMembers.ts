@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 import { PROJECT_MEMBER_MUTATIONS } from '../mutationConstants';
@@ -99,10 +99,10 @@ export const projectMembersModule = {
 
 			if (response.isSuccess) {
 				commit(PROJECT_MEMBER_MUTATIONS.FETCH, response.data);
-			}
 
-			if (response.data.length > 0) {
-				commit(PROJECT_MEMBER_MUTATIONS.ADD_OFFSET);
+				if (response.data.length > 0) {
+					commit(PROJECT_MEMBER_MUTATIONS.ADD_OFFSET);
+				}
 			}
 
 			return response;

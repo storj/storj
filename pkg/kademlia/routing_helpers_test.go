@@ -1,11 +1,10 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
 package kademlia
 
 import (
 	"bytes"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -326,7 +325,6 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 			nodes, err := rt.nodeBucketDB.List(nil, 0)
 			assert.NoError(t, err)
 			furthest := rt.determineFurthestIDWithinK(teststorj.NodeIDsFromBytes(nodes.ByteSlices()...))
-			fmt.Println(furthest.Bytes())
 			assert.Equal(t, c.expectedFurthest, furthest[:2])
 		})
 	}

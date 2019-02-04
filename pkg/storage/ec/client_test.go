@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package ecclient
@@ -21,9 +21,9 @@ import (
 
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/transport"
 )
@@ -52,7 +52,7 @@ func TestNewECClient(t *testing.T) {
 	mbm := 1234
 
 	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	identity := &provider.FullIdentity{Key: privKey}
+	identity := &identity.FullIdentity{Key: privKey}
 	ec := NewClient(identity, mbm)
 	assert.NotNil(t, ec)
 

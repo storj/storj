@@ -1,11 +1,19 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 import { projectsModule } from '@/store/modules/projects';
+import * as api from '@/api/projects';
 import { createProjectRequest, deleteProjectRequest, fetchProjectsRequest, updateProjectRequest } from '@/api/projects';
 import { PROJECTS_MUTATIONS } from '@/store/mutationConstants';
+import { createLocalVue } from '@vue/test-utils';
+import Vuex from 'vuex';
+
+const mutations = projectsModule.mutations;
 
 describe('mutations', () => {
+	beforeEach(() => {
+		createLocalVue().use(Vuex);
+	});
 	it('create project', () => {
 		const state = {
 			projects: [],
@@ -13,7 +21,9 @@ describe('mutations', () => {
 		const project = {
 			name: 'testName',
 		};
-		projectsModule.mutations.CREATE_PROJECT(state, project);
+		const store = new Vuex.Store({state, mutations});
+
+		store.commit(PROJECTS_MUTATIONS.CREATE, project);
 
 		expect(state.projects.length).toBe(1);
 
@@ -26,9 +36,12 @@ describe('mutations', () => {
 		const state = {
 			projects: []
 		};
+
+		const store = new Vuex.Store({state, mutations});
+
 		const projectsToPush = [{id: '1'}, {id: '2'}];
 
-		projectsModule.mutations.FETCH_PROJECTS(state, projectsToPush);
+		store.commit(PROJECTS_MUTATIONS.FETCH, projectsToPush);
 
 		expect(state.projects.length).toBe(2);
 	});
@@ -40,9 +53,12 @@ describe('mutations', () => {
 				id: ''
 			}
 		};
+
+		const store = new Vuex.Store({state, mutations});
+
 		const projectId = 'testId';
 
-		projectsModule.mutations.SELECT_PROJECT(state, projectId);
+		store.commit(PROJECTS_MUTATIONS.SELECT, projectId);
 
 		expect(state.selectedProject.id).toBe('testId');
 	});
@@ -54,9 +70,12 @@ describe('mutations', () => {
 				id: 'old'
 			}
 		};
+
+		const store = new Vuex.Store({state, mutations});
+
 		const projectId = '3';
 
-		projectsModule.mutations.SELECT_PROJECT(state, projectId);
+		store.commit(PROJECTS_MUTATIONS.SELECT, projectId);
 
 		expect(state.selectedProject.id).toBe('old');
 	});
@@ -68,9 +87,12 @@ describe('mutations', () => {
 				id: 'old'
 			}
 		};
+
+		const store = new Vuex.Store({state, mutations});
+
 		const projectId = {id: '3'};
 
-		projectsModule.mutations.UPDATE_PROJECT(state, projectId);
+		store.commit(PROJECTS_MUTATIONS.UPDATE, projectId);
 
 		expect(state.selectedProject.id).toBe('old');
 	});
@@ -83,9 +105,12 @@ describe('mutations', () => {
 				description: 'oldD'
 			}
 		};
+
+		const store = new Vuex.Store({state, mutations});
+
 		const project = {id: '2', description: 'newD'};
 
-		projectsModule.mutations.UPDATE_PROJECT(state, project);
+		store.commit(PROJECTS_MUTATIONS.UPDATE, project);
 
 		expect(state.selectedProject.id).toBe('old');
 		expect(state.selectedProject.description).toBe('oldD');
@@ -99,9 +124,12 @@ describe('mutations', () => {
 				description: 'oldD'
 			}
 		};
+
+		const store = new Vuex.Store({state, mutations});
+
 		const project = {id: '2', description: 'newD'};
 
-		projectsModule.mutations.UPDATE_PROJECT(state, project);
+		store.commit(PROJECTS_MUTATIONS.UPDATE, project);
 
 		expect(state.selectedProject.id).toBe('2');
 		expect(state.selectedProject.description).toBe('newD');
@@ -113,9 +141,12 @@ describe('mutations', () => {
 				id: '1',
 			}
 		};
+
+		const store = new Vuex.Store({state, mutations});
+
 		const projectId = '2';
 
-		projectsModule.mutations.DELETE_PROJECT(state, projectId);
+		store.commit(PROJECTS_MUTATIONS.DELETE, projectId);
 
 		expect(state.selectedProject.id).toBe('1');
 	});
@@ -126,17 +157,24 @@ describe('mutations', () => {
 				id: '2',
 			}
 		};
+
+		const store = new Vuex.Store({state, mutations});
+
 		const projectId = '2';
 
-		projectsModule.mutations.DELETE_PROJECT(state, projectId);
+		store.commit(PROJECTS_MUTATIONS.DELETE, projectId);
 
 		expect(state.selectedProject.id).toBe('');
 	});
 });
 
 describe('actions', () => {
+	beforeEach(() => {
+		jest.resetAllMocks();
+	});
 	it('success fetch project', async () => {
-		fetchProjectsRequest = jest.fn().mockReturnValue({isSuccess: true, data: [{id: '1'}, {id: '2'}]});
+		jest.spyOn(api, 'fetchProjectsRequest').mockReturnValue({isSuccess: true, data: [{id: '1'}, {id: '2'}]});
+
 		const commit = jest.fn();
 
 		const dispatchResponse = await projectsModule.actions.fetchProjects({commit});
@@ -146,7 +184,7 @@ describe('actions', () => {
 	});
 
 	it('error fetch project', async () => {
-		fetchProjectsRequest = jest.fn().mockReturnValue({isSuccess: false});
+		jest.spyOn(api, 'fetchProjectsRequest').mockReturnValue({isSuccess: false});
 		const commit = jest.fn();
 		const dispatchResponse = await projectsModule.actions.fetchProjects({commit});
 
@@ -155,13 +193,12 @@ describe('actions', () => {
 	});
 
 	it('success create project', async () => {
-		createProjectRequest = jest.fn().mockReturnValue({isSuccess: true, data: {id: '1'}});
+		jest.spyOn(api, 'createProjectRequest').mockReturnValue({isSuccess: true, data: {id: '1'}});
 		const commit = jest.fn();
 		const project: Project = {
 			name: '',
 			id: '',
 			description: '',
-			isTermsAccepted: false,
 			isSelected: false,
 			createdAt: ''
 		};
@@ -173,7 +210,7 @@ describe('actions', () => {
 	});
 
 	it('error create project', async () => {
-		createProjectRequest = jest.fn().mockReturnValue({isSuccess: false});
+		jest.spyOn(api, 'createProjectRequest').mockReturnValue({isSuccess: false});
 
 		const commit = jest.fn();
 
@@ -181,7 +218,6 @@ describe('actions', () => {
 			name: '',
 			id: '',
 			description: '',
-			isTermsAccepted: false,
 			isSelected: false,
 			createdAt: ''
 		};
@@ -201,43 +237,41 @@ describe('actions', () => {
 	});
 
 	it('success update project description', async () => {
-		updateProjectRequest = jest.fn().mockReturnValue({isSuccess: true});
+		jest.spyOn(api, 'updateProjectRequest').mockReturnValue({isSuccess: true});
 		const commit = jest.fn();
 		const project: Project = {
 			name: '',
 			id: 'id',
 			description: 'desc',
-			isTermsAccepted: false,
 			isSelected: false,
 			createdAt: ''
 		};
 
-		const dispatchResponse = await projectsModule.actions.updateProjectDescription({commit}, project);
+		const dispatchResponse = await projectsModule.actions.updateProject({commit}, project);
 
 		expect(dispatchResponse.isSuccess).toBeTruthy();
 		expect(commit).toBeCalledWith(PROJECTS_MUTATIONS.UPDATE, project);
 	});
 
 	it('error update project description', async () => {
-		updateProjectRequest = jest.fn().mockReturnValue({isSuccess: false});
+		jest.spyOn(api, 'updateProjectRequest').mockReturnValue({isSuccess: false});
 		const commit = jest.fn();
 		const project: Project = {
 			name: '',
 			id: '',
 			description: '',
-			isTermsAccepted: false,
 			isSelected: false,
 			createdAt: ''
 		};
 
-		const dispatchResponse = await projectsModule.actions.updateProjectDescription({commit}, project);
+		const dispatchResponse = await projectsModule.actions.updateProject({commit}, project);
 
 		expect(dispatchResponse.isSuccess).toBeFalsy();
 		expect(commit).toHaveBeenCalledTimes(0);
 	});
 
 	it('success delete project', async () => {
-		deleteProjectRequest = jest.fn().mockReturnValue({isSuccess: true});
+		jest.spyOn(api, 'deleteProjectRequest').mockReturnValue({isSuccess: true});
 		const commit = jest.fn();
 		const project = 'id';
 
@@ -248,7 +282,7 @@ describe('actions', () => {
 	});
 
 	it('error delete project', async () => {
-		deleteProjectRequest = jest.fn().mockReturnValue({isSuccess: false});
+		jest.spyOn(api, 'deleteProjectRequest').mockReturnValue({isSuccess: false});
 		const commit = jest.fn();
 
 		const dispatchResponse = await projectsModule.actions.deleteProject({commit}, 'id');

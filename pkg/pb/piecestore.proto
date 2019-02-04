@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 syntax = "proto3";
@@ -7,53 +7,45 @@ option go_package = "pb";
 package piecestoreroutes;
 
 import "gogo.proto";
+import "google/protobuf/duration.proto";
 
 service PieceStoreRoutes {
   rpc Piece(PieceId) returns (PieceSummary) {}
-
   rpc Retrieve(stream PieceRetrieval) returns (stream PieceRetrievalStream) {}
-
   rpc Store(stream PieceStore) returns (PieceStoreSummary) {}
-
   rpc Delete(PieceDelete) returns (PieceDeleteSummary) {}
-
   rpc Stats(StatsReq) returns (StatSummary) {}
+  rpc Dashboard(DashboardReq) returns (stream DashboardStats) {}
+}
+
+enum BandwidthAction {
+  PUT = 0;
+  GET = 1;
+  GET_AUDIT = 2;
+  GET_REPAIR = 3;
+  PUT_REPAIR = 4;
 }
 
 message PayerBandwidthAllocation { // Payer refers to satellite
-
-  enum Action {
-    PUT = 0;
-    GET = 1;
-    GET_AUDIT = 2;
-    GET_REPAIR = 3;
-    PUT_REPAIR = 4;
-  }
-
-  message Data {
-    bytes satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];        // Satellite Identity
-    bytes uplink_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Uplink Identity
-    int64 max_size = 3;            // Max amount of data the satellite will pay for in bytes
-    int64 expiration_unix_sec = 4; // Unix timestamp for when data is no longer being paid for
-    string serial_number = 5;      // Unique serial number
-    Action action = 6;             // GET or PUT
-    int64 created_unix_sec = 7;    // Unix timestamp for when PayerbandwidthAllocation was created
-    bytes pub_key = 8;             // Renter Public Key 
-  }
-
-  bytes signature = 1; // Seralized Data signed by Satellite
-  bytes data = 2;      // Serialization of above Data Struct
+  bytes satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Satellite Identity
+  bytes uplink_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];    // Uplink Identity
+  int64 max_size = 3;            // Max amount of data the satellite will pay for in bytes
+  int64 expiration_unix_sec = 4; // Unix timestamp for when data is no longer being paid for
+  string serial_number = 5;      // Unique serial number
+  BandwidthAction action = 6;    // GET or PUT
+  int64 created_unix_sec = 7;    // Unix timestamp for when PayerbandwidthAllocation was created
+  
+  repeated bytes certs = 8; // Satellite certificate chain 
+  bytes signature = 9;      // Proof that the data was signed by the Satellite
 }
 
 message RenterBandwidthAllocation { // Renter refers to uplink
-  message Data {
-    PayerBandwidthAllocation payer_allocation = 1; // Bandwidth Allocation from Satellite
-    int64 total = 2;                               // Total Bytes Stored
-    bytes storage_node_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Storage Node Identity
-  }
+  PayerBandwidthAllocation payer_allocation = 1 [(gogoproto.nullable) = false]; // Bandwidth Allocation from Satellite
+  int64 total = 2;                               // Total Bytes Stored
+  bytes storage_node_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Storage Node Identity
 
-  bytes signature = 1; // Seralized Data signed by Uplink
-  bytes data = 2;      // Serialization of above Data Struct
+  repeated bytes certs = 4;   // Uplink certificate chain
+  bytes signature = 5;        // Proof that the data was signed by the Uplink
 }
 
 message PieceStore {
@@ -128,4 +120,17 @@ message SignedMessage {
   bytes data = 1;
   bytes signature = 2;
   bytes public_key = 3;
+}
+
+message DashboardReq { }
+
+message DashboardStats {
+  string node_id = 1;
+  int64 node_connections = 2;
+  string bootstrap_address = 3;
+  string internal_address = 4;
+  string external_address = 5;
+  StatSummary stats = 6;
+  bool connection = 7;
+  google.protobuf.Duration uptime = 8;
 }

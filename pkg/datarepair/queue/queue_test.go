@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package queue_test
@@ -9,7 +9,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
@@ -38,7 +37,7 @@ func TestEnqueueDequeue(t *testing.T) {
 
 		s, err := q.Dequeue(ctx)
 		assert.NoError(t, err)
-		assert.True(t, proto.Equal(&s, seg))
+		assert.True(t, pb.Equal(&s, seg))
 	})
 }
 
@@ -77,7 +76,7 @@ func TestSequential(t *testing.T) {
 		list, err := q.Peekqueue(ctx, 100)
 		assert.NoError(t, err)
 		for i := 0; i < N; i++ {
-			assert.True(t, proto.Equal(addSegs[i], &list[i]))
+			assert.True(t, pb.Equal(addSegs[i], &list[i]))
 		}
 
 		// TODO: fix out of order issue
@@ -85,7 +84,7 @@ func TestSequential(t *testing.T) {
 			dequeued, err := q.Dequeue(ctx)
 			assert.NoError(t, err)
 			expected := dequeued.LostPieces[0]
-			assert.True(t, proto.Equal(addSegs[expected], &dequeued))
+			assert.True(t, pb.Equal(addSegs[expected], &dequeued))
 		}
 	})
 }
@@ -191,7 +190,7 @@ func benchmarkSequential(b *testing.B, q queue.RepairQueue) {
 		for i := 0; i < N; i++ {
 			dqSeg, err := q.Dequeue(ctx)
 			assert.NoError(b, err)
-			assert.True(b, proto.Equal(addSegs[i], &dqSeg))
+			assert.True(b, pb.Equal(addSegs[i], &dqSeg))
 		}
 	}
 }

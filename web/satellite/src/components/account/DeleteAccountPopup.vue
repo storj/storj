@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -9,7 +9,7 @@
                 <div v-html='imageSource'></div>
             </div>
             <div class='delete-account__form-container'>
-                <p>Are you sure that you want to delete your account? All your information, projects, API Keys will be deleted from the Satellite forever.</p>
+                <p>Are you sure you want to delete your account? If you do so, all your information, projects and API Keys will be deleted from the Satellite forever.</p>
                 <HeaderedInput 
                     label='Enter your password' 
                     placeholder='Your Password'
@@ -171,12 +171,16 @@ export default class DeleteAccountPopup extends Vue {}
         &__close-cross-container {
             display: flex;
             justify-content: center;
-            align-items: flex-start;
+            align-items: center;
             position: absolute;
             right: 30px;
             top: 40px;
-            svg {
-                cursor: pointer;
+            height: 24px;
+            width: 24px;
+            cursor: pointer;
+
+            &:hover svg path {
+                fill: #2683FF;
             }
         }
     }

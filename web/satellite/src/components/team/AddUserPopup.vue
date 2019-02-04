@@ -1,11 +1,12 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
-    <div class='add-user-container'>
+    <div class='add-user-container' v-on:keyup.enter="onAddUsersClick" v-on:keyup.esc="onClose">
         <div class='add-user' id="addTeamMemberPopup">
             <div class='add-user__info-panel-container'>
                 <h2 class='add-user__info-panel-container__main-label-text'>Add New User</h2>
+                <p class="add-user__info-panel-container__text">You can only add users who are already registered on Storj Satellite</p>
                 <div v-html='imageSource'></div>
             </div>
             <div class='add-user__form-container'>
@@ -14,7 +15,7 @@
                     <img src="../../../static/images/register/ErrorInfo.svg"/>
                     <p>{{formError}}</p>
                 </div>
-                <div class="add-user__form-container__inputs-group">
+                <div :class="[inputs.length > 4 ? 'add-user__form-container__inputs-group scrollable' : 'add-user__form-container__inputs-group']">
                     <div v-for="(input, index) in inputs" 
                         class="add-user__form-container__inputs-group__item" 
                         v-bind:key="index" >
@@ -30,14 +31,14 @@
                     <div v-on:click='addInput' class="add-user-row__item" id="addUserButton">
                         <div v-bind:class="[isMaxInputsCount ? 'inactive-image' : '']">
                             <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <rect width="40" height="40" rx="20" fill="#2683FF"/>
-                                <path d="M25 18.977V21.046H20.9722V25H19.0046V21.046H15V18.977H19.0046V15H20.9722V18.977H25Z" fill="white"/>
+                                <rect width="40" height="40" rx="20" fill="#2683FF" />
+                                <path d="M25 18.977V21.046H20.9722V25H19.0046V21.046H15V18.977H19.0046V15H20.9722V18.977H25Z" fill="white" />
                             </svg>
                         </div>
                         <p v-bind:class="[isMaxInputsCount ? 'inactive-label' : '']">Add Another</p>
                     </div>
                     <div class="add-user-row__item">
-                        <p>You can add only those user who already registred on Storj Satellite</p>
+                        <p>Be careful! All new team members will have full admin rights. Otherwise use API Keys to share limited access.</p>
                     </div>
                 </div>
                 <div class='add-user__form-container__button-container'>
@@ -132,6 +133,13 @@ import { validateEmail } from '@/utils/validation';
                 }
 
                 this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members successfully added to project!');
+				this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+
+				const fetchMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
+				if (!fetchMembersResponse.isSuccess) {
+					this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                }
+
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
             },
             addInput: function(): void {
@@ -197,7 +205,7 @@ export default class AddUserPopup extends Vue {}
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 81px 0 47px;
+        padding: 0 45px 0 47px;
 
         &__item {
             display: flex;
@@ -225,10 +233,10 @@ export default class AddUserPopup extends Vue {}
 
             &:last-child {
                 p {
-                    font-size: 14px !important;
+                    font-size: 12px !important;
                     margin: 0 !important;
-                    text-align: right;
-                    padding-left: 0;
+                    text-align: left;
+                    padding-left: 60px;
                 }
             }
         }  
@@ -288,12 +296,20 @@ export default class AddUserPopup extends Vue {}
             align-items: center;
             margin-right: 100px;
 
+            &__text {
+                font-family: 'montserrat_regular';
+                font-size: 16px;
+                margin-top: 0;
+                margin-left: 50px;
+                margin-bottom: 50px;
+            }
+
             &__main-label-text {
                 font-family: 'montserrat_bold';
                 font-size: 32px;
-                line-height: 39px;
+                line-height: 29px;
                 color: #384B65;
-                margin-bottom: 60px;
+                /*margin-bottom: 60px;*/
                 margin-top: 0;
             }
         }
@@ -317,9 +333,13 @@ export default class AddUserPopup extends Vue {}
 
             &__inputs-group {
                 max-height: 35vh;
-                overflow-y: scroll;
+                overflow-y: hidden;
                 padding-left: 50px;
                 padding-right: 50px;
+
+                &.scrollable {
+                    overflow-y: scroll;
+                }
 
                 &__item {
                     display: flex;
@@ -391,12 +411,16 @@ export default class AddUserPopup extends Vue {}
         &__close-cross-container {
             display: flex;
             justify-content: center;
-            align-items: flex-start;
+            align-items: center;
             position: absolute;
             right: 30px;
             top: 40px;
-            svg {
-                cursor: pointer;
+            height: 24px;
+            width: 24px;
+            cursor: pointer;
+
+            &:hover svg path {
+                fill: #2683FF;
             }
         }
     }

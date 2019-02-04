@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package pdbclient
@@ -14,8 +14,8 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
@@ -54,13 +54,13 @@ type Client interface {
 	Delete(ctx context.Context, path storj.Path) error
 
 	SignedMessage() *pb.SignedMessage
-	PayerBandwidthAllocation(context.Context, pb.PayerBandwidthAllocation_Action) (*pb.PayerBandwidthAllocation, error)
+	PayerBandwidthAllocation(context.Context, pb.BandwidthAction) (*pb.PayerBandwidthAllocation, error)
 
 	// Disconnect() error // TODO: implement
 }
 
 // NewClient initializes a new pointerdb client
-func NewClient(identity *provider.FullIdentity, address string, APIKey string) (*PointerDB, error) {
+func NewClient(identity *identity.FullIdentity, address string, APIKey string) (*PointerDB, error) {
 	apiKeyInjector := grpcauth.NewAPIKeyInjector(APIKey)
 	tc := transport.NewClient(identity)
 	conn, err := tc.DialAddress(
@@ -90,9 +90,7 @@ func (pdb *PointerDB) Put(ctx context.Context, path storj.Path, pointer *pb.Poin
 // Get is the interface to make a GET request, needs PATH and APIKey
 func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Pointer, nodes []*pb.Node, pba *pb.PayerBandwidthAllocation, err error) {
 	defer mon.Task()(&ctx)(&err)
-	for _, v := range nodes {
-		v.Type.DPanicOnInvalid("pdb Get")
-	}
+
 	res, err := pdb.client.Get(ctx, &pb.GetRequest{Path: path})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -145,7 +143,7 @@ func (pdb *PointerDB) Delete(ctx context.Context, path storj.Path) (err error) {
 }
 
 // PayerBandwidthAllocation gets payer bandwidth allocation message
-func (pdb *PointerDB) PayerBandwidthAllocation(ctx context.Context, action pb.PayerBandwidthAllocation_Action) (resp *pb.PayerBandwidthAllocation, err error) {
+func (pdb *PointerDB) PayerBandwidthAllocation(ctx context.Context, action pb.BandwidthAction) (resp *pb.PayerBandwidthAllocation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := pdb.client.PayerBandwidthAllocation(ctx, &pb.PayerBandwidthAllocationRequest{Action: action})

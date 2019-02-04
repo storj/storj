@@ -1,15 +1,16 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
     <div class="add-api-key-popup-container">
-        <div v-if="true" class="add-api-key-popup">
+        <div id="addApiKeyPopup" v-if="!key" class="add-api-key-popup">
             <div class="add-api-key-popup__info-panel-container">
                 <div v-html="imageSource"></div>
             </div>
             <div class="add-api-key-popup__form-container">
                 <h2 class="add-api-key-popup__form-container__main-label-text">New API Key</h2>
-                <HeaderedInput 
+                <HeaderedInput
+                    @setData="onChangeName"
                     label="Name"
                     additionalLabel="Up To 20 Characters"
                     placeholder="Enter API Key Name"
@@ -17,25 +18,29 @@
                     width="100%" />
                 <div class="add-api-key-popup__form-container__button-container">
                     <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite />
-                    <Button label="Create API Key" width="205px" height="48px" />
+                    <Button label="Create API Key" width="205px" height="48px" :onPress="onCreateClick" />
                 </div>
             </div>
-            <div class="add-api-key-popup__close-cross-container">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" v-on:click="onCloseClick">
+            <div class="add-api-key-popup__close-cross-container" v-on:click="onCloseClick">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
                 </svg>
             </div>
         </div>
-        <CopyApiKeyPopup v-if="false" />
+        <CopyApiKeyPopup :apiKey="key" v-if="key" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import VueClipboards from 'vue-clipboards';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import CopyApiKeyPopup from './CopyApiKeyPopup.vue';
 import Button from '@/components/common/Button.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, API_KEYS_ACTIONS } from "@/utils/constants/actionNames";
+
+Vue.use(VueClipboards);
 
 @Component(
     {
@@ -47,12 +52,27 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
         data: function () {
             return {
                 imageSource: EMPTY_STATE_IMAGES.ADD_API_KEY,
+                name: '',
+                key: '',
             };
         },
         methods: {
             onCloseClick: function (): void {
-                // TODO: save popup states in store
-                this.$emit('onClose');
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
+            },
+            onCreateClick: async function (): Promise<any> {
+                let result: any = await this.$store.dispatch(API_KEYS_ACTIONS.CREATE, this.$data.name);
+
+                if (!result.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, result.errorMessage);
+                    return;
+                }
+
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, "Successfully created new api key");
+                this.$data.key = result.data.key;
+            },
+            onChangeName: function (value: string): void {
+                this.$data.name = value;
             },
         },
         components: {
@@ -147,14 +167,18 @@ export default class AddApiKeyPopup extends Vue {
         }
 
         &__close-cross-container {
-             display: flex;
-             justify-content: center;
-             align-items: flex-start;
-             position: absolute;
-             right: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: absolute;
+            right: 30px;
             top: 40px;
-            svg {
-                cursor: pointer;
+            height: 24px;
+            width: 24px;
+            cursor: pointer;
+
+            &:hover svg path {
+                fill: #2683FF;
             }
         }
     }

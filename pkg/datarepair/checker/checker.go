@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package checker
@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
@@ -19,15 +21,30 @@ import (
 	"storj.io/storj/storage"
 )
 
+// Error is a standard error class for this package.
+var (
+	Error = errs.Class("checker error")
+	mon   = monkit.Package()
+)
+
+// Config contains configurable values for checker
+type Config struct {
+	Interval time.Duration `help:"how frequently checker should audit segments" default:"30s"`
+}
+
 // Checker is the interface for data repair checker
 type Checker interface {
+	// TODO: remove interface
 	Run(ctx context.Context) error
+	IdentifyInjuredSegments(ctx context.Context) (err error)
+	OfflineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (offline []int32, err error)
+	Close() error
 }
 
 // Checker contains the information needed to do checks for missing pieces
 type checker struct {
 	statdb      statdb.DB
-	pointerdb   *pointerdb.Server
+	pointerdb   *pointerdb.Service
 	repairQueue queue.RepairQueue
 	overlay     pb.OverlayServer
 	irrdb       irreparable.DB
@@ -36,8 +53,9 @@ type checker struct {
 	ticker      *time.Ticker
 }
 
-// newChecker creates a new instance of checker
-func newChecker(pointerdb *pointerdb.Server, sdb statdb.DB, repairQueue queue.RepairQueue, overlay pb.OverlayServer, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *checker {
+// NewChecker creates a new instance of checker
+func NewChecker(pointerdb *pointerdb.Service, sdb statdb.DB, repairQueue queue.RepairQueue, overlay pb.OverlayServer, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) Checker {
+	// TODO: reorder arguments
 	return &checker{
 		statdb:      sdb,
 		pointerdb:   pointerdb,
@@ -55,7 +73,7 @@ func (c *checker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
-		err = c.identifyInjuredSegments(ctx)
+		err = c.IdentifyInjuredSegments(ctx)
 		if err != nil {
 			c.logger.Error("Checker failed", zap.Error(err))
 		}
@@ -68,11 +86,14 @@ func (c *checker) Run(ctx context.Context) (err error) {
 	}
 }
 
-// identifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
-func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
+// Close closes resources
+func (c *checker) Close() error { return nil }
+
+// IdentifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
+func (c *checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = c.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
+	err = c.pointerdb.Iterate("", "", true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
 			lim := c.limit
@@ -104,7 +125,7 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 				}
 
 				// Find all offline nodes
-				offlineNodes, err := c.offlineNodes(ctx, nodeIDs)
+				offlineNodes, err := c.OfflineNodes(ctx, nodeIDs)
 				if err != nil {
 					return Error.New("error getting offline nodes %s", err)
 				}
@@ -148,8 +169,8 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 	return err
 }
 
-// returns the indices of offline nodes
-func (c *checker) offlineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (offline []int32, err error) {
+// OfflineNodes returns the indices of offline nodes
+func (c *checker) OfflineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (offline []int32, err error) {
 	responses, err := c.overlay.BulkLookup(ctx, pb.NodeIDsToLookupRequests(nodeIDs))
 	if err != nil {
 		return []int32{}, err

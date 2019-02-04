@@ -37,10 +37,10 @@ require (
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/eclipse/paho.mqtt.golang v1.1.1 // indirect
 	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
-	github.com/fatih/color v1.7.0 // indirect
+	github.com/fatih/color v1.7.0
 	github.com/fatih/structs v1.0.0 // indirect
 	github.com/go-redis/redis v6.14.1+incompatible
-	github.com/gogo/protobuf v1.1.2-0.20181116123445-07eab6a8298c
+	github.com/gogo/protobuf v1.2.0
 	github.com/golang-migrate/migrate/v3 v3.5.2
 	github.com/golang/mock v1.2.0
 	github.com/golang/protobuf v1.2.0
@@ -109,13 +109,13 @@ require (
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.9.1
 	golang.org/x/crypto v0.0.0-20190103213133-ff983b9c42bc
-	golang.org/x/net v0.0.0-20181106065722-10aee1819953
-	golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f
+	golang.org/x/net v0.0.0-20190119204137-ed066c81e75e
+	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4
 	golang.org/x/sys v0.0.0-20190108104531-7fbe1cd0fcc2
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect
-	golang.org/x/tools v0.0.0-20181221235234-d00ac6d27372
+	golang.org/x/tools v0.0.0-20190124215303-cc6a436ffe6b
 	google.golang.org/genproto v0.0.0-20181221175505-bd9b4fb69e2f // indirect
-	google.golang.org/grpc v1.16.0
+	google.golang.org/grpc v1.18.0
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.25 // indirect
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
