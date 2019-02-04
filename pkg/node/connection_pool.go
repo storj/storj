@@ -106,7 +106,7 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 	}
 
 	conn.dial.Do(func() {
-		grpc, err := pool.tc.DialNode(ctx, n, grpc.WithBlock())
+		grpc, err := pool.tc.DialNode(ctx, n)
 		conn.err = err
 		if conn.err != nil {
 			return

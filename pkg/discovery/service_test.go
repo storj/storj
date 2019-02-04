@@ -24,7 +24,7 @@ func TestCache_Refresh(t *testing.T) {
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	satellite := planet.Satellites[0]
 	for _, storageNode := range planet.StorageNodes {

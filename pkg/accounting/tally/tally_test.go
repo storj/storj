@@ -8,82 +8,70 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/pkg/accounting/tally"
-	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/bwagreement/testbwagreement"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/storage/teststore"
+	"storj.io/storj/pkg/piecestore/psserver/psdb"
 )
 
-func TestQueryNoAgreements(t *testing.T) {
+func runPlanet(t *testing.T, f func(context.Context, *testplanet.Planet)) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+	planet, err := testplanet.New(t, 1, 1, 1)
+	//time.Sleep(5 * time.Second)
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+	planet.Start(ctx)
+	f(ctx, planet)
+}
 
-	// TODO: use testplanet
-
-	service := pointerdb.NewService(zap.NewNop(), teststore.New())
-	overlayServer := mocks.NewOverlay([]*pb.Node{})
-	db, err := satellitedb.NewInMemory()
-	assert.NoError(t, err)
-	defer ctx.Check(db.Close)
-	assert.NoError(t, db.CreateTables())
-
-	tally := tally.New(zap.NewNop(), db.Accounting(), db.BandwidthAgreement(), service, overlayServer, 0, time.Second)
-
-	err = tally.QueryBW(ctx)
-	assert.NoError(t, err)
+func TestQueryNoAgreements(t *testing.T) {
+	runPlanet(t, func(ctx context.Context, planet *testplanet.Planet) {
+		tally := planet.Satellites[0].Accounting.Tally
+		_, bwTotals, err := tally.QueryBW(ctx)
+		require.NoError(t, err)
+		require.Len(t, bwTotals, 0)
+	})
 }
 
 func TestQueryWithBw(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	// TODO: use testplanet
-
-	service := pointerdb.NewService(zap.NewNop(), teststore.New())
-	overlayServer := mocks.NewOverlay([]*pb.Node{})
-
-	db, err := satellitedb.NewInMemory()
-	assert.NoError(t, err)
-	defer ctx.Check(db.Close)
-
-	assert.NoError(t, db.CreateTables())
-
-	bwDb := db.BandwidthAgreement()
-	tally := tally.New(zap.NewNop(), db.Accounting(), bwDb, service, overlayServer, 0, time.Second)
-
-	//get a private key
-	fiC, err := testidentity.NewTestIdentity(ctx)
-	assert.NoError(t, err)
-
-	makeBWA(ctx, t, bwDb, fiC, pb.BandwidthAction_PUT)
-	makeBWA(ctx, t, bwDb, fiC, pb.BandwidthAction_GET)
-	makeBWA(ctx, t, bwDb, fiC, pb.BandwidthAction_GET_AUDIT)
-	makeBWA(ctx, t, bwDb, fiC, pb.BandwidthAction_GET_REPAIR)
-	makeBWA(ctx, t, bwDb, fiC, pb.BandwidthAction_PUT_REPAIR)
-
-	//check the db
-	err = tally.QueryBW(ctx)
-	assert.NoError(t, err)
+	runPlanet(t, func(ctx context.Context, planet *testplanet.Planet) {
+		tally := planet.Satellites[0].Accounting.Tally
+		makeBWAs(ctx, t, planet)
+		//check the db
+		tallyEnd, bwTotals, err := tally.QueryBW(ctx)
+		require.NoError(t, err)
+		require.Len(t, bwTotals, 1)
+		for id, nodeTotals := range bwTotals {
+			require.Len(t, nodeTotals, 5)
+			for _, total := range nodeTotals {
+				require.Equal(t, planet.StorageNodes[0].Identity.ID, id)
+				require.Equal(t, int64(1000), total)
+			}
+		}
+		err = tally.SaveBWRaw(ctx, tallyEnd, bwTotals)
+		require.NoError(t, err)
+	})
 }
 
-func makeBWA(ctx context.Context, t *testing.T, bwDb bwagreement.DB, fiC *identity.FullIdentity, action pb.BandwidthAction) {
-	//generate an agreement with the key
-	pba, err := testbwagreement.GeneratePayerBandwidthAllocation(action, fiC, fiC, time.Hour)
-	assert.NoError(t, err)
-	rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, teststorj.NodeIDFromString("StorageNodeID"), fiC, 666)
-	assert.NoError(t, err)
-	//save to db
-	err = bwDb.CreateAgreement(ctx, rba)
-	assert.NoError(t, err)
+func makeBWAs(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
+	satID := planet.Satellites[0].Identity
+	upID := planet.Uplinks[0].Identity
+	snID := planet.StorageNodes[0].Identity
+	sender := planet.StorageNodes[0].Agreements.Sender
+	actions := []pb.BandwidthAction{pb.BandwidthAction_PUT, pb.BandwidthAction_GET,
+		pb.BandwidthAction_GET_AUDIT, pb.BandwidthAction_GET_REPAIR, pb.BandwidthAction_PUT_REPAIR}
+	agreements := make([]*psdb.Agreement, len(actions))
+	for i, action := range actions {
+		pba, err := testbwagreement.GeneratePayerBandwidthAllocation(action, satID, upID, time.Hour)
+		require.NoError(t, err)
+		rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, 1000)
+		require.NoError(t, err)
+		agreements[i] = &psdb.Agreement{Agreement: *rba}
+	}
+	sender.SendAgreementsToSatellite(ctx, satID.ID, agreements)
+
 }

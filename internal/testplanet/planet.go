@@ -60,9 +60,27 @@ type Peer interface {
 	NewNodeClient() (node.Client, error)
 }
 
+// Config describes planet configuration
+type Config struct {
+	SatelliteCount   int
+	StorageNodeCount int
+	UplinkCount      int
+
+	Identities  *Identities
+	Reconfigure Reconfigure
+}
+
+// Reconfigure allows to change node configurations
+type Reconfigure struct {
+	Bootstrap   func(planet *Planet, index int, config *bootstrap.Config)
+	Satellite   func(planet *Planet, index int, config *satellite.Config)
+	StorageNode func(planet *Planet, index int, config *storagenode.Config)
+}
+
 // Planet is a full storj system setup.
 type Planet struct {
 	log       *zap.Logger
+	config    Config
 	directory string // TODO: ensure that everything is in-memory to speed things up
 	started   bool
 
@@ -94,9 +112,23 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 
 // NewWithLogger creates a new full system with the given number of nodes.
 func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+	return NewCustom(log, Config{
+		SatelliteCount:   satelliteCount,
+		StorageNodeCount: storageNodeCount,
+		UplinkCount:      uplinkCount,
+	})
+}
+
+// NewCustom creates a new full system with the specified configuration.
+func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
+	if config.Identities == nil {
+		config.Identities = pregeneratedIdentities
+	}
+
 	planet := &Planet{
 		log:        log,
-		identities: NewPregeneratedIdentities(),
+		config:     config,
+		identities: config.Identities,
 	}
 
 	var err error
@@ -110,28 +142,32 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Satellites, err = planet.newSatellites(satelliteCount)
+	planet.Satellites, err = planet.newSatellites(config.SatelliteCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.StorageNodes, err = planet.newStorageNodes(storageNodeCount)
+	planet.StorageNodes, err = planet.newStorageNodes(config.StorageNodeCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Uplinks, err = planet.newUplinks("uplink", uplinkCount, storageNodeCount)
+	planet.Uplinks, err = planet.newUplinks("uplink", config.UplinkCount, config.StorageNodeCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
 	// init Satellites
 	for _, satellite := range planet.Satellites {
-		satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+		if len(satellite.Kademlia.Service.GetBootstrapNodes()) == 0 {
+			satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+		}
 	}
 	// init storage nodes
 	for _, storageNode := range planet.StorageNodes {
-		storageNode.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+		if len(storageNode.Kademlia.Service.GetBootstrapNodes()) == 0 {
+			storageNode.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+		}
 	}
 
 	return planet, nil
@@ -308,6 +344,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Address: "127.0.0.1:0",
 			},
 		}
+		if planet.config.Reconfigure.Satellite != nil {
+			planet.config.Reconfigure.Satellite(planet, i, &config)
+		}
 
 		// TODO: for development only
 		config.Console.StaticDir = "./web/satellite"
@@ -386,6 +425,9 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 				CollectorInterval:            time.Hour,
 			},
 		}
+		if planet.config.Reconfigure.StorageNode != nil {
+			planet.config.Reconfigure.StorageNode(planet, i, &config)
+		}
 
 		peer, err := storagenode.New(log, identity, db, config)
 		if err != nil {
@@ -448,6 +490,9 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 			},
 		},
 	}
+	if planet.config.Reconfigure.Bootstrap != nil {
+		planet.config.Reconfigure.Bootstrap(planet, 0, &config)
+	}
 
 	peer, err = bootstrap.New(log, identity, db, config)
 	if err != nil {
@@ -457,6 +502,11 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 	log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
 
 	return peer, nil
+}
+
+// Identities returns the identity provider for this planet.
+func (planet *Planet) Identities() *Identities {
+	return planet.identities
 }
 
 // NewIdentity creates a new identity for a node
