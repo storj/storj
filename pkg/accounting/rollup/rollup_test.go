@@ -105,7 +105,7 @@ func TestQuery(t *testing.T) {
 	}
 }
 
-// contains
+// contains checks for and removes items if found
 func contains(entry storj.NodeID, list []*storj.NodeID) bool {
 	for i, n := range list {
 		if n == nil {
