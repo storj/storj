@@ -62,11 +62,11 @@ func (m *lockedAccounting) GetRawSince(ctx context.Context, latestRollup time.Ti
 	return m.db.GetRawSince(ctx, latestRollup)
 }
 
-// LastRawTime records the latest last tallied time.
-func (m *lockedAccounting) LastRawTime(ctx context.Context, timestampType string) (time.Time, bool, error) {
+// LastTimestamp records the latest last tallied time.
+func (m *lockedAccounting) LastTimestamp(ctx context.Context, timestampType string) (time.Time, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.LastRawTime(ctx, timestampType)
+	return m.db.LastTimestamp(ctx, timestampType)
 }
 
 // QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
@@ -77,24 +77,24 @@ func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time
 }
 
 // SaveAtRestRaw records raw tallies of at-rest-data.
-func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.Time, isNew bool, nodeData map[storj.NodeID]float64) error {
+func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveAtRestRaw(ctx, latestTally, isNew, nodeData)
+	return m.db.SaveAtRestRaw(ctx, latestTally, nodeData)
 }
 
-// SaveBWRaw records raw sums of agreement values to the database and updates the LastRawTime.
-func (m *lockedAccounting) SaveBWRaw(ctx context.Context, latestBwa time.Time, isNew bool, bwTotals accounting.BWTally) error {
+// SaveBWRaw records raw sums of agreement values to the database and updates the LastTimestamp.
+func (m *lockedAccounting) SaveBWRaw(ctx context.Context, tallyEnd time.Time, bwTotals map[storj.NodeID][]int64) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveBWRaw(ctx, latestBwa, isNew, bwTotals)
+	return m.db.SaveBWRaw(ctx, tallyEnd, bwTotals)
 }
 
 // SaveRollup records raw tallies of at rest data to the database
-func (m *lockedAccounting) SaveRollup(ctx context.Context, latestTally time.Time, isNew bool, stats accounting.RollupStats) error {
+func (m *lockedAccounting) SaveRollup(ctx context.Context, latestTally time.Time, stats accounting.RollupStats) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveRollup(ctx, latestTally, isNew, stats)
+	return m.db.SaveRollup(ctx, latestTally, stats)
 }
 
 // BandwidthAgreement returns database for storing bandwidth agreements
@@ -117,18 +117,18 @@ func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.R
 	return m.db.CreateAgreement(ctx, a1)
 }
 
-// GetAgreements gets all bandwidth agreements.
-func (m *lockedBandwidthAgreement) GetAgreements(ctx context.Context) ([]bwagreement.Agreement, error) {
+// GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
+func (m *lockedBandwidthAgreement) GetTotals(ctx context.Context, a1 time.Time, a2 time.Time) (map[storj.NodeID][]int64, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetAgreements(ctx)
+	return m.db.GetTotals(ctx, a1, a2)
 }
 
-// GetAgreementsSince gets all bandwidth agreements since specific time.
-func (m *lockedBandwidthAgreement) GetAgreementsSince(ctx context.Context, a1 time.Time) ([]bwagreement.Agreement, error) {
+// GetTotals returns stats about an uplink
+func (m *lockedBandwidthAgreement) GetUplinkStats(ctx context.Context, a1 time.Time, a2 time.Time) ([]bwagreement.UplinkStat, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetAgreementsSince(ctx, a1)
+	return m.db.GetUplinkStats(ctx, a1, a2)
 }
 
 // Close closes the database
@@ -412,6 +412,13 @@ func (m *locked) CreateTables() error {
 	return m.db.CreateTables()
 }
 
+// DropSchema drops the schema
+func (m *locked) DropSchema(schema string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DropSchema(schema)
+}
+
 // Irreparable returns database for failed repairs
 func (m *locked) Irreparable() irreparable.DB {
 	m.Lock()
@@ -459,13 +466,6 @@ type lockedOverlayCache struct {
 	db overlay.DB
 }
 
-// FilterNodes looks up nodes based on reputation requirements
-func (m *lockedOverlayCache) FilterNodes(ctx context.Context, req *overlay.FilterNodesRequest) ([]*pb.Node, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.FilterNodes(ctx, req)
-}
-
 // Delete deletes node based on id
 func (m *lockedOverlayCache) Delete(ctx context.Context, id storj.NodeID) error {
 	m.Lock()
@@ -508,6 +508,20 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	return m.db.Paginate(ctx, offset, limit)
 }
 
+// SelectNewNodes looks up nodes based on new node criteria
+func (m *lockedOverlayCache) SelectNewNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SelectNewNodes(ctx, count, criteria)
+}
+
+// SelectNodes looks up nodes based on criteria
+func (m *lockedOverlayCache) SelectNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SelectNodes(ctx, count, criteria)
+}
+
 // Update updates node information
 func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 	m.Lock()
@@ -547,6 +561,13 @@ func (m *lockedRepairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.Inju
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Peekqueue(ctx, limit)
+}
+
+// SetSchema sets the schema
+func (m *locked) SetSchema(schema string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SetSchema(schema)
 }
 
 // StatDB returns database for storing node statistics

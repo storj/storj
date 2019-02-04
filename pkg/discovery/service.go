@@ -84,25 +84,25 @@ func (discovery *Discovery) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-refresh.C:
-			discovery.log.Info("REFRESH STARTING")
+			discovery.log.Info("starting refresh")
 			err := discovery.refresh(ctx)
 			if err != nil {
-				discovery.log.Error("Error with cache refresh: ", zap.Error(err))
+				discovery.log.Error("error with cache refresh: ", zap.Error(err))
 			}
 		case <-discover.C:
-			discovery.log.Info("DISCOVERY STARTING")
+			discovery.log.Info("starting discovery")
 			err := discovery.discover(ctx)
 			if err != nil {
-				discovery.log.Error("Error with cache discovery: ", zap.Error(err))
+				discovery.log.Error("error with cache discovery: ", zap.Error(err))
 			}
 		case <-graveyard.C:
-			discovery.log.Info("GRAVEYARD RESURRECTION STARTING")
-			err := discovery.graveyard(ctx)
+			discovery.log.Info("starting graveyard search")
+			err := discovery.searchGraveyard(ctx)
 			if err != nil {
 				discovery.log.Error("graveyard resurrection failed")
 			}
 		case <-ctx.Done():
-			discovery.log.Info("DISCOVERY DONE FIRED")
+			discovery.log.Info("shutting down discovery service")
 			return ctx.Err()
 		default: // don't block
 		}
@@ -135,25 +135,25 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 	for _, node := range list {
 		ping, err := discovery.kad.Ping(ctx, *node)
 		if err != nil {
-			discovery.log.Info("could not ping node")
-			_, err := discovery.statdb.UpdateUptime(ctx, ping.Id, false)
+			discovery.log.Info("could not ping node", zap.String("ID", node.Id.String()), zap.Error(err))
+			_, err := discovery.statdb.UpdateUptime(ctx, node.Id, false)
 			if err != nil {
-				discovery.log.Error("could not update node uptime in statdb")
+				discovery.log.Error("could not update node uptime in statdb", zap.String("ID", node.Id.String()), zap.Error(err))
 			}
 			err = discovery.cache.Delete(ctx, node.Id)
 			if err != nil {
-				discovery.log.Error("deleting unresponsive node from cache:", zap.Error(err))
+				discovery.log.Error("deleting unresponsive node from cache", zap.String("ID", node.Id.String()), zap.Error(err))
 			}
 			continue
 		}
 
 		_, err = discovery.statdb.UpdateUptime(ctx, ping.Id, true)
 		if err != nil {
-			discovery.log.Error("could not update node uptime in statdb")
+			discovery.log.Error("could not update node uptime in statdb", zap.String("ID", ping.Id.String()), zap.Error(err))
 		}
 		err = discovery.cache.Put(ctx, ping.Id, ping)
 		if err != nil {
-			discovery.log.Error("could not put node into cache")
+			discovery.log.Error("could not put node into cache", zap.String("ID", ping.Id.String()), zap.Error(err))
 		}
 	}
 
@@ -163,8 +163,7 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 // graveyard attempts to ping all nodes in the Seen() map from Kademlia and adds them to the cache
 // if they respond. This is an attempt to resurrect nodes that may have gone offline in the last hour
 // and were removed from the cache due to an unsuccessful response.
-func (discovery *Discovery) graveyard(ctx context.Context) error {
-	discovery.log.Debug("starting node graveyard resurrection")
+func (discovery *Discovery) searchGraveyard(ctx context.Context) error {
 	seen := discovery.kad.Seen()
 	var errors utils.ErrorGroup
 

@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
@@ -18,18 +20,31 @@ type accountingDB struct {
 	db *dbx.DB
 }
 
-// LastRawTime records the greatest last tallied time
-func (db *accountingDB) LastRawTime(ctx context.Context, timestampType string) (time.Time, bool, error) {
-	lastTally, err := db.db.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
-	if lastTally == nil {
-		return time.Time{}, true, err
+// LastTimestamp records the greatest last tallied time
+func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string) (last time.Time, err error) {
+	// todo: use WithTx https://github.com/spacemonkeygo/dbx#transactions
+	tx, err := db.db.Open(ctx)
+	if err != nil {
+		return last, Error.Wrap(err)
 	}
-	return lastTally.Value, false, err
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		} else {
+			err = errs.Combine(err, tx.Rollback())
+		}
+	}()
+	lastTally, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
+	if lastTally == nil {
+		update := dbx.AccountingTimestamps_Value(time.Time{})
+		_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(timestampType), update)
+		return time.Time{}, err
+	}
+	return lastTally.Value, err
 }
 
-// SaveBWRaw records granular tallies (sums of bw agreement values) to the database
-// and updates the LastRawTime
-func (db *accountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, isNew bool, bwTotals accounting.BWTally) (err error) {
+// SaveBWRaw records granular tallies (sums of bw agreement values) to the database and updates the LastTimestamp
+func (db *accountingDB) SaveBWRaw(ctx context.Context, tallyEnd time.Time, bwTotals map[storj.NodeID][]int64) (err error) {
 	// We use the latest bandwidth agreement value of a batch of records as the start of the next batch
 	// todo:  consider finding the sum of bwagreements using SQL sum() direct against the bwa table
 	if len(bwTotals) == 0 {
@@ -48,11 +63,11 @@ func (db *accountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, isNe
 		}
 	}()
 	//create a granular record per node id
-	for actionType, bwActionTotals := range bwTotals {
-		for k, v := range bwActionTotals {
-			nID := dbx.AccountingRaw_NodeId(k.Bytes())
-			end := dbx.AccountingRaw_IntervalEndTime(latestBwa)
-			total := dbx.AccountingRaw_DataTotal(float64(v))
+	for nodeID, totals := range bwTotals {
+		for actionType, total := range totals {
+			nID := dbx.AccountingRaw_NodeId(nodeID.Bytes())
+			end := dbx.AccountingRaw_IntervalEndTime(tallyEnd)
+			total := dbx.AccountingRaw_DataTotal(float64(total))
 			dataType := dbx.AccountingRaw_DataType(actionType)
 			_, err = tx.Create_AccountingRaw(ctx, nID, end, total, dataType)
 			if err != nil {
@@ -61,19 +76,13 @@ func (db *accountingDB) SaveBWRaw(ctx context.Context, latestBwa time.Time, isNe
 		}
 	}
 	//save this batch's greatest time
-
-	if isNew {
-		update := dbx.AccountingTimestamps_Value(latestBwa)
-		_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
-	} else {
-		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestBwa)}
-		_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
-	}
+	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(tallyEnd)}
+	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
 	return err
 }
 
 // SaveAtRestRaw records raw tallies of at rest data to the database
-func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time, isNew bool, nodeData map[storj.NodeID]float64) error {
+func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) error {
 	if len(nodeData) == 0 {
 		return Error.New("In SaveAtRestRaw with empty nodeData")
 	}
@@ -98,14 +107,8 @@ func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time
 			return Error.Wrap(err)
 		}
 	}
-
-	if isNew {
-		update := dbx.AccountingTimestamps_Value(latestTally)
-		_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(accounting.LastAtRestTally), update)
-	} else {
-		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestTally)}
-		_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastAtRestTally), update)
-	}
+	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestTally)}
+	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastAtRestTally), update)
 	return Error.Wrap(err)
 }
 
@@ -152,7 +155,7 @@ func (db *accountingDB) GetRawSince(ctx context.Context, latestRollup time.Time)
 }
 
 // SaveRollup records raw tallies of at rest data to the database
-func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, isNew bool, stats accounting.RollupStats) error {
+func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, stats accounting.RollupStats) error {
 	if len(stats) == 0 {
 		return Error.New("In SaveRollup with empty nodeData")
 	}
@@ -183,13 +186,8 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 			}
 		}
 	}
-	if isNew {
-		update := dbx.AccountingTimestamps_Value(latestRollup)
-		_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup), update)
-	} else {
-		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestRollup)}
-		_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup), update)
-	}
+	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestRollup)}
+	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup), update)
 	return Error.Wrap(err)
 }
 
