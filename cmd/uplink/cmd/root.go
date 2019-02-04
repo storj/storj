@@ -11,28 +11,17 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 )
 
-// Config is miniogw.Config configuration
-type Config struct {
-	miniogw.Config
-}
+var cfg UplinkFlags
 
-var cfg Config
-
-// CLICmd represents the base CLI command when called without any subcommands
-var CLICmd = &cobra.Command{
+// RootCmd represents the base CLI command when called without any subcommands
+var RootCmd = &cobra.Command{
 	Use:   "uplink",
 	Short: "The Storj client-side CLI",
-}
-
-// GWCmd represents the base gateway command when called without any subcommands
-var GWCmd = &cobra.Command{
-	Use:   "gateway",
-	Short: "The Storj client-side S3 gateway",
+	Args:  cobra.OnlyValidArgs,
 }
 
 func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
@@ -58,7 +47,7 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 //
 // Temporarily it also returns an instance of streams.Store until we improve
 // the metainfo and streas implementations.
-func (c *Config) Metainfo(ctx context.Context) (storj.Metainfo, streams.Store, error) {
+func (c *UplinkFlags) Metainfo(ctx context.Context) (storj.Metainfo, streams.Store, error) {
 	identity, err := c.Identity.Load()
 	if err != nil {
 		return nil, nil, err
