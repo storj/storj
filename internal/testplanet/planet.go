@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -89,18 +90,37 @@ type Planet struct {
 	directory string // TODO: ensure that everything is in-memory to speed things up
 	started   bool
 
-	peers     []Peer
+	peers     []closablePeer
 	databases []io.Closer
-	nodes     []*Node
+	uplinks   []*Uplink
 
 	Bootstrap    *bootstrap.Peer
 	Satellites   []*satellite.Peer
 	StorageNodes []*storagenode.Peer
-	Uplinks      []*Node
+	Uplinks      []*Uplink
 
 	identities *Identities
 
 	cancel func()
+}
+
+type closablePeer struct {
+	peer Peer
+
+	ctx    context.Context
+	cancel func()
+
+	close sync.Once
+	err   error
+}
+
+// Close closes safely the peer.
+func (peer *closablePeer) Close() error {
+	peer.cancel()
+	peer.close.Do(func() {
+		peer.err = peer.peer.Close()
+	})
+	return peer.err
 }
 
 // New creates a new full system with the given number of nodes.
@@ -157,7 +177,7 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Uplinks, err = planet.newUplinks("uplink", config.UplinkCount)
+	planet.Uplinks, err = planet.newUplinks("uplink", config.UplinkCount, config.StorageNodeCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
@@ -183,9 +203,11 @@ func (planet *Planet) Start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	planet.cancel = cancel
 
-	for _, peer := range planet.peers {
-		go func(peer Peer) {
-			err := peer.Run(ctx)
+	for i := range planet.peers {
+		peer := &planet.peers[i]
+		peer.ctx, peer.cancel = context.WithCancel(ctx)
+		go func(peer *closablePeer) {
+			err := peer.peer.Run(peer.ctx)
 			if err == grpc.ErrServerStopped {
 				err = nil
 			}
@@ -206,8 +228,19 @@ func (planet *Planet) Start(ctx context.Context) {
 	}
 }
 
+// StopPeer stops a single peer in the planet
+func (planet *Planet) StopPeer(peer Peer) error {
+	for i := range planet.peers {
+		p := &planet.peers[i]
+		if p.peer == peer {
+			return p.Close()
+		}
+	}
+	return errors.New("unknown peer")
+}
+
 // Size returns number of nodes in the network
-func (planet *Planet) Size() int { return len(planet.nodes) + len(planet.peers) }
+func (planet *Planet) Size() int { return len(planet.uplinks) + len(planet.peers) }
 
 // Shutdown shuts down all the nodes and deletes temporary directories.
 func (planet *Planet) Shutdown() error {
@@ -218,12 +251,12 @@ func (planet *Planet) Shutdown() error {
 
 	var errlist errs.Group
 	// shutdown in reverse order
-	for i := len(planet.nodes) - 1; i >= 0; i-- {
-		node := planet.nodes[i]
+	for i := len(planet.uplinks) - 1; i >= 0; i-- {
+		node := planet.uplinks[i]
 		errlist.Add(node.Shutdown())
 	}
 	for i := len(planet.peers) - 1; i >= 0; i-- {
-		peer := planet.peers[i]
+		peer := &planet.peers[i]
 		errlist.Add(peer.Close())
 	}
 	for _, db := range planet.databases {
@@ -235,14 +268,14 @@ func (planet *Planet) Shutdown() error {
 }
 
 // newUplinks creates initializes uplinks
-func (planet *Planet) newUplinks(prefix string, count int) ([]*Node, error) {
-	var xs []*Node
+func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]*Uplink, error) {
+	var xs []*Uplink
 	for i := 0; i < count; i++ {
-		node, err := planet.newUplink(prefix + strconv.Itoa(i))
+		uplink, err := planet.newUplink(prefix+strconv.Itoa(i), storageNodeCount)
 		if err != nil {
 			return nil, err
 		}
-		xs = append(xs, node)
+		xs = append(xs, uplink)
 	}
 
 	return xs, nil
@@ -253,7 +286,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 	var xs []*satellite.Peer
 	defer func() {
 		for _, x := range xs {
-			planet.peers = append(planet.peers, x)
+			planet.peers = append(planet.peers, closablePeer{peer: x})
 		}
 	}()
 
@@ -377,7 +410,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 	var xs []*storagenode.Peer
 	defer func() {
 		for _, x := range xs {
-			planet.peers = append(planet.peers, x)
+			planet.peers = append(planet.peers, closablePeer{peer: x})
 		}
 	}()
 
@@ -458,7 +491,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 // newBootstrap initializes the bootstrap node
 func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 	defer func() {
-		planet.peers = append(planet.peers, peer)
+		planet.peers = append(planet.peers, closablePeer{peer: peer})
 	}()
 
 	prefix := "bootstrap"
