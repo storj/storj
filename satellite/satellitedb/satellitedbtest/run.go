@@ -6,9 +6,9 @@ package satellitedbtest
 // This package should be referenced only in test files!
 
 import (
-	"crypto/rand"
 	"encoding/hex"
 	"flag"
+	"math/rand"
 	"os"
 	"testing"
 
@@ -46,6 +46,9 @@ func Databases() []Database {
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
 func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
+	schemaSuffix := randomSchemaSuffix()
+	t.Log("schema-suffix ", schemaSuffix)
+
 	for _, dbInfo := range Databases() {
 		t.Run(dbInfo.Name, func(t *testing.T) {
 			if dbInfo.URL == "" {
@@ -57,15 +60,15 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 				t.Fatal(err)
 			}
 
-			schemaName := randomSchemaName() // TODO: create schema name based on t.Name()
+			schema := t.Name() + "-satellite/x-" + schemaSuffix
 
-			err = db.SetSchema(schemaName)
+			err = db.SetSchema(schema)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			defer func() {
-				dropErr := db.DropSchema(schemaName)
+				dropErr := db.DropSchema(schema)
 				err := errs.Combine(dropErr, db.Close())
 				if err != nil {
 					t.Fatal(err)
@@ -82,8 +85,8 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 	}
 }
 
-func randomSchemaName() string {
+func randomSchemaSuffix() string {
 	var data [8]byte
 	_, _ = rand.Read(data[:])
-	return "s" + hex.EncodeToString(data[:])
+	return hex.EncodeToString(data[:])
 }

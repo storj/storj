@@ -4,6 +4,8 @@
 package testplanet
 
 import (
+	"encoding/hex"
+	"math/rand"
 	"strconv"
 	"testing"
 
@@ -19,6 +21,9 @@ import (
 
 // Run runs testplanet in multiple configurations.
 func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.Context, planet *Planet)) {
+	schemaSuffix := randomSchemaSuffix()
+	t.Log("schema-suffix ", schemaSuffix)
+
 	for _, satelliteDB := range satellitedbtest.Databases() {
 		t.Run(satelliteDB.Name, func(t *testing.T) {
 			ctx := testcontext.New(t)
@@ -36,7 +41,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 					t.Fatal(err)
 				}
 
-				schema := satelliteDB.Name + "-" + strconv.Itoa(index)
+				schema := t.Name() + "-satellite/" + strconv.Itoa(index) + "-" + schemaSuffix
 
 				err = db.SetSchema(schema)
 				if err != nil {
@@ -73,4 +78,10 @@ func (db *satelliteSchema) Close() error {
 		db.DB.DropSchema(db.schema),
 		db.DB.Close(),
 	)
+}
+
+func randomSchemaSuffix() string {
+	var data [8]byte
+	_, _ = rand.Read(data[:])
+	return hex.EncodeToString(data[:])
 }
