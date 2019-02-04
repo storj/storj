@@ -14,24 +14,39 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-func TestQueryOneDay(t *testing.T) {
+func TestQuery(t *testing.T) {
 	tests := []struct {
-		expected int
-		rest     float64
-		bw       []int64
+		days  int
+		rest  float64
+		bw    []int64
+		nodes int
 	}{
 		{
-			expected: 0,
-			rest:     float64(5000),
-			bw:       []int64{1000, 2000, 3000, 4000},
+			days:  1,
+			rest:  float64(5000),
+			bw:    []int64{1000, 2000, 3000, 4000},
+			nodes: 4,
 		},
+		{
+			days:  2,
+			rest:  float64(10000),
+			bw:    []int64{2000, 4000, 6000, 8000},
+			nodes: 10,
+		},
+		// TODO: sum data totals per node in QueryPaymentInfo, then this should work
+		// {
+		// 	days:  3,
+		// 	rest:  float64(5000),
+		// 	bw:    []int64{1000, 2000, 3000, 4000},
+		// 	nodes: 10,
+		// },
 	}
 
 	for _, tt := range tests {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		planet, err := testplanet.New(t, 1, 4, 0)
+		planet, err := testplanet.New(t, 1, tt.nodes, 0)
 		assert.NoError(t, err)
 		defer ctx.Check(planet.Shutdown)
 
@@ -40,81 +55,38 @@ func TestQueryOneDay(t *testing.T) {
 
 		nodeData, bwTotals := createData(planet, tt.rest, tt.bw)
 
-		now := time.Now().UTC()
-		before := now.Add(time.Hour * -24)
+		// Set timestamp back by the number of days we want to save
+		timestamp := time.Now().UTC().AddDate(0, 0, -1*tt.days)
+		start := timestamp
 
-		err = planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, before, before, nodeData)
-		assert.NoError(t, err)
+		// Save data for n days
+		for i := 0; i < tt.days; i++ {
+			err = planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, timestamp, timestamp, nodeData)
+			assert.NoError(t, err)
 
-		err = planet.Satellites[0].DB.Accounting().SaveBWRaw(ctx, before, before, bwTotals)
-		assert.NoError(t, err)
+			err = planet.Satellites[0].DB.Accounting().SaveBWRaw(ctx, timestamp, timestamp, bwTotals)
+			assert.NoError(t, err)
 
-		err = planet.Satellites[0].Accounting.Rollup.Query(ctx)
-		assert.NoError(t, err)
+			// Advance time by 24 hours
+			timestamp = timestamp.Add(time.Hour * 24)
+		}
 
-		// rollup.Query cuts off the hr/min/sec before saving, we need to do the same when querying
-		now = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-		before = time.Date(before.Year(), before.Month(), before.Day(), 0, 0, 0, 0, before.Location())
-
-		rows, err := planet.Satellites[0].DB.Accounting().QueryPaymentInfo(ctx, before, now)
-		assert.NoError(t, err)
-		assert.Equal(t, tt.expected, len(rows))
-	}
-}
-
-func TestQueryTwoDays(t *testing.T) {
-	tests := []struct {
-		expected int
-		rest     float64
-		bw       []int64
-	}{
-		{
-			expected: 4,
-			rest:     float64(5000),
-			bw:       []int64{1000, 2000, 3000, 4000},
-		},
-	}
-
-	for _, tt := range tests {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		planet, err := testplanet.New(t, 1, 4, 0)
-		assert.NoError(t, err)
-		defer ctx.Check(planet.Shutdown)
-
-		planet.Start(ctx)
-		time.Sleep(2 * time.Second)
-
-		nodeData, bwTotals := createData(planet, tt.rest, tt.bw)
-
-		now := time.Now().UTC()
-		before := now.Add(time.Hour * -24)
-
-		// Save data for day 1
-		err = planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, before, before, nodeData)
-		assert.NoError(t, err)
-
-		err = planet.Satellites[0].DB.Accounting().SaveBWRaw(ctx, before, before, bwTotals)
-		assert.NoError(t, err)
-
-		// Save data for day 2
-		err = planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, now, now, nodeData)
-		assert.NoError(t, err)
-
-		err = planet.Satellites[0].DB.Accounting().SaveBWRaw(ctx, now, now, bwTotals)
-		assert.NoError(t, err)
+		end := timestamp
 
 		err = planet.Satellites[0].Accounting.Rollup.Query(ctx)
 		assert.NoError(t, err)
 
 		// rollup.Query cuts off the hr/min/sec before saving, we need to do the same when querying
-		now = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-		before = time.Date(before.Year(), before.Month(), before.Day(), 0, 0, 0, 0, before.Location())
+		start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+		end = time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, end.Location())
 
-		rows, err := planet.Satellites[0].DB.Accounting().QueryPaymentInfo(ctx, before, now)
-		assert.Equal(t, 4, len(rows))
+		rows, err := planet.Satellites[0].DB.Accounting().QueryPaymentInfo(ctx, start, end)
 		assert.NoError(t, err)
+		if tt.days <= 1 {
+			assert.Equal(t, 0, len(rows))
+			continue
+		}
+		assert.Equal(t, (tt.days-1)*tt.nodes, len(rows))
 
 		// verify data is correct
 		var nodeIDs []*storj.NodeID
