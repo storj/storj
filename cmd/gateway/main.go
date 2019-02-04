@@ -149,10 +149,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Fatal(err)
 	}
 
-	for _, flagname := range args {
-		return fmt.Errorf("Invalid argument %#v. Try 'uplink run'", flagname)
-	}
-
 	address := runCfg.Server.Address
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
