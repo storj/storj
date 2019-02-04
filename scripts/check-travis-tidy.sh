@@ -1,5 +1,4 @@
 #!/bin/bash
-set -ueo pipefail
 
 CHANGES=$(git diff --name-only $TRAVIS_COMMIT_RANGE -- go.mod go.sum) || CHANGES="fail"
 
