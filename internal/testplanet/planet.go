@@ -401,6 +401,9 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 		} else {
 			db, err = storagenodedb.NewInMemory(storageDir)
 		}
+		if err != nil {
+			return nil, err
+		}
 
 		err = db.CreateTables()
 		if err != nil {

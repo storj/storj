@@ -4,8 +4,8 @@
 package testplanet
 
 import (
+	"crypto/rand"
 	"encoding/hex"
-	"math/rand"
 	"strconv"
 	"testing"
 
@@ -51,7 +51,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 				return &satelliteSchema{
 					DB:     db,
 					schema: schema,
-				}, db.CreateTables()
+				}, nil
 			}
 			planetConfig.Reconfigure.NewStorageNodeDB = nil
 

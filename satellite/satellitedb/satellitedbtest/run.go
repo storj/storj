@@ -6,9 +6,9 @@ package satellitedbtest
 // This package should be referenced only in test files!
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"flag"
-	"math/rand"
 	"os"
 	"testing"
 
@@ -19,12 +19,14 @@ import (
 )
 
 const (
-	// postgres connstring that works with docker-compose
+	// DefaultPostgresConn is a connstring that works with docker-compose
 	DefaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
-	DefaultSqliteConn   = "sqlite3://file::memory:?mode=memory"
+	// DefaultSqliteConn is a connstring that is inmemory
+	DefaultSqliteConn = "sqlite3://file::memory:?mode=memory"
 )
 
 var (
+	// TestPostgres is flag for the postgres test database
 	TestPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
 )
 
