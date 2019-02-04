@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 
+	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
@@ -82,12 +83,13 @@ func (p *Server) Run(ctx context.Context) (err error) {
 		return next.Run(ctx, p)
 	}
 
+	var closeError error
 	go func() {
 		select {
 		case <-ctx.Done():
-			p.Close()
+			closeError = p.Close()
 		}
 	}()
 
-	return p.grpc.Serve(p.lis)
+	return errs.Combine(p.grpc.Serve(p.lis), closeError)
 }
