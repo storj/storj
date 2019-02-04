@@ -46,7 +46,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 				return &satelliteSchema{
 					DB:     db,
 					schema: schema,
-				}, err
+				}, db.CreateTables()
 			}
 			planetConfig.Reconfigure.NewStorageNodeDB = nil
 

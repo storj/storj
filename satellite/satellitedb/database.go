@@ -4,6 +4,8 @@
 package satellitedb
 
 import (
+	"strconv"
+
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/migrate"
@@ -61,8 +63,7 @@ func NewInMemory() (satellite.DB, error) {
 func (db *DB) SetSchema(schema string) error {
 	switch db.driver {
 	case "postgres":
-		// TODO: proper escaping
-		_, err := db.db.Exec("create schema " + schema + "; set search_path to " + schema + ";")
+		_, err := db.db.Exec(`create schema ` + quoteSchema(schema) + `; set search_path to ` + quoteSchema(schema) + `;`)
 		return err
 	}
 	return nil
@@ -72,10 +73,15 @@ func (db *DB) SetSchema(schema string) error {
 func (db *DB) DropSchema(schema string) error {
 	switch db.driver {
 	case "postgres":
-		_, err := db.db.Exec("drop schema " + schema + " cascade;")
+		_, err := db.db.Exec(`drop schema ` + quoteSchema(schema) + ` cascade;`)
 		return err
 	}
 	return nil
+}
+
+// quoteSchema quotes schema name such that it can be used in a postgres query
+func quoteSchema(schema string) string {
+	return strconv.QuoteToASCII(schema)
 }
 
 // BandwidthAgreement is a getter for bandwidth agreement repository

@@ -4,9 +4,12 @@ services:
     image: redis
   test-postgres:
     image: postgres
+    ports:
+    - 5432:5432
     environment:
     - POSTGRES_USER=storj
     - POSTGRES_PASSWORD=storj-pass
+    - POSTGRES_DB=teststorj
 
   satellite:
     image: storjlabs/satellite:${VERSION:-latest}
