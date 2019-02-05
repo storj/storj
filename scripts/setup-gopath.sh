@@ -11,9 +11,6 @@ if [[ "${GO111MODULE}" == on ]]; then
     cd ${TRAVIS_BUILD_DIR}
 fi
 
-pwd
-ls
-
 export GOSPACE_ROOT=$GOPATH
 export GOSPACE_PKG=storj.io/storj
 export GOSPACE_REPO=git@github.com:storj/storj/git
