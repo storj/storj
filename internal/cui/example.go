@@ -46,6 +46,6 @@ func main() {
 	}
 
 	if err := group.Wait(); err != nil {
-		fmt.Println(group.Wait())
+		fmt.Println(err)
 	}
 }

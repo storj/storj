@@ -15,6 +15,8 @@ import (
 
 var initialized = false
 
+const padding = 1
+
 // Point is a 2D coordinate in console
 //   X is the column
 //   Y is the row
@@ -48,7 +50,10 @@ func NewScreen() (*Screen, error) {
 	}
 
 	termbox.SetInputMode(termbox.InputEsc)
-	return &Screen{}, nil
+	screen := &Screen{}
+	screen.flushed.size.X, screen.flushed.size.Y = termbox.Size()
+	screen.pending.size = screen.flushed.size
+	return screen, nil
 }
 
 func (screen *Screen) markClosed() {
@@ -97,7 +102,14 @@ func (screen *Screen) Run() error {
 
 // Size returns the current size of the screen.
 func (screen *Screen) Size() (width, height int) {
-	return screen.pending.size.X, screen.pending.size.Y
+	width, height = screen.pending.size.X-2*padding, screen.pending.size.Y-2*padding
+	if width < 0 {
+		width = 0
+	}
+	if height < 0 {
+		height = 0
+	}
+	return width, height
 }
 
 // Write writes to the screen.
@@ -133,11 +145,11 @@ func (screen *Screen) blit(frame *frame) error {
 
 	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
 	scanner := bufio.NewScanner(bytes.NewReader(frame.content))
-	y := 0
-	for scanner.Scan() && y < frame.size.Y {
-		x := 0
+	y := padding
+	for scanner.Scan() && y < frame.size.Y-2*padding {
+		x := padding
 		for _, r := range scanner.Text() {
-			if x >= frame.size.X {
+			if x >= frame.size.X-2*padding {
 				break
 			}
 			termbox.SetCell(x, y, r, termbox.ColorDefault, termbox.ColorDefault)

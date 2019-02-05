@@ -254,7 +254,6 @@ func renderStats(screen *cui.Screen, stats []uint32) error {
 		_, err = fmt.Fprintf(w, format, args...)
 	}
 
-	printf(screen, "\n")
 	printf(screen, "batch identity creation\n")
 	printf(screen, "=======================\n\n")
 
