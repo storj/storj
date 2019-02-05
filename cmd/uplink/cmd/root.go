@@ -11,9 +11,20 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/metainfo"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 )
+
+// UplinkFlags configuration flags
+type UplinkFlags struct {
+	Identity      identity.Config
+	APIKey        string `default:"" help:"the api key to use for the satellite" setup:"true"`
+	SatelliteAddr string `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
+
+	metainfo.Config
+}
 
 var cfg UplinkFlags
 
