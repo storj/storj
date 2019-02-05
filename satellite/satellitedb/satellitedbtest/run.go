@@ -63,6 +63,8 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 
 	for _, dbInfo := range Databases() {
 		t.Run(dbInfo.Name, func(t *testing.T) {
+			t.Parallel()
+
 			if dbInfo.URL == "" {
 				t.Skipf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
 			}
