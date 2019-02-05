@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
@@ -267,7 +268,7 @@ func (planet *Planet) Shutdown() error {
 	return errlist.Err()
 }
 
-// newUplinks creates initializes uplinks
+// newUplinks creates initializes uplinks, requires peer to have at least one satellite
 func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]*Uplink, error) {
 	var xs []*Uplink
 	for i := 0; i < count; i++ {
@@ -386,7 +387,8 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Interval: 120 * time.Second,
 			},
 			Console: consoleweb.Config{
-				Address: "127.0.0.1:0",
+				Address:      "127.0.0.1:0",
+				PasswordCost: console.TestPasswordCost,
 			},
 		}
 		if planet.config.Reconfigure.Satellite != nil {
