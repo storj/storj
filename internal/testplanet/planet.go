@@ -18,8 +18,6 @@ import (
 	"sync"
 	"time"
 
-	"storj.io/storj/satellite/console"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -46,6 +44,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
