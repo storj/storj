@@ -320,6 +320,8 @@ github.com/tidwall/match v0.0.0-20171002075945-1731857f09b1 h1:pWIN9LOlFRCJFqWIO
 github.com/tidwall/match v0.0.0-20171002075945-1731857f09b1/go.mod h1:LujAq0jyVjBy028G1WhWfIzbpQfMO8bBZ6Tyb0+pL9E=
 github.com/vivint/infectious v0.0.0-20180906161625-e155e6eb3575 h1:t0v1w3EiqMhDYBFbzwSfUHivx3yOMJG7R7YUm1Amlh8=
 github.com/vivint/infectious v0.0.0-20180906161625-e155e6eb3575/go.mod h1:5oyMAv4hrBEKqBwORFsiqIrCNCmL2qcZLQTdJLYeYIc=
+github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b h1:dLkqBELopfQNhe8S9ucnSf+HhiUCgK/hPIjVG0f9GlY=
+github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b/go.mod h1:5oyMAv4hrBEKqBwORFsiqIrCNCmL2qcZLQTdJLYeYIc=
 github.com/yuin/gopher-lua v0.0.0-20180918061612-799fa34954fb h1:Jmfk7z2f/+gxVFAgPsJMuczO1uEIxZy6wytTdeZ49lg=
 github.com/yuin/gopher-lua v0.0.0-20180918061612-799fa34954fb/go.mod h1:aEV29XrmTYFr3CiRxZeGHpkvbwq+prZduBqMaascyCU=
 github.com/zeebo/admission v0.0.0-20180821192747-f24f2a94a40c h1:WoYvMZp+keiJz+ZogLAhwsUZvWe81W+mCnpfdgEUOl4=
