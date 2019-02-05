@@ -16,30 +16,29 @@ import (
 
 func TestQuery(t *testing.T) {
 	tests := []struct {
-		days  int
-		rest  float64
-		bw    []int64
-		nodes int
+		days   int
+		atRest float64
+		bw     []int64
+		nodes  int
 	}{
 		{
-			days:  1,
-			rest:  float64(5000),
-			bw:    []int64{1000, 2000, 3000, 4000},
-			nodes: 4,
+			days:   1,
+			atRest: float64(5000),
+			bw:     []int64{1000, 2000, 3000, 4000},
+			nodes:  4,
 		},
 		{
-			days:  2,
-			rest:  float64(10000),
-			bw:    []int64{2000, 4000, 6000, 8000},
-			nodes: 10,
+			days:   2,
+			atRest: float64(10000),
+			bw:     []int64{2000, 4000, 6000, 8000},
+			nodes:  10,
 		},
-		// TODO: sum data totals per node in QueryPaymentInfo, then this should work
-		// {
-		// 	days:  3,
-		// 	rest:  float64(5000),
-		// 	bw:    []int64{1000, 2000, 3000, 4000},
-		// 	nodes: 10,
-		// },
+		{
+			days:   3,
+			atRest: float64(5000),
+			bw:     []int64{1000, 2000, 3000, 4000},
+			nodes:  10,
+		},
 	}
 
 	for _, tt := range tests {
@@ -53,7 +52,7 @@ func TestQuery(t *testing.T) {
 		planet.Start(ctx)
 		time.Sleep(2 * time.Second)
 
-		nodeData, bwTotals := createData(planet, tt.rest, tt.bw)
+		nodeData, bwTotals := createData(planet, tt.atRest, tt.bw)
 
 		// Set timestamp back by the number of days we want to save
 		timestamp := time.Now().UTC().AddDate(0, 0, -1*tt.days)
@@ -86,37 +85,19 @@ func TestQuery(t *testing.T) {
 			assert.Equal(t, 0, len(rows))
 			continue
 		}
+		// TODO: once we sum data totals by node ID across rollups, number of rows should be number of nodes
 		assert.Equal(t, (tt.days-1)*tt.nodes, len(rows))
 
 		// verify data is correct
-		var nodeIDs []*storj.NodeID
-		for _, n := range planet.StorageNodes {
-			ptr := n.Identity.ID
-			nodeIDs = append(nodeIDs, &ptr)
-		}
 		for _, r := range rows {
 			assert.Equal(t, tt.bw[0], r.PutTotal)
 			assert.Equal(t, tt.bw[1], r.GetTotal)
 			assert.Equal(t, tt.bw[2], r.GetAuditTotal)
 			assert.Equal(t, tt.bw[3], r.GetRepairTotal)
-			assert.Equal(t, tt.rest, r.AtRestTotal)
-			assert.True(t, contains(r.NodeID, nodeIDs))
+			assert.Equal(t, tt.atRest, r.AtRestTotal)
+			assert.NotNil(t, nodeData[r.NodeID])
 		}
 	}
-}
-
-// contains checks for and removes items if found
-func contains(entry storj.NodeID, list []*storj.NodeID) bool {
-	for i, n := range list {
-		if n == nil {
-			continue
-		}
-		if entry == *n {
-			list[i] = nil
-			return true
-		}
-	}
-	return false
 }
 
 func createData(planet *testplanet.Planet, atRest float64, bw []int64) (nodeData map[storj.NodeID]float64, bwTotals map[storj.NodeID][]int64) {
