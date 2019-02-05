@@ -73,7 +73,24 @@ func (dialer *Dialer) Lookup(ctx context.Context, self pb.Node, ask pb.Node, fin
 }
 
 // Ping pings target.
-func (dialer *Dialer) Ping(ctx context.Context, target pb.Node) (pID *identity.PeerIdentity, err error) {
+func (dialer *Dialer) Ping(ctx context.Context, target pb.Node) (bool, error) {
+	if !dialer.limit.Lock() {
+		return false, context.Canceled
+	}
+	defer dialer.limit.Unlock()
+
+	conn, err := dialer.dial(ctx, target)
+	if err != nil {
+		return false, err
+	}
+
+	_, err = conn.client.Ping(ctx, &pb.PingRequest{})
+
+	return err == nil, errs.Combine(err, conn.disconnect())
+}
+
+// GetPeerID pings target.
+func (dialer *Dialer) GetPeerID(ctx context.Context, target pb.Node) (pID *identity.PeerIdentity, err error) {
 	if !dialer.limit.Lock() {
 		return nil, context.Canceled
 	}
