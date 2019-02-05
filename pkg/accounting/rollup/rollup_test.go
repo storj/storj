@@ -29,6 +29,9 @@ func TestOneDay(t *testing.T) {
 			atRest: float64(5000),
 			bw:     []int64{1000, 2000, 3000, 4000},
 		}
+
+		time.Sleep(time.Second * 2)
+
 		testQuery(t, ctx, test, planet)
 	})
 }
@@ -37,11 +40,15 @@ func TestTwoDays(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
 		test := &test{
 			days:   2,
 			atRest: float64(5000),
 			bw:     []int64{1000, 2000, 3000, 4000},
 		}
+
+		time.Sleep(time.Second * 2)
+
 		testQuery(t, ctx, test, planet)
 	})
 }
@@ -55,6 +62,9 @@ func TestThreeDays(t *testing.T) {
 			atRest: float64(5000),
 			bw:     []int64{1000, 2000, 3000, 4000},
 		}
+
+		time.Sleep(time.Second * 2)
+
 		testQuery(t, ctx, test, planet)
 	})
 }
