@@ -334,27 +334,3 @@ read all (
     where api_key.project_id = ?
     orderby asc api_key.name
 )
-
-model bucket_info (
-    key name
-
-    field project_id project.id cascade
-
-    field name text
-
-    field created_at    timestamp ( autoinsert )
-)
-
-create bucket_info ()
-delete bucket_info ( where bucket_info.name = ? )
-
-read one (
-    select bucket_info
-    where bucket_info.name = ?
-)
-
-read all (
-    select bucket_info
-    where bucket_info.project_id = ?
-    orderby asc bucket_info.name
-)

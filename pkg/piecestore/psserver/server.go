@@ -4,7 +4,9 @@
 package psserver
 
 import (
+	"context"
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/hmac"
 	"crypto/sha512"
 	"errors"
@@ -19,12 +21,12 @@ import (
 	"github.com/mr-tron/base58/base58"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/net/context"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls"
 	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/storj"
@@ -62,7 +64,7 @@ type Server struct {
 	pkey             crypto.PrivateKey
 	totalAllocated   int64 // TODO: use memory.Size
 	totalBwAllocated int64 // TODO: use memory.Size
-	whitelist        []storj.NodeID
+	whitelist        map[storj.NodeID]*ecdsa.PublicKey
 	verifier         auth.SignedMessageVerifier
 	kad              *kademlia.Kademlia
 }
@@ -121,14 +123,15 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 	}
 
 	// parse the comma separated list of approved satellite IDs into an array of storj.NodeIDs
-	var whitelist []storj.NodeID
+	whitelist := make(map[storj.NodeID]*ecdsa.PublicKey)
 	if config.SatelliteIDRestriction {
 		idStrings := strings.Split(config.WhitelistedSatelliteIDs, ",")
-		for i, s := range idStrings {
-			whitelist[i], err = storj.NodeIDFromString(s)
+		for _, s := range idStrings {
+			satID, err := storj.NodeIDFromString(s)
 			if err != nil {
 				return nil, err
 			}
+			whitelist[satID] = nil // we will set these later
 		}
 	}
 
@@ -294,7 +297,7 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAll
 	if err != nil || pba.UplinkId != pi.ID {
 		return auth.ErrBadID.New("Uplink Node ID: %s vs %s", pba.UplinkId, pi.ID)
 	}
-	//todo:  use whitelist for uplinks?
+
 	//todo:  use whitelist for satellites?
 	switch {
 	case len(pba.SerialNumber) == 0:
@@ -312,6 +315,10 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAll
 	if err := auth.VerifyMsg(rba, pba.UplinkId); err != nil {
 		return pb.ErrRenter.Wrap(err)
 	}
+	if !s.isWhitelisted(pba.SatelliteId) {
+		return pb.ErrPayer.Wrap(peertls.ErrVerifyCAWhitelist.New(""))
+	}
+	//todo: once the certs are removed from the PBA, use s.whitelist to check satellite signatures
 	if err := auth.VerifyMsg(&pba, pba.SatelliteId); err != nil {
 		return pb.ErrPayer.Wrap(err)
 	}
@@ -330,14 +337,25 @@ func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation, actionP
 	return nil
 }
 
-// approved returns true if a node ID exists in a list of approved node IDs
-func (s *Server) approved(id storj.NodeID) bool {
-	for _, n := range s.whitelist {
-		if n == id {
-			return true
-		}
+//isWhitelisted returns true if a node ID exists in a list of approved node IDs
+func (s *Server) isWhitelisted(id storj.NodeID) bool {
+	if len(s.whitelist) == 0 {
+		return true // don't whitelist if the whitelist is empty
 	}
-	return false
+	_, found := s.whitelist[id]
+	return found
+}
+
+func (s *Server) getPublicKey(ctx context.Context, id storj.NodeID) (*ecdsa.PublicKey, error) {
+	pID, err := s.kad.FetchPeerIdentity(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	ecdsa, ok := pID.Leaf.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, auth.ErrECDSA
+	}
+	return ecdsa, nil
 }
 
 func getBeginningOfMonth() time.Time {

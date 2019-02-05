@@ -288,7 +288,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Metainfo.Database = storelogger.New(peer.Log.Named("pdb"), db)
 		peer.Metainfo.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Metainfo.Database)
 		peer.Metainfo.Allocation = pointerdb.NewAllocationSigner(peer.Identity, config.PointerDB.BwExpiration)
-		peer.Metainfo.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"), peer.Metainfo.Service, peer.Metainfo.Allocation, peer.Overlay.Service, config.PointerDB, peer.Identity)
+		peer.Metainfo.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"),
+			peer.Metainfo.Service,
+			peer.Metainfo.Allocation,
+			peer.Overlay.Service,
+			config.PointerDB,
+			peer.Identity, peer.DB.Console().APIKeys())
+
 		pb.RegisterPointerDBServer(peer.Public.Server.GRPC(), peer.Metainfo.Endpoint)
 	}
 
@@ -344,7 +350,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Console.Service, err = console.NewService(peer.Log.Named("console:service"),
 			// TODO: use satellite key
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
-			peer.DB.Console())
+			peer.DB.Console(),
+			config.PasswordCost,
+		)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

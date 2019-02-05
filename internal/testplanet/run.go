@@ -26,6 +26,8 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 	for _, satelliteDB := range satellitedbtest.Databases() {
 		t.Run(satelliteDB.Name, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 
