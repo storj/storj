@@ -59,6 +59,7 @@ func GenerateKeys(ctx context.Context, minDifficulty uint16, concurrency int, fo
 					errchan <- err
 					return
 				}
+
 				done, err := found(k, id)
 				if err != nil {
 					errchan <- err

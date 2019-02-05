@@ -11,22 +11,19 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"text/tabwriter"
 
-	"github.com/mum4k/termdash"
-	"github.com/mum4k/termdash/container"
-	"github.com/mum4k/termdash/draw"
-	"github.com/mum4k/termdash/terminal/termbox"
-	"github.com/mum4k/termdash/terminalapi"
-	"github.com/mum4k/termdash/widgets/text"
-	"github.com/prometheus/common/log"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/cui"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
@@ -63,50 +60,66 @@ func init() {
 	cfgstruct.Bind(keyGenerateCmd.Flags(), &keyCfg)
 }
 
+var renderingMutex sync.Mutex
+
+func renderStats(screen *cui.Screen, stats []uint32) error {
+	renderingMutex.Lock()
+	defer renderingMutex.Unlock()
+
+	var err error
+	printf := func(w io.Writer, format string, args ...interface{}) {
+		if err != nil {
+			return
+		}
+		_, err = fmt.Fprintf(w, format, args...)
+	}
+
+	printf(screen, "\n")
+	printf(screen, " batch identity creation\n")
+	printf(screen, " =======================\n\n")
+
+	w := tabwriter.NewWriter(screen, 0, 2, 2, ' ', 0)
+	printf(w, "Difficulty\tCount\n")
+
+	for difficulty := 0; difficulty < len(stats); difficulty++ {
+		count := atomic.LoadUint32(&stats[difficulty])
+		if count == 0 {
+			continue
+		}
+		printf(w, "%d\t%d\n", difficulty, count)
+	}
+
+	err = errs.Combine(err, w.Flush())
+
+	return screen.Flush()
+}
+
 func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
+	ctx, cancel := context.WithCancel(process.Ctx(cmd))
+	defer cancel()
+
 	err = os.MkdirAll(keyCfg.OutputDir, os.FileMode(keyCfg.Permissions))
 	if err != nil {
 		return err
 	}
 
-	t, err := termbox.New()
+	var group errgroup.Group
+	defer func() {
+		err = errs.Combine(err, group.Wait())
+	}()
+
+	screen, err := cui.NewScreen()
 	if err != nil {
 		return err
 	}
-	defer t.Close()
-
-	ctx, cancel := context.WithCancel(process.Ctx(cmd))
-	quitter := func(k *terminalapi.Keyboard) {
-		if k.Key == 'q' || k.Key == 'Q' {
-			cancel()
-		}
-	}
-
-	textWidget := text.New()
-
-	c, err := container.New(t,
-		container.Border(draw.LineStyleLight),
-		container.BorderTitle(" batch identity generation | press \"q\" to quit "),
-		container.PlaceWidget(textWidget),
-	)
-
-	//ctrl, err := termdash.NewController(t, c)
-	//if err != nil {
-	//	return err
-	//}
-	go func() {
-		if err := termdash.Run(ctx, t, c, termdash.KeyboardSubscriber(quitter)); err != nil {
-			log.Fatal("termdash error: %s", err.Error())
-		}
-	}()
-
-	if err := updateStatus(nil, textWidget); err != nil {
-		return err
-	}
+	group.Go(func() error {
+		defer cancel()
+		err := screen.Run()
+		return errs.Combine(err, screen.Close())
+	})
 
 	counter := new(uint32)
-	diffCounts := make(map[uint16]*uint32)
+	diffCounts := [256]uint32{}
 	return identity.GenerateKeys(ctx, uint16(keyCfg.MinDifficulty), keyCfg.Concurrency,
 		func(k *ecdsa.PrivateKey, id storj.NodeID) (done bool, err error) {
 			difficulty, err := id.Difficulty()
@@ -114,13 +127,16 @@ func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
 				return false, err
 			}
 
-			if diffCounts[difficulty] == nil {
-				diffCounts[difficulty] = new(uint32)
+			if int(difficulty) > len(diffCounts) {
+				atomic.AddUint32(&diffCounts[len(diffCounts)-1], 1)
+			} else {
+				atomic.AddUint32(&diffCounts[difficulty], 1)
 			}
-			atomic.AddUint32(diffCounts[difficulty], 1)
-			if err := updateStatus(diffCounts, textWidget); err != nil {
+
+			if err := renderStats(screen, diffCounts[:]); err != nil {
 				return false, err
 			}
+
 			genName := fmt.Sprintf("gen-%02d-%d", difficulty, atomic.AddUint32(counter, 1))
 			dID := deferredIdentity{
 				path: filepath.Join(keyCfg.OutputDir, genName),
@@ -253,27 +269,6 @@ func writeToTar(tw *tar.Writer, name string, data []byte) error {
 
 	_, err = tw.Write(data)
 	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func updateStatus(counts map[uint16]*uint32, textWidget *text.Text) error {
-	textBuf := new(bytes.Buffer)
-	w := tabwriter.NewWriter(textBuf, 0, 2, 2, ' ', 0)
-	if _, err := fmt.Fprintf(w, "Difficulty\tCount\n"); err != nil {
-		return err
-	}
-	for diff, count := range counts {
-		if _, err := fmt.Fprintf(w, "%d\t%d\n", diff, atomic.LoadUint32(count)); err != nil {
-			return err
-		}
-	}
-	if err := w.Flush(); err != nil {
-		return err
-	}
-	textWidget.Reset()
-	if err := textWidget.Write(textBuf.String()); err != nil {
 		return err
 	}
 	return nil
