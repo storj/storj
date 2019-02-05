@@ -3,6 +3,13 @@ set -x
 mkdir -p ~/bin ~/cache
 export PATH=~/bin:$PATH
 
+if [[ "${GO111MODULE}" == on ]]; then
+    export GOMODULES=auto
+    mkdir -p $GOPATH/src/storj.io/storj
+    cp ${TRAVIS_BUILD_DIR} $GOPATH/src/storj.io/storj
+    export TRAVIS_BUILD_DIR=$GOPATH/src/storj.io/storj
+fi
+
 export GOSPACE_ROOT=$GOPATH
 export GOSPACE_PKG=storj.io/storj
 export GOSPACE_REPO=git@github.com:storj/storj/git
