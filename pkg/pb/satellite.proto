@@ -6,12 +6,15 @@ option go_package = "pb";
 
 package satellite;
 
+import "gogo.proto";
+
 service Satellite {
-    rpc Health(FileFealthRequest) returns (FileHealthResponse) {}
+    rpc Health(FileHealthRequest) returns (FileHealthResponse) {}
 }
   
-message FileFealthRequest {
-    bytes file_id = 1;
+message FileHealthRequest {
+    string file_name = 1;
+    bytes uplink_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];    // Uplink Identity
 }
 
 message FileHealthResponse {
