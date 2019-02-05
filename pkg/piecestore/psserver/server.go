@@ -337,8 +337,8 @@ func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation, actionP
 	return nil
 }
 
-//isOnWhitelist returns true if a node ID exists in a list of approved node IDs
-func (s *Server) isOnWhitelist(id storj.NodeID) bool {
+//isWhitelisted returns true if a node ID exists in a list of approved node IDs
+func (s *Server) isWhitelisted(id storj.NodeID) bool {
 	if len(s.whitelist) == 0 {
 		return true // don't whitelist if the whitelist is empty
 	}
@@ -347,7 +347,7 @@ func (s *Server) isOnWhitelist(id storj.NodeID) bool {
 }
 
 func (s *Server) getPublicKey(ctx context.Context, id storj.NodeID) (*ecdsa.PublicKey, error) {
-	pID, err := s.kad.GetPeerIdentity(ctx, id)
+	pID, err := s.kad.FetchPeerIdentity(ctx, id)
 	if err != nil {
 		return nil, err
 	}

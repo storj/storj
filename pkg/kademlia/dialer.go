@@ -88,8 +88,8 @@ func (dialer *Dialer) Ping(ctx context.Context, target pb.Node) (bool, error) {
 	return err == nil, errs.Combine(err, conn.disconnect())
 }
 
-// GetPeerID pings target.
-func (dialer *Dialer) GetPeerID(ctx context.Context, target pb.Node) (pID *identity.PeerIdentity, err error) {
+// FetchPeerIdentity connects to a node and returns its peer identity
+func (dialer *Dialer) FetchPeerIdentity(ctx context.Context, target pb.Node) (pID *identity.PeerIdentity, err error) {
 	if !dialer.limit.Lock() {
 		return nil, context.Canceled
 	}
