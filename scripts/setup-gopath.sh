@@ -6,7 +6,7 @@ export PATH=~/bin:$PATH
 if [[ "${GO111MODULE}" == on ]]; then
     export GOMODULES=auto
     mkdir -p $GOPATH/src/storj.io/storj
-    cp ${TRAVIS_BUILD_DIR} $GOPATH/src/storj.io/storj
+    cp -r ${TRAVIS_BUILD_DIR} $GOPATH/src/storj.io/storj
     export TRAVIS_BUILD_DIR=$GOPATH/src/storj.io/storj
     cd ${TRAVIS_BUILD_DIR}
 fi
