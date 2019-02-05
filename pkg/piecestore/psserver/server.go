@@ -315,7 +315,7 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAll
 	if err := auth.VerifyMsg(rba, pba.UplinkId); err != nil {
 		return pb.ErrRenter.Wrap(err)
 	}
-	if !s.isOnWhitelist(pba.SatelliteId) {
+	if !s.isWhitelisted(pba.SatelliteId) {
 		return pb.ErrPayer.Wrap(peertls.ErrVerifyCAWhitelist.New(""))
 	}
 	//todo: once the certs are removed from the PBA, use s.whitelist to check satellite signatures
