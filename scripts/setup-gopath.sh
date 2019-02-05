@@ -8,6 +8,7 @@ if [[ "${GO111MODULE}" == on ]]; then
     mkdir -p $GOPATH/src/storj.io/storj
     cp ${TRAVIS_BUILD_DIR} $GOPATH/src/storj.io/storj
     export TRAVIS_BUILD_DIR=$GOPATH/src/storj.io/storj
+    cd ${TRAVIS_BUILD_DIR}
 fi
 
 export GOSPACE_ROOT=$GOPATH
