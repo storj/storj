@@ -33,6 +33,8 @@ matrix:
         - redis
         - postgresql
       install:
+        - pwd
+        - ls
         - pushd ~
         - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mattn/goveralls
         - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mfridman/tparse
