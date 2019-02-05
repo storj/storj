@@ -188,6 +188,19 @@ func (k *Kademlia) WaitForBootstrap() {
 	k.bootstrapFinished.Wait()
 }
 
+// FetchPeerIdentity connects to a node and returns its peer identity
+func (k *Kademlia) FetchPeerIdentity(ctx context.Context, nodeID storj.NodeID) (*identity.PeerIdentity, error) {
+	if !k.lookups.Start() {
+		return nil, context.Canceled
+	}
+	defer k.lookups.Done()
+	node, err := k.FindNode(ctx, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	return k.dialer.FetchPeerIdentity(ctx, node)
+}
+
 // Ping checks that the provided node is still accessible on the network
 func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 	if !k.lookups.Start() {
@@ -270,20 +283,6 @@ func (k *Kademlia) Seen() []*pb.Node {
 	}
 	k.routingTable.mutex.Unlock()
 	return nodes
-}
-
-// GetIntroNode determines the best node to bootstrap a new node onto the network
-func GetIntroNode(addr string) (*pb.Node, error) {
-	if addr == "" {
-		addr = "bootstrap.storj.io:8080"
-	}
-	return &pb.Node{
-		Address: &pb.NodeAddress{
-			Transport: defaultTransport,
-			Address:   addr,
-		},
-		Type: pb.NodeType_BOOTSTRAP,
-	}, nil
 }
 
 // RunRefresh occasionally refreshes stale kad buckets

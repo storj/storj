@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
@@ -82,5 +83,19 @@ func (p *Server) Run(ctx context.Context) (err error) {
 		return next.Run(ctx, p)
 	}
 
-	return p.grpc.Serve(p.lis)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var group errgroup.Group
+	group.Go(func() error {
+		<-ctx.Done()
+		return p.Close()
+	})
+	group.Go(func() error {
+		err := p.grpc.Serve(p.lis)
+		cancel()
+		return err
+	})
+
+	return group.Wait()
 }

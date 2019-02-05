@@ -28,8 +28,8 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bwagreements (
 	serialnum TEXT NOT NULL,
-	data BLOB NOT NULL,
-	storage_node BLOB NOT NULL,
+	storage_node_id BLOB NOT NULL,
+	uplink_id BLOB NOT NULL,
 	action INTEGER NOT NULL,
 	total INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
@@ -106,12 +106,6 @@ CREATE TABLE api_keys (
 	PRIMARY KEY ( id ),
 	UNIQUE ( key ),
 	UNIQUE ( name, project_id )
-);
-CREATE TABLE bucket_infos (
-	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	name TEXT NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( name )
 );
 CREATE TABLE project_members (
 	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,

@@ -105,11 +105,6 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 		return errs.New("CA certificate and/or key already exits, NOT overwriting!")
 	}
 
-	ca, caerr := caConfig.Create(process.Ctx(cmd), os.Stdout)
-	if caerr != nil {
-		return caerr
-	}
-
 	identConfig := identity.SetupConfig{
 		CertPath: identCertPath,
 		KeyPath:  identKeyPath,
@@ -117,6 +112,11 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 
 	if identConfig.Status() != identity.NoCertNoKey {
 		return errs.New("Identity certificate and/or key already exits, NOT overwriting!")
+	}
+
+	ca, caerr := caConfig.Create(process.Ctx(cmd), os.Stdout)
+	if caerr != nil {
+		return caerr
 	}
 
 	_, iderr := identConfig.Create(ca)

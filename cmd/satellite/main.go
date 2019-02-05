@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"text/tabwriter"
 	"time"
 
@@ -18,9 +17,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -196,46 +193,10 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	//get all bandwidth agreements rows already ordered
-	baRows, err := database.BandwidthAgreement().GetAgreements(context.Background())
+	stats, err := database.BandwidthAgreement().GetUplinkStats(context.Background(), time.Time{}, time.Now())
 	if err != nil {
 		fmt.Printf("error reading satellite database %v: %v\n", diagCfg.Database, err)
 		return err
-	}
-
-	// Agreement is a struct that contains a bandwidth agreement and the associated signature
-	type UplinkSummary struct {
-		TotalBytes        int64
-		PutActionCount    int64
-		GetActionCount    int64
-		TotalTransactions int64
-		// additional attributes add here ...
-	}
-
-	// attributes per uplinkid
-	summaries := make(map[storj.NodeID]*UplinkSummary)
-	uplinkIDs := storj.NodeIDList{}
-
-	for _, baRow := range baRows {
-		// deserializing rbad you get payerbwallocation, total & storage node id
-		rbad := baRow.Agreement
-		pbad := rbad.PayerAllocation
-		uplinkID := pbad.UplinkId
-		summary, ok := summaries[uplinkID]
-		if !ok {
-			summaries[uplinkID] = &UplinkSummary{}
-			uplinkIDs = append(uplinkIDs, uplinkID)
-			summary = summaries[uplinkID]
-		}
-
-		// fill the summary info
-		summary.TotalBytes += rbad.Total
-		summary.TotalTransactions++
-		switch pbad.GetAction() {
-		case pb.BandwidthAction_PUT:
-			summary.PutActionCount++
-		case pb.BandwidthAction_GET:
-			summary.GetActionCount++
-		}
 	}
 
 	// initialize the table header (fields)
@@ -244,10 +205,8 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	fmt.Fprintln(w, "UplinkID\tTotal\t# Of Transactions\tPUT Action\tGET Action\t")
 
 	// populate the row fields
-	sort.Sort(uplinkIDs)
-	for _, uplinkID := range uplinkIDs {
-		summary := summaries[uplinkID]
-		fmt.Fprint(w, uplinkID, "\t", summary.TotalBytes, "\t", summary.TotalTransactions, "\t", summary.PutActionCount, "\t", summary.GetActionCount, "\t\n")
+	for _, s := range stats {
+		fmt.Fprint(w, s.NodeID, "\t", s.TotalBytes, "\t", s.TotalTransactions, "\t", s.PutActionCount, "\t", s.GetActionCount, "\t\n")
 	}
 
 	// display the data
