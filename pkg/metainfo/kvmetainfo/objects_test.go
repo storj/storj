@@ -8,12 +8,14 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	mathrand "math/rand"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/streams"
@@ -38,7 +40,7 @@ func TestCreateObject(t *testing.T) {
 		BlockSize: 1 * memory.KB.Int32(),
 	}
 
-	runTest(t, func(ctx context.Context, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if !assert.NoError(t, err) {
 			return
@@ -87,7 +89,7 @@ func TestCreateObject(t *testing.T) {
 }
 
 func TestGetObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if !assert.NoError(t, err) {
 			return
@@ -117,7 +119,7 @@ func TestGetObject(t *testing.T) {
 }
 
 func TestGetObjectStream(t *testing.T) {
-	runTest(t, func(ctx context.Context, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		// we wait a second for all the nodes to complete bootstrapping off the satellite
 		time.Sleep(2 * time.Second)
 
@@ -150,6 +152,16 @@ func TestGetObjectStream(t *testing.T) {
 
 		assertStream(ctx, t, db, streams, bucket, "empty-file", 0, []byte{})
 		assertStream(ctx, t, db, streams, bucket, "small-file", 4, []byte("test"))
+		assertStream(ctx, t, db, streams, bucket, "large-file", 32*memory.KB.Int64(), data)
+
+		// Stop randomly half of the storage nodes and remove them from satellite's overlay cache
+		perm := mathrand.Perm(len(planet.StorageNodes))
+		for i := 0; i < len(perm)/2; i++ {
+			assert.NoError(t, planet.StopPeer(planet.StorageNodes[i]))
+			assert.NoError(t, planet.Satellites[0].Overlay.Service.Delete(ctx, planet.StorageNodes[i].ID()))
+		}
+
+		// try downloading the large file again
 		assertStream(ctx, t, db, streams, bucket, "large-file", 32*memory.KB.Int64(), data)
 	})
 }
@@ -256,7 +268,7 @@ func assertRemoteSegment(t *testing.T, segment storj.Segment) {
 }
 
 func TestDeleteObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if !assert.NoError(t, err) {
 			return
@@ -282,7 +294,7 @@ func TestDeleteObject(t *testing.T) {
 }
 
 func TestListObjectsEmpty(t *testing.T) {
-	runTest(t, func(ctx context.Context, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if !assert.NoError(t, err) {
 			return
@@ -310,7 +322,7 @@ func TestListObjectsEmpty(t *testing.T) {
 }
 
 func TestListObjects(t *testing.T) {
-	runTest(t, func(ctx context.Context, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.Unencrypted})
 		if !assert.NoError(t, err) {
 			return
