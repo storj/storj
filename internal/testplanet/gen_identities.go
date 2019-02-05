@@ -9,7 +9,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/pem"
 	"flag"
 	"fmt"
 	"go/format"
@@ -58,7 +57,7 @@ func main() {
 		}
 
 		var keys bytes.Buffer
-		err = peertls.WriteKey(&keys, identity.Key)
+		err = peertls.WriteKeyPEM(&keys, identity.Key)
 		if err != nil {
 			panic(err)
 		}
@@ -85,14 +84,4 @@ func main() {
 	if err := file.Close(); err != nil {
 		panic(err)
 	}
-}
-
-func encodeBlocks(blocks ...*pem.Block) ([]byte, error) {
-	var buf bytes.Buffer
-	for _, block := range blocks {
-		if err := pem.Encode(&buf, block); err != nil {
-			return nil, err
-		}
-	}
-	return buf.Bytes(), nil
 }

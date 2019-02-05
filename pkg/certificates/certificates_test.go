@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
@@ -663,7 +664,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, signedChainBytes)
 
-	signedChain, err := identity.ParseCertChain(signedChainBytes)
+	signedChain, err := pkcrypto.CertsFromDER(signedChainBytes)
 	require.NoError(t, err)
 
 	assert.Equal(t, clientIdent.CA.RawTBSCertificate, signedChain[0].RawTBSCertificate)
@@ -829,7 +830,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 	require.NotNil(t, res)
 	require.NotEmpty(t, res.Chain)
 
-	signedChain, err := identity.ParseCertChain(res.Chain)
+	signedChain, err := pkcrypto.CertsFromDER(res.Chain)
 	require.NoError(t, err)
 
 	assert.Equal(t, clientIdent.CA.RawTBSCertificate, signedChain[0].RawTBSCertificate)
