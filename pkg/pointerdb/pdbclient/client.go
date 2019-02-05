@@ -101,7 +101,26 @@ func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Poi
 
 	atomic.StorePointer(&pdb.authorization, unsafe.Pointer(res.GetAuthorization()))
 
-	return res.GetPointer(), res.GetNodes(), res.GetPba(), nil
+	if res.GetPointer().GetType() == pb.Pointer_INLINE {
+		return res.GetPointer(), nodes, res.GetPba(), nil
+	}
+
+	pieces := res.GetPointer().GetRemote().GetRemotePieces()
+	nodes = make([]*pb.Node, len(pieces))
+
+	// fill missing nodes with nil values to match the size and order of remote pieces
+	j := 0
+	for i := 0; i < len(pieces); i++ {
+		if j == len(res.GetNodes()) {
+			break
+		}
+		if pieces[i].NodeId == res.GetNodes()[j].Id {
+			nodes[i] = res.GetNodes()[j]
+			j++
+		}
+	}
+
+	return res.GetPointer(), nodes, res.GetPba(), nil
 }
 
 // List is the interface to make a LIST request, needs StartingPathKey, Limit, and APIKey
