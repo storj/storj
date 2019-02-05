@@ -33,11 +33,14 @@ func init() {
 	cfgstruct.Bind(claimsCmd.Flags(), &claimsCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
-func cmdClaims(cmd *cobra.Command, args []string) error {
+func cmdClaims(cmd *cobra.Command, args []string) (err error) {
 	authDB, err := claimsCfg.NewAuthDB()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = authDB.Close()
+	}()
 
 	auths, err := authDB.List()
 	if err != nil {
@@ -68,7 +71,7 @@ func cmdClaims(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println(string(jsonBytes))
-	return nil
+	return err
 }
 
 type printableAuth struct {
@@ -77,9 +80,9 @@ type printableAuth struct {
 	Claim  *pClaim
 }
 type pClaim struct {
-	Addr      string
-	Timestamp string
-	NodeID    string
+	Addr   string
+	Time   string
+	NodeID string
 }
 
 func toPrintableAuth(a *certificates.Authorization) *printableAuth {
@@ -90,9 +93,9 @@ func toPrintableAuth(a *certificates.Authorization) *printableAuth {
 
 	if a.Claim != nil {
 		pAuth.Claim = &pClaim{
-			Timestamp: time.Unix(a.Claim.Timestamp, 0).String(),
-			Addr:      a.Claim.Addr,
-			NodeID:    a.Claim.Identity.ID.String(),
+			Time:   time.Unix(a.Claim.Timestamp, 0).String(),
+			Addr:   a.Claim.Addr,
+			NodeID: a.Claim.Identity.ID.String(),
 		}
 	}
 	return pAuth
