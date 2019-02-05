@@ -82,7 +82,6 @@ func TestOfflineNodes(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		time.Sleep(2 * time.Second)
-		time.Sleep(2 * time.Second)
 
 		const numberOfNodes = 10
 		nodeIDs := storj.NodeIDList{}
