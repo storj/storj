@@ -405,6 +405,13 @@ func (m *lockedUsers) Update(ctx context.Context, user *console.User) error {
 	return m.db.Update(ctx, user)
 }
 
+// CreateSchema sets the schema
+func (m *locked) CreateSchema(schema string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.CreateSchema(schema)
+}
+
 // CreateTables initializes the database
 func (m *locked) CreateTables() error {
 	m.Lock()
@@ -561,13 +568,6 @@ func (m *lockedRepairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.Inju
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Peekqueue(ctx, limit)
-}
-
-// SetSchema sets the schema
-func (m *locked) SetSchema(schema string) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.SetSchema(schema)
 }
 
 // StatDB returns database for storing node statistics
