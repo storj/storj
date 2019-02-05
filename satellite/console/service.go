@@ -87,6 +87,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 	}
 
 	u, err = s.store.Users().Insert(ctx, &User{
+		Email:        user.Email,
 		FirstName:    user.FirstName,
 		LastName:     user.LastName,
 		PasswordHash: hash,
@@ -94,6 +95,9 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 
 	// TODO: send "finish registration email" when email service will be ready
 	//activationToken, err := s.GenerateActivationToken(ctx, u.ID, email, u.CreatedAt.Add(tokenExpirationTime))
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	return u, err
 }
