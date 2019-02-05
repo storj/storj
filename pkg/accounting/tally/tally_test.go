@@ -33,7 +33,6 @@ func TestQueryWithBw(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sendGeneratedAgreements(ctx, t, planet)
-
 		tally := planet.Satellites[0].Accounting.Tally
 		tallyEnd, bwTotals, err := tally.QueryBW(ctx)
 		require.NoError(t, err)
