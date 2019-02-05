@@ -20,6 +20,8 @@ import (
 )
 
 func TestMergePlanets(t *testing.T) {
+	t.Skip("flaky")
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
