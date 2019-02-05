@@ -34,6 +34,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			log,
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
+			console.TestPasswordCost,
 		)
 
 		if err != nil {
