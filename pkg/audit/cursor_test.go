@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
@@ -27,11 +26,9 @@ import (
 func TestAuditSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, tctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// we wait a second for all the nodes to complete bootstrapping off the satellite
 		time.Sleep(2 * time.Second)
-
-		ctx := auth.WithAPIKey(tctx, nil)
 
 		type pathCount struct {
 			path  storj.Path
