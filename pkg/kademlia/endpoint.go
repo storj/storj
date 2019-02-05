@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
+// EndpointError defines errors class for Endpoint
 var EndpointError = errs.Class("kademlia endpoint error")
 
 // Endpoint implements the kademlia Endpoints
