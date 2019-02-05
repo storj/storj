@@ -15,7 +15,7 @@ import (
 
 var initialized = false
 
-const padding = 1
+const padding = 2
 
 // Point is a 2D coordinate in console
 //   X is the column
@@ -29,10 +29,10 @@ type Rect struct{ Min, Max Point }
 type Screen struct {
 	rendering sync.Mutex
 
-	mu      sync.Mutex
-	closed  bool
-	flushed frame
-	pending frame
+	blitting sync.Mutex
+	closed   bool
+	flushed  frame
+	pending  frame
 }
 
 type frame struct {
@@ -52,6 +52,7 @@ func NewScreen() (*Screen, error) {
 	}
 
 	termbox.SetInputMode(termbox.InputEsc)
+	termbox.HideCursor()
 	screen := &Screen{}
 	screen.flushed.size.X, screen.flushed.size.Y = termbox.Size()
 	screen.pending.size = screen.flushed.size
@@ -59,9 +60,15 @@ func NewScreen() (*Screen, error) {
 }
 
 func (screen *Screen) markClosed() {
-	screen.mu.Lock()
+	screen.blitting.Lock()
 	screen.closed = true
-	screen.mu.Unlock()
+	screen.blitting.Unlock()
+}
+
+func (screen *Screen) isClosed() bool {
+	screen.blitting.Lock()
+	defer screen.blitting.Unlock()
+	return screen.closed
 }
 
 // Close closes the screen.
@@ -78,7 +85,7 @@ func (screen *Screen) Close() error {
 func (screen *Screen) Run() error {
 	defer screen.markClosed()
 
-	for {
+	for !screen.isClosed() {
 		switch ev := termbox.PollEvent(); ev.Type {
 		case termbox.EventInterrupt:
 			// either screen refresh or close
@@ -92,15 +99,17 @@ func (screen *Screen) Run() error {
 		case termbox.EventError:
 			return ev.Err
 		case termbox.EventResize:
-			screen.mu.Lock()
+			screen.blitting.Lock()
 			screen.flushed.size.X, screen.flushed.size.Y = ev.Width, ev.Height
 			err := screen.blit(&screen.flushed)
-			screen.mu.Unlock()
+			screen.blitting.Unlock()
 			if err != nil {
 				return err
 			}
 		}
 	}
+
+	return nil
 }
 
 // Size returns the current size of the screen.
@@ -129,36 +138,38 @@ func (screen *Screen) Write(data []byte) (int, error) {
 
 // Flush flushes pending content to the console and clears for new frame.
 func (screen *Screen) Flush() error {
-	screen.mu.Lock()
+	screen.blitting.Lock()
 	var err error
 	if !screen.closed {
 		err = screen.blit(&screen.pending)
 	} else {
 		err = context.Canceled
 	}
-	screen.mu.Unlock()
-
 	screen.pending.content = nil
-	if err == nil {
-		screen.mu.Lock()
-		screen.pending.size.X, screen.pending.size.Y = termbox.Size()
-		screen.mu.Unlock()
-	}
+	screen.pending.size = screen.flushed.size
+	screen.blitting.Unlock()
 
 	return err
 }
 
 // blit writes content to the console
 func (screen *Screen) blit(frame *frame) error {
-	screen.flushed = *frame
+	screen.flushed.content = frame.content
+	size := screen.flushed.size
 
 	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
+
+	drawRect(Rect{
+		Min: Point{0, 0},
+		Max: size,
+	}, light)
+
 	scanner := bufio.NewScanner(bytes.NewReader(frame.content))
 	y := padding
-	for scanner.Scan() && y < frame.size.Y-2*padding {
+	for scanner.Scan() && y <= size.Y-2*padding {
 		x := padding
 		for _, r := range scanner.Text() {
-			if x >= frame.size.X-2*padding {
+			if x > size.X-2*padding {
 				break
 			}
 			termbox.SetCell(x, y, r, termbox.ColorDefault, termbox.ColorDefault)
@@ -168,4 +179,30 @@ func (screen *Screen) blit(frame *frame) error {
 	}
 
 	return termbox.Flush()
+}
+
+var light = [3][3]rune{
+	{'┌', '─', '┐'},
+	{'│', ' ', '│'},
+	{'└', '─', '┘'},
+}
+
+// drawRect draws a rectangle using termbox
+func drawRect(r Rect, style [3][3]rune) {
+	attr := termbox.ColorDefault
+
+	termbox.SetCell(r.Min.X, r.Min.Y, style[0][0], attr, attr)
+	termbox.SetCell(r.Max.X-1, r.Min.Y, style[0][2], attr, attr)
+	termbox.SetCell(r.Max.X-1, r.Max.Y-1, style[2][2], attr, attr)
+	termbox.SetCell(r.Min.X, r.Max.Y-1, style[2][0], attr, attr)
+
+	for x := r.Min.X + 1; x < r.Max.X-1; x++ {
+		termbox.SetCell(x, r.Min.Y, style[0][1], attr, attr)
+		termbox.SetCell(x, r.Max.Y-1, style[2][1], attr, attr)
+	}
+
+	for y := r.Min.Y + 1; y < r.Max.Y-1; y++ {
+		termbox.SetCell(r.Min.X, y, style[1][0], attr, attr)
+		termbox.SetCell(r.Max.X-1, y, style[1][2], attr, attr)
+	}
 }

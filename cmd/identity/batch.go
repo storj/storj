@@ -250,8 +250,7 @@ func renderStats(screen *cui.Screen, stats []uint32) error {
 		}
 	}
 
-	printf(screen, "Batch Identity Creation\n")
-	printf(screen, "=======================\n\n")
+	printf(screen, "Batch Identity Creation\n\n\n")
 
 	w := tabwriter.NewWriter(screen, 0, 2, 2, ' ', 0)
 	printf(w, "Difficulty\tCount\n")
