@@ -6,14 +6,13 @@ package kademlia
 import (
 	"context"
 
-	"storj.io/storj/pkg/identity"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/transport"
 )
