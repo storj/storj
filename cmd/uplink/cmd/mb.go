@@ -18,7 +18,7 @@ func init() {
 		Use:   "mb",
 		Short: "Create a new bucket",
 		RunE:  makeBucket,
-	}, CLICmd)
+	}, RootCmd)
 }
 
 func makeBucket(cmd *cobra.Command, args []string) error {

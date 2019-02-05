@@ -18,7 +18,7 @@ func init() {
 		Use:   "rb",
 		Short: "Remove an empty bucket",
 		RunE:  deleteBucket,
-	}, CLICmd)
+	}, RootCmd)
 }
 
 func deleteBucket(cmd *cobra.Command, args []string) error {
