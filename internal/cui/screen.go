@@ -162,7 +162,7 @@ func (screen *Screen) blit(frame *frame) error {
 	drawRect(Rect{
 		Min: Point{0, 0},
 		Max: size,
-	}, light)
+	}, lightStyle)
 
 	scanner := bufio.NewScanner(bytes.NewReader(frame.content))
 	y := padding
@@ -181,14 +181,16 @@ func (screen *Screen) blit(frame *frame) error {
 	return termbox.Flush()
 }
 
-var light = [3][3]rune{
+type rectStyle [3][3]rune
+
+var lightStyle = rectStyle{
 	{'┌', '─', '┐'},
 	{'│', ' ', '│'},
 	{'└', '─', '┘'},
 }
 
 // drawRect draws a rectangle using termbox
-func drawRect(r Rect, style [3][3]rune) {
+func drawRect(r Rect, style rectStyle) {
 	attr := termbox.ColorDefault
 
 	termbox.SetCell(r.Min.X, r.Min.Y, style[0][0], attr, attr)
