@@ -7,6 +7,7 @@ package testplanet
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -16,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"storj.io/storj/satellite/console"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -267,15 +270,47 @@ func (planet *Planet) Shutdown() error {
 	return errlist.Err()
 }
 
-// newUplinks creates initializes uplinks
+// newUplinks creates initializes uplinks, requires peer to have at least one satellite
 func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]*Uplink, error) {
 	var xs []*Uplink
-	for i := 0; i < count; i++ {
-		uplink, err := planet.newUplink(prefix+strconv.Itoa(i), storageNodeCount)
+	for j, satellite := range planet.Satellites {
+		// TODO: find a nicer way to do this
+		// populate satellites console with example
+		// project and API key and pass that to uplinks
+		consoleDB := satellite.DB.Console()
+
+		projectName := fmt.Sprintf("%d_example", j)
+		key := console.APIKeyFromBytes([]byte(projectName))
+
+		project, err := consoleDB.Projects().Insert(
+			context.Background(),
+			&console.Project{
+				Name: projectName,
+			},
+		)
 		if err != nil {
 			return nil, err
 		}
-		xs = append(xs, uplink)
+
+		_, err = consoleDB.APIKeys().Create(
+			context.Background(),
+			*key,
+			console.APIKeyInfo{
+				Name:      "root",
+				ProjectID: project.ID,
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		for i := 0; i < count; i++ {
+			uplink, err := planet.newUplink(prefix+strconv.Itoa(i), storageNodeCount, key.String())
+			if err != nil {
+				return nil, err
+			}
+			xs = append(xs, uplink)
+		}
 	}
 
 	return xs, nil

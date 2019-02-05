@@ -340,7 +340,7 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	apiKey := console.APIKey{}
@@ -352,7 +352,7 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 	// add api key to db
 	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey, apiKeyInfo)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	TestAPIKey = apiKey.String()

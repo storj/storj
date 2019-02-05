@@ -39,10 +39,11 @@ type Uplink struct {
 	Identity         *identity.FullIdentity
 	Transport        transport.Client
 	StorageNodeCount int
+	APIKey           string
 }
 
 // newUplink creates a new uplink
-func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, error) {
+func (planet *Planet) newUplink(name string, storageNodeCount int, apiKey string) (*Uplink, error) {
 	identity, err := planet.NewIdentity()
 	if err != nil {
 		return nil, err
@@ -52,6 +53,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		Log:              planet.log.Named(name),
 		Identity:         identity,
 		StorageNodeCount: storageNodeCount,
+		APIKey:           apiKey,
 	}
 
 	uplink.Log.Debug("id=" + identity.ID.String())
@@ -208,7 +210,7 @@ func (uplink *Uplink) getMetainfo(satellite *satellite.Peer) (db storj.Metainfo,
 		return nil, nil, err
 	}
 
-	pdb, err := uplink.DialPointerDB(satellite, "") // TODO pass api key?
+	pdb, err := uplink.DialPointerDB(satellite, uplink.APIKey) // TODO pass api key?
 	if err != nil {
 		return nil, nil, err
 	}
