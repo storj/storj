@@ -150,7 +150,7 @@ func TestGetObjectStream(t *testing.T) {
 
 		assertStream(ctx, t, db, streams, bucket, "empty-file", 0, []byte{})
 		assertStream(ctx, t, db, streams, bucket, "small-file", 4, []byte("test"))
-		assertStream(ctx, t, db, streams, bucket, "large-file", int64(32*memory.KB), data)
+		assertStream(ctx, t, db, streams, bucket, "large-file", 32*memory.KB.Int64(), data)
 	})
 }
 
@@ -205,7 +205,7 @@ func assertStream(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams 
 
 	assert.EqualValues(t, 0, segments[0].Index)
 	assert.EqualValues(t, len(content), segments[0].Size)
-	if segments[0].Size > int64(4*memory.KB) {
+	if segments[0].Size > 4*memory.KB.Int64() {
 		assertRemoteSegment(t, segments[0])
 	} else {
 		assertInlineSegment(t, segments[0], content)
