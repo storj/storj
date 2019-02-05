@@ -260,7 +260,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			err := createdAt.UnmarshalText([]byte(user[consoleql.FieldCreatedAt].(string)))
 
 			assert.NoError(t, err)
-			assert.Equal(t, rootUser.CreatedAt.UTC(), createdAt.UTC())
+			assert.True(t, rootUser.CreatedAt.Equal(createdAt))
 		})
 
 		t.Run("Change password mutation", func(t *testing.T) {
@@ -286,7 +286,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			err := createdAt.UnmarshalText([]byte(user[consoleql.FieldCreatedAt].(string)))
 
 			assert.NoError(t, err)
-			assert.Equal(t, rootUser.CreatedAt.UTC(), createdAt.UTC())
+			assert.True(t, rootUser.CreatedAt.Equal(createdAt))
 
 			oldHash := rootUser.PasswordHash
 
