@@ -38,7 +38,7 @@ type Config struct {
 	Address   string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
 	StaticDir string `help:"path to static resources" default:""`
 
-	PasswordCost int `help:"password hashing cost (0=automatic)" default:"0"`
+	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
 }
 
 // Server represents console web server
