@@ -74,6 +74,7 @@ func (screen *Screen) Close() error {
 	return nil
 }
 
+// Run runs the event loop
 func (screen *Screen) Run() error {
 	defer screen.markClosed()
 
