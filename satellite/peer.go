@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/endpoints"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
@@ -78,7 +79,8 @@ type Config struct {
 	Identity identity.Config
 
 	// TODO: switch to using server.Config when Identity has been removed from it
-	Server server.Config
+	Server          server.Config
+	SatelliteServer endpoints.Config
 
 	Kademlia  kademlia.Config
 	Overlay   overlay.Config
@@ -108,6 +110,7 @@ type Peer struct {
 	Public struct {
 		Listener net.Listener
 		Server   *server.Server
+		Endpoint *endpoints.Server
 	}
 
 	// services and endpoints
@@ -191,6 +194,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		pb.RegisterSatelliteServer(peer.Public.Server.GRPC(), peer.Public.Endpoint)
 	}
 
 	{ // setup kademlia

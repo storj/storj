@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellite_server
+package endpoints
 
 import (
 	"context"
@@ -36,7 +36,7 @@ func NewServer(logger *zap.Logger, config Config) *Server {
 func (s *Server) Close() error { return nil }
 
 // Put formats and hands off a key/value (path/pointer) to be saved to boltdb
-func (s *Server) Health(ctx context.Context, req *pb.FileFealthRequest) (resp *pb.FileHealthResponse, err error) {
+func (s *Server) Health(ctx context.Context, req *pb.FileHealthRequest) (resp *pb.FileHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return &pb.FileHealthResponse{}, nil
