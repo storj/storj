@@ -27,7 +27,6 @@ import (
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/teststore"
@@ -104,8 +103,7 @@ func TestPeerDiscovery(t *testing.T) {
 	}
 	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
 	assert.NoError(t, err)
-	rt, err := k.GetRoutingTable(ctx)
-	assert.NoError(t, err)
+	rt := k.GetRoutingTable()
 	assert.Equal(t, rt.Local().Metadata.Email, "foo@bar.com")
 	assert.Equal(t, rt.Local().Metadata.Wallet, "OperatorWallet")
 
@@ -176,7 +174,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	logger := zaptest.NewLogger(t)
 	k, err := newKademlia(logger, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
-	s := node.NewServer(logger, k)
+	s := NewEndpoint(logger, k, k.GetRoutingTable().(*RoutingTable))
 	// new ident opts
 	identOpt, err := fid.ServerOption()
 	assert.NoError(t, err)

@@ -119,10 +119,8 @@ func (k *Kademlia) FindNear(ctx context.Context, start storj.NodeID, limit int, 
 	return nodes, nil
 }
 
-// GetRoutingTable provides the routing table for the Kademlia DHT
-func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error) {
-	return k.routingTable, nil
-}
+// GetRoutingTable provides the assigned routing table
+func (k *Kademlia) GetRoutingTable() dht.RoutingTable { return k.routingTable }
 
 // SetBootstrapNodes sets the bootstrap nodes.
 // Must be called before anything starting to use kademlia.
