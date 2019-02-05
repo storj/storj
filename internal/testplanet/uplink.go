@@ -15,7 +15,6 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/metainfo"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
@@ -24,6 +23,7 @@ import (
 	"storj.io/storj/pkg/stream"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite"
+	"storj.io/storj/uplink"
 )
 
 // Uplink is a general purpose
@@ -107,7 +107,7 @@ func (uplink *Uplink) DialOverlay(destination Peer) (overlay.Client, error) {
 
 // Upload data to specific satellite
 func (uplink *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte) error {
-	config := uplink.getDefaultConfig(satellite)
+	config := getDefaultConfig(satellite, uplink.StorageNodeCount)
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
 		return err
@@ -162,7 +162,7 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 
 // Download data from specific satellite
 func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) ([]byte, error) {
-	config := uplink.getDefaultConfig(satellite)
+	config := getDefaultConfig(satellite, uplink.StorageNodeCount)
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
 		return []byte{}, err
@@ -183,22 +183,22 @@ func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 	return data, nil
 }
 
-func (uplink *Uplink) getDefaultConfig(satellite *satellite.Peer) metainfo.Config {
-	return metainfo.Config{
-		Enc: metainfo.EncryptionConfig{
+func getDefaultConfig(satellite *satellite.Peer, storageNodeCount int) uplink.Config {
+	return uplink.Config{
+		Enc: uplink.EncryptionConfig{
 			DataType:  int(storj.AESGCM),
 			BlockSize: 1 * memory.KiB,
 		},
-		RS: metainfo.RSConfig{
-			MinThreshold:     1 * uplink.StorageNodeCount / 5,
-			RepairThreshold:  2 * uplink.StorageNodeCount / 5,
-			SuccessThreshold: 3 * uplink.StorageNodeCount / 5,
-			MaxThreshold:     4 * uplink.StorageNodeCount / 5,
+		RS: uplink.RSConfig{
+			MinThreshold:     1 * storageNodeCount / 5,
+			RepairThreshold:  2 * storageNodeCount / 5,
+			SuccessThreshold: 3 * storageNodeCount / 5,
+			MaxThreshold:     4 * storageNodeCount / 5,
 
 			ErasureShareSize: 1 * memory.KiB,
 			MaxBufferMem:     4 * memory.MiB,
 		},
-		Client: metainfo.ClientConfig{
+		Client: uplink.ClientConfig{
 			OverlayAddr:   satellite.Addr(),
 			PointerDBAddr: satellite.Addr(),
 			MaxInlineSize: 4 * memory.KiB,

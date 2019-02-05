@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package metainfo
+package uplink
 
 import (
 	"context"
@@ -56,7 +56,7 @@ type ClientConfig struct {
 	SegmentSize   memory.Size `help:"the size of a segment in bytes" default:"64MiB"`
 }
 
-// Config metainfo configuration
+// Config uplink configuration
 type Config struct {
 	Client ClientConfig
 	RS     RSConfig
@@ -67,7 +67,7 @@ var (
 	mon = monkit.Package()
 
 	// Error is the errs class of standard End User Client errors
-	Error = errs.Class("Metainfo error")
+	Error = errs.Class("Uplink configuration error")
 )
 
 // GetMetainfo returns an implementation of storj.Metainfo
