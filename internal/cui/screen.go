@@ -157,7 +157,9 @@ func (screen *Screen) blit(frame *frame) error {
 	screen.flushed.content = frame.content
 	size := screen.flushed.size
 
-	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
+	if err := termbox.Clear(termbox.ColorDefault, termbox.ColorDefault); err != nil {
+		return err
+	}
 
 	drawRect(Rect{
 		Min: Point{0, 0},
