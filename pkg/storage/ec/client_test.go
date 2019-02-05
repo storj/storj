@@ -83,33 +83,29 @@ TestLoop:
 	for i, tt := range []struct {
 		nodes     []*pb.Node
 		min       int
-		mbm       int
 		badInput  bool
 		errs      []error
 		errString string
 	}{
-		{[]*pb.Node{}, 0, 0, true, []error{},
+		{[]*pb.Node{}, 0, true, []error{},
 			fmt.Sprintf("ecclient error: size of nodes slice (0) does not match total count (%v) of erasure scheme", n)},
-		{[]*pb.Node{node0, node1, node2, node3}, 0, -1, true,
-			[]error{nil, nil, nil, nil},
-			"eestream error: negative max buffer memory"},
-		{[]*pb.Node{node0, node1, node0, node3}, 0, 0, true,
+		{[]*pb.Node{node0, node1, node0, node3}, 0, true,
 			[]error{nil, nil, nil, nil},
 			"ecclient error: duplicated nodes are not allowed"},
-		{[]*pb.Node{node0, node1, node2, node3}, 0, 0, false,
+		{[]*pb.Node{node0, node1, node2, node3}, 0, false,
 			[]error{nil, nil, nil, nil}, ""},
-		{[]*pb.Node{node0, node1, node2, node3}, 0, 0, false,
+		{[]*pb.Node{node0, node1, node2, node3}, 0, false,
 			[]error{nil, ErrDialFailed, nil, nil},
 			"ecclient error: successful puts (3) less than repair threshold (4)"},
-		{[]*pb.Node{node0, node1, node2, node3}, 0, 0, false,
+		{[]*pb.Node{node0, node1, node2, node3}, 0, false,
 			[]error{nil, ErrOpFailed, nil, nil},
 			"ecclient error: successful puts (3) less than repair threshold (4)"},
-		{[]*pb.Node{node0, node1, node2, node3}, 2, 0, false,
+		{[]*pb.Node{node0, node1, node2, node3}, 2, false,
 			[]error{nil, ErrDialFailed, nil, nil}, ""},
-		{[]*pb.Node{node0, node1, node2, node3}, 2, 0, false,
+		{[]*pb.Node{node0, node1, node2, node3}, 2, false,
 			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed},
 			"ecclient error: successful puts (1) less than repair threshold (2)"},
-		{[]*pb.Node{nil, nil, node2, node3}, 2, 0, false,
+		{[]*pb.Node{nil, nil, node2, node3}, 2, false,
 			[]error{nil, nil, nil, nil}, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
@@ -149,7 +145,7 @@ TestLoop:
 			continue
 		}
 		r := io.LimitReader(rand.Reader, int64(size))
-		ec := ecClient{newPSClientFunc: mockNewPSClient(clients), memoryLimit: tt.mbm}
+		ec := ecClient{newPSClientFunc: mockNewPSClient(clients)}
 
 		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, nil, nil)
 
