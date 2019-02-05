@@ -60,40 +60,6 @@ func init() {
 	cfgstruct.Bind(keyGenerateCmd.Flags(), &keyCfg)
 }
 
-var renderingMutex sync.Mutex
-
-func renderStats(screen *cui.Screen, stats []uint32) error {
-	renderingMutex.Lock()
-	defer renderingMutex.Unlock()
-
-	var err error
-	printf := func(w io.Writer, format string, args ...interface{}) {
-		if err != nil {
-			return
-		}
-		_, err = fmt.Fprintf(w, format, args...)
-	}
-
-	printf(screen, "\n")
-	printf(screen, " batch identity creation\n")
-	printf(screen, " =======================\n\n")
-
-	w := tabwriter.NewWriter(screen, 0, 2, 2, ' ', 0)
-	printf(w, "Difficulty\tCount\n")
-
-	for difficulty := 0; difficulty < len(stats); difficulty++ {
-		count := atomic.LoadUint32(&stats[difficulty])
-		if count == 0 {
-			continue
-		}
-		printf(w, "%d\t%d\n", difficulty, count)
-	}
-
-	err = errs.Combine(err, w.Flush())
-
-	return screen.Flush()
-}
-
 func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
 	ctx, cancel := context.WithCancel(process.Ctx(cmd))
 	defer cancel()
@@ -272,4 +238,38 @@ func writeToTar(tw *tar.Writer, name string, data []byte) error {
 		return err
 	}
 	return nil
+}
+
+var renderingMutex sync.Mutex
+
+func renderStats(screen *cui.Screen, stats []uint32) error {
+	renderingMutex.Lock()
+	defer renderingMutex.Unlock()
+
+	var err error
+	printf := func(w io.Writer, format string, args ...interface{}) {
+		if err != nil {
+			return
+		}
+		_, err = fmt.Fprintf(w, format, args...)
+	}
+
+	printf(screen, "\n")
+	printf(screen, "batch identity creation\n")
+	printf(screen, "=======================\n\n")
+
+	w := tabwriter.NewWriter(screen, 0, 2, 2, ' ', 0)
+	printf(w, "Difficulty\tCount\n")
+
+	for difficulty := 0; difficulty < len(stats); difficulty++ {
+		count := atomic.LoadUint32(&stats[difficulty])
+		if count == 0 {
+			continue
+		}
+		printf(w, "%d\t%d\n", difficulty, count)
+	}
+
+	err = errs.Combine(err, w.Flush())
+
+	return screen.Flush()
 }
