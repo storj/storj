@@ -77,7 +77,7 @@ func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) 
 		GROUP BY storage_node_id ORDER BY storage_node_id`, pb.BandwidthAction_PUT,
 		pb.BandwidthAction_GET, pb.BandwidthAction_GET_AUDIT,
 		pb.BandwidthAction_GET_REPAIR, pb.BandwidthAction_PUT_REPAIR)
-	rows, err := b.db.DB.Query(b.db.Rebind(getTotalsSQL), from, to)
+	rows, err := b.db.DB.Query(b.db.Rebind(getTotalsSQL), from.UTC(), to.UTC())
 	if err != nil {
 		return nil, err
 	}
