@@ -271,7 +271,7 @@ func (planet *Planet) Shutdown() error {
 
 // newUplinks creates initializes uplinks, requires peer to have at least one satellite
 func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]*Uplink, error) {
-	var xs []*Uplink
+	apiKeys := make(map[storj.NodeID]string)
 	for j, satellite := range planet.Satellites {
 		// TODO: find a nicer way to do this
 		// populate satellites console with example
@@ -303,13 +303,16 @@ func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]
 			return nil, err
 		}
 
-		for i := 0; i < count; i++ {
-			uplink, err := planet.newUplink(prefix+strconv.Itoa(i), storageNodeCount, key.String())
-			if err != nil {
-				return nil, err
-			}
-			xs = append(xs, uplink)
+		apiKeys[satellite.ID()] = key.String()
+	}
+
+	var xs []*Uplink
+	for i := 0; i < count; i++ {
+		uplink, err := planet.newUplink(prefix+strconv.Itoa(i), storageNodeCount, apiKeys)
+		if err != nil {
+			return nil, err
 		}
+		xs = append(xs, uplink)
 	}
 
 	return xs, nil
