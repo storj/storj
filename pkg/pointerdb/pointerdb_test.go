@@ -25,17 +25,33 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
 )
 
+// mockAPIKeys is mock for api keys store of pointerdb
+type mockAPIKeys struct {
+	info console.APIKeyInfo
+	err  error
+}
+
+// GetByKey return api key info for given key
+func (keys *mockAPIKeys) GetByKey(ctx context.Context, key console.APIKey) (*console.APIKeyInfo, error) {
+	return &keys.info, keys.err
+}
+
 func TestServicePut(t *testing.T) {
+	validAPIKey := console.APIKey{}
+	apiKeys := &mockAPIKeys{}
+
 	for i, tt := range []struct {
 		apiKey    []byte
 		err       error
 		errString string
 	}{
-		{nil, nil, ""},
+		{[]byte(validAPIKey.String()), nil, ""},
 		{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
 		{nil, errors.New("put error"), status.Errorf(codes.Internal, "internal error").Error()},
 	} {
@@ -46,7 +62,7 @@ func TestServicePut(t *testing.T) {
 
 		db := teststore.New()
 		service := NewService(zap.NewNop(), db)
-		s := Server{service: service, logger: zap.NewNop()}
+		s := Server{service: service, logger: zap.NewNop(), apiKeys: apiKeys}
 
 		path := "a/b/c"
 		pr := pb.Pointer{}
@@ -79,12 +95,15 @@ func TestServiceGet(t *testing.T) {
 
 	info := credentials.TLSInfo{State: tls.ConnectionState{PeerCertificates: peerCertificates}}
 
+	validAPIKey := console.APIKey{}
+	apiKeys := &mockAPIKeys{}
+
 	for i, tt := range []struct {
 		apiKey    []byte
 		err       error
 		errString string
 	}{
-		{nil, nil, ""},
+		{[]byte(validAPIKey.String()), nil, ""},
 		{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
 		{nil, errors.New("get error"), status.Errorf(codes.Internal, "internal error").Error()},
 	} {
@@ -96,7 +115,8 @@ func TestServiceGet(t *testing.T) {
 		db := teststore.New()
 		service := NewService(zap.NewNop(), db)
 		allocation := NewAllocationSigner(identity, 45)
-		s := NewServer(zap.NewNop(), service, allocation, nil, Config{}, identity)
+
+		s := NewServer(zap.NewNop(), service, allocation, nil, Config{}, identity, apiKeys)
 
 		path := "a/b/c"
 
@@ -104,7 +124,7 @@ func TestServiceGet(t *testing.T) {
 		prBytes, err := proto.Marshal(pr)
 		assert.NoError(t, err, errTag)
 
-		_ = db.Put(storage.Key(path), storage.Value(prBytes))
+		_ = db.Put(storage.Key(storj.JoinPaths(apiKeys.info.ProjectID.String(), path)), storage.Value(prBytes))
 
 		if tt.err != nil {
 			db.ForceError++
@@ -127,12 +147,15 @@ func TestServiceGet(t *testing.T) {
 }
 
 func TestServiceDelete(t *testing.T) {
+	validAPIKey := console.APIKey{}
+	apiKeys := &mockAPIKeys{}
+
 	for i, tt := range []struct {
 		apiKey    []byte
 		err       error
 		errString string
 	}{
-		{nil, nil, ""},
+		{[]byte(validAPIKey.String()), nil, ""},
 		{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
 		{nil, errors.New("delete error"), status.Errorf(codes.Internal, "internal error").Error()},
 	} {
@@ -144,9 +167,9 @@ func TestServiceDelete(t *testing.T) {
 		path := "a/b/c"
 
 		db := teststore.New()
-		_ = db.Put(storage.Key(path), storage.Value("hello"))
+		_ = db.Put(storage.Key(storj.JoinPaths(apiKeys.info.ProjectID.String(), path)), storage.Value("hello"))
 		service := NewService(zap.NewNop(), db)
-		s := Server{service: service, logger: zap.NewNop()}
+		s := Server{service: service, logger: zap.NewNop(), apiKeys: apiKeys}
 
 		if tt.err != nil {
 			db.ForceError++
@@ -164,9 +187,12 @@ func TestServiceDelete(t *testing.T) {
 }
 
 func TestServiceList(t *testing.T) {
+	validAPIKey := console.APIKey{}
+	apiKeys := &mockAPIKeys{}
+
 	db := teststore.New()
 	service := NewService(zap.NewNop(), db)
-	server := Server{service: service, logger: zap.NewNop()}
+	server := Server{service: service, logger: zap.NewNop(), apiKeys: apiKeys}
 
 	pointer := &pb.Pointer{}
 	pointer.CreationDate = ptypes.TimestampNow()
@@ -177,7 +203,7 @@ func TestServiceList(t *testing.T) {
 	}
 	pointerValue := storage.Value(pointerBytes)
 
-	err = storage.PutAll(db, []storage.ListItem{
+	items := []storage.ListItem{
 		{Key: storage.Key("sample.😶"), Value: pointerValue},
 		{Key: storage.Key("müsic"), Value: pointerValue},
 		{Key: storage.Key("müsic/söng1.mp3"), Value: pointerValue},
@@ -185,7 +211,13 @@ func TestServiceList(t *testing.T) {
 		{Key: storage.Key("müsic/album/söng3.mp3"), Value: pointerValue},
 		{Key: storage.Key("müsic/söng4.mp3"), Value: pointerValue},
 		{Key: storage.Key("ビデオ/movie.mkv"), Value: pointerValue},
-	}...)
+	}
+
+	for i := range items {
+		items[i].Key = storage.Key(storj.JoinPaths(apiKeys.info.ProjectID.String(), items[i].Key.String()))
+	}
+
+	err = storage.PutAll(db, items...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,6 +242,7 @@ func TestServiceList(t *testing.T) {
 
 	tests := []Test{
 		{
+			APIKey:  validAPIKey.String(),
 			Request: pb.ListRequest{Recursive: true},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
@@ -223,6 +256,7 @@ func TestServiceList(t *testing.T) {
 				},
 			},
 		}, {
+			APIKey:  validAPIKey.String(),
 			Request: pb.ListRequest{Recursive: true, MetaFlags: meta.All},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
@@ -242,6 +276,7 @@ func TestServiceList(t *testing.T) {
 		// 	Error:   errorWithCode(codes.Unauthenticated),
 		// },
 		{
+			APIKey:  validAPIKey.String(),
 			Request: pb.ListRequest{Recursive: true, Limit: 3},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
@@ -252,6 +287,7 @@ func TestServiceList(t *testing.T) {
 				More: true,
 			},
 		}, {
+			APIKey:  validAPIKey.String(),
 			Request: pb.ListRequest{MetaFlags: meta.All},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
@@ -263,6 +299,7 @@ func TestServiceList(t *testing.T) {
 				More: false,
 			},
 		}, {
+			APIKey:  validAPIKey.String(),
 			Request: pb.ListRequest{EndBefore: "ビデオ"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
@@ -273,6 +310,7 @@ func TestServiceList(t *testing.T) {
 				More: false,
 			},
 		}, {
+			APIKey:  validAPIKey.String(),
 			Request: pb.ListRequest{Recursive: true, Prefix: "müsic/"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
@@ -283,6 +321,7 @@ func TestServiceList(t *testing.T) {
 				},
 			},
 		}, {
+			APIKey:  validAPIKey.String(),
 			Request: pb.ListRequest{Recursive: true, Prefix: "müsic/", StartAfter: "album/söng3.mp3"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
@@ -292,6 +331,7 @@ func TestServiceList(t *testing.T) {
 				},
 			},
 		}, {
+			APIKey:  validAPIKey.String(),
 			Request: pb.ListRequest{Prefix: "müsic/"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
@@ -302,6 +342,7 @@ func TestServiceList(t *testing.T) {
 				},
 			},
 		}, {
+			APIKey:  validAPIKey.String(),
 			Request: pb.ListRequest{Prefix: "müsic/", StartAfter: "söng1.mp3"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
@@ -310,6 +351,7 @@ func TestServiceList(t *testing.T) {
 				},
 			},
 		}, {
+			APIKey:  validAPIKey.String(),
 			Request: pb.ListRequest{Prefix: "müsic/", EndBefore: "söng4.mp3"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
@@ -319,6 +361,7 @@ func TestServiceList(t *testing.T) {
 				},
 			},
 		}, {
+			APIKey:  validAPIKey.String(),
 			Request: pb.ListRequest{Prefix: "müs", Recursive: true, EndBefore: "ic/söng4.mp3", Limit: 1},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{

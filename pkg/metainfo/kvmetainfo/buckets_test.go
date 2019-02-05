@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"testing"
 
+	"storj.io/storj/satellite/console"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/vivint/infectious"
 
@@ -25,10 +27,11 @@ import (
 )
 
 const (
-	TestAPIKey = "test-api-key"
 	TestEncKey = "test-encryption-key"
 	TestBucket = "test-bucket"
 )
+
+var TestAPIKey = "test-api-key"
 
 func TestBucketsBasic(t *testing.T) {
 	runTest(t, func(ctx context.Context, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
@@ -331,7 +334,30 @@ func runTest(t *testing.T, test func(context.Context, *kvmetainfo.DB, buckets.St
 
 func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
-	err := flag.Set("pointer-db.auth.api-key", TestAPIKey)
+	// add project to satisfy constraint
+	project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
+		Name: "testProject",
+	})
+
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	apiKey := console.APIKey{}
+	apiKeyInfo := console.APIKeyInfo{
+		ProjectID: project.ID,
+		Name:      "testKey",
+	}
+
+	// add api key to db
+	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey, apiKeyInfo)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	TestAPIKey = apiKey.String()
+
+	err = flag.Set("pointer-db.auth.api-key", TestAPIKey)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -352,17 +378,17 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 		return nil, nil, nil, err
 	}
 
-	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, int(1*memory.KB)), 3, 4)
+	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KB.Int()), 3, 4)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, int(8*memory.KB))
+	segments := segments.NewSegmentStore(oc, ec, pdb, rs, 8*memory.KB.Int())
 
 	key := new(storj.Key)
 	copy(key[:], TestEncKey)
 
-	streams, err := streams.NewStreamStore(segments, int64(64*memory.MB), key, int(1*memory.KB), storj.AESGCM)
+	streams, err := streams.NewStreamStore(segments, 64*memory.MB.Int64(), key, 1*memory.KB.Int(), storj.AESGCM)
 	if err != nil {
 		return nil, nil, nil, err
 	}
