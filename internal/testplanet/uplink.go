@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/pkg/stream"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
 )
 
 // Uplink is a general purpose
@@ -43,7 +44,7 @@ type Uplink struct {
 }
 
 // newUplink creates a new uplink
-func (planet *Planet) newUplink(name string, storageNodeCount int, apiKey map[storj.NodeID]string) (*Uplink, error) {
+func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, error) {
 	identity, err := planet.NewIdentity()
 	if err != nil {
 		return nil, err
@@ -53,7 +54,6 @@ func (planet *Planet) newUplink(name string, storageNodeCount int, apiKey map[st
 		Log:              planet.log.Named(name),
 		Identity:         identity,
 		StorageNodeCount: storageNodeCount,
-		APIKey:           apiKey,
 	}
 
 	uplink.Log.Debug("id=" + identity.ID.String())
@@ -69,6 +69,42 @@ func (planet *Planet) newUplink(name string, storageNodeCount int, apiKey map[st
 		},
 	}
 
+	apiKeys := make(map[storj.NodeID]string)
+	for j, satellite := range planet.Satellites {
+		// TODO: find a nicer way to do this
+		// populate satellites console with example
+		// project and API key and pass that to uplinks
+		consoleDB := satellite.DB.Console()
+
+		projectName := fmt.Sprintf("%s_%d", name, j)
+		key := console.APIKeyFromBytes([]byte(projectName))
+
+		project, err := consoleDB.Projects().Insert(
+			context.Background(),
+			&console.Project{
+				Name: projectName,
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = consoleDB.APIKeys().Create(
+			context.Background(),
+			*key,
+			console.APIKeyInfo{
+				Name:      "root",
+				ProjectID: project.ID,
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		apiKeys[satellite.ID()] = key.String()
+	}
+
+	uplink.APIKey = apiKeys
 	planet.uplinks = append(planet.uplinks, uplink)
 
 	return uplink, nil

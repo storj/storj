@@ -7,7 +7,6 @@ package testplanet
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -44,7 +43,6 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
@@ -271,44 +269,9 @@ func (planet *Planet) Shutdown() error {
 
 // newUplinks creates initializes uplinks, requires peer to have at least one satellite
 func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]*Uplink, error) {
-	apiKeys := make(map[storj.NodeID]string)
-	for j, satellite := range planet.Satellites {
-		// TODO: find a nicer way to do this
-		// populate satellites console with example
-		// project and API key and pass that to uplinks
-		consoleDB := satellite.DB.Console()
-
-		projectName := fmt.Sprintf("%d_example", j)
-		key := console.APIKeyFromBytes([]byte(projectName))
-
-		project, err := consoleDB.Projects().Insert(
-			context.Background(),
-			&console.Project{
-				Name: projectName,
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		_, err = consoleDB.APIKeys().Create(
-			context.Background(),
-			*key,
-			console.APIKeyInfo{
-				Name:      "root",
-				ProjectID: project.ID,
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		apiKeys[satellite.ID()] = key.String()
-	}
-
 	var xs []*Uplink
 	for i := 0; i < count; i++ {
-		uplink, err := planet.newUplink(prefix+strconv.Itoa(i), storageNodeCount, apiKeys)
+		uplink, err := planet.newUplink(prefix+strconv.Itoa(i), storageNodeCount)
 		if err != nil {
 			return nil, err
 		}
