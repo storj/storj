@@ -148,7 +148,7 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 // NewCustom creates a new full system with the specified configuration.
 func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	if config.Identities == nil {
-		config.Identities = pregeneratedIdentities
+		config.Identities = pregeneratedIdentities.Clone()
 	}
 
 	planet := &Planet{
