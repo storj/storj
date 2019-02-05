@@ -28,8 +28,7 @@ var (
 
 // InitMetrics initializes telemetry reporting. Makes a telemetry.Client and calls
 // its Run() method in a goroutine.
-func InitMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (
-	err error) {
+func InitMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (err error) {
 	if *metricCollector == "" || *metricInterval == 0 {
 		return Error.New("telemetry disabled")
 	}

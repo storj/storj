@@ -130,7 +130,7 @@ func TestProjectsRepository(t *testing.T) {
 
 			newProject2 := &console.Project{
 				Description: description,
-				Name:        name,
+				Name:        name + "2",
 			}
 
 			_, err = projects.Insert(ctx, newProject2)

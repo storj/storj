@@ -15,8 +15,6 @@ type DB interface {
 	ProjectMembers() ProjectMembers
 	// APIKeys is a getter for APIKeys repository
 	APIKeys() APIKeys
-	// Buckets is a getter for Buckets repository
-	Buckets() Buckets
 
 	// CreateTables is a method for creating all tables for satellitedb
 	CreateTables() error

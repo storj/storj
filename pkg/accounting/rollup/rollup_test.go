@@ -27,7 +27,7 @@ func TestQueryOneDay(t *testing.T) {
 	now := time.Now().UTC()
 	later := now.Add(time.Hour * 24)
 
-	err := db.Accounting().SaveAtRestRaw(ctx, now, true, nodeData)
+	err := db.Accounting().SaveAtRestRaw(ctx, now, nodeData)
 	assert.NoError(t, err)
 
 	// test should return error because we delete latest day's rollup
@@ -48,7 +48,7 @@ func TestQueryTwoDays(t *testing.T) {
 	now := time.Now().UTC()
 	then := now.Add(time.Hour * -24)
 
-	err := db.Accounting().SaveAtRestRaw(ctx, now, true, nodeData)
+	err := db.Accounting().SaveAtRestRaw(ctx, now, nodeData)
 	assert.NoError(t, err)
 
 	// db.db.Exec("UPDATE accounting_raws SET created_at= WHERE ")

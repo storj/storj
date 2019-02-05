@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 type mockDownloader struct {
@@ -204,18 +205,12 @@ func TestCalcPadded(t *testing.T) {
 }
 
 func (m *mockDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int,
-	pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]*pb.Node, err error) {
+	pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]storj.NodeID, err error) {
 
 	nodes = make(map[int]*pb.Node, 30)
 
 	for i := 0; i < 30; i++ {
-		nodes[i] = &pb.Node{
-			Id:   teststorj.NodeIDFromString(strconv.Itoa(i)),
-			Type: pb.NodeType_STORAGE,
-			Address: &pb.NodeAddress{
-				Address: strconv.Itoa(i),
-			},
-		}
+		nodes[i] = teststorj.NodeIDFromString(strconv.Itoa(i))
 	}
 	return m.shares, nodes, nil
 }

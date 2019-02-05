@@ -25,7 +25,7 @@ type overlaycache struct {
 
 func (cache *overlaycache) SelectNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
-		WHERE node_type == ? AND free_bandwidth >= ? AND free_disk >= ?
+		WHERE node_type = ? AND free_bandwidth >= ? AND free_disk >= ?
 		  AND audit_count >= ?
 		  AND audit_success_ratio >= ?
 		  AND uptime_count >= ?
@@ -37,7 +37,7 @@ func (cache *overlaycache) SelectNodes(ctx context.Context, count int, criteria 
 
 func (cache *overlaycache) SelectNewNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
 	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
-		WHERE node_type == ? AND free_bandwidth >= ? AND free_disk >= ?
+		WHERE node_type = ? AND free_bandwidth >= ? AND free_disk >= ?
 		  AND audit_count < ?
 	`, int(criteria.Type), criteria.FreeBandwidth, criteria.FreeDisk,
 		criteria.AuditThreshold,
