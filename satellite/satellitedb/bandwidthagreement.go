@@ -43,7 +43,7 @@ func (b *bandwidthagreement) GetUplinkStats(ctx context.Context, from, to time.T
 		FROM bwagreements WHERE created_at > ? 
 		AND created_at <= ? GROUP BY uplink_id ORDER BY uplink_id`,
 		pb.BandwidthAction_PUT, pb.BandwidthAction_GET)
-	rows, err := b.db.DB.Query(b.db.Rebind(uplinkSQL), from, to)
+	rows, err := b.db.DB.Query(b.db.Rebind(uplinkSQL), from.UTC(), to.UTC())
 	if err != nil {
 		return nil, err
 	}
