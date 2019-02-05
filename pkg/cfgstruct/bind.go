@@ -101,6 +101,10 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 		field := typ.Field(i)
 		fieldval := val.Field(i)
 		flagname := prefix + hyphenate(snakeCase(field.Name))
+		if field.Tag.Get("internal") == "true" {
+			continue
+		}
+
 		onlyForSetup := (field.Tag.Get("setup") == "true") || setupStruct
 		// ignore setup params for non setup commands
 		if !setupCommand && onlyForSetup {

@@ -30,16 +30,18 @@ import (
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/console"
 )
 
 const (
-	TestAPIKey = "test-api-key"
 	TestEncKey = "test-encryption-key"
 	TestBucket = "test-bucket"
 	TestFile   = "test-file"
 	DestBucket = "dest-bucket"
 	DestFile   = "dest-file"
 )
+
+var TestAPIKey = "test-api-key"
 
 func TestMakeBucketWithLocation(t *testing.T) {
 	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, metainfo storj.Metainfo, streams streams.Store) {
@@ -656,7 +658,30 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 
 func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
-	err := flag.Set("pointer-db.auth.api-key", TestAPIKey)
+	// add project to satisfy constraint
+	project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
+		Name: "testProject",
+	})
+
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	apiKey := console.APIKey{}
+	apiKeyInfo := console.APIKeyInfo{
+		ProjectID: project.ID,
+		Name:      "testKey",
+	}
+
+	// add api key to db
+	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey, apiKeyInfo)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	TestAPIKey = apiKey.String()
+
+	err = flag.Set("pointer-db.auth.api-key", TestAPIKey)
 	if err != nil {
 		return nil, nil, nil, err
 	}
