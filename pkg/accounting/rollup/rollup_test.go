@@ -34,10 +34,10 @@ func TestQuery(t *testing.T) {
 			nodes:  10,
 		},
 		{
-			days:   3,
-			atRest: float64(5000),
-			bw:     []int64{1000, 2000, 3000, 4000},
-			nodes:  10,
+			days:   5,
+			atRest: float64(20000),
+			bw:     []int64{4000, 8000, 12000, 16000},
+			nodes:  20,
 		},
 	}
 
