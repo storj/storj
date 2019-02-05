@@ -14,6 +14,7 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
@@ -63,7 +64,7 @@ type Peer struct {
 	Kademlia struct {
 		RoutingTable *kademlia.RoutingTable
 		Service      *kademlia.Kademlia
-		Endpoint     *kademlia.Endpoint
+		Endpoint     *node.Server
 		Inspector    *kademlia.Inspector
 	}
 }
@@ -128,7 +129,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Endpoint = node.NewServer(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service)
 		pb.RegisterNodesServer(peer.Public.Server.GRPC(), peer.Kademlia.Endpoint)
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
