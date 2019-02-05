@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 )
 
@@ -58,7 +59,7 @@ type Peer struct {
 	Identity *identity.FullIdentity
 	DB       DB
 
-	// TODO: add transport
+	Transport transport.Client
 
 	// servers
 	Public struct {
@@ -89,9 +90,10 @@ type Peer struct {
 // New creates a new Storage Node.
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*Peer, error) {
 	peer := &Peer{
-		Log:      log,
-		Identity: full,
-		DB:       db,
+		Log:       log,
+		Identity:  full,
+		DB:        db,
+		Transport: transport.NewClient(full),
 	}
 
 	var err error

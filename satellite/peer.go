@@ -103,6 +103,8 @@ type Peer struct {
 	Identity *identity.FullIdentity
 	DB       DB
 
+	Transport transport.Client
+
 	// servers
 	Public struct {
 		Listener net.Listener
@@ -167,9 +169,10 @@ type Peer struct {
 // New creates a new satellite
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*Peer, error) {
 	peer := &Peer{
-		Log:      log,
-		Identity: full,
-		DB:       db,
+		Log:       log,
+		Identity:  full,
+		DB:        db,
+		Transport: transport.NewClient(full),
 	}
 
 	var err error
