@@ -5,7 +5,6 @@ package main
 
 import (
 	"crypto/x509"
-	"fmt"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -43,7 +42,6 @@ func cmdSign(cmd *cobra.Command, args []string) error {
 
 	signer, err := signCfg.Signer.Load()
 	if err != nil {
-		fmt.Println("two")
 		return err
 	}
 	restChain := []*x509.Certificate{signer.Cert}
