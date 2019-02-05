@@ -267,7 +267,7 @@ func (planet *Planet) Shutdown() error {
 	return errlist.Err()
 }
 
-// newUplinks creates initializes uplinks
+// newUplinks creates initializes uplinks, requires peer to have at least one satellite
 func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]*Uplink, error) {
 	var xs []*Uplink
 	for i := 0; i < count; i++ {
