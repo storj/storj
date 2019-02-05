@@ -27,6 +27,8 @@ type Rect struct{ Min, Max Point }
 
 // Screen is a writable area on screen
 type Screen struct {
+	rendering sync.Mutex
+
 	mu      sync.Mutex
 	closed  bool
 	flushed frame
@@ -111,6 +113,12 @@ func (screen *Screen) Size() (width, height int) {
 	}
 	return width, height
 }
+
+// Lock screen for exclusive rendering
+func (screen *Screen) Lock() { screen.rendering.Lock() }
+
+// Unlock screen
+func (screen *Screen) Unlock() { screen.rendering.Unlock() }
 
 // Write writes to the screen.
 func (screen *Screen) Write(data []byte) (int, error) {

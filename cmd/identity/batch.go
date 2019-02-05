@@ -15,7 +15,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 	"sync/atomic"
 	"text/tabwriter"
 
@@ -240,11 +239,9 @@ func writeToTar(tw *tar.Writer, name string, data []byte) error {
 	return nil
 }
 
-var renderingMutex sync.Mutex
-
 func renderStats(screen *cui.Screen, stats []uint32) error {
-	renderingMutex.Lock()
-	defer renderingMutex.Unlock()
+	screen.Lock()
+	defer screen.Unlock()
 
 	var err error
 	printf := func(w io.Writer, format string, args ...interface{}) {
