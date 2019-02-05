@@ -245,25 +245,27 @@ func renderStats(screen *cui.Screen, stats []uint32) error {
 
 	var err error
 	printf := func(w io.Writer, format string, args ...interface{}) {
-		if err != nil {
-			return
+		if err == nil {
+			_, err = fmt.Fprintf(w, format, args...)
 		}
-		_, err = fmt.Fprintf(w, format, args...)
 	}
 
-	printf(screen, "batch identity creation\n")
+	printf(screen, "Batch Identity Creation\n")
 	printf(screen, "=======================\n\n")
 
 	w := tabwriter.NewWriter(screen, 0, 2, 2, ' ', 0)
 	printf(w, "Difficulty\tCount\n")
 
+	total := uint32(0)
 	for difficulty := 0; difficulty < len(stats); difficulty++ {
 		count := atomic.LoadUint32(&stats[difficulty])
+		total += count
 		if count == 0 {
 			continue
 		}
 		printf(w, "%d\t%d\n", difficulty, count)
 	}
+	printf(w, "Total\t%d\n", total)
 
 	err = errs.Combine(err, w.Flush())
 
