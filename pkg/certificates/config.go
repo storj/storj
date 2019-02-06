@@ -120,11 +120,11 @@ func (c CertServerConfig) Run(ctx context.Context, srv *server.Server) (err erro
 	group.Go(func() error {
 		defer cancel()
 		<-ctx.Done()
-		return server.Close()
+		return srv.Close()
 	})
 	group.Go(func() error {
 		defer cancel()
-		return server.Run(ctx)
+		return srv.Run(ctx)
 	})
 
 	return group.Wait()
