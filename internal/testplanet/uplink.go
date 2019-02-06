@@ -10,11 +10,12 @@ import (
 	"io"
 	"io/ioutil"
 
+	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -146,7 +147,7 @@ func (uplink *Uplink) DialOverlay(destination Peer) (overlay.Client, error) {
 
 // Upload data to specific satellite
 func (uplink *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte) error {
-	config := getDefaultConfig(satellite, uplink.StorageNodeCount)
+	config := uplink.getConfig(satellite)
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
 		return err
@@ -201,7 +202,7 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 
 // Download data from specific satellite
 func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) ([]byte, error) {
-	config := getDefaultConfig(satellite, uplink.StorageNodeCount)
+	config := uplink.getConfig(satellite)
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
 		return []byte{}, err
@@ -222,26 +223,22 @@ func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 	return data, nil
 }
 
-func getDefaultConfig(satellite *satellite.Peer, storageNodeCount int) uplink.Config {
-	return uplink.Config{
-		Enc: uplink.EncryptionConfig{
-			DataType:  int(storj.AESGCM),
-			BlockSize: 1 * memory.KiB,
-		},
-		RS: uplink.RSConfig{
-			MinThreshold:     1 * storageNodeCount / 5,
-			RepairThreshold:  2 * storageNodeCount / 5,
-			SuccessThreshold: 3 * storageNodeCount / 5,
-			MaxThreshold:     4 * storageNodeCount / 5,
+func (uplink *Uplink) getConfig(satellite *satellite.Peer) uplink.Config {
+	config := getDefaultConfig()
+	config.Client.OverlayAddr = satellite.Addr()
+	config.Client.PointerDBAddr = satellite.Addr()
+	config.Client.APIKey = uplink.APIKey[satellite.ID()]
 
-			ErasureShareSize: 1 * memory.KiB,
-			MaxBufferMem:     4 * memory.MiB,
-		},
-		Client: uplink.ClientConfig{
-			OverlayAddr:   satellite.Addr(),
-			PointerDBAddr: satellite.Addr(),
-			MaxInlineSize: 4 * memory.KiB,
-			SegmentSize:   64 * memory.MiB,
-		},
-	}
+	config.RS.MinThreshold = 1 * uplink.StorageNodeCount / 5
+	config.RS.RepairThreshold = 2 * uplink.StorageNodeCount / 5
+	config.RS.SuccessThreshold = 3 * uplink.StorageNodeCount / 5
+	config.RS.MaxThreshold = 4 * uplink.StorageNodeCount / 5
+
+	return config
+}
+
+func getDefaultConfig() uplink.Config {
+	config := uplink.Config{}
+	cfgstruct.Bind(&pflag.FlagSet{}, &config)
+	return config
 }
