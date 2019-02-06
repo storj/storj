@@ -374,40 +374,59 @@ func ignoreCancel(err error) error {
 
 // Run runs storage node until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	defer fmt.Println("satellite stopped")
+	group, ctx := errgroup.WithContext(ctx)
 
-	var group errgroup.Group
 	group.Go(func() error {
+		fmt.Println("peer.Kademlia.Service started")
+		defer fmt.Println("peer.Kademlia.Service stopped")
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
+		fmt.Println("peer.Kademlia.Refresh started")
+		defer fmt.Println("peer.Kademlia.Refresh stopped")
 		return ignoreCancel(peer.Kademlia.Service.RunRefresh(ctx))
 	})
 	group.Go(func() error {
+		fmt.Println("peer.Discovery.Service started")
+		defer fmt.Println("peer.Discovery.Service stopped")
 		return ignoreCancel(peer.Discovery.Service.Run(ctx))
 	})
 	group.Go(func() error {
+		fmt.Println("peer.Repair.Checker started")
+		defer fmt.Println("peer.Repair.Checker stopped")
 		return ignoreCancel(peer.Repair.Checker.Run(ctx))
 	})
 	group.Go(func() error {
+		fmt.Println("peer.Repair.Repairer started")
+		defer fmt.Println("peer.Repair.Repairer stopped")
 		return ignoreCancel(peer.Repair.Repairer.Run(ctx))
 	})
 	group.Go(func() error {
+		fmt.Println("peer.Accounting.Tally started")
+		defer fmt.Println("peer.Accounting.Tally stopped")
 		return ignoreCancel(peer.Accounting.Tally.Run(ctx))
 	})
 	group.Go(func() error {
+		fmt.Println("peer.Accounting.Rollup started")
+		defer fmt.Println("peer.Accounting.Rollup stopped")
 		return ignoreCancel(peer.Accounting.Rollup.Run(ctx))
 	})
 	group.Go(func() error {
+		fmt.Println("peer.Audit.Service started")
+		defer fmt.Println("peer.Audit.Service stopped")
 		return ignoreCancel(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
 		peer.Log.Sugar().Infof("Node %s started on %s", peer.Identity.ID, peer.Public.Server.Addr().String())
+		fmt.Println("peer.Public.Server started")
+		defer fmt.Println("peer.Public.Server stopped")
 		return ignoreCancel(peer.Public.Server.Run(ctx))
 	})
 	group.Go(func() error {
+		fmt.Println("peer.Console.Endpoint started")
+		defer fmt.Println("peer.Console.Endpoint stopped")
 		return ignoreCancel(peer.Console.Endpoint.Run(ctx))
 	})
 

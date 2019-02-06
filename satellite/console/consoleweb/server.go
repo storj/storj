@@ -13,6 +13,7 @@ import (
 	"github.com/graphql-go/graphql"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
@@ -129,7 +130,17 @@ func (s *Server) Run(ctx context.Context) error {
 		return Error.Wrap(err)
 	}
 
-	return s.server.Serve(s.listener)
+	group, ctx := errgroup.WithContext(ctx)
+	group.Go(func() error {
+		<-ctx.Done()
+		return s.server.Shutdown(nil)
+	})
+
+	group.Go(func() error {
+		return s.server.Serve(s.listener)
+	})
+
+	return group.Wait()
 }
 
 // Close closes server and underlying listener

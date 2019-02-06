@@ -20,7 +20,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
-	"google.golang.org/grpc"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/bootstrap"
 	"storj.io/storj/bootstrap/bootstrapdb"
@@ -89,7 +89,9 @@ type Planet struct {
 	log       *zap.Logger
 	config    Config
 	directory string // TODO: ensure that everything is in-memory to speed things up
-	started   bool
+
+	started  bool
+	shutdown bool
 
 	peers     []closablePeer
 	databases []io.Closer
@@ -102,10 +104,12 @@ type Planet struct {
 
 	identities *Identities
 
+	run    errgroup.Group
 	cancel func()
 }
 
 type closablePeer struct {
+	name string
 	peer Peer
 
 	ctx    context.Context
@@ -207,16 +211,9 @@ func (planet *Planet) Start(ctx context.Context) {
 	for i := range planet.peers {
 		peer := &planet.peers[i]
 		peer.ctx, peer.cancel = context.WithCancel(ctx)
-		go func(peer *closablePeer) {
-			err := peer.peer.Run(peer.ctx)
-			if err == grpc.ErrServerStopped {
-				err = nil
-			}
-			if err != nil {
-				// TODO: better error handling
-				panic(err)
-			}
-		}(peer)
+		planet.run.Go(func() error {
+			return peer.peer.Run(peer.ctx)
+		})
 	}
 
 	planet.started = true
@@ -248,9 +245,29 @@ func (planet *Planet) Shutdown() error {
 	if !planet.started {
 		return errors.New("Start was never called")
 	}
+	if planet.shutdown {
+		panic("double Shutdown")
+	}
+	planet.shutdown = true
+
 	planet.cancel()
 
 	var errlist errs.Group
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		timer := time.NewTimer(10 * time.Second)
+		defer timer.Stop()
+		select {
+		case <-timer.C:
+			panic("planet took too long to shutdown")
+		case <-ctx.Done():
+		}
+	}()
+
+	errlist.Add(planet.run.Wait())
+	cancel()
+
 	// shutdown in reverse order
 	for i := len(planet.uplinks) - 1; i >= 0; i-- {
 		node := planet.uplinks[i]
@@ -286,8 +303,11 @@ func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]
 func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 	var xs []*satellite.Peer
 	defer func() {
-		for _, x := range xs {
-			planet.peers = append(planet.peers, closablePeer{peer: x})
+		for i, x := range xs {
+			planet.peers = append(planet.peers, closablePeer{
+				name: "satellite/" + strconv.Itoa(i),
+				peer: x,
+			})
 		}
 	}()
 
@@ -413,8 +433,11 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 	var xs []*storagenode.Peer
 	defer func() {
-		for _, x := range xs {
-			planet.peers = append(planet.peers, closablePeer{peer: x})
+		for i, x := range xs {
+			planet.peers = append(planet.peers, closablePeer{
+				name: "storage/" + strconv.Itoa(i),
+				peer: x,
+			})
 		}
 	}()
 
@@ -495,7 +518,10 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 // newBootstrap initializes the bootstrap node
 func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 	defer func() {
-		planet.peers = append(planet.peers, closablePeer{peer: peer})
+		planet.peers = append(planet.peers, closablePeer{
+			name: "bootstrap/0",
+			peer: peer,
+		})
 	}()
 
 	prefix := "bootstrap"
