@@ -40,9 +40,18 @@ func NewStreamWriter(stream pb.PieceStoreRoutes_StoreClient, signer *PieceStore,
 // Write Piece data to a piece store server upload stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
 	updatedAllocation := s.totalWritten + int64(len(b))
+<<<<<<< HEAD
 
 	s.rba.Total = updatedAllocation
 	err := auth.SignMessage(s.rba, *s.signer.selfID)
+=======
+	rba := &pb.RenterBandwidthAllocation{
+		PayerAllocation: *s.pba,
+		Total:           updatedAllocation,
+		StorageNodeId:   s.signer.remoteID,
+	}
+	err := auth.SignMessage(rba, s.signer.selfID.Key)
+>>>>>>> 1f5ef1e1... made bandwidth agreements more deterministic
 	if err != nil {
 		return 0, err
 	}
@@ -121,10 +130,19 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 			if sr.allocated+trustedSize > size {
 				allocate = size - sr.allocated
 			}
+<<<<<<< HEAD
 
 			rba.Total = sr.allocated + allocate
 
 			err := auth.SignMessage(rba, *client.selfID)
+=======
+			rba := &pb.RenterBandwidthAllocation{
+				PayerAllocation: *pba,
+				Total:           sr.allocated + allocate,
+				StorageNodeId:   sr.client.remoteID,
+			}
+			err := auth.SignMessage(rba, client.selfID.Key)
+>>>>>>> 1f5ef1e1... made bandwidth agreements more deterministic
 			if err != nil {
 				sr.pendingAllocs.Fail(err)
 			}

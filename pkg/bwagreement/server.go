@@ -5,11 +5,9 @@ package bwagreement
 
 import (
 	"context"
-	"crypto"
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -18,7 +16,6 @@ import (
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -54,17 +51,16 @@ type DB interface {
 
 // Server is an implementation of the pb.BandwidthServer interface
 type Server struct {
-	bwdb   DB
-	certdb certdb.DB
-	pkey   crypto.PublicKey
-	NodeID storj.NodeID
-	logger *zap.Logger
+	bwdb     DB
+	certdb   certdb.DB
+	identity *identity.FullIdentity
+	logger   *zap.Logger
 }
 
 // NewServer creates instance of Server
-func NewServer(db DB, upldb certdb.DB, pkey crypto.PublicKey, logger *zap.Logger, nodeID storj.NodeID) *Server {
+func NewServer(db DB, upldb certdb.DB, logger *zap.Logger, fID *identity.FullIdentity) *Server {
 	// TODO: reorder arguments, rename logger -> log
-	return &Server{bwdb: db, certdb: upldb, pkey: pkey, logger: logger, NodeID: nodeID}
+	return &Server{bwdb: db, certdb: upldb, logger: logger, identity: fID}
 }
 
 // Close closes resources
@@ -84,18 +80,24 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.Order) (reply 
 		return reply, auth.ErrBadID.New("Storage Node ID: %v vs %v", rba.StorageNodeId, pi.ID)
 	}
 	//todo:  use whitelist for uplinks?
-	if pba.SatelliteId != s.NodeID {
-		return reply, pb.ErrPayer.New("Satellite ID: %v vs %v", pba.SatelliteId, s.NodeID)
+	if pba.SatelliteId != s.identity.ID {
+		return reply, pb.ErrPayer.New("Satellite ID: %v vs %v", pba.SatelliteId, s.identity.ID)
 	}
 	exp := time.Unix(pba.GetExpirationUnixSec(), 0).UTC()
 	if exp.Before(time.Now().UTC()) {
 		return reply, pb.ErrPayer.Wrap(auth.ErrExpired.New("%v vs %v", exp, time.Now().UTC()))
 	}
-
-	if err = s.verifySignature(ctx, rba); err != nil {
-		return reply, err
+	//verify message crypto
+	uplinkKey, err := s.certdb.GetPublicKey(ctx, pba.UplinkId)
+	if err != nil {
+		return reply, pb.ErrRenter.Wrap(auth.ErrVerify.Wrap(err))
 	}
-
+	if err := auth.VerifyMessage(rba, uplinkKey); err != nil {
+		return reply, pb.ErrRenter.Wrap(err)
+	}
+	if err := auth.VerifyMessage(&pba, s.identity.Leaf.PublicKey); err != nil {
+		return reply, pb.ErrPayer.Wrap(err)
+	}
 	//save and return rersults
 	if err = s.bwdb.CreateAgreement(ctx, rba); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") ||
@@ -109,6 +111,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.Order) (reply 
 	s.logger.Debug("Stored Agreement...")
 	return reply, nil
 }
+<<<<<<< HEAD
 
 func (s *Server) verifySignature(ctx context.Context, rba *pb.Order) error {
 	pba := rba.GetPayerAllocation()
@@ -146,3 +149,5 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.Order) error {
 	}
 	return nil
 }
+=======
+>>>>>>> 1f5ef1e1... made bandwidth agreements more deterministic

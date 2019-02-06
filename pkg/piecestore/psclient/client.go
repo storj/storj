@@ -194,6 +194,11 @@ func (ps *PieceStore) Delete(ctx context.Context, id PieceID, satelliteID storj.
 }
 
 // sign a message using the clients private key
+<<<<<<< HEAD
 func (ps *PieceStore) sign(rba *pb.Order) (err error) {
 	return auth.SignMessage(rba, *ps.selfID)
+=======
+func (ps *PieceStore) sign(rba *pb.RenterBandwidthAllocation) (err error) {
+	return auth.SignMessage(rba, ps.selfID.Key)
+>>>>>>> 1f5ef1e1... made bandwidth agreements more deterministic
 }

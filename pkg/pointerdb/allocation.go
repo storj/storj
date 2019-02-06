@@ -65,6 +65,7 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 		Action:            action,
 		SerialNumber:      serialNum.String(),
 	}
+<<<<<<< HEAD
 	err = auth.SignMessage(pba, *allocation.satelliteIdentity)
 	return pba, err
 }
@@ -81,5 +82,9 @@ func (allocation *AllocationSigner) restrictActions(peerID storj.NodeID, action 
 		return nil
 	default:
 		return errors.New("unknown action restriction")
+=======
+	if err := auth.SignMessage(pba, allocation.satelliteIdentity.Key); err != nil {
+		return nil, err
+>>>>>>> 1f5ef1e1... made bandwidth agreements more deterministic
 	}
 }

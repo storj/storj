@@ -28,8 +28,7 @@ func GenerateOrderLimit(action pb.BandwidthAction, satID *identity.FullIdentity,
 		Action:            action,
 		CreatedUnixSec:    time.Now().Unix(),
 	}
-
-	return pba, auth.SignMessage(pba, *satID)
+	return pba, auth.SignMessage(pba, satID.Key)
 }
 
 //GenerateOrder creates a signed Order from a OrderLimit
@@ -39,6 +38,11 @@ func GenerateOrder(pba *pb.OrderLimit, storageNodeID storj.NodeID, upID *identit
 		StorageNodeId:   storageNodeID,
 		Total:           total,
 	}
+<<<<<<< HEAD
 	// Combine Signature and Data for Order
 	return rba, auth.SignMessage(rba, *upID)
+=======
+	// Combine Signature and Data for RenterBandwidthAllocation
+	return rba, auth.SignMessage(rba, upID.Key)
+>>>>>>> 1f5ef1e1... made bandwidth agreements more deterministic
 }

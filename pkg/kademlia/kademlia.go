@@ -211,7 +211,7 @@ func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, erro
 	return k.lookup(ctx, ID, false)
 }
 
-//lookup initiates a kadmelia node lookup
+//lookup initiates a kademelia node lookup
 func (k *Kademlia) lookup(ctx context.Context, ID storj.NodeID, isBootstrap bool) (pb.Node, error) {
 	if !k.lookups.Start() {
 		return pb.Node{}, context.Canceled

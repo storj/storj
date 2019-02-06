@@ -73,10 +73,8 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, bandwidt
 			return nil, err
 		}
 		// if whitelist does not contain PBA satellite ID, reject storage request
-		if len(s.whitelist) != 0 {
-			if !s.isWhitelisted(pba.SatelliteId) {
-				return nil, StoreError.New("Satellite ID not approved")
-			}
+		if !s.isWhitelisted(pba.SatelliteId) {
+			return nil, StoreError.New("Satellite ID not approved")
 		}
 		// Update bandwidthallocation to be stored
 		if rba.Total > sr.currentTotal {
