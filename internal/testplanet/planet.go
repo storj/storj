@@ -109,7 +109,6 @@ type Planet struct {
 }
 
 type closablePeer struct {
-	name string
 	peer Peer
 
 	ctx    context.Context
@@ -256,7 +255,8 @@ func (planet *Planet) Shutdown() error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		timer := time.NewTimer(10 * time.Second)
+		// TODO: add diagnostics to see what hasn't been properly shut down
+		timer := time.NewTimer(30 * time.Second)
 		defer timer.Stop()
 		select {
 		case <-timer.C:
@@ -303,9 +303,8 @@ func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]
 func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 	var xs []*satellite.Peer
 	defer func() {
-		for i, x := range xs {
+		for _, x := range xs {
 			planet.peers = append(planet.peers, closablePeer{
-				name: "satellite/" + strconv.Itoa(i),
 				peer: x,
 			})
 		}
@@ -433,9 +432,8 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 	var xs []*storagenode.Peer
 	defer func() {
-		for i, x := range xs {
+		for _, x := range xs {
 			planet.peers = append(planet.peers, closablePeer{
-				name: "storage/" + strconv.Itoa(i),
 				peer: x,
 			})
 		}
@@ -519,7 +517,6 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 	defer func() {
 		planet.peers = append(planet.peers, closablePeer{
-			name: "bootstrap/0",
 			peer: peer,
 		})
 	}()
