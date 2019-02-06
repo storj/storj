@@ -9,6 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -114,13 +115,17 @@ func (c CertServerConfig) Run(ctx context.Context, srv *server.Server) (err erro
 		zap.String("address", srv.Addr().String()),
 	)
 
-	go func() {
-		done := ctx.Done()
-		<-done
-		if err := srv.Close(); err != nil {
-			certSrv.log.Error("closing server", zap.Error(err))
-		}
-	}()
+	ctx, cancel := context.WithCancel(ctx)
+	var group errgroup.Group
+	group.Go(func() error {
+		defer cancel()
+		<-ctx.Done()
+		return server.Close()
+	})
+	group.Go(func() error {
+		defer cancel()
+		return server.Run(ctx)
+	})
 
-	return srv.Run(ctx)
+	return group.Wait()
 }
