@@ -109,6 +109,7 @@ type Planet struct {
 }
 
 type closablePeer struct {
+	name string
 	peer Peer
 
 	ctx    context.Context
@@ -252,7 +253,20 @@ func (planet *Planet) Shutdown() error {
 	planet.cancel()
 
 	var errlist errs.Group
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		timer := time.NewTimer(10 * time.Second)
+		defer timer.Stop()
+		select {
+		case <-timer.C:
+			panic("planet took too long to shutdown")
+		case <-ctx.Done():
+		}
+	}()
+
 	errlist.Add(planet.run.Wait())
+	cancel()
 
 	// shutdown in reverse order
 	for i := len(planet.uplinks) - 1; i >= 0; i-- {
@@ -289,8 +303,11 @@ func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]
 func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 	var xs []*satellite.Peer
 	defer func() {
-		for _, x := range xs {
-			planet.peers = append(planet.peers, closablePeer{peer: x})
+		for i, x := range xs {
+			planet.peers = append(planet.peers, closablePeer{
+				name: "satellite/" + strconv.Itoa(i),
+				peer: x,
+			})
 		}
 	}()
 
@@ -416,8 +433,11 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 	var xs []*storagenode.Peer
 	defer func() {
-		for _, x := range xs {
-			planet.peers = append(planet.peers, closablePeer{peer: x})
+		for i, x := range xs {
+			planet.peers = append(planet.peers, closablePeer{
+				name: "storage/" + strconv.Itoa(i),
+				peer: x,
+			})
 		}
 	}()
 
@@ -498,7 +518,10 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 // newBootstrap initializes the bootstrap node
 func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 	defer func() {
-		planet.peers = append(planet.peers, closablePeer{peer: peer})
+		planet.peers = append(planet.peers, closablePeer{
+			name: "bootstrap/0",
+			peer: peer,
+		})
 	}()
 
 	prefix := "bootstrap"
