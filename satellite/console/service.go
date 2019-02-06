@@ -27,6 +27,11 @@ const (
 	// maxLimit specifies the limit for all paged queries
 	maxLimit            = 50
 	tokenExpirationTime = 24 * time.Hour
+
+	// DefaultPasswordCost is the hashing complexity
+	DefaultPasswordCost = bcrypt.DefaultCost
+	// TestPasswordCost is the hashing complexity to use for testing
+	TestPasswordCost = bcrypt.MinCost
 )
 
 // Service is handling accounts related logic
@@ -35,10 +40,12 @@ type Service struct {
 
 	store DB
 	log   *zap.Logger
+
+	passwordCost int
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, signer Signer, store DB) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -51,7 +58,11 @@ func NewService(log *zap.Logger, signer Signer, store DB) (*Service, error) {
 		return nil, errs.New("log can't be nil")
 	}
 
-	return &Service{Signer: signer, store: store, log: log}, nil
+	if passwordCost == 0 {
+		passwordCost = bcrypt.DefaultCost
+	}
+
+	return &Service{Signer: signer, store: store, log: log, passwordCost: passwordCost}, nil
 }
 
 // CreateUser gets password hash value and creates new inactive User
@@ -70,12 +81,13 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 		return nil, errs.New(fmt.Sprintf("%s is already in use", email))
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.passwordCost)
 	if err != nil {
 		return nil, err
 	}
 
 	u, err = s.store.Users().Insert(ctx, &User{
+		Email:        user.Email,
 		FirstName:    user.FirstName,
 		LastName:     user.LastName,
 		PasswordHash: hash,
@@ -83,6 +95,9 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 
 	// TODO: send "finish registration email" when email service will be ready
 	//activationToken, err := s.GenerateActivationToken(ctx, u.ID, email, u.CreatedAt.Add(tokenExpirationTime))
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	return u, err
 }
@@ -231,7 +246,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 		return err
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), s.passwordCost)
 	if err != nil {
 		return err
 	}

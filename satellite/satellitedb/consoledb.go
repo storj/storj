@@ -57,11 +57,6 @@ func (db *ConsoleDB) APIKeys() console.APIKeys {
 	return &apikeys{db.methods}
 }
 
-// Buckets is a getter for Buckets repository
-func (db *ConsoleDB) Buckets() console.Buckets {
-	return &buckets{db.methods}
-}
-
 // CreateTables is a method for creating all tables for satellitedb
 func (db *ConsoleDB) CreateTables() error {
 	if db.db == nil {
