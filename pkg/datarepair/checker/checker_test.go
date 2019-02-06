@@ -18,7 +18,6 @@ import (
 
 func TestIdentifyInjuredSegments(t *testing.T) {
 	// TODO note satellite's: own sub-systems need to be disabled
-	// TODO test irreparable ??
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -79,6 +78,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 }
 
 func TestOfflineNodes(t *testing.T) {
+	// TODO note satellite's: own sub-systems need to be disabled
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -107,6 +107,7 @@ func TestOfflineNodes(t *testing.T) {
 }
 
 func TestIdentifyIrreparableSegments(t *testing.T) {
+	// TODO note satellite's: own sub-systems need to be disabled
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
