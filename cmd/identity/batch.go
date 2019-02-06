@@ -76,6 +76,9 @@ func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
 
 	counter := new(uint32)
 	diffCounts := [256]uint32{}
+	if err := renderStats(screen, diffCounts[:]); err != nil {
+		return err
+	}
 	return identity.GenerateKeys(ctx, uint16(keyCfg.MinDifficulty), keyCfg.Concurrency,
 		func(k *ecdsa.PrivateKey, id storj.NodeID) (done bool, err error) {
 			difficulty, err := id.Difficulty()
