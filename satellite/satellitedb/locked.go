@@ -612,16 +612,16 @@ type lockedUplinkDB struct {
 	db uplinkdb.DB
 }
 
-// CreateAgreement adds a new bandwidth agreement.
-func (m *lockedUplinkDB) CreateAgreement(ctx context.Context, a1 uplinkdb.Agreement) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.CreateAgreement(ctx, a1)
-}
-
 // GetPublicKey gets the public key of uplink corresponding to serial number
 func (m *lockedUplinkDB) GetPublicKey(ctx context.Context, nodeID []byte) (*uplinkdb.Agreement, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetPublicKey(ctx, nodeID)
+}
+
+// SavePublicKey adds a new bandwidth agreement.
+func (m *lockedUplinkDB) SavePublicKey(ctx context.Context, a1 uplinkdb.Agreement) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SavePublicKey(ctx, a1)
 }

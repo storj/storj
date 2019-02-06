@@ -59,7 +59,7 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 	}
 
 	// store the corresponding uplink's id and public key into uplinkDB db
-	err = allocation.uplinkdb.CreateAgreement(ctx, uplinkdb.Agreement{ID: peerIdentity.ID.Bytes(), PublicKey: pubbytes})
+	err = allocation.uplinkdb.SavePublicKey(ctx, uplinkdb.Agreement{ID: peerIdentity.ID.Bytes(), PublicKey: pubbytes})
 	if err != nil {
 		return nil, err
 	}

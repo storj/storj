@@ -32,12 +32,12 @@ func testDatabase(ctx context.Context, t *testing.T, upldb uplinkdb.DB) {
 	}
 
 	{ // New entry
-		err := upldb.CreateAgreement(ctx, *uplinkInfo)
+		err := upldb.SavePublicKey(ctx, *uplinkInfo)
 		assert.NoError(t, err)
 	}
 
 	{ // New entry
-		err := upldb.CreateAgreement(ctx, *uplinkInfo)
+		err := upldb.SavePublicKey(ctx, *uplinkInfo)
 		assert.Error(t, err)
 	}
 

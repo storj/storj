@@ -5,9 +5,14 @@ package bwagreement
 
 import (
 	"context"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/x509"
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/gtank/cryptopasta"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -15,7 +20,9 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/uplinkdb"
 )
 
 var (
@@ -50,15 +57,17 @@ type DB interface {
 
 // Server is an implementation of the pb.BandwidthServer interface
 type Server struct {
-	db     DB
-	NodeID storj.NodeID
-	logger *zap.Logger
+	db       DB
+	uplinkdb uplinkdb.DB
+	pkey     crypto.PublicKey
+	NodeID   storj.NodeID
+	logger   *zap.Logger
 }
 
 // NewServer creates instance of Server
-func NewServer(db DB, logger *zap.Logger, nodeID storj.NodeID) *Server {
+func NewServer(db DB, upldb uplinkdb.DB, pkey crypto.PublicKey, logger *zap.Logger, nodeID storj.NodeID) *Server {
 	// TODO: reorder arguments, rename logger -> log
-	return &Server{db: db, logger: logger, NodeID: nodeID}
+	return &Server{db: db, uplinkdb: upldb, pkey: pkey, logger: logger, NodeID: nodeID}
 }
 
 // Close closes resources
@@ -85,12 +94,9 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.RenterBandwidt
 	if exp.Before(time.Now().UTC()) {
 		return reply, pb.ErrPayer.Wrap(auth.ErrExpired.New("%v vs %v", exp, time.Now().UTC()))
 	}
-	//verify message crypto
-	if err := auth.VerifyMsg(rba, pba.UplinkId); err != nil {
-		return reply, pb.ErrRenter.Wrap(err)
-	}
-	if err := auth.VerifyMsg(&pba, pba.SatelliteId); err != nil {
-		return reply, pb.ErrPayer.Wrap(err)
+
+	if err = s.verifySignature(ctx, rba); err != nil {
+		return reply, err
 	}
 
 	//save and return rersults
@@ -105,4 +111,68 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.RenterBandwidt
 	reply.Status = pb.AgreementsSummary_OK
 	s.logger.Debug("Stored Agreement...")
 	return reply, nil
+}
+
+func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAllocation) error {
+	pba := rba.GetPayerAllocation()
+
+	// Get renter's public key from uplink agreement db
+	uplinkInfo, err := s.uplinkdb.GetPublicKey(ctx, pba.UplinkId.Bytes())
+	if err != nil {
+		return pb.ErrRenter.Wrap(auth.ErrVerify.New("Failed to unmarshal PayerBandwidthAllocation: %+v", err))
+	}
+
+	pubkey, err := x509.ParsePKIXPublicKey(uplinkInfo.PublicKey)
+	if err != nil {
+		return Error.New("Failed to extract Public Key from RenterBandwidthAllocation: %+v", err)
+	}
+
+	// Typecast public key
+	k, ok := pubkey.(*ecdsa.PublicKey)
+	if !ok {
+		return peertls.ErrUnsupportedKey.New("%T", pubkey)
+	}
+
+	signatureLength := k.Curve.Params().P.BitLen() / 8
+	if len(rba.GetSignature()) < signatureLength {
+		return pb.ErrRenter.Wrap(auth.ErrSigLen.New("%d vs %d", len(rba.GetSignature()), signatureLength))
+	}
+
+	// verify Renter's (uplink) signature
+	rbad := *rba
+	rbad.SetSignature(nil)
+	rbad.SetCerts(nil)
+	rbadBytes, err := proto.Marshal(&rbad)
+	if err != nil {
+		return Error.New("marshalling error: %+v", err)
+	}
+
+	if ok := cryptopasta.Verify(rbadBytes, rba.GetSignature(), k); !ok {
+		return pb.ErrRenter.Wrap(auth.ErrVerify.New("%+v", ok))
+	}
+
+	// satellite public key
+	k, ok = s.pkey.(*ecdsa.PublicKey)
+	if !ok {
+		return peertls.ErrUnsupportedKey.New("%T", s.pkey)
+	}
+
+	signatureLength = k.Curve.Params().P.BitLen() / 8
+	if len(pba.GetSignature()) < signatureLength {
+		return pb.ErrPayer.Wrap(auth.ErrSigLen.New("%d vs %d", len(pba.GetSignature()), signatureLength))
+	}
+
+	// verify Payer's (satellite) signature
+	pbad := pba
+	pbad.SetSignature(nil)
+	pbad.SetCerts(nil)
+	pbadBytes, err := proto.Marshal(&pbad)
+	if err != nil {
+		return Error.New("marshalling error: %+v", err)
+	}
+
+	if ok := cryptopasta.Verify(pbadBytes, pba.GetSignature(), k); !ok {
+		return pb.ErrPayer.Wrap(auth.ErrVerify.New("%+v", ok))
+	}
+	return nil
 }

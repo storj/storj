@@ -15,8 +15,7 @@ type uplinkDB struct {
 	db *dbx.DB
 }
 
-func (b *uplinkDB) CreateAgreement(ctx context.Context, agreement uplinkdb.Agreement) error {
-	// return nil
+func (b *uplinkDB) SavePublicKey(ctx context.Context, agreement uplinkdb.Agreement) error {
 	tx, err := b.db.Open(ctx)
 	if err != nil {
 		return Error.Wrap(err)
@@ -35,7 +34,7 @@ func (b *uplinkDB) CreateAgreement(ctx context.Context, agreement uplinkdb.Agree
 		}
 	} else {
 		// nodeID entry already exists, return err
-		return Error.Wrap(utils.CombineErrors(Error.New("NodeID already exists"), tx.Rollback()))
+		return tx.Rollback()
 	}
 
 	return Error.Wrap(tx.Commit())

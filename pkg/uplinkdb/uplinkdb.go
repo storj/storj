@@ -13,8 +13,8 @@ import (
 
 // DB stores bandwidth agreements.
 type DB interface {
-	// CreateAgreement adds a new bandwidth agreement.
-	CreateAgreement(context.Context, Agreement) error
+	// SavePublicKey adds a new bandwidth agreement.
+	SavePublicKey(context.Context, Agreement) error
 	// GetPublicKey gets the public key of uplink corresponding to serial number
 	GetPublicKey(ctx context.Context, nodeID []byte) (*Agreement, error)
 }
