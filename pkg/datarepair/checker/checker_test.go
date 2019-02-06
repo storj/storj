@@ -165,7 +165,8 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		assert.Equal(t, 1, int(remoteSegmentInfo.RepairAttemptCount))
 		firstRepair := remoteSegmentInfo.RepairUnixSec
 
-		// check irreparable once again
+		// check irreparable once again but wait a second
+		time.Sleep(1 * time.Second)
 		err = checker.IdentifyInjuredSegments(ctx)
 		assert.NoError(t, err)
 
