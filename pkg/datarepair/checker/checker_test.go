@@ -118,7 +118,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		for i, storagenode := range planet.StorageNodes {
 			pieces = append(pieces, &pb.RemotePiece{
 				PieceNum: int32(i),
-				NodeId:   storagenode.Identity.ID,
+				NodeId:   storagenode.ID(),
 			})
 		}
 
