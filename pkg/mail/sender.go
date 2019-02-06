@@ -5,7 +5,7 @@ package mail
 
 import "net/smtp"
 
-// Sender incapsulates information about the mail sender
+// Sender encapsulates information about the mail sender
 type Sender struct {
 	Mail string
 	Auth smtp.Auth

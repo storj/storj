@@ -25,7 +25,7 @@ type GmailAuth struct {
 	Storage *tokenStorage
 }
 
-// Start return proto and auth credentials for first auth msg
+// Start returns proto and auth credentials for first auth msg
 func (auth *GmailAuth) Start(server *smtp.ServerInfo) (proto string, toServer []byte, err error) {
 	token, err := auth.Storage.Token()
 	if err != nil {
@@ -33,11 +33,10 @@ func (auth *GmailAuth) Start(server *smtp.ServerInfo) (proto string, toServer []
 	}
 
 	format := fmt.Sprintf("user=%s\001auth=%s %s\001\001", auth.Mail, token.Type, token.AccessToken)
-	fmt.Println(format)
 	return "XOAUTH2", []byte(format), nil
 }
 
-// Next send empty response to solve SASL challenge if response code is 334
+// Next sends empty response to solve SASL challenge if response code is 334
 func (auth *GmailAuth) Next(fromServer []byte, more bool) (toServer []byte, err error) {
 	if more {
 		return make([]byte, 0), nil
