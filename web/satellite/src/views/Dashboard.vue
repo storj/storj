@@ -17,15 +17,16 @@
 import { Component, Vue } from 'vue-property-decorator';
 import DashboardHeader from '@/components/header/Header.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
-import { removeToken, setToken } from "@/utils/tokenManager";
+import { removeToken, setToken } from '@/utils/tokenManager';
 import { NOTIFICATION_ACTIONS, PROJETS_ACTIONS, PM_ACTIONS, USER_ACTIONS } from '@/utils/constants/actionNames';
 import ROUTES from '@/utils/constants/routerConstants';
 
 @Component({
     beforeMount: async function() {
-    	if(this.$route.query['activationToken']) {
-			console.log(this.$route.query['activationToken']);
-			const response = await this.$store.dispatch(USER_ACTIONS.ACTIVATE);
+    	const activationTokenParam = this.$route.query['activationToken'];
+
+    	if(activationTokenParam) {
+			const response = await this.$store.dispatch(USER_ACTIONS.ACTIVATE, activationTokenParam);
 			if(!response.isSuccess) {
 				this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to activate account');
 				this.$router.push(ROUTES.LOGIN);
