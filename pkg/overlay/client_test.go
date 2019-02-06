@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -24,9 +25,7 @@ func TestChoose(t *testing.T) {
 		time.Sleep(2 * time.Second)
 
 		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		cases := []struct {
 			limit     int
@@ -64,9 +63,7 @@ func TestLookup(t *testing.T) {
 		time.Sleep(2 * time.Second)
 
 		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		nid1 := planet.StorageNodes[0].ID()
 
@@ -105,9 +102,7 @@ func TestBulkLookup(t *testing.T) {
 		defer ctx.Check(planet.Shutdown)
 
 		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		nid1 := planet.StorageNodes[0].ID()
 		nid2 := planet.StorageNodes[1].ID()
@@ -142,9 +137,7 @@ func TestBulkLookupV2(t *testing.T) {
 		defer ctx.Check(planet.Shutdown)
 
 		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		nid1 := planet.StorageNodes[0].ID()
 		nid2 := planet.StorageNodes[1].ID()
