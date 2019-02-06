@@ -61,9 +61,6 @@ func TestGrapqhlMutation(t *testing.T) {
 		}
 
 		t.Run("Activate account mutation", func(t *testing.T) {
-			t.Skip("skip it until we will have activation flow ready")
-
-			//TODO(yar): skip it until we will have activation flow ready
 			activationToken, err := service.GenerateActivationToken(
 				ctx,
 				rootUser.ID,
@@ -370,9 +367,6 @@ func TestGrapqhlMutation(t *testing.T) {
 		}
 
 		t.Run("Activation", func(t *testing.T) {
-			t.Skip("skip it until we will have activation flow ready")
-
-			//TODO(yar): skip it until we will have activation flow ready
 			activationToken1, err := service.GenerateActivationToken(
 				ctx,
 				user1.ID,
@@ -402,9 +396,6 @@ func TestGrapqhlMutation(t *testing.T) {
 		}
 
 		t.Run("Activation", func(t *testing.T) {
-			t.Skip("skip it until we will have activation flow ready")
-
-			//TODO(yar): skip it until we will have activation flow ready
 			activationToken2, err := service.GenerateActivationToken(
 				ctx,
 				user2.ID,

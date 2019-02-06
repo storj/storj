@@ -97,11 +97,11 @@ CREATE TABLE users (
 	id bytea NOT NULL,
 	first_name text NOT NULL,
 	last_name text NOT NULL,
-	email text,
+	email text NOT NULL,
 	password_hash bytea NOT NULL,
+	status integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( email )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE api_keys (
 	id bytea NOT NULL,

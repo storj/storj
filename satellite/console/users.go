@@ -64,6 +64,18 @@ func (user *CreateUser) IsValid() error {
 	return errs.Combine()
 }
 
+// UserStatus - is used to indicate status of the users account
+type UserStatus int
+
+const (
+	// Inactive is a user status that he receives after registration
+	Inactive UserStatus = iota
+	// Active is a user status that he receives after account activation
+	Active
+	// Deleted is a user status that he receives after deleting account
+	Deleted
+)
+
 // User is a database object that describes User entity.
 type User struct {
 	ID uuid.UUID `json:"id"`
@@ -73,6 +85,8 @@ type User struct {
 
 	Email        string `json:"email"`
 	PasswordHash []byte `json:"passwordHash"`
+
+	Status UserStatus `json:"status"`
 
 	CreatedAt time.Time `json:"createdAt"`
 }
