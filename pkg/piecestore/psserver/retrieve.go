@@ -183,7 +183,6 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			used -= nextMessageSize - n
 		}
 		if used >= length && err == io.EOF {
-			err = nil
 			break
 		}
 		if err != nil {
