@@ -151,16 +151,27 @@ TestLoop:
 
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
-		} else {
-			assert.NoError(t, err, errTag)
-			assert.Equal(t, len(tt.nodes), len(successfulNodes), errTag)
-			for i := range tt.nodes {
-				if tt.errs[i] != nil {
-					assert.Nil(t, successfulNodes[i], errTag)
-				} else {
-					assert.Equal(t, tt.nodes[i], successfulNodes[i], errTag)
-				}
+			continue
+		}
+
+		assert.NoError(t, err, errTag)
+		assert.Equal(t, len(tt.nodes), len(successfulNodes), errTag)
+
+		slowNodes := 0
+		for i := range tt.nodes {
+			if tt.errs[i] != nil {
+				assert.Nil(t, successfulNodes[i], errTag)
+			} else if successfulNodes[i] == nil && tt.nodes[i] != nil {
+				slowNodes++
+			} else {
+				assert.Equal(t, tt.nodes[i], successfulNodes[i], errTag)
 			}
+		}
+
+		if slowNodes > n-k {
+			assert.Fail(t, fmt.Sprintf("Too many slow nodes: \n"+
+				"expected: <= %d\n"+
+				"actual  :    %d", n-k, slowNodes), errTag)
 		}
 	}
 }
