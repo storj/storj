@@ -101,7 +101,6 @@ func TestBulkLookup(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// we wait a second for all the nodes to complete bootstrapping off the satellite
 		time.Sleep(2 * time.Second)
-		defer ctx.Check(planet.Shutdown)
 
 		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
 		require.NoError(t, err)
@@ -138,7 +137,6 @@ func TestBulkLookupV2(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// we wait a second for all the nodes to complete bootstrapping off the satellite
 		time.Sleep(2 * time.Second)
-		defer ctx.Check(planet.Shutdown)
 
 		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
 		require.NoError(t, err)

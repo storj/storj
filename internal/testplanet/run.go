@@ -61,10 +61,10 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer ctx.Check(planet.Shutdown)
 
 			planet.Start(ctx)
 			test(t, ctx, planet)
+			planet.Shutdown()
 		})
 	}
 }

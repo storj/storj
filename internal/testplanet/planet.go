@@ -90,6 +90,7 @@ type Planet struct {
 	config    Config
 	directory string // TODO: ensure that everything is in-memory to speed things up
 	started   bool
+	shutdown  bool
 
 	peers     []closablePeer
 	databases []io.Closer
@@ -248,6 +249,11 @@ func (planet *Planet) Shutdown() error {
 	if !planet.started {
 		return errors.New("Start was never called")
 	}
+	if planet.shutdown {
+		panic("double Shutdown")
+	}
+	planet.shutdown = true
+
 	planet.cancel()
 
 	var errlist errs.Group
