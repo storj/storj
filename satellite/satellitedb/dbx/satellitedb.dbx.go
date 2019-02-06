@@ -360,6 +360,12 @@ CREATE TABLE projects (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE uplinkDBs (
+	publickey bytea NOT NULL,
+	id bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	first_name text NOT NULL,
@@ -533,6 +539,12 @@ CREATE TABLE projects (
 	id BLOB NOT NULL,
 	name TEXT NOT NULL,
 	description TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE uplinkDBs (
+	publickey BLOB NOT NULL,
+	id BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -1901,6 +1913,74 @@ func (f Project_CreatedAt_Field) value() interface{} {
 
 func (Project_CreatedAt_Field) _Column() string { return "created_at" }
 
+type UplinkDB struct {
+	Publickey []byte
+	Id        []byte
+	CreatedAt time.Time
+}
+
+func (UplinkDB) _Table() string { return "uplinkDBs" }
+
+type UplinkDB_Update_Fields struct {
+}
+
+type UplinkDB_Publickey_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func UplinkDB_Publickey(v []byte) UplinkDB_Publickey_Field {
+	return UplinkDB_Publickey_Field{_set: true, _value: v}
+}
+
+func (f UplinkDB_Publickey_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UplinkDB_Publickey_Field) _Column() string { return "publickey" }
+
+type UplinkDB_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func UplinkDB_Id(v []byte) UplinkDB_Id_Field {
+	return UplinkDB_Id_Field{_set: true, _value: v}
+}
+
+func (f UplinkDB_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UplinkDB_Id_Field) _Column() string { return "id" }
+
+type UplinkDB_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func UplinkDB_CreatedAt(v time.Time) UplinkDB_CreatedAt_Field {
+	return UplinkDB_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f UplinkDB_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UplinkDB_CreatedAt_Field) _Column() string { return "created_at" }
+
 type User struct {
 	Id           []byte
 	FirstName    string
@@ -2769,6 +2849,30 @@ func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_UplinkDB(ctx context.Context,
+	uplinkDB_publickey UplinkDB_Publickey_Field,
+	uplinkDB_id UplinkDB_Id_Field) (
+	uplinkDB *UplinkDB, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__publickey_val := uplinkDB_publickey.value()
+	__id_val := uplinkDB_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO uplinkDBs ( publickey, id, created_at ) VALUES ( ?, ?, ? ) RETURNING uplinkDBs.publickey, uplinkDBs.id, uplinkDBs.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __publickey_val, __id_val, __created_at_val)
+
+	uplinkDB = &UplinkDB{}
+	err = obj.driver.QueryRow(__stmt, __publickey_val, __id_val, __created_at_val).Scan(&uplinkDB.Publickey, &uplinkDB.Id, &uplinkDB.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return uplinkDB, nil
+
+}
+
 func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Bwagreement, err error) {
@@ -3567,6 +3671,27 @@ func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Co
 
 }
 
+func (obj *postgresImpl) Get_UplinkDB_By_Id(ctx context.Context,
+	uplinkDB_id UplinkDB_Id_Field) (
+	uplinkDB *UplinkDB, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT uplinkDBs.publickey, uplinkDBs.id, uplinkDBs.created_at FROM uplinkDBs WHERE uplinkDBs.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, uplinkDB_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	uplinkDB = &UplinkDB{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&uplinkDB.Publickey, &uplinkDB.Id, &uplinkDB.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return uplinkDB, nil
+
+}
+
 func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -4224,6 +4349,32 @@ func (obj *postgresImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Delete_UplinkDB_By_Id(ctx context.Context,
+	uplinkDB_id UplinkDB_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM uplinkDBs WHERE uplinkDBs.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, uplinkDB_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -4258,6 +4409,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM uplinkDBs;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -4744,6 +4905,33 @@ func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastApiKey(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_UplinkDB(ctx context.Context,
+	uplinkDB_publickey UplinkDB_Publickey_Field,
+	uplinkDB_id UplinkDB_Id_Field) (
+	uplinkDB *UplinkDB, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__publickey_val := uplinkDB_publickey.value()
+	__id_val := uplinkDB_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO uplinkDBs ( publickey, id, created_at ) VALUES ( ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __publickey_val, __id_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __publickey_val, __id_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastUplinkDB(ctx, __pk)
 
 }
 
@@ -5545,6 +5733,27 @@ func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Con
 
 }
 
+func (obj *sqlite3Impl) Get_UplinkDB_By_Id(ctx context.Context,
+	uplinkDB_id UplinkDB_Id_Field) (
+	uplinkDB *UplinkDB, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT uplinkDBs.publickey, uplinkDBs.id, uplinkDBs.created_at FROM uplinkDBs WHERE uplinkDBs.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, uplinkDB_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	uplinkDB = &UplinkDB{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&uplinkDB.Publickey, &uplinkDB.Id, &uplinkDB.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return uplinkDB, nil
+
+}
+
 func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -6272,6 +6481,32 @@ func (obj *sqlite3Impl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_UplinkDB_By_Id(ctx context.Context,
+	uplinkDB_id UplinkDB_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM uplinkDBs WHERE uplinkDBs.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, uplinkDB_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) getLastBwagreement(ctx context.Context,
 	pk int64) (
 	bwagreement *Bwagreement, err error) {
@@ -6488,6 +6723,24 @@ func (obj *sqlite3Impl) getLastApiKey(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastUplinkDB(ctx context.Context,
+	pk int64) (
+	uplinkDB *UplinkDB, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT uplinkDBs.publickey, uplinkDBs.id, uplinkDBs.created_at FROM uplinkDBs WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	uplinkDB = &UplinkDB{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&uplinkDB.Publickey, &uplinkDB.Id, &uplinkDB.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return uplinkDB, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -6527,6 +6780,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM uplinkDBs;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -6948,6 +7211,18 @@ func (rx *Rx) Create_ProjectMember(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_UplinkDB(ctx context.Context,
+	uplinkDB_publickey UplinkDB_Publickey_Field,
+	uplinkDB_id UplinkDB_Id_Field) (
+	uplinkDB *UplinkDB, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_UplinkDB(ctx, uplinkDB_publickey, uplinkDB_id)
+
+}
+
 func (rx *Rx) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_first_name User_FirstName_Field,
@@ -7052,6 +7327,16 @@ func (rx *Rx) Delete_Project_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_Project_By_Id(ctx, project_id)
+}
+
+func (rx *Rx) Delete_UplinkDB_By_Id(ctx context.Context,
+	uplinkDB_id UplinkDB_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_UplinkDB_By_Id(ctx, uplinkDB_id)
 }
 
 func (rx *Rx) Delete_User_By_Id(ctx context.Context,
@@ -7171,6 +7456,16 @@ func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_Project_By_Id(ctx, project_id)
+}
+
+func (rx *Rx) Get_UplinkDB_By_Id(ctx context.Context,
+	uplinkDB_id UplinkDB_Id_Field) (
+	uplinkDB *UplinkDB, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_UplinkDB_By_Id(ctx, uplinkDB_id)
 }
 
 func (rx *Rx) Get_User_By_Email(ctx context.Context,
@@ -7445,6 +7740,11 @@ type Methods interface {
 		project_member_project_id ProjectMember_ProjectId_Field) (
 		project_member *ProjectMember, err error)
 
+	Create_UplinkDB(ctx context.Context,
+		uplinkDB_publickey UplinkDB_Publickey_Field,
+		uplinkDB_id UplinkDB_Id_Field) (
+		uplinkDB *UplinkDB, err error)
+
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
 		user_first_name User_FirstName_Field,
@@ -7488,6 +7788,10 @@ type Methods interface {
 
 	Delete_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
+		deleted bool, err error)
+
+	Delete_UplinkDB_By_Id(ctx context.Context,
+		uplinkDB_id UplinkDB_Id_Field) (
 		deleted bool, err error)
 
 	Delete_User_By_Id(ctx context.Context,
@@ -7536,6 +7840,10 @@ type Methods interface {
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		project *Project, err error)
+
+	Get_UplinkDB_By_Id(ctx context.Context,
+		uplinkDB_id UplinkDB_Id_Field) (
+		uplinkDB *UplinkDB, err error)
 
 	Get_User_By_Email(ctx context.Context,
 		user_email User_Email_Field) (

@@ -87,6 +87,12 @@ CREATE TABLE projects (
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE uplinkDBs (
+	publickey BLOB NOT NULL,
+	id BLOB NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE users (
 	id BLOB NOT NULL,
 	first_name TEXT NOT NULL,

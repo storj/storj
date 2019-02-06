@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/uplinkdb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 )
@@ -596,4 +597,31 @@ func (m *lockedStatDB) UpdateUptime(ctx context.Context, nodeID storj.NodeID, is
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateUptime(ctx, nodeID, isUp)
+}
+
+// UplinkDB returns database for storing uplink's public key & ID
+func (m *locked) UplinkDB() uplinkdb.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedUplinkDB{m.Locker, m.db.UplinkDB()}
+}
+
+// lockedUplinkDB implements locking wrapper for uplinkdb.DB
+type lockedUplinkDB struct {
+	sync.Locker
+	db uplinkdb.DB
+}
+
+// CreateAgreement adds a new bandwidth agreement.
+func (m *lockedUplinkDB) CreateAgreement(ctx context.Context, a1 uplinkdb.Agreement) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.CreateAgreement(ctx, a1)
+}
+
+// GetPublicKey gets the public key of uplink corresponding to serial number
+func (m *lockedUplinkDB) GetPublicKey(ctx context.Context, nodeID []byte) (*uplinkdb.Agreement, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetPublicKey(ctx, nodeID)
 }

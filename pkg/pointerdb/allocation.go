@@ -5,6 +5,8 @@ package pointerdb
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/x509"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -12,19 +14,23 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/uplinkdb"
 )
 
 // AllocationSigner structure
 type AllocationSigner struct {
 	satelliteIdentity *identity.FullIdentity
 	bwExpiration      int
+	uplinkdb          uplinkdb.DB
 }
 
 // NewAllocationSigner creates new instance
-func NewAllocationSigner(satelliteIdentity *identity.FullIdentity, bwExpiration int) *AllocationSigner {
+func NewAllocationSigner(satelliteIdentity *identity.FullIdentity, bwExpiration int, upldb uplinkdb.DB) *AllocationSigner {
 	return &AllocationSigner{
 		satelliteIdentity: satelliteIdentity,
 		bwExpiration:      bwExpiration,
+		uplinkdb:          upldb,
 	}
 }
 
@@ -41,6 +47,23 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 	// convert ttl from days to seconds
 	ttl := allocation.bwExpiration
 	ttl *= 86400
+
+	pk, ok := peerIdentity.Leaf.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, peertls.ErrUnsupportedKey.New("%T", peerIdentity.Leaf.PublicKey)
+	}
+
+	pubbytes, err := x509.MarshalPKIXPublicKey(pk)
+	if err != nil {
+		return nil, err
+	}
+
+	// store the corresponding uplink's id and public key into uplinkDB db
+	err = allocation.uplinkdb.CreateAgreement(ctx, uplinkdb.Agreement{ID: peerIdentity.ID.Bytes(), PublicKey: pubbytes})
+	if err != nil {
+		return nil, err
+	}
+
 	pba = &pb.PayerBandwidthAllocation{
 		SatelliteId:       allocation.satelliteIdentity.ID,
 		UplinkId:          peerIdentity.ID,

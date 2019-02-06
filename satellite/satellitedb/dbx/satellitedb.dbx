@@ -334,3 +334,21 @@ read all (
     where api_key.project_id = ?
     orderby asc api_key.name
 )
+
+//--- uplinkDB ---//
+
+model uplinkDB (
+	key id 
+
+	field publickey  blob		//--uplink public key--//
+	field id         blob		//--uplink node id  --//
+	field created_at timestamp ( autoinsert )
+)
+
+create uplinkDB ( )
+delete uplinkDB ( where uplinkDB.id = ? )
+
+read one (
+	select uplinkDB
+	where  uplinkDB.id = ?
+)
