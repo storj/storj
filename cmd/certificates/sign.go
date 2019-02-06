@@ -5,43 +5,51 @@ package main
 
 import (
 	"crypto/x509"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 )
 
 var (
 	signCmd = &cobra.Command{
-		Use:   "sign",
+		Use:   "sign [signee identity-dir]",
 		Short: "Sign a CA and update corresponding CA and identity certificate chains",
+		Args:  cobra.ExactArgs(1),
 		RunE:  cmdSign,
 	}
 
 	signCfg struct {
-		CA       identity.FullCAConfig
-		Identity identity.Config
+		SigneeCACfg    identity.PeerCAConfig
+		SigneeIdentCfg identity.PeerConfig
 		// NB: defaults to same as CA
 		Signer identity.FullCAConfig
 	}
 )
 
-func init() {
-	rootCmd.AddCommand(signCmd)
-	cfgstruct.Bind(signCmd.Flags(), &signCfg, cfgstruct.ConfDir(defaultConfDir))
-}
-
 func cmdSign(cmd *cobra.Command, args []string) error {
-	ca, err := signCfg.CA.Load()
+	ca, err := signCfg.SigneeCACfg.Load()
 	if err != nil {
 		return err
 	}
 
-	ident, err := signCfg.Identity.Load()
+	var (
+		signeeIdentityExists bool
+		ident                *identity.PeerIdentity
+	)
+	_, err = os.Stat(signCfg.SigneeIdentCfg.CertPath)
 	if err != nil {
-		return err
+		signeeIdentityExists = !os.IsNotExist(err)
+		if signeeIdentityExists {
+			return err
+		}
+
+		ident, err = signCfg.SigneeIdentCfg.Load()
+		if err != nil {
+			return err
+		}
 	}
 
 	signer, err := signCfg.Signer.Load()
@@ -51,11 +59,7 @@ func cmdSign(cmd *cobra.Command, args []string) error {
 	restChain := []*x509.Certificate{signer.Cert}
 
 	// NB: backup ca and identity
-	err = signCfg.CA.SaveBackup(ca)
-	if err != nil {
-		return err
-	}
-	err = signCfg.Identity.SaveBackup(ident)
+	err = signCfg.SigneeCACfg.SaveBackup(ca)
 	if err != nil {
 		return err
 	}
@@ -67,21 +71,23 @@ func cmdSign(cmd *cobra.Command, args []string) error {
 	ca.RestChain = restChain
 
 	writeErrs := new(errs.Group)
-	err = identity.FullCAConfig{
-		CertPath: signCfg.CA.CertPath,
-	}.Save(ca)
+	err = signCfg.SigneeCACfg.Save(ca)
 	if err != nil {
 		writeErrs.Add(err)
 	}
 
-	ident.CA = ca.Cert
-	ident.RestChain = restChain
+	if signeeIdentityExists {
+		err = signCfg.SigneeIdentCfg.SaveBackup(ident)
+		if err != nil {
+			writeErrs.Add(err)
+		}
+		ident.CA = ca.Cert
+		ident.RestChain = restChain
 
-	err = identity.Config{
-		CertPath: signCfg.Identity.CertPath,
-	}.Save(ident)
-	if err != nil {
-		writeErrs.Add(err)
+		err = signCfg.SigneeIdentCfg.Save(ident)
+		if err != nil {
+			writeErrs.Add(err)
+		}
 	}
 
 	return writeErrs.Err()

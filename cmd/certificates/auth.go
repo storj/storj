@@ -18,7 +18,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/certificates"
-	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -47,16 +46,6 @@ var (
 		RunE:  cmdExportAuth,
 	}
 )
-
-func init() {
-	rootCmd.AddCommand(authCmd)
-	authCmd.AddCommand(authCreateCmd)
-	cfgstruct.Bind(authCreateCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir))
-	authCmd.AddCommand(authInfoCmd)
-	cfgstruct.Bind(authInfoCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir))
-	authCmd.AddCommand(authExportCmd)
-	cfgstruct.Bind(authExportCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir))
-}
 
 func parseEmailsList(fileName, delimiter string) (emails []string, err error) {
 	file, err := os.Open(fileName)
