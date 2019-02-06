@@ -300,7 +300,7 @@ func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]
 func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 	var xs []*satellite.Peer
 	defer func() {
-		for i, x := range xs {
+		for _, x := range xs {
 			planet.peers = append(planet.peers, closablePeer{peer: x})
 		}
 	}()
@@ -427,7 +427,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 	var xs []*storagenode.Peer
 	defer func() {
-		for i, x := range xs {
+		for _, x := range xs {
 			planet.peers = append(planet.peers, closablePeer{peer: x})
 		}
 	}()
