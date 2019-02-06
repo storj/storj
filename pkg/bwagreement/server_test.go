@@ -293,7 +293,8 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			assert.NoError(t, err)
 			rba.Signature = []byte("invalid")
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rba)
-			assert.True(t, auth.ErrSigLen.Has(err) && pb.ErrRenter.Has(err), err.Error())
+			assert.Error(t, err)
+			assert.True(t, pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
