@@ -100,6 +100,7 @@ func (discovery *Discovery) Run(ctx context.Context) error {
 			}
 		case <-ctx.Done():
 			return ctx.Err()
+		default: // don't block
 		}
 	}
 }

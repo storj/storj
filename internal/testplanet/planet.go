@@ -304,9 +304,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 	var xs []*satellite.Peer
 	defer func() {
 		for _, x := range xs {
-			planet.peers = append(planet.peers, closablePeer{
-				peer: x,
-			})
+			planet.peers = append(planet.peers, closablePeer{peer: x})
 		}
 	}()
 
@@ -433,9 +431,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 	var xs []*storagenode.Peer
 	defer func() {
 		for _, x := range xs {
-			planet.peers = append(planet.peers, closablePeer{
-				peer: x,
-			})
+			planet.peers = append(planet.peers, closablePeer{peer: x})
 		}
 	}()
 
@@ -516,9 +512,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 // newBootstrap initializes the bootstrap node
 func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 	defer func() {
-		planet.peers = append(planet.peers, closablePeer{
-			peer: peer,
-		})
+		planet.peers = append(planet.peers, closablePeer{peer: peer})
 	}()
 
 	prefix := "bootstrap"
