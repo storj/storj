@@ -219,14 +219,8 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 
 	jitter()
 	// write to bandwidth usage table
-	if err = s.DB.AddBandwidthUsed(used); err != nil {
-		return retrieved, allocated, RetrieveError.New("failed to write bandwidth info to database: %v", err)
-	}
-
-	// TODO: handle errors
-	// _ = stream.Close()
-
-	return used, atomic.LoadInt64(&totalAllocated), errs.Combine(errx, allocationTracking.Err())
+	bwUsedErr := s.DB.AddBandwidthUsed(used)
+	return used, atomic.LoadInt64(&totalAllocated), errs.Combine(errx, allocationTracking.Err(), bwUsedErr)
 }
 
 func jitter() {
