@@ -6,7 +6,6 @@ package endpoints
 import (
 	"context"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -14,8 +13,7 @@ import (
 )
 
 var (
-	mon          = monkit.Package()
-	segmentError = errs.Class("satellite_server error")
+	mon = monkit.Package()
 )
 
 // Server implements the network state RPC service
