@@ -243,12 +243,12 @@ func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (*p
 }
 
 // Close closes the authorization database's underlying store.
-func (a *AuthorizationDB) Close() error {
-	return ErrAuthorizationDB.Wrap(a.DB.Close())
+func (authDB *AuthorizationDB) Close() error {
+	return ErrAuthorizationDB.Wrap(authDB.DB.Close())
 }
 
 // Create creates a new authorization and adds it to the authorization database.
-func (a *AuthorizationDB) Create(userID string, count int) (Authorizations, error) {
+func (authDB *AuthorizationDB) Create(userID string, count int) (Authorizations, error) {
 	if len(userID) == 0 {
 		return nil, ErrAuthorizationDB.New("userID cannot be empty")
 	}
@@ -272,7 +272,7 @@ func (a *AuthorizationDB) Create(userID string, count int) (Authorizations, erro
 		return nil, ErrAuthorizationDB.Wrap(err)
 	}
 
-	if err := a.add(userID, newAuths); err != nil {
+	if err := authDB.add(userID, newAuths); err != nil {
 		return nil, err
 	}
 
@@ -280,8 +280,8 @@ func (a *AuthorizationDB) Create(userID string, count int) (Authorizations, erro
 }
 
 // Get retrieves authorizations by user ID.
-func (a *AuthorizationDB) Get(userID string) (Authorizations, error) {
-	authsBytes, err := a.DB.Get(storage.Key(userID))
+func (authDB *AuthorizationDB) Get(userID string) (Authorizations, error) {
+	authsBytes, err := authDB.DB.Get(storage.Key(userID))
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return nil, ErrAuthorizationDB.Wrap(err)
 	}
@@ -297,16 +297,33 @@ func (a *AuthorizationDB) Get(userID string) (Authorizations, error) {
 }
 
 // UserIDs returns a list of all userIDs present in the authorization database.
-func (a *AuthorizationDB) UserIDs() ([]string, error) {
-	keys, err := a.DB.List([]byte{}, 0)
+func (authDB *AuthorizationDB) UserIDs() ([]string, error) {
+	keys, err := authDB.DB.List([]byte{}, 0)
 	if err != nil {
 		return nil, ErrAuthorizationDB.Wrap(err)
 	}
 	return keys.Strings(), nil
 }
 
-// Claim marks an authorization as claimed and records claim information
-func (a *AuthorizationDB) Claim(opts *ClaimOpts) error {
+// List returns all authorizations in the database.
+func (authDB *AuthorizationDB) List() (auths Authorizations, _ error) {
+	uids, err := authDB.UserIDs()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, uid := range uids {
+		idAuths, err := authDB.Get(uid)
+		if err != nil {
+			return nil, err
+		}
+		auths = append(auths, idAuths...)
+	}
+	return auths, nil
+}
+
+// Claim marks an authorization as claimed and records claim information.
+func (authDB *AuthorizationDB) Claim(opts *ClaimOpts) error {
 	now := time.Now().Unix()
 	if !(now-MaxClaimDelaySeconds < opts.Req.Timestamp) ||
 		!(opts.Req.Timestamp < now+MaxClaimDelaySeconds) {
@@ -332,7 +349,7 @@ func (a *AuthorizationDB) Claim(opts *ClaimOpts) error {
 		return err
 	}
 
-	auths, err := a.Get(token.UserID)
+	auths, err := authDB.Get(token.UserID)
 	if err != nil {
 		return err
 	}
@@ -352,7 +369,7 @@ func (a *AuthorizationDB) Claim(opts *ClaimOpts) error {
 					SignedChainBytes: opts.ChainBytes,
 				},
 			}
-			if err := a.put(token.UserID, auths); err != nil {
+			if err := authDB.put(token.UserID, auths); err != nil {
 				return err
 			}
 			break
@@ -361,23 +378,23 @@ func (a *AuthorizationDB) Claim(opts *ClaimOpts) error {
 	return nil
 }
 
-func (a *AuthorizationDB) add(userID string, newAuths Authorizations) error {
-	auths, err := a.Get(userID)
+func (authDB *AuthorizationDB) add(userID string, newAuths Authorizations) error {
+	auths, err := authDB.Get(userID)
 	if err != nil {
 		return err
 	}
 
 	auths = append(auths, newAuths...)
-	return a.put(userID, auths)
+	return authDB.put(userID, auths)
 }
 
-func (a *AuthorizationDB) put(userID string, auths Authorizations) error {
+func (authDB *AuthorizationDB) put(userID string, auths Authorizations) error {
 	authsBytes, err := auths.Marshal()
 	if err != nil {
 		return ErrAuthorizationDB.Wrap(err)
 	}
 
-	if err := a.DB.Put(storage.Key(userID), authsBytes); err != nil {
+	if err := authDB.DB.Put(storage.Key(userID), authsBytes); err != nil {
 		return ErrAuthorizationDB.Wrap(err)
 	}
 	return nil
