@@ -22,7 +22,6 @@ import (
 
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 )
 
 const minimumLoggableDifficulty = 8
@@ -262,42 +261,33 @@ func (fc FullCAConfig) PeerConfig() PeerCAConfig {
 // Save saves a CA with the given configuration
 func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	var (
-		certData, keyData bytes.Buffer
-		writeErrs         utils.ErrorGroup
+		keyData   bytes.Buffer
+		writeErrs errs.Group
 	)
-
-	chain := []*x509.Certificate{ca.Cert}
-	chain = append(chain, ca.RestChain...)
-
-	if fc.CertPath != "" {
-		if err := peertls.WriteChain(&certData, chain...); err != nil {
-			writeErrs.Add(err)
-			return writeErrs.Finish()
-		}
-		if err := writeChainData(fc.CertPath, certData.Bytes()); err != nil {
-			writeErrs.Add(err)
-			return writeErrs.Finish()
-		}
+	if err := fc.PeerConfig().Save(ca.PeerCA()); err != nil {
+		writeErrs.Add(err)
+		return writeErrs.Err()
 	}
 
 	if fc.KeyPath != "" {
 		if err := peertls.WriteKey(&keyData, ca.Key); err != nil {
 			writeErrs.Add(err)
-			return writeErrs.Finish()
+			return writeErrs.Err()
 		}
 		if err := writeKeyData(fc.KeyPath, keyData.Bytes()); err != nil {
 			writeErrs.Add(err)
-			return writeErrs.Finish()
+			return writeErrs.Err()
 		}
 	}
 
-	return writeErrs.Finish()
+	return writeErrs.Err()
 }
 
 // SaveBackup saves the certificate of the config wth a timestamped filename
 func (fc FullCAConfig) SaveBackup(ca *FullCertificateAuthority) error {
 	return FullCAConfig{
 		CertPath: backupPath(fc.CertPath),
+		KeyPath:  backupPath(fc.KeyPath),
 	}.Save(ca)
 }
 
@@ -326,6 +316,36 @@ func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
 		Cert:      chain[peertls.CAIndex-1],
 		ID:        nodeID,
 	}, nil
+}
+
+// Save saves a peer CA (cert, no key) with the given configuration
+func (pc PeerCAConfig) Save(ca *PeerCertificateAuthority) error {
+	var (
+		certData  bytes.Buffer
+		writeErrs errs.Group
+	)
+
+	chain := []*x509.Certificate{ca.Cert}
+	chain = append(chain, ca.RestChain...)
+
+	if pc.CertPath != "" {
+		if err := peertls.WriteChain(&certData, chain...); err != nil {
+			writeErrs.Add(err)
+			return writeErrs.Err()
+		}
+		if err := writeChainData(pc.CertPath, certData.Bytes()); err != nil {
+			writeErrs.Add(err)
+			return writeErrs.Err()
+		}
+	}
+	return nil
+}
+
+// SaveBackup saves the certificate of the config wth a timestamped filename
+func (pc PeerCAConfig) SaveBackup(ca *PeerCertificateAuthority) error {
+	return PeerCAConfig{
+		CertPath: backupPath(pc.CertPath),
+	}.Save(ca)
 }
 
 // NewIdentity generates a new `FullIdentity` based on the CA. The CA
@@ -369,6 +389,15 @@ func (ca *FullCertificateAuthority) RestChainRaw() [][]byte {
 		chain = append(chain, cert.Raw)
 	}
 	return chain
+}
+
+// PeerCA converts a FullCertificateAuthority to a PeerCertificateAuthority
+func (ca *FullCertificateAuthority) PeerCA() *PeerCertificateAuthority {
+	return &PeerCertificateAuthority{
+		Cert:      ca.Cert,
+		ID:        ca.ID,
+		RestChain: ca.RestChain,
+	}
 }
 
 // Sign signs the passed certificate with ca certificate

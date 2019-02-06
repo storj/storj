@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/zeebo/errs"
 )
 
 // GetBytes transforms an empty interface type into a byte slice
@@ -67,28 +69,18 @@ func (errs combinedError) Error() string {
 }
 
 // ErrorGroup contains a set of non-nil errors
-type ErrorGroup []error
+type ErrorGroup errs.Group
 
 // Add adds an error to the ErrorGroup if it is non-nil
-func (e *ErrorGroup) Add(errs ...error) {
-	for _, err := range errs {
-		if err != nil {
-			*e = append(*e, err)
-		}
-	}
+func (e *ErrorGroup) Add(errrs ...error) {
+	(*errs.Group)(e).Add(errrs...)
 }
 
 // Finish returns nil if there were no non-nil errors, the first error if there
 // was only one non-nil error, or the result of CombineErrors if there was more
 // than one non-nil error.
-func (e ErrorGroup) Finish() error {
-	if len(e) == 0 {
-		return nil
-	}
-	if len(e) == 1 {
-		return e[0]
-	}
-	return combinedError(e)
+func (e *ErrorGroup) Finish() error {
+	return (*errs.Group)(e).Err()
 }
 
 // CollectErrors returns first error from channel and all errors that happen within duration

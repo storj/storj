@@ -57,18 +57,12 @@ var (
 		Signer         certificates.CertClientConfig
 	}
 
-	identityDir        string
-	defaultIdentityDir = fpath.ApplicationDir("storj", "identity")
+	identityDir, configDir string
+	defaultIdentityDir     = fpath.ApplicationDir("storj", "identity")
+	defaultConfigDir       = fpath.ApplicationDir("storj")
 )
 
 func init() {
-	identityDirParam := cfgstruct.FindIdentityDirParam()
-	if identityDirParam != "" {
-		defaultIdentityDir = identityDirParam
-	}
-
-	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "root directory for identity output")
-
 	rootCmd.AddCommand(newServiceCmd)
 	rootCmd.AddCommand(authorizeCmd)
 
@@ -137,10 +131,8 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	authToken := args[1]
 
 	caCertPath := filepath.Join(serviceDir, "ca.cert")
-	caKeyPath := filepath.Join(serviceDir, "ca.key")
-	caConfig := identity.FullCAConfig{
+	caConfig := identity.PeerCAConfig{
 		CertPath: caCertPath,
-		KeyPath:  caKeyPath,
 	}
 	identCertPath := filepath.Join(serviceDir, "identity.cert")
 	identKeyPath := filepath.Join(serviceDir, "identity.key")
@@ -179,23 +171,19 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 
 	ca.Cert = signedChain[0]
 	ca.RestChain = signedChain[1:]
-	err = identity.FullCAConfig{
-		CertPath: caConfig.CertPath,
-	}.Save(ca)
+	err = caConfig.Save(ca)
 	if err != nil {
 		return err
 	}
 
-	err = identConfig.SaveBackup(ident)
+	err = identConfig.PeerConfig().SaveBackup(ident.PeerIdentity())
 	if err != nil {
 		return err
 	}
 
 	ident.RestChain = signedChain[1:]
 	ident.CA = ca.Cert
-	err = identity.Config{
-		CertPath: identConfig.CertPath,
-	}.Save(ident)
+	err = identConfig.PeerConfig().Save(ident.PeerIdentity())
 	if err != nil {
 		return err
 	}
