@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
-	"sync"
 
 	"github.com/graphql-go/graphql"
 	"github.com/zeebo/errs"
@@ -37,6 +36,8 @@ var Error = errs.Class("satellite console error")
 type Config struct {
 	Address   string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
 	StaticDir string `help:"path to static resources" default:""`
+
+	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
 }
 
 // Server represents console web server
@@ -120,26 +121,10 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 	sugar.Debug(result)
 }
 
-var creatingSchema sync.Mutex
-
 // Run starts the server that host webapp and api endpoint
 func (s *Server) Run(ctx context.Context) error {
-	creatingSchema.Lock()
-
-	creator := consoleql.TypeCreator{}
-	err := creator.Create(s.service)
-	if err != nil {
-		creatingSchema.Unlock()
-		return Error.Wrap(err)
-	}
-
-	s.schema, err = graphql.NewSchema(graphql.SchemaConfig{
-		Query:    creator.RootQuery(),
-		Mutation: creator.RootMutation(),
-	})
-
-	creatingSchema.Unlock()
-
+	var err error
+	s.schema, err = consoleql.CreateSchema(s.service)
 	if err != nil {
 		return Error.Wrap(err)
 	}

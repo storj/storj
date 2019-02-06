@@ -5,6 +5,7 @@ package bwagreement
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -28,14 +29,23 @@ var (
 type Config struct {
 }
 
+//UplinkStat contains information about an uplink's returned bandwidth agreement
+type UplinkStat struct {
+	NodeID            storj.NodeID
+	TotalBytes        int64
+	PutActionCount    int
+	GetActionCount    int
+	TotalTransactions int
+}
+
 // DB stores bandwidth agreements.
 type DB interface {
 	// CreateAgreement adds a new bandwidth agreement.
 	CreateAgreement(context.Context, *pb.RenterBandwidthAllocation) error
-	// GetAgreements gets all bandwidth agreements.
-	GetAgreements(context.Context) ([]Agreement, error)
-	// GetAgreementsSince gets all bandwidth agreements since specific time.
-	GetAgreementsSince(context.Context, time.Time) ([]Agreement, error)
+	// GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
+	GetTotals(context.Context, time.Time, time.Time) (map[storj.NodeID][]int64, error)
+	//GetTotals returns stats about an uplink
+	GetUplinkStats(context.Context, time.Time, time.Time) ([]UplinkStat, error)
 }
 
 // Server is an implementation of the pb.BandwidthServer interface
@@ -43,12 +53,6 @@ type Server struct {
 	db     DB
 	NodeID storj.NodeID
 	logger *zap.Logger
-}
-
-// Agreement is a struct that contains a bandwidth agreement and the associated signature
-type Agreement struct {
-	Agreement pb.RenterBandwidthAllocation
-	CreatedAt time.Time
 }
 
 // NewServer creates instance of Server
@@ -71,11 +75,11 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.RenterBandwidt
 	//verify message content
 	pi, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil || rba.StorageNodeId != pi.ID {
-		return reply, auth.ErrBadID.New("Storage Node ID: %s vs %s", rba.StorageNodeId, pi.ID)
+		return reply, auth.ErrBadID.New("Storage Node ID: %v vs %v", rba.StorageNodeId, pi.ID)
 	}
 	//todo:  use whitelist for uplinks?
 	if pba.SatelliteId != s.NodeID {
-		return reply, pb.ErrPayer.New("Satellite ID: %s vs %s", pba.SatelliteId, s.NodeID)
+		return reply, pb.ErrPayer.New("Satellite ID: %v vs %v", pba.SatelliteId, s.NodeID)
 	}
 	exp := time.Unix(pba.GetExpirationUnixSec(), 0).UTC()
 	if exp.Before(time.Now().UTC()) {
@@ -90,10 +94,13 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.RenterBandwidt
 	}
 
 	//save and return rersults
-	err = s.db.CreateAgreement(ctx, rba)
-	if err != nil {
-		//todo:  better classify transport errors (AgreementsSummary_FAIL) vs logical (AgreementsSummary_REJECTED)
-		return reply, pb.ErrPayer.Wrap(auth.ErrSerial.Wrap(err))
+	if err = s.db.CreateAgreement(ctx, rba); err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") ||
+			strings.Contains(err.Error(), "violates unique constraint") {
+			return reply, pb.ErrPayer.Wrap(auth.ErrSerial.Wrap(err))
+		}
+		reply.Status = pb.AgreementsSummary_FAIL
+		return reply, pb.ErrPayer.Wrap(err)
 	}
 	reply.Status = pb.AgreementsSummary_OK
 	s.logger.Debug("Stored Agreement...")

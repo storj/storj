@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
@@ -217,6 +218,29 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			}
 
 			// TODO: maybe all the config flags should be exposed for all processes?
+
+			// check if gateway config has an api key, if it's not
+			// create example project with key and add it to the config
+			// so that gateway can have access to the satellite
+			apiKey := vip.GetString("client.api-key")
+			if apiKey == "" {
+				consoleAddress := fmt.Sprintf(
+					"http://%s/api/graphql/v0",
+					net.JoinHostPort(host, strconv.Itoa(consolePort+i)))
+
+				// wait for console server to start
+				time.Sleep(3 * time.Second)
+
+				if err := addExampleProjectWithKey(&apiKey, consoleAddress); err != nil {
+					return err
+				}
+
+				vip.Set("client.api-key", apiKey)
+
+				if err := vip.WriteConfig(); err != nil {
+					return err
+				}
+			}
 
 			accessKey := vip.GetString("minio.access-key")
 			secretKey := vip.GetString("minio.secret-key")

@@ -4,7 +4,6 @@
 package console
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -48,11 +47,6 @@ type APIKey [24]byte
 
 // String implements Stringer
 func (key APIKey) String() string {
-	emptyKey := APIKey{}
-	if bytes.Equal(key[:], emptyKey[:]) {
-		return ""
-	}
-
 	return base64.URLEncoding.EncodeToString(key[:])
 }
 
@@ -61,6 +55,17 @@ func APIKeyFromBytes(b []byte) *APIKey {
 	key := new(APIKey)
 	copy(key[:], b)
 	return key
+}
+
+// APIKeyFromBase64 creates new key from base64 string
+func APIKeyFromBase64(s string) (*APIKey, error) {
+	b, err := base64.URLEncoding.DecodeString(s)
+	if err != nil {
+		return nil, err
+	}
+	key := new(APIKey)
+	copy(key[:], b)
+	return key, nil
 }
 
 // CreateAPIKey creates new api key

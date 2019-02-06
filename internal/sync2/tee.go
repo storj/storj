@@ -55,7 +55,7 @@ func newTee(buffer ReadAtWriteAtCloser, readers int, open *int64) ([]PipeReader,
 		teeReaders[i] = &teeReader{tee: tee}
 	}
 
-	return teeReaders, teeWriter{tee}, nil
+	return teeReaders, &teeWriter{tee}, nil
 }
 
 type teeReader struct {
@@ -117,7 +117,7 @@ func (reader *teeReader) Read(data []byte) (n int, err error) {
 // Write writes to the buffer returning io.ErrClosedPipe when limit is reached
 //
 // It will block until at least one reader require the data.
-func (writer teeWriter) Write(data []byte) (n int, err error) {
+func (writer *teeWriter) Write(data []byte) (n int, err error) {
 	tee := writer.tee
 	tee.mu.Lock()
 
@@ -154,13 +154,13 @@ func (writer teeWriter) Write(data []byte) (n int, err error) {
 }
 
 // Close implements io.Reader Close
-func (reader teeReader) Close() error { return reader.CloseWithError(nil) }
+func (reader *teeReader) Close() error { return reader.CloseWithError(nil) }
 
 // Close implements io.Writer Close
-func (writer teeWriter) Close() error { return writer.CloseWithError(nil) }
+func (writer *teeWriter) Close() error { return writer.CloseWithError(nil) }
 
 // CloseWithError implements closing with error
-func (reader teeReader) CloseWithError(reason error) (err error) {
+func (reader *teeReader) CloseWithError(reason error) (err error) {
 	tee := reader.tee
 	if atomic.CompareAndSwapInt32(&reader.closed, 0, 1) {
 		err = tee.buffer.Close()
@@ -174,7 +174,7 @@ func (reader teeReader) CloseWithError(reason error) (err error) {
 }
 
 // CloseWithError implements closing with error
-func (writer teeWriter) CloseWithError(reason error) error {
+func (writer *teeWriter) CloseWithError(reason error) error {
 	if reason == nil {
 		reason = io.EOF
 	}

@@ -56,17 +56,11 @@ func (r *Rollup) Run(ctx context.Context) (err error) {
 func (r *Rollup) Query(ctx context.Context) error {
 	// only Rollup new things - get LastRollup
 	var latestTally time.Time
-	lastRollup, isNil, err := r.db.LastRawTime(ctx, accounting.LastRollup)
+	lastRollup, err := r.db.LastTimestamp(ctx, accounting.LastRollup)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	var tallies []*accounting.Raw
-	if isNil {
-		r.logger.Info("Rollup found no existing raw tally data")
-		tallies, err = r.db.GetRaw(ctx)
-	} else {
-		tallies, err = r.db.GetRawSince(ctx, lastRollup)
-	}
+	tallies, err := r.db.GetRawSince(ctx, lastRollup)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -115,5 +109,5 @@ func (r *Rollup) Query(ctx context.Context) error {
 		r.logger.Info("Rollup only found tallies for today")
 		return nil
 	}
-	return Error.Wrap(r.db.SaveRollup(ctx, latestTally, isNil, rollupStats))
+	return Error.Wrap(r.db.SaveRollup(ctx, latestTally, rollupStats))
 }

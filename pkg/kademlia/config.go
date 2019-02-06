@@ -9,6 +9,8 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
+	"storj.io/storj/pkg/pb"
 )
 
 var (
@@ -20,7 +22,7 @@ var (
 // Config defines all of the things that are needed to start up Kademlia
 // server endpoints (and not necessarily client code).
 type Config struct {
-	BootstrapAddr   string `help:"the Kademlia node to bootstrap against" default:"127.0.0.1:7778"`
+	BootstrapAddr   string `help:"the Kademlia node to bootstrap against" default:""`
 	DBPath          string `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia"`
 	ExternalAddress string `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
 	Operator        OperatorConfig
@@ -28,6 +30,21 @@ type Config struct {
 	// TODO: reduce the number of flags here
 	Alpha int `help:"alpha is a system wide concurrency parameter" default:"5"`
 	RoutingTableConfig
+}
+
+// BootstrapNodes returns bootstrap nodes defined in the config
+func (c Config) BootstrapNodes() []pb.Node {
+	var nodes []pb.Node
+	if c.BootstrapAddr != "" {
+		nodes = append(nodes, pb.Node{
+			Address: &pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				Address:   c.BootstrapAddr,
+			},
+			Type: pb.NodeType_BOOTSTRAP,
+		})
+	}
+	return nodes
 }
 
 // Verify verifies whether kademlia config is valid.

@@ -16,7 +16,9 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	pointerdbAuth "storj.io/storj/pkg/pointerdb/auth"
+	_ "storj.io/storj/pkg/pointerdb/auth" // ensures that we add api key flag to current executable
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/storage"
 )
 
@@ -24,6 +26,11 @@ var (
 	mon          = monkit.Package()
 	segmentError = errs.Class("segment error")
 )
+
+// APIKeys is api keys store methods used by pointerdb
+type APIKeys interface {
+	GetByKey(ctx context.Context, key console.APIKey) (*console.APIKeyInfo, error)
+}
 
 // Server implements the network state RPC service
 type Server struct {
@@ -33,10 +40,11 @@ type Server struct {
 	cache      *overlay.Cache
 	config     Config
 	identity   *identity.FullIdentity
+	apiKeys    APIKeys
 }
 
 // NewServer creates instance of Server
-func NewServer(logger *zap.Logger, service *Service, allocation *AllocationSigner, cache *overlay.Cache, config Config, identity *identity.FullIdentity) *Server {
+func NewServer(logger *zap.Logger, service *Service, allocation *AllocationSigner, cache *overlay.Cache, config Config, identity *identity.FullIdentity, apiKeys APIKeys) *Server {
 	return &Server{
 		logger:     logger,
 		service:    service,
@@ -44,27 +52,33 @@ func NewServer(logger *zap.Logger, service *Service, allocation *AllocationSigne
 		cache:      cache,
 		config:     config,
 		identity:   identity,
+		apiKeys:    apiKeys,
 	}
 }
 
 // Close closes resources
 func (s *Server) Close() error { return nil }
 
-// TODO: ZZZ temporarily disabled until endpoint and service split
-const disableAuth = true
-
-func (s *Server) validateAuth(ctx context.Context) error {
-	// TODO: ZZZ temporarily disabled until endpoint and service split
-	if disableAuth {
-		return nil
-	}
-
+func (s *Server) validateAuth(ctx context.Context) (*console.APIKeyInfo, error) {
 	APIKey, ok := auth.GetAPIKey(ctx)
-	if !ok || !pointerdbAuth.ValidateAPIKey(string(APIKey)) {
+	if !ok {
 		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
+		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
-	return nil
+
+	key, err := console.APIKeyFromBase64(string(APIKey))
+	if err != nil {
+		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
+		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+	}
+
+	keyInfo, err := s.apiKeys.GetByKey(ctx, *key)
+	if err != nil {
+		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
+		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+	}
+
+	return keyInfo, nil
 }
 
 func (s *Server) validateSegment(req *pb.PutRequest) error {
@@ -95,11 +109,13 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	if err = s.validateAuth(ctx); err != nil {
+	keyInfo, err := s.validateAuth(ctx)
+	if err != nil {
 		return nil, err
 	}
 
-	if err = s.service.Put(req.GetPath(), req.GetPointer()); err != nil {
+	path := storj.JoinPaths(keyInfo.ProjectID.String(), req.GetPath())
+	if err = s.service.Put(path, req.GetPointer()); err != nil {
 		s.logger.Error("err putting pointer", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -111,11 +127,13 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err = s.validateAuth(ctx); err != nil {
+	keyInfo, err := s.validateAuth(ctx)
+	if err != nil {
 		return nil, err
 	}
 
-	pointer, err := s.service.Get(req.GetPath())
+	path := storj.JoinPaths(keyInfo.ProjectID.String(), req.GetPath())
+	pointer, err := s.service.Get(path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -152,13 +170,16 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 	for _, piece := range pointer.Remote.RemotePieces {
 		node, err := s.cache.Get(ctx, piece.NodeId)
 		if err != nil {
-			s.logger.Error("Error getting node from cache")
+			s.logger.Error("Error getting node from cache", zap.String("ID", piece.NodeId.String()), zap.Error(err))
+			continue
 		}
 		nodes = append(nodes, node)
 	}
 
 	for _, v := range nodes {
-		v.Type.DPanicOnInvalid("pdb server Get")
+		if v != nil {
+			v.Type.DPanicOnInvalid("pdb server Get")
+		}
 	}
 	r = &pb.GetResponse{
 		Pointer:       pointer,
@@ -174,11 +195,13 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err = s.validateAuth(ctx); err != nil {
+	keyInfo, err := s.validateAuth(ctx)
+	if err != nil {
 		return nil, err
 	}
 
-	items, more, err := s.service.List(req.Prefix, req.StartAfter, req.EndBefore, req.Recursive, req.Limit, req.MetaFlags)
+	prefix := storj.JoinPaths(keyInfo.ProjectID.String(), req.Prefix)
+	items, more, err := s.service.List(prefix, req.StartAfter, req.EndBefore, req.Recursive, req.Limit, req.MetaFlags)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "ListV2: %v", err)
 	}
@@ -190,11 +213,13 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.DeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err = s.validateAuth(ctx); err != nil {
+	keyInfo, err := s.validateAuth(ctx)
+	if err != nil {
 		return nil, err
 	}
 
-	err = s.service.Delete(req.GetPath())
+	path := storj.JoinPaths(keyInfo.ProjectID.String(), req.GetPath())
+	err = s.service.Delete(path)
 	if err != nil {
 		s.logger.Error("err deleting path and pointer", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -207,18 +232,21 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.De
 func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err = s.validateAuth(ctx); err != nil {
+	keyInfo, err := s.validateAuth(ctx)
+	if err != nil {
 		return err
 	}
 
-	return s.service.Iterate(req.Prefix, req.First, req.Recurse, req.Reverse, f)
+	prefix := storj.JoinPaths(keyInfo.ProjectID.String(), req.Prefix)
+	return s.service.Iterate(prefix, req.First, req.Recurse, req.Reverse, f)
 }
 
 // PayerBandwidthAllocation returns PayerBandwidthAllocation struct, signed and with given action type
 func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBandwidthAllocationRequest) (res *pb.PayerBandwidthAllocationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err = s.validateAuth(ctx); err != nil {
+	_, err = s.validateAuth(ctx)
+	if err != nil {
 		return nil, err
 	}
 
