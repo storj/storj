@@ -195,6 +195,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		peer.Public.Endpoint = endpoints.NewServer(peer.Log.Named("satellite_endpoints"), config.SatelliteServer)
 		pb.RegisterSatelliteServer(peer.Public.Server.GRPC(), peer.Public.Endpoint)
 	}
 
