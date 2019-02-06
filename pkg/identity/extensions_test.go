@@ -7,7 +7,6 @@ import (
 	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"storj.io/storj/internal/testcontext"
 	"testing"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testpeertls"
 	"storj.io/storj/pkg/peertls"
 )
@@ -31,7 +31,6 @@ func (m *extensionHandlerMock) verify(ext pkix.Extension, chain [][]*x509.Certif
 
 func TestExtensionHandlers_VerifyFunc(t *testing.T) {
 	keys, chain, err := newRevokedLeafChain()
-	chains := [][]*x509.Certificate{chain}
 	require.NoError(t, err)
 	err = peertls.AddSignedCertExt(keys[0], chain[0])
 	require.NoError(t, err)
@@ -52,6 +51,7 @@ func TestExtensionHandlers_VerifyFunc(t *testing.T) {
 		},
 	}
 
+	chains := [][]*x509.Certificate{chain}
 	extMock.On("verify", chains[0][peertls.LeafIndex].ExtraExtensions[0], chains).Return(nil)
 	extMock.On("verify", chains[0][peertls.LeafIndex].ExtraExtensions[1], chains).Return(nil)
 
