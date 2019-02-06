@@ -225,7 +225,13 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			// so that gateway can have access to the satellite
 			apiKey := vip.GetString("client.api-key")
 			if apiKey == "" {
-				consoleAPIAddress := "http://" + satellite.Address + "/api/graphql/v0"
+				var consoleAddress string
+				satelliteConfigErr := readConfigString(&consoleAddress, satellite.Directory, "console.address")
+				if satelliteConfigErr != nil {
+					return satelliteConfigErr
+				}
+
+				consoleAPIAddress := "http://" + consoleAddress + "/api/graphql/v0"
 
 				// wait for console server to start
 				time.Sleep(3 * time.Second)
