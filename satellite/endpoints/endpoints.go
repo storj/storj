@@ -35,7 +35,7 @@ func NewServer(logger *zap.Logger, config Config) *Server {
 // Close closes resources
 func (s *Server) Close() error { return nil }
 
-// Put formats and hands off a key/value (path/pointer) to be saved to boltdb
+// Health returns the health of a specific path
 func (s *Server) Health(ctx context.Context, req *pb.FileHealthRequest) (resp *pb.FileHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 

@@ -20,7 +20,7 @@ var (
 	ClientError = errs.Class("satellite client error")
 )
 
-// AgreementSender maintains variables required for reading bandwidth agreements from a DB and sending them to a Payers
+// SatelliteClient maintains variables required for talking to basic satellite endpoints
 type SatelliteClient struct {
 	log       *zap.Logger
 	transport transport.Client
@@ -32,18 +32,18 @@ func New(log *zap.Logger, identity *identity.FullIdentity, kad *kademlia.Kademli
 	return &SatelliteClient{log: log, transport: transport.NewClient(identity), kad: kad}
 }
 
-//SendAgreementsToSatellite uploads agreements to the satellite
+//Stat will return the health of a specific path
 func (sc *SatelliteClient) Stat(ctx context.Context, satID storj.NodeID, path storj.Path) (*pb.FileHealthResponse, error) {
 	// todo: cache kad responses if this interval is very small
 	// Get satellite ip from kademlia
 	satellite, err := sc.kad.FindNode(ctx, satID)
 	if err != nil {
-		return nil, err
+		return nil, ClientError.Wrap(err)
 	}
 	// Create client from satellite ip
 	conn, err := sc.transport.DialNode(ctx, &satellite)
 	if err != nil {
-		return nil, err
+		return nil, ClientError.Wrap(err)
 	}
 
 	client := pb.NewSatelliteClient(conn)
