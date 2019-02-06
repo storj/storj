@@ -34,7 +34,6 @@ import (
 	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
@@ -58,8 +57,6 @@ type Peer interface {
 
 	Run(context.Context) error
 	Close() error
-
-	NewNodeClient() (node.Client, error)
 }
 
 // Config describes planet configuration
