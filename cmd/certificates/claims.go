@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/certificates"
@@ -39,7 +41,7 @@ func cmdClaims(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	defer func() {
-		err = authDB.Close()
+		err = errs.Combine(err, authDB.Close())
 	}()
 
 	auths, err := authDB.List()
@@ -77,25 +79,25 @@ func cmdClaims(cmd *cobra.Command, args []string) (err error) {
 type printableAuth struct {
 	UserID string
 	Token  string
-	Claim  *pClaim
+	Claim  *printableClaim
 }
-type pClaim struct {
+type printableClaim struct {
 	Addr   string
 	Time   string
 	NodeID string
 }
 
-func toPrintableAuth(a *certificates.Authorization) *printableAuth {
+func toPrintableAuth(auth *certificates.Authorization) *printableAuth {
 	pAuth := new(printableAuth)
 
-	pAuth.UserID = a.Token.UserID
-	pAuth.Token = a.Token.String()
+	pAuth.UserID = auth.Token.UserID
+	pAuth.Token = auth.Token.String()
 
-	if a.Claim != nil {
-		pAuth.Claim = &pClaim{
-			Time:   time.Unix(a.Claim.Timestamp, 0).String(),
-			Addr:   a.Claim.Addr,
-			NodeID: a.Claim.Identity.ID.String(),
+	if auth.Claim != nil {
+		pAuth.Claim = &printableClaim{
+			Time:   time.Unix(auth.Claim.Timestamp, 0).String(),
+			Addr:   auth.Claim.Addr,
+			NodeID: auth.Claim.Identity.ID.String(),
 		}
 	}
 	return pAuth
