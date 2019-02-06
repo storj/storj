@@ -87,7 +87,9 @@ func TestLookup(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, n.Id.String(), v.nodeID.String())
+				if assert.NotNil(t, n) {
+					assert.Equal(t, v.nodeID.String(), n.Id.String())
+				}
 			}
 		}
 	})
@@ -121,9 +123,11 @@ func TestBulkLookup(t *testing.T) {
 			resNodes, err := oc.BulkLookup(ctx, v.nodeIDs)
 			assert.NoError(t, err)
 			for i, n := range resNodes {
-				assert.Equal(t, n.Id, v.nodeIDs[i])
+				if assert.NotNil(t, n) {
+					assert.Equal(t, v.nodeIDs[i], n.Id)
+				}
 			}
-			assert.Equal(t, len(resNodes), len(v.nodeIDs))
+			assert.Equal(t, len(v.nodeIDs), len(resNodes))
 		}
 	})
 }
@@ -149,8 +153,6 @@ func TestBulkLookupV2(t *testing.T) {
 		n2 := &pb.Node{Id: nid2}
 		n3 := &pb.Node{Id: nid3}
 
-		time.Sleep(10 * time.Second)
-
 		{ // empty id
 			_, err := oc.BulkLookup(ctx, storj.NodeIDList{})
 			assert.Error(t, err)
@@ -162,7 +164,9 @@ func TestBulkLookupV2(t *testing.T) {
 			assert.NoError(t, err)
 
 			for i, n := range ns {
-				assert.Equal(t, n.Id, idList[i])
+				if assert.NotNil(t, n) {
+					assert.Equal(t, idList[i], n.Id)
+				}
 			}
 		}
 
@@ -182,10 +186,10 @@ func TestBulkLookupV2(t *testing.T) {
 			expectedNodes := []*pb.Node{n3, nil, n1, n2, nil}
 			for i, n := range ns {
 				if n == nil {
-					assert.Nil(t, expectedNodes[i])
+					assert.Nil(t, n)
 				} else {
-					if assert.NotNil(t, expectedNodes[i]) {
-						assert.Equal(t, n.Id, expectedNodes[i].Id)
+					if assert.NotNil(t, n) {
+						assert.Equal(t, expectedNodes[i].Id, n.Id)
 					}
 				}
 			}
