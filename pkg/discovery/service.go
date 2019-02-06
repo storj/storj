@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -160,8 +159,8 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 // and were removed from the cache due to an unsuccessful response.
 func (discovery *Discovery) searchGraveyard(ctx context.Context) error {
 	seen := discovery.kad.Seen()
-	var errors utils.ErrorGroup
 
+	var errors errs.Group
 	for _, n := range seen {
 		ping, err := discovery.kad.Ping(ctx, *n)
 		if err != nil {
@@ -182,7 +181,7 @@ func (discovery *Discovery) searchGraveyard(ctx context.Context) error {
 			errors.Add(err)
 		}
 	}
-	return errors.Finish()
+	return errors.Err()
 }
 
 // Bootstrap walks the initialized network and populates the cache
