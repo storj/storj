@@ -146,22 +146,17 @@ func TestBulkLookupV2(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		cache := planet.Satellites[0].Overlay.Service
-
-		nid1 := storj.NodeID{1}
-		nid2 := storj.NodeID{2}
-		nid3 := storj.NodeID{3}
+		nid1 := planet.StorageNodes[0].ID()
+		nid2 := planet.StorageNodes[1].ID()
+		nid3 := planet.StorageNodes[2].ID()
 		nid4 := storj.NodeID{4}
 		nid5 := storj.NodeID{5}
 
-		n1 := &pb.Node{Id: storj.NodeID{1}}
-		n2 := &pb.Node{Id: storj.NodeID{2}}
-		n3 := &pb.Node{Id: storj.NodeID{3}}
+		n1 := &pb.Node{Id: nid1}
+		n2 := &pb.Node{Id: nid2}
+		n3 := &pb.Node{Id: nid3}
 
-		nodes := []*pb.Node{n1, n2, n3}
-		for _, n := range nodes {
-			assert.NoError(t, cache.Put(ctx, n.Id, *n))
-		}
+		time.Sleep(10 * time.Second)
 
 		{ // empty id
 			_, err := oc.BulkLookup(ctx, storj.NodeIDList{})
@@ -196,7 +191,9 @@ func TestBulkLookupV2(t *testing.T) {
 				if n == nil {
 					assert.Nil(t, expectedNodes[i])
 				} else {
-					assert.Equal(t, n.Id, expectedNodes[i].Id)
+					if assert.NotNil(t, expectedNodes[i]) {
+						assert.Equal(t, n.Id, expectedNodes[i].Id)
+					}
 				}
 			}
 		}
