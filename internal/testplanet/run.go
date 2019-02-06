@@ -24,9 +24,8 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 	schemaSuffix := randomSchemaSuffix()
 	t.Log("schema-suffix ", schemaSuffix)
 
-	databases := satellitedbtest.Databases()
-	for i := range databases {
-		satelliteDB := databases[i]
+	for _, satelliteDB := range satellitedbtest.Databases() {
+		satelliteDB := satelliteDB
 		t.Run(satelliteDB.Name, func(t *testing.T) {
 			t.Parallel()
 
