@@ -82,6 +82,7 @@ require (
 	github.com/nats-io/nats-streaming-server v0.11.0 // indirect
 	github.com/nats-io/nuid v1.0.0 // indirect
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
+	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
 	github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c // indirect
 	github.com/pierrec/lz4 v2.0.5+incompatible // indirect
 	github.com/pkg/errors v0.8.1 // indirect
