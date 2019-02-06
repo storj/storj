@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 
-	"storj.io/storj/pkg/utils"
+	"github.com/zeebo/errs"
 )
 
 type fileRanger struct {
@@ -46,14 +46,35 @@ func (rr *fileRanger) Range(ctx context.Context, offset, length int64) (io.ReadC
 	}
 	_, err = fh.Seek(offset, io.SeekStart)
 	if err != nil {
-		err = utils.CombineErrors(err, fh.Close())
-		return nil, Error.Wrap(err)
+		return nil, Error.Wrap(errs.Combine(err, fh.Close()))
 	}
-	return struct {
-		io.Reader
-		io.Closer
-	}{
-		Reader: io.LimitReader(fh, length),
-		Closer: fh,
-	}, nil
+
+	return &FileReader{fh, length}, nil
+}
+
+// FileReader implements limit reader with io.EOF only on last read.
+type FileReader struct {
+	file      *os.File
+	remaining int64
+}
+
+// Read reads from the underlying file.
+func (reader *FileReader) Read(data []byte) (n int, err error) {
+	if reader.remaining <= 0 {
+		return 0, io.EOF
+	}
+	if int64(len(data)) > reader.remaining {
+		data = data[0:reader.remaining]
+	}
+	n, err = reader.file.Read(data)
+	reader.remaining -= int64(n)
+	if err == io.EOF && reader.remaining == 0 {
+		err = nil
+	}
+	return
+}
+
+// Close closes the underlying file.
+func (reader *FileReader) Close() error {
+	return reader.file.Close()
 }
