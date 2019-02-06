@@ -192,7 +192,7 @@ func renderStats(screen *cui.Screen, stats []uint32) error {
 		if count == 0 {
 			continue
 		}
-		printf(w, "%d\t%d\n", difficulty, count)
+		printf(w, "%d\t%d\n", difficulty-1, count)
 	}
 	printf(w, "Total\t%d\n", total)
 
