@@ -388,10 +388,7 @@ func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, erro
 		return &pb.DashboardStats{}, ServerError.Wrap(err)
 	}
 
-	rt, err := s.kad.GetRoutingTable(ctx)
-	if err != nil {
-		return &pb.DashboardStats{}, ServerError.Wrap(err)
-	}
+	rt := s.kad.GetRoutingTable()
 
 	nodes, err := s.kad.FindNear(ctx, storj.NodeID{}, 10000000)
 	if err != nil {
