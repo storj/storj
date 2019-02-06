@@ -29,7 +29,7 @@ func TestDialer(t *testing.T) {
 		// TODO: also use satellites
 		peers := planet.StorageNodes
 
-		{ // Ping
+		{ // Ping: storage node pings all other storage nodes
 			self := planet.StorageNodes[0]
 
 			dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport)
@@ -51,7 +51,7 @@ func TestDialer(t *testing.T) {
 			defer ctx.Check(group.Wait)
 		}
 
-		{ // Lookup
+		{ // Lookup: storage node query every node for everyone elese
 			self := planet.StorageNodes[1]
 			dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport)
 			defer ctx.Check(dialer.Close)
@@ -89,7 +89,7 @@ func TestDialer(t *testing.T) {
 			defer ctx.Check(group.Wait)
 		}
 
-		{ // Lookup
+		{ // Lookup: storage node queries every node for missing storj.NodeID{} and storj.NodeID{255}
 			self := planet.StorageNodes[2]
 			dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport)
 			defer ctx.Check(dialer.Close)
