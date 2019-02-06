@@ -36,7 +36,8 @@ type GatewayFlags struct {
 
 	Server miniogw.ServerConfig
 	Minio  miniogw.MinioConfig
-	Uplink uplink.Config
+
+	uplink.Config
 }
 
 var (
@@ -172,7 +173,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	fmt.Printf("Secret key: %s\n", runCfg.Minio.SecretKey)
 
 	ctx := process.Ctx(cmd)
-	metainfo, _, err := runCfg.Uplink.GetMetainfo(ctx, identity)
+	metainfo, _, err := runCfg.GetMetainfo(ctx, identity)
 	if err != nil {
 		return err
 	}
@@ -239,7 +240,7 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context, ident
 
 // NewGateway creates a new minio Gateway
 func (flags GatewayFlags) NewGateway(ctx context.Context, identity *identity.FullIdentity) (gw minio.Gateway, err error) {
-	metainfo, streams, err := flags.Uplink.GetMetainfo(ctx, identity)
+	metainfo, streams, err := flags.GetMetainfo(ctx, identity)
 	if err != nil {
 		return nil, err
 	}
@@ -247,9 +248,9 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, identity *identity.Ful
 	return miniogw.NewStorjGateway(
 		metainfo,
 		streams,
-		storj.Cipher(flags.Uplink.Enc.PathType),
-		flags.Uplink.GetEncryptionScheme(),
-		flags.Uplink.GetRedundancyScheme(),
+		storj.Cipher(flags.Enc.PathType),
+		flags.GetEncryptionScheme(),
+		flags.GetRedundancyScheme(),
 	), nil
 }
 
