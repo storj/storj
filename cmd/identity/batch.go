@@ -29,7 +29,9 @@ import (
 )
 
 var (
-	keyGenerateCmd = &cobra.Command{
+	certMode       int64 = 0644
+	keyMode        int64 = 0600
+	keyGenerateCmd       = &cobra.Command{
 		Use:         "batch-generate",
 		Short:       "generate lots of keys",
 		RunE:        cmdKeyGenerate,
@@ -131,10 +133,10 @@ func saveIdentityTar(path string, key *ecdsa.PrivateKey, id storj.NodeID) error 
 	}
 
 	if err := errs.Combine(
-		writeToTar(tw, "ca.cert", caCertBytes),
-		writeToTar(tw, "ca.key", caKeyBytes),
-		writeToTar(tw, "identity.cert", identCertBytes),
-		writeToTar(tw, "identity.key", identKeyBytes),
+		writeToTar(tw, "ca.cert", certMode, caCertBytes),
+		writeToTar(tw, "ca.key", keyMode, caKeyBytes),
+		writeToTar(tw, "identity.cert", certMode, identCertBytes),
+		writeToTar(tw, "identity.key", keyMode, identKeyBytes),
 	); err != nil {
 		return err
 	}
@@ -149,10 +151,10 @@ func saveIdentityTar(path string, key *ecdsa.PrivateKey, id storj.NodeID) error 
 	return nil
 }
 
-func writeToTar(tw *tar.Writer, name string, data []byte) error {
+func writeToTar(tw *tar.Writer, name string, mode int64, data []byte) error {
 	err := tw.WriteHeader(&tar.Header{
 		Name: name,
-		Mode: 0600,
+		Mode: mode,
 		Size: int64(len(data)),
 	})
 	if err != nil {
