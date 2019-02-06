@@ -49,8 +49,9 @@ func TestPiece(t *testing.T) {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
-
-	defer func() { _ = s.storage.Delete("11111111111111111111") }()
+	defer func() {
+		assert.NoError(t, s.storage.Delete("11111111111111111111"))
+	}()
 
 	// set up test cases
 	tests := []struct {
@@ -134,8 +135,9 @@ func TestRetrieve(t *testing.T) {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
-
-	defer func() { _ = s.storage.Delete("11111111111111111111") }()
+	defer func() {
+		assert.NoError(t, s.storage.Delete("11111111111111111111"))
+	}()
 
 	// set up test cases
 	tests := []struct {
@@ -271,6 +273,8 @@ func TestRetrieve(t *testing.T) {
 
 			assert.Equal(t, tt.respSize, totalRetrieved)
 			assert.Equal(t, string(tt.content), data)
+
+			require.NoError(t, stream.CloseSend())
 		})
 	}
 }
@@ -390,9 +394,10 @@ func TestStore(t *testing.T) {
 
 func TestPbaValidation(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	snID, upID := newTestID(ctx, t), newTestID(ctx, t)
 	satID1, satID2, satID3 := newTestID(ctx, t), newTestID(ctx, t), newTestID(ctx, t)
-	defer ctx.Cleanup()
 
 	tests := []struct {
 		satelliteID storj.NodeID
@@ -549,8 +554,7 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentity,
-	ids []storj.NodeID) (*Server, pb.PieceStoreRoutesClient, func()) {
+func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentity, ids []storj.NodeID) (*Server, pb.PieceStoreRoutesClient, func()) {
 	//init ps server backend
 	tmp, err := ioutil.TempDir("", "storj-piecestore")
 	require.NoError(t, err)

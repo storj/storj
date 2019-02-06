@@ -175,17 +175,21 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 		used += nextMessageSize
 
 		n, err := io.CopyN(writer, storeFile, toCopy)
-		if err != nil {
-			// break on error
-			allocationTracking.Fail(RetrieveError.Wrap(err))
-			break
-		}
 		// correct errors when needed
 		if n != nextMessageSize {
 			if err := allocationTracking.Produce(nextMessageSize - n); err != nil {
 				break
 			}
 			used -= nextMessageSize - n
+		}
+		if used >= length && err == io.EOF {
+			err = nil
+			break
+		}
+		if err != nil {
+			// break on error
+			allocationTracking.Fail(RetrieveError.Wrap(err))
+			break
 		}
 	}
 
