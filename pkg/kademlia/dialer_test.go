@@ -37,8 +37,8 @@ func TestDialer(t *testing.T) {
 
 			var group errgroup.Group
 
-			for i := range peers {
-				peer := peers[i]
+			for _, peer := range peers {
+				peer := peer
 				group.Go(func() error {
 					pinged, err := dialer.Ping(ctx, peer.Local())
 					var pingErr error
@@ -58,8 +58,8 @@ func TestDialer(t *testing.T) {
 
 			var group errgroup.Group
 
-			for i := range peers {
-				peer := peers[i]
+			for _, peer := range peers {
+				peer := peer
 				group.Go(func() error {
 					for _, target := range peers {
 						errTag := fmt.Errorf("lookup peer:%s target:%s", peer.ID(), target.ID())
