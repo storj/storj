@@ -13,7 +13,7 @@ service Satellite {
 }
   
 message FileHealthRequest {
-    string file_name = 1;
+    string path = 1;
     bytes uplink_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];    // Uplink Identity
 }
 
