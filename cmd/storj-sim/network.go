@@ -139,7 +139,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		"run": {},
 	})
 	bootstrap.ExecBefore["run"] = func(process *Process) error {
-		return vipReadString(&bootstrap.Address, bootstrap.Directory, "server.address")
+		return readConfigString(&bootstrap.Address, bootstrap.Directory, "server.address")
 	}
 
 	// Create satellites making all satellites wait for bootstrap to start
@@ -170,12 +170,13 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 
 		process.ExecBefore["run"] = func(process *Process) error {
-			return vipReadString(&process.Address, process.Directory, "server.address")
+			return readConfigString(&process.Address, process.Directory, "server.address")
 		}
 	}
 
 	// Create gateways for each satellite
-	for i, satellite := range satellites {
+	for i := range satellites {
+		satellite := satellites[i]
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("gateway/%d", i),
 			Executable: "gateway",
@@ -206,7 +207,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 
 		process.ExecBefore["run"] = func(process *Process) error {
-			err := vipReadString(&process.Address, process.Directory, "server.address")
+			err := readConfigString(&process.Address, process.Directory, "server.address")
 			if err != nil {
 				return err
 			}
@@ -224,14 +225,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			// so that gateway can have access to the satellite
 			apiKey := vip.GetString("client.api-key")
 			if apiKey == "" {
-				consoleAddress := fmt.Sprintf(
-					"http://%s/api/graphql/v0",
-					net.JoinHostPort(host, strconv.Itoa(consolePort+i)))
+				consoleAPIAddress := "http://" + satellite.Address + "/api/graphql/v0"
 
 				// wait for console server to start
 				time.Sleep(3 * time.Second)
 
-				if err := addExampleProjectWithKey(&apiKey, consoleAddress); err != nil {
+				if err := addExampleProjectWithKey(&apiKey, consoleAPIAddress); err != nil {
 					return err
 				}
 
@@ -279,7 +278,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 
 		process.ExecBefore["run"] = func(process *Process) error {
-			return vipReadString(&process.Address, process.Directory, "server.address")
+			return readConfigString(&process.Address, process.Directory, "server.address")
 		}
 	}
 
@@ -342,7 +341,8 @@ func identitySetup(network *Processes) (*Processes, error) {
 	return processes, nil
 }
 
-func vipReadString(into *string, dir, flagName string) error {
+// readConfigString reads from dir/config.yaml flagName returns the value in `into`
+func readConfigString(into *string, dir, flagName string) error {
 	vip := viper.New()
 	vip.AddConfigPath(dir)
 	if err := vip.ReadInConfig(); err != nil {
