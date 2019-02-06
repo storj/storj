@@ -388,6 +388,8 @@ func TestStore(t *testing.T) {
 			require.NotNil(t, resp)
 			require.Equal(t, tt.message, resp.Message)
 			require.Equal(t, tt.totalReceived, resp.TotalReceived)
+
+			require.NoError(t, stream.CloseSend())
 		})
 	}
 }
