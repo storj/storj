@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
@@ -137,6 +138,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		},
 		"run": {},
 	})
+	bootstrap.ExecBefore["run"] = func(process *Process) error {
+		return readConfigString(&bootstrap.Address, bootstrap.Directory, "server.address")
+	}
 
 	// Create satellites making all satellites wait for bootstrap to start
 	var satellites []*Process
@@ -164,10 +168,15 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			},
 			"run": {},
 		})
+
+		process.ExecBefore["run"] = func(process *Process) error {
+			return readConfigString(&process.Address, process.Directory, "server.address")
+		}
 	}
 
 	// Create gateways for each satellite
 	for i, satellite := range satellites {
+		satellite := satellite
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("gateway/%d", i),
 			Executable: "gateway",
@@ -198,6 +207,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 
 		process.ExecBefore["run"] = func(process *Process) error {
+			err := readConfigString(&process.Address, process.Directory, "server.address")
+			if err != nil {
+				return err
+			}
+
 			vip := viper.New()
 			vip.AddConfigPath(process.Directory)
 			if err := vip.ReadInConfig(); err != nil {
@@ -205,6 +219,33 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			}
 
 			// TODO: maybe all the config flags should be exposed for all processes?
+
+			// check if gateway config has an api key, if it's not
+			// create example project with key and add it to the config
+			// so that gateway can have access to the satellite
+			apiKey := vip.GetString("client.api-key")
+			if apiKey == "" {
+				var consoleAddress string
+				satelliteConfigErr := readConfigString(&consoleAddress, satellite.Directory, "console.address")
+				if satelliteConfigErr != nil {
+					return satelliteConfigErr
+				}
+
+				consoleAPIAddress := "http://" + consoleAddress + "/api/graphql/v0"
+
+				// wait for console server to start
+				time.Sleep(3 * time.Second)
+
+				if err := addExampleProjectWithKey(&apiKey, consoleAPIAddress); err != nil {
+					return err
+				}
+
+				vip.Set("client.api-key", apiKey)
+
+				if err := vip.WriteConfig(); err != nil {
+					return err
+				}
+			}
 
 			accessKey := vip.GetString("minio.access-key")
 			secretKey := vip.GetString("minio.secret-key")
@@ -241,6 +282,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			},
 			"run": {},
 		})
+
+		process.ExecBefore["run"] = func(process *Process) error {
+			return readConfigString(&process.Address, process.Directory, "server.address")
+		}
 	}
 
 	{ // verify that we have all binaries
@@ -300,4 +345,17 @@ func identitySetup(network *Processes) (*Processes, error) {
 	}
 
 	return processes, nil
+}
+
+// readConfigString reads from dir/config.yaml flagName returns the value in `into`
+func readConfigString(into *string, dir, flagName string) error {
+	vip := viper.New()
+	vip.AddConfigPath(dir)
+	if err := vip.ReadInConfig(); err != nil {
+		return err
+	}
+	if v := vip.GetString(flagName); v != "" {
+		*into = v
+	}
+	return nil
 }

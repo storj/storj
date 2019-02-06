@@ -82,6 +82,7 @@ require (
 	github.com/nats-io/nats-streaming-server v0.11.0 // indirect
 	github.com/nats-io/nuid v1.0.0 // indirect
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
+	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
 	github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c // indirect
 	github.com/pierrec/lz4 v2.0.5+incompatible // indirect
 	github.com/pkg/errors v0.8.1 // indirect
@@ -99,7 +100,7 @@ require (
 	github.com/stretchr/testify v1.2.2
 	github.com/tidwall/gjson v1.1.3 // indirect
 	github.com/tidwall/match v0.0.0-20171002075945-1731857f09b1 // indirect
-	github.com/vivint/infectious v0.0.0-20180906161625-e155e6eb3575
+	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
 	github.com/yuin/gopher-lua v0.0.0-20180918061612-799fa34954fb // indirect
 	github.com/zeebo/admission v0.0.0-20180821192747-f24f2a94a40c
 	github.com/zeebo/errs v1.1.0

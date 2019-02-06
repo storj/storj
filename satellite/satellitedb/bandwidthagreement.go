@@ -5,12 +5,14 @@ package satellitedb
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -18,17 +20,13 @@ type bandwidthagreement struct {
 	db *dbx.DB
 }
 
-func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.RenterBandwidthAllocation) error {
-	rbaBytes, err := proto.Marshal(rba)
-	if err != nil {
-		return err
-	}
+func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.RenterBandwidthAllocation) (err error) {
 	expiration := time.Unix(rba.PayerAllocation.ExpirationUnixSec, 0)
 	_, err = b.db.Create_Bwagreement(
 		ctx,
 		dbx.Bwagreement_Serialnum(rba.PayerAllocation.SerialNumber+rba.StorageNodeId.String()),
-		dbx.Bwagreement_Data(rbaBytes),
-		dbx.Bwagreement_StorageNode(rba.StorageNodeId.Bytes()),
+		dbx.Bwagreement_StorageNodeId(rba.StorageNodeId.Bytes()),
+		dbx.Bwagreement_UplinkId(rba.PayerAllocation.UplinkId.Bytes()),
 		dbx.Bwagreement_Action(int64(rba.PayerAllocation.Action)),
 		dbx.Bwagreement_Total(rba.Total),
 		dbx.Bwagreement_ExpiresAt(expiration),
@@ -36,43 +34,71 @@ func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.Renter
 	return err
 }
 
-func (b *bandwidthagreement) GetAgreements(ctx context.Context) ([]bwagreement.Agreement, error) {
-	rows, err := b.db.All_Bwagreement(ctx)
+//GetTotals returns stats about an uplink
+func (b *bandwidthagreement) GetUplinkStats(ctx context.Context, from, to time.Time) (stats []bwagreement.UplinkStat, err error) {
+
+	var uplinkSQL = fmt.Sprintf(`SELECT uplink_id, SUM(total), 
+		COUNT(CASE WHEN action = %d THEN total ELSE null END), 
+		COUNT(CASE WHEN action = %d THEN total ELSE null END), COUNT(*)
+		FROM bwagreements WHERE created_at > ? 
+		AND created_at <= ? GROUP BY uplink_id ORDER BY uplink_id`,
+		pb.BandwidthAction_PUT, pb.BandwidthAction_GET)
+	rows, err := b.db.DB.Query(b.db.Rebind(uplinkSQL), from.UTC(), to.UTC())
 	if err != nil {
 		return nil, err
 	}
-	agreements := make([]bwagreement.Agreement, len(rows))
-	for i, entry := range rows {
-		rba := pb.RenterBandwidthAllocation{}
-		err := proto.Unmarshal(entry.Data, &rba)
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	for rows.Next() {
+		var nodeID []byte
+		stat := bwagreement.UplinkStat{}
+		err := rows.Scan(&nodeID, &stat.TotalBytes, &stat.PutActionCount, &stat.GetActionCount, &stat.TotalTransactions)
 		if err != nil {
-			return nil, err
+			return stats, err
 		}
-		agreement := &agreements[i]
-		agreement.Agreement = rba
-		agreement.CreatedAt = entry.CreatedAt
+		id, err := storj.NodeIDFromBytes(nodeID)
+		if err != nil {
+			return stats, err
+		}
+		stat.NodeID = id
+		stats = append(stats, stat)
 	}
-	return agreements, nil
+	return stats, nil
 }
 
-func (b *bandwidthagreement) GetAgreementsSince(ctx context.Context, since time.Time) ([]bwagreement.Agreement, error) {
-	rows, err := b.db.All_Bwagreement_By_CreatedAt_Greater(ctx, dbx.Bwagreement_CreatedAt(since))
+//GetTotals returns the sum of each bandwidth type after (exluding) a given date range
+func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) (bwa map[storj.NodeID][]int64, err error) {
+	var getTotalsSQL = fmt.Sprintf(`SELECT storage_node_id, 
+		SUM(CASE WHEN action = %d THEN total ELSE 0 END),
+		SUM(CASE WHEN action = %d THEN total ELSE 0 END), 
+		SUM(CASE WHEN action = %d THEN total ELSE 0 END),
+		SUM(CASE WHEN action = %d THEN total ELSE 0 END), 
+		SUM(CASE WHEN action = %d THEN total ELSE 0 END)
+		FROM bwagreements WHERE created_at > ? AND created_at <= ? 
+		GROUP BY storage_node_id ORDER BY storage_node_id`, pb.BandwidthAction_PUT,
+		pb.BandwidthAction_GET, pb.BandwidthAction_GET_AUDIT,
+		pb.BandwidthAction_GET_REPAIR, pb.BandwidthAction_PUT_REPAIR)
+	rows, err := b.db.DB.Query(b.db.Rebind(getTotalsSQL), from.UTC(), to.UTC())
 	if err != nil {
 		return nil, err
 	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	agreements := make([]bwagreement.Agreement, len(rows))
-	for i, entry := range rows {
-		rba := pb.RenterBandwidthAllocation{}
-		err := proto.Unmarshal(entry.Data, &rba)
+	totals := make(map[storj.NodeID][]int64)
+	for i := 0; rows.Next(); i++ {
+		var nodeID []byte
+		data := make([]int64, len(pb.BandwidthAction_value))
+		err := rows.Scan(&nodeID, &data[pb.BandwidthAction_PUT], &data[pb.BandwidthAction_GET],
+			&data[pb.BandwidthAction_GET_AUDIT], &data[pb.BandwidthAction_GET_REPAIR], &data[pb.BandwidthAction_PUT_REPAIR])
 		if err != nil {
-			return nil, err
+			return totals, err
 		}
-		agreement := &agreements[i]
-		agreement.Agreement = rba
-		agreement.CreatedAt = entry.CreatedAt
+		id, err := storj.NodeIDFromBytes(nodeID)
+		if err != nil {
+			return totals, err
+		}
+		totals[id] = data
 	}
-	return agreements, nil
+	return totals, nil
 }
 
 func (b *bandwidthagreement) DeletePaidAndExpired(ctx context.Context) error {

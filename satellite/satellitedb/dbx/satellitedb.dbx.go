@@ -301,8 +301,8 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bwagreements (
 	serialnum text NOT NULL,
-	data bytea NOT NULL,
-	storage_node bytea NOT NULL,
+	storage_node_id bytea NOT NULL,
+	uplink_id bytea NOT NULL,
 	action bigint NOT NULL,
 	total bigint NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -379,12 +379,6 @@ CREATE TABLE api_keys (
 	PRIMARY KEY ( id ),
 	UNIQUE ( key ),
 	UNIQUE ( name, project_id )
-);
-CREATE TABLE bucket_infos (
-	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	name text NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( name )
 );
 CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
@@ -483,8 +477,8 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bwagreements (
 	serialnum TEXT NOT NULL,
-	data BLOB NOT NULL,
-	storage_node BLOB NOT NULL,
+	storage_node_id BLOB NOT NULL,
+	uplink_id BLOB NOT NULL,
 	action INTEGER NOT NULL,
 	total INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
@@ -561,12 +555,6 @@ CREATE TABLE api_keys (
 	PRIMARY KEY ( id ),
 	UNIQUE ( key ),
 	UNIQUE ( name, project_id )
-);
-CREATE TABLE bucket_infos (
-	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	name TEXT NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( name )
 );
 CREATE TABLE project_members (
 	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
@@ -1002,13 +990,13 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
 
 type Bwagreement struct {
-	Serialnum   string
-	Data        []byte
-	StorageNode []byte
-	Action      int64
-	Total       int64
-	CreatedAt   time.Time
-	ExpiresAt   time.Time
+	Serialnum     string
+	StorageNodeId []byte
+	UplinkId      []byte
+	Action        int64
+	Total         int64
+	CreatedAt     time.Time
+	ExpiresAt     time.Time
 }
 
 func (Bwagreement) _Table() string { return "bwagreements" }
@@ -1035,43 +1023,43 @@ func (f Bwagreement_Serialnum_Field) value() interface{} {
 
 func (Bwagreement_Serialnum_Field) _Column() string { return "serialnum" }
 
-type Bwagreement_Data_Field struct {
+type Bwagreement_StorageNodeId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func Bwagreement_Data(v []byte) Bwagreement_Data_Field {
-	return Bwagreement_Data_Field{_set: true, _value: v}
+func Bwagreement_StorageNodeId(v []byte) Bwagreement_StorageNodeId_Field {
+	return Bwagreement_StorageNodeId_Field{_set: true, _value: v}
 }
 
-func (f Bwagreement_Data_Field) value() interface{} {
+func (f Bwagreement_StorageNodeId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (Bwagreement_Data_Field) _Column() string { return "data" }
+func (Bwagreement_StorageNodeId_Field) _Column() string { return "storage_node_id" }
 
-type Bwagreement_StorageNode_Field struct {
+type Bwagreement_UplinkId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func Bwagreement_StorageNode(v []byte) Bwagreement_StorageNode_Field {
-	return Bwagreement_StorageNode_Field{_set: true, _value: v}
+func Bwagreement_UplinkId(v []byte) Bwagreement_UplinkId_Field {
+	return Bwagreement_UplinkId_Field{_set: true, _value: v}
 }
 
-func (f Bwagreement_StorageNode_Field) value() interface{} {
+func (f Bwagreement_UplinkId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (Bwagreement_StorageNode_Field) _Column() string { return "storage_node" }
+func (Bwagreement_UplinkId_Field) _Column() string { return "uplink_id" }
 
 type Bwagreement_Action_Field struct {
 	_set   bool
@@ -2171,74 +2159,6 @@ func (f ApiKey_CreatedAt_Field) value() interface{} {
 
 func (ApiKey_CreatedAt_Field) _Column() string { return "created_at" }
 
-type BucketInfo struct {
-	ProjectId []byte
-	Name      string
-	CreatedAt time.Time
-}
-
-func (BucketInfo) _Table() string { return "bucket_infos" }
-
-type BucketInfo_Update_Fields struct {
-}
-
-type BucketInfo_ProjectId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func BucketInfo_ProjectId(v []byte) BucketInfo_ProjectId_Field {
-	return BucketInfo_ProjectId_Field{_set: true, _value: v}
-}
-
-func (f BucketInfo_ProjectId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketInfo_ProjectId_Field) _Column() string { return "project_id" }
-
-type BucketInfo_Name_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func BucketInfo_Name(v string) BucketInfo_Name_Field {
-	return BucketInfo_Name_Field{_set: true, _value: v}
-}
-
-func (f BucketInfo_Name_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketInfo_Name_Field) _Column() string { return "name" }
-
-type BucketInfo_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func BucketInfo_CreatedAt(v time.Time) BucketInfo_CreatedAt_Field {
-	return BucketInfo_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f BucketInfo_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketInfo_CreatedAt_Field) _Column() string { return "created_at" }
-
 type ProjectMember struct {
 	MemberId  []byte
 	ProjectId []byte
@@ -2502,8 +2422,8 @@ type Value_Row struct {
 
 func (obj *postgresImpl) Create_Bwagreement(ctx context.Context,
 	bwagreement_serialnum Bwagreement_Serialnum_Field,
-	bwagreement_data Bwagreement_Data_Field,
-	bwagreement_storage_node Bwagreement_StorageNode_Field,
+	bwagreement_storage_node_id Bwagreement_StorageNodeId_Field,
+	bwagreement_uplink_id Bwagreement_UplinkId_Field,
 	bwagreement_action Bwagreement_Action_Field,
 	bwagreement_total Bwagreement_Total_Field,
 	bwagreement_expires_at Bwagreement_ExpiresAt_Field) (
@@ -2511,20 +2431,20 @@ func (obj *postgresImpl) Create_Bwagreement(ctx context.Context,
 
 	__now := obj.db.Hooks.Now().UTC()
 	__serialnum_val := bwagreement_serialnum.value()
-	__data_val := bwagreement_data.value()
-	__storage_node_val := bwagreement_storage_node.value()
+	__storage_node_id_val := bwagreement_storage_node_id.value()
+	__uplink_id_val := bwagreement_uplink_id.value()
 	__action_val := bwagreement_action.value()
 	__total_val := bwagreement_total.value()
 	__created_at_val := __now
 	__expires_at_val := bwagreement_expires_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( serialnum, data, storage_node, action, total, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING bwagreements.serialnum, bwagreements.data, bwagreements.storage_node, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( serialnum, storage_node_id, uplink_id, action, total, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __serialnum_val, __data_val, __storage_node_val, __action_val, __total_val, __created_at_val, __expires_at_val)
+	obj.logStmt(__stmt, __serialnum_val, __storage_node_id_val, __uplink_id_val, __action_val, __total_val, __created_at_val, __expires_at_val)
 
 	bwagreement = &Bwagreement{}
-	err = obj.driver.QueryRow(__stmt, __serialnum_val, __data_val, __storage_node_val, __action_val, __total_val, __created_at_val, __expires_at_val).Scan(&bwagreement.Serialnum, &bwagreement.Data, &bwagreement.StorageNode, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+	err = obj.driver.QueryRow(__stmt, __serialnum_val, __storage_node_id_val, __uplink_id_val, __action_val, __total_val, __created_at_val, __expires_at_val).Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2850,56 +2770,11 @@ func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Create_BucketInfo(ctx context.Context,
-	bucket_info_project_id BucketInfo_ProjectId_Field,
-	bucket_info_name BucketInfo_Name_Field) (
-	bucket_info *BucketInfo, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__project_id_val := bucket_info_project_id.value()
-	__name_val := bucket_info_name.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_infos ( project_id, name, created_at ) VALUES ( ?, ?, ? ) RETURNING bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __project_id_val, __name_val, __created_at_val)
-
-	bucket_info = &BucketInfo{}
-	err = obj.driver.QueryRow(__stmt, __project_id_val, __name_val, __created_at_val).Scan(&bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_info, nil
-
-}
-
-func (obj *postgresImpl) Get_Bwagreement_By_Serialnum(ctx context.Context,
-	bwagreement_serialnum Bwagreement_Serialnum_Field) (
-	bwagreement *Bwagreement, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.data, bwagreements.storage_node, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.serialnum = ?")
-
-	var __values []interface{}
-	__values = append(__values, bwagreement_serialnum.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bwagreement = &Bwagreement{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bwagreement.Serialnum, &bwagreement.Data, &bwagreement.StorageNode, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bwagreement, nil
-
-}
-
 func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.data, bwagreements.storage_node, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -2917,7 +2792,7 @@ func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.Data, &bwagreement.StorageNode, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -2933,7 +2808,7 @@ func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
 func (obj *postgresImpl) All_Bwagreement(ctx context.Context) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.data, bwagreements.storage_node, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -2949,7 +2824,7 @@ func (obj *postgresImpl) All_Bwagreement(ctx context.Context) (
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.Data, &bwagreement.StorageNode, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -2966,7 +2841,7 @@ func (obj *postgresImpl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Contex
 	bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.data, bwagreements.storage_node, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.created_at > ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.created_at > ?")
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_created_at_greater.value())
@@ -2982,7 +2857,7 @@ func (obj *postgresImpl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Contex
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.Data, &bwagreement.StorageNode, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -3693,60 +3568,6 @@ func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Co
 
 }
 
-func (obj *postgresImpl) Get_BucketInfo_By_Name(ctx context.Context,
-	bucket_info_name BucketInfo_Name_Field) (
-	bucket_info *BucketInfo, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at FROM bucket_infos WHERE bucket_infos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_info_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bucket_info = &BucketInfo{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_info, nil
-
-}
-
-func (obj *postgresImpl) All_BucketInfo_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
-	bucket_info_project_id BucketInfo_ProjectId_Field) (
-	rows []*BucketInfo, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at FROM bucket_infos WHERE bucket_infos.project_id = ? ORDER BY bucket_infos.name")
-
-	var __values []interface{}
-	__values = append(__values, bucket_info_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		bucket_info := &BucketInfo{}
-		err = __rows.Scan(&bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, bucket_info)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
 func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -4143,58 +3964,6 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 	return api_key, nil
 }
 
-func (obj *postgresImpl) Delete_Bwagreement_By_Serialnum(ctx context.Context,
-	bwagreement_serialnum Bwagreement_Serialnum_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreements WHERE bwagreements.serialnum = ?")
-
-	var __values []interface{}
-	__values = append(__values, bwagreement_serialnum.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *postgresImpl) Delete_Bwagreement_By_ExpiresAt_LessOrEqual(ctx context.Context,
-	bwagreement_expires_at_less_or_equal Bwagreement_ExpiresAt_Field) (
-	count int64, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreements WHERE bwagreements.expires_at <= ?")
-
-	var __values []interface{}
-	__values = append(__values, bwagreement_expires_at_less_or_equal.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
 func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -4456,32 +4225,6 @@ func (obj *postgresImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Delete_BucketInfo_By_Name(ctx context.Context,
-	bucket_info_name BucketInfo_Name_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_infos WHERE bucket_infos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_info_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -4496,16 +4239,6 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	var __res sql.Result
 	var __count int64
 	__res, err = obj.driver.Exec("DELETE FROM project_members;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_infos;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -4632,8 +4365,8 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 
 func (obj *sqlite3Impl) Create_Bwagreement(ctx context.Context,
 	bwagreement_serialnum Bwagreement_Serialnum_Field,
-	bwagreement_data Bwagreement_Data_Field,
-	bwagreement_storage_node Bwagreement_StorageNode_Field,
+	bwagreement_storage_node_id Bwagreement_StorageNodeId_Field,
+	bwagreement_uplink_id Bwagreement_UplinkId_Field,
 	bwagreement_action Bwagreement_Action_Field,
 	bwagreement_total Bwagreement_Total_Field,
 	bwagreement_expires_at Bwagreement_ExpiresAt_Field) (
@@ -4641,19 +4374,19 @@ func (obj *sqlite3Impl) Create_Bwagreement(ctx context.Context,
 
 	__now := obj.db.Hooks.Now().UTC()
 	__serialnum_val := bwagreement_serialnum.value()
-	__data_val := bwagreement_data.value()
-	__storage_node_val := bwagreement_storage_node.value()
+	__storage_node_id_val := bwagreement_storage_node_id.value()
+	__uplink_id_val := bwagreement_uplink_id.value()
 	__action_val := bwagreement_action.value()
 	__total_val := bwagreement_total.value()
 	__created_at_val := __now
 	__expires_at_val := bwagreement_expires_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( serialnum, data, storage_node, action, total, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( serialnum, storage_node_id, uplink_id, action, total, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __serialnum_val, __data_val, __storage_node_val, __action_val, __total_val, __created_at_val, __expires_at_val)
+	obj.logStmt(__stmt, __serialnum_val, __storage_node_id_val, __uplink_id_val, __action_val, __total_val, __created_at_val, __expires_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __serialnum_val, __data_val, __storage_node_val, __action_val, __total_val, __created_at_val, __expires_at_val)
+	__res, err := obj.driver.Exec(__stmt, __serialnum_val, __storage_node_id_val, __uplink_id_val, __action_val, __total_val, __created_at_val, __expires_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5016,59 +4749,11 @@ func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Create_BucketInfo(ctx context.Context,
-	bucket_info_project_id BucketInfo_ProjectId_Field,
-	bucket_info_name BucketInfo_Name_Field) (
-	bucket_info *BucketInfo, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__project_id_val := bucket_info_project_id.value()
-	__name_val := bucket_info_name.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_infos ( project_id, name, created_at ) VALUES ( ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __project_id_val, __name_val, __created_at_val)
-
-	__res, err := obj.driver.Exec(__stmt, __project_id_val, __name_val, __created_at_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastBucketInfo(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Get_Bwagreement_By_Serialnum(ctx context.Context,
-	bwagreement_serialnum Bwagreement_Serialnum_Field) (
-	bwagreement *Bwagreement, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.data, bwagreements.storage_node, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.serialnum = ?")
-
-	var __values []interface{}
-	__values = append(__values, bwagreement_serialnum.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bwagreement = &Bwagreement{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bwagreement.Serialnum, &bwagreement.Data, &bwagreement.StorageNode, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bwagreement, nil
-
-}
-
 func (obj *sqlite3Impl) Limited_Bwagreement(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.data, bwagreements.storage_node, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -5086,7 +4771,7 @@ func (obj *sqlite3Impl) Limited_Bwagreement(ctx context.Context,
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.Data, &bwagreement.StorageNode, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -5102,7 +4787,7 @@ func (obj *sqlite3Impl) Limited_Bwagreement(ctx context.Context,
 func (obj *sqlite3Impl) All_Bwagreement(ctx context.Context) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.data, bwagreements.storage_node, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -5118,7 +4803,7 @@ func (obj *sqlite3Impl) All_Bwagreement(ctx context.Context) (
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.Data, &bwagreement.StorageNode, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -5135,7 +4820,7 @@ func (obj *sqlite3Impl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context
 	bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.data, bwagreements.storage_node, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.created_at > ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.created_at > ?")
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_created_at_greater.value())
@@ -5151,7 +4836,7 @@ func (obj *sqlite3Impl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.Data, &bwagreement.StorageNode, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -5862,60 +5547,6 @@ func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Con
 
 }
 
-func (obj *sqlite3Impl) Get_BucketInfo_By_Name(ctx context.Context,
-	bucket_info_name BucketInfo_Name_Field) (
-	bucket_info *BucketInfo, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at FROM bucket_infos WHERE bucket_infos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_info_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bucket_info = &BucketInfo{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_info, nil
-
-}
-
-func (obj *sqlite3Impl) All_BucketInfo_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
-	bucket_info_project_id BucketInfo_ProjectId_Field) (
-	rows []*BucketInfo, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at FROM bucket_infos WHERE bucket_infos.project_id = ? ORDER BY bucket_infos.name")
-
-	var __values []interface{}
-	__values = append(__values, bucket_info_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		bucket_info := &BucketInfo{}
-		err = __rows.Scan(&bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, bucket_info)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
 func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -6382,58 +6013,6 @@ func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
 	return api_key, nil
 }
 
-func (obj *sqlite3Impl) Delete_Bwagreement_By_Serialnum(ctx context.Context,
-	bwagreement_serialnum Bwagreement_Serialnum_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreements WHERE bwagreements.serialnum = ?")
-
-	var __values []interface{}
-	__values = append(__values, bwagreement_serialnum.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *sqlite3Impl) Delete_Bwagreement_By_ExpiresAt_LessOrEqual(ctx context.Context,
-	bwagreement_expires_at_less_or_equal Bwagreement_ExpiresAt_Field) (
-	count int64, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreements WHERE bwagreements.expires_at <= ?")
-
-	var __values []interface{}
-	__values = append(__values, bwagreement_expires_at_less_or_equal.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
 func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -6695,43 +6274,17 @@ func (obj *sqlite3Impl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Delete_BucketInfo_By_Name(ctx context.Context,
-	bucket_info_name BucketInfo_Name_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_infos WHERE bucket_infos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_info_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *sqlite3Impl) getLastBwagreement(ctx context.Context,
 	pk int64) (
 	bwagreement *Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.data, bwagreements.storage_node, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	bwagreement = &Bwagreement{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&bwagreement.Serialnum, &bwagreement.Data, &bwagreement.StorageNode, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6937,24 +6490,6 @@ func (obj *sqlite3Impl) getLastApiKey(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) getLastBucketInfo(ctx context.Context,
-	pk int64) (
-	bucket_info *BucketInfo, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_infos.project_id, bucket_infos.name, bucket_infos.created_at FROM bucket_infos WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	bucket_info = &BucketInfo{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_info.ProjectId, &bucket_info.Name, &bucket_info.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_info, nil
-
-}
-
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -6974,16 +6509,6 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	var __res sql.Result
 	var __count int64
 	__res, err = obj.driver.Exec("DELETE FROM project_members;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_infos;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -7189,16 +6714,6 @@ func (rx *Rx) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
 	return tx.All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx, api_key_project_id)
 }
 
-func (rx *Rx) All_BucketInfo_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
-	bucket_info_project_id BucketInfo_ProjectId_Field) (
-	rows []*BucketInfo, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_BucketInfo_By_ProjectId_OrderBy_Asc_Name(ctx, bucket_info_project_id)
-}
-
 func (rx *Rx) All_Bwagreement(ctx context.Context) (
 	rows []*Bwagreement, err error) {
 	var tx *Tx
@@ -7325,22 +6840,10 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 
 }
 
-func (rx *Rx) Create_BucketInfo(ctx context.Context,
-	bucket_info_project_id BucketInfo_ProjectId_Field,
-	bucket_info_name BucketInfo_Name_Field) (
-	bucket_info *BucketInfo, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_BucketInfo(ctx, bucket_info_project_id, bucket_info_name)
-
-}
-
 func (rx *Rx) Create_Bwagreement(ctx context.Context,
 	bwagreement_serialnum Bwagreement_Serialnum_Field,
-	bwagreement_data Bwagreement_Data_Field,
-	bwagreement_storage_node Bwagreement_StorageNode_Field,
+	bwagreement_storage_node_id Bwagreement_StorageNodeId_Field,
+	bwagreement_uplink_id Bwagreement_UplinkId_Field,
 	bwagreement_action Bwagreement_Action_Field,
 	bwagreement_total Bwagreement_Total_Field,
 	bwagreement_expires_at Bwagreement_ExpiresAt_Field) (
@@ -7349,7 +6852,7 @@ func (rx *Rx) Create_Bwagreement(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Bwagreement(ctx, bwagreement_serialnum, bwagreement_data, bwagreement_storage_node, bwagreement_action, bwagreement_total, bwagreement_expires_at)
+	return tx.Create_Bwagreement(ctx, bwagreement_serialnum, bwagreement_storage_node_id, bwagreement_uplink_id, bwagreement_action, bwagreement_total, bwagreement_expires_at)
 
 }
 
@@ -7491,37 +6994,6 @@ func (rx *Rx) Delete_ApiKey_By_Id(ctx context.Context,
 	return tx.Delete_ApiKey_By_Id(ctx, api_key_id)
 }
 
-func (rx *Rx) Delete_BucketInfo_By_Name(ctx context.Context,
-	bucket_info_name BucketInfo_Name_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_BucketInfo_By_Name(ctx, bucket_info_name)
-}
-
-func (rx *Rx) Delete_Bwagreement_By_ExpiresAt_LessOrEqual(ctx context.Context,
-	bwagreement_expires_at_less_or_equal Bwagreement_ExpiresAt_Field) (
-	count int64, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_Bwagreement_By_ExpiresAt_LessOrEqual(ctx, bwagreement_expires_at_less_or_equal)
-
-}
-
-func (rx *Rx) Delete_Bwagreement_By_Serialnum(ctx context.Context,
-	bwagreement_serialnum Bwagreement_Serialnum_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_Bwagreement_By_Serialnum(ctx, bwagreement_serialnum)
-}
-
 func (rx *Rx) Delete_Injuredsegment_By_Id(ctx context.Context,
 	injuredsegment_id Injuredsegment_Id_Field) (
 	deleted bool, err error) {
@@ -7650,26 +7122,6 @@ func (rx *Rx) Get_ApiKey_By_Key(ctx context.Context,
 		return
 	}
 	return tx.Get_ApiKey_By_Key(ctx, api_key_key)
-}
-
-func (rx *Rx) Get_BucketInfo_By_Name(ctx context.Context,
-	bucket_info_name BucketInfo_Name_Field) (
-	bucket_info *BucketInfo, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_BucketInfo_By_Name(ctx, bucket_info_name)
-}
-
-func (rx *Rx) Get_Bwagreement_By_Serialnum(ctx context.Context,
-	bwagreement_serialnum Bwagreement_Serialnum_Field) (
-	bwagreement *Bwagreement, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_Bwagreement_By_Serialnum(ctx, bwagreement_serialnum)
 }
 
 func (rx *Rx) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -7877,10 +7329,6 @@ type Methods interface {
 		api_key_project_id ApiKey_ProjectId_Field) (
 		rows []*ApiKey, err error)
 
-	All_BucketInfo_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
-		bucket_info_project_id BucketInfo_ProjectId_Field) (
-		rows []*BucketInfo, err error)
-
 	All_Bwagreement(ctx context.Context) (
 		rows []*Bwagreement, err error)
 
@@ -7937,15 +7385,10 @@ type Methods interface {
 		api_key_name ApiKey_Name_Field) (
 		api_key *ApiKey, err error)
 
-	Create_BucketInfo(ctx context.Context,
-		bucket_info_project_id BucketInfo_ProjectId_Field,
-		bucket_info_name BucketInfo_Name_Field) (
-		bucket_info *BucketInfo, err error)
-
 	Create_Bwagreement(ctx context.Context,
 		bwagreement_serialnum Bwagreement_Serialnum_Field,
-		bwagreement_data Bwagreement_Data_Field,
-		bwagreement_storage_node Bwagreement_StorageNode_Field,
+		bwagreement_storage_node_id Bwagreement_StorageNodeId_Field,
+		bwagreement_uplink_id Bwagreement_UplinkId_Field,
 		bwagreement_action Bwagreement_Action_Field,
 		bwagreement_total Bwagreement_Total_Field,
 		bwagreement_expires_at Bwagreement_ExpiresAt_Field) (
@@ -8022,18 +7465,6 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field) (
 		deleted bool, err error)
 
-	Delete_BucketInfo_By_Name(ctx context.Context,
-		bucket_info_name BucketInfo_Name_Field) (
-		deleted bool, err error)
-
-	Delete_Bwagreement_By_ExpiresAt_LessOrEqual(ctx context.Context,
-		bwagreement_expires_at_less_or_equal Bwagreement_ExpiresAt_Field) (
-		count int64, err error)
-
-	Delete_Bwagreement_By_Serialnum(ctx context.Context,
-		bwagreement_serialnum Bwagreement_Serialnum_Field) (
-		deleted bool, err error)
-
 	Delete_Injuredsegment_By_Id(ctx context.Context,
 		injuredsegment_id Injuredsegment_Id_Field) (
 		deleted bool, err error)
@@ -8085,14 +7516,6 @@ type Methods interface {
 	Get_ApiKey_By_Key(ctx context.Context,
 		api_key_key ApiKey_Key_Field) (
 		api_key *ApiKey, err error)
-
-	Get_BucketInfo_By_Name(ctx context.Context,
-		bucket_info_name BucketInfo_Name_Field) (
-		bucket_info *BucketInfo, err error)
-
-	Get_Bwagreement_By_Serialnum(ctx context.Context,
-		bwagreement_serialnum Bwagreement_Serialnum_Field) (
-		bwagreement *Bwagreement, err error)
 
 	Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (

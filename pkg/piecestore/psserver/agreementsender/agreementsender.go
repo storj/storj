@@ -52,7 +52,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 			continue
 		}
 		for satellite, agreements := range agreementGroups {
-			as.sendAgreementsToSatellite(ctx, satellite, agreements)
+			as.SendAgreementsToSatellite(ctx, satellite, agreements)
 		}
 		select {
 		case <-ticker.C:
@@ -62,7 +62,8 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 	}
 }
 
-func (as *AgreementSender) sendAgreementsToSatellite(ctx context.Context, satID storj.NodeID, agreements []*psdb.Agreement) {
+//SendAgreementsToSatellite uploads agreements to the satellite
+func (as *AgreementSender) SendAgreementsToSatellite(ctx context.Context, satID storj.NodeID, agreements []*psdb.Agreement) {
 	as.log.Info("Sending agreements to satellite", zap.Int("number of agreements", len(agreements)), zap.String("satellite id", satID.String()))
 	// todo: cache kad responses if this interval is very small
 	// Get satellite ip from kademlia

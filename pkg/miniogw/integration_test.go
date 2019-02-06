@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/miniogw"
+	"storj.io/storj/satellite/console"
 )
 
 func TestUploadDownload(t *testing.T) {
@@ -38,7 +39,24 @@ func TestUploadDownload(t *testing.T) {
 
 	defer ctx.Check(planet.Shutdown)
 
-	err = flag.Set("pointer-db.auth.api-key", "apiKey")
+	// add project to satisfy constraint
+	project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
+		Name: "testProject",
+	})
+
+	assert.NoError(t, err)
+
+	apiKey := console.APIKey{}
+	apiKeyInfo := console.APIKeyInfo{
+		ProjectID: project.ID,
+		Name:      "testKey",
+	}
+
+	// add api key to db
+	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey, apiKeyInfo)
+	assert.NoError(t, err)
+
+	err = flag.Set("pointer-db.auth.api-key", apiKey.String())
 	assert.NoError(t, err)
 
 	// bind default values to config

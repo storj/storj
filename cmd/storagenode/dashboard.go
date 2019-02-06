@@ -72,8 +72,8 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		clearScreen()
 		heading := color.New(color.FgGreen, color.Bold)
 
-		_, _ = heading.Printf("\nStorage Node Dashboard Stats\n")
-		_, _ = heading.Printf("\n===============================\n\n")
+		_, _ = heading.Printf("\nStorage Node Dashboard\n")
+		_, _ = heading.Printf("\n======================\n\n")
 
 		w := tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
 		fmt.Fprintf(w, "ID\t%s\n", color.YellowString(data.GetNodeId()))
@@ -97,10 +97,10 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 
 		stats := data.GetStats()
 		if stats != nil {
-			availableBandwidth := color.WhiteString(memory.Size(stats.GetAvailableBandwidth()).String())
-			usedBandwidth := color.WhiteString(memory.Size(stats.GetUsedBandwidth()).String())
-			availableSpace := color.WhiteString(memory.Size(stats.GetAvailableSpace()).String())
-			usedSpace := color.WhiteString(memory.Size(stats.GetUsedSpace()).String())
+			availableBandwidth := color.WhiteString(memory.Size(stats.GetAvailableBandwidth()).Base10String())
+			usedBandwidth := color.WhiteString(memory.Size(stats.GetUsedBandwidth()).Base10String())
+			availableSpace := color.WhiteString(memory.Size(stats.GetAvailableSpace()).Base10String())
+			usedSpace := color.WhiteString(memory.Size(stats.GetUsedSpace()).Base10String())
 
 			w = tabwriter.NewWriter(color.Output, 0, 0, 5, ' ', tabwriter.AlignRight)
 			fmt.Fprintf(w, "\n\t%s\t%s\t\n", color.GreenString("Available"), color.GreenString("Used"))
