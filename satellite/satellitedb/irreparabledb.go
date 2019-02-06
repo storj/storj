@@ -41,6 +41,7 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 		dbxInfo.RepairAttemptCount++
 		updateFields := dbx.Irreparabledb_Update_Fields{}
 		updateFields.RepairAttemptCount = dbx.Irreparabledb_RepairAttemptCount(dbxInfo.RepairAttemptCount)
+		updateFields.SegDamagedUnixSec = dbx.Irreparabledb_SegDamagedUnixSec(segmentInfo.RepairUnixSec)
 		_, err = tx.Update_Irreparabledb_By_Segmentpath(
 			ctx,
 			dbx.Irreparabledb_Segmentpath(dbxInfo.Segmentpath),
