@@ -6,7 +6,9 @@ package ranger
 import (
 	"context"
 	"io"
+	"math/rand"
 	"os"
+	"time"
 
 	"github.com/zeebo/errs"
 )
@@ -66,7 +68,9 @@ func (reader *fileReader) Read(data []byte) (n int, err error) {
 	if int64(len(data)) > reader.remaining {
 		data = data[0:reader.remaining]
 	}
+	jitter()
 	n, err = reader.file.Read(data)
+	jitter()
 	reader.remaining -= int64(n)
 	return n, err
 }
@@ -74,4 +78,8 @@ func (reader *fileReader) Read(data []byte) (n int, err error) {
 // Close closes the underlying file.
 func (reader *fileReader) Close() error {
 	return reader.file.Close()
+}
+
+func jitter() {
+	time.Sleep(time.Duration(rand.Intn(3)*100) * time.Microsecond)
 }
