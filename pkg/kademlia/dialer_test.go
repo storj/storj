@@ -101,10 +101,10 @@ func TestDialer(t *testing.T) {
 
 			var group errgroup.Group
 
-			for i := range targets {
-				target := targets[i]
-				for i := range peers {
-					peer := peers[i]
+			for _, target := range targets {
+				target := target
+				for _, peer := range peers {
+					peer := peer
 					group.Go(func() error {
 						errTag := fmt.Errorf("invalid lookup peer:%s target:%s", peer.ID(), target)
 						peer.Local().Type.DPanicOnInvalid("peer info")
