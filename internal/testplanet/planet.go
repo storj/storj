@@ -34,7 +34,6 @@ import (
 	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
@@ -58,8 +57,6 @@ type Peer interface {
 
 	Run(context.Context) error
 	Close() error
-
-	NewNodeClient() (node.Client, error)
 }
 
 // Config describes planet configuration
@@ -109,7 +106,6 @@ type Planet struct {
 }
 
 type closablePeer struct {
-	name string
 	peer Peer
 
 	ctx    context.Context
@@ -256,7 +252,8 @@ func (planet *Planet) Shutdown() error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		timer := time.NewTimer(10 * time.Second)
+		// TODO: add diagnostics to see what hasn't been properly shut down
+		timer := time.NewTimer(30 * time.Second)
 		defer timer.Stop()
 		select {
 		case <-timer.C:
@@ -304,10 +301,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 	var xs []*satellite.Peer
 	defer func() {
 		for i, x := range xs {
-			planet.peers = append(planet.peers, closablePeer{
-				name: "satellite/" + strconv.Itoa(i),
-				peer: x,
-			})
+			planet.peers = append(planet.peers, closablePeer{peer: x})
 		}
 	}()
 
@@ -434,10 +428,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 	var xs []*storagenode.Peer
 	defer func() {
 		for i, x := range xs {
-			planet.peers = append(planet.peers, closablePeer{
-				name: "storage/" + strconv.Itoa(i),
-				peer: x,
-			})
+			planet.peers = append(planet.peers, closablePeer{peer: x})
 		}
 	}()
 
@@ -518,10 +509,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 // newBootstrap initializes the bootstrap node
 func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 	defer func() {
-		planet.peers = append(planet.peers, closablePeer{
-			name: "bootstrap/0",
-			peer: peer,
-		})
+		planet.peers = append(planet.peers, closablePeer{peer: peer})
 	}()
 
 	prefix := "bootstrap"

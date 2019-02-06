@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
@@ -104,6 +103,8 @@ type Peer struct {
 	Identity *identity.FullIdentity
 	DB       DB
 
+	Transport transport.Client
+
 	// servers
 	Public struct {
 		Listener net.Listener
@@ -116,7 +117,7 @@ type Peer struct {
 
 		RoutingTable *kademlia.RoutingTable
 		Service      *kademlia.Kademlia
-		Endpoint     *node.Server
+		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
 	}
 
@@ -168,9 +169,10 @@ type Peer struct {
 // New creates a new satellite
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*Peer, error) {
 	peer := &Peer{
-		Log:      log,
-		Identity: full,
-		DB:       db,
+		Log:       log,
+		Identity:  full,
+		DB:        db,
+		Transport: transport.NewClient(full),
 	}
 
 	var err error
@@ -239,7 +241,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Kademlia.Endpoint = node.NewServer(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service)
+		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable)
 		pb.RegisterNodesServer(peer.Public.Server.GRPC(), peer.Kademlia.Endpoint)
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
@@ -374,59 +376,38 @@ func ignoreCancel(err error) error {
 
 // Run runs storage node until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) error {
-	defer fmt.Println("satellite stopped")
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		fmt.Println("peer.Kademlia.Service started")
-		defer fmt.Println("peer.Kademlia.Service stopped")
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
-		fmt.Println("peer.Kademlia.Refresh started")
-		defer fmt.Println("peer.Kademlia.Refresh stopped")
 		return ignoreCancel(peer.Kademlia.Service.RunRefresh(ctx))
 	})
 	group.Go(func() error {
-		fmt.Println("peer.Discovery.Service started")
-		defer fmt.Println("peer.Discovery.Service stopped")
 		return ignoreCancel(peer.Discovery.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		fmt.Println("peer.Repair.Checker started")
-		defer fmt.Println("peer.Repair.Checker stopped")
 		return ignoreCancel(peer.Repair.Checker.Run(ctx))
 	})
 	group.Go(func() error {
-		fmt.Println("peer.Repair.Repairer started")
-		defer fmt.Println("peer.Repair.Repairer stopped")
 		return ignoreCancel(peer.Repair.Repairer.Run(ctx))
 	})
 	group.Go(func() error {
-		fmt.Println("peer.Accounting.Tally started")
-		defer fmt.Println("peer.Accounting.Tally stopped")
 		return ignoreCancel(peer.Accounting.Tally.Run(ctx))
 	})
 	group.Go(func() error {
-		fmt.Println("peer.Accounting.Rollup started")
-		defer fmt.Println("peer.Accounting.Rollup stopped")
 		return ignoreCancel(peer.Accounting.Rollup.Run(ctx))
 	})
 	group.Go(func() error {
-		fmt.Println("peer.Audit.Service started")
-		defer fmt.Println("peer.Audit.Service stopped")
 		return ignoreCancel(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
 		peer.Log.Sugar().Infof("Node %s started on %s", peer.Identity.ID, peer.Public.Server.Addr().String())
-		fmt.Println("peer.Public.Server started")
-		defer fmt.Println("peer.Public.Server stopped")
 		return ignoreCancel(peer.Public.Server.Run(ctx))
 	})
 	group.Go(func() error {
-		fmt.Println("peer.Console.Endpoint started")
-		defer fmt.Println("peer.Console.Endpoint stopped")
 		return ignoreCancel(peer.Console.Endpoint.Run(ctx))
 	})
 

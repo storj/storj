@@ -130,13 +130,14 @@ func (s *Server) Run(ctx context.Context) error {
 		return Error.Wrap(err)
 	}
 
-	group, ctx := errgroup.WithContext(ctx)
+	ctx, cancel := context.WithCancel(ctx)
+	var group errgroup.Group
 	group.Go(func() error {
 		<-ctx.Done()
 		return s.server.Shutdown(nil)
 	})
-
 	group.Go(func() error {
+		defer cancel()
 		return s.server.Serve(s.listener)
 	})
 
