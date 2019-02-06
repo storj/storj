@@ -41,16 +41,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		creator := consoleql.TypeCreator{}
-		if err = creator.Create(service); err != nil {
-			t.Fatal(err)
-		}
-
-		schema, err := graphql.NewSchema(graphql.SchemaConfig{
-			Query:    creator.RootQuery(),
-			Mutation: creator.RootMutation(),
-		})
-
+		schema, err := consoleql.CreateSchema(service)
 		if err != nil {
 			t.Fatal(err)
 		}

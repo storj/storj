@@ -25,7 +25,10 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 	t.Log("schema-suffix ", schemaSuffix)
 
 	for _, satelliteDB := range satellitedbtest.Databases() {
+		satelliteDB := satelliteDB
 		t.Run(satelliteDB.Name, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 

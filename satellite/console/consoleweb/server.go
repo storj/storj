@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
-	"sync"
 
 	"github.com/graphql-go/graphql"
 	"github.com/zeebo/errs"
@@ -122,26 +121,10 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 	sugar.Debug(result)
 }
 
-var creatingSchema sync.Mutex
-
 // Run starts the server that host webapp and api endpoint
 func (s *Server) Run(ctx context.Context) error {
-	creatingSchema.Lock()
-
-	creator := consoleql.TypeCreator{}
-	err := creator.Create(s.service)
-	if err != nil {
-		creatingSchema.Unlock()
-		return Error.Wrap(err)
-	}
-
-	s.schema, err = graphql.NewSchema(graphql.SchemaConfig{
-		Query:    creator.RootQuery(),
-		Mutation: creator.RootMutation(),
-	})
-
-	creatingSchema.Unlock()
-
+	var err error
+	s.schema, err = consoleql.CreateSchema(s.service)
 	if err != nil {
 		return Error.Wrap(err)
 	}
