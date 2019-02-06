@@ -18,6 +18,8 @@ import (
 )
 
 func TestChoose(t *testing.T) {
+	t.Parallel()
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 8, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -56,6 +58,8 @@ func TestChoose(t *testing.T) {
 }
 
 func TestLookup(t *testing.T) {
+	t.Parallel()
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -96,6 +100,8 @@ func TestLookup(t *testing.T) {
 }
 
 func TestBulkLookup(t *testing.T) {
+	t.Parallel()
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -132,6 +138,8 @@ func TestBulkLookup(t *testing.T) {
 }
 
 func TestBulkLookupV2(t *testing.T) {
+	t.Parallel()
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
