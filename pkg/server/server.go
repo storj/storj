@@ -83,18 +83,13 @@ func (p *Server) Run(ctx context.Context) (err error) {
 		return next.Run(ctx, p)
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	var group errgroup.Group
+	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() error {
 		<-ctx.Done()
 		return p.Close()
 	})
 	group.Go(func() error {
-		err := p.grpc.Serve(p.lis)
-		cancel()
-		return err
+		return p.grpc.Serve(p.lis)
 	})
 
 	return group.Wait()
