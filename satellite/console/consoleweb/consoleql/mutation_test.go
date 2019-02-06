@@ -118,7 +118,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			}
 
 			query := fmt.Sprintf(
-				"mutation {createUser(input:{email:\"%s\",password:\"%s\",firstName:\"%s\",lastName:\"%s\"})}",
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\",firstName:\"%s\",lastName:\"%s\"}){id,lastName,firstName,email,createdAt}}",
 				newUser.Email,
 				newUser.Password,
 				newUser.FirstName,
@@ -141,9 +141,10 @@ func TestGrapqhlMutation(t *testing.T) {
 			}
 
 			data := result.Data.(map[string]interface{})
-			id := data[consoleql.CreateUserMutation].(string)
+			usrData := data[consoleql.CreateUserMutation].(map[string]interface{})
+			idStr := usrData["id"].(string)
 
-			uID, err := uuid.Parse(id)
+			uID, err := uuid.Parse(idStr)
 			assert.NoError(t, err)
 
 			user, err := service.GetUser(authCtx, *uID)
