@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/certificates"
