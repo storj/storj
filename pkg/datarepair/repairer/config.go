@@ -30,17 +30,16 @@ func (c Config) GetSegmentRepairer(ctx context.Context, identity *identity.FullI
 	defer mon.Task()(&ctx)(&err)
 
 	var oc overlay.Client
-	oc, err = overlay.NewClient(identity, c.OverlayAddr)
+	oc, err = overlay.NewClientContext(ctx, identity, c.OverlayAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	pdb, err := pdbclient.NewClient(identity, c.PointerDBAddr, c.APIKey)
+	pdb, err := pdbclient.NewClientContext(ctx, identity, c.PointerDBAddr, c.APIKey)
 	if err != nil {
 		return nil, err
 	}
 
 	ec := ecclient.NewClient(identity, c.MaxBufferMem.Int())
-
 	return segments.NewSegmentRepairer(oc, ec, pdb), nil
 }

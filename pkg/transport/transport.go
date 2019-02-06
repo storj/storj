@@ -75,6 +75,9 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 
 	conn, err = grpc.DialContext(ctx, node.GetAddress().Address, options...)
 	if err != nil {
+		if err == context.Canceled {
+			return nil, err
+		}
 		alertFail(ctx, transport.observers, node, err)
 		return nil, Error.Wrap(err)
 	}
@@ -94,7 +97,10 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 	}
 
 	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock()}, opts...)
-	conn, err = grpc.Dial(address, options...)
+	conn, err = grpc.DialContext(ctx, address, options...)
+	if err == context.Canceled {
+		return nil, err
+	}
 	return conn, Error.Wrap(err)
 }
 

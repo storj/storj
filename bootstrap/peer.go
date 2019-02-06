@@ -142,10 +142,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 
 // Run runs bootstrap node until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	group, ctx := errgroup.WithContext(ctx)
 
-	var group errgroup.Group
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})
