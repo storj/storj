@@ -11,11 +11,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// DB stores bandwidth agreements.
+// DB stores uplink public keys.
 type DB interface {
 	// SavePublicKey adds a new bandwidth agreement.
 	SavePublicKey(context.Context, Agreement) error
-	// GetPublicKey gets the public key of uplink corresponding to serial number
+	// GetPublicKey gets the public key of uplink corresponding to uplink id
 	GetPublicKey(ctx context.Context, nodeID []byte) (*Agreement, error)
 }
 

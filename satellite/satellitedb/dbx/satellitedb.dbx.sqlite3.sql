@@ -36,6 +36,12 @@ CREATE TABLE bwagreements (
 	expires_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( serialnum )
 );
+CREATE TABLE certDBs (
+	publickey BLOB NOT NULL,
+	id BLOB NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE injuredsegments (
 	id INTEGER NOT NULL,
 	info BLOB NOT NULL,
@@ -84,12 +90,6 @@ CREATE TABLE projects (
 	id BLOB NOT NULL,
 	name TEXT NOT NULL,
 	description TEXT NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE uplinkDBs (
-	publickey BLOB NOT NULL,
-	id BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );

@@ -36,6 +36,12 @@ CREATE TABLE bwagreements (
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( serialnum )
 );
+CREATE TABLE certDBs (
+	publickey bytea NOT NULL,
+	id bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE injuredsegments (
 	id bigserial NOT NULL,
 	info bytea NOT NULL,
@@ -84,12 +90,6 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE uplinkDBs (
-	publickey bytea NOT NULL,
-	id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );

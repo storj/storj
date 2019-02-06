@@ -612,7 +612,7 @@ type lockedUplinkDB struct {
 	db uplinkdb.DB
 }
 
-// GetPublicKey gets the public key of uplink corresponding to serial number
+// GetPublicKey gets the public key of uplink corresponding to uplink id
 func (m *lockedUplinkDB) GetPublicKey(ctx context.Context, nodeID []byte) (*uplinkdb.Agreement, error) {
 	m.Lock()
 	defer m.Unlock()

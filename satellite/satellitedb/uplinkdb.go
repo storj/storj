@@ -21,27 +21,27 @@ func (b *uplinkDB) SavePublicKey(ctx context.Context, agreement uplinkdb.Agreeme
 		return Error.Wrap(err)
 	}
 
-	_, err = tx.Get_UplinkDB_By_Id(ctx, dbx.UplinkDB_Id(agreement.ID))
+	_, err = tx.Get_CertDB_By_Id(ctx, dbx.CertDB_Id(agreement.ID))
 	if err != nil {
 		// no rows err, so create/insert an entry
-		_, err = tx.Create_UplinkDB(
+		_, err = tx.Create_CertDB(
 			ctx,
-			dbx.UplinkDB_Publickey(agreement.PublicKey),
-			dbx.UplinkDB_Id(agreement.ID),
+			dbx.CertDB_Publickey(agreement.PublicKey),
+			dbx.CertDB_Id(agreement.ID),
 		)
 		if err != nil {
 			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 		}
 	} else {
-		// nodeID entry already exists, return err
-		return tx.Rollback()
+		// nodeID entry already exists, just return
+		return Error.Wrap(tx.Rollback())
 	}
 
 	return Error.Wrap(tx.Commit())
 }
 
 func (b *uplinkDB) GetPublicKey(ctx context.Context, nodeID []byte) (*uplinkdb.Agreement, error) {
-	dbxInfo, err := b.db.Get_UplinkDB_By_Id(ctx, dbx.UplinkDB_Id(nodeID))
+	dbxInfo, err := b.db.Get_CertDB_By_Id(ctx, dbx.CertDB_Id(nodeID))
 	if err != nil {
 		return &uplinkdb.Agreement{}, err
 	}

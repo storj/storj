@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestUplinkdb(t *testing.T) {
+func TestUplinkDB(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -38,7 +38,7 @@ func testDatabase(ctx context.Context, t *testing.T, upldb uplinkdb.DB) {
 
 	{ // New entry
 		err := upldb.SavePublicKey(ctx, *uplinkInfo)
-		assert.Error(t, err)
+		assert.NoError(t, err)
 	}
 
 	{ // Get the corresponding Public key for the serialnum

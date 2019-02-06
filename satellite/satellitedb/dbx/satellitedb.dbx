@@ -335,9 +335,9 @@ read all (
     orderby asc api_key.name
 )
 
-//--- uplinkDB ---//
+//--- certDB ---//
 
-model uplinkDB (
+model certDB (
 	key id 
 
 	field publickey  blob		//--uplink public key--//
@@ -345,10 +345,10 @@ model uplinkDB (
 	field created_at timestamp ( autoinsert )
 )
 
-create uplinkDB ( )
-delete uplinkDB ( where uplinkDB.id = ? )
+create certDB ( )
+delete certDB ( where certDB.id = ? )
 
 read one (
-	select uplinkDB
-	where  uplinkDB.id = ?
+	select certDB
+	where  certDB.id = ?
 )
