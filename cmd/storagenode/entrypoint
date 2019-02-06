@@ -7,7 +7,7 @@ fi
 
 RUN_PARAMS="${RUN_PARAMS:-} --config-dir ${CONF_PATH}"
 
-export STORJ_SERVER_ADDRESS="${STORJ_SERVER_ADDRESS:-$(hostname -i):7777}"
+export STORJ_SERVER_ADDRESS="${STORJ_SERVER_ADDRESS:-$(hostname -i):28967}"
 
 if [ -n "${SATELLITE_ADDR:-}" ]; then
 	RUN_PARAMS="${RUN_PARAMS} --kademlia.bootstrap-addr $SATELLITE_ADDR"
