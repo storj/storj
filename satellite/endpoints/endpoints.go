@@ -39,5 +39,12 @@ func (s *Server) Close() error { return nil }
 func (s *Server) Health(ctx context.Context, req *pb.FileHealthRequest) (resp *pb.FileHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return &pb.FileHealthResponse{}, nil
+	resp = &pb.FileHealthResponse{}
+
+	// Find segements by file_name and uplink_id
+	// for each segment
+	// 		determine number of good nodes and bad nodes
+	// 		append to Response
+
+	return resp, nil
 }
