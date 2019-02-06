@@ -186,8 +186,8 @@ func renderStats(screen *cui.Screen, stats []uint32) error {
 
 	total := uint32(0)
 
-	for difficulty := len(stats); difficulty > 0; difficulty-- {
-		count := atomic.LoadUint32(&stats[difficulty-1])
+	for difficulty := len(stats) - 1; difficulty > 0; difficulty-- {
+		count := atomic.LoadUint32(&stats[difficulty])
 		total += count
 		if count == 0 {
 			continue
