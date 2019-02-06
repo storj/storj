@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -100,7 +99,6 @@ func (discovery *Discovery) Run(ctx context.Context) error {
 			}
 		case <-ctx.Done():
 			return ctx.Err()
-		default: // don't block
 		}
 	}
 }
@@ -129,6 +127,10 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 	}
 
 	for _, node := range list {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
 		ping, err := discovery.kad.Ping(ctx, *node)
 		if err != nil {
 			discovery.log.Info("could not ping node", zap.String("ID", node.Id.String()), zap.Error(err))
@@ -141,6 +143,10 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 				discovery.log.Error("deleting unresponsive node from cache", zap.String("ID", node.Id.String()), zap.Error(err))
 			}
 			continue
+		}
+
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 
 		_, err = discovery.statdb.UpdateUptime(ctx, ping.Id, true)
@@ -161,14 +167,22 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 // and were removed from the cache due to an unsuccessful response.
 func (discovery *Discovery) searchGraveyard(ctx context.Context) error {
 	seen := discovery.kad.Seen()
-	var errors utils.ErrorGroup
 
+	var errors errs.Group
 	for _, n := range seen {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
 		ping, err := discovery.kad.Ping(ctx, *n)
 		if err != nil {
 			discovery.log.Debug("could not ping node in graveyard check")
 			// we don't want to report the ping error to ErrorGroup because it's to be expected here.
 			continue
+		}
+
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 
 		err = discovery.cache.Put(ctx, ping.Id, ping)
@@ -183,7 +197,7 @@ func (discovery *Discovery) searchGraveyard(ctx context.Context) error {
 			errors.Add(err)
 		}
 	}
-	return errors.Finish()
+	return errors.Err()
 }
 
 // Bootstrap walks the initialized network and populates the cache

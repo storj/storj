@@ -61,10 +61,15 @@ type Client interface {
 
 // NewClient initializes a new pointerdb client
 func NewClient(identity *identity.FullIdentity, address string, APIKey string) (*PointerDB, error) {
+	return NewClientContext(context.TODO(), identity, address, APIKey)
+}
+
+// NewClientContext initializes a new pointerdb client
+func NewClientContext(ctx context.Context, identity *identity.FullIdentity, address string, APIKey string) (*PointerDB, error) {
 	apiKeyInjector := grpcauth.NewAPIKeyInjector(APIKey)
 	tc := transport.NewClient(identity)
 	conn, err := tc.DialAddress(
-		context.Background(),
+		ctx,
 		address,
 		grpc.WithUnaryInterceptor(apiKeyInjector),
 	)
