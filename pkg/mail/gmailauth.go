@@ -22,7 +22,7 @@ import (
 type GmailAuth struct {
 	Mail string
 
-	Storage *tokenStorage
+	Storage *TokenStorage
 }
 
 // Start returns proto and auth credentials for first auth msg
@@ -60,23 +60,23 @@ type Credentials struct {
 	TokenURI     string `json:"token_uri"`
 }
 
-// tokenStorage is thread safe storage for OAUTH2 token and credentials
-type tokenStorage struct {
+// TokenStorage is a thread safe storage for OAUTH2 token and credentials
+type TokenStorage struct {
 	mu    sync.Mutex
 	token Token
 	creds Credentials
 }
 
 // NewTokenStorage creates new instance of token storage
-func NewTokenStorage(creds Credentials, token Token) *tokenStorage {
-	return &tokenStorage{
+func NewTokenStorage(creds Credentials, token Token) *TokenStorage {
+	return &TokenStorage{
 		token: token,
 		creds: creds,
 	}
 }
 
 // Token retrieves token in a thread safe way and refreshes it if needed
-func (s *tokenStorage) Token() (*Token, error) {
+func (s *TokenStorage) Token() (*Token, error) {
 	s.mu.Lock()
 	token := new(Token)
 	if s.token.Expiry.Before(time.Now()) {
@@ -115,7 +115,9 @@ func RefreshToken(creds *Credentials, refreshToken string) (*Token, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err = resp.Body.Close()
+	}()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

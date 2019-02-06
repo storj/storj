@@ -11,19 +11,19 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// SmtpServer is smtp server
-type SmtpServer struct {
+// SMTPServer is smtp server
+type SMTPServer struct {
 	Host, Port string
 	Sender     Sender
 }
 
 // Address returns server's network address
-func (s *SmtpServer) Address() string {
-	return net.JoinHostPort(s.Host, s.Port)
+func (server *SMTPServer) Address() string {
+	return net.JoinHostPort(server.Host, server.Port)
 }
 
 // SendEmail sends email message to the given recipient
-func (server *SmtpServer) SendEmail(rcpt string, msg []byte) error {
+func (server *SMTPServer) SendEmail(rcpt string, msg []byte) error {
 	client, err := smtp.Dial(server.Address())
 	if err != nil {
 		return err
