@@ -62,6 +62,7 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 	t.Log("schema-suffix ", schemaSuffix)
 
 	for _, dbInfo := range Databases() {
+		dbInfo := dbInfo
 		t.Run(dbInfo.Name, func(t *testing.T) {
 			t.Parallel()
 
