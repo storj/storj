@@ -7,9 +7,6 @@ import (
 	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"storj.io/storj/internal/testcontext"
 	"testing"
 	"time"
@@ -83,7 +80,7 @@ func TestParseExtensions(t *testing.T) {
 	_, unrelatedChain, err := testpeertls.NewCertChain(1)
 	assert.NoError(t, err)
 
-	revDB, err := NewRevocationDBBolt(filepath.Join(tmp, "revocations.db"))
+	revDB, err := NewRevocationDBBolt(ctx.File("revocations.db"))
 	assert.NoError(t, err)
 
 	cases := []struct {
