@@ -5,7 +5,7 @@ package main
 
 import (
 	"crypto/x509"
-	"log"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -35,9 +35,21 @@ func cmdSign(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ident, err := signCfg.SigneeIdentCfg.Load()
+	var (
+		signeeIdentityExists bool
+		ident                *identity.PeerIdentity
+	)
+	_, err = os.Stat(signCfg.SigneeIdentCfg.CertPath)
 	if err != nil {
-		log.Printf("unable to load identity: %s\n", err.Error())
+		signeeIdentityExists = !os.IsNotExist(err)
+		if signeeIdentityExists {
+			return err
+		}
+
+		ident, err = signCfg.SigneeIdentCfg.Load()
+		if err != nil {
+			return err
+		}
 	}
 
 	signer, err := signCfg.Signer.Load()
@@ -50,10 +62,6 @@ func cmdSign(cmd *cobra.Command, args []string) error {
 	err = signCfg.SigneeCACfg.SaveBackup(ca)
 	if err != nil {
 		return err
-	}
-	err = signCfg.SigneeIdentCfg.SaveBackup(ident)
-	if err != nil {
-		log.Printf("unable to save backup of identity: %s\n", err.Error())
 	}
 
 	ca.Cert, err = signer.Sign(ca.Cert)
@@ -68,12 +76,18 @@ func cmdSign(cmd *cobra.Command, args []string) error {
 		writeErrs.Add(err)
 	}
 
-	ident.CA = ca.Cert
-	ident.RestChain = restChain
+	if signeeIdentityExists {
+		err = signCfg.SigneeIdentCfg.SaveBackup(ident)
+		if err != nil {
+			writeErrs.Add(err)
+		}
+		ident.CA = ca.Cert
+		ident.RestChain = restChain
 
-	err = signCfg.SigneeIdentCfg.Save(ident)
-	if err != nil {
-		log.Printf("unable to save identity: %s\n", err.Error())
+		err = signCfg.SigneeIdentCfg.Save(ident)
+		if err != nil {
+			writeErrs.Add(err)
+		}
 	}
 
 	return writeErrs.Err()

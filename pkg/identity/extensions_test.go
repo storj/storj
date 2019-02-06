@@ -10,11 +10,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"storj.io/storj/internal/testcontext"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/testpeertls"
@@ -33,13 +35,9 @@ func (m *extensionHandlerMock) verify(ext pkix.Extension, chain [][]*x509.Certif
 func TestExtensionHandlers_VerifyFunc(t *testing.T) {
 	keys, chain, err := newRevokedLeafChain()
 	chains := [][]*x509.Certificate{chain}
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
+	require.NoError(t, err)
 	err = peertls.AddSignedCertExt(keys[0], chain[0])
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
+	require.NoError(t, err)
 
 	extMock := new(extensionHandlerMock)
 	verify := func(ext pkix.Extension, chain [][]*x509.Certificate) error {
@@ -70,6 +68,9 @@ func TestExtensionHandlers_VerifyFunc(t *testing.T) {
 }
 
 func TestParseExtensions(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	revokedLeafKeys, revokedLeafChain, err := newRevokedLeafChain()
 	assert.NoError(t, err)
 
@@ -82,12 +83,6 @@ func TestParseExtensions(t *testing.T) {
 	_, unrelatedChain, err := testpeertls.NewCertChain(1)
 	assert.NoError(t, err)
 
-	tmp, err := ioutil.TempDir("", "TestParseExtensions")
-	if err != nil {
-		t.FailNow()
-	}
-
-	defer func() { _ = os.RemoveAll(tmp) }()
 	revDB, err := NewRevocationDBBolt(filepath.Join(tmp, "revocations.db"))
 	assert.NoError(t, err)
 

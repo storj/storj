@@ -6,55 +6,44 @@ package identity
 import (
 	"bytes"
 	"crypto/x509/pkix"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testpeertls"
 	"storj.io/storj/pkg/peertls"
 )
 
 func TestRevocationDB_Get(t *testing.T) {
-	tmp, err := ioutil.TempDir("", "TestRevocationDB_Get")
-	defer func() { _ = os.RemoveAll(tmp) }()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
 	// NB: key indices are reversed as compared to chain indices
 	keys, chain, err := testpeertls.NewCertChain(2)
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
+	require.NoError(t, err)
 
 	ext, err := peertls.NewRevocationExt(keys[0], chain[peertls.LeafIndex])
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
+	require.NoError(t, err)
 
-	revDB, err := NewRevocationDBBolt(filepath.Join(tmp, "revocations.db"))
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
+	revDB, err := NewRevocationDBBolt(ctx.File("revocations.db"))
+	require.NoError(t, err)
+	defer ctx.Check(revDB.Close)
 
+	// missing key
 	var rev *peertls.Revocation
-	t.Run("missing key", func(t *testing.T) {
-		rev, err = revDB.Get(chain)
-		assert.NoError(t, err)
-		assert.Nil(t, rev)
-	})
+	rev, err = revDB.Get(chain)
+	assert.NoError(t, err)
+	assert.Nil(t, rev)
 
 	nodeID, err := NodeIDFromKey(chain[peertls.CAIndex].PublicKey)
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
+	require.NoError(t, err)
 
 	err = revDB.DB.Put(nodeID.Bytes(), ext.Value)
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
+	require.NoError(t, err)
 
 	t.Run("existing key", func(t *testing.T) {
 		rev, err = revDB.Get(chain)
@@ -67,32 +56,27 @@ func TestRevocationDB_Get(t *testing.T) {
 }
 
 func TestRevocationDB_Put(t *testing.T) {
-	tmp, err := ioutil.TempDir("", "TestRevocationDB_Put")
-	defer func() { _ = os.RemoveAll(tmp) }()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
 	// NB: key indices are reversed as compared to chain indices
 	keys, chain, err := testpeertls.NewCertChain(2)
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
+	require.NoError(t, err)
 
 	olderExt, err := peertls.NewRevocationExt(keys[0], chain[peertls.LeafIndex])
 	assert.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
 	ext, err := peertls.NewRevocationExt(keys[0], chain[peertls.LeafIndex])
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
+	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
 	newerExt, err := peertls.NewRevocationExt(keys[0], chain[peertls.LeafIndex])
 	assert.NoError(t, err)
 
-	revDB, err := NewRevocationDBBolt(filepath.Join(tmp, "revocations.db"))
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
+	revDB, err := NewRevocationDBBolt(ctx.File("revocations.db"))
+	require.NoError(t, err)
+	defer ctx.Check(revDB.Close)
 
 	cases := []struct {
 		testID   string
