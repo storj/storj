@@ -20,7 +20,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
-	"google.golang.org/grpc"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/bootstrap"
 	"storj.io/storj/bootstrap/bootstrapdb"
@@ -89,8 +89,9 @@ type Planet struct {
 	log       *zap.Logger
 	config    Config
 	directory string // TODO: ensure that everything is in-memory to speed things up
-	started   bool
-	shutdown  bool
+
+	started  bool
+	shutdown bool
 
 	peers     []closablePeer
 	databases []io.Closer
@@ -103,6 +104,7 @@ type Planet struct {
 
 	identities *Identities
 
+	run    errgroup.Group
 	cancel func()
 }
 
@@ -208,16 +210,9 @@ func (planet *Planet) Start(ctx context.Context) {
 	for i := range planet.peers {
 		peer := &planet.peers[i]
 		peer.ctx, peer.cancel = context.WithCancel(ctx)
-		go func(peer *closablePeer) {
-			err := peer.peer.Run(peer.ctx)
-			if err == grpc.ErrServerStopped {
-				err = nil
-			}
-			if err != nil {
-				// TODO: better error handling
-				panic(err)
-			}
-		}(peer)
+		planet.run.Go(func() error {
+			return peer.peer.Run(peer.ctx)
+		})
 	}
 
 	planet.started = true
@@ -257,6 +252,8 @@ func (planet *Planet) Shutdown() error {
 	planet.cancel()
 
 	var errlist errs.Group
+	errlist.Add(planet.run.Wait())
+
 	// shutdown in reverse order
 	for i := len(planet.uplinks) - 1; i >= 0; i-- {
 		node := planet.uplinks[i]
