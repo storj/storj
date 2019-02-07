@@ -194,10 +194,7 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 }
 
 func printExtensions(cert []byte, exts []pkix.Extension) error {
-	hash, err := pkcrypto.SHA256Hash(cert)
-	if err != nil {
-		return err
-	}
+	hash := pkcrypto.SHA256Hash(cert)
 	b64Hash, err := json.Marshal(hash)
 	if err != nil {
 		return err

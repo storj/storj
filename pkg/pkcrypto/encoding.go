@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// WriteKey writes the private key to the writer, PEM-encoded.
+// WriteKey writes the private key, PEM-encoded.
 func WriteKey(w io.Writer, key crypto.PrivateKey) error {
 	var (
 		kb  []byte
@@ -37,7 +37,7 @@ func WriteKey(w io.Writer, key crypto.PrivateKey) error {
 	return nil
 }
 
-// KeyBytes returns bytes of the private key to the writer, PEM-encoded.
+// KeyBytes returns bytes of the private key, PEM-encoded.
 func KeyBytes(key crypto.PrivateKey) ([]byte, error) {
 	var data bytes.Buffer
 	err := WriteKey(&data, key)
