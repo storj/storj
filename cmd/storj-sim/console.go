@@ -41,11 +41,6 @@ func graphqlDo(client *http.Client, request *http.Request, jsonResponse interfac
 		return err
 	}
 
-	str := string(response.Data[:])
-	if str == "" {
-
-	}
-
 	if response.Errors != nil {
 		return errs.New("inner graphql error")
 	}
