@@ -195,8 +195,42 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 
 // QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
 func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
+	var sql = `SELECT n.id, n.created_at, n.audit_success_ratio, SUM(r.at_rest_total), 
+		SUM(r.get_repair_total), SUM(r.put_repair_total), SUM(r.get_audit_total), 
+	    SUM(r.put_total), SUM(r.get_total), r.start_time
+	    FROM accounting_rollups r
+	    JOIN nodes n ON n.id = r.node_id
+	    WHERE r.start_time >= ? AND r.start_time < ?
+	    ORDER BY n.id`
+	rows, err := db.db.DB.Query(db.db.Rebind(sql), start.UTC(), end.UTC())
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	csv := make([]*accounting.CSVRow, 0, 0)
+	for rows.Next() {
+		var nodeID []byte
+		r := &accounting.CSVRow{}
+		err := rows.Scan(&nodeID, &r.NodeCreationDate, &r.AuditSuccessRatio, &r.AtRestTotal, &r.GetRepairTotal,
+			&r.PutRepairTotal, &r.GetAuditTotal, &r.PutTotal, &r.GetTotal, &r.Date)
+		if err != nil {
+			return csv, err
+		}
+		id, err := storj.NodeIDFromBytes(nodeID)
+		if err != nil {
+			return csv, err
+		}
+		r.NodeID = id
+		csv = append(csv, r)
+	}
+	return csv, nil
+}
+
+// QueryPaymentInfoOld queries StatDB, Accounting Rollup on nodeID
+func (db *accountingDB) QueryPaymentInfoOld(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
 	s := dbx.AccountingRollup_StartTime(start)
 	e := dbx.AccountingRollup_StartTime(end)
+
 	data, err := db.db.All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx, s, e)
 	if err != nil {
 		return nil, Error.Wrap(err)
