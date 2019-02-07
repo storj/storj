@@ -565,9 +565,6 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	require.NoError(t, err)
 	err = psDB.Migration().Run(zap.NewNop(), psDB)
 	require.NoError(t, err)
-	verifier := func(authorization *pb.SignedMessage) error {
-		return nil
-	}
 	whitelist := make(map[storj.NodeID]crypto.PublicKey)
 	for _, id := range ids {
 		whitelist[id] = nil
@@ -576,7 +573,6 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 		log:              zaptest.NewLogger(t),
 		storage:          storage,
 		DB:               psDB,
-		verifier:         verifier,
 		totalAllocated:   math.MaxInt64,
 		totalBwAllocated: math.MaxInt64,
 		whitelist:        whitelist,

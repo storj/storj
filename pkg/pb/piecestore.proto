@@ -65,7 +65,7 @@ message PieceId {
   // TODO: may want to use customtype and fixed-length byte slice
   string id = 1;
 
-  SignedMessage authorization = 2;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 message PieceSummary {
@@ -95,7 +95,7 @@ message PieceRetrievalStream {
 message PieceDelete {
   // TODO: may want to use customtype and fixed-length byte slice
   string id = 1;
-  SignedMessage authorization = 3;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 message PieceDeleteSummary {
