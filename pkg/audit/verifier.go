@@ -201,7 +201,7 @@ func calcPadded(size int64, blockSize int) int64 {
 func (verifier *Verifier) verify(ctx context.Context, stripe *Stripe) (verifiedNodes *RecordAuditsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	shares, nodes, err := verifier.downloader.DownloadShares(ctx, stripe.Segment, stripe.Index, stripe.PBA, stripe.Authorization)
+	shares, nodes, err := verifier.downloader.DownloadShares(ctx, stripe.Segment, stripe.Index, stripe.PBA, nil)
 	if err != nil {
 		return nil, err
 	}
