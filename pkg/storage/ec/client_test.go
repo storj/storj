@@ -5,8 +5,6 @@ package ecclient
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -24,6 +22,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/transport"
 )
@@ -51,7 +50,8 @@ func TestNewECClient(t *testing.T) {
 
 	mbm := 1234
 
-	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	privKey, err := pkcrypto.GeneratePrivateKey()
+	assert.NoError(t, err)
 	identity := &identity.FullIdentity{Key: privKey}
 	ec := NewClient(identity, mbm)
 	assert.NotNil(t, ec)

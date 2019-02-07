@@ -8,7 +8,6 @@ package satellitedb
 import (
 	"context"
 	"crypto"
-	"crypto/ecdsa"
 	"sync"
 	"time"
 
@@ -148,7 +147,7 @@ type lockedCertDB struct {
 }
 
 // GetPublicKey gets the public key of uplink corresponding to uplink id
-func (m *lockedCertDB) GetPublicKey(ctx context.Context, a1 storj.NodeID) (*ecdsa.PublicKey, error) {
+func (m *lockedCertDB) GetPublicKey(ctx context.Context, a1 storj.NodeID) (crypto.PublicKey, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetPublicKey(ctx, a1)

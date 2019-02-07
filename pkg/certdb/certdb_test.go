@@ -5,7 +5,6 @@ package certdb_test
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"crypto/x509"
 	"testing"
 
@@ -32,12 +31,11 @@ func testDatabase(ctx context.Context, t *testing.T, upldb certdb.DB) {
 	//testing variables
 	upID, err := testidentity.NewTestIdentity(ctx)
 	require.NoError(t, err)
-	publicKeyEcdsa, _ := upID.Leaf.PublicKey.(*ecdsa.PublicKey)
-	upIDpubbytes, err := x509.MarshalPKIXPublicKey(publicKeyEcdsa)
+	upIDpubbytes, err := x509.MarshalPKIXPublicKey(upID.Leaf.PublicKey)
 	require.NoError(t, err)
 
 	{ // New entry
-		err := upldb.SavePublicKey(ctx, upID.ID, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
+		err := upldb.SavePublicKey(ctx, upID.ID, upID.Leaf.PublicKey)
 		assert.NoError(t, err)
 	}
 

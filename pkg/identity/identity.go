@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
@@ -187,14 +186,6 @@ func NodeIDFromPEM(pemBytes []byte) (storj.NodeID, error) {
 
 // NodeIDFromKey hashes a public key and creates a node ID from it
 func NodeIDFromKey(k crypto.PublicKey) (storj.NodeID, error) {
-	if ek, ok := k.(*ecdsa.PublicKey); ok {
-		return NodeIDFromECDSAKey(ek)
-	}
-	return storj.NodeID{}, storj.ErrNodeID.New("invalid key type: %T", k)
-}
-
-// NodeIDFromECDSAKey hashes a public key and creates a node ID from it
-func NodeIDFromECDSAKey(k *ecdsa.PublicKey) (storj.NodeID, error) {
 	// id = sha256(sha256(pkix(k)))
 	kb, err := x509.MarshalPKIXPublicKey(k)
 	if err != nil {

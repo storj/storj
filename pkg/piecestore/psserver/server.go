@@ -6,7 +6,6 @@ package psserver
 import (
 	"context"
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/hmac"
 	"crypto/sha512"
 	"errors"
@@ -64,7 +63,7 @@ type Server struct {
 	pkey             crypto.PrivateKey
 	totalAllocated   int64 // TODO: use memory.Size
 	totalBwAllocated int64 // TODO: use memory.Size
-	whitelist        map[storj.NodeID]*ecdsa.PublicKey
+	whitelist        map[storj.NodeID]crypto.PublicKey
 	verifier         auth.SignedMessageVerifier
 	kad              *kademlia.Kademlia
 }
@@ -123,7 +122,7 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 	}
 
 	// parse the comma separated list of approved satellite IDs into an array of storj.NodeIDs
-	whitelist := make(map[storj.NodeID]*ecdsa.PublicKey)
+	whitelist := make(map[storj.NodeID]crypto.PublicKey)
 	if config.SatelliteIDRestriction {
 		idStrings := strings.Split(config.WhitelistedSatelliteIDs, ",")
 		for _, s := range idStrings {
@@ -346,16 +345,12 @@ func (s *Server) isWhitelisted(id storj.NodeID) bool {
 	return found
 }
 
-func (s *Server) getPublicKey(ctx context.Context, id storj.NodeID) (*ecdsa.PublicKey, error) {
+func (s *Server) getPublicKey(ctx context.Context, id storj.NodeID) (crypto.PublicKey, error) {
 	pID, err := s.kad.FetchPeerIdentity(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	ecdsa, ok := pID.Leaf.PublicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return nil, auth.ErrECDSA
-	}
-	return ecdsa, nil
+	return pID.Leaf.PublicKey, nil
 }
 
 func getBeginningOfMonth() time.Time {
