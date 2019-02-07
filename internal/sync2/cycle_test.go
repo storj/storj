@@ -22,7 +22,7 @@ func TestCycle_Basic(t *testing.T) {
 
 	var group errgroup.Group
 
-	cycle.Grouped(ctx, &group, func(ctx context.Context) error {
+	cycle.Start(ctx, &group, func(ctx context.Context) error {
 		atomic.AddInt64(&count, 1)
 		return nil
 	})
