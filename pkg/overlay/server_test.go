@@ -19,11 +19,13 @@ import (
 )
 
 func TestServer(t *testing.T) {
+	t.Parallel()
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// we wait a second for all the nodes to complete bootstrapping off the satellite
-		time.Sleep(2 * time.Second)
+		time.Sleep(4 * time.Second)
 
 		satellite := planet.Satellites[0]
 		server := satellite.Overlay.Endpoint
@@ -61,14 +63,16 @@ func TestServer(t *testing.T) {
 }
 
 func TestNodeSelection(t *testing.T) {
+	t.Parallel()
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// we wait a second for all the nodes to complete bootstrapping off the satellite
+		time.Sleep(4 * time.Second)
+
 		var err error
 		satellite := planet.Satellites[0]
-
-		// we wait a second for all the nodes to complete bootstrapping off the satellite
-		time.Sleep(2 * time.Second)
 
 		// This sets a reputable audit count for a certain number of nodes.
 		for i, node := range planet.StorageNodes {
