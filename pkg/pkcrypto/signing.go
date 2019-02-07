@@ -26,7 +26,7 @@ func GeneratePrivateKey() (*ecdsa.PrivateKey, error) {
 }
 
 // VerifySignature checks the signature against the passed data and public key
-func VerifySignature(signedData []byte, data []byte, pubKey crypto.PublicKey) error {
+func VerifySignature(signedData, data []byte, pubKey crypto.PublicKey) error {
 	key, ok := pubKey.(*ecdsa.PublicKey)
 	if !ok {
 		return ErrUnsupportedKey.New("%T", key)
