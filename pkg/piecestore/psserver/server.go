@@ -34,7 +34,7 @@ import (
 
 var (
 	// ServerError wraps errors returned from Server struct methods
-	ServerError = errs.Class("PSServer error")
+	ServerError = errs.Class("psserver error")
 )
 
 //DirSize returns the total size of the files in that directory

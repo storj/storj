@@ -70,7 +70,7 @@ func TestPiece(t *testing.T) {
 			id:         "123",
 			size:       5,
 			expiration: 9999999999,
-			err:        "rpc error: code = Unknown desc = piecestore error: invalid id length",
+			err:        "rpc error: code = Unknown desc = psserver error: piecestore error: invalid id length",
 		},
 		{ // server should err with nonexistent file
 			id:         "22222222222222222222",
@@ -85,7 +85,7 @@ func TestPiece(t *testing.T) {
 			id:         "22222222222222222222;DELETE*FROM TTL;;;;",
 			size:       5,
 			expiration: 9999999999,
-			err:        "rpc error: code = Unknown desc = PSServer error: invalid ID",
+			err:        "rpc error: code = Unknown desc = psserver error: invalid ID",
 		},
 	}
 
@@ -503,8 +503,8 @@ func TestDelete(t *testing.T) {
 		},
 		{ // should err with invalid id length
 			id:      "123",
-			message: "rpc error: code = Unknown desc = piecestore error: invalid id length",
-			err:     "rpc error: code = Unknown desc = piecestore error: invalid id length",
+			message: "rpc error: code = Unknown desc = psserver error: piecestore error: invalid id length",
+			err:     "rpc error: code = Unknown desc = psserver error: piecestore error: invalid id length",
 		},
 		{ // should return OK with nonexistent file
 			id:      "22222222222222222223",
