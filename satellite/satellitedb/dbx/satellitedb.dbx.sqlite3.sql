@@ -36,6 +36,12 @@ CREATE TABLE bwagreements (
 	expires_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( serialnum )
 );
+CREATE TABLE certRecords (
+	publickey BLOB NOT NULL,
+	id BLOB NOT NULL,
+	update_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE injuredsegments (
 	id INTEGER NOT NULL,
 	info BLOB NOT NULL,
