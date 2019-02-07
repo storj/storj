@@ -5,7 +5,6 @@ package migrate
 
 import (
 	"database/sql"
-	"errors"
 	"regexp"
 	"strconv"
 	"time"
@@ -62,7 +61,7 @@ type Action interface {
 func (migration *Migration) ValidTableName() error {
 	matched, err := regexp.MatchString(`^[a-z_]+$`, migration.Table)
 	if !matched || err != nil {
-		return errors.New("invalid")
+		return Error.New("invalid table name: %v", migration.Table)
 	}
 	return nil
 }
@@ -111,6 +110,10 @@ func (migration *Migration) Run(log *zap.Logger, db DB) error {
 		log := log.Named(strconv.Itoa(step.Version))
 		log.Info(step.Description)
 
+		if step.Version <= version {
+			continue
+		}
+
 		tx, err := db.Begin()
 		if err != nil {
 			return Error.Wrap(err)
@@ -141,7 +144,7 @@ func (migration *Migration) createVersionTable(log *zap.Logger, db DB) error {
 		return Error.Wrap(err)
 	}
 
-	_, err = tx.Exec(db.Rebind(`CREATE TABLE IF NOT EXISTS ` + migration.Table + ` (version integer, commited_at text)`))
+	_, err = tx.Exec(db.Rebind(`CREATE TABLE IF NOT EXISTS ` + migration.Table + ` (version int, commited_at text)`))
 	if err != nil {
 		return Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
@@ -150,21 +153,22 @@ func (migration *Migration) createVersionTable(log *zap.Logger, db DB) error {
 }
 
 // getLatestVersion finds the latest version table
-func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (version int, err error) {
+func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (int, error) {
 	tx, err := db.Begin()
 	if err != nil {
 		return -1, Error.Wrap(err)
 	}
 
+	var version sql.NullInt64
 	err = tx.QueryRow(db.Rebind(`SELECT MAX(version) FROM ` + migration.Table)).Scan(&version)
-	if err == sql.ErrNoRows {
-		return -1, nil
+	if err == sql.ErrNoRows || !version.Valid {
+		return -1, Error.Wrap(tx.Commit())
 	}
 	if err != nil {
 		return -1, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
-	return version, Error.Wrap(tx.Commit())
+	return int(version.Int64), Error.Wrap(tx.Commit())
 }
 
 // addVersion adds information about a new migration
