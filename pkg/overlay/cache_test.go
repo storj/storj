@@ -7,10 +7,13 @@ import (
 	"context"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
@@ -140,4 +143,47 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.D
 		assert.Error(t, err)
 		assert.True(t, err == overlay.ErrEmptyNode)
 	}
+}
+
+func TestRandomizedSelection(t *testing.T) {
+	t.Parallel()
+
+	totalNodes := 10
+	selectIterations := 100
+	numNodesToSelect := 1
+	minSelectCount := (selectIterations * numNodesToSelect / totalNodes) / 2
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: totalNodes, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// we wait for all the nodes to complete bootstrapping off the satellite
+		time.Sleep(10 * time.Second)
+
+		nodeCounts := make(map[storj.NodeID]int)
+
+		cache := planet.Satellites[0].DB.OverlayCache()
+		// select numNodesToSelect nodes selectIterations times
+		for i := 0; i < selectIterations; i++ {
+			nodes, err := cache.SelectNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
+				FreeBandwidth:      0,
+				FreeDisk:           0,
+				AuditCount:         0,
+				AuditSuccessRatio:  0,
+				UptimeCount:        0,
+				UptimeSuccessRatio: 0,
+			})
+			require.NoError(t, err)
+			require.Len(t, nodes, numNodesToSelect)
+
+			for _, node := range nodes {
+				nodeCounts[node.Id]++
+			}
+		}
+
+		// expect that each node has been selected at least minSelectCount times
+		for _, node := range planet.StorageNodes {
+			count := nodeCounts[node.ID()]
+			assert.True(t, count >= minSelectCount)
+		}
+	})
 }
