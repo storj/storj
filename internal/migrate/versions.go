@@ -14,6 +14,31 @@ import (
 	"go.uber.org/zap"
 )
 
+/*
+
+Scenarios it doesn't handle properly.
+
+1. Rollback to initial state on multi-step migration.
+
+	Let's say there's a scenario where we run migration steps:
+	1. update a table schema
+	2. move files
+	3. update a table schema
+	4. update a table schema, which fails
+
+	In this case there's no easy way to rollback the moving of files.
+
+2. Undoing migrations.
+
+	Intentionally left out, because we do not gain that much from currently.
+
+3. Snapshotting the whole state.
+
+	This probably should be done by the user of this library, when there's disk-space available.
+
+4. Figuring out what the exact executed steps are.
+*/
+
 var (
 	SQLError = errs.Class("migrate SQL")
 )
