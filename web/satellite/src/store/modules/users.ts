@@ -3,10 +3,11 @@
 
 import { USER_MUTATIONS } from '../mutationConstants';
 import {
-    deleteAccountRequest,
-    updateAccountRequest,
-    changePasswordRequest,
-    getUserRequest
+	deleteAccountRequest,
+	updateAccountRequest,
+	changePasswordRequest,
+	getUserRequest,
+	activateAccountRequest
 } from '@/api/users';
 
 export const usersModule = {
@@ -69,7 +70,10 @@ export const usersModule = {
 		},
         clearUser: function({commit}: any) {
             commit(USER_MUTATIONS.CLEAR);
-        }
+        },
+		activateAccount: async function ({commit}, temporaryToken: string): Promise<RequestResponse<string>> {
+			return await activateAccountRequest(temporaryToken);
+		}
 	},
 
 	getters: {

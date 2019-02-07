@@ -96,7 +96,7 @@ model accounting_raw (
 	field interval_end_time timestamp
 	field data_total        float64
 	field data_type         int
-	field created_at        timestamp ( autoinsert )
+	field created_at        timestamp
 )
 
 create accounting_raw ( )
