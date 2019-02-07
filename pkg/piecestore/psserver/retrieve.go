@@ -106,7 +106,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 	}
 
 	defer func() {
-		err = errs.Combine(err, storeFile.Close())
+		err = errs.Combine(err, RetrieveError.Wrap(storeFile.Close()))
 	}()
 
 	jitter()
@@ -169,7 +169,6 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			lastAllocation = rba
 			lastTotal = rba.Total
 		}
-		return nil
 	})
 
 	// Data send loop
@@ -216,13 +215,13 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 	})
 
 	errx := group.Wait()
-
+-parallel 64 
 	jitter()
 	// write to bandwidth usage table
 	bwUsedErr := s.DB.AddBandwidthUsed(used)
-	return used, atomic.LoadInt64(&totalAllocated), errs.Combine(errx, allocationTracking.Err(), bwUsedErr)
+	return used, atomic.LoadInt64(&totalAllocated), errs.Combine(errx, allocationTracking.Err(), RetrieveError.Wrap(bwUsedErr))
 }
 
 func jitter() {
-	time.Sleep(time.Duration(rand.Intn(3)*100) * time.Microsecond)
+	time.Sleep(time.Duration(rand.Intn(3)*100) * time.Microsecond * 0)
 }

@@ -81,5 +81,5 @@ func (reader *fileReader) Close() error {
 }
 
 func jitter() {
-	time.Sleep(time.Duration(rand.Intn(3)*100) * time.Microsecond)
+	time.Sleep(time.Duration(rand.Intn(3)*100) * time.Microsecond * 0)
 }
