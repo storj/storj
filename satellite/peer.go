@@ -39,7 +39,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
-	"storj.io/storj/pkg/pointerdb/metainfo/server"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
@@ -85,7 +85,7 @@ type Config struct {
 	Discovery discovery.Config
 
 	PointerDB   pointerdb.Config
-	MetaInfo metainfoserver.Config
+	MetaInfo metainfo.Config
 
 	BwAgreement bwagreement.Config // TODO: decide whether to keep empty configs for consistency
 
@@ -144,7 +144,7 @@ type Peer struct {
 		Allocation *pointerdb.AllocationSigner
 		Service    *pointerdb.Service
 		Endpoint   *pointerdb.Server
-		Metainfo   *metainfoserver.Server
+		NewEndpoint   *metainfo.Endpoint
 	}
 
 	Agreements struct {
@@ -302,8 +302,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
     
 		pb.RegisterPointerDBServer(peer.Public.Server.GRPC(), peer.Pointerdb.Endpoint)
 
-		peer.Pointerdb.Metainfo = endpoints.NewServer(peer.Log.Named("metainfo"), config.SatelliteServer)
-		pb.RegisterMetainfoServer(peer.Public.Server.GRPC(), peer.Pointerdb.Metainfo)
+		peer.Pointerdb.NewEndpoint = endpoints.NewEndpoint(peer.Log.Named("metainfo"), config.SatelliteServer)
+		pb.RegisterMetainfoServer(peer.Public.Server.GRPC(), peer.Pointerdb.NewEndpoint)
 	}
 
 	{ // setup agreements
