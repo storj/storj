@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
@@ -120,8 +119,8 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Unsigned identity is located in %q\n", serviceDir)
-	fmt.Println(color.CyanString("Please *move* CA key to secure storage - it is only needed for identity management!"))
-	fmt.Println(color.CyanString("\t%s", caConfig.KeyPath))
+	fmt.Println("Please *move* CA key to secure storage - it is only needed for identity management!")
+	fmt.Printf("\t%s\n", caConfig.KeyPath)
 	return nil
 }
 
