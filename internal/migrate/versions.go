@@ -39,10 +39,6 @@ Scenarios it doesn't handle properly.
 4. Figuring out what the exact executed steps are.
 */
 
-var (
-	SQLError = errs.Class("migrate SQL")
-)
-
 // Migration describes a migration steps
 type Migration struct {
 	Table    string
@@ -184,6 +180,7 @@ func (migration *Migration) addVersion(tx *sql.Tx, version int) error {
 // SQL statements that are executed on the database
 type SQL []string
 
+// Run runs the SQL statements
 func (sql SQL) Run(log *zap.Logger, db DB, tx *sql.Tx) (err error) {
 	for _, query := range sql {
 		_, err := tx.Exec(db.Rebind(query))
