@@ -28,7 +28,7 @@ func New(transport transport.Client, satellite string) *Client {
 }
 
 // Stat will return the health of a specific path
-func (client *Client) Stat(ctx context.Context, path []byte, bucket []byte) (*pb.ObjectHealthResponse, error) {
+func (client *Client) Stat(ctx context.Context, path []byte, bucket []byte) (resp *pb.ObjectHealthResponse, err error) {
 	// Create client from satellite ip
 	conn, err := client.transport.DialAddress(ctx, client.satellite)
 	if err != nil {
@@ -36,11 +36,8 @@ func (client *Client) Stat(ctx context.Context, path []byte, bucket []byte) (*pb
 	}
 
 	metainfoClient := pb.NewMetainfoClient(conn)
-	defer func() error {
-		err := conn.Close()
-		if err != nil {
-			return err
-		}
+	defer func() {
+		err = conn.Close()
 	}()
 
 	req := &pb.ObjectHealthRequest{
