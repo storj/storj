@@ -161,7 +161,13 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 	if err != nil {
 		return nil, err
 	}
-	c, err := peertls.NewCert(selectedKey, opts.ParentKey, ct, opts.ParentCert)
+	var c *x509.Certificate
+	if opts.ParentKey == nil && opts.ParentCert == nil {
+		c, err = peertls.CreateSelfSignedCertificate(selectedKey, ct)
+	} else {
+		selectedPubKey := pkcrypto.PublicKeyFromPrivate(selectedKey)
+		c, err = peertls.CreateCertificate(selectedPubKey, opts.ParentKey, ct, opts.ParentCert)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -359,7 +365,8 @@ func (ca *FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 	if err != nil {
 		return nil, err
 	}
-	leafCert, err := peertls.NewCert(leafKey, ca.Key, leafTemplate, ca.Cert)
+	leafPubKey := pkcrypto.PublicKeyFromPrivate(leafKey)
+	leafCert, err := peertls.CreateCertificate(leafPubKey, ca.Key, leafTemplate, ca.Cert)
 	if err != nil {
 		return nil, err
 	}
