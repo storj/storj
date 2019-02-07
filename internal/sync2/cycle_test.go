@@ -20,11 +20,14 @@ func TestCycle_Basic(t *testing.T) {
 
 	var inplace sync2.Cycle
 	inplace.SetInterval(time.Second)
+
 	var pointer = sync2.NewCycle(time.Second)
 
 	for _, cycle := range []*sync2.Cycle{pointer, &inplace} {
 		cycle := cycle
 		t.Run("", func(t *testing.T) {
+			defer cycle.Close()
+
 			t.Parallel()
 
 			count := int64(0)

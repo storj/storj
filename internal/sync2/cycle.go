@@ -119,6 +119,11 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 	}
 }
 
+// Close closes all resources associated with it.
+func (cycle *Cycle) Close() {
+	close(cycle.control)
+}
+
 // sendControl sends a control message
 func (cycle *Cycle) sendControl(message interface{}) {
 	cycle.initialize()
@@ -158,6 +163,8 @@ func (cycle *Cycle) Trigger() {
 // If it's currently running it waits for the previous to complete and then runs.
 func (cycle *Cycle) TriggerWait() {
 	done := make(chan struct{})
+	defer close(done)
+
 	cycle.sendControl(cycleTrigger{done})
 	select {
 	case <-done:
