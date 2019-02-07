@@ -10,6 +10,8 @@ import (
 )
 
 // Cycle implements a controllable recurring event.
+//
+// Cycle control methods don't have any effect after the cycle has completed.
 type Cycle struct {
 	interval time.Duration
 
@@ -41,34 +43,25 @@ func (cycle *Cycle) SetInterval(interval time.Duration) {
 	cycle.interval = interval
 }
 
-// sendControl sends a control message
-func (cycle *Cycle) sendControl(message interface{}) {
-	select {
-	case cycle.control <- message:
-	case <-cycle.quit:
-	}
+func (cycle *Cycle) initialize() {
+	cycle.init.Do(func() {
+		cycle.quit = make(chan struct{})
+		cycle.control = make(chan interface{})
+	})
 }
 
 // Run runs the specified function.
 func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error) error {
-	cycle.quit = make(chan struct{})
+	cycle.initialize()
 	defer close(cycle.quit)
 
 	currentInterval := cycle.interval
-
 	cycle.ticker = time.NewTicker(currentInterval)
-	cycle.control = make(chan interface{})
-
 	if err := fn(ctx); err != nil {
 		return err
 	}
 	for {
 		select {
-		case <-cycle.ticker.C:
-			// trigger the function
-			if err := fn(ctx); err != nil {
-				return err
-			}
 
 		case message := <-cycle.control:
 			// handle control messages
@@ -107,7 +100,22 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 		case <-ctx.Done():
 			// handle control messages
 			return ctx.Err()
+
+		case <-cycle.ticker.C:
+			// trigger the function
+			if err := fn(ctx); err != nil {
+				return err
+			}
 		}
+	}
+}
+
+// sendControl sends a control message
+func (cycle *Cycle) sendControl(message interface{}) {
+	cycle.initialize()
+	select {
+	case cycle.control <- message:
+	case <-cycle.quit:
 	}
 }
 

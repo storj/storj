@@ -18,10 +18,10 @@ import (
 func TestCycle_Basic(t *testing.T) {
 	ctx := context.Background()
 	cycle := sync2.NewCycle(time.Second)
-
 	count := int64(0)
 
 	var group errgroup.Group
+
 	group.Go(func() error {
 		return cycle.Run(ctx, func(ctx context.Context) error {
 			atomic.AddInt64(&count, 1)
