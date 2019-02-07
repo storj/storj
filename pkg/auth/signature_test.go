@@ -46,34 +46,6 @@ func TestSignedMessageVerifier(t *testing.T) {
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
 
-	signature, err := GenerateSignature(identity.ID.Bytes(), identity)
+	_, err = GenerateSignature(identity.ID.Bytes(), identity)
 	assert.NoError(t, err)
-
-	signedMessage, err := NewSignedMessage(signature, identity)
-	assert.NoError(t, err)
-
-	for _, tt := range []struct {
-		signature []byte
-		data      []byte
-		publicKey []byte
-		errString string
-	}{
-		{signedMessage.Signature, signedMessage.Data, signedMessage.PublicKey, ""},
-		{nil, signedMessage.Data, signedMessage.PublicKey, "auth error: missing signature for verification"},
-		{signedMessage.Signature, nil, signedMessage.PublicKey, "auth error: missing data for verification"},
-		{signedMessage.Signature, signedMessage.Data, nil, "auth error: missing public key for verification"},
-
-		{signedMessage.Signature, []byte("malformed data"), signedMessage.PublicKey, "signature verification error: signature is not valid"},
-	} {
-		signedMessage.Signature = tt.signature
-		signedMessage.Data = tt.data
-		signedMessage.PublicKey = tt.publicKey
-
-		err := NewSignedMessageVerifier()(signedMessage)
-		if tt.errString != "" {
-			assert.EqualError(t, err, tt.errString)
-		} else {
-			assert.NoError(t, err)
-		}
-	}
 }
