@@ -7,7 +7,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 
-	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -21,7 +21,7 @@ func GenerateKey(ctx context.Context, minDifficulty uint16) (
 		if err != nil {
 			break
 		}
-		k, err = peertls.NewKey()
+		k, err = pkcrypto.GeneratePrivateKey()
 		if err != nil {
 			break
 		}
@@ -59,6 +59,7 @@ func GenerateKeys(ctx context.Context, minDifficulty uint16, concurrency int, fo
 					errchan <- err
 					return
 				}
+
 				done, err := found(k, id)
 				if err != nil {
 					errchan <- err

@@ -77,17 +77,17 @@ func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time
 }
 
 // SaveAtRestRaw records raw tallies of at-rest-data.
-func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) error {
+func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveAtRestRaw(ctx, latestTally, nodeData)
+	return m.db.SaveAtRestRaw(ctx, latestTally, created, nodeData)
 }
 
 // SaveBWRaw records raw sums of agreement values to the database and updates the LastTimestamp.
-func (m *lockedAccounting) SaveBWRaw(ctx context.Context, tallyEnd time.Time, bwTotals map[storj.NodeID][]int64) error {
+func (m *lockedAccounting) SaveBWRaw(ctx context.Context, tallyEnd time.Time, created time.Time, bwTotals map[storj.NodeID][]int64) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveBWRaw(ctx, tallyEnd, bwTotals)
+	return m.db.SaveBWRaw(ctx, tallyEnd, created, bwTotals)
 }
 
 // SaveRollup records raw tallies of at rest data to the database
@@ -204,47 +204,6 @@ func (m *lockedAPIKeys) Update(ctx context.Context, key console.APIKeyInfo) erro
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Update(ctx, key)
-}
-
-// Buckets is a getter for Buckets repository
-func (m *lockedConsole) Buckets() console.Buckets {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedBuckets{m.Locker, m.db.Buckets()}
-}
-
-// lockedBuckets implements locking wrapper for console.Buckets
-type lockedBuckets struct {
-	sync.Locker
-	db console.Buckets
-}
-
-// AttachBucket attaches a bucket to a project
-func (m *lockedBuckets) AttachBucket(ctx context.Context, name string, projectID uuid.UUID) (*console.Bucket, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.AttachBucket(ctx, name, projectID)
-}
-
-// DeattachBucket deletes bucket info for a bucket by name
-func (m *lockedBuckets) DeattachBucket(ctx context.Context, name string) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.DeattachBucket(ctx, name)
-}
-
-// GetBucket retrieves bucket info of bucket with given name
-func (m *lockedBuckets) GetBucket(ctx context.Context, name string) (*console.Bucket, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetBucket(ctx, name)
-}
-
-// ListBuckets returns bucket list of a given project
-func (m *lockedBuckets) ListBuckets(ctx context.Context, projectID uuid.UUID) ([]console.Bucket, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.ListBuckets(ctx, projectID)
 }
 
 // Close is used to close db connection
@@ -405,6 +364,13 @@ func (m *lockedUsers) Update(ctx context.Context, user *console.User) error {
 	return m.db.Update(ctx, user)
 }
 
+// CreateSchema sets the schema
+func (m *locked) CreateSchema(schema string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.CreateSchema(schema)
+}
+
 // CreateTables initializes the database
 func (m *locked) CreateTables() error {
 	m.Lock()
@@ -561,13 +527,6 @@ func (m *lockedRepairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.Inju
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Peekqueue(ctx, limit)
-}
-
-// SetSchema sets the schema
-func (m *locked) SetSchema(schema string) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.SetSchema(schema)
 }
 
 // StatDB returns database for storing node statistics

@@ -42,19 +42,20 @@ func TestBasic(t *testing.T) {
 	message := client.SignedMessage()
 	t.Log(message)
 
-	nodeClient, err := planet.StorageNodes[0].NewNodeClient()
-	require.NoError(t, err)
-
 	// ping a satellite
-	_, err = nodeClient.Ping(context.Background(), planet.Satellites[0].Local())
+	_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.Satellites[0].Local())
 	require.NoError(t, err)
 
 	// ping a storage node
-	_, err = nodeClient.Ping(context.Background(), planet.StorageNodes[1].Local())
+	_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.StorageNodes[1].Local())
 	require.NoError(t, err)
 
-	err = planet.StopPeer(planet.StorageNodes[0])
+	err = planet.StopPeer(planet.StorageNodes[1])
 	require.NoError(t, err)
+
+	// ping a stopped storage node
+	_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.StorageNodes[1].Local())
+	require.Error(t, err)
 
 	// wait a bit to see whether some failures occur
 	time.Sleep(time.Second)

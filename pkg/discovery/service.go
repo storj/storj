@@ -26,8 +26,10 @@ var (
 
 // Config loads on the configuration values for the cache
 type Config struct {
-	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
-	RefreshLimit    int           `help:"the amount of nodes refreshed at each interval" default:"100"`
+	RefreshInterval   time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
+	GraveyardInterval time.Duration `help:"the interval at which the the graveyard tries to resurrect nodes" default:"30s"`
+	DiscoveryInterval time.Duration `help:"the interval at which the satellite attempts to find new nodes via random node ID lookups" default:"1s"`
+	RefreshLimit      int           `help:"the amount of nodes refreshed at each interval" default:"100"`
 }
 
 // Discovery struct loads on cache, kad, and statdb
@@ -71,22 +73,30 @@ func (discovery *Discovery) Close() error { return nil }
 
 // Run runs the discovery service
 func (discovery *Discovery) Run(ctx context.Context) error {
-	ticker := time.NewTicker(discovery.config.RefreshInterval)
-	defer ticker.Stop()
+	refresh := time.NewTicker(discovery.config.RefreshInterval)
+	graveyard := time.NewTicker(discovery.config.GraveyardInterval)
+	discover := time.NewTicker(discovery.config.DiscoveryInterval)
+	defer refresh.Stop()
+	defer graveyard.Stop()
+	defer discover.Stop()
 
 	for {
-		err := discovery.refresh(ctx)
-		if err != nil {
-			discovery.log.Error("Error with cache refresh", zap.Error(err))
-		}
-
-		err = discovery.discover(ctx)
-		if err != nil {
-			discovery.log.Error("Error with cache discovery", zap.Error(err))
-		}
-
 		select {
-		case <-ticker.C: // redo
+		case <-refresh.C:
+			err := discovery.refresh(ctx)
+			if err != nil {
+				discovery.log.Error("error with cache refresh: ", zap.Error(err))
+			}
+		case <-discover.C:
+			err := discovery.discover(ctx)
+			if err != nil {
+				discovery.log.Error("error with cache discovery: ", zap.Error(err))
+			}
+		case <-graveyard.C:
+			err := discovery.searchGraveyard(ctx)
+			if err != nil {
+				discovery.log.Error("graveyard resurrection failed: ", zap.Error(err))
+			}
 		case <-ctx.Done():
 			return ctx.Err()
 		}
@@ -117,6 +127,10 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 	}
 
 	for _, node := range list {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
 		ping, err := discovery.kad.Ping(ctx, *node)
 		if err != nil {
 			discovery.log.Info("could not ping node", zap.String("ID", node.Id.String()), zap.Error(err))
@@ -129,6 +143,10 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 				discovery.log.Error("deleting unresponsive node from cache", zap.String("ID", node.Id.String()), zap.Error(err))
 			}
 			continue
+		}
+
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 
 		_, err = discovery.statdb.UpdateUptime(ctx, ping.Id, true)
@@ -144,8 +162,46 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 	return nil
 }
 
+// graveyard attempts to ping all nodes in the Seen() map from Kademlia and adds them to the cache
+// if they respond. This is an attempt to resurrect nodes that may have gone offline in the last hour
+// and were removed from the cache due to an unsuccessful response.
+func (discovery *Discovery) searchGraveyard(ctx context.Context) error {
+	seen := discovery.kad.Seen()
+
+	var errors errs.Group
+	for _, n := range seen {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		ping, err := discovery.kad.Ping(ctx, *n)
+		if err != nil {
+			discovery.log.Debug("could not ping node in graveyard check")
+			// we don't want to report the ping error to ErrorGroup because it's to be expected here.
+			continue
+		}
+
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		err = discovery.cache.Put(ctx, ping.Id, ping)
+		if err != nil {
+			discovery.log.Warn("could not update node uptime")
+			errors.Add(err)
+		}
+
+		_, err = discovery.statdb.UpdateUptime(ctx, ping.Id, true)
+		if err != nil {
+			discovery.log.Warn("could not update node uptime")
+			errors.Add(err)
+		}
+	}
+	return errors.Err()
+}
+
 // Bootstrap walks the initialized network and populates the cache
-func (discovery *Discovery) Bootstrap(ctx context.Context) error {
+func (discovery *Discovery) bootstrap(ctx context.Context) error {
 	// o := overlay.LoadFromContext(ctx)
 	// kad := kademlia.LoadFromContext(ctx)
 	// TODO(coyle): make Bootstrap work

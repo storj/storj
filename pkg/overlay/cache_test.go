@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -19,6 +20,8 @@ import (
 )
 
 func TestCache_Database(t *testing.T) {
+	t.Parallel()
+
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()

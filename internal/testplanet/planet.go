@@ -20,7 +20,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
-	"google.golang.org/grpc"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/bootstrap"
 	"storj.io/storj/bootstrap/bootstrapdb"
@@ -34,7 +34,6 @@ import (
 	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
@@ -43,6 +42,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
@@ -57,8 +57,6 @@ type Peer interface {
 
 	Run(context.Context) error
 	Close() error
-
-	NewNodeClient() (node.Client, error)
 }
 
 // Config describes planet configuration
@@ -73,9 +71,14 @@ type Config struct {
 
 // Reconfigure allows to change node configurations
 type Reconfigure struct {
-	Bootstrap   func(planet *Planet, index int, config *bootstrap.Config)
-	Satellite   func(planet *Planet, index int, config *satellite.Config)
-	StorageNode func(planet *Planet, index int, config *storagenode.Config)
+	NewBootstrapDB func(index int) (bootstrap.DB, error)
+	Bootstrap      func(index int, config *bootstrap.Config)
+
+	NewSatelliteDB func(index int) (satellite.DB, error)
+	Satellite      func(index int, config *satellite.Config)
+
+	NewStorageNodeDB func(index int) (storagenode.DB, error)
+	StorageNode      func(index int, config *storagenode.Config)
 }
 
 // Planet is a full storj system setup.
@@ -83,19 +86,22 @@ type Planet struct {
 	log       *zap.Logger
 	config    Config
 	directory string // TODO: ensure that everything is in-memory to speed things up
-	started   bool
+
+	started  bool
+	shutdown bool
 
 	peers     []closablePeer
 	databases []io.Closer
-	nodes     []*Node
+	uplinks   []*Uplink
 
 	Bootstrap    *bootstrap.Peer
 	Satellites   []*satellite.Peer
 	StorageNodes []*storagenode.Peer
-	Uplinks      []*Node
+	Uplinks      []*Uplink
 
 	identities *Identities
 
+	run    errgroup.Group
 	cancel func()
 }
 
@@ -142,7 +148,7 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 // NewCustom creates a new full system with the specified configuration.
 func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	if config.Identities == nil {
-		config.Identities = pregeneratedIdentities
+		config.Identities = pregeneratedIdentities.Clone()
 	}
 
 	planet := &Planet{
@@ -172,7 +178,7 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Uplinks, err = planet.newUplinks("uplink", config.UplinkCount)
+	planet.Uplinks, err = planet.newUplinks("uplink", config.UplinkCount, config.StorageNodeCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
@@ -201,16 +207,9 @@ func (planet *Planet) Start(ctx context.Context) {
 	for i := range planet.peers {
 		peer := &planet.peers[i]
 		peer.ctx, peer.cancel = context.WithCancel(ctx)
-		go func(peer *closablePeer) {
-			err := peer.peer.Run(peer.ctx)
-			if err == grpc.ErrServerStopped {
-				err = nil
-			}
-			if err != nil {
-				// TODO: better error handling
-				panic(err)
-			}
-		}(peer)
+		planet.run.Go(func() error {
+			return peer.peer.Run(peer.ctx)
+		})
 	}
 
 	planet.started = true
@@ -235,19 +234,40 @@ func (planet *Planet) StopPeer(peer Peer) error {
 }
 
 // Size returns number of nodes in the network
-func (planet *Planet) Size() int { return len(planet.nodes) + len(planet.peers) }
+func (planet *Planet) Size() int { return len(planet.uplinks) + len(planet.peers) }
 
 // Shutdown shuts down all the nodes and deletes temporary directories.
 func (planet *Planet) Shutdown() error {
 	if !planet.started {
 		return errors.New("Start was never called")
 	}
+	if planet.shutdown {
+		panic("double Shutdown")
+	}
+	planet.shutdown = true
+
 	planet.cancel()
 
 	var errlist errs.Group
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		// TODO: add diagnostics to see what hasn't been properly shut down
+		timer := time.NewTimer(30 * time.Second)
+		defer timer.Stop()
+		select {
+		case <-timer.C:
+			panic("planet took too long to shutdown")
+		case <-ctx.Done():
+		}
+	}()
+
+	errlist.Add(planet.run.Wait())
+	cancel()
+
 	// shutdown in reverse order
-	for i := len(planet.nodes) - 1; i >= 0; i-- {
-		node := planet.nodes[i]
+	for i := len(planet.uplinks) - 1; i >= 0; i-- {
+		node := planet.uplinks[i]
 		errlist.Add(node.Shutdown())
 	}
 	for i := len(planet.peers) - 1; i >= 0; i-- {
@@ -262,15 +282,15 @@ func (planet *Planet) Shutdown() error {
 	return errlist.Err()
 }
 
-// newUplinks creates initializes uplinks
-func (planet *Planet) newUplinks(prefix string, count int) ([]*Node, error) {
-	var xs []*Node
+// newUplinks creates initializes uplinks, requires peer to have at least one satellite
+func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]*Uplink, error) {
+	var xs []*Uplink
 	for i := 0; i < count; i++ {
-		node, err := planet.newUplink(prefix + strconv.Itoa(i))
+		uplink, err := planet.newUplink(prefix+strconv.Itoa(i), storageNodeCount)
 		if err != nil {
 			return nil, err
 		}
-		xs = append(xs, node)
+		xs = append(xs, uplink)
 	}
 
 	return xs, nil
@@ -299,7 +319,12 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			return nil, err
 		}
 
-		db, err := satellitedb.NewInMemory()
+		var db satellite.DB
+		if planet.config.Reconfigure.NewSatelliteDB != nil {
+			db, err = planet.config.Reconfigure.NewSatelliteDB(i)
+		} else {
+			db, err = satellitedb.NewInMemory()
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -341,8 +366,10 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				},
 			},
 			Discovery: discovery.Config{
-				RefreshInterval: 1 * time.Second,
-				RefreshLimit:    100,
+				GraveyardInterval: 1 * time.Second,
+				DiscoveryInterval: 1 * time.Second,
+				RefreshInterval:   1 * time.Second,
+				RefreshLimit:      100,
 			},
 			PointerDB: pointerdb.Config{
 				DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),
@@ -374,11 +401,12 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Interval: 120 * time.Second,
 			},
 			Console: consoleweb.Config{
-				Address: "127.0.0.1:0",
+				Address:      "127.0.0.1:0",
+				PasswordCost: console.TestPasswordCost,
 			},
 		}
 		if planet.config.Reconfigure.Satellite != nil {
-			planet.config.Reconfigure.Satellite(planet, i, &config)
+			planet.config.Reconfigure.Satellite(i, &config)
 		}
 
 		// TODO: for development only
@@ -418,7 +446,12 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 			return nil, err
 		}
 
-		db, err := storagenodedb.NewInMemory(storageDir)
+		var db storagenode.DB
+		if planet.config.Reconfigure.NewStorageNodeDB != nil {
+			db, err = planet.config.Reconfigure.NewStorageNodeDB(i)
+		} else {
+			db, err = storagenodedb.NewInMemory(storageDir)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -459,7 +492,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
-			planet.config.Reconfigure.StorageNode(planet, i, &config)
+			planet.config.Reconfigure.StorageNode(i, &config)
 		}
 
 		peer, err := storagenode.New(log, identity, db, config)
@@ -492,9 +525,11 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 		return nil, err
 	}
 
-	db, err := bootstrapdb.NewInMemory(dbDir)
-	if err != nil {
-		return nil, err
+	var db bootstrap.DB
+	if planet.config.Reconfigure.NewBootstrapDB != nil {
+		db, err = planet.config.Reconfigure.NewBootstrapDB(0)
+	} else {
+		db, err = bootstrapdb.NewInMemory(dbDir)
 	}
 
 	err = db.CreateTables()
@@ -524,7 +559,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 		},
 	}
 	if planet.config.Reconfigure.Bootstrap != nil {
-		planet.config.Reconfigure.Bootstrap(planet, 0, &config)
+		planet.config.Reconfigure.Bootstrap(0, &config)
 	}
 
 	peer, err = bootstrap.New(log, identity, db, config)

@@ -38,7 +38,7 @@ func TestCollecMultipleError(t *testing.T) {
 
 	err := utils.CollectErrors(errchan, 1*time.Second)
 	assert.Error(t, err)
-	assert.Equal(t, err.Error(), "error1\nerror2\nerror3")
+	assert.Equal(t, err.Error(), "error1; error2; error3")
 }
 
 func TestErrorGroup(t *testing.T) {
