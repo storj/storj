@@ -215,7 +215,6 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 	})
 
 	errx := group.Wait()
--parallel 64 
 	jitter()
 	// write to bandwidth usage table
 	bwUsedErr := s.DB.AddBandwidthUsed(used)
