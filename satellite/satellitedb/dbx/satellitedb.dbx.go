@@ -2537,15 +2537,14 @@ func (obj *postgresImpl) Create_AccountingRaw(ctx context.Context,
 	accounting_raw_node_id AccountingRaw_NodeId_Field,
 	accounting_raw_interval_end_time AccountingRaw_IntervalEndTime_Field,
 	accounting_raw_data_total AccountingRaw_DataTotal_Field,
-	accounting_raw_data_type AccountingRaw_DataType_Field) (
+	accounting_raw_data_type AccountingRaw_DataType_Field,
+	accounting_raw_created_at AccountingRaw_CreatedAt_Field) (
 	accounting_raw *AccountingRaw, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := accounting_raw_node_id.value()
 	__interval_end_time_val := accounting_raw_interval_end_time.value()
 	__data_total_val := accounting_raw_data_total.value()
 	__data_type_val := accounting_raw_data_type.value()
-	__created_at_val := __now
+	__created_at_val := accounting_raw_created_at.value()
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_raws ( node_id, interval_end_time, data_total, data_type, created_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at")
 
@@ -4492,15 +4491,14 @@ func (obj *sqlite3Impl) Create_AccountingRaw(ctx context.Context,
 	accounting_raw_node_id AccountingRaw_NodeId_Field,
 	accounting_raw_interval_end_time AccountingRaw_IntervalEndTime_Field,
 	accounting_raw_data_total AccountingRaw_DataTotal_Field,
-	accounting_raw_data_type AccountingRaw_DataType_Field) (
+	accounting_raw_data_type AccountingRaw_DataType_Field,
+	accounting_raw_created_at AccountingRaw_CreatedAt_Field) (
 	accounting_raw *AccountingRaw, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := accounting_raw_node_id.value()
 	__interval_end_time_val := accounting_raw_interval_end_time.value()
 	__data_total_val := accounting_raw_data_total.value()
 	__data_type_val := accounting_raw_data_type.value()
-	__created_at_val := __now
+	__created_at_val := accounting_raw_created_at.value()
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_raws ( node_id, interval_end_time, data_total, data_type, created_at ) VALUES ( ?, ?, ?, ?, ? )")
 
@@ -6786,13 +6784,14 @@ func (rx *Rx) Create_AccountingRaw(ctx context.Context,
 	accounting_raw_node_id AccountingRaw_NodeId_Field,
 	accounting_raw_interval_end_time AccountingRaw_IntervalEndTime_Field,
 	accounting_raw_data_total AccountingRaw_DataTotal_Field,
-	accounting_raw_data_type AccountingRaw_DataType_Field) (
+	accounting_raw_data_type AccountingRaw_DataType_Field,
+	accounting_raw_created_at AccountingRaw_CreatedAt_Field) (
 	accounting_raw *AccountingRaw, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_AccountingRaw(ctx, accounting_raw_node_id, accounting_raw_interval_end_time, accounting_raw_data_total, accounting_raw_data_type)
+	return tx.Create_AccountingRaw(ctx, accounting_raw_node_id, accounting_raw_interval_end_time, accounting_raw_data_total, accounting_raw_data_type, accounting_raw_created_at)
 
 }
 
@@ -7359,7 +7358,8 @@ type Methods interface {
 		accounting_raw_node_id AccountingRaw_NodeId_Field,
 		accounting_raw_interval_end_time AccountingRaw_IntervalEndTime_Field,
 		accounting_raw_data_total AccountingRaw_DataTotal_Field,
-		accounting_raw_data_type AccountingRaw_DataType_Field) (
+		accounting_raw_data_type AccountingRaw_DataType_Field,
+		accounting_raw_created_at AccountingRaw_CreatedAt_Field) (
 		accounting_raw *AccountingRaw, err error)
 
 	Create_AccountingRollup(ctx context.Context,
