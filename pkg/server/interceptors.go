@@ -5,9 +5,9 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io"
 
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,7 +25,7 @@ func streamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamS
 			err == io.EOF {
 			return err
 		}
-		zap.S().Errorf("%+v", err)
+		fmt.Printf("ERROR: %+v", err)
 	}
 	return err
 }
@@ -38,7 +38,7 @@ func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServ
 		if status.Code(err) == codes.NotFound {
 			return resp, err
 		}
-		zap.S().Errorf("%+v", err)
+		fmt.Printf("ERROR: %+v", err)
 	}
 	return resp, err
 }
