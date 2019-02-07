@@ -70,7 +70,7 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		clearScreen()
-		color.NoColor = !dashboardCfg.Colors
+		color.NoColor = !dashboardCfg.Color
 
 		heading := color.New(color.FgGreen, color.Bold)
 		_, _ = heading.Printf("\nStorage Node Dashboard\n")
