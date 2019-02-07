@@ -44,8 +44,8 @@ type EncryptionConfig struct {
 	PathType  int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
 }
 
-// ClientConfig is a configuration struct for the miniogw that controls how
-// the miniogw figures out how to talk to the rest of the network.
+// ClientConfig is a configuration struct for the uplink that controls how
+// to talk to the rest of the network.
 type ClientConfig struct {
 	// TODO(jt): these should probably be the same
 	OverlayAddr   string `help:"Address to contact overlay server through"`
