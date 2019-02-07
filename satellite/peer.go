@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
@@ -104,6 +103,8 @@ type Peer struct {
 	Identity *identity.FullIdentity
 	DB       DB
 
+	Transport transport.Client
+
 	// servers
 	Public struct {
 		Listener net.Listener
@@ -116,7 +117,7 @@ type Peer struct {
 
 		RoutingTable *kademlia.RoutingTable
 		Service      *kademlia.Kademlia
-		Endpoint     *node.Server
+		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
 	}
 
@@ -168,9 +169,10 @@ type Peer struct {
 // New creates a new satellite
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*Peer, error) {
 	peer := &Peer{
-		Log:      log,
-		Identity: full,
-		DB:       db,
+		Log:       log,
+		Identity:  full,
+		DB:        db,
+		Transport: transport.NewClient(full),
 	}
 
 	var err error
@@ -239,7 +241,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Kademlia.Endpoint = node.NewServer(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service)
+		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable)
 		pb.RegisterNodesServer(peer.Public.Server.GRPC(), peer.Kademlia.Endpoint)
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
@@ -286,7 +288,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Metainfo.Database = storelogger.New(peer.Log.Named("pdb"), db)
 		peer.Metainfo.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Metainfo.Database)
 		peer.Metainfo.Allocation = pointerdb.NewAllocationSigner(peer.Identity, config.PointerDB.BwExpiration)
-		peer.Metainfo.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"), peer.Metainfo.Service, peer.Metainfo.Allocation, peer.Overlay.Service, config.PointerDB, peer.Identity)
+		peer.Metainfo.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"),
+			peer.Metainfo.Service,
+			peer.Metainfo.Allocation,
+			peer.Overlay.Service,
+			config.PointerDB,
+			peer.Identity, peer.DB.Console().APIKeys())
+
 		pb.RegisterPointerDBServer(peer.Public.Server.GRPC(), peer.Metainfo.Endpoint)
 	}
 
@@ -342,7 +350,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Console.Service, err = console.NewService(peer.Log.Named("console:service"),
 			// TODO: use satellite key
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
-			peer.DB.Console())
+			peer.DB.Console(),
+			config.PasswordCost,
+		)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -366,10 +376,8 @@ func ignoreCancel(err error) error {
 
 // Run runs storage node until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	group, ctx := errgroup.WithContext(ctx)
 
-	var group errgroup.Group
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})

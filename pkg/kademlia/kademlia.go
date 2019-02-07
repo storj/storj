@@ -119,10 +119,8 @@ func (k *Kademlia) FindNear(ctx context.Context, start storj.NodeID, limit int, 
 	return nodes, nil
 }
 
-// GetRoutingTable provides the routing table for the Kademlia DHT
-func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error) {
-	return k.routingTable, nil
-}
+// GetRoutingTable provides the assigned routing table
+func (k *Kademlia) GetRoutingTable() dht.RoutingTable { return k.routingTable }
 
 // SetBootstrapNodes sets the bootstrap nodes.
 // Must be called before anything starting to use kademlia.
@@ -186,6 +184,19 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 // WaitForBootstrap waits for bootstrap pinging has been completed.
 func (k *Kademlia) WaitForBootstrap() {
 	k.bootstrapFinished.Wait()
+}
+
+// FetchPeerIdentity connects to a node and returns its peer identity
+func (k *Kademlia) FetchPeerIdentity(ctx context.Context, nodeID storj.NodeID) (*identity.PeerIdentity, error) {
+	if !k.lookups.Start() {
+		return nil, context.Canceled
+	}
+	defer k.lookups.Done()
+	node, err := k.FindNode(ctx, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	return k.dialer.FetchPeerIdentity(ctx, node)
 }
 
 // Ping checks that the provided node is still accessible on the network

@@ -10,7 +10,7 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 )
 
 // GenerateSignature creates signature from identity id
@@ -21,7 +21,7 @@ func GenerateSignature(data []byte, identity *identity.FullIdentity) ([]byte, er
 
 	k, ok := identity.Key.(*ecdsa.PrivateKey)
 	if !ok {
-		return nil, peertls.ErrUnsupportedKey.New("%T", identity.Key)
+		return nil, pkcrypto.ErrUnsupportedKey.New("%T", identity.Key)
 	}
 	signature, err := cryptopasta.Sign(data, k)
 	if err != nil {
@@ -34,7 +34,7 @@ func GenerateSignature(data []byte, identity *identity.FullIdentity) ([]byte, er
 func NewSignedMessage(signature []byte, identity *identity.FullIdentity) (*pb.SignedMessage, error) {
 	k, ok := identity.Leaf.PublicKey.(*ecdsa.PublicKey)
 	if !ok {
-		return nil, peertls.ErrUnsupportedKey.New("%T", identity.Leaf.PublicKey)
+		return nil, pkcrypto.ErrUnsupportedKey.New("%T", identity.Leaf.PublicKey)
 	}
 
 	encodedKey, err := cryptopasta.EncodePublicKey(k)

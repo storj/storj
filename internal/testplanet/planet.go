@@ -20,7 +20,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
-	"google.golang.org/grpc"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/bootstrap"
 	"storj.io/storj/bootstrap/bootstrapdb"
@@ -34,7 +34,6 @@ import (
 	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
@@ -43,6 +42,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
@@ -57,8 +57,6 @@ type Peer interface {
 
 	Run(context.Context) error
 	Close() error
-
-	NewNodeClient() (node.Client, error)
 }
 
 // Config describes planet configuration
@@ -88,7 +86,9 @@ type Planet struct {
 	log       *zap.Logger
 	config    Config
 	directory string // TODO: ensure that everything is in-memory to speed things up
-	started   bool
+
+	started  bool
+	shutdown bool
 
 	peers     []closablePeer
 	databases []io.Closer
@@ -101,6 +101,7 @@ type Planet struct {
 
 	identities *Identities
 
+	run    errgroup.Group
 	cancel func()
 }
 
@@ -147,7 +148,7 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 // NewCustom creates a new full system with the specified configuration.
 func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	if config.Identities == nil {
-		config.Identities = pregeneratedIdentities
+		config.Identities = pregeneratedIdentities.Clone()
 	}
 
 	planet := &Planet{
@@ -206,16 +207,9 @@ func (planet *Planet) Start(ctx context.Context) {
 	for i := range planet.peers {
 		peer := &planet.peers[i]
 		peer.ctx, peer.cancel = context.WithCancel(ctx)
-		go func(peer *closablePeer) {
-			err := peer.peer.Run(peer.ctx)
-			if err == grpc.ErrServerStopped {
-				err = nil
-			}
-			if err != nil {
-				// TODO: better error handling
-				panic(err)
-			}
-		}(peer)
+		planet.run.Go(func() error {
+			return peer.peer.Run(peer.ctx)
+		})
 	}
 
 	planet.started = true
@@ -247,9 +241,30 @@ func (planet *Planet) Shutdown() error {
 	if !planet.started {
 		return errors.New("Start was never called")
 	}
+	if planet.shutdown {
+		panic("double Shutdown")
+	}
+	planet.shutdown = true
+
 	planet.cancel()
 
 	var errlist errs.Group
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		// TODO: add diagnostics to see what hasn't been properly shut down
+		timer := time.NewTimer(30 * time.Second)
+		defer timer.Stop()
+		select {
+		case <-timer.C:
+			panic("planet took too long to shutdown")
+		case <-ctx.Done():
+		}
+	}()
+
+	errlist.Add(planet.run.Wait())
+	cancel()
+
 	// shutdown in reverse order
 	for i := len(planet.uplinks) - 1; i >= 0; i-- {
 		node := planet.uplinks[i]
@@ -267,7 +282,7 @@ func (planet *Planet) Shutdown() error {
 	return errlist.Err()
 }
 
-// newUplinks creates initializes uplinks
+// newUplinks creates initializes uplinks, requires peer to have at least one satellite
 func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]*Uplink, error) {
 	var xs []*Uplink
 	for i := 0; i < count; i++ {
@@ -386,7 +401,8 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Interval: 120 * time.Second,
 			},
 			Console: consoleweb.Config{
-				Address: "127.0.0.1:0",
+				Address:      "127.0.0.1:0",
+				PasswordCost: console.TestPasswordCost,
 			},
 		}
 		if planet.config.Reconfigure.Satellite != nil {

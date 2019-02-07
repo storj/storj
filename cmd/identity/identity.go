@@ -4,7 +4,10 @@
 package main
 
 import (
+	"path/filepath"
+
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
@@ -12,6 +15,9 @@ import (
 )
 
 var (
+	// ErrSetup is used when an error occurs while setting up
+	ErrSetup = errs.Class("setup error")
+
 	idCmd = &cobra.Command{
 		Use:         "id",
 		Short:       "Manage identities",
@@ -28,6 +34,7 @@ var (
 	leafExtCmd = &cobra.Command{
 		Use:         "extensions",
 		Short:       "Prints the extensions attached to the identity leaf certificate",
+		Args:        cobra.MaximumNArgs(1),
 		RunE:        cmdLeafExtensions,
 		Annotations: map[string]string{"type": "setup"},
 	}
@@ -45,12 +52,12 @@ var (
 	}
 
 	leafExtCfg struct {
-		Identity identity.Config
+		Identity identity.PeerConfig
 	}
 
 	revokeLeafCfg struct {
 		CA       identity.FullCAConfig
-		Identity identity.Config
+		Identity identity.PeerConfig
 		// TODO: add "broadcast" option to send revocation to network nodes
 	}
 )
@@ -77,16 +84,22 @@ func cmdNewID(cmd *cobra.Command, args []string) (err error) {
 		_, err := newIDCfg.Identity.Create(ca)
 		return err
 	}
-	return identity.ErrSetup.New("identity file(s) exist: %s", s)
+	return ErrSetup.New("identity file(s) exist: %s", s)
 }
 
 func cmdLeafExtensions(cmd *cobra.Command, args []string) (err error) {
-	fi, err := leafExtCfg.Identity.Load()
+	if len(args) > 0 {
+		leafExtCfg.Identity = identity.PeerConfig{
+			CertPath: filepath.Join(identityDir, args[0], "identity.cert"),
+		}
+	}
+
+	ident, err := leafExtCfg.Identity.Load()
 	if err != nil {
 		return err
 	}
 
-	return printExtensions(fi.Leaf.Raw, fi.Leaf.ExtraExtensions)
+	return printExtensions(ident.Leaf.Raw, ident.Leaf.ExtraExtensions)
 }
 
 func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
