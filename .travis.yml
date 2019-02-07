@@ -32,13 +32,8 @@ matrix:
       services:
         - redis
         - postgresql
-      install:
-        - pushd ~
-        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mfridman/tparse
-        - popd
-        - go install -race ./...
       script:
-        - go test -parallel 64 -count 10 -run TestRetrieve -race -cover -coverprofile=.coverprofile -json -timeout 9m ./pkg/piecestore/psserver | tparse -all -top
+        - go test -parallel 64 -count 10 -run TestRetrieve -race -timeout 9m ./pkg/piecestore/psserver
 
   fast_finish: true
 
