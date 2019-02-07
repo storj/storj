@@ -195,12 +195,16 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 
 // QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
 func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
-	var sql = `SELECT n.id, n.created_at, n.audit_success_ratio, SUM(r.at_rest_total), 
-		SUM(r.get_repair_total), SUM(r.put_repair_total), SUM(r.get_audit_total), 
-	    SUM(r.put_total), SUM(r.get_total), r.start_time
-	    FROM accounting_rollups r
-	    JOIN nodes n ON n.id = r.node_id
-	    WHERE r.start_time >= ? AND r.start_time < ?
+	var sql = `SELECT n.id, n.created_at, n.audit_success_ratio, r.start_time
+	    FROM (
+			SELECT node_id, MIN(start_time) AS start_time, SUM(at_rest_total) AS at_rest_total, 
+			SUM(get_repair_total) AS get_repair_total, SUM(put_repair_total) AS put_repair_total, 
+			SUM(get_audit_total) AS get_audit_total, SUM(put_total) AS put_total, SUM(get_total) AS get_total
+			FROM accounting_rollups
+			WHERE start_time >= ? AND start_time < ?
+			GROUP BY node_id
+		) r
+	    LEFT JOIN nodes n ON n.id = r.node_id
 	    ORDER BY n.id`
 	rows, err := db.db.DB.Query(db.db.Rebind(sql), start.UTC(), end.UTC())
 	if err != nil {
