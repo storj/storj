@@ -61,7 +61,7 @@
                                 :isCheckboxError="isTermsAcceptedError"/>
                         <h2>I agree to the Storj Bridge Hosting <a>Terms & Conditions</a></h2>
                     </div>
-                    <Button class="register-area__scrollable__form-area__create-button" label="Create Account"
+                    <Button id="createAccountButton" class="register-area__scrollable__form-area__create-button" label="Create Account"
                             width="100%" height="48px" :onPress="onCreateClick"/>
                 </div>
             </div>
@@ -69,7 +69,7 @@
         </div>
 
         <img class="layout-image" src="../../static/images/register/RegisterImage.svg"/>
-        <!--<RegistrationSuccessPopup />-->
+        <RegistrationSuccessPopup />
     </div>
 </template>
 
@@ -78,10 +78,9 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import Checkbox from '@/components/common/Checkbox.vue';
 import Button from '@/components/common/Button.vue';
-import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup';
+import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup.vue';
 import { validateEmail, validatePassword } from '@/utils/validation';
-import ROUTES from '../utils/constants/routerConstants';
-import { NOTIFICATION_ACTIONS } from '../utils/constants/actionNames';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { createUserRequest } from '@/api/users';
 
 @Component(
@@ -156,7 +155,7 @@ import { createUserRequest } from '@/api/users';
                     return;
                 }
 
-                this.$router.push(ROUTES.LOGIN.path);
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
             }
         },
         data: function (): RegisterData {

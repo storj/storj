@@ -77,17 +77,17 @@ func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time
 }
 
 // SaveAtRestRaw records raw tallies of at-rest-data.
-func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) error {
+func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveAtRestRaw(ctx, latestTally, nodeData)
+	return m.db.SaveAtRestRaw(ctx, latestTally, created, nodeData)
 }
 
 // SaveBWRaw records raw sums of agreement values to the database and updates the LastTimestamp.
-func (m *lockedAccounting) SaveBWRaw(ctx context.Context, tallyEnd time.Time, bwTotals map[storj.NodeID][]int64) error {
+func (m *lockedAccounting) SaveBWRaw(ctx context.Context, tallyEnd time.Time, created time.Time, bwTotals map[storj.NodeID][]int64) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveBWRaw(ctx, tallyEnd, bwTotals)
+	return m.db.SaveBWRaw(ctx, tallyEnd, created, bwTotals)
 }
 
 // SaveRollup records raw tallies of at rest data to the database

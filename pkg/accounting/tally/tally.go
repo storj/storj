@@ -72,7 +72,7 @@ func (t *Tally) Tally(ctx context.Context) error {
 	if err != nil {
 		errAtRest = errs.New("Query for data-at-rest failed : %v", err)
 	} else if len(nodeData) > 0 {
-		err = t.SaveAtRestRaw(ctx, latestTally, nodeData)
+		err = t.SaveAtRestRaw(ctx, latestTally, time.Now().UTC(), nodeData)
 		if err != nil {
 			errAtRest = errs.New("Saving data-at-rest failed : %v", err)
 		}
@@ -82,7 +82,7 @@ func (t *Tally) Tally(ctx context.Context) error {
 	if err != nil {
 		errBWA = errs.New("Query for bandwidth failed: %v", err)
 	} else if len(bwTotals) > 0 {
-		err = t.SaveBWRaw(ctx, tallyEnd, bwTotals)
+		err = t.SaveBWRaw(ctx, tallyEnd, time.Now().UTC(), bwTotals)
 		if err != nil {
 			errBWA = errs.New("Saving for bandwidth failed : %v", err)
 		}
@@ -158,8 +158,8 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 }
 
 // SaveAtRestRaw records raw tallies of at-rest-data and updates the LastTimestamp
-func (t *Tally) SaveAtRestRaw(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) error {
-	return t.accountingDB.SaveAtRestRaw(ctx, latestTally, nodeData)
+func (t *Tally) SaveAtRestRaw(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
+	return t.accountingDB.SaveAtRestRaw(ctx, latestTally, created, nodeData)
 }
 
 // QueryBW queries bandwidth allocation database, selecting all new contracts since the last collection run time.
@@ -183,6 +183,6 @@ func (t *Tally) QueryBW(ctx context.Context) (time.Time, map[storj.NodeID][]int6
 }
 
 // SaveBWRaw records granular tallies (sums of bw agreement values) to the database and updates the LastTimestamp
-func (t *Tally) SaveBWRaw(ctx context.Context, tallyEnd time.Time, bwTotals map[storj.NodeID][]int64) error {
-	return t.accountingDB.SaveBWRaw(ctx, tallyEnd, bwTotals)
+func (t *Tally) SaveBWRaw(ctx context.Context, tallyEnd time.Time, created time.Time, bwTotals map[storj.NodeID][]int64) error {
+	return t.accountingDB.SaveBWRaw(ctx, tallyEnd, created, bwTotals)
 }
