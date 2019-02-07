@@ -50,7 +50,7 @@ func (cycle *Cycle) sendControl(message interface{}) {
 }
 
 // Run runs the specified function.
-func (cycle *Cycle) Run(ctx context.Context, fn func() error) error {
+func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error) error {
 	cycle.quit = make(chan struct{})
 	defer close(cycle.quit)
 
@@ -59,14 +59,14 @@ func (cycle *Cycle) Run(ctx context.Context, fn func() error) error {
 	cycle.ticker = time.NewTicker(currentInterval)
 	cycle.control = make(chan interface{})
 
-	if err := fn(); err != nil {
+	if err := fn(ctx); err != nil {
 		return err
 	}
 	for {
 		select {
 		case <-cycle.ticker.C:
 			// trigger the function
-			if err := fn(); err != nil {
+			if err := fn(ctx); err != nil {
 				return err
 			}
 
@@ -96,7 +96,7 @@ func (cycle *Cycle) Run(ctx context.Context, fn func() error) error {
 
 			case cycleTrigger:
 				// trigger the function
-				if err := fn(); err != nil {
+				if err := fn(ctx); err != nil {
 					return err
 				}
 				if message.done != nil {
