@@ -19,18 +19,18 @@ type Cycle struct {
 
 	ticker  *time.Ticker
 	control chan interface{}
-	quit    chan struct{}
+	stop    chan struct{}
 
 	init sync.Once
 }
 
 type (
 	// cycle control messages
-	cyclePause    struct{}
-	cycleContinue struct{}
-	cycleTrigger  struct {
-		done chan struct{}
-	}
+	cyclePause          struct{}
+	cycleContinue       struct{}
+	cycleStop           struct{}
+	cycleChangeInterval struct{ Interval time.Duration }
+	cycleTrigger        struct{ done chan struct{} }
 )
 
 // NewCycle creates a new cycle with the specified interval.
@@ -47,7 +47,7 @@ func (cycle *Cycle) SetInterval(interval time.Duration) {
 
 func (cycle *Cycle) initialize() {
 	cycle.init.Do(func() {
-		cycle.quit = make(chan struct{})
+		cycle.stop = make(chan struct{})
 		cycle.control = make(chan interface{})
 	})
 }
@@ -62,7 +62,7 @@ func (cycle *Cycle) Start(ctx context.Context, group *errgroup.Group, fn func(ct
 // Run runs the specified function.
 func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error) error {
 	cycle.initialize()
-	defer close(cycle.quit)
+	defer close(cycle.stop)
 
 	currentInterval := cycle.interval
 	cycle.ticker = time.NewTicker(currentInterval)
@@ -76,11 +76,11 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 			// handle control messages
 
 			switch message := message.(type) {
-			case nil:
+			case cycleStop:
 				return nil
 
-			case time.Duration:
-				currentInterval = message
+			case cycleChangeInterval:
+				currentInterval = message.Interval
 				cycle.ticker.Stop()
 				cycle.ticker = time.NewTicker(currentInterval)
 
@@ -124,18 +124,18 @@ func (cycle *Cycle) sendControl(message interface{}) {
 	cycle.initialize()
 	select {
 	case cycle.control <- message:
-	case <-cycle.quit:
+	case <-cycle.stop:
 	}
 }
 
 // Stop stops the cycle permanently
 func (cycle *Cycle) Stop() {
-	cycle.sendControl(nil)
+	cycle.sendControl(cycleStop{})
 }
 
 // ChangeInterval allows to change the ticker interval after it has started.
 func (cycle *Cycle) ChangeInterval(interval time.Duration) {
-	cycle.sendControl(interval)
+	cycle.sendControl(cycleChangeInterval{interval})
 }
 
 // Pause pauses the cycle.
@@ -161,6 +161,6 @@ func (cycle *Cycle) TriggerWait() {
 	cycle.sendControl(cycleTrigger{done})
 	select {
 	case <-done:
-	case <-cycle.quit:
+	case <-cycle.stop:
 	}
 }
