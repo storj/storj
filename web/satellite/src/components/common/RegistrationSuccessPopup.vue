@@ -19,9 +19,11 @@
             </div>
             <div class="register-success-popup__form-container">
                 <h2 class="register-success-popup__form-container__main-label-text">Congratulation!</h2>
-                <p>You have successfully verified your Satellite account. Now you can create projects, and build your team and applications on top of our distributed cloud storage network</p>
+                <p>You almost registered on the Satellite, only one step left.
+                    Please check your inbox and use the verification link we shared with you in last email.</p>
+                <p>Didn’t receive a verification email?</p>
                 <div class="register-success-popup__form-container__button-container">
-                    <Button label="Go To Dashboard" width="450px" height="50px" :onPress="onCloseClick" isWhite />
+                    <Button label="Resend Email" width="450px" height="50px" :onPress="onCloseClick" isWhite />
                 </div>
             </div>
             <div class="register-success-popup__close-cross-container">
@@ -68,7 +70,13 @@
         font-size: 16px;
         line-height: 21px;
         color: #354049;
-        display: flex;
+        padding: 27px 0 0 0;
+        margin: 0;
+    }
+
+    a {
+        font-family: 'montserrat_bold';
+        color: #2683ff;
     }
 
     .register-success-popup-container {
@@ -109,23 +117,12 @@
             max-width: 440px;
             margin-top: 10px;
 
-            p {
-                font-family: 'montserrat_regular';
-                font-size: 16px;
-                margin-top: 20px;
-
-                &:first-child {
-                    margin-top: 0;
-                }
-            }
-
             &__main-label-text {
                 font-family: 'montserrat_bold';
                 font-size: 32px;
                 line-height: 39px;
                 color: #384B65;
-                margin-bottom: 35px;
-                margin-top: 0;
+                margin: 0;
             }
 
             &__button-container {
@@ -134,7 +131,7 @@
                 flex-direction: row;
                 justify-content: space-between;
                 align-items: center;
-                margin-top: 40px;
+                margin-top: 15px;
             }
         }
 
