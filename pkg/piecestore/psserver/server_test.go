@@ -124,6 +124,8 @@ func TestPiece(t *testing.T) {
 
 func TestRetrieve(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	snID, upID := newTestID(ctx, t), newTestID(ctx, t)
 	s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
 	defer cleanup()
@@ -275,6 +277,8 @@ func TestRetrieve(t *testing.T) {
 
 func TestStore(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	satID := newTestID(ctx, t)
 
 	tests := []struct {

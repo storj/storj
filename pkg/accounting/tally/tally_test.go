@@ -72,7 +72,7 @@ func sendGeneratedAgreements(ctx context.Context, t *testing.T, db satellite.DB,
 	for i, action := range actions {
 		pba, err := testbwagreement.GeneratePayerBandwidthAllocation(action, satID, upID, time.Hour)
 		require.NoError(t, err)
-		err = testbwagreement.SavePayerBandwidthAllocation(db.UplinkDB(), pba, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
+		err = testbwagreement.SavePayerBandwidthAllocation(db.CertDB(), pba, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
 		assert.NoError(t, err)
 		rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, 1000)
 		require.NoError(t, err)

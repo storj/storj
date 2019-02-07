@@ -11,11 +11,11 @@ import (
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
-	"storj.io/storj/pkg/uplinkdb"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
@@ -90,9 +90,9 @@ func (db *DB) BandwidthAgreement() bwagreement.DB {
 	return &bandwidthagreement{db: db.db}
 }
 
-// UplinkDB is a getter for uplink's specific info like public key, id, etc...
-func (db *DB) UplinkDB() uplinkdb.DB {
-	return &uplinkDB{db: db.db}
+// CertDB is a getter for uplink's specific info like public key, id, etc...
+func (db *DB) CertDB() certdb.DB {
+	return &certDB{db: db.db}
 }
 
 // // PointerDB is a getter for PointerDB repository

@@ -10,17 +10,16 @@ import (
 	"crypto/x509"
 
 	"github.com/zeebo/errs"
-	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-type uplinkDB struct {
+type certDB struct {
 	db *dbx.DB
 }
 
-func (b *uplinkDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, publicKey crypto.PublicKey) error {
+func (b *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, publicKey crypto.PublicKey) error {
 	tx, err := b.db.Open(ctx)
 	if err != nil {
 		return Error.Wrap(err)
@@ -57,7 +56,7 @@ func (b *uplinkDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, publi
 	return Error.Wrap(tx.Commit())
 }
 
-func (b *uplinkDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (*ecdsa.PublicKey, error) {
+func (b *certDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (*ecdsa.PublicKey, error) {
 	dbxInfo, err := b.db.Get_CertDB_By_Id(ctx, dbx.CertDB_Id(nodeID.Bytes()))
 	if err != nil {
 		return nil, err
@@ -71,7 +70,7 @@ func (b *uplinkDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (*ecds
 	// Typecast public key
 	pkey, ok := pubkey.(*ecdsa.PublicKey)
 	if !ok {
-		return nil, Error.Wrap(peertls.ErrUnsupportedKey.New("%T", pubkey))
+		return nil, Error.Wrap(Error.New("UnsupportedKey error: %+v", pubkey))
 	}
 
 	return pkey, nil

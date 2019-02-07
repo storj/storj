@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package uplinkdb_test
+package certdb_test
 
 import (
 	"context"
@@ -13,21 +13,21 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/pkg/uplinkdb"
+	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestUplinkDB(t *testing.T) {
+func TestCertDB(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		testDatabase(ctx, t, db.UplinkDB())
+		testDatabase(ctx, t, db.CertDB())
 	})
 }
 
-func testDatabase(ctx context.Context, t *testing.T, upldb uplinkdb.DB) {
+func testDatabase(ctx context.Context, t *testing.T, upldb certdb.DB) {
 	//testing variables
 	upID, err := testidentity.NewTestIdentity(ctx)
 	require.NoError(t, err)

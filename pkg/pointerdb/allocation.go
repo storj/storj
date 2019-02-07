@@ -11,25 +11,24 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/uplinkdb"
 )
 
 // AllocationSigner structure
 type AllocationSigner struct {
 	satelliteIdentity *identity.FullIdentity
 	bwExpiration      int
-	uplinkdb          uplinkdb.DB
+	certdb            certdb.DB
 }
 
 // NewAllocationSigner creates new instance
-func NewAllocationSigner(satelliteIdentity *identity.FullIdentity, bwExpiration int, upldb uplinkdb.DB) *AllocationSigner {
+func NewAllocationSigner(satelliteIdentity *identity.FullIdentity, bwExpiration int, upldb certdb.DB) *AllocationSigner {
 	return &AllocationSigner{
 		satelliteIdentity: satelliteIdentity,
 		bwExpiration:      bwExpiration,
-		uplinkdb:          upldb,
+		certdb:            upldb,
 	}
 }
 
@@ -49,10 +48,10 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 
 	pk, ok := peerIdentity.Leaf.PublicKey.(*ecdsa.PublicKey)
 	if !ok {
-		return nil, peertls.ErrUnsupportedKey.New("%T", peerIdentity.Leaf.PublicKey)
+		return nil, Error.New("UnsupportedKey error: %+v", peerIdentity.Leaf.PublicKey)
 	}
-	// store the corresponding uplink's id and public key into uplinkDB db
-	err = allocation.uplinkdb.SavePublicKey(ctx, peerIdentity.ID, pk)
+	// store the corresponding uplink's id and public key into certDB db
+	err = allocation.certdb.SavePublicKey(ctx, peerIdentity.ID, pk)
 	if err != nil {
 		return nil, err
 	}

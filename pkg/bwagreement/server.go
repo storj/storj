@@ -17,11 +17,10 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/uplinkdb"
 )
 
 var (
@@ -56,17 +55,17 @@ type DB interface {
 
 // Server is an implementation of the pb.BandwidthServer interface
 type Server struct {
-	db       DB
-	uplinkdb uplinkdb.DB
-	pkey     crypto.PublicKey
-	NodeID   storj.NodeID
-	logger   *zap.Logger
+	db     DB
+	certdb certdb.DB
+	pkey   crypto.PublicKey
+	NodeID storj.NodeID
+	logger *zap.Logger
 }
 
 // NewServer creates instance of Server
-func NewServer(db DB, upldb uplinkdb.DB, pkey crypto.PublicKey, logger *zap.Logger, nodeID storj.NodeID) *Server {
+func NewServer(db DB, upldb certdb.DB, pkey crypto.PublicKey, logger *zap.Logger, nodeID storj.NodeID) *Server {
 	// TODO: reorder arguments, rename logger -> log
-	return &Server{db: db, uplinkdb: upldb, pkey: pkey, logger: logger, NodeID: nodeID}
+	return &Server{db: db, certdb: upldb, pkey: pkey, logger: logger, NodeID: nodeID}
 }
 
 // Close closes resources
@@ -116,21 +115,10 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAll
 	pba := rba.GetPayerAllocation()
 
 	// Get renter's public key from uplink agreement db
-	uplinkInfo, err := s.uplinkdb.GetPublicKey(ctx, pba.UplinkId)
+	uplinkInfo, err := s.certdb.GetPublicKey(ctx, pba.UplinkId)
 	if err != nil {
 		return pb.ErrRenter.Wrap(auth.ErrVerify.New("Failed to unmarshal PayerBandwidthAllocation: %+v", err))
 	}
-
-	// pubkey, err := x509.ParsePKIXPublicKey(uplinkInfo)
-	// if err != nil {
-	// 	return Error.New("Failed to extract Public Key from RenterBandwidthAllocation: %+v", err)
-	// }
-
-	// // Typecast public key
-	// k, ok := pubkey.(*ecdsa.PublicKey)
-	// if !ok {
-	// 	return peertls.ErrUnsupportedKey.New("%T", pubkey)
-	// }
 
 	signatureLength := uplinkInfo.Curve.Params().P.BitLen() / 8
 	if len(rba.GetSignature()) < signatureLength {
@@ -153,7 +141,7 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAll
 	// satellite public key
 	k, ok := s.pkey.(*ecdsa.PublicKey)
 	if !ok {
-		return peertls.ErrUnsupportedKey.New("%T", s.pkey)
+		return Error.New("UnsupportedKey error: %+v", s.pkey)
 	}
 
 	signatureLength = k.Curve.Params().P.BitLen() / 8
