@@ -8,9 +8,9 @@ import (
 	"io"
 
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"storj.io/fork/google.golang.org/grpc"
+	"storj.io/fork/google.golang.org/grpc/codes"
+	"storj.io/fork/google.golang.org/grpc/status"
 
 	"storj.io/storj/storage"
 )

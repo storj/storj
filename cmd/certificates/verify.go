@@ -5,12 +5,12 @@ package main
 
 import (
 	"bytes"
-	"crypto/x509"
 	"fmt"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/fork/crypto/x509"
 	"storj.io/storj/pkg/identity"
 )
 

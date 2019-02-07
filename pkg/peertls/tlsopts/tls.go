@@ -4,12 +4,10 @@
 package tlsopts
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-
+	"storj.io/fork/crypto/tls"
+	"storj.io/fork/crypto/x509"
+	"storj.io/fork/google.golang.org/grpc"
+	"storj.io/fork/google.golang.org/grpc/credentials"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/storj"
@@ -78,7 +76,7 @@ func (opts *Options) tlsConfig(isServer bool, verificationFuncs ...peertls.PeerC
 	}
 
 	if isServer {
-		config.ClientAuth = tls.RequireAnyClientCert
+		config.ClientAuth = tls.RequireAndVerifyClientCert
 	}
 
 	return config

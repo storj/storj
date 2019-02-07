@@ -7,11 +7,12 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"storj.io/fork/net/http"
 )
 
 func main() {

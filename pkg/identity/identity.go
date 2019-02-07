@@ -6,9 +6,6 @@ package identity
 import (
 	"bytes"
 	"context"
-	"crypto"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -17,9 +14,12 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/peer"
 
+	"storj.io/fork/crypto"
+	"storj.io/fork/crypto/x509"
+	"storj.io/fork/crypto/x509/pkix"
+	"storj.io/fork/google.golang.org/grpc/credentials"
+	"storj.io/fork/google.golang.org/grpc/peer"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"

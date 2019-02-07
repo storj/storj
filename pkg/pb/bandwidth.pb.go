@@ -7,8 +7,8 @@ import (
 	context "context"
 	fmt "fmt"
 	proto "github.com/gogo/protobuf/proto"
-	grpc "google.golang.org/grpc"
 	math "math"
+	grpc "storj.io/fork/google.golang.org/grpc"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

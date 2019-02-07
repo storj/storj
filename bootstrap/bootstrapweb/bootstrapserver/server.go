@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"net"
-	"net/http"
 	"path/filepath"
 
 	"github.com/graphql-go/graphql"
@@ -15,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/fork/net/http"
 	"storj.io/storj/bootstrap/bootstrapweb"
 	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver/bootstrapql"
 )

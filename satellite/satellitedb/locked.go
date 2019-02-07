@@ -7,12 +7,12 @@ package satellitedb
 
 import (
 	"context"
-	"crypto"
 	"sync"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/fork/crypto"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"

@@ -5,12 +5,12 @@ package certdb_test
 
 import (
 	"context"
-	"crypto/x509"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/fork/crypto/x509"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/certdb"

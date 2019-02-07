@@ -10,8 +10,9 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"strconv"
+
+	"storj.io/fork/net/http"
 )
 
 type httpRanger struct {

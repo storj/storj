@@ -6,7 +6,6 @@ package oauth2
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/smtp"
 	"net/url"
 	"strings"
@@ -14,6 +13,8 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/fork/net/http"
 )
 
 // Auth is XOAUTH2 implementation of smtp.Auth interface

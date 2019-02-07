@@ -5,7 +5,6 @@ package bwagreement
 
 import (
 	"context"
-	"crypto"
 	"io"
 	"strings"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/fork/crypto"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"

@@ -9,7 +9,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
+	"storj.io/fork/google.golang.org/grpc"
 
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/auth/signing"

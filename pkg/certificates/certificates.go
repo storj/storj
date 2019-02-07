@@ -6,10 +6,7 @@ package certificates
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/rsa"
 	"encoding/gob"
 	"fmt"
 	"strconv"
@@ -19,10 +16,12 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/peer"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"storj.io/fork/google.golang.org/grpc"
+	"storj.io/fork/google.golang.org/grpc/peer"
 
+	"storj.io/fork/crypto"
+	"storj.io/fork/crypto/x509"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/transport"
@@ -107,10 +106,22 @@ type Client struct {
 	client pb.CertificatesClient
 }
 
+const dummyKeyPEM = `-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAMLeBT2GY1MaF+/HzX5DsJK9tmwY24mg585Uf0QKDeaA=
+-----END PUBLIC KEY-----`
+
+// dummyKey creates a mostly-useless instance of a public key, so that
+// the instance can be used to register the type for gob.
+func dummyKey() crypto.PublicKey {
+	key, err := x509.ParsePKIXPublicKey([]byte(dummyKeyPEM))
+	if err != nil {
+		panic(err)
+	}
+	return key
+}
+
 func init() {
-	gob.Register(&ecdsa.PublicKey{})
-	gob.Register(&rsa.PublicKey{})
-	gob.Register(elliptic.P256())
+	gob.Register(dummyKey())
 }
 
 // NewServer creates a new certificate signing grpc server

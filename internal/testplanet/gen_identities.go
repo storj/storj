@@ -9,12 +9,12 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/x509"
 	"flag"
 	"fmt"
 	"go/format"
 	"os"
 
+	"storj.io/fork/crypto/x509"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pkcrypto"
 )

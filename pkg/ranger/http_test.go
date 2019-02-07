@@ -7,13 +7,14 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"storj.io/fork/net/http"
+	"storj.io/fork/net/http/httptest"
 )
 
 func TestHTTPRanger(t *testing.T) {

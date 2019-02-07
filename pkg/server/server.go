@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
+	"storj.io/fork/google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/tlsopts"

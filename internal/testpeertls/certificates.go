@@ -4,9 +4,8 @@
 package testpeertls
 
 import (
-	"crypto"
-	"crypto/x509"
-
+	"storj.io/fork/crypto"
+	"storj.io/fork/crypto/x509"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/pkcrypto"
 )

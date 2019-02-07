@@ -10,8 +10,8 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	duration "github.com/golang/protobuf/ptypes/duration"
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
-	grpc "google.golang.org/grpc"
 	math "math"
+	grpc "storj.io/fork/google.golang.org/grpc"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

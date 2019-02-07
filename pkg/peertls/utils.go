@@ -14,12 +14,12 @@ package peertls
 import (
 	"crypto"
 	"crypto/rand"
-	"crypto/sha256"
-	"crypto/x509"
 	"math/big"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/fork/crypto/x509"
+	"storj.io/fork/crypto/x509/pkix"
 	"storj.io/storj/pkg/pkcrypto"
 )
 

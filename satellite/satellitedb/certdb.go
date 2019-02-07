@@ -5,10 +5,10 @@ package satellitedb
 
 import (
 	"context"
-	"crypto"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/fork/crypto"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"

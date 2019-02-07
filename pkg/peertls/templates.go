@@ -4,8 +4,8 @@
 package peertls
 
 import (
-	"crypto/x509"
-	"crypto/x509/pkix"
+	"storj.io/fork/crypto/x509"
+	"storj.io/fork/crypto/x509/pkix"
 )
 
 // CATemplate returns x509.Certificate template for certificate authority

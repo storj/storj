@@ -7,7 +7,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
-	"crypto"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -20,6 +19,7 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/fork/crypto"
 	"storj.io/storj/internal/cui"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"

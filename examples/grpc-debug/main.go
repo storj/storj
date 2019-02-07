@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/pflag"
-	"google.golang.org/grpc"
+	"storj.io/fork/google.golang.org/grpc"
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"

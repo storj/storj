@@ -6,12 +6,14 @@ package debugging
 import (
 	"crypto/ecdsa"
 	"crypto/rsa"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"math/big"
 
 	"github.com/nsf/jsondiff"
+	"github.com/spacemonkeygo/openssl"
+
+	"storj.io/fork/crypto/x509"
 )
 
 var (
@@ -30,6 +32,62 @@ func NewDebugCert(cert x509.Certificate) DebugCert {
 	}
 }
 
+func AsSimpleStruct(data interface{}) interface{} {
+	switch d := data.(type) {
+	case *x509.Certificate:
+		return AsSimpleStruct(*d)
+	case x509.Certificate:
+		return NewDebugCert(d)
+	case *ecdsa.PublicKey:
+		return AsSimpleStruct(*d)
+	case ecdsa.PublicKey:
+		return struct {
+			X *big.Int
+			Y *big.Int
+		}{
+			d.X, d.Y,
+		}
+	case *ecdsa.PrivateKey:
+		return AsSimpleStruct(*d)
+	case ecdsa.PrivateKey:
+		return struct {
+			X *big.Int
+			Y *big.Int
+			D *big.Int
+		}{
+			d.X, d.Y, d.D,
+		}
+	case *rsa.PublicKey:
+		return AsSimpleStruct(*d)
+	case rsa.PublicKey:
+		return struct {
+			N *big.Int
+			E int
+		}{
+			d.N, d.E,
+		}
+	case *rsa.PrivateKey:
+		return AsSimpleStruct(*d)
+	case rsa.PrivateKey:
+		return struct {
+			N      *big.Int
+			E      int
+			D      *big.Int
+			Primes []*big.Int
+		}{
+			d.N, d.E, d.D, d.Primes,
+		}
+	case openssl.Key:
+		var err error
+		data, err = d.AsStruct()
+		if err != nil {
+			return fmt.Errorf("failed to represent OpenSSL key as struct: %v", err)
+		}
+		return data
+	}
+	return data
+}
+
 // PrintJSON uses a json marshaler to pretty-print arbitrary data for debugging
 // with special considerations for certain, specific types
 func PrintJSON(data interface{}, label string) {
@@ -38,45 +96,7 @@ func PrintJSON(data interface{}, label string) {
 		err       error
 	)
 
-	switch d := data.(type) {
-	case x509.Certificate:
-		data = NewDebugCert(d)
-	case *x509.Certificate:
-		data = NewDebugCert(*d)
-	case *ecdsa.PublicKey:
-		data = struct {
-			X *big.Int
-			Y *big.Int
-		}{
-			d.X, d.Y,
-		}
-	case *ecdsa.PrivateKey:
-		data = struct {
-			X *big.Int
-			Y *big.Int
-			D *big.Int
-		}{
-			d.X, d.Y, d.D,
-		}
-	case *rsa.PublicKey:
-		data = struct {
-			N *big.Int
-			E int
-		}{
-			d.N, d.E,
-		}
-	case *rsa.PrivateKey:
-		data = struct {
-			N      *big.Int
-			E      int
-			D      *big.Int
-			Primes []*big.Int
-		}{
-			d.N, d.E, d.D, d.Primes,
-		}
-	}
-
-	jsonBytes, err = json.MarshalIndent(data, "", "\t\t")
+	jsonBytes, err = json.MarshalIndent(AsSimpleStruct(data), "", "\t\t")
 
 	if label != "" {
 		fmt.Println(label + ": ---================================================================---")

@@ -7,8 +7,7 @@ import (
 	"context"
 	"time"
 
-	"google.golang.org/grpc"
-
+	"storj.io/fork/google.golang.org/grpc"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"

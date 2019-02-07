@@ -9,12 +9,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/fork/net/http"
 	"storj.io/storj/satellite/console/consoleauth"
 )
 

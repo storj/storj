@@ -5,14 +5,13 @@ package peertls // import "storj.io/storj/pkg/peertls"
 
 import (
 	"bytes"
-	"crypto"
-	"crypto/rand"
-	"crypto/tls"
-	"crypto/x509"
 	"io"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/fork/crypto"
+	"storj.io/fork/crypto/tls"
+	"storj.io/fork/crypto/x509"
 	"storj.io/storj/pkg/pkcrypto"
 )
 
@@ -50,6 +49,9 @@ func VerifyPeerFunc(next ...PeerCertVerificationFunc) PeerCertVerificationFunc {
 		c, err := pkcrypto.CertsFromDER(chain)
 		if err != nil {
 			return NewNonTemporaryError(ErrVerifyPeerCert.Wrap(err))
+		}
+		if len(chain) == 0 {
+			return errs.New("no chain to verify")
 		}
 
 		for _, n := range next {
@@ -146,7 +148,7 @@ func CreateCertificate(signee crypto.PublicKey, signer crypto.PrivateKey, templa
 		return nil, errs.New("can't sign certificate with signer key of type %T", signer)
 	}
 	cb, err := x509.CreateCertificate(
-		rand.Reader,
+		nil,
 		template,
 		issuer,
 		signee,

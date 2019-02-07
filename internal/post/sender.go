@@ -4,7 +4,7 @@
 package post
 
 import (
-	"crypto/tls"
+	stdlibTLS "crypto/tls"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -45,7 +45,7 @@ func (sender *SMTPSender) SendEmail(msg *Message) error {
 	}()
 
 	// send smtp hello or ehlo msg and establish connection over tls
-	err = client.StartTLS(&tls.Config{ServerName: host})
+	err = client.StartTLS(&stdlibTLS.Config{ServerName: host})
 	if err != nil {
 		return err
 	}

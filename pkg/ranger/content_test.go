@@ -6,12 +6,13 @@ package ranger
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"storj.io/fork/net/http"
+	"storj.io/fork/net/http/httptest"
 )
 
 func TestServeContent(t *testing.T) {

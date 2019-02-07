@@ -8,8 +8,8 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/peer"
+	"storj.io/fork/google.golang.org/grpc"
+	"storj.io/fork/google.golang.org/grpc/peer"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"

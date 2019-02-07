@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
+	"storj.io/fork/google.golang.org/grpc"
+	"storj.io/fork/google.golang.org/grpc/codes"
+	"storj.io/fork/google.golang.org/grpc/metadata"
+	"storj.io/fork/google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/auth"
 )

@@ -6,11 +6,11 @@ package consoleweb
 import (
 	"encoding/json"
 	"io/ioutil"
-	"net/http"
 	"strings"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/fork/net/http"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 )
 

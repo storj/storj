@@ -22,18 +22,11 @@ func TestSigningAndVerifyingECDSA(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			privKey, err := GeneratePrivateECDSAKey(authECCurve)
 			assert.NoError(t, err)
-			pubKey := PublicKeyFromPrivate(privKey)
 
 			// test signing and verifying a hash of the data
 			sig, err := HashAndSign(privKey, []byte(tt.data))
 			assert.NoError(t, err)
-			err = HashAndVerifySignature(pubKey, []byte(tt.data), sig)
-			assert.NoError(t, err)
-
-			// test signing and verifying the data directly
-			sig, err = SignWithoutHashing(privKey, []byte(tt.data))
-			assert.NoError(t, err)
-			err = VerifySignatureWithoutHashing(pubKey, []byte(tt.data), sig)
+			err = HashAndVerifySignature(PublicKeyFromPrivate(privKey), []byte(tt.data), sig)
 			assert.NoError(t, err)
 		})
 	}
@@ -42,7 +35,6 @@ func TestSigningAndVerifyingECDSA(t *testing.T) {
 func TestSigningAndVerifyingRSA(t *testing.T) {
 	privKey, err := GeneratePrivateRSAKey(StorjRSAKeyBits)
 	assert.NoError(t, err)
-	pubKey := PublicKeyFromPrivate(privKey)
 
 	tests := []struct {
 		name string
@@ -57,11 +49,8 @@ func TestSigningAndVerifyingRSA(t *testing.T) {
 			// test signing and verifying a hash of the data
 			sig, err := HashAndSign(privKey, []byte(tt.data))
 			assert.NoError(t, err)
-			err = HashAndVerifySignature(pubKey, []byte(tt.data), sig)
+			err = HashAndVerifySignature(PublicKeyFromPrivate(privKey), []byte(tt.data), sig)
 			assert.NoError(t, err)
-
-			// don't test signing and verifying the data directly, as RSA can't
-			// handle messages of arbitrary size
 		})
 	}
 }

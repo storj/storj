@@ -6,10 +6,6 @@ package identity
 import (
 	"bytes"
 	"context"
-	"crypto"
-	"crypto/rand"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,6 +15,9 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/fork/crypto"
+	"storj.io/fork/crypto/x509"
+	"storj.io/fork/crypto/x509/pkix"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
@@ -162,12 +161,12 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 	if err != nil {
 		return nil, err
 	}
-
-	if opts.ParentKey == nil {
-		opts.ParentKey = selectedKey
+	var c *x509.Certificate
+	if opts.ParentKey == nil && opts.ParentCert == nil {
+		c, err = peertls.CreateSelfSignedCertificate(selectedKey, ct)
+	} else {
+		c, err = peertls.CreateCertificate(pkcrypto.PublicKeyFromPrivate(selectedKey), opts.ParentKey, ct, opts.ParentCert)
 	}
-
-	c, err := peertls.CreateCertificate(pkcrypto.PublicKeyFromPrivate(selectedKey), opts.ParentKey, ct, opts.ParentCert)
 	if err != nil {
 		return nil, err
 	}
@@ -420,7 +419,7 @@ func (ca *FullCertificateAuthority) PeerCA() *PeerCertificateAuthority {
 
 // Sign signs the passed certificate with ca certificate
 func (ca *FullCertificateAuthority) Sign(cert *x509.Certificate) (*x509.Certificate, error) {
-	signedCertBytes, err := x509.CreateCertificate(rand.Reader, cert, ca.Cert, cert.PublicKey, ca.Key)
+	signedCertBytes, err := x509.CreateCertificate(nil, cert, ca.Cert, cert.PublicKey, ca.Key)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

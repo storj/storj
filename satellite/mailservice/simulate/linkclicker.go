@@ -4,12 +4,12 @@
 package simulate
 
 import (
-	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/fork/net/http"
 	"storj.io/storj/internal/post"
 )
 

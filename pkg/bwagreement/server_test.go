@@ -5,9 +5,6 @@ package bwagreement_test
 
 import (
 	"context"
-	"crypto"
-	"crypto/tls"
-	"crypto/x509"
 	"net"
 	"testing"
 	"time"
@@ -16,9 +13,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/peer"
+	"storj.io/fork/google.golang.org/grpc/credentials"
+	"storj.io/fork/google.golang.org/grpc/peer"
 
+	"storj.io/fork/crypto"
+	"storj.io/fork/crypto/tls"
+	"storj.io/fork/crypto/x509"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/auth"

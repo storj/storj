@@ -7,12 +7,13 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"net/http"
-	"net/http/pprof"
 
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"gopkg.in/spacemonkeygo/monkit.v2/present"
+
+	"storj.io/fork/net/http"
+	"storj.io/fork/net/http/pprof"
 )
 
 var (
@@ -25,6 +26,28 @@ func init() {
 	*http.DefaultServeMux = http.ServeMux{}
 }
 
+type monkitHTTPHandler struct {
+	Registry *monkit.Registry
+}
+
+// monkitHTTP makes an http.Handler out of a Registry. It serves paths using this
+// package's FromRequest request router. Usually monkitHTTP is called with the
+// Default registry.
+func monkitHTTP(r *monkit.Registry) http.Handler {
+	return monkitHTTPHandler{Registry: r}
+}
+
+func (h monkitHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	p, contentType, err := present.FromRequest(h.Registry, req.URL.Path, req.URL.Query())
+	if err != nil {
+		// no good way to tell errors apart here without forking monkit :(
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("Content-Type", contentType)
+	p(w)
+}
+
 func initDebug(logger *zap.Logger, r *monkit.Registry) (err error) {
 	var mux http.ServeMux
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -33,7 +56,7 @@ func initDebug(logger *zap.Logger, r *monkit.Registry) (err error) {
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
-	mux.Handle("/mon/", http.StripPrefix("/mon", present.HTTP(r)))
+	mux.Handle("/mon/", http.StripPrefix("/mon", monkitHTTP(r)))
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "OK")
 	})

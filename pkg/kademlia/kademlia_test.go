@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
-	"google.golang.org/grpc"
+	"storj.io/fork/google.golang.org/grpc"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"

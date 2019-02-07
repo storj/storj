@@ -5,8 +5,8 @@ package identity
 
 import (
 	"context"
-	"crypto"
 
+	"storj.io/fork/crypto"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 )

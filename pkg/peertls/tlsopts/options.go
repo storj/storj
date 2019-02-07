@@ -4,14 +4,14 @@
 package tlsopts
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"io/ioutil"
 
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/fork/crypto/tls"
+	"storj.io/fork/crypto/x509"
+	"storj.io/fork/crypto/x509/pkix"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"

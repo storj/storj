@@ -16,12 +16,13 @@ import (
 	"log"
 	"mime"
 	"mime/multipart"
-	"net/http"
 	"net/textproto"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"storj.io/fork/net/http"
 )
 
 // ServeContent is the Go standard library's http.ServeContent but modified to

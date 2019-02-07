@@ -6,8 +6,6 @@ package peertls_test
 import (
 	"bytes"
 	"crypto/rand"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/gob"
 	"testing"
@@ -17,6 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
+	"storj.io/fork/crypto/x509"
+	"storj.io/fork/crypto/x509/pkix"
 	"storj.io/storj/internal/testpeertls"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"

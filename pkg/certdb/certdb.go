@@ -5,8 +5,8 @@ package certdb
 
 import (
 	"context"
-	"crypto"
 
+	"storj.io/fork/crypto"
 	"storj.io/storj/pkg/storj"
 )
 

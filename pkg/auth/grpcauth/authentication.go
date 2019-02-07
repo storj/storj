@@ -6,8 +6,8 @@ package grpcauth
 import (
 	"context"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
+	"storj.io/fork/google.golang.org/grpc"
+	"storj.io/fork/google.golang.org/grpc/metadata"
 
 	"storj.io/storj/pkg/auth"
 )
