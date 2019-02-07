@@ -30,7 +30,7 @@ func TestQuery(t *testing.T) {
 		timestamp := time.Now().UTC().AddDate(0, 0, -1*days)
 		start := timestamp
 
-		for i := 1; i <= days; i++ {
+		for i := 0; i <= days; i++ {
 			err := planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, timestamp, timestamp, nodeData)
 			assert.NoError(t, err)
 
@@ -50,21 +50,23 @@ func TestQuery(t *testing.T) {
 
 			rows, err := planet.Satellites[0].DB.Accounting().QueryPaymentInfo(ctx, start, end)
 			assert.NoError(t, err)
-			if i == 1 {
+			if i == 0 { // we need at least two days for rollup to work
 				assert.Equal(t, 0, len(rows))
-				return
+				continue
 			}
-			// TODO: once we sum data totals by node ID across rollups, number of rows should be number of nodes
-			assert.Equal(t, (i-1)*len(planet.StorageNodes), len(rows))
+			// the number of rows should be number of nodes
+			assert.Equal(t, len(planet.StorageNodes), len(rows))
 
 			// verify data is correct
 			for _, r := range rows {
-				assert.Equal(t, bw[0], r.PutTotal)
-				assert.Equal(t, bw[1], r.GetTotal)
-				assert.Equal(t, bw[2], r.GetAuditTotal)
-				assert.Equal(t, bw[3], r.GetRepairTotal)
-				assert.Equal(t, atRest, r.AtRestTotal)
+				i := int64(i)
+				assert.Equal(t, i*bw[0], r.PutTotal)
+				assert.Equal(t, i*bw[1], r.GetTotal)
+				assert.Equal(t, i*bw[2], r.GetAuditTotal)
+				assert.Equal(t, i*bw[3], r.GetRepairTotal)
+				assert.Equal(t, float64(i)*atRest, r.AtRestTotal)
 				assert.NotNil(t, nodeData[r.NodeID])
+				assert.NotEmpty(t, r.Wallet)
 			}
 		}
 	})
