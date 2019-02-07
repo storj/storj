@@ -5,7 +5,6 @@ package metainfo
 
 import (
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
 	"storj.io/storj/pkg/pb"
@@ -19,14 +18,13 @@ var (
 
 // Client maintains variables required for talking to basic satellite endpoints
 type Client struct {
-	log       *zap.Logger
 	transport transport.Client
 	satellite string
 }
 
 // New creates a Client
-func New(log *zap.Logger, transport transport.Client, satellite string) *Client {
-	return &Client{log: log, transport: transport, satellite: satellite}
+func New(transport transport.Client, satellite string) *Client {
+	return &Client{transport: transport, satellite: satellite}
 }
 
 // Stat will return the health of a specific path
@@ -38,7 +36,7 @@ func (client *Client) Stat(ctx context.Context, path []byte, bucket []byte) (*pb
 	}
 
 	metainfoClient := pb.NewMetainfoClient(conn)
-	defer func() {
+	defer func() error {
 		err := conn.Close()
 		if err != nil {
 			return err
