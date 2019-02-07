@@ -6,6 +6,7 @@ package certdb_test
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/x509"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -31,6 +32,9 @@ func testDatabase(ctx context.Context, t *testing.T, upldb certdb.DB) {
 	//testing variables
 	upID, err := testidentity.NewTestIdentity(ctx)
 	require.NoError(t, err)
+	publicKeyEcdsa, _ := upID.Leaf.PublicKey.(*ecdsa.PublicKey)
+	upIDpubbytes, err := x509.MarshalPKIXPublicKey(publicKeyEcdsa)
+	require.NoError(t, err)
 
 	{ // New entry
 		err := upldb.SavePublicKey(ctx, upID.ID, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
@@ -43,8 +47,10 @@ func testDatabase(ctx context.Context, t *testing.T, upldb certdb.DB) {
 	}
 
 	{ // Get the corresponding Public key for the serialnum
-		agreement, err := upldb.GetPublicKey(ctx, upID.ID)
+		pubkey, err := upldb.GetPublicKey(ctx, upID.ID)
 		assert.NoError(t, err)
-		assert.NotNil(t, agreement)
+		pubbytes, err := x509.MarshalPKIXPublicKey(pubkey)
+		assert.NoError(t, err)
+		assert.EqualValues(t, upIDpubbytes, pubbytes)
 	}
 }

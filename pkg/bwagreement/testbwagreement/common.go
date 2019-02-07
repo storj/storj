@@ -4,14 +4,11 @@
 package testbwagreement
 
 import (
-	"context"
-	"crypto"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -44,20 +41,4 @@ func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, storage
 	}
 	// Combine Signature and Data for RenterBandwidthAllocation
 	return rba, auth.SignMessage(rba, *upID)
-}
-
-//SavePayerBandwidthAllocation creates a new entry of nodeid and corresponding publickey
-func SavePayerBandwidthAllocation(upldb certdb.DB, pba *pb.PayerBandwidthAllocation, publicKey crypto.PublicKey) error {
-	// store the corresponding uplink's id and public key into certDB db
-	ctx := context.Background()
-	_, err := upldb.GetPublicKey(ctx, pba.UplinkId)
-	if err != nil {
-		// no previous entry exists
-		err = upldb.SavePublicKey(ctx, pba.UplinkId, publicKey)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

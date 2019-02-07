@@ -55,7 +55,7 @@ type DB interface {
 
 // Server is an implementation of the pb.BandwidthServer interface
 type Server struct {
-	db     DB
+	bwdb   DB
 	certdb certdb.DB
 	pkey   crypto.PublicKey
 	NodeID storj.NodeID
@@ -65,7 +65,7 @@ type Server struct {
 // NewServer creates instance of Server
 func NewServer(db DB, upldb certdb.DB, pkey crypto.PublicKey, logger *zap.Logger, nodeID storj.NodeID) *Server {
 	// TODO: reorder arguments, rename logger -> log
-	return &Server{db: db, certdb: upldb, pkey: pkey, logger: logger, NodeID: nodeID}
+	return &Server{bwdb: db, certdb: upldb, pkey: pkey, logger: logger, NodeID: nodeID}
 }
 
 // Close closes resources
@@ -98,7 +98,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.RenterBandwidt
 	}
 
 	//save and return rersults
-	if err = s.db.CreateAgreement(ctx, rba); err != nil {
+	if err = s.bwdb.CreateAgreement(ctx, rba); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") ||
 			strings.Contains(err.Error(), "violates unique constraint") {
 			return reply, pb.ErrPayer.Wrap(auth.ErrSerial.Wrap(err))

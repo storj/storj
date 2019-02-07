@@ -10,6 +10,7 @@ import (
 	"crypto/x509"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -25,7 +26,7 @@ func (b *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, publicK
 		return Error.Wrap(err)
 	}
 
-	_, err = tx.Get_CertDB_By_Id(ctx, dbx.CertDB_Id(nodeID.Bytes()))
+	_, err = tx.Get_CertRecord_By_Id(ctx, dbx.CertRecord_Id(nodeID.Bytes()))
 	if err != nil {
 		// no rows err, so create/insert an entry
 		publicKeyEcdsa, ok := publicKey.(*ecdsa.PublicKey)
@@ -41,9 +42,9 @@ func (b *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, publicK
 		if err != nil {
 			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 		}
-		_, err = tx.Create_CertDB(ctx,
-			dbx.CertDB_Publickey(pubbytes),
-			dbx.CertDB_Id(nodeID.Bytes()),
+		_, err = tx.Create_CertRecord(ctx,
+			dbx.CertRecord_Publickey(pubbytes),
+			dbx.CertRecord_Id(nodeID.Bytes()),
 		)
 		if err != nil {
 			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
@@ -57,7 +58,7 @@ func (b *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, publicK
 }
 
 func (b *certDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (*ecdsa.PublicKey, error) {
-	dbxInfo, err := b.db.Get_CertDB_By_Id(ctx, dbx.CertDB_Id(nodeID.Bytes()))
+	dbxInfo, err := b.db.Get_CertRecord_By_Id(ctx, dbx.CertRecord_Id(nodeID.Bytes()))
 	if err != nil {
 		return nil, err
 	}

@@ -36,7 +36,7 @@ CREATE TABLE bwagreements (
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( serialnum )
 );
-CREATE TABLE certDBs (
+CREATE TABLE certRecords (
 	publickey bytea NOT NULL,
 	id bytea NOT NULL,
 	update_at timestamp with time zone NOT NULL,

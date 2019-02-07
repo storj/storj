@@ -69,7 +69,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 	{ // TestSameSerialNumberBandwidthAgreements
 		pbaFile1, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, time.Hour)
 		assert.NoError(t, err)
-		err = testbwagreement.SavePayerBandwidthAllocation(db.CertDB(), pbaFile1, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
+		err = db.CertDB().SavePublicKey(ctx, pbaFile1.UplinkId, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
 		assert.NoError(t, err)
 
 		ctxSN1, storageNode1 := getPeerContext(ctx, t)
@@ -99,7 +99,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 		{
 			pbaFile2, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, time.Hour)
 			assert.NoError(t, err)
-			err = testbwagreement.SavePayerBandwidthAllocation(db.CertDB(), pbaFile2, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
+			err = db.CertDB().SavePublicKey(ctx, pbaFile2.UplinkId, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
 			assert.NoError(t, err)
 
 			rbaNode1, err := testbwagreement.GenerateRenterBandwidthAllocation(pbaFile2, storageNode1, upID, 666)
@@ -134,7 +134,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 		{ // storage nodes can submit a bwagreement that will expire in 30 seconds
 			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, 30*time.Second)
 			assert.NoError(t, err)
-			err = testbwagreement.SavePayerBandwidthAllocation(db.CertDB(), pba, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
+			err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
 			assert.NoError(t, err)
 
 			ctxSN1, storageNode1 := getPeerContext(ctx, t)
@@ -149,7 +149,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 		{ // storage nodes can't submit a bwagreement that expires right now
 			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, 0*time.Second)
 			assert.NoError(t, err)
-			err = testbwagreement.SavePayerBandwidthAllocation(db.CertDB(), pba, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
+			err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
 			assert.NoError(t, err)
 
 			ctxSN1, storageNode1 := getPeerContext(ctx, t)
@@ -164,7 +164,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 		{ // storage nodes can't submit a bwagreement that expires yesterday
 			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, -23*time.Hour-55*time.Second)
 			assert.NoError(t, err)
-			err = testbwagreement.SavePayerBandwidthAllocation(db.CertDB(), pba, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
+			err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
 			assert.NoError(t, err)
 
 			ctxSN1, storageNode1 := getPeerContext(ctx, t)
@@ -182,7 +182,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 		if !assert.NoError(t, err) {
 			t.Fatal(err)
 		}
-		err = testbwagreement.SavePayerBandwidthAllocation(db.CertDB(), pba, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
+		err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
 		assert.NoError(t, err)
 
 		ctxSN1, storageNode1 := getPeerContext(ctx, t)
@@ -299,7 +299,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 		ctxSN2, storageNode2 := getPeerContext(ctx, t)
 		pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, time.Hour)
 		assert.NoError(t, err)
-		err = testbwagreement.SavePayerBandwidthAllocation(db.CertDB(), pba, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
+		err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
 		assert.NoError(t, err)
 
 		{ // Storage node sends an corrupted signuature to force a satellite crash
