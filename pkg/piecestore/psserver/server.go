@@ -171,17 +171,17 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 
 	id, err := getNamespacedPieceID([]byte(in.GetId()), getNamespace(authorization))
 	if err != nil {
-		return nil, err
+		return nil, ServerError.Wrap(err)
 	}
 
 	path, err := s.storage.PiecePath(id)
 	if err != nil {
-		return nil, err
+		return nil, ServerError.Wrap(err)
 	}
 
 	match, err := regexp.MatchString("^[A-Za-z0-9]{20,64}$", id)
 	if err != nil {
-		return nil, err
+		return nil, ServerError.Wrap(err)
 	}
 
 	if !match {
@@ -190,13 +190,13 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 
 	fileInfo, err := os.Stat(path)
 	if err != nil {
-		return nil, err
+		return nil, ServerError.Wrap(err)
 	}
 
 	// Read database to calculate expiration
 	ttl, err := s.DB.GetTTLByID(id)
 	if err != nil {
-		return nil, err
+		return nil, ServerError.Wrap(err)
 	}
 
 	s.log.Info("Successfully retrieved meta", zap.String("Piece ID", in.GetId()))
@@ -209,7 +209,7 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, e
 
 	statsSummary, err := s.retrieveStats()
 	if err != nil {
-		return nil, err
+		return nil, ServerError.Wrap(err)
 	}
 
 	s.log.Info("Successfully retrieved Stats...")
@@ -220,12 +220,12 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, e
 func (s *Server) retrieveStats() (*pb.StatSummary, error) {
 	totalUsed, err := s.DB.SumTTLSizes()
 	if err != nil {
-		return nil, err
+		return nil, ServerError.Wrap(err)
 	}
 
 	totalUsedBandwidth, err := s.DB.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
 	if err != nil {
-		return nil, err
+		return nil, ServerError.Wrap(err)
 	}
 
 	return &pb.StatSummary{UsedSpace: totalUsed, AvailableSpace: (s.totalAllocated - totalUsed), UsedBandwidth: totalUsedBandwidth, AvailableBandwidth: (s.totalBwAllocated - totalUsedBandwidth)}, nil
@@ -253,7 +253,7 @@ func (s *Server) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_Dashb
 
 			if err := stream.Send(data); err != nil {
 				s.log.Error("error sending dashboard stream", zap.Error(err))
-				return err
+				return ServerError.Wrap(err)
 			}
 		}
 	}
@@ -268,10 +268,10 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 	}
 	id, err := getNamespacedPieceID([]byte(in.GetId()), getNamespace(authorization))
 	if err != nil {
-		return nil, err
+		return nil, ServerError.Wrap(err)
 	}
 	if err := s.deleteByID(id); err != nil {
-		return nil, err
+		return nil, ServerError.Wrap(err)
 	}
 
 	s.log.Info("Successfully deleted", zap.String("Piece ID", fmt.Sprint(in.GetId())))
@@ -281,10 +281,10 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 
 func (s *Server) deleteByID(id string) error {
 	if err := s.storage.Delete(id); err != nil {
-		return err
+		return ServerError.Wrap(err)
 	}
 	if err := s.DB.DeleteTTLByID(id); err != nil {
-		return err
+		return ServerError.Wrap(err)
 	}
 	return nil
 }
@@ -372,7 +372,7 @@ func getNamespacedPieceID(pieceID, namespace []byte) (string, error) {
 	mac := hmac.New(sha512.New, namespace)
 	_, err := mac.Write(pieceID)
 	if err != nil {
-		return "", err
+		return "", ServerError.Wrap(err)
 	}
 	h := mac.Sum(nil)
 	return base58.Encode(h), nil
