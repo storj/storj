@@ -75,7 +75,6 @@ var (
 		Address         string `default:":28967" help:"address for dashboard service"`
 		ExternalAddress string `default:":28967" help:"address that your node is listening on if using a tunneling service"`
 		BootstrapAddr   string `default:"bootstrap.storj.io:8888" help:"address of server the storage node was bootstrapped against"`
-		Color           bool   `default:"false" help:"use color in dashboard interface"`
 	}
 
 	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
@@ -84,6 +83,7 @@ var (
 	defaultDiagDir     string
 	confDir            string
 	identityDir        string
+	useColor           bool
 )
 
 const (
@@ -110,6 +110,7 @@ func init() {
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
+	rootCmd.PersistentFlags().BoolVar(&useColor, "color", false, "use color in user interface")
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
