@@ -37,6 +37,8 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
                 'addTeamMemberPopupButtonSVG',
                 'sortTeamMemberByDropdown',
 				'sortTeamMemberByDropdownButton',
+                'createAccountButton',
+                'successfulRegistrationPopup',
             ]
         };
     },

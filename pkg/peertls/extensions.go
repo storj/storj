@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/pkg/pkcrypto"
 )
 
 const (
@@ -129,7 +131,7 @@ func ParseExtensions(c TLSExtConfig, opts ParseExtOptions) (handlers ExtensionHa
 func NewRevocationExt(key crypto.PrivateKey, revokedCert *x509.Certificate) (pkix.Extension, error) {
 	nowUnix := time.Now().Unix()
 
-	hash, err := SHA256Hash(revokedCert.Raw)
+	hash, err := pkcrypto.SHA256Hash(revokedCert.Raw)
 	if err != nil {
 		return pkix.Extension{}, err
 	}
@@ -174,7 +176,7 @@ func AddRevocationExt(key crypto.PrivateKey, revokedCert, newCert *x509.Certific
 // AddSignedCertExt generates a signed certificate extension for a cert and attaches
 // it to that cert.
 func AddSignedCertExt(key crypto.PrivateKey, cert *x509.Certificate) error {
-	signature, err := signHashOf(key, cert.RawTBSCertificate)
+	signature, err := pkcrypto.SignHashOf(key, cert.RawTBSCertificate)
 	if err != nil {
 		return err
 	}
@@ -235,7 +237,7 @@ func (e ExtensionHandlers) VerifyFunc() PeerCertVerificationFunc {
 func (r Revocation) Verify(signingCert *x509.Certificate) error {
 	pubKey, ok := signingCert.PublicKey.(crypto.PublicKey)
 	if !ok {
-		return ErrUnsupportedKey.New("%T", signingCert.PublicKey)
+		return pkcrypto.ErrUnsupportedKey.New("%T", signingCert.PublicKey)
 	}
 
 	data, err := r.TBSBytes()
@@ -243,7 +245,7 @@ func (r Revocation) Verify(signingCert *x509.Certificate) error {
 		return err
 	}
 
-	if err := VerifySignature(r.Signature, data, pubKey); err != nil {
+	if err := pkcrypto.VerifySignature(r.Signature, data, pubKey); err != nil {
 		return err
 	}
 	return nil
@@ -261,7 +263,7 @@ func (r *Revocation) TBSBytes() ([]byte, error) {
 	// NB: append timestamp to revoked cert bytes
 	binary.PutVarint(toHash.Bytes(), r.Timestamp)
 
-	return SHA256Hash(toHash.Bytes())
+	return pkcrypto.SHA256Hash(toHash.Bytes())
 }
 
 // Sign generates a signature using the passed key and attaches it to the revocation.
@@ -271,7 +273,7 @@ func (r *Revocation) Sign(key crypto.PrivateKey) error {
 		return err
 	}
 
-	r.Signature, err = signHashOf(key, data)
+	r.Signature, err = pkcrypto.SignHashOf(key, data)
 	if err != nil {
 		return err
 	}
@@ -309,7 +311,7 @@ func verifyCAWhitelistSignedLeafFunc(caWhitelist []*x509.Certificate) extensionV
 
 		leaf := chains[0][LeafIndex]
 		for _, ca := range caWhitelist {
-			err := VerifySignature(certExt.Value, leaf.RawTBSCertificate, ca.PublicKey)
+			err := pkcrypto.VerifySignature(certExt.Value, leaf.RawTBSCertificate, ca.PublicKey)
 			if err == nil {
 				return nil
 			}

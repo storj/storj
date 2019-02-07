@@ -19,10 +19,11 @@ import (
 
 	"storj.io/storj/internal/testpeertls"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 )
 
 func TestNewCert_CA(t *testing.T) {
-	caKey, err := peertls.NewKey()
+	caKey, err := pkcrypto.GeneratePrivateKey()
 	assert.NoError(t, err)
 
 	caTemplate, err := peertls.CATemplate()
@@ -40,7 +41,7 @@ func TestNewCert_CA(t *testing.T) {
 }
 
 func TestNewCert_Leaf(t *testing.T) {
-	caKey, err := peertls.NewKey()
+	caKey, err := pkcrypto.GeneratePrivateKey()
 	assert.NoError(t, err)
 
 	caTemplate, err := peertls.CATemplate()
@@ -49,7 +50,7 @@ func TestNewCert_Leaf(t *testing.T) {
 	caCert, err := peertls.NewCert(caKey, nil, caTemplate, nil)
 	assert.NoError(t, err)
 
-	leafKey, err := peertls.NewKey()
+	leafKey, err := pkcrypto.GeneratePrivateKey()
 	assert.NoError(t, err)
 
 	leafTemplate, err := peertls.LeafTemplate()
@@ -109,7 +110,7 @@ func TestVerifyPeerCertChains(t *testing.T) {
 	err = peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)([][]byte{leafCert.Raw, caCert.Raw}, nil)
 	assert.NoError(t, err)
 
-	wrongKey, err := peertls.NewKey()
+	wrongKey, err := pkcrypto.GeneratePrivateKey()
 	assert.NoError(t, err)
 
 	leafCert, err = peertls.NewCert(leafKey, wrongKey, leafCert, caCert)
@@ -218,7 +219,7 @@ func TestAddSignedCertExt(t *testing.T) {
 		t.FailNow()
 	}
 
-	err = peertls.VerifySignature(
+	err = pkcrypto.VerifySignature(
 		chain[0].ExtraExtensions[0].Value,
 		chain[0].RawTBSCertificate,
 		&ecKey.PublicKey,
@@ -243,7 +244,7 @@ func TestSignLeafExt(t *testing.T) {
 		t.FailNow()
 	}
 
-	err = peertls.VerifySignature(leafCert.ExtraExtensions[0].Value, leafCert.RawTBSCertificate, &caECKey.PublicKey)
+	err = pkcrypto.VerifySignature(leafCert.ExtraExtensions[0].Value, leafCert.RawTBSCertificate, &caECKey.PublicKey)
 	assert.NoError(t, err)
 }
 
@@ -252,7 +253,7 @@ func TestRevocation_Sign(t *testing.T) {
 	assert.NoError(t, err)
 	leafCert, caKey := chain[0], keys[0]
 
-	leafHash, err := peertls.SHA256Hash(leafCert.Raw)
+	leafHash, err := pkcrypto.SHA256Hash(leafCert.Raw)
 	assert.NoError(t, err)
 
 	rev := peertls.Revocation{
@@ -270,7 +271,7 @@ func TestRevocation_Verify(t *testing.T) {
 	assert.NoError(t, err)
 	leafCert, caCert, caKey := chain[0], chain[1], keys[0]
 
-	leafHash, err := peertls.SHA256Hash(leafCert.Raw)
+	leafHash, err := pkcrypto.SHA256Hash(leafCert.Raw)
 	assert.NoError(t, err)
 
 	rev := peertls.Revocation{
@@ -291,7 +292,7 @@ func TestRevocation_Marshal(t *testing.T) {
 	assert.NoError(t, err)
 	leafCert, caKey := chain[0], keys[0]
 
-	leafHash, err := peertls.SHA256Hash(leafCert.Raw)
+	leafHash, err := pkcrypto.SHA256Hash(leafCert.Raw)
 	assert.NoError(t, err)
 
 	rev := peertls.Revocation{
@@ -319,7 +320,7 @@ func TestRevocation_Unmarshal(t *testing.T) {
 	assert.NoError(t, err)
 	leafCert, caKey := chain[0], keys[0]
 
-	leafHash, err := peertls.SHA256Hash(leafCert.Raw)
+	leafHash, err := pkcrypto.SHA256Hash(leafCert.Raw)
 	assert.NoError(t, err)
 
 	rev := peertls.Revocation{
