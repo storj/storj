@@ -247,7 +247,7 @@ func (r Revocation) Verify(signingCert *x509.Certificate) error {
 // TBSBytes (ToBeSigned) returns the hash of the revoked certificate hash and
 // the timestamp (i.e. hash(hash(cert bytes) + timestamp)).
 func (r *Revocation) TBSBytes() []byte {
-	var tsBytes [8]byte
+	var tsBytes [binary.MaxVarintLen64]byte
 	binary.PutVarint(tsBytes[:], r.Timestamp)
 	toHash := append(append([]byte{}, r.CertHash...), tsBytes[:]...)
 
