@@ -129,9 +129,9 @@ func saveIdentityTar(path string, key *ecdsa.PrivateKey, id storj.NodeID) error 
 	tw := tar.NewWriter(tarData)
 
 	caCertBytes, caCertErr := peertls.ChainBytes(ca.Cert)
-	caKeyBytes, caKeyErr := pkcrypto.KeyBytes(ca.Key)
+	caKeyBytes, caKeyErr := pkcrypto.PrivateKeyToPEM(ca.Key)
 	identCertBytes, identCertErr := peertls.ChainBytes(ident.Leaf, ident.CA)
-	identKeyBytes, identKeyErr := pkcrypto.KeyBytes(ident.Key)
+	identKeyBytes, identKeyErr := pkcrypto.PrivateKeyToPEM(ident.Key)
 	if err := errs.Combine(caCertErr, caKeyErr, identCertErr, identKeyErr); err != nil {
 		return err
 	}

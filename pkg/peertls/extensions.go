@@ -131,10 +131,7 @@ func ParseExtensions(c TLSExtConfig, opts ParseExtOptions) (handlers ExtensionHa
 func NewRevocationExt(key crypto.PrivateKey, revokedCert *x509.Certificate) (pkix.Extension, error) {
 	nowUnix := time.Now().Unix()
 
-	hash, err := pkcrypto.SHA256Hash(revokedCert.Raw)
-	if err != nil {
-		return pkix.Extension{}, err
-	}
+	hash := pkcrypto.SHA256Hash(revokedCert.Raw)
 	rev := Revocation{
 		Timestamp: nowUnix,
 		CertHash:  make([]byte, len(hash)),
@@ -240,11 +237,7 @@ func (r Revocation) Verify(signingCert *x509.Certificate) error {
 		return pkcrypto.ErrUnsupportedKey.New("%T", signingCert.PublicKey)
 	}
 
-	data, err := r.TBSBytes()
-	if err != nil {
-		return err
-	}
-
+	data := r.TBSBytes()
 	if err := pkcrypto.VerifySignature(r.Signature, data, pubKey); err != nil {
 		return err
 	}
@@ -253,30 +246,22 @@ func (r Revocation) Verify(signingCert *x509.Certificate) error {
 
 // TBSBytes (ToBeSigned) returns the hash of the revoked certificate hash and
 // the timestamp (i.e. hash(hash(cert bytes) + timestamp)).
-func (r *Revocation) TBSBytes() ([]byte, error) {
-	toHash := new(bytes.Buffer)
-	_, err := toHash.Write(r.CertHash)
-	if err != nil {
-		return nil, ErrExtension.Wrap(err)
-	}
+func (r *Revocation) TBSBytes() []byte {
+	var tsBytes [binary.MaxVarintLen64]byte
+	binary.PutVarint(tsBytes[:], r.Timestamp)
+	toHash := append(append([]byte{}, r.CertHash...), tsBytes[:]...)
 
-	// NB: append timestamp to revoked cert bytes
-	binary.PutVarint(toHash.Bytes(), r.Timestamp)
-
-	return pkcrypto.SHA256Hash(toHash.Bytes())
+	return pkcrypto.SHA256Hash(toHash)
 }
 
 // Sign generates a signature using the passed key and attaches it to the revocation.
 func (r *Revocation) Sign(key crypto.PrivateKey) error {
-	data, err := r.TBSBytes()
+	data := r.TBSBytes()
+	sig, err := pkcrypto.SignHashOf(key, data)
 	if err != nil {
 		return err
 	}
-
-	r.Signature, err = pkcrypto.SignHashOf(key, data)
-	if err != nil {
-		return err
-	}
+	r.Signature = sig
 	return nil
 }
 
