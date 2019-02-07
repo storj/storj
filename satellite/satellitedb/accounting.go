@@ -210,7 +210,7 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 	    ORDER BY n.id`
 	rows, err := db.db.DB.Query(db.db.Rebind(sql), start.UTC(), end.UTC())
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 	csv := make([]*accounting.CSVRow, 0, 0)
@@ -220,11 +220,11 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 		err := rows.Scan(&nodeID, &r.NodeCreationDate, &r.AuditSuccessRatio, &r.AtRestTotal, &r.GetRepairTotal,
 			&r.PutRepairTotal, &r.GetAuditTotal, &r.PutTotal, &r.GetTotal, &r.Wallet)
 		if err != nil {
-			return csv, err
+			return csv, Error.Wrap(err)
 		}
 		id, err := storj.NodeIDFromBytes(nodeID)
 		if err != nil {
-			return csv, err
+			return csv, Error.Wrap(err)
 		}
 		r.NodeID = id
 		csv = append(csv, r)
