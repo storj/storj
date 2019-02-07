@@ -67,8 +67,8 @@ type TokenStore struct {
 	creds Credentials
 }
 
-// NewTokenStorage creates new instance of token storage
-func NewTokenStorage(creds Credentials, token Token) *TokenStore {
+// NewTokenStore creates new instance of token storage
+func NewTokenStore(creds Credentials, token Token) *TokenStore {
 	return &TokenStore{
 		token: token,
 		creds: creds,
