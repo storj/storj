@@ -59,7 +59,10 @@ func (cycle *Cycle) Start(ctx context.Context, group *errgroup.Group, fn func(ct
 	})
 }
 
-// Run runs the specified function.
+// Run runs the specified in an interval.
+//
+// Every interval `fn` is started.
+// When `fn` is not fast enough, it may skip some of those executions.
 func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error) error {
 	cycle.initialize()
 	defer close(cycle.stop)
