@@ -22,6 +22,8 @@ func TestCycle_Basic(t *testing.T) {
 
 	var group errgroup.Group
 
+	start := time.Now()
+
 	cycle.Start(ctx, &group, func(ctx context.Context) error {
 		atomic.AddInt64(&count, 1)
 		return nil
@@ -60,4 +62,12 @@ func TestCycle_Basic(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	testDuration := time.Since(start)
+	if testDuration > 7*time.Second {
+		t.Errorf("test took too long %v, expected approximately 3s", testDuration)
+	}
+
+	// shouldn't block
+	cycle.Trigger()
 }
