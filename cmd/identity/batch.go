@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 )
@@ -125,9 +126,9 @@ func saveIdentityTar(path string, key *ecdsa.PrivateKey, id storj.NodeID) error 
 	tw := tar.NewWriter(tarData)
 
 	caCertBytes, caCertErr := peertls.ChainBytes(ca.Cert)
-	caKeyBytes, caKeyErr := peertls.KeyBytes(ca.Key)
+	caKeyBytes, caKeyErr := pkcrypto.KeyBytes(ca.Key)
 	identCertBytes, identCertErr := peertls.ChainBytes(ident.Leaf, ident.CA)
-	identKeyBytes, identKeyErr := peertls.KeyBytes(ident.Key)
+	identKeyBytes, identKeyErr := pkcrypto.KeyBytes(ident.Key)
 	if err := errs.Combine(caCertErr, caKeyErr, identCertErr, identKeyErr); err != nil {
 		return err
 	}

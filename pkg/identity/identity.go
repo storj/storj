@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
@@ -298,7 +299,7 @@ func (ic Config) Save(fi *FullIdentity) error {
 	}
 
 	if ic.KeyPath != "" {
-		writeKeyErr = peertls.WriteKey(&keyData, fi.Key)
+		writeKeyErr = pkcrypto.WriteKey(&keyData, fi.Key)
 		writeKeyDataErr = writeKeyData(ic.KeyPath, keyData.Bytes())
 	}
 

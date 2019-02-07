@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/process"
 )
 
@@ -194,7 +195,7 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 }
 
 func printExtensions(cert []byte, exts []pkix.Extension) error {
-	hash, err := peertls.SHA256Hash(cert)
+	hash, err := pkcrypto.SHA256Hash(cert)
 	if err != nil {
 		return err
 	}

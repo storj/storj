@@ -14,7 +14,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -54,9 +54,9 @@ func DecodeAndParseChainPEM(PEMBytes []byte) ([]*x509.Certificate, error) {
 			break
 		}
 		switch pemBlock.Type {
-		case peertls.BlockTypeCertificate:
+		case pkcrypto.BlockTypeCertificate:
 			encChain.AddCert(pemBlock.Bytes)
-		case peertls.BlockTypeExtension:
+		case pkcrypto.BlockTypeExtension:
 			if err := encChain.AddExtension(pemBlock.Bytes); err != nil {
 				blockErrs.Add(err)
 			}
