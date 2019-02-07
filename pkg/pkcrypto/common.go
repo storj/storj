@@ -8,12 +8,20 @@ import (
 )
 
 const (
-	// BlockTypeEcPrivateKey is the value to define a block type of private key
-	BlockTypeEcPrivateKey = "EC PRIVATE KEY"
-	// BlockTypeCertificate is the value to define a block type of certificates
-	BlockTypeCertificate = "CERTIFICATE"
-	// BlockTypeExtension is the value to define a block type of certificate extensions
-	BlockTypeExtension = "EXTENSION"
+	// BlockLabelEcPrivateKey is the value to define a block label of EC private key
+	// (which is used here only for backwards compatibility). Use a general PKCS#8
+	// encoding instead.
+	BlockLabelEcPrivateKey = "EC PRIVATE KEY"
+	// BlockLabelPrivateKey is the value to define a block label of general private key
+	// (used for PKCS#8-encoded private keys of type RSA, ECDSA, and others).
+	BlockLabelPrivateKey = "PRIVATE KEY"
+	// BlockLabelPublicKey is the value to define a block label of general public key
+	// (used for PKIX-encoded public keys of type RSA, ECDSA, and others).
+	BlockLabelPublicKey = "PUBLIC KEY"
+	// BlockLabelCertificate is the value to define a block label of certificates
+	BlockLabelCertificate = "CERTIFICATE"
+	// BlockLabelExtension is the value to define a block label of certificate extensions
+	BlockLabelExtension = "EXTENSION"
 )
 
 var (
@@ -25,4 +33,6 @@ var (
 	ErrSign = errs.Class("unable to generate signature")
 	// ErrVerifySignature is used when a cert-chain signature verificaion error occurs.
 	ErrVerifySignature = errs.Class("tls certificate signature verification error")
+	// ErrChainLength is used when the length of a cert chain isn't what was expected
+	ErrChainLength = errs.Class("cert chain length error")
 )

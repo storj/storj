@@ -10,6 +10,7 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 )
 
 // Options holds config, identity, and peer verification function data for use with a grpc server.
@@ -53,7 +54,7 @@ func (opts *Options) configure(c Config) (err error) {
 				return Error.New("unable to find whitelist file %v: %v", c.PeerCAWhitelistPath, err)
 			}
 		}
-		parsed, err := identity.DecodeAndParseChainPEM(whitelist)
+		parsed, err := pkcrypto.CertsFromPEM(whitelist)
 		if err != nil {
 			return Error.Wrap(err)
 		}

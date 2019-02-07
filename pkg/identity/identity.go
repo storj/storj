@@ -85,15 +85,11 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 		return nil, err
 	}
 
-	keysBytes, err := decodePEM(keyPEM)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
 	// NB: there shouldn't be multiple keys in the key file but if there
 	// are, this uses the first one
-	key, err := x509.ParseECPrivateKey(keysBytes[0])
+	key, err := pkcrypto.PrivateKeyFromPEM(keyPEM)
 	if err != nil {
-		return nil, errs.New("unable to parse EC private key: %v", err)
+		return nil, err
 	}
 
 	return &FullIdentity{
@@ -108,12 +104,12 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 // PeerIdentityFromPEM loads a PeerIdentity from a certificate chain and
 // private key PEM-encoded bytes
 func PeerIdentityFromPEM(chainPEM []byte) (*PeerIdentity, error) {
-	chain, err := DecodeAndParseChainPEM(chainPEM)
+	chain, err := pkcrypto.CertsFromPEM(chainPEM)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 	if len(chain) < peertls.CAIndex+1 {
-		return nil, ErrChainLength.New("identity chain does not contain a CA certificate")
+		return nil, pkcrypto.ErrChainLength.New("identity chain does not contain a CA certificate")
 	}
 	nodeID, err := NodeIDFromKey(chain[peertls.CAIndex].PublicKey)
 	if err != nil {
@@ -126,19 +122,6 @@ func PeerIdentityFromPEM(chainPEM []byte) (*PeerIdentity, error) {
 		Leaf:      chain[peertls.LeafIndex],
 		ID:        nodeID,
 	}, nil
-}
-
-// ParseCertChain converts a chain of certificate bytes into x509 certs
-func ParseCertChain(chain [][]byte) ([]*x509.Certificate, error) {
-	c := make([]*x509.Certificate, len(chain))
-	for i, ct := range chain {
-		cp, err := x509.ParseCertificate(ct)
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-		c[i] = cp
-	}
-	return c, nil
 }
 
 // PeerIdentityFromCerts loads a PeerIdentity from a pair of leaf and ca x509 certificates
@@ -192,7 +175,7 @@ func NodeIDFromCertPath(certPath string) (storj.NodeID, error) {
 
 // NodeIDFromPEM loads a node ID from certificate bytes
 func NodeIDFromPEM(pemBytes []byte) (storj.NodeID, error) {
-	chain, err := DecodeAndParseChainPEM(pemBytes)
+	chain, err := pkcrypto.CertsFromPEM(pemBytes)
 	if err != nil {
 		return storj.NodeID{}, Error.New("invalid identity certificate")
 	}
@@ -299,7 +282,7 @@ func (ic Config) Save(fi *FullIdentity) error {
 	}
 
 	if ic.KeyPath != "" {
-		writeKeyErr = pkcrypto.WriteKey(&keyData, fi.Key)
+		writeKeyErr = pkcrypto.WritePrivateKeyPEM(&keyData, fi.Key)
 		writeKeyDataErr = writeKeyData(ic.KeyPath, keyData.Bytes())
 	}
 
