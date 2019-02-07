@@ -1,0 +1,178 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package migrate
+
+import (
+	"database/sql"
+	"errors"
+	"regexp"
+	"strconv"
+	"time"
+
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+)
+
+var (
+	SQLError = errs.Class("migrate SQL")
+)
+
+// Migration describes a migration steps
+type Migration struct {
+	Table    string
+	OnCreate Action
+	Steps    []*Step
+}
+
+// Step describes a single step in migration.
+type Step struct {
+	Description string
+	Version     int // Versions should start at 1
+	Action      Action
+}
+
+// Action is something that needs to be done
+type Action interface {
+	Run(log *zap.Logger, db DB, tx *sql.Tx) error
+}
+
+// ValidTableName checks whether the specified table name is valid
+func (migration *Migration) ValidTableName() error {
+	matched, err := regexp.MatchString(`^[a-z_]+$`, migration.Table)
+	if !matched || err != nil {
+		return errors.New("invalid")
+	}
+	return nil
+}
+
+// Run runs the migration steps
+func (migration *Migration) Run(log *zap.Logger, db DB) error {
+	err := migration.createVersionTable(log, db)
+	if err != nil {
+		return Error.New("creating version table failed: %v", err)
+	}
+
+	version, err := migration.getLatestVersion(log, db)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if version < 0 {
+		log.Info("Latest Version", zap.Int("version", version))
+	} else {
+		log.Info("No Version")
+	}
+
+	if version < 0 && migration.OnCreate != nil {
+		log := log.Named("z")
+		tx, err := db.Begin()
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		err = migration.OnCreate.Run(log, db, tx)
+		if err != nil {
+			return Error.Wrap(errs.Combine(err, tx.Rollback()))
+		}
+
+		err = migration.addVersion(tx, 0)
+		if err != nil {
+			return Error.Wrap(errs.Combine(err, tx.Rollback()))
+		}
+
+		if err := tx.Commit(); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	for _, step := range migration.Steps {
+		log := log.Named(strconv.Itoa(step.Version))
+		log.Info(step.Description)
+
+		tx, err := db.Begin()
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		err = step.Action.Run(log, db, tx)
+		if err != nil {
+			return Error.Wrap(errs.Combine(err, tx.Rollback()))
+		}
+
+		err = migration.addVersion(tx, step.Version)
+		if err != nil {
+			return Error.Wrap(errs.Combine(err, tx.Rollback()))
+		}
+
+		if err := tx.Commit(); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+// createVersionTable creates a new version tabe
+func (migration *Migration) createVersionTable(log *zap.Logger, db DB) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, err = tx.Exec(db.Rebind(`CREATE TABLE IF NOT EXISTS ` + migration.Table + ` (version integer, commited_at text)`))
+	if err != nil {
+		return Error.Wrap(errs.Combine(err, tx.Rollback()))
+	}
+
+	return Error.Wrap(tx.Commit())
+}
+
+// getLatestVersion finds the latest version table
+func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (version int, err error) {
+	tx, err := db.Begin()
+	if err != nil {
+		return -1, Error.Wrap(err)
+	}
+
+	err = tx.QueryRow(db.Rebind(`SELECT MAX(version) FROM ` + migration.Table)).Scan(&version)
+	if err == sql.ErrNoRows {
+		return -1, nil
+	}
+	if err != nil {
+		return -1, Error.Wrap(errs.Combine(err, tx.Rollback()))
+	}
+
+	return version, Error.Wrap(tx.Commit())
+}
+
+// addVersion adds information about a new migration
+func (migration *Migration) addVersion(tx *sql.Tx, version int) error {
+	_, err := tx.Exec(`
+		INSERT INTO `+migration.Table+`(version, commited_at)
+		VALUES (?, ?)`,
+		version, time.Now().String(),
+	)
+	return err
+}
+
+// SQL statements that are executed on the database
+type SQL []string
+
+func (sql SQL) Run(log *zap.Logger, db DB, tx *sql.Tx) (err error) {
+	for _, query := range sql {
+		_, err := tx.Exec(db.Rebind(query))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Func is an arbitrary operation
+type Func func(log *zap.Logger, db DB, tx *sql.Tx) error
+
+// Run runs the migration
+func (fn Func) Run(log *zap.Logger, db DB, tx *sql.Tx) error {
+	return fn(log, db, tx)
+}
