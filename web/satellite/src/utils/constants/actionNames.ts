@@ -10,6 +10,7 @@ export const APP_STATE_ACTIONS = {
     TOGGLE_DEL_ACCOUNT: 'toggleDeleteAccountPopup',
     TOGGLE_NEW_API_KEY: "toggleNewAPIKeyPopup",
 	TOGGLE_SORT_PM_BY_DROPDOWN: 'toggleSortProjectMembersByPopup',
+	TOGGLE_SUCCESSFUL_REGISTRATION_POPUP: 'toggleSuccessfulRegistrationPopup',
 	CLOSE_POPUPS: 'closePopups',
 };
 
@@ -49,6 +50,7 @@ export const USER_ACTIONS = {
 	DELETE: 'deleteAccount',
 	GET: 'getUser',
 	CLEAR: 'clearUser',
+	ACTIVATE: 'activateAccount',
 };
 
 export const API_KEYS_ACTIONS = {

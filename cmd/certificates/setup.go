@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/process"
 )
@@ -25,11 +24,6 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 )
-
-func init() {
-	rootCmd.AddCommand(setupCmd)
-	cfgstruct.BindSetup(setupCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-}
 
 func cmdSetup(cmd *cobra.Command, args []string) error {
 	setupDir, err := filepath.Abs(confDir)

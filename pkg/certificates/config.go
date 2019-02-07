@@ -86,7 +86,7 @@ func (c CertServerConfig) NewAuthDB() (*AuthorizationDB, error) {
 }
 
 // Run implements the responsibility interface, starting a certificate signing server.
-func (c CertServerConfig) Run(ctx context.Context, server *server.Server) (err error) {
+func (c CertServerConfig) Run(ctx context.Context, srv *server.Server) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	authDB, err := c.NewAuthDB()
@@ -102,17 +102,17 @@ func (c CertServerConfig) Run(ctx context.Context, server *server.Server) (err e
 		return err
 	}
 
-	srv := NewServer(
+	certSrv := NewServer(
 		zap.L(),
 		signer,
 		authDB,
 		uint16(c.MinDifficulty),
 	)
-	pb.RegisterCertificatesServer(server.GRPC(), srv)
+	pb.RegisterCertificatesServer(srv.GRPC(), certSrv)
 
-	srv.log.Info(
+	certSrv.log.Info(
 		"Certificate signing server running",
-		zap.String("address", server.Addr().String()),
+		zap.String("address", srv.Addr().String()),
 	)
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -120,11 +120,11 @@ func (c CertServerConfig) Run(ctx context.Context, server *server.Server) (err e
 	group.Go(func() error {
 		defer cancel()
 		<-ctx.Done()
-		return server.Close()
+		return srv.Close()
 	})
 	group.Go(func() error {
 		defer cancel()
-		return server.Run(ctx)
+		return srv.Run(ctx)
 	})
 
 	return group.Wait()

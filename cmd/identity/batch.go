@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 )
@@ -76,6 +77,9 @@ func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
 
 	counter := new(uint32)
 	diffCounts := [256]uint32{}
+	if err := renderStats(screen, diffCounts[:]); err != nil {
+		return err
+	}
 	return identity.GenerateKeys(ctx, uint16(keyCfg.MinDifficulty), keyCfg.Concurrency,
 		func(k *ecdsa.PrivateKey, id storj.NodeID) (done bool, err error) {
 			difficulty, err := id.Difficulty()
@@ -125,9 +129,9 @@ func saveIdentityTar(path string, key *ecdsa.PrivateKey, id storj.NodeID) error 
 	tw := tar.NewWriter(tarData)
 
 	caCertBytes, caCertErr := peertls.ChainBytes(ca.Cert)
-	caKeyBytes, caKeyErr := peertls.KeyBytes(ca.Key)
+	caKeyBytes, caKeyErr := pkcrypto.KeyBytes(ca.Key)
 	identCertBytes, identCertErr := peertls.ChainBytes(ident.Leaf, ident.CA)
-	identKeyBytes, identKeyErr := peertls.KeyBytes(ident.Key)
+	identKeyBytes, identKeyErr := pkcrypto.KeyBytes(ident.Key)
 	if err := errs.Combine(caCertErr, caKeyErr, identCertErr, identKeyErr); err != nil {
 		return err
 	}
@@ -186,8 +190,8 @@ func renderStats(screen *cui.Screen, stats []uint32) error {
 
 	total := uint32(0)
 
-	for difficulty := len(stats); difficulty > 0; difficulty-- {
-		count := atomic.LoadUint32(&stats[difficulty-1])
+	for difficulty := len(stats) - 1; difficulty >= 0; difficulty-- {
+		count := atomic.LoadUint32(&stats[difficulty])
 		total += count
 		if count == 0 {
 			continue

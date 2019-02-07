@@ -8,79 +8,75 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/pkg/accounting/rollup"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/satellitedb"
 )
 
-func TestQueryOneDay(t *testing.T) {
-	// TODO: use testplanet
+func TestQuery(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		days := 5
+		atRest := float64(5000)
+		bw := []int64{1000, 2000, 3000, 4000}
 
-	ctx, r, db, nodeData, cleanup := createRollup(t)
-	defer cleanup()
+		time.Sleep(time.Second * 2)
 
-	now := time.Now().UTC()
-	later := now.Add(time.Hour * 24)
+		nodeData, bwTotals := createData(planet, atRest, bw)
 
-	err := db.Accounting().SaveAtRestRaw(ctx, now, nodeData)
-	assert.NoError(t, err)
+		// Set timestamp back by the number of days we want to save
+		timestamp := time.Now().UTC().AddDate(0, 0, -1*days)
+		start := timestamp
 
-	// test should return error because we delete latest day's rollup
-	err = r.Query(ctx)
-	assert.NoError(t, err)
+		for i := 1; i <= days; i++ {
+			err := planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, timestamp, timestamp, nodeData)
+			assert.NoError(t, err)
 
-	rows, err := db.Accounting().QueryPaymentInfo(ctx, now, later)
-	assert.Equal(t, 0, len(rows))
-	assert.NoError(t, err)
+			err = planet.Satellites[0].DB.Accounting().SaveBWRaw(ctx, timestamp, timestamp, bwTotals)
+			assert.NoError(t, err)
+
+			err = planet.Satellites[0].Accounting.Rollup.Query(ctx)
+			assert.NoError(t, err)
+
+			// Advance time by 24 hours
+			timestamp = timestamp.Add(time.Hour * 24)
+			end := timestamp
+
+			// rollup.Query cuts off the hr/min/sec before saving, we need to do the same when querying
+			start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+			end = time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, end.Location())
+
+			rows, err := planet.Satellites[0].DB.Accounting().QueryPaymentInfo(ctx, start, end)
+			assert.NoError(t, err)
+			if i == 1 {
+				assert.Equal(t, 0, len(rows))
+				return
+			}
+			// TODO: once we sum data totals by node ID across rollups, number of rows should be number of nodes
+			assert.Equal(t, (i-1)*len(planet.StorageNodes), len(rows))
+
+			// verify data is correct
+			for _, r := range rows {
+				assert.Equal(t, bw[0], r.PutTotal)
+				assert.Equal(t, bw[1], r.GetTotal)
+				assert.Equal(t, bw[2], r.GetAuditTotal)
+				assert.Equal(t, bw[3], r.GetRepairTotal)
+				assert.Equal(t, atRest, r.AtRestTotal)
+				assert.NotNil(t, nodeData[r.NodeID])
+			}
+		}
+	})
 }
 
-func TestQueryTwoDays(t *testing.T) {
-	// TODO: use testplanet
-
-	ctx, _, db, nodeData, cleanup := createRollup(t)
-	defer cleanup()
-
-	now := time.Now().UTC()
-	then := now.Add(time.Hour * -24)
-
-	err := db.Accounting().SaveAtRestRaw(ctx, now, nodeData)
-	assert.NoError(t, err)
-
-	// db.db.Exec("UPDATE accounting_raws SET created_at= WHERE ")
-	// err = r.Query(ctx)
-	// assert.NoError(t, err)
-
-	_, err = db.Accounting().QueryPaymentInfo(ctx, then, now)
-	//assert.Equal(t, 10, len(rows))
-	assert.NoError(t, err)
-}
-
-func createRollup(t *testing.T) (*testcontext.Context, *rollup.Rollup, satellite.DB, map[storj.NodeID]float64, func()) {
-	ctx := testcontext.New(t)
-	db, err := satellitedb.NewInMemory()
-	assert.NoError(t, err)
-
-	assert.NoError(t, db.CreateTables())
-	cleanup := func() {
-		defer ctx.Cleanup()
-		defer ctx.Check(db.Close)
+func createData(planet *testplanet.Planet, atRest float64, bw []int64) (nodeData map[storj.NodeID]float64, bwTotals map[storj.NodeID][]int64) {
+	nodeData = make(map[storj.NodeID]float64)
+	bwTotals = make(map[storj.NodeID][]int64)
+	for _, n := range planet.StorageNodes {
+		id := n.Identity.ID
+		nodeData[id] = atRest
+		bwTotals[id] = bw
 	}
-	statdb := db.StatDB()
-	// generate nodeData
-	nodeData := make(map[storj.NodeID]float64)
-	for i := 1; i <= 10; i++ {
-		id := teststorj.NodeIDFromString(string(i))
-		nodeData[id] = float64(i * 100)
-		_, err := statdb.Create(ctx, id, nil)
-		assert.NoError(t, err)
-		_, err = statdb.Get(ctx, id)
-		assert.NoError(t, err)
-	}
-
-	return ctx, rollup.New(zap.NewNop(), db.Accounting(), time.Second), db, nodeData, cleanup
+	return nodeData, bwTotals
 }
