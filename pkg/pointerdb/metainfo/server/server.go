@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package endpoints
+package metainfoserver
 
 import (
 	"context"
@@ -34,12 +34,12 @@ func NewServer(logger *zap.Logger, config Config) *Server {
 func (s *Server) Close() error { return nil }
 
 // Health returns the health of a specific path
-func (s *Server) Health(ctx context.Context, req *pb.FileHealthRequest) (resp *pb.FileHealthResponse, err error) {
+func (s *Server) Health(ctx context.Context, req *pb.ObjectHealthRequest) (resp *pb.ObjectHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	resp = &pb.FileHealthResponse{}
+	resp = &pb.ObjectHealthResponse{}
 
-	// Find segements by file_name and uplink_id
+	// Find segements by req.EncryptedPath, req.Bucket and req.UplinkId
 	// for each segment
 	// 		determine number of good nodes and bad nodes
 	// 		append to Response

@@ -40,7 +40,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
-	"storj.io/storj/satellite/endpoints"
+	"storj.io/storj/pkg/pointerdb/metainfo/server"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
@@ -80,13 +80,14 @@ type Config struct {
 
 	// TODO: switch to using server.Config when Identity has been removed from it
 	Server          server.Config
-	SatelliteServer endpoints.Config
 
 	Kademlia  kademlia.Config
 	Overlay   overlay.Config
 	Discovery discovery.Config
 
 	PointerDB   pointerdb.Config
+	MetaInfo metainfoserver.Config
+
 	BwAgreement bwagreement.Config // TODO: decide whether to keep empty configs for consistency
 
 	Checker  checker.Config
@@ -137,11 +138,12 @@ type Peer struct {
 		Inspector *statdb.Inspector
 	}
 
-	Metainfo struct {
+	Pointerdb struct {
 		Database   storage.KeyValueStore // TODO: move into pointerDB
 		Allocation *pointerdb.AllocationSigner
 		Service    *pointerdb.Service
 		Endpoint   *pointerdb.Server
+		Metainfo   *metainfoserver.Server
 	}
 
 	Agreements struct {
@@ -194,9 +196,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-
-		peer.Public.Endpoint = endpoints.NewServer(peer.Log.Named("satellite_endpoints"), config.SatelliteServer)
-		pb.RegisterSatelliteServer(peer.Public.Server.GRPC(), peer.Public.Endpoint)
 	}
 
 	{ // setup kademlia
@@ -283,17 +282,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, peer.DB.StatDB(), config)
 	}
 
-	{ // setup metainfo
+	{ // setup pointerdb
 		db, err := pointerdb.NewStore(config.PointerDB.DatabaseURL)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Metainfo.Database = storelogger.New(peer.Log.Named("pdb"), db)
-		peer.Metainfo.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Metainfo.Database)
-		peer.Metainfo.Allocation = pointerdb.NewAllocationSigner(peer.Identity, config.PointerDB.BwExpiration)
-		peer.Metainfo.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"), peer.Metainfo.Service, peer.Metainfo.Allocation, peer.Overlay.Service, config.PointerDB, peer.Identity)
-		pb.RegisterPointerDBServer(peer.Public.Server.GRPC(), peer.Metainfo.Endpoint)
+		peer.Pointerdb.Database = storelogger.New(peer.Log.Named("pdb"), db)
+		peer.Pointerdb.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Pointerdb.Database)
+		peer.Pointerdb.Allocation = pointerdb.NewAllocationSigner(peer.Identity, config.PointerDB.BwExpiration)
+		peer.Pointerdb.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"), peer.Pointerdb.Service, peer.Pointerdb.Allocation, peer.Overlay.Service, config.PointerDB, peer.Identity)
+		pb.RegisterPointerDBServer(peer.Public.Server.GRPC(), peer.Pointerdb.Endpoint)
+
+		peer.Pointerdb.Metainfo = endpoints.NewServer(peer.Log.Named("metainfo"), config.SatelliteServer)
+		pb.RegisterMetainfoServer(peer.Public.Server.GRPC(), peer.Pointerdb.Metainfo)
 	}
 
 	{ // setup agreements
@@ -305,7 +307,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	{ // setup datarepair
 		// TODO: simplify argument list somehow
 		peer.Repair.Checker = checker.NewChecker(
-			peer.Metainfo.Service,
+			peer.Pointerdb.Service,
 			peer.DB.StatDB(), peer.DB.RepairQueue(),
 			peer.Overlay.Endpoint, peer.DB.Irreparable(),
 			0, peer.Log.Named("checker"),
@@ -323,7 +325,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
 			peer.DB.StatDB(),
 			config.Interval, config.MaxRetriesStatDB,
-			peer.Metainfo.Service, peer.Metainfo.Allocation,
+			peer.Pointerdb.Service, peer.Pointerdb.Allocation,
 			transportClient, peer.Overlay.Service,
 			peer.Identity,
 		)
@@ -333,7 +335,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup accounting
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Metainfo.Service, peer.Overlay.Endpoint, 0, config.Tally.Interval)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Pointerdb.Service, peer.Overlay.Endpoint, 0, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
 	}
 
@@ -448,11 +450,11 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Agreements.Endpoint.Close())
 	}
 
-	if peer.Metainfo.Endpoint != nil {
-		errlist.Add(peer.Metainfo.Endpoint.Close())
+	if peer.Pointerdb.Endpoint != nil {
+		errlist.Add(peer.Pointerdb.Endpoint.Close())
 	}
-	if peer.Metainfo.Database != nil {
-		errlist.Add(peer.Metainfo.Database.Close())
+	if peer.Pointerdb.Database != nil {
+		errlist.Add(peer.Pointerdb.Database.Close())
 	}
 
 	if peer.Discovery.Service != nil {

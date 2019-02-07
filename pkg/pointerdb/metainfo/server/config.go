@@ -1,9 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package endpoints
+package metainfoserver
 
 // Config is a configuration struct that is everything you need to start a
-// satellite server
+// metainfo server
 type Config struct {
 }
