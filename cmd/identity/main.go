@@ -159,7 +159,7 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 		return errs.New("error occurred while signing certificate: %s\n(identity files were still generated and saved, if you try again existing files will be loaded)", err)
 	}
 
-	signedChain, err := identity.ParseCertChain(signedChainBytes)
+	signedChain, err := pkcrypto.CertsFromDER(signedChainBytes)
 	if err != nil {
 		return nil
 	}

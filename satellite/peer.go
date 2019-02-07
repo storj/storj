@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
@@ -58,6 +59,8 @@ type DB interface {
 
 	// BandwidthAgreement returns database for storing bandwidth agreements
 	BandwidthAgreement() bwagreement.DB
+	// CertDB returns database for storing uplink's public key & ID
+	CertDB() certdb.DB
 	// StatDB returns database for storing node statistics
 	StatDB() statdb.DB
 	// OverlayCache returns database for caching overlay information
@@ -287,7 +290,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		peer.Metainfo.Database = storelogger.New(peer.Log.Named("pdb"), db)
 		peer.Metainfo.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Metainfo.Database)
-		peer.Metainfo.Allocation = pointerdb.NewAllocationSigner(peer.Identity, config.PointerDB.BwExpiration)
+		peer.Metainfo.Allocation = pointerdb.NewAllocationSigner(peer.Identity, config.PointerDB.BwExpiration, peer.DB.CertDB())
 		peer.Metainfo.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"),
 			peer.Metainfo.Service,
 			peer.Metainfo.Allocation,
@@ -299,7 +302,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup agreements
-		bwServer := bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.Log.Named("agreements"), peer.Identity.ID)
+		bwServer := bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.DB.CertDB(), peer.Identity.Leaf.PublicKey, peer.Log.Named("agreements"), peer.Identity.ID)
 		peer.Agreements.Endpoint = bwServer
 		pb.RegisterBandwidthServer(peer.Public.Server.GRPC(), peer.Agreements.Endpoint)
 	}

@@ -10,8 +10,6 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/asn1"
-	"encoding/pem"
 	"io"
 
 	"github.com/zeebo/errs"
@@ -23,10 +21,10 @@ import (
 var (
 	// ErrNotExist is used when a file or directory doesn't exist.
 	ErrNotExist = errs.Class("file or directory not found error")
-	// ErrTLSTemplate is used when an error occurs during tls template generation.
-	ErrTLSTemplate = errs.Class("tls template error")
 	// ErrGenerate is used when an error occurred during cert/key generation.
 	ErrGenerate = errs.Class("tls generation error")
+	// ErrTLSTemplate is used when an error occurs during tls template generation.
+	ErrTLSTemplate = errs.Class("tls template error")
 	// ErrVerifyPeerCert is used when an error occurs during `VerifyPeerCertificate`.
 	ErrVerifyPeerCert = errs.Class("tls peer certificate verification error")
 	// ErrVerifyCertificateChain is used when a certificate chain can't be verified from leaf to root
@@ -44,7 +42,7 @@ type PeerCertVerificationFunc func([][]byte, [][]*x509.Certificate) error
 // functions and adds certificate parsing.
 func VerifyPeerFunc(next ...PeerCertVerificationFunc) PeerCertVerificationFunc {
 	return func(chain [][]byte, _ [][]*x509.Certificate) error {
-		c, err := pkcrypto.ParseCertificates(chain)
+		c, err := pkcrypto.CertsFromDER(chain)
 		if err != nil {
 			return ErrVerifyPeerCert.Wrap(err)
 		}
@@ -87,7 +85,7 @@ func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
 func TLSCert(chain [][]byte, leaf *x509.Certificate, key crypto.PrivateKey) (*tls.Certificate, error) {
 	var err error
 	if leaf == nil {
-		leaf, err = x509.ParseCertificate(chain[0])
+		leaf, err = pkcrypto.CertFromDER(chain[0])
 		if err != nil {
 			return nil, err
 		}
@@ -108,16 +106,12 @@ func WriteChain(w io.Writer, chain ...*x509.Certificate) error {
 
 	var extErrs utils.ErrorGroup
 	for _, c := range chain {
-		if err := pem.Encode(w, pkcrypto.NewCertBlock(c.Raw)); err != nil {
+		if err := pkcrypto.WriteCertPEM(w, c); err != nil {
 			return errs.Wrap(err)
 		}
 
 		for _, e := range c.ExtraExtensions {
-			extBytes, err := asn1.Marshal(e)
-			if err != nil {
-				extErrs.Add(errs.Wrap(err))
-			}
-			if err := pem.Encode(w, pkcrypto.NewExtensionBlock(extBytes)); err != nil {
+			if err := pkcrypto.WritePKIXExtensionPEM(w, &e); err != nil {
 				extErrs.Add(errs.Wrap(err))
 			}
 		}
@@ -162,7 +156,7 @@ func NewCert(key, parentKey crypto.PrivateKey, template, parent *x509.Certificat
 		return nil, errs.Wrap(err)
 	}
 
-	cert, err := x509.ParseCertificate(cb)
+	cert, err := pkcrypto.CertFromDER(cb)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
