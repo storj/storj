@@ -25,7 +25,7 @@ func streamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamS
 			err == io.EOF {
 			return err
 		}
-		fmt.Printf("ERROR: %+v", err)
+		fmt.Printf("ERROR: %+v\n", err)
 	}
 	return err
 }
@@ -38,7 +38,7 @@ func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServ
 		if status.Code(err) == codes.NotFound {
 			return resp, err
 		}
-		fmt.Printf("ERROR: %+v", err)
+		fmt.Printf("ERROR: %+v\n", err)
 	}
 	return resp, err
 }
