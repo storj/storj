@@ -25,7 +25,7 @@ func TestServer(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// we wait a second for all the nodes to complete bootstrapping off the satellite
-		time.Sleep(4 * time.Second)
+		time.Sleep(2 * time.Second)
 
 		satellite := planet.Satellites[0]
 		server := satellite.Overlay.Endpoint
