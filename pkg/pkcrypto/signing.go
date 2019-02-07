@@ -8,15 +8,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"encoding/asn1"
-	"math/big"
 )
-
-// ECDSASignature holds the `r` and `s` values in an ecdsa signature
-// (see https://golang.org/pkg/crypto/ecdsa)
-type ECDSASignature struct {
-	R, S *big.Int
-}
 
 var authECCurve = elliptic.P256()
 
@@ -32,12 +24,12 @@ func VerifySignature(signedData, data []byte, pubKey crypto.PublicKey) error {
 		return ErrUnsupportedKey.New("%T", key)
 	}
 
-	signature := new(ECDSASignature)
-	if _, err := asn1.Unmarshal(signedData, signature); err != nil {
+	r, s, err := unmarshalECDSASignature(signedData)
+	if err != nil {
 		return ErrVerifySignature.New("unable to unmarshal ecdsa signature: %v", err)
 	}
 	digest := SHA256Hash(data)
-	if !ecdsa.Verify(key, digest, signature.R, signature.S) {
+	if !ecdsa.Verify(key, digest, r, s) {
 		return ErrVerifySignature.New("signature is not valid")
 	}
 	return nil
@@ -56,7 +48,7 @@ func SignBytes(key crypto.PrivateKey, data []byte) ([]byte, error) {
 		return nil, ErrSign.Wrap(err)
 	}
 
-	return asn1.Marshal(ECDSASignature{R: r, S: s})
+	return marshalECDSASignature(r, s)
 }
 
 // SignHashOf signs a SHA-256 digest of the given data and returns the new

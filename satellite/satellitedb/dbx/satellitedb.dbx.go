@@ -309,6 +309,12 @@ CREATE TABLE bwagreements (
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( serialnum )
 );
+CREATE TABLE certRecords (
+	publickey bytea NOT NULL,
+	id bytea NOT NULL,
+	update_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE injuredsegments (
 	id bigserial NOT NULL,
 	info bytea NOT NULL,
@@ -484,6 +490,12 @@ CREATE TABLE bwagreements (
 	created_at TIMESTAMP NOT NULL,
 	expires_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( serialnum )
+);
+CREATE TABLE certRecords (
+	publickey BLOB NOT NULL,
+	id BLOB NOT NULL,
+	update_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
 	id INTEGER NOT NULL,
@@ -1136,6 +1148,74 @@ func (f Bwagreement_ExpiresAt_Field) value() interface{} {
 }
 
 func (Bwagreement_ExpiresAt_Field) _Column() string { return "expires_at" }
+
+type CertRecord struct {
+	Publickey []byte
+	Id        []byte
+	UpdateAt  time.Time
+}
+
+func (CertRecord) _Table() string { return "certRecords" }
+
+type CertRecord_Update_Fields struct {
+}
+
+type CertRecord_Publickey_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func CertRecord_Publickey(v []byte) CertRecord_Publickey_Field {
+	return CertRecord_Publickey_Field{_set: true, _value: v}
+}
+
+func (f CertRecord_Publickey_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CertRecord_Publickey_Field) _Column() string { return "publickey" }
+
+type CertRecord_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func CertRecord_Id(v []byte) CertRecord_Id_Field {
+	return CertRecord_Id_Field{_set: true, _value: v}
+}
+
+func (f CertRecord_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CertRecord_Id_Field) _Column() string { return "id" }
+
+type CertRecord_UpdateAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func CertRecord_UpdateAt(v time.Time) CertRecord_UpdateAt_Field {
+	return CertRecord_UpdateAt_Field{_set: true, _value: v}
+}
+
+func (f CertRecord_UpdateAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CertRecord_UpdateAt_Field) _Column() string { return "update_at" }
 
 type Injuredsegment struct {
 	Id   int64
@@ -2769,6 +2849,30 @@ func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_CertRecord(ctx context.Context,
+	certRecord_publickey CertRecord_Publickey_Field,
+	certRecord_id CertRecord_Id_Field) (
+	certRecord *CertRecord, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__publickey_val := certRecord_publickey.value()
+	__id_val := certRecord_id.value()
+	__update_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO certRecords ( publickey, id, update_at ) VALUES ( ?, ?, ? ) RETURNING certRecords.publickey, certRecords.id, certRecords.update_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __publickey_val, __id_val, __update_at_val)
+
+	certRecord = &CertRecord{}
+	err = obj.driver.QueryRow(__stmt, __publickey_val, __id_val, __update_at_val).Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return certRecord, nil
+
+}
+
 func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Bwagreement, err error) {
@@ -3567,6 +3671,27 @@ func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Co
 
 }
 
+func (obj *postgresImpl) Get_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field) (
+	certRecord *CertRecord, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.id, certRecords.update_at FROM certRecords WHERE certRecords.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, certRecord_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	certRecord = &CertRecord{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return certRecord, nil
+
+}
+
 func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -3963,6 +4088,42 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 	return api_key, nil
 }
 
+func (obj *postgresImpl) Update_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field,
+	update CertRecord_Update_Fields) (
+	certRecord *CertRecord, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE certRecords SET "), __sets, __sqlbundle_Literal(" WHERE certRecords.id = ? RETURNING certRecords.publickey, certRecords.id, certRecords.update_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("update_at = ?"))
+
+	__args = append(__args, certRecord_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	certRecord = &CertRecord{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return certRecord, nil
+}
+
 func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -4224,6 +4385,32 @@ func (obj *postgresImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Delete_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM certRecords WHERE certRecords.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, certRecord_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -4308,6 +4495,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM injuredsegments;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM certRecords;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -4744,6 +4941,33 @@ func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastApiKey(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_CertRecord(ctx context.Context,
+	certRecord_publickey CertRecord_Publickey_Field,
+	certRecord_id CertRecord_Id_Field) (
+	certRecord *CertRecord, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__publickey_val := certRecord_publickey.value()
+	__id_val := certRecord_id.value()
+	__update_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO certRecords ( publickey, id, update_at ) VALUES ( ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __publickey_val, __id_val, __update_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __publickey_val, __id_val, __update_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastCertRecord(ctx, __pk)
 
 }
 
@@ -5545,6 +5769,27 @@ func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Con
 
 }
 
+func (obj *sqlite3Impl) Get_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field) (
+	certRecord *CertRecord, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.id, certRecords.update_at FROM certRecords WHERE certRecords.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, certRecord_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	certRecord = &CertRecord{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return certRecord, nil
+
+}
+
 func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -6011,6 +6256,52 @@ func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
 	return api_key, nil
 }
 
+func (obj *sqlite3Impl) Update_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field,
+	update CertRecord_Update_Fields) (
+	certRecord *CertRecord, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE certRecords SET "), __sets, __sqlbundle_Literal(" WHERE certRecords.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("update_at = ?"))
+
+	__args = append(__args, certRecord_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	certRecord = &CertRecord{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.id, certRecords.update_at FROM certRecords WHERE certRecords.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return certRecord, nil
+}
+
 func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -6272,6 +6563,32 @@ func (obj *sqlite3Impl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM certRecords WHERE certRecords.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, certRecord_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) getLastBwagreement(ctx context.Context,
 	pk int64) (
 	bwagreement *Bwagreement, err error) {
@@ -6488,6 +6805,24 @@ func (obj *sqlite3Impl) getLastApiKey(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastCertRecord(ctx context.Context,
+	pk int64) (
+	certRecord *CertRecord, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.id, certRecords.update_at FROM certRecords WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	certRecord = &CertRecord{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return certRecord, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -6577,6 +6912,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM injuredsegments;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM certRecords;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -6855,6 +7200,18 @@ func (rx *Rx) Create_Bwagreement(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_CertRecord(ctx context.Context,
+	certRecord_publickey CertRecord_Publickey_Field,
+	certRecord_id CertRecord_Id_Field) (
+	certRecord *CertRecord, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_CertRecord(ctx, certRecord_publickey, certRecord_id)
+
+}
+
 func (rx *Rx) Create_Injuredsegment(ctx context.Context,
 	injuredsegment_info Injuredsegment_Info_Field) (
 	injuredsegment *Injuredsegment, err error) {
@@ -6993,6 +7350,16 @@ func (rx *Rx) Delete_ApiKey_By_Id(ctx context.Context,
 	return tx.Delete_ApiKey_By_Id(ctx, api_key_id)
 }
 
+func (rx *Rx) Delete_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_CertRecord_By_Id(ctx, certRecord_id)
+}
+
 func (rx *Rx) Delete_Injuredsegment_By_Id(ctx context.Context,
 	injuredsegment_id Injuredsegment_Id_Field) (
 	deleted bool, err error) {
@@ -7121,6 +7488,16 @@ func (rx *Rx) Get_ApiKey_By_Key(ctx context.Context,
 		return
 	}
 	return tx.Get_ApiKey_By_Key(ctx, api_key_key)
+}
+
+func (rx *Rx) Get_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field) (
+	certRecord *CertRecord, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_CertRecord_By_Id(ctx, certRecord_id)
 }
 
 func (rx *Rx) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -7255,6 +7632,17 @@ func (rx *Rx) Update_ApiKey_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Update_ApiKey_By_Id(ctx, api_key_id, update)
+}
+
+func (rx *Rx) Update_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field,
+	update CertRecord_Update_Fields) (
+	certRecord *CertRecord, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_CertRecord_By_Id(ctx, certRecord_id, update)
 }
 
 func (rx *Rx) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -7394,6 +7782,11 @@ type Methods interface {
 		bwagreement_expires_at Bwagreement_ExpiresAt_Field) (
 		bwagreement *Bwagreement, err error)
 
+	Create_CertRecord(ctx context.Context,
+		certRecord_publickey CertRecord_Publickey_Field,
+		certRecord_id CertRecord_Id_Field) (
+		certRecord *CertRecord, err error)
+
 	Create_Injuredsegment(ctx context.Context,
 		injuredsegment_info Injuredsegment_Info_Field) (
 		injuredsegment *Injuredsegment, err error)
@@ -7465,6 +7858,10 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field) (
 		deleted bool, err error)
 
+	Delete_CertRecord_By_Id(ctx context.Context,
+		certRecord_id CertRecord_Id_Field) (
+		deleted bool, err error)
+
 	Delete_Injuredsegment_By_Id(ctx context.Context,
 		injuredsegment_id Injuredsegment_Id_Field) (
 		deleted bool, err error)
@@ -7516,6 +7913,10 @@ type Methods interface {
 	Get_ApiKey_By_Key(ctx context.Context,
 		api_key_key ApiKey_Key_Field) (
 		api_key *ApiKey, err error)
+
+	Get_CertRecord_By_Id(ctx context.Context,
+		certRecord_id CertRecord_Id_Field) (
+		certRecord *CertRecord, err error)
 
 	Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
@@ -7572,6 +7973,11 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field,
 		update ApiKey_Update_Fields) (
 		api_key *ApiKey, err error)
+
+	Update_CertRecord_By_Id(ctx context.Context,
+		certRecord_id CertRecord_Id_Field,
+		update CertRecord_Update_Fields) (
+		certRecord *CertRecord, err error)
 
 	Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,

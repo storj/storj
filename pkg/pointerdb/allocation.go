@@ -5,11 +5,13 @@ package pointerdb
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 )
@@ -18,13 +20,15 @@ import (
 type AllocationSigner struct {
 	satelliteIdentity *identity.FullIdentity
 	bwExpiration      int
+	certdb            certdb.DB
 }
 
 // NewAllocationSigner creates new instance
-func NewAllocationSigner(satelliteIdentity *identity.FullIdentity, bwExpiration int) *AllocationSigner {
+func NewAllocationSigner(satelliteIdentity *identity.FullIdentity, bwExpiration int, upldb certdb.DB) *AllocationSigner {
 	return &AllocationSigner{
 		satelliteIdentity: satelliteIdentity,
 		bwExpiration:      bwExpiration,
+		certdb:            upldb,
 	}
 }
 
@@ -41,6 +45,17 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 	// convert ttl from days to seconds
 	ttl := allocation.bwExpiration
 	ttl *= 86400
+
+	pk, ok := peerIdentity.Leaf.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, Error.New("UnsupportedKey error: %+v", peerIdentity.Leaf.PublicKey)
+	}
+	// store the corresponding uplink's id and public key into certDB db
+	err = allocation.certdb.SavePublicKey(ctx, peerIdentity.ID, pk)
+	if err != nil {
+		return nil, err
+	}
+
 	pba = &pb.PayerBandwidthAllocation{
 		SatelliteId:       allocation.satelliteIdentity.ID,
 		UplinkId:          peerIdentity.ID,

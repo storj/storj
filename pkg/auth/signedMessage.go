@@ -5,7 +5,6 @@ package auth
 
 import (
 	"crypto/ecdsa"
-	"crypto/x509"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gtank/cryptopasta"
@@ -13,6 +12,7 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -128,7 +128,7 @@ func VerifyMsg(msg SignableMessage, signer storj.NodeID) error {
 }
 
 func parseECDSA(rawCert []byte) (*ecdsa.PublicKey, error) {
-	cert, err := x509.ParseCertificate(rawCert)
+	cert, err := pkcrypto.CertFromDER(rawCert)
 	if err != nil {
 		return nil, ErrVerify.Wrap(err)
 	}

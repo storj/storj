@@ -83,6 +83,7 @@ var (
 	defaultDiagDir     string
 	confDir            string
 	identityDir        string
+	useColor           bool
 )
 
 const (
@@ -109,6 +110,7 @@ func init() {
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
+	rootCmd.PersistentFlags().BoolVar(&useColor, "color", false, "use color in user interface")
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
