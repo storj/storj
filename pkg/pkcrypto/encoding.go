@@ -52,10 +52,10 @@ func PublicKeyFromPKIX(pkixData []byte) (crypto.PublicKey, error) {
 func PublicKeyFromPEM(pemData []byte) (crypto.PublicKey, error) {
 	pb, _ := pem.Decode(pemData)
 	if pb == nil {
-		return nil, ErrParseCerts.New("could not parse PEM encoding")
+		return nil, ErrParse.New("could not parse PEM encoding")
 	}
 	if pb.Type != BlockLabelPublicKey {
-		return nil, ErrParseCerts.New("can not parse public key from PEM block labeled %q", pb.Type)
+		return nil, ErrParse.New("can not parse public key from PEM block labeled %q", pb.Type)
 	}
 	return PublicKeyFromPKIX(pb.Bytes)
 }
@@ -99,7 +99,7 @@ func PrivateKeyFromPKCS8(keyBytes []byte) (crypto.PrivateKey, error) {
 func PrivateKeyFromPEM(keyBytes []byte) (crypto.PrivateKey, error) {
 	pb, _ := pem.Decode(keyBytes)
 	if pb == nil {
-		return nil, ErrParseCerts.New("could not parse PEM encoding")
+		return nil, ErrParse.New("could not parse PEM encoding")
 	}
 	switch pb.Type {
 	case BlockLabelEcPrivateKey:
@@ -107,7 +107,7 @@ func PrivateKeyFromPEM(keyBytes []byte) (crypto.PrivateKey, error) {
 	case BlockLabelPrivateKey:
 		return PrivateKeyFromPKCS8(pb.Bytes)
 	}
-	return nil, ErrParseCerts.New("can not parse private key from PEM block labeled %q", pb.Type)
+	return nil, ErrParse.New("can not parse private key from PEM block labeled %q", pb.Type)
 }
 
 // WriteCertPEM writes the certificate to the writer, in a PEM-enveloped DER
@@ -141,10 +141,10 @@ func CertFromDER(certDER []byte) (*x509.Certificate, error) {
 func CertFromPEM(certPEM []byte) (*x509.Certificate, error) {
 	kb, _ := pem.Decode(certPEM)
 	if kb == nil {
-		return nil, ErrParseCerts.New("could not decode certificate as PEM")
+		return nil, ErrParse.New("could not decode certificate as PEM")
 	}
 	if kb.Type != BlockLabelCertificate {
-		return nil, ErrParseCerts.New("can not parse certificate from PEM block labeled %q", kb.Type)
+		return nil, ErrParse.New("can not parse certificate from PEM block labeled %q", kb.Type)
 	}
 	return CertFromDER(kb.Bytes)
 }
@@ -157,7 +157,7 @@ func CertsFromDER(rawCerts [][]byte) ([]*x509.Certificate, error) {
 		var err error
 		certs[i], err = CertFromDER(c)
 		if err != nil {
-			return nil, ErrParseCerts.New("unable to parse certificate at index %d", i)
+			return nil, ErrParse.New("unable to parse certificate at index %d", i)
 		}
 	}
 	return certs, nil
@@ -270,7 +270,7 @@ func PKIXExtensionToASN1(extension *pkix.Extension) ([]byte, error) {
 func PKIXExtensionFromASN1(extData []byte) (*pkix.Extension, error) {
 	var extension pkix.Extension
 	if _, err := asn1.Unmarshal(extData, &extension); err != nil {
-		return nil, ErrParseCerts.New("unable to unmarshal PKIX extension: %v", err)
+		return nil, ErrParse.New("unable to unmarshal PKIX extension: %v", err)
 	}
 	return &extension, nil
 }
@@ -280,10 +280,10 @@ func PKIXExtensionFromASN1(extData []byte) (*pkix.Extension, error) {
 func PKIXExtensionFromPEM(pemBytes []byte) (*pkix.Extension, error) {
 	pb, _ := pem.Decode(pemBytes)
 	if pb == nil {
-		return nil, ErrParseCerts.New("unable to parse PEM block")
+		return nil, ErrParse.New("unable to parse PEM block")
 	}
 	if pb.Type != BlockLabelExtension {
-		return nil, ErrParseCerts.New("can not parse PKIX cert extension from PEM block labeled %q", pb.Type)
+		return nil, ErrParse.New("can not parse PKIX cert extension from PEM block labeled %q", pb.Type)
 	}
 	return PKIXExtensionFromASN1(pb.Bytes)
 }

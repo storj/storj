@@ -6,12 +6,10 @@ package bwagreement
 import (
 	"context"
 	"crypto"
-	"crypto/ecdsa"
 	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/gtank/cryptopasta"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -20,6 +18,7 @@ import (
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -120,11 +119,6 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAll
 		return pb.ErrRenter.Wrap(auth.ErrVerify.New("Failed to unmarshal PayerBandwidthAllocation: %+v", err))
 	}
 
-	signatureLength := uplinkInfo.Curve.Params().P.BitLen() / 8
-	if len(rba.GetSignature()) < signatureLength {
-		return pb.ErrRenter.Wrap(auth.ErrSigLen.New("%d vs %d", len(rba.GetSignature()), signatureLength))
-	}
-
 	// verify Renter's (uplink) signature
 	rbad := *rba
 	rbad.SetSignature(nil)
@@ -134,19 +128,8 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAll
 		return Error.New("marshalling error: %+v", err)
 	}
 
-	if ok := cryptopasta.Verify(rbadBytes, rba.GetSignature(), uplinkInfo); !ok {
-		return pb.ErrRenter.Wrap(auth.ErrVerify.New("%+v", ok))
-	}
-
-	// satellite public key
-	k, ok := s.pkey.(*ecdsa.PublicKey)
-	if !ok {
-		return Error.New("UnsupportedKey error: %+v", s.pkey)
-	}
-
-	signatureLength = k.Curve.Params().P.BitLen() / 8
-	if len(pba.GetSignature()) < signatureLength {
-		return pb.ErrPayer.Wrap(auth.ErrSigLen.New("%d vs %d", len(pba.GetSignature()), signatureLength))
+	if err := pkcrypto.HashAndVerifySignature(uplinkInfo, rbadBytes, rba.GetSignature()); err != nil {
+		return pb.ErrRenter.Wrap(auth.ErrVerify.Wrap(err))
 	}
 
 	// verify Payer's (satellite) signature
@@ -158,8 +141,8 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAll
 		return Error.New("marshalling error: %+v", err)
 	}
 
-	if ok := cryptopasta.Verify(pbadBytes, pba.GetSignature(), k); !ok {
-		return pb.ErrPayer.Wrap(auth.ErrVerify.New("%+v", ok))
+	if err := pkcrypto.HashAndVerifySignature(s.pkey, pbadBytes, pba.GetSignature()); err != nil {
+		return pb.ErrPayer.Wrap(auth.ErrVerify.Wrap(err))
 	}
 	return nil
 }

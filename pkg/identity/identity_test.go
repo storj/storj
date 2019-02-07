@@ -6,7 +6,6 @@ package identity_test
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
 	"os"
 	"runtime"
 	"testing"
@@ -95,8 +94,7 @@ func TestConfig_SaveIdentity(t *testing.T) {
 	assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, fi.Leaf))
 	assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, fi.CA))
 
-	privateKey, ok := fi.Key.(*ecdsa.PrivateKey)
-	assert.True(t, ok)
+	privateKey := fi.Key
 	assert.NotEmpty(t, privateKey)
 
 	keyPEM := bytes.NewBuffer([]byte{})

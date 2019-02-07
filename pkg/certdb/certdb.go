@@ -6,7 +6,6 @@ package certdb
 import (
 	"context"
 	"crypto"
-	"crypto/ecdsa"
 
 	"storj.io/storj/pkg/storj"
 )
@@ -16,5 +15,5 @@ type DB interface {
 	// SavePublicKey adds a new bandwidth agreement.
 	SavePublicKey(context.Context, storj.NodeID, crypto.PublicKey) error
 	// GetPublicKey gets the public key of uplink corresponding to uplink id
-	GetPublicKey(context.Context, storj.NodeID) (*ecdsa.PublicKey, error)
+	GetPublicKey(context.Context, storj.NodeID) (crypto.PublicKey, error)
 }

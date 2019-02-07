@@ -5,7 +5,6 @@ package pointerdb
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -46,12 +45,8 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 	ttl := allocation.bwExpiration
 	ttl *= 86400
 
-	pk, ok := peerIdentity.Leaf.PublicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return nil, Error.New("UnsupportedKey error: %+v", peerIdentity.Leaf.PublicKey)
-	}
 	// store the corresponding uplink's id and public key into certDB db
-	err = allocation.certdb.SavePublicKey(ctx, peerIdentity.ID, pk)
+	err = allocation.certdb.SavePublicKey(ctx, peerIdentity.ID, peerIdentity.Leaf.PublicKey)
 	if err != nil {
 		return nil, err
 	}

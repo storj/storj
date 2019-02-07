@@ -27,12 +27,12 @@ const (
 var (
 	// ErrUnsupportedKey is used when key type is not supported.
 	ErrUnsupportedKey = errs.Class("unsupported key type")
-	// ErrParseCerts is used when an error occurs while parsing a certificate or cert chain.
-	ErrParseCerts = errs.Class("unable to parse certificate")
+	// ErrParse is used when an error occurs while parsing a certificate or key.
+	ErrParse = errs.Class("unable to parse")
 	// ErrSign is used when something goes wrong while generating a signature.
 	ErrSign = errs.Class("unable to generate signature")
-	// ErrVerifySignature is used when a cert-chain signature verificaion error occurs.
-	ErrVerifySignature = errs.Class("tls certificate signature verification error")
+	// ErrVerifySignature is used when a signature verification error occurs.
+	ErrVerifySignature = errs.Class("signature verification error")
 	// ErrChainLength is used when the length of a cert chain isn't what was expected
 	ErrChainLength = errs.Class("cert chain length error")
 )

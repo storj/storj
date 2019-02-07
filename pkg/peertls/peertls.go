@@ -6,7 +6,6 @@ package peertls
 import (
 	"bytes"
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
@@ -129,11 +128,6 @@ func ChainBytes(chain ...*x509.Certificate) ([]byte, error) {
 // NewCert returns a new x509 certificate using the provided templates and key,
 // signed by the parent cert if provided; otherwise, self-signed.
 func NewCert(key, parentKey crypto.PrivateKey, template, parent *x509.Certificate) (*x509.Certificate, error) {
-	p, ok := key.(*ecdsa.PrivateKey)
-	if !ok {
-		return nil, pkcrypto.ErrUnsupportedKey.New("%T", key)
-	}
-
 	var signingKey crypto.PrivateKey
 	if parentKey != nil {
 		signingKey = parentKey
@@ -149,7 +143,7 @@ func NewCert(key, parentKey crypto.PrivateKey, template, parent *x509.Certificat
 		rand.Reader,
 		template,
 		parent,
-		&p.PublicKey,
+		pkcrypto.PublicKeyFromPrivate(key),
 		signingKey,
 	)
 	if err != nil {
