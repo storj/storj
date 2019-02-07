@@ -7,6 +7,8 @@ package satellitedb
 
 import (
 	"context"
+	"crypto"
+	"crypto/ecdsa"
 	"sync"
 	"time"
 
@@ -613,15 +615,15 @@ type lockedUplinkDB struct {
 }
 
 // GetPublicKey gets the public key of uplink corresponding to uplink id
-func (m *lockedUplinkDB) GetPublicKey(ctx context.Context, nodeID []byte) (*uplinkdb.Agreement, error) {
+func (m *lockedUplinkDB) GetPublicKey(ctx context.Context, a1 storj.NodeID) (*ecdsa.PublicKey, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetPublicKey(ctx, nodeID)
+	return m.db.GetPublicKey(ctx, a1)
 }
 
 // SavePublicKey adds a new bandwidth agreement.
-func (m *lockedUplinkDB) SavePublicKey(ctx context.Context, a1 uplinkdb.Agreement) error {
+func (m *lockedUplinkDB) SavePublicKey(ctx context.Context, a1 storj.NodeID, a2 crypto.PublicKey) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SavePublicKey(ctx, a1)
+	return m.db.SavePublicKey(ctx, a1, a2)
 }

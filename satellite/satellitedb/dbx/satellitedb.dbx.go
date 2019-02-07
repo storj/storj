@@ -312,7 +312,7 @@ CREATE TABLE bwagreements (
 CREATE TABLE certDBs (
 	publickey bytea NOT NULL,
 	id bytea NOT NULL,
-	created_at timestamp with time zone NOT NULL,
+	update_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
@@ -494,7 +494,7 @@ CREATE TABLE bwagreements (
 CREATE TABLE certDBs (
 	publickey BLOB NOT NULL,
 	id BLOB NOT NULL,
-	created_at TIMESTAMP NOT NULL,
+	update_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
@@ -1152,7 +1152,7 @@ func (Bwagreement_ExpiresAt_Field) _Column() string { return "expires_at" }
 type CertDB struct {
 	Publickey []byte
 	Id        []byte
-	CreatedAt time.Time
+	UpdateAt  time.Time
 }
 
 func (CertDB) _Table() string { return "certDBs" }
@@ -1198,24 +1198,24 @@ func (f CertDB_Id_Field) value() interface{} {
 
 func (CertDB_Id_Field) _Column() string { return "id" }
 
-type CertDB_CreatedAt_Field struct {
+type CertDB_UpdateAt_Field struct {
 	_set   bool
 	_null  bool
 	_value time.Time
 }
 
-func CertDB_CreatedAt(v time.Time) CertDB_CreatedAt_Field {
-	return CertDB_CreatedAt_Field{_set: true, _value: v}
+func CertDB_UpdateAt(v time.Time) CertDB_UpdateAt_Field {
+	return CertDB_UpdateAt_Field{_set: true, _value: v}
 }
 
-func (f CertDB_CreatedAt_Field) value() interface{} {
+func (f CertDB_UpdateAt_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (CertDB_CreatedAt_Field) _Column() string { return "created_at" }
+func (CertDB_UpdateAt_Field) _Column() string { return "update_at" }
 
 type Injuredsegment struct {
 	Id   int64
@@ -2857,15 +2857,15 @@ func (obj *postgresImpl) Create_CertDB(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__publickey_val := certDB_publickey.value()
 	__id_val := certDB_id.value()
-	__created_at_val := __now
+	__update_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO certDBs ( publickey, id, created_at ) VALUES ( ?, ?, ? ) RETURNING certDBs.publickey, certDBs.id, certDBs.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO certDBs ( publickey, id, update_at ) VALUES ( ?, ?, ? ) RETURNING certDBs.publickey, certDBs.id, certDBs.update_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __publickey_val, __id_val, __created_at_val)
+	obj.logStmt(__stmt, __publickey_val, __id_val, __update_at_val)
 
 	certDB = &CertDB{}
-	err = obj.driver.QueryRow(__stmt, __publickey_val, __id_val, __created_at_val).Scan(&certDB.Publickey, &certDB.Id, &certDB.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __publickey_val, __id_val, __update_at_val).Scan(&certDB.Publickey, &certDB.Id, &certDB.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -3675,7 +3675,7 @@ func (obj *postgresImpl) Get_CertDB_By_Id(ctx context.Context,
 	certDB_id CertDB_Id_Field) (
 	certDB *CertDB, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certDBs.publickey, certDBs.id, certDBs.created_at FROM certDBs WHERE certDBs.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certDBs.publickey, certDBs.id, certDBs.update_at FROM certDBs WHERE certDBs.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, certDB_id.value())
@@ -3684,7 +3684,7 @@ func (obj *postgresImpl) Get_CertDB_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	certDB = &CertDB{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certDB.Publickey, &certDB.Id, &certDB.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certDB.Publickey, &certDB.Id, &certDB.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4086,6 +4086,42 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+}
+
+func (obj *postgresImpl) Update_CertDB_By_Id(ctx context.Context,
+	certDB_id CertDB_Id_Field,
+	update CertDB_Update_Fields) (
+	certDB *CertDB, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE certDBs SET "), __sets, __sqlbundle_Literal(" WHERE certDBs.id = ? RETURNING certDBs.publickey, certDBs.id, certDBs.update_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("update_at = ?"))
+
+	__args = append(__args, certDB_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	certDB = &CertDB{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certDB.Publickey, &certDB.Id, &certDB.UpdateAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return certDB, nil
 }
 
 func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -4916,14 +4952,14 @@ func (obj *sqlite3Impl) Create_CertDB(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__publickey_val := certDB_publickey.value()
 	__id_val := certDB_id.value()
-	__created_at_val := __now
+	__update_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO certDBs ( publickey, id, created_at ) VALUES ( ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO certDBs ( publickey, id, update_at ) VALUES ( ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __publickey_val, __id_val, __created_at_val)
+	obj.logStmt(__stmt, __publickey_val, __id_val, __update_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __publickey_val, __id_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __publickey_val, __id_val, __update_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5737,7 +5773,7 @@ func (obj *sqlite3Impl) Get_CertDB_By_Id(ctx context.Context,
 	certDB_id CertDB_Id_Field) (
 	certDB *CertDB, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certDBs.publickey, certDBs.id, certDBs.created_at FROM certDBs WHERE certDBs.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certDBs.publickey, certDBs.id, certDBs.update_at FROM certDBs WHERE certDBs.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, certDB_id.value())
@@ -5746,7 +5782,7 @@ func (obj *sqlite3Impl) Get_CertDB_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	certDB = &CertDB{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certDB.Publickey, &certDB.Id, &certDB.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certDB.Publickey, &certDB.Id, &certDB.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6218,6 +6254,52 @@ func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+}
+
+func (obj *sqlite3Impl) Update_CertDB_By_Id(ctx context.Context,
+	certDB_id CertDB_Id_Field,
+	update CertDB_Update_Fields) (
+	certDB *CertDB, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE certDBs SET "), __sets, __sqlbundle_Literal(" WHERE certDBs.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("update_at = ?"))
+
+	__args = append(__args, certDB_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	certDB = &CertDB{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT certDBs.publickey, certDBs.id, certDBs.update_at FROM certDBs WHERE certDBs.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&certDB.Publickey, &certDB.Id, &certDB.UpdateAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return certDB, nil
 }
 
 func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -6727,13 +6809,13 @@ func (obj *sqlite3Impl) getLastCertDB(ctx context.Context,
 	pk int64) (
 	certDB *CertDB, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certDBs.publickey, certDBs.id, certDBs.created_at FROM certDBs WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certDBs.publickey, certDBs.id, certDBs.update_at FROM certDBs WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	certDB = &CertDB{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&certDB.Publickey, &certDB.Id, &certDB.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&certDB.Publickey, &certDB.Id, &certDB.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7552,6 +7634,17 @@ func (rx *Rx) Update_ApiKey_By_Id(ctx context.Context,
 	return tx.Update_ApiKey_By_Id(ctx, api_key_id, update)
 }
 
+func (rx *Rx) Update_CertDB_By_Id(ctx context.Context,
+	certDB_id CertDB_Id_Field,
+	update CertDB_Update_Fields) (
+	certDB *CertDB, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_CertDB_By_Id(ctx, certDB_id, update)
+}
+
 func (rx *Rx) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -7880,6 +7973,11 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field,
 		update ApiKey_Update_Fields) (
 		api_key *ApiKey, err error)
+
+	Update_CertDB_By_Id(ctx context.Context,
+		certDB_id CertDB_Id_Field,
+		update CertDB_Update_Fields) (
+		certDB *CertDB, err error)
 
 	Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,

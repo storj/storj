@@ -5,9 +5,11 @@ package tally_test
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
@@ -68,8 +70,10 @@ func sendGeneratedAgreements(ctx context.Context, t *testing.T, db satellite.DB,
 
 	agreements := make([]*psdb.Agreement, len(actions))
 	for i, action := range actions {
-		pba, err := testbwagreement.GeneratePayerBandwidthAllocation(db.UplinkDB(), action, satID, upID, time.Hour)
+		pba, err := testbwagreement.GeneratePayerBandwidthAllocation(action, satID, upID, time.Hour)
 		require.NoError(t, err)
+		err = testbwagreement.SavePayerBandwidthAllocation(db.UplinkDB(), pba, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
+		assert.NoError(t, err)
 		rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, 1000)
 		require.NoError(t, err)
 		agreements[i] = &psdb.Agreement{Agreement: *rba}

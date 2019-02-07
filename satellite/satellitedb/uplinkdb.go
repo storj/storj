@@ -5,8 +5,13 @@ package satellitedb
 
 import (
 	"context"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/x509"
 
-	"storj.io/storj/pkg/uplinkdb"
+	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -15,19 +20,31 @@ type uplinkDB struct {
 	db *dbx.DB
 }
 
-func (b *uplinkDB) SavePublicKey(ctx context.Context, agreement uplinkdb.Agreement) error {
+func (b *uplinkDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, publicKey crypto.PublicKey) error {
 	tx, err := b.db.Open(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	_, err = tx.Get_CertDB_By_Id(ctx, dbx.CertDB_Id(agreement.ID))
+	_, err = tx.Get_CertDB_By_Id(ctx, dbx.CertDB_Id(nodeID.Bytes()))
 	if err != nil {
 		// no rows err, so create/insert an entry
-		_, err = tx.Create_CertDB(
-			ctx,
-			dbx.CertDB_Publickey(agreement.PublicKey),
-			dbx.CertDB_Id(agreement.ID),
+		publicKeyEcdsa, ok := publicKey.(*ecdsa.PublicKey)
+		if !ok {
+			return Error.Wrap(utils.CombineErrors(errs.New("Uplink Private Key is not a valid *ecdsa.PrivateKey"), tx.Rollback()))
+		}
+
+		pubbytes, err := x509.MarshalPKIXPublicKey(publicKeyEcdsa)
+		if err != nil {
+			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+		}
+
+		if err != nil {
+			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+		}
+		_, err = tx.Create_CertDB(ctx,
+			dbx.CertDB_Publickey(pubbytes),
+			dbx.CertDB_Id(nodeID.Bytes()),
 		)
 		if err != nil {
 			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
@@ -40,14 +57,22 @@ func (b *uplinkDB) SavePublicKey(ctx context.Context, agreement uplinkdb.Agreeme
 	return Error.Wrap(tx.Commit())
 }
 
-func (b *uplinkDB) GetPublicKey(ctx context.Context, nodeID []byte) (*uplinkdb.Agreement, error) {
-	dbxInfo, err := b.db.Get_CertDB_By_Id(ctx, dbx.CertDB_Id(nodeID))
+func (b *uplinkDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (*ecdsa.PublicKey, error) {
+	dbxInfo, err := b.db.Get_CertDB_By_Id(ctx, dbx.CertDB_Id(nodeID.Bytes()))
 	if err != nil {
-		return &uplinkdb.Agreement{}, err
+		return nil, err
 	}
 
-	return &uplinkdb.Agreement{
-		ID:        dbxInfo.Id,
-		PublicKey: dbxInfo.Publickey,
-	}, nil
+	pubkey, err := x509.ParsePKIXPublicKey(dbxInfo.Publickey)
+	if err != nil {
+		return nil, Error.Wrap(Error.New("Failed to extract Public Key from RenterBandwidthAllocation: %+v", err))
+	}
+
+	// Typecast public key
+	pkey, ok := pubkey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, Error.Wrap(peertls.ErrUnsupportedKey.New("%T", pubkey))
+	}
+
+	return pkey, nil
 }

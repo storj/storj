@@ -39,7 +39,7 @@ CREATE TABLE bwagreements (
 CREATE TABLE certDBs (
 	publickey bytea NOT NULL,
 	id bytea NOT NULL,
-	created_at timestamp with time zone NOT NULL,
+	update_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (

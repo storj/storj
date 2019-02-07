@@ -39,7 +39,7 @@ CREATE TABLE bwagreements (
 CREATE TABLE certDBs (
 	publickey BLOB NOT NULL,
 	id BLOB NOT NULL,
-	created_at TIMESTAMP NOT NULL,
+	update_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (

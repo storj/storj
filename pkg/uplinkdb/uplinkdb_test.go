@@ -5,11 +5,14 @@ package uplinkdb_test
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/uplinkdb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -26,25 +29,22 @@ func TestUplinkDB(t *testing.T) {
 
 func testDatabase(ctx context.Context, t *testing.T, upldb uplinkdb.DB) {
 	//testing variables
-	uplinkInfo := &uplinkdb.Agreement{
-		ID:        []byte("IamUplinkID"),
-		PublicKey: []byte("IamUplinkPublicKey"),
-	}
+	upID, err := testidentity.NewTestIdentity(ctx)
+	require.NoError(t, err)
 
 	{ // New entry
-		err := upldb.SavePublicKey(ctx, *uplinkInfo)
+		err := upldb.SavePublicKey(ctx, upID.ID, upID.Leaf.PublicKey.(*ecdsa.PublicKey))
 		assert.NoError(t, err)
 	}
 
 	{ // New entry
-		err := upldb.SavePublicKey(ctx, *uplinkInfo)
+		err := upldb.SavePublicKey(ctx, upID.ID, upID.Leaf.PublicKey)
 		assert.NoError(t, err)
 	}
 
 	{ // Get the corresponding Public key for the serialnum
-		agreement, err := upldb.GetPublicKey(ctx, uplinkInfo.ID)
+		agreement, err := upldb.GetPublicKey(ctx, upID.ID)
 		assert.NoError(t, err)
-		assert.EqualValues(t, uplinkInfo.ID, agreement.ID)
-		assert.EqualValues(t, uplinkInfo.PublicKey, agreement.PublicKey)
+		assert.NotNil(t, agreement)
 	}
 }

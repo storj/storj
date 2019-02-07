@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
-	"crypto/x509"
 	"strings"
 	"time"
 
@@ -117,23 +116,23 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAll
 	pba := rba.GetPayerAllocation()
 
 	// Get renter's public key from uplink agreement db
-	uplinkInfo, err := s.uplinkdb.GetPublicKey(ctx, pba.UplinkId.Bytes())
+	uplinkInfo, err := s.uplinkdb.GetPublicKey(ctx, pba.UplinkId)
 	if err != nil {
 		return pb.ErrRenter.Wrap(auth.ErrVerify.New("Failed to unmarshal PayerBandwidthAllocation: %+v", err))
 	}
 
-	pubkey, err := x509.ParsePKIXPublicKey(uplinkInfo.PublicKey)
-	if err != nil {
-		return Error.New("Failed to extract Public Key from RenterBandwidthAllocation: %+v", err)
-	}
+	// pubkey, err := x509.ParsePKIXPublicKey(uplinkInfo)
+	// if err != nil {
+	// 	return Error.New("Failed to extract Public Key from RenterBandwidthAllocation: %+v", err)
+	// }
 
-	// Typecast public key
-	k, ok := pubkey.(*ecdsa.PublicKey)
-	if !ok {
-		return peertls.ErrUnsupportedKey.New("%T", pubkey)
-	}
+	// // Typecast public key
+	// k, ok := pubkey.(*ecdsa.PublicKey)
+	// if !ok {
+	// 	return peertls.ErrUnsupportedKey.New("%T", pubkey)
+	// }
 
-	signatureLength := k.Curve.Params().P.BitLen() / 8
+	signatureLength := uplinkInfo.Curve.Params().P.BitLen() / 8
 	if len(rba.GetSignature()) < signatureLength {
 		return pb.ErrRenter.Wrap(auth.ErrSigLen.New("%d vs %d", len(rba.GetSignature()), signatureLength))
 	}
@@ -147,12 +146,12 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAll
 		return Error.New("marshalling error: %+v", err)
 	}
 
-	if ok := cryptopasta.Verify(rbadBytes, rba.GetSignature(), k); !ok {
+	if ok := cryptopasta.Verify(rbadBytes, rba.GetSignature(), uplinkInfo); !ok {
 		return pb.ErrRenter.Wrap(auth.ErrVerify.New("%+v", ok))
 	}
 
 	// satellite public key
-	k, ok = s.pkey.(*ecdsa.PublicKey)
+	k, ok := s.pkey.(*ecdsa.PublicKey)
 	if !ok {
 		return peertls.ErrUnsupportedKey.New("%T", s.pkey)
 	}

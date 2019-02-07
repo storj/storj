@@ -342,11 +342,12 @@ model certDB (
 
 	field publickey  blob		//--uplink public key--//
 	field id         blob		//--uplink node id  --//
-	field created_at timestamp ( autoinsert )
+	field update_at timestamp ( autoinsert, autoupdate )
 )
 
 create certDB ( )
 delete certDB ( where certDB.id = ? )
+update certDB ( where certDB.id = ? )
 
 read one (
 	select certDB
