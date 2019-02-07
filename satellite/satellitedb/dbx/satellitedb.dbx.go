@@ -2479,19 +2479,6 @@ type Id_Row struct {
 	Id []byte
 }
 
-type Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row struct {
-	Node_Id                         []byte
-	Node_CreatedAt                  time.Time
-	Node_AuditSuccessRatio          float64
-	AccountingRollup_StartTime      time.Time
-	AccountingRollup_PutTotal       int64
-	AccountingRollup_GetTotal       int64
-	AccountingRollup_GetAuditTotal  int64
-	AccountingRollup_GetRepairTotal int64
-	AccountingRollup_PutRepairTotal int64
-	AccountingRollup_AtRestTotal    float64
-}
-
 type OperatorWallet_Row struct {
 	OperatorWallet string
 }
@@ -3199,40 +3186,6 @@ func (obj *postgresImpl) All_Node_Id(ctx context.Context) (
 	for __rows.Next() {
 		row := &Id_Row{}
 		err = __rows.Scan(&row.Id)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, row)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *postgresImpl) All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx context.Context,
-	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field,
-	accounting_rollup_start_time_less AccountingRollup_StartTime_Field) (
-	rows []*Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.created_at, nodes.audit_success_ratio, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM nodes  JOIN accounting_rollups ON nodes.id = accounting_rollups.node_id WHERE accounting_rollups.start_time >= ? AND accounting_rollups.start_time < ? ORDER BY nodes.id")
-
-	var __values []interface{}
-	__values = append(__values, accounting_rollup_start_time_greater_or_equal.value(), accounting_rollup_start_time_less.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		row := &Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row{}
-		err = __rows.Scan(&row.Node_Id, &row.Node_CreatedAt, &row.Node_AuditSuccessRatio, &row.AccountingRollup_StartTime, &row.AccountingRollup_PutTotal, &row.AccountingRollup_GetTotal, &row.AccountingRollup_GetAuditTotal, &row.AccountingRollup_GetRepairTotal, &row.AccountingRollup_PutRepairTotal, &row.AccountingRollup_AtRestTotal)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -5309,40 +5262,6 @@ func (obj *sqlite3Impl) All_Node_Id(ctx context.Context) (
 
 }
 
-func (obj *sqlite3Impl) All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx context.Context,
-	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field,
-	accounting_rollup_start_time_less AccountingRollup_StartTime_Field) (
-	rows []*Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.created_at, nodes.audit_success_ratio, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM nodes  JOIN accounting_rollups ON nodes.id = accounting_rollups.node_id WHERE accounting_rollups.start_time >= ? AND accounting_rollups.start_time < ? ORDER BY nodes.id")
-
-	var __values []interface{}
-	__values = append(__values, accounting_rollup_start_time_greater_or_equal.value(), accounting_rollup_start_time_less.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		row := &Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row{}
-		err = __rows.Scan(&row.Node_Id, &row.Node_CreatedAt, &row.Node_AuditSuccessRatio, &row.AccountingRollup_StartTime, &row.AccountingRollup_PutTotal, &row.AccountingRollup_GetTotal, &row.AccountingRollup_GetAuditTotal, &row.AccountingRollup_GetRepairTotal, &row.AccountingRollup_PutRepairTotal, &row.AccountingRollup_AtRestTotal)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, row)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
 func (obj *sqlite3Impl) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
 	overlay_cache_node *OverlayCacheNode, err error) {
@@ -7085,17 +7004,6 @@ func (rx *Rx) All_Node_Id(ctx context.Context) (
 	return tx.All_Node_Id(ctx)
 }
 
-func (rx *Rx) All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx context.Context,
-	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field,
-	accounting_rollup_start_time_less AccountingRollup_StartTime_Field) (
-	rows []*Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx, accounting_rollup_start_time_greater_or_equal, accounting_rollup_start_time_less)
-}
-
 func (rx *Rx) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 	var tx *Tx
@@ -7725,11 +7633,6 @@ type Methods interface {
 
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)
-
-	All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx context.Context,
-		accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field,
-		accounting_rollup_start_time_less AccountingRollup_StartTime_Field) (
-		rows []*Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row, err error)
 
 	All_Project(ctx context.Context) (
 		rows []*Project, err error)
