@@ -334,3 +334,22 @@ read all (
     where api_key.project_id = ?
     orderby asc api_key.name
 )
+
+//--- certRecord ---//
+
+model certRecord (
+	key id 
+
+	field publickey  blob		//--uplink public key--//
+	field id         blob		//--uplink node id  --//
+	field update_at timestamp ( autoinsert, autoupdate )
+)
+
+create certRecord ( )
+delete certRecord ( where certRecord.id = ? )
+update certRecord ( where certRecord.id = ? )
+
+read one (
+	select certRecord
+	where  certRecord.id = ?
+)
