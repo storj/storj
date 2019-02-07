@@ -24,19 +24,19 @@ func TestCreate_Sqlite(t *testing.T) {
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	// should create table
-	err = Create("example", &sqliteDB{db, "CREATE TABLE users (id text, email text, status int)"})
+	err = Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
 	assert.NoError(t, err)
 
 	// shouldn't create a new table
-	err = Create("example", &sqliteDB{db, "CREATE TABLE users (id text, email text, status int)"})
+	err = Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
 	assert.NoError(t, err)
 
 	// should fail, because schema changed
-	err = Create("example", &sqliteDB{db, "CREATE TABLE users (id text, version int, email text, status int)"})
+	err = Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text, version int)"})
 	assert.Error(t, err)
 
 	// should fail, because of trying to CREATE TABLE with same name
-	err = Create("conflict", &sqliteDB{db, "CREATE TABLE users (id text, version int, email text, status int)"})
+	err = Create("conflict", &sqliteDB{db, "CREATE TABLE example_table (id text, version int)"})
 	assert.Error(t, err)
 }
 
@@ -57,19 +57,19 @@ func TestCreate_Postgres(t *testing.T) {
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	// should create table
-	err = Create("example", &postgresDB{db, "CREATE TABLE users (id text, email text, status integer)"})
+	err = Create("example", &postgresDB{db, "CREATE TABLE example_table (id text)"})
 	assert.NoError(t, err)
 
 	// shouldn't create a new table
-	err = Create("example", &postgresDB{db, "CREATE TABLE users (id text, email text, status integer)"})
+	err = Create("example", &postgresDB{db, "CREATE TABLE example_table (id text)"})
 	assert.NoError(t, err)
 
 	// should fail, because schema changed
-	err = Create("example", &postgresDB{db, "CREATE TABLE users (id text, version integer, email text, status integer)"})
+	err = Create("example", &postgresDB{db, "CREATE TABLE example_table (id text, version integer)"})
 	assert.Error(t, err)
 
 	// should fail, because of trying to CREATE TABLE with same name
-	err = Create("conflict", &postgresDB{db, "CREATE TABLE users (id text, version integer, email text, status integer)"})
+	err = Create("conflict", &postgresDB{db, "CREATE TABLE example_table (id text, version integer)"})
 	assert.Error(t, err)
 }
 

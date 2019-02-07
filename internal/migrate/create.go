@@ -47,13 +47,6 @@ func Create(identifier string, db DB) error {
 			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 		}
 
-		// creating multi column unique index with condition.
-		// status = 1 indicates that account is activated
-		_, err = tx.Exec(db.Rebind("CREATE UNIQUE INDEX console_unique_index_email_status ON users(email, status) WHERE (status != 0)"))
-		if err != nil {
-			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
-		}
-
 		_, err = tx.Exec(db.Rebind(`INSERT INTO table_schemas(id, schemaText) VALUES (?, ?);`), identifier, schema)
 		if err != nil {
 			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
