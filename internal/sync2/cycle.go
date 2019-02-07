@@ -7,6 +7,8 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // Cycle implements a controllable recurring event.
@@ -47,6 +49,13 @@ func (cycle *Cycle) initialize() {
 	cycle.init.Do(func() {
 		cycle.quit = make(chan struct{})
 		cycle.control = make(chan interface{})
+	})
+}
+
+// Grouped runs the specified function with an errgroup
+func (cycle *Cycle) Grouped(ctx context.Context, group *errgroup.Group, fn func(ctx context.Context) error) {
+	group.Go(func() error {
+		return cycle.Run(ctx, fn)
 	})
 }
 

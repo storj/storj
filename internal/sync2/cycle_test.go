@@ -22,11 +22,9 @@ func TestCycle_Basic(t *testing.T) {
 
 	var group errgroup.Group
 
-	group.Go(func() error {
-		return cycle.Run(ctx, func(ctx context.Context) error {
-			atomic.AddInt64(&count, 1)
-			return nil
-		})
+	cycle.Grouped(ctx, &group, func(ctx context.Context) error {
+		atomic.AddInt64(&count, 1)
+		return nil
 	})
 
 	group.Go(func() error {
