@@ -34,6 +34,51 @@ matrix:
         - postgresql
       script:
         - go test -parallel 64 -count 10 -run TestRetrieve -race -timeout 9m ./pkg/piecestore/psserver
+    ### tests ###
+    - env:
+        - MODE=tests
+        - STORJ_POSTGRES_TEST=postgres://postgres@localhost/teststorj?sslmode=disable
+      services:
+        - redis
+        - postgresql
+      script:
+        - go test -parallel 64 -count 10 -run TestRetrieve -race -timeout 9m ./pkg/piecestore/psserver
+    ### tests ###
+    - env:
+        - MODE=tests
+        - STORJ_POSTGRES_TEST=postgres://postgres@localhost/teststorj?sslmode=disable
+      services:
+        - redis
+        - postgresql
+      script:
+        - go test -parallel 64 -count 10 -run TestRetrieve -race -timeout 9m ./pkg/piecestore/psserver
+    ### tests ###
+    - env:
+        - MODE=tests
+        - STORJ_POSTGRES_TEST=postgres://postgres@localhost/teststorj?sslmode=disable
+      services:
+        - redis
+        - postgresql
+      script:
+        - go test -parallel 64 -count 10 -run TestRetrieve -race -timeout 9m ./pkg/piecestore/psserver
+    ### tests ###
+    - env:
+        - MODE=tests
+        - STORJ_POSTGRES_TEST=postgres://postgres@localhost/teststorj?sslmode=disable
+      services:
+        - redis
+        - postgresql
+      script:
+        - go test -parallel 64 -count 10 -run TestRetrieve -race -timeout 9m ./pkg/piecestore/psserver
+    ### tests ###
+    - env:
+        - MODE=tests
+        - STORJ_POSTGRES_TEST=postgres://postgres@localhost/teststorj?sslmode=disable
+      services:
+        - redis
+        - postgresql
+      script:
+        - go test -parallel 64 -count 10 -run TestRetrieve -race -timeout 9m ./pkg/piecestore/psserver
 
   fast_finish: true
 
