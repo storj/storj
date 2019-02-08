@@ -152,9 +152,9 @@ func TestGetObjectStream(t *testing.T) {
 
 		// Stop randomly half of the storage nodes and remove them from satellite's overlay cache
 		perm := mathrand.Perm(len(planet.StorageNodes))
-		for i := 0; i < len(perm)/2; i++ {
-			assert.NoError(t, planet.StopPeer(planet.StorageNodes[perm[i]]))
-			assert.NoError(t, planet.Satellites[0].Overlay.Service.Delete(ctx, planet.StorageNodes[perm[i]].ID()))
+		for _, i := range perm[:(len(perm) / 2)] {
+			assert.NoError(t, planet.StopPeer(planet.StorageNodes[i]))
+			assert.NoError(t, planet.Satellites[0].Overlay.Service.Delete(ctx, planet.StorageNodes[i].ID()))
 		}
 
 		// try downloading the large file again
