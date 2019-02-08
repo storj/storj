@@ -255,6 +255,8 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 	}
 
 	_ = group.Wait() // none of the goroutines return an error
+
+	// TODO: implement this using refreshing of the appropriate nodes
 }
 
 // StopPeer stops a single peer in the planet

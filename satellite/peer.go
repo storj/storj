@@ -202,6 +202,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		config := config.Overlay
 		peer.Overlay.Service = overlay.NewCache(peer.DB.OverlayCache(), peer.DB.StatDB())
 
+		peer.Transport = peer.Transport.WithObservers(peer.Overlay.Service)
+
 		nodeSelectionConfig := &overlay.NodeSelectionConfig{
 			UptimeCount:           config.Node.UptimeCount,
 			UptimeRatio:           config.Node.UptimeRatio,
@@ -256,10 +258,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
+
+			peer.Transport = peer.Transport.WithObservers(peer.Kademlia.RoutingTable)
 		}
 
 		// TODO: reduce number of arguments
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, config.BootstrapNodes(), peer.Identity, config.Alpha, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, config.BootstrapNodes(), peer.Transport, config.Alpha, peer.Kademlia.RoutingTable)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
