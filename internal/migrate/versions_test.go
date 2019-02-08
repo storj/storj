@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,7 +27,7 @@ func TestBasicMigrationSqlite(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	basicMigration(t, db, &sqliteDB{DB: db})
+	basicMigration(t, db, migrate.NewSqliteDB(db, ""))
 }
 
 func TestBasicMigrationPostgres(t *testing.T) {
@@ -38,14 +39,14 @@ func TestBasicMigrationPostgres(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	basicMigration(t, db, &postgresDB{DB: db})
+	basicMigration(t, db, migrate.NewPostgresDB(db, ""))
 }
 
 func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	dbName := `versions_` + t.Name()
+	dbName := strings.ToLower(`versions_` + t.Name())
 	defer func() { assert.NoError(t, dropTables(db, dbName, "users")) }()
 
 	err := ioutil.WriteFile(ctx.File("alpha.txt"), []byte("test"), 0644)
@@ -101,7 +102,7 @@ func TestMultipleMigrationSqlite(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	multipleMigration(t, db, &sqliteDB{DB: db})
+	multipleMigration(t, db, migrate.NewSqliteDB(db, ""))
 }
 
 func TestMultipleMigrationPostgres(t *testing.T) {
@@ -113,14 +114,14 @@ func TestMultipleMigrationPostgres(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	multipleMigration(t, db, &postgresDB{DB: db})
+	multipleMigration(t, db, migrate.NewPostgresDB(db, ""))
 }
 
 func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	dbName := `versions_` + t.Name()
+	dbName := strings.ToLower(`versions_` + t.Name())
 	defer func() { assert.NoError(t, dropTables(db, dbName)) }()
 
 	steps := 0
@@ -174,7 +175,7 @@ func TestFailedMigrationSqlite(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	failedMigration(t, db, &sqliteDB{DB: db})
+	failedMigration(t, db, migrate.NewSqliteDB(db, ""))
 }
 
 func TestFailedMigrationPostgres(t *testing.T) {
@@ -186,14 +187,14 @@ func TestFailedMigrationPostgres(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	failedMigration(t, db, &postgresDB{DB: db})
+	failedMigration(t, db, migrate.NewSqliteDB(db, ""))
 }
 
 func failedMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	dbName := `versions_` + t.Name()
+	dbName := strings.ToLower(`versions_` + t.Name())
 	defer func() { assert.NoError(t, dropTables(db, dbName)) }()
 
 	m := migrate.Migration{
@@ -223,7 +224,7 @@ func TestOnCreateMigrationSqlite(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	onCreate(t, db, &sqliteDB{DB: db})
+	onCreate(t, db, migrate.NewSqliteDB(db, ""))
 }
 
 func TestOnCreateMigrationPostgres(t *testing.T) {
@@ -235,14 +236,14 @@ func TestOnCreateMigrationPostgres(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	onCreate(t, db, &postgresDB{DB: db})
+	onCreate(t, db, migrate.NewPostgresDB(db, ""))
 }
 
 func onCreate(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	dbName := `versions_` + t.Name()
+	dbName := strings.ToLower(`versions_` + t.Name())
 	defer func() { assert.NoError(t, dropTables(db, dbName, "users")) }()
 
 	m := migrate.Migration{
@@ -280,7 +281,7 @@ func TestOnCreateFailMigrationSqlite(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	onCreateFail(t, db, &sqliteDB{DB: db})
+	onCreateFail(t, db, migrate.NewSqliteDB(db, ""))
 }
 
 func TestOnCreateFailMigrationPostgres(t *testing.T) {
@@ -292,14 +293,14 @@ func TestOnCreateFailMigrationPostgres(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	onCreateFail(t, db, &postgresDB{DB: db})
+	onCreateFail(t, db, migrate.NewPostgresDB(db, ""))
 }
 
 func onCreateFail(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	dbName := `versions_` + t.Name()
+	dbName := strings.ToLower(`versions_` + t.Name())
 	defer func() { assert.NoError(t, dropTables(db, dbName)) }()
 
 	m := migrate.Migration{

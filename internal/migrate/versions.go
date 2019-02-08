@@ -68,7 +68,12 @@ func (migration *Migration) ValidTableName() error {
 
 // Run runs the migration steps
 func (migration *Migration) Run(log *zap.Logger, db DB) error {
-	err := migration.createVersionTable(log, db)
+	err := migration.ValidTableName()
+	if err != nil {
+		return err
+	}
+
+	err = migration.createVersionTable(log, db)
 	if err != nil {
 		return Error.New("creating version table failed: %v", err)
 	}
