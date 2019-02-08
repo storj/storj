@@ -147,7 +147,7 @@ func TestRandomizedSelection(t *testing.T) {
 	t.Parallel()
 
 	totalNodes := 1000
-	selectIterations := 1000
+	selectIterations := 100
 	numNodesToSelect := 100
 	minSelectCount := 1
 
