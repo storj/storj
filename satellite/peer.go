@@ -186,7 +186,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		publicConfig := server.Config{Address: peer.Public.Listener.Addr().String()}
+		publicConfig := config.Server
+		publicConfig.Address = peer.Public.Listener.Addr().String()
 		publicOptions, err := server.NewOptions(peer.Identity, publicConfig)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -202,7 +203,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		config := config.Overlay
 		peer.Overlay.Service = overlay.NewCache(peer.DB.OverlayCache(), peer.DB.StatDB())
 
-		// TODO: should overlay service be wired up to transport?
+		peer.Transport = peer.Transport.WithObservers(peer.Overlay.Service)
 
 		nodeSelectionConfig := &overlay.NodeSelectionConfig{
 			UptimeCount:           config.Node.UptimeCount,

@@ -255,8 +255,6 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 					log.Error("satellite did not find storage node", zap.Error(err))
 				}
 			}
-
-			satellite.Discovery.Service.Refresh.TriggerWait()
 			return nil
 		})
 	}
@@ -382,10 +380,10 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		config := satellite.Config{
 			Server: server.Config{
 				Address:            "127.0.0.1:0",
-				RevocationDBURL:    "bolt://" + filepath.Join(planet.directory, "revocation.db"),
+				RevocationDBURL:    "bolt://" + filepath.Join(storageDir, "revocation.db"),
 				UsePeerCAWhitelist: false, // TODO: enable
 				Extensions: peertls.TLSExtConfig{
-					Revocation:          true,
+					Revocation:          false,
 					WhitelistSignedLeaf: false,
 				},
 			},
@@ -512,7 +510,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 				RevocationDBURL:    "bolt://" + filepath.Join(storageDir, "revocation.db"),
 				UsePeerCAWhitelist: false, // TODO: enable
 				Extensions: peertls.TLSExtConfig{
-					Revocation:          true,
+					Revocation:          false,
 					WhitelistSignedLeaf: false,
 				},
 			},
@@ -589,7 +587,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 			RevocationDBURL:    "bolt://" + filepath.Join(dbDir, "revocation.db"),
 			UsePeerCAWhitelist: false, // TODO: enable
 			Extensions: peertls.TLSExtConfig{
-				Revocation:          true,
+				Revocation:          false,
 				WhitelistSignedLeaf: false,
 			},
 		},
