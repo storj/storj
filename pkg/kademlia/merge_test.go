@@ -62,7 +62,8 @@ func TestMergePlanets(t *testing.T) {
 	for _, satellite := range allSatellites {
 		satellite := satellite
 		group.Go(func() error {
-			for i := 0; i < 10; i++ {
+			satellite.Kademlia.Service.SetBucketRefreshThreshold(0)
+			for i := 0; i < 2; i++ {
 				satellite.Kademlia.Service.RefreshBuckets.TriggerWait()
 			}
 			return nil
