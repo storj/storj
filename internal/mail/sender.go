@@ -19,7 +19,7 @@ type SMTPSender struct {
 	Auth smtp.Auth
 }
 
-// SendEmail sends email message to the given recipient
+// SendEmail sends email message
 func (sender *SMTPSender) SendEmail(msg *Message) error {
 	host, _, err := net.SplitHostPort(sender.ServerAddress)
 	if err != nil {
