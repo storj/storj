@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"storj.io/storj/pkg/cfgstruct"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -31,7 +32,7 @@ func init() {
 	rootCmd.AddCommand(prCmd)
 	prCmd.AddCommand(listCmd)
 
-	//cfgstruct.Bind(listCmd.Flags(), &listCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(listCmd.Flags(), &listCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
 func NewClient(cfg *ClientConfig) *GithubClient {

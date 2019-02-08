@@ -28,8 +28,8 @@ type MergableState int
 
 type ClientConfig struct {
 	Repo  string `default:"storj/storj" help:"github user/organization and repository to operate on (i.e. <user/org>/<repo_name>)"`
-	User  string `help:"your github username for authentication"`
-	Token string `help:"your github oauth token for authentication"`
+	User  string `help:"your github username for authentication" user:"true"`
+	Token string `help:"your github oauth token for authentication" user:`"true"
 }
 
 type GithubClient struct {

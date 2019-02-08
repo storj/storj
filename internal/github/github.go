@@ -29,7 +29,7 @@ var (
 		Short: "create an oauth token and config, and write them to disk",
 		Args:  cobra.ExactArgs(2),
 		RunE:  cmdSetup,
-		Annotations: map[string]string{"setup": "true"},
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	//setup (create oauth token using basic auth -- write to config!)
@@ -45,23 +45,19 @@ var (
 )
 
 func init() {
-	fmt.Println("init")
 	rootCmd.AddCommand(setupCmd)
 
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) error {
-	fmt.Print("zero")
 	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
-		fmt.Print("one")
 		return err
 	}
 
 	valid, _ := fpath.IsValidSetupDir(setupDir)
 	if !valid {
-		fmt.Print("two")
 		return fmt.Errorf("github configuration already exists (%v)", setupDir)
 	}
 
@@ -81,7 +77,6 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 }
 
 func main() {
-	fmt.Println("main")
 	confDirParam := cfgstruct.FindConfigDirParam()
 	if confDirParam != "" {
 		defaultConfDir = confDirParam
@@ -93,7 +88,5 @@ func main() {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
 
-	fmt.Println("end main")
 	process.Exec(rootCmd)
-	fmt.Println("actually main")
 }
