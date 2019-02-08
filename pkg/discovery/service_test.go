@@ -27,32 +27,25 @@ func TestCache_Refresh(t *testing.T) {
 }
 
 func TestCache_Graveyard(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		testnode := planet.StorageNodes[0]
+		offlineID := testnode.ID()
 
-	planet, err := testplanet.New(t, 1, 8, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(planet.Shutdown)
+		satellite.Discovery.Service.Graveyard.Pause()
 
-	planet.Start(ctx)
-	satellite := planet.Satellites[0]
-	offline := planet.StorageNodes[0].ID()
+		err := satellite.Overlay.Service.Delete(ctx, offlineID)
+		assert.NoError(t, err)
+		_, err = satellite.Overlay.Service.Get(ctx, offlineID)
+		assert.NotNil(t, err)
 
-	k := satellite.Kademlia.Service
-	k.WaitForBootstrap() // redundant, but leaving here to be clear
+		satellite.Discovery.Service.Graveyard.TriggerWait()
 
-	seen := k.Seen()
-	assert.NotNil(t, seen)
-
-	err = satellite.Overlay.Service.Delete(ctx, offline)
-	assert.NoError(t, err)
-
-	time.Sleep(5 * time.Second)
-
-	node, err := satellite.Overlay.Service.Get(ctx, offline)
-	assert.NoError(t, err)
-	assert.NotNil(t, node)
-	assert.Equal(t, node.Id, offline)
+		found, err := satellite.Overlay.Service.Get(ctx, offlineID)
+		assert.NoError(t, err)
+		assert.NotNil(t, found)
+		assert.Equal(t, offlineID, found.Id)
+	})
 }
