@@ -42,7 +42,7 @@ func (msg *Message) Bytes() []byte {
 
 	// write headers
 	fmt.Fprintf(&body, "MIME-Version: 1.0\r\n")
-	fmt.Fprintf(&body, "Subject: %s\r\n", msg.Subject)
+	fmt.Fprintf(&body, "Subject: <%v>\r\n", msg.Subject)
 	fmt.Fprintf(&body, "From: %s\r\n", &msg.From)
 	for _, to := range msg.To {
 		fmt.Fprintf(&body, "To: %s\r\n", &to)
