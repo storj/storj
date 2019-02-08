@@ -394,7 +394,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				},
 			},
 			Overlay: overlay.Config{
-				RefreshInterval: 30 * time.Second,
 				Node: overlay.NodeSelectionConfig{
 					UptimeRatio:           0,
 					UptimeCount:           0,
