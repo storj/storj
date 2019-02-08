@@ -147,9 +147,9 @@ func TestRandomizedSelection(t *testing.T) {
 	t.Parallel()
 
 	totalNodes := 1000
-	selectIterations := 100
+	selectIterations := 1000
 	numNodesToSelect := 100
-	minSelectCount := (selectIterations * numNodesToSelect / totalNodes) / 2
+	minSelectCount := 1
 
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
@@ -163,7 +163,12 @@ func TestRandomizedSelection(t *testing.T) {
 		for i := 0; i < totalNodes; i++ {
 			newID := storj.NodeID{}
 			_, _ = rand.Read(newID[:])
-			err := cache.Update(ctx, &pb.Node{Id: newID})
+			err := cache.Update(ctx, &pb.Node{
+				Id:           newID,
+				Type:         pb.NodeType_STORAGE,
+				Restrictions: &pb.NodeRestrictions{},
+				Reputation:   &pb.NodeStats{},
+			})
 			require.NoError(t, err)
 			allIDs[i] = newID
 			nodeCounts[newID] = 0
