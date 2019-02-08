@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"mime"
 	"mime/multipart"
 	"mime/quotedprintable"
 	"net/mail"
@@ -42,20 +43,20 @@ func (msg *Message) Bytes() []byte {
 
 	// write headers
 	fmt.Fprintf(&body, "MIME-Version: 1.0\r\n")
-	fmt.Fprintf(&body, "Subject: <%v>\r\n", msg.Subject)
+	fmt.Fprintf(&body, "Subject: %v\r\n", mime.QEncoding.Encode("utf-8", msg.Subject))
 	fmt.Fprintf(&body, "From: %s\r\n", &msg.From)
 	for _, to := range msg.To {
 		fmt.Fprintf(&body, "To: %s\r\n", &to)
 	}
 	for _, recipient := range msg.ReceiptTo {
-		fmt.Fprintf(&body, "Disposition-Notification-To: <%v>\r\n", recipient)
+		fmt.Fprintf(&body, "Disposition-Notification-To: <%v>\r\n", mime.QEncoding.Encode("utf-8", recipient))
 	}
 	// date and id are optional as they can be set by server itself
 	if !msg.Date.IsZero() {
 		fmt.Fprintf(&body, "Date: %v\r\n", msg.Date)
 	}
 	if msg.ID != "" {
-		fmt.Fprintf(&body, "Message-ID: <%v>\r\n", msg.ID)
+		fmt.Fprintf(&body, "Message-ID: <%v>\r\n", mime.QEncoding.Encode("utf-8", msg.ID))
 	}
 
 	switch {
@@ -81,12 +82,12 @@ func (msg *Message) Bytes() []byte {
 		}
 
 		for _, part := range msg.Parts {
-			header := textproto.MIMEHeader{"Content-Type": []string{part.Type}}
+			header := textproto.MIMEHeader{"Content-Type": []string{mime.QEncoding.Encode("utf-8", part.Type)}}
 			if part.Encoding != "" {
-				header["Content-Transfer-Encoding"] = []string{part.Encoding}
+				header["Content-Transfer-Encoding"] = []string{mime.QEncoding.Encode("utf-8", part.Encoding)}
 			}
 			if part.Disposition != "" {
-				header["Content-Disposition"] = []string{part.Disposition}
+				header["Content-Disposition"] = []string{mime.QEncoding.Encode("utg-8", part.Disposition)}
 			}
 
 			sub, _ = wr.CreatePart(header)
@@ -98,7 +99,10 @@ func (msg *Message) Bytes() []byte {
 	default:
 		fmt.Fprintf(&body, "Content-Type: text/plain; charset=UTF-8; format=flowed\r\n")
 		fmt.Fprintf(&body, "Content-Transfer-Encoding: quoted-printable\r\n\r\n")
-		fmt.Fprintf(&body, msg.PlainText)
+
+		enc := quotedprintable.NewWriter(&body)
+		_, _ = enc.Write([]byte(msg.PlainText))
+		_ = enc.Close()
 	}
 
 	return tocrlf(body.Bytes())
