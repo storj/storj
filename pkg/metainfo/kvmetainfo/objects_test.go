@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	mathrand "math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -118,8 +117,6 @@ func TestGetObject(t *testing.T) {
 }
 
 func TestGetObjectStream(t *testing.T) {
-	t.Skip("flaky")
-
 	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		data := make([]byte, 32*memory.KB)
 		_, err := rand.Read(data)
@@ -152,6 +149,7 @@ func TestGetObjectStream(t *testing.T) {
 		assertStream(ctx, t, db, streams, bucket, "small-file", 4, []byte("test"))
 		assertStream(ctx, t, db, streams, bucket, "large-file", 32*memory.KB.Int64(), data)
 
+		/* TODO: Disable stopping due to flakiness.
 		// Stop randomly half of the storage nodes and remove them from satellite's overlay cache
 		perm := mathrand.Perm(len(planet.StorageNodes))
 		for _, i := range perm[:(len(perm) / 2)] {
@@ -161,6 +159,7 @@ func TestGetObjectStream(t *testing.T) {
 
 		// try downloading the large file again
 		assertStream(ctx, t, db, streams, bucket, "large-file", 32*memory.KB.Int64(), data)
+		*/
 	})
 }
 
