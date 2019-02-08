@@ -36,6 +36,7 @@ type Client interface {
 	DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	Identity() *identity.FullIdentity
+	WithObservers(obs ...Observer) *Transport
 }
 
 // Transport interface structure
@@ -107,6 +108,14 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 // Identity is a getter for the transport's identity
 func (transport *Transport) Identity() *identity.FullIdentity {
 	return transport.identity
+}
+
+// WithObservers returns a new transport including the listed observers.
+func (transport *Transport) WithObservers(obs ...Observer) *Transport {
+	tr := &Transport{identity: transport.identity}
+	tr.observers = append(tr.observers, transport.observers...)
+	tr.observers = append(tr.observers, obs...)
+	return tr
 }
 
 func alertFail(ctx context.Context, obs []Observer, node *pb.Node, err error) {

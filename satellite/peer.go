@@ -198,6 +198,28 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		}
 	}
 
+	{ // setup overlay
+		config := config.Overlay
+		peer.Overlay.Service = overlay.NewCache(peer.DB.OverlayCache(), peer.DB.StatDB())
+
+		// TODO: should overlay service be wired up to transport?
+
+		nodeSelectionConfig := &overlay.NodeSelectionConfig{
+			UptimeCount:           config.Node.UptimeCount,
+			UptimeRatio:           config.Node.UptimeRatio,
+			AuditSuccessRatio:     config.Node.AuditSuccessRatio,
+			AuditCount:            config.Node.AuditCount,
+			NewNodeAuditThreshold: config.Node.NewNodeAuditThreshold,
+			NewNodePercentage:     config.Node.NewNodePercentage,
+		}
+
+		peer.Overlay.Endpoint = overlay.NewServer(peer.Log.Named("overlay:endpoint"), peer.Overlay.Service, nodeSelectionConfig)
+		pb.RegisterOverlayServer(peer.Public.Server.GRPC(), peer.Overlay.Endpoint)
+
+		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
+		pb.RegisterOverlayInspectorServer(peer.Public.Server.GRPC(), peer.Overlay.Inspector)
+	}
+
 	{ // setup kademlia
 		config := config.Kademlia
 		// TODO: move this setup logic into kademlia package
@@ -236,10 +258,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
+
+			peer.Transport = peer.Transport.WithObservers(peer.Kademlia.RoutingTable)
 		}
 
 		// TODO: reduce number of arguments
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, config.BootstrapNodes(), peer.Identity, config.Alpha, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, config.BootstrapNodes(), peer.Transport, config.Alpha, peer.Kademlia.RoutingTable)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -249,26 +273,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
 		pb.RegisterKadInspectorServer(peer.Public.Server.GRPC(), peer.Kademlia.Inspector)
-	}
-
-	{ // setup overlay
-		config := config.Overlay
-		peer.Overlay.Service = overlay.NewCache(peer.DB.OverlayCache(), peer.DB.StatDB())
-
-		nodeSelectionConfig := &overlay.NodeSelectionConfig{
-			UptimeCount:           config.Node.UptimeCount,
-			UptimeRatio:           config.Node.UptimeRatio,
-			AuditSuccessRatio:     config.Node.AuditSuccessRatio,
-			AuditCount:            config.Node.AuditCount,
-			NewNodeAuditThreshold: config.Node.NewNodeAuditThreshold,
-			NewNodePercentage:     config.Node.NewNodePercentage,
-		}
-
-		peer.Overlay.Endpoint = overlay.NewServer(peer.Log.Named("overlay:endpoint"), peer.Overlay.Service, nodeSelectionConfig)
-		pb.RegisterOverlayServer(peer.Public.Server.GRPC(), peer.Overlay.Endpoint)
-
-		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
-		pb.RegisterOverlayInspectorServer(peer.Public.Server.GRPC(), peer.Overlay.Inspector)
 	}
 
 	{ // setup reputation
@@ -385,7 +389,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.RunRefresh(ctx))
+		return ignoreCancel(peer.Kademlia.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Discovery.Service.Run(ctx))
@@ -464,19 +468,19 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Discovery.Service.Close())
 	}
 
-	if peer.Overlay.Endpoint != nil {
-		errlist.Add(peer.Overlay.Endpoint.Close())
-	}
-	if peer.Overlay.Service != nil {
-		errlist.Add(peer.Overlay.Service.Close())
-	}
-
 	// TODO: add kademlia.Endpoint for consistency
 	if peer.Kademlia.Service != nil {
 		errlist.Add(peer.Kademlia.Service.Close())
 	}
 	if peer.Kademlia.RoutingTable != nil {
 		errlist.Add(peer.Kademlia.RoutingTable.Close())
+	}
+
+	if peer.Overlay.Endpoint != nil {
+		errlist.Add(peer.Overlay.Endpoint.Close())
+	}
+	if peer.Overlay.Service != nil {
+		errlist.Add(peer.Overlay.Service.Close())
 	}
 
 	if peer.Kademlia.ndb != nil || peer.Kademlia.kdb != nil {

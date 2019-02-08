@@ -5,7 +5,6 @@ package overlay_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,9 +22,6 @@ func TestChoose(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 8, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		// we wait a second for all the nodes to complete bootstrapping off the satellite
-		time.Sleep(2 * time.Second)
-
 		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
 		require.NoError(t, err)
 
@@ -63,9 +59,6 @@ func TestLookup(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		// we wait a second for all the nodes to complete bootstrapping off the satellite
-		time.Sleep(2 * time.Second)
-
 		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
 		require.NoError(t, err)
 
@@ -105,9 +98,6 @@ func TestBulkLookup(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		// we wait a second for all the nodes to complete bootstrapping off the satellite
-		time.Sleep(2 * time.Second)
-
 		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
 		require.NoError(t, err)
 
@@ -143,9 +133,6 @@ func TestBulkLookupV2(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		// we wait a second for all the nodes to complete bootstrapping off the satellite
-		time.Sleep(2 * time.Second)
-
 		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
 		require.NoError(t, err)
 

@@ -22,8 +22,6 @@ func TestQuery(t *testing.T) {
 		atRest := float64(5000)
 		bw := []int64{1000, 2000, 3000, 4000}
 
-		time.Sleep(time.Second * 2)
-
 		nodeData, bwTotals := createData(planet, atRest, bw)
 
 		// Set timestamp back by the number of days we want to save
