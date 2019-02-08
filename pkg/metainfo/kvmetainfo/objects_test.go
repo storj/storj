@@ -118,6 +118,8 @@ func TestGetObject(t *testing.T) {
 }
 
 func TestGetObjectStream(t *testing.T) {
+	t.Skip("flaky")
+
 	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		data := make([]byte, 32*memory.KB)
 		_, err := rand.Read(data)
