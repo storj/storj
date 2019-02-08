@@ -7,35 +7,24 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"mime"
 	"mime/multipart"
 	"mime/quotedprintable"
+	"net/mail"
 	"net/textproto"
-	"strings"
 	"time"
 )
 
 // Message is RFC compliant email message
 type Message struct {
-	From      Address
-	To        []Address
+	From      mail.Address
+	To        []mail.Address
 	Subject   string
 	ID        string
 	Date      time.Time
 	ReceiptTo []string
 
-	ContentType string
-	Encoding    string
-	Disposition string
-
-	Body  string
-	Parts []Part
-}
-
-// Address is email address of a sender/recipient with name
-type Address struct {
-	Email string
-	Name  string
+	PlainText string
+	Parts     []Part
 }
 
 // Part represent one part of multipart message
@@ -47,16 +36,16 @@ type Part struct {
 }
 
 // Bytes builds message and returns result as bytes
-func (msg *Message) Bytes() ([]byte, error) {
+func (msg *Message) Bytes() []byte {
 	// always returns nil on read and write, so most of the errors can be ignored
 	var body bytes.Buffer
 
 	// write headers
 	fmt.Fprintf(&body, "MIME-Version: 1.0\r\n")
-	fmt.Fprintf(&body, "Subject: %v\r\n", msg.Subject)
-	fmt.Fprintf(&body, "From: %s\r\n", formatAddress(msg.From))
+	fmt.Fprintf(&body, "Subject: %s\r\n", msg.Subject)
+	fmt.Fprintf(&body, "From: %s\r\n", &msg.From)
 	for _, to := range msg.To {
-		fmt.Fprintf(&body, "To: %s\r\n", formatAddress(to))
+		fmt.Fprintf(&body, "To: %s\r\n", &to)
 	}
 	for _, recipient := range msg.ReceiptTo {
 		fmt.Fprintf(&body, "Disposition-Notification-To: <%v>\r\n", recipient)
@@ -69,32 +58,25 @@ func (msg *Message) Bytes() ([]byte, error) {
 		fmt.Fprintf(&body, "Message-ID: <%v>\r\n", msg.ID)
 	}
 
-	// parse content type
-	mtype, _, err := mime.ParseMediaType(msg.ContentType)
-	if err != nil {
-		return nil, err
-	}
-
 	switch {
-	// multipart upload, body is treated as plain text content of the message
-	// to support readability
-	case strings.HasPrefix(mtype, "multipart"):
+	// multipart upload
+	case len(msg.Parts) > 0:
 		wr := multipart.NewWriter(&body)
 
-		fmt.Fprintf(&body, "Content-Type: %s;", msg.ContentType)
+		fmt.Fprintf(&body, "Content-Type: multipart/alternative;")
 		fmt.Fprintf(&body, "\tboundary=\"%v\"\r\n", wr.Boundary())
 		fmt.Fprintf(&body, "\r\n")
 
 		var sub io.Writer
 
-		if len(msg.Body) > 0 {
+		if len(msg.PlainText) > 0 {
 			sub, _ = wr.CreatePart(textproto.MIMEHeader{
 				"Content-Type":              []string{"text/plain; charset=UTF-8; format=flowed"},
 				"Content-Transfer-Encoding": []string{"quoted-printable"},
 			})
 
 			enc := quotedprintable.NewWriter(sub)
-			_, _ = enc.Write([]byte(msg.Body))
+			_, _ = enc.Write([]byte(msg.PlainText))
 			_ = enc.Close()
 		}
 
@@ -112,27 +94,14 @@ func (msg *Message) Bytes() ([]byte, error) {
 		}
 
 		_ = wr.Close()
-	// single part content stored in body, parts are ignored
+		// fallback if there are no parts, write PlainText with appropriate Content-Type
 	default:
-		fmt.Fprintf(&body, "Content-Type: %s;", msg.ContentType)
-		if msg.Encoding != "" {
-			fmt.Fprintf(&body, "Content-Transfer-Encoding: %s;", msg.Encoding)
-		}
-		if msg.Disposition != "" {
-			fmt.Fprintf(&body, "Content-Disposition: %s;", msg.Disposition)
-		}
-		fmt.Fprintf(&body, "\r\n")
-		fmt.Fprintf(&body, msg.Body)
+		fmt.Fprintf(&body, "Content-Type: text/plain; charset=UTF-8; format=flowed\r\n")
+		fmt.Fprintf(&body, "Content-Transfer-Encoding: quoted-printable\r\n\r\n")
+		fmt.Fprintf(&body, msg.PlainText)
 	}
 
-	return tocrlf(body.Bytes()), nil
-}
-
-func formatAddress(address Address) string {
-	if address.Name != "" {
-		return fmt.Sprintf("%s <%v>", address.Name, address.Email)
-	}
-	return fmt.Sprintf("<%v>", address.Email)
+	return tocrlf(body.Bytes())
 }
 
 func tocrlf(data []byte) []byte {

@@ -6,6 +6,7 @@ package mail
 import (
 	"crypto/tls"
 	"net"
+	"net/mail"
 	"net/smtp"
 
 	"github.com/zeebo/errs"
@@ -15,11 +16,11 @@ import (
 type SMTPSender struct {
 	ServerAddress string
 
-	From string
+	From mail.Address
 	Auth smtp.Auth
 }
 
-// SendEmail sends email message
+// SendEmail sends email message to the given recipient
 func (sender *SMTPSender) SendEmail(msg *Message) error {
 	host, _, err := net.SplitHostPort(sender.ServerAddress)
 	if err != nil {
@@ -46,14 +47,14 @@ func (sender *SMTPSender) SendEmail(msg *Message) error {
 		return err
 	}
 
-	err = client.Mail(sender.From)
+	err = client.Mail(sender.From.Address)
 	if err != nil {
 		return err
 	}
 
 	// add recipients
 	for _, to := range msg.To {
-		err = client.Rcpt(to.Email)
+		err = client.Rcpt(to.Address)
 		if err != nil {
 			return err
 		}
@@ -67,12 +68,7 @@ func (sender *SMTPSender) SendEmail(msg *Message) error {
 		err = errs.Combine(err, data.Close())
 	}()
 
-	body, err := msg.Bytes()
-	if err != nil {
-		return err
-	}
-
-	_, err = data.Write(body)
+	_, err = data.Write(msg.Bytes())
 	if err != nil {
 		return err
 	}
