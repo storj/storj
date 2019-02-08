@@ -49,8 +49,9 @@ func TestPiece(t *testing.T) {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
-
-	defer func() { _ = s.storage.Delete("11111111111111111111") }()
+	defer func() {
+		assert.NoError(t, s.storage.Delete("11111111111111111111"))
+	}()
 
 	// set up test cases
 	tests := []struct {
@@ -69,7 +70,7 @@ func TestPiece(t *testing.T) {
 			id:         "123",
 			size:       5,
 			expiration: 9999999999,
-			err:        "rpc error: code = Unknown desc = piecestore error: invalid id length",
+			err:        "rpc error: code = Unknown desc = psserver error: piecestore error: invalid id length",
 		},
 		{ // server should err with nonexistent file
 			id:         "22222222222222222222",
@@ -84,7 +85,7 @@ func TestPiece(t *testing.T) {
 			id:         "22222222222222222222;DELETE*FROM TTL;;;;",
 			size:       5,
 			expiration: 9999999999,
-			err:        "rpc error: code = Unknown desc = PSServer error: invalid ID",
+			err:        "rpc error: code = Unknown desc = psserver error: invalid ID",
 		},
 	}
 
@@ -123,8 +124,6 @@ func TestPiece(t *testing.T) {
 }
 
 func TestRetrieve(t *testing.T) {
-	t.Skip("still flaky")
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -136,8 +135,9 @@ func TestRetrieve(t *testing.T) {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
-
-	defer func() { _ = s.storage.Delete("11111111111111111111") }()
+	defer func() {
+		assert.NoError(t, s.storage.Delete("11111111111111111111"))
+	}()
 
 	// set up test cases
 	tests := []struct {
@@ -273,6 +273,8 @@ func TestRetrieve(t *testing.T) {
 
 			assert.Equal(t, tt.respSize, totalRetrieved)
 			assert.Equal(t, string(tt.content), data)
+
+			require.NoError(t, stream.CloseSend())
 		})
 	}
 }
@@ -386,15 +388,18 @@ func TestStore(t *testing.T) {
 			require.NotNil(t, resp)
 			require.Equal(t, tt.message, resp.Message)
 			require.Equal(t, tt.totalReceived, resp.TotalReceived)
+
+			require.NoError(t, stream.CloseSend())
 		})
 	}
 }
 
 func TestPbaValidation(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	snID, upID := newTestID(ctx, t), newTestID(ctx, t)
 	satID1, satID2, satID3 := newTestID(ctx, t), newTestID(ctx, t), newTestID(ctx, t)
-	defer ctx.Cleanup()
 
 	tests := []struct {
 		satelliteID storj.NodeID
@@ -498,8 +503,8 @@ func TestDelete(t *testing.T) {
 		},
 		{ // should err with invalid id length
 			id:      "123",
-			message: "rpc error: code = Unknown desc = piecestore error: invalid id length",
-			err:     "rpc error: code = Unknown desc = piecestore error: invalid id length",
+			message: "rpc error: code = Unknown desc = psserver error: piecestore error: invalid id length",
+			err:     "rpc error: code = Unknown desc = psserver error: piecestore error: invalid id length",
 		},
 		{ // should return OK with nonexistent file
 			id:      "22222222222222222223",
@@ -551,8 +556,7 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentity,
-	ids []storj.NodeID) (*Server, pb.PieceStoreRoutesClient, func()) {
+func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentity, ids []storj.NodeID) (*Server, pb.PieceStoreRoutesClient, func()) {
 	//init ps server backend
 	tmp, err := ioutil.TempDir("", "storj-piecestore")
 	require.NoError(t, err)

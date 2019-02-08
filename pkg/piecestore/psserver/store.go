@@ -53,11 +53,12 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 
 	id, err := getNamespacedPieceID([]byte(pd.GetId()), getNamespace(authorization))
 	if err != nil {
-		return err
+		return StoreError.Wrap(err)
 	}
+
 	total, err := s.storeData(ctx, reqStream, id)
 	if err != nil {
-		return err
+		return StoreError.Wrap(err)
 	}
 
 	if err = s.DB.AddTTL(id, pd.GetExpirationUnixSec(), total); err != nil {
@@ -70,7 +71,8 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	}
 	s.log.Info("Successfully stored", zap.String("Piece ID", fmt.Sprint(pd.GetId())))
 
-	return reqStream.SendAndClose(&pb.PieceStoreSummary{Message: OK, TotalReceived: total})
+	err = reqStream.SendAndClose(&pb.PieceStoreSummary{Message: OK, TotalReceived: total})
+	return StoreError.Wrap(err)
 }
 
 func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_StoreServer, id string) (total int64, err error) {
@@ -88,32 +90,35 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	// Initialize file for storing data
 	storeFile, err := s.storage.Writer(id)
 	if err != nil {
-		return 0, err
+		return 0, StoreError.Wrap(err)
 	}
 
 	defer func() {
-		err = errs.Combine(err, storeFile.Close())
+		err = errs.Combine(err, StoreError.Wrap(storeFile.Close()))
 	}()
 
 	bwUsed, err := s.DB.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
 	if err != nil {
-		return 0, err
+		return 0, StoreError.Wrap(err)
 	}
+
 	spaceUsed, err := s.DB.SumTTLSizes()
 	if err != nil {
-		return 0, err
+		return 0, StoreError.Wrap(err)
 	}
+
 	bwLeft := s.totalBwAllocated - bwUsed
 	spaceLeft := s.totalAllocated - spaceUsed
+
 	reader := NewStreamReader(s, stream, bwLeft, spaceLeft)
 
 	total, err = io.Copy(storeFile, reader)
 
 	if err != nil && err != io.EOF {
-		return 0, err
+		return 0, StoreError.Wrap(err)
 	}
 
 	err = s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
 
-	return total, err
+	return total, StoreError.Wrap(err)
 }
