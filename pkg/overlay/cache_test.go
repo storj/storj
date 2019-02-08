@@ -7,13 +7,11 @@ import (
 	"context"
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
@@ -148,20 +146,31 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.D
 func TestRandomizedSelection(t *testing.T) {
 	t.Parallel()
 
-	totalNodes := 10
+	totalNodes := 1000
 	selectIterations := 100
-	numNodesToSelect := 1
+	numNodesToSelect := 100
 	minSelectCount := (selectIterations * numNodesToSelect / totalNodes) / 2
 
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: totalNodes, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		// we wait for all the nodes to complete bootstrapping off the satellite
-		time.Sleep(2 * time.Second)
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
 
+		cache := db.OverlayCache()
+		//oc := overlay.NewCache(cache, db.StatDB())
+		allIDs := make(storj.NodeIDList, totalNodes)
 		nodeCounts := make(map[storj.NodeID]int)
 
-		cache := planet.Satellites[0].DB.OverlayCache()
+		// put nodes in cache
+		for i := 0; i < totalNodes; i++ {
+			newID := storj.NodeID{}
+			_, _ = rand.Read(newID[:])
+			//err := oc.Put(ctx, newID, pb.Node{Id: newID})
+			err := cache.Update(ctx, &pb.Node{Id: newID})
+			require.NoError(t, err)
+			allIDs[i] = newID
+			nodeCounts[newID] = 0
+		}
+
 		// select numNodesToSelect nodes selectIterations times
 		for i := 0; i < selectIterations; i++ {
 			nodes, err := cache.SelectNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
@@ -176,8 +185,8 @@ func TestRandomizedSelection(t *testing.T) {
 		}
 
 		// expect that each node has been selected at least minSelectCount times
-		for _, node := range planet.StorageNodes {
-			count := nodeCounts[node.ID()]
+		for _, id := range allIDs {
+			count := nodeCounts[id]
 			assert.True(t, count >= minSelectCount)
 		}
 	})
