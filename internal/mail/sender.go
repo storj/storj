@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// SMTPSender is smtp server
+// SMTPSender is smtp sender
 type SMTPSender struct {
 	ServerAddress string
 
@@ -20,7 +20,7 @@ type SMTPSender struct {
 }
 
 // SendEmail sends email message to the given recipient
-func (sender *SMTPSender) SendEmail(rcpt string, msg []byte) error {
+func (sender *SMTPSender) SendEmail(msg *Message) error {
 	host, _, err := net.SplitHostPort(sender.ServerAddress)
 	if err != nil {
 		return err
@@ -51,9 +51,12 @@ func (sender *SMTPSender) SendEmail(rcpt string, msg []byte) error {
 		return err
 	}
 
-	err = client.Rcpt(rcpt)
-	if err != nil {
-		return err
+	// add recipients
+	for _, to := range msg.To {
+		err = client.Rcpt(to.Email)
+		if err != nil {
+			return err
+		}
 	}
 
 	data, err := client.Data()
@@ -64,7 +67,12 @@ func (sender *SMTPSender) SendEmail(rcpt string, msg []byte) error {
 		err = errs.Combine(err, data.Close())
 	}()
 
-	_, err = data.Write(msg)
+	body, err := msg.Bytes()
+	if err != nil {
+		return err
+	}
+
+	_, err = data.Write(body)
 	if err != nil {
 		return err
 	}
