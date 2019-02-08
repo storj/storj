@@ -214,6 +214,8 @@ func (planet *Planet) Start(ctx context.Context) {
 
 	planet.started = true
 
+	planet.Bootstrap.Kademlia.Service.WaitForBootstrap()
+
 	for _, peer := range planet.Satellites {
 		peer.Kademlia.Service.WaitForBootstrap()
 	}

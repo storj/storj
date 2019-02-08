@@ -124,6 +124,8 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 
 // Close closes all resources associated with it.
 func (cycle *Cycle) Close() {
+	cycle.Stop()
+	<-cycle.stop
 	close(cycle.control)
 }
 
