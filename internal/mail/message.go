@@ -46,6 +46,7 @@ type Part struct {
 	Content     string
 }
 
+// Bytes builds message and returns result as bytes
 func (msg *Message) Bytes() ([]byte, error) {
 	// always returns nil on read and write, so most of the errors can be ignored
 	var body bytes.Buffer
@@ -93,8 +94,8 @@ func (msg *Message) Bytes() ([]byte, error) {
 			})
 
 			enc := quotedprintable.NewWriter(sub)
-			enc.Write([]byte(msg.Body))
-			enc.Close()
+			_, _ = enc.Write([]byte(msg.Body))
+			_ = enc.Close()
 		}
 
 		for _, part := range msg.Parts {
@@ -110,7 +111,7 @@ func (msg *Message) Bytes() ([]byte, error) {
 			fmt.Fprint(sub, part.Content)
 		}
 
-		wr.Close()
+		_ = wr.Close()
 		// single part content stored in body, parts are ignored
 	default:
 		fmt.Fprintf(&body, "Content-Type: %s;", msg.ContentType)
