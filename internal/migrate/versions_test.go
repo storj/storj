@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -49,7 +48,7 @@ func TestBasicMigration(t *testing.T) {
 				Description: "Move files",
 				Version:     2,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
-					return os.Rename(filepath.Join(ctx.Dir(), "alpha.txt"), filepath.Join(ctx.Dir(), "beta.txt"))
+					return os.Rename(ctx.File("alpha.txt"), ctx.File("beta.txt"))
 				}),
 			},
 		},
@@ -69,12 +68,15 @@ func TestBasicMigration(t *testing.T) {
 	assert.Equal(t, 1, id)
 
 	// file not exists
-	_, err = os.Stat(filepath.Join(ctx.Dir(), "alpha.txt"))
+	_, err = os.Stat(ctx.File("alpha.txt"))
 	assert.Error(t, err)
 
 	// file exists
-	_, err = os.Stat(filepath.Join(ctx.Dir(), "beta.txt"))
+	_, err = os.Stat(ctx.File("beta.txt"))
 	assert.NoError(t, err)
+	data, err := ioutil.ReadFile(ctx.File("beta.txt"))
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("test"), data)
 }
 
 func TestMultipleMigration(t *testing.T) {
