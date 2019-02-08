@@ -10,7 +10,9 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
@@ -38,69 +40,68 @@ type Discovery struct {
 	cache  *overlay.Cache
 	kad    *kademlia.Kademlia
 	statdb statdb.DB
-	config Config
 
 	// refreshOffset tracks the offset of the current refresh cycle
 	refreshOffset int64
+	refreshLimit  int
+
+	Refresh   sync2.Cycle
+	Graveyard sync2.Cycle
+	Discovery sync2.Cycle
 }
 
 // New returns a new discovery service.
 func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB, config Config) *Discovery {
-	return &Discovery{
+	discovery := &Discovery{
 		log:    logger,
 		cache:  ol,
 		kad:    kad,
 		statdb: stat,
-		config: config,
 
 		refreshOffset: 0,
+		refreshLimit:  config.RefreshLimit,
 	}
-}
 
-// NewDiscovery Returns a new Discovery instance with cache, kad, and statdb loaded on
-func NewDiscovery(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB, config Config) *Discovery {
-	return &Discovery{
-		log:    logger,
-		cache:  ol,
-		kad:    kad,
-		statdb: stat,
-		config: config,
-	}
+	discovery.Refresh.SetInterval(config.RefreshInterval)
+	discovery.Graveyard.SetInterval(config.GraveyardInterval)
+	discovery.Discovery.SetInterval(config.DiscoveryInterval)
+
+	return discovery
 }
 
 // Close closes resources
-func (discovery *Discovery) Close() error { return nil }
+func (discovery *Discovery) Close() error {
+	discovery.Refresh.Close()
+	discovery.Graveyard.Close()
+	discovery.Discovery.Close()
+	return nil
+}
 
 // Run runs the discovery service
 func (discovery *Discovery) Run(ctx context.Context) error {
-	refresh := time.NewTicker(discovery.config.RefreshInterval)
-	graveyard := time.NewTicker(discovery.config.GraveyardInterval)
-	discover := time.NewTicker(discovery.config.DiscoveryInterval)
-	defer refresh.Stop()
-	defer graveyard.Stop()
-	defer discover.Stop()
-
-	for {
-		select {
-		case <-refresh.C:
-			err := discovery.refresh(ctx)
-			if err != nil {
-				discovery.log.Error("error with cache refresh: ", zap.Error(err))
-			}
-		case <-discover.C:
-			err := discovery.discover(ctx)
-			if err != nil {
-				discovery.log.Error("error with cache discovery: ", zap.Error(err))
-			}
-		case <-graveyard.C:
-			err := discovery.searchGraveyard(ctx)
-			if err != nil {
-				discovery.log.Error("graveyard resurrection failed: ", zap.Error(err))
-			}
-		case <-ctx.Done():
-			return ctx.Err()
+	var group errgroup.Group
+	discovery.Refresh.Start(ctx, &group, func(ctx context.Context) error {
+		err := discovery.refresh(ctx)
+		if err != nil {
+			discovery.log.Error("error with cache refresh: ", zap.Error(err))
 		}
-	}
+		return nil
+	})
+	discovery.Graveyard.Start(ctx, &group, func(ctx context.Context) error {
+		err := discovery.searchGraveyard(ctx)
+		if err != nil {
+			discovery.log.Error("graveyard resurrection failed: ", zap.Error(err))
+		}
+		return nil
+	})
+	discovery.Discovery.Start(ctx, &group, func(ctx context.Context) error {
+		err := discovery.discover(ctx)
+		if err != nil {
+			discovery.log.Error("error with cache discovery: ", zap.Error(err))
+		}
+		return nil
+	})
+	return group.Wait()
 }
 
 // refresh updates the cache db with the current DHT.
@@ -114,7 +115,7 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 		}
 	}
 
-	list, more, err := discovery.cache.Paginate(ctx, discovery.refreshOffset, discovery.config.RefreshLimit)
+	list, more, err := discovery.cache.Paginate(ctx, discovery.refreshOffset, discovery.refreshLimit)
 	if err != nil {
 		return Error.Wrap(err)
 	}
