@@ -112,7 +112,7 @@ func (msg *Message) Bytes() ([]byte, error) {
 		}
 
 		_ = wr.Close()
-		// single part content stored in body, parts are ignored
+	// single part content stored in body, parts are ignored
 	default:
 		fmt.Fprintf(&body, "Content-Type: %s;", msg.ContentType)
 		if msg.Encoding != "" {
