@@ -12,24 +12,32 @@ import (
 	"path/filepath"
 
 	base58 "github.com/jbenet/go-base58"
+	"github.com/minio/cli"
+	minio "github.com/minio/minio/cmd"
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink"
 )
 
 // GatewayFlags configuration flags
 type GatewayFlags struct {
+	Identity          identity.Config
 	APIKey            string `default:"" help:"the api key to use for the satellite" setup:"true"`
 	GenerateTestCerts bool   `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
 	SatelliteAddr     string `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
 
-	miniogw.Config
+	Server miniogw.ServerConfig
+	Minio  miniogw.MinioConfig
+
+	uplink.Config
 }
 
 var (
@@ -145,7 +153,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	if _, err := runCfg.Identity.Load(); err != nil {
+	identity, err := runCfg.Identity.Load()
+	if err != nil {
 		zap.S().Fatal(err)
 	}
 
@@ -164,7 +173,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	fmt.Printf("Secret key: %s\n", runCfg.Minio.SecretKey)
 
 	ctx := process.Ctx(cmd)
-	metainfo, _, err := runCfg.Metainfo(ctx)
+	metainfo, _, err := runCfg.GetMetainfo(ctx, identity)
 	if err != nil {
 		return err
 	}
@@ -178,7 +187,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			"Perhaps your configuration is invalid?\n%s", err)
 	}
 
-	return runCfg.Run(ctx)
+	return runCfg.Run(ctx, identity)
 }
 
 func generateKey() (key string, err error) {
@@ -190,17 +199,59 @@ func generateKey() (key string, err error) {
 	return base58.Encode(buf[:]), nil
 }
 
-// Metainfo loads the storj.Metainfo
-//
-// Temporarily it also returns an instance of streams.Store until we improve
-// the metainfo and streas implementations.
-func (flags *GatewayFlags) Metainfo(ctx context.Context) (storj.Metainfo, streams.Store, error) {
-	identity, err := flags.Identity.Load()
+// Run starts a Minio Gateway given proper config
+func (flags GatewayFlags) Run(ctx context.Context, identity *identity.FullIdentity) (err error) {
+	err = minio.RegisterGatewayCommand(cli.Command{
+		Name:  "storj",
+		Usage: "Storj",
+		Action: func(cliCtx *cli.Context) error {
+			return flags.action(ctx, cliCtx, identity)
+		},
+		HideHelpCommand: true,
+	})
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
 
-	return flags.GetMetainfo(ctx, identity)
+	// TODO(jt): Surely there is a better way. This is so upsetting
+	err = os.Setenv("MINIO_ACCESS_KEY", flags.Minio.AccessKey)
+	if err != nil {
+		return err
+	}
+	err = os.Setenv("MINIO_SECRET_KEY", flags.Minio.SecretKey)
+	if err != nil {
+		return err
+	}
+
+	minio.Main([]string{"storj", "gateway", "storj",
+		"--address", flags.Server.Address, "--config-dir", flags.Minio.Dir, "--quiet"})
+	return errs.New("unexpected minio exit")
+}
+
+func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context, identity *identity.FullIdentity) (err error) {
+	gw, err := flags.NewGateway(ctx, identity)
+	if err != nil {
+		return err
+	}
+
+	minio.StartGateway(cliCtx, miniogw.Logging(gw, zap.L()))
+	return errs.New("unexpected minio exit")
+}
+
+// NewGateway creates a new minio Gateway
+func (flags GatewayFlags) NewGateway(ctx context.Context, identity *identity.FullIdentity) (gw minio.Gateway, err error) {
+	metainfo, streams, err := flags.GetMetainfo(ctx, identity)
+	if err != nil {
+		return nil, err
+	}
+
+	return miniogw.NewStorjGateway(
+		metainfo,
+		streams,
+		storj.Cipher(flags.Enc.PathType),
+		flags.GetEncryptionScheme(),
+		flags.GetRedundancyScheme(),
+	), nil
 }
 
 func main() {
