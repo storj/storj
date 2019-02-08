@@ -10,27 +10,23 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/vivint/infectious"
+	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
-	"storj.io/storj/pkg/storage/buckets"
-	ecclient "storj.io/storj/pkg/storage/ec"
-	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/uplink"
 )
 
 // Uplink is a general purpose
@@ -151,13 +147,14 @@ func (uplink *Uplink) DialOverlay(destination Peer) (overlay.Client, error) {
 
 // Upload data to specific satellite
 func (uplink *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte) error {
-	metainfo, streams, err := uplink.getMetainfo(satellite)
+	config := uplink.getConfig(satellite)
+	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
 		return err
 	}
 
-	encScheme := uplink.getEncryptionScheme()
-	redScheme := uplink.getRedundancyScheme()
+	encScheme := config.GetEncryptionScheme()
+	redScheme := config.GetRedundancyScheme()
 
 	// create bucket if not exists
 	_, err = metainfo.GetBucket(ctx, bucket)
@@ -205,7 +202,8 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 
 // Download data from specific satellite
 func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) ([]byte, error) {
-	metainfo, streams, err := uplink.getMetainfo(satellite)
+	config := uplink.getConfig(satellite)
+	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -225,75 +223,22 @@ func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 	return data, nil
 }
 
-func (uplink *Uplink) getMetainfo(satellite *satellite.Peer) (db storj.Metainfo, ss streams.Store, err error) {
-	encScheme := uplink.getEncryptionScheme()
-	redScheme := uplink.getRedundancyScheme()
+func (uplink *Uplink) getConfig(satellite *satellite.Peer) uplink.Config {
+	config := getDefaultConfig()
+	config.Client.OverlayAddr = satellite.Addr()
+	config.Client.PointerDBAddr = satellite.Addr()
+	config.Client.APIKey = uplink.APIKey[satellite.ID()]
 
-	// redundancy settings
-	minThreshold := int(redScheme.RequiredShares)
-	repairThreshold := int(redScheme.RepairShares)
-	successThreshold := int(redScheme.OptimalShares)
-	maxThreshold := int(redScheme.TotalShares)
-	erasureShareSize := 1 * memory.KiB
-	maxBufferMem := 4 * memory.MiB
+	config.RS.MinThreshold = 1 * uplink.StorageNodeCount / 5
+	config.RS.RepairThreshold = 2 * uplink.StorageNodeCount / 5
+	config.RS.SuccessThreshold = 3 * uplink.StorageNodeCount / 5
+	config.RS.MaxThreshold = 4 * uplink.StorageNodeCount / 5
 
-	// client settings
-	maxInlineSize := 4 * memory.KiB
-	segmentSize := 64 * memory.MiB
-
-	oc, err := uplink.DialOverlay(satellite)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	pdb, err := uplink.DialPointerDB(satellite, uplink.APIKey[satellite.ID()]) // TODO pass api key?
-	if err != nil {
-		return nil, nil, err
-	}
-
-	ec := ecclient.NewClient(uplink.Identity, maxBufferMem.Int())
-	fc, err := infectious.NewFEC(minThreshold, maxThreshold)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, erasureShareSize.Int()), repairThreshold, successThreshold)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, maxInlineSize.Int())
-
-	if erasureShareSize.Int()*minThreshold%int(encScheme.BlockSize) != 0 {
-		return nil, nil, fmt.Errorf("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
-	}
-
-	key := new(storj.Key)
-	copy(key[:], "enc.key")
-
-	streams, err := streams.NewStreamStore(segments, segmentSize.Int64(), key, int(encScheme.BlockSize), encScheme.Cipher)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	buckets := buckets.NewStore(streams)
-
-	return kvmetainfo.New(buckets, streams, segments, pdb, key), streams, nil
+	return config
 }
 
-func (uplink *Uplink) getRedundancyScheme() storj.RedundancyScheme {
-	return storj.RedundancyScheme{
-		Algorithm:      storj.ReedSolomon,
-		RequiredShares: int16(1 * uplink.StorageNodeCount / 5),
-		RepairShares:   int16(2 * uplink.StorageNodeCount / 5),
-		OptimalShares:  int16(3 * uplink.StorageNodeCount / 5),
-		TotalShares:    int16(4 * uplink.StorageNodeCount / 5),
-	}
-}
-
-func (uplink *Uplink) getEncryptionScheme() storj.EncryptionScheme {
-	return storj.EncryptionScheme{
-		Cipher:    storj.AESGCM,
-		BlockSize: 1 * memory.KiB.Int32(),
-	}
+func getDefaultConfig() uplink.Config {
+	config := uplink.Config{}
+	cfgstruct.Bind(&pflag.FlagSet{}, &config)
+	return config
 }
