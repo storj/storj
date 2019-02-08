@@ -382,7 +382,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		config := satellite.Config{
 			Server: server.Config{
 				Address:            "127.0.0.1:0",
-				RevocationDBURL:    "bolt://" + filepath.Join(planet.directory, "revocation.db"),
+				RevocationDBURL:    "bolt://" + filepath.Join(storageDir, "revocation.db"),
 				UsePeerCAWhitelist: false, // TODO: enable
 				Extensions: peertls.TLSExtConfig{
 					Revocation:          true,
