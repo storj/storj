@@ -21,7 +21,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		checker := planet.Satellites[0].Repair.Checker
-		checker.Refresh.Stop()
+		checker.Interval.Stop()
 
 		time.Sleep(2 * time.Second)
 		const numberOfNodes = 10
@@ -83,7 +83,7 @@ func TestOfflineNodes(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		checker := planet.Satellites[0].Repair.Checker
-		checker.Refresh.Stop()
+		checker.Interval.Stop()
 
 		time.Sleep(2 * time.Second)
 
@@ -113,7 +113,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		checker := planet.Satellites[0].Repair.Checker
-		checker.Refresh.Stop()
+		checker.Interval.Stop()
 
 		time.Sleep(2 * time.Second)
 

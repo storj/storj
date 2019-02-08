@@ -43,7 +43,7 @@ type Checker struct {
 	irrdb       irreparable.DB
 	limit       int
 	logger      *zap.Logger
-	Refresh     sync2.Cycle
+	Interval    sync2.Cycle
 }
 
 // NewChecker creates a new instance of checker
@@ -59,7 +59,7 @@ func NewChecker(pointerdb *pointerdb.Service, sdb statdb.DB, repairQueue queue.R
 		logger:      logger,
 	}
 
-	checker.Refresh.SetInterval(interval)
+	checker.Interval.SetInterval(interval)
 
 	return checker
 }
@@ -69,7 +69,7 @@ func (checker *Checker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var group errgroup.Group
-	checker.Refresh.Start(ctx, &group, func(ctx context.Context) error {
+	checker.Interval.Start(ctx, &group, func(ctx context.Context) error {
 		err := checker.IdentifyInjuredSegments(ctx)
 		if err != nil {
 			checker.logger.Error("error with injured segments identification: ", zap.Error(err))
