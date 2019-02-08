@@ -6,9 +6,7 @@ package ranger
 import (
 	"context"
 	"io"
-	"math/rand"
 	"os"
-	"time"
 
 	"github.com/zeebo/errs"
 )
@@ -51,35 +49,32 @@ func (rr *fileRanger) Range(ctx context.Context, offset, length int64) (io.ReadC
 		return nil, Error.Wrap(errs.Combine(err, fh.Close()))
 	}
 
-	return &fileReader{fh, length}, nil
+	return &FileReader{fh, length}, nil
 }
 
-// fileReader implements limit reader with io.EOF only on last read.
-type fileReader struct {
+// FileReader implements limit reader with io.EOF only on last read.
+type FileReader struct {
 	file      *os.File
 	remaining int64
 }
 
 // Read reads from the underlying file.
-func (reader *fileReader) Read(data []byte) (n int, err error) {
+func (reader *FileReader) Read(data []byte) (n int, err error) {
 	if reader.remaining <= 0 {
 		return 0, io.EOF
 	}
 	if int64(len(data)) > reader.remaining {
 		data = data[0:reader.remaining]
 	}
-	jitter()
 	n, err = reader.file.Read(data)
-	jitter()
 	reader.remaining -= int64(n)
-	return n, err
+	if err == io.EOF && reader.remaining == 0 {
+		err = nil
+	}
+	return
 }
 
 // Close closes the underlying file.
-func (reader *fileReader) Close() error {
+func (reader *FileReader) Close() error {
 	return reader.file.Close()
-}
-
-func jitter() {
-	time.Sleep(time.Duration(rand.Intn(3)*100) * time.Microsecond * 0)
 }
