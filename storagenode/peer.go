@@ -191,7 +191,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.RunRefresh(ctx))
+		return ignoreCancel(peer.Kademlia.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Agreements.Sender.Run(ctx))

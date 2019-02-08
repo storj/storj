@@ -214,11 +214,48 @@ func (planet *Planet) Start(ctx context.Context) {
 
 	planet.started = true
 
+	planet.Bootstrap.Kademlia.Service.WaitForBootstrap()
+
 	for _, peer := range planet.Satellites {
 		peer.Kademlia.Service.WaitForBootstrap()
 	}
 	for _, peer := range planet.StorageNodes {
 		peer.Kademlia.Service.WaitForBootstrap()
+	}
+
+	planet.Refresh()
+}
+
+// Refresh triggers refreshing of the kademlia network connecting everyone to everyone else.
+func (planet *Planet) Refresh() {
+	// propagate storage nodes
+	var group errgroup.Group
+	for _, peer := range planet.StorageNodes {
+		peer := peer
+		group.Go(func() error {
+			peer.Kademlia.Service.Refresh.TriggerWait()
+			return nil
+		})
+	}
+
+	if err := group.Wait(); err != nil {
+		return err
+	}
+
+	for _, peer := range planet.Satellites {
+		peer := peer
+		group.Go(func() error {
+			peer.Discovery.Service.Refresh.TriggerWait()
+			return nil
+		})
+		group.Go(func() error {
+			peer.Kademlia.Service.Refresh.TriggerWait()
+			return nil
+		})
+	}
+
+	if err := group.Wait(); err != nil {
+		return err
 	}
 }
 
