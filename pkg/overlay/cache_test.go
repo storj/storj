@@ -156,7 +156,6 @@ func TestRandomizedSelection(t *testing.T) {
 		defer ctx.Cleanup()
 
 		cache := db.OverlayCache()
-		//oc := overlay.NewCache(cache, db.StatDB())
 		allIDs := make(storj.NodeIDList, totalNodes)
 		nodeCounts := make(map[storj.NodeID]int)
 
@@ -164,7 +163,6 @@ func TestRandomizedSelection(t *testing.T) {
 		for i := 0; i < totalNodes; i++ {
 			newID := storj.NodeID{}
 			_, _ = rand.Read(newID[:])
-			//err := oc.Put(ctx, newID, pb.Node{Id: newID})
 			err := cache.Update(ctx, &pb.Node{Id: newID})
 			require.NoError(t, err)
 			allIDs[i] = newID
