@@ -30,6 +30,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 	// Receive Signature
 	recv, err := stream.Recv()
 	if err != nil {
+		fmt.Println("RECEIVE ERR", err)
 		return RetrieveError.Wrap(err)
 	}
 	if recv == nil {
@@ -38,16 +39,19 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 
 	authorization := recv.GetAuthorization()
 	if err := s.verifier(authorization); err != nil {
+		fmt.Println("AUTHORIZATION ERR", err)
 		return ServerError.Wrap(err)
 	}
 
 	pd := recv.GetPieceData()
 	if pd == nil {
+		fmt.Println("GET PIECEDATA", err)
 		return RetrieveError.New("PieceStore message is nil")
 	}
 
 	id, err := getNamespacedPieceID([]byte(pd.GetId()), getNamespace(authorization))
 	if err != nil {
+		fmt.Println("GET NAMESPACED PIECE ID", err)
 		return err
 	}
 	s.log.Debug("Retrieving",
@@ -58,11 +62,13 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 	// Get path to data being retrieved
 	path, err := s.storage.PiecePath(id)
 	if err != nil {
+		fmt.Println("PIECE PATH", err)
 		return err
 	}
 	// Verify that the path exists
 	fileInfo, err := os.Stat(path)
 	if err != nil {
+		fmt.Println("STAT", err)
 		return RetrieveError.Wrap(err)
 	}
 	// Read the size specified
@@ -74,6 +80,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 	}
 	retrieved, allocated, err := s.retrieveData(ctx, stream, id, pd.GetOffset(), totalToRead)
 	if err != nil {
+		fmt.Println("RETRIEVE DATA", err)
 		return err
 	}
 	s.log.Info("Successfully retrieved",
@@ -89,12 +96,14 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 
 	storeFile, err := s.storage.Reader(ctx, id, offset, length)
 	if err != nil {
+		fmt.Println("READER", err)
 		return 0, 0, RetrieveError.Wrap(err)
 	}
 
 	defer func() {
-		fmt.Println("CLOSING FILE")
-		err = errs.Combine(err, RetrieveError.Wrap(storeFile.Close()))
+		err2 := RetrieveError.Wrap(storeFile.Close())
+		fmt.Println("CLOSING FILE", err2)
+		err = errs.Combine(err, err2)
 	}()
 
 	writer := NewStreamWriter(s, stream)
@@ -112,22 +121,26 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 				return
 			}
 			dbErr := s.DB.WriteBandwidthAllocToDB(lastAllocation)
+			fmt.Println("WriteBandwidthAllocToDB", dbErr)
 			err = errs.Combine(err, RetrieveError.Wrap(dbErr))
 		}()
 
 		for {
 			recv, err := stream.Recv()
 			if err != nil {
+				fmt.Println("RECV WWW", err)
 				allocationTracking.Fail(RetrieveError.Wrap(err))
 				return RetrieveError.Wrap(err)
 			}
 			rba := recv.BandwidthAllocation
 			if err = s.verifySignature(stream.Context(), rba); err != nil {
+				fmt.Println("Ret verifySignature", err)
 				allocationTracking.Fail(RetrieveError.Wrap(err))
 				return RetrieveError.Wrap(err)
 			}
 			pba := rba.PayerAllocation
 			if err = s.verifyPayerAllocation(&pba, "GET"); err != nil {
+				fmt.Println("Ret verifyPayerAllocation", err)
 				allocationTracking.Fail(RetrieveError.Wrap(err))
 				return RetrieveError.Wrap(err)
 			}
@@ -137,11 +150,13 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			// 	return
 			// }
 			if lastTotal > rba.Total {
+				fmt.Println("Ret total", err)
 				allocationTracking.Fail(fmt.Errorf("got lower allocation was %v got %v", lastTotal, rba.Total))
 				return RetrieveError.Wrap(err)
 			}
 			atomic.StoreInt64(&totalAllocated, rba.Total)
 			if err = allocationTracking.Produce(rba.Total - lastTotal); err != nil {
+				fmt.Println("produce", err)
 				return RetrieveError.Wrap(err)
 			}
 			lastAllocation = rba
@@ -156,6 +171,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 		for used < length {
 			nextMessageSize, err := allocationTracking.ConsumeOrWait(messageSize)
 			if err != nil {
+				fmt.Println("Ret consume or wait", err)
 				allocationTracking.Fail(RetrieveError.Wrap(err))
 				return RetrieveError.Wrap(err)
 			}
@@ -168,6 +184,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			// correct errors when needed
 			if n != nextMessageSize {
 				if err := allocationTracking.Produce(nextMessageSize - n); err != nil {
+					fmt.Println("Ret produce 222", err)
 					return RetrieveError.Wrap(err)
 				}
 				used -= nextMessageSize - n
@@ -176,6 +193,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 				return nil
 			}
 			if err != nil {
+				fmt.Println("break break", err)
 				// break on error
 				allocationTracking.Fail(RetrieveError.Wrap(err))
 				return RetrieveError.Wrap(err)
