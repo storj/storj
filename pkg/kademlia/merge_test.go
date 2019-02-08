@@ -6,11 +6,11 @@ package kademlia_test
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/bootstrap"
 	"storj.io/storj/internal/testcontext"
@@ -20,8 +20,6 @@ import (
 )
 
 func TestMergePlanets(t *testing.T) {
-	t.Skip("flaky")
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -40,7 +38,6 @@ func TestMergePlanets(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Bootstrap: func(index int, config *bootstrap.Config) {
 				config.Kademlia.BootstrapAddr = alpha.Bootstrap.Addr()
-
 			},
 		},
 	})
@@ -52,7 +49,22 @@ func TestMergePlanets(t *testing.T) {
 	alpha.Start(ctx)
 	beta.Start(ctx)
 
-	time.Sleep(10 * time.Second)
+	allSatellites := []*satellite.Peer{}
+	allSatellites = append(allSatellites, alpha.Satellites...)
+	allSatellites = append(allSatellites, beta.Satellites...)
+
+	// refresh buckets
+	var group errgroup.Group
+	for _, satellite := range allSatellites {
+		satellite := satellite
+		group.Go(func() error {
+			for i := 0; i < 10; i++ {
+				satellite.Kademlia.Service.RefreshBuckets.TriggerWait()
+			}
+			return nil
+		})
+	}
+	_ = group.Wait()
 
 	test := func(tag string, satellites []*satellite.Peer, storageNodes []*storagenode.Peer) string {
 		found, missing := 0, 0
