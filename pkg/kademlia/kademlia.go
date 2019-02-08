@@ -50,6 +50,8 @@ type Kademlia struct {
 	lookups        sync2.WorkGroup
 
 	bootstrapFinished sync2.Fence
+
+	RefreshBuckets sync2.Cycle
 }
 
 // NewService returns a newly configured Kademlia instance
@@ -280,25 +282,21 @@ func (k *Kademlia) Seen() []*pb.Node {
 	return nodes
 }
 
-// RunRefresh occasionally refreshes stale kad buckets
-func (k *Kademlia) RunRefresh(ctx context.Context) error {
+// Run occasionally refreshes stale kad buckets
+func (k *Kademlia) Run(ctx context.Context) error {
 	if !k.lookups.Start() {
 		return context.Canceled
 	}
 	defer k.lookups.Done()
 
-	ticker := time.NewTicker(5 * time.Minute)
-	for {
-		if err := k.refresh(ctx, time.Minute); err != nil {
+	k.RefreshBuckets.SetInterval(5 * time.Minute)
+	return k.RefreshBuckets.Run(ctx, func(ctx context.Context) error {
+		err := k.refresh(ctx, time.Minute)
+		if err != nil {
 			k.log.Warn("bucket refresh failed", zap.Error(err))
 		}
-		select {
-		case <-ticker.C:
-		case <-ctx.Done():
-			ticker.Stop()
-			return ctx.Err()
-		}
-	}
+		return nil
+	})
 }
 
 // refresh updates each Kademlia bucket not contacted in the last hour
