@@ -255,8 +255,6 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 					log.Error("satellite did not find storage node", zap.Error(err))
 				}
 			}
-
-			satellite.Discovery.Service.Refresh.TriggerWait()
 			return nil
 		})
 	}
