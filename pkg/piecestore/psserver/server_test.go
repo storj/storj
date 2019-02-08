@@ -614,7 +614,7 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	//init client
 	co, err := upID.DialOption(storj.NodeID{})
 	require.NoError(t, err)
-	conn, err := grpc.Dial(listener.Addr().String(), co)
+	conn, err := grpc.Dial(listener.Addr().String(), co, grpc.WithBlock())
 	require.NoError(t, err)
 	psClient := pb.NewPieceStoreRoutesClient(conn)
 	//cleanup callback
