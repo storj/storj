@@ -87,7 +87,7 @@ func (msg *Message) Bytes() []byte {
 				header["Content-Transfer-Encoding"] = []string{mime.QEncoding.Encode("utf-8", part.Encoding)}
 			}
 			if part.Disposition != "" {
-				header["Content-Disposition"] = []string{mime.QEncoding.Encode("utg-8", part.Disposition)}
+				header["Content-Disposition"] = []string{mime.QEncoding.Encode("utf-8", part.Disposition)}
 			}
 
 			sub, _ = wr.CreatePart(header)
