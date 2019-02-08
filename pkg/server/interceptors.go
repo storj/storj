@@ -18,6 +18,7 @@ import (
 func streamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 	err = handler(srv, ss)
 	if err != nil {
+		fmt.Printf("ERROR: %+v\n", err)
 		// no zap errors for canceled or wrong file downloads
 		if storage.ErrKeyNotFound.Has(err) ||
 			status.Code(err) == codes.Canceled ||
@@ -25,7 +26,6 @@ func streamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamS
 			err == io.EOF {
 			return err
 		}
-		fmt.Printf("ERROR: %+v\n", err)
 	}
 	return err
 }
