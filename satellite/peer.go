@@ -186,7 +186,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		publicConfig := server.Config{Address: peer.Public.Listener.Addr().String()}
+		publicConfig := config.Server
+		publicConfig.Address = peer.Public.Listener.Addr().String()
 		publicOptions, err := server.NewOptions(peer.Identity, publicConfig)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

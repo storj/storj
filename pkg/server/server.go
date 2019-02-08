@@ -31,9 +31,7 @@ type Server struct {
 
 // New creates a Server out of an Identity, a net.Listener,
 // a UnaryServerInterceptor, and a set of services.
-func New(opts *Options, lis net.Listener,
-	interceptor grpc.UnaryServerInterceptor, services ...Service) (
-	*Server, error) {
+func New(opts *Options, lis net.Listener, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
 	grpcOpts, err := opts.grpcOpts()
 	if err != nil {
 		return nil, err
