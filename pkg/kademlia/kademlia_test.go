@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage/teststore"
 )
 
@@ -543,5 +544,5 @@ func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node
 		return nil, BootstrapErr.Wrap(err)
 	}
 
-	return NewService(log, self, bootstrapNodes, identity, alpha, rt)
+	return NewService(log, self, bootstrapNodes, transport.NewClient(identity, rt), alpha, rt)
 }
