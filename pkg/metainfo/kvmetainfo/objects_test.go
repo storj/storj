@@ -152,7 +152,7 @@ func TestGetObjectStream(t *testing.T) {
 
 		// Stop randomly half of the storage nodes and remove them from satellite's overlay cache
 		perm := mathrand.Perm(len(planet.StorageNodes))
-		for i := 0; i < len(perm)/2; i++ {
+		for _, i := range perm[:(len(perm) / 2)] {
 			assert.NoError(t, planet.StopPeer(planet.StorageNodes[i]))
 			assert.NoError(t, planet.Satellites[0].Overlay.Service.Delete(ctx, planet.StorageNodes[i].ID()))
 		}
