@@ -10,7 +10,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
@@ -68,16 +67,13 @@ func NewChecker(pointerdb *pointerdb.Service, sdb statdb.DB, repairQueue queue.R
 func (checker *Checker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var group errgroup.Group
-	checker.Interval.Start(ctx, &group, func(ctx context.Context) error {
+	return checker.Interval.Run(ctx, func(ctx context.Context) error {
 		err := checker.IdentifyInjuredSegments(ctx)
 		if err != nil {
 			checker.logger.Error("error with injured segments identification: ", zap.Error(err))
 		}
 		return nil
 	})
-
-	return group.Wait()
 }
 
 // Close closes resources

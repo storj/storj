@@ -23,9 +23,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		checker := planet.Satellites[0].Repair.Checker
 		checker.Interval.Stop()
 
-		time.Sleep(2 * time.Second)
 		const numberOfNodes = 10
-
 		pieces := make([]*pb.RemotePiece, 0, numberOfNodes)
 		// use online nodes
 		for i, storagenode := range planet.StorageNodes {
@@ -85,8 +83,6 @@ func TestOfflineNodes(t *testing.T) {
 		checker := planet.Satellites[0].Repair.Checker
 		checker.Interval.Stop()
 
-		time.Sleep(2 * time.Second)
-
 		const numberOfNodes = 10
 		nodeIDs := storj.NodeIDList{}
 
@@ -114,8 +110,6 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		checker := planet.Satellites[0].Repair.Checker
 		checker.Interval.Stop()
-
-		time.Sleep(2 * time.Second)
 
 		const numberOfNodes = 10
 		pieces := make([]*pb.RemotePiece, 0, numberOfNodes)
