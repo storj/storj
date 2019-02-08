@@ -95,7 +95,7 @@ func (msg *Message) Bytes() []byte {
 		}
 
 		_ = wr.Close()
-		// fallback if there are no parts, write PlainText with appropriate Content-Type
+	// fallback if there are no parts, write PlainText with appropriate Content-Type
 	default:
 		fmt.Fprintf(&body, "Content-Type: text/plain; charset=UTF-8; format=flowed\r\n")
 		fmt.Fprintf(&body, "Content-Transfer-Encoding: quoted-printable\r\n\r\n")
