@@ -45,7 +45,7 @@ func verifyChainSignatures(certs []*x509.Certificate) error {
 }
 
 func verifyCertSignature(parentCert, childCert *x509.Certificate) error {
-	return pkcrypto.VerifySignature(childCert.Signature, childCert.RawTBSCertificate, parentCert.PublicKey)
+	return pkcrypto.HashAndVerifySignature(parentCert.PublicKey, childCert.RawTBSCertificate, childCert.Signature)
 }
 
 func newSerialNumber() (*big.Int, error) {

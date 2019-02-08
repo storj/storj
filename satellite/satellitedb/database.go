@@ -11,6 +11,7 @@ import (
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
@@ -87,6 +88,11 @@ func quoteSchema(schema string) string {
 // BandwidthAgreement is a getter for bandwidth agreement repository
 func (db *DB) BandwidthAgreement() bwagreement.DB {
 	return &bandwidthagreement{db: db.db}
+}
+
+// CertDB is a getter for uplink's specific info like public key, id, etc...
+func (db *DB) CertDB() certdb.DB {
+	return &certDB{db: db.db}
 }
 
 // // PointerDB is a getter for PointerDB repository

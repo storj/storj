@@ -5,13 +5,12 @@ package auth
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"testing"
 
-	"github.com/gtank/cryptopasta"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/pkg/pkcrypto"
 )
 
 func TestGenerateSignature(t *testing.T) {
@@ -20,9 +19,6 @@ func TestGenerateSignature(t *testing.T) {
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
-
-	k, ok := identity.Leaf.PublicKey.(*ecdsa.PublicKey)
-	assert.Equal(t, true, ok)
 
 	for _, tt := range []struct {
 		data     []byte
@@ -34,8 +30,12 @@ func TestGenerateSignature(t *testing.T) {
 		signature, err := GenerateSignature(identity.ID.Bytes(), identity)
 		assert.NoError(t, err)
 
-		verified := cryptopasta.Verify(tt.data, signature, k)
-		assert.Equal(t, tt.verified, verified)
+		verifyError := pkcrypto.HashAndVerifySignature(identity.Leaf.PublicKey, tt.data, signature)
+		if tt.verified {
+			assert.NoError(t, verifyError)
+		} else {
+			assert.Error(t, verifyError)
+		}
 	}
 }
 
@@ -63,7 +63,7 @@ func TestSignedMessageVerifier(t *testing.T) {
 		{signedMessage.Signature, nil, signedMessage.PublicKey, "auth error: missing data for verification"},
 		{signedMessage.Signature, signedMessage.Data, nil, "auth error: missing public key for verification"},
 
-		{signedMessage.Signature, []byte("malformed data"), signedMessage.PublicKey, "auth error: failed to verify message"},
+		{signedMessage.Signature, []byte("malformed data"), signedMessage.PublicKey, "signature verification error: signature is not valid"},
 	} {
 		signedMessage.Signature = tt.signature
 		signedMessage.Data = tt.data

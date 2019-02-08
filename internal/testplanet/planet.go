@@ -214,12 +214,54 @@ func (planet *Planet) Start(ctx context.Context) {
 
 	planet.started = true
 
+	planet.Bootstrap.Kademlia.Service.WaitForBootstrap()
+
 	for _, peer := range planet.Satellites {
 		peer.Kademlia.Service.WaitForBootstrap()
 	}
 	for _, peer := range planet.StorageNodes {
 		peer.Kademlia.Service.WaitForBootstrap()
 	}
+
+	planet.Reconnect(ctx)
+}
+
+// Reconnect reconnects all nodes with each other.
+func (planet *Planet) Reconnect(ctx context.Context) {
+	log := planet.log.Named("reconnect")
+
+	var group errgroup.Group
+
+	// TODO: instead of pinging try to use Lookups or natural discovery to ensure
+	// everyone finds everyone else
+
+	for _, storageNode := range planet.StorageNodes {
+		storageNode := storageNode
+		group.Go(func() error {
+			_, err := storageNode.Kademlia.Service.Ping(ctx, planet.Bootstrap.Local())
+			if err != nil {
+				log.Error("storage node did not find bootstrap", zap.Error(err))
+			}
+			return nil
+		})
+	}
+
+	for _, satellite := range planet.Satellites {
+		satellite := satellite
+		group.Go(func() error {
+			for _, storageNode := range planet.StorageNodes {
+				_, err := satellite.Kademlia.Service.Ping(ctx, storageNode.Local())
+				if err != nil {
+					log.Error("satellite did not find storage node", zap.Error(err))
+				}
+			}
+
+			satellite.Discovery.Service.Refresh.TriggerWait()
+			return nil
+		})
+	}
+
+	_ = group.Wait() // none of the goroutines return an error
 }
 
 // StopPeer stops a single peer in the planet
@@ -298,6 +340,7 @@ func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]
 
 // newSatellites initializes satellites
 func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
+	// TODO: move into separate file
 	var xs []*satellite.Peer
 	defer func() {
 		for _, x := range xs {
@@ -355,7 +398,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				},
 			},
 			Overlay: overlay.Config{
-				RefreshInterval: 30 * time.Second,
 				Node: overlay.NodeSelectionConfig{
 					UptimeRatio:           0,
 					UptimeCount:           0,
@@ -425,6 +467,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 
 // newStorageNodes initializes storage nodes
 func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
+	// TODO: move into separate file
 	var xs []*storagenode.Peer
 	defer func() {
 		for _, x := range xs {
@@ -508,6 +551,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 
 // newBootstrap initializes the bootstrap node
 func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
+	// TODO: move into separate file
 	defer func() {
 		planet.peers = append(planet.peers, closablePeer{peer: peer})
 	}()
