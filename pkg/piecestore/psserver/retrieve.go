@@ -93,6 +93,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 	}
 
 	defer func() {
+		fmt.Println("CLOSING FILE")
 		err = errs.Combine(err, RetrieveError.Wrap(storeFile.Close()))
 	}()
 

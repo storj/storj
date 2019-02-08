@@ -24,6 +24,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/testcontext"
@@ -124,8 +125,13 @@ func TestPiece(t *testing.T) {
 }
 
 func TestRetrieve(t *testing.T) {
+	t.Parallel()
+
 	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	defer func() {
+		fmt.Println("CLEANING FOLDER")
+		ctx.Cleanup()
+	}()
 
 	snID, upID := newTestID(ctx, t), newTestID(ctx, t)
 	s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
@@ -135,9 +141,6 @@ func TestRetrieve(t *testing.T) {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
-	defer func() {
-		assert.NoError(t, s.storage.Delete("11111111111111111111"))
-	}()
 
 	// set up test cases
 	tests := []struct {
@@ -590,7 +593,20 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	grpcServer, err := server.New(publicOptions, listener, nil)
 	require.NoError(t, err)
 	pb.RegisterPieceStoreRoutesServer(grpcServer.GRPC(), psServer)
-	go func() { require.NoError(t, grpcServer.Run(ctx)) }()
+
+	var group errgroup.Group
+	group.Go(func() error {
+		defer fmt.Println("EXITED")
+		err := grpcServer.Run(ctx)
+		if err == grpc.ErrServerStopped {
+			err = nil
+		}
+		if err == context.Canceled {
+			err = nil
+		}
+		return err
+	})
+
 	//init client
 	co, err := upID.DialOption(storj.NodeID{})
 	require.NoError(t, err)
@@ -599,6 +615,8 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	psClient := pb.NewPieceStoreRoutesClient(conn)
 	//cleanup callback
 	cleanup := func() {
+		require.NoError(t, grpcServer.Close())
+		require.NoError(t, group.Wait())
 		require.NoError(t, conn.Close())
 		require.NoError(t, psServer.Close())
 		require.NoError(t, psServer.Stop(ctx))
