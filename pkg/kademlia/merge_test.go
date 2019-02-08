@@ -46,6 +46,9 @@ func TestMergePlanets(t *testing.T) {
 	defer ctx.Check(alpha.Shutdown)
 	defer ctx.Check(beta.Shutdown)
 
+	// during planet.Start
+	//   every storage node pings bootstrap
+	//   every satellite pings every storage node
 	alpha.Start(ctx)
 	beta.Start(ctx)
 
@@ -53,7 +56,7 @@ func TestMergePlanets(t *testing.T) {
 	allSatellites = append(allSatellites, alpha.Satellites...)
 	allSatellites = append(allSatellites, beta.Satellites...)
 
-	// refresh buckets
+	// make satellites refresh buckets 10 times
 	var group errgroup.Group
 	for _, satellite := range allSatellites {
 		satellite := satellite
