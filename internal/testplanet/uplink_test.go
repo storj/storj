@@ -6,7 +6,6 @@ package testplanet_test
 import (
 	"crypto/rand"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,7 +24,6 @@ func TestUploadDownload(t *testing.T) {
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
-	time.Sleep(2 * time.Second)
 
 	expectedData := make([]byte, 5*memory.MiB)
 	_, err = rand.Read(expectedData)
