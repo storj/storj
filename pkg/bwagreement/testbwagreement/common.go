@@ -28,6 +28,7 @@ func GeneratePayerBandwidthAllocation(action pb.BandwidthAction, satID *identity
 		Action:            action,
 		CreatedUnixSec:    time.Now().Unix(),
 	}
+
 	return pba, auth.SignMessage(pba, *satID)
 }
 

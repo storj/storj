@@ -10,7 +10,6 @@ import (
 	"io"
 	mathrand "math/rand"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -120,9 +119,6 @@ func TestGetObject(t *testing.T) {
 
 func TestGetObjectStream(t *testing.T) {
 	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
-		// we wait a second for all the nodes to complete bootstrapping off the satellite
-		time.Sleep(2 * time.Second)
-
 		data := make([]byte, 32*memory.KB)
 		_, err := rand.Read(data)
 		if !assert.NoError(t, err) {

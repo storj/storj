@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testpeertls"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 )
 
 type extensionHandlerMock struct {
@@ -82,6 +83,7 @@ func TestParseExtensions(t *testing.T) {
 
 	revDB, err := NewRevocationDBBolt(ctx.File("revocations.db"))
 	assert.NoError(t, err)
+	defer ctx.Check(revDB.Close)
 
 	cases := []struct {
 		testID    string
@@ -220,7 +222,7 @@ func TestParseExtensions(t *testing.T) {
 }
 
 func revokeLeaf(keys []crypto.PrivateKey, chain []*x509.Certificate) ([]crypto.PrivateKey, []*x509.Certificate, error) {
-	revokingKey, err := peertls.NewKey()
+	revokingKey, err := pkcrypto.GeneratePrivateKey()
 	if err != nil {
 		return nil, nil, err
 	}

@@ -92,8 +92,6 @@ func TestUploadDownload(t *testing.T) {
 
 	planet.Start(ctx)
 
-	time.Sleep(2 * time.Second)
-
 	// create identity for gateway
 	ca, err := testidentity.NewTestCA(ctx)
 	assert.NoError(t, err)

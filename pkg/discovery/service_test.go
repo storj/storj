@@ -5,7 +5,6 @@ package discovery_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -17,8 +16,6 @@ func TestCache_Refresh(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		time.Sleep(5 * time.Second)
-
 		satellite := planet.Satellites[0]
 		for _, storageNode := range planet.StorageNodes {
 			node, err := satellite.Overlay.Service.Get(ctx, storageNode.ID())

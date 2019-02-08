@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/pem"
 	"fmt"
 	"os"
 	"os/exec"
@@ -19,7 +18,7 @@ import (
 
 	"storj.io/storj/internal/processgroup"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 )
 
 func inmemoryRun(flags *Flags) error {
@@ -101,14 +100,14 @@ func inmemoryTest(flags *Flags, command string, args []string) error {
 		}
 
 		var chainPEM bytes.Buffer
-		errLeaf := pem.Encode(&chainPEM, peertls.NewCertBlock(identity.Leaf.Raw))
-		errCA := pem.Encode(&chainPEM, peertls.NewCertBlock(identity.CA.Raw))
+		errLeaf := pkcrypto.WriteCertPEM(&chainPEM, identity.Leaf)
+		errCA := pkcrypto.WriteCertPEM(&chainPEM, identity.CA)
 		if errLeaf != nil || errCA != nil {
 			return errs.Combine(errLeaf, errCA, planet.Shutdown())
 		}
 
 		var key bytes.Buffer
-		errKey := peertls.WriteKey(&key, identity.Key)
+		errKey := pkcrypto.WritePrivateKeyPEM(&key, identity.Key)
 		if errKey != nil {
 			return errs.Combine(errKey, planet.Shutdown())
 		}

@@ -6,7 +6,6 @@ package kademlia_test
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
@@ -23,7 +22,6 @@ func TestDialer(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 3,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		time.Sleep(2 * time.Second)
 		expectedKademliaEntries := 1 + len(planet.Satellites) + len(planet.StorageNodes)
 
 		// TODO: also use satellites

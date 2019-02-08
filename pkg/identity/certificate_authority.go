@@ -7,10 +7,8 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -21,6 +19,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -91,7 +90,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		i         = new(uint32)
 
 		mu          sync.Mutex
-		selectedKey *ecdsa.PrivateKey
+		selectedKey crypto.PrivateKey
 		selectedID  storj.NodeID
 	)
 
@@ -113,7 +112,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		}
 	}
 	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency),
-		func(k *ecdsa.PrivateKey, id storj.NodeID) (done bool, err error) {
+		func(k crypto.PrivateKey, id storj.NodeID) (done bool, err error) {
 			if opts.Logger != nil {
 				if atomic.AddUint32(i, 1)%100 == 0 {
 					updateStatus()
@@ -237,10 +236,9 @@ func (fc FullCAConfig) Load() (*FullCertificateAuthority, error) {
 	if err != nil {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
-	kp, _ := pem.Decode(kb)
-	k, err := x509.ParseECPrivateKey(kp.Bytes)
+	k, err := pkcrypto.PrivateKeyFromPEM(kb)
 	if err != nil {
-		return nil, errs.New("unable to parse EC private key: %v", err)
+		return nil, err
 	}
 
 	return &FullCertificateAuthority{
@@ -270,7 +268,7 @@ func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	}
 
 	if fc.KeyPath != "" {
-		if err := peertls.WriteKey(&keyData, ca.Key); err != nil {
+		if err := pkcrypto.WritePrivateKeyPEM(&keyData, ca.Key); err != nil {
 			writeErrs.Add(err)
 			return writeErrs.Err()
 		}
@@ -298,7 +296,7 @@ func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
 
-	chain, err := DecodeAndParseChainPEM(chainPEM)
+	chain, err := pkcrypto.CertsFromPEM(chainPEM)
 	if err != nil {
 		return nil, errs.New("failed to load identity %#v: %v",
 			pc.CertPath, err)
@@ -356,7 +354,7 @@ func (ca *FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 	if err != nil {
 		return nil, err
 	}
-	leafKey, err := peertls.NewKey()
+	leafKey, err := pkcrypto.GeneratePrivateKey()
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +405,7 @@ func (ca *FullCertificateAuthority) Sign(cert *x509.Certificate) (*x509.Certific
 		return nil, errs.Wrap(err)
 	}
 
-	signedCert, err := x509.ParseCertificate(signedCertBytes)
+	signedCert, err := pkcrypto.CertFromDER(signedCertBytes)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

@@ -4,7 +4,7 @@
 package psserver
 
 import (
-	"crypto/ecdsa"
+	"crypto"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -123,6 +123,8 @@ func TestPiece(t *testing.T) {
 }
 
 func TestRetrieve(t *testing.T) {
+	t.Skip("still flaky")
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -562,7 +564,7 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	verifier := func(authorization *pb.SignedMessage) error {
 		return nil
 	}
-	whitelist := make(map[storj.NodeID]*ecdsa.PublicKey)
+	whitelist := make(map[storj.NodeID]crypto.PublicKey)
 	for _, id := range ids {
 		whitelist[id] = nil
 	}
