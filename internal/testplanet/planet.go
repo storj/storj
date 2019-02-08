@@ -385,7 +385,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				RevocationDBURL:    "bolt://" + filepath.Join(storageDir, "revocation.db"),
 				UsePeerCAWhitelist: false, // TODO: enable
 				Extensions: peertls.TLSExtConfig{
-					Revocation:          true,
+					Revocation:          false,
 					WhitelistSignedLeaf: false,
 				},
 			},
@@ -512,7 +512,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 				RevocationDBURL:    "bolt://" + filepath.Join(storageDir, "revocation.db"),
 				UsePeerCAWhitelist: false, // TODO: enable
 				Extensions: peertls.TLSExtConfig{
-					Revocation:          true,
+					Revocation:          false,
 					WhitelistSignedLeaf: false,
 				},
 			},
@@ -589,7 +589,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 			RevocationDBURL:    "bolt://" + filepath.Join(dbDir, "revocation.db"),
 			UsePeerCAWhitelist: false, // TODO: enable
 			Extensions: peertls.TLSExtConfig{
-				Revocation:          true,
+				Revocation:          false,
 				WhitelistSignedLeaf: false,
 			},
 		},
