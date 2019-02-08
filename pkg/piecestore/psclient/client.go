@@ -45,7 +45,7 @@ type Client interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
 	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) error
 	Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error)
-	Delete(ctx context.Context, pieceID PieceID, authorization *pb.SignedMessage) error
+	Delete(ctx context.Context, pieceID PieceID, satelliteID storj.NodeID) error
 	io.Closer
 }
 
@@ -164,8 +164,8 @@ func (ps *PieceStore) Get(ctx context.Context, id PieceID, size int64, ba *pb.Pa
 }
 
 // Delete a Piece from a piece store Server
-func (ps *PieceStore) Delete(ctx context.Context, id PieceID, authorization *pb.SignedMessage) error {
-	reply, err := ps.client.Delete(ctx, &pb.PieceDelete{Id: id.String(), Authorization: authorization})
+func (ps *PieceStore) Delete(ctx context.Context, id PieceID, satelliteID storj.NodeID) error {
+	reply, err := ps.client.Delete(ctx, &pb.PieceDelete{Id: id.String(), SatelliteId: satelliteID})
 	if err != nil {
 		return err
 	}

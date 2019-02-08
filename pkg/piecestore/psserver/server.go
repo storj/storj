@@ -363,10 +363,6 @@ func getNamespacedPieceID(pieceID, namespace []byte) (string, error) {
 	return base58.Encode(h), nil
 }
 
-func getNamespace(signedMessage *pb.SignedMessage) []byte {
-	return signedMessage.GetData()
-}
-
 func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, error) {
 	statsSummary, err := s.retrieveStats()
 	if err != nil {
