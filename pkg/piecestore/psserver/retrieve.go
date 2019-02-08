@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"sync/atomic"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -33,6 +34,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		fmt.Println("RECEIVE ERR", err)
 		return RetrieveError.Wrap(err)
 	}
+	time.Sleep(100 * time.Millisecond)
 	if recv == nil {
 		return RetrieveError.New("error receiving piece data")
 	}
