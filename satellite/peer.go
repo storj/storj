@@ -150,7 +150,7 @@ type Peer struct {
 	}
 
 	Repair struct {
-		Checker  checker.Checker // TODO: convert to actual struct
+		Checker  *checker.Checker
 		Repairer *repairer.Service
 	}
 	Audit struct {
