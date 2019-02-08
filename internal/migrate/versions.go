@@ -96,7 +96,7 @@ func (migration *Migration) Run(log *zap.Logger, db DB) error {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 
-		err = migration.addVersion(tx, 0)
+		err = migration.addVersion(tx, db, 0)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
@@ -124,7 +124,7 @@ func (migration *Migration) Run(log *zap.Logger, db DB) error {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 
-		err = migration.addVersion(tx, step.Version)
+		err = migration.addVersion(tx, db, step.Version)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
@@ -172,10 +172,10 @@ func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (int, error
 }
 
 // addVersion adds information about a new migration
-func (migration *Migration) addVersion(tx *sql.Tx, version int) error {
-	_, err := tx.Exec(`
-		INSERT INTO `+migration.Table+`(version, commited_at)
-		VALUES (?, ?)`,
+func (migration *Migration) addVersion(tx *sql.Tx, db DB, version int) error {
+	_, err := tx.Exec(db.Rebind(`
+		INSERT INTO `+migration.Table+` (version, commited_at)
+		VALUES (?, ?)`),
 		version, time.Now().String(),
 	)
 	return err

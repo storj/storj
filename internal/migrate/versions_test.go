@@ -5,36 +5,53 @@ package migrate_test
 
 import (
 	"database/sql"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/internal/testcontext"
 )
 
-// TODO multiple db tests
-// TODO test failed migration
+// TODO clean up after tests
 
-func TestBasicMigration(t *testing.T) {
+func TestBasicMigrationSqlite(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
-
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	testDB := &sqliteDB{DB: db}
+	basicMigration(t, db, &sqliteDB{DB: db})
+}
 
+func TestBasicMigrationPostgres(t *testing.T) {
+	if *testPostgres == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
+	}
+
+	db, err := sql.Open("postgres", *testPostgres)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	basicMigration(t, db, &postgresDB{DB: db})
+}
+
+func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	err = ioutil.WriteFile(ctx.File("alpha.txt"), []byte("test"), 0644)
+	dbName := `versions_` + t.Name()
+	defer func() { assert.NoError(t, dropTables(db, dbName, "users")) }()
+
+	err := ioutil.WriteFile(ctx.File("alpha.txt"), []byte("test"), 0644)
 	require.NoError(t, err)
 	m := migrate.Migration{
-		Table: "versions",
+		Table: dbName,
 		Steps: []*migrate.Step{
 			{
 				Description: "Initialize Table",
@@ -58,7 +75,7 @@ func TestBasicMigration(t *testing.T) {
 	assert.NoError(t, err)
 
 	var version int
-	err = db.QueryRow(`SELECT MAX(version) FROM versions`).Scan(&version)
+	err = db.QueryRow(`SELECT MAX(version) FROM ` + dbName).Scan(&version)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, version)
 
@@ -79,22 +96,36 @@ func TestBasicMigration(t *testing.T) {
 	assert.Equal(t, []byte("test"), data)
 }
 
-func TestMultipleMigration(t *testing.T) {
+func TestMultipleMigrationSqlite(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
-
 	defer func() { assert.NoError(t, db.Close()) }()
 
+	multipleMigration(t, db, &sqliteDB{DB: db})
+}
+
+func TestMultipleMigrationPostgres(t *testing.T) {
+	if *testPostgres == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
+	}
+
+	db, err := sql.Open("postgres", *testPostgres)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	multipleMigration(t, db, &postgresDB{DB: db})
+}
+
+func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testDB := &sqliteDB{DB: db}
+	dbName := `versions_` + t.Name()
+	defer func() { assert.NoError(t, dropTables(db, dbName)) }()
 
-	err = ioutil.WriteFile(ctx.File("alpha.txt"), []byte("test"), 0644)
-	require.NoError(t, err)
 	steps := 0
 	m := migrate.Migration{
-		Table: "versions",
+		Table: dbName,
 		Steps: []*migrate.Step{
 			{
 				Description: "Step 1",
@@ -115,7 +146,7 @@ func TestMultipleMigration(t *testing.T) {
 		},
 	}
 
-	err = m.Run(zap.NewNop(), testDB)
+	err := m.Run(zap.NewNop(), testDB)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, steps)
 
@@ -130,5 +161,169 @@ func TestMultipleMigration(t *testing.T) {
 	err = m.Run(zap.NewNop(), testDB)
 	assert.NoError(t, err)
 
+	var version int
+	err = db.QueryRow(`SELECT MAX(version) FROM ` + dbName).Scan(&version)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, version)
+
 	assert.Equal(t, 3, steps)
+}
+
+func TestFailedMigrationSqlite(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	failedMigration(t, db, &sqliteDB{DB: db})
+}
+
+func TestFailedMigrationPostgres(t *testing.T) {
+	if *testPostgres == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
+	}
+
+	db, err := sql.Open("postgres", *testPostgres)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	failedMigration(t, db, &postgresDB{DB: db})
+}
+
+func failedMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	dbName := `versions_` + t.Name()
+	defer func() { assert.NoError(t, dropTables(db, dbName)) }()
+
+	m := migrate.Migration{
+		Table: dbName,
+		Steps: []*migrate.Step{
+			{
+				Description: "Step 1",
+				Version:     1,
+				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+					return fmt.Errorf("migration failed")
+				}),
+			},
+		},
+	}
+
+	err := m.Run(zap.NewNop(), testDB)
+	require.Error(t, err, "migration failed")
+
+	var version sql.NullInt64
+	err = db.QueryRow(`SELECT MAX(version) FROM ` + dbName).Scan(&version)
+	assert.NoError(t, err)
+	assert.Equal(t, false, version.Valid)
+}
+
+func TestOnCreateMigrationSqlite(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	onCreate(t, db, &sqliteDB{DB: db})
+}
+
+func TestOnCreateMigrationPostgres(t *testing.T) {
+	if *testPostgres == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
+	}
+
+	db, err := sql.Open("postgres", *testPostgres)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	onCreate(t, db, &postgresDB{DB: db})
+}
+
+func onCreate(t *testing.T, db *sql.DB, testDB migrate.DB) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	dbName := `versions_` + t.Name()
+	defer func() { assert.NoError(t, dropTables(db, dbName, "users")) }()
+
+	m := migrate.Migration{
+		Table: dbName,
+		OnCreate: migrate.SQL{
+			`CREATE TABLE users (id int)`,
+		},
+		Steps: []*migrate.Step{
+			{
+				Description: "Step 1",
+				Version:     1,
+				Action: migrate.SQL{
+					`INSERT INTO users (id) VALUES (1)`,
+				},
+			},
+		},
+	}
+
+	err := m.Run(zap.NewNop(), testDB)
+	require.NoError(t, err)
+
+	var version int
+	err = db.QueryRow(`SELECT MAX(version) FROM ` + dbName).Scan(&version)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, version)
+
+	var id int
+	err = db.QueryRow(`SELECT MAX(id) FROM users`).Scan(&id)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, id)
+}
+
+func TestOnCreateFailMigrationSqlite(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	onCreateFail(t, db, &sqliteDB{DB: db})
+}
+
+func TestOnCreateFailMigrationPostgres(t *testing.T) {
+	if *testPostgres == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
+	}
+
+	db, err := sql.Open("postgres", *testPostgres)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	onCreateFail(t, db, &postgresDB{DB: db})
+}
+
+func onCreateFail(t *testing.T, db *sql.DB, testDB migrate.DB) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	dbName := `versions_` + t.Name()
+	defer func() { assert.NoError(t, dropTables(db, dbName)) }()
+
+	m := migrate.Migration{
+		Table: dbName,
+		OnCreate: migrate.SQL{
+			`INVALID_SQL users (id int)`,
+		},
+	}
+
+	err := m.Run(zap.NewNop(), testDB)
+	require.Error(t, err, "syntax error")
+
+	var version sql.NullInt64
+	err = db.QueryRow(`SELECT MAX(version) FROM ` + dbName).Scan(&version)
+	assert.NoError(t, err)
+	assert.Equal(t, false, version.Valid)
+}
+
+func dropTables(db *sql.DB, names ...string) error {
+	var errlist errs.Group
+	for _, name := range names {
+		_, err := db.Exec(`DROP TABLE ` + name)
+		errlist.Add(err)
+	}
+
+	return errlist.Err()
 }
