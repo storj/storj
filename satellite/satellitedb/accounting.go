@@ -195,31 +195,39 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 
 // QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
 func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
-	s := dbx.AccountingRollup_StartTime(start)
-	e := dbx.AccountingRollup_StartTime(end)
-	data, err := db.db.All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx, s, e)
+	var sql = `SELECT n.id, n.created_at, n.audit_success_ratio, r.at_rest_total, r.get_repair_total,
+	    r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, o.operator_wallet
+	    FROM (
+			SELECT node_id, SUM(at_rest_total) AS at_rest_total, SUM(get_repair_total) AS get_repair_total, 
+			SUM(put_repair_total) AS put_repair_total, SUM(get_audit_total) AS get_audit_total, 
+			SUM(put_total) AS put_total, SUM(get_total) AS get_total
+			FROM accounting_rollups
+			WHERE start_time >= ? AND start_time < ?
+			GROUP BY node_id
+		) r
+		LEFT JOIN nodes n ON n.id = r.node_id
+		LEFT JOIN overlay_cache_nodes o ON n.id = o.node_id
+	    ORDER BY n.id`
+	rows, err := db.db.DB.Query(db.db.Rebind(sql), start.UTC(), end.UTC())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	var rows []*accounting.CSVRow
-	for _, record := range data {
-		nodeID, err := storj.NodeIDFromBytes(record.Node_Id)
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	csv := make([]*accounting.CSVRow, 0, 0)
+	for rows.Next() {
+		var nodeID []byte
+		r := &accounting.CSVRow{}
+		err := rows.Scan(&nodeID, &r.NodeCreationDate, &r.AuditSuccessRatio, &r.AtRestTotal, &r.GetRepairTotal,
+			&r.PutRepairTotal, &r.GetAuditTotal, &r.PutTotal, &r.GetTotal, &r.Wallet)
 		if err != nil {
-			return rows, err
+			return csv, Error.Wrap(err)
 		}
-		row := &accounting.CSVRow{
-			NodeID:            nodeID,
-			NodeCreationDate:  record.Node_CreatedAt,
-			AuditSuccessRatio: record.Node_AuditSuccessRatio,
-			AtRestTotal:       record.AccountingRollup_AtRestTotal,
-			GetRepairTotal:    record.AccountingRollup_GetRepairTotal,
-			PutRepairTotal:    record.AccountingRollup_PutRepairTotal,
-			GetAuditTotal:     record.AccountingRollup_GetAuditTotal,
-			PutTotal:          record.AccountingRollup_PutTotal,
-			GetTotal:          record.AccountingRollup_GetTotal,
-			Date:              record.AccountingRollup_StartTime,
+		id, err := storj.NodeIDFromBytes(nodeID)
+		if err != nil {
+			return csv, Error.Wrap(err)
 		}
-		rows = append(rows, row)
+		r.NodeID = id
+		csv = append(csv, r)
 	}
-	return rows, nil
+	return csv, nil
 }

@@ -5,7 +5,6 @@ package peertls_test
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -34,7 +33,7 @@ func TestNewCert_CA(t *testing.T) {
 
 	assert.NotEmpty(t, caKey)
 	assert.NotEmpty(t, caCert)
-	assert.NotEmpty(t, caCert.PublicKey.(*ecdsa.PublicKey))
+	assert.NotEmpty(t, caCert.PublicKey)
 
 	err = caCert.CheckSignatureFrom(caCert)
 	assert.NoError(t, err)
@@ -61,7 +60,7 @@ func TestNewCert_Leaf(t *testing.T) {
 
 	assert.NotEmpty(t, caKey)
 	assert.NotEmpty(t, leafCert)
-	assert.NotEmpty(t, leafCert.PublicKey.(*ecdsa.PublicKey))
+	assert.NotEmpty(t, leafCert.PublicKey)
 
 	err = caCert.CheckSignatureFrom(caCert)
 	assert.NoError(t, err)
@@ -82,11 +81,7 @@ func TestVerifyPeerFunc(t *testing.T) {
 			return errs.New("CA cert doesn't match")
 		case !bytes.Equal(chain[0], leafCert.Raw):
 			return errs.New("leaf's CA cert doesn't match")
-		case leafCert.PublicKey.(*ecdsa.PublicKey).Curve != parsedChains[0][0].PublicKey.(*ecdsa.PublicKey).Curve:
-			return errs.New("leaf public key doesn't match")
-		case leafCert.PublicKey.(*ecdsa.PublicKey).X.Cmp(parsedChains[0][0].PublicKey.(*ecdsa.PublicKey).X) != 0:
-			return errs.New("leaf public key doesn't match")
-		case leafCert.PublicKey.(*ecdsa.PublicKey).Y.Cmp(parsedChains[0][0].PublicKey.(*ecdsa.PublicKey).Y) != 0:
+		case !pkcrypto.PublicKeyEqual(leafCert.PublicKey, parsedChains[0][0].PublicKey):
 			return errs.New("leaf public key doesn't match")
 		case !bytes.Equal(parsedChains[0][1].Raw, caCert.Raw):
 			return errs.New("parsed CA cert doesn't match")
@@ -214,15 +209,10 @@ func TestAddSignedCertExt(t *testing.T) {
 	assert.Len(t, chain[0].ExtraExtensions, 1)
 	assert.Equal(t, peertls.ExtensionIDs[peertls.SignedCertExtID], chain[0].ExtraExtensions[0].Id)
 
-	ecKey, ok := keys[0].(*ecdsa.PrivateKey)
-	if !assert.True(t, ok) {
-		t.FailNow()
-	}
-
-	err = pkcrypto.VerifySignature(
-		chain[0].ExtraExtensions[0].Value,
+	err = pkcrypto.HashAndVerifySignature(
+		pkcrypto.PublicKeyFromPrivate(keys[0]),
 		chain[0].RawTBSCertificate,
-		&ecKey.PublicKey,
+		chain[0].ExtraExtensions[0].Value,
 	)
 	assert.NoError(t, err)
 }
@@ -239,12 +229,11 @@ func TestSignLeafExt(t *testing.T) {
 	assert.Equal(t, 1, len(leafCert.ExtraExtensions))
 	assert.True(t, peertls.ExtensionIDs[peertls.SignedCertExtID].Equal(leafCert.ExtraExtensions[0].Id))
 
-	caECKey, ok := caKey.(*ecdsa.PrivateKey)
-	if !assert.True(t, ok) {
-		t.FailNow()
-	}
-
-	err = pkcrypto.VerifySignature(leafCert.ExtraExtensions[0].Value, leafCert.RawTBSCertificate, &caECKey.PublicKey)
+	err = pkcrypto.HashAndVerifySignature(
+		pkcrypto.PublicKeyFromPrivate(caKey),
+		leafCert.RawTBSCertificate,
+		leafCert.ExtraExtensions[0].Value,
+	)
 	assert.NoError(t, err)
 }
 

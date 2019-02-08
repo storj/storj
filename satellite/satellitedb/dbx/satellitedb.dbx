@@ -147,15 +147,6 @@ read all (
 	select node.id
 )
 
-// payment csv generation query
-read all (
-	select node.id node.created_at node.audit_success_ratio accounting_rollup.start_time accounting_rollup.put_total accounting_rollup.get_total accounting_rollup.get_audit_total accounting_rollup.get_repair_total accounting_rollup.put_repair_total accounting_rollup.at_rest_total
-	where accounting_rollup.start_time >= ? 
-	where accounting_rollup.start_time < ?
-	join node.id = accounting_rollup.node_id
-	orderby asc node.id
-)
-
 //--- overlaycache ---//
 
 model overlay_cache_node (

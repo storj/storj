@@ -4,10 +4,7 @@
 package auth
 
 import (
-	"crypto/ecdsa"
-
 	"github.com/gogo/protobuf/proto"
-	"github.com/gtank/cryptopasta"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/identity"
@@ -17,8 +14,6 @@ import (
 )
 
 var (
-	//ErrECDSA indicates a key was not an ECDSA key
-	ErrECDSA = errs.New("Key is not ecdsa key")
 	//ErrSign indicates a failure during signing
 	ErrSign = errs.Class("Failed to sign message")
 	//ErrVerify indicates a failure during signature validation
@@ -63,11 +58,7 @@ func SignMessage(msg SignableMessage, ID identity.FullIdentity) error {
 	if err != nil {
 		return ErrMarshal.Wrap(err)
 	}
-	privECDSA, ok := ID.Key.(*ecdsa.PrivateKey)
-	if !ok {
-		return ErrECDSA
-	}
-	signature, err := cryptopasta.Sign(msgBytes, privECDSA)
+	signature, err := pkcrypto.HashAndSign(ID.Key, msgBytes)
 	if err != nil {
 		return ErrSign.Wrap(err)
 	}
@@ -102,39 +93,23 @@ func VerifyMsg(msg SignableMessage, signer storj.NodeID) error {
 	if err != nil {
 		return ErrVerify.Wrap(err)
 	}
-	leafPubKey, err := parseECDSA(certs[0])
+	leaf, err := pkcrypto.CertFromDER(certs[0])
 	if err != nil {
 		return err
 	}
-	caPubKey, err := parseECDSA(certs[1])
+	ca, err := pkcrypto.CertFromDER(certs[1])
 	if err != nil {
 		return err
 	}
 	// verify signature
-	signatureLength := leafPubKey.Curve.Params().P.BitLen() / 8
-	if len(signature) < signatureLength {
-		return ErrSigLen.New("%d vs %d", len(signature), signatureLength)
-	}
-	if id, err := identity.NodeIDFromECDSAKey(caPubKey); err != nil || id != signer {
+	if id, err := identity.NodeIDFromKey(ca.PublicKey); err != nil || id != signer {
 		return ErrSigner.New("%+v vs %+v", id, signer)
 	}
-	if ok := cryptopasta.Verify(msgBytes, signature, leafPubKey); !ok {
-		return ErrVerify.New("%+v", ok)
+	if err := pkcrypto.HashAndVerifySignature(leaf.PublicKey, msgBytes, signature); err != nil {
+		return ErrVerify.New("%+v", err)
 	}
 	//cleanup
 	msg.SetSignature(signature)
 	msg.SetCerts(certs)
 	return nil
-}
-
-func parseECDSA(rawCert []byte) (*ecdsa.PublicKey, error) {
-	cert, err := pkcrypto.CertFromDER(rawCert)
-	if err != nil {
-		return nil, ErrVerify.Wrap(err)
-	}
-	ecdsa, ok := cert.PublicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return nil, ErrECDSA
-	}
-	return ecdsa, nil
 }
