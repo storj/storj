@@ -5,7 +5,7 @@ package bwagreement_test
 
 import (
 	"context"
-	"crypto/ecdsa"
+	"crypto"
 	"crypto/tls"
 	"crypto/x509"
 	"net"
@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/gtank/cryptopasta"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -27,6 +26,7 @@ import (
 	"storj.io/storj/pkg/bwagreement/testbwagreement"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -37,7 +37,7 @@ func TestBandwidthAgreement(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		testDatabase(ctx, t, db.BandwidthAgreement())
+		testDatabase(ctx, t, db)
 	})
 }
 
@@ -59,15 +59,17 @@ func getPeerContext(ctx context.Context, t *testing.T) (context.Context, storj.N
 	return peer.NewContext(ctx, grpcPeer), nodeID
 }
 
-func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
+func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 	upID, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
 	satID, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
-	satellite := bwagreement.NewServer(bwdb, zap.NewNop(), satID.ID)
+	satellite := bwagreement.NewServer(db.BandwidthAgreement(), db.CertDB(), satID.Leaf.PublicKey, zap.NewNop(), satID.ID)
 
 	{ // TestSameSerialNumberBandwidthAgreements
 		pbaFile1, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, time.Hour)
+		assert.NoError(t, err)
+		err = db.CertDB().SavePublicKey(ctx, pbaFile1.UplinkId, upID.Leaf.PublicKey)
 		assert.NoError(t, err)
 
 		ctxSN1, storageNode1 := getPeerContext(ctx, t)
@@ -96,6 +98,8 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		   Uplink downloads another file. New PayerBandwidthAllocation with a new sequence. */
 		{
 			pbaFile2, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, time.Hour)
+			assert.NoError(t, err)
+			err = db.CertDB().SavePublicKey(ctx, pbaFile2.UplinkId, upID.Leaf.PublicKey)
 			assert.NoError(t, err)
 
 			rbaNode1, err := testbwagreement.GenerateRenterBandwidthAllocation(pbaFile2, storageNode1, upID, 666)
@@ -130,6 +134,8 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		{ // storage nodes can submit a bwagreement that will expire in 30 seconds
 			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, 30*time.Second)
 			assert.NoError(t, err)
+			err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey)
+			assert.NoError(t, err)
 
 			ctxSN1, storageNode1 := getPeerContext(ctx, t)
 			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, storageNode1, upID, 666)
@@ -143,6 +149,8 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		{ // storage nodes can't submit a bwagreement that expires right now
 			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, 0*time.Second)
 			assert.NoError(t, err)
+			err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey)
+			assert.NoError(t, err)
 
 			ctxSN1, storageNode1 := getPeerContext(ctx, t)
 			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, storageNode1, upID, 666)
@@ -155,6 +163,8 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 
 		{ // storage nodes can't submit a bwagreement that expires yesterday
 			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, -23*time.Hour-55*time.Second)
+			assert.NoError(t, err)
+			err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey)
 			assert.NoError(t, err)
 
 			ctxSN1, storageNode1 := getPeerContext(ctx, t)
@@ -172,6 +182,8 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		if !assert.NoError(t, err) {
 			t.Fatal(err)
 		}
+		err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey)
+		assert.NoError(t, err)
 
 		ctxSN1, storageNode1 := getPeerContext(ctx, t)
 		rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, storageNode1, upID, 666)
@@ -184,8 +196,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		manipID, err := testidentity.NewTestIdentity(ctx)
 		assert.NoError(t, err)
 		manipCerts := manipID.ChainRaw()
-		manipPrivKey, ok := manipID.Key.(*ecdsa.PrivateKey)
-		assert.True(t, ok)
+		manipPrivKey := manipID.Key
 
 		/* Storage node can't manipulate the bwagreement size (or any other field)
 		   Satellite will verify Renter's Signature. */
@@ -216,7 +227,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			manipSignature := GetSignature(t, &manipRBA, manipPrivKey)
 			// Using self created signature + public key
 			reply, err := callBWA(ctxSN1, t, satellite, manipSignature, &manipRBA, manipCerts)
-			assert.True(t, auth.ErrSigner.Has(err) && pb.ErrRenter.Has(err), err.Error())
+			assert.True(t, pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -229,7 +240,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			manipSignature := GetSignature(t, &manipRBA, manipPrivKey)
 			// Using self created signature + public key
 			reply, err := callBWA(ctxSN1, t, satellite, manipSignature, &manipRBA, manipCerts)
-			assert.True(t, auth.ErrVerify.Has(err) && pb.ErrPayer.Has(err), err.Error())
+			assert.True(t, auth.ErrVerify.Has(err) && pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -244,7 +255,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			manipSignature = GetSignature(t, &manipRBA, manipPrivKey)
 			// Using self created Payer and Renter bwagreement signatures
 			reply, err := callBWA(ctxSN1, t, satellite, manipSignature, &manipRBA, manipCerts)
-			assert.True(t, auth.ErrVerify.Has(err) && pb.ErrPayer.Has(err), err.Error())
+			assert.True(t, auth.ErrVerify.Has(err) && pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -260,7 +271,7 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 			manipSignature = GetSignature(t, &manipRBA, manipPrivKey)
 			// Using self created Payer and Renter bwagreement signatures
 			reply, err := callBWA(ctxSN1, t, satellite, manipSignature, &manipRBA, manipCerts)
-			assert.True(t, auth.ErrSigner.Has(err) && pb.ErrPayer.Has(err), err.Error())
+			assert.True(t, pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -287,13 +298,16 @@ func testDatabase(ctx context.Context, t *testing.T, bwdb bwagreement.DB) {
 		ctxSN2, storageNode2 := getPeerContext(ctx, t)
 		pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, time.Hour)
 		assert.NoError(t, err)
+		err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey)
+		assert.NoError(t, err)
 
 		{ // Storage node sends an corrupted signuature to force a satellite crash
 			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, storageNode1, upID, 666)
 			assert.NoError(t, err)
 			rba.Signature = []byte("invalid")
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rba)
-			assert.True(t, auth.ErrSigLen.Has(err) && pb.ErrRenter.Has(err), err.Error())
+			assert.Error(t, err)
+			assert.True(t, pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -315,7 +329,7 @@ func callBWA(ctx context.Context, t *testing.T, sat *bwagreement.Server, signatu
 }
 
 //GetSignature returns the signature of the signed message
-func GetSignature(t *testing.T, msg auth.SignableMessage, privECDSA *ecdsa.PrivateKey) []byte {
+func GetSignature(t *testing.T, msg auth.SignableMessage, privKey crypto.PrivateKey) []byte {
 	require.NotNil(t, msg)
 	oldSignature := msg.GetSignature()
 	certs := msg.GetCerts()
@@ -323,7 +337,7 @@ func GetSignature(t *testing.T, msg auth.SignableMessage, privECDSA *ecdsa.Priva
 	msg.SetCerts(nil)
 	msgBytes, err := proto.Marshal(msg)
 	require.NoError(t, err)
-	signature, err := cryptopasta.Sign(msgBytes, privECDSA)
+	signature, err := pkcrypto.HashAndSign(privKey, msgBytes)
 	require.NoError(t, err)
 	msg.SetSignature(oldSignature)
 	msg.SetCerts(certs)

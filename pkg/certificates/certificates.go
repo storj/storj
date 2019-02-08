@@ -9,6 +9,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"encoding/gob"
 	"fmt"
 	"strconv"
@@ -109,6 +110,7 @@ type Client struct {
 
 func init() {
 	gob.Register(&ecdsa.PublicKey{})
+	gob.Register(&rsa.PublicKey{})
 	gob.Register(elliptic.P256())
 }
 

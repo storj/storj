@@ -7,7 +7,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
-	"crypto/ecdsa"
+	"crypto"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -81,7 +81,7 @@ func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	return identity.GenerateKeys(ctx, uint16(keyCfg.MinDifficulty), keyCfg.Concurrency,
-		func(k *ecdsa.PrivateKey, id storj.NodeID) (done bool, err error) {
+		func(k crypto.PrivateKey, id storj.NodeID) (done bool, err error) {
 			difficulty, err := id.Difficulty()
 			if err != nil {
 				return false, err
@@ -103,7 +103,7 @@ func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
 		})
 }
 
-func saveIdentityTar(path string, key *ecdsa.PrivateKey, id storj.NodeID) error {
+func saveIdentityTar(path string, key crypto.PrivateKey, id storj.NodeID) error {
 	ct, err := peertls.CATemplate()
 	if err != nil {
 		return err
@@ -129,9 +129,9 @@ func saveIdentityTar(path string, key *ecdsa.PrivateKey, id storj.NodeID) error 
 	tw := tar.NewWriter(tarData)
 
 	caCertBytes, caCertErr := peertls.ChainBytes(ca.Cert)
-	caKeyBytes, caKeyErr := pkcrypto.KeyBytes(ca.Key)
+	caKeyBytes, caKeyErr := pkcrypto.PrivateKeyToPEM(ca.Key)
 	identCertBytes, identCertErr := peertls.ChainBytes(ident.Leaf, ident.CA)
-	identKeyBytes, identKeyErr := pkcrypto.KeyBytes(ident.Key)
+	identKeyBytes, identKeyErr := pkcrypto.PrivateKeyToPEM(ident.Key)
 	if err := errs.Combine(caCertErr, caKeyErr, identCertErr, identKeyErr); err != nil {
 		return err
 	}

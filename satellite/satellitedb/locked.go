@@ -7,6 +7,7 @@ package satellitedb
 
 import (
 	"context"
+	"crypto"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
@@ -129,6 +131,33 @@ func (m *lockedBandwidthAgreement) GetUplinkStats(ctx context.Context, a1 time.T
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetUplinkStats(ctx, a1, a2)
+}
+
+// CertDB returns database for storing uplink's public key & ID
+func (m *locked) CertDB() certdb.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedCertDB{m.Locker, m.db.CertDB()}
+}
+
+// lockedCertDB implements locking wrapper for certdb.DB
+type lockedCertDB struct {
+	sync.Locker
+	db certdb.DB
+}
+
+// GetPublicKey gets the public key of uplink corresponding to uplink id
+func (m *lockedCertDB) GetPublicKey(ctx context.Context, a1 storj.NodeID) (crypto.PublicKey, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetPublicKey(ctx, a1)
+}
+
+// SavePublicKey adds a new bandwidth agreement.
+func (m *lockedCertDB) SavePublicKey(ctx context.Context, a1 storj.NodeID, a2 crypto.PublicKey) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SavePublicKey(ctx, a1, a2)
 }
 
 // Close closes the database
