@@ -47,6 +47,7 @@ func TestMergePlanets(t *testing.T) {
 	defer ctx.Check(beta.Shutdown)
 
 	// during planet.Start
+	//   every satellite & storage node looks itself up from bootstrap
 	//   every storage node pings bootstrap
 	//   every satellite pings every storage node
 	alpha.Start(ctx)
