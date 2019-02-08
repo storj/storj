@@ -157,7 +157,7 @@ func TestRandomizedSelection(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: totalNodes, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// we wait for all the nodes to complete bootstrapping off the satellite
-		time.Sleep(10 * time.Second)
+		time.Sleep(2 * time.Second)
 
 		nodeCounts := make(map[storj.NodeID]int)
 
@@ -165,12 +165,7 @@ func TestRandomizedSelection(t *testing.T) {
 		// select numNodesToSelect nodes selectIterations times
 		for i := 0; i < selectIterations; i++ {
 			nodes, err := cache.SelectNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
-				FreeBandwidth:      0,
-				FreeDisk:           0,
-				AuditCount:         0,
-				AuditSuccessRatio:  0,
-				UptimeCount:        0,
-				UptimeSuccessRatio: 0,
+				Type: pb.NodeType_STORAGE,
 			})
 			require.NoError(t, err)
 			require.Len(t, nodes, numNodesToSelect)
