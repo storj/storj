@@ -230,6 +230,9 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 
 	var group errgroup.Group
 
+	// TODO: instead of pinging try to use Lookups or natural discovery to ensure
+	// everyone finds everyone else
+
 	for _, storageNode := range planet.StorageNodes {
 		storageNode := storageNode
 		group.Go(func() error {
@@ -257,8 +260,6 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 	}
 
 	_ = group.Wait() // none of the goroutines return an error
-
-	// TODO: implement this using refreshing of the appropriate nodes
 }
 
 // StopPeer stops a single peer in the planet
@@ -337,6 +338,7 @@ func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]
 
 // newSatellites initializes satellites
 func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
+	// TODO: move into separate file
 	var xs []*satellite.Peer
 	defer func() {
 		for _, x := range xs {
@@ -463,6 +465,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 
 // newStorageNodes initializes storage nodes
 func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
+	// TODO: move into separate file
 	var xs []*storagenode.Peer
 	defer func() {
 		for _, x := range xs {
@@ -546,6 +549,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 
 // newBootstrap initializes the bootstrap node
 func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
+	// TODO: move into separate file
 	defer func() {
 		planet.peers = append(planet.peers, closablePeer{peer: peer})
 	}()
