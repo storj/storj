@@ -253,6 +253,9 @@ func TestRetrieve(t *testing.T) {
 				require.NoError(t, err)
 
 				err = stream.Send(&pb.PieceRetrieval{BandwidthAllocation: rba})
+				if err == io.EOF {
+					fmt.Println("FATAL CLOSE")
+				}
 				require.NoError(t, err)
 
 				resp, err = stream.Recv()
