@@ -229,8 +229,9 @@ func TestRetrieve(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run("", func(t *testing.T) {
+			fmt.Println(i, "=================================")
 			stream, err := c.Retrieve(ctx)
 			require.NoError(t, err)
 
