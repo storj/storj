@@ -228,7 +228,7 @@ func (planet *Planet) Start(ctx context.Context) {
 
 // Refresh triggers refreshing of the kademlia network connecting everyone to everyone else.
 func (planet *Planet) Refresh() {
-	// propagate storage nodes
+	// refresh storage nodes
 	var group errgroup.Group
 	for _, peer := range planet.StorageNodes {
 		peer := peer
@@ -238,10 +238,9 @@ func (planet *Planet) Refresh() {
 		})
 	}
 
-	if err := group.Wait(); err != nil {
-		return err
-	}
+	_ = group.Wait() // none of the goroutines create an error
 
+	// refresh satellites
 	for _, peer := range planet.Satellites {
 		peer := peer
 		group.Go(func() error {
@@ -254,9 +253,7 @@ func (planet *Planet) Refresh() {
 		})
 	}
 
-	if err := group.Wait(); err != nil {
-		return err
-	}
+	_ = group.Wait() // none of the goroutines create an error
 }
 
 // StopPeer stops a single peer in the planet
