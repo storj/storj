@@ -1,11 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package server
+package tlsopts
 
 import (
 	"io/ioutil"
 
+	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
@@ -13,7 +14,11 @@ import (
 	"storj.io/storj/pkg/pkcrypto"
 )
 
-// Options holds config, identity, and peer verification function data for use with a grpc server.
+var (
+	Error = errs.Class("error")
+)
+
+// Options holds config, identity, and peer verification function data for use with tls.
 type Options struct {
 	Config   Config
 	Ident    *identity.FullIdentity
@@ -21,7 +26,7 @@ type Options struct {
 	PCVFuncs []peertls.PeerCertVerificationFunc
 }
 
-// NewOptions is a constructor for `serverOptions` given an identity and config
+// NewOptions is a constructor for `tls options` given an identity and config
 func NewOptions(i *identity.FullIdentity, c Config) (*Options, error) {
 	opts := &Options{
 		Config: c,
@@ -36,7 +41,7 @@ func NewOptions(i *identity.FullIdentity, c Config) (*Options, error) {
 	return opts, nil
 }
 
-func (opts *Options) grpcOpts() (grpc.ServerOption, error) {
+func (opts *Options) GRPCOpts() (grpc.ServerOption, error) {
 	return opts.Ident.ServerOption(opts.PCVFuncs...)
 }
 

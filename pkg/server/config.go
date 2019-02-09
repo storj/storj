@@ -11,17 +11,14 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/utils"
 )
 
 // Config holds server specific configuration parameters
 type Config struct {
-	RevocationDBURL     string `default:"bolt://$CONFDIR/revocations.db" help:"url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)"`
-	PeerCAWhitelistPath string `help:"path to the CA cert whitelist (peer identities must be signed by one these to be verified). this will override the default peer whitelist"`
-	UsePeerCAWhitelist  bool   `help:"if true, uses peer ca whitelist checking" default:"false"`
-	Address             string `user:"true" help:"address to listen on" default:":7777"`
-	Extensions          peertls.TLSExtConfig
+	tlsopts.Config
+	Address string `user:"true" help:"address to listen on" default:":7777"`
 }
 
 // Run will run the given responsibilities with the configured identity.
@@ -34,7 +31,7 @@ func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, inter
 	}
 	defer func() { _ = lis.Close() }()
 
-	opts, err := NewOptions(identity, sc)
+	opts, err := tlsopts.NewOptions(identity, sc.Config)
 	if err != nil {
 		return err
 	}

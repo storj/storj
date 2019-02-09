@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/transport"
@@ -620,7 +621,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 	require.NotNil(t, listener)
 
 	serverConfig := server.Config{Address: listener.Addr().String()}
-	opts, err := server.NewOptions(serverIdent, serverConfig)
+	opts, err := tlsopts.NewOptions(serverIdent, serverConfig.Config)
 	require.NoError(t, err)
 	require.NotNil(t, opts)
 

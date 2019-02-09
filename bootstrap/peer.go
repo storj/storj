@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -88,7 +89,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 
 		publicConfig := config.Server
 		publicConfig.Address = peer.Public.Listener.Addr().String()
-		publicOptions, err := server.NewOptions(peer.Identity, publicConfig)
+		publicOptions, err := tlsopts.NewOptions(peer.Identity, publicConfig.Config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
