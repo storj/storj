@@ -91,7 +91,7 @@ func TestGetBucket(t *testing.T) {
 	}
 }
 
-<<<<<<< HEAD
+
 func RandomNode() pb.Node {
 	node := pb.Node{}
 	rand.Read(node.Id[:])
@@ -110,58 +110,6 @@ func TestKademliaFindNear(t *testing.T) {
 			require.NoError(t, err)
 			if ok { // buckets were full
 				expectedIDs = append(expectedIDs, n.Id)
-=======
-func TestFindNear(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	rt := createRoutingTable(teststorj.NodeIDFromString("AB"))
-	defer ctx.Check(rt.Close)
-	node1 := teststorj.MockNode("AA")
-	node2 := teststorj.MockNode("BB")
-	node3 := teststorj.MockNode("CC")
-	ok, err := rt.addNode(node1)
-	assert.NoError(t, err)
-	assert.True(t, ok)
-	ok, err = rt.addNode(node2)
-	assert.NoError(t, err)
-	assert.True(t, ok)
-
-	cases := []struct {
-		testID        string
-		node          pb.Node
-		expectedNodes []*pb.Node
-		limit         int
-	}{
-		{testID: "limit 1 on node1: return node1",
-			node:          *node1,
-			expectedNodes: []*pb.Node{node1},
-			limit:         1,
-		},
-		{testID: "limit 2 on node3: return nodes2, node1",
-			node:          *node3,
-			expectedNodes: []*pb.Node{node2, node1},
-			limit:         2,
-		},
-		{testID: "limit 1 on node3: return node2",
-			node:          *node3,
-			expectedNodes: []*pb.Node{node2},
-			limit:         1,
-		},
-		{testID: "limit 3 on node3: return node2, node1",
-			node:          *node3,
-			expectedNodes: []*pb.Node{node2, node1},
-			limit:         3,
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			ns, err := rt.FindNear(c.node.Id, c.limit)
-			assert.NoError(t, err)
-			assert.Equal(t, len(c.expectedNodes), len(ns))
-			for i, n := range c.expectedNodes {
-				assert.True(t, bytes.Equal(n.Id.Bytes(), ns[i].Id.Bytes()))
->>>>>>> 0fdb134d... pkg/kademlia: clean up routing table creation in tests
 			}
 		}
 		if testNodeCount > 0 && limit > 0 {

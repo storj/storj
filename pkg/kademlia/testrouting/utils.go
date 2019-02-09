@@ -41,8 +41,8 @@ func bitAtDepth(id storj.NodeID, bitDepth int) bool {
 	bitOffset := bitDepth % 8
 	power := uint(7 - bitOffset)
 	bitMask := byte(1 << power)
-	byte_ := id[byteDepth]
-	if byte_&bitMask > 0 {
+	b := id[byteDepth]
+	if b&bitMask > 0 {
 		return true
 	}
 	return false

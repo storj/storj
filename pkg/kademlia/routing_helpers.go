@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"time"
+	"fmt"
 
 	"github.com/gogo/protobuf/proto"
 
@@ -102,11 +103,18 @@ func (rt *RoutingTable) updateNode(node *pb.Node) error {
 // removeNode will remove churned nodes and replace those entries with nodes from the replacement cache.
 func (rt *RoutingTable) removeNode(node *pb.Node) error {
 	kadBucketID, err := rt.getKBucketID(node.Id)
+	x, _ := storj.NodeIDFromString("1Ba3mm8Ra8JYYebeZ9p7zw1ayorDbeD1euwxhgzSLsncRPwZDY")
+
 	if err != nil {
 		return RoutingErr.New("could not get k bucket %s", err)
 	}
+
+	
 	existingMarshalled, err := rt.nodeBucketDB.Get(node.Id.Bytes())
 	if storage.ErrKeyNotFound.Has(err) {
+		if node.Id == x {
+			fmt.Println(err)
+		}
 		return nil
 	} else if err != nil {
 		return RoutingErr.New("could not get node %s", err)
@@ -136,6 +144,7 @@ func (rt *RoutingTable) removeNode(node *pb.Node) error {
 	}
 	rt.replacementCache[kadBucketID] = nodes[:len(nodes)-1]
 	return nil
+
 }
 
 // putNode: helper, adds or updates Node and ID to nodeBucketDB

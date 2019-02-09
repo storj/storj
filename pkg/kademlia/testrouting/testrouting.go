@@ -90,7 +90,7 @@ func (t *Table) ConnectionSuccess(node *pb.Node) error {
 		// makeTree within preserveInvariants might promote this to true
 		inCache: false,
 	}
-	t.counter += 1
+	t.counter++
 
 	t.preserveInvariants()
 	return nil
@@ -105,10 +105,10 @@ func (t *Table) ConnectionFailed(node *pb.Node) error {
 
 	// if the node exists and the failure is with the address we have, record
 	// a failure
+
 	if data, exists := t.nodes[node.Id]; exists &&
 		pb.AddressEqual(data.node.Address, node.Address) {
-		data.fails += 1
-
+		data.fails++ //TODO: we may not need this
 		// if we've failed too many times, remove the node
 		if data.fails > t.allowedFailures {
 			delete(t.nodes, node.Id)
@@ -303,5 +303,5 @@ func (t *Table) add(b *bucket, node *nodeData, dissimilar bool, nearest []*nodeD
 	t.add(b, node, dissimilar, nearest)
 }
 
-// Local implements the dht.RoutingTable interface
+// Close implements the dht.RoutingTable interface
 func (t *Table) Close() error { return nil }
