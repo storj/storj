@@ -69,7 +69,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		return nil, Error.Wrap(err)
 	}
 
-	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock()}, opts...)
+	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock(), grpc.FailOnNonTempDialError(true)}, opts...)
 
 	ctx, cf := context.WithTimeout(ctx, timeout)
 	defer cf()
@@ -97,7 +97,7 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 		return nil, Error.Wrap(err)
 	}
 
-	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock()}, opts...)
+	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock(), grpc.FailOnNonTempDialError(true)}, opts...)
 	conn, err = grpc.DialContext(ctx, address, options...)
 	if err == context.Canceled {
 		return nil, err
