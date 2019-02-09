@@ -20,6 +20,7 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -124,12 +125,16 @@ func NewInspector(address, path string) (*Inspector, error) {
 		CertPath: fmt.Sprintf("%s/identity.cert", path),
 		KeyPath:  fmt.Sprintf("%s/identity.key", path),
 	}.Load()
-
 	if err != nil {
-		return &Inspector{}, ErrIdentity.Wrap(err)
+		return nil, ErrIdentity.Wrap(err)
 	}
 
-	tc := transport.NewClient(id)
+	tlsOpts, err := tlsopts.NewOptions(id, tlsopts.Config{})
+	if err != nil {
+		return nil, err
+	}
+
+	tc := transport.NewClient(tlsOpts)
 	conn, err := tc.DialAddress(ctx, address)
 	if err != nil {
 		return &Inspector{}, ErrInspectorDial.Wrap(err)

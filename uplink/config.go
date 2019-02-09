@@ -16,12 +16,14 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 )
 
 // RSConfig is a configuration struct that keeps details about default
@@ -61,6 +63,7 @@ type Config struct {
 	Client ClientConfig
 	RS     RSConfig
 	Enc    EncryptionConfig
+	TLS    tlsopts.Config
 }
 
 var (
@@ -74,6 +77,12 @@ var (
 func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity) (db storj.Metainfo, ss streams.Store, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	tlsOpts, err := tlsopts.NewOptions(identity, c.TLS)
+	if err != nil {
+		return nil, nil, err
+	}
+	tc := transport.NewClient(tlsOpts)
+
 	if c.Client.OverlayAddr == "" || c.Client.PointerDBAddr == "" {
 		var errlist errs.Group
 		if c.Client.OverlayAddr == "" {
@@ -85,17 +94,17 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, errlist.Err()
 	}
 
-	oc, err := overlay.NewClient(identity, c.Client.OverlayAddr)
+	oc, err := overlay.NewClient(tc, c.Client.OverlayAddr)
 	if err != nil {
 		return nil, nil, Error.New("failed to connect to overlay: %v", err)
 	}
 
-	pdb, err := pdbclient.NewClient(identity, c.Client.PointerDBAddr, c.Client.APIKey)
+	pdb, err := pdbclient.NewClient(tc, c.Client.PointerDBAddr, c.Client.APIKey)
 	if err != nil {
 		return nil, nil, Error.New("failed to connect to pointer DB: %v", err)
 	}
 
-	ec := ecclient.NewClient(identity, c.RS.MaxBufferMem.Int())
+	ec := ecclient.NewClient(tc, c.RS.MaxBufferMem.Int())
 	fc, err := infectious.NewFEC(c.RS.MinThreshold, c.RS.MaxThreshold)
 	if err != nil {
 		return nil, nil, Error.New("failed to create erasure coding client: %v", err)

@@ -8,7 +8,6 @@ import (
 	"context"
 	"crypto"
 	"crypto/sha256"
-	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
@@ -18,7 +17,6 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
@@ -367,51 +365,6 @@ func (fi *FullIdentity) RestChainRaw() [][]byte {
 	return chain
 }
 
-// ServerOption returns a grpc `ServerOption` for incoming connections
-// to the node with this full identity
-func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFunc) (grpc.ServerOption, error) {
-	c, err := peertls.TLSCert(fi.ChainRaw(), fi.Leaf, fi.Key)
-	if err != nil {
-		return nil, err
-	}
-
-	pcvFuncs = append(
-		[]peertls.PeerCertVerificationFunc{peertls.VerifyPeerCertChains},
-		pcvFuncs...,
-	)
-	tlsConfig := &tls.Config{
-		Certificates:       []tls.Certificate{*c},
-		InsecureSkipVerify: true,
-		ClientAuth:         tls.RequireAnyClientCert,
-		VerifyPeerCertificate: peertls.VerifyPeerFunc(
-			pcvFuncs...,
-		),
-	}
-
-	return grpc.Creds(credentials.NewTLS(tlsConfig)), nil
-}
-
-// DialOption returns a grpc `DialOption` for making outgoing connections
-// to the node with this peer identity
-// id is an optional id of the node we are dialing
-func (fi *FullIdentity) DialOption(id storj.NodeID) (grpc.DialOption, error) {
-	c, err := peertls.TLSCert(fi.ChainRaw(), fi.Leaf, fi.Key)
-	if err != nil {
-		return nil, err
-	}
-
-	tlsConfig := &tls.Config{
-		Certificates:       []tls.Certificate{*c},
-		InsecureSkipVerify: true,
-		VerifyPeerCertificate: peertls.VerifyPeerFunc(
-			peertls.VerifyPeerCertChains,
-			verifyIdentity(id),
-		),
-	}
-
-	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), nil
-}
-
 // PeerIdentity converts a FullIdentity into a PeerIdentity
 func (fi *FullIdentity) PeerIdentity() *PeerIdentity {
 	return &PeerIdentity{
@@ -419,26 +372,6 @@ func (fi *FullIdentity) PeerIdentity() *PeerIdentity {
 		Leaf:      fi.Leaf,
 		ID:        fi.ID,
 		RestChain: fi.RestChain,
-	}
-}
-
-func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
-	return func(_ [][]byte, parsedChains [][]*x509.Certificate) (err error) {
-		defer mon.TaskNamed("verifyIdentity")(nil)(&err)
-		if id == (storj.NodeID{}) {
-			return nil
-		}
-
-		peer, err := PeerIdentityFromCerts(parsedChains[0][0], parsedChains[0][1], parsedChains[0][2:])
-		if err != nil {
-			return err
-		}
-
-		if peer.ID.String() != id.String() {
-			return Error.New("peer ID did not match requested ID")
-		}
-
-		return nil
 	}
 }
 

@@ -16,7 +16,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/ranger"
@@ -44,8 +43,7 @@ type ecClient struct {
 }
 
 // NewClient from the given identity and max buffer memory
-func NewClient(identity *identity.FullIdentity, memoryLimit int) Client {
-	tc := transport.NewClient(identity)
+func NewClient(tc transport.Client, memoryLimit int) Client {
 	return &ecClient{
 		transport:       tc,
 		memoryLimit:     memoryLimit,

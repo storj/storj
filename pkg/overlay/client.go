@@ -8,7 +8,6 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -50,13 +49,12 @@ type Options struct {
 }
 
 // NewClient returns a new intialized Overlay Client
-func NewClient(identity *identity.FullIdentity, address string) (Client, error) {
-	return NewClientContext(context.TODO(), identity, address)
+func NewClient(tc transport.Client, address string) (Client, error) {
+	return NewClientContext(context.TODO(), tc, address)
 }
 
 // NewClientContext returns a new intialized Overlay Client
-func NewClientContext(ctx context.Context, identity *identity.FullIdentity, address string) (Client, error) {
-	tc := transport.NewClient(identity, &Cache{}) // add overlay to transport client as observer
+func NewClientContext(ctx context.Context, tc transport.Client, address string) (Client, error) {
 	conn, err := tc.DialAddress(ctx, address)
 	if err != nil {
 		return nil, err

@@ -73,10 +73,9 @@ type Peer struct {
 // New creates a new Bootstrap Node.
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*Peer, error) {
 	peer := &Peer{
-		Log:       log,
-		Identity:  full,
-		DB:        db,
-		Transport: transport.NewClient(full),
+		Log:      log,
+		Identity: full,
+		DB:       db,
 	}
 
 	var err error
@@ -93,6 +92,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		peer.Transport = transport.NewClient(publicOptions)
 
 		peer.Public.Server, err = server.New(publicOptions, peer.Public.Listener, nil)
 		if err != nil {

@@ -4,10 +4,11 @@
 package tlsopts
 
 import (
+	"crypto/tls"
 	"io/ioutil"
 
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
@@ -15,6 +16,7 @@ import (
 )
 
 var (
+	mon   = monkit.Package()
 	Error = errs.Class("error")
 )
 
@@ -24,6 +26,7 @@ type Options struct {
 	Ident    *identity.FullIdentity
 	RevDB    *identity.RevocationDB
 	PCVFuncs []peertls.PeerCertVerificationFunc
+	Cert     *tls.Certificate
 }
 
 // NewOptions is a constructor for `tls options` given an identity and config
@@ -39,10 +42,6 @@ func NewOptions(i *identity.FullIdentity, c Config) (*Options, error) {
 	}
 
 	return opts, nil
-}
-
-func (opts *Options) GRPCOpts() (grpc.ServerOption, error) {
-	return opts.Ident.ServerOption(opts.PCVFuncs...)
 }
 
 // configure adds peer certificate verification functions and revocation
@@ -87,5 +86,7 @@ func (opts *Options) configure(c Config) (err error) {
 	}
 
 	opts.PCVFuncs = pcvs
-	return nil
+
+	opts.Cert, err = peertls.TLSCert(opts.Ident.ChainRaw(), opts.Ident.Leaf, opts.Ident.Key)
+	return err
 }

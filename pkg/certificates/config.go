@@ -14,7 +14,9 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -23,6 +25,7 @@ import (
 // CertClientConfig is a config struct for use with a certificate signing service client
 type CertClientConfig struct {
 	Address string `help:"address of the certificate signing rpc service"`
+	TLS     tlsopts.Config
 }
 
 // CertServerConfig is a config struct for use with a certificate signing service server
@@ -35,7 +38,11 @@ type CertServerConfig struct {
 
 // Sign submits a certificate signing request given the config
 func (c CertClientConfig) Sign(ctx context.Context, ident *identity.FullIdentity, authToken string) ([][]byte, error) {
-	client, err := NewClient(ctx, ident, c.Address)
+	tlsOpts, err := tlsopts.NewOptions(ident, c.TLS)
+	if err != nil {
+		return nil, err
+	}
+	client, err := NewClient(ctx, transport.NewClient(tlsOpts), c.Address)
 	if err != nil {
 		return nil, err
 	}
