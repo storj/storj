@@ -149,7 +149,7 @@ func TestRandomizedSelection(t *testing.T) {
 	totalNodes := 1000
 	selectIterations := 100
 	numNodesToSelect := 100
-	minSelectCount := 1
+	minSelectCount := 3 // TODO: compute this limit better
 
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
@@ -187,10 +187,27 @@ func TestRandomizedSelection(t *testing.T) {
 			}
 		}
 
+		belowThreshold := 0
+
+		table := []int{}
+
 		// expect that each node has been selected at least minSelectCount times
 		for _, id := range allIDs {
 			count := nodeCounts[id]
-			assert.True(t, count >= minSelectCount)
+			if count < minSelectCount {
+				belowThreshold++
+			}
+			if count >= len(table) {
+				table = append(table, make([]int, count-len(table)+1)...)
+			}
+			table[count]++
+		}
+
+		if belowThreshold > totalNodes*1/100 {
+			t.Errorf("%d out of %d were below threshold %d", belowThreshold, totalNodes, minSelectCount)
+			for count, amount := range table {
+				t.Logf("%3d = %4d", count, amount)
+			}
 		}
 	})
 }
