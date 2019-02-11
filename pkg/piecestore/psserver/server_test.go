@@ -131,13 +131,6 @@ func TestRetrieve(t *testing.T) {
 	s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
 	defer cleanup()
 
-	if err := writeFile(s, "11111111111111111111"); err != nil {
-		t.Errorf("Error: %v\nCould not create test piece", err)
-		return
-	}
-
-	defer func() { _ = s.storage.Delete("11111111111111111111") }()
-
 	// set up test cases
 	tests := []struct {
 		id        string
@@ -227,11 +220,14 @@ func TestRetrieve(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
+			fmt.Println("CLIENT: CREATE STREAM")
 			stream, err := c.Retrieve(ctx)
 			require.NoError(t, err)
 
 			// send piece database
+			fmt.Println("CLIENT: CREATING RETRIEVAL")
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, PieceSize: tt.reqSize, Offset: tt.offset}})
+			fmt.Println("CLIENT: RETURN", err)
 			require.NoError(t, err)
 
 			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, snID, upID, time.Hour)
@@ -249,6 +245,7 @@ func TestRetrieve(t *testing.T) {
 				require.NoError(t, err)
 
 				err = stream.Send(&pb.PieceRetrieval{BandwidthAllocation: rba})
+				fmt.Println("CLIENT: SEND", err)
 				require.NoError(t, err)
 
 				resp, err = stream.Recv()

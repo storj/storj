@@ -27,7 +27,9 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 	defer mon.Task()(&ctx)(&err)
 
 	// Receive Signature
+	fmt.Println("SERVER: RECV")
 	recv, err := stream.Recv()
+	fmt.Println("SERVER: RECEIVED")
 	if err != nil {
 		return RetrieveError.Wrap(err)
 	}
@@ -65,7 +67,8 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 	// Verify that the path exists
 	fileInfo, err := os.Stat(path)
 	if err != nil {
-		return RetrieveError.Wrap(err)
+		fmt.Println("SERVER: ERROR RESPONSE")
+		return err
 	}
 
 	// Read the size specified
