@@ -65,10 +65,8 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 	}
 
 	// add ID of node we are wanting to connect to
-	options := append([]grpc.DialOption{
-		transport.tlsOpts.DialOption(node.Id),
-		grpc.WithBlock(),
-	}, opts...)
+	dialOpt := transport.tlsOpts.DialOption(node.Id)
+	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock(), grpc.FailOnNonTempDialError(true)}, opts...)
 
 	ctx, cf := context.WithTimeout(ctx, timeout)
 	defer cf()
@@ -91,10 +89,9 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 func (transport *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	options := append([]grpc.DialOption{
-		transport.tlsOpts.DialOption(storj.NodeID{}),
-		grpc.WithBlock(),
-	}, opts...)
+	dialOpt := transport.tlsOpts.DialOption(storj.NodeID{})
+	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock(), grpc.FailOnNonTempDialError(true)}, opts...)
+
 	conn, err = grpc.DialContext(ctx, address, options...)
 	if err == context.Canceled {
 		return nil, err
