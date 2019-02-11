@@ -135,6 +135,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"--kademlia.bootstrap-addr", bootstrap.Address,
 			"--kademlia.operator.email", "bootstrap@example.com",
 			"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
+
+			"--server.extensions.revocation=false",
+			"--server.use-peer-ca-whitelist=false",
 		},
 		"run": {},
 	})
@@ -165,6 +168,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--repairer.overlay-addr", process.Address,
 				"--repairer.pointer-db-addr", process.Address,
+
+				"--server.extensions.revocation=false",
+				"--server.use-peer-ca-whitelist=false",
 			},
 			"run": {},
 		})
@@ -203,8 +209,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--rs.success-threshold", strconv.Itoa(3 * flags.StorageNodeCount / 5),
 				"--rs.max-threshold", strconv.Itoa(4 * flags.StorageNodeCount / 5),
 
-				"--tls.extensions.revocation", "false",
-				"--tls.use-peer-ca-whitelist", "false",
+				"--tls.extensions.revocation=false",
+				"--tls.use-peer-ca-whitelist=false",
 			},
 			"run": {},
 		})
@@ -282,6 +288,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
 				"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
+
+				"--server.extensions.revocation=false",
+				"--server.use-peer-ca-whitelist=false",
 			},
 			"run": {},
 		})
