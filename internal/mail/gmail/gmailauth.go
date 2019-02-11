@@ -32,7 +32,7 @@ func (auth *Auth) Start(server *smtp.ServerInfo) (proto string, toServer []byte,
 		return "", nil, err
 	}
 
-	format := fmt.Sprintf("user=%s\001auth=%s %s\001\001", auth.UserEmail, token.Type, token.AccessToken)
+	format := fmt.Sprintf("user=%s\x01auth=%s %s\x01\x01", auth.UserEmail, token.Type, token.AccessToken)
 	return "XOAUTH2", []byte(format), nil
 }
 
