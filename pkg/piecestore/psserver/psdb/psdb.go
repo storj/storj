@@ -19,7 +19,6 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
@@ -81,18 +80,42 @@ func OpenInMemory() (db *DB, err error) {
 }
 
 func (db *DB) init() (err error) {
-	migration := migrate.Migration{
-		Table: "sn_versions",
-		OnCreate: migrate.SQL{
-			"CREATE TABLE IF NOT EXISTS `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10), `size` INT(10));",
-			"CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`satellite` BLOB, `agreement` BLOB, `signature` BLOB);",
-			"CREATE INDEX IF NOT EXISTS idx_ttl_expires ON ttl (expires);",
-			"CREATE TABLE IF NOT EXISTS `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));",
-			"PRAGMA journal_mode = WAL",
-		},
+	tx, err := db.DB.Begin()
+	if err != nil {
+		return err
 	}
 
-	return migration.Run(zap.L(), migrate.NewSqliteDB(db.DB, ""))
+	defer func() { _ = tx.Rollback() }()
+
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10), `size` INT(10));")
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`satellite` BLOB, `agreement` BLOB, `signature` BLOB);")
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_ttl_expires ON ttl (expires);")
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));")
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	// try to enable write-ahead-logging
+	_, _ = db.DB.Exec(`PRAGMA journal_mode = WAL`)
+
+	return nil
 }
 
 // Close the database
