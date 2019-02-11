@@ -38,7 +38,7 @@ type Part struct {
 
 // Bytes builds message and returns result as bytes
 func (msg *Message) Bytes() []byte {
-	// always returns nil on read and write, so most of the errors can be ignored
+	// always returns nil error on read and write, so most of the errors can be ignored
 	var body bytes.Buffer
 
 	// write headers
