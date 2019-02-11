@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -155,7 +156,7 @@ TestLoop:
 			}
 			ps := NewMockPSClient(ctrl)
 			gomock.InOrder(
-				ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl, gomock.Any(), gomock.Any()).Return(errs[n]).
+				ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl, gomock.Any()).Return(errs[n]).
 					Do(func(ctx context.Context, id psclient.PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) {
 						// simulate that the mocked piece store client is reading the data
 						_, err := io.Copy(ioutil.Discard, data)
@@ -172,7 +173,7 @@ TestLoop:
 		r := io.LimitReader(rand.Reader, int64(size))
 		ec := ecClient{newPSClientFunc: mockNewPSClient(clients)}
 
-		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, nil, nil)
+		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, nil)
 
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
@@ -269,12 +270,12 @@ TestLoop:
 					continue TestLoop
 				}
 				ps := NewMockPSClient(ctrl)
-				ps.EXPECT().Get(gomock.Any(), derivedID, int64(size/k), gomock.Any(), gomock.Any()).Return(ranger.ByteRanger(nil), errs[n])
+				ps.EXPECT().Get(gomock.Any(), derivedID, int64(size/k), gomock.Any()).Return(ranger.ByteRanger(nil), errs[n])
 				clients[n] = ps
 			}
 		}
 		ec := ecClient{newPSClientFunc: mockNewPSClient(clients), memoryLimit: tt.mbm}
-		rr, err := ec.Get(ctx, tt.nodes, es, id, int64(size), nil, nil)
+		rr, err := ec.Get(ctx, tt.nodes, es, id, int64(size), nil)
 		if err == nil {
 			_, err := rr.Range(ctx, 0, 0)
 			assert.NoError(t, err, errTag)
@@ -337,7 +338,7 @@ TestLoop:
 		}
 
 		ec := ecClient{newPSClientFunc: mockNewPSClient(clients)}
-		err := ec.Delete(ctx, tt.nodes, id, nil)
+		err := ec.Delete(ctx, tt.nodes, id, storj.NodeID{})
 
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
