@@ -176,9 +176,7 @@ func TestRandomizedSelection(t *testing.T) {
 
 		// select numNodesToSelect nodes selectIterations times
 		for i := 0; i < selectIterations; i++ {
-			nodes, err := cache.SelectNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
-				Type: pb.NodeType_STORAGE,
-			})
+			nodes, err := cache.SelectNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{})
 			require.NoError(t, err)
 			require.Len(t, nodes, numNodesToSelect)
 

@@ -124,8 +124,6 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNod
 	}
 
 	reputableNodes, err := cache.db.SelectNodes(ctx, reputableNodeCount, &NodeCriteria{
-		Type: pb.NodeType_STORAGE,
-
 		FreeBandwidth: freeBandwidth,
 		FreeDisk:      freeDisk,
 
@@ -142,8 +140,6 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNod
 
 	newNodeCount := int64(float64(reputableNodeCount) * preferences.NewNodePercentage)
 	newNodes, err := cache.db.SelectNewNodes(ctx, int(newNodeCount), &NewNodeCriteria{
-		Type: pb.NodeType_STORAGE,
-
 		FreeBandwidth: freeBandwidth,
 		FreeDisk:      freeDisk,
 
