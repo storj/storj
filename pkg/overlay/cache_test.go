@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/overlay"
@@ -140,4 +141,56 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.D
 		assert.Error(t, err)
 		assert.True(t, err == overlay.ErrEmptyNode)
 	}
+}
+
+func TestRandomizedSelection(t *testing.T) {
+	t.Parallel()
+
+	totalNodes := 1000
+	selectIterations := 100
+	numNodesToSelect := 100
+	minSelectCount := 1
+
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		cache := db.OverlayCache()
+		allIDs := make(storj.NodeIDList, totalNodes)
+		nodeCounts := make(map[storj.NodeID]int)
+
+		// put nodes in cache
+		for i := 0; i < totalNodes; i++ {
+			newID := storj.NodeID{}
+			_, _ = rand.Read(newID[:])
+			err := cache.Update(ctx, &pb.Node{
+				Id:           newID,
+				Type:         pb.NodeType_STORAGE,
+				Restrictions: &pb.NodeRestrictions{},
+				Reputation:   &pb.NodeStats{},
+			})
+			require.NoError(t, err)
+			allIDs[i] = newID
+			nodeCounts[newID] = 0
+		}
+
+		// select numNodesToSelect nodes selectIterations times
+		for i := 0; i < selectIterations; i++ {
+			nodes, err := cache.SelectNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
+				Type: pb.NodeType_STORAGE,
+			})
+			require.NoError(t, err)
+			require.Len(t, nodes, numNodesToSelect)
+
+			for _, node := range nodes {
+				nodeCounts[node.Id]++
+			}
+		}
+
+		// expect that each node has been selected at least minSelectCount times
+		for _, id := range allIDs {
+			count := nodeCounts[id]
+			assert.True(t, count >= minSelectCount)
+		}
+	})
 }
