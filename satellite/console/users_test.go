@@ -51,7 +51,7 @@ func TestUserRepository(t *testing.T) {
 			insertedUser, err := repository.Insert(ctx, user)
 			assert.NoError(t, err)
 
-			insertedUser.Status = 1
+			insertedUser.Status = console.Active
 
 			err = repository.Update(ctx, insertedUser)
 			assert.NoError(t, err)
@@ -85,7 +85,7 @@ func TestUserRepository(t *testing.T) {
 				FirstName:    newName,
 				LastName:     newLastName,
 				Email:        newEmail,
-				Status:       1,
+				Status:       console.Active,
 				PasswordHash: []byte(newPass),
 			}
 

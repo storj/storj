@@ -69,11 +69,11 @@ type UserStatus int
 
 const (
 	// Inactive is a user status that he receives after registration
-	Inactive UserStatus = iota
+	Inactive UserStatus = 0
 	// Active is a user status that he receives after account activation
-	Active
+	Active UserStatus = 1
 	// Deleted is a user status that he receives after deleting account
-	Deleted
+	Deleted UserStatus = 2
 )
 
 // User is a database object that describes User entity.

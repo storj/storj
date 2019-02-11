@@ -59,6 +59,7 @@ func generateActivationKey(userID uuid.UUID, email string, createdAt time.Time) 
 		Expiration: createdAt.Add(24 * time.Hour),
 	}
 
+	// TODO: change it in future, when satellite/console secret will be changed
 	signer := &consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")}
 
 	json, err := claims.JSON()
