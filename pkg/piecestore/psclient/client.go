@@ -124,8 +124,7 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	}
 
 	msg := &pb.PieceStore{
-		PieceData:   &pb.PieceStore_PieceData{Id: id.String(), ExpirationUnixSec: ttl.Unix()},
-		SatelliteId: ba.SatelliteId,
+		PieceData: &pb.PieceStore_PieceData{Id: id.String(), ExpirationUnixSec: ttl.Unix()},
 	}
 	if err = stream.Send(msg); err != nil {
 		if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
@@ -160,7 +159,7 @@ func (ps *PieceStore) Get(ctx context.Context, id PieceID, size int64, ba *pb.Pa
 		return nil, err
 	}
 
-	return PieceRangerSize(ps, stream, id, size, ba, ba.SatelliteId), nil
+	return PieceRangerSize(ps, stream, id, size, ba), nil
 }
 
 // Delete a Piece from a piece store Server
