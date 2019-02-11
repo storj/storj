@@ -23,7 +23,7 @@ type overlaycache struct {
 	db *dbx.DB
 }
 
-func (cache *overlaycache) SelectNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
+func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	nodeType := int(pb.NodeType_STORAGE)
 	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
 		WHERE node_type = ? AND free_bandwidth >= ? AND free_disk >= ?
@@ -36,7 +36,7 @@ func (cache *overlaycache) SelectNodes(ctx context.Context, count int, criteria 
 	)
 }
 
-func (cache *overlaycache) SelectNewNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
+func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
 	nodeType := int(pb.NodeType_STORAGE)
 	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
 		WHERE node_type = ? AND free_bandwidth >= ? AND free_disk >= ?
