@@ -94,7 +94,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 	})
 
 	// TODO: send "finish registration email" when email service will be ready
-	//activationToken, err := s.GenerateActivationToken(ctx, u.ID, email, u.CreatedAt.Add(tokenExpirationTime))
+	//token, err := s.GenerateToken(ctx, u.ID, email, u.CreatedAt.Add(tokenExpirationTime))
 	//if err != nil {
 	//	return nil, err
 	//}
@@ -102,20 +102,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 	return u, err
 }
 
-// GenerateActivationToken - is a method for generating activation token
-func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string, expirationDate time.Time) (activationToken string, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	claims := &consoleauth.Claims{
-		ID:         id,
-		Email:      email,
-		Expiration: expirationDate,
-	}
-
-	return s.createToken(claims)
-}
-
-// ActivateAccount - is a method for activating user account after registration
+// ActivateAccount - is a method for activating user account after registration and authenticating him
 func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (authToken string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -124,14 +111,9 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return
 	}
 
-	claims, err := s.authenticate(token)
+	user, err := s.getUserFromToken(ctx, token)
 	if err != nil {
-		return
-	}
-
-	user, err := s.store.Users().Get(ctx, claims.ID)
-	if err != nil {
-		return
+		return "", err
 	}
 
 	now := time.Now()
@@ -150,17 +132,8 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return "", err
 	}
 
-	claims = &consoleauth.Claims{
-		ID:         user.ID,
-		Expiration: time.Now().Add(tokenExpirationTime),
-	}
-
-	authToken, err = s.createToken(claims)
-	if err != nil {
-		return "", err
-	}
-
-	return authToken, err
+	// generating auth token
+	return s.GenerateToken(ctx, user.ID, user.Email, time.Now().Add(tokenExpirationTime))
 }
 
 // Token authenticates User by credentials and returns auth token
@@ -179,17 +152,7 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 		return "", ErrUnauthorized.New("password is incorrect: %s", err.Error())
 	}
 
-	claims := consoleauth.Claims{
-		ID:         user.ID,
-		Expiration: time.Now().Add(tokenExpirationTime),
-	}
-
-	token, err = s.createToken(&claims)
-	if err != nil {
-		return "", err
-	}
-
-	return token, nil
+	return s.GenerateToken(ctx, user.ID, user.Email, time.Now().Add(tokenExpirationTime))
 }
 
 // GetUser returns User by id
@@ -229,6 +192,44 @@ func (s *Service) UpdateAccount(ctx context.Context, info UserInfo) (err error) 
 	})
 }
 
+// RequestChangePassword - sends email with link to restore forgotten password
+func (s *Service) RequestChangePassword(ctx context.Context, email string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.store.Users().GetByEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+
+	// TODO: use token variable instead of _
+	_, err = s.GenerateToken(ctx, user.ID, user.Email, user.CreatedAt.Add(tokenExpirationTime))
+	if err != nil {
+		return err
+	}
+
+	// TODO: wait till email service will be ready
+	// sendEmail(token)
+
+	return nil
+}
+
+// ChangePasswordExternal updates password for a given user in reset password flow
+func (s *Service) ChangePasswordExternal(ctx context.Context, resetPasswordToken, pass, newPass string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	token, err := consoleauth.FromBase64URLString(resetPasswordToken)
+	if err != nil {
+		return
+	}
+
+	user, err := s.getUserFromToken(ctx, token)
+	if err != nil {
+		return err
+	}
+
+	return s.changePassword(ctx, *user, pass, newPass)
+}
+
 // ChangePassword updates password for a given user
 func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -237,22 +238,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 		return err
 	}
 
-	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(pass))
-	if err != nil {
-		return ErrUnauthorized.New("origin password is incorrect: %s", err.Error())
-	}
-
-	if err := validatePassword(newPass); err != nil {
-		return err
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), s.passwordCost)
-	if err != nil {
-		return err
-	}
-
-	auth.User.PasswordHash = hash
-	return s.store.Users().Update(ctx, &auth.User)
+	return s.changePassword(ctx, auth.User, pass, newPass)
 }
 
 // DeleteAccount deletes User
@@ -613,6 +599,19 @@ func (s *Service) Authorize(ctx context.Context) (a Authorization, err error) {
 	}, nil
 }
 
+// GenerateToken - is a method for generating token with users info
+func (s *Service) GenerateToken(ctx context.Context, id uuid.UUID, email string, expirationDate time.Time) (token string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	claims := &consoleauth.Claims{
+		ID:         id,
+		Email:      email,
+		Expiration: expirationDate,
+	}
+
+	return s.createToken(claims)
+}
+
 // createToken creates string representation
 func (s *Service) createToken(claims *consoleauth.Claims) (string, error) {
 	json, err := claims.JSON()
@@ -662,6 +661,36 @@ func (s *Service) authorize(ctx context.Context, claims *consoleauth.Claims) (*U
 	}
 
 	return user, nil
+}
+
+// getUserFromClaims - returns User from token
+func (s *Service) getUserFromToken(ctx context.Context, token consoleauth.Token) (*User, error) {
+	claims, err := s.authenticate(token)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.store.Users().Get(ctx, claims.ID)
+}
+
+// changePassword checks password validity and updates password for a given user
+func (s *Service) changePassword(ctx context.Context, user User, pass, newPass string) (err error) {
+	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(pass))
+	if err != nil {
+		return ErrUnauthorized.New("origin password is incorrect: %s", err.Error())
+	}
+
+	if err := validatePassword(newPass); err != nil {
+		return err
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), s.passwordCost)
+	if err != nil {
+		return err
+	}
+
+	user.PasswordHash = hash
+	return s.store.Users().Update(ctx, &user)
 }
 
 // isProjectMember is return type of isProjectMember service method

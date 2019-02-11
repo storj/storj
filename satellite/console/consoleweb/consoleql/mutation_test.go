@@ -61,7 +61,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		}
 
 		t.Run("Activate account mutation", func(t *testing.T) {
-			activationToken, err := service.GenerateActivationToken(
+			activationToken, err := service.GenerateToken(
 				ctx,
 				rootUser.ID,
 				createUser.Email,
@@ -368,7 +368,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		}
 
 		t.Run("Activation", func(t *testing.T) {
-			activationToken1, err := service.GenerateActivationToken(
+			activationToken1, err := service.GenerateToken(
 				ctx,
 				user1.ID,
 				"u1@email.net",
@@ -397,7 +397,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		}
 
 		t.Run("Activation", func(t *testing.T) {
-			activationToken2, err := service.GenerateActivationToken(
+			activationToken2, err := service.GenerateToken(
 				ctx,
 				user2.ID,
 				"u2@email.net",
