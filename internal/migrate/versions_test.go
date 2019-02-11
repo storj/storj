@@ -20,8 +20,6 @@ import (
 	"storj.io/storj/internal/testcontext"
 )
 
-// TODO clean up after tests
-
 func TestBasicMigrationSqlite(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
@@ -306,7 +304,8 @@ func onCreateFail(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	m := migrate.Migration{
 		Table: dbName,
 		OnCreate: migrate.SQL{
-			`INVALID_SQL users (id int)`,
+			`CREATE TABLE users1 (id int)`,
+			`INVALID_SQL users2 (id int)`,
 		},
 	}
 
@@ -317,6 +316,10 @@ func onCreateFail(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	err = db.QueryRow(`SELECT MAX(version) FROM ` + dbName).Scan(&version)
 	assert.NoError(t, err)
 	assert.Equal(t, false, version.Valid)
+
+	// check if first SQL was reverted
+	err = db.QueryRow(`SELECT MAX(id) FROM users1`).Scan()
+	assert.Error(t, err)
 }
 
 func dropTables(db *sql.DB, names ...string) error {

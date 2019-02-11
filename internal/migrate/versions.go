@@ -6,7 +6,6 @@ package migrate
 import (
 	"database/sql"
 	"regexp"
-	"strconv"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -84,13 +83,13 @@ func (migration *Migration) Run(log *zap.Logger, db DB) error {
 	}
 
 	if version < 0 {
-		log.Info("Latest Version", zap.Int("version", version))
+		log.Info("Migration: Latest Version", zap.Int("version", version))
 	} else {
-		log.Info("No Version")
+		log.Info("Migration: No Version")
 	}
 
 	if version < 0 && migration.OnCreate != nil {
-		log := log.Named("z")
+		log := log.Named("init")
 		tx, err := db.Begin()
 		if err != nil {
 			return Error.Wrap(err)
@@ -112,8 +111,8 @@ func (migration *Migration) Run(log *zap.Logger, db DB) error {
 	}
 
 	for _, step := range migration.Steps {
-		log := log.Named(strconv.Itoa(step.Version))
-		log.Info(step.Description)
+		log := log.Named("migrate")
+		log.Sugar().Infof("[%v] %v", step.Version, step.Description)
 
 		if step.Version <= version {
 			continue

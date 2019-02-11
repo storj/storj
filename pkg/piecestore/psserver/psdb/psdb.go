@@ -92,8 +92,7 @@ func (db *DB) init() (err error) {
 		},
 	}
 
-	// TODO pass logger
-	return migration.Run(zap.NewNop(), migrate.NewSqliteDB(db.DB, ""))
+	return migration.Run(zap.L(), migrate.NewSqliteDB(db.DB, ""))
 }
 
 // Close the database
