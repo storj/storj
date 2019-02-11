@@ -17,13 +17,13 @@ import (
 )
 
 func TestIdentifyInjuredSegments(t *testing.T) {
-	// TODO note satellite's: own sub-systems need to be disabled
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		time.Sleep(2 * time.Second)
-		const numberOfNodes = 10
+		checker := planet.Satellites[0].Repair.Checker
+		checker.Interval.Stop()
 
+		const numberOfNodes = 10
 		pieces := make([]*pb.RemotePiece, 0, numberOfNodes)
 		// use online nodes
 		for i, storagenode := range planet.StorageNodes {
@@ -58,7 +58,6 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		err := pointerdb.Put(pointer.Remote.PieceId, pointer)
 		assert.NoError(t, err)
 
-		checker := planet.Satellites[0].Repair.Checker
 		err = checker.IdentifyInjuredSegments(ctx)
 		assert.NoError(t, err)
 
@@ -78,11 +77,11 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 }
 
 func TestOfflineNodes(t *testing.T) {
-	// TODO note satellite's: own sub-systems need to be disabled
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		time.Sleep(2 * time.Second)
+		checker := planet.Satellites[0].Repair.Checker
+		checker.Interval.Stop()
 
 		const numberOfNodes = 10
 		nodeIDs := storj.NodeIDList{}
@@ -99,7 +98,6 @@ func TestOfflineNodes(t *testing.T) {
 			expectedOffline = append(expectedOffline, int32(i))
 		}
 
-		checker := planet.Satellites[0].Repair.Checker
 		offline, err := checker.OfflineNodes(ctx, nodeIDs)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedOffline, offline)
@@ -107,11 +105,11 @@ func TestOfflineNodes(t *testing.T) {
 }
 
 func TestIdentifyIrreparableSegments(t *testing.T) {
-	// TODO note satellite's: own sub-systems need to be disabled
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		time.Sleep(2 * time.Second)
+		checker := planet.Satellites[0].Repair.Checker
+		checker.Interval.Stop()
 
 		const numberOfNodes = 10
 		pieces := make([]*pb.RemotePiece, 0, numberOfNodes)
@@ -148,7 +146,6 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		err := pointerdb.Put(pointer.Remote.PieceId, pointer)
 		assert.NoError(t, err)
 
-		checker := planet.Satellites[0].Repair.Checker
 		err = checker.IdentifyInjuredSegments(ctx)
 		assert.NoError(t, err)
 
