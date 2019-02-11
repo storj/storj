@@ -32,11 +32,18 @@ type Client struct {
 		Iterate     int
 	}
 
-	version int
+	version     int
+	lookupLimit int
 }
 
 // New creates a new in-memory key-value store
-func New() *Client { return &Client{} }
+func New() *Client { return &Client{lookupLimit: storage.LookupLimit} }
+
+// LookupLimit returns the lookup limit for this key value store
+func (store *Client) LookupLimit() int { return store.lookupLimit }
+
+// SetLookupLimit changes the lookup limit
+func (store *Client) SetLookupLimit(limit int) { store.lookupLimit = limit }
 
 // indexOf finds index of key or where it could be inserted
 func (store *Client) indexOf(key storage.Key) (int, bool) {
@@ -121,7 +128,7 @@ func (store *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	defer store.locked()()
 
 	store.CallCount.GetAll++
-	if len(keys) > storage.LookupLimit {
+	if len(keys) > store.LookupLimit() {
 		return nil, storage.ErrLimitExceeded
 	}
 

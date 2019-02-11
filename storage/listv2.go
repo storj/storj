@@ -30,8 +30,8 @@ func ListV2(store KeyValueStore, opts ListOptions) (result Items, more bool, err
 	}
 
 	limit := opts.Limit
-	if limit <= 0 || limit > LookupLimit {
-		limit = LookupLimit
+	if limit <= 0 || limit > store.LookupLimit() {
+		limit = store.LookupLimit()
 	}
 
 	more = true

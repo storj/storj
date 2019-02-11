@@ -10,18 +10,18 @@ import (
 	"storj.io/storj/storage"
 )
 
-//Queue is a threadsafe FIFO queue implementing storage.Queue
+// Queue is a threadsafe FIFO queue implementing storage.Queue
 type Queue struct {
 	mu sync.Mutex
 	s  *list.List
 }
 
-//New returns a queue suitable for testing
+// New returns a queue suitable for testing
 func New() *Queue {
 	return &Queue{s: list.New(), mu: sync.Mutex{}}
 }
 
-//Enqueue add a FIFO element
+// Enqueue add a FIFO element
 func (q *Queue) Enqueue(value storage.Value) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -29,7 +29,7 @@ func (q *Queue) Enqueue(value storage.Value) error {
 	return nil
 }
 
-//Dequeue removes a FIFO element
+// Dequeue removes a FIFO element
 func (q *Queue) Dequeue() (storage.Value, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -41,7 +41,7 @@ func (q *Queue) Dequeue() (storage.Value, error) {
 	return nil, storage.ErrEmptyQueue.New("")
 }
 
-//Peekqueue gets upto 'limit' entries from the list queue
+// Peekqueue gets upto 'limit' entries from the list queue
 func (q *Queue) Peekqueue(limit int) ([]storage.Value, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -59,7 +59,7 @@ func (q *Queue) Peekqueue(limit int) ([]storage.Value, error) {
 	return result, nil
 }
 
-//Close closes the queue
+// Close closes the queue
 func (q *Queue) Close() error {
 	return nil
 }

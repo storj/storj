@@ -34,6 +34,7 @@ func TestSuite(t *testing.T) {
 		}
 	}()
 
+	store.SetLookupLimit(100)
 	testsuite.RunTests(t, store)
 }
 
@@ -55,6 +56,7 @@ func BenchmarkSuite(b *testing.B) {
 		}
 	}()
 
+	store.SetLookupLimit(100)
 	testsuite.RunBenchmarks(b, store)
 }
 
@@ -79,6 +81,7 @@ func TestSuiteShared(t *testing.T) {
 	}()
 
 	for _, store := range stores {
+		store.SetLookupLimit(100)
 		testsuite.RunTests(t, store)
 	}
 }

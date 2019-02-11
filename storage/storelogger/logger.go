@@ -27,6 +27,9 @@ func New(log *zap.Logger, store storage.KeyValueStore) *Logger {
 	return &Logger{log.Named(name), store}
 }
 
+// LookupLimit returns the lookup limit for this key value store
+func (store *Logger) LookupLimit() int { return store.store.LookupLimit() }
+
 // Put adds a value to store
 func (store *Logger) Put(key storage.Key, value storage.Value) error {
 	store.log.Debug("Put", zap.String("key", string(key)), zap.Int("value length", len(value)), zap.Binary("truncated value", truncate(value)))

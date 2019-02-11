@@ -20,6 +20,7 @@ type Client struct {
 	Path   string
 	Bucket []byte
 
+	lookupLimit    int
 	referenceCount *int32
 }
 
@@ -52,6 +53,7 @@ func New(path, bucket string) (*Client, error) {
 
 	return &Client{
 		db:             db,
+		lookupLimit:    storage.LookupLimit,
 		referenceCount: refCount,
 		Path:           path,
 		Bucket:         []byte(bucket),
@@ -88,6 +90,7 @@ func NewShared(path string, buckets ...string) ([]*Client, error) {
 	for _, bucket := range buckets {
 		clients = append(clients, &Client{
 			db:             db,
+			lookupLimit:    storage.LookupLimit,
 			referenceCount: refCount,
 			Path:           path,
 			Bucket:         []byte(bucket),
@@ -96,6 +99,12 @@ func NewShared(path string, buckets ...string) ([]*Client, error) {
 
 	return clients, nil
 }
+
+// LookupLimit returns the lookup limit for this key value store
+func (client *Client) LookupLimit() int { return client.lookupLimit }
+
+// SetLookupLimit changes the lookup limit
+func (client *Client) SetLookupLimit(limit int) { client.lookupLimit = limit }
 
 func (client *Client) update(fn func(*bolt.Bucket) error) error {
 	return Error.Wrap(client.db.Update(func(tx *bolt.Tx) error {
@@ -173,7 +182,7 @@ func (client *Client) Close() error {
 // GetAll finds all values for the provided keys (up to storage.LookupLimit).
 // If more keys are provided than the maximum, an error will be returned.
 func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
-	if len(keys) > storage.LookupLimit {
+	if len(keys) > client.LookupLimit() {
 		return nil, storage.ErrLimitExceeded
 	}
 

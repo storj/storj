@@ -49,6 +49,7 @@ func TestSuite(t *testing.T) {
 	defer cleanup()
 
 	zap := zaptest.NewLogger(t)
+	store.SetLookupLimit(100)
 	testsuite.RunTests(t, storelogger.New(zap, store))
 }
 

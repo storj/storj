@@ -21,8 +21,9 @@ const (
 
 // Client is the entrypoint into a postgreskv data store
 type Client struct {
-	URL    string
-	pgConn *sql.DB
+	URL         string
+	lookupLimit int
+	pgConn      *sql.DB
 }
 
 // New instantiates a new postgreskv client given db URL
@@ -36,10 +37,17 @@ func New(dbURL string) (*Client, error) {
 		return nil, err
 	}
 	return &Client{
-		URL:    dbURL,
-		pgConn: pgConn,
+		URL:         dbURL,
+		lookupLimit: storage.LookupLimit,
+		pgConn:      pgConn,
 	}, nil
 }
+
+// LookupLimit returns the lookup limit for this key value store
+func (client *Client) LookupLimit() int { return client.lookupLimit }
+
+// SetLookupLimit changes the lookup limit
+func (client *Client) SetLookupLimit(limit int) { client.lookupLimit = limit }
 
 // Put sets the value for the provided key.
 func (client *Client) Put(key storage.Key, value storage.Value) error {
@@ -136,7 +144,7 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 // in the given bucket. if more keys are provided than the maximum, an error
 // will be returned.
 func (client *Client) GetAllPath(bucket storage.Key, keys storage.Keys) (storage.Values, error) {
-	if len(keys) > storage.LookupLimit {
+	if len(keys) > client.LookupLimit() {
 		return nil, storage.ErrLimitExceeded
 	}
 

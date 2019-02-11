@@ -68,6 +68,9 @@ type KeyValueStore interface {
 	Iterate(opts IterateOptions, fn func(Iterator) error) error
 	// Close closes the store
 	Close() error
+
+	// LookupLimit returns the lookup limit for this key value store
+	LookupLimit() int
 }
 
 //Queue is an interface describing queue stores like redis

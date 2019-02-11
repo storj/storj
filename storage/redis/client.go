@@ -26,8 +26,9 @@ const defaultNodeExpiration = 0 * time.Minute
 
 // Client is the entrypoint into Redis
 type Client struct {
-	db  *redis.Client
-	TTL time.Duration
+	db          *redis.Client
+	lookupLimit int
+	TTL         time.Duration
 }
 
 // NewClient returns a configured Client instance, verifying a successful connection to redis
@@ -38,7 +39,8 @@ func NewClient(address, password string, db int) (*Client, error) {
 			Password: password,
 			DB:       db,
 		}),
-		TTL: defaultNodeExpiration,
+		lookupLimit: storage.LookupLimit,
+		TTL:         defaultNodeExpiration,
 	}
 
 	// ping here to verify we are able to connect to redis with the initialized client.
@@ -69,6 +71,12 @@ func NewClientFrom(address string) (*Client, error) {
 
 	return NewClient(redisurl.Host, q.Get("password"), db)
 }
+
+// LookupLimit returns the lookup limit for this key value store
+func (client *Client) LookupLimit() int { return client.lookupLimit }
+
+// SetLookupLimit changes the lookup limit
+func (client *Client) SetLookupLimit(limit int) { client.lookupLimit = limit }
 
 // Get looks up the provided key from redis returning either an error or the result.
 func (client *Client) Get(key storage.Key) (storage.Value, error) {
@@ -132,7 +140,7 @@ func (client *Client) Close() error {
 // The maximum keys returned will be storage.LookupLimit. If more than that
 // is requested, an error will be returned
 func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
-	if len(keys) > storage.LookupLimit {
+	if len(keys) > client.LookupLimit() {
 		return nil, storage.ErrLimitExceeded
 	}
 

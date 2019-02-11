@@ -6,8 +6,8 @@ package storage
 // ListKeys returns keys starting from first and upto limit
 // limit is capped to LookupLimit
 func ListKeys(store KeyValueStore, first Key, limit int) (Keys, error) {
-	if limit <= 0 || limit > LookupLimit {
-		limit = LookupLimit
+	if limit <= 0 || limit > store.LookupLimit() {
+		limit = store.LookupLimit()
 	}
 
 	keys := make(Keys, 0, limit)
@@ -31,8 +31,8 @@ func ListKeys(store KeyValueStore, first Key, limit int) (Keys, error) {
 // ReverseListKeys returns keys starting from first and upto limit in reverse order
 // limit is capped to LookupLimit
 func ReverseListKeys(store KeyValueStore, first Key, limit int) (Keys, error) {
-	if limit <= 0 || limit > LookupLimit {
-		limit = LookupLimit
+	if limit <= 0 || limit > store.LookupLimit() {
+		limit = store.LookupLimit()
 	}
 
 	keys := make(Keys, 0, limit)
