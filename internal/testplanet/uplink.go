@@ -231,6 +231,10 @@ func (uplink *Uplink) getConfig(satellite *satellite.Peer) uplink.Config {
 	config.RS.SuccessThreshold = 3 * uplink.StorageNodeCount / 5
 	config.RS.MaxThreshold = 4 * uplink.StorageNodeCount / 5
 
+	config.TLS.UsePeerCAWhitelist = false
+	config.TLS.Extensions.Revocation = false
+	config.TLS.Extensions.WhitelistSignedLeaf = false
+
 	return config
 }
 
