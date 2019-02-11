@@ -145,7 +145,11 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.D
 
 func TestRandomizedSelection(t *testing.T) {
 	t.Parallel()
+	testRandomizedSelection(t, true)
+	testRandomizedSelection(t, false)
+}
 
+func testRandomizedSelection(t *testing.T, reputable bool) {
 	totalNodes := 1000
 	selectIterations := 100
 	numNodesToSelect := 100
@@ -176,8 +180,18 @@ func TestRandomizedSelection(t *testing.T) {
 
 		// select numNodesToSelect nodes selectIterations times
 		for i := 0; i < selectIterations; i++ {
-			nodes, err := cache.SelectNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{})
-			require.NoError(t, err)
+			var nodes []*pb.Node
+			var err error
+
+			if reputable {
+				nodes, err = cache.SelectNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{})
+				require.NoError(t, err)
+			} else {
+				nodes, err = cache.SelectNewNodes(ctx, numNodesToSelect, &overlay.NewNodeCriteria{
+					AuditThreshold: 1,
+				})
+				require.NoError(t, err)
+			}
 			require.Len(t, nodes, numNodesToSelect)
 
 			for _, node := range nodes {
