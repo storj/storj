@@ -77,7 +77,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 		return s, err
 	}
 
-	rr, err := ps.Get(ctx, derivedPieceID, pieceSize, pba, pba.SatelliteId)
+	rr, err := ps.Get(ctx, derivedPieceID, pieceSize, pba)
 	if err != nil {
 		return s, err
 	}
