@@ -81,7 +81,7 @@ func (s *TokenStore) Token() (*Token, error) {
 	token := new(Token)
 	if s.token.Expiry.Before(time.Now()) {
 		var err error
-		token, err = RefreshToken(&s.creds, s.token.RefreshToken)
+		token, err = RefreshToken(s.creds, s.token.RefreshToken)
 		if err != nil {
 			s.mu.Unlock()
 			return nil, err
@@ -95,7 +95,7 @@ func (s *TokenStore) Token() (*Token, error) {
 }
 
 // RefreshToken is a helper method that refreshes token with given credentials and OUATH2 refresh token
-func RefreshToken(creds *Credentials, refreshToken string) (*Token, error) {
+func RefreshToken(creds Credentials, refreshToken string) (*Token, error) {
 	values := url.Values{
 		"grant_type":    {"refresh_token"},
 		"refresh_token": {refreshToken},
