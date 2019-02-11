@@ -5,7 +5,7 @@ package kademlia
 
 import (
 	"testing"
-	
+
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
