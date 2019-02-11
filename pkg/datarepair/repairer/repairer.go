@@ -11,8 +11,8 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 )
 
@@ -23,22 +23,22 @@ type SegmentRepairer interface {
 
 // Service contains the information needed to run the repair service
 type Service struct {
-	queue    queue.RepairQueue
-	config   *Config
-	identity *identity.FullIdentity
-	repairer SegmentRepairer
-	limiter  *sync2.Limiter
-	ticker   *time.Ticker
+	queue     queue.RepairQueue
+	config    *Config
+	transport transport.Client
+	repairer  SegmentRepairer
+	limiter   *sync2.Limiter
+	ticker    *time.Ticker
 }
 
 // NewService creates repairing service
-func NewService(queue queue.RepairQueue, config *Config, identity *identity.FullIdentity, interval time.Duration, concurrency int) *Service {
+func NewService(queue queue.RepairQueue, config *Config, transport transport.Client, interval time.Duration, concurrency int) *Service {
 	return &Service{
-		queue:    queue,
-		config:   config,
-		identity: identity,
-		limiter:  sync2.NewLimiter(concurrency),
-		ticker:   time.NewTicker(interval),
+		queue:     queue,
+		config:    config,
+		transport: transport,
+		limiter:   sync2.NewLimiter(concurrency),
+		ticker:    time.NewTicker(interval),
 	}
 }
 
@@ -50,7 +50,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: close segment repairer, currently this leaks connections
-	service.repairer, err = service.config.GetSegmentRepairer(ctx, service.identity)
+	service.repairer, err = service.config.GetSegmentRepairer(ctx, service.transport)
 	if err != nil {
 		return err
 	}

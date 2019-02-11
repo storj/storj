@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
+	"storj.io/storj/pkg/transport"
 )
 
 // Config contains configurable values for repairer
@@ -26,20 +26,20 @@ type Config struct {
 }
 
 // GetSegmentRepairer creates a new segment repairer from storeConfig values
-func (c Config) GetSegmentRepairer(ctx context.Context, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
+func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client) (ss SegmentRepairer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var oc overlay.Client
-	oc, err = overlay.NewClientContext(ctx, identity, c.OverlayAddr)
+	oc, err = overlay.NewClientContext(ctx, tc, c.OverlayAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	pdb, err := pdbclient.NewClientContext(ctx, identity, c.PointerDBAddr, c.APIKey)
+	pdb, err := pdbclient.NewClientContext(ctx, tc, c.PointerDBAddr, c.APIKey)
 	if err != nil {
 		return nil, err
 	}
 
-	ec := ecclient.NewClient(identity, c.MaxBufferMem.Int())
+	ec := ecclient.NewClient(tc, c.MaxBufferMem.Int())
 	return segments.NewSegmentRepairer(oc, ec, pdb), nil
 }

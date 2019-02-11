@@ -125,8 +125,7 @@ func NewServer(log *zap.Logger, signer *identity.FullCertificateAuthority, authD
 }
 
 // NewClient creates a new certificate signing grpc client
-func NewClient(ctx context.Context, ident *identity.FullIdentity, address string) (*Client, error) {
-	tc := transport.NewClient(ident)
+func NewClient(ctx context.Context, tc transport.Client, address string) (*Client, error) {
 	conn, err := tc.DialAddress(ctx, address)
 	if err != nil {
 		return nil, err

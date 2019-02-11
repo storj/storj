@@ -21,12 +21,14 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/piecestore/psclient"
+	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/transport"
 )
 
 func dashCmd(cmd *cobra.Command, args []string) (err error) {
-	ctx := context.Background()
+	ctx := process.Ctx(cmd)
 
 	ident, err := runCfg.Identity.Load()
 	if err != nil {
@@ -35,7 +37,12 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Info("Node ID: ", ident.ID)
 	}
 
-	tc := transport.NewClient(ident)
+	tlsOpts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
+	if err != nil {
+		return err
+	}
+
+	tc := transport.NewClient(tlsOpts)
 	n := &pb.Node{
 		Address: &pb.NodeAddress{
 			Address:   dashboardCfg.Address,
