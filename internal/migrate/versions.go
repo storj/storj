@@ -112,12 +112,12 @@ func (migration *Migration) Run(log *zap.Logger, db DB) error {
 	}
 
 	for _, step := range migration.Steps {
-		log := log.Named(strconv.Itoa(step.Version))
-		log.Info(step.Description)
-
 		if step.Version <= version {
 			continue
 		}
+
+		log := log.Named(strconv.Itoa(step.Version))
+		log.Info(step.Description)
 
 		tx, err := db.Begin()
 		if err != nil {
