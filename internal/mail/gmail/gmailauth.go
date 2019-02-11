@@ -78,19 +78,19 @@ func NewTokenStore(creds Credentials, token Token) *TokenStore {
 // Token retrieves token in a thread safe way and refreshes it if needed
 func (s *TokenStore) Token() (*Token, error) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	token := new(Token)
 	if s.token.Expiry.Before(time.Now()) {
 		var err error
 		token, err = RefreshToken(s.creds, s.token.RefreshToken)
 		if err != nil {
-			s.mu.Unlock()
 			return nil, err
 		}
 		s.token = *token
 	}
 
 	*token = s.token
-	s.mu.Unlock()
 	return token, nil
 }
 
@@ -150,25 +150,4 @@ func RefreshToken(creds Credentials, refreshToken string) (*Token, error) {
 		Type:         t.Type,
 		Expiry:       time.Now().Add(t.Expires * time.Second),
 	}, nil
-}
-
-// CredsFromJSON is a helper method for parsing OAUTH2 google app credentials from raw json data
-func CredsFromJSON(jsonData []byte) (*Credentials, error) {
-	var j struct {
-		Web       *Credentials `json:"web"`
-		Installed *Credentials `json:"installed"`
-	}
-
-	if err := json.NewDecoder(bytes.NewReader(jsonData)).Decode(&j); err != nil {
-		return nil, err
-	}
-
-	switch {
-	case j.Web != nil:
-		return j.Web, nil
-	case j.Installed != nil:
-		return j.Installed, nil
-	default:
-		return nil, errs.New("no credentials found")
-	}
 }
