@@ -14,7 +14,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/grpcauth"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -60,14 +59,13 @@ type Client interface {
 }
 
 // NewClient initializes a new pointerdb client
-func NewClient(identity *identity.FullIdentity, address string, APIKey string) (*PointerDB, error) {
-	return NewClientContext(context.TODO(), identity, address, APIKey)
+func NewClient(tc transport.Client, address string, APIKey string) (*PointerDB, error) {
+	return NewClientContext(context.TODO(), tc, address, APIKey)
 }
 
 // NewClientContext initializes a new pointerdb client
-func NewClientContext(ctx context.Context, identity *identity.FullIdentity, address string, APIKey string) (*PointerDB, error) {
+func NewClientContext(ctx context.Context, tc transport.Client, address string, APIKey string) (*PointerDB, error) {
 	apiKeyInjector := grpcauth.NewAPIKeyInjector(APIKey)
-	tc := transport.NewClient(identity)
 	conn, err := tc.DialAddress(
 		ctx,
 		address,

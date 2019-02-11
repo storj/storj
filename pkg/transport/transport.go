@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -41,14 +42,14 @@ type Client interface {
 
 // Transport interface structure
 type Transport struct {
-	identity  *identity.FullIdentity
+	tlsOpts   *tlsopts.Options
 	observers []Observer
 }
 
 // NewClient returns a newly instantiated Transport Client
-func NewClient(identity *identity.FullIdentity, obs ...Observer) Client {
+func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
 	return &Transport{
-		identity:  identity,
+		tlsOpts:   tlsOpts,
 		observers: obs,
 	}
 }
@@ -64,11 +65,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 	}
 
 	// add ID of node we are wanting to connect to
-	dialOpt, err := transport.identity.DialOption(node.Id)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
+	dialOpt := transport.tlsOpts.DialOption(node.Id)
 	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock(), grpc.FailOnNonTempDialError(true)}, opts...)
 
 	ctx, cf := context.WithTimeout(ctx, timeout)
@@ -92,12 +89,9 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 func (transport *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dialOpt, err := transport.identity.DialOption(storj.NodeID{})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
+	dialOpt := transport.tlsOpts.DialOption(storj.NodeID{})
 	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock(), grpc.FailOnNonTempDialError(true)}, opts...)
+
 	conn, err = grpc.DialContext(ctx, address, options...)
 	if err == context.Canceled {
 		return nil, err
@@ -107,12 +101,12 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 
 // Identity is a getter for the transport's identity
 func (transport *Transport) Identity() *identity.FullIdentity {
-	return transport.identity
+	return transport.tlsOpts.Ident
 }
 
 // WithObservers returns a new transport including the listed observers.
 func (transport *Transport) WithObservers(obs ...Observer) *Transport {
-	tr := &Transport{identity: transport.identity}
+	tr := &Transport{tlsOpts: transport.tlsOpts}
 	tr.observers = append(tr.observers, transport.observers...)
 	tr.observers = append(tr.observers, obs...)
 	return tr

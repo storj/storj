@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/server"
@@ -379,12 +380,14 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 
 		config := satellite.Config{
 			Server: server.Config{
-				Address:            "127.0.0.1:0",
-				RevocationDBURL:    "bolt://" + filepath.Join(storageDir, "revocation.db"),
-				UsePeerCAWhitelist: false, // TODO: enable
-				Extensions: peertls.TLSExtConfig{
-					Revocation:          false,
-					WhitelistSignedLeaf: false,
+				Address: "127.0.0.1:0",
+				Config: tlsopts.Config{
+					RevocationDBURL:    "bolt://" + filepath.Join(storageDir, "revocation.db"),
+					UsePeerCAWhitelist: false, // TODO: enable
+					Extensions: peertls.TLSExtConfig{
+						Revocation:          false,
+						WhitelistSignedLeaf: false,
+					},
 				},
 			},
 			Kademlia: kademlia.Config{
@@ -506,12 +509,14 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 
 		config := storagenode.Config{
 			Server: server.Config{
-				Address:            "127.0.0.1:0",
-				RevocationDBURL:    "bolt://" + filepath.Join(storageDir, "revocation.db"),
-				UsePeerCAWhitelist: false, // TODO: enable
-				Extensions: peertls.TLSExtConfig{
-					Revocation:          false,
-					WhitelistSignedLeaf: false,
+				Address: "127.0.0.1:0",
+				Config: tlsopts.Config{
+					RevocationDBURL:    "bolt://" + filepath.Join(storageDir, "revocation.db"),
+					UsePeerCAWhitelist: false, // TODO: enable
+					Extensions: peertls.TLSExtConfig{
+						Revocation:          false,
+						WhitelistSignedLeaf: false,
+					},
 				},
 			},
 			Kademlia: kademlia.Config{
@@ -583,12 +588,14 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 
 	config := bootstrap.Config{
 		Server: server.Config{
-			Address:            "127.0.0.1:0",
-			RevocationDBURL:    "bolt://" + filepath.Join(dbDir, "revocation.db"),
-			UsePeerCAWhitelist: false, // TODO: enable
-			Extensions: peertls.TLSExtConfig{
-				Revocation:          false,
-				WhitelistSignedLeaf: false,
+			Address: "127.0.0.1:0",
+			Config: tlsopts.Config{
+				RevocationDBURL:    "bolt://" + filepath.Join(dbDir, "revocation.db"),
+				UsePeerCAWhitelist: false, // TODO: enable
+				Extensions: peertls.TLSExtConfig{
+					Revocation:          false,
+					WhitelistSignedLeaf: false,
+				},
 			},
 		},
 		Kademlia: kademlia.Config{
