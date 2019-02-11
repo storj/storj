@@ -48,21 +48,13 @@ func TestUserRepository(t *testing.T) {
 				CreatedAt:    time.Now(),
 			}
 
-			_, err = repository.Insert(ctx, user)
+			insertedUser, err := repository.Insert(ctx, user)
 			assert.NoError(t, err)
-		})
 
-		t.Run("Can't insert user with same email twice", func(t *testing.T) {
-			user := &console.User{
-				FirstName:    name,
-				LastName:     lastName,
-				Email:        email,
-				PasswordHash: []byte(passValid),
-				CreatedAt:    time.Now(),
-			}
+			insertedUser.Status = console.Active
 
-			_, err := repository.Insert(ctx, user)
-			assert.Error(t, err)
+			err = repository.Update(ctx, insertedUser)
+			assert.NoError(t, err)
 		})
 
 		t.Run("Get user success", func(t *testing.T) {
@@ -93,6 +85,7 @@ func TestUserRepository(t *testing.T) {
 				FirstName:    newName,
 				LastName:     newLastName,
 				Email:        newEmail,
+				Status:       console.Active,
 				PasswordHash: []byte(newPass),
 			}
 

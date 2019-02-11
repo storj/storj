@@ -16,8 +16,10 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/transport"
 )
 
 var (
@@ -41,8 +43,15 @@ func main() {
 		logger.Error("Failed to create full identity: ", zap.Error(err))
 		os.Exit(1)
 	}
+	clientOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{})
+	if err != nil {
+		panic(err)
+	}
+
+	transportClient := transport.NewClient(clientOptions)
+
 	APIKey := "abc123"
-	client, err := pdbclient.NewClient(identity, pointerdbClientPort, APIKey)
+	client, err := pdbclient.NewClient(transportClient, pointerdbClientPort, APIKey)
 
 	if err != nil {
 		logger.Error("Failed to dial: ", zap.Error(err))

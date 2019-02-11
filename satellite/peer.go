@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/statdb"
@@ -172,10 +173,9 @@ type Peer struct {
 // New creates a new satellite
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*Peer, error) {
 	peer := &Peer{
-		Log:       log,
-		Identity:  full,
-		DB:        db,
-		Transport: transport.NewClient(full),
+		Log:      log,
+		Identity: full,
+		DB:       db,
 	}
 
 	var err error
@@ -186,11 +186,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		publicConfig := server.Config{Address: peer.Public.Listener.Addr().String()}
-		publicOptions, err := server.NewOptions(peer.Identity, publicConfig)
+		publicConfig := config.Server
+		publicConfig.Address = peer.Public.Listener.Addr().String()
+		publicOptions, err := tlsopts.NewOptions(peer.Identity, publicConfig.Config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		peer.Transport = transport.NewClient(publicOptions)
 
 		peer.Public.Server, err = server.New(publicOptions, peer.Public.Listener, grpcauth.NewAPIKeyInterceptor())
 		if err != nil {
@@ -202,7 +205,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		config := config.Overlay
 		peer.Overlay.Service = overlay.NewCache(peer.DB.OverlayCache(), peer.DB.StatDB())
 
-		// TODO: should overlay service be wired up to transport?
+		peer.Transport = peer.Transport.WithObservers(peer.Overlay.Service)
 
 		nodeSelectionConfig := &overlay.NodeSelectionConfig{
 			UptimeCount:           config.Node.UptimeCount,
@@ -320,20 +323,23 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			0, peer.Log.Named("checker"),
 			config.Checker.Interval)
 
-		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(), &config.Repairer, peer.Identity, config.Repairer.Interval, config.Repairer.MaxRepair)
+		if config.Repairer.OverlayAddr == "" {
+			config.Repairer.OverlayAddr = peer.Addr()
+		}
+		if config.Repairer.PointerDBAddr == "" {
+			config.Repairer.PointerDBAddr = peer.Addr()
+		}
+		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(), &config.Repairer, peer.Transport, config.Repairer.Interval, config.Repairer.MaxRepair)
 	}
 
 	{ // setup audit
 		config := config.Audit
 
-		// TODO: use common transport Client and close to avoid leak
-		transportClient := transport.NewClient(peer.Identity)
-
 		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
 			peer.DB.StatDB(),
 			config.Interval, config.MaxRetriesStatDB,
 			peer.Metainfo.Service, peer.Metainfo.Allocation,
-			transportClient, peer.Overlay.Service,
+			peer.Transport, peer.Overlay.Service,
 			peer.Identity,
 		)
 		if err != nil {

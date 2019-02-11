@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/pkg/bwagreement/testbwagreement"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/server"
@@ -581,16 +582,18 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	publicConfig := server.Config{Address: "127.0.0.1:0"}
-	publicOptions, err := server.NewOptions(snID, publicConfig)
+	publicOptions, err := tlsopts.NewOptions(snID, publicConfig.Config)
 	require.NoError(t, err)
 	grpcServer, err := server.New(publicOptions, listener, nil)
 	require.NoError(t, err)
 	pb.RegisterPieceStoreRoutesServer(grpcServer.GRPC(), psServer)
 	go func() { require.NoError(t, grpcServer.Run(ctx)) }()
 	//init client
-	co, err := upID.DialOption(storj.NodeID{})
+
+	tlsOptions, err := tlsopts.NewOptions(upID, tlsopts.Config{})
 	require.NoError(t, err)
-	conn, err := grpc.Dial(listener.Addr().String(), co)
+
+	conn, err := grpc.Dial(listener.Addr().String(), tlsOptions.DialOption(storj.NodeID{}))
 	require.NoError(t, err)
 	psClient := pb.NewPieceStoreRoutesClient(conn)
 	//cleanup callback

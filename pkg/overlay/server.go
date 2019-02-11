@@ -67,8 +67,6 @@ func (server *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
 
 // NodeCriteria are the requirements for selecting nodes
 type NodeCriteria struct {
-	Type pb.NodeType
-
 	FreeBandwidth int64
 	FreeDisk      int64
 
@@ -82,8 +80,6 @@ type NodeCriteria struct {
 
 // NewNodeCriteria are the requirement for selecting new nodes
 type NewNodeCriteria struct {
-	Type pb.NodeType
-
 	FreeBandwidth int64
 	FreeDisk      int64
 
