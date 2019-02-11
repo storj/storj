@@ -235,20 +235,6 @@ func (m *lockedAPIKeys) Update(ctx context.Context, key console.APIKeyInfo) erro
 	return m.db.Update(ctx, key)
 }
 
-// Close is used to close db connection
-func (m *lockedConsole) Close() error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Close()
-}
-
-// CreateTables is a method for creating all tables for satellitedb
-func (m *lockedConsole) CreateTables() error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.CreateTables()
-}
-
 // ProjectMembers is a getter for ProjectMembers repository
 func (m *lockedConsole) ProjectMembers() console.ProjectMembers {
 	m.Lock()

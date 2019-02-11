@@ -16,11 +16,6 @@ type DB interface {
 	// APIKeys is a getter for APIKeys repository
 	APIKeys() APIKeys
 
-	// CreateTables is a method for creating all tables for satellitedb
-	CreateTables() error
-	// Close is used to close db connection
-	Close() error
-
 	// BeginTransaction is a method for opening transaction
 	BeginTx(ctx context.Context) (DBTx, error)
 }
