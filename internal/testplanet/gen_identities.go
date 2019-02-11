@@ -16,6 +16,7 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 )
 
 func main() {
@@ -57,7 +58,7 @@ func main() {
 		}
 
 		var keys bytes.Buffer
-		err = peertls.WriteKeyPEM(&keys, identity.Key)
+		err = pkcrypto.WritePrivateKeyPEM(&keys, identity.Key)
 		if err != nil {
 			panic(err)
 		}
