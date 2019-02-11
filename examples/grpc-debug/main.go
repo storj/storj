@@ -1,8 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build ignore
-
 package main
 
 import (
@@ -14,6 +12,7 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -34,10 +33,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	dialOption, err := identity.DialOption(storj.NodeID{})
+	clientOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{})
 	if err != nil {
 		panic(err)
 	}
+
+	dialOption := clientOptions.DialOption(storj.NodeID{})
+
 	conn, err := grpc.Dial(*targetAddr, dialOption)
 	if err != nil {
 		panic(err)
