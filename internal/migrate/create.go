@@ -5,15 +5,11 @@ package migrate
 
 import (
 	"database/sql"
-	"strconv"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/utils"
 )
-
-// Error is the default migrate errs class
-var Error = errs.Class("migrate")
 
 // DB is the minimal implementation that is needed by migration.
 type DB interface {
@@ -22,54 +18,8 @@ type DB interface {
 	Rebind(string) string
 }
 
-type sqliteDB struct {
-	*sql.DB
-	schema string
-}
-
-// NewSqliteDB creates Sqlite DB wrapper migration purposes
-func NewSqliteDB(db *sql.DB, schema string) DB {
-	return &sqliteDB{db, schema}
-}
-
-// Rebind rebind SQL
-func (db *sqliteDB) Rebind(s string) string { return s }
-
-// Schema get schema
-func (db *sqliteDB) Schema() string { return db.schema }
-
-type postgresDB struct {
-	*sql.DB
-	schema string
-}
-
-// NewPostgresDB creates Postgres DB wrapper migration purposes
-func NewPostgresDB(db *sql.DB, schema string) DB {
-	return &postgresDB{db, schema}
-}
-
-// Rebind rebind SQL
-func (db *postgresDB) Rebind(sql string) string {
-	out := make([]byte, 0, len(sql)+10)
-
-	j := 1
-	for i := 0; i < len(sql); i++ {
-		ch := sql[i]
-		if ch != '?' {
-			out = append(out, ch)
-			continue
-		}
-
-		out = append(out, '$')
-		out = append(out, strconv.Itoa(j)...)
-		j++
-	}
-
-	return string(out)
-}
-
-// Schema gets schema
-func (db *postgresDB) Schema() string { return db.schema }
+// Error is the default migrate errs class
+var Error = errs.Class("migrate")
 
 // Create with a previous schema check
 func Create(identifier string, db DB) error {

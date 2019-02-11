@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"flag"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,19 +26,19 @@ func TestCreate_Sqlite(t *testing.T) {
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	// should create table
-	err = migrate.Create("example", migrate.NewSqliteDB(db, `CREATE TABLE example_table (id text)`))
+	err = migrate.Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
 	assert.NoError(t, err)
 
 	// shouldn't create a new table
-	err = migrate.Create("example", migrate.NewSqliteDB(db, `CREATE TABLE example_table (id text)`))
+	err = migrate.Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
 	assert.NoError(t, err)
 
 	// should fail, because schema changed
-	err = migrate.Create("example", migrate.NewSqliteDB(db, "CREATE TABLE example_table (id text, version int)"))
+	err = migrate.Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text, version int)"})
 	assert.Error(t, err)
 
 	// should fail, because of trying to CREATE TABLE with same name
-	err = migrate.Create("conflict", migrate.NewSqliteDB(db, "CREATE TABLE example_table (id text, version int)"))
+	err = migrate.Create("conflict", &sqliteDB{db, "CREATE TABLE example_table (id text, version int)"})
 	assert.Error(t, err)
 }
 
@@ -58,18 +59,51 @@ func TestCreate_Postgres(t *testing.T) {
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	// should create table
-	err = migrate.Create("example", migrate.NewPostgresDB(db, "CREATE TABLE example_table (id text)"))
+	err = migrate.Create("example", &postgresDB{db, "CREATE TABLE example_table (id text)"})
 	assert.NoError(t, err)
 
 	// shouldn't create a new table
-	err = migrate.Create("example", migrate.NewPostgresDB(db, "CREATE TABLE example_table (id text)"))
+	err = migrate.Create("example", &postgresDB{db, "CREATE TABLE example_table (id text)"})
 	assert.NoError(t, err)
 
 	// should fail, because schema changed
-	err = migrate.Create("example", migrate.NewPostgresDB(db, "CREATE TABLE example_table (id text, version integer)"))
+	err = migrate.Create("example", &postgresDB{db, "CREATE TABLE example_table (id text, version integer)"})
 	assert.Error(t, err)
 
 	// should fail, because of trying to CREATE TABLE with same name
-	err = migrate.Create("conflict", migrate.NewPostgresDB(db, "CREATE TABLE example_table (id text, version integer)"))
+	err = migrate.Create("conflict", &postgresDB{db, "CREATE TABLE example_table (id text, version integer)"})
 	assert.Error(t, err)
 }
+
+type sqliteDB struct {
+	*sql.DB
+	schema string
+}
+
+func (db *sqliteDB) Rebind(s string) string { return s }
+func (db *sqliteDB) Schema() string         { return db.schema }
+
+type postgresDB struct {
+	*sql.DB
+	schema string
+}
+
+func (db *postgresDB) Rebind(sql string) string {
+	out := make([]byte, 0, len(sql)+10)
+
+	j := 1
+	for i := 0; i < len(sql); i++ {
+		ch := sql[i]
+		if ch != '?' {
+			out = append(out, ch)
+			continue
+		}
+
+		out = append(out, '$')
+		out = append(out, strconv.Itoa(j)...)
+		j++
+	}
+
+	return string(out)
+}
+func (db *postgresDB) Schema() string { return db.schema }

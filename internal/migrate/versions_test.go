@@ -25,7 +25,7 @@ func TestBasicMigrationSqlite(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	basicMigration(t, db, migrate.NewSqliteDB(db, ""))
+	basicMigration(t, db, &sqliteDB{DB: db})
 }
 
 func TestBasicMigrationPostgres(t *testing.T) {
@@ -37,7 +37,7 @@ func TestBasicMigrationPostgres(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	basicMigration(t, db, migrate.NewPostgresDB(db, ""))
+	basicMigration(t, db, &postgresDB{DB: db})
 }
 
 func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
@@ -100,7 +100,7 @@ func TestMultipleMigrationSqlite(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	multipleMigration(t, db, migrate.NewSqliteDB(db, ""))
+	multipleMigration(t, db, &sqliteDB{DB: db})
 }
 
 func TestMultipleMigrationPostgres(t *testing.T) {
@@ -112,7 +112,7 @@ func TestMultipleMigrationPostgres(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	multipleMigration(t, db, migrate.NewPostgresDB(db, ""))
+	multipleMigration(t, db, &postgresDB{DB: db})
 }
 
 func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
@@ -173,7 +173,7 @@ func TestFailedMigrationSqlite(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	failedMigration(t, db, migrate.NewSqliteDB(db, ""))
+	failedMigration(t, db, &sqliteDB{DB: db})
 }
 
 func TestFailedMigrationPostgres(t *testing.T) {
@@ -185,7 +185,7 @@ func TestFailedMigrationPostgres(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	failedMigration(t, db, migrate.NewSqliteDB(db, ""))
+	failedMigration(t, db, &postgresDB{DB: db})
 }
 
 func failedMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
@@ -222,7 +222,7 @@ func TestOnCreateMigrationSqlite(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	onCreate(t, db, migrate.NewSqliteDB(db, ""))
+	onCreate(t, db, &sqliteDB{DB: db})
 }
 
 func TestOnCreateMigrationPostgres(t *testing.T) {
@@ -234,7 +234,7 @@ func TestOnCreateMigrationPostgres(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	onCreate(t, db, migrate.NewPostgresDB(db, ""))
+	onCreate(t, db, &postgresDB{DB: db})
 }
 
 func onCreate(t *testing.T, db *sql.DB, testDB migrate.DB) {
@@ -279,7 +279,7 @@ func TestOnCreateFailMigrationSqlite(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	onCreateFail(t, db, migrate.NewSqliteDB(db, ""))
+	onCreateFail(t, db, &sqliteDB{DB: db})
 }
 
 func TestOnCreateFailMigrationPostgres(t *testing.T) {
@@ -291,7 +291,7 @@ func TestOnCreateFailMigrationPostgres(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	onCreateFail(t, db, migrate.NewPostgresDB(db, ""))
+	onCreateFail(t, db, &postgresDB{DB: db})
 }
 
 func onCreateFail(t *testing.T, db *sql.DB, testDB migrate.DB) {
