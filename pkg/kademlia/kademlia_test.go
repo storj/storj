@@ -1,6 +1,5 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
-// See LICENSE for copying information.
 
 package kademlia
 
@@ -28,6 +27,7 @@ import (
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage/teststore"
@@ -177,8 +177,10 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	assert.NoError(t, err)
 	s := NewEndpoint(logger, k, k.GetRoutingTable().(*RoutingTable))
 	// new ident opts
-	identOpt, err := fid.ServerOption()
-	assert.NoError(t, err)
+
+	serverOptions, err := tlsopts.NewOptions(fid, tlsopts.Config{})
+	require.NoError(t, err)
+	identOpt := serverOptions.ServerOption()
 
 	grpcServer := grpc.NewServer(identOpt)
 
@@ -442,10 +444,13 @@ func startTestNodeServer(ctx context.Context) (*grpc.Server, *mockNodesServer, *
 	if err != nil {
 		return nil, nil, nil, ""
 	}
-	identOpt, err := identity.ServerOption()
+
+	serverOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{})
 	if err != nil {
 		return nil, nil, nil, ""
 	}
+	identOpt := serverOptions.ServerOption()
+
 	grpcServer := grpc.NewServer(identOpt)
 	mn := &mockNodesServer{queryCalled: 0}
 
@@ -469,10 +474,12 @@ func newTestServer(ctx context.Context, nn []*pb.Node) (*grpc.Server, *mockNodes
 	if err != nil {
 		return nil, nil
 	}
-	identOpt, err := identity.ServerOption()
+	serverOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{})
 	if err != nil {
 		return nil, nil
 	}
+	identOpt := serverOptions.ServerOption()
+
 	grpcServer := grpc.NewServer(identOpt)
 	mn := &mockNodesServer{queryCalled: 0}
 
@@ -541,8 +548,14 @@ func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node
 
 	rt, err := NewRoutingTable(log, self, teststore.New(), teststore.New(), nil)
 	if err != nil {
-		return nil, BootstrapErr.Wrap(err)
+		return nil, err
 	}
 
-	return NewService(log, self, bootstrapNodes, transport.NewClient(identity, rt), alpha, rt)
+	tlsOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{})
+	if err != nil {
+		return nil, err
+	}
+	transportClient := transport.NewClient(tlsOptions, rt)
+
+	return NewService(log, self, bootstrapNodes, transportClient, alpha, rt)
 }

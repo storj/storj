@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/agreementsender"
@@ -90,10 +91,9 @@ type Peer struct {
 // New creates a new Storage Node.
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*Peer, error) {
 	peer := &Peer{
-		Log:       log,
-		Identity:  full,
-		DB:        db,
-		Transport: transport.NewClient(full),
+		Log:      log,
+		Identity: full,
+		DB:       db,
 	}
 
 	var err error
@@ -106,10 +106,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 
 		publicConfig := config.Server
 		publicConfig.Address = peer.Public.Listener.Addr().String()
-		publicOptions, err := server.NewOptions(peer.Identity, publicConfig)
+		publicOptions, err := tlsopts.NewOptions(peer.Identity, publicConfig.Config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		peer.Transport = transport.NewClient(publicOptions)
 
 		peer.Public.Server, err = server.New(publicOptions, peer.Public.Listener, nil)
 		if err != nil {
@@ -178,7 +180,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		config := config.Storage // TODO: separate config
 		peer.Agreements.Sender = agreementsender.New(
 			peer.Log.Named("agreements"),
-			peer.DB.PSDB(), peer.Identity, peer.Kademlia.Service,
+			peer.DB.PSDB(), peer.Transport, peer.Kademlia.Service,
 			config.AgreementSenderCheckInterval,
 		)
 	}

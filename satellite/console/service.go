@@ -77,7 +77,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 	email := normalizeEmail(user.Email)
 
 	u, err = s.store.Users().GetByEmail(ctx, email)
-	if u != nil {
+	if err == nil {
 		return nil, errs.New(fmt.Sprintf("%s is already in use", email))
 	}
 
@@ -136,15 +136,15 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 
 	now := time.Now()
 
-	if user.Email != "" {
+	if user.Status != Inactive {
 		return "", errs.New("account is already active")
 	}
 
 	if now.After(user.CreatedAt.Add(tokenExpirationTime)) {
-		return "", errs.New("activation token is expired")
+		return "", errs.New("activation token has expired")
 	}
 
-	user.Email = normalizeEmail(claims.Email)
+	user.Status = Active
 	err = s.store.Users().Update(ctx, user)
 	if err != nil {
 		return "", err

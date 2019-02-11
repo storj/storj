@@ -61,9 +61,6 @@ func TestGrapqhlMutation(t *testing.T) {
 		}
 
 		t.Run("Activate account mutation", func(t *testing.T) {
-			t.Skip("skip it until we will have activation flow ready")
-
-			//TODO(yar): skip it until we will have activation flow ready
 			activationToken, err := service.GenerateActivationToken(
 				ctx,
 				rootUser.ID,
@@ -121,7 +118,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			}
 
 			query := fmt.Sprintf(
-				"mutation {createUser(input:{email:\"%s\",password:\"%s\",firstName:\"%s\",lastName:\"%s\"})}",
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\",firstName:\"%s\",lastName:\"%s\"}){id,lastName,firstName,email,createdAt}}",
 				newUser.Email,
 				newUser.Password,
 				newUser.FirstName,
@@ -144,9 +141,10 @@ func TestGrapqhlMutation(t *testing.T) {
 			}
 
 			data := result.Data.(map[string]interface{})
-			id := data[consoleql.CreateUserMutation].(string)
+			usrData := data[consoleql.CreateUserMutation].(map[string]interface{})
+			idStr := usrData["id"].(string)
 
-			uID, err := uuid.Parse(id)
+			uID, err := uuid.Parse(idStr)
 			assert.NoError(t, err)
 
 			user, err := service.GetUser(authCtx, *uID)
@@ -370,9 +368,6 @@ func TestGrapqhlMutation(t *testing.T) {
 		}
 
 		t.Run("Activation", func(t *testing.T) {
-			t.Skip("skip it until we will have activation flow ready")
-
-			//TODO(yar): skip it until we will have activation flow ready
 			activationToken1, err := service.GenerateActivationToken(
 				ctx,
 				user1.ID,
@@ -402,9 +397,6 @@ func TestGrapqhlMutation(t *testing.T) {
 		}
 
 		t.Run("Activation", func(t *testing.T) {
-			t.Skip("skip it until we will have activation flow ready")
-
-			//TODO(yar): skip it until we will have activation flow ready
 			activationToken2, err := service.GenerateActivationToken(
 				ctx,
 				user2.ID,

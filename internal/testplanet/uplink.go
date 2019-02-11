@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
@@ -46,6 +47,11 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		return nil, err
 	}
 
+	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{})
+	if err != nil {
+		return nil, err
+	}
+
 	uplink := &Uplink{
 		Log:              planet.log.Named(name),
 		Identity:         identity,
@@ -54,7 +60,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 
 	uplink.Log.Debug("id=" + identity.ID.String())
 
-	uplink.Transport = transport.NewClient(identity)
+	uplink.Transport = transport.NewClient(tlsOpts)
 
 	uplink.Info = pb.Node{
 		Id:   uplink.Identity.ID,
@@ -120,17 +126,8 @@ func (uplink *Uplink) Shutdown() error { return nil }
 
 // DialPointerDB dials destination with apikey and returns pointerdb Client
 func (uplink *Uplink) DialPointerDB(destination Peer, apikey string) (pdbclient.Client, error) {
-	// TODO: use node.Transport instead of pdbclient.NewClient
-	/*
-		conn, err := node.Transport.DialNode(context.Background(), &destination.Info)
-		if err != nil {
-			return nil, err
-		}
-		return piececlient.NewPSClient
-	*/
-
 	// TODO: handle disconnect
-	return pdbclient.NewClient(uplink.Identity, destination.Addr(), apikey)
+	return pdbclient.NewClient(uplink.Transport, destination.Addr(), apikey)
 }
 
 // DialOverlay dials destination and returns an overlay.Client
@@ -233,6 +230,10 @@ func (uplink *Uplink) getConfig(satellite *satellite.Peer) uplink.Config {
 	config.RS.RepairThreshold = 2 * uplink.StorageNodeCount / 5
 	config.RS.SuccessThreshold = 3 * uplink.StorageNodeCount / 5
 	config.RS.MaxThreshold = 4 * uplink.StorageNodeCount / 5
+
+	config.TLS.UsePeerCAWhitelist = false
+	config.TLS.Extensions.Revocation = false
+	config.TLS.Extensions.WhitelistSignedLeaf = false
 
 	return config
 }

@@ -55,7 +55,7 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 		Name: Mutation,
 		Fields: graphql.Fields{
 			CreateUserMutation: &graphql.Field{
-				Type: graphql.String,
+				Type: types.User(),
 				Args: graphql.FieldConfigArgument{
 					InputArg: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(types.UserInput()),
@@ -71,7 +71,7 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 						return "", err
 					}
 
-					return user.ID.String(), nil
+					return user, nil
 				},
 			},
 			UpdateAccountMutation: &graphql.Field{

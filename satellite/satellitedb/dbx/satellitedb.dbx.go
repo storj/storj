@@ -370,11 +370,11 @@ CREATE TABLE users (
 	id bytea NOT NULL,
 	first_name text NOT NULL,
 	last_name text NOT NULL,
-	email text,
+	email text NOT NULL,
 	password_hash bytea NOT NULL,
+	status integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( email )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
@@ -552,11 +552,11 @@ CREATE TABLE users (
 	id BLOB NOT NULL,
 	first_name TEXT NOT NULL,
 	last_name TEXT NOT NULL,
-	email TEXT,
+	email TEXT NOT NULL,
 	password_hash BLOB NOT NULL,
+	status INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( email )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE api_keys (
 	id BLOB NOT NULL,
@@ -1985,22 +1985,20 @@ type User struct {
 	Id           []byte
 	FirstName    string
 	LastName     string
-	Email        *string
+	Email        string
 	PasswordHash []byte
+	Status       int
 	CreatedAt    time.Time
 }
 
 func (User) _Table() string { return "users" }
-
-type User_Create_Fields struct {
-	Email User_Email_Field
-}
 
 type User_Update_Fields struct {
 	FirstName    User_FirstName_Field
 	LastName     User_LastName_Field
 	Email        User_Email_Field
 	PasswordHash User_PasswordHash_Field
+	Status       User_Status_Field
 }
 
 type User_Id_Field struct {
@@ -2063,25 +2061,12 @@ func (User_LastName_Field) _Column() string { return "last_name" }
 type User_Email_Field struct {
 	_set   bool
 	_null  bool
-	_value *string
+	_value string
 }
 
 func User_Email(v string) User_Email_Field {
-	return User_Email_Field{_set: true, _value: &v}
+	return User_Email_Field{_set: true, _value: v}
 }
-
-func User_Email_Raw(v *string) User_Email_Field {
-	if v == nil {
-		return User_Email_Null()
-	}
-	return User_Email(*v)
-}
-
-func User_Email_Null() User_Email_Field {
-	return User_Email_Field{_set: true, _null: true}
-}
-
-func (f User_Email_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f User_Email_Field) value() interface{} {
 	if !f._set || f._null {
@@ -2110,6 +2095,25 @@ func (f User_PasswordHash_Field) value() interface{} {
 }
 
 func (User_PasswordHash_Field) _Column() string { return "password_hash" }
+
+type User_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func User_Status(v int) User_Status_Field {
+	return User_Status_Field{_set: true, _value: v}
+}
+
+func (f User_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_Status_Field) _Column() string { return "status" }
 
 type User_CreatedAt_Field struct {
 	_set   bool
@@ -2732,25 +2736,26 @@ func (obj *postgresImpl) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_first_name User_FirstName_Field,
 	user_last_name User_LastName_Field,
-	user_password_hash User_PasswordHash_Field,
-	optional User_Create_Fields) (
+	user_email User_Email_Field,
+	user_password_hash User_PasswordHash_Field) (
 	user *User, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_id.value()
 	__first_name_val := user_first_name.value()
 	__last_name_val := user_last_name.value()
-	__email_val := optional.Email.value()
+	__email_val := user_email.value()
 	__password_hash_val := user_password_hash.value()
+	__status_val := int(0)
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, first_name, last_name, email, password_hash, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, first_name, last_name, email, password_hash, status, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __status_val, __created_at_val)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __created_at_val).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __status_val, __created_at_val).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -3345,30 +3350,45 @@ func (obj *postgresImpl) Limited_Injuredsegment(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Get_User_By_Email(ctx context.Context,
+func (obj *postgresImpl) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 	user_email User_Email_Field) (
 	user *User, err error) {
 
-	var __cond_0 = &__sqlbundle_Condition{Left: "users.email", Equal: true, Right: "?", Null: true}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
-	__values = append(__values)
-
-	if !user_email.isnull() {
-		__cond_0.Null = false
-		__values = append(__values, user_email.value())
-	}
+	__values = append(__values, user_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	__rows, err := obj.driver.Query(__stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, makeErr(sql.ErrNoRows)
+	}
+
+	user = &User{}
+	err = __rows.Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("User_By_Email_And_Status_Not_Number")
+	}
+
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+
 	return user, nil
 
 }
@@ -3377,7 +3397,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -3386,7 +3406,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -3912,7 +3932,7 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	user *User, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -3938,6 +3958,11 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
 	}
 
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -3951,7 +3976,7 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -4781,24 +4806,25 @@ func (obj *sqlite3Impl) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_first_name User_FirstName_Field,
 	user_last_name User_LastName_Field,
-	user_password_hash User_PasswordHash_Field,
-	optional User_Create_Fields) (
+	user_email User_Email_Field,
+	user_password_hash User_PasswordHash_Field) (
 	user *User, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_id.value()
 	__first_name_val := user_first_name.value()
 	__last_name_val := user_last_name.value()
-	__email_val := optional.Email.value()
+	__email_val := user_email.value()
 	__password_hash_val := user_password_hash.value()
+	__status_val := int(0)
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, first_name, last_name, email, password_hash, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, first_name, last_name, email, password_hash, status, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __status_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __status_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5409,30 +5435,45 @@ func (obj *sqlite3Impl) Limited_Injuredsegment(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Get_User_By_Email(ctx context.Context,
+func (obj *sqlite3Impl) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 	user_email User_Email_Field) (
 	user *User, err error) {
 
-	var __cond_0 = &__sqlbundle_Condition{Left: "users.email", Equal: true, Right: "?", Null: true}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
-	__values = append(__values)
-
-	if !user_email.isnull() {
-		__cond_0.Null = false
-		__values = append(__values, user_email.value())
-	}
+	__values = append(__values, user_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	__rows, err := obj.driver.Query(__stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, makeErr(sql.ErrNoRows)
+	}
+
+	user = &User{}
+	err = __rows.Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("User_By_Email_And_Status_Not_Number")
+	}
+
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+
 	return user, nil
 
 }
@@ -5441,7 +5482,7 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -5450,7 +5491,7 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6042,6 +6083,11 @@ func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
 	}
 
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -6060,12 +6106,12 @@ func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -6656,13 +6702,13 @@ func (obj *sqlite3Impl) getLastUser(ctx context.Context,
 	pk int64) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7217,14 +7263,14 @@ func (rx *Rx) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_first_name User_FirstName_Field,
 	user_last_name User_LastName_Field,
-	user_password_hash User_PasswordHash_Field,
-	optional User_Create_Fields) (
+	user_email User_Email_Field,
+	user_password_hash User_PasswordHash_Field) (
 	user *User, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_User(ctx, user_id, user_first_name, user_last_name, user_password_hash, optional)
+	return tx.Create_User(ctx, user_id, user_first_name, user_last_name, user_email, user_password_hash)
 
 }
 
@@ -7458,14 +7504,14 @@ func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	return tx.Get_Project_By_Id(ctx, project_id)
 }
 
-func (rx *Rx) Get_User_By_Email(ctx context.Context,
+func (rx *Rx) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 	user_email User_Email_Field) (
 	user *User, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_User_By_Email(ctx, user_email)
+	return tx.Get_User_By_Email_And_Status_Not_Number(ctx, user_email)
 }
 
 func (rx *Rx) Get_User_By_Id(ctx context.Context,
@@ -7745,8 +7791,8 @@ type Methods interface {
 		user_id User_Id_Field,
 		user_first_name User_FirstName_Field,
 		user_last_name User_LastName_Field,
-		user_password_hash User_PasswordHash_Field,
-		optional User_Create_Fields) (
+		user_email User_Email_Field,
+		user_password_hash User_PasswordHash_Field) (
 		user *User, err error)
 
 	Delete_AccountingRaw_By_Id(ctx context.Context,
@@ -7841,7 +7887,7 @@ type Methods interface {
 		project_id Project_Id_Field) (
 		project *Project, err error)
 
-	Get_User_By_Email(ctx context.Context,
+	Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 		user_email User_Email_Field) (
 		user *User, err error)
 

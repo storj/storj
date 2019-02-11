@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/peertls/tlsopts"
 )
 
 // Service represents a specific gRPC method collection to be registered
@@ -31,12 +32,7 @@ type Server struct {
 
 // New creates a Server out of an Identity, a net.Listener,
 // a UnaryServerInterceptor, and a set of services.
-func New(opts *Options, lis net.Listener, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
-	grpcOpts, err := opts.grpcOpts()
-	if err != nil {
-		return nil, err
-	}
-
+func New(opts *tlsopts.Options, lis net.Listener, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
 	unaryInterceptor := unaryInterceptor
 	if interceptor != nil {
 		unaryInterceptor = combineInterceptors(unaryInterceptor, interceptor)
@@ -47,7 +43,7 @@ func New(opts *Options, lis net.Listener, interceptor grpc.UnaryServerIntercepto
 		grpc: grpc.NewServer(
 			grpc.StreamInterceptor(streamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
-			grpcOpts,
+			opts.ServerOption(),
 		),
 		next:     services,
 		identity: opts.Ident,
