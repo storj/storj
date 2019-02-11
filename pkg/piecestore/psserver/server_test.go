@@ -123,8 +123,6 @@ func TestPiece(t *testing.T) {
 }
 
 func TestRetrieve(t *testing.T) {
-	t.Skip("still flaky")
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
