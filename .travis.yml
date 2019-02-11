@@ -29,29 +29,29 @@ matrix:
     - env:
         - MODE=tests
       script:
-        - go test -run TestRetrieve -parallel 100 -count 100 -race ./pkg/piecestore/psserver
+        - go test -run TestRetrieve/#05 -parallel 100 -count 100 -race ./pkg/piecestore/psserver
     ### tests ###
     - env:
         - MODE=tests
       script:
-        - go test -run TestRetrieve -parallel 100 -count 100 -race ./pkg/piecestore/psserver
+        - go test -run TestRetrieve/#05 -parallel 100 -count 100 -race ./pkg/piecestore/psserver
     ### tests ###
     - env:
         - MODE=tests
       script:
-        - go test -run TestRetrieve -parallel 100 -count 100 -race ./pkg/piecestore/psserver
+        - go test -run TestRetrieve/#05 -parallel 100 -count 100 -race ./pkg/piecestore/psserver
     ### tests ###
     - env:
         - MODE=tests
       script:
-        - go test -run TestRetrieve -parallel 100 -count 100 -race ./pkg/piecestore/psserver
+        - go test -run TestRetrieve/#05 -parallel 100 -count 100 -race ./pkg/piecestore/psserver
     ### tests ###
     - env:
         - MODE=tests
       script:
-        - go test -run TestRetrieve -parallel 100 -count 100 -race ./pkg/piecestore/psserver
+        - go test -run TestRetrieve/#05 -parallel 100 -count 100 -race ./pkg/piecestore/psserver
     ### tests ###
     - env:
         - MODE=tests
       script:
-        - go test -run TestRetrieve -parallel 100 -count 100 -race ./pkg/piecestore/psserver
+        - go test -run TestRetrieve/#05 -parallel 100 -count 100 -race ./pkg/piecestore/psserver
