@@ -202,6 +202,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--rs.repair-threshold", strconv.Itoa(2 * flags.StorageNodeCount / 5),
 				"--rs.success-threshold", strconv.Itoa(3 * flags.StorageNodeCount / 5),
 				"--rs.max-threshold", strconv.Itoa(4 * flags.StorageNodeCount / 5),
+
+				"--tls.extensions.revocation", "false",
+				"--tls.use-peer-ca-whitelist", "false",
 			},
 			"run": {},
 		})
