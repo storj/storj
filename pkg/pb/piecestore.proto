@@ -58,7 +58,7 @@ message PieceStore {
 
   RenterBandwidthAllocation bandwidth_allocation = 1;
   PieceData piece_data = 2;
-  bytes satellite_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];}
+}
 
 message PieceId {
   // TODO: may want to use customtype and fixed-length byte slice
@@ -83,7 +83,6 @@ message PieceRetrieval {
 
   RenterBandwidthAllocation bandwidth_allocation = 1;
   PieceData piece_data = 2;
-  bytes satellite_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 message PieceRetrievalStream {
