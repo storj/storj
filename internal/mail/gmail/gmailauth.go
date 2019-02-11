@@ -18,15 +18,15 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// GmailAuth is XOAUTH2 implementation of smtp.Auth interface
-type GmailAuth struct {
+// Auth is XOAUTH2 implementation of smtp.Auth interface for gmail
+type Auth struct {
 	UserEmail string
 
 	Storage *TokenStore
 }
 
 // Start returns proto and auth credentials for first auth msg
-func (auth *GmailAuth) Start(server *smtp.ServerInfo) (proto string, toServer []byte, err error) {
+func (auth *Auth) Start(server *smtp.ServerInfo) (proto string, toServer []byte, err error) {
 	token, err := auth.Storage.Token()
 	if err != nil {
 		return "", nil, err
@@ -37,7 +37,7 @@ func (auth *GmailAuth) Start(server *smtp.ServerInfo) (proto string, toServer []
 }
 
 // Next sends empty response to solve SASL challenge if response code is 334
-func (auth *GmailAuth) Next(fromServer []byte, more bool) (toServer []byte, err error) {
+func (auth *Auth) Next(fromServer []byte, more bool) (toServer []byte, err error) {
 	if more {
 		return make([]byte, 0), nil
 	}
