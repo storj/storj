@@ -4,10 +4,8 @@
 package gmail
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/smtp"
 	"net/url"
@@ -119,11 +117,6 @@ func RefreshToken(creds Credentials, refreshToken string) (*Token, error) {
 		err = errs.Combine(resp.Body.Close())
 	}()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
 	// handle google expires_in field value
 	var t struct {
 		AccessToken  string        `json:"access_token"`
@@ -131,7 +124,7 @@ func RefreshToken(creds Credentials, refreshToken string) (*Token, error) {
 		Type         string        `json:"token_type"`
 		Expires      time.Duration `json:"expires_in"`
 	}
-	err = json.NewDecoder(bytes.NewReader(body)).Decode(&t)
+	err = json.NewDecoder(resp.Body).Decode(&t)
 	if err != nil {
 		return nil, err
 	}
