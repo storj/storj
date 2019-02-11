@@ -45,16 +45,6 @@ var (
 	node3 = teststorj.MockNode("node-3")
 )
 
-// mustParsePEM parses pem encoded chain and key strings.
-func mustParsePEM(chain, key string) *identity.FullIdentity {
-	// TODO: add whitelist handling somehow
-	fi, err := identity.FullIdentityFromPEM([]byte(chain), []byte(key))
-	if err != nil {
-		panic(err)
-	}
-	return fi
-}
-
 func TestNewECClient(t *testing.T) {
 	ident, err := identity.FullIdentityFromPEM([]byte(`-----BEGIN CERTIFICATE-----
 MIIBPzCB56ADAgECAhBkctCIgrE25/vSSXpUno5SMAoGCCqGSM49BAMCMAAwIhgP
