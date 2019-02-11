@@ -184,10 +184,10 @@ func testRandomizedSelection(t *testing.T, reputable bool) {
 			var err error
 
 			if reputable {
-				nodes, err = cache.SelectNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{})
+				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{})
 				require.NoError(t, err)
 			} else {
-				nodes, err = cache.SelectNewNodes(ctx, numNodesToSelect, &overlay.NewNodeCriteria{
+				nodes, err = cache.SelectNewStorageNodes(ctx, numNodesToSelect, &overlay.NewNodeCriteria{
 					AuditThreshold: 1,
 				})
 				require.NoError(t, err)

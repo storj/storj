@@ -38,9 +38,9 @@ var OverlayError = errs.Class("Overlay Error")
 
 // DB implements the database for overlay.Cache
 type DB interface {
-	// SelectNodes looks up nodes based on criteria
+	// SelectStorageNodes looks up nodes based on criteria
 	SelectStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*pb.Node, error)
-	// SelectNewNodes looks up nodes based on new node criteria
+	// SelectNewStorageNodes looks up nodes based on new node criteria
 	SelectNewStorageNodes(ctx context.Context, count int, criteria *NewNodeCriteria) ([]*pb.Node, error)
 
 	// Get looks up the node by nodeID
