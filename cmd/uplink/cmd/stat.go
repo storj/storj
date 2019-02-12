@@ -4,26 +4,21 @@
 package cmd
 
 import (
-	"context"
-	"errors"
 	"fmt"
-	"io"
-	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/uplink/metainfo"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/transport"
 )
 
 func init() {
-	statCmd := addCmd(&cobra.Command{
+	addCmd(&cobra.Command{
 		Use:   "stat",
 		Short: "stat a Storj object",
-		RunE:  cmdStat,
+		RunE:  statObject,
 	}, RootCmd)
 }
 
@@ -49,12 +44,12 @@ func statObject(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	metainfoClient := New(transport.NewClient(identity), setupCfg.SatelliteAddr)
-	
+	metainfoClient := metainfo.New(transport.NewClient(identity), setupCfg.SatelliteAddr)
+
 	// Stat will return the health of a specific path
-	resp, err := metainfo.Stat(ctx, src.Bucket(), src.Path()) {
+	resp, err := metainfoClient.Stat(ctx, []byte(dst.Path()), []byte(dst.Bucket()))
 	if err != nil {
-		return convertError(err, src)
+		return convertError(err, dst)
 	}
 
 	fmt.Printf("%+v\n", resp)

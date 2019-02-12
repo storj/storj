@@ -78,14 +78,14 @@ type Config struct {
 	Identity identity.Config
 
 	// TODO: switch to using server.Config when Identity has been removed from it
-	Server          server.Config
+	Server server.Config
 
 	Kademlia  kademlia.Config
 	Overlay   overlay.Config
 	Discovery discovery.Config
 
-	PointerDB   pointerdb.Config
-	MetaInfo metainfo.Config
+	PointerDB pointerdb.Config
+	MetaInfo  metainfo.Config
 
 	BwAgreement bwagreement.Config // TODO: decide whether to keep empty configs for consistency
 
@@ -112,7 +112,7 @@ type Peer struct {
 	Public struct {
 		Listener net.Listener
 		Server   *server.Server
-		Endpoint *endpoints.Server
+		//Endpoint *endpoints.Server
 	}
 
 	// services and endpoints
@@ -140,11 +140,11 @@ type Peer struct {
 	}
 
 	Pointerdb struct {
-		Database   storage.KeyValueStore // TODO: move into pointerDB
-		Allocation *pointerdb.AllocationSigner
-		Service    *pointerdb.Service
-		Endpoint   *pointerdb.Server
-		NewEndpoint   *metainfo.Endpoint
+		Database    storage.KeyValueStore // TODO: move into pointerDB
+		Allocation  *pointerdb.AllocationSigner
+		Service     *pointerdb.Service
+		Endpoint    *pointerdb.Server
+		NewEndpoint *metainfo.Endpoint
 	}
 
 	Agreements struct {
@@ -293,16 +293,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Pointerdb.Database = storelogger.New(peer.Log.Named("pdb"), db)
 		peer.Pointerdb.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Pointerdb.Database)
 		peer.Pointerdb.Allocation = pointerdb.NewAllocationSigner(peer.Identity, config.PointerDB.BwExpiration)
-		peer.Pointerdb.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"), 
-      peer.Pointerdb.Service, 
-      peer.Pointerdb.Allocation,
-      peer.Overlay.Service, 
-      config.PointerDB, 
-      peer.Identity, peer.DB.Console().APIKeys())
-    
+		peer.Pointerdb.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"),
+			peer.Pointerdb.Service,
+			peer.Pointerdb.Allocation,
+			peer.Overlay.Service,
+			config.PointerDB,
+			peer.Identity, peer.DB.Console().APIKeys())
+
 		pb.RegisterPointerDBServer(peer.Public.Server.GRPC(), peer.Pointerdb.Endpoint)
 
-		peer.Pointerdb.NewEndpoint = endpoints.NewEndpoint(peer.Log.Named("metainfo"), config.SatelliteServer)
+		peer.Pointerdb.NewEndpoint = metainfo.NewEndpoint(peer.Log.Named("metainfo"), config.MetaInfo)
 		pb.RegisterMetainfoServer(peer.Public.Server.GRPC(), peer.Pointerdb.NewEndpoint)
 	}
 
