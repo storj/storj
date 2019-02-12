@@ -28,14 +28,14 @@ type Config struct {
 
 // DB contains access to different database tables
 type DB struct {
-	logger   *zap.Logger
+	log      *zap.Logger
 	storage  *pstore.Storage
 	psdb     *psdb.DB
 	kdb, ndb storage.KeyValueStore
 }
 
 // New creates a new master database for storage node
-func New(logger *zap.Logger, config Config) (*DB, error) {
+func New(log *zap.Logger, config Config) (*DB, error) {
 	storage := pstore.NewStorage(config.Storage)
 
 	psdb, err := psdb.Open(config.Info)
@@ -49,7 +49,7 @@ func New(logger *zap.Logger, config Config) (*DB, error) {
 	}
 
 	return &DB{
-		logger:  logger,
+		log:     log,
 		storage: storage,
 		psdb:    psdb,
 		kdb:     dbs[0],
@@ -59,7 +59,7 @@ func New(logger *zap.Logger, config Config) (*DB, error) {
 
 // NewInMemory creates new inmemory master database for storage node
 // TODO: still stores data on disk
-func NewInMemory(logger *zap.Logger, storageDir string) (*DB, error) {
+func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 	storage := pstore.NewStorage(storageDir)
 
 	psdb, err := psdb.OpenInMemory()
@@ -68,7 +68,7 @@ func NewInMemory(logger *zap.Logger, storageDir string) (*DB, error) {
 	}
 
 	return &DB{
-		logger:  logger,
+		log:     log,
 		storage: storage,
 		psdb:    psdb,
 		kdb:     teststore.New(),
@@ -79,7 +79,7 @@ func NewInMemory(logger *zap.Logger, storageDir string) (*DB, error) {
 // CreateTables creates any necessary tables.
 func (db *DB) CreateTables() error {
 	migration := psdb.Migration()
-	return migration.Run(db.logger.Named("migration"), db.psdb)
+	return migration.Run(db.log.Named("migration"), db.psdb)
 }
 
 // Close closes any resources.

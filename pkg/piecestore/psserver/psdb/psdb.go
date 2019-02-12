@@ -78,10 +78,10 @@ func Migration() *migrate.Migration {
 	migration := &migrate.Migration{
 		Table: "sn_versions",
 		OnCreate: migrate.SQL{
-			"CREATE TABLE IF NOT EXISTS `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10), `size` INT(10));",
-			"CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`satellite` BLOB, `agreement` BLOB, `signature` BLOB);",
-			"CREATE INDEX IF NOT EXISTS idx_ttl_expires ON ttl (expires);",
-			"CREATE TABLE IF NOT EXISTS `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));",
+			"CREATE TABLE `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10), `size` INT(10));",
+			"CREATE TABLE `bandwidth_agreements` (`satellite` BLOB, `agreement` BLOB, `signature` BLOB);",
+			"CREATE INDEX idx_ttl_expires ON ttl (expires);",
+			"CREATE TABLE `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));",
 			"PRAGMA journal_mode = WAL",
 		},
 	}

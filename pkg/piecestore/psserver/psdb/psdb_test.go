@@ -316,7 +316,7 @@ func TestMigration(t *testing.T) {
 				t.Fatal("no test data ", testfile)
 			}
 			expected, err := ioutil.ReadFile(testfile)
-
+			assert.NoError(t, err)
 			assert.Equal(t, string(expected), string(out))
 		})
 	}
