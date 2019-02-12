@@ -77,12 +77,18 @@ func OpenInMemory() (db *DB, err error) {
 func Migration() *migrate.Migration {
 	migration := &migrate.Migration{
 		Table: "sn_versions",
-		OnCreate: migrate.SQL{
-			"CREATE TABLE `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10), `size` INT(10));",
-			"CREATE TABLE `bandwidth_agreements` (`satellite` BLOB, `agreement` BLOB, `signature` BLOB);",
-			"CREATE INDEX idx_ttl_expires ON ttl (expires);",
-			"CREATE TABLE `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));",
-			"PRAGMA journal_mode = WAL",
+		Steps: []*migrate.Step{
+			{
+				Description: "initialize database",
+				Version:     0,
+				Action: migrate.SQL{
+					"CREATE TABLE `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10), `size` INT(10));",
+					"CREATE TABLE `bandwidth_agreements` (`satellite` BLOB, `agreement` BLOB, `signature` BLOB);",
+					"CREATE INDEX idx_ttl_expires ON ttl (expires);",
+					"CREATE TABLE `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));",
+					"PRAGMA journal_mode = WAL",
+				},
+			},
 		},
 	}
 	return migration
