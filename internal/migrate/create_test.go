@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package migrate
+package migrate_test
 
 import (
 	"database/sql"
@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"storj.io/storj/internal/migrate"
 
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
@@ -24,19 +26,19 @@ func TestCreate_Sqlite(t *testing.T) {
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	// should create table
-	err = Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
+	err = migrate.Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
 	assert.NoError(t, err)
 
 	// shouldn't create a new table
-	err = Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
+	err = migrate.Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
 	assert.NoError(t, err)
 
 	// should fail, because schema changed
-	err = Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text, version int)"})
+	err = migrate.Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text, version int)"})
 	assert.Error(t, err)
 
 	// should fail, because of trying to CREATE TABLE with same name
-	err = Create("conflict", &sqliteDB{db, "CREATE TABLE example_table (id text, version int)"})
+	err = migrate.Create("conflict", &sqliteDB{db, "CREATE TABLE example_table (id text, version int)"})
 	assert.Error(t, err)
 }
 
@@ -57,19 +59,19 @@ func TestCreate_Postgres(t *testing.T) {
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	// should create table
-	err = Create("example", &postgresDB{db, "CREATE TABLE example_table (id text)"})
+	err = migrate.Create("example", &postgresDB{db, "CREATE TABLE example_table (id text)"})
 	assert.NoError(t, err)
 
 	// shouldn't create a new table
-	err = Create("example", &postgresDB{db, "CREATE TABLE example_table (id text)"})
+	err = migrate.Create("example", &postgresDB{db, "CREATE TABLE example_table (id text)"})
 	assert.NoError(t, err)
 
 	// should fail, because schema changed
-	err = Create("example", &postgresDB{db, "CREATE TABLE example_table (id text, version integer)"})
+	err = migrate.Create("example", &postgresDB{db, "CREATE TABLE example_table (id text, version integer)"})
 	assert.Error(t, err)
 
 	// should fail, because of trying to CREATE TABLE with same name
-	err = Create("conflict", &postgresDB{db, "CREATE TABLE example_table (id text, version integer)"})
+	err = migrate.Create("conflict", &postgresDB{db, "CREATE TABLE example_table (id text, version integer)"})
 	assert.Error(t, err)
 }
 
