@@ -10,9 +10,21 @@ import (
 func (rt *RoutingTable) addToReplacementCache(kadBucketID bucketID, node *pb.Node) {
 	nodes := rt.replacementCache[kadBucketID]
 	nodes = append(nodes, node)
+
 	if len(nodes) > rt.rcBucketSize {
 		copy(nodes, nodes[1:])
 		nodes = nodes[:len(nodes)-1]
+	}
+	rt.replacementCache[kadBucketID] = nodes
+}
+
+func (rt *RoutingTable) removeFromReplacementCache(kadBucketID bucketID, node *pb.Node) {
+	nodes := rt.replacementCache[kadBucketID]
+	for i, n := range nodes {
+		if pb.Equal(n, node) {
+			nodes = append(nodes[:i], nodes[i+1:]...)
+			break
+		}
 	}
 	rt.replacementCache[kadBucketID] = nodes
 }

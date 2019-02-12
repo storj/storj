@@ -108,7 +108,6 @@ func testSplits(t *testing.T, routingCtor routingCtor) {
 	// three bits should also not be full and have 4 nodes
 	// (40..., 48..., 50..., 58...). So we should be able to get no more than
 	// 18 nodes back
-
 	nodes, err := table.FindNear(PadID("55", "5"), 19)
 	require.NoError(t, err)
 	requireNodesEqual(t, []*pb.Node{
@@ -147,6 +146,7 @@ func testSplits(t *testing.T, routingCtor routingCtor) {
 
 	// bucket 00 should have two things in its replacement cache, 18... is one of them
 	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("18", "0")))
+
 	// now just one thing in its replacement cache
 	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("31", "0")))
 	require.NoError(t, table.ConnectionFailed(NodeFromPrefix("28", "0")))

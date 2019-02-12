@@ -36,3 +36,22 @@ func TestAddToReplacementCache(t *testing.T) {
 	rt.addToReplacementCache(kadBucketID2, node4)
 	assert.Equal(t, []*pb.Node{node3, node4}, rt.replacementCache[kadBucketID2])
 }
+
+func TestRemoveFromReplacementCache(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	rt := createRoutingTable(storj.NodeID{244, 255})
+	defer ctx.Check(rt.Close)
+
+	kadBucketID2 := bucketID{127, 255}
+	node2 := teststorj.MockNode(string([]byte{100, 255}))
+	node3 := teststorj.MockNode(string([]byte{90, 255}))
+
+	rt.addToReplacementCache(kadBucketID2, node2)
+	rt.addToReplacementCache(kadBucketID2, node3)
+
+	assert.Equal(t, []*pb.Node{node2, node3}, rt.replacementCache[kadBucketID2])
+
+	rt.removeFromReplacementCache(kadBucketID2, node3)
+	assert.Equal(t, []*pb.Node{node2}, rt.replacementCache[kadBucketID2])
+}

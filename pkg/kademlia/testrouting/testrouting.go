@@ -112,6 +112,7 @@ func (t *Table) ConnectionFailed(node *pb.Node) error {
 		// if we've failed too many times, remove the node
 		if data.fails > t.allowedFailures {
 			delete(t.nodes, node.Id)
+
 			t.preserveInvariants()
 		}
 	}
