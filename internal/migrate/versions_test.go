@@ -217,6 +217,29 @@ func failedMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	assert.Equal(t, false, version.Valid)
 }
 
+func TestInvalidStepsOrder(t *testing.T) {
+	m := migrate.Migration{
+		Table: "test",
+		Steps: []*migrate.Step{
+			{
+				Version: 0,
+			},
+			{
+				Version: 1,
+			},
+			{
+				Version: 4,
+			},
+			{
+				Version: 2,
+			},
+		},
+	}
+
+	err := m.ValidateSteps()
+	require.Error(t, err, "migrate: steps have incorrect order")
+}
+
 func dropTables(db *sql.DB, names ...string) error {
 	var errlist errs.Group
 	for _, name := range names {

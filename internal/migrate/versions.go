@@ -6,6 +6,7 @@ package migrate
 import (
 	"database/sql"
 	"regexp"
+	"sort"
 	"strconv"
 	"time"
 
@@ -65,6 +66,17 @@ func (migration *Migration) ValidTableName() error {
 	return nil
 }
 
+// ValidateSteps checks whether the specified table name is valid
+func (migration *Migration) ValidateSteps() error {
+	sorted := sort.SliceIsSorted(migration.Steps, func(i, j int) bool {
+		return migration.Steps[i].Version <= migration.Steps[j].Version
+	})
+	if !sorted {
+		return Error.New("steps have incorrect order")
+	}
+	return nil
+}
+
 // Run runs the migration steps
 func (migration *Migration) Run(log *zap.Logger, db DB) error {
 	err := migration.ValidTableName()
@@ -72,7 +84,12 @@ func (migration *Migration) Run(log *zap.Logger, db DB) error {
 		return err
 	}
 
-	err = migration.createVersionTable(log, db)
+	err = migration.ValidateSteps()
+	if err != nil {
+		return err
+	}
+
+	err = migration.ensureVersionTable(log, db)
 	if err != nil {
 		return Error.New("creating version table failed: %v", err)
 	}
@@ -120,7 +137,7 @@ func (migration *Migration) Run(log *zap.Logger, db DB) error {
 }
 
 // createVersionTable creates a new version table
-func (migration *Migration) createVersionTable(log *zap.Logger, db DB) error {
+func (migration *Migration) ensureVersionTable(log *zap.Logger, db DB) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return Error.Wrap(err)
