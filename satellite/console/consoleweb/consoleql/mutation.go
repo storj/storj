@@ -38,8 +38,8 @@ const (
 
 	// CreateAPIKeyMutation is a mutation name for api key creation
 	CreateAPIKeyMutation = "createAPIKey"
-	// DeleteAPIKeyMutation is a mutation name for api key deleting
-	DeleteAPIKeyMutation = "deleteAPIKey"
+	// DeleteAPIKeysMutation is a mutation name for api key deleting
+	DeleteAPIKeysMutation = "deleteAPIKeys"
 
 	// InputArg is argument name for all input types
 	InputArg = "input"
@@ -329,32 +329,39 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 				},
 			},
 			// deletes api key
-			DeleteAPIKeyMutation: &graphql.Field{
-				Type: types.APIKeyInfo(),
+			DeleteAPIKeysMutation: &graphql.Field{
+				Type: graphql.NewList(types.APIKeyInfo()),
 				Args: graphql.FieldConfigArgument{
 					FieldID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type: graphql.NewNonNull(graphql.NewList(graphql.String)),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					keyID, _ := p.Args[FieldID].(string)
+					paramKeysID, _ := p.Args[FieldID].([]interface{})
 
-					id, err := uuid.Parse(keyID)
+					var keyIds []uuid.UUID
+					var keys []console.APIKeyInfo
+					for _, id := range paramKeysID {
+						keyID, err := uuid.Parse(id.(string))
+						if err != nil {
+							return nil, err
+						}
+
+						key, err := service.GetAPIKeyInfo(p.Context, *keyID)
+						if err != nil {
+							return nil, err
+						}
+
+						keyIds = append(keyIds, *keyID)
+						keys = append(keys, *key)
+					}
+
+					err := service.DeleteAPIKeys(p.Context, keyIds)
 					if err != nil {
 						return nil, err
 					}
 
-					key, err := service.GetAPIKeyInfo(p.Context, *id)
-					if err != nil {
-						return nil, err
-					}
-
-					err = service.DeleteAPIKey(p.Context, *id)
-					if err != nil {
-						return nil, err
-					}
-
-					return key, nil
+					return keys, nil
 				},
 			},
 		},

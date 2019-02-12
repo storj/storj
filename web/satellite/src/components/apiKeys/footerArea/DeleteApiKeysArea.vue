@@ -35,18 +35,13 @@ import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from "@/utils/constants/action
 @Component({
     methods: {
 		onDelete: async function () {
-			let selectedKeys: any[] = this.$store.getters.selectedAPIKeys;
-			let isDeletionSuccess = true;
-			for (let i = 0; i < selectedKeys.length; i++) {
-				const dispatchResult = await this.$store.dispatch(API_KEYS_ACTIONS.DELETE, selectedKeys[i].id);
-				if(!dispatchResult.isSuccess) {
-					isDeletionSuccess = false;
-				}
-			}
+			let selectedKeys: any[] = this.$store.getters.selectedAPIKeys.map((key)=>{return key.id});
+
+			const dispatchResult = await this.$store.dispatch(API_KEYS_ACTIONS.DELETE, selectedKeys);
 
 			let keySuffix = selectedKeys.length > 1 ? '\'s' : '';
 
-			if(isDeletionSuccess){
+			if(dispatchResult.isSuccess){
 				this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API key${keySuffix} deleted successfully`);
 			} else {
 				this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during deletion API key${keySuffix}`);
