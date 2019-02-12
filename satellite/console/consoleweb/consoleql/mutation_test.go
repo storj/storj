@@ -505,7 +505,6 @@ func TestGrapqhlMutation(t *testing.T) {
 				assert.Equal(t, info.Name, keyInfo[consoleql.FieldName])
 				assert.Equal(t, project.ID.String(), keyInfo[consoleql.FieldProjectID])
 			}
-
 		})
 
 		t.Run("Delete project mutation", func(t *testing.T) {

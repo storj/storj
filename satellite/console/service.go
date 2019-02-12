@@ -559,14 +559,12 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 
 	for _, keyID := range ids {
 		key, err := s.store.APIKeys().Get(ctx, keyID)
-
 		if err != nil {
 			keysErr.Add(err)
 			continue
 		}
 
 		_, err = s.isProjectMember(ctx, auth.User.ID, key.ProjectID)
-
 		if err != nil {
 			keysErr.Add(ErrUnauthorized.Wrap(err))
 			continue
@@ -593,7 +591,6 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 
 	for _, keyToDeleteID := range ids {
 		err = tx.APIKeys().Delete(ctx, keyToDeleteID)
-
 		if err != nil {
 			return err
 		}
