@@ -36,8 +36,8 @@ func init() {
 type network struct{
 	ctx context.Context
 	addrs []string
-	//seen map[string]struct{}
-	seen map[string]int
+	seen map[string]struct{}
+	//seen map[string]int
 	out *tabwriter.Writer
 }
 
@@ -49,9 +49,8 @@ func mapCmd(cmd *cobra.Command, args []string) error {
 	ctx, _ := context.WithTimeout(process.Ctx(cmd), 5*time.Second)
 	n := &network{
 		ctx: ctx,
-		//seen: make(map[string]struct{}),
-		//seen: make(map[string]int),
-		seen: map[string]int{args[0]: 0},
+		//seen: map[string]int{args[0]: 0},
+		seen: map[string]struct{}{args[0]: {}},
 		addrs: []string{args[0]},
 		out: tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0),
 	}
@@ -78,33 +77,41 @@ func (n *network) walk(next string) error {
 	default:
 		inspector, err := NewInspector(next, *IdentityPath)
 		if err != nil {
-			return err
+			//return err
+			return nil
 		}
+
+		inspector.kadclient.
 
 		res, err := inspector.kadclient.FindNear(n.ctx, &pb.FindNearRequest{
 			Start: storj.NodeID{},
 			Limit: 100000,
 		})
 		if err != nil {
-			return err
+			//return err
+			return nil
 		}
 
-		nextIndex := n.seen[next]
+		//nextIndex := n.seen[next]
 		//_, _ = fmt.Fprintf(n.out, "%s\t%d\n", next, len(res.Nodes))
 		for _, node := range res.Nodes {
 			newAddr := node.Address.Address
 
 			if _, ok := n.seen[newAddr]; ok {
 				//_, _ = fmt.Fprintf(n.out, "\"%d\"\t->\t\"%d\"\n", nextIndex, newIndex)
+				//_, _ = fmt.Fprintf(n.out, "\"%s\"\t->\t\"%s\"\n", next, newAddr)
 				continue
 			}
 
-			newIndex := len(n.addrs)
+			//newIndex := len(n.addrs)
 
-			_, _ = fmt.Fprintf(n.out, "\"%d\" [fillcolor=\"#2683ff\" fontcolor=\"white\" style=filled]\n", newIndex)
-			_, _ = fmt.Fprintf(n.out, "\"%d\"\t->\t\"%d\"\n", nextIndex, newIndex)
+			//_, _ = fmt.Fprintf(n.out, "\"%d\" [fillcolor=\"#2683ff\" fontcolor=\"white\" style=filled]\n", newIndex)
+			_, _ = fmt.Fprintf(n.out, "\"%s\" [fillcolor=\"#2683ff\" fontcolor=\"white\" style=filled]\n", newAddr)
+			//_, _ = fmt.Fprintf(n.out, "\"%d\"\t->\t\"%d\"\n", nextIndex, newIndex)
+			_, _ = fmt.Fprintf(n.out, "\"%s\"\t->\t\"%s\"\n", next, newAddr)
 
-			n.seen[newAddr] = newIndex
+			//n.seen[newAddr] = newIndex
+			n.seen[newAddr] = struct{}{}
 			n.addrs = append(n.addrs, newAddr)
 
 			if err := n.walk(newAddr); err != nil {

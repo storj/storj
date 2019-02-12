@@ -74,7 +74,9 @@ install-sim: ## install storj-sim
 
 ##@ Utility
 .PHONY: map
-map: ##
+map: ## build a graphviz map of routing tables
+	@echo "Running ${@}"
+	@./scripts/map.sh
 
 ##@ Test
 
