@@ -284,7 +284,7 @@ func TestMigration(t *testing.T) {
 
 	// find latest version
 	migration := psdb.Migration()
-	migration.Now = "now"
+	migration.Now = func() time.Time { return time.Unix(0, 0) }
 
 	latestVersion := 0
 	// TODO support missing intermediate versions

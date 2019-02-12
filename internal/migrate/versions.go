@@ -43,7 +43,7 @@ Scenarios it doesn't handle properly.
 type Migration struct {
 	Table string
 	Steps []*Step
-	Now   string // can be used to override version timestamp
+	Now   func() time.Time // can be used to override version timestamp
 }
 
 // Step describes a single step in migration.
@@ -186,8 +186,8 @@ func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (int, error
 // addVersion adds information about a new migration
 func (migration *Migration) addVersion(tx *sql.Tx, db DB, version int) error {
 	now := time.Now().String()
-	if migration.Now != "" {
-		now = migration.Now
+	if migration.Now != nil {
+		now = migration.Now().String()
 	}
 	_, err := tx.Exec(db.Rebind(`
 		INSERT INTO `+migration.Table+` (version, commited_at)

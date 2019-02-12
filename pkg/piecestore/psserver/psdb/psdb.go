@@ -48,6 +48,7 @@ func Open(DBPath string) (db *DB, err error) {
 		return nil, err
 	}
 
+	// TODO add "PRAGMA journal_mode = WAL" somehow
 	sqlite, err := sql.Open("sqlite3", fmt.Sprintf("file:%s", DBPath))
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -82,11 +83,10 @@ func Migration() *migrate.Migration {
 				Description: "initialize database",
 				Version:     0,
 				Action: migrate.SQL{
-					"CREATE TABLE `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10), `size` INT(10));",
-					"CREATE TABLE `bandwidth_agreements` (`satellite` BLOB, `agreement` BLOB, `signature` BLOB);",
-					"CREATE INDEX idx_ttl_expires ON ttl (expires);",
-					"CREATE TABLE `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));",
-					"PRAGMA journal_mode = WAL",
+					"CREATE TABLE IF NOT EXISTS `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10), `size` INT(10));",
+					"CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`satellite` BLOB, `agreement` BLOB, `signature` BLOB);",
+					"CREATE INDEX IF NOT EXISTS idx_ttl_expires ON ttl (expires);",
+					"CREATE TABLE IF NOT EXISTS `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));",
 				},
 			},
 		},
