@@ -99,7 +99,7 @@ func (migration *Migration) Run(log *zap.Logger, db DB) error {
 		return Error.Wrap(err)
 	}
 
-	if version > 0 {
+	if version >= 0 {
 		log.Info("Latest Version", zap.Int("version", version))
 	} else {
 		log.Info("No Version")
