@@ -46,9 +46,12 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("piece ID not specified")
 	}
 
-	satID := recv.GetBandwidthAllocation().GetPayerAllocation().SatelliteId.Bytes()
+	payerAllocation := recv.GetPayerAllocation()
+	if payerAllocation == nil {
+		return StoreError.New("PayerBandwidthAllocation message is nil")
+	}
 
-	id, err := getNamespacedPieceID([]byte(pd.GetId()), satID)
+	id, err := getNamespacedPieceID([]byte(pd.GetId()), payerAllocation.SatelliteId.Bytes())
 	if err != nil {
 		return err
 	}

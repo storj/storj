@@ -9,6 +9,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -58,5 +59,6 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 		Action:            action,
 		SerialNumber:      serialNum.String(),
 	}
-	return pba, nil
+	err = auth.SignMessage(pba, *allocation.satelliteIdentity)
+	return pba, err
 }
