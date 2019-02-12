@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
+	"os"
+	"storj.io/storj/pkg/process"
+	"text/tabwriter"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -31,56 +33,87 @@ func init() {
 	rootCmd.AddCommand(cmdMap)
 }
 
+type network struct{
+	ctx context.Context
+	addrs []string
+	//seen map[string]struct{}
+	seen map[string]int
+	out *tabwriter.Writer
+}
+
 func mapCmd(cmd *cobra.Command, args []string) error {
 	if *IdentityPath == "" {
 		return ErrArgs.New("--identity-path required")
 	}
 
-
 	ctx, _ := context.WithTimeout(process.Ctx(cmd), 5*time.Second)
-	queue := NewQueue(ctx, 10, args[0], walk)
+	n := &network{
+		ctx: ctx,
+		//seen: make(map[string]struct{}),
+		//seen: make(map[string]int),
+		seen: map[string]int{args[0]: 0},
+		addrs: []string{args[0]},
+		out: tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0),
+	}
+	//_, _ = fmt.Fprintf(n.out, "Address\tRoute count\n")
+	_,_ = fmt.Fprintf(n.out, "digraph StorjNetwork {\n")
+	if err := n.walk(args[0]); err != nil {
+		fmt.Printf("error: %s\n", err.Error())
+	}
+	_, _ = fmt.Fprintf(n.out, "}\n")
+	_ = n.out.Flush()
 
-	<-ctx.Done()
-	//walk(ctx, queue, storj.NodeID{}, inspector.kadclient)
-
-	dot := buildDot(queue.routes)
-	fmt.Println(dot)
+	//dot := buildDot(queue.routes)
+	//fmt.Println(dot)
 
 	return nil
 }
 
-func walk(ctx context.Context, next string, queue *Queue) error {
-	inspector, err := NewInspector(next, *IdentityPath)
-	if err != nil {
-		return err
+//func walk(ctx context.Context, next string, queue *Queue) error {
+func (n *network) walk(next string) error {
+	clientErrs := errs.Group{}
+	select {
+	case <-n.ctx.Done():
+		return nil
+	default:
+		inspector, err := NewInspector(next, *IdentityPath)
+		if err != nil {
+			return err
+		}
+
+		res, err := inspector.kadclient.FindNear(n.ctx, &pb.FindNearRequest{
+			Start: storj.NodeID{},
+			Limit: 100000,
+		})
+		if err != nil {
+			return err
+		}
+
+		nextIndex := n.seen[next]
+		//_, _ = fmt.Fprintf(n.out, "%s\t%d\n", next, len(res.Nodes))
+		for _, node := range res.Nodes {
+			newAddr := node.Address.Address
+
+			if _, ok := n.seen[newAddr]; ok {
+				//_, _ = fmt.Fprintf(n.out, "\"%d\"\t->\t\"%d\"\n", nextIndex, newIndex)
+				continue
+			}
+
+			newIndex := len(n.addrs)
+
+			_, _ = fmt.Fprintf(n.out, "\"%d\" [fillcolor=\"#2683ff\" fontcolor=\"white\" style=filled]\n", newIndex)
+			_, _ = fmt.Fprintf(n.out, "\"%d\"\t->\t\"%d\"\n", nextIndex, newIndex)
+
+			n.seen[newAddr] = newIndex
+			n.addrs = append(n.addrs, newAddr)
+
+			if err := n.walk(newAddr); err != nil {
+				clientErrs.Add(err)
+			}
+		}
 	}
 
-	res, err := inspector.kadclient.FindNear(ctx, &pb.FindNearRequest{
-		Start: storj.NodeID{},
-		Limit: 100000,
-	})
-	if err != nil {
-		//fmt.Printf("error finding %s\n", start.String())
-		return err
-	}
-
-	//var nodeIDs storj.NodeIDList
-	var addrs []string
-	for _, node := range res.Nodes {
-		//nodeIDs = append(nodeIDs, node.Id)
-		addrs = append(addrs, node.Address.String())
-	}
-
-	route := route{
-		addr: next,
-		//neighbors: nodeIDs,
-		neighbors: addrs,
-	}
-	queue.Push(route)
-
-	//next := queue.Pop()
-	//walk(ctx, queue, next, client)
-	return nil
+	return clientErrs.Err()
 }
 
 func buildDot(routes routes) string {
@@ -100,7 +133,7 @@ func buildDot(routes routes) string {
 
 func NewDot(graph string) *DOTGraph {
 	return &DOTGraph{
-		name: graph,
+		name:     graph,
 		routeMap: make(map[string][]string),
 	}
 }

@@ -72,6 +72,10 @@ install-sim: ## install storj-sim
 	@echo "Running ${@}"
 	@go install -race -v storj.io/storj/cmd/storj-sim storj.io/storj/cmd/bootstrap storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode storj.io/storj/cmd/uplink storj.io/storj/cmd/gateway storj.io/storj/cmd/identity storj.io/storj/cmd/certificates
 
+##@ Utility
+.PHONY: map
+map: ##
+
 ##@ Test
 
 .PHONY: test
