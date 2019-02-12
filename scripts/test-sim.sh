@@ -1,4 +1,5 @@
 #!/bin/bash
+#### NOTE: You must have aws-cli installed for this script to work.
 set -ueo pipefail
 set +x
 
@@ -20,6 +21,7 @@ storj-sim -x network setup
 
 # run aws-cli tests
 storj-sim -x network test bash $SCRIPTDIR/test-sim-aws.sh
+storj-sim -x network test bash $SCRIPTDIR/test-uplink.sh
 storj-sim -x network destroy
 
 # setup the network with ipv6
