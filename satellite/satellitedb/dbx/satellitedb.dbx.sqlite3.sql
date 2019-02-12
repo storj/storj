@@ -97,11 +97,11 @@ CREATE TABLE users (
 	id BLOB NOT NULL,
 	first_name TEXT NOT NULL,
 	last_name TEXT NOT NULL,
-	email TEXT,
+	email TEXT NOT NULL,
 	password_hash BLOB NOT NULL,
+	status INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( email )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE api_keys (
 	id BLOB NOT NULL,

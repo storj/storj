@@ -8,7 +8,6 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/migrate"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -19,22 +18,6 @@ type ConsoleDB struct {
 	tx *dbx.Tx
 
 	methods dbx.Methods
-}
-
-// NewConsoleDB - constructor for ConsoleDB
-func NewConsoleDB(driver, source string) (*ConsoleDB, error) {
-	db, err := dbx.Open(driver, source)
-	if err != nil {
-		return nil, Error.New("failed opening database %q, %q: %v",
-			driver, source, err)
-	}
-
-	database := &ConsoleDB{
-		db:      db,
-		methods: db,
-	}
-
-	return database, nil
 }
 
 // Users is getter a for Users repository
@@ -55,22 +38,6 @@ func (db *ConsoleDB) ProjectMembers() console.ProjectMembers {
 // APIKeys is a getter for APIKeys repository
 func (db *ConsoleDB) APIKeys() console.APIKeys {
 	return &apikeys{db.methods}
-}
-
-// CreateTables is a method for creating all tables for satellitedb
-func (db *ConsoleDB) CreateTables() error {
-	if db.db == nil {
-		return errs.New("Connection is closed")
-	}
-	return migrate.Create("satellitedb", db.db)
-}
-
-// Close is used to close db connection
-func (db *ConsoleDB) Close() error {
-	if db.db == nil {
-		return errs.New("Connection is closed")
-	}
-	return db.db.Close()
 }
 
 // BeginTx is a method for opening transaction
