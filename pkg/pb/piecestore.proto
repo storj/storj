@@ -58,6 +58,7 @@ message PieceStore {
 
   RenterBandwidthAllocation bandwidth_allocation = 1;
   PieceData piece_data = 2;
+  PayerBandwidthAllocation payer_allocation = 3;
 }
 
 message PieceId {
