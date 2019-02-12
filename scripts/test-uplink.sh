@@ -2,12 +2,15 @@
 set -ueo pipefail
 
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
-# cleanup() {
-#     rm -rf "$TMPDIR"
-# }
-# trap cleanup EXIT
-
 go install storj.io/storj/cmd/uplink
-uplink setup --config-dir $TMPDIR
-uplink --config-dir="$TMPDIR" mb sj://testbucket/
+go install storj.io/storj/cmd/identity
 
+identity create . --identity-dir $TMPDIR --difficulty 12
+
+uplink setup --api-key="abc123" --identity-dir $TMPDIR \
+--satellite-addr "localhost:10000" \
+--config-dir $TMPDIR
+
+cat $TMPDIR/config.yaml
+uplink mb sj://testbucket/ --config-dir $TMPDIR
+# uplink ls sj://testbucket/ --config-dir $TMPDIR
