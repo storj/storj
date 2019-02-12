@@ -1,51 +1,53 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package psdb
+package psdb_test
 
 import (
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/stretchr/testify/assert"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/storj"
 )
 
 const concurrency = 10
 
-func newDB(t testing.TB, id string) (*DB, func()) {
+func newDB(t testing.TB, id string) (*psdb.DB, func()) {
 	tmpdir, err := ioutil.TempDir("", "storj-psdb-"+id)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	dbpath := filepath.Join(tmpdir, "psdb.db")
 
-	db, err := Open(dbpath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	db, err := psdb.Open(dbpath)
+	require.NoError(t, err)
+
+	err = psdb.Migration().Run(zap.NewNop(), db)
+	require.NoError(t, err)
 
 	return db, func() {
 		err := db.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		err = os.RemoveAll(tmpdir)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 	}
 }
 
 func TestNewInmemory(t *testing.T) {
-	db, err := OpenInMemory()
+	db, err := psdb.OpenInMemory()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,6 +274,52 @@ func TestBandwidthUsage(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestMigration(t *testing.T) {
+	_, err := exec.LookPath("sqlite3")
+	if err != nil {
+		t.Skip("unable to find sqlite3 executable")
+	}
+
+	// find latest version
+	migration := psdb.Migration()
+	migration.Now = "now"
+
+	latestVersion := 0
+	// TODO support missing intermediate versions
+	for _, step := range migration.Steps {
+		if latestVersion < step.Version {
+			latestVersion = step.Version
+		}
+	}
+
+	for version := 0; version <= latestVersion; version++ {
+		t.Run("migration-v"+strconv.Itoa(version), func(t *testing.T) {
+			ctx := testcontext.New(t)
+			defer ctx.Cleanup()
+
+			dbpath := ctx.File("psdb.db")
+			db, err := psdb.Open(dbpath)
+			require.NoError(t, err)
+			defer ctx.Check(db.Close)
+
+			testedMigration := migration.TargetVersion(version)
+			err = testedMigration.Run(zap.NewNop(), db)
+			require.NoError(t, err)
+
+			out, err := exec.Command("sqlite3", dbpath, ".dump").Output()
+			require.NoError(t, err)
+
+			testfile := "testdata/db.v" + strconv.Itoa(version) + ".sql"
+			if _, err := os.Stat(testfile); err != nil {
+				t.Fatal("no test data ", testfile)
+			}
+			expected, err := ioutil.ReadFile(testfile)
+
+			assert.Equal(t, string(expected), string(out))
+		})
+	}
 }
 
 func BenchmarkWriteBandwidthAllocation(b *testing.B) {

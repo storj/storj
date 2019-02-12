@@ -322,6 +322,36 @@ func onCreateFail(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	assert.Error(t, err)
 }
 
+func TestTargetVersion(t *testing.T) {
+	m := migrate.Migration{
+		Table: "test",
+		Steps: []*migrate.Step{
+			{
+				Description: "Step 1",
+				Version:     1,
+				Action:      migrate.SQL{},
+			},
+			{
+				Description: "Step 2",
+				Version:     2,
+				Action:      migrate.SQL{},
+			},
+			{
+				Description: "Step 2.2",
+				Version:     2,
+				Action:      migrate.SQL{},
+			},
+			{
+				Description: "Step 3",
+				Version:     3,
+				Action:      migrate.SQL{},
+			},
+		},
+	}
+	testedMigration := m.TargetVersion(2)
+	assert.Equal(t, 3, len(testedMigration.Steps))
+}
+
 func dropTables(db *sql.DB, names ...string) error {
 	var errlist errs.Group
 	for _, name := range names {

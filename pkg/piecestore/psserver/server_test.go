@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -560,6 +561,8 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	tempDir := filepath.Join(tmp, "test-data", "3000")
 	storage := pstore.NewStorage(tempDir)
 	psDB, err := psdb.Open(tempDBPath)
+	require.NoError(t, err)
+	err = psdb.Migration().Run(zap.NewNop(), psDB)
 	require.NoError(t, err)
 	verifier := func(authorization *pb.SignedMessage) error {
 		return nil

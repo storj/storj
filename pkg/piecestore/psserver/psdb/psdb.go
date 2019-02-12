@@ -19,9 +19,9 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -55,9 +55,6 @@ func Open(DBPath string) (db *DB, err error) {
 	db = &DB{
 		DB: sqlite,
 	}
-	if err := db.init(); err != nil {
-		return nil, utils.CombineErrors(err, db.DB.Close())
-	}
 
 	return db, nil
 }
@@ -72,50 +69,23 @@ func OpenInMemory() (db *DB, err error) {
 	db = &DB{
 		DB: sqlite,
 	}
-	if err := db.init(); err != nil {
-		return nil, utils.CombineErrors(err, db.DB.Close())
-	}
 
 	return db, nil
 }
 
-func (db *DB) init() (err error) {
-	tx, err := db.DB.Begin()
-	if err != nil {
-		return err
+// Migration define piecestore DB migration
+func Migration() *migrate.Migration {
+	migration := &migrate.Migration{
+		Table: "sn_versions",
+		OnCreate: migrate.SQL{
+			"CREATE TABLE IF NOT EXISTS `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10), `size` INT(10));",
+			"CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`satellite` BLOB, `agreement` BLOB, `signature` BLOB);",
+			"CREATE INDEX IF NOT EXISTS idx_ttl_expires ON ttl (expires);",
+			"CREATE TABLE IF NOT EXISTS `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));",
+			"PRAGMA journal_mode = WAL",
+		},
 	}
-
-	defer func() { _ = tx.Rollback() }()
-
-	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10), `size` INT(10));")
-	if err != nil {
-		return err
-	}
-
-	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`satellite` BLOB, `agreement` BLOB, `signature` BLOB);")
-	if err != nil {
-		return err
-	}
-
-	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_ttl_expires ON ttl (expires);")
-	if err != nil {
-		return err
-	}
-
-	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));")
-	if err != nil {
-		return err
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
-
-	// try to enable write-ahead-logging
-	_, _ = db.DB.Exec(`PRAGMA journal_mode = WAL`)
-
-	return nil
+	return migration
 }
 
 // Close the database
@@ -371,3 +341,12 @@ func (db *DB) GetTotalBandwidthBetween(startdate time.Time, enddate time.Time) (
 	err = db.DB.QueryRow(`SELECT SUM(size) FROM bwusagetbl WHERE daystartdate BETWEEN ? AND ?`, startTimeUnix, endTimeUnix).Scan(&totalbwusage)
 	return totalbwusage, err
 }
+
+// Begin begins transaction
+func (db *DB) Begin() (*sql.Tx, error) { return db.DB.Begin() }
+
+// Rebind rebind parameters
+func (db *DB) Rebind(s string) string { return s }
+
+// Schema returns schema
+func (db *DB) Schema() string { return "" }

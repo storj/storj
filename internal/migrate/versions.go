@@ -43,6 +43,7 @@ type Migration struct {
 	Table    string
 	OnCreate Action
 	Steps    []*Step
+	Now      string // can be used to override version timestamp
 }
 
 // Step describes a single step in migration.
@@ -55,6 +56,18 @@ type Step struct {
 // Action is something that needs to be done
 type Action interface {
 	Run(log *zap.Logger, db DB, tx *sql.Tx) error
+}
+
+// TargetVersion returns migration with steps upto specified version
+func (migration *Migration) TargetVersion(version int) *Migration {
+	m := *migration
+	m.Steps = nil
+	for _, step := range migration.Steps {
+		if step.Version <= version {
+			m.Steps = append(m.Steps, step)
+		}
+	}
+	return &m
 }
 
 // ValidTableName checks whether the specified table name is valid
@@ -83,7 +96,7 @@ func (migration *Migration) Run(log *zap.Logger, db DB) error {
 		return Error.Wrap(err)
 	}
 
-	if version < 0 {
+	if version > 0 {
 		log.Info("Latest Version", zap.Int("version", version))
 	} else {
 		log.Info("No Version")
@@ -178,10 +191,14 @@ func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (int, error
 
 // addVersion adds information about a new migration
 func (migration *Migration) addVersion(tx *sql.Tx, db DB, version int) error {
+	now := time.Now().String()
+	if migration.Now != "" {
+		now = migration.Now
+	}
 	_, err := tx.Exec(db.Rebind(`
 		INSERT INTO `+migration.Table+` (version, commited_at)
 		VALUES (?, ?)`),
-		version, time.Now().String(),
+		version, now,
 	)
 	return err
 }
