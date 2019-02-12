@@ -56,4 +56,6 @@ func TestRemoveFromReplacementCache(t *testing.T) {
 	assert.Equal(t, []*pb.Node{node2, node4}, rt.replacementCache[kadBucketID2])
 	rt.removeFromReplacementCache(kadBucketID2, node2)
 	assert.Equal(t, []*pb.Node{node4}, rt.replacementCache[kadBucketID2])
+	rt.removeFromReplacementCache(kadBucketID2, node4)
+	assert.Equal(t, []*pb.Node{}, rt.replacementCache[kadBucketID2])
 }
