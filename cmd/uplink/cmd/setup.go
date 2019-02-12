@@ -13,17 +13,8 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
 )
-
-// UplinkFlags configuration flags
-type UplinkFlags struct {
-	APIKey        string `default:"" help:"the api key to use for the satellite" setup:"true"`
-	SatelliteAddr string `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
-
-	miniogw.Config // TODO remove when GetMetainfo will be moved from minio
-}
 
 var (
 	setupCmd = &cobra.Command{

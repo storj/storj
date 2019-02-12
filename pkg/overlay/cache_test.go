@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/overlay"
@@ -140,4 +141,85 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.D
 		assert.Error(t, err)
 		assert.True(t, err == overlay.ErrEmptyNode)
 	}
+}
+
+func TestRandomizedSelection(t *testing.T) {
+	t.Parallel()
+	testRandomizedSelection(t, true)
+	testRandomizedSelection(t, false)
+}
+
+func testRandomizedSelection(t *testing.T, reputable bool) {
+	totalNodes := 1000
+	selectIterations := 100
+	numNodesToSelect := 100
+	minSelectCount := 3 // TODO: compute this limit better
+
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		cache := db.OverlayCache()
+		allIDs := make(storj.NodeIDList, totalNodes)
+		nodeCounts := make(map[storj.NodeID]int)
+
+		// put nodes in cache
+		for i := 0; i < totalNodes; i++ {
+			newID := storj.NodeID{}
+			_, _ = rand.Read(newID[:])
+			err := cache.Update(ctx, &pb.Node{
+				Id:           newID,
+				Type:         pb.NodeType_STORAGE,
+				Restrictions: &pb.NodeRestrictions{},
+				Reputation:   &pb.NodeStats{},
+			})
+			require.NoError(t, err)
+			allIDs[i] = newID
+			nodeCounts[newID] = 0
+		}
+
+		// select numNodesToSelect nodes selectIterations times
+		for i := 0; i < selectIterations; i++ {
+			var nodes []*pb.Node
+			var err error
+
+			if reputable {
+				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{})
+				require.NoError(t, err)
+			} else {
+				nodes, err = cache.SelectNewStorageNodes(ctx, numNodesToSelect, &overlay.NewNodeCriteria{
+					AuditThreshold: 1,
+				})
+				require.NoError(t, err)
+			}
+			require.Len(t, nodes, numNodesToSelect)
+
+			for _, node := range nodes {
+				nodeCounts[node.Id]++
+			}
+		}
+
+		belowThreshold := 0
+
+		table := []int{}
+
+		// expect that each node has been selected at least minSelectCount times
+		for _, id := range allIDs {
+			count := nodeCounts[id]
+			if count < minSelectCount {
+				belowThreshold++
+			}
+			if count >= len(table) {
+				table = append(table, make([]int, count-len(table)+1)...)
+			}
+			table[count]++
+		}
+
+		if belowThreshold > totalNodes*1/100 {
+			t.Errorf("%d out of %d were below threshold %d", belowThreshold, totalNodes, minSelectCount)
+			for count, amount := range table {
+				t.Logf("%3d = %4d", count, amount)
+			}
+		}
+	})
 }

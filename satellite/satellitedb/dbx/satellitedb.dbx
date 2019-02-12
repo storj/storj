@@ -220,20 +220,22 @@ delete injuredsegment ( where injuredsegment.id = ? )
 
 model user (
     key id
-    unique email
 
     field id               blob
     field first_name       text      ( updatable )
     field last_name        text      ( updatable )
 
-    field email            text      ( updatable, nullable )
+    field email            text      ( updatable )
     field password_hash    blob      ( updatable )
+
+    field status           int       ( updatable, autoinsert )
 
     field created_at       timestamp ( autoinsert )
 )
 read one (
     select user
     where user.email = ?
+    where user.status != 0
 )
 read one (
     select user

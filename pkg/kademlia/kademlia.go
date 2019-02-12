@@ -6,6 +6,7 @@ package kademlia
 import (
 	"context"
 	"math/rand"
+	"sync/atomic"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -51,17 +52,19 @@ type Kademlia struct {
 
 	bootstrapFinished sync2.Fence
 
-	RefreshBuckets sync2.Cycle
+	refreshThreshold int64
+	RefreshBuckets   sync2.Cycle
 }
 
 // NewService returns a newly configured Kademlia instance
 func NewService(log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, transport transport.Client, alpha int, rt *RoutingTable) (*Kademlia, error) {
 	k := &Kademlia{
-		log:            log,
-		alpha:          alpha,
-		routingTable:   rt,
-		bootstrapNodes: bootstrapNodes,
-		dialer:         NewDialer(log.Named("dialer"), transport),
+		log:              log,
+		alpha:            alpha,
+		routingTable:     rt,
+		bootstrapNodes:   bootstrapNodes,
+		dialer:           NewDialer(log.Named("dialer"), transport),
+		refreshThreshold: int64(time.Minute),
 	}
 
 	return k, nil
@@ -282,6 +285,11 @@ func (k *Kademlia) Seen() []*pb.Node {
 	return nodes
 }
 
+// SetBucketRefreshThreshold changes the threshold when buckets are considered stale and need refreshing.
+func (k *Kademlia) SetBucketRefreshThreshold(threshold time.Duration) {
+	atomic.StoreInt64(&k.refreshThreshold, int64(threshold))
+}
+
 // Run occasionally refreshes stale kad buckets
 func (k *Kademlia) Run(ctx context.Context) error {
 	if !k.lookups.Start() {
@@ -291,7 +299,8 @@ func (k *Kademlia) Run(ctx context.Context) error {
 
 	k.RefreshBuckets.SetInterval(5 * time.Minute)
 	return k.RefreshBuckets.Run(ctx, func(ctx context.Context) error {
-		err := k.refresh(ctx, time.Minute)
+		threshold := time.Duration(atomic.LoadInt64(&k.refreshThreshold))
+		err := k.refresh(ctx, threshold)
 		if err != nil {
 			k.log.Warn("bucket refresh failed", zap.Error(err))
 		}

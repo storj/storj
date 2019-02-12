@@ -217,111 +217,6 @@ func failedMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	assert.Equal(t, false, version.Valid)
 }
 
-func TestOnCreateMigrationSqlite(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, db.Close()) }()
-
-	onCreate(t, db, &sqliteDB{DB: db})
-}
-
-func TestOnCreateMigrationPostgres(t *testing.T) {
-	if *testPostgres == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
-	}
-
-	db, err := sql.Open("postgres", *testPostgres)
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, db.Close()) }()
-
-	onCreate(t, db, &postgresDB{DB: db})
-}
-
-func onCreate(t *testing.T, db *sql.DB, testDB migrate.DB) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	dbName := strings.ToLower(`versions_` + t.Name())
-	defer func() { assert.NoError(t, dropTables(db, dbName, "users")) }()
-
-	m := migrate.Migration{
-		Table: dbName,
-		OnCreate: migrate.SQL{
-			`CREATE TABLE users (id int)`,
-		},
-		Steps: []*migrate.Step{
-			{
-				Description: "Step 1",
-				Version:     1,
-				Action: migrate.SQL{
-					`INSERT INTO users (id) VALUES (1)`,
-				},
-			},
-		},
-	}
-
-	err := m.Run(zap.NewNop(), testDB)
-	require.NoError(t, err)
-
-	var version int
-	err = db.QueryRow(`SELECT MAX(version) FROM ` + dbName).Scan(&version)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, version)
-
-	var id int
-	err = db.QueryRow(`SELECT MAX(id) FROM users`).Scan(&id)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, id)
-}
-
-func TestOnCreateFailMigrationSqlite(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, db.Close()) }()
-
-	onCreateFail(t, db, &sqliteDB{DB: db})
-}
-
-func TestOnCreateFailMigrationPostgres(t *testing.T) {
-	if *testPostgres == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
-	}
-
-	db, err := sql.Open("postgres", *testPostgres)
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, db.Close()) }()
-
-	onCreateFail(t, db, &postgresDB{DB: db})
-}
-
-func onCreateFail(t *testing.T, db *sql.DB, testDB migrate.DB) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	dbName := strings.ToLower(`versions_` + t.Name())
-	defer func() { assert.NoError(t, dropTables(db, dbName)) }()
-
-	m := migrate.Migration{
-		Table: dbName,
-		OnCreate: migrate.SQL{
-			`CREATE TABLE users1 (id int)`,
-			`INVALID_SQL users2 (id int)`,
-		},
-	}
-
-	err := m.Run(zap.NewNop(), testDB)
-	require.Error(t, err, "syntax error")
-
-	var version sql.NullInt64
-	err = db.QueryRow(`SELECT MAX(version) FROM ` + dbName).Scan(&version)
-	assert.NoError(t, err)
-	assert.Equal(t, false, version.Valid)
-
-	// check if first SQL was reverted
-	err = db.QueryRow(`SELECT MAX(id) FROM users1`).Scan()
-	assert.Error(t, err)
-}
-
 func TestTargetVersion(t *testing.T) {
 	m := migrate.Migration{
 		Table: "test",
@@ -350,6 +245,29 @@ func TestTargetVersion(t *testing.T) {
 	}
 	testedMigration := m.TargetVersion(2)
 	assert.Equal(t, 3, len(testedMigration.Steps))
+}
+
+func TestInvalidStepsOrder(t *testing.T) {
+	m := migrate.Migration{
+		Table: "test",
+		Steps: []*migrate.Step{
+			{
+				Version: 0,
+			},
+			{
+				Version: 1,
+			},
+			{
+				Version: 4,
+			},
+			{
+				Version: 2,
+			},
+		},
+	}
+
+	err := m.ValidateSteps()
+	require.Error(t, err, "migrate: steps have incorrect order")
 }
 
 func dropTables(db *sql.DB, names ...string) error {

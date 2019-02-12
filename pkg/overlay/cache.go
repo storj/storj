@@ -38,10 +38,10 @@ var OverlayError = errs.Class("Overlay Error")
 
 // DB implements the database for overlay.Cache
 type DB interface {
-	// SelectNodes looks up nodes based on criteria
-	SelectNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*pb.Node, error)
-	// SelectNewNodes looks up nodes based on new node criteria
-	SelectNewNodes(ctx context.Context, count int, criteria *NewNodeCriteria) ([]*pb.Node, error)
+	// SelectStorageNodes looks up nodes based on criteria
+	SelectStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*pb.Node, error)
+	// SelectNewStorageNodes looks up nodes based on new node criteria
+	SelectNewStorageNodes(ctx context.Context, count int, criteria *NewNodeCriteria) ([]*pb.Node, error)
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error)
@@ -123,9 +123,7 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNod
 		auditCount = preferences.NewNodeAuditThreshold
 	}
 
-	reputableNodes, err := cache.db.SelectNodes(ctx, reputableNodeCount, &NodeCriteria{
-		Type: pb.NodeType_STORAGE,
-
+	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount, &NodeCriteria{
 		FreeBandwidth: freeBandwidth,
 		FreeDisk:      freeDisk,
 
@@ -141,9 +139,7 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNod
 	}
 
 	newNodeCount := int64(float64(reputableNodeCount) * preferences.NewNodePercentage)
-	newNodes, err := cache.db.SelectNewNodes(ctx, int(newNodeCount), &NewNodeCriteria{
-		Type: pb.NodeType_STORAGE,
-
+	newNodes, err := cache.db.SelectNewStorageNodes(ctx, int(newNodeCount), &NewNodeCriteria{
 		FreeBandwidth: freeBandwidth,
 		FreeDisk:      freeDisk,
 

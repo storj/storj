@@ -1,27 +1,36 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package server
+package tlsopts
 
 import (
+	"crypto/tls"
 	"io/ioutil"
 
-	"google.golang.org/grpc"
+	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/pkcrypto"
 )
 
-// Options holds config, identity, and peer verification function data for use with a grpc server.
+var (
+	mon = monkit.Package()
+	// Error is error for tlsopts
+	Error = errs.Class("tlsopts error")
+)
+
+// Options holds config, identity, and peer verification function data for use with tls.
 type Options struct {
 	Config   Config
 	Ident    *identity.FullIdentity
 	RevDB    *identity.RevocationDB
 	PCVFuncs []peertls.PeerCertVerificationFunc
+	Cert     *tls.Certificate
 }
 
-// NewOptions is a constructor for `serverOptions` given an identity and config
+// NewOptions is a constructor for `tls options` given an identity and config
 func NewOptions(i *identity.FullIdentity, c Config) (*Options, error) {
 	opts := &Options{
 		Config: c,
@@ -34,10 +43,6 @@ func NewOptions(i *identity.FullIdentity, c Config) (*Options, error) {
 	}
 
 	return opts, nil
-}
-
-func (opts *Options) grpcOpts() (grpc.ServerOption, error) {
-	return opts.Ident.ServerOption(opts.PCVFuncs...)
 }
 
 // configure adds peer certificate verification functions and revocation
@@ -82,5 +87,7 @@ func (opts *Options) configure(c Config) (err error) {
 	}
 
 	opts.PCVFuncs = pcvs
-	return nil
+
+	opts.Cert, err = peertls.TLSCert(opts.Ident.ChainRaw(), opts.Ident.Leaf, opts.Ident.Key)
+	return err
 }

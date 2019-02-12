@@ -30,7 +30,7 @@ func (users *users) Get(ctx context.Context, id uuid.UUID) (*console.User, error
 
 // GetByEmail is a method for querying user by email from the database.
 func (users *users) GetByEmail(ctx context.Context, email string) (*console.User, error) {
-	user, err := users.db.Get_User_By_Email(ctx, dbx.User_Email(email))
+	user, err := users.db.Get_User_By_Email_And_Status_Not_Number(ctx, dbx.User_Email(email))
 
 	if err != nil {
 		return nil, err
@@ -46,21 +46,12 @@ func (users *users) Insert(ctx context.Context, user *console.User) (*console.Us
 		return nil, err
 	}
 
-	var email dbx.User_Email_Field
-	if user.Email != "" {
-		email = dbx.User_Email(user.Email)
-	} else {
-		email = dbx.User_Email_Null()
-	}
-
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(userID[:]),
 		dbx.User_FirstName(user.FirstName),
 		dbx.User_LastName(user.LastName),
+		dbx.User_Email(user.Email),
 		dbx.User_PasswordHash(user.PasswordHash),
-		dbx.User_Create_Fields{
-			Email: email,
-		},
 	)
 
 	if err != nil {
@@ -91,9 +82,10 @@ func (users *users) Update(ctx context.Context, user *console.User) error {
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable
 func toUpdateUser(user *console.User) dbx.User_Update_Fields {
 	update := dbx.User_Update_Fields{
-		Email:     dbx.User_Email(user.Email),
 		FirstName: dbx.User_FirstName(user.FirstName),
 		LastName:  dbx.User_LastName(user.LastName),
+		Email:     dbx.User_Email(user.Email),
+		Status:    dbx.User_Status(int(user.Status)),
 	}
 
 	// extra password check to update only calculated hash from service
@@ -119,12 +111,10 @@ func userFromDBX(user *dbx.User) (*console.User, error) {
 		ID:           id,
 		FirstName:    user.FirstName,
 		LastName:     user.LastName,
+		Email:        user.Email,
 		PasswordHash: user.PasswordHash,
+		Status:       console.UserStatus(user.Status),
 		CreatedAt:    user.CreatedAt,
-	}
-
-	if user.Email != nil {
-		result.Email = *user.Email
 	}
 
 	return &result, nil

@@ -112,7 +112,7 @@ export async function createUserRequest(user: User, password: string): Promise<R
                                 firstName: "${user.firstName}",
                                 lastName: "${user.lastName}",
                             }
-                        )
+                        ){email}
                     }`
                 ),
                 fetchPolicy: 'no-cache',
