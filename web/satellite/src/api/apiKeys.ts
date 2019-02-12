@@ -72,7 +72,6 @@ export async function createAPIKey(projectID: string, name: string) {
         if (response.errors) {
             result.errorMessage = response.errors[0].message;
         } else {
-            console.log('response', response)
             result.isSuccess = true;
             result.data = {
                 key: response.data.createAPIKey.key,

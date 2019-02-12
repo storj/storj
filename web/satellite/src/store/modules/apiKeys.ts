@@ -52,7 +52,6 @@ export const apiKeysModule = {
             const projectId = rootGetters.selectedProject.id;
 
             let result = await createAPIKey(projectId, name);
-            console.log(result);
 
             if (result.isSuccess) {
                 commit(API_KEYS_MUTATIONS.ADD, result.data.keyInfo);
@@ -66,8 +65,6 @@ export const apiKeysModule = {
             if (result.isSuccess) {
                 commit(API_KEYS_MUTATIONS.DELETE, result.data.id);
             }
-
-            console.log(result);
 
             return result;
         },

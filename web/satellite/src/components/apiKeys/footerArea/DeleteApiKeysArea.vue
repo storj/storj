@@ -30,17 +30,28 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
-import { API_KEYS_ACTIONS } from "@/utils/constants/actionNames";
+import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from "@/utils/constants/actionNames";
 
 @Component({
     methods: {
-        onDelete: async function () {
-           let selectedKeys: any[] = this.$store.getters.selectedAPIKeys;
+		onDelete: async function () {
+			let selectedKeys: any[] = this.$store.getters.selectedAPIKeys;
+			let isDeletionSuccess = true;
+			for (let i = 0; i < selectedKeys.length; i++) {
+				const dispatchResult = await this.$store.dispatch(API_KEYS_ACTIONS.DELETE, selectedKeys[i].id);
+				if(!dispatchResult.isSuccess) {
+					isDeletionSuccess = false;
+				}
+			}
 
-           for (let i = 0; i < selectedKeys.length; i++) {
-               this.$store.dispatch(API_KEYS_ACTIONS.DELETE, selectedKeys[i].id);
-           }
-        },
+			let keySuffix = selectedKeys.length > 1 ? '\'s' : '';
+
+			if(isDeletionSuccess){
+				this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API key${keySuffix} deleted successfully`);
+			} else {
+				this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during deletion API key${keySuffix}`);
+			}
+		},
         onClearSelection: function (): void {
             this.$store.dispatch(API_KEYS_ACTIONS.CLEAR_SELECTION);
         },
