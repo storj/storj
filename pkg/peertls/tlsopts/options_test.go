@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package server_test
+package tlsopts_test
 
 import (
 	"io/ioutil"
@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/peertls/tlsopts"
 )
 
 func TestNewOptions(t *testing.T) {
@@ -32,16 +32,16 @@ func TestNewOptions(t *testing.T) {
 
 	cases := []struct {
 		testID      string
-		config      server.Config
+		config      tlsopts.Config
 		pcvFuncsLen int
 	}{
 		{
 			"default",
-			server.Config{},
+			tlsopts.Config{},
 			0,
 		}, {
 			"revocation processing",
-			server.Config{
+			tlsopts.Config{
 				RevocationDBURL: "bolt://" + ctx.File("revocation1.db"),
 				Extensions: peertls.TLSExtConfig{
 					Revocation: true,
@@ -50,14 +50,14 @@ func TestNewOptions(t *testing.T) {
 			2,
 		}, {
 			"ca whitelist verification",
-			server.Config{
+			tlsopts.Config{
 				PeerCAWhitelistPath: whitelistPath,
 				UsePeerCAWhitelist:  true,
 			},
 			1,
 		}, {
 			"ca whitelist verification and whitelist signed leaf verification",
-			server.Config{
+			tlsopts.Config{
 				// NB: file doesn't actually exist
 				PeerCAWhitelistPath: whitelistPath,
 				UsePeerCAWhitelist:  true,
@@ -68,7 +68,7 @@ func TestNewOptions(t *testing.T) {
 			2,
 		}, {
 			"revocation processing and whitelist verification",
-			server.Config{
+			tlsopts.Config{
 				// NB: file doesn't actually exist
 				PeerCAWhitelistPath: whitelistPath,
 				UsePeerCAWhitelist:  true,
@@ -80,7 +80,7 @@ func TestNewOptions(t *testing.T) {
 			3,
 		}, {
 			"revocation processing, whitelist, and signed leaf verification",
-			server.Config{
+			tlsopts.Config{
 				// NB: file doesn't actually exist
 				PeerCAWhitelistPath: whitelistPath,
 				UsePeerCAWhitelist:  true,
@@ -96,7 +96,7 @@ func TestNewOptions(t *testing.T) {
 
 	for _, c := range cases {
 		t.Log(c.testID)
-		opts, err := server.NewOptions(fi, c.config)
+		opts, err := tlsopts.NewOptions(fi, c.config)
 		assert.NoError(t, err)
 		assert.True(t, reflect.DeepEqual(fi, opts.Ident))
 		assert.Equal(t, c.config, opts.Config)

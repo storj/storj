@@ -1,5 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
+
 package transport_test
 
 import (
@@ -14,7 +15,6 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 )
 
 func TestDialNode(t *testing.T) {
@@ -29,7 +29,7 @@ func TestDialNode(t *testing.T) {
 
 	planet.Start(ctx)
 
-	client := transport.NewClient(planet.StorageNodes[0].Identity)
+	client := planet.StorageNodes[0].Transport
 
 	{ // DialNode with invalid targets
 		targets := []*pb.Node{

@@ -235,20 +235,6 @@ func (m *lockedAPIKeys) Update(ctx context.Context, key console.APIKeyInfo) erro
 	return m.db.Update(ctx, key)
 }
 
-// Close is used to close db connection
-func (m *lockedConsole) Close() error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Close()
-}
-
-// CreateTables is a method for creating all tables for satellitedb
-func (m *lockedConsole) CreateTables() error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.CreateTables()
-}
-
 // ProjectMembers is a getter for ProjectMembers repository
 func (m *lockedConsole) ProjectMembers() console.ProjectMembers {
 	m.Lock()
@@ -503,18 +489,18 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	return m.db.Paginate(ctx, offset, limit)
 }
 
-// SelectNewNodes looks up nodes based on new node criteria
-func (m *lockedOverlayCache) SelectNewNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
+// SelectNewStorageNodes looks up nodes based on new node criteria
+func (m *lockedOverlayCache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SelectNewNodes(ctx, count, criteria)
+	return m.db.SelectNewStorageNodes(ctx, count, criteria)
 }
 
-// SelectNodes looks up nodes based on criteria
-func (m *lockedOverlayCache) SelectNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
+// SelectStorageNodes looks up nodes based on criteria
+func (m *lockedOverlayCache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SelectNodes(ctx, count, criteria)
+	return m.db.SelectStorageNodes(ctx, count, criteria)
 }
 
 // Update updates node information
