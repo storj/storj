@@ -40,15 +40,14 @@ Scenarios it doesn't handle properly.
 
 // Migration describes a migration steps
 type Migration struct {
-	Table    string
-	OnCreate Action
-	Steps    []*Step
+	Table string
+	Steps []*Step
 }
 
 // Step describes a single step in migration.
 type Step struct {
 	Description string
-	Version     int // Versions should start at 1
+	Version     int // Versions should start at 0
 	Action      Action
 }
 
@@ -83,32 +82,10 @@ func (migration *Migration) Run(log *zap.Logger, db DB) error {
 		return Error.Wrap(err)
 	}
 
-	if version < 0 {
+	if version > 0 {
 		log.Info("Latest Version", zap.Int("version", version))
 	} else {
 		log.Info("No Version")
-	}
-
-	if version < 0 && migration.OnCreate != nil {
-		log := log.Named("init")
-		tx, err := db.Begin()
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		err = migration.OnCreate.Run(log, db, tx)
-		if err != nil {
-			return Error.Wrap(errs.Combine(err, tx.Rollback()))
-		}
-
-		err = migration.addVersion(tx, db, 0)
-		if err != nil {
-			return Error.Wrap(errs.Combine(err, tx.Rollback()))
-		}
-
-		if err := tx.Commit(); err != nil {
-			return Error.Wrap(err)
-		}
 	}
 
 	for _, step := range migration.Steps {
@@ -142,7 +119,7 @@ func (migration *Migration) Run(log *zap.Logger, db DB) error {
 	return nil
 }
 
-// createVersionTable creates a new version tabe
+// createVersionTable creates a new version table
 func (migration *Migration) createVersionTable(log *zap.Logger, db DB) error {
 	tx, err := db.Begin()
 	if err != nil {
