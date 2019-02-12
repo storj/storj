@@ -4,7 +4,6 @@
 package kademlia
 
 import (
-	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -19,14 +18,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
-
-func randID() (rv storj.NodeID) {
-	_, err := rand.Read(rv[:])
-	if err != nil {
-		panic(err)
-	}
-	return rv
-}
 
 func ID(hexID string) (rv storj.NodeID) {
 	bytes, err := hex.DecodeString(hexID)
