@@ -141,6 +141,8 @@ func TestMigrateStarts(t *testing.T) {
 
 			// run migrations
 			require.NoError(t, db.CreateTables())
+
+			// TODO: verify state
 		})
 	}
 }
