@@ -7,6 +7,8 @@ import (
 	"database/sql"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/internal/dbutil/dbschema"
 )
 
 // DB is postgres database with schema
@@ -38,4 +40,20 @@ func (db *DB) Close() error {
 		DropSchema(db.DB, db.Schema),
 		db.DB.Close(),
 	)
+}
+
+// LoadSchemaFromSQL inserts script into connstr and loads schema.
+func LoadSchemaFromSQL(connstr, script string) (_ *dbschema.Schema, err error) {
+	db, err := Open(connstr, "load-schema")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { errs.Combine(err, db.Close()) }()
+
+	_, err = db.Exec(script)
+	if err != nil {
+		return nil, err
+	}
+
+	return QuerySchema(db)
 }

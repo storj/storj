@@ -74,6 +74,12 @@ func (db *DB) CreateSchema(schema string) error {
 	return nil
 }
 
+// RawExec executes a raw query
+func (db *DB) RawExec(script string) error {
+	_, err := db.db.Exec(script)
+	return err
+}
+
 // DropSchema drops the named schema
 func (db *DB) DropSchema(schema string) error {
 	switch db.driver {
