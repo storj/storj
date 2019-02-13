@@ -105,7 +105,14 @@ type Iterator interface {
 type BatchIterator interface {
 	// Next prepares the next list item
 	// returns false when you reach final item
-	Next(item *ListItem) bool
+	Next(item []ListItem) bool
+}
+
+// BatchIterateOptions contains options for batch iterator
+type BatchIterateOptions struct {
+	IterateOptions
+	// BatchSize indicates the number of records to read at once
+	BatchSize int
 }
 
 // IsZero returns true if the value struct is it's zero value
