@@ -27,6 +27,7 @@ func (db *DB) CreateTables() error {
 	}
 }
 
+// PostgresMigration returns steps needed for migrating postgres database.
 func (db *DB) PostgresMigration() *migrate.Migration {
 	return &migrate.Migration{
 		Table: "versions",
