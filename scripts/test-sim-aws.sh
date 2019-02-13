@@ -9,7 +9,7 @@ cleanup(){
 trap cleanup EXIT
 
 SRC_DIR=$TMPDIR/source
-DST_DIR=$(mktemp -d -t tmp.XXXXXXXXXX)
+DST_DIR=$TMPDIR/dst
 mkdir -p $SRC_DIR $DST_DIR
 
 aws configure set aws_access_key_id     $GATEWAY_0_ACCESS_KEY
