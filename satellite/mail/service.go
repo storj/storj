@@ -55,6 +55,12 @@ func NewService(log *zap.Logger, sender m.SMTPSender, templatePath string) *Serv
 	return &Service{log: log, sender: sender, templatePath: templatePath}
 }
 
+// SendEmail is generalized method for sending custom email message
+func (service *Service) SendEmail(ctx context.Context, msg *m.Message) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.sender.SendEmail(msg)
+}
+
 // SendActivationEmail sends account activation link email message
 func (service *Service) SendActivationEmail(ctx context.Context, to mail.Address, link string) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -119,6 +125,45 @@ func (service *Service) SendForgotPasswordEmail(ctx context.Context, to mail.Add
 		From:    service.sender.From,
 		To:      []mail.Address{to},
 		Subject: "Forgot password",
+		// TODO(yar): prepare text version of the email
+		PlainText: "",
+		Parts: []m.Part{
+			{
+				Type:    "text/html; charset=UTF-8",
+				Content: buffer.String(),
+			},
+		},
+	}
+
+	return service.sender.SendEmail(msg)
+}
+
+// SendProjectInvitationEmail sends project invitation email
+func (service *Service) SendProjectInvitationEmail(ctx context.Context, to mail.Address, projectName string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	var buffer bytes.Buffer
+
+	template, err := template.ParseFiles(filepath.Join(service.templatePath, "Invite.html"))
+	if err != nil {
+		return err
+	}
+
+	var data struct {
+		UserName    string
+		ProjectName string
+	}
+	data.UserName = to.Name
+	data.ProjectName = projectName
+
+	err = template.Execute(&buffer, data)
+	if err != nil {
+		return err
+	}
+
+	msg := &m.Message{
+		From:    service.sender.From,
+		To:      []mail.Address{to},
+		Subject: "You were invited to project",
 		// TODO(yar): prepare text version of the email
 		PlainText: "",
 		Parts: []m.Part{
