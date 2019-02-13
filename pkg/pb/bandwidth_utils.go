@@ -32,7 +32,7 @@ func Equal(msg1, msg2 proto.Message) bool {
 	if err != nil {
 		return false
 	}
-	msg2Bytes, err := proto.Marshal(msg1)
+	msg2Bytes, err := proto.Marshal(msg2)
 	if err != nil {
 		return false
 	}

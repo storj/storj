@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { API_KEYS_MUTATIONS } from '../mutationConstants';
-import { createAPIKey, deleteAPIKey, fetchAPIKeys } from "@/api/apiKeys";
+import { createAPIKey, deleteAPIKeys, fetchAPIKeys } from '@/api/apiKeys';
 import { API_KEYS_ACTIONS } from "@/utils/constants/actionNames";
 
 export const apiKeysModule = {
@@ -16,8 +16,14 @@ export const apiKeysModule = {
         [API_KEYS_MUTATIONS.ADD](state: any, apiKey: any) {
             state.apiKeys.push(apiKey);
         },
-        [API_KEYS_MUTATIONS.DELETE](state: any, id: string) {
-            state.apiKeys = state.apiKeys.filter((key => key.id !== id))
+        [API_KEYS_MUTATIONS.DELETE](state: any, ids: string[]) {
+        	const keysCount = ids.length;
+
+			for (let j = 0; j < keysCount; j++) {
+				state.apiKeys = state.apiKeys.filter((element: any) => {
+					return element.id !== ids[j];
+				});
+			}
         },
         [API_KEYS_MUTATIONS.TOGGLE_SELECTION](state: any, apiKeyID: string) {
             state.apiKeys = state.apiKeys.map((apiKey: any) => {
@@ -52,7 +58,6 @@ export const apiKeysModule = {
             const projectId = rootGetters.selectedProject.id;
 
             let result = await createAPIKey(projectId, name);
-            console.log(result);
 
             if (result.isSuccess) {
                 commit(API_KEYS_MUTATIONS.ADD, result.data.keyInfo);
@@ -60,14 +65,12 @@ export const apiKeysModule = {
 
             return result;
         },
-        [API_KEYS_ACTIONS.DELETE]: async function({commit}: any, id: string): Promise<RequestResponse<any>> {
-            let result = await deleteAPIKey(id);
+        [API_KEYS_ACTIONS.DELETE]: async function({commit}: any, ids: string[]): Promise<RequestResponse<any>> {
+            let result = await deleteAPIKeys(ids);
 
             if (result.isSuccess) {
-                commit(API_KEYS_MUTATIONS.DELETE, result.data.id);
+                commit(API_KEYS_MUTATIONS.DELETE, ids);
             }
-
-            console.log(result);
 
             return result;
         },

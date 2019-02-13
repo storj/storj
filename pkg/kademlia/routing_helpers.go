@@ -299,18 +299,20 @@ func (rt *RoutingTable) getUnmarshaledNodesFromBucket(bID bucketID) ([]*pb.Node,
 
 // getKBucketRange: helper, returns the left and right endpoints of the range of node ids contained within the bucket
 func (rt *RoutingTable) getKBucketRange(bID bucketID) ([]bucketID, error) {
-	kadIDs, err := rt.kadBucketDB.ReverseList(bID[:], 2)
+	kadBucketIDs, err := rt.kadBucketDB.List(nil, 0)
 	if err != nil {
-		return nil, RoutingErr.New("could not reverse list k bucket ids %s", err)
+		return nil, RoutingErr.New("could not list all k bucket ids: %s", err)
 	}
-	coords := make([]bucketID, 2)
-	if len(kadIDs) < 2 {
-		coords[0] = bucketID{}
-	} else {
-		copy(coords[0][:], kadIDs[1])
+	previousBucket := bucketID{}
+	for _, k := range kadBucketIDs {
+		thisBucket := keyToBucketID(k)
+		if thisBucket == bID {
+			return []bucketID{previousBucket, bID}, nil
+		}
+		previousBucket = thisBucket
 	}
-	copy(coords[1][:], kadIDs[0])
-	return coords, nil
+	// shouldn't happen BUT return error if no matching kbucket...
+	return nil, RoutingErr.New("could not find k bucket")
 }
 
 // determineLeafDepth determines the level of the bucket id in question.
