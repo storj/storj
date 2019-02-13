@@ -1,5 +1,4 @@
 #!/bin/bash
-#### NOTE: You must have aws-cli installed for this script to work.
 set -ueo pipefail
 set +x
 
@@ -19,7 +18,6 @@ export STORJ_NETWORK_DIR=$TMP
 # setup the network
 storj-sim -x network setup
 
-cat $TMP/satellite/0/config.yaml
 # run aws-cli tests
 storj-sim -x network test bash $SCRIPTDIR/test-sim-aws.sh
 storj-sim -x network test bash $SCRIPTDIR/test-uplink.sh
