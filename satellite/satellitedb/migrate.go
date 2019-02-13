@@ -6,10 +6,12 @@ package satellitedb
 import (
 	"database/sql"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/migrate"
+	"storj.io/storj/pkg/pb"
 )
 
 var ErrMigrate = errs.Class("migrate")
@@ -182,13 +184,29 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 							return ErrMigrate.Wrap(err)
 						}
 
-						// TODO:
-						// walk all data rows
-						// unmarshal using the specific protobuf version
-						//    rba *pb.RenterBandwidthAllocation
-						//    dbx.Bwagreement_Data(rbaBytes),
-						//    rbaBytes, err := proto.Marshal(rba)
-						//    dbx.Bwagreement_UplinkId(rba.PayerAllocation.UplinkId.Bytes()),
+						rows, err := tx.Query(`SELECT data FROM bwagreements`)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+						for rows.Next() {
+							var data []byte
+							if err := rows.Scan(&data); err != nil {
+								return ErrMigrate.Wrap(errs.Combine(err, rows.Close()))
+							}
+
+							var rba pb.RenterBandwidthAllocation
+							if err := proto.Unmarshal(data, &rba); err != nil {
+								return ErrMigrate.Wrap(errs.Combine(err, rows.Close()))
+							}
+
+							_, err := tx.Exec(`UPDATE bwagreements SET uplink_id = ?`, rba.PayerAllocation.UplinkId.Bytes())
+							if err != nil {
+								return ErrMigrate.Wrap(errs.Combine(err, rows.Close()))
+							}
+						}
+						if err := rows.Err(); err != nil {
+							return ErrMigrate.Wrap(errs.Combine(err, rows.Close()))
+						}
 
 						_, err = tx.Exec(`
 							ALTER TABLE bwagreements
