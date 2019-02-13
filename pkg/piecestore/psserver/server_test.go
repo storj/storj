@@ -436,12 +436,7 @@ func TestPbaValidation(t *testing.T) {
 			stream, err := c.Store(ctx)
 			require.NoError(t, err)
 
-			//cleanup incase tests previously paniced
-			_ = s.storage.Delete("99999999999999999999")
-			// Write the buffer to the stream we opened earlier
-			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: "99999999999999999999", ExpirationUnixSec: 9999999999}})
-			require.NoError(t, err)
-			// Send Bandwidth Allocation Data
+			// Create Bandwidth Allocation Data
 			content := []byte("content")
 			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(tt.action, satID1, upID, time.Hour)
 			require.NoError(t, err)
@@ -451,6 +446,15 @@ func TestPbaValidation(t *testing.T) {
 				PieceData:           &pb.PieceStore_PieceData{Content: content},
 				BandwidthAllocation: rba,
 			}
+
+			//cleanup incase tests previously paniced
+			_ = s.storage.Delete("99999999999999999999")
+			// Write the buffer to the stream we opened earlier
+			err = stream.Send(&pb.PieceStore{
+				PieceData:       &pb.PieceStore_PieceData{Id: "99999999999999999999", ExpirationUnixSec: 9999999999},
+				PayerAllocation: pba,
+			})
+			require.NoError(t, err)
 
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(msg)
@@ -490,11 +494,6 @@ func TestDelete(t *testing.T) {
 			id:      "11111111111111111111",
 			message: "OK",
 			err:     "",
-		},
-		{ // should err with invalid id length
-			id:      "123",
-			message: "rpc error: code = Unknown desc = piecestore error: invalid id length",
-			err:     "rpc error: code = Unknown desc = piecestore error: invalid id length",
 		},
 		{ // should return OK with nonexistent file
 			id:      "22222222222222222223",
