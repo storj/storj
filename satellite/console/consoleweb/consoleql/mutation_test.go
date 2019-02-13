@@ -491,17 +491,20 @@ func TestGrapqhlMutation(t *testing.T) {
 			}
 
 			query := fmt.Sprintf(
-				"mutation {deleteAPIKey(id:\"%s\"){name,projectID}}",
-				id.String(),
+				"mutation {deleteAPIKeys(id:[\"%s\"]){name,projectID}}",
+				keyID,
 			)
 
 			result := testQuery(t, query)
-
 			data := result.(map[string]interface{})
-			keyInfo := data[consoleql.DeleteAPIKeyMutation].(map[string]interface{})
+			keyInfoList := data[consoleql.DeleteAPIKeysMutation].([]interface{})
 
-			assert.Equal(t, info.Name, keyInfo[consoleql.FieldName])
-			assert.Equal(t, project.ID.String(), keyInfo[consoleql.FieldProjectID])
+			for _, k := range keyInfoList {
+				keyInfo := k.(map[string]interface{})
+
+				assert.Equal(t, info.Name, keyInfo[consoleql.FieldName])
+				assert.Equal(t, project.ID.String(), keyInfo[consoleql.FieldProjectID])
+			}
 		})
 
 		t.Run("Delete project mutation", func(t *testing.T) {

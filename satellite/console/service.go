@@ -547,25 +547,56 @@ func (s *Service) GetAPIKeyInfo(ctx context.Context, id uuid.UUID) (*APIKeyInfo,
 	return key, nil
 }
 
-// DeleteAPIKey deletes api key by id
-func (s *Service) DeleteAPIKey(ctx context.Context, id uuid.UUID) (err error) {
+// DeleteAPIKeys deletes api key by id
+func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	key, err := s.store.APIKeys().Get(ctx, id)
+	var keysErr errs.Group
+
+	for _, keyID := range ids {
+		key, err := s.store.APIKeys().Get(ctx, keyID)
+		if err != nil {
+			keysErr.Add(err)
+			continue
+		}
+
+		_, err = s.isProjectMember(ctx, auth.User.ID, key.ProjectID)
+		if err != nil {
+			keysErr.Add(ErrUnauthorized.Wrap(err))
+			continue
+		}
+	}
+
+	if err = keysErr.Err(); err != nil {
+		return err
+	}
+
+	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
 		return err
 	}
 
-	_, err = s.isProjectMember(ctx, auth.User.ID, key.ProjectID)
-	if err != nil {
-		return ErrUnauthorized.Wrap(err)
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+
+	for _, keyToDeleteID := range ids {
+		err = tx.APIKeys().Delete(ctx, keyToDeleteID)
+		if err != nil {
+			return err
+		}
 	}
 
-	return s.store.APIKeys().Delete(ctx, id)
+	return nil
 }
 
 // GetAPIKeysInfoByProjectID retrieves all api keys for a given project
