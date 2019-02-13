@@ -27,54 +27,43 @@ type VersionSchema struct {
 	*dbschema.Schema
 }
 
-var (
-	versions struct {
-		sync.Once
-		list []*VersionSchema
-		err  error
-	}
-)
-
-// loadVersions loads all the dbschemas from testdata/postgres.*
+// loadVersions loads all the dbschemas from testdata/postgres.* caching the result
 func loadVersions(connstr string) ([]*VersionSchema, error) {
-	versions.Do(func() {
-		matches, err := filepath.Glob("testdata/postgres.*")
+	var list []*VersionSchema
+
+	// find all postgres sql files
+	matches, err := filepath.Glob("testdata/postgres.*")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, match := range matches {
+		versionStr := match[19 : len(match)-4] // hack to avoid trim issues with path differences in windows/linux
+		version, err := strconv.Atoi(versionStr)
 		if err != nil {
-			versions.err = err
-			return
+			return nil, err
 		}
 
-		for _, match := range matches {
-			versionStr := match[19 : len(match)-4]
-			version, err := strconv.Atoi(versionStr)
-			if err != nil {
-				versions.err = err
-				return
-			}
-
-			data, err := ioutil.ReadFile(match)
-			if err != nil {
-				versions.err = err
-				return
-			}
-
-			schema, err := pgutil.LoadSchemaFromSQL(connstr, string(data))
-			if err != nil {
-				versions.err = err
-				return
-			}
-
-			schema.DropTable("versions")
-
-			versions.list = append(versions.list, &VersionSchema{
-				Version: version,
-				Script:  string(data),
-				Schema:  schema,
-			})
+		data, err := ioutil.ReadFile(match)
+		if err != nil {
+			return nil, err
 		}
-	})
 
-	return versions.list, versions.err
+		schema, err := pgutil.LoadSchemaFromSQL(connstr, string(data))
+		if err != nil {
+			return nil, err
+		}
+
+		schema.DropTable("versions")
+
+		list = append(list, &VersionSchema{
+			Version: version,
+			Script:  string(data),
+			Schema:  schema,
+		})
+	}
+
+	return list, nil
 }
 
 var (
@@ -85,6 +74,8 @@ var (
 	}
 )
 
+// loadDBXSChema loads dbxscript schema only once and caches it,
+// it shouldn't change during the test
 func loadDBXSchema(connstr, dbxscript string) (*dbschema.Schema, error) {
 	dbxschema.Do(func() {
 		dbxschema.Schema, dbxschema.err = pgutil.LoadSchemaFromSQL(connstr, dbxscript)
@@ -92,6 +83,7 @@ func loadDBXSchema(connstr, dbxscript string) (*dbschema.Schema, error) {
 	return dbxschema.Schema, dbxschema.err
 }
 
+// findVersion finds a specific schema from list
 func findVersion(versions []*VersionSchema, targetVersion int) *VersionSchema {
 	for _, version := range versions {
 		if version.Version == targetVersion {
@@ -122,17 +114,16 @@ func TestMigrate(t *testing.T) {
 			connstr := pgutil.ConnstrWithSchema(*satellitedbtest.TestPostgres, schemaName)
 
 			// create a new satellitedb connection
-			sdb, err := satellitedb.New(log, connstr)
+			db, err := satellitedb.New(log, connstr)
 			require.NoError(t, err)
-			defer func() { require.NoError(t, sdb.Close()) }()
-
-			db := sdb.(*satellitedb.DB)
+			defer func() { require.NoError(t, db.Close()) }()
 
 			// setup our own schema to avoid collisions
 			require.NoError(t, db.CreateSchema(schemaName))
 			defer func() { require.NoError(t, db.DropSchema(schemaName)) }()
 
-			rawdb := db.TestDBAccess()
+			// we need raw database access unfortunately
+			rawdb := db.(*satellitedb.DB).TestDBAccess()
 
 			// insert the base data into postgres
 			_, err = rawdb.Exec(base.Script)
@@ -140,7 +131,8 @@ func TestMigrate(t *testing.T) {
 
 			var finalSchema *dbschema.Schema
 
-			migrations := db.PostgresMigration()
+			// get migration for this database
+			migrations := db.(*satellitedb.DB).PostgresMigration()
 			for i, step := range migrations.Steps {
 				// the schema is different when migration step is before the step, cannot test the layout
 				if step.Version < base.Version {
@@ -148,19 +140,27 @@ func TestMigrate(t *testing.T) {
 				}
 
 				tag := fmt.Sprintf("#%d - v%d", i, step.Version)
-				require.NoError(t, migrations.TargetVersion(step.Version).Run(log.Named("migrate"), rawdb), tag)
 
+				// run migration up to a specific version
+				err := migrations.TargetVersion(step.Version).Run(log.Named("migrate"), rawdb)
+				require.NoError(t, err, tag)
+
+				// load the schema from database
 				currentSchema, err := pgutil.QuerySchema(rawdb)
 				require.NoError(t, err, tag)
 
+				// we don't care changes in versions table
 				currentSchema.DropTable("versions")
 
+				// find the matching expected version
 				expected := findVersion(versions, step.Version)
 				require.Equal(t, expected.Schema, currentSchema, tag)
 
+				// keep the last version around
 				finalSchema = currentSchema
 			}
 
+			// verify that we also match the dbx version
 			dbxschema, err := loadDBXSchema(*satellitedbtest.TestPostgres, rawdb.Schema())
 			require.NoError(t, err)
 
