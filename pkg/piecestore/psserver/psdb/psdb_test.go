@@ -286,7 +286,7 @@ func TestMigration(t *testing.T) {
 
 	// find latest version
 	migration := psdb.Migration()
-	migration.Now = func() time.Time { return time.Unix(0, 0) }
+	migration.Now = func() time.Time { return time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC) }
 
 	latestVersion := 0
 	// TODO support missing intermediate versions
@@ -304,6 +304,11 @@ func TestMigration(t *testing.T) {
 				"CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`satellite` BLOB, `agreement` BLOB, `signature` BLOB);",
 				"CREATE INDEX IF NOT EXISTS idx_ttl_expires ON ttl (expires);",
 				"CREATE TABLE IF NOT EXISTS `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));",
+
+				// test entries
+				"INSERT INTO `ttl` VALUES(1, 2, 3, 4);",
+				"INSERT INTO `bandwidth_agreements` VALUES(X'31',X'32',X'33');",
+				"INSERT INTO `bwusagetbl` VALUES(1, 3, 4);",
 			}
 			for _, query := range queries {
 				_, err := db.Exec(query)
