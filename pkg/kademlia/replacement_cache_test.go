@@ -47,7 +47,6 @@ func TestRemoveFromReplacementCache(t *testing.T) {
 	node2 := teststorj.MockNode(string([]byte{100, 255}))
 	node3 := teststorj.MockNode(string([]byte{90, 255}))
 	node4 := teststorj.MockNode(string([]byte{80, 255}))
-
 	rt.addToReplacementCache(kadBucketID2, node2)
 	rt.addToReplacementCache(kadBucketID2, node3)
 	rt.addToReplacementCache(kadBucketID2, node4)
