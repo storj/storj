@@ -171,18 +171,6 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 		return nil, err
 	}
 
-	// Note from Nat:
-	// getNamespacedPieceID should never return an ID that doesn't match this regex
-	//
-	// match, err := regexp.MatchString("^[A-Za-z0-9]{20,64}$", id)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	//
-	// if !match {
-	// 	return nil, ServerError.New("invalid ID")
-	// }
-
 	fileInfo, err := os.Stat(path)
 	if err != nil {
 		return nil, err

@@ -65,21 +65,11 @@ func TestPiece(t *testing.T) {
 		err        string
 	}{
 		{ // should successfully retrieve piece meta-data
-
 			id:         "11111111111111111111",
 			size:       5,
 			expiration: 9999999999,
 			err:        "",
 		},
-
-		// Note from Nat: this invalid id length error should never happen because of getNamespacedID
-		// { // server should err with invalid id
-		// 	id:         "123",
-		// 	size:       5,
-		// 	expiration: 9999999999,
-		// 	err:        "rpc error: code = Unknown desc = piecestore error: invalid id length",
-		// },
-
 		{ // server should err with nonexistent file
 			id:         "22222222222222222222",
 			size:       5,
@@ -91,14 +81,6 @@ func TestPiece(t *testing.T) {
 				return path
 			}()),
 		},
-
-		// Note from Nat: this test doesn't seem like it's testing what it should be
-		// { // server should err with invalid TTL
-		// 	id:         "22222222222222222222;DELETE*FROM TTL;;;;",
-		// 	size:       5,
-		// 	expiration: 9999999999,
-		// 	err:        "rpc error: code = Unknown desc = PSServer error: invalid ID",
-		// },
 	}
 
 	for _, tt := range tests {
