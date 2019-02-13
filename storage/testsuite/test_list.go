@@ -31,7 +31,6 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 
 	type Test struct {
 		Name     string
-		Reverse  bool
 		First    storage.Key
 		Limit    int
 		Expected storage.Keys
@@ -46,16 +45,16 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 	}
 
 	tests := []Test{
-		{"without key", false,
+		{"without key",
 			nil, 3,
 			newKeys("path/0", "path/1", "path/2")},
-		{"without key, limit 0", false,
+		{"without key, limit 0",
 			nil, 0,
 			newKeys("path/0", "path/1", "path/2", "path/3", "path/4", "path/5")},
-		{"with key", false,
+		{"with key",
 			storage.Key("path/2"), 3,
 			newKeys("path/2", "path/3", "path/4")},
-		{"without key 100", false,
+		{"without key 100",
 			nil, 100,
 			newKeys("path/0", "path/1", "path/2", "path/3", "path/4", "path/5")},
 	}
