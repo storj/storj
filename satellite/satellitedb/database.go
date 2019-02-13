@@ -74,11 +74,9 @@ func (db *DB) CreateSchema(schema string) error {
 	return nil
 }
 
-// RawExec executes a raw query
-func (db *DB) RawExec(script string) error {
-	_, err := db.db.Exec(script)
-	return err
-}
+// TestDBAccess for raw database access,
+// should not be used outside of migration tests.
+func (db *DB) TestDBAccess() *dbx.DB { return db.db }
 
 // DropSchema drops the named schema
 func (db *DB) DropSchema(schema string) error {

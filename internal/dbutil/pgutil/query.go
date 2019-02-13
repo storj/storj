@@ -132,7 +132,7 @@ func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 	}
 
 	// TODO: find indexes
-
+	schema.Sort()
 	return schema, nil
 }
 

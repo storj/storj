@@ -58,6 +58,16 @@ func (schema *Schema) EnsureTable(tableName string) *Table {
 	return table
 }
 
+// DropTable removes the specified table
+func (schema *Schema) DropTable(tableName string) {
+	for i, table := range schema.Tables {
+		if table.Name == tableName {
+			schema.Tables = append(schema.Tables[:i], schema.Tables[i+1:]...)
+			return
+		}
+	}
+}
+
 // AddColumn adds the column to the table.
 func (table *Table) AddColumn(column *Column) {
 	table.Columns = append(table.Columns, column)

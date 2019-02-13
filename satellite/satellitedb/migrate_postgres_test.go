@@ -4,6 +4,7 @@
 package satellitedb_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"strconv"
@@ -15,12 +16,11 @@ import (
 
 	"storj.io/storj/internal/dbutil/dbschema"
 	"storj.io/storj/internal/dbutil/pgutil"
-	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-// VersionSchema
+// VersionSchema defines a versioned schema
 type VersionSchema struct {
 	Version int
 	Script  string
@@ -35,6 +35,7 @@ var (
 	}
 )
 
+// loadVersions loads all the dbschemas from testdata/postgres.*
 func loadVersions(connstr string) ([]*VersionSchema, error) {
 	versions.Do(func() {
 		matches, err := filepath.Glob("testdata/postgres.*")
@@ -63,6 +64,8 @@ func loadVersions(connstr string) ([]*VersionSchema, error) {
 				return
 			}
 
+			schema.DropTable("versions")
+
 			versions.list = append(versions.list, &VersionSchema{
 				Version: version,
 				Script:  string(data),
@@ -70,42 +73,20 @@ func loadVersions(connstr string) ([]*VersionSchema, error) {
 			})
 		}
 	})
+
 	return versions.list, versions.err
 }
 
-func TestMigrateSchemas(t *testing.T) {
-	if *satellitedbtest.TestPostgres == "" {
-		t.Skip("Postgres flag missing, example: -postgres-test-db=" + satellitedbtest.DefaultPostgresConn)
+func findVersion(versions []*VersionSchema, targetVersion int) *VersionSchema {
+	for _, version := range versions {
+		if version.Version == targetVersion {
+			return version
+		}
 	}
-
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	versions, err := loadVersions(*satellitedbtest.TestPostgres)
-	require.NoError(t, err)
-
-	t.Log(versions)
-	/*
-		schemaName := "pgutil-query-" + pgutil.RandomString(8)
-		connstr := pgutil.ConnstrWithSchema(*satellitedbtest.TestPostgres, schemaName)
-
-		db, err := sql.Open("postgres", connstr)
-		require.NoError(t, err)
-
-		defer ctx.Check(db.Close)
-
-		require.NoError(t, pgutil.CreateSchema(db, schemaName))
-		defer func() {
-			require.NoError(t, pgutil.DropSchema(db, schemaName))
-		}()
-
-		emptySchema, err := pgutil.QuerySchema(db)
-		assert.NoError(t, err)
-		assert.Equal(t, &dbschema.Schema{}, emptySchema)
-	*/
+	return nil
 }
 
-func TestMigrateStarts(t *testing.T) {
+func TestMigrate(t *testing.T) {
 	if *satellitedbtest.TestPostgres == "" {
 		t.Skip("Postgres flag missing, example: -postgres-test-db=" + satellitedbtest.DefaultPostgresConn)
 	}
@@ -113,15 +94,16 @@ func TestMigrateStarts(t *testing.T) {
 	versions, err := loadVersions(*satellitedbtest.TestPostgres)
 	require.NoError(t, err)
 
-	for _, version := range versions {
-		version := version
-		// 0 to 4 are versions that may be as starting point
-		if version.Version < 0 || 4 < version.Version {
+	for _, base := range versions {
+		base := base
+		// versions 0 to 4 can be a starting point
+		if base.Version < 0 || 4 < base.Version {
 			continue
 		}
-		t.Run(strconv.Itoa(version.Version), func(t *testing.T) {
+
+		t.Run(strconv.Itoa(base.Version), func(t *testing.T) {
 			log := zaptest.NewLogger(t)
-			schemaName := "satellite/start-" + strconv.Itoa(version.Version) + pgutil.RandomString(8)
+			schemaName := "migrate/satellite/" + strconv.Itoa(base.Version) + pgutil.RandomString(8)
 			connstr := pgutil.ConnstrWithSchema(*satellitedbtest.TestPostgres, schemaName)
 
 			// create a new satellitedb connection
@@ -135,14 +117,30 @@ func TestMigrateStarts(t *testing.T) {
 			require.NoError(t, db.CreateSchema(schemaName))
 			defer func() { require.NoError(t, db.DropSchema(schemaName)) }()
 
+			rawdb := db.TestDBAccess()
+
 			// insert the base data into postgres
-			err = db.RawExec(version.Script)
+			_, err = rawdb.Exec(base.Script)
 			require.NoError(t, err)
 
-			// run migrations
-			require.NoError(t, db.CreateTables())
+			migrations := db.PostgresMigration()
+			for i, step := range migrations.Steps {
+				// the schema is different when migration step is before the step, cannot test the layout
+				if step.Version < base.Version {
+					continue
+				}
 
-			// TODO: verify state
+				tag := fmt.Sprintf("#%d - v%d", i, step.Version)
+				require.NoError(t, migrations.TargetVersion(step.Version).Run(log.Named("migrate"), rawdb), tag)
+
+				currentSchema, err := pgutil.QuerySchema(rawdb)
+				require.NoError(t, err, tag)
+
+				currentSchema.DropTable("versions")
+
+				expected := findVersion(versions, step.Version)
+				require.Equal(t, expected.Schema, currentSchema, tag)
+			}
 		})
 	}
 }
