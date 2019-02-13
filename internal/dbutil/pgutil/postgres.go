@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package dbschema
+package pgutil
 
 import (
 	"database/sql"
@@ -9,11 +9,19 @@ import (
 	"regexp"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/internal/dbutil/dbschema"
 )
 
-// QueryPostgres loads the schema from postgres database.
-func QueryPostgres(tx *sql.Tx) (*Schema, error) {
-	schema := &Schema{}
+// Queryer is a representation for something that can query.
+type Queryer interface {
+	// Query executes a query that returns rows, typically a SELECT.
+	Query(query string, args ...interface{}) (*sql.Rows, error)
+}
+
+// QuerySchema loads the schema from postgres database.
+func QuerySchema(tx *sql.Tx) (*dbschema.Schema, error) {
+	schema := &dbschema.Schema{}
 
 	// find tables
 	err := func() error {
@@ -35,7 +43,7 @@ func QueryPostgres(tx *sql.Tx) (*Schema, error) {
 			}
 
 			table := schema.EnsureTable(tableName)
-			table.AddColumn(&Column{
+			table.AddColumn(&dbschema.Column{
 				Name:       columnName,
 				Type:       dataType,
 				IsNullable: isNullable == "YES",
@@ -99,7 +107,7 @@ func QueryPostgres(tx *sql.Tx) (*Schema, error) {
 					return fmt.Errorf("unable to parse constraint %q", definition)
 				}
 
-				column.Reference = &Reference{
+				column.Reference = &dbschema.Reference{
 					Table:    matches[1],
 					Column:   matches[2],
 					OnUpdate: matches[3],

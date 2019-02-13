@@ -3,8 +3,14 @@
 
 package satellitedb_test
 
-import "testing"
+import (
+	"testing"
+
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+)
 
 func TestMigrate(t *testing.T) {
-
+	if *satellitedbtest.TestPostgres == "" {
+		t.Skip("Postgres flag missing, example: -postgres-test-db=" + satellitedbtest.DefaultPostgresConn)
+	}
 }
