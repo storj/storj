@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/lib/pq"
+
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/dbutil/dbschema"
@@ -20,7 +22,7 @@ type Queryer interface {
 }
 
 // QuerySchema loads the schema from postgres database.
-func QuerySchema(tx *sql.Tx) (*dbschema.Schema, error) {
+func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 	schema := &dbschema.Schema{}
 
 	// find tables
@@ -79,7 +81,7 @@ func QuerySchema(tx *sql.Tx) (*dbschema.Schema, error) {
 
 		for rows.Next() {
 			var tableName, constraintName, constraintType string
-			var columns []string
+			var columns pq.StringArray
 			var definition string
 
 			err := rows.Scan(&tableName, &constraintName, &constraintType, &columns, &definition)
@@ -90,7 +92,7 @@ func QuerySchema(tx *sql.Tx) (*dbschema.Schema, error) {
 			switch constraintType {
 			case "p": // primary key
 				table := schema.EnsureTable(tableName)
-				table.PrimaryKey = columns
+				table.PrimaryKey = ([]string)(columns)
 			case "f": // foreign key
 				if len(columns) != 1 {
 					return fmt.Errorf("expected one column, got: %q", columns)
