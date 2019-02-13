@@ -171,7 +171,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
-				"--pointer-db.auth.api-key", "abc123",
 			},
 			"run": {},
 		})
