@@ -146,7 +146,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	err = db.Init(log.Named("db"))
+	err = db.CreateTables()
 	if err != nil {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
