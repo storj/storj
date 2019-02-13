@@ -77,6 +77,21 @@ func loadVersions(connstr string) ([]*VersionSchema, error) {
 	return versions.list, versions.err
 }
 
+var (
+	dbxschema struct {
+		sync.Once
+		*dbschema.Schema
+		err error
+	}
+)
+
+func loadDBXSchema(connstr, dbxscript string) (*dbschema.Schema, error) {
+	dbxschema.Do(func() {
+		dbxschema.Schema, dbxschema.err = pgutil.LoadSchemaFromSQL(connstr, dbxscript)
+	})
+	return dbxschema.Schema, dbxschema.err
+}
+
 func findVersion(versions []*VersionSchema, targetVersion int) *VersionSchema {
 	for _, version := range versions {
 		if version.Version == targetVersion {
@@ -123,6 +138,8 @@ func TestMigrate(t *testing.T) {
 			_, err = rawdb.Exec(base.Script)
 			require.NoError(t, err)
 
+			var finalSchema *dbschema.Schema
+
 			migrations := db.PostgresMigration()
 			for i, step := range migrations.Steps {
 				// the schema is different when migration step is before the step, cannot test the layout
@@ -140,7 +157,14 @@ func TestMigrate(t *testing.T) {
 
 				expected := findVersion(versions, step.Version)
 				require.Equal(t, expected.Schema, currentSchema, tag)
+
+				finalSchema = currentSchema
 			}
+
+			dbxschema, err := loadDBXSchema(*satellitedbtest.TestPostgres, rawdb.Schema())
+			require.NoError(t, err)
+
+			require.Equal(t, dbxschema, finalSchema, "dbx")
 		})
 	}
 }
