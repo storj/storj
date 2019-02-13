@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// pgutil contains utilities for postgres
+// Package pgutil contains utilities for postgres
 package pgutil
 
 import (

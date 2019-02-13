@@ -1,8 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// dbschema package implements querying and comparing schemas for testing.
+// Package dbschema package implements querying and comparing schemas for testing.
 package dbschema
+
+import (
+	"sort"
+)
 
 // Schema is the database structure.
 type Schema struct {
@@ -67,4 +71,45 @@ func (table *Table) FindColumn(columnName string) (*Column, bool) {
 		}
 	}
 	return nil, false
+}
+
+// Sort sorts tables
+func (schema *Schema) Sort() {
+	sort.Slice(schema.Tables, func(i, k int) bool {
+		return schema.Tables[i].Name < schema.Tables[k].Name
+	})
+	for _, table := range schema.Tables {
+		table.Sort()
+	}
+}
+
+// Sort sorts columns, primary keys and unique
+func (table *Table) Sort() {
+	sort.Slice(table.Columns, func(i, k int) bool {
+		return table.Columns[i].Name < table.Columns[k].Name
+	})
+
+	sort.Strings(table.PrimaryKey)
+	for i := range table.Unique {
+		sort.Strings(table.Unique[i])
+	}
+
+	sort.Slice(table.Unique, func(i, k int) bool {
+		return lessStrings(table.Unique[i], table.Unique[k])
+	})
+}
+
+func lessStrings(a, b []string) bool {
+	n := len(a)
+	if len(b) < n {
+		n = len(b)
+	}
+	for k := 0; k < n; k++ {
+		if a[k] < b[k] {
+			return true
+		} else if a[k] > b[k] {
+			return false
+		}
+	}
+	return len(a) < len(b)
 }
