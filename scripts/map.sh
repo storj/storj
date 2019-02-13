@@ -10,7 +10,7 @@ trap "rm -rf ${tmp_build_dir} ${TMPDIR}" ERR INT EXIT
 
 map_dot=${TMPDIR}/map.dot
 #$inspector map --identity-path ~/.local/share/storj/identity/inspector bootstrap.storj.io:8888 > ${map_dot}
-$inspector map --identity-path ~/.local/share/storj/identity/inspector 0.tcp.ngrok.io:13142  > ${map_dot}
+$inspector map --identity-path ~/.local/share/storj/identity/inspector 0.tcp.ngrok.io:16151 > ${map_dot} 2> $(pwd)/map-err.log
 
 #dot -T svg ${map_dot} > $(pwd)/map-dot.svg
 #neato -T svg ${map_dot} > $(pwd)/map-neato.svg

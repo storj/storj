@@ -3,10 +3,16 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+	"log"
 	"os"
+	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/process"
 	"text/tabwriter"
 	"time"
@@ -33,31 +39,43 @@ func init() {
 	rootCmd.AddCommand(cmdMap)
 }
 
-type network struct{
-	ctx context.Context
-	addrs []string
-	seen map[string]struct{}
+type network struct {
+	ctx    context.Context
+	verify peertls.PeerCertVerificationFunc
+	addrs  []string
+	seen   map[string]struct{}
 	//seen map[string]int
 	out *tabwriter.Writer
 }
 
 func mapCmd(cmd *cobra.Command, args []string) error {
+	whitelist, err := pkcrypto.CertFromPEM([]byte(tlsopts.DefaultPeerCAWhitelist))
+	if err != nil {
+		// TODO error handling
+		log.Printf("error: %s\n", err.Error())
+		return nil
+	}
+	verify := peertls.VerifyCAWhitelist([]*x509.Certificate{whitelist})
+
+	errLog := log.New(os.Stderr, "", 0)
 	if *IdentityPath == "" {
 		return ErrArgs.New("--identity-path required")
 	}
 
-	ctx, _ := context.WithTimeout(process.Ctx(cmd), 5*time.Second)
+	ctx, _ := context.WithTimeout(process.Ctx(cmd), 30*time.Second)
 	n := &network{
-		ctx: ctx,
-		//seen: map[string]int{args[0]: 0},
-		seen: map[string]struct{}{args[0]: {}},
-		addrs: []string{args[0]},
-		out: tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0),
+		ctx:    ctx,
+		verify: verify,
+		seen:   map[string]struct{}{args[0]: {}},
+		addrs:  []string{args[0]},
+		out:    tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0),
 	}
-	//_, _ = fmt.Fprintf(n.out, "Address\tRoute count\n")
-	_,_ = fmt.Fprintf(n.out, "digraph StorjNetwork {\n")
+	_, _ = fmt.Fprintf(n.out, "digraph StorjNetwork {\n")
+
 	if err := n.walk(args[0]); err != nil {
-		fmt.Printf("error: %s\n", err.Error())
+		// TODO error handling
+		errLog.Printf("error: %s\n", err.Error())
+		//fmt.Printf("error: %s\n", err.Error())
 	}
 	_, _ = fmt.Fprintf(n.out, "}\n")
 	_ = n.out.Flush()
@@ -77,40 +95,50 @@ func (n *network) walk(next string) error {
 	default:
 		inspector, err := NewInspector(next, *IdentityPath)
 		if err != nil {
+			// TODO error handling
+			log.Printf("error: %s\n", err.Error())
 			//return err
 			return nil
 		}
 
-		inspector.kadclient.
+		kadDialer := kademlia.NewDialer(nil, inspector.transportClient)
 
 		res, err := inspector.kadclient.FindNear(n.ctx, &pb.FindNearRequest{
 			Start: storj.NodeID{},
 			Limit: 100000,
 		})
 		if err != nil {
+			// TODO error handling
+			log.Printf("error: %s\n", err.Error())
 			//return err
 			return nil
 		}
 
-		//nextIndex := n.seen[next]
-		//_, _ = fmt.Fprintf(n.out, "%s\t%d\n", next, len(res.Nodes))
 		for _, node := range res.Nodes {
+			pID, err := kadDialer.FetchPeerIdentity(n.ctx, *node)
+			if err != nil {
+				// TODO error handling
+				log.Printf("error: %s\n", err.Error())
+				return nil
+			}
+			verifyErr := n.verify(nil, [][]*x509.Certificate{append(append([]*x509.Certificate{pID.Leaf}, pID.CA), pID.RestChain...)})
+
 			newAddr := node.Address.Address
 
 			if _, ok := n.seen[newAddr]; ok {
-				//_, _ = fmt.Fprintf(n.out, "\"%d\"\t->\t\"%d\"\n", nextIndex, newIndex)
-				//_, _ = fmt.Fprintf(n.out, "\"%s\"\t->\t\"%s\"\n", next, newAddr)
 				continue
 			}
 
-			//newIndex := len(n.addrs)
-
-			//_, _ = fmt.Fprintf(n.out, "\"%d\" [fillcolor=\"#2683ff\" fontcolor=\"white\" style=filled]\n", newIndex)
-			_, _ = fmt.Fprintf(n.out, "\"%s\" [fillcolor=\"#2683ff\" fontcolor=\"white\" style=filled]\n", newAddr)
-			//_, _ = fmt.Fprintf(n.out, "\"%d\"\t->\t\"%d\"\n", nextIndex, newIndex)
+			var color string
+			switch {
+			case verifyErr != nil:
+				color = "red"
+			default:
+				color = "#2683ff"
+			}
+			_, _ = fmt.Fprintf(n.out, "\"%s\" [fillcolor=\"%s\" fontcolor=\"white\" style=filled]\n", newAddr, color)
 			_, _ = fmt.Fprintf(n.out, "\"%s\"\t->\t\"%s\"\n", next, newAddr)
 
-			//n.seen[newAddr] = newIndex
 			n.seen[newAddr] = struct{}{}
 			n.addrs = append(n.addrs, newAddr)
 

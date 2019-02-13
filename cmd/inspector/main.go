@@ -110,10 +110,11 @@ var (
 
 // Inspector gives access to kademlia and overlay cache
 type Inspector struct {
-	identity      *identity.FullIdentity
-	kadclient     pb.KadInspectorClient
-	overlayclient pb.OverlayInspectorClient
-	statdbclient  pb.StatDBInspectorClient
+	transportClient transport.Client
+	identity        *identity.FullIdentity
+	kadclient       pb.KadInspectorClient
+	overlayclient   pb.OverlayInspectorClient
+	statdbclient    pb.StatDBInspectorClient
 }
 
 // NewInspector creates a new gRPC inspector server for access to kad
@@ -141,10 +142,11 @@ func NewInspector(address, path string) (*Inspector, error) {
 	}
 
 	return &Inspector{
-		identity:      id,
-		kadclient:     pb.NewKadInspectorClient(conn),
-		overlayclient: pb.NewOverlayInspectorClient(conn),
-		statdbclient:  pb.NewStatDBInspectorClient(conn),
+		transportClient: tc,
+		identity:        id,
+		kadclient:       pb.NewKadInspectorClient(conn),
+		overlayclient:   pb.NewOverlayInspectorClient(conn),
+		statdbclient:    pb.NewStatDBInspectorClient(conn),
 	}, nil
 }
 
