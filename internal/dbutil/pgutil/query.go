@@ -9,7 +9,6 @@ import (
 	"regexp"
 
 	"github.com/lib/pq"
-
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/dbutil/dbschema"
