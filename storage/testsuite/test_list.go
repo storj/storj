@@ -58,25 +58,12 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 		{"without key 100", false,
 			nil, 100,
 			newKeys("path/0", "path/1", "path/2", "path/3", "path/4", "path/5")},
-		{"reverse without key", true,
-			nil, 3,
-			newKeys("path/5", "path/4", "path/3")},
-		{"reverse with key", true,
-			storage.Key("path/2"), 3,
-			newKeys("path/2", "path/1", "path/0")},
-		{"reverse without key 100", true,
-			nil, 100,
-			newKeys("path/5", "path/4", "path/3", "path/2", "path/1", "path/0")},
 	}
 
 	for _, test := range tests {
 		var keys storage.Keys
 		var err error
-		if !test.Reverse {
-			keys, err = store.List(test.First, test.Limit)
-		} else {
-			keys, err = store.ReverseList(test.First, test.Limit)
-		}
+		keys, err = store.List(test.First, test.Limit)
 		if err != nil {
 			t.Errorf("%s: %s", test.Name, err)
 			continue
