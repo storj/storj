@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// dbschema package implements querying and comparing schemas for testing.
 package dbschema
 
 // Schema is the database structure.

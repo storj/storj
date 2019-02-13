@@ -4,7 +4,7 @@
 package satellitedb
 
 import (
-	"strconv"
+	"storj.io/storj/internal/pgutil"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -70,8 +70,7 @@ func (db *DB) Close() error {
 func (db *DB) CreateSchema(schema string) error {
 	switch db.driver {
 	case "postgres":
-		_, err := db.db.Exec(`create schema if not exists ` + quoteSchema(schema) + `;`)
-		return err
+		return pgutil.CreateSchema(db.db, schema)
 	}
 	return nil
 }
@@ -80,15 +79,9 @@ func (db *DB) CreateSchema(schema string) error {
 func (db *DB) DropSchema(schema string) error {
 	switch db.driver {
 	case "postgres":
-		_, err := db.db.Exec(`drop schema ` + quoteSchema(schema) + ` cascade;`)
-		return err
+		return pgutil.DropSchema(db.db, schema)
 	}
 	return nil
-}
-
-// quoteSchema quotes schema name such that it can be used in a postgres query
-func quoteSchema(schema string) string {
-	return strconv.QuoteToASCII(schema)
 }
 
 // BandwidthAgreement is a getter for bandwidth agreement repository
