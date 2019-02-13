@@ -494,7 +494,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 		if planet.config.Reconfigure.NewStorageNodeDB != nil {
 			db, err = planet.config.Reconfigure.NewStorageNodeDB(i)
 		} else {
-			db, err = storagenodedb.NewInMemory(log, storageDir)
+			db, err = storagenodedb.NewInMemory(log.Named("db"), storageDir)
 		}
 		if err != nil {
 			return nil, err
