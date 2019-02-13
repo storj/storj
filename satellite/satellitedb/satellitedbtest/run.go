@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
@@ -70,8 +71,10 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 				t.Skipf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
 			}
 
+			log := zaptest.NewLogger(t)
+
 			schema := strings.ToLower(t.Name() + "-satellite/x-" + schemaSuffix)
-			db, err := satellitedb.New(WithSchema(dbInfo.URL, schema))
+			db, err := satellitedb.New(log, WithSchema(dbInfo.URL, schema))
 			if err != nil {
 				t.Fatal(err)
 			}

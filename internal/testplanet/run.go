@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
@@ -38,9 +39,10 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			planetConfig := config
 			planetConfig.Reconfigure.NewBootstrapDB = nil
-			planetConfig.Reconfigure.NewSatelliteDB = func(index int) (satellite.DB, error) {
+			planetConfig.Reconfigure.NewSatelliteDB = func(log *zap.Logger, index int) (satellite.DB, error) {
 				schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-" + schemaSuffix)
-				db, err := satellitedb.New(satellitedbtest.WithSchema(satelliteDB.URL, schema))
+				// TODO: use the correct chain
+				db, err := satellitedb.New(log, satellitedbtest.WithSchema(satelliteDB.URL, schema))
 				if err != nil {
 					t.Fatal(err)
 				}

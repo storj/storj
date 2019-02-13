@@ -136,7 +136,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
-	db, err := satellitedb.New(runCfg.Database)
+	db, err := satellitedb.New(log.Named("db"), runCfg.Database)
 
 	if err != nil {
 		return errs.New("Error starting master database on satellite: %+v", err)
@@ -146,7 +146,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	err = db.CreateTables()
+	err = db.Init(log.Named("db"))
 	if err != nil {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
@@ -181,7 +181,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
-	database, err := satellitedb.New(diagCfg.Database)
+	database, err := satellitedb.New(zap.L().Named("db"), diagCfg.Database)
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
@@ -216,7 +216,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 
 	// open the master db
-	database, err := satellitedb.New(qdiagCfg.Database)
+	database, err := satellitedb.New(zap.L().Named("db"), qdiagCfg.Database)
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
