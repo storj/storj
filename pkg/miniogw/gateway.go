@@ -73,7 +73,7 @@ type gatewayLayer struct {
 func (layer *gatewayLayer) DeleteBucket(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	list, err := layer.gateway.metainfo.ListObjects(ctx, bucket, storj.ListOptions{Direction: storj.After, Recursive: true, Limit: 1})
+	list, err := layer.gateway.metainfo.ListObjects(ctx, bucket, storj.ListOptions{Recursive: true, Limit: 1})
 	if err != nil {
 		return convertError(err, bucket, "")
 	}
@@ -165,7 +165,7 @@ func (layer *gatewayLayer) ListBuckets(ctx context.Context) (bucketItems []minio
 	startAfter := ""
 
 	for {
-		list, err := layer.gateway.metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After, Cursor: startAfter})
+		list, err := layer.gateway.metainfo.ListBuckets(ctx, storj.BucketListOptions{Cursor: startAfter})
 		if err != nil {
 			return nil, err
 		}
@@ -198,7 +198,6 @@ func (layer *gatewayLayer) ListObjects(ctx context.Context, bucket, prefix, mark
 	var prefixes []string
 
 	list, err := layer.gateway.metainfo.ListObjects(ctx, bucket, storj.ListOptions{
-		Direction: storj.After,
 		Cursor:    startAfter,
 		Prefix:    prefix,
 		Recursive: recursive,
@@ -267,7 +266,6 @@ func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucket, prefix, co
 	var prefixes []string
 
 	list, err := layer.gateway.metainfo.ListObjects(ctx, bucket, storj.ListOptions{
-		Direction: storj.After,
 		Cursor:    startAfterPath,
 		Prefix:    prefix,
 		Recursive: recursive,

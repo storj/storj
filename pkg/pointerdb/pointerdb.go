@@ -238,7 +238,7 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 	}
 
 	prefix := storj.JoinPaths(keyInfo.ProjectID.String(), req.Prefix)
-	return s.service.Iterate(prefix, req.First, req.Recurse, req.Reverse, f)
+	return s.service.Iterate(prefix, req.First, req.Recurse, f)
 }
 
 // PayerBandwidthAllocation returns PayerBandwidthAllocation struct, signed and with given action type

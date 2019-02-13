@@ -22,14 +22,13 @@ type Client struct {
 	ForceError int
 
 	CallCount struct {
-		Get         int
-		Put         int
-		List        int
-		GetAll      int
-		ReverseList int
-		Delete      int
-		Close       int
-		Iterate     int
+		Get     int
+		Put     int
+		List    int
+		GetAll  int
+		Delete  int
+		Close   int
+		Iterate int
 	}
 
 	version int
@@ -198,12 +197,7 @@ func (store *Client) Iterate(opts storage.IterateOptions, fn func(storage.Iterat
 		return errInternal
 	}
 
-	var cursor advancer
-	if !opts.Reverse {
-		cursor = &forward{newCursor(store)}
-	} else {
-		cursor = &backward{newCursor(store)}
-	}
+	cursor := &forward{newCursor(store)}
 
 	cursor.PositionToFirst(opts.Prefix, opts.First)
 	var lastPrefix storage.Key
@@ -276,41 +270,6 @@ func (cursor *forward) SkipPrefix(prefix storage.Key) (*storage.ListItem, bool) 
 
 func (cursor *forward) Advance() (*storage.ListItem, bool) {
 	return cursor.next()
-}
-
-type backward struct{ cursor }
-
-func (cursor *backward) PositionToFirst(prefix, first storage.Key) {
-	if prefix.IsZero() {
-		// there's no prefix
-		if first.IsZero() {
-			// and no first item, so start from the end
-			cursor.positionLast()
-		} else {
-			// theres a first item, so try to position on that or one before that
-			cursor.positionBackward(first)
-		}
-	} else {
-		// there's a prefix
-		if first.IsZero() || storage.AfterPrefix(prefix).Less(first) {
-			// there's no first, or it's after our prefix
-			// storage.AfterPrefix("axxx/") is the next item after prefixes
-			// so we position to the item before
-			cursor.positionBefore(storage.AfterPrefix(prefix))
-		} else {
-			// otherwise try to position on first or one before that
-			cursor.positionBackward(first)
-		}
-	}
-}
-
-func (cursor *backward) SkipPrefix(prefix storage.Key) (*storage.ListItem, bool) {
-	cursor.positionBefore(prefix)
-	return cursor.prev()
-}
-
-func (cursor *backward) Advance() (*storage.ListItem, bool) {
-	return cursor.prev()
 }
 
 // cursor implements iterating over items with basic repositioning when the items change

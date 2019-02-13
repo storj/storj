@@ -83,78 +83,77 @@ func (checker *Checker) Close() error { return nil }
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = checker.pointerdb.Iterate("", "", true, false,
-		func(it storage.Iterator) error {
-			var item storage.ListItem
-			lim := checker.limit
-			if lim <= 0 || lim > storage.LookupLimit {
-				lim = storage.LookupLimit
+	err = checker.pointerdb.Iterate("", "", true, func(it storage.Iterator) error {
+		var item storage.ListItem
+		lim := checker.limit
+		if lim <= 0 || lim > storage.LookupLimit {
+			lim = storage.LookupLimit
+		}
+		for ; lim > 0 && it.Next(&item); lim-- {
+			pointer := &pb.Pointer{}
+
+			err = proto.Unmarshal(item.Value, pointer)
+			if err != nil {
+				return Error.New("error unmarshalling pointer %s", err)
 			}
-			for ; lim > 0 && it.Next(&item); lim-- {
-				pointer := &pb.Pointer{}
 
-				err = proto.Unmarshal(item.Value, pointer)
+			remote := pointer.GetRemote()
+			if remote == nil {
+				continue
+			}
+
+			pieces := remote.GetRemotePieces()
+			if pieces == nil {
+				checker.logger.Debug("no pieces on remote segment")
+				continue
+			}
+
+			var nodeIDs storj.NodeIDList
+			for _, p := range pieces {
+				nodeIDs = append(nodeIDs, p.NodeId)
+			}
+
+			// Find all offline nodes
+			offlineNodes, err := checker.OfflineNodes(ctx, nodeIDs)
+			if err != nil {
+				return Error.New("error getting offline nodes %s", err)
+			}
+
+			invalidNodes, err := checker.invalidNodes(ctx, nodeIDs)
+			if err != nil {
+				return Error.New("error getting invalid nodes %s", err)
+			}
+
+			missingPieces := combineOfflineWithInvalid(offlineNodes, invalidNodes)
+
+			numHealthy := len(nodeIDs) - len(missingPieces)
+			if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) < pointer.Remote.Redundancy.RepairThreshold) {
+				err = checker.repairQueue.Enqueue(ctx, &pb.InjuredSegment{
+					Path:       string(item.Key),
+					LostPieces: missingPieces,
+				})
 				if err != nil {
-					return Error.New("error unmarshalling pointer %s", err)
+					return Error.New("error adding injured segment to queue %s", err)
+				}
+			} else if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
+				// make an entry in to the irreparable table
+				segmentInfo := &irreparable.RemoteSegmentInfo{
+					EncryptedSegmentPath:   item.Key,
+					EncryptedSegmentDetail: item.Value,
+					LostPiecesCount:        int64(len(missingPieces)),
+					RepairUnixSec:          time.Now().Unix(),
+					RepairAttemptCount:     int64(1),
 				}
 
-				remote := pointer.GetRemote()
-				if remote == nil {
-					continue
-				}
-
-				pieces := remote.GetRemotePieces()
-				if pieces == nil {
-					checker.logger.Debug("no pieces on remote segment")
-					continue
-				}
-
-				var nodeIDs storj.NodeIDList
-				for _, p := range pieces {
-					nodeIDs = append(nodeIDs, p.NodeId)
-				}
-
-				// Find all offline nodes
-				offlineNodes, err := checker.OfflineNodes(ctx, nodeIDs)
+				//add the entry if new or update attempt count if already exists
+				err := checker.irrdb.IncrementRepairAttempts(ctx, segmentInfo)
 				if err != nil {
-					return Error.New("error getting offline nodes %s", err)
-				}
-
-				invalidNodes, err := checker.invalidNodes(ctx, nodeIDs)
-				if err != nil {
-					return Error.New("error getting invalid nodes %s", err)
-				}
-
-				missingPieces := combineOfflineWithInvalid(offlineNodes, invalidNodes)
-
-				numHealthy := len(nodeIDs) - len(missingPieces)
-				if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) < pointer.Remote.Redundancy.RepairThreshold) {
-					err = checker.repairQueue.Enqueue(ctx, &pb.InjuredSegment{
-						Path:       string(item.Key),
-						LostPieces: missingPieces,
-					})
-					if err != nil {
-						return Error.New("error adding injured segment to queue %s", err)
-					}
-				} else if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
-					// make an entry in to the irreparable table
-					segmentInfo := &irreparable.RemoteSegmentInfo{
-						EncryptedSegmentPath:   item.Key,
-						EncryptedSegmentDetail: item.Value,
-						LostPiecesCount:        int64(len(missingPieces)),
-						RepairUnixSec:          time.Now().Unix(),
-						RepairAttemptCount:     int64(1),
-					}
-
-					//add the entry if new or update attempt count if already exists
-					err := checker.irrdb.IncrementRepairAttempts(ctx, segmentInfo)
-					if err != nil {
-						return Error.New("error handling irreparable segment to queue %s", err)
-					}
+					return Error.New("error handling irreparable segment to queue %s", err)
 				}
 			}
-			return nil
-		},
+		}
+		return nil
+	},
 	)
 	return err
 }

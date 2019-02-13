@@ -57,29 +57,6 @@ FROM (
 ORDER BY p
 LIMIT $4
 `
-
-	alternateReverseQuery = `
-SELECT DISTINCT
-	$2::BYTEA || x.localpath AS p,
-	first_value(x.metadata) OVER (PARTITION BY x.localpath ORDER BY x.fullpath) AS m
-FROM (
-	SELECT
-		pd.fullpath,
-		local_path(pd.fullpath, $2::BYTEA, set_byte(' '::BYTEA, 0, b.delim)) AS localpath,
-		pd.metadata
-	FROM
-		pathdata pd,
-		buckets b
-	WHERE
-		b.bucketname = $1::BYTEA
-		AND pd.bucket = b.bucketname
-		AND pd.fullpath >= $2::BYTEA
-		AND ($2::BYTEA = ''::BYTEA OR pd.fullpath < bytea_increment($2::BYTEA))
-		AND ($3::BYTEA = ''::BYTEA OR pd.fullpath <= $3::BYTEA)
-) x
-ORDER BY p DESC
-LIMIT $4
-`
 )
 
 // AlternateClient is the entrypoint into an alternate postgreskv data store
@@ -118,13 +95,7 @@ func (opi *alternateOrderedPostgresIterator) doNextQuery() (*sql.Rows, error) {
 	if start == nil {
 		start = opi.opts.First
 	}
-	var query string
-	if opi.opts.Reverse {
-		query = alternateReverseQuery
-	} else {
-		query = alternateForwardQuery
-	}
-	return opi.client.pgConn.Query(query, []byte(opi.bucket), []byte(opi.opts.Prefix), []byte(start), opi.batchSize+1)
+	return opi.client.pgConn.Query(alternateForwardQuery, []byte(opi.bucket), []byte(opi.opts.Prefix), []byte(start), opi.batchSize+1)
 }
 
 func newAlternateOrderedPostgresIterator(altClient *AlternateClient, opts storage.IterateOptions, batchSize int) (*alternateOrderedPostgresIterator, error) {

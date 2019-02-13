@@ -93,14 +93,8 @@ func ListV2(store KeyValueStore, opts ListOptions) (result Items, more bool, err
 	err = store.Iterate(IterateOptions{
 		Prefix:  opts.Prefix,
 		First:   firstFull,
-		Reverse: reverse,
 		Recurse: opts.Recursive,
 	}, iterate)
-
-	if reverse {
-		result = ReverseItems(result)
-	}
-
 	return result, more, err
 }
 

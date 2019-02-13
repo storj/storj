@@ -181,7 +181,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
-	_, err = metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
+	_, err = metainfo.ListBuckets(ctx, storj.BucketListOptions{})
 	if err != nil {
 		return fmt.Errorf("Failed to contact Satellite.\n"+
 			"Perhaps your configuration is invalid?\n%s", err)

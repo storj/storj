@@ -188,12 +188,7 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 // Iterate iterates over items based on opts
 func (client *Client) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
 	return client.view(func(bucket *bolt.Bucket) error {
-		var cursor advancer
-		if !opts.Reverse {
-			cursor = forward{bucket.Cursor()}
-		} else {
-			cursor = backward{bucket.Cursor()}
-		}
+		cursor := forward{bucket.Cursor()}
 
 		start := true
 		lastPrefix := []byte{}
@@ -267,44 +262,4 @@ func (cursor forward) SkipPrefix(prefix storage.Key) (key, value []byte) {
 
 func (cursor forward) Advance() (key, value []byte) {
 	return cursor.Next()
-}
-
-type backward struct {
-	*bolt.Cursor
-}
-
-func (cursor backward) PositionToFirst(prefix, first storage.Key) (key, value []byte) {
-	if prefix.IsZero() {
-		// there's no prefix
-		if first.IsZero() {
-			// and no first item, so start from the end
-			return cursor.Last()
-		}
-	} else {
-		// there's a prefix
-		if first.IsZero() || storage.AfterPrefix(prefix).Less(first) {
-			// there's no first, or it's after our prefix
-			// storage.AfterPrefix("axxx/") is the next item after prefixes
-			// so we position to the item before
-			nextkey := storage.AfterPrefix(prefix)
-			_, _ = cursor.Seek(nextkey)
-			return cursor.Prev()
-		}
-	}
-
-	// otherwise try to position on first or one before that
-	key, value = cursor.Seek(first)
-	if !bytes.Equal(key, first) {
-		key, value = cursor.Prev()
-	}
-	return key, value
-}
-
-func (cursor backward) SkipPrefix(prefix storage.Key) (key, value []byte) {
-	_, _ = cursor.Seek(prefix)
-	return cursor.Prev()
-}
-
-func (cursor backward) Advance() (key, value []byte) {
-	return cursor.Prev()
 }

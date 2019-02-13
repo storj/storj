@@ -147,12 +147,11 @@ func (s *Service) Delete(path string) (err error) {
 }
 
 // Iterate iterates over items in db
-func (s *Service) Iterate(prefix string, first string, recurse bool, reverse bool, f func(it storage.Iterator) error) (err error) {
+func (s *Service) Iterate(prefix string, first string, recurse bool, f func(it storage.Iterator) error) (err error) {
 	opts := storage.IterateOptions{
 		Prefix:  storage.Key(prefix),
 		First:   storage.Key(first),
 		Recurse: recurse,
-		Reverse: reverse,
 	}
 	return s.DB.Iterate(opts, f)
 }

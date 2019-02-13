@@ -101,43 +101,42 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 	}
 	nodeData = make(map[storj.NodeID]float64)
 
-	err = t.pointerdb.Iterate("", "", true, false,
-		func(it storage.Iterator) error {
-			var item storage.ListItem
-			for it.Next(&item) {
-				pointer := &pb.Pointer{}
-				err = proto.Unmarshal(item.Value, pointer)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-				remote := pointer.GetRemote()
-				if remote == nil {
-					continue
-				}
-				pieces := remote.GetRemotePieces()
-				if pieces == nil {
-					t.logger.Debug("no pieces on remote segment")
-					continue
-				}
-				segmentSize := pointer.GetSegmentSize()
-				redundancy := remote.GetRedundancy()
-				if redundancy == nil {
-					t.logger.Debug("no redundancy scheme present")
-					continue
-				}
-				minReq := redundancy.GetMinReq()
-				if minReq <= 0 {
-					t.logger.Debug("pointer minReq must be an int greater than 0")
-					continue
-				}
-				pieceSize := segmentSize / int64(minReq)
-				for _, piece := range pieces {
-					t.logger.Info("found piece on Node ID" + piece.NodeId.String())
-					nodeData[piece.NodeId] += float64(pieceSize)
-				}
+	err = t.pointerdb.Iterate("", "", true, func(it storage.Iterator) error {
+		var item storage.ListItem
+		for it.Next(&item) {
+			pointer := &pb.Pointer{}
+			err = proto.Unmarshal(item.Value, pointer)
+			if err != nil {
+				return Error.Wrap(err)
 			}
-			return nil
-		},
+			remote := pointer.GetRemote()
+			if remote == nil {
+				continue
+			}
+			pieces := remote.GetRemotePieces()
+			if pieces == nil {
+				t.logger.Debug("no pieces on remote segment")
+				continue
+			}
+			segmentSize := pointer.GetSegmentSize()
+			redundancy := remote.GetRedundancy()
+			if redundancy == nil {
+				t.logger.Debug("no redundancy scheme present")
+				continue
+			}
+			minReq := redundancy.GetMinReq()
+			if minReq <= 0 {
+				t.logger.Debug("pointer minReq must be an int greater than 0")
+				continue
+			}
+			pieceSize := segmentSize / int64(minReq)
+			for _, piece := range pieces {
+				t.logger.Info("found piece on Node ID" + piece.NodeId.String())
+				nodeData[piece.NodeId] += float64(pieceSize)
+			}
+		}
+		return nil
+	},
 	)
 	if len(nodeData) == 0 {
 		return latestTally, nodeData, nil

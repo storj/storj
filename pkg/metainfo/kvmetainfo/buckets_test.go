@@ -42,7 +42,7 @@ func TestBucketsBasic(t *testing.T) {
 		}
 
 		// Check that bucket list include the new bucket
-		bucketList, err := db.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
+		bucketList, err := db.ListBuckets(ctx, storj.BucketListOptions{})
 		if assert.NoError(t, err) {
 			assert.False(t, bucketList.More)
 			assert.Equal(t, 1, len(bucketList.Items))
@@ -61,7 +61,7 @@ func TestBucketsBasic(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Check that the bucket list is empty
-		bucketList, err = db.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
+		bucketList, err = db.ListBuckets(ctx, storj.BucketListOptions{})
 		if assert.NoError(t, err) {
 			assert.False(t, bucketList.More)
 			assert.Equal(t, 0, len(bucketList.Items))
@@ -80,7 +80,7 @@ func TestBucketsReadNewWayWriteOldWay(t *testing.T) {
 		assert.NoError(t, err)
 
 		// (New API) Check that bucket list include the new bucket
-		bucketList, err := db.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
+		bucketList, err := db.ListBuckets(ctx, storj.BucketListOptions{})
 		if assert.NoError(t, err) {
 			assert.False(t, bucketList.More)
 			assert.Equal(t, 1, len(bucketList.Items))
@@ -99,7 +99,7 @@ func TestBucketsReadNewWayWriteOldWay(t *testing.T) {
 		assert.NoError(t, err)
 
 		// (New API) Check that the bucket list is empty
-		bucketList, err = db.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
+		bucketList, err = db.ListBuckets(ctx, storj.BucketListOptions{})
 		if assert.NoError(t, err) {
 			assert.False(t, bucketList.More)
 			assert.Equal(t, 0, len(bucketList.Items))
@@ -186,18 +186,10 @@ func TestListBucketsEmpty(t *testing.T) {
 	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		_, err := db.ListBuckets(ctx, storj.BucketListOptions{})
 		assert.EqualError(t, err, "kvmetainfo: invalid direction 0")
-
-		for _, direction := range []storj.ListDirection{
-			storj.Before,
-			storj.Backward,
-			storj.Forward,
-			storj.After,
-		} {
-			bucketList, err := db.ListBuckets(ctx, storj.BucketListOptions{Direction: direction})
-			if assert.NoError(t, err) {
-				assert.False(t, bucketList.More)
-				assert.Equal(t, 0, len(bucketList.Items))
-			}
+		bucketList, err := db.ListBuckets(ctx, storj.BucketListOptions{})
+		if assert.NoError(t, err) {
+			assert.False(t, bucketList.More)
+			assert.Equal(t, 0, len(bucketList.Items))
 		}
 	})
 }
@@ -215,75 +207,26 @@ func TestListBuckets(t *testing.T) {
 
 		for i, tt := range []struct {
 			cursor string
-			dir    storj.ListDirection
 			limit  int
 			more   bool
 			result []string
 		}{
-			{cursor: "", dir: storj.After, limit: 0, more: false, result: []string{"a", "aa", "b", "bb", "c"}},
-			{cursor: "`", dir: storj.After, limit: 0, more: false, result: []string{"a", "aa", "b", "bb", "c"}},
-			{cursor: "b", dir: storj.After, limit: 0, more: false, result: []string{"bb", "c"}},
-			{cursor: "c", dir: storj.After, limit: 0, more: false, result: []string{}},
-			{cursor: "ca", dir: storj.After, limit: 0, more: false, result: []string{}},
-			{cursor: "", dir: storj.After, limit: 1, more: true, result: []string{"a"}},
-			{cursor: "`", dir: storj.After, limit: 1, more: true, result: []string{"a"}},
-			{cursor: "aa", dir: storj.After, limit: 1, more: true, result: []string{"b"}},
-			{cursor: "c", dir: storj.After, limit: 1, more: false, result: []string{}},
-			{cursor: "ca", dir: storj.After, limit: 1, more: false, result: []string{}},
-			{cursor: "", dir: storj.After, limit: 2, more: true, result: []string{"a", "aa"}},
-			{cursor: "`", dir: storj.After, limit: 2, more: true, result: []string{"a", "aa"}},
-			{cursor: "aa", dir: storj.After, limit: 2, more: true, result: []string{"b", "bb"}},
-			{cursor: "bb", dir: storj.After, limit: 2, more: false, result: []string{"c"}},
-			{cursor: "c", dir: storj.After, limit: 2, more: false, result: []string{}},
-			{cursor: "ca", dir: storj.After, limit: 2, more: false, result: []string{}},
-			{cursor: "", dir: storj.Forward, limit: 0, more: false, result: []string{"a", "aa", "b", "bb", "c"}},
-			{cursor: "`", dir: storj.Forward, limit: 0, more: false, result: []string{"a", "aa", "b", "bb", "c"}},
-			{cursor: "b", dir: storj.Forward, limit: 0, more: false, result: []string{"b", "bb", "c"}},
-			{cursor: "c", dir: storj.Forward, limit: 0, more: false, result: []string{"c"}},
-			{cursor: "ca", dir: storj.Forward, limit: 0, more: false, result: []string{}},
-			{cursor: "", dir: storj.Forward, limit: 1, more: true, result: []string{"a"}},
-			{cursor: "`", dir: storj.Forward, limit: 1, more: true, result: []string{"a"}},
-			{cursor: "aa", dir: storj.Forward, limit: 1, more: true, result: []string{"aa"}},
-			{cursor: "c", dir: storj.Forward, limit: 1, more: false, result: []string{"c"}},
-			{cursor: "ca", dir: storj.Forward, limit: 1, more: false, result: []string{}},
-			{cursor: "", dir: storj.Forward, limit: 2, more: true, result: []string{"a", "aa"}},
-			{cursor: "`", dir: storj.Forward, limit: 2, more: true, result: []string{"a", "aa"}},
-			{cursor: "aa", dir: storj.Forward, limit: 2, more: true, result: []string{"aa", "b"}},
-			{cursor: "bb", dir: storj.Forward, limit: 2, more: false, result: []string{"bb", "c"}},
-			{cursor: "c", dir: storj.Forward, limit: 2, more: false, result: []string{"c"}},
-			{cursor: "ca", dir: storj.Forward, limit: 2, more: false, result: []string{}},
-			{cursor: "", dir: storj.Backward, limit: 0, more: false, result: []string{"a", "aa", "b", "bb", "c"}},
-			{cursor: "`", dir: storj.Backward, limit: 0, more: false, result: []string{}},
-			{cursor: "b", dir: storj.Backward, limit: 0, more: false, result: []string{"a", "aa", "b"}},
-			{cursor: "c", dir: storj.Backward, limit: 0, more: false, result: []string{"a", "aa", "b", "bb", "c"}},
-			{cursor: "ca", dir: storj.Backward, limit: 0, more: false, result: []string{"a", "aa", "b", "bb", "c"}},
-			{cursor: "", dir: storj.Backward, limit: 1, more: true, result: []string{"c"}},
-			{cursor: "`", dir: storj.Backward, limit: 1, more: false, result: []string{}},
-			{cursor: "aa", dir: storj.Backward, limit: 1, more: true, result: []string{"aa"}},
-			{cursor: "c", dir: storj.Backward, limit: 1, more: true, result: []string{"c"}},
-			{cursor: "ca", dir: storj.Backward, limit: 1, more: true, result: []string{"c"}},
-			{cursor: "", dir: storj.Backward, limit: 2, more: true, result: []string{"bb", "c"}},
-			{cursor: "`", dir: storj.Backward, limit: 2, more: false, result: []string{}},
-			{cursor: "aa", dir: storj.Backward, limit: 2, more: false, result: []string{"a", "aa"}},
-			{cursor: "bb", dir: storj.Backward, limit: 2, more: true, result: []string{"b", "bb"}},
-			{cursor: "c", dir: storj.Backward, limit: 2, more: true, result: []string{"bb", "c"}},
-			{cursor: "ca", dir: storj.Backward, limit: 2, more: true, result: []string{"bb", "c"}},
-			{cursor: "", dir: storj.Before, limit: 0, more: false, result: []string{"a", "aa", "b", "bb", "c"}},
-			{cursor: "`", dir: storj.Before, limit: 0, more: false, result: []string{}},
-			{cursor: "b", dir: storj.Before, limit: 0, more: false, result: []string{"a", "aa"}},
-			{cursor: "c", dir: storj.Before, limit: 0, more: false, result: []string{"a", "aa", "b", "bb"}},
-			{cursor: "ca", dir: storj.Before, limit: 0, more: false, result: []string{"a", "aa", "b", "bb", "c"}},
-			{cursor: "", dir: storj.Before, limit: 1, more: true, result: []string{"c"}},
-			{cursor: "`", dir: storj.Before, limit: 1, more: false, result: []string{}},
-			{cursor: "aa", dir: storj.Before, limit: 1, more: false, result: []string{"a"}},
-			{cursor: "c", dir: storj.Before, limit: 1, more: true, result: []string{"bb"}},
-			{cursor: "ca", dir: storj.Before, limit: 1, more: true, result: []string{"c"}},
-			{cursor: "", dir: storj.Before, limit: 2, more: true, result: []string{"bb", "c"}},
-			{cursor: "`", dir: storj.Before, limit: 2, more: false, result: []string{}},
-			{cursor: "aa", dir: storj.Before, limit: 2, more: false, result: []string{"a"}},
-			{cursor: "bb", dir: storj.Before, limit: 2, more: true, result: []string{"aa", "b"}},
-			{cursor: "c", dir: storj.Before, limit: 2, more: true, result: []string{"b", "bb"}},
-			{cursor: "ca", dir: storj.Before, limit: 2, more: true, result: []string{"bb", "c"}},
+			{cursor: "", limit: 0, more: false, result: []string{"a", "aa", "b", "bb", "c"}},
+			{cursor: "`", limit: 0, more: false, result: []string{"a", "aa", "b", "bb", "c"}},
+			{cursor: "b", limit: 0, more: false, result: []string{"bb", "c"}},
+			{cursor: "c", limit: 0, more: false, result: []string{}},
+			{cursor: "ca", limit: 0, more: false, result: []string{}},
+			{cursor: "", limit: 1, more: true, result: []string{"a"}},
+			{cursor: "`", limit: 1, more: true, result: []string{"a"}},
+			{cursor: "aa", limit: 1, more: true, result: []string{"b"}},
+			{cursor: "c", limit: 1, more: false, result: []string{}},
+			{cursor: "ca", limit: 1, more: false, result: []string{}},
+			{cursor: "", limit: 2, more: true, result: []string{"a", "aa"}},
+			{cursor: "`", limit: 2, more: true, result: []string{"a", "aa"}},
+			{cursor: "aa", limit: 2, more: true, result: []string{"b", "bb"}},
+			{cursor: "bb", limit: 2, more: false, result: []string{"c"}},
+			{cursor: "c", limit: 2, more: false, result: []string{}},
+			{cursor: "ca", limit: 2, more: false, result: []string{}},
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
 

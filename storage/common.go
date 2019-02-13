@@ -88,8 +88,6 @@ type IterateOptions struct {
 	First Key
 	// Recurse, do not collapse items based on Delimiter
 	Recurse bool
-	// Reverse iterates in reverse order
-	Reverse bool
 }
 
 // Iterator iterates over a sequence of ListItems

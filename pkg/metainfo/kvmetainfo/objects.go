@@ -166,30 +166,7 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 		return storj.ObjectList{}, err
 	}
 
-	var startAfter, endBefore string
-	switch options.Direction {
-	case storj.Before:
-		// before lists backwards from cursor, without cursor
-		endBefore = options.Cursor
-	case storj.Backward:
-		// backward lists backwards from cursor, including cursor
-		endBefore = keyAfter(options.Cursor)
-	case storj.Forward:
-		// forward lists forwards from cursor, including cursor
-		startAfter = keyBefore(options.Cursor)
-	case storj.After:
-		// after lists forwards from cursor, without cursor
-		startAfter = options.Cursor
-	default:
-		return storj.ObjectList{}, errClass.New("invalid direction %d", options.Direction)
-	}
-
-	// TODO: remove this hack-fix of specifying the last key
-	if options.Cursor == "" && (options.Direction == storj.Before || options.Direction == storj.Backward) {
-		endBefore = "\x7f\x7f\x7f\x7f\x7f\x7f\x7f"
-	}
-
-	items, more, err := objects.List(ctx, options.Prefix, startAfter, endBefore, options.Recursive, options.Limit, meta.All)
+	items, more, err := objects.List(ctx, options.Prefix, options.Cursor, endBefore, options.Recursive, options.Limit, meta.All)
 	if err != nil {
 		return storj.ObjectList{}, err
 	}

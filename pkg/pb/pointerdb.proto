@@ -130,7 +130,6 @@ message IterateRequest {
   string prefix = 1;
   string first = 2;
   bool recurse = 3;
-  bool reverse = 4;
 }
 
 message PayerBandwidthAllocationRequest {

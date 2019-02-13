@@ -64,7 +64,6 @@ func (store *Logger) Iterate(opts storage.IterateOptions, fn func(storage.Iterat
 		zap.String("prefix", string(opts.Prefix)),
 		zap.String("first", string(opts.First)),
 		zap.Bool("recurse", opts.Recurse),
-		zap.Bool("reverse", opts.Reverse),
 	)
 	return store.store.Iterate(opts, func(it storage.Iterator) error {
 		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {

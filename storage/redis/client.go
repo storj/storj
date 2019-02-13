@@ -159,19 +159,12 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 func (client *Client) Iterate(opts storage.IterateOptions, fn func(it storage.Iterator) error) error {
 	var all storage.Items
 	var err error
-	if !opts.Reverse {
-		all, err = client.allPrefixedItems(opts.Prefix, opts.First, nil)
-	} else {
-		all, err = client.allPrefixedItems(opts.Prefix, nil, opts.First)
-	}
+	all, err = client.allPrefixedItems(opts.Prefix, opts.First, nil)
 	if err != nil {
 		return err
 	}
 	if !opts.Recurse {
 		all = storage.SortAndCollapse(all, opts.Prefix)
-	}
-	if opts.Reverse {
-		all = storage.ReverseItems(all)
 	}
 	return fn(&storage.StaticIterator{
 		Items: all,

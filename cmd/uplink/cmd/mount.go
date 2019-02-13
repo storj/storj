@@ -144,7 +144,7 @@ func (sf *storjFS) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 
 	// file not found so maybe it's a prefix/directory
 	if err != nil {
-		list, err := sf.metainfo.ListObjects(sf.ctx, sf.bucket.Name, storj.ListOptions{Direction: storj.After, Prefix: name, Limit: 1})
+		list, err := sf.metainfo.ListObjects(sf.ctx, sf.bucket.Name, storj.ListOptions{Prefix: name, Limit: 1})
 		if err != nil {
 			return nil, fuse.EIO
 		}
@@ -270,7 +270,6 @@ func (sf *storjFS) listObjects(ctx context.Context, name string, recursive bool,
 
 	for {
 		list, err := sf.metainfo.ListObjects(sf.ctx, sf.bucket.Name, storj.ListOptions{
-			Direction: storj.After,
 			Cursor:    startAfter,
 			Prefix:    name,
 			Recursive: recursive,

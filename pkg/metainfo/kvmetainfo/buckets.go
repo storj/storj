@@ -57,30 +57,7 @@ func (db *DB) GetBucket(ctx context.Context, bucket string) (bucketInfo storj.Bu
 func (db *DB) ListBuckets(ctx context.Context, options storj.BucketListOptions) (list storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var startAfter, endBefore string
-	switch options.Direction {
-	case storj.Before:
-		// before lists backwards from cursor, without cursor
-		endBefore = options.Cursor
-	case storj.Backward:
-		// backward lists backwards from cursor, including cursor
-		endBefore = keyAfter(options.Cursor)
-	case storj.Forward:
-		// forward lists forwards from cursor, including cursor
-		startAfter = keyBefore(options.Cursor)
-	case storj.After:
-		// after lists forwards from cursor, without cursor
-		startAfter = options.Cursor
-	default:
-		return storj.BucketList{}, errClass.New("invalid direction %d", options.Direction)
-	}
-
-	// TODO: remove this hack-fix of specifying the last key
-	if options.Cursor == "" && (options.Direction == storj.Before || options.Direction == storj.Backward) {
-		endBefore = "\x7f\x7f\x7f\x7f\x7f\x7f\x7f"
-	}
-
-	items, more, err := db.buckets.List(ctx, startAfter, endBefore, options.Limit)
+	items, more, err := db.buckets.List(ctx, options.Cursor, "", options.Limit)
 	if err != nil {
 		return storj.BucketList{}, err
 	}

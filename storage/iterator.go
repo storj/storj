@@ -59,26 +59,6 @@ func SortAndCollapse(items Items, prefix []byte) Items {
 	return result
 }
 
-// ReverseItems reverses items in the list
-// items will be reused and modified
-// TODO: remove this
-func ReverseItems(items Items) Items {
-	for i := len(items)/2 - 1; i >= 0; i-- {
-		k := len(items) - 1 - i
-		items[i], items[k] = items[k], items[i]
-	}
-	return items
-}
-
-// ReverseKeys reverses the list of keys
-func ReverseKeys(keys Keys) Keys {
-	for i := len(keys)/2 - 1; i >= 0; i-- {
-		k := len(keys) - 1 - i
-		keys[i], keys[k] = keys[k], keys[i]
-	}
-	return keys
-}
-
 // StaticIterator implements an iterator over list of items
 type StaticIterator struct {
 	Items Items

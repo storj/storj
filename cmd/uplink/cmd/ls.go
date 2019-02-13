@@ -55,7 +55,7 @@ func list(cmd *cobra.Command, args []string) error {
 	noBuckets := true
 
 	for {
-		list, err := metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After, Cursor: startAfter})
+		list, err := metainfo.ListBuckets(ctx, storj.BucketListOptions{})
 		if err != nil {
 			return err
 		}
@@ -93,7 +93,6 @@ func listFiles(ctx context.Context, metainfo storj.Metainfo, prefix fpath.FPath,
 
 	for {
 		list, err := metainfo.ListObjects(ctx, prefix.Bucket(), storj.ListOptions{
-			Direction: storj.After,
 			Cursor:    startAfter,
 			Prefix:    prefix.Path(),
 			Recursive: *recursiveFlag,

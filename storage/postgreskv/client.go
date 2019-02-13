@@ -228,18 +228,9 @@ func (opi *orderedPostgresIterator) doNextQuery() (*sql.Rows, error) {
 	}
 	var query string
 	if !opi.opts.Recurse {
-		if opi.opts.Reverse {
-			query = "SELECT p, m FROM list_directory_reverse($1::BYTEA, $2::BYTEA, $3::BYTEA, $4) ld(p, m)"
-		} else {
-			query = "SELECT p, m FROM list_directory($1::BYTEA, $2::BYTEA, $3::BYTEA, $4) ld(p, m)"
-		}
+		query = "SELECT p, m FROM list_directory($1::BYTEA, $2::BYTEA, $3::BYTEA, $4) ld(p, m)"
 	} else {
 		startCmp := ">="
-		orderDir := ""
-		if opi.opts.Reverse {
-			startCmp = "<="
-			orderDir = " DESC"
-		}
 		query = fmt.Sprintf(`
 			SELECT fullpath, metadata
 			  FROM pathdata
@@ -247,9 +238,9 @@ func (opi *orderedPostgresIterator) doNextQuery() (*sql.Rows, error) {
 			   AND ($2::BYTEA = ''::BYTEA OR fullpath >= $2::BYTEA)
 			   AND ($2::BYTEA = ''::BYTEA OR fullpath < bytea_increment($2::BYTEA))
 			   AND ($3::BYTEA = ''::BYTEA OR fullpath %s $3::BYTEA)
-			 ORDER BY fullpath%s
+			 ORDER BY fullpath
 			 LIMIT $4
-		`, startCmp, orderDir)
+		`, startCmp)
 	}
 	return opi.client.pgConn.Query(query, []byte(opi.bucket), []byte(opi.opts.Prefix), []byte(start), opi.batchSize+1)
 }
