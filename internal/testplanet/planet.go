@@ -448,8 +448,17 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			planet.config.Reconfigure.Satellite(log, i, &config)
 		}
 
+		config.Mail.SMTPServerAddress = "smtp.gmail.com:587"
+		config.Mail.From = "Labs <r0boticssss4@gmail.com>"
+		config.Mail.Auth.Type = "oauth2"
+		config.Mail.Auth.OAUTH2.Credentials.ClientID = "creds"
+		config.Mail.Auth.OAUTH2.Credentials.ClientSecret = "creds"
+		config.Mail.Auth.OAUTH2.Credentials.TokenURI = "https://oauth2.googleapis.com/token"
+		config.Mail.Auth.OAUTH2.RefreshToken = "1/sad-ZSwOPvbpBwLX_O6PMckT7kIzxeRlxeVgx6"
+
 		// TODO: for development only
 		config.Console.StaticDir = "./web/satellite"
+		config.Mail.TemplatePath = "./web/satellite/src/components/emails"
 
 		peer, err := satellite.New(log, identity, db, &config)
 		if err != nil {

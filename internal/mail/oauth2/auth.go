@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package gmail
+package oauth2
 
 import (
 	"encoding/json"
@@ -16,7 +16,7 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// Auth is XOAUTH2 implementation of smtp.Auth interface for gmail
+// Auth is XOAUTH2 implementation of smtp.Auth interface
 type Auth struct {
 	UserEmail string
 

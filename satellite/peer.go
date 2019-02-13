@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/mail"
+	"net/smtp"
 	"os"
 	"path/filepath"
 
@@ -15,6 +17,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+
+	m "storj.io/storj/internal/mail"
+	"storj.io/storj/internal/mail/oauth2"
+	m1 "storj.io/storj/satellite/mail"
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/accounting/rollup"
@@ -97,6 +103,7 @@ type Config struct {
 	Tally  tally.Config
 	Rollup rollup.Config
 
+	Mail    m1.Config
 	Console consoleweb.Config
 }
 
@@ -161,6 +168,10 @@ type Peer struct {
 	Accounting struct {
 		Tally  *tally.Tally
 		Rollup *rollup.Rollup
+	}
+
+	Mail struct {
+		Service *m1.Service
 	}
 
 	Console struct {
@@ -363,6 +374,49 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
 	}
 
+	{ // setup mail
+		// TODO(yar): test multiple satellites using same OAUTH credentials
+		mailConig := config.Mail
+
+		from, err := mail.ParseAddress(mailConig.From)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		var auth smtp.Auth
+		switch mailConig.Auth.Type {
+		case "oauth2":
+			oauth2Config := mailConig.Auth.OAUTH2
+
+			token, err := oauth2.RefreshToken(oauth2.Credentials(oauth2Config.Credentials), oauth2Config.RefreshToken)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			auth = &oauth2.Auth{
+				UserEmail: from.Address,
+				Storage:   oauth2.NewTokenStore(oauth2.Credentials(oauth2Config.Credentials), *token),
+			}
+		case "plain":
+			fallthrough
+		default:
+			return nil, errs.Combine(errs.New("unsupported auth type"), peer.Close())
+		}
+
+		peer.Mail.Service = m1.NewService(
+			peer.Log.Named("mail:service"),
+			m.SMTPSender{
+				From:          *from,
+				Auth:          auth,
+				ServerAddress: mailConig.SMTPServerAddress,
+			},
+			mailConig.TemplatePath,
+		)
+
+		peer.Log.Debug(peer.Mail.Service.SendForgotPasswordEmail(context.Background(),
+			mail.Address{Address: "email@gmail.com", Name: "Name"}, "https://storj.io").Error())
+	}
+
 	{ // setup console
 		log.Debug("Setting up console")
 		config := config.Console
@@ -373,7 +427,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		}
 
 		peer.Console.Service, err = console.NewService(peer.Log.Named("console:service"),
-			// TODO: use satellite key
+			// TODO(yar): use satellite key
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			peer.DB.Console(),
 			config.PasswordCost,
