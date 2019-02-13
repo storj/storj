@@ -70,18 +70,9 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 		if err != nil || len(keys) != storage.LookupLimit {
 			t.Fatalf("List LookupLimit should succeed: %v / got %d", err, len(keys))
 		}
-		keys, err = store.ReverseList(nil, storage.LookupLimit)
-		if err != nil || len(keys) != storage.LookupLimit {
-			t.Fatalf("ReverseList LookupLimit should succeed: %v / got %d", err, len(keys))
-		}
-
 		_, err = store.List(nil, storage.LookupLimit+1)
 		if err != nil || len(keys) != storage.LookupLimit {
 			t.Fatalf("List LookupLimit+1 shouldn't fail: %v / got %d", err, len(keys))
-		}
-		_, err = store.ReverseList(nil, storage.LookupLimit+1)
-		if err != nil || len(keys) != storage.LookupLimit {
-			t.Fatalf("ReverseList LookupLimit+1 shouldn't fail: %v / got %d", err, len(keys))
 		}
 	})
 }
