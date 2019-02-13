@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/dbutil/pgutil"

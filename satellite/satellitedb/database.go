@@ -7,6 +7,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
@@ -127,4 +128,9 @@ func (db *DB) Console() console.DB {
 		db:      db.db,
 		methods: db.db,
 	}
+}
+
+// CreateTables is a method for creating all tables for database
+func (db *DB) CreateTables() error {
+	return migrate.Create("database", db.db)
 }
