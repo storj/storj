@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
+// ErrMigrate is for tracking migration errors
 var ErrMigrate = errs.Class("migrate")
 
 // CreateTables is a method for creating all tables for database
@@ -157,11 +158,11 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Adjust table naming",
 				Version:     1,
 				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
-					has_storage_node_id, err := postgresHasColumn(tx, "bwagreements", "storage_node_id")
+					hasStorageNodeID, err := postgresHasColumn(tx, "bwagreements", "storage_node_id")
 					if err != nil {
 						return ErrMigrate.Wrap(err)
 					}
-					if !has_storage_node_id {
+					if !hasStorageNodeID {
 						// - storage_node bytea NOT NULL,
 						// + storage_node_id bytea NOT NULL,
 						_, err := tx.Exec(`ALTER TABLE bwagreements
@@ -171,11 +172,11 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						}
 					}
 
-					has_uplink_id, err := postgresHasColumn(tx, "bwagreements", "uplink_id")
+					hasUplinkID, err := postgresHasColumn(tx, "bwagreements", "uplink_id")
 					if err != nil {
 						return ErrMigrate.Wrap(err)
 					}
-					if !has_uplink_id {
+					if !hasUplinkID {
 						// + uplink_id bytea NOT NULL,
 						_, err := tx.Exec(`
 							ALTER TABLE bwagreements
@@ -248,11 +249,11 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
 					// - email text,
 					// + email text NOT NULL,
-					email_nullable, err := postgresColumnNullability(tx, "users", "email")
+					emailNullable, err := postgresColumnNullability(tx, "users", "email")
 					if err != nil {
 						return ErrMigrate.Wrap(err)
 					}
-					if email_nullable {
+					if emailNullable {
 						_, err := tx.Exec(`
 							ALTER TABLE users
 							ALTER COLUMN email SET NOT NULL;
@@ -263,11 +264,11 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					}
 
 					// + status integer NOT NULL,
-					has_status, err := postgresHasColumn(tx, "users", "status")
+					hasStatus, err := postgresHasColumn(tx, "users", "status")
 					if err != nil {
 						return ErrMigrate.Wrap(err)
 					}
-					if !has_status {
+					if !hasStatus {
 						_, err := tx.Exec(`
 							ALTER TABLE users
 								ADD COLUMN status INTEGER NOT NULL;
