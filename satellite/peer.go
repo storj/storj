@@ -376,17 +376,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 	{ // setup mail
 		// TODO(yar): test multiple satellites using same OAUTH credentials
-		mailConig := config.Mail
+		mailConfig := config.Mail
 
-		from, err := mail.ParseAddress(mailConig.From)
+		from, err := mailConfig.FromAddress()
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
 		var auth smtp.Auth
-		switch mailConig.Auth.Type {
+		switch mailConfig.Auth.Type {
 		case "oauth2":
-			oauth2Config := mailConig.Auth.OAUTH2
+			oauth2Config := mailConfig.Auth.OAUTH2
 
 			token, err := oauth2.RefreshToken(oauth2.Credentials(oauth2Config.Credentials), oauth2Config.RefreshToken)
 			if err != nil {
@@ -408,13 +408,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			m.SMTPSender{
 				From:          *from,
 				Auth:          auth,
-				ServerAddress: mailConig.SMTPServerAddress,
+				ServerAddress: mailConfig.SMTPServerAddress,
 			},
-			mailConig.TemplatePath,
+			mailConfig.TemplatePath,
 		)
 
-		peer.Log.Debug(peer.Mail.Service.SendForgotPasswordEmail(context.Background(),
-			mail.Address{Address: "email@gmail.com", Name: "Name"}, "https://storj.io").Error())
+		peer.Mail.Service.SendRendered(context.Background(), &console.AccountActivationEmail{
+			MailTemplate: console.NewMailTemplate(
+				mail.Address{Address: "mail@gmail.com", Name: "Name"},
+				"Subj",
+				filepath.Join(mailConfig.TemplatePath, "Welcome.html"),
+				filepath.Join(mailConfig.TemplatePath, "Welcome.html")),
+			ActivationLink: "https://storj.io",
+		})
+
+		//peer.Log.Debug(peer.Mail.Service.SendActivationEmail(context.Background(),
+		//	mail.Address{Address: "mail@gmail.com", Name: "Name"}, "https://storj.io").Error())
 	}
 
 	{ // setup console

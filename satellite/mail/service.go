@@ -6,12 +6,12 @@ package mail
 import (
 	"bytes"
 	"context"
-	"html/template"
+	html "html/template"
 	"net/mail"
-	"path/filepath"
+	text "text/template"
 
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	m "storj.io/storj/internal/mail"
 )
@@ -38,9 +38,21 @@ type Config struct {
 	}
 }
 
+func (c *Config) FromAddress() (*mail.Address, error) {
+	return mail.ParseAddress(c.From)
+}
+
 var (
 	mon = monkit.Package()
 )
+
+// Template defines mail template for SendRendered method
+type Template interface {
+	To() []mail.Address
+	Subject() string
+	HTMLPath() string
+	PainTextPath() string
+}
 
 // Service sends predefined email messages through SMTP
 type Service struct {
@@ -55,121 +67,48 @@ func NewService(log *zap.Logger, sender m.SMTPSender, templatePath string) *Serv
 	return &Service{log: log, sender: sender, templatePath: templatePath}
 }
 
-// SendEmail is generalized method for sending custom email message
-func (service *Service) SendEmail(ctx context.Context, msg *m.Message) (err error) {
+// Send is generalized method for sending custom email message
+func (service *Service) Send(ctx context.Context, msg *m.Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.sender.SendEmail(msg)
 }
 
-// SendActivationEmail sends account activation link email message
-func (service *Service) SendActivationEmail(ctx context.Context, to mail.Address, link string) (err error) {
+// SendRendered renders content from html and text templates then sends it
+func (service *Service) SendRendered(ctx context.Context, tmpl Template) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	var buffer bytes.Buffer
 
-	template, err := template.ParseFiles(filepath.Join(service.templatePath, "Welcome.html"))
+	var htmlBuffer bytes.Buffer
+	var textBuffer bytes.Buffer
+
+	// render text ttemplate
+	ttemplate, err := text.ParseFiles(tmpl.PainTextPath())
 	if err != nil {
-		return err
+		return
 	}
 
-	var data struct {
-		ActivationLink string
+	if err = ttemplate.Execute(&textBuffer, tmpl); err != nil {
+		return
 	}
-	data.ActivationLink = link
 
-	err = template.Execute(&buffer, data)
+	// render html ttemplate
+	htemplate, err := html.ParseFiles(tmpl.HTMLPath())
 	if err != nil {
-		return err
+		return
+	}
+
+	if err = htemplate.Execute(&htmlBuffer, tmpl); err != nil {
+		return
 	}
 
 	msg := &m.Message{
-		From:    service.sender.From,
-		To:      []mail.Address{to},
-		Subject: "Activate your mail",
-		// TODO(yar): prepare text version of the email
-		PlainText: "",
+		From:      service.sender.From,
+		To:        tmpl.To(),
+		Subject:   tmpl.Subject(),
+		PlainText: textBuffer.String(),
 		Parts: []m.Part{
 			{
 				Type:    "text/html; charset=UTF-8",
-				Content: buffer.String(),
-			},
-		},
-	}
-
-	return service.sender.SendEmail(msg)
-}
-
-// SendForgotPasswordEmail sends email message with forgot password activation link
-// to address should include name of the recipient
-func (service *Service) SendForgotPasswordEmail(ctx context.Context, to mail.Address, link string) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	var buffer bytes.Buffer
-
-	template, err := template.ParseFiles(filepath.Join(service.templatePath, "Forgot.html"))
-	if err != nil {
-		return err
-	}
-
-	var data struct {
-		UserName  string
-		ResetLink string
-	}
-	data.UserName = to.Name
-	data.ResetLink = link
-
-	err = template.Execute(&buffer, data)
-	if err != nil {
-		return err
-	}
-
-	msg := &m.Message{
-		From:    service.sender.From,
-		To:      []mail.Address{to},
-		Subject: "Forgot password",
-		// TODO(yar): prepare text version of the email
-		PlainText: "",
-		Parts: []m.Part{
-			{
-				Type:    "text/html; charset=UTF-8",
-				Content: buffer.String(),
-			},
-		},
-	}
-
-	return service.sender.SendEmail(msg)
-}
-
-// SendProjectInvitationEmail sends project invitation email
-func (service *Service) SendProjectInvitationEmail(ctx context.Context, to mail.Address, projectName string) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	var buffer bytes.Buffer
-
-	template, err := template.ParseFiles(filepath.Join(service.templatePath, "Invite.html"))
-	if err != nil {
-		return err
-	}
-
-	var data struct {
-		UserName    string
-		ProjectName string
-	}
-	data.UserName = to.Name
-	data.ProjectName = projectName
-
-	err = template.Execute(&buffer, data)
-	if err != nil {
-		return err
-	}
-
-	msg := &m.Message{
-		From:    service.sender.From,
-		To:      []mail.Address{to},
-		Subject: "You were invited to project",
-		// TODO(yar): prepare text version of the email
-		PlainText: "",
-		Parts: []m.Part{
-			{
-				Type:    "text/html; charset=UTF-8",
-				Content: buffer.String(),
+				Content: htmlBuffer.String(),
 			},
 		},
 	}
