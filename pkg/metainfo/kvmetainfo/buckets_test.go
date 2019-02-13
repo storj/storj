@@ -231,9 +231,8 @@ func TestListBuckets(t *testing.T) {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
 
 			bucketList, err := db.ListBuckets(ctx, storj.BucketListOptions{
-				Cursor:    tt.cursor,
-				Direction: tt.dir,
-				Limit:     tt.limit,
+				Cursor: tt.cursor,
+				Limit:  tt.limit,
 			})
 
 			if assert.NoError(t, err, errTag) {

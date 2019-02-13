@@ -303,7 +303,7 @@ func TestListObjectsEmpty(t *testing.T) {
 		_, err = db.ListObjects(ctx, bucket.Name, storj.ListOptions{})
 		assert.EqualError(t, err, "kvmetainfo: invalid direction 0")
 
-		list, err := db.ListObjects(ctx, bucket.Name, storj.ListOptions{Direction: storj.After})
+		list, err := db.ListObjects(ctx, bucket.Name, storj.ListOptions{})
 		if assert.NoError(t, err) {
 			assert.False(t, list.More)
 			assert.Equal(t, 0, len(list.Items))
@@ -434,10 +434,9 @@ func TestListObjects(t *testing.T) {
 
 func options(prefix, cursor string, limit int) storj.ListOptions {
 	return storj.ListOptions{
-		Prefix:    prefix,
-		Cursor:    cursor,
-		Direction: direction,
-		Limit:     limit,
+		Prefix: prefix,
+		Cursor: cursor,
+		Limit:  limit,
 	}
 }
 
@@ -445,7 +444,6 @@ func optionsRecursive(prefix, cursor string, limit int) storj.ListOptions {
 	return storj.ListOptions{
 		Prefix:    prefix,
 		Cursor:    cursor,
-		Direction: direction,
 		Limit:     limit,
 		Recursive: true,
 	}

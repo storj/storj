@@ -166,7 +166,7 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 		return storj.ObjectList{}, err
 	}
 
-	items, more, err := objects.List(ctx, options.Prefix, options.Cursor, endBefore, options.Recursive, options.Limit, meta.All)
+	items, more, err := objects.List(ctx, options.Prefix, options.Cursor, "", options.Recursive, options.Limit, meta.All)
 	if err != nil {
 		return storj.ObjectList{}, err
 	}

@@ -55,7 +55,7 @@ func list(cmd *cobra.Command, args []string) error {
 	noBuckets := true
 
 	for {
-		list, err := metainfo.ListBuckets(ctx, storj.BucketListOptions{})
+		list, err := metainfo.ListBuckets(ctx, storj.BucketListOptions{Cursor: startAfter})
 		if err != nil {
 			return err
 		}
