@@ -63,6 +63,7 @@ func TestPieceRanger(t *testing.T) {
 				PieceData: &pb.PieceRetrieval_PieceData{
 					Id: pid.String(), PieceSize: tt.length, Offset: tt.offset,
 				},
+				PayerAllocation: &pb.PayerBandwidthAllocation{},
 			}
 
 			stream.EXPECT().Send(msg1).Return(nil)
@@ -143,6 +144,7 @@ func TestPieceRangerSize(t *testing.T) {
 				PieceData: &pb.PieceRetrieval_PieceData{
 					Id: pid.String(), PieceSize: tt.length, Offset: tt.offset,
 				},
+				PayerAllocation: &pb.PayerBandwidthAllocation{},
 			}
 
 			stream.EXPECT().Send(msg1).Return(nil)
