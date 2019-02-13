@@ -48,7 +48,7 @@ func LoadSchemaFromSQL(connstr, script string) (_ *dbschema.Schema, err error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { errs.Combine(err, db.Close()) }()
+	defer func() { err = errs.Combine(err, db.Close()) }()
 
 	_, err = db.Exec(script)
 	if err != nil {
