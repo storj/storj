@@ -4,11 +4,10 @@
 package satellitedb
 
 import (
-	"storj.io/storj/internal/pgutil"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
