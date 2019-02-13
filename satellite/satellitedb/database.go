@@ -4,10 +4,9 @@
 package satellitedb
 
 import (
-	"strconv"
-
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
@@ -60,12 +59,16 @@ func NewInMemory() (satellite.DB, error) {
 	return New("sqlite3://file::memory:?mode=memory")
 }
 
+// Close is used to close db connection
+func (db *DB) Close() error {
+	return db.db.Close()
+}
+
 // CreateSchema creates a schema if it doesn't exist.
 func (db *DB) CreateSchema(schema string) error {
 	switch db.driver {
 	case "postgres":
-		_, err := db.db.Exec(`create schema if not exists ` + quoteSchema(schema) + `;`)
-		return err
+		return pgutil.CreateSchema(db.db, schema)
 	}
 	return nil
 }
@@ -74,15 +77,9 @@ func (db *DB) CreateSchema(schema string) error {
 func (db *DB) DropSchema(schema string) error {
 	switch db.driver {
 	case "postgres":
-		_, err := db.db.Exec(`drop schema ` + quoteSchema(schema) + ` cascade;`)
-		return err
+		return pgutil.DropSchema(db.db, schema)
 	}
 	return nil
-}
-
-// quoteSchema quotes schema name such that it can be used in a postgres query
-func quoteSchema(schema string) string {
-	return strconv.QuoteToASCII(schema)
 }
 
 // BandwidthAgreement is a getter for bandwidth agreement repository
@@ -136,9 +133,4 @@ func (db *DB) Console() console.DB {
 // CreateTables is a method for creating all tables for database
 func (db *DB) CreateTables() error {
 	return migrate.Create("database", db.db)
-}
-
-// Close is used to close db connection
-func (db *DB) Close() error {
-	return db.db.Close()
 }
