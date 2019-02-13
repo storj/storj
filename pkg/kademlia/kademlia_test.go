@@ -130,18 +130,18 @@ func TestBootstrap(t *testing.T) {
 
 	bn, s, clean := testNode(ctx, "1", t, []pb.Node{})
 	defer clean()
-	defer s.Stop()
+	//defer s.Stop()
 
 	n1, s1, clean1 := testNode(ctx, "2", t, []pb.Node{bn.routingTable.self})
 	defer clean1()
-	defer s1.Stop()
+	//defer s1.Stop()
 
 	err := n1.Bootstrap(ctx)
 	assert.NoError(t, err)
 
 	n2, s2, clean2 := testNode(ctx, "3", t, []pb.Node{bn.routingTable.self})
 	defer clean2()
-	defer s2.Stop()
+	//defer s2.Stop()
 
 	err = n2.Bootstrap(ctx)
 	assert.NoError(t, err)
@@ -149,6 +149,9 @@ func TestBootstrap(t *testing.T) {
 	nodeIDs, err := n2.routingTable.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	assert.Len(t, nodeIDs, 3)
+	s.GracefulStop()
+	s1.GracefulStop()
+	s2.GracefulStop()
 }
 
 func testNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
@@ -213,6 +216,7 @@ func TestRefresh(t *testing.T) {
 	ts2, err := rt.GetBucketTimestamp(bID[:])
 	assert.NoError(t, err)
 	assert.True(t, ts1.Equal(ts2))
+	s.GracefulStop()
 }
 
 func TestFindNear(t *testing.T) {
