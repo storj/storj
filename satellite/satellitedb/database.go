@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/accounting"
@@ -15,7 +16,6 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -36,7 +36,7 @@ type DB struct {
 
 // New creates instance of database (supports: postgres, sqlite3)
 func New(databaseURL string) (satellite.DB, error) {
-	driver, source, err := utils.SplitDBURL(databaseURL)
+	driver, source, err := dbutil.SplitConnstr(databaseURL)
 	if err != nil {
 		return nil, err
 	}
