@@ -73,5 +73,8 @@ func (sender *SMTPSender) SendEmail(msg *Message) error {
 		return err
 	}
 
-	return client.Quit()
+	// send quit msg to stop gracefully returns err on
+	// success but we don't really care about the result
+	_ = client.Quit()
+	return nil
 }
