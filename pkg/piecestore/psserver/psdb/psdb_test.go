@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/stretchr/testify/require"
@@ -307,7 +308,6 @@ func TestMigration(t *testing.T) {
 
 				// test entries
 				"INSERT INTO `ttl` VALUES(1, 2, 3, 4);",
-				"INSERT INTO `bandwidth_agreements` VALUES(X'31',X'32',X'33');",
 				"INSERT INTO `bwusagetbl` VALUES(1, 3, 4);",
 			}
 			for _, query := range queries {
@@ -316,6 +316,21 @@ func TestMigration(t *testing.T) {
 					return err
 				}
 			}
+
+			// create almost real RenterBandwidthAllocation
+			satelliteID := teststorj.NodeIDFromString("migration")
+			agreement := &pb.RenterBandwidthAllocation{
+				PayerAllocation: pb.PayerBandwidthAllocation{},
+			}
+			agreementData, err := proto.Marshal(agreement)
+			if err != nil {
+				return err
+			}
+			_, err = db.Exec("INSERT INTO `bandwidth_agreements` VALUES(?,?,?);", satelliteID.Bytes(), agreementData, []byte("signature"))
+			if err != nil {
+				return err
+			}
+
 			return nil
 		}
 
