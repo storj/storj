@@ -302,16 +302,6 @@ func TestStore(t *testing.T) {
 			totalReceived: 5,
 			err:           "",
 		},
-		{ // should err with invalid id length
-			id:            "butts",
-			satelliteID:   satID.ID,
-			whitelist:     []storj.NodeID{satID.ID},
-			ttl:           9999999999,
-			content:       []byte("xyzwq"),
-			message:       "",
-			totalReceived: 0,
-			err:           "rpc error: code = Unknown desc = piecestore error: invalid id length",
-		},
 		{ // should err with piece ID not specified
 			id:            "",
 			satelliteID:   satID.ID,
@@ -334,14 +324,20 @@ func TestStore(t *testing.T) {
 			stream, err := c.Store(ctx)
 			require.NoError(t, err)
 
-			// Write the buffer to the stream we opened earlier
-			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
-			require.NoError(t, err)
-			// Send Bandwidth Allocation Data
+			// Create Bandwidth Allocation Data
 			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_PUT, snID, upID, time.Hour)
 			require.NoError(t, err)
 			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, tt.totalReceived)
 			require.NoError(t, err)
+
+			// Write the buffer to the stream we opened earlier
+			err = stream.Send(&pb.PieceStore{
+				PieceData:           &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl},
+				PayerAllocation:     pba,
+				BandwidthAllocation: rba,
+			})
+			require.NoError(t, err)
+
 			msg := &pb.PieceStore{
 				PieceData:           &pb.PieceStore_PieceData{Content: tt.content},
 				BandwidthAllocation: rba,
