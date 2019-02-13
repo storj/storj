@@ -22,7 +22,7 @@ storj-sim -x network setup
 echo "LISTING SATELLITE"
 cat $TMP/satellite/0/config.yaml
 # run aws-cli tests
-storj-sim -x network test bash $SCRIPTDIR/test-sim-aws.sh
+# storj-sim -x network test bash $SCRIPTDIR/test-sim-aws.sh
 storj-sim -x network test bash $SCRIPTDIR/test-uplink.sh
 storj-sim -x network destroy
 

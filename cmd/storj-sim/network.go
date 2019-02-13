@@ -257,6 +257,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				}
 			}
 
+			fmt.Printf("\nAPI KEY %+v\n", vip.Get("client.api-key"))
 			accessKey := vip.GetString("minio.access-key")
 			secretKey := vip.GetString("minio.secret-key")
 
