@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
 	"log"
 	"os"
 	"storj.io/storj/pkg/kademlia"
@@ -46,6 +45,7 @@ type network struct {
 	seen   map[string]struct{}
 	//seen map[string]int
 	out *tabwriter.Writer
+	err *log.Logger
 }
 
 func mapCmd(cmd *cobra.Command, args []string) error {
@@ -69,16 +69,17 @@ func mapCmd(cmd *cobra.Command, args []string) error {
 		seen:   map[string]struct{}{args[0]: {}},
 		addrs:  []string{args[0]},
 		out:    tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0),
+		err:    errLog,
 	}
 	_, _ = fmt.Fprintf(n.out, "digraph StorjNetwork {\n")
 
-	if err := n.walk(args[0]); err != nil {
-		// TODO error handling
-		errLog.Printf("error: %s\n", err.Error())
-		//fmt.Printf("error: %s\n", err.Error())
+	n.walk(args[0])
+	if _, err = fmt.Fprintf(n.out, "}\n"); err != nil {
+		errLog.Println(err)
 	}
-	_, _ = fmt.Fprintf(n.out, "}\n")
-	_ = n.out.Flush()
+	if err = n.out.Flush(); err != nil {
+		errLog.Println(err)
+	}
 
 	//dot := buildDot(queue.routes)
 	//fmt.Println(dot)
@@ -87,18 +88,15 @@ func mapCmd(cmd *cobra.Command, args []string) error {
 }
 
 //func walk(ctx context.Context, next string, queue *Queue) error {
-func (n *network) walk(next string) error {
-	clientErrs := errs.Group{}
+func (n *network) walk(next string) {
 	select {
 	case <-n.ctx.Done():
-		return nil
+		return
 	default:
 		inspector, err := NewInspector(next, *IdentityPath)
 		if err != nil {
 			// TODO error handling
-			log.Printf("error: %s\n", err.Error())
-			//return err
-			return nil
+			n.err.Print(err)
 		}
 
 		kadDialer := kademlia.NewDialer(nil, inspector.transportClient)
@@ -109,22 +107,19 @@ func (n *network) walk(next string) error {
 		})
 		if err != nil {
 			// TODO error handling
-			log.Printf("error: %s\n", err.Error())
-			//return err
-			return nil
+			n.err.Print(err)
 		}
 
 		for _, node := range res.Nodes {
 			pID, err := kadDialer.FetchPeerIdentity(n.ctx, *node)
 			if err != nil {
 				// TODO error handling
-				log.Printf("error: %s\n", err.Error())
-				return nil
+				n.err.Print(err)
 			}
+
 			verifyErr := n.verify(nil, [][]*x509.Certificate{append(append([]*x509.Certificate{pID.Leaf}, pID.CA), pID.RestChain...)})
 
 			newAddr := node.Address.Address
-
 			if _, ok := n.seen[newAddr]; ok {
 				continue
 			}
@@ -136,19 +131,19 @@ func (n *network) walk(next string) error {
 			default:
 				color = "#2683ff"
 			}
-			_, _ = fmt.Fprintf(n.out, "\"%s\" [fillcolor=\"%s\" fontcolor=\"white\" style=filled]\n", newAddr, color)
-			_, _ = fmt.Fprintf(n.out, "\"%s\"\t->\t\"%s\"\n", next, newAddr)
+			if _, err = fmt.Fprintf(n.out, "\"%s\" [fillcolor=\"%s\" fontcolor=\"white\" style=filled]\n", newAddr, color); err != nil {
+				n.err.Println(err)
+			}
+			if _, err = fmt.Fprintf(n.out, "\"%s\"\t->\t\"%s\"\n", next, newAddr); err != nil {
+				n.err.Println(err)
+			}
 
 			n.seen[newAddr] = struct{}{}
 			n.addrs = append(n.addrs, newAddr)
 
-			if err := n.walk(newAddr); err != nil {
-				clientErrs.Add(err)
-			}
+			n.walk(newAddr)
 		}
 	}
-
-	return clientErrs.Err()
 }
 
 func buildDot(routes routes) string {
