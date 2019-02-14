@@ -11,13 +11,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
 )
@@ -53,7 +53,7 @@ func (c CertClientConfig) Sign(ctx context.Context, ident *identity.FullIdentity
 // NewAuthDB creates or opens the authorization database specified by the config
 func (c CertServerConfig) NewAuthDB() (*AuthorizationDB, error) {
 	// TODO: refactor db selection logic?
-	driver, source, err := utils.SplitDBURL(c.AuthorizationDBURL)
+	driver, source, err := dbutil.SplitConnstr(c.AuthorizationDBURL)
 	if err != nil {
 		return nil, peertls.ErrRevocationDB.Wrap(err)
 	}

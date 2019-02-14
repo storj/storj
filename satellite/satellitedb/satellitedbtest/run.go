@@ -6,16 +6,14 @@ package satellitedbtest
 // This package should be referenced only in test files!
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"flag"
-	"net/url"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -47,18 +45,10 @@ func Databases() []Database {
 	}
 }
 
-// WithSchema adds schema param to connection string.
-func WithSchema(connstring string, schema string) string {
-	if strings.HasPrefix(connstring, "postgres") {
-		return connstring + "&search_path=" + url.QueryEscape(schema)
-	}
-	return connstring
-}
-
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
 func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
-	schemaSuffix := randomSchemaSuffix()
+	schemaSuffix := pgutil.RandomString(8)
 	t.Log("schema-suffix ", schemaSuffix)
 
 	for _, dbInfo := range Databases() {
@@ -71,7 +61,8 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 			}
 
 			schema := strings.ToLower(t.Name() + "-satellite/x-" + schemaSuffix)
-			db, err := satellitedb.New(WithSchema(dbInfo.URL, schema))
+			connstr := pgutil.ConnstrWithSchema(dbInfo.URL, schema)
+			db, err := satellitedb.New(connstr)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -97,10 +88,4 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 			test(t, db)
 		})
 	}
-}
-
-func randomSchemaSuffix() string {
-	var data [8]byte
-	_, _ = rand.Read(data[:])
-	return hex.EncodeToString(data[:])
 }

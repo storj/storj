@@ -4,8 +4,8 @@
 package pointerdb
 
 import (
+	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/postgreskv"
@@ -28,7 +28,7 @@ type Config struct {
 
 // NewStore returns database for storing pointer data
 func NewStore(dbURLString string) (db storage.KeyValueStore, err error) {
-	driver, source, err := utils.SplitDBURL(dbURLString)
+	driver, source, err := dbutil.SplitConnstr(dbURLString)
 	if err != nil {
 		return nil, err
 	}

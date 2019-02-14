@@ -158,13 +158,6 @@ func (client *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	return rv, Error.Wrap(err)
 }
 
-// ReverseList returns either a list of keys for which boltdb has values or an error.
-// Starts from first and iterates backwards
-func (client *Client) ReverseList(first storage.Key, limit int) (storage.Keys, error) {
-	rv, err := storage.ReverseListKeys(client, first, limit)
-	return rv, Error.Wrap(err)
-}
-
 // Close closes a BoltDB client
 func (client *Client) Close() error {
 	if atomic.AddInt32(client.referenceCount, -1) == 0 {
