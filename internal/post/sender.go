@@ -30,10 +30,7 @@ func (sender *SMTPSender) FromAddress() Address {
 
 // SendEmail sends email message to the given recipient
 func (sender *SMTPSender) SendEmail(msg *Message) error {
-	host, _, err := net.SplitHostPort(sender.ServerAddress)
-	if err != nil {
-		return err
-	}
+	host, _, _ := net.SplitHostPort(sender.ServerAddress)
 
 	client, err := smtp.Dial(sender.ServerAddress)
 	if err != nil {

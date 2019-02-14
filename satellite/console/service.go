@@ -41,11 +41,12 @@ type Service struct {
 	store DB
 	log   *zap.Logger
 
-	passwordCost int
+	passwordCost       int
+	simulateActivation bool
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, signer Signer, store DB, passwordCost int) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, passwordCost int, simulateActivation bool) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -62,7 +63,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, passwordCost int) (*Se
 		passwordCost = bcrypt.DefaultCost
 	}
 
-	return &Service{Signer: signer, store: store, log: log, passwordCost: passwordCost}, nil
+	return &Service{Signer: signer, store: store, log: log, passwordCost: passwordCost, simulateActivation: simulateActivation}, nil
 }
 
 // CreateUser gets password hash value and creates new inactive User
@@ -86,11 +87,18 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 		return nil, err
 	}
 
+	// TODO(yar): feels ugly
+	var status UserStatus
+	if s.simulateActivation {
+		status = Active
+	}
+
 	u, err = s.store.Users().Insert(ctx, &User{
 		Email:        user.Email,
 		FirstName:    user.FirstName,
 		LastName:     user.LastName,
 		PasswordHash: hash,
+		Status:       status,
 	})
 
 	// TODO: send "finish registration email" when email service will be ready

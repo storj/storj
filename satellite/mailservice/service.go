@@ -19,7 +19,6 @@ import (
 // Config defines values needed by mailservice service
 type Config struct {
 	SMTPServerAddress string `help:"smtp server address" default:""`
-	TemplatePath      string `help:"path to mailservice templates source" default:""`
 	From              string `help:"sender email address" default:""`
 	Auth              AuthConfig
 }
@@ -72,13 +71,11 @@ type Template interface {
 type Service struct {
 	log    *zap.Logger
 	sender SMTPSender
-
-	templatePath string
 }
 
 // New creates new service
-func New(log *zap.Logger, sender SMTPSender, templatePath string) *Service {
-	return &Service{log: log, sender: sender, templatePath: templatePath}
+func New(log *zap.Logger, sender SMTPSender) *Service {
+	return &Service{log: log, sender: sender}
 }
 
 // Send is generalized method for sending custom email message

@@ -20,8 +20,6 @@ import (
 
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
-	"storj.io/storj/satellite/mailservice"
-
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
@@ -46,7 +44,9 @@ import (
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consolesim"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
@@ -378,7 +378,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		// TODO(yar): test multiple satellites using same OAUTH credentials
 		mailConfig := config.Mail
 
+		// validate from mail address
 		from, err := mail.ParseAddress(mailConfig.From)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		// validate smtp server address
+		host, _, err := net.SplitHostPort(mailConfig.SMTPServerAddress)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -398,26 +405,33 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 				Storage:   oauth2.NewTokenStore(oauth2.Credentials(oauth2Config.Credentials), *token),
 			}
 		case "plain":
-			fallthrough
+			auth = smtp.PlainAuth("", mailConfig.Auth.Plain.Login, mailConfig.Auth.Plain.Password, host)
 		default:
 			return nil, errs.Combine(errs.New("unsupported auth type"), peer.Close())
 		}
 
-		peer.Mail.Service = mailservice.New(
-			peer.Log.Named("mailservice:service"),
-			&post.SMTPSender{
+		var sender mailservice.SMTPSender
+		if config.Console.SimulateActivation {
+			sender = &consolesim.MailsSender{}
+		} else {
+			sender = &post.SMTPSender{
 				From:          *from,
 				Auth:          auth,
 				ServerAddress: mailConfig.SMTPServerAddress,
-			},
-			mailConfig.TemplatePath,
+			}
+		}
+
+		peer.Mail.Service = mailservice.New(
+			peer.Log.Named("mailservice:service"),
+			sender,
 		)
 
+		// TODO: remove debugging code
 		peer.Mail.Service.SendRendered(context.Background(), &console.AccountActivationEmail{
 			MailTemplate: console.NewMailTemplate(
 				post.Address{Address: "r0boticssss4@gmail.com", Name: "Name"},
 				"Subj",
-				filepath.Join(mailConfig.TemplatePath, "Welcome")),
+				filepath.Join(config.Console.TemplatePath, "Welcome")),
 			ActivationLink: "https://storj.io",
 		})
 	}
@@ -436,6 +450,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			peer.DB.Console(),
 			config.PasswordCost,
+			// TODO(yar): feels ugly
+			config.SimulateActivation,
 		)
 
 		if err != nil {
