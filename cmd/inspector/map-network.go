@@ -1,13 +1,14 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/x509"
 	"fmt"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
+	"storj.io/storj/pkg/graph"
+	dot2 "storj.io/storj/pkg/graph/dot"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -19,11 +20,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
-
-type DOTGraph struct {
-	name     string
-	routeMap map[string][]string
-}
 
 var (
 	cmdMap = &cobra.Command{
@@ -44,9 +40,9 @@ type network struct {
 	addrs  []string
 	seen   map[string]struct{}
 	//seen map[string]int
-	out *tabwriter.Writer
-	err *log.Logger
-	dot DOTGraph
+	out   *tabwriter.Writer
+	err   *log.Logger
+	graph graph.Graph
 }
 
 func mapNetworkCmd(cmd *cobra.Command, args []string) error {
@@ -71,7 +67,7 @@ func mapNetworkCmd(cmd *cobra.Command, args []string) error {
 		addrs:  []string{args[0]},
 		out:    tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0),
 		err:    errLog,
-		dot: NewDot("StorjNetwork"),
+		graph:  dot2.NewDot("StorjNetwork"),
 	}
 	_, _ = fmt.Fprintf(n.out, "digraph StorjNetwork {\n")
 
@@ -136,13 +132,13 @@ func (n *network) walk(next string) {
 			switch {
 			case verifyErr != nil:
 				color = "#3fd69a"
-				n.dot.Add(newAddr, color, verifyErr)
+				n.graph.Add(newAddr, color, verifyErr)
 			case err != nil:
 				color = "#d63f3f"
-				n.dot.Add(newAddr, color, err)
+				n.graph.Add(newAddr, color, err)
 			default:
 				color = "#2683ff"
-				n.dot.Add(newAddr, color, nil)
+				n.graph.Add(newAddr, color, nil)
 			}
 			if _, err = fmt.Fprintf(n.out, "\"%s\" [fillcolor=\"%s\" fontcolor=\"white\" style=filled]\n", newAddr, color); err != nil {
 				n.err.Println(err)
@@ -160,7 +156,7 @@ func (n *network) walk(next string) {
 }
 
 func buildDot(routes routes) string {
-	dot := NewDot("storj network")
+	dot := dot2.NewDot("storj network")
 
 	for _, route := range routes {
 		var neighborAddrs []string
@@ -174,22 +170,3 @@ func buildDot(routes routes) string {
 	return dot.Print()
 }
 
-func NewDot(name string) *DOTGraph {
-	return &DOTGraph{
-		name:     name,
-		routeMap: make(map[string][]string),
-	}
-}
-
-func (dot *DOTGraph) Add(a, b, color string, err error) {
-	dot.routeMap[a] = b
-	if err != nil {
-
-	}
-}
-
-func (dot *DOTGraph) Print() string {
-	out := new(bytes.Buffer)
-	out.WriteString(fmt.Sprintf("digraph %s {\n", dot.name))
-	return out.String()
-}
