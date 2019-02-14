@@ -14,6 +14,9 @@ import (
 	"storj.io/storj/storage"
 )
 
+// Error is the default boltdb errs class
+var Error = errs.Class("boltdb error")
+
 // Client is the entrypoint into a bolt data store
 type Client struct {
 	db     *bolt.DB

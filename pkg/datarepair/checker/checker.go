@@ -40,9 +40,8 @@ type Checker struct {
 	repairQueue queue.RepairQueue
 	overlay     pb.OverlayServer
 	irrdb       irreparable.DB
-	limit       int
 	logger      *zap.Logger
-	Interval    sync2.Cycle
+	Loop        sync2.Cycle
 }
 
 // NewChecker creates a new instance of checker
@@ -54,12 +53,9 @@ func NewChecker(pointerdb *pointerdb.Service, sdb statdb.DB, repairQueue queue.R
 		repairQueue: repairQueue,
 		overlay:     overlay,
 		irrdb:       irrdb,
-		limit:       limit,
 		logger:      logger,
+		Loop:        *sync2.NewCycle(interval),
 	}
-
-	checker.Interval.SetInterval(interval)
-
 	return checker
 }
 
@@ -67,17 +63,20 @@ func NewChecker(pointerdb *pointerdb.Service, sdb statdb.DB, repairQueue queue.R
 func (checker *Checker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return checker.Interval.Run(ctx, func(ctx context.Context) error {
+	return checker.Loop.Run(ctx, func(ctx context.Context) error {
 		err := checker.IdentifyInjuredSegments(ctx)
 		if err != nil {
 			checker.logger.Error("error with injured segments identification: ", zap.Error(err))
 		}
-		return nil
+		return err
 	})
 }
 
-// Close closes resources
-func (checker *Checker) Close() error { return nil }
+// Close halts the Checker loop
+func (checker *Checker) Close() error {
+	checker.Loop.Close()
+	return nil
+}
 
 // IdentifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
@@ -86,11 +85,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	err = checker.pointerdb.Iterate("", "", true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
-			lim := checker.limit
-			if lim <= 0 || lim > storage.LookupLimit {
-				lim = storage.LookupLimit
-			}
-			for ; lim > 0 && it.Next(&item); lim-- {
+			for it.Next(&item) {
 				pointer := &pb.Pointer{}
 
 				err = proto.Unmarshal(item.Value, pointer)
