@@ -216,8 +216,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 								}
 
 								_, err = tx.Exec(`
-								UPDATE bwagreements SET uplink_id = $1
-								WHERE CURRENT OF bwagreements_cursor`, rba.PayerAllocation.UplinkId.Bytes())
+									UPDATE bwagreements SET uplink_id = $1
+									WHERE CURRENT OF bwagreements_cursor`, rba.PayerAllocation.UplinkId.Bytes())
 								if err != nil {
 									return ErrMigrate.Wrap(err)
 								}
