@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package mail
+package post
 
 import (
 	"crypto/tls"
@@ -12,11 +12,14 @@ import (
 	"github.com/zeebo/errs"
 )
 
+// Address is alias of net/mail.Address
+type Address = mail.Address
+
 // SMTPSender is smtp sender
 type SMTPSender struct {
 	ServerAddress string
 
-	From mail.Address
+	From Address
 	Auth smtp.Auth
 }
 

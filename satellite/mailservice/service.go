@@ -1,34 +1,33 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package mail
+package mailservice
 
 import (
 	"bytes"
 	"context"
-	html "html/template"
+	htmltemplate "html/template"
 	"io"
-	"net/mail"
-	text "text/template"
+	texttemplate "text/template"
 
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	m "storj.io/storj/internal/mail"
+	"storj.io/storj/internal/post"
 )
 
-// Config defines values needed by mail service
+// Config defines values needed by mailservice service
 type Config struct {
 	SMTPServerAddress string `help:"smtp server address" default:""`
-	TemplatePath      string `help:"path to mail templates source" default:""`
+	TemplatePath      string `help:"path to mailservice templates source" default:""`
 	From              string `help:"sender email address" default:""`
 	Auth              struct {
-		Type  string `help:"smtp authentication type" default:"OAUTH2"`
+		Type  string `help:"smtp authentication type" default:"OAuth2"`
 		Plain struct {
 			Login    string `help:"plain auth user login" default:""`
 			Password string `help:"plain auth user password" default:""`
 		}
-		OAUTH2 struct {
+		OAuth2 struct {
 			RefreshToken string `help:"refresh token used to retrieve new access token" default:""`
 			Credentials  struct {
 				ClientID     string `help:"oauth2 app's client id" default:""`
@@ -39,18 +38,13 @@ type Config struct {
 	}
 }
 
-// FromAddress parses email address from config to mail.Address
-func (c *Config) FromAddress() (*mail.Address, error) {
-	return mail.ParseAddress(c.From)
-}
-
 var (
 	mon = monkit.Package()
 )
 
-// Template defines mail template for SendRendered method
+// Template defines mailservice template for SendRendered method
 type Template interface {
-	To() []mail.Address
+	To() []post.Address
 	Subject() string
 	HTMLPath() string
 	PainTextPath() string
@@ -59,47 +53,47 @@ type Template interface {
 // Service sends predefined email messages through SMTP
 type Service struct {
 	log    *zap.Logger
-	sender m.SMTPSender
+	sender post.SMTPSender
 
 	templatePath string
 }
 
-// NewService creates new service
-func NewService(log *zap.Logger, sender m.SMTPSender, templatePath string) *Service {
+// New creates new service
+func New(log *zap.Logger, sender post.SMTPSender, templatePath string) *Service {
 	return &Service{log: log, sender: sender, templatePath: templatePath}
 }
 
 // Send is generalized method for sending custom email message
-func (service *Service) Send(ctx context.Context, msg *m.Message) (err error) {
+func (service *Service) Send(ctx context.Context, msg *post.Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.sender.SendEmail(msg)
 }
 
-// SendRendered renders content from html and text templates then sends it
+// SendRendered renders content from htmltemplate and texttemplate templates then sends it
 func (service *Service) SendRendered(ctx context.Context, tmpl Template) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var htmlBuffer bytes.Buffer
 	var textBuffer bytes.Buffer
 
-	// render text template
+	// render texttemplate template
 	if err = RenderPlainText(&textBuffer, tmpl); err != nil {
 		return
 	}
 
-	// render html template
+	// render htmltemplate template
 	if err = RenderHTML(&htmlBuffer, tmpl); err != nil {
 		return
 	}
 
-	msg := &m.Message{
+	msg := &post.Message{
 		From:      service.sender.From,
 		To:        tmpl.To(),
 		Subject:   tmpl.Subject(),
 		PlainText: textBuffer.String(),
-		Parts: []m.Part{
+		Parts: []post.Part{
 			{
-				Type:    "text/html; charset=UTF-8",
+				Type:    "texttemplate/htmltemplate; charset=UTF-8",
 				Content: htmlBuffer.String(),
 			},
 		},
@@ -108,9 +102,9 @@ func (service *Service) SendRendered(ctx context.Context, tmpl Template) (err er
 	return service.sender.SendEmail(msg)
 }
 
-// RenderHTML renders html content of given Template and writes it to writer
+// RenderHTML renders htmltemplate content of given Template and writes it to writer
 func RenderHTML(w io.Writer, tmpl Template) error {
-	template, err := html.ParseFiles(tmpl.HTMLPath())
+	template, err := htmltemplate.ParseFiles(tmpl.HTMLPath())
 	if err != nil {
 		return err
 	}
@@ -122,9 +116,9 @@ func RenderHTML(w io.Writer, tmpl Template) error {
 	return nil
 }
 
-// RenderPlainText renders text content of given Template and writes it to writer
+// RenderPlainText renders texttemplate content of given Template and writes it to writer
 func RenderPlainText(w io.Writer, tmpl Template) error {
-	template, err := text.ParseFiles(tmpl.PainTextPath())
+	template, err := texttemplate.ParseFiles(tmpl.PainTextPath())
 	if err != nil {
 		return err
 	}

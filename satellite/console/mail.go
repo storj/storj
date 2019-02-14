@@ -7,7 +7,7 @@ import (
 	"net/mail"
 )
 
-// MailTemplate is implementation of satellite/mail.Template interface
+// MailTemplate is implementation of satellite/mailservice.Template interface
 type MailTemplate struct {
 	to            mail.Address
 	subject       string
@@ -16,16 +16,16 @@ type MailTemplate struct {
 }
 
 // NewMailTemplate creates new instance of MailTemplate
-func NewMailTemplate(to mail.Address, subject, hpath, tpath string) MailTemplate {
+func NewMailTemplate(to mail.Address, subject, prefix string) MailTemplate {
 	return MailTemplate{
 		to:            to,
 		subject:       subject,
-		htmlPath:      hpath,
-		plainTextPath: tpath,
+		htmlPath:      prefix + ".html",
+		plainTextPath: prefix + ".txt",
 	}
 }
 
-// To gets recipients mail addresses
+// To gets recipients mailservice addresses
 func (tmpl *MailTemplate) To() []mail.Address {
 	return []mail.Address{tmpl.to}
 }
@@ -45,20 +45,20 @@ func (tmpl *MailTemplate) PainTextPath() string {
 	return tmpl.plainTextPath
 }
 
-// AccountActivationEmail is mail template with activation data
+// AccountActivationEmail is mailservice template with activation data
 type AccountActivationEmail struct {
 	MailTemplate
 	ActivationLink string
 }
 
-// ForgotPasswordEmail is mail template with reset password data
+// ForgotPasswordEmail is mailservice template with reset password data
 type ForgotPasswordEmail struct {
 	MailTemplate
 	UserName  string
 	ResetLink string
 }
 
-// ProjectInvitationEmail is mail template for project invitation email
+// ProjectInvitationEmail is mailservice template for project invitation email
 type ProjectInvitationEmail struct {
 	MailTemplate
 	UserName    string

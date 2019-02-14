@@ -172,7 +172,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
 
-				// TODO(yar): add mail configuration
+				// TODO(yar): add mailservice configuration
 			},
 			"run": {},
 		})

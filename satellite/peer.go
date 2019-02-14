@@ -18,9 +18,9 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
-	m "storj.io/storj/internal/mail"
-	"storj.io/storj/internal/mail/oauth2"
-	m1 "storj.io/storj/satellite/mail"
+	"storj.io/storj/internal/post"
+	"storj.io/storj/internal/post/oauth2"
+	"storj.io/storj/satellite/mailservice"
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/accounting/rollup"
@@ -103,7 +103,7 @@ type Config struct {
 	Tally  tally.Config
 	Rollup rollup.Config
 
-	Mail    m1.Config
+	Mail    mailservice.Config
 	Console consoleweb.Config
 }
 
@@ -171,7 +171,7 @@ type Peer struct {
 	}
 
 	Mail struct {
-		Service *m1.Service
+		Service *mailservice.Service
 	}
 
 	Console struct {
@@ -374,11 +374,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
 	}
 
-	{ // setup mail
+	{ // setup mailservice
 		// TODO(yar): test multiple satellites using same OAUTH credentials
 		mailConfig := config.Mail
 
-		from, err := mailConfig.FromAddress()
+		from, err := mail.ParseAddress(mailConfig.From)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -386,7 +386,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		var auth smtp.Auth
 		switch mailConfig.Auth.Type {
 		case "oauth2":
-			oauth2Config := mailConfig.Auth.OAUTH2
+			oauth2Config := mailConfig.Auth.OAuth2
 
 			token, err := oauth2.RefreshToken(oauth2.Credentials(oauth2Config.Credentials), oauth2Config.RefreshToken)
 			if err != nil {
@@ -403,9 +403,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(errs.New("unsupported auth type"), peer.Close())
 		}
 
-		peer.Mail.Service = m1.NewService(
-			peer.Log.Named("mail:service"),
-			m.SMTPSender{
+		peer.Mail.Service = mailservice.New(
+			peer.Log.Named("mailservice:service"),
+			post.SMTPSender{
 				From:          *from,
 				Auth:          auth,
 				ServerAddress: mailConfig.SMTPServerAddress,
@@ -414,10 +414,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		)
 
 		peer.Mail.Service.SendRendered(context.Background(), &console.AccountActivationEmail{
-			MailTemplate: console.NewMailTemplate(mail.Address{Address: "yaroslav1vorobyov@gmail.com", Name: "Name"},
+			MailTemplate: console.NewMailTemplate(
+				post.Address{Address: "yaroslav1vorobyov@gmail.com", Name: "Name"},
 				"Subj",
-				filepath.Join(mailConfig.TemplatePath, "Welcome.html"),
-				filepath.Join(mailConfig.TemplatePath, "Welcome.html")),
+				filepath.Join(mailConfig.TemplatePath, "Welcome")),
 			ActivationLink: "https://storj.io",
 		})
 	}
