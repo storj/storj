@@ -5,10 +5,10 @@ package satellitedb
 
 import (
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/pgutil"
-	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
@@ -30,12 +30,13 @@ var (
 
 // DB contains access to different database tables
 type DB struct {
+	log    *zap.Logger
 	db     *dbx.DB
 	driver string
 }
 
 // New creates instance of database (supports: postgres, sqlite3)
-func New(databaseURL string) (satellite.DB, error) {
+func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 	driver, source, err := dbutil.SplitConnstr(databaseURL)
 	if err != nil {
 		return nil, err
@@ -47,7 +48,7 @@ func New(databaseURL string) (satellite.DB, error) {
 			driver, source, err)
 	}
 
-	core := &DB{db: db, driver: driver}
+	core := &DB{log: log, db: db, driver: driver}
 	if driver == "sqlite3" {
 		return newLocked(core), nil
 	}
@@ -55,8 +56,8 @@ func New(databaseURL string) (satellite.DB, error) {
 }
 
 // NewInMemory creates instance of Sqlite in memory satellite database
-func NewInMemory() (satellite.DB, error) {
-	return New("sqlite3://file::memory:?mode=memory")
+func NewInMemory(log *zap.Logger) (satellite.DB, error) {
+	return New(log, "sqlite3://file::memory:?mode=memory")
 }
 
 // Close is used to close db connection
@@ -72,6 +73,10 @@ func (db *DB) CreateSchema(schema string) error {
 	}
 	return nil
 }
+
+// TestDBAccess for raw database access,
+// should not be used outside of migration tests.
+func (db *DB) TestDBAccess() *dbx.DB { return db.db }
 
 // DropSchema drops the named schema
 func (db *DB) DropSchema(schema string) error {
@@ -128,9 +133,4 @@ func (db *DB) Console() console.DB {
 		db:      db.db,
 		methods: db.db,
 	}
-}
-
-// CreateTables is a method for creating all tables for database
-func (db *DB) CreateTables() error {
-	return migrate.Create("database", db.db)
 }

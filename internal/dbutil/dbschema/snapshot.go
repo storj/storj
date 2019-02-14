@@ -3,6 +3,8 @@
 
 package dbschema
 
+import "sort"
+
 // Snapshots defines a collection of snapshot
 type Snapshots struct {
 	List []*Snapshot
@@ -29,4 +31,11 @@ func (snapshots *Snapshots) FindVersion(version int) (*Snapshot, bool) {
 		}
 	}
 	return nil, false
+}
+
+// Sort sorts the snapshots by version
+func (snapshots *Snapshots) Sort() {
+	sort.Slice(snapshots.List, func(i, k int) bool {
+		return snapshots.List[i].Version < snapshots.List[k].Version
+	})
 }
