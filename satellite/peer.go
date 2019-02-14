@@ -405,7 +405,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		peer.Mail.Service = mailservice.New(
 			peer.Log.Named("mailservice:service"),
-			post.SMTPSender{
+			&post.SMTPSender{
 				From:          *from,
 				Auth:          auth,
 				ServerAddress: mailConfig.SMTPServerAddress,
@@ -415,7 +415,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		peer.Mail.Service.SendRendered(context.Background(), &console.AccountActivationEmail{
 			MailTemplate: console.NewMailTemplate(
-				post.Address{Address: "yaroslav1vorobyov@gmail.com", Name: "Name"},
+				post.Address{Address: "r0boticssss4@gmail.com", Name: "Name"},
 				"Subj",
 				filepath.Join(mailConfig.TemplatePath, "Welcome")),
 			ActivationLink: "https://storj.io",

@@ -23,6 +23,11 @@ type SMTPSender struct {
 	Auth smtp.Auth
 }
 
+// FromAddress implements satellite/mail.SMTPSender
+func (sender *SMTPSender) FromAddress() Address {
+	return sender.From
+}
+
 // SendEmail sends email message to the given recipient
 func (sender *SMTPSender) SendEmail(msg *Message) error {
 	host, _, err := net.SplitHostPort(sender.ServerAddress)

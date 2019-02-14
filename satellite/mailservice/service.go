@@ -54,6 +54,12 @@ var (
 	mon = monkit.Package()
 )
 
+// SMTPSender is
+type SMTPSender interface {
+	SendEmail(msg *post.Message) error
+	FromAddress() post.Address
+}
+
 // Template defines mailservice template for SendRendered method
 type Template interface {
 	To() []post.Address
@@ -65,13 +71,13 @@ type Template interface {
 // Service sends predefined email messages through SMTP
 type Service struct {
 	log    *zap.Logger
-	sender post.SMTPSender
+	sender SMTPSender
 
 	templatePath string
 }
 
 // New creates new service
-func New(log *zap.Logger, sender post.SMTPSender, templatePath string) *Service {
+func New(log *zap.Logger, sender SMTPSender, templatePath string) *Service {
 	return &Service{log: log, sender: sender, templatePath: templatePath}
 }
 
@@ -99,13 +105,13 @@ func (service *Service) SendRendered(ctx context.Context, tmpl Template) (err er
 	}
 
 	msg := &post.Message{
-		From:      service.sender.From,
+		From:      service.sender.FromAddress(),
 		To:        tmpl.To(),
 		Subject:   tmpl.Subject(),
 		PlainText: textBuffer.String(),
 		Parts: []post.Part{
 			{
-				Type:    "texttemplate/htmltemplate; charset=UTF-8",
+				Type:    "text/html; charset=UTF-8",
 				Content: htmlBuffer.String(),
 			},
 		},
