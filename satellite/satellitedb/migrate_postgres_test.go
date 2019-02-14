@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -64,6 +65,16 @@ func loadVersions(connstr string) ([]*VersionSchema, error) {
 	}
 
 	return list, nil
+}
+
+const newDataSeparator = `-- NEW DATA --`
+
+func (schema *VersionSchema) newData() string {
+	tokens := strings.SplitN(schema.Script, newDataSeparator, 2)
+	if len(tokens) != 2 {
+		return ""
+	}
+	return tokens[1]
 }
 
 var (
@@ -145,6 +156,15 @@ func TestMigratePostgres(t *testing.T) {
 				err := migrations.TargetVersion(step.Version).Run(log.Named("migrate"), rawdb)
 				require.NoError(t, err, tag)
 
+				// find the matching expected version
+				expected := findVersion(versions, step.Version)
+
+				// insert data for new tables
+				if newdata := expected.newData(); newdata != "" && step.Version > base.Version {
+					_, err = rawdb.Exec(newdata)
+					require.NoError(t, err, tag)
+				}
+
 				// load the schema from database
 				currentSchema, err := pgutil.QuerySchema(rawdb)
 				require.NoError(t, err, tag)
@@ -152,8 +172,7 @@ func TestMigratePostgres(t *testing.T) {
 				// we don't care changes in versions table
 				currentSchema.DropTable("versions")
 
-				// find the matching expected version
-				expected := findVersion(versions, step.Version)
+				// verify new schema
 				require.Equal(t, expected.Schema, currentSchema, tag)
 
 				// keep the last version around
