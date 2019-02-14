@@ -84,6 +84,11 @@ func loadDBXSchema(connstr, dbxscript string) (*dbschema.Schema, error) {
 	return dbxschema.Schema, dbxschema.err
 }
 
+const (
+	minBaseVersion = 0
+	maxBaseVersion = 4
+)
+
 func TestMigratePostgres(t *testing.T) {
 	if *satellitedbtest.TestPostgres == "" {
 		t.Skip("Postgres flag missing, example: -postgres-test-db=" + satellitedbtest.DefaultPostgresConn)
@@ -94,7 +99,7 @@ func TestMigratePostgres(t *testing.T) {
 
 	for _, base := range snapshots.List {
 		// versions 0 to 4 can be a starting point
-		if base.Version < 0 || 4 < base.Version {
+		if base.Version < minBaseVersion || maxBaseVersion < base.Version {
 			continue
 		}
 
