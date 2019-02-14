@@ -379,6 +379,27 @@ func (authDB *AuthorizationDB) Claim(opts *ClaimOpts) error {
 	return nil
 }
 
+// Unclaim removes a claim from an authorization.
+func (authDB *AuthorizationDB) Unclaim(authToken string) error {
+	token := new(Token)
+	if err := token.Parse(authToken); err != nil {
+		return err
+	}
+
+	auths, err := authDB.Get(token.UserID)
+	if err != nil {
+		return err
+	}
+
+	for i, auth := range auths {
+		if auth.Token.Equal(token) {
+			auths[i].Claim = nil
+			return authDB.put(token.UserID, auths)
+		}
+	}
+	return errs.New("token not found in authorizations DB")
+}
+
 func (authDB *AuthorizationDB) add(userID string, newAuths Authorizations) error {
 	auths, err := authDB.Get(userID)
 	if err != nil {
@@ -440,6 +461,11 @@ func (a Authorizations) Group() (claimed, open Authorizations) {
 func (a Authorization) String() string {
 	fmtLen := strconv.Itoa(len(a.Token.UserID) + 7)
 	return fmt.Sprintf("%."+fmtLen+"s..", a.Token.String())
+}
+
+// Parse converts a token from it's `.String()` format back to a token struct
+func (t *Token) Parse(tokenStr string) error {
+
 }
 
 // Equal checks if two tokens have equal user IDs and data
