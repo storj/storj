@@ -322,7 +322,9 @@ func (k *Kademlia) refresh(ctx context.Context, threshold time.Duration) error {
 		if tErr != nil {
 			errors.Add(tErr)
 		} else if now.After(ts.Add(threshold)) {
-			rID, _ := randomIDInRange(startID, keyToBucketID(bID))
+			endID := keyToBucketID(bID)
+			rID, _ := randomIDInRange(startID, endID)
+			startID = endID
 			_, _ = k.FindNode(ctx, rID) // ignore node not found
 		}
 	}
