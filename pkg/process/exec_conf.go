@@ -214,14 +214,14 @@ func cleanup(cmd *cobra.Command) {
 		defer zap.ReplaceGlobals(logger)()
 		defer zap.RedirectStdLog(logger)()
 
+		// okay now that logging is working, inform about the broken keys
 		if cmd.Annotations["type"] != "helper" {
-			// okay now that logging is working, inform about the broken keys
 			for _, key := range brokenKeys {
 				logger.Sugar().Infof("Invalid configuration file key: %s", key)
 			}
-			for _, key := range brokenVals {
-				logger.Sugar().Infof("Invalid configuration file value for key: %s", key)
-			}
+		}
+		for _, key := range brokenVals {
+			logger.Sugar().Infof("Invalid configuration file value for key: %s", key)
 		}
 
 		err = initDebug(logger, monkit.Default)
