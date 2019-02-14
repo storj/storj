@@ -101,20 +101,6 @@ type Iterator interface {
 	Next(item *ListItem) bool
 }
 
-// BatchIterator iterates over a sequence of ListItems
-type BatchIterator interface {
-	// Next prepares the next list item
-	// returns false when you reach final item
-	Next(item []ListItem) bool
-}
-
-// BatchIterateOptions contains options for batch iterator
-type BatchIterateOptions struct {
-	IterateOptions
-	// BatchSize indicates the number of records to read at once
-	BatchSize int
-}
-
 // IsZero returns true if the value struct is it's zero value
 func (value Value) IsZero() bool {
 	return len(value) == 0

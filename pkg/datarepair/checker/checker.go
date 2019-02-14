@@ -41,7 +41,7 @@ type Checker struct {
 	overlay     pb.OverlayServer
 	irrdb       irreparable.DB
 	logger      *zap.Logger
-	Loop        *sync2.Cycle
+	Loop        sync2.Cycle
 }
 
 // NewChecker creates a new instance of checker
@@ -54,7 +54,7 @@ func NewChecker(pointerdb *pointerdb.Service, sdb statdb.DB, repairQueue queue.R
 		overlay:     overlay,
 		irrdb:       irrdb,
 		logger:      logger,
-		Loop:        sync2.NewCycle(interval),
+		Loop:        *sync2.NewCycle(interval),
 	}
 	return checker
 }

@@ -47,7 +47,9 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		assert.Equal(t, "b", injuredSegment.Path)
 		assert.Equal(t, len(planet.StorageNodes), len(injuredSegment.LostPieces))
 		for _, lostPiece := range injuredSegment.LostPieces {
+			// makePointer() starts with numValidNode good pieces
 			assert.True(t, lostPiece >= numValidNode, fmt.Sprintf("%d >= %d \n", lostPiece, numValidNode))
+			// makePointer() than has numValidNode bad pieces
 			assert.True(t, lostPiece < numValidNode*2, fmt.Sprintf("%d < %d \n", lostPiece, numValidNode*2))
 		}
 	})
@@ -155,7 +157,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 	})
 }
 
-func makePointer(t *testing.T, planet *testplanet.Planet, peiceID string, createLost bool) {
+func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, createLost bool) {
 	numOfStorageNodes := len(planet.StorageNodes)
 	pieces := make([]*pb.RemotePiece, 0, numOfStorageNodes)
 	// use online nodes
@@ -184,7 +186,7 @@ func makePointer(t *testing.T, planet *testplanet.Planet, peiceID string, create
 				MinReq:          int32(minReq),
 				RepairThreshold: int32(repairThreshold),
 			},
-			PieceId:      peiceID,
+			PieceId:      pieceID,
 			RemotePieces: pieces,
 		},
 	}
