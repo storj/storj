@@ -161,10 +161,6 @@ func TestMigratePostgres(t *testing.T) {
 				currentData, err := pgutil.QueryData(rawdb, currentSchema)
 				require.NoError(t, err, tag)
 
-				for _, table := range currentData.Tables {
-					t.Log(table.Name, table.Rows)
-				}
-
 				// verify schema and data
 				require.Equal(t, expected.Schema, currentSchema, tag)
 				require.Equal(t, expected.Data, currentData, tag)

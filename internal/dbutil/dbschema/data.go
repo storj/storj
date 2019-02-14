@@ -74,6 +74,7 @@ func QueryData(db Queryer, schema *Schema, quoteColumn func(string) string) (*Da
 			Name:    tableSchema.Name,
 			Columns: columnNames,
 		}
+		data.AddTable(table)
 
 		// quote column names
 		quotedColumns := make([]string, len(columnNames))
