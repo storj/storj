@@ -26,6 +26,7 @@ type VersionSchema struct {
 	Version int
 	Script  string
 	*dbschema.Schema
+	*dbschema.Data
 }
 
 // loadVersions loads all the dbschemas from testdata/postgres.* caching the result
@@ -45,12 +46,12 @@ func loadVersions(connstr string) ([]*VersionSchema, error) {
 			return nil, err
 		}
 
-		data, err := ioutil.ReadFile(match)
+		scriptData, err := ioutil.ReadFile(match)
 		if err != nil {
 			return nil, err
 		}
 
-		schema, err := pgutil.LoadSchemaFromSQL(connstr, string(data))
+		schema, data, err := pgutil.LoadSchemaAndDataFromSQL(connstr, string(scriptData))
 		if err != nil {
 			return nil, err
 		}
@@ -59,8 +60,9 @@ func loadVersions(connstr string) ([]*VersionSchema, error) {
 
 		list = append(list, &VersionSchema{
 			Version: version,
-			Script:  string(data),
+			Script:  string(scriptData),
 			Schema:  schema,
+			Data:    data,
 		})
 	}
 
@@ -165,15 +167,20 @@ func TestMigratePostgres(t *testing.T) {
 					require.NoError(t, err, tag)
 				}
 
-				// load the schema from database
+				// load schema from database
 				currentSchema, err := pgutil.QuerySchema(rawdb)
 				require.NoError(t, err, tag)
 
 				// we don't care changes in versions table
 				currentSchema.DropTable("versions")
 
-				// verify new schema
+				// load data from database
+				currentData, err := pgutil.QueryData(rawdb, currentSchema)
+				require.NoError(t, err, tag)
+
+				// verify schema and data
 				require.Equal(t, expected.Schema, currentSchema, tag)
+				require.Equal(t, expected.Data, currentData, tag)
 
 				// keep the last version around
 				finalSchema = currentSchema

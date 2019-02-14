@@ -83,6 +83,15 @@ func (table *Table) FindColumn(columnName string) (*Column, bool) {
 	return nil, false
 }
 
+// ColumnNames returns column names
+func (table *Table) ColumnNames() []string {
+	columns := make([]string, len(table.Columns))
+	for i, column := range table.Columns {
+		columns[i] = column.Name
+	}
+	return columns
+}
+
 // Sort sorts tables
 func (schema *Schema) Sort() {
 	sort.Slice(schema.Tables, func(i, k int) bool {

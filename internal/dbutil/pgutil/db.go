@@ -57,3 +57,29 @@ func LoadSchemaFromSQL(connstr, script string) (_ *dbschema.Schema, err error) {
 
 	return QuerySchema(db)
 }
+
+// LoadSchemaAndDataFromSQL inserts script into connstr and loads schema.
+func LoadSchemaAndDataFromSQL(connstr, script string) (_ *dbschema.Schema, _ *dbschema.Data, err error) {
+	db, err := Open(connstr, "load-schema")
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { err = errs.Combine(err, db.Close()) }()
+
+	_, err = db.Exec(script)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	schema, err := QuerySchema(db)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	data, err := QueryData(db, schema)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return schema, data, err
+}

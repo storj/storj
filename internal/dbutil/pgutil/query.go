@@ -21,12 +21,12 @@ type Queryer interface {
 }
 
 // QuerySchema loads the schema from postgres database.
-func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
+func QuerySchema(db Queryer) (*dbschema.Schema, error) {
 	schema := &dbschema.Schema{}
 
 	// find tables
 	err := func() error {
-		rows, err := tx.Query(`
+		rows, err := db.Query(`
 			SELECT table_name, column_name, is_nullable, data_type
 			FROM  information_schema.columns
 			WHERE table_schema = CURRENT_SCHEMA
@@ -59,7 +59,7 @@ func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 
 	// find constraints
 	err = func() error {
-		rows, err := tx.Query(`
+		rows, err := db.Query(`
 			SELECT  pg_class.relname      AS table_name,
 			        pg_constraint.conname AS constraint_name,
 					pg_constraint.contype AS constraint_type,
