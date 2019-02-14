@@ -25,8 +25,26 @@ type StreamWriter struct {
 // Write Piece data to a piece store server upload stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
 	updatedAllocation := s.totalWritten + int64(len(b))
+
+	// Making a copy, otherwise there will be a data race
+	// when another goroutine tries to write the cached size
+	// of this instance at the same time.
+	pbaCopy := &pb.PayerBandwidthAllocation{
+		SatelliteId:       s.pba.SatelliteId,
+		UplinkId:          s.pba.UplinkId,
+		MaxSize:           s.pba.MaxSize,
+		ExpirationUnixSec: s.pba.ExpirationUnixSec,
+		SerialNumber:      s.pba.SerialNumber,
+		Action:            s.pba.Action,
+		CreatedUnixSec:    s.pba.CreatedUnixSec,
+	}
+	pbaCopy.Certs = make([][]byte, len(s.pba.Certs))
+	copy(pbaCopy.Certs, s.pba.Certs)
+	pbaCopy.Signature = make([]byte, len(s.pba.Signature))
+	copy(pbaCopy.Signature, s.pba.Signature)
+
 	rba := &pb.RenterBandwidthAllocation{
-		PayerAllocation: *s.pba,
+		PayerAllocation: *pbaCopy,
 		Total:           updatedAllocation,
 		StorageNodeId:   s.signer.remoteID,
 	}
