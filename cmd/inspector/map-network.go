@@ -27,10 +27,10 @@ type DOTGraph struct {
 
 var (
 	cmdMap = &cobra.Command{
-		Use:   "map <bootstrap address>",
+		Use:   "map-network <bootstrap address>",
 		Short: "builds a map of the network by recursively walking routing tables",
 		Args:  cobra.ExactArgs(1),
-		RunE:  mapCmd,
+		RunE:  mapNetworkCmd,
 	}
 )
 
@@ -46,9 +46,10 @@ type network struct {
 	//seen map[string]int
 	out *tabwriter.Writer
 	err *log.Logger
+	dot DOTGraph
 }
 
-func mapCmd(cmd *cobra.Command, args []string) error {
+func mapNetworkCmd(cmd *cobra.Command, args []string) error {
 	whitelist, err := pkcrypto.CertFromPEM([]byte(tlsopts.DefaultPeerCAWhitelist))
 	if err != nil {
 		// TODO error handling
@@ -70,6 +71,7 @@ func mapCmd(cmd *cobra.Command, args []string) error {
 		addrs:  []string{args[0]},
 		out:    tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0),
 		err:    errLog,
+		dot: NewDot("StorjNetwork"),
 	}
 	_, _ = fmt.Fprintf(n.out, "digraph StorjNetwork {\n")
 
@@ -117,7 +119,6 @@ func (n *network) walk(next string) {
 			if err != nil {
 				// TODO error handling
 				n.err.Print(err)
-				verifyErr = err
 			} else {
 				verifyErr = n.verify(nil, [][]*x509.Certificate{append(append([]*x509.Certificate{pID.Leaf}, pID.CA), pID.RestChain...)})
 			}
@@ -134,9 +135,14 @@ func (n *network) walk(next string) {
 			var color string
 			switch {
 			case verifyErr != nil:
-				color = "red"
+				color = "#3fd69a"
+				n.dot.Add(newAddr, color, verifyErr)
+			case err != nil:
+				color = "#d63f3f"
+				n.dot.Add(newAddr, color, err)
 			default:
 				color = "#2683ff"
+				n.dot.Add(newAddr, color, nil)
 			}
 			if _, err = fmt.Fprintf(n.out, "\"%s\" [fillcolor=\"%s\" fontcolor=\"white\" style=filled]\n", newAddr, color); err != nil {
 				n.err.Println(err)
@@ -168,15 +174,18 @@ func buildDot(routes routes) string {
 	return dot.Print()
 }
 
-func NewDot(graph string) *DOTGraph {
+func NewDot(name string) *DOTGraph {
 	return &DOTGraph{
-		name:     graph,
+		name:     name,
 		routeMap: make(map[string][]string),
 	}
 }
 
-func (dot *DOTGraph) Add(parent string, children []string) {
-	dot.routeMap[parent] = children
+func (dot *DOTGraph) Add(a, b, color string, err error) {
+	dot.routeMap[a] = b
+	if err != nil {
+
+	}
 }
 
 func (dot *DOTGraph) Print() string {
