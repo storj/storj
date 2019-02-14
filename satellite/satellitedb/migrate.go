@@ -167,8 +167,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					if !hasStorageNodeID {
 						// - storage_node bytea NOT NULL,
 						// + storage_node_id bytea NOT NULL,
-						_, err := tx.Exec(`ALTER TABLE bwagreements
-							RENAME COLUMN storage_node TO storage_node_id;`)
+						_, err := tx.Exec(`ALTER TABLE bwagreements RENAME COLUMN storage_node TO storage_node_id;`)
 						if err != nil {
 							return ErrMigrate.Wrap(err)
 						}
@@ -181,20 +180,19 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					if !hasUplinkID {
 						// + uplink_id bytea NOT NULL,
 						_, err := tx.Exec(`
-							ALTER TABLE bwagreements
-								ADD COLUMN uplink_id BYTEA NOT NULL;
+							ALTER TABLE bwagreements ADD COLUMN uplink_id BYTEA;
 						`)
 						if err != nil {
 							return ErrMigrate.Wrap(err)
 						}
 
-						rows, err := tx.Query(`SELECT data FROM bwagreements`)
+						rows, err := tx.Query(`SELECT serialnum, data FROM bwagreements`)
 						if err != nil {
 							return ErrMigrate.Wrap(err)
 						}
 						for rows.Next() {
-							var data []byte
-							if err := rows.Scan(&data); err != nil {
+							var serialnum, data []byte
+							if err := rows.Scan(&serialnum, &data); err != nil {
 								return ErrMigrate.Wrap(errs.Combine(err, rows.Close()))
 							}
 
@@ -203,7 +201,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 								return ErrMigrate.Wrap(errs.Combine(err, rows.Close()))
 							}
 
-							_, err := tx.Exec(`UPDATE bwagreements SET uplink_id = ?`, rba.PayerAllocation.UplinkId.Bytes())
+							_, err := tx.Exec(`UPDATE bwagreements SET uplink_id = ? WHERE serialnum = ?`, rba.PayerAllocation.UplinkId.Bytes(), serialnum)
 							if err != nil {
 								return ErrMigrate.Wrap(errs.Combine(err, rows.Close()))
 							}
@@ -213,8 +211,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						}
 
 						_, err = tx.Exec(`
-							ALTER TABLE bwagreements
-								DROP COLUMN data;
+							ALTER TABLE bwagreements ALTER COLUMN uplink_id SET NOT NULL;
+							ALTER TABLE bwagreements DROP COLUMN data;
 						`)
 						if err != nil {
 							return ErrMigrate.Wrap(err)
@@ -257,8 +255,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					}
 					if emailNullable {
 						_, err := tx.Exec(`
-							ALTER TABLE users
-							ALTER COLUMN email SET NOT NULL;
+							ALTER TABLE users ALTER COLUMN email SET NOT NULL;
 						`)
 						if err != nil {
 							return ErrMigrate.Wrap(err)
@@ -283,8 +280,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 
 					// - UNIQUE ( email )
 					_, err = tx.Exec(`
-						ALTER TABLE users
-						DROP CONSTRAINT IF EXISTS users_email_key;
+						ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;
 					`)
 					if err != nil {
 						return ErrMigrate.Wrap(err)
