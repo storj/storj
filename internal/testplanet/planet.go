@@ -45,6 +45,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -439,6 +440,21 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Rollup: rollup.Config{
 				Interval: 120 * time.Second,
 			},
+			Mail: mailservice.Config{
+				SMTPServerAddress: "smtp.gmail.com:587",
+				From:              "Labs <yaroslav-satellite-test@storj.io>",
+				Auth: mailservice.AuthConfig{
+					Type: "oauth2",
+					OAuth2: mailservice.OAuth2{
+						RefreshToken: "1/EztXS-biwVfwGnhq0eZ0PHsjVNyWGApmoIfVqARKALg",
+						Credentials: mailservice.OAuth2Credentials{
+							ClientID:     "39350227628-vk0ek67d385scmgbvre8ijk1jsdui5kd.apps.googleusercontent.com",
+							ClientSecret: "lOS7nLAwR14OjOt6HnpXfRnF",
+							TokenURI:     "https://oauth2.googleapis.com/token",
+						},
+					},
+				},
+			},
 			Console: consoleweb.Config{
 				Address:      "127.0.0.1:0",
 				PasswordCost: console.TestPasswordCost,
@@ -447,14 +463,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		if planet.config.Reconfigure.Satellite != nil {
 			planet.config.Reconfigure.Satellite(log, i, &config)
 		}
-
-		config.Mail.SMTPServerAddress = "smtp.gmail.com:587"
-		config.Mail.From = "Labs <yaroslav-satellite-test@storj.io>"
-		config.Mail.Auth.Type = "oauth2"
-		config.Mail.Auth.OAuth2.Credentials.ClientID = "39350227628-vk0ek67d385scmgbvre8ijk1jsdui5kd.apps.googleusercontent.com"
-		config.Mail.Auth.OAuth2.Credentials.ClientSecret = "lOS7nLAwR14OjOt6HnpXfRnF"
-		config.Mail.Auth.OAuth2.Credentials.TokenURI = "https://oauth2.googleapis.com/token"
-		config.Mail.Auth.OAuth2.RefreshToken = "1/EztXS-biwVfwGnhq0eZ0PHsjVNyWGApmoIfVqARKALg"
 
 		// TODO: for development only
 		config.Console.StaticDir = "./web/satellite"
