@@ -186,28 +186,46 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 							return ErrMigrate.Wrap(err)
 						}
 
-						rows, err := tx.Query(`SELECT serialnum, data FROM bwagreements`)
-						if err != nil {
-							return ErrMigrate.Wrap(err)
-						}
-						for rows.Next() {
-							var serialnum, data []byte
-							if err := rows.Scan(&serialnum, &data); err != nil {
-								return ErrMigrate.Wrap(errs.Combine(err, rows.Close()))
-							}
-
-							var rba pb.RenterBandwidthAllocation
-							if err := proto.Unmarshal(data, &rba); err != nil {
-								return ErrMigrate.Wrap(errs.Combine(err, rows.Close()))
-							}
-
-							_, err := tx.Exec(`UPDATE bwagreements SET uplink_id = ? WHERE serialnum = ?`, rba.PayerAllocation.UplinkId.Bytes(), serialnum)
+						err = func() error {
+							_, err = tx.Exec(`
+							DECLARE bwagreements_cursor CURSOR FOR
+							SELECT serialnum, data FROM bwagreements
+							FOR UPDATE`)
 							if err != nil {
-								return ErrMigrate.Wrap(errs.Combine(err, rows.Close()))
+								return ErrMigrate.Wrap(err)
 							}
-						}
-						if err := rows.Err(); err != nil {
-							return ErrMigrate.Wrap(errs.Combine(err, rows.Close()))
+							defer func() {
+								_, closeErr := tx.Exec(`CLOSE bwagreements_cursor`)
+								err = errs.Combine(err, closeErr)
+							}()
+
+							for {
+								var serialnum, data []byte
+
+								err := tx.QueryRow(`FETCH NEXT FROM bwagreements_cursor`).Scan(&serialnum, &data)
+								if err != nil {
+									if err == sql.ErrNoRows {
+										break
+									}
+									return ErrMigrate.Wrap(err)
+								}
+
+								var rba pb.RenterBandwidthAllocation
+								if err := proto.Unmarshal(data, &rba); err != nil {
+									return ErrMigrate.Wrap(err)
+								}
+
+								_, err = tx.Exec(`
+								UPDATE bwagreements SET uplink_id = $1
+								WHERE CURRENT OF bwagreements_cursor`, rba.PayerAllocation.UplinkId.Bytes())
+								if err != nil {
+									return ErrMigrate.Wrap(err)
+								}
+							}
+							return nil
+						}()
+						if err != nil {
+							return err
 						}
 
 						_, err = tx.Exec(`
