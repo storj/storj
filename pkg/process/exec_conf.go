@@ -179,21 +179,19 @@ func cleanup(cmd *cobra.Command) {
 		// go back and propagate changed config values to appropriate flags
 		var brokenKeys []string
 		var brokenVals []string
-		if cmd.Annotations["type"] != "helper" {
-			for _, key := range vip.AllKeys() {
-				if cmd.Flags().Lookup(key) == nil {
-					// flag couldn't be found
-					brokenKeys = append(brokenKeys, key)
-				} else {
-					oldChanged := cmd.Flag(key).Changed
-					err := cmd.Flags().Set(key, vip.GetString(key))
-					if err != nil {
-						// flag couldn't be set
-						brokenVals = append(brokenVals, key)
-					}
-					// revert Changed value
-					cmd.Flag(key).Changed = oldChanged
+		for _, key := range vip.AllKeys() {
+			if cmd.Flags().Lookup(key) == nil {
+				// flag couldn't be found
+				brokenKeys = append(brokenKeys, key)
+			} else {
+				oldChanged := cmd.Flag(key).Changed
+				err := cmd.Flags().Set(key, vip.GetString(key))
+				if err != nil {
+					// flag couldn't be set
+					brokenVals = append(brokenVals, key)
 				}
+				// revert Changed value
+				cmd.Flag(key).Changed = oldChanged
 			}
 		}
 
@@ -216,12 +214,14 @@ func cleanup(cmd *cobra.Command) {
 		defer zap.ReplaceGlobals(logger)()
 		defer zap.RedirectStdLog(logger)()
 
-		// okay now that logging is working, inform about the broken keys
-		for _, key := range brokenKeys {
-			logger.Sugar().Infof("Invalid configuration file key: %s", key)
-		}
-		for _, key := range brokenVals {
-			logger.Sugar().Infof("Invalid configuration file value for key: %s", key)
+		if cmd.Annotations["type"] != "helper" {
+			// okay now that logging is working, inform about the broken keys
+			for _, key := range brokenKeys {
+				logger.Sugar().Infof("Invalid configuration file key: %s", key)
+			}
+			for _, key := range brokenVals {
+				logger.Sugar().Infof("Invalid configuration file value for key: %s", key)
+			}
 		}
 
 		err = initDebug(logger, monkit.Default)
