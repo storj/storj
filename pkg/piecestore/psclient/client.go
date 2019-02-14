@@ -169,7 +169,7 @@ func (ps *PieceStore) Delete(ctx context.Context, id PieceID, authorization *pb.
 	if err != nil {
 		return err
 	}
-	zap.S().Infof("Delete request route summary: %v", reply)
+	zap.S().Debugf("Delete request route summary: %v", reply)
 	return nil
 }
 
