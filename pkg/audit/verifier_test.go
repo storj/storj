@@ -48,7 +48,7 @@ func TestPassingAudit(t *testing.T) {
 		md := mockDownloader{shares: mockShares}
 		verifier := &audit.Verifier{downloader: &md}
 		pointer := makePointer(tt.nodeAmt)
-		verifiedNodes, err := verifier.Verify(ctx, &audit.Stripe{Index: 6, Segment: pointer, PBA: nil, Authorization: nil})
+		verifiedNodes, err := verifier.Verify(ctx, &audit.Stripe{Index: 6, Segment: pointer, PBA: nil})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -92,7 +92,7 @@ func TestSomeNodesPassAudit(t *testing.T) {
 		md := mockDownloader{shares: mockShares}
 		verifier := &audit.Verifier{downloader: &md}
 		pointer := makePointer(tt.nodeAmt)
-		verifiedNodes, err := verifier.verify(ctx, &audit.Stripe{Index: 6, Segment: pointer, PBA: nil, Authorization: nil})
+		verifiedNodes, err := verifier.verify(ctx, &audit.Stripe{Index: 6, Segment: pointer, PBA: nil})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -205,7 +205,7 @@ func TestCalcPadded(t *testing.T) {
 }
 
 func (m *mockDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int,
-	pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (shares map[int]share, nodes map[int]storj.NodeID, err error) {
+	pba *pb.PayerBandwidthAllocation) (shares map[int]share, nodes map[int]storj.NodeID, err error) {
 
 	nodes = make(map[int]*pb.Node, 30)
 
