@@ -179,19 +179,21 @@ func cleanup(cmd *cobra.Command) {
 		// go back and propagate changed config values to appropriate flags
 		var brokenKeys []string
 		var brokenVals []string
-		for _, key := range vip.AllKeys() {
-			if cmd.Flags().Lookup(key) == nil {
-				// flag couldn't be found
-				brokenKeys = append(brokenKeys, key)
-			} else {
-				oldChanged := cmd.Flag(key).Changed
-				err := cmd.Flags().Set(key, vip.GetString(key))
-				if err != nil {
-					// flag couldn't be set
-					brokenVals = append(brokenVals, key)
+		if cmd.Annotations["type"] != "helper" {
+			for _, key := range vip.AllKeys() {
+				if cmd.Flags().Lookup(key) == nil {
+					// flag couldn't be found
+					brokenKeys = append(brokenKeys, key)
+				} else {
+					oldChanged := cmd.Flag(key).Changed
+					err := cmd.Flags().Set(key, vip.GetString(key))
+					if err != nil {
+						// flag couldn't be set
+						brokenVals = append(brokenVals, key)
+					}
+					// revert Changed value
+					cmd.Flag(key).Changed = oldChanged
 				}
-				// revert Changed value
-				cmd.Flag(key).Changed = oldChanged
 			}
 		}
 
