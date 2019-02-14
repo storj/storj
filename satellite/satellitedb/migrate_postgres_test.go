@@ -115,7 +115,6 @@ func TestMigratePostgres(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, base := range versions {
-		base := base
 		// versions 0 to 4 can be a starting point
 		if base.Version < 0 || 4 < base.Version {
 			continue
