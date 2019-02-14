@@ -13,14 +13,8 @@ import (
 	"storj.io/storj/internal/dbutil/dbschema"
 )
 
-// Queryer is a representation for something that can query.
-type Queryer interface {
-	// Query executes a query that returns rows, typically a SELECT.
-	Query(query string, args ...interface{}) (*sql.Rows, error)
-}
-
-// QuerySchema loads the schema from postgres database.
-func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
+// QuerySchema loads the schema from sqlite database.
+func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 	schema := &dbschema.Schema{}
 
 	type Definition struct {
@@ -33,7 +27,7 @@ func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 
 	// find tables and indexes
 	err := func() error {
-		rows, err := tx.Query(`
+		rows, err := db.Query(`
 			SELECT name, type, sql FROM sqlite_master WHERE sql NOT NULL AND name NOT LIKE 'sqlite_%'
 		`)
 		if err != nil {
@@ -57,7 +51,7 @@ func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 		return rows.Err()
 	}()
 	if err != nil {
-		return schema, err
+		return nil, err
 	}
 
 	// discover tables
@@ -65,7 +59,7 @@ func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 		for _, definition := range tableDefinitions {
 			table := schema.EnsureTable(definition.name)
 
-			tableRows, err := tx.Query(`PRAGMA table_info(` + definition.name + `)`)
+			tableRows, err := db.Query(`PRAGMA table_info(` + definition.name + `)`)
 			if err != nil {
 				return err
 			}
@@ -107,7 +101,7 @@ func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 				table.Unique = append(table.Unique, columns)
 			}
 
-			keysRows, err := tx.Query(`PRAGMA foreign_key_list(` + definition.name + `)`)
+			keysRows, err := db.Query(`PRAGMA foreign_key_list(` + definition.name + `)`)
 			if err != nil {
 				return err
 			}
@@ -141,7 +135,7 @@ func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 		return err
 	}()
 	if err != nil {
-		return schema, err
+		return nil, err
 	}
 
 	// discover indexes
@@ -153,7 +147,7 @@ func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 			}
 			schema.Indexes = append(schema.Indexes, index)
 
-			indexRows, err := tx.Query(`PRAGMA index_info(` + definition.name + `)`)
+			indexRows, err := db.Query(`PRAGMA index_info(` + definition.name + `)`)
 			if err != nil {
 				return err
 			}
@@ -176,9 +170,10 @@ func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 		return err
 	}()
 	if err != nil {
-		return schema, err
+		return nil, err
 	}
 
+	schema.Sort()
 	return schema, nil
 }
 

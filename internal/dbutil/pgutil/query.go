@@ -47,7 +47,7 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 		return rows.Err()
 	}()
 	if err != nil {
-		return schema, err
+		return nil, err
 	}
 
 	// find constraints
