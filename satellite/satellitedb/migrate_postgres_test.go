@@ -93,7 +93,7 @@ func findVersion(versions []*VersionSchema, targetVersion int) *VersionSchema {
 	return nil
 }
 
-func TestMigrate(t *testing.T) {
+func TestMigratePostgres(t *testing.T) {
 	if *satellitedbtest.TestPostgres == "" {
 		t.Skip("Postgres flag missing, example: -postgres-test-db=" + satellitedbtest.DefaultPostgresConn)
 	}
