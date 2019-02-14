@@ -184,8 +184,8 @@ func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 
 var (
 	// matches UNIQUE (a,b)
-	rxUnique = regexp.MustCompile(`UNIQUE[\s]*\((.*?)\)`)
+	rxUnique = regexp.MustCompile(`UNIQUE\s*\((.*?)\)`)
 
 	// matches ON (a,b)
-	rxIndexTable = regexp.MustCompile(`ON[\s]*(.*)\(`)
+	rxIndexTable = regexp.MustCompile(`ON\s*(.*)\(`)
 )
