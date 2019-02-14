@@ -71,7 +71,13 @@ func LoadSnapshotFromSQL(connstr, script string) (_ *dbschema.Snapshot, err erro
 		return nil, err
 	}
 
-	return QuerySnapshot(db)
+	snapshot, err := QuerySnapshot(db)
+	if err != nil {
+		return nil, err
+	}
+
+	snapshot.Script = script
+	return snapshot, nil
 }
 
 // QuerySnapshot loads snapshot from database
