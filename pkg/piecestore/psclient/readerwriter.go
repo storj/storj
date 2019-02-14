@@ -53,7 +53,7 @@ func (s *StreamWriter) Close() error {
 		return err
 	}
 
-	zap.S().Infof("Stream close and recv summary: %v", reply)
+	zap.S().Debugf("Stream close and recv summary: %v", reply)
 
 	return nil
 }
