@@ -5,8 +5,15 @@
 package dbschema
 
 import (
+	"database/sql"
 	"sort"
 )
+
+// Queryer is a representation for something that can query.
+type Queryer interface {
+	// Query executes a query that returns rows, typically a SELECT.
+	Query(query string, args ...interface{}) (*sql.Rows, error)
+}
 
 // Schema is the database structure.
 type Schema struct {

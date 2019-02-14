@@ -3,7 +3,12 @@
 
 package dbschema
 
-import "sort"
+import (
+	"sort"
+	"strings"
+
+	"github.com/zeebo/errs"
+)
 
 // Data is the database content formatted as strings
 type Data struct {
@@ -42,4 +47,61 @@ func (table *TableData) Sort() {
 	sort.Slice(table.Rows, func(i, k int) bool {
 		return lessStrings(table.Rows[i], table.Rows[k])
 	})
+}
+
+// Clone returns a clone of row data.
+func (row RowData) Clone() RowData {
+	return append(RowData{}, row...)
+}
+
+// QueryData loads all data from tables
+func QueryData(db Queryer, schema *Schema, quoteColumn func(string) string) (*Data, error) {
+	data := &Data{}
+
+	for _, tableSchema := range schema.Tables {
+		columnNames := tableSchema.ColumnNames()
+		table := &TableData{
+			Name:    tableSchema.Name,
+			Columns: columnNames,
+		}
+
+		// quote column names
+		quotedColumns := make([]string, len(columnNames))
+		for i, columnName := range columnNames {
+			quotedColumns[i] = quoteColumn(columnName)
+		}
+
+		// build query for selecting all values
+		query := `SELECT ` + strings.Join(quotedColumns, ", ") + ` FROM ` + table.Name
+
+		err := func() (err error) {
+			rows, err := db.Query(query)
+			if err != nil {
+				return err
+			}
+			defer func() { err = errs.Combine(err, rows.Close()) }()
+
+			row := make(RowData, len(columnNames))
+			rowargs := make([]interface{}, len(columnNames))
+			for i := range row {
+				rowargs[i] = &row[i]
+			}
+
+			for rows.Next() {
+				err := rows.Scan(rowargs...)
+				if err != nil {
+					return err
+				}
+
+				table.AddRow(row.Clone())
+			}
+
+			return rows.Err()
+		}()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return data, nil
 }
