@@ -75,7 +75,7 @@ func LoadSnapshotFromSQL(connstr, script string) (_ *dbschema.Snapshot, err erro
 }
 
 // QuerySnapshot loads snapshot from database
-func QuerySnapshot(db Queryer) (*dbschema.Snapshot, error) {
+func QuerySnapshot(db dbschema.Queryer) (*dbschema.Snapshot, error) {
 	schema, err := QuerySchema(db)
 	if err != nil {
 		return nil, err

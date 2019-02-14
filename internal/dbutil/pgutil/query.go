@@ -4,7 +4,6 @@
 package pgutil
 
 import (
-	"database/sql"
 	"fmt"
 	"regexp"
 
@@ -14,14 +13,8 @@ import (
 	"storj.io/storj/internal/dbutil/dbschema"
 )
 
-// Queryer is a representation for something that can query.
-type Queryer interface {
-	// Query executes a query that returns rows, typically a SELECT.
-	Query(query string, args ...interface{}) (*sql.Rows, error)
-}
-
 // QuerySchema loads the schema from postgres database.
-func QuerySchema(db Queryer) (*dbschema.Schema, error) {
+func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 	schema := &dbschema.Schema{}
 
 	// find tables
