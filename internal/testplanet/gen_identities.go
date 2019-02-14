@@ -9,17 +9,18 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"flag"
 	"fmt"
 	"go/format"
 	"os"
 
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/pkcrypto"
 )
 
 func main() {
+	signed := flag.Bool("signed", false, "if true, generate a signer and sign all identities")
 	count := flag.Int("count", 5, "number of identities to create")
 	out := flag.String("out", "identities_table.go", "generated file")
 	flag.Parse()
@@ -33,9 +34,48 @@ func main() {
 
 		package testplanet
 		
-		var pregeneratedIdentities = NewIdentities(
+		var (
 	`)
 
+	var (
+		signer *identity.FullCertificateAuthority
+		restChain []*x509.Certificate
+		err error
+	)
+	if *signed {
+		signer, err = identity.NewCA(context.Background(), identity.NewCAOptions{
+			Difficulty:  12,
+			Concurrency: 4,
+		})
+		if err != nil {
+			panic(err)
+		}
+		restChain = []*x509.Certificate{signer.Cert}
+
+		var chain bytes.Buffer
+		err = pkcrypto.WriteCertPEM(&chain, signer.Cert)
+		if err != nil {
+			panic(err)
+		}
+
+		var keys bytes.Buffer
+		err = pkcrypto.WritePrivateKeyPEM(&keys, signer.Key)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Fprintf(&buf, "pregeneratedSigner = mustParsePEM(%q, %q)\n", chain.Bytes(), keys.Bytes())
+	}
+
+	if *signed {
+		buf.WriteString(`
+			pregeneratedSignedIdentities = NewIdentities(
+		`)
+	} else {
+		buf.WriteString(`
+			pregeneratedIdentities = NewIdentities(
+		`)
+	}
 	for k := 0; k < *count; k++ {
 		fmt.Println("Creating", k)
 		ca, err := identity.NewCA(context.Background(), identity.NewCAOptions{
@@ -46,19 +86,32 @@ func main() {
 			panic(err)
 		}
 
-		identity, err := ca.NewIdentity()
+		if *signed {
+			ca.Cert, err = signer.Sign(ca.Cert)
+			if err != nil {
+				panic(err)
+			}
+			ca.RestChain = restChain
+		}
+
+		ident, err := ca.NewIdentity()
 		if err != nil {
 			panic(err)
 		}
 
+		if *signed {
+			ident.CA = ca.Cert
+			ident.RestChain = restChain
+		}
+
 		var chain bytes.Buffer
-		err = peertls.WriteChain(&chain, identity.Leaf, ca.Cert)
+		err = pkcrypto.WriteCertPEM(&chain, ident.Leaf, ca.Cert)
 		if err != nil {
 			panic(err)
 		}
 
 		var keys bytes.Buffer
-		err = pkcrypto.WritePrivateKeyPEM(&keys, identity.Key)
+		err = pkcrypto.WritePrivateKeyPEM(&keys, ident.Key)
 		if err != nil {
 			panic(err)
 		}
@@ -66,7 +119,7 @@ func main() {
 		fmt.Fprintf(&buf, "mustParsePEM(%q, %q),\n", chain.Bytes(), keys.Bytes())
 	}
 
-	buf.WriteString(`)`)
+	buf.WriteString(`))`)
 
 	formatted, err := format.Source(buf.Bytes())
 	if err != nil {

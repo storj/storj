@@ -10,6 +10,7 @@ import (
 )
 
 //go:generate go run gen_identities.go -count 150 -out identities_table.go
+//go:generate go run gen_identities.go -signed -count 150 -out signed_identities_table.go
 
 // Identities is a pregenerated full identity table.
 type Identities struct {
@@ -36,6 +37,16 @@ func PregeneratedIdentity(index int) (*identity.FullIdentity, error) {
 // NewPregeneratedIdentities retruns a new table from provided identities.
 func NewPregeneratedIdentities() *Identities {
 	return pregeneratedIdentities.Clone()
+}
+
+// NewPregeneratedSignedIdentities retruns a new table from provided signed identities.
+func NewPregeneratedSignedIdentities() *Identities {
+	return pregeneratedSignedIdentities.Clone()
+}
+
+// NewPregeneratedSigner returns the signer for all pregenerated, signed identities
+func NewPregeneratedSigner() *identity.FullCertificateAuthority {
+	return pregeneratedSigner
 }
 
 // Clone creates a shallow clone of the table.
