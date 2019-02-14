@@ -29,7 +29,7 @@ const (
 var RoutingErr = errs.Class("routing table error")
 
 // Bucket IDs exist in the same address space as node IDs
-type bucketID [len(storj.NodeID{})]byte
+type bucketID storj.NodeID
 
 var firstBucketID = bucketID{
 	0xFF, 0xFF, 0xFF, 0xFF,

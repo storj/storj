@@ -69,7 +69,6 @@
 <script lang='ts'>
 import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
-import { removeToken } from '@/utils/tokenManager';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import { PM_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { EmailInput } from '@/types/EmailInput';
@@ -126,9 +125,9 @@ import { validateEmail } from '@/utils/validation';
                 }
 
                 if (!areAllEmailsValid) return;
-                
+
                 let result = await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
-                
+
                 if (!result.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during adding team members!');
 
@@ -139,7 +138,7 @@ import { validateEmail } from '@/utils/validation';
 
                 if (!response.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
-            
+
                     return;
                 }
 
@@ -163,15 +162,29 @@ import { validateEmail } from '@/utils/validation';
             deleteInput: function(index): void {
                 if (this.$data.inputs.length === 1) return;
 
+                (this as any).resetFormErrors(index);
+
                 this.$delete(this.$data.inputs, index);
             },
             resetFormErrors: function(index): void {
-                this.$data.formError = '';
                 this.$data.inputs[index].setError(false);
+                if(!(this as any).hasInputError()) {
+					this.$data.formError = '';
+                }
             },
             onClose: function(): void {
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
             },
+            hasInputError: function (): boolean {
+                let hasError = false;
+				this.$data.inputs.some((element: EmailInput)=>{
+				    if(element.error) {
+				    	hasError = true;
+				    	return true;
+                    }
+                });
+                return hasError;
+			}
          },
         computed: {
             isMaxInputsCount: function(): boolean {
@@ -187,7 +200,7 @@ import { validateEmail } from '@/utils/validation';
                 }
 
                 return false;
-            }
+            },
         },
         components: {
             Button
@@ -251,7 +264,7 @@ export default class AddUserPopup extends Vue {}
                     padding-left: 30px;
                 }
             }
-        }  
+        }
     }
     .inactive-label {
         color: #DADDE5;
@@ -387,7 +400,7 @@ export default class AddUserPopup extends Vue {}
                             margin-bottom: 0;
                         }
                     }
-                    
+
                     span {
                         margin-bottom: 18px;
                         margin-left: 20px;
