@@ -21,17 +21,9 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-// VersionSchema defines a versioned schema
-type VersionSchema struct {
-	Version int
-	Script  string
-	*dbschema.Schema
-	*dbschema.Data
-}
-
-// loadVersions loads all the dbschemas from testdata/postgres.* caching the result
-func loadVersions(connstr string) ([]*VersionSchema, error) {
-	var list []*VersionSchema
+// loadSnapshots loads all the dbschemas from testdata/postgres.* caching the result
+func loadSnapshots(connstr string) (*dbschema.Snapshots, error) {
+	snapshots := &dbschema.Snapshots{}
 
 	// find all postgres sql files
 	matches, err := filepath.Glob("testdata/postgres.*")
@@ -51,28 +43,22 @@ func loadVersions(connstr string) ([]*VersionSchema, error) {
 			return nil, err
 		}
 
-		schema, data, err := pgutil.LoadSchemaAndDataFromSQL(connstr, string(scriptData))
+		snapshot, err := pgutil.LoadSnapshotFromSQL(connstr, string(scriptData))
 		if err != nil {
 			return nil, err
 		}
+		snapshot.Version = version
 
-		schema.DropTable("versions")
-
-		list = append(list, &VersionSchema{
-			Version: version,
-			Script:  string(scriptData),
-			Schema:  schema,
-			Data:    data,
-		})
+		snapshots.Add(snapshot)
 	}
 
-	return list, nil
+	return snapshots, nil
 }
 
 const newDataSeparator = `-- NEW DATA --`
 
-func (schema *VersionSchema) newData() string {
-	tokens := strings.SplitN(schema.Script, newDataSeparator, 2)
+func newData(snap *dbschema.Snapshot) string {
+	tokens := strings.SplitN(snap.Script, newDataSeparator, 2)
 	if len(tokens) != 2 {
 		return ""
 	}
@@ -96,25 +82,15 @@ func loadDBXSchema(connstr, dbxscript string) (*dbschema.Schema, error) {
 	return dbxschema.Schema, dbxschema.err
 }
 
-// findVersion finds a specific schema from list
-func findVersion(versions []*VersionSchema, targetVersion int) *VersionSchema {
-	for _, version := range versions {
-		if version.Version == targetVersion {
-			return version
-		}
-	}
-	return nil
-}
-
 func TestMigratePostgres(t *testing.T) {
 	if *satellitedbtest.TestPostgres == "" {
 		t.Skip("Postgres flag missing, example: -postgres-test-db=" + satellitedbtest.DefaultPostgresConn)
 	}
 
-	versions, err := loadVersions(*satellitedbtest.TestPostgres)
+	snapshots, err := loadSnapshots(*satellitedbtest.TestPostgres)
 	require.NoError(t, err)
 
-	for _, base := range versions {
+	for _, base := range snapshots.List {
 		// versions 0 to 4 can be a starting point
 		if base.Version < 0 || 4 < base.Version {
 			continue
@@ -158,10 +134,11 @@ func TestMigratePostgres(t *testing.T) {
 				require.NoError(t, err, tag)
 
 				// find the matching expected version
-				expected := findVersion(versions, step.Version)
+				expected, ok := snapshots.FindVersion(step.Version)
+				require.True(t, ok)
 
 				// insert data for new tables
-				if newdata := expected.newData(); newdata != "" && step.Version > base.Version {
+				if newdata := newData(expected); newdata != "" && step.Version > base.Version {
 					_, err = rawdb.Exec(newdata)
 					require.NoError(t, err, tag)
 				}

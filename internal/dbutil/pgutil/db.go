@@ -58,28 +58,52 @@ func LoadSchemaFromSQL(connstr, script string) (_ *dbschema.Schema, err error) {
 	return QuerySchema(db)
 }
 
-// LoadSchemaAndDataFromSQL inserts script into connstr and loads schema.
-func LoadSchemaAndDataFromSQL(connstr, script string) (_ *dbschema.Schema, _ *dbschema.Data, err error) {
+// LoadSnapshotFromSQL inserts script into connstr and loads schema.
+func LoadSnapshotFromSQL(connstr, script string) (_ *dbschema.Snapshot, err error) {
 	db, err := Open(connstr, "load-schema")
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
 	_, err = db.Exec(script)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	schema, err := QuerySchema(db)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	data, err := QueryData(db, schema)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return schema, data, err
+	return &dbschema.Snapshot{
+		Version: -1,
+		Script:  script,
+		Schema:  schema,
+		Data:    data,
+	}, err
+}
+
+// QuerySnapshot loads snapshot from database
+func QuerySnapshot(db Queryer) (*dbschema.Snapshot, error) {
+	schema, err := QuerySchema(db)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := QueryData(db, schema)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dbschema.Snapshot{
+		Version: -1,
+		Schema:  schema,
+		Data:    data,
+	}, err
 }
