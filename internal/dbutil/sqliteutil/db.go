@@ -73,7 +73,6 @@ func QuerySnapshot(db dbschema.Queryer) (*dbschema.Snapshot, error) {
 func QueryData(db dbschema.Queryer, schema *dbschema.Schema) (*dbschema.Data, error) {
 	return dbschema.QueryData(db, schema, func(columnName string) string {
 		quoted := strconv.Quote(columnName)
-		// TODO is this the same like postgres 'quote_nullable'?
 		return `quote(` + quoted + `) as ` + quoted
 	})
 }
