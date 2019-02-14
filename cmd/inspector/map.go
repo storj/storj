@@ -97,6 +97,7 @@ func (n *network) walk(next string) {
 		if err != nil {
 			// TODO error handling
 			n.err.Print(err)
+			return
 		}
 
 		kadDialer := kademlia.NewDialer(nil, inspector.transportClient)
@@ -111,16 +112,22 @@ func (n *network) walk(next string) {
 		}
 
 		for _, node := range res.Nodes {
+			var verifyErr error
 			pID, err := kadDialer.FetchPeerIdentity(n.ctx, *node)
 			if err != nil {
 				// TODO error handling
 				n.err.Print(err)
+				verifyErr = err
+			} else {
+				verifyErr = n.verify(nil, [][]*x509.Certificate{append(append([]*x509.Certificate{pID.Leaf}, pID.CA), pID.RestChain...)})
 			}
 
-			verifyErr := n.verify(nil, [][]*x509.Certificate{append(append([]*x509.Certificate{pID.Leaf}, pID.CA), pID.RestChain...)})
 
 			newAddr := node.Address.Address
 			if _, ok := n.seen[newAddr]; ok {
+				if _, err = fmt.Fprintf(n.out, "\"%s\"\t->\t\"%s\"\n", newAddr, next); err != nil {
+					n.err.Println(err)
+				}
 				continue
 			}
 
