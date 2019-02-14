@@ -7,7 +7,7 @@ import (
 	"net/mail"
 )
 
-// Implementation of satellite/mail.Template interface
+// MailTemplate is implementation of satellite/mail.Template interface
 type MailTemplate struct {
 	to            mail.Address
 	subject       string
@@ -15,7 +15,7 @@ type MailTemplate struct {
 	plainTextPath string
 }
 
-// NewMailTemplate
+// NewMailTemplate creates new instance of MailTemplate
 func NewMailTemplate(to mail.Address, subject, hpath, tpath string) MailTemplate {
 	return MailTemplate{
 		to:            to,

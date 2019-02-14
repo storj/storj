@@ -414,16 +414,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		)
 
 		peer.Mail.Service.SendRendered(context.Background(), &console.AccountActivationEmail{
-			MailTemplate: console.NewMailTemplate(
-				mail.Address{Address: "mail@gmail.com", Name: "Name"},
+			MailTemplate: console.NewMailTemplate(mail.Address{Address: "yaroslav1vorobyov@gmail.com", Name: "Name"},
 				"Subj",
 				filepath.Join(mailConfig.TemplatePath, "Welcome.html"),
 				filepath.Join(mailConfig.TemplatePath, "Welcome.html")),
 			ActivationLink: "https://storj.io",
 		})
-
-		//peer.Log.Debug(peer.Mail.Service.SendActivationEmail(context.Background(),
-		//	mail.Address{Address: "mail@gmail.com", Name: "Name"}, "https://storj.io").Error())
 	}
 
 	{ // setup console

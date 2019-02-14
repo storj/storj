@@ -7,11 +7,12 @@ import (
 	"bytes"
 	"context"
 	html "html/template"
+	"io"
 	"net/mail"
 	text "text/template"
 
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	m "storj.io/storj/internal/mail"
 )
@@ -38,6 +39,7 @@ type Config struct {
 	}
 }
 
+// FromAddress parses email address from config to mail.Address
 func (c *Config) FromAddress() (*mail.Address, error) {
 	return mail.ParseAddress(c.From)
 }
@@ -80,23 +82,13 @@ func (service *Service) SendRendered(ctx context.Context, tmpl Template) (err er
 	var htmlBuffer bytes.Buffer
 	var textBuffer bytes.Buffer
 
-	// render text ttemplate
-	ttemplate, err := text.ParseFiles(tmpl.PainTextPath())
-	if err != nil {
+	// render text template
+	if err = RenderPlainText(&textBuffer, tmpl); err != nil {
 		return
 	}
 
-	if err = ttemplate.Execute(&textBuffer, tmpl); err != nil {
-		return
-	}
-
-	// render html ttemplate
-	htemplate, err := html.ParseFiles(tmpl.HTMLPath())
-	if err != nil {
-		return
-	}
-
-	if err = htemplate.Execute(&htmlBuffer, tmpl); err != nil {
+	// render html template
+	if err = RenderHTML(&htmlBuffer, tmpl); err != nil {
 		return
 	}
 
@@ -114,4 +106,32 @@ func (service *Service) SendRendered(ctx context.Context, tmpl Template) (err er
 	}
 
 	return service.sender.SendEmail(msg)
+}
+
+// RenderHTML renders html content of given Template and writes it to writer
+func RenderHTML(w io.Writer, tmpl Template) error {
+	template, err := html.ParseFiles(tmpl.HTMLPath())
+	if err != nil {
+		return err
+	}
+
+	if err = template.Execute(w, tmpl); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// RenderPlainText renders text content of given Template and writes it to writer
+func RenderPlainText(w io.Writer, tmpl Template) error {
+	template, err := text.ParseFiles(tmpl.PainTextPath())
+	if err != nil {
+		return err
+	}
+
+	if err = template.Execute(w, tmpl); err != nil {
+		return err
+	}
+
+	return nil
 }
