@@ -52,6 +52,8 @@ func loadSnapshots(connstr string) (*dbschema.Snapshots, error) {
 		snapshots.Add(snapshot)
 	}
 
+	snapshots.Sort()
+
 	return snapshots, nil
 }
 
@@ -108,7 +110,7 @@ func TestMigratePostgres(t *testing.T) {
 
 			// setup our own schema to avoid collisions
 			require.NoError(t, db.CreateSchema(schemaName))
-			defer func() { require.NoError(t, db.DropSchema(schemaName)) }()
+			//defer func() { require.NoError(t, db.DropSchema(schemaName)) }()
 
 			// we need raw database access unfortunately
 			rawdb := db.(*satellitedb.DB).TestDBAccess()
@@ -153,6 +155,10 @@ func TestMigratePostgres(t *testing.T) {
 				// load data from database
 				currentData, err := pgutil.QueryData(rawdb, currentSchema)
 				require.NoError(t, err, tag)
+
+				for _, table := range currentData.Tables {
+					t.Log(table.Name, table.Rows)
+				}
 
 				// verify schema and data
 				require.Equal(t, expected.Schema, currentSchema, tag)
