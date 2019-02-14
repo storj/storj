@@ -30,7 +30,7 @@ var (
 	claimDeleteCmd = &cobra.Command{
 		Use:   "delete",
 		Short: "Delete a claim on an authorization",
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE:  cmdDeleteClaim,
 	}
 
@@ -92,7 +92,7 @@ func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 	return err
 }
 
-func cmdDeleteClaim(cmd *cobra.Command, args [] string) (err error) {
+func cmdDeleteClaim(cmd *cobra.Command, args []string) (err error) {
 	authDB, err := claimsExportCfg.NewAuthDB()
 	if err != nil {
 		return err
