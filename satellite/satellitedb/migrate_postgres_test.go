@@ -115,7 +115,7 @@ func TestMigratePostgres(t *testing.T) {
 
 			// setup our own schema to avoid collisions
 			require.NoError(t, db.CreateSchema(schemaName))
-			//defer func() { require.NoError(t, db.DropSchema(schemaName)) }()
+			defer func() { require.NoError(t, db.DropSchema(schemaName)) }()
 
 			// we need raw database access unfortunately
 			rawdb := db.(*satellitedb.DB).TestDBAccess()
