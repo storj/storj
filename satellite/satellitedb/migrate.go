@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"database/sql"
+	"strconv"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -12,6 +13,7 @@ import (
 
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/satellite/console"
 )
 
 // ErrMigrate is for tracking migration errors
@@ -270,10 +272,10 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					}
 					if !hasStatus {
 						_, err := tx.Exec(`
-							ALTER TABLE users
-								ADD COLUMN status INTEGER NOT NULL;
+							ALTER TABLE users ADD COLUMN status INTEGER;
+							UPDATE users SET status = ` + strconv.Itoa(int(console.Active)) + `;
+							ALTER TABLE users ALTER COLUMN status SET NOT NULL;
 						`)
-						// TODO: what should be the default value?
 						if err != nil {
 							return ErrMigrate.Wrap(err)
 						}
