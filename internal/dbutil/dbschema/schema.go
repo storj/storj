@@ -58,6 +58,16 @@ func (schema *Schema) EnsureTable(tableName string) *Table {
 	return table
 }
 
+// DropTable removes the specified table
+func (schema *Schema) DropTable(tableName string) {
+	for i, table := range schema.Tables {
+		if table.Name == tableName {
+			schema.Tables = append(schema.Tables[:i], schema.Tables[i+1:]...)
+			return
+		}
+	}
+}
+
 // AddColumn adds the column to the table.
 func (table *Table) AddColumn(column *Column) {
 	table.Columns = append(table.Columns, column)
@@ -71,6 +81,15 @@ func (table *Table) FindColumn(columnName string) (*Column, bool) {
 		}
 	}
 	return nil, false
+}
+
+// ColumnNames returns column names
+func (table *Table) ColumnNames() []string {
+	columns := make([]string, len(table.Columns))
+	for i, column := range table.Columns {
+		columns[i] = column.Name
+	}
+	return columns
 }
 
 // Sort sorts tables
