@@ -23,7 +23,15 @@ type Queryer interface {
 func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 	schema := &dbschema.Schema{}
 
-	// find tables
+	type Definition struct {
+		name string
+		sql  string
+	}
+
+	tableDefinitions := make([]*Definition, 0)
+	indexDefinitions := make([]*Definition, 0)
+
+	// find tables and indexes
 	err := func() error {
 		rows, err := tx.Query(`
 			SELECT name, type, sql FROM sqlite_master WHERE sql NOT NULL AND name NOT LIKE 'sqlite_%'
@@ -33,13 +41,6 @@ func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 		}
 		defer func() { err = errs.Combine(err, rows.Close()) }()
 
-		type Definition struct {
-			name string
-			sql  string
-		}
-
-		tableDefinitions := make([]*Definition, 0)
-		indexDefinitions := make([]*Definition, 0)
 		for rows.Next() {
 			var defName, defType, defSQL string
 			err := rows.Scan(&defName, &defType, &defSQL)
@@ -53,6 +54,14 @@ func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 			}
 		}
 
+		return rows.Err()
+	}()
+	if err != nil {
+		return schema, err
+	}
+
+	// discover tables
+	err = func() (err error) {
 		for _, definition := range tableDefinitions {
 			table := schema.EnsureTable(definition.name)
 
@@ -129,7 +138,14 @@ func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 				}
 			}
 		}
+		return err
+	}()
+	if err != nil {
+		return schema, err
+	}
 
+	// discover indexes
+	err = func() (err error) {
 		// TODO improve indexes discovery
 		for _, definition := range indexDefinitions {
 			index := &dbschema.Index{
@@ -157,8 +173,7 @@ func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 			matches := rxIndexTable.FindStringSubmatch(definition.sql)
 			index.Table = strings.TrimSpace(matches[1])
 		}
-
-		return rows.Err()
+		return err
 	}()
 	if err != nil {
 		return schema, err
