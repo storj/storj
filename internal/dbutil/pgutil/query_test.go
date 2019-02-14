@@ -4,7 +4,6 @@
 package pgutil_test
 
 import (
-	"database/sql"
 	"flag"
 	"os"
 	"testing"
@@ -36,18 +35,9 @@ func TestQuery(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	schemaName := "pgutil-query-" + pgutil.RandomString(8)
-	connstr := pgutil.ConnstrWithSchema(*TestPostgres, schemaName)
-
-	db, err := sql.Open("postgres", connstr)
+	db, err := pgutil.Open(*TestPostgres, "pgutil-query")
 	require.NoError(t, err)
-
 	defer ctx.Check(db.Close)
-
-	require.NoError(t, pgutil.CreateSchema(db, schemaName))
-	defer func() {
-		require.NoError(t, pgutil.DropSchema(db, schemaName))
-	}()
 
 	emptySchema, err := pgutil.QuerySchema(db)
 	assert.NoError(t, err)
