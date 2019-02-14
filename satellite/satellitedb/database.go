@@ -7,6 +7,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
@@ -15,7 +16,6 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -37,7 +37,7 @@ type DB struct {
 
 // New creates instance of database (supports: postgres, sqlite3)
 func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
-	driver, source, err := utils.SplitDBURL(databaseURL)
+	driver, source, err := dbutil.SplitConnstr(databaseURL)
 	if err != nil {
 		return nil, err
 	}
