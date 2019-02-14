@@ -92,11 +92,30 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 			if sr.allocated+trustedSize > size {
 				allocate = size - sr.allocated
 			}
+
+			// Making a copy, otherwise there will be a data race
+			// when another goroutine tries to write the cached size
+			// of this instance at the same time.
+			pbaCopy := &pb.PayerBandwidthAllocation{
+				SatelliteId:       pba.SatelliteId,
+				UplinkId:          pba.UplinkId,
+				MaxSize:           pba.MaxSize,
+				ExpirationUnixSec: pba.ExpirationUnixSec,
+				SerialNumber:      pba.SerialNumber,
+				Action:            pba.Action,
+				CreatedUnixSec:    pba.CreatedUnixSec,
+			}
+			pbaCopy.Certs = make([][]byte, len(pba.Certs))
+			copy(pbaCopy.Certs, pba.Certs)
+			pbaCopy.Signature = make([]byte, len(pba.Signature))
+			copy(pbaCopy.Signature, pba.Signature)
+
 			rba := &pb.RenterBandwidthAllocation{
-				PayerAllocation: *pba,
+				PayerAllocation: *pbaCopy,
 				Total:           sr.allocated + allocate,
 				StorageNodeId:   sr.client.remoteID,
 			}
+
 			err := auth.SignMessage(rba, *client.selfID)
 			if err != nil {
 				sr.pendingAllocs.Fail(err)
