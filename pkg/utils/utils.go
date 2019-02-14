@@ -4,38 +4,10 @@
 package utils
 
 import (
-	"bytes"
-	"encoding/gob"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
 )
-
-// GetBytes transforms an empty interface type into a byte slice
-func GetBytes(key interface{}) ([]byte, error) {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	err := enc.Encode(key)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-// SplitDBURL returns the driver and DSN portions of a URL
-func SplitDBURL(s string) (string, string, error) {
-	// consider https://github.com/xo/dburl if this ends up lacking
-	parts := strings.SplitN(s, "://", 2)
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("Could not parse DB URL %s", s)
-	}
-	if parts[0] == "postgres" {
-		parts[1] = s // postgres wants full URLS for its DSN
-	}
-	return parts[0], parts[1], nil
-}
 
 // CombineErrors combines multiple errors to a single error
 func CombineErrors(errs ...error) error {

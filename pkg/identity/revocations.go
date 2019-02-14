@@ -8,8 +8,8 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 
+	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -109,7 +109,7 @@ func (r RevocationDB) Close() error {
 
 // NewRevDB returns a new revocation database given the URL
 func NewRevDB(revocationDBURL string) (*RevocationDB, error) {
-	driver, source, err := utils.SplitDBURL(revocationDBURL)
+	driver, source, err := dbutil.SplitConnstr(revocationDBURL)
 	if err != nil {
 		return nil, peertls.ErrRevocationDB.Wrap(err)
 	}
