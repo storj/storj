@@ -155,7 +155,7 @@ func (rt *RoutingTable) createOrUpdateKBucket(bID bucketID, now time.Time) error
 // getKBucketID: helper, returns the id of the corresponding k bucket given a node id.
 // The node doesn't have to be in the routing table at time of search
 func (rt *RoutingTable) getKBucketID(nodeID storj.NodeID) (bucketID, error) {
-	kadBucketIDs, err := rt.kadBucketDB.List(nil, 0)
+	kadBucketIDs, err := rt.kadBucketDB.List(nil, 0) //swap this out
 	if err != nil {
 		return bucketID{}, RoutingErr.New("could not list all k bucket ids: %s", err)
 	}
@@ -186,7 +186,7 @@ func (rt *RoutingTable) determineFurthestIDWithinK(nodeIDs storj.NodeIDList) sto
 
 // nodeIsWithinNearestK: helper, returns true if the node in question is within the nearest k from local node
 func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storj.NodeID) (bool, error) {
-	nodeKeys, err := rt.nodeBucketDB.List(nil, 0)
+	nodeKeys, err := rt.nodeBucketDB.List(nil, 0)  // swap this out
 	if err != nil {
 		return false, RoutingErr.New("could not get nodes: %s", err)
 	}
@@ -199,7 +199,7 @@ func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storj.NodeID) (bool, error) 
 		return false, RoutingErr.Wrap(err)
 	}
 
-	furthestIDWithinK := rt.determineFurthestIDWithinK(nodeIDs)
+	furthestIDWithinK := rt.determineFurthestIDWithinK(nodeIDs) // swap this out
 	existingXor := xorNodeID(furthestIDWithinK, rt.self.Id)
 	newXor := xorNodeID(nodeID, rt.self.Id)
 	return newXor.Less(existingXor), nil
@@ -235,7 +235,7 @@ func (rt *RoutingTable) getNodeIDsWithinKBucket(bID bucketID) (storj.NodeIDList,
 	left := endpoints[0]
 	right := endpoints[1]
 	var nodeIDsBytes [][]byte
-	allNodeIDsBytes, err := rt.nodeBucketDB.List(nil, 0)
+	allNodeIDsBytes, err := rt.nodeBucketDB.List(nil, 0)  // swap this out
 	if err != nil {
 		return nil, RoutingErr.New("could not list nodes %s", err)
 	}
@@ -299,7 +299,7 @@ func (rt *RoutingTable) getUnmarshaledNodesFromBucket(bID bucketID) ([]*pb.Node,
 
 // getKBucketRange: helper, returns the left and right endpoints of the range of node ids contained within the bucket
 func (rt *RoutingTable) getKBucketRange(bID bucketID) ([]bucketID, error) {
-	kadBucketIDs, err := rt.kadBucketDB.List(nil, 0)
+	kadBucketIDs, err := rt.kadBucketDB.List(nil, 0)  // swap this out
 	if err != nil {
 		return nil, RoutingErr.New("could not list all k bucket ids: %s", err)
 	}
