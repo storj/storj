@@ -57,7 +57,7 @@ matrix:
         - go get github.com/ckaznocha/protoc-gen-lint
         - go get golang.org/x/tools/go/packages
         # install protolock
-        - go get github.com/nilslice/protolock/...        
+        - go get github.com/nilslice/protolock/cmd/protolock
         - cp go.mod.backup go.mod
       script:
         - go run ./scripts/check-copyright.go
