@@ -75,8 +75,8 @@ type Reconfigure struct {
 	NewBootstrapDB func(index int) (bootstrap.DB, error)
 	Bootstrap      func(index int, config *bootstrap.Config)
 
-	NewSatelliteDB func(index int) (satellite.DB, error)
-	Satellite      func(index int, config *satellite.Config)
+	NewSatelliteDB func(log *zap.Logger, index int) (satellite.DB, error)
+	Satellite      func(log *zap.Logger, index int, config *satellite.Config)
 
 	NewStorageNodeDB func(index int) (storagenode.DB, error)
 	StorageNode      func(index int, config *storagenode.Config)
@@ -363,9 +363,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 
 		var db satellite.DB
 		if planet.config.Reconfigure.NewSatelliteDB != nil {
-			db, err = planet.config.Reconfigure.NewSatelliteDB(i)
+			db, err = planet.config.Reconfigure.NewSatelliteDB(log.Named("db"), i)
 		} else {
-			db, err = satellitedb.NewInMemory()
+			db, err = satellitedb.NewInMemory(log.Named("db"))
 		}
 		if err != nil {
 			return nil, err
@@ -449,7 +449,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			},
 		}
 		if planet.config.Reconfigure.Satellite != nil {
-			planet.config.Reconfigure.Satellite(i, &config)
+			planet.config.Reconfigure.Satellite(log, i, &config)
 		}
 
 		// TODO: for development only

@@ -16,6 +16,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
@@ -100,7 +101,7 @@ func TestServiceGet(t *testing.T) {
 	validAPIKey := console.APIKey{}
 	apiKeys := &mockAPIKeys{}
 	// creating in-memory db and opening connection
-	satdb, err := satellitedb.NewInMemory()
+	satdb, err := satellitedb.NewInMemory(zaptest.NewLogger(t))
 	defer func() {
 		err = satdb.Close()
 		assert.NoError(t, err)

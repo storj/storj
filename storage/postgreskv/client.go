@@ -115,12 +115,6 @@ func (client *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	return storage.ListKeys(client, first, limit)
 }
 
-// ReverseList returns either a list of known keys, in reverse order, or an error.
-// Starts from first and iterates backwards
-func (client *Client) ReverseList(first storage.Key, limit int) (storage.Keys, error) {
-	return storage.ReverseListKeys(client, first, limit)
-}
-
 // Close closes the client
 func (client *Client) Close() error {
 	return client.pgConn.Close()

@@ -18,24 +18,41 @@ import (
 var (
 	claimsCmd = &cobra.Command{
 		Use:   "claims",
-		Short: "Print claim information",
-		RunE:  cmdClaims,
+		Short: "CSR authorization claim management",
 	}
 
-	claimsCfg struct {
+	claimsExportCmd = &cobra.Command{
+		Use:   "export",
+		Short: "Export all claim data as JSON",
+		RunE:  cmdExportClaims,
+	}
+
+	claimDeleteCmd = &cobra.Command{
+		Use:   "delete",
+		Short: "Delete a claim on an authorization",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdDeleteClaim,
+	}
+
+	claimsExportCfg struct {
 		certificates.CertServerConfig
 		Raw bool `default:"false" help:"if true, the raw data structures will be printed"`
 	}
+
+	claimDeleteCfg certificates.CertServerConfig
 )
 
 func init() {
 	rootCmd.AddCommand(claimsCmd)
+	claimsCmd.AddCommand(claimsExportCmd)
+	claimsCmd.AddCommand(claimDeleteCmd)
 
-	cfgstruct.Bind(claimsCmd.Flags(), &claimsCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(claimsExportCmd.Flags(), &claimsExportCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(claimDeleteCmd.Flags(), &claimDeleteCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
-func cmdClaims(cmd *cobra.Command, args []string) (err error) {
-	authDB, err := claimsCfg.NewAuthDB()
+func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
+	authDB, err := claimsExportCfg.NewAuthDB()
 	if err != nil {
 		return err
 	}
@@ -54,7 +71,7 @@ func cmdClaims(cmd *cobra.Command, args []string) (err error) {
 			continue
 		}
 
-		if claimsCfg.Raw {
+		if claimsExportCfg.Raw {
 			toPrint = append(toPrint, auth)
 		} else {
 			toPrint = append(toPrint, toPrintableAuth(auth))
@@ -62,7 +79,7 @@ func cmdClaims(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if len(toPrint) == 0 {
-		fmt.Printf("no claims in database: %s\n", claimsCfg.AuthorizationDBURL)
+		fmt.Printf("no claims in database: %s\n", claimsExportCfg.AuthorizationDBURL)
 		return nil
 	}
 
@@ -73,6 +90,21 @@ func cmdClaims(cmd *cobra.Command, args []string) (err error) {
 
 	fmt.Println(string(jsonBytes))
 	return err
+}
+
+func cmdDeleteClaim(cmd *cobra.Command, args []string) (err error) {
+	authDB, err := claimsExportCfg.NewAuthDB()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errs.Combine(err, authDB.Close())
+	}()
+
+	if err := authDB.Unclaim(args[0]); err != nil {
+		return err
+	}
+	return nil
 }
 
 type printableAuth struct {
