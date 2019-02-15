@@ -38,14 +38,3 @@ func TestGenerateSignature(t *testing.T) {
 		}
 	}
 }
-
-func TestSignedMessageVerifier(t *testing.T) {
-	ctx := context.Background()
-	ca, err := testidentity.NewTestCA(ctx)
-	assert.NoError(t, err)
-	identity, err := ca.NewIdentity()
-	assert.NoError(t, err)
-
-	_, err = GenerateSignature(identity.ID.Bytes(), identity)
-	assert.NoError(t, err)
-}
