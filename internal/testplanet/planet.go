@@ -427,17 +427,14 @@ func (planet *Planet) usePeerCAWhitelist() (Reconfigure, error) {
 	}
 
 	return Reconfigure{
-		Bootstrap: func(i int, c *bootstrap.Config) {
+		Bootstrap: func(_ int, c *bootstrap.Config) {
 			c.Server.PeerCAWhitelistPath = whitelistPath
-			planet.config.Reconfigure.Bootstrap(i, c)
 		},
-		Satellite: func(i int, c *satellite.Config) {
+		Satellite: func(_ int, c *satellite.Config) {
 			c.Server.PeerCAWhitelistPath = whitelistPath
-			planet.config.Reconfigure.Satellite(i, c)
 		},
-		StorageNode: func(i int, c *storagenode.Config) {
+		StorageNode: func(_ int, c *storagenode.Config) {
 			c.Server.PeerCAWhitelistPath = whitelistPath
-			planet.config.Reconfigure.StorageNode(i, c)
 		},
 	}, nil
 }

@@ -68,8 +68,6 @@ func TestPlanet_Ping(t *testing.T) {
 		StorageNodeCount: 10,
 		UplinkCount:      0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		time.Sleep(5 * time.Second)
-
 		err := planet.Ping(ctx)
 		assert.NoError(t, err)
 	})

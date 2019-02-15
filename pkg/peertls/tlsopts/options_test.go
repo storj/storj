@@ -4,13 +4,11 @@
 package tlsopts_test
 
 import (
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"reflect"
 	"testing"
-	"time"
-
-	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -117,8 +115,6 @@ func TestPeerCAWhitelist(t *testing.T) {
 			UplinkCount:      0,
 			UsePeerCAWhitelist: true,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			time.Sleep(5 * time.Second)
-
 			err := planet.Ping(ctx)
 			assert.NoError(t, err)
 		})
@@ -135,8 +131,6 @@ func TestPeerCAWhitelist(t *testing.T) {
 			UsePeerCAWhitelist: true,
 			Identities:       testIdentities,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			time.Sleep(5 * time.Second)
-
 			err := planet.Ping(ctx)
 			assert.NoError(t, err)
 		})
