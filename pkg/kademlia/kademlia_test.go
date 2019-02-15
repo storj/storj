@@ -104,7 +104,7 @@ func TestPeerDiscovery(t *testing.T) {
 	}
 	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
 	assert.NoError(t, err)
-	rt := k.GetRoutingTable()
+	rt := k.routingTable
 	assert.Equal(t, rt.Local().Metadata.Email, "foo@bar.com")
 	assert.Equal(t, rt.Local().Metadata.Wallet, "OperatorWallet")
 
@@ -175,7 +175,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	logger := zaptest.NewLogger(t)
 	k, err := newKademlia(logger, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
-	s := NewEndpoint(logger, k, k.GetRoutingTable().(*RoutingTable))
+	s := NewEndpoint(logger, k, k.routingTable)
 	// new ident opts
 
 	serverOptions, err := tlsopts.NewOptions(fid, tlsopts.Config{})
@@ -223,105 +223,78 @@ func TestFindNear(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	var (
-		nodeIDA = teststorj.NodeIDFromString("AAAAA")
-		nodeIDB = teststorj.NodeIDFromString("BBBBB")
-		nodeIDC = teststorj.NodeIDFromString("CCCCC")
-		nodeIDD = teststorj.NodeIDFromString("DDDDD")
-	)
-
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-
-	assert.NoError(t, err)
-
-	srv, _ := newTestServer(ctx, []*pb.Node{{Id: teststorj.NodeIDFromString("foo")}})
-	go func() { assert.NoError(t, srv.Serve(lis)) }()
-	defer srv.Stop()
-
 	// make new identity
 	fid, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
 	fid2, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
-	fid.ID = nodeIDA
-	fid2.ID = nodeIDB
-	// create two new unique identities
 	assert.NotEqual(t, fid.ID, fid2.ID)
+
+	//start kademlia
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	assert.NoError(t, err)
+	srv, _ := newTestServer(ctx, []*pb.Node{{Id: teststorj.NodeIDFromString("foo")}})
+	go func() { assert.NoError(t, srv.Serve(lis)) }()
+	defer srv.Stop()
 	dir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()
-	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), nil, fid, dir, defaultAlpha)
+	bootstrap := []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}
+	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrap,
+		lis.Addr().String(), nil, fid, dir, defaultAlpha)
 	assert.NoError(t, err)
 	defer ctx.Check(k.Close)
 
 	// add nodes
-	ids := storj.NodeIDList{nodeIDA, nodeIDB, nodeIDC, nodeIDD}
-	bw := []int64{1, 2, 3, 4}
-	disk := []int64{4, 3, 2, 1}
 	nodes := []*pb.Node{}
-	for i, v := range ids {
-		n := &pb.Node{
-			Id: v,
-			Restrictions: &pb.NodeRestrictions{
-				FreeBandwidth: bw[i],
-				FreeDisk:      disk[i],
-			},
-			Type: pb.NodeType_STORAGE,
-		}
+	newNode := func(id string, bw, disk int64) pb.Node {
+		nodeID := teststorj.NodeIDFromString(id)
+		restriction := &pb.NodeRestrictions{FreeBandwidth: bw, FreeDisk: disk}
+		n := &pb.Node{Id: nodeID, Restrictions: restriction, Type: pb.NodeType_STORAGE}
 		nodes = append(nodes, n)
 		err = k.routingTable.ConnectionSuccess(n)
-		assert.NoError(t, err)
+		require.NoError(t, err)
+		return *n
 	}
+	nodeIDA := newNode("AAAAA", 1, 4)
+	nodeIDB := newNode("BBBBB", 2, 3)
+	newNode("CCCCC", 3, 2)
+	newNode("DDDDD", 4, 1)
+	require.Len(t, nodes, 4)
 
 	cases := []struct {
 		testID       string
-		start        storj.NodeID
+		target       storj.NodeID
 		limit        int
 		restrictions []pb.Restriction
 		expected     []*pb.Node
 	}{
-		{testID: "one",
-			start: nodeIDB,
-			limit: 2,
+		{testID: "one", target: nodeIDB.Id, limit: 2, expected: nodes[2:],
 			restrictions: []pb.Restriction{
-				{
-					Operator: pb.Restriction_GT,
-					Operand:  pb.Restriction_FREE_BANDWIDTH,
-					Value:    int64(2),
-				},
+				{Operator: pb.Restriction_GT, Operand: pb.Restriction_FREE_BANDWIDTH, Value: int64(2)},
 			},
-			expected: nodes[2:],
 		},
-		{testID: "two",
-			start: nodeIDA,
-			limit: 3,
+		{testID: "two", target: nodeIDA.Id, limit: 3, expected: nodes[3:],
 			restrictions: []pb.Restriction{
-				{
-					Operator: pb.Restriction_GT,
-					Operand:  pb.Restriction_FREE_BANDWIDTH,
-					Value:    int64(2),
-				},
-				{
-					Operator: pb.Restriction_LT,
-					Operand:  pb.Restriction_FREE_DISK,
-					Value:    int64(2),
-				},
+				{Operator: pb.Restriction_GT, Operand: pb.Restriction_FREE_BANDWIDTH, Value: int64(2)},
+				{Operator: pb.Restriction_LT, Operand: pb.Restriction_FREE_DISK, Value: int64(2)},
 			},
-			expected: nodes[3:],
 		},
-		{testID: "three",
-			start:        nodeIDA,
-			limit:        4,
-			restrictions: []pb.Restriction{},
-			expected:     nodes,
-		},
+		{testID: "three", target: nodeIDA.Id, limit: 4, expected: nodes, restrictions: []pb.Restriction{}},
 	}
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
-			ns, err := k.FindNear(ctx, c.start, c.limit, c.restrictions...)
+
+			ns, err := k.FindNear(ctx, c.target, c.limit, c.restrictions...)
 			assert.NoError(t, err)
 			assert.Equal(t, len(c.expected), len(ns))
-			for i, n := range ns {
-				assert.True(t, bytes.Equal(c.expected[i].Id.Bytes(), n.Id.Bytes()))
+			for _, e := range c.expected {
+				found := false
+				for _, n := range ns {
+					if e.Id == n.Id {
+						found = true
+					}
+				}
+				assert.True(t, found, e.String())
 			}
 		})
 	}

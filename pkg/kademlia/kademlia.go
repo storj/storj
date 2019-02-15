@@ -9,12 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -81,48 +79,18 @@ func (k *Kademlia) Close() error {
 // FindNear returns all nodes from a starting node up to a maximum limit
 // stored in the local routing table limiting the result by the specified restrictions
 func (k *Kademlia) FindNear(ctx context.Context, start storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
-	nodes := []*pb.Node{}
-	iteratorMethod := func(it storage.Iterator) error {
-		var item storage.ListItem
-		maxLimit := storage.LookupLimit
-		for ; maxLimit > 0 && it.Next(&item); maxLimit-- {
-			var (
-				id   storj.NodeID
-				node = &pb.Node{}
-			)
-			err := id.Unmarshal(item.Key)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			err = proto.Unmarshal(item.Value, node)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			node.Id = id
-			if meetsRestrictions(restrictions, *node) {
-				nodes = append(nodes, node)
-			}
-			if len(nodes) == limit {
-				return nil
-			}
-		}
-		return nil
-	}
-	err := k.routingTable.iterate(
-		storage.IterateOptions{
-			First:   storage.Key(start.Bytes()),
-			Recurse: true,
-		},
-		iteratorMethod,
-	)
-	if err != nil {
-		return []*pb.Node{}, Error.Wrap(err)
-	}
-	return nodes, nil
+	return k.routingTable.FindNear(start, limit, restrictions...)
 }
 
-// GetRoutingTable provides the assigned routing table
-func (k *Kademlia) GetRoutingTable() dht.RoutingTable { return k.routingTable }
+// GetBucketIds returns a storage.Keys type of bucket ID's in the Kademlia instance
+func (k *Kademlia) GetBucketIds() (storage.Keys, error) {
+	return k.routingTable.GetBucketIds()
+}
+
+// Local returns the local nodes ID
+func (k *Kademlia) Local() pb.Node {
+	return k.routingTable.Local()
+}
 
 // SetBootstrapNodes sets the bootstrap nodes.
 // Must be called before anything starting to use kademlia.
