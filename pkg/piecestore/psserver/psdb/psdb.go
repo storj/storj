@@ -82,10 +82,25 @@ func (db *DB) Migration() *migrate.Migration {
 				Description: "Initial setup",
 				Version:     0,
 				Action: migrate.SQL{
-					"CREATE TABLE IF NOT EXISTS `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10), `size` INT(10));",
-					"CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`satellite` BLOB, `agreement` BLOB, `signature` BLOB);",
-					"CREATE INDEX IF NOT EXISTS idx_ttl_expires ON ttl (expires);",
-					"CREATE TABLE IF NOT EXISTS `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));",
+					`CREATE TABLE IF NOT EXISTS ttl (
+						id BLOB UNIQUE,
+						created INT(10),
+						expires INT(10),
+						size INT(10)
+					)`,
+					`CREATE TABLE IF NOT EXISTS bandwidth_agreements (
+						satellite BLOB,
+						agreement BLOB,
+						signature BLOB
+					)`,
+					`CREATE INDEX IF NOT EXISTS idx_ttl_expires ON ttl (
+						expires
+					)`,
+					`CREATE TABLE IF NOT EXISTS bwusagetbl (
+						size INT(10),
+						daystartdate INT(10),
+						dayenddate INT(10)
+					)`,
 				},
 			},
 		},

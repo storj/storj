@@ -31,13 +31,13 @@ func loadSnapshots() (*dbschema.Snapshots, error) {
 	})
 
 	// find all sql files
-	matches, err := filepath.Glob("testdata/db.*")
+	matches, err := filepath.Glob("testdata/sqlite.*")
 	if err != nil {
 		return nil, err
 	}
 
 	for _, match := range matches {
-		versionStr := match[13 : len(match)-4] // hack to avoid trim issues with path differences in windows/linux
+		versionStr := match[17 : len(match)-4] // hack to avoid trim issues with path differences in windows/linux
 		version, err := strconv.Atoi(versionStr)
 		if err != nil {
 			return nil, err
