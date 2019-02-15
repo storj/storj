@@ -253,9 +253,9 @@ func listProtoFiles(root string) ([]string, error) {
 
 func findProtolockDir(dir string) string {
 	protolock := filepath.Join(dir, "proto.lock")
-	if _, err := os.Stat(protolock); err == nil {
-		return dir
+	if _, err := os.Stat(protolock); err != nil {
+		return findProtolockDir(filepath.Dir(dir))
 	}
 
-	return findProtolockDir(filepath.Dir(dir))
+	return dir
 }
