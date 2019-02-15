@@ -6,11 +6,23 @@ package testplanet
 import (
 	"errors"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/identity"
 )
 
 //go:generate go run gen_identities.go -count 150 -out identities_table.go
 //go:generate go run gen_identities.go -signed -count 150 -out signed_identities_table.go
+
+const (
+	MixedIndexesUnsigned = iota
+	MixedIndexesSigned
+)
+
+var ErrMixedIdentityType = errs.New("unknown mixed identity indexes type")
+
+// MixedIndexesTypeEnum is used to specify whether the identities at `mixedIndexes` are signed or not
+type MixedIndexesTypeEnum int
 
 // Identities is a pregenerated full identity table.
 type Identities struct {
@@ -47,6 +59,43 @@ func NewPregeneratedSignedIdentities() *Identities {
 // NewPregeneratedSigner returns the signer for all pregenerated, signed identities
 func NewPregeneratedSigner() *identity.FullCertificateAuthority {
 	return pregeneratedSigner
+}
+
+// MixedIdentities returns a set of identities consisting of both signed and unsigned identities.
+//	identities at `mixedIndexes` are either signed or not based on the value of `mixedIndexesType`
+//	while all other identities are the respective opposite.
+func MixedIdentities(mixedIndexes []int, mixedIndexesType MixedIndexesTypeEnum) (*Identities, error) {
+	unsigned := NewPregeneratedIdentities()
+	signed := NewPregeneratedSignedIdentities()
+
+	var mixed *Identities
+	replaceIdentities := func(original *Identities, indexes []int, replacement *Identities) error {
+		for _, i := range indexes {
+			var err error
+			original.list[i], err = replacement.NewIdentity()
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	switch mixedIndexesType {
+	case MixedIndexesUnsigned:
+		mixed = signed
+		if err := replaceIdentities(mixed, mixedIndexes, unsigned); err != nil {
+			return nil, err
+		}
+	case MixedIndexesSigned:
+		mixed = unsigned
+		if err := replaceIdentities(mixed, mixedIndexes, signed); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, ErrMixedIdentityType
+	}
+	
+	return mixed, nil
 }
 
 // Clone creates a shallow clone of the table.
