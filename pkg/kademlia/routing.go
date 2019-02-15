@@ -151,7 +151,7 @@ func (rt *RoutingTable) GetBucketIds() (storage.Keys, error) {
 // returns all Nodes closest via XOR to the provided nodeID up to the provided limit
 func (rt *RoutingTable) FindNear(target storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
 	closestNodes := make([]*pb.Node, 0, limit+1)
-	err := rt.iterate(storj.NodeID{}, 0, func(newID storj.NodeID, protoNode []byte) error {
+	err := rt.iterate(storj.NodeID{}, func(newID storj.NodeID, protoNode []byte) error {
 		newPos := len(closestNodes)
 		for ; newPos > 0 && compareByXor(closestNodes[newPos-1].Id, newID, target) > 0; newPos-- {
 		}
@@ -259,10 +259,7 @@ func (rt *RoutingTable) GetBucketTimestamp(bIDBytes []byte) (time.Time, error) {
 	return time.Unix(0, timestamp).UTC(), nil
 }
 
-func (rt *RoutingTable) iterate(start storj.NodeID, maxLimit int, f func(storj.NodeID, []byte) error) error {
-	if maxLimit < 1 {
-		maxLimit = int(^uint(0) >> 1) //todo: should we use storage.LookupLimit instead?
-	}
+func (rt *RoutingTable) iterate(start storj.NodeID, f func(storj.NodeID, []byte) error) error {
 	return rt.nodeBucketDB.Iterate(storage.IterateOptions{First: storage.Key(start.Bytes()), Recurse: true},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
@@ -273,9 +270,6 @@ func (rt *RoutingTable) iterate(start storj.NodeID, maxLimit int, f func(storj.N
 				}
 				if nodeID == rt.self.Id {
 					continue //todo:  revisit if self ID should be in routing table
-				}
-				if nodeID.IsZero() {
-					panic("nil id") //todo:  revisit if self ID should be in routing table
 				}
 				err = f(nodeID, item.Value)
 				if err != nil {
