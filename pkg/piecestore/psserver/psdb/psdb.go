@@ -48,8 +48,7 @@ func Open(DBPath string) (db *DB, err error) {
 		return nil, err
 	}
 
-	// TODO add "PRAGMA journal_mode = WAL" somehow
-	sqlite, err := sql.Open("sqlite3", fmt.Sprintf("file:%s", DBPath))
+	sqlite, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?%s", DBPath, "_journal=WAL"))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
