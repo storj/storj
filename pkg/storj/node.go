@@ -21,8 +21,11 @@ var (
 	ErrNodeID = errs.Class("node ID error")
 )
 
+//NodeIDSize is the byte length of a NodeID
+const NodeIDSize = sha256.Size
+
 // NodeID is a unique node identifier
-type NodeID [sha256.Size]byte
+type NodeID [NodeIDSize]byte
 
 // NodeIDList is a slice of NodeIDs (implements sort)
 type NodeIDList []NodeID

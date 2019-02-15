@@ -379,6 +379,27 @@ func (authDB *AuthorizationDB) Claim(opts *ClaimOpts) error {
 	return nil
 }
 
+// Unclaim removes a claim from an authorization.
+func (authDB *AuthorizationDB) Unclaim(authToken string) error {
+	token, err := ParseToken(authToken)
+	if err != nil {
+		return err
+	}
+
+	auths, err := authDB.Get(token.UserID)
+	if err != nil {
+		return err
+	}
+
+	for i, auth := range auths {
+		if auth.Token.Equal(token) {
+			auths[i].Claim = nil
+			return authDB.put(token.UserID, auths)
+		}
+	}
+	return errs.New("token not found in authorizations DB")
+}
+
 func (authDB *AuthorizationDB) add(userID string, newAuths Authorizations) error {
 	auths, err := authDB.Get(userID)
 	if err != nil {

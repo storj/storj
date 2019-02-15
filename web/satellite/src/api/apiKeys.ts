@@ -72,7 +72,6 @@ export async function createAPIKey(projectID: string, name: string) {
         if (response.errors) {
             result.errorMessage = response.errors[0].message;
         } else {
-            console.log('response', response)
             result.isSuccess = true;
             result.data = {
                 key: response.data.createAPIKey.key,
@@ -86,7 +85,7 @@ export async function createAPIKey(projectID: string, name: string) {
     return result;
 }
 
-export async function deleteAPIKey(id: string) {
+export async function deleteAPIKeys(ids: string[]) {
     let result: RequestResponse<any> = {
         errorMessage: '',
         isSuccess: false,
@@ -97,7 +96,7 @@ export async function deleteAPIKey(id: string) {
         let response: any = await apollo.mutate({
             mutation: gql(
                 `mutation {
-                    deleteAPIKey(id: "${id}") {
+                    deleteAPIKeys(id: [${prepareIdList(ids)}]) {
                         id
                     }
                 }`
@@ -109,11 +108,21 @@ export async function deleteAPIKey(id: string) {
             result.errorMessage = response.errors[0].message;
         } else {
             result.isSuccess = true;
-            result.data = response.data.deleteAPIKey;
+            result.data = response.data.deleteAPIKeys;
         }
     } catch (e) {
         result.errorMessage = e.message;
     }
 
     return result;
+}
+
+function prepareIdList(ids: string[]): string {
+	let idString: string = '';
+
+	ids.forEach(id => {
+		idString += `"${id}", `;
+	});
+
+	return idString;
 }
