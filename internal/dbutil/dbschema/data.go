@@ -35,6 +35,16 @@ func (table *TableData) AddRow(row RowData) {
 	table.Rows = append(table.Rows, row)
 }
 
+// FindTable finds a table by name
+func (data *Data) FindTable(tableName string) (*TableData, bool) {
+	for _, table := range data.Tables {
+		if table.Name == tableName {
+			return table, true
+		}
+	}
+	return nil, false
+}
+
 // Sort sorts all tables.
 func (data *Data) Sort() {
 	for _, table := range data.Tables {
@@ -64,6 +74,7 @@ func QueryData(db Queryer, schema *Schema, quoteColumn func(string) string) (*Da
 			Name:    tableSchema.Name,
 			Columns: columnNames,
 		}
+		data.AddTable(table)
 
 		// quote column names
 		quotedColumns := make([]string, len(columnNames))
