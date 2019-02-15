@@ -29,7 +29,7 @@ func LoadSchemaFromSQL(script string) (_ *dbschema.Schema, err error) {
 }
 
 // LoadSnapshotFromSQL inserts script into connstr and loads schema.
-func LoadSnapshotFromSQL(connstr, script string) (_ *dbschema.Snapshot, err error) {
+func LoadSnapshotFromSQL(script string) (_ *dbschema.Snapshot, err error) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		return nil, err
