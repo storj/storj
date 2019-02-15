@@ -57,12 +57,15 @@ matrix:
         - go get github.com/ckaznocha/protoc-gen-lint
         - go get golang.org/x/tools/go/packages
         - cp go.mod.backup go.mod
+        # install protolock
+        - go get github.com/nilslice/protolock
       script:
         - go run ./scripts/check-copyright.go
         - go run ./scripts/check-imports.go ./...
         - go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint
         - golangci-lint run
         - ./scripts/check-travis-tidy.sh
+        - protolock status
 
     ### integration tests ###
     - env: MODE=integration
