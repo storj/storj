@@ -65,10 +65,20 @@ func (identities *Identities) NewIdentity() (*identity.FullIdentity, error) {
 	return id, nil
 }
 
-// mustParsePEM parses pem encoded chain and key strings.
-func mustParsePEM(chain, key string) *identity.FullIdentity {
+// mustParseIdentityPEM parses pem encoded identity chain and key strings.
+func mustParseIdentityPEM(chain, key string) *identity.FullIdentity {
 	// TODO: add whitelist handling somehow
 	fi, err := identity.FullIdentityFromPEM([]byte(chain), []byte(key))
+	if err != nil {
+		panic(err)
+	}
+	return fi
+}
+
+// mustParseCertificateAuthorityPEM parses pem encoded certificate authority chain and key strings.
+func mustParseCertificateAuthorityPEM(chain, key string) *identity.FullCertificateAuthority {
+	// TODO: add whitelist handling somehow
+	fi, err := identity.FullCertificateAuthorityFromPEM([]byte(chain), []byte(key))
 	if err != nil {
 		panic(err)
 	}

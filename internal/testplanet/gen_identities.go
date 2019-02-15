@@ -64,7 +64,7 @@ func main() {
 			panic(err)
 		}
 
-		fmt.Fprintf(&buf, "pregeneratedSigner = mustParsePEM(%q, %q)\n", chain.Bytes(), keys.Bytes())
+		fmt.Fprintf(&buf, "pregeneratedSigner = mustParseCertificateAuthorityPEM(%q, %q)\n", chain.Bytes(), keys.Bytes())
 	}
 
 	if *signed {
@@ -116,7 +116,7 @@ func main() {
 			panic(err)
 		}
 
-		fmt.Fprintf(&buf, "mustParsePEM(%q, %q),\n", chain.Bytes(), keys.Bytes())
+		fmt.Fprintf(&buf, "mustParseIdentityPEM(%q, %q),\n", chain.Bytes(), keys.Bytes())
 	}
 
 	buf.WriteString(`))`)
