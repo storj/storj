@@ -58,7 +58,7 @@ matrix:
         - go get golang.org/x/tools/go/packages
         - cp go.mod.backup go.mod
         # install protolock
-        - go get github.com/nilslice/protolock
+        - go get github.com/nilslice/protolock/...
       script:
         - go run ./scripts/check-copyright.go
         - go run ./scripts/check-imports.go ./...
