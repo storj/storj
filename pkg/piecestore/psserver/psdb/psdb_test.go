@@ -4,23 +4,16 @@
 package psdb_test
 
 import (
-	"database/sql"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/migrate"
-	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
@@ -38,7 +31,7 @@ func newDB(t testing.TB, id string) (*psdb.DB, func()) {
 	db, err := psdb.Open(dbpath)
 	require.NoError(t, err)
 
-	err = psdb.Migration().Run(zap.NewNop(), db)
+	err = db.Migration().Run(zap.NewNop(), db)
 	require.NoError(t, err)
 
 	return db, func() {
@@ -277,100 +270,6 @@ func TestBandwidthUsage(t *testing.T) {
 			})
 		}
 	})
-}
-
-func TestMigration(t *testing.T) {
-	_, err := exec.LookPath("sqlite3")
-	if err != nil {
-		t.Skip("unable to find sqlite3 executable")
-	}
-
-	// find latest version
-	migration := psdb.Migration()
-	migration.Now = func() time.Time { return time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC) }
-
-	latestVersion := 0
-	// TODO support missing intermediate versions
-	for _, step := range migration.Steps {
-		if latestVersion < step.Version {
-			latestVersion = step.Version
-		}
-	}
-
-	t.Run("from-existing-to-latest-migration", func(t *testing.T) {
-		initDB := func(db *sql.DB) error {
-			queries := []string{
-				// db structure before migration was applied
-				"CREATE TABLE IF NOT EXISTS `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10), `size` INT(10));",
-				"CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`satellite` BLOB, `agreement` BLOB, `signature` BLOB);",
-				"CREATE INDEX IF NOT EXISTS idx_ttl_expires ON ttl (expires);",
-				"CREATE TABLE IF NOT EXISTS `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));",
-
-				// test entries
-				"INSERT INTO `ttl` VALUES(1, 2, 3, 4);",
-				"INSERT INTO `bwusagetbl` VALUES(1, 3, 4);",
-			}
-			for _, query := range queries {
-				_, err := db.Exec(query)
-				if err != nil {
-					return err
-				}
-			}
-
-			// create almost real RenterBandwidthAllocation
-			satelliteID := teststorj.NodeIDFromString("migration")
-			agreement := &pb.RenterBandwidthAllocation{
-				PayerAllocation: pb.PayerBandwidthAllocation{},
-			}
-			agreementData, err := proto.Marshal(agreement)
-			if err != nil {
-				return err
-			}
-			_, err = db.Exec("INSERT INTO `bandwidth_agreements` VALUES(?,?,?);", satelliteID.Bytes(), agreementData, []byte("signature"))
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}
-
-		// TODO something better than Latest
-		testMigration(t, migration.TargetVersion(latestVersion), "Latest", initDB)
-	})
-
-	// clean start
-	for version := 0; version <= latestVersion; version++ {
-		t.Run("from-clean-to-v"+strconv.Itoa(version)+"-migration", func(t *testing.T) {
-			testMigration(t, migration.TargetVersion(version), strconv.Itoa(version), func(db *sql.DB) error { return nil })
-		})
-	}
-}
-
-func testMigration(t *testing.T, testedMigration *migrate.Migration, version string, initDB func(*sql.DB) error) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	dbpath := ctx.File("psdb.db")
-	db, err := psdb.Open(dbpath)
-	require.NoError(t, err)
-	defer ctx.Check(db.Close)
-
-	err = initDB(db.DB)
-	require.NoError(t, err)
-
-	err = testedMigration.Run(zap.NewNop(), db)
-	require.NoError(t, err)
-
-	out, err := exec.Command("sqlite3", dbpath, ".dump").Output()
-	require.NoError(t, err)
-
-	testfile := "testdata/db.v" + version + ".sql"
-	if _, err := os.Stat(testfile); err != nil {
-		t.Fatal("no test data ", testfile)
-	}
-	expected, err := ioutil.ReadFile(testfile)
-	assert.NoError(t, err)
-	assert.Equal(t, string(expected), string(out))
 }
 
 func BenchmarkWriteBandwidthAllocation(b *testing.B) {

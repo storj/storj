@@ -75,12 +75,12 @@ func OpenInMemory() (db *DB, err error) {
 }
 
 // Migration define piecestore DB migration
-func Migration() *migrate.Migration {
+func (db *DB) Migration() *migrate.Migration {
 	migration := &migrate.Migration{
-		Table: "sn_versions",
+		Table: "versions",
 		Steps: []*migrate.Step{
 			{
-				Description: "initialize database",
+				Description: "Initial setup",
 				Version:     0,
 				Action: migrate.SQL{
 					"CREATE TABLE IF NOT EXISTS `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10), `size` INT(10));",

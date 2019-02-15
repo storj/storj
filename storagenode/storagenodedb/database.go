@@ -78,7 +78,7 @@ func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 
 // CreateTables creates any necessary tables.
 func (db *DB) CreateTables() error {
-	migration := psdb.Migration()
+	migration := db.psdb.Migration()
 	return migration.Run(db.log.Named("migration"), db.psdb)
 }
 

@@ -563,7 +563,7 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	storage := pstore.NewStorage(tempDir)
 	psDB, err := psdb.Open(tempDBPath)
 	require.NoError(t, err)
-	err = psdb.Migration().Run(zap.NewNop(), psDB)
+	err = psDB.Migration().Run(zap.NewNop(), psDB)
 	require.NoError(t, err)
 	verifier := func(authorization *pb.SignedMessage) error {
 		return nil
