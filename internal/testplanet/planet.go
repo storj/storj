@@ -71,8 +71,9 @@ type Config struct {
 	StorageNodeCount int
 	UplinkCount      int
 
-	Identities  *Identities
-	Reconfigure Reconfigure
+	Identities         *Identities
+	Reconfigure        Reconfigure
+	UsePeerCAWhitelist bool
 }
 
 // Reconfigure allows to change node configurations
@@ -157,7 +158,11 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 // NewCustom creates a new full system with the specified configuration.
 func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	if config.Identities == nil {
-		config.Identities = pregeneratedIdentities.Clone()
+		if config.UsePeerCAWhitelist {
+			config.Identities = pregeneratedSignedIdentities.Clone()
+		} else {
+			config.Identities = pregeneratedIdentities.Clone()
+		}
 	}
 
 	planet := &Planet{
@@ -170,6 +175,13 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	planet.directory, err = ioutil.TempDir("", "planet")
 	if err != nil {
 		return nil, err
+	}
+
+	if config.UsePeerCAWhitelist {
+		config.Reconfigure, err = planet.usePeerCAWhitelist()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	planet.Bootstrap, err = planet.newBootstrap()
@@ -343,6 +355,8 @@ func (planet *Planet) Ping(ctx *testcontext.Context) error {
 	return pingErrs
 }
 
+// permutePeers calls the passed function for each permutation of peers
+// (except for a peer with itself, also except uplink permutations, presently)
 func permutePeers(planet *Planet, f permutePeersFunc) error {
 	return iteratePeers(planet, func(a Peer, labelA string) error {
 		return iteratePeers(planet, func(b Peer, labelB string) error {
@@ -354,6 +368,8 @@ func permutePeers(planet *Planet, f permutePeersFunc) error {
 	})
 }
 
+// iterate peers calls the passed function for each peer in the planet
+// (except uplink, presently)
 func iteratePeers(planet *Planet, f iteratePeersFunc) error {
 	errGroup := errs.Group{}
 
@@ -389,6 +405,40 @@ func kadPing(ctx *testcontext.Context, local, remote Peer, labels [2]string) (er
 func kadPingErr(local, remote Peer, labels [2]string, err error) error {
 	return ErrPing.New("%s (%.5s) --> %s (%.5s): %s", labels[0], local.ID(), labels[1], remote.ID(), err.Error())
 }
+
+func writeWhitelist(dir string) (string, error) {
+	whitelistPath := filepath.Join(dir, "whitelist.pem")
+	signer := NewPregeneratedSigner()
+	err := identity.PeerCAConfig{
+		CertPath: whitelistPath,
+	}.Save(signer.PeerCA())
+
+	return whitelistPath, err
+}
+
+// usePeerCAWhitelist reconfigures the planet to use peer ca whitelisting on all kad node types
+func (planet *Planet) usePeerCAWhitelist() (Reconfigure, error) {
+	whitelistPath, err := writeWhitelist(planet.directory)
+	if err != nil {
+		return Reconfigure{}, err
+	}
+
+	return Reconfigure{
+		Bootstrap: func(i int, c *bootstrap.Config) {
+			c.Server.PeerCAWhitelistPath = whitelistPath
+			planet.config.Reconfigure.Bootstrap(i, c)
+		},
+		Satellite: func(i int, c *satellite.Config) {
+			c.Server.PeerCAWhitelistPath = whitelistPath
+			planet.config.Reconfigure.Satellite(i, c)
+		},
+		StorageNode: func(i int, c *storagenode.Config) {
+			c.Server.PeerCAWhitelistPath = whitelistPath
+			planet.config.Reconfigure.StorageNode(i, c)
+		},
+	}, nil
+}
+
 
 // newUplinks creates initializes uplinks, requires peer to have at least one satellite
 func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]*Uplink, error) {
