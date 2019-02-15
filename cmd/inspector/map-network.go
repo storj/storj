@@ -1,23 +1,22 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509"
-	"fmt"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
-	"storj.io/storj/pkg/graph"
-	dot2 "storj.io/storj/pkg/graph/dot"
+	"time"
+
+	"storj.io/storj/pkg/graphs"
+	"storj.io/storj/pkg/graphs/dot"
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/process"
-	"text/tabwriter"
-	"time"
-
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -28,6 +27,10 @@ var (
 		Args:  cobra.ExactArgs(1),
 		RunE:  mapNetworkCmd,
 	}
+
+	colorSigned   = "#2683ff"
+	colorUnsigned = "#3fd69a"
+	colorErr      = "#d63f3f"
 )
 
 func init() {
@@ -39,10 +42,8 @@ type network struct {
 	verify peertls.PeerCertVerificationFunc
 	addrs  []string
 	seen   map[string]struct{}
-	//seen map[string]int
-	out   *tabwriter.Writer
-	err   *log.Logger
-	graph graph.Graph
+	err    *log.Logger
+	graph  graphs.Graph
 }
 
 func mapNetworkCmd(cmd *cobra.Command, args []string) error {
@@ -65,23 +66,17 @@ func mapNetworkCmd(cmd *cobra.Command, args []string) error {
 		verify: verify,
 		seen:   map[string]struct{}{args[0]: {}},
 		addrs:  []string{args[0]},
-		out:    tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0),
 		err:    errLog,
-		graph:  dot2.NewDot("StorjNetwork"),
+		graph:  dot.New("StorjNetwork"),
 	}
-	_, _ = fmt.Fprintf(n.out, "digraph StorjNetwork {\n")
 
 	n.walk(args[0])
-	if _, err = fmt.Fprintf(n.out, "}\n"); err != nil {
+	out := bytes.Buffer{}
+	// TODO: is this ok?
+	if _, err := n.graph.Write(out.Bytes()); err != nil {
 		errLog.Println(err)
+		return err
 	}
-	if err = n.out.Flush(); err != nil {
-		errLog.Println(err)
-	}
-
-	//dot := buildDot(queue.routes)
-	//fmt.Println(dot)
-
 	return nil
 }
 
@@ -109,6 +104,7 @@ func (n *network) walk(next string) {
 			n.err.Print(err)
 		}
 
+
 		for _, node := range res.Nodes {
 			var verifyErr error
 			pID, err := kadDialer.FetchPeerIdentity(n.ctx, *node)
@@ -119,33 +115,30 @@ func (n *network) walk(next string) {
 				verifyErr = n.verify(nil, [][]*x509.Certificate{append(append([]*x509.Certificate{pID.Leaf}, pID.CA), pID.RestChain...)})
 			}
 
-
 			newAddr := node.Address.Address
-			if _, ok := n.seen[newAddr]; ok {
-				if _, err = fmt.Fprintf(n.out, "\"%s\"\t->\t\"%s\"\n", newAddr, next); err != nil {
-					n.err.Println(err)
+			addEdge := func(a, b string) {
+				var edge graphs.Edge
+				switch {
+				case verifyErr != nil:
+					edge = dot.NewEdge(next, newAddr, colorUnsigned, "unsigned")
+				case err != nil:
+					edge = dot.NewEdge(next, newAddr, colorErr, err.Error())
+				default:
+					edge = dot.NewEdge(next, newAddr, colorSigned, "signed")
 				}
+
+				if err := n.graph.AddEdge(edge); err != nil {
+					n.err.Print(err)
+				}
+			}
+
+			if _, ok := n.seen[newAddr]; ok {
+				// NB: only applicable for directional graphs
+				addEdge(newAddr, next)
 				continue
 			}
 
-			var color string
-			switch {
-			case verifyErr != nil:
-				color = "#3fd69a"
-				n.graph.Add(newAddr, color, verifyErr)
-			case err != nil:
-				color = "#d63f3f"
-				n.graph.Add(newAddr, color, err)
-			default:
-				color = "#2683ff"
-				n.graph.Add(newAddr, color, nil)
-			}
-			if _, err = fmt.Fprintf(n.out, "\"%s\" [fillcolor=\"%s\" fontcolor=\"white\" style=filled]\n", newAddr, color); err != nil {
-				n.err.Println(err)
-			}
-			if _, err = fmt.Fprintf(n.out, "\"%s\"\t->\t\"%s\"\n", next, newAddr); err != nil {
-				n.err.Println(err)
-			}
+			addEdge(next, newAddr)
 
 			n.seen[newAddr] = struct{}{}
 			n.addrs = append(n.addrs, newAddr)
@@ -154,19 +147,3 @@ func (n *network) walk(next string) {
 		}
 	}
 }
-
-func buildDot(routes routes) string {
-	dot := dot2.NewDot("storj network")
-
-	for _, route := range routes {
-		var neighborAddrs []string
-		for _, neighborAddr := range route.neighbors {
-			neighborAddrs = append(neighborAddrs, neighborAddr)
-		}
-
-		dot.Add(route.addr, neighborAddrs)
-	}
-
-	return dot.Print()
-}
-

@@ -4,7 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/graphs"
 	"sync"
+)
+
+var (
+	ErrUnsupportedType = errs.Class("unsupported type error")
+	EdgeFmtString      = "\"%s\"\t->\t\"%s\"\n"
 )
 
 type Graph struct {
@@ -12,37 +18,53 @@ type Graph struct {
 
 	mu    sync.Mutex
 	edges []*Edge
-	out   *bytes.Buffer
 }
 
 type Edge struct {
+	A, B, Color, Data string
 }
 
 func New(name string) *Graph {
 	return &Graph{
 		name: name,
-		out:  new(bytes.Buffer),
 	}
 }
 
-func (dot *Graph) AddEdge(edge *Edge) {
+func NewEdge(a, b, color, data string) graphs.Edge {
+	edge := &Edge{
+		A:     a,
+		B:     b,
+		Color: color,
+		Data:  data,
+	}
+	return graphs.Edge(edge)
+}
+
+func (dot *Graph) AddEdge(edge graphs.Edge) error {
 	dot.mu.Lock()
 	defer dot.mu.Unlock()
 
-	dot.edges = append(dot.edges, edge)
+	dotEdge, ok := edge.(*Edge)
+	if !ok {
+		return ErrUnsupportedType.New("interface type: graphs.Edge; struct type: %T", edge)
+	}
+
+	dot.edges = append(dot.edges, dotEdge)
+	return nil
 }
 
-func (dot *Graph) Write() (int, error) {
+func (dot *Graph) Write(out []byte) (int, error) {
 	byteCount := new(int)
-	out := new(bytes.Buffer)
-	if err := dot.writeBegin(byteCount); err != nil {
+	outBuf := bytes.NewBuffer(out)
+	if err := dot.writeBegin(byteCount, outBuf); err != nil {
 		return *byteCount, err
 	}
 
-	var edgeErrs errs.Group{}
+	var edgeErrs errs.Group
 	dot.mu.Lock()
-	for _, e := range dot.edges {
-		i, err := e.Write()
+	for _, edge := range dot.edges {
+		// TODO: is this ok?
+		i, err := edge.Write(outBuf.Bytes())
 		if err != nil {
 			edgeErrs.Add(err)
 		} else {
@@ -52,13 +74,14 @@ func (dot *Graph) Write() (int, error) {
 	}
 	dot.mu.Unlock()
 
-	if err := dot.writeEnd(byteCount); err != nil {
+	if err := dot.writeEnd(byteCount, outBuf); err != nil {
 		return *byteCount, errs.Combine(edgeErrs.Err(), err)
 	}
+	return *byteCount, nil
 }
 
-func (dot *Graph) writeBegin(byteCount *int) error {
-	i, err := fmt.Fprintf(dot.out, "digraph %s {\n", dot.name)
+func (dot *Graph) writeBegin(byteCount *int, out *bytes.Buffer) error {
+	i, err := fmt.Fprintf(out, "digraph %s {\n", dot.name)
 	if err != nil {
 		return err
 	}
@@ -68,8 +91,8 @@ func (dot *Graph) writeBegin(byteCount *int) error {
 	return nil
 }
 
-func (dot *Graph) writeEnd(byteCount *int) error {
-	i, err := fmt.Fprintf(dot.out, "}\n")
+func (dot *Graph) writeEnd(byteCount *int, out *bytes.Buffer) error {
+	i, err := fmt.Fprintf(out, "}\n")
 	if err != nil {
 		return err
 	}
@@ -79,6 +102,11 @@ func (dot *Graph) writeEnd(byteCount *int) error {
 	return nil
 }
 
-func (edge *Edge) Write() (int, error) {
-	i, err := fmt.Fprintf(edge.out, EdgeStringFmt, a, b)
+func (edge *Edge) Write(out []byte) (int, error) {
+	outBuf := bytes.NewBuffer(out)
+	i, err := fmt.Fprintf(outBuf, EdgeFmtString, edge.A, edge.B)
+	if err != nil {
+		return i, err
+	}
+	return i, nil
 }

@@ -1,14 +1,12 @@
-package graph
+package graphs
 
 import "io"
 
 type Edge interface {
-	String() string
 	io.Writer
 }
 
 type Graph interface {
-	AddEdge(Edge)
+	AddEdge(Edge) error
 	io.Writer
 }
-
