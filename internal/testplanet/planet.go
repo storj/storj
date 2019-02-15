@@ -403,6 +403,9 @@ func kadPing(ctx *testcontext.Context, local, remote Peer, labels [2]string) (er
 }
 
 func kadPingErr(local, remote Peer, labels [2]string, err error) error {
+	if err == nil {
+		return nil
+	}
 	return ErrPing.New("%s (%.5s) --> %s (%.5s): %s", labels[0], local.ID(), labels[1], remote.ID(), err.Error())
 }
 
