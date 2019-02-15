@@ -7,6 +7,7 @@ package testplanet
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -25,6 +26,7 @@ import (
 	"storj.io/storj/bootstrap"
 	"storj.io/storj/bootstrap/bootstrapdb"
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
@@ -49,6 +51,9 @@ import (
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
 )
+
+// ErrPing is used when an error occurs during a ping rpc
+var ErrPing = errs.Class("ping error")
 
 // Peer represents one of StorageNode or Satellite
 type Peer interface {
@@ -124,6 +129,9 @@ func (peer *closablePeer) Close() error {
 	})
 	return peer.err
 }
+
+type permutePeersFunc func(a, b Peer, labels [2]string) error
+type iteratePeersFunc func(p Peer, label string) error
 
 // New creates a new full system with the given number of nodes.
 func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
@@ -321,6 +329,65 @@ func (planet *Planet) Shutdown() error {
 
 	errlist.Add(os.RemoveAll(planet.directory))
 	return errlist.Err()
+}
+
+// Ping sends a kad ping request to/from all kad nodes to each other
+// NB: kad nodes include bootstrap, satellite, and storagenode type nodes
+func (planet *Planet) Ping(ctx *testcontext.Context) error {
+	pingErrs := permutePeers(planet, func(a, b Peer, labels [2]string) error {
+		if a == b {
+			return nil
+		}
+		return kadPing(ctx, a, b, labels)
+	})
+	return pingErrs
+}
+
+func permutePeers(planet *Planet, f permutePeersFunc) error {
+	return iteratePeers(planet, func(a Peer, labelA string) error {
+		return iteratePeers(planet, func(b Peer, labelB string) error {
+			if a == b {
+				return nil
+			}
+			return f(a, b, [2]string{labelA, labelB})
+		})
+	})
+}
+
+func iteratePeers(planet *Planet, f iteratePeersFunc) error {
+	errGroup := errs.Group{}
+
+	errGroup.Add(f(planet.Bootstrap, "bootstrap"))
+
+	for i, s := range planet.Satellites {
+		errGroup.Add(f(s, fmt.Sprintf("satellite %d", i)))
+	}
+
+	for i, s := range planet.StorageNodes {
+		errGroup.Add(f(s, fmt.Sprintf("storagenode %d", i)))
+	}
+
+	// uplink
+	// TODO: do something here?
+	return errGroup.Err()
+}
+
+func kadPing(ctx *testcontext.Context, local, remote Peer, labels [2]string) (err error) {
+	switch p := local.(type) {
+	case *bootstrap.Peer:
+		_, err = p.Kademlia.Service.Ping(ctx, remote.Local())
+	case *satellite.Peer:
+		_, err = p.Kademlia.Service.Ping(ctx, remote.Local())
+	case *storagenode.Peer:
+		_, err = p.Kademlia.Service.Ping(ctx, remote.Local())
+	default:
+		return errs.New("unknown peer type: %T", p)
+	}
+	return kadPingErr(local, remote, labels, err)
+}
+
+func kadPingErr(local, remote Peer, labels [2]string, err error) error {
+	return ErrPing.New("%s (%.5s) --> %s (%.5s): %s", labels[0], local.ID(), labels[1], remote.ID(), err.Error())
 }
 
 // newUplinks creates initializes uplinks, requires peer to have at least one satellite
