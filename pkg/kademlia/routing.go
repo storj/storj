@@ -173,7 +173,7 @@ func (rt *RoutingTable) FindNear(target storj.NodeID, limit int, restrictions ..
 			}
 		}
 		return nil
-	})
+	}, true)
 	return closestNodes, Error.Wrap(err)
 }
 
@@ -259,7 +259,7 @@ func (rt *RoutingTable) GetBucketTimestamp(bIDBytes []byte) (time.Time, error) {
 	return time.Unix(0, timestamp).UTC(), nil
 }
 
-func (rt *RoutingTable) iterate(start storj.NodeID, f func(storj.NodeID, []byte) error) error {
+func (rt *RoutingTable) iterate(start storj.NodeID, f func(storj.NodeID, []byte) error, skipSelf bool) error {
 	return rt.nodeBucketDB.Iterate(storage.IterateOptions{First: storage.Key(start.Bytes()), Recurse: true},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
@@ -268,8 +268,8 @@ func (rt *RoutingTable) iterate(start storj.NodeID, f func(storj.NodeID, []byte)
 				if err != nil {
 					return err
 				}
-				if nodeID == rt.self.Id {
-					continue //todo:  revisit if self ID should be in routing table
+				if skipSelf && nodeID == rt.self.Id {
+					continue
 				}
 				err = f(nodeID, item.Value)
 				if err != nil {

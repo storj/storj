@@ -155,7 +155,7 @@ func (rt *RoutingTable) createOrUpdateKBucket(bID bucketID, now time.Time) error
 // getKBucketID: helper, returns the id of the corresponding k bucket given a node id.
 // The node doesn't have to be in the routing table at time of search
 func (rt *RoutingTable) getKBucketID(nodeID storj.NodeID) (bucketID, error) {
-	kadBucketIDs, err := rt.kadBucketDB.List(nil, 0) //swap this out
+	kadBucketIDs, err := rt.kadBucketDB.List(nil, 0) // swap this out
 	if err != nil {
 		return bucketID{}, RoutingErr.New("could not list all k bucket ids: %s", err)
 	}
