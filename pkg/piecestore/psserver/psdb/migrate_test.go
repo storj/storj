@@ -72,11 +72,20 @@ func newData(snap *dbschema.Snapshot) string {
 	return tokens[1]
 }
 
+const (
+	minBaseVersion = -1 // clean DB
+	maxBaseVersion = 0
+)
+
 func TestMigrate(t *testing.T) {
 	snapshots, err := loadSnapshots()
 	require.NoError(t, err)
 
 	for _, base := range snapshots.List {
+		if base.Version < minBaseVersion || maxBaseVersion < base.Version {
+			continue
+		}
+
 		t.Run(strconv.Itoa(base.Version), func(t *testing.T) {
 			log := zaptest.NewLogger(t)
 
