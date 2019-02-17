@@ -65,9 +65,6 @@ func createRoutingTable(t *testing.T, localNodeID storj.NodeID) (*RoutingTable, 
 func TestAddNode(t *testing.T) {
 	rt, cleanup := createRoutingTable(t, teststorj.NodeIDFromString("OO"))
 	defer cleanup()
-	// bucket, err := rt.kadBucketDB.Get(storage.Key([]byte{255, 255}))
-	// assert.NoError(t, err)
-	// assert.NotNil(t, bucket)
 	cases := []struct {
 		testID  string
 		node    *pb.Node

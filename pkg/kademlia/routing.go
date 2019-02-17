@@ -151,7 +151,7 @@ func (rt *RoutingTable) GetBucketIds() (storage.Keys, error) {
 // returns all Nodes closest via XOR to the provided nodeID up to the provided limit
 func (rt *RoutingTable) FindNear(target storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
 	closestNodes := make([]*pb.Node, 0, limit+1)
-	err := rt.iterate(storj.NodeID{}, func(newID storj.NodeID, protoNode []byte) error {
+	err := rt.iterateNodes(storj.NodeID{}, func(newID storj.NodeID, protoNode []byte) error {
 		newPos := len(closestNodes)
 		for ; newPos > 0 && compareByXor(closestNodes[newPos-1].Id, newID, target) > 0; newPos-- {
 		}
@@ -259,7 +259,7 @@ func (rt *RoutingTable) GetBucketTimestamp(bIDBytes []byte) (time.Time, error) {
 	return time.Unix(0, timestamp).UTC(), nil
 }
 
-func (rt *RoutingTable) iterate(start storj.NodeID, f func(storj.NodeID, []byte) error, skipSelf bool) error {
+func (rt *RoutingTable) iterateNodes(start storj.NodeID, f func(storj.NodeID, []byte) error, skipSelf bool) error {
 	return rt.nodeBucketDB.Iterate(storage.IterateOptions{First: storage.Key(start.Bytes()), Recurse: true},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
@@ -280,6 +280,23 @@ func (rt *RoutingTable) iterate(start storj.NodeID, f func(storj.NodeID, []byte)
 		},
 	)
 }
+
+// func (rt *RoutingTable) iterateBuckets(start bucketID, f func(bucketID) error) error {
+// 	return rt.kadBucketDB.Iterate(storage.IterateOptions{First: storage.Key(bucketIDToKey(start)), Recurse: true},
+// 		func(it storage.Iterator) error {
+// 			var item storage.ListItem
+// 			for it.Next(&item) {
+// 				err := f(keyToBucketID(item.Key))
+// 				if err != nil {
+// 					return err
+// 				}
+// 			}
+// 			return nil
+// 		},
+// 	)
+// }
+
+
 
 // ConnFailure implements the Transport failure function
 func (rt *RoutingTable) ConnFailure(ctx context.Context, node *pb.Node, err error) {
