@@ -317,20 +317,26 @@ func (rt *RoutingTable) getUnmarshaledNodesFromBucket(bID bucketID) ([]*pb.Node,
 
 // getKBucketRange: helper, returns the left and right endpoints of the range of node ids contained within the bucket
 func (rt *RoutingTable) getKBucketRange(bID bucketID) ([]bucketID, error) {
-	kadBucketIDs, err := rt.kadBucketDB.List(nil, 0) // swap this out
-	if err != nil {
-		return nil, RoutingErr.New("could not list all k bucket ids: %s", err)
-	}
 	previousBucket := bucketID{}
-	for _, k := range kadBucketIDs {
-		thisBucket := keyToBucketID(k)
-		if thisBucket == bID {
-			return []bucketID{previousBucket, bID}, nil
-		}
-		previousBucket = thisBucket
+	endpoints := []bucketID{}
+	err := rt.kadBucketDB.Iterate(storage.IterateOptions{First: storage.Key{}, Recurse: true},
+		func(it storage.Iterator) error {
+			var item storage.ListItem
+			for it.Next(&item) {
+				thisBucket := keyToBucketID(item.Key)
+				if thisBucket == bID {
+					endpoints = []bucketID{previousBucket, bID}
+					break
+				}
+				previousBucket = thisBucket
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		return endpoints, RoutingErr.Wrap(err)
 	}
-	// shouldn't happen BUT return error if no matching kbucket...
-	return nil, RoutingErr.New("could not find k bucket")
+	return endpoints, nil
 }
 
 // determineLeafDepth determines the level of the bucket id in question.
