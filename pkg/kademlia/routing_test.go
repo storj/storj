@@ -133,6 +133,7 @@ func TestKademliaFindNear(t *testing.T) {
 				func(t *testing.T) { testFunc(t, testNodeCount, limit) })
 		}
 	}
+	panic("test")
 }
 
 func TestConnectionSuccess(t *testing.T) {

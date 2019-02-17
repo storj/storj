@@ -60,6 +60,11 @@ func keyToBucketID(key storage.Key) (bID bucketID) {
 	return bID
 }
 
+func bucketIDToKey(bID bucketID) (key storage.Key) {
+	copy(key, bID[:])
+	return key
+}
+
 // xorNodeID returns the xor of each byte in NodeID
 func xorNodeID(a, b storj.NodeID) storj.NodeID {
 	r := storj.NodeID{}
