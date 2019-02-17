@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div>
+    <div class="team-area">
         <div class="team-header">
             <HeaderArea/>
         </div>
@@ -20,10 +20,10 @@
                 <Footer/>
             </div>
         </div>
-        <EmptyState
-                v-if="projectMembers.length === 0"
-                mainTitle="No results found"
-                :imageSource="emptyImage" />
+        <div class="empty-search-result-area" v-if="projectMembers.length === 0">
+            <h1 class="empty-search-result-area__text">No results found</h1>
+            <div class="empty-search-result-area__image" v-html="emptyImage"></div>
+        </div>
     </div>
 </template>
 
@@ -32,7 +32,6 @@ import { Component, Vue } from 'vue-property-decorator';
 import TeamMemberItem from '@/components/team/TeamMemberItem.vue';
 import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
 import Footer from '@/components/team/footerArea/Footer.vue';
-import EmptyState from '@/components/common/EmptyStateArea.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
@@ -80,7 +79,6 @@ import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames'
         TeamMemberItem,
         HeaderArea,
         Footer,
-        EmptyState,
     }
 })
 
@@ -89,6 +87,10 @@ export default class TeamArea extends Vue {
 </script>
 
 <style scoped lang="scss">
+    .team-area {
+        position: relative;
+    }
+
     .team-header {
         position: fixed;
         top: 100px;
@@ -118,6 +120,25 @@ export default class TeamArea extends Vue {
 
     .user-container {
         height: 160px;
+    }
+
+    .empty-search-result-area {
+        height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+
+        &__text {
+            font-family: 'montserrat_bold';
+            font-size: 32px;
+            line-height: 39px;
+            margin-top: 100px;
+        }
+
+        &__image {
+            margin-top: 40px;
+        }
     }
 
    @media screen and (max-width: 1600px) {
