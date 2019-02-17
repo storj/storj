@@ -284,23 +284,6 @@ func (rt *RoutingTable) iterateNodes(start storj.NodeID, f func(storj.NodeID, []
 	)
 }
 
-// func (rt *RoutingTable) iterateBuckets(start bucketID, f func(bucketID) error) error {
-// 	return rt.kadBucketDB.Iterate(storage.IterateOptions{First: storage.Key(bucketIDToKey(start)), Recurse: true},
-// 		func(it storage.Iterator) error {
-// 			var item storage.ListItem
-// 			for it.Next(&item) {
-// 				err := f(keyToBucketID(item.Key))
-// 				if err != nil {
-// 					return err
-// 				}
-// 			}
-// 			return nil
-// 		},
-// 	)
-// }
-
-
-
 // ConnFailure implements the Transport failure function
 func (rt *RoutingTable) ConnFailure(ctx context.Context, node *pb.Node, err error) {
 	err2 := rt.ConnectionFailed(node)
