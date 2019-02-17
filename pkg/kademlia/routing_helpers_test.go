@@ -11,6 +11,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/teststorj"
@@ -189,23 +190,24 @@ func TestAddNode(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
 			ok, err := rt.addNode(c.node)
-			assert.Equal(t, c.added, ok)
-			assert.NoError(t, err)
+			require.NoError(t, err)
+			require.Equal(t, c.added, ok)
 			kadKeys, err := rt.kadBucketDB.List(nil, 0)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			for i, v := range kadKeys {
-				assert.True(t, bytes.Equal(c.kadIDs[i], v[:2]))
+				require.True(t, bytes.Equal(c.kadIDs[i], v[:2]))
 				ids, err := rt.getNodeIDsWithinKBucket(keyToBucketID(v))
-				assert.NoError(t, err)
+				require.NoError(t, err)
+				require.True(t, len(ids) == len(c.nodeIDs[i]))
 				for j, id := range ids {
-					assert.True(t, bytes.Equal(teststorj.NodeIDFromString(c.nodeIDs[i][j]).Bytes(), id.Bytes()))
+					require.True(t, bytes.Equal(teststorj.NodeIDFromString(c.nodeIDs[i][j]).Bytes(), id.Bytes()))
 				}
 			}
 
 			if c.testID == "8O" {
 				nodeID80 := teststorj.NodeIDFromString("8O")
 				n := rt.replacementCache[keyToBucketID(nodeID80.Bytes())]
-				assert.Equal(t, nodeID80.Bytes(), n[0].Id.Bytes())
+				require.Equal(t, nodeID80.Bytes(), n[0].Id.Bytes())
 			}
 
 		})

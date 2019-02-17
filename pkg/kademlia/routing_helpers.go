@@ -155,17 +155,15 @@ func (rt *RoutingTable) createOrUpdateKBucket(bID bucketID, now time.Time) error
 // getKBucketID: helper, returns the id of the corresponding k bucket given a node id.
 // The node doesn't have to be in the routing table at time of search
 func (rt *RoutingTable) getKBucketID(nodeID storj.NodeID) (bucketID, error) {
-	a := storage.Key{}
-	match := storage.Key{}
-	err := rt.kadBucketDB.Iterate(storage.IterateOptions{First: a, Recurse: true},
+	match := bucketID{}
+	err := rt.kadBucketDB.Iterate(storage.IterateOptions{First: storage.Key{}, Recurse: true},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
 			for it.Next(&item) {
-				if bytes.Compare(nodeID.Bytes(), a) > 0 && bytes.Compare(nodeID.Bytes(), item.Key[:]) <= 0 {
-					match = item.Key
-					return nil
+				match = keyToBucketID(item.Key)
+				if nodeID.Less(match) {
+					break
 				}
-				a = item.Key
 			}
 			return nil
 		},
@@ -173,7 +171,7 @@ func (rt *RoutingTable) getKBucketID(nodeID storj.NodeID) (bucketID, error) {
 	if err != nil {
 		return bucketID{}, RoutingErr.Wrap(err)
 	}
-	return keyToBucketID(match), nil
+	return match, nil
 }
 
 // determineFurthestIDWithinK: helper, determines the furthest node within the k closest to local node
