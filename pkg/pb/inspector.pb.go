@@ -314,7 +314,7 @@ var xxx_messageInfo_GetBucketsRequest proto.InternalMessageInfo
 
 type GetBucketsResponse struct {
 	Total                int64    `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
-	Ids                  []NodeID `protobuf:"bytes,2,rep,name=ids,proto3,customtype=NodeID" json:"ids,omitempty"`
+	Ids                  []NodeID `protobuf:"bytes,2,rep,name=ids,customtype=NodeID" json:"ids,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -385,7 +385,7 @@ var xxx_messageInfo_GetBucketRequest proto.InternalMessageInfo
 
 type GetBucketResponse struct {
 	Id                   NodeID   `protobuf:"bytes,1,opt,name=id,proto3,customtype=NodeID" json:"id"`
-	Nodes                []*Node  `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	Nodes                []*Node  `protobuf:"bytes,2,rep,name=nodes" json:"nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -423,7 +423,7 @@ func (m *GetBucketResponse) GetNodes() []*Node {
 }
 
 type Bucket struct {
-	Nodes                []*Node  `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	Nodes                []*Node  `protobuf:"bytes,2,rep,name=nodes" json:"nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -461,7 +461,7 @@ func (m *Bucket) GetNodes() []*Node {
 }
 
 type BucketList struct {
-	Nodes                []*Node  `protobuf:"bytes,1,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	Nodes                []*Node  `protobuf:"bytes,1,rep,name=nodes" json:"nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -623,8 +623,8 @@ func (m *LookupNodeRequest) GetAddress() string {
 }
 
 type LookupNodeResponse struct {
-	Node                 *Node         `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
-	Meta                 *NodeMetadata `protobuf:"bytes,2,opt,name=meta,proto3" json:"meta,omitempty"`
+	Node                 *Node         `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	Meta                 *NodeMetadata `protobuf:"bytes,2,opt,name=meta" json:"meta,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -709,7 +709,7 @@ func (m *FindNearRequest) GetLimit() int64 {
 }
 
 type FindNearResponse struct {
-	Nodes                []*Node  `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	Nodes                []*Node  `protobuf:"bytes,2,rep,name=nodes" json:"nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

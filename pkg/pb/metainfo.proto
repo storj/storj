@@ -16,6 +16,7 @@ message ObjectHealthRequest {
     bytes encrypted_path = 1;
     bytes bucket = 2;
     bytes uplink_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];    // Uplink Identity
+    string path = 4;
 }
 
 message ObjectHealthResponse {

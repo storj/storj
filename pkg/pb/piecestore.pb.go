@@ -65,7 +65,7 @@ type PayerBandwidthAllocation struct {
 	SerialNumber         string          `protobuf:"bytes,5,opt,name=serial_number,json=serialNumber,proto3" json:"serial_number,omitempty"`
 	Action               BandwidthAction `protobuf:"varint,6,opt,name=action,proto3,enum=piecestoreroutes.BandwidthAction" json:"action,omitempty"`
 	CreatedUnixSec       int64           `protobuf:"varint,7,opt,name=created_unix_sec,json=createdUnixSec,proto3" json:"created_unix_sec,omitempty"`
-	Certs                [][]byte        `protobuf:"bytes,8,rep,name=certs,proto3" json:"certs,omitempty"`
+	Certs                [][]byte        `protobuf:"bytes,8,rep,name=certs" json:"certs,omitempty"`
 	Signature            []byte          `protobuf:"bytes,9,opt,name=signature,proto3" json:"signature,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
@@ -146,10 +146,10 @@ func (m *PayerBandwidthAllocation) GetSignature() []byte {
 }
 
 type RenterBandwidthAllocation struct {
-	PayerAllocation      PayerBandwidthAllocation `protobuf:"bytes,1,opt,name=payer_allocation,json=payerAllocation,proto3" json:"payer_allocation"`
+	PayerAllocation      PayerBandwidthAllocation `protobuf:"bytes,1,opt,name=payer_allocation,json=payerAllocation" json:"payer_allocation"`
 	Total                int64                    `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
 	StorageNodeId        NodeID                   `protobuf:"bytes,3,opt,name=storage_node_id,json=storageNodeId,proto3,customtype=NodeID" json:"storage_node_id"`
-	Certs                [][]byte                 `protobuf:"bytes,4,rep,name=certs,proto3" json:"certs,omitempty"`
+	Certs                [][]byte                 `protobuf:"bytes,4,rep,name=certs" json:"certs,omitempty"`
 	Signature            []byte                   `protobuf:"bytes,5,opt,name=signature,proto3" json:"signature,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
@@ -209,9 +209,9 @@ func (m *RenterBandwidthAllocation) GetSignature() []byte {
 }
 
 type PieceStore struct {
-	BandwidthAllocation  *RenterBandwidthAllocation `protobuf:"bytes,1,opt,name=bandwidth_allocation,json=bandwidthAllocation,proto3" json:"bandwidth_allocation,omitempty"`
-	PieceData            *PieceStore_PieceData      `protobuf:"bytes,2,opt,name=piece_data,json=pieceData,proto3" json:"piece_data,omitempty"`
-	Authorization        *SignedMessage             `protobuf:"bytes,3,opt,name=authorization,proto3" json:"authorization,omitempty"`
+	BandwidthAllocation  *RenterBandwidthAllocation `protobuf:"bytes,1,opt,name=bandwidth_allocation,json=bandwidthAllocation" json:"bandwidth_allocation,omitempty"`
+	PieceData            *PieceStore_PieceData      `protobuf:"bytes,2,opt,name=piece_data,json=pieceData" json:"piece_data,omitempty"`
+	Authorization        *SignedMessage             `protobuf:"bytes,3,opt,name=authorization" json:"authorization,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
 	XXX_unrecognized     []byte                     `json:"-"`
 	XXX_sizecache        int32                      `json:"-"`
@@ -320,7 +320,7 @@ func (m *PieceStore_PieceData) GetContent() []byte {
 type PieceId struct {
 	// TODO: may want to use customtype and fixed-length byte slice
 	Id                   string         `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Authorization        *SignedMessage `protobuf:"bytes,2,opt,name=authorization,proto3" json:"authorization,omitempty"`
+	Authorization        *SignedMessage `protobuf:"bytes,2,opt,name=authorization" json:"authorization,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -419,9 +419,9 @@ func (m *PieceSummary) GetExpirationUnixSec() int64 {
 }
 
 type PieceRetrieval struct {
-	BandwidthAllocation  *RenterBandwidthAllocation `protobuf:"bytes,1,opt,name=bandwidth_allocation,json=bandwidthAllocation,proto3" json:"bandwidth_allocation,omitempty"`
-	PieceData            *PieceRetrieval_PieceData  `protobuf:"bytes,2,opt,name=piece_data,json=pieceData,proto3" json:"piece_data,omitempty"`
-	Authorization        *SignedMessage             `protobuf:"bytes,3,opt,name=authorization,proto3" json:"authorization,omitempty"`
+	BandwidthAllocation  *RenterBandwidthAllocation `protobuf:"bytes,1,opt,name=bandwidth_allocation,json=bandwidthAllocation" json:"bandwidth_allocation,omitempty"`
+	PieceData            *PieceRetrieval_PieceData  `protobuf:"bytes,2,opt,name=piece_data,json=pieceData" json:"piece_data,omitempty"`
+	Authorization        *SignedMessage             `protobuf:"bytes,3,opt,name=authorization" json:"authorization,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
 	XXX_unrecognized     []byte                     `json:"-"`
 	XXX_sizecache        int32                      `json:"-"`
@@ -576,7 +576,7 @@ func (m *PieceRetrievalStream) GetContent() []byte {
 type PieceDelete struct {
 	// TODO: may want to use customtype and fixed-length byte slice
 	Id                   string         `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Authorization        *SignedMessage `protobuf:"bytes,3,opt,name=authorization,proto3" json:"authorization,omitempty"`
+	Authorization        *SignedMessage `protobuf:"bytes,3,opt,name=authorization" json:"authorization,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -886,9 +886,9 @@ type DashboardStats struct {
 	BootstrapAddress     string             `protobuf:"bytes,3,opt,name=bootstrap_address,json=bootstrapAddress,proto3" json:"bootstrap_address,omitempty"`
 	InternalAddress      string             `protobuf:"bytes,4,opt,name=internal_address,json=internalAddress,proto3" json:"internal_address,omitempty"`
 	ExternalAddress      string             `protobuf:"bytes,5,opt,name=external_address,json=externalAddress,proto3" json:"external_address,omitempty"`
-	Stats                *StatSummary       `protobuf:"bytes,6,opt,name=stats,proto3" json:"stats,omitempty"`
+	Stats                *StatSummary       `protobuf:"bytes,6,opt,name=stats" json:"stats,omitempty"`
 	Connection           bool               `protobuf:"varint,7,opt,name=connection,proto3" json:"connection,omitempty"`
-	Uptime               *duration.Duration `protobuf:"bytes,8,opt,name=uptime,proto3" json:"uptime,omitempty"`
+	Uptime               *duration.Duration `protobuf:"bytes,8,opt,name=uptime" json:"uptime,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`

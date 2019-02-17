@@ -140,11 +140,10 @@ type Peer struct {
 	}
 
 	Pointerdb struct {
-		Database    storage.KeyValueStore // TODO: move into pointerDB
-		Allocation  *pointerdb.AllocationSigner
-		Service     *pointerdb.Service
-		Endpoint    *pointerdb.Server
-		NewEndpoint *metainfo.Endpoint
+		Database   storage.KeyValueStore // TODO: move into pointerDB
+		Allocation *pointerdb.AllocationSigner
+		Service    *pointerdb.Service
+		Endpoint   *pointerdb.Server
 	}
 
 	Agreements struct {
@@ -168,6 +167,10 @@ type Peer struct {
 		Listener net.Listener
 		Service  *console.Service
 		Endpoint *consoleweb.Server
+	}
+
+	Metainfo struct {
+		Endpoint *metainfo.Endpoint
 	}
 }
 
@@ -302,8 +305,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		pb.RegisterPointerDBServer(peer.Public.Server.GRPC(), peer.Pointerdb.Endpoint)
 
-		peer.Pointerdb.NewEndpoint = metainfo.NewEndpoint(peer.Log.Named("metainfo"), config.MetaInfo)
-		pb.RegisterMetainfoServer(peer.Public.Server.GRPC(), peer.Pointerdb.NewEndpoint)
 	}
 
 	{ // setup agreements
@@ -370,6 +371,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			config,
 			peer.Console.Service,
 			peer.Console.Listener)
+	}
+
+	{
+		peer.Metainfo.Endpoint = metainfo.NewEndpoint(peer.Log.Named("metainfo"), config.MetaInfo, peer.Pointerdb.Endpoint, peer.Overlay.Endpoint)
+		pb.RegisterMetainfoServer(peer.Public.Server.GRPC(), peer.Metainfo.Endpoint)
 	}
 
 	return peer, nil

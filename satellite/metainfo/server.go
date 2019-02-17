@@ -9,7 +9,9 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pointerdb"
 )
 
 var (
@@ -18,15 +20,19 @@ var (
 
 // Endpoint implements the network state RPC service
 type Endpoint struct {
-	log    *zap.Logger
-	config Config
+	log         *zap.Logger
+	config      Config
+	pdbEndpoint *pointerdb.Server
+	ocEndpoint  *overlay.Server
 }
 
 // NewEndpoint creates instance of Endpoint
-func NewEndpoint(log *zap.Logger, config Config) *Endpoint {
+func NewEndpoint(log *zap.Logger, config Config, pdbEndpoint *pointerdb.Server, ocEndpoint *overlay.Server) *Endpoint {
 	return &Endpoint{
-		log:    log,
-		config: config,
+		log:         log,
+		config:      config,
+		pdbEndpoint: pdbEndpoint,
+		ocEndpoint:  ocEndpoint,
 	}
 }
 
@@ -39,7 +45,9 @@ func (e *Endpoint) Health(ctx context.Context, req *pb.ObjectHealthRequest) (res
 
 	resp = &pb.ObjectHealthResponse{}
 
-	// Find segements by req.EncryptedPath, req.Bucket and req.UplinkId
+	// get the stream's info thru last segment ie l/<path>
+	pdbResp, err := e.pdbEndpoint.Get(ctx, &pb.GetRequest{Path: req.GetPath()})
+
 	// for each segment
 	// 		determine number of good nodes and bad nodes
 	// 		append to Response
