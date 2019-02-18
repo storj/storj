@@ -117,15 +117,37 @@ func (ps *PieceStore) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, e
 }
 
 // Put uploads a Piece to a piece store Server
-func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation) error {
+func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, pba *pb.PayerBandwidthAllocation) error {
 	stream, err := ps.client.Store(ctx)
 	if err != nil {
 		return err
 	}
 
+	// Making a copy, otherwise there will be a data race
+	// when another goroutine tries to write the cached size
+	// of this instance at the same time.
+	pbaCopy := &pb.PayerBandwidthAllocation{
+		SatelliteId:       pba.SatelliteId,
+		UplinkId:          pba.UplinkId,
+		MaxSize:           pba.MaxSize,
+		ExpirationUnixSec: pba.ExpirationUnixSec,
+		SerialNumber:      pba.SerialNumber,
+		Action:            pba.Action,
+		CreatedUnixSec:    pba.CreatedUnixSec,
+	}
+	pbaCopy.Certs = make([][]byte, len(pba.Certs))
+	copy(pbaCopy.Certs, pba.Certs)
+	pbaCopy.Signature = make([]byte, len(pba.Signature))
+	copy(pbaCopy.Signature, pba.Signature)
+
+	rba := &pb.RenterBandwidthAllocation{
+		PayerAllocation: *pbaCopy,
+		StorageNodeId:   ps.remoteID,
+	}
+
 	msg := &pb.PieceStore{
-		PieceData:       &pb.PieceStore_PieceData{Id: id.String(), ExpirationUnixSec: ttl.Unix()},
-		PayerAllocation: ba,
+		PieceData:           &pb.PieceStore_PieceData{Id: id.String(), ExpirationUnixSec: ttl.Unix()},
+		BandwidthAllocation: rba,
 	}
 	if err = stream.Send(msg); err != nil {
 		if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
@@ -135,7 +157,7 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 		return fmt.Errorf("%v.Send() = %v", stream, err)
 	}
 
-	writer := &StreamWriter{signer: ps, stream: stream, pba: ba}
+	writer := &StreamWriter{signer: ps, stream: stream, rba: rba}
 
 	defer func() {
 		if err := writer.Close(); err != nil && err != io.EOF {

@@ -19,42 +19,22 @@ type StreamWriter struct {
 	stream       pb.PieceStoreRoutes_StoreClient
 	signer       *PieceStore // We need this for signing
 	totalWritten int64
-	pba          *pb.PayerBandwidthAllocation
+	rba          *pb.RenterBandwidthAllocation
 }
 
 // Write Piece data to a piece store server upload stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
 	updatedAllocation := s.totalWritten + int64(len(b))
 
-	// Making a copy, otherwise there will be a data race
-	// when another goroutine tries to write the cached size
-	// of this instance at the same time.
-	pbaCopy := &pb.PayerBandwidthAllocation{
-		SatelliteId:       s.pba.SatelliteId,
-		UplinkId:          s.pba.UplinkId,
-		MaxSize:           s.pba.MaxSize,
-		ExpirationUnixSec: s.pba.ExpirationUnixSec,
-		SerialNumber:      s.pba.SerialNumber,
-		Action:            s.pba.Action,
-		CreatedUnixSec:    s.pba.CreatedUnixSec,
-	}
-	pbaCopy.Certs = make([][]byte, len(s.pba.Certs))
-	copy(pbaCopy.Certs, s.pba.Certs)
-	pbaCopy.Signature = make([]byte, len(s.pba.Signature))
-	copy(pbaCopy.Signature, s.pba.Signature)
-
-	rba := &pb.RenterBandwidthAllocation{
-		PayerAllocation: *pbaCopy,
-		Total:           updatedAllocation,
-		StorageNodeId:   s.signer.remoteID,
-	}
-	err := auth.SignMessage(rba, *s.signer.selfID)
+	s.rba.Total = updatedAllocation
+	err := auth.SignMessage(s.rba, *s.signer.selfID)
 	if err != nil {
 		return 0, err
 	}
+
 	msg := &pb.PieceStore{
 		PieceData:           &pb.PieceStore_PieceData{Content: b},
-		BandwidthAllocation: rba,
+		BandwidthAllocation: s.rba,
 	}
 	s.totalWritten = updatedAllocation
 	// Second we send the actual content
@@ -88,7 +68,7 @@ type StreamReader struct {
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
-func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation, size int64) *StreamReader {
+func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, rba *pb.RenterBandwidthAllocation, size int64) *StreamReader {
 	sr := &StreamReader{
 		pendingAllocs: sync2.NewThrottle(),
 		client:        client,
@@ -111,28 +91,7 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 				allocate = size - sr.allocated
 			}
 
-			// Making a copy, otherwise there will be a data race
-			// when another goroutine tries to write the cached size
-			// of this instance at the same time.
-			pbaCopy := &pb.PayerBandwidthAllocation{
-				SatelliteId:       pba.SatelliteId,
-				UplinkId:          pba.UplinkId,
-				MaxSize:           pba.MaxSize,
-				ExpirationUnixSec: pba.ExpirationUnixSec,
-				SerialNumber:      pba.SerialNumber,
-				Action:            pba.Action,
-				CreatedUnixSec:    pba.CreatedUnixSec,
-			}
-			pbaCopy.Certs = make([][]byte, len(pba.Certs))
-			copy(pbaCopy.Certs, pba.Certs)
-			pbaCopy.Signature = make([]byte, len(pba.Signature))
-			copy(pbaCopy.Signature, pba.Signature)
-
-			rba := &pb.RenterBandwidthAllocation{
-				PayerAllocation: *pbaCopy,
-				Total:           sr.allocated + allocate,
-				StorageNodeId:   sr.client.remoteID,
-			}
+			rba.Total = sr.allocated + allocate
 
 			err := auth.SignMessage(rba, *client.selfID)
 			if err != nil {

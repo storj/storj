@@ -451,8 +451,8 @@ func TestPbaValidation(t *testing.T) {
 			_ = s.storage.Delete("99999999999999999999")
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(&pb.PieceStore{
-				PieceData:       &pb.PieceStore_PieceData{Id: "99999999999999999999", ExpirationUnixSec: 9999999999},
-				PayerAllocation: pba,
+				PieceData:           &pb.PieceStore_PieceData{Id: "99999999999999999999", ExpirationUnixSec: 9999999999},
+				BandwidthAllocation: rba,
 			})
 			require.NoError(t, err)
 
