@@ -12,14 +12,26 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
+
+type mockSender struct{}
+
+func (*mockSender) SendEmail(msg *post.Message) error {
+	return nil
+}
+
+func (*mockSender) FromAddress() post.Address {
+	return post.Address{}
+}
 
 func TestGraphqlQuery(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
@@ -27,13 +39,15 @@ func TestGraphqlQuery(t *testing.T) {
 		defer ctx.Cleanup()
 
 		log := zaptest.NewLogger(t)
+		mail := mailservice.New(log, &mockSender{})
 
 		service, err := console.NewService(
 			log,
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
+			mail,
+			"",
 			console.TestPasswordCost,
-			false,
 		)
 
 		if err != nil {

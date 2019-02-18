@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -15,8 +16,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/post"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/mailservice"
 )
 
 var (
@@ -41,12 +44,14 @@ type Service struct {
 	store DB
 	log   *zap.Logger
 
-	passwordCost       int
-	simulateActivation bool
+	mail *mailservice.Service
+
+	templatePath string
+	passwordCost int
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, signer Signer, store DB, passwordCost int, simulateActivation bool) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, mail *mailservice.Service, templatePath string, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -63,7 +68,14 @@ func NewService(log *zap.Logger, signer Signer, store DB, passwordCost int, simu
 		passwordCost = bcrypt.DefaultCost
 	}
 
-	return &Service{Signer: signer, store: store, log: log, passwordCost: passwordCost, simulateActivation: simulateActivation}, nil
+	return &Service{
+		Signer:       signer,
+		store:        store,
+		log:          log,
+		mail:         mail,
+		templatePath: templatePath,
+		passwordCost: passwordCost,
+	}, nil
 }
 
 // CreateUser gets password hash value and creates new inactive User
@@ -87,26 +99,34 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 		return nil, err
 	}
 
-	// TODO(yar): feels ugly
-	var status UserStatus
-	if s.simulateActivation {
-		status = Active
-	}
-
 	u, err = s.store.Users().Insert(ctx, &User{
 		Email:        user.Email,
 		FirstName:    user.FirstName,
 		LastName:     user.LastName,
 		PasswordHash: hash,
-		Status:       status,
 	})
 
-	// TODO: send "finish registration email" when email service will be ready
-	//activationToken, err := s.GenerateActivationToken(ctx, u.ID, email, u.CreatedAt.Add(tokenExpirationTime))
-	//if err != nil {
-	//	return nil, err
-	//}
+	activationToken, err := s.GenerateActivationToken(ctx, u.ID, email, u.CreatedAt.Add(tokenExpirationTime))
+	if err != nil {
+		return u, err
+	}
 
+	tmpl := NewMailTemplate(
+		post.Address{
+			Name:    u.FirstName,
+			Address: u.Email,
+		},
+		ActivationSubject,
+		filepath.Join(s.templatePath, "Welcome"),
+	)
+
+	err = s.mail.SendRendered(
+		ctx,
+		&AccountActivationEmail{
+			MailTemplate:   tmpl,
+			ActivationLink: activationToken,
+		},
+	)
 	return u, err
 }
 

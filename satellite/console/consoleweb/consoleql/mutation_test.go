@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -29,13 +30,15 @@ func TestGrapqhlMutation(t *testing.T) {
 		defer ctx.Cleanup()
 
 		log := zaptest.NewLogger(t)
+		mail := mailservice.New(log, &mockSender{})
 
 		service, err := console.NewService(
 			log,
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
+			mail,
+			"",
 			console.TestPasswordCost,
-			false,
 		)
 
 		if err != nil {

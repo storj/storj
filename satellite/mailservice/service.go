@@ -91,10 +91,11 @@ func (service *Service) SendRendered(ctx context.Context, tmpl Template) (err er
 	var htmlBuffer bytes.Buffer
 	var textBuffer bytes.Buffer
 
+	// TODO(yar): prepare plain text version
 	// render texttemplate template
-	if err = RenderPlainText(&textBuffer, tmpl); err != nil {
-		return
-	}
+	//if err = RenderPlainText(&textBuffer, tmpl); err != nil {
+	//	return
+	//}
 
 	// render htmltemplate template
 	if err = RenderHTML(&htmlBuffer, tmpl); err != nil {
@@ -114,7 +115,15 @@ func (service *Service) SendRendered(ctx context.Context, tmpl Template) (err er
 		},
 	}
 
-	return service.sender.SendEmail(msg)
+	err = service.sender.SendEmail(msg)
+	// log error
+	if err != nil {
+		service.log.Info("error from mail sender", zap.String("error", err.Error()))
+	} else {
+		service.log.Info("successfully send message")
+	}
+
+	return err
 }
 
 // RenderHTML renders htmltemplate content of given Template and writes it to writer

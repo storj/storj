@@ -410,30 +410,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(errs.New("unsupported auth type"), peer.Close())
 		}
 
-		var sender mailservice.SMTPSender
-		if config.Console.SimulateActivation {
-			sender = &consolesim.MailsSender{}
-		} else {
-			sender = &post.SMTPSender{
+		peer.Mail.Service = mailservice.New(
+			peer.Log.Named("mailservice:service"),
+			&post.SMTPSender{
 				From:          *from,
 				Auth:          auth,
 				ServerAddress: mailConfig.SMTPServerAddress,
-			}
-		}
-
-		peer.Mail.Service = mailservice.New(
-			peer.Log.Named("mailservice:service"),
-			sender,
+			},
 		)
-
-		// TODO: remove debugging code
-		peer.Mail.Service.SendRendered(context.Background(), &console.AccountActivationEmail{
-			MailTemplate: console.NewMailTemplate(
-				post.Address{Address: "r0boticssss4@gmail.com", Name: "Name"},
-				"Subj",
-				filepath.Join(config.Console.TemplatePath, "Welcome")),
-			ActivationLink: "https://storj.io",
-		})
 	}
 
 	{ // setup console
@@ -445,23 +429,38 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Console.Service, err = console.NewService(peer.Log.Named("console:service"),
+		mailService := peer.Mail.Service
+		// fallback to use account activation mail sender
+		// when using storj-sim
+		if config.SimulateActivation {
+			mailService = mailservice.New(
+				peer.Log.Named("mailservice:simservice"),
+				&consolesim.MailsSender{
+					DB: peer.DB.Console(),
+				},
+			)
+		}
+
+		peer.Console.Service, err = console.NewService(
+			peer.Log.Named("console:service"),
 			// TODO(yar): use satellite key
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			peer.DB.Console(),
+			mailService,
+			config.TemplatePath,
 			config.PasswordCost,
-			// TODO(yar): feels ugly
-			config.SimulateActivation,
 		)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Console.Endpoint = consoleweb.NewServer(peer.Log.Named("console:endpoint"),
+		peer.Console.Endpoint = consoleweb.NewServer(
+			peer.Log.Named("console:endpoint"),
 			config,
 			peer.Console.Service,
-			peer.Console.Listener)
+			peer.Console.Listener,
+		)
 	}
 
 	return peer, nil

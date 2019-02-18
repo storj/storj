@@ -7,6 +7,15 @@ import (
 	"net/mail"
 )
 
+const (
+	// ActivationSubject activation email subject
+	ActivationSubject = "Activate your email"
+	// InvitationSubject invitation email subject
+	InvitationSubject = ""
+	// ForgotPasswordSubject forgot password email subject
+	ForgotPasswordSubject = ""
+)
+
 // MailTemplate is implementation of satellite/mailservice.Template interface
 type MailTemplate struct {
 	to            mail.Address
