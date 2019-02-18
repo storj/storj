@@ -108,4 +108,4 @@ matrix:
   fast_finish: true
 
 addons:
-  postgresql: "9.5"
+  postgresql: "10"
