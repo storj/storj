@@ -185,10 +185,12 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	grpcServer := grpc.NewServer(identOpt)
 
 	pb.RegisterNodesServer(grpcServer, s)
-	go func() { assert.NoError(t, grpcServer.Serve(lis)) }() // panic: Fail in goroutine after TestRefresh has completed
+	ctx.Go(func() error { return grpcServer.Serve(lis) })
+	// go func() { assert.NoError(t, grpcServer.Serve(lis)) }() // panic: Fail in goroutine after TestRefresh has completed
 
 	return k, grpcServer, func() {
 		defer cleanup()
+		defer ctx.Cleanup()
 		assert.NoError(t, k.Close())
 	}
 }
