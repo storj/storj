@@ -44,6 +44,7 @@ type Store interface {
 	Put(ctx context.Context, path storj.Path, data io.Reader, metadata pb.SerializableMeta, expiration time.Time) (meta Meta, err error)
 	Delete(ctx context.Context, path storj.Path) (err error)
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
+	Stats(ctx context.Context, path storj.Path) (statResp []*pb.ObjectHealthResponse, err error)
 }
 
 type objStore struct {
@@ -142,6 +143,22 @@ func (o *objStore) List(ctx context.Context, prefix, startAfter, endBefore storj
 	}
 
 	return items, more, nil
+}
+
+func (o *objStore) Stats(ctx context.Context, path storj.Path) (statResp []*pb.ObjectHealthResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(path) == 0 {
+		return nil, storj.ErrNoPath.New("")
+	}
+
+	statResp, err = o.store.Stats(ctx, path, o.pathCipher)
+
+	if storage.ErrKeyNotFound.Has(err) {
+		err = storj.ErrObjectNotFound.Wrap(err)
+	}
+
+	return statResp, err
 }
 
 // convertMeta converts stream metadata to object metadata

@@ -29,6 +29,7 @@ type Store interface {
 	Delete(ctx context.Context, bucket string) (err error)
 	List(ctx context.Context, startAfter, endBefore string, limit int) (items []ListItem, more bool, err error)
 	GetObjectStore(ctx context.Context, bucketName string) (store objects.Store, err error)
+	Stats(ctx context.Context, bucket string) (statResp []*pb.ObjectHealthResponse, err error)
 }
 
 // ListItem is a single item in a listing
@@ -74,6 +75,25 @@ func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (object
 		prefix: bucket,
 	}
 	return &prefixed, nil
+}
+
+// Stats calls objects store Get
+func (b *BucketStore) Stats(ctx context.Context, bucket string) (statResp []*pb.ObjectHealthResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if bucket == "" {
+		return nil, storj.ErrNoBucket.New("")
+	}
+
+	statResp, err = b.store.Stats(ctx, bucket)
+	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			err = storj.ErrBucketNotFound.Wrap(err)
+		}
+		return nil, err
+	}
+
+	return statResp, nil
 }
 
 // Get calls objects store Get

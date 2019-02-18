@@ -46,7 +46,7 @@ func (e *Endpoint) Health(ctx context.Context, req *pb.ObjectHealthRequest) (res
 	resp = &pb.ObjectHealthResponse{}
 
 	// get the stream's info thru last segment ie l/<path>
-	pdbResp, err := e.pdbEndpoint.Get(ctx, &pb.GetRequest{Path: req.GetPath()})
+	//pdbResp, err := e.pdbEndpoint.Get(ctx, &pb.GetRequest{Path: req.GetPath()})
 
 	// for each segment
 	// 		determine number of good nodes and bad nodes

@@ -64,3 +64,13 @@ func (o *prefixedObjStore) List(ctx context.Context, prefix, startAfter, endBefo
 
 	return o.store.List(ctx, storj.JoinPaths(o.prefix, prefix), startAfter, endBefore, recursive, limit, metaFlags)
 }
+
+func (o *prefixedObjStore) Stats(ctx context.Context, path storj.Path) (statResp []*pb.ObjectHealthResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(path) == 0 {
+		return nil, storj.ErrNoPath.New("")
+	}
+
+	return o.store.Stats(ctx, storj.JoinPaths(o.prefix, path))
+}

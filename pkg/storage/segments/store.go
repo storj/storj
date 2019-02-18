@@ -51,6 +51,7 @@ type Store interface {
 	Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error)
 	Delete(ctx context.Context, path storj.Path) (err error)
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
+	Stats(ctx context.Context, path storj.Path) (statResp *pb.ObjectHealthResponse, meta Meta, err error)
 }
 
 type segmentStore struct {
@@ -319,6 +320,65 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore s
 	}
 
 	return items, more, nil
+}
+
+// Stats retrieves the metadata of the segment
+func (s *segmentStore) Stats(ctx context.Context, path storj.Path) (statsResp *pb.ObjectHealthResponse, meta Meta, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	pr, nodes, _, err := s.pdb.Get(ctx, path)
+	if err != nil {
+		return nil, Meta{}, Error.Wrap(err)
+	}
+
+	switch pr.GetType() {
+	case pb.Pointer_INLINE:
+		return nil, Meta{}, Error.Wrap(err)
+	case pb.Pointer_REMOTE:
+		seg := pr.GetRemote()
+		// pid := psclient.PieceID(seg.GetPieceId())
+
+		nodes, err = lookupAndAlignNodes(ctx, s.oc, nodes, seg)
+		if err != nil {
+			return nil, Meta{}, Error.Wrap(err)
+		}
+
+		rs, err := makeRedundancyStrategy(pr.GetRemote().GetRedundancy())
+		if err != nil {
+			return nil, Meta{}, err
+		}
+
+		needed := calcNeededNodes(pr.GetRemote().GetRedundancy())
+		selected := make([]*pb.Node, rs.TotalCount())
+
+		for _, i := range rand.Perm(len(nodes)) {
+			node := nodes[i]
+			if node == nil {
+				continue
+			}
+
+			selected[i] = node
+
+			needed--
+			if needed <= 0 {
+				break
+			}
+			node.Type.DPanicOnInvalid("ss get")
+		}
+
+		meta = convertMeta(pr)
+
+		statsResp = &pb.ObjectHealthResponse{
+			Redundancy: pr.GetRemote().GetRedundancy(),
+			Segments: &pb.ObjectHealthResponse_SegmentInfo{
+				MinReq: pr.GetRemote().GetRedundancy().GetMinReq(),
+				Total:  needed,
+			},
+		}
+	default:
+		return nil, Meta{}, Error.New("unsupported pointer type: %d", pr.GetType())
+	}
+	return statsResp, meta, nil
 }
 
 func makeRedundancyStrategy(scheme *pb.RedundancyScheme) (eestream.RedundancyStrategy, error) {

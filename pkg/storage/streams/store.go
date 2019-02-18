@@ -61,6 +61,7 @@ type Store interface {
 	Put(ctx context.Context, path storj.Path, pathCipher storj.Cipher, data io.Reader, metadata []byte, expiration time.Time) (Meta, error)
 	Delete(ctx context.Context, path storj.Path, pathCipher storj.Cipher) error
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, pathCipher storj.Cipher, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
+	Stats(ctx context.Context, path storj.Path, pathCipher storj.Cipher) ([]*pb.ObjectHealthResponse, error)
 }
 
 // streamStore is a store for streams
@@ -508,6 +509,43 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore st
 	}
 
 	return items, more, nil
+}
+
+// Stats implements Store.Meta
+func (s *streamStore) Stats(ctx context.Context, path storj.Path, pathCipher storj.Cipher) (statResp []*pb.ObjectHealthResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	encPath, err := EncryptAfterBucket(path, pathCipher, s.rootKey)
+	if err != nil {
+		return nil, err
+	}
+
+	segStatResp, lastSegmentMeta, err := s.segments.Stats(ctx, storj.JoinPaths("l", encPath))
+	if err != nil {
+		return nil, err
+	}
+
+	streamInfo, err := DecryptStreamInfo(ctx, lastSegmentMeta, path, s.rootKey)
+	if err != nil {
+		return nil, err
+	}
+
+	stream := pb.StreamInfo{}
+	err = proto.Unmarshal(streamInfo, &stream)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := int64(0); i < stream.NumberOfSegments-1; i++ {
+		currentPath := getSegmentPath(encPath, i)
+		segStatResp, _, err = s.segments.Stats(ctx, currentPath)
+		if err != nil {
+			return nil, err
+		}
+		statResp = append(statResp, segStatResp)
+	}
+
+	return statResp, nil
 }
 
 // encryptMarker is a helper method for encrypting startAfter and endBefore markers
