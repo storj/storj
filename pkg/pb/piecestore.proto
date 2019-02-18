@@ -58,14 +58,15 @@ message PieceStore {
 
   RenterBandwidthAllocation bandwidth_allocation = 1;
   PieceData piece_data = 2;
-  PayerBandwidthAllocation payer_allocation = 3;
+  SignedMessage authorization = 3;
 }
 
 message PieceId {
   // TODO: may want to use customtype and fixed-length byte slice
   string id = 1;
 
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  SignedMessage authorization = 2;
+  bytes satellite_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 message PieceSummary {
@@ -84,7 +85,7 @@ message PieceRetrieval {
 
   RenterBandwidthAllocation bandwidth_allocation = 1;
   PieceData piece_data = 2;
-  PayerBandwidthAllocation payer_allocation = 3;
+  SignedMessage authorization = 3;
 }
 
 message PieceRetrievalStream {
@@ -95,7 +96,8 @@ message PieceRetrievalStream {
 message PieceDelete {
   // TODO: may want to use customtype and fixed-length byte slice
   string id = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  SignedMessage authorization = 3;
+  bytes satellite_id = 4 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 message PieceDeleteSummary {
