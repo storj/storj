@@ -6,6 +6,7 @@ package psclient
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 
@@ -83,6 +84,7 @@ func (r *pieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadC
 		PayerAllocation: *pbaCopy,
 		StorageNodeId:   r.c.remoteID,
 	}
+	fmt.Println(r.id.String())
 
 	// send piece data
 	if err := r.stream.Send(&pb.PieceRetrieval{

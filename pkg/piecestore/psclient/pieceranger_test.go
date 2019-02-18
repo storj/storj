@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 func TestPieceRanger(t *testing.T) {
@@ -139,12 +140,29 @@ func TestPieceRangerSize(t *testing.T) {
 		stream := pb.NewMockPieceStoreRoutes_RetrieveClient(ctrl)
 
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
+			rba := &pb.RenterBandwidthAllocation{
+				PayerAllocation: pb.PayerBandwidthAllocation{
+					SatelliteId:       storj.NodeID{},
+					UplinkId:          storj.NodeID{},
+					MaxSize:           tt.size,
+					ExpirationUnixSec: 0,
+					SerialNumber:      "",
+					Action:            0,
+					CreatedUnixSec:    0,
+					Certs:             [][]byte{},
+					Signature:         []byte{},
+				},
+				StorageNodeId: id.ID,
+			}
+			fmt.Println("rba", rba)
+
 			msg1 := &pb.PieceRetrieval{
 				PieceData: &pb.PieceRetrieval_PieceData{
 					Id:        pid.String(),
 					PieceSize: tt.length,
 					Offset:    tt.offset,
 				},
+				BandwidthAllocation: rba,
 			}
 
 			stream.EXPECT().Send(msg1).Return(nil)
