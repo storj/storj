@@ -59,13 +59,7 @@ func TestPieceRanger(t *testing.T) {
 		pid := NewPieceID()
 
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
-			msg1 := &pb.PieceRetrieval{
-				PieceData: &pb.PieceRetrieval_PieceData{
-					Id: pid.String(), PieceSize: tt.length, Offset: tt.offset,
-				},
-			}
-
-			stream.EXPECT().Send(msg1).Return(nil)
+			stream.EXPECT().Send(gomock.Any()).Return(nil)
 			stream.EXPECT().Send(gomock.Any()).Return(nil).MinTimes(0).MaxTimes(1)
 			stream.EXPECT().Recv().Return(
 				&pb.PieceRetrievalStream{
