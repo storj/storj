@@ -150,7 +150,7 @@ func (rt *RoutingTable) GetBucketIds() (storage.Keys, error) {
 }
 
 // FindNear returns the node corresponding to the provided nodeID
-// returns all Nodes closest via XOR to the provided nodeID up to the provided limit
+// returns all Nodes (excluding self) closest via XOR to the provided nodeID up to the provided limit
 func (rt *RoutingTable) FindNear(target storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
 	closestNodes := make([]*pb.Node, 0, limit+1)
 	err := rt.iterateNodes(storj.NodeID{}, func(newID storj.NodeID, protoNode []byte) error {
