@@ -252,27 +252,16 @@ func (rt *RoutingTable) getNodeIDsWithinKBucket(bID bucketID) (storj.NodeIDList,
 	}
 	left := endpoints[0]
 	right := endpoints[1]
-	var nodeIDsBytes [][]byte
-	allNodeIDsBytes, err := rt.nodeBucketDB.List(nil, 0) // swap this out
-	if err != nil {
-		return nil, RoutingErr.New("could not list nodes %s", err)
-	}
-	for _, v := range allNodeIDsBytes {
-		if (bytes.Compare(v, left[:]) > 0) && (bytes.Compare(v, right[:]) <= 0) {
-			nodeIDsBytes = append(nodeIDsBytes, v)
-			if len(nodeIDsBytes) == rt.bucketSize {
-				break
-			}
+	var ids []storj.NodeID
+
+	err = rt.iterateNodes(storj.NodeID{}, func(nodeID storj.NodeID, protoNode []byte) error {
+		if left.Less(nodeID) && (nodeID.Less(right) || bytes.Equal(nodeID.Bytes(), right[:])) {
+			ids = append(ids, nodeID)
 		}
-	}
-	nodeIDs, err := storj.NodeIDsFromBytes(nodeIDsBytes)
-	if err != nil {
-		return nil, err
-	}
-	if len(nodeIDsBytes) > 0 {
-		return nodeIDs, nil
-	}
-	return nil, nil
+		return nil
+	}, false)
+
+	return ids, nil
 }
 
 // getNodesFromIDsBytes: helper, returns array of encoded nodes from node ids
