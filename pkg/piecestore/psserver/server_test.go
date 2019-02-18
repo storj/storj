@@ -333,7 +333,6 @@ func TestStore(t *testing.T) {
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(&pb.PieceStore{
 				PieceData:           &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl},
-				PayerAllocation:     pba,
 				BandwidthAllocation: rba,
 			})
 			require.NoError(t, err)
