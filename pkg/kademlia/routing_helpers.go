@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"encoding/binary"
-	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -194,62 +193,23 @@ func (rt *RoutingTable) getKBucketID(nodeID storj.NodeID) (bucketID, error) {
 
 // nodeIsWithinNearestK: helper, returns true if the node in question is within the nearest k from local node
 func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storj.NodeID) (bool, error) {
-	// nodeKeys, err := rt.nodeBucketDB.List(nil, 0) // swap this out
-	// if err != nil {
-	// 	return false, RoutingErr.New("could not get nodes: %s", err)
-	// }
-	// nodeCount := len(nodeKeys)
-	// if nodeCount < rt.bucketSize+1 { //adding 1 since we're not including local node in closest k
-	// 	return true, nil
-	// }
-	// nodeIDs, err := keysToNodeIDs(nodeKeys)
-	// if err != nil {
-	// 	return false, RoutingErr.Wrap(err)
-	// }
+	closestNodes, err := rt.FindNear(rt.self.Id, rt.bucketSize)
+	if err != nil {
+		return false, RoutingErr.Wrap(err)
+	}
+	if len(closestNodes) < rt.bucketSize {
+		return true, nil
+	}		
+	var furthestIDWithinK storj.NodeID
+	if len(closestNodes) <= rt.bucketSize {
+		furthestIDWithinK = closestNodes[len(closestNodes)-1].Id
+	} else {
+		furthestIDWithinK = closestNodes[rt.bucketSize].Id
+	}
 
-	// nodeIDs = cloneNodeIDs(nodeIDs)
-	// sortByXOR(nodeIDs, rt.self.Id)
-	// var furthestIDWithinK storj.NodeID
-	// if len(nodeIDs) < rt.bucketSize+1 { //adding 1 since we're not including local node in closest k
-	// 	furthestIDWithinK = nodeIDs[len(nodeIDs)-1]
-	// } else {
-	// 	furthestIDWithinK = nodeIDs[rt.bucketSize]
-	// }
-
-	// existingXor := xorNodeID(furthestIDWithinK, rt.self.Id)
-	// newXor := xorNodeID(nodeID, rt.self.Id)
-	// return newXor.Less(existingXor), nil
-
-	// nodes, err := rt.FindNear(rt.self.Id, rt.bucketSize)
-	// if err != nil {
-	// 	return false, RoutingErr.Wrap(err)
-	// }
-	// if len(nodes) < rt.bucketSize {
-	// 	return true, nil
-	// }
-	// ids := []storj.NodeID{}
-	// ids2 := []storj.NodeID{}
-	// for _, n := range nodes {
-	// 	ids = append(ids, n.Id)
-	// }
-	// ids2 = append(ids2, ids...)
-	// sortByXOR(ids, rt.self.Id)
-	// for i, v := range ids {
-	// 	if v != ids2[i] {
-	// 		fmt.Println("nope")
-	// 	}
-	// }
-
-	// var furthestIDWithinK storj.NodeID
-	// if len(nodes) <= rt.bucketSize {
-	// 	furthestIDWithinK = nodes[len(nodes)-1].Id
-	// } else {
-	// 	furthestIDWithinK = nodes[rt.bucketSize].Id
-	// }
-
-	// existingXor := xorNodeID(furthestIDWithinK, rt.self.Id)
-	// newXor := xorNodeID(nodeID, rt.self.Id)
-	// return newXor.Less(existingXor), nil
+	existingXor := xorNodeID(furthestIDWithinK, rt.self.Id)
+	newXor := xorNodeID(nodeID, rt.self.Id)
+	return newXor.Less(existingXor), nil
 }
 
 // kadBucketContainsLocalNode returns true if the kbucket in question contains the local node
