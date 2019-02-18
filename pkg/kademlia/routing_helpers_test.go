@@ -316,48 +316,6 @@ func TestGetKBucketID(t *testing.T) {
 	assert.Equal(t, kadIDA[:2], keyA[:2])
 }
 
-func TestDetermineFurthestIDWithinK(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-	rt := createRoutingTable(storj.NodeID{127, 255})
-	defer ctx.Check(rt.Close)
-	cases := []struct {
-		testID           string
-		nodeID           []byte
-		expectedFurthest []byte
-	}{
-		{testID: "xor 0",
-			nodeID:           []byte{127, 255},
-			expectedFurthest: []byte{127, 255},
-		},
-		{testID: "xor 240",
-			nodeID:           []byte{143, 255},
-			expectedFurthest: []byte{143, 255},
-		},
-		{testID: "xor 128",
-			nodeID:           []byte{255, 255},
-			expectedFurthest: []byte{143, 255},
-		},
-		{testID: "xor 192",
-			nodeID:           []byte{191, 255},
-			expectedFurthest: []byte{143, 255},
-		},
-		{testID: "xor 250",
-			nodeID:           []byte{133, 255},
-			expectedFurthest: []byte{133, 255},
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			assert.NoError(t, rt.nodeBucketDB.Put(teststorj.NodeIDFromBytes(c.nodeID).Bytes(), []byte("")))
-			nodes, err := rt.nodeBucketDB.List(nil, 0)
-			assert.NoError(t, err)
-			furthest := rt.determineFurthestIDWithinK(teststorj.NodeIDsFromBytes(nodes.ByteSlices()...))
-			assert.Equal(t, c.expectedFurthest, furthest[:2])
-		})
-	}
-}
-
 func TestNodeIsWithinNearestK(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()

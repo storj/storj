@@ -192,16 +192,6 @@ func (rt *RoutingTable) getKBucketID(nodeID storj.NodeID) (bucketID, error) {
 	return match, nil
 }
 
-// determineFurthestIDWithinK: helper, determines the furthest node within the k closest to local node
-func (rt *RoutingTable) determineFurthestIDWithinK(nodeIDs storj.NodeIDList) storj.NodeID {
-	nodeIDs = cloneNodeIDs(nodeIDs)
-	sortByXOR(nodeIDs, rt.self.Id)
-	if len(nodeIDs) < rt.bucketSize+1 { //adding 1 since we're not including local node in closest k
-		return nodeIDs[len(nodeIDs)-1]
-	}
-	return nodeIDs[rt.bucketSize]
-}
-
 // nodeIsWithinNearestK: helper, returns true if the node in question is within the nearest k from local node
 func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storj.NodeID) (bool, error) {
 	nodeKeys, err := rt.nodeBucketDB.List(nil, 0) // swap this out
@@ -217,7 +207,15 @@ func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storj.NodeID) (bool, error) 
 		return false, RoutingErr.Wrap(err)
 	}
 
-	furthestIDWithinK := rt.determineFurthestIDWithinK(nodeIDs) // swap this out
+	nodeIDs = cloneNodeIDs(nodeIDs)
+	sortByXOR(nodeIDs, rt.self.Id)
+	var furthestIDWithinK storj.NodeID
+	if len(nodeIDs) < rt.bucketSize+1 { //adding 1 since we're not including local node in closest k
+		furthestIDWithinK = nodeIDs[len(nodeIDs)-1]
+	} else {
+		furthestIDWithinK = nodeIDs[rt.bucketSize]
+	}
+
 	existingXor := xorNodeID(furthestIDWithinK, rt.self.Id)
 	newXor := xorNodeID(nodeID, rt.self.Id)
 	return newXor.Less(existingXor), nil
