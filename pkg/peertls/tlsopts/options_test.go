@@ -112,7 +112,7 @@ func TestPeerCAWhitelist(t *testing.T) {
 	t.Run("all nodes signed", func(t *testing.T) {
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount:   1,
-			StorageNodeCount: 0,
+			StorageNodeCount: 1,
 			UplinkCount:      0,
 			UsePeerCAWhitelist: true,
 			//UsePeerCAWhitelist: false,

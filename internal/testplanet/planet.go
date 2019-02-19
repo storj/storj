@@ -445,6 +445,7 @@ func (planet *Planet) usePeerCAWhitelist() (Reconfigure, error) {
 		return Reconfigure{}, err
 	}
 
+	// TODO: delete me
 	zapPath := zap.String("path", whitelistPath)
 	pem, err := ioutil.ReadFile(whitelistPath)
 	if err != nil {
@@ -456,12 +457,18 @@ func (planet *Planet) usePeerCAWhitelist() (Reconfigure, error) {
 	return Reconfigure{
 		Bootstrap: func(_ int, c *bootstrap.Config) {
 			c.Server.PeerCAWhitelistPath = whitelistPath
+			//c.Server.UsePeerCAWhitelist = true
+			c.Server.UsePeerCAWhitelist = false
 		},
 		Satellite: func(_ int, c *satellite.Config) {
 			c.Server.PeerCAWhitelistPath = whitelistPath
+			//c.Server.UsePeerCAWhitelist = true
+			c.Server.UsePeerCAWhitelist = false
 		},
 		StorageNode: func(_ int, c *storagenode.Config) {
 			c.Server.PeerCAWhitelistPath = whitelistPath
+			//c.Server.UsePeerCAWhitelist = true
+			c.Server.UsePeerCAWhitelist = false
 		},
 	}, nil
 }
