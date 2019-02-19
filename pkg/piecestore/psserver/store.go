@@ -52,6 +52,9 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	}
 
 	pba := rba.PayerAllocation
+	if pb.Equal(&pba, &pb.PayerBandwidthAllocation{}) {
+		return StoreError.New("PayerBandwidthAllocation message is empty")
+	}
 
 	id, err := getNamespacedPieceID([]byte(pd.GetId()), pba.SatelliteId.Bytes())
 	if err != nil {

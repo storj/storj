@@ -123,25 +123,13 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 		return err
 	}
 
-	// Making a copy, otherwise there will be a data race
+	// Making a clone, otherwise there will be a data race
 	// when another goroutine tries to write the cached size
 	// of this instance at the same time.
-	pbaCopy := &pb.PayerBandwidthAllocation{
-		SatelliteId:       pba.SatelliteId,
-		UplinkId:          pba.UplinkId,
-		MaxSize:           pba.MaxSize,
-		ExpirationUnixSec: pba.ExpirationUnixSec,
-		SerialNumber:      pba.SerialNumber,
-		Action:            pba.Action,
-		CreatedUnixSec:    pba.CreatedUnixSec,
-	}
-	pbaCopy.Certs = make([][]byte, len(pba.Certs))
-	copy(pbaCopy.Certs, pba.Certs)
-	pbaCopy.Signature = make([]byte, len(pba.Signature))
-	copy(pbaCopy.Signature, pba.Signature)
+	pbaClone := pba.Clone()
 
 	rba := &pb.RenterBandwidthAllocation{
-		PayerAllocation: *pbaCopy,
+		PayerAllocation: pbaClone,
 		StorageNodeId:   ps.remoteID,
 	}
 

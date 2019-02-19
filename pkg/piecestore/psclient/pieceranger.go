@@ -6,7 +6,6 @@ package psclient
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 
@@ -66,25 +65,12 @@ func (r *pieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadC
 	// Making a copy, otherwise there will be a data race
 	// when another goroutine tries to write the cached size
 	// of this instance at the same time.
-	pbaCopy := &pb.PayerBandwidthAllocation{
-		SatelliteId:       r.pba.SatelliteId,
-		UplinkId:          r.pba.UplinkId,
-		MaxSize:           r.pba.MaxSize,
-		ExpirationUnixSec: r.pba.ExpirationUnixSec,
-		SerialNumber:      r.pba.SerialNumber,
-		Action:            r.pba.Action,
-		CreatedUnixSec:    r.pba.CreatedUnixSec,
-	}
-	pbaCopy.Certs = make([][]byte, len(r.pba.Certs))
-	copy(pbaCopy.Certs, r.pba.Certs)
-	pbaCopy.Signature = make([]byte, len(r.pba.Signature))
-	copy(pbaCopy.Signature, r.pba.Signature)
+	pbaClone := r.pba.Clone()
 
 	rba := &pb.RenterBandwidthAllocation{
-		PayerAllocation: *pbaCopy,
+		PayerAllocation: pbaClone,
 		StorageNodeId:   r.c.remoteID,
 	}
-	fmt.Println(r.id.String())
 
 	// send piece data
 	if err := r.stream.Send(&pb.PieceRetrieval{
