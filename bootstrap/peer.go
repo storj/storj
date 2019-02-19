@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/bootstrap/bootstrapweb"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -39,6 +40,8 @@ type Config struct {
 
 	Server   server.Config
 	Kademlia kademlia.Config
+
+	BootstrapWeb bootstrapweb.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -67,6 +70,13 @@ type Peer struct {
 		Service      *kademlia.Kademlia
 		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
+	}
+
+	// Web server with web UI
+	BootstrapWeb struct {
+		Listener net.Listener
+		Service  *bootstrapweb.Service
+		Endpoint *bootstrapweb.Server
 	}
 }
 
@@ -142,6 +152,31 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		pb.RegisterKadInspectorServer(peer.Public.Server.GRPC(), peer.Kademlia.Inspector)
 	}
 
+	{ // setup bootstrap web ui
+		config := config.BootstrapWeb
+
+		peer.BootstrapWeb.Listener, err = net.Listen("tcp", config.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.BootstrapWeb.Service, err = bootstrapweb.NewService(
+			peer.Log.Named("bootstrapWeb:service"),
+			peer.Kademlia.Service,
+		)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.BootstrapWeb.Endpoint = bootstrapweb.NewServer(
+			peer.Log.Named("console:endpoint"),
+			config,
+			peer.BootstrapWeb.Service,
+			peer.BootstrapWeb.Listener,
+		)
+	}
+
 	return peer, nil
 }
 
@@ -159,6 +194,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 		// TODO: move the message into Server instead
 		peer.Log.Sugar().Infof("Node %s started on %s", peer.Identity.ID, peer.Public.Server.Addr().String())
 		return ignoreCancel(peer.Public.Server.Run(ctx))
+	})
+	group.Go(func() error {
+		return ignoreCancel(peer.BootstrapWeb.Endpoint.Run(ctx))
 	})
 
 	return group.Wait()
