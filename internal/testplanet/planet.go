@@ -358,15 +358,30 @@ func (planet *Planet) Ping(ctx *testcontext.Context) error {
 		runErr = peer.Run(runCtx)
 	}()
 
+	pingMsgFmt := "PING: %s (%.5s) --> %s (%.5s): %s"
+	logPing := func(a, b Peer, labels [2]string, err error) {
+		errMsg := "OK!"
+		if err != nil {
+			errMsg = err.Error()
+		}
+		planet.log.Info(fmt.Sprintf(pingMsgFmt, labels[0], a.ID(), labels[1], b.ID(), errMsg))
+	}
+
 	group, _ := errgroup.WithContext(ctx)
 	err = planet.IteratePeers(func(target Peer, targetLabel string) error {
 		group.Go(func() error {
 			// planet incoming
-			return kadPing(ctx, peer, target, [2]string{"pinger", targetLabel})
+			labels := [2]string{"pinger", targetLabel}
+			err := kadPing(ctx, peer, target)
+			logPing(peer, target, labels, err)
+			return err
 		})
 		group.Go(func() error {
 			// planet outgoing
-			return kadPing(ctx, target, peer, [2]string{targetLabel, "pinger"})
+			labels := [2]string{targetLabel, "pinger"}
+			err := kadPing(ctx, target, peer)
+			logPing(target, peer, labels, err)
+			return err
 		})
 		return nil
 	})
@@ -396,7 +411,7 @@ func (planet *Planet) IteratePeers(f iteratePeersFunc) error {
 	return errGroup.Err()
 }
 
-func kadPing(ctx *testcontext.Context, local, remote Peer, labels [2]string) (err error) {
+func kadPing(ctx *testcontext.Context, local, remote Peer) (err error) {
 	switch p := local.(type) {
 	case *bootstrap.Peer:
 		_, err = p.Kademlia.Service.Ping(ctx, remote.Local())
@@ -409,14 +424,8 @@ func kadPing(ctx *testcontext.Context, local, remote Peer, labels [2]string) (er
 	default:
 		return errs.New("unknown peer type: %T", p)
 	}
-	return kadPingErr(local, remote, labels, err)
-}
 
-func kadPingErr(local, remote Peer, labels [2]string, err error) error {
-	if err == nil {
-		return nil
-	}
-	return ErrPing.New("%s (%.5s) --> %s (%.5s): %s", labels[0], local.ID(), labels[1], remote.ID(), err.Error())
+	return err
 }
 
 func writeWhitelist(dir string) (string, error) {
