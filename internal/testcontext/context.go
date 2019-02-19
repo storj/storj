@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -111,7 +112,8 @@ func (ctx *Context) Dir(subs ...string) string {
 
 	ctx.once.Do(func() {
 		var err error
-		ctx.directory, err = ioutil.TempDir("", ctx.test.Name())
+		pattern := regexp.MustCompile(`[\\/]`)
+		ctx.directory, err = ioutil.TempDir("", pattern.ReplaceAllString(ctx.test.Name(), "_"))
 		if err != nil {
 			ctx.test.Fatal(err)
 		}
