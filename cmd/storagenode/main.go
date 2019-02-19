@@ -154,7 +154,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
-	db, err := storagenodedb.New(databaseConfig(runCfg.Config))
+	db, err := storagenodedb.New(log.Named("db"), databaseConfig(runCfg.Config))
 
 	if err != nil {
 		return errs.New("Error starting master database on storagenode: %+v", err)
@@ -248,7 +248,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	db, err := storagenodedb.New(databaseConfig(diagCfg))
+	db, err := storagenodedb.New(zap.L().Named("db"), databaseConfig(diagCfg))
 	if err != nil {
 		return errs.New("Error starting master database on storagenode: %v", err)
 	}

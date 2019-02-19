@@ -217,6 +217,36 @@ func failedMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	assert.Equal(t, false, version.Valid)
 }
 
+func TestTargetVersion(t *testing.T) {
+	m := migrate.Migration{
+		Table: "test",
+		Steps: []*migrate.Step{
+			{
+				Description: "Step 1",
+				Version:     1,
+				Action:      migrate.SQL{},
+			},
+			{
+				Description: "Step 2",
+				Version:     2,
+				Action:      migrate.SQL{},
+			},
+			{
+				Description: "Step 2.2",
+				Version:     2,
+				Action:      migrate.SQL{},
+			},
+			{
+				Description: "Step 3",
+				Version:     3,
+				Action:      migrate.SQL{},
+			},
+		},
+	}
+	testedMigration := m.TargetVersion(2)
+	assert.Equal(t, 3, len(testedMigration.Steps))
+}
+
 func TestInvalidStepsOrder(t *testing.T) {
 	m := migrate.Migration{
 		Table: "test",
