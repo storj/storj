@@ -28,7 +28,7 @@ type RoutingTable interface {
 	K() int
 	CacheSize() int
 	GetBucketIds() (storage.Keys, error)
-	FindNear(id storj.NodeID, limit int) ([]*pb.Node, error)
+	FindNear(id storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error)
 	ConnectionSuccess(node *pb.Node) error
 	ConnectionFailed(node *pb.Node) error
 	// these are for refreshing

@@ -121,7 +121,7 @@ func (t *Table) ConnectionFailed(node *pb.Node) error {
 
 // FindNear will return up to limit nodes in the routing table ordered by
 // kademlia xor distance from the given id.
-func (t *Table) FindNear(id storj.NodeID, limit int) ([]*pb.Node, error) {
+func (t *Table) FindNear(id storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
