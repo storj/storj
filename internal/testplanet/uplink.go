@@ -278,7 +278,7 @@ func (uplink *Uplink) getMetainfo(satellite *satellite.Peer) (db storj.Metainfo,
 
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(buckets, streams, segments, pdb, key), streams, nil
+	return kvmetainfo.New(buckets, streams, segments, pdb, oc, key), streams, nil
 }
 
 func (uplink *Uplink) getRedundancyScheme() storj.RedundancyScheme {

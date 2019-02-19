@@ -5,6 +5,8 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
@@ -43,20 +45,26 @@ func statObject(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	obj, err := metainfo.GetObject(ctx, dst.Bucket(), dst.Path())
-	// identity, err := cfg.Identity.Load()
 	if err != nil {
 		return err
 	}
 
-	// metainfoClient := metainfo.New(transport.NewClient(identity), setupCfg.SatelliteAddr)
+	// initialize the table header (fields)
+	const padding = 3
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
+	fmt.Fprintln(w, "Version\tBucket\tPath\tIsPrefix\tSize\t# of Segments\tSegment Size\tPieceID\tNeeded\tOnline\t")
+	fmt.Fprint(w, obj.Version, "\t", obj.Bucket.Name, "\t", obj.Path, "\t", obj.IsPrefix, "\t",
+		obj.Stream.Size, "\t", obj.Stream.SegmentCount, "\t", "-",
+		"\t", "-", "\t", "-", "\t", "-", "\t\n")
 
-	// // Stat will return the health of a specific path
-	// resp, err := metainfoClient.Stat(ctx, []byte(dst.Path()), []byte(dst.Bucket()))
-	// if err != nil {
-	// 	return convertError(err, dst)
-	// }
+	// populate the row fields
+	for _, segInfo := range obj.SegmentList {
+		fmt.Fprint(w, "-", "\t", "-", "\t", "-", "\t", "-", "\t",
+			"-", "\t", segInfo.Index, "\t", segInfo.Size,
+			"\t", string(segInfo.PieceID), "\t", segInfo.Needed, "\t", segInfo.Online, "\t\n")
+	}
 
-	fmt.Printf("%+v\n", obj)
-
-	return nil
+	// display the data
+	err = w.Flush()
+	return err
 }

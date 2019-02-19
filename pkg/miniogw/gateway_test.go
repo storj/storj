@@ -719,7 +719,7 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 
 	buckets := buckets.NewStore(streams)
 
-	metainfo := kvmetainfo.New(buckets, streams, segments, pdb, key)
+	metainfo := kvmetainfo.New(buckets, streams, segments, pdb, oc, key)
 
 	gateway := NewStorjGateway(
 		metainfo,

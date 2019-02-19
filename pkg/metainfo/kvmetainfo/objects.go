@@ -6,15 +6,19 @@ package kvmetainfo
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/vivint/infectious"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
@@ -282,7 +286,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 		return object{}, storj.Object{}, err
 	}
 
-	info, err = objectStreamFromMeta(bucketInfo, path, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
+	info, err = db.objectStreamFromMeta(ctx, bucketInfo, path, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
@@ -317,7 +321,7 @@ func objectFromMeta(bucket storj.Bucket, path storj.Path, isPrefix bool, meta ob
 	}
 }
 
-func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme *pb.RedundancyScheme) (storj.Object, error) {
+func (db *DB) objectStreamFromMeta(ctx context.Context, bucket storj.Bucket, path storj.Path, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme *pb.RedundancyScheme) (storj.Object, error) {
 	var nonce storj.Nonce
 	copy(nonce[:], streamMeta.LastSegmentMeta.KeyNonce)
 
@@ -327,7 +331,7 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segm
 		return storj.Object{}, err
 	}
 
-	return storj.Object{
+	objInfo := storj.Object{
 		Version:  0, // TODO:
 		Bucket:   bucket,
 		Path:     path,
@@ -365,7 +369,152 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segm
 				EncryptedKey:      streamMeta.LastSegmentMeta.EncryptedKey,
 			},
 		},
-	}, nil
+	}
+
+	/* iterate over all the segments */
+	bucketInfo, err := db.GetBucket(ctx, bucket.Name)
+	if err != nil {
+		return storj.Object{}, err
+	}
+
+	if path == "" {
+		return storj.Object{}, storj.ErrNoPath.New("")
+	}
+
+	fullpath := bucket.Name + "/" + path
+
+	encryptedPath, err := streams.EncryptAfterBucket(fullpath, bucketInfo.PathCipher, db.rootKey)
+	if err != nil {
+		return storj.Object{}, err
+	}
+
+	var segmentList []storj.Segment
+	for i := int64(0); i < stream.NumberOfSegments-1; i++ {
+		currentPath := storj.JoinPaths(fmt.Sprintf("s%d", i), encryptedPath)
+		pointer, nodes, _, err := db.pointers.Get(ctx, currentPath)
+		if err != nil {
+			if storage.ErrKeyNotFound.Has(err) {
+				err = storj.ErrObjectNotFound.Wrap(err)
+			}
+			return storj.Object{}, err
+		}
+
+		segInfo := storj.Segment{}
+		if pointer.GetType() == pb.Pointer_REMOTE {
+			seg := pointer.GetRemote()
+
+			segInfo.Index = i
+			segInfo.Size = pointer.GetSegmentSize()
+			segInfo.PieceID = storj.PieceID(seg.GetPieceId())
+
+			// minium need pieces
+			segInfo.Needed = calcNeededNodes(pointer.GetRemote().GetRedundancy())
+
+			nodes, err := lookupAndAlignNodes(ctx, db.overlay, nodes, seg)
+			if err != nil {
+				return storj.Object{}, err
+			}
+
+			// currently available nodes
+			segInfo.Online = int32(len(nodes))
+
+		} else {
+			// TODO: handle better
+			redundancyScheme = &pb.RedundancyScheme{
+				Type:             pb.RedundancyScheme_RS,
+				MinReq:           -1,
+				Total:            -1,
+				RepairThreshold:  -1,
+				SuccessThreshold: -1,
+				ErasureShareSize: -1,
+			}
+		}
+		segmentList = append(segmentList, segInfo)
+		// segmentMeta := segments.Meta{
+		// 	Modified:   convertTime(pointer.GetCreationDate()),
+		// 	Expiration: convertTime(pointer.GetExpirationDate()),
+		// 	Size:       pointer.GetSegmentSize(),
+		// 	Data:       pointer.GetMetadata(),
+		// }
+
+		// streamInfoData, err := streams.DecryptStreamInfo(ctx, segmentMeta, fullpath, db.rootKey)
+		// if err != nil {
+		// 	return storj.Object{}, err
+		// }
+
+		// streamInfo := pb.StreamInfo{}
+		// err = proto.Unmarshal(streamInfoData, &streamInfo)
+		// if err != nil {
+		// 	return storj.Object{}, err
+		// }
+
+	}
+	objInfo.SegmentList = segmentList
+	return objInfo, nil
+}
+
+func makeRedundancyStrategy(scheme *pb.RedundancyScheme) (eestream.RedundancyStrategy, error) {
+	fc, err := infectious.NewFEC(int(scheme.GetMinReq()), int(scheme.GetTotal()))
+	if err != nil {
+		return eestream.RedundancyStrategy{}, err
+	}
+	es := eestream.NewRSScheme(fc, int(scheme.GetErasureShareSize()))
+	return eestream.NewRedundancyStrategy(es, int(scheme.GetRepairThreshold()), int(scheme.GetSuccessThreshold()))
+}
+
+// calcNeededNodes calculate how many minimum nodes are needed for download,
+// based on t = k + (n-o)k/o
+func calcNeededNodes(rs *pb.RedundancyScheme) int32 {
+	extra := int32(1)
+
+	if rs.GetSuccessThreshold() > 0 {
+		extra = ((rs.GetTotal() - rs.GetSuccessThreshold()) * rs.GetMinReq()) / rs.GetSuccessThreshold()
+		if extra == 0 {
+			// ensure there is at least one extra node, so we can have error detection/correction
+			extra = 1
+		}
+	}
+
+	needed := rs.GetMinReq() + extra
+
+	if needed > rs.GetTotal() {
+		needed = rs.GetTotal()
+	}
+
+	return needed
+}
+
+// lookupNodes, if necessary, calls Lookup to get node addresses from the overlay.
+// It also realigns the nodes to an indexed list of nodes based on the piece number.
+// Missing pieces are represented by a nil node.
+func lookupAndAlignNodes(ctx context.Context, oc overlay.Client, nodes []*pb.Node, seg *pb.RemoteSegment) (result []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if nodes == nil {
+		// Get list of all nodes IDs storing a piece from the segment
+		var nodeIds storj.NodeIDList
+		for _, p := range seg.RemotePieces {
+			nodeIds = append(nodeIds, p.NodeId)
+		}
+		// Lookup the node info from node IDs
+		nodes, err = oc.BulkLookup(ctx, nodeIds)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for _, v := range nodes {
+		if v != nil {
+			v.Type.DPanicOnInvalid("lookup and align nodes")
+		}
+	}
+
+	// Realign the nodes
+	result = make([]*pb.Node, seg.GetRedundancy().GetTotal())
+	for i, p := range seg.GetRemotePieces() {
+		result[p.PieceNum] = nodes[i]
+	}
+
+	return result, nil
 }
 
 // convertTime converts gRPC timestamp to Go time
