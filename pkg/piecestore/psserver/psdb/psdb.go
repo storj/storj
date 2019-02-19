@@ -182,6 +182,7 @@ func (db *DB) Migration() *migrate.Migration {
 					}
 					_, err = tx.Exec(`
 							DROP TABLE bandwidth_agreements_old;
+							DROP TABLE bwusagetbl;
 						`)
 					if err != nil {
 						return err

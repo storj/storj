@@ -147,7 +147,18 @@ func TestHappyPath(t *testing.T) {
 		bandwidthAllocation("signed by test", nodeIDAB, 3),
 	}
 
+	type BWUSAGE struct {
+		size    int64
+		timenow time.Time
+	}
+
+	bwtests := []BWUSAGE{
+		// size is total size stored
+		{size: 1110, timenow: time.Now()},
+	}
+
 	t.Run("Bandwidth Allocation", func(t *testing.T) {
+
 		for P := 0; P < concurrency; P++ {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
@@ -206,31 +217,18 @@ func TestHappyPath(t *testing.T) {
 			})
 		}
 	})
-}
 
-func TestBandwidthUsage(t *testing.T) {
-	db, cleanup := newDB(t, "2")
-	defer cleanup()
-
-	type BWUSAGE struct {
-		size    int64
-		timenow time.Time
-	}
-
-	bwtests := []BWUSAGE{
-		{size: 1000, timenow: time.Now()},
-	}
-
-	var bwTotal int64
-	t.Run("AddBandwidthUsed", func(t *testing.T) {
+	t.Run("GetBandwidthUsedByDay", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
-			bwTotal = bwTotal + bwtests[0].size
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
 				for _, bw := range bwtests {
-					err := db.AddBandwidthUsed(bw.size)
+					size, err := db.GetBandwidthUsedByDay(bw.timenow)
 					if err != nil {
 						t.Fatal(err)
+					}
+					if bw.size != size {
+						t.Fatalf("expected %d got %d", bw.size, size)
 					}
 				}
 			})
@@ -246,24 +244,7 @@ func TestBandwidthUsage(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					if bwTotal != size {
-						t.Fatalf("expected %d got %d", bw.size, size)
-					}
-				}
-			})
-		}
-	})
-
-	t.Run("GetBandwidthUsedByDay", func(t *testing.T) {
-		for P := 0; P < concurrency; P++ {
-			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
-				t.Parallel()
-				for _, bw := range bwtests {
-					size, err := db.GetBandwidthUsedByDay(bw.timenow)
-					if err != nil {
-						t.Fatal(err)
-					}
-					if bwTotal != size {
+					if bw.size != size {
 						t.Fatalf("expected %d got %d", bw.size, size)
 					}
 				}
