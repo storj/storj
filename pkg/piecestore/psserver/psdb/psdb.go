@@ -126,7 +126,7 @@ func (db *DB) Migration() *migrate.Migration {
 						`INSERT INTO bandwidth_agreements (satellite, agreement, signature)
 								 SELECT satellite, agreement, signature FROM bandwidth_agreements_old`,
 					}
-					v1sql.Run(log, db, tx)
+					_ = v1sql.Run(log, db, tx)
 
 					// iterate through the table and fill
 					err := func() error {
