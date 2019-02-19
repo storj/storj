@@ -383,8 +383,6 @@ func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, erro
 		return &pb.DashboardStats{}, ServerError.Wrap(err)
 	}
 
-	rt := s.kad.GetRoutingTable()
-
 	nodes, err := s.kad.FindNear(ctx, storj.NodeID{}, 10000000)
 	if err != nil {
 		return &pb.DashboardStats{}, ServerError.Wrap(err)
@@ -399,11 +397,11 @@ func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, erro
 	}
 
 	return &pb.DashboardStats{
-		NodeId:           rt.Local().Id.String(),
+		NodeId:           s.kad.Local().Id.String(),
 		NodeConnections:  int64(len(nodes)),
 		BootstrapAddress: strings.Join(bsNodes[:], ", "),
 		InternalAddress:  "",
-		ExternalAddress:  rt.Local().Address.Address,
+		ExternalAddress:  s.kad.Local().Address.Address,
 		Connection:       true,
 		Uptime:           ptypes.DurationProto(time.Since(s.startTime)),
 		Stats:            statsSummary,

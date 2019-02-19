@@ -40,8 +40,7 @@ func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest)
 
 // GetBuckets returns all kademlia buckets for current kademlia instance
 func (srv *Inspector) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest) (*pb.GetBucketsResponse, error) {
-	rt := srv.dht.GetRoutingTable()
-	b, err := rt.GetBucketIds()
+	b, err := srv.dht.GetBucketIds()
 	if err != nil {
 		return nil, err
 	}
@@ -72,8 +71,7 @@ func (srv *Inspector) FindNear(ctx context.Context, req *pb.FindNearRequest) (*p
 
 // PingNode sends a PING RPC to the provided node ID in the Kad network.
 func (srv *Inspector) PingNode(ctx context.Context, req *pb.PingNodeRequest) (*pb.PingNodeResponse, error) {
-	rt := srv.dht.GetRoutingTable()
-	self := rt.Local()
+	self := srv.dht.Local()
 
 	_, err := srv.dht.Ping(ctx, pb.Node{
 		Id:   req.Id,

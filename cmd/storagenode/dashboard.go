@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/golang/protobuf/ptypes"
@@ -94,9 +95,9 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 
 		uptime, err := ptypes.Duration(data.GetUptime())
 		if err != nil {
-			fmt.Fprintf(w, "Uptime\t%s\n", color.RedString(uptime.String()))
+			fmt.Fprintf(w, "Uptime\t%s\n", color.RedString(uptime.Truncate(time.Second).String()))
 		} else {
-			fmt.Fprintf(w, "Uptime\t%s\n", color.YellowString(uptime.String()))
+			fmt.Fprintf(w, "Uptime\t%s\n", color.YellowString(uptime.Truncate(time.Second).String()))
 		}
 
 		if err = w.Flush(); err != nil {
