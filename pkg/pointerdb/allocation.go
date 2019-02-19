@@ -74,12 +74,14 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 func (allocation *AllocationSigner) restrictActions(peerID storj.NodeID, action pb.BandwidthAction) error {
 	switch action {
 	case pb.BandwidthAction_GET_REPAIR, pb.BandwidthAction_PUT_REPAIR, pb.BandwidthAction_GET_AUDIT:
-		if peerID == allocation.satelliteIdentity.ID {
-			return nil
+		if peerID != allocation.satelliteIdentity.ID {
+			return errors.New("action restricted to signing satellite")
 		}
 
-		return errors.New("action restricted to signing satellite")
+		return nil
+	case pb.BandwidthAction_GET, pb.BandwidthAction_PUT:
+		return nil
+	default:
+		return errors.New("unknown action restriction")
 	}
-
-	return nil
 }
