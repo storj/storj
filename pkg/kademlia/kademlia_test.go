@@ -6,11 +6,8 @@ package kademlia
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
 	"math/rand"
 	"net"
-	"os"
-	"path/filepath"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -41,8 +38,6 @@ func TestNewKademlia(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	rootdir, cleanup := mktempdir(t, "kademlia")
-	defer cleanup()
 	cases := []struct {
 		id          *identity.FullIdentity
 		bn          []pb.Node
@@ -70,9 +65,7 @@ func TestNewKademlia(t *testing.T) {
 	}
 
 	for i, v := range cases {
-		dir := filepath.Join(rootdir, strconv.Itoa(i))
-
-		kad, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, v.bn, v.addr, nil, v.id, dir, defaultAlpha)
+		kad, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, v.bn, v.addr, nil, v.id, ctx.Dir(strconv.Itoa(i)), defaultAlpha)
 		require.NoError(t, err)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
@@ -87,8 +80,6 @@ func TestPeerDiscovery(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	dir, cleanup := mktempdir(t, "kademlia")
-	defer cleanup()
 	// make new identity
 	bootServer, mockBootServer, bootID, bootAddress := startTestNodeServer(ctx)
 	defer bootServer.Stop()
@@ -102,7 +93,7 @@ func TestPeerDiscovery(t *testing.T) {
 		Email:  "foo@bar.com",
 		Wallet: "OperatorWallet",
 	}
-	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, dir, defaultAlpha)
+	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, ctx.Dir("test"), defaultAlpha)
 	assert.NoError(t, err)
 	rt := k.routingTable
 	assert.Equal(t, rt.Local().Metadata.Email, "foo@bar.com")
@@ -137,18 +128,18 @@ func TestBootstrap(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	bn, s, clean := testNode(t, []pb.Node{})
+	bn, s, clean := testNode(ctx, "1", t, []pb.Node{})
 	defer clean()
 	defer s.Stop()
 
-	n1, s1, clean1 := testNode(t, []pb.Node{bn.routingTable.self})
+	n1, s1, clean1 := testNode(ctx, "2", t, []pb.Node{bn.routingTable.self})
 	defer clean1()
 	defer s1.Stop()
 
 	err := n1.Bootstrap(ctx)
 	assert.NoError(t, err)
 
-	n2, s2, clean2 := testNode(t, []pb.Node{bn.routingTable.self})
+	n2, s2, clean2 := testNode(ctx, "3", t, []pb.Node{bn.routingTable.self})
 	defer clean2()
 	defer s2.Stop()
 
@@ -160,8 +151,7 @@ func TestBootstrap(t *testing.T) {
 	assert.Len(t, nodeIDs, 3)
 }
 
-func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
-	ctx := testcontext.New(t)
+func testNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	// new address
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
@@ -170,10 +160,9 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	fid, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
 	// new kademlia
-	dir, cleanup := mktempdir(t, "kademlia")
 
 	logger := zaptest.NewLogger(t)
-	k, err := newKademlia(logger, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, dir, defaultAlpha)
+	k, err := newKademlia(logger, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, ctx.Dir(name), defaultAlpha)
 	assert.NoError(t, err)
 	s := NewEndpoint(logger, k, k.routingTable)
 	// new ident opts
@@ -185,12 +174,15 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	grpcServer := grpc.NewServer(identOpt)
 
 	pb.RegisterNodesServer(grpcServer, s)
-	ctx.Go(func() error { return grpcServer.Serve(lis) })
-	// go func() { assert.NoError(t, grpcServer.Serve(lis)) }() // panic: Fail in goroutine after TestRefresh has completed
+	ctx.Go(func() error {
+		err := grpcServer.Serve(lis)
+		if err == grpc.ErrServerStopped {
+			err = nil
+		}
+		return err
+	})
 
 	return k, grpcServer, func() {
-		defer cleanup()
-		defer ctx.Cleanup()
 		assert.NoError(t, k.Close())
 	}
 }
@@ -198,9 +190,11 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 func TestRefresh(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
-	k, s, clean := testNode(t, []pb.Node{})
+
+	k, s, clean := testNode(ctx, "refresh", t, []pb.Node{})
 	defer clean()
 	defer s.Stop()
+
 	//turn back time for only bucket
 	rt := k.routingTable
 	now := time.Now().UTC()
@@ -236,13 +230,19 @@ func TestFindNear(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 	srv, _ := newTestServer(ctx, []*pb.Node{{Id: teststorj.NodeIDFromString("foo")}})
-	go func() { assert.NoError(t, srv.Serve(lis)) }()
+
 	defer srv.Stop()
-	dir, cleanup := mktempdir(t, "kademlia")
-	defer cleanup()
+	ctx.Go(func() error {
+		err := srv.Serve(lis)
+		if err == grpc.ErrServerStopped {
+			err = nil
+		}
+		return err
+	})
+
 	bootstrap := []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}
 	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrap,
-		lis.Addr().String(), nil, fid, dir, defaultAlpha)
+		lis.Addr().String(), nil, fid, ctx.Dir("kademlia"), defaultAlpha)
 	assert.NoError(t, err)
 	defer ctx.Check(k.Close)
 
@@ -396,16 +396,7 @@ func TestMeetsRestrictions(t *testing.T) {
 	}
 }
 
-func mktempdir(t *testing.T, dir string) (string, func()) {
-	rootdir, err := ioutil.TempDir("", dir)
-	assert.NoError(t, err)
-	cleanup := func() {
-		assert.NoError(t, os.RemoveAll(rootdir))
-	}
-	return rootdir, cleanup
-}
-
-func startTestNodeServer(ctx context.Context) (*grpc.Server, *mockNodesServer, *identity.FullIdentity, string) {
+func startTestNodeServer(ctx *testcontext.Context) (*grpc.Server, *mockNodesServer, *identity.FullIdentity, string) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, nil, nil, ""
@@ -430,17 +421,18 @@ func startTestNodeServer(ctx context.Context) (*grpc.Server, *mockNodesServer, *
 	mn := &mockNodesServer{queryCalled: 0}
 
 	pb.RegisterNodesServer(grpcServer, mn)
-	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			return
+	ctx.Go(func() error {
+		err := grpcServer.Serve(lis)
+		if err == grpc.ErrServerStopped {
+			err = nil
 		}
-	}()
+		return err
+	})
 
 	return grpcServer, mn, identity, lis.Addr().String()
 }
 
-func newTestServer(ctx context.Context, nn []*pb.Node) (*grpc.Server, *mockNodesServer) {
-
+func newTestServer(ctx *testcontext.Context, nn []*pb.Node) (*grpc.Server, *mockNodesServer) {
 	ca, err := testidentity.NewTestCA(ctx)
 	if err != nil {
 		return nil, nil
