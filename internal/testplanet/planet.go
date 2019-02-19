@@ -346,31 +346,39 @@ func (planet *Planet) Shutdown() error {
 // Ping sends a kad ping request to/from all kad nodes to each other
 // NB: kad nodes include bootstrap, satellite, and storagenode type nodes
 func (planet *Planet) Ping(ctx *testcontext.Context) error {
-	pingErrs := permutePeers(planet, func(a, b Peer, labels [2]string) error {
-		if a == b {
-			return nil
-		}
-		return kadPing(ctx, a, b, labels)
-	})
-	return pingErrs
-}
+	peer, err := planet.newKad("pinger", planet.Bootstrap.Addr())
+	if err != nil {
+		return nil
+	}
+	defer ctx.Check(peer.Close)
 
-// permutePeers calls the passed function for each permutation of peers
-// (except for a peer with itself, also except uplink permutations, presently)
-func permutePeers(planet *Planet, f permutePeersFunc) error {
-	return iteratePeers(planet, func(a Peer, labelA string) error {
-		return iteratePeers(planet, func(b Peer, labelB string) error {
-			if a == b {
-				return nil
-			}
-			return f(a, b, [2]string{labelA, labelB})
+	var runErr error
+	runCtx, cancelRun := context.WithCancel(ctx)
+	go func() {
+		runErr = peer.Run(runCtx)
+	}()
+
+	group, _ := errgroup.WithContext(ctx)
+	err = planet.IteratePeers(func(target Peer, targetLabel string) error {
+		group.Go(func() error {
+			// planet incoming
+			return kadPing(ctx, peer, target, [2]string{"pinger", targetLabel})
 		})
+		group.Go(func() error {
+			// planet outgoing
+			return kadPing(ctx, target, peer, [2]string{targetLabel, "pinger"})
+		})
+		return nil
 	})
+
+	err = group.Wait()
+	cancelRun()
+	return errs.Combine(runErr, err)
 }
 
-// iterate peers calls the passed function for each peer in the planet
+// IteratePeers calls the passed function for each peer in the planet
 // (except uplink, presently)
-func iteratePeers(planet *Planet, f iteratePeersFunc) error {
+func (planet *Planet) IteratePeers(f iteratePeersFunc) error {
 	errGroup := errs.Group{}
 
 	errGroup.Add(f(planet.Bootstrap, "bootstrap"))
@@ -395,6 +403,8 @@ func kadPing(ctx *testcontext.Context, local, remote Peer, labels [2]string) (er
 	case *satellite.Peer:
 		_, err = p.Kademlia.Service.Ping(ctx, remote.Local())
 	case *storagenode.Peer:
+		_, err = p.Kademlia.Service.Ping(ctx, remote.Local())
+	case *KadPeer:
 		_, err = p.Kademlia.Service.Ping(ctx, remote.Local())
 	default:
 		return errs.New("unknown peer type: %T", p)
@@ -426,6 +436,14 @@ func (planet *Planet) usePeerCAWhitelist() (Reconfigure, error) {
 		return Reconfigure{}, err
 	}
 
+	zapPath := zap.String("path", whitelistPath)
+	pem, err := ioutil.ReadFile(whitelistPath)
+	if err != nil {
+		planet.log.Error("ERROR reading whitelist", zapPath)
+	} else {
+		planet.log.Debug("WHITELIST", zapPath, zap.String("pem", string(pem[:25])))
+	}
+
 	return Reconfigure{
 		Bootstrap: func(_ int, c *bootstrap.Config) {
 			c.Server.PeerCAWhitelistPath = whitelistPath
@@ -438,7 +456,6 @@ func (planet *Planet) usePeerCAWhitelist() (Reconfigure, error) {
 		},
 	}, nil
 }
-
 
 // newUplinks creates initializes uplinks, requires peer to have at least one satellite
 func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]*Uplink, error) {
@@ -729,6 +746,69 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 	}
 
 	peer, err = bootstrap.New(log, identity, db, config)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
+
+	return peer, nil
+}
+
+// newKad initializes the a peer with a kademlia service
+func (planet *Planet) newKad(prefix, bootstrapAddr string) (peer *KadPeer, err error) {
+	// TODO: move into separate file
+	log := planet.log.Named(prefix)
+	dbDir := filepath.Join(planet.directory, prefix)
+
+	if err := os.MkdirAll(dbDir, 0700); err != nil {
+		return nil, err
+	}
+
+	identity, err := planet.NewIdentity()
+	if err != nil {
+		return nil, err
+	}
+
+	var db bootstrap.DB
+	if planet.config.Reconfigure.NewBootstrapDB != nil {
+		db, err = planet.config.Reconfigure.NewBootstrapDB(0)
+	} else {
+		db, err = bootstrapdb.NewInMemory(dbDir)
+	}
+
+	err = db.CreateTables()
+	if err != nil {
+		return nil, err
+	}
+
+	planet.databases = append(planet.databases, db)
+
+	config := KadPeerConfig{
+		Server: server.Config{
+			Address: "127.0.0.1:0",
+			Config: tlsopts.Config{
+				RevocationDBURL:    "bolt://" + filepath.Join(dbDir, "revocation.db"),
+				UsePeerCAWhitelist: false, // TODO: enable
+				//UsePeerCAWhitelist: true, // TODO: enable
+				Extensions: peertls.TLSExtConfig{
+					Revocation:          false,
+					WhitelistSignedLeaf: false,
+				},
+			},
+		},
+		Kademlia: kademlia.Config{
+			BootstrapAddr: bootstrapAddr,
+			Alpha:  5,
+			DBPath: dbDir, // TODO: replace with master db
+			Operator: kademlia.OperatorConfig{
+				Email:  prefix + "@example.com",
+				Wallet: "0x" + strings.Repeat("00", 20),
+			},
+		},
+	}
+
+	peer, err = NewKadPeer(log, identity, db, config)
 	if err != nil {
 		return nil, err
 	}

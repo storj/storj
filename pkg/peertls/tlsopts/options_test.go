@@ -4,11 +4,12 @@
 package tlsopts_test
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -111,9 +112,10 @@ func TestPeerCAWhitelist(t *testing.T) {
 	t.Run("all nodes signed", func(t *testing.T) {
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount:   1,
-			StorageNodeCount: 10,
+			StorageNodeCount: 0,
 			UplinkCount:      0,
 			UsePeerCAWhitelist: true,
+			//UsePeerCAWhitelist: false,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			err := planet.Ping(ctx)
 			assert.NoError(t, err)
@@ -126,7 +128,7 @@ func TestPeerCAWhitelist(t *testing.T) {
 
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount:   1,
-			StorageNodeCount: 10,
+			StorageNodeCount: 0,
 			UplinkCount:      0,
 			UsePeerCAWhitelist: true,
 			Identities:       testIdentities,
