@@ -100,8 +100,7 @@ func RandomNode() pb.Node {
 func TestKademliaFindNear(t *testing.T) {
 	testFunc := func(t *testing.T, testNodeCount, limit int) {
 		selfNode := RandomNode()
-		rt, cleanup := createRoutingTable(t, selfNode.Id)
-		defer cleanup()
+		rt := createRoutingTable(selfNode.Id)
 
 		expectedIDs := make([]storj.NodeID, 0)
 		for x := 0; x < testNodeCount; x++ {

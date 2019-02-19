@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -67,7 +66,6 @@ func TestDialer(t *testing.T) {
 
 						results, err := dialer.Lookup(ctx, self.Local(), peer.Local(), target.Local())
 						if err != nil {
-						require.NoError(t, err)
 							return errs.Combine(errTag, err)
 						}
 
@@ -79,8 +77,6 @@ func TestDialer(t *testing.T) {
 						if len(results) != expectedKademliaEntries {
 							return errs.Combine(errTag, fmt.Errorf("expected %d got %d: %s", expectedKademliaEntries, len(results), pb.NodesToIDs(results)))
 						}
-						require.Equal(t, len(results), expectedKademliaEntries)
-
 						return nil
 					}
 					return nil
@@ -118,8 +114,6 @@ func TestDialer(t *testing.T) {
 						if len(results) != expectedKademliaEntries {
 							return errs.Combine(errTag, fmt.Errorf("expected %d got %d: %s", expectedKademliaEntries, len(results), pb.NodesToIDs(results)))
 						}
-						require.Equal(t, len(results), expectedKademliaEntries)
-
 						return nil
 					})
 				}
