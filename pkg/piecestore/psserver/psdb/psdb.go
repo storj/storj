@@ -103,6 +103,92 @@ func (db *DB) Migration() *migrate.Migration {
 					)`,
 				},
 			},
+			{
+				// some databases may have already this done, although the version may not match
+				Description: "Optimize storagenode tables",
+				Version:     1,
+				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
+					v1sql := migrate.SQL{
+						`ALTER TABLE bandwidth_agreements RENAME TO bandwidth_agreements_old`,
+						`CREATE TABLE IF NOT EXISTS bandwidth_agreements (
+									satellite BLOB,
+									agreement BLOB,
+									signature BLOB,
+									uplink    BLOB,
+									serialnum TEXT,
+									total     INT(10),
+									maxsize   INT(10),
+									createdunixsec      INT(10),
+									expirationunixsec   INT(10),
+									action              TEXT,
+									daystartdateunixsec INT(10)
+								)`,
+						`INSERT INTO bandwidth_agreements (satellite, agreement, signature)
+								 SELECT satellite, agreement, signature FROM bandwidth_agreements_old`,
+					}
+					v1sql.Run(log, db, tx)
+
+					// iterate through the table and fill
+					err := func() error {
+						rows, err := tx.Query(` SELECT * FROM  bandwidth_agreements ORDER BY satellite`)
+						if err != nil {
+							return err
+						}
+						defer func() { err = errs.Combine(err, rows.Close()) }()
+
+						for rows.Next() {
+							rbaBytes := []byte{}
+							agreement := &Agreement{}
+							var satellite []byte
+							var uplink []byte
+							var serialnum string
+							var total, maxsize, createdUnixSec, expirationUnixSec, daystartdateUnixSec int64
+							var action string
+							err := rows.Scan(&satellite, &rbaBytes, &agreement.Signature, &uplink, &serialnum, &total, &maxsize, &createdUnixSec, &expirationUnixSec, &action, &daystartdateUnixSec)
+							if err != nil {
+								return err
+							}
+							// unmarshal the rbaBytes
+							err = proto.Unmarshal(rbaBytes, &agreement.Agreement)
+							if err != nil {
+								return err
+							}
+							// update the new columns data
+							rba := &agreement.Agreement
+							uplink = rba.PayerAllocation.UplinkId.Bytes()
+							serialnum = rba.PayerAllocation.SerialNumber
+							total = rba.Total
+							maxsize = rba.PayerAllocation.MaxSize
+							createdUnixSec = rba.PayerAllocation.CreatedUnixSec
+							expirationUnixSec = rba.PayerAllocation.ExpirationUnixSec
+							action = rba.PayerAllocation.GetAction().String()
+							t := time.Unix(createdUnixSec, 0)
+							daystartdateUnixSec = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
+
+							// update the row by signature as it is unique
+							_, err = tx.Exec(`UPDATE bandwidth_agreements SET uplink, serialnum, total, maxsize, createdunixsec, expirationunixsec, action, daystartdateunixsec) VALUES (?, ?, ?, ?, ?, ?, ?, ?) WHERE signature = ?`,
+								rba.PayerAllocation.UplinkId.Bytes(), rba.PayerAllocation.SerialNumber,
+								rba.Total, rba.PayerAllocation.MaxSize, rba.PayerAllocation.CreatedUnixSec,
+								rba.PayerAllocation.ExpirationUnixSec, rba.PayerAllocation.GetAction().String(),
+								daystartdateUnixSec, rba.GetSignature())
+							if err != nil {
+								return err
+							}
+						}
+						return rows.Err()
+					}()
+					if err != nil {
+						return err
+					}
+					_, err = tx.Exec(`
+							DROP TABLE bandwidth_agreements_old;
+						`)
+					if err != nil {
+						return err
+					}
+					return nil
+				}),
+			},
 		},
 	}
 	return migration
@@ -168,8 +254,14 @@ func (db *DB) WriteBandwidthAllocToDB(rba *pb.RenterBandwidthAllocation) error {
 	// We begin extracting the satellite_id
 	// The satellite id can be used to sort the bandwidth agreements
 	// If the agreements are sorted we can send them in bulk streams to the satellite
-	_, err = db.DB.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature) VALUES (?, ?, ?)`,
-		rba.PayerAllocation.SatelliteId.Bytes(), rbaBytes, rba.GetSignature())
+	t := time.Now()
+	daystartdateunixsec := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
+	_, err = db.DB.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature, uplink, serialnum, total, maxsize, createdunixsec, expirationunixsec, action, daystartdateunixsec) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		rba.PayerAllocation.SatelliteId.Bytes(), rbaBytes, rba.GetSignature(),
+		rba.PayerAllocation.UplinkId.Bytes(), rba.PayerAllocation.SerialNumber,
+		rba.Total, rba.PayerAllocation.MaxSize, rba.PayerAllocation.CreatedUnixSec,
+		rba.PayerAllocation.ExpirationUnixSec, rba.PayerAllocation.GetAction().String(),
+		daystartdateunixsec)
 	return err
 }
 
@@ -233,7 +325,11 @@ func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
 		rbaBytes := []byte{}
 		agreement := &Agreement{}
 		var satellite []byte
-		err := rows.Scan(&satellite, &rbaBytes, &agreement.Signature)
+		var uplink []byte
+		var serialnum string
+		var total, maxsize, createdUnixSec, expirationUnixSec, daystartdateUnixSec int64
+		var action string
+		err := rows.Scan(&satellite, &rbaBytes, &agreement.Signature, &uplink, &serialnum, &total, &maxsize, &createdUnixSec, &expirationUnixSec, &action, &daystartdateUnixSec)
 		if err != nil {
 			return agreements, err
 		}
@@ -300,38 +396,12 @@ func (db *DB) DeleteTTLByID(id string) error {
 	return err
 }
 
-// AddBandwidthUsed adds bandwidth usage into database by date
-func (db *DB) AddBandwidthUsed(size int64) (err error) {
-	defer db.locked()()
-
-	t := time.Now()
-	daystartunixtime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
-	dayendunixtime := time.Date(t.Year(), t.Month(), t.Day(), 24, 0, 0, 0, t.Location()).Unix()
-
-	var getSize int64
-	if (t.Unix() >= daystartunixtime) && (t.Unix() <= dayendunixtime) {
-		err = db.DB.QueryRow(`SELECT size FROM bwusagetbl WHERE daystartdate <= ? AND ? <= dayenddate`, t.Unix(), t.Unix()).Scan(&getSize)
-		switch {
-		case err == sql.ErrNoRows:
-			_, err = db.DB.Exec("INSERT INTO bwusagetbl (size, daystartdate, dayenddate) VALUES (?, ?, ?)", size, daystartunixtime, dayendunixtime)
-			return err
-		case err != nil:
-			return err
-		default:
-			getSize = size + getSize
-			_, err = db.DB.Exec("UPDATE bwusagetbl SET size = ? WHERE daystartdate = ?", getSize, daystartunixtime)
-			return err
-		}
-	}
-	return err
-}
-
 // GetBandwidthUsedByDay finds the so far bw used by day and return it
 func (db *DB) GetBandwidthUsedByDay(t time.Time) (size int64, err error) {
 	defer db.locked()()
 
 	daystarttime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
-	err = db.DB.QueryRow(`SELECT size FROM bwusagetbl WHERE daystartdate=?`, daystarttime).Scan(&size)
+	err = db.DB.QueryRow(`SELECT SUM(total) FROM bandwidth_agreements WHERE daystartdateunixsec=?`, daystarttime).Scan(&size)
 	return size, err
 }
 
@@ -348,7 +418,7 @@ func (db *DB) GetTotalBandwidthBetween(startdate time.Time, enddate time.Time) (
 	}
 
 	var count int
-	rows := db.DB.QueryRow("SELECT COUNT(*) as count FROM bwusagetbl")
+	rows := db.DB.QueryRow("SELECT COUNT(*) as count FROM bandwidth_agreements")
 	err = rows.Scan(&count)
 	if err != nil {
 		return 0, err
@@ -358,7 +428,7 @@ func (db *DB) GetTotalBandwidthBetween(startdate time.Time, enddate time.Time) (
 		return 0, nil
 	}
 
-	err = db.DB.QueryRow(`SELECT SUM(size) FROM bwusagetbl WHERE daystartdate BETWEEN ? AND ?`, startTimeUnix, endTimeUnix).Scan(&totalbwusage)
+	err = db.DB.QueryRow(`SELECT SUM(total) FROM bandwidth_agreements WHERE daystartdateunixsec BETWEEN ? AND ?`, startTimeUnix, endTimeUnix).Scan(&totalbwusage)
 	return totalbwusage, err
 }
 
