@@ -23,8 +23,8 @@ const (
 	applicationGraphql = "application/graphql"
 )
 
-// Error is satellite console error type
-var Error = errs.Class("bootstrap console error")
+// Error is bootstrap web error type
+var Error = errs.Class("bootstrap web error")
 
 // Config contains configuration for bootstrap web server
 type Config struct {
@@ -44,7 +44,7 @@ type Server struct {
 	server http.Server
 }
 
-// NewServer creates new instance of console server
+// NewServer creates new instance of bootstrap web server
 func NewServer(logger *zap.Logger, config Config, service *Service, listener net.Listener) *Server {
 	server := Server{
 		log:      logger,

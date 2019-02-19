@@ -170,7 +170,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		}
 
 		peer.BootstrapWeb.Endpoint = bootstrapweb.NewServer(
-			peer.Log.Named("console:endpoint"),
+			peer.Log.Named("bootstrapWeb:endpoint"),
 			config,
 			peer.BootstrapWeb.Service,
 			peer.BootstrapWeb.Listener,
