@@ -91,7 +91,6 @@ func TestGetBucket(t *testing.T) {
 	}
 }
 
-
 func RandomNode() pb.Node {
 	node := pb.Node{}
 	rand.Read(node.Id[:])
