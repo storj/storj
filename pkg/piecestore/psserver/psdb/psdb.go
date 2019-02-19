@@ -114,13 +114,13 @@ func (db *DB) Migration() *migrate.Migration {
 									satellite BLOB,
 									agreement BLOB,
 									signature BLOB,
-									uplink    BLOB,
-									serialnum TEXT,
-									total     INT(10),
-									maxsize   INT(10),
-									createdunixsec      INT(10),
-									expirationunixsec   INT(10),
-									action              TEXT,
+									uplink BLOB,
+									serialnum TEXT NOT NULL,
+									total INT(10),
+									maxsize INT(10),
+									createdunixsec INT(10),
+									expirationunixsec INT(10),
+									action TEXT,
 									daystartdateunixsec INT(10)
 								)`,
 						`INSERT INTO bandwidth_agreements (satellite, agreement, signature)
@@ -130,7 +130,7 @@ func (db *DB) Migration() *migrate.Migration {
 
 					// iterate through the table and fill
 					err := func() error {
-						rows, err := tx.Query(` SELECT * FROM  bandwidth_agreements ORDER BY satellite`)
+						rows, err := tx.Query(`SELECT * FROM  bandwidth_agreements ORDER BY satellite`)
 						if err != nil {
 							return err
 						}
