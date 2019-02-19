@@ -232,7 +232,6 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 // a connection fails for the node on the network
 func (rt *RoutingTable) ConnectionFailed(node *pb.Node) error {
 	node.Type.DPanicOnInvalid("connection failed")
-
 	err := rt.removeNode(node)
 	if err != nil {
 		return RoutingErr.New("could not remove node %s", err)

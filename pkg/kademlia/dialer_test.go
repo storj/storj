@@ -61,24 +61,24 @@ func TestDialer(t *testing.T) {
 				peer := peer
 				group.Go(func() error {
 					for _, target := range peers {
-						//errTag := fmt.Errorf("lookup peer:%s target:%s", peer.ID(), target.ID())
+						errTag := fmt.Errorf("lookup peer:%s target:%s", peer.ID(), target.ID())
 						peer.Local().Type.DPanicOnInvalid("test client peer")
 						target.Local().Type.DPanicOnInvalid("test client target")
 
 						results, err := dialer.Lookup(ctx, self.Local(), peer.Local(), target.Local())
-						//if err != nil {
+						if err != nil {
 						require.NoError(t, err)
-						// 	return errs.Combine(errTag, err)
-						// }
+							return errs.Combine(errTag, err)
+						}
 
 						if containsResult(results, target.ID()) {
 							continue
 						}
 
 						// with small network we expect to return everything
-						// if len(results) != expectedKademliaEntries {
-						// 	return errs.Combine(errTag, fmt.Errorf("expected %d got %d: %s", expectedKademliaEntries, len(results), pb.NodesToIDs(results)))
-						// }
+						if len(results) != expectedKademliaEntries {
+							return errs.Combine(errTag, fmt.Errorf("expected %d got %d: %s", expectedKademliaEntries, len(results), pb.NodesToIDs(results)))
+						}
 						require.Equal(t, len(results), expectedKademliaEntries)
 
 						return nil
@@ -115,9 +115,9 @@ func TestDialer(t *testing.T) {
 						}
 
 						// with small network we expect to return everything
-						// if len(results) != expectedKademliaEntries {
-						// 	return errs.Combine(errTag, fmt.Errorf("expected %d got %d: %s", expectedKademliaEntries, len(results), pb.NodesToIDs(results)))
-						// }
+						if len(results) != expectedKademliaEntries {
+							return errs.Combine(errTag, fmt.Errorf("expected %d got %d: %s", expectedKademliaEntries, len(results), pb.NodesToIDs(results)))
+						}
 						require.Equal(t, len(results), expectedKademliaEntries)
 
 						return nil
