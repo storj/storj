@@ -5,6 +5,7 @@ package pointerdb
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -13,6 +14,7 @@ import (
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 // AllocationSigner structure
@@ -51,6 +53,10 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 		return nil, err
 	}
 
+	if err := allocation.restrictActions(peerIdentity.ID, action); err != nil {
+		return nil, err
+	}
+
 	pba = &pb.PayerBandwidthAllocation{
 		SatelliteId:       allocation.satelliteIdentity.ID,
 		UplinkId:          peerIdentity.ID,
@@ -61,4 +67,19 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 	}
 	err = auth.SignMessage(pba, *allocation.satelliteIdentity)
 	return pba, err
+}
+
+func (allocation *AllocationSigner) restrictActions(peerID storj.NodeID, action pb.BandwidthAction) error {
+	switch action {
+	case pb.BandwidthAction_GET_REPAIR, pb.BandwidthAction_PUT_REPAIR, pb.BandwidthAction_GET_AUDIT:
+		if peerID != allocation.satelliteIdentity.ID {
+			return errors.New("action restricted to signing satellite")
+		}
+
+		return nil
+	case pb.BandwidthAction_GET, pb.BandwidthAction_PUT:
+		return nil
+	default:
+		return errors.New("unknown action restriction")
+	}
 }
