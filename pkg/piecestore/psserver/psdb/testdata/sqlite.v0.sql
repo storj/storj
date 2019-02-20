@@ -4,6 +4,7 @@ CREATE TABLE `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` 
 CREATE INDEX idx_ttl_expires ON ttl (expires);
 
 -- NEW DATA --
+
 INSERT INTO ttl VALUES(1,2,3,4);
 INSERT INTO bandwidth_agreements VALUES (
     X'0fac57151affd454b6884e2ee085097ef9581edea7ccfe6b6ba6401beac06500',

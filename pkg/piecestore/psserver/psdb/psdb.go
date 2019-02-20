@@ -110,7 +110,7 @@ func (db *DB) Migration() *migrate.Migration {
 				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
 					v1sql := migrate.SQL{
 						`ALTER TABLE bandwidth_agreements ADD COLUMN uplink BLOB`,
-						`ALTER TABLE bandwidth_agreements ADD COLUMN serialnum TEXT`,
+						`ALTER TABLE bandwidth_agreements ADD COLUMN serialnum TEXT NOT NULL DEFAULT ""`,
 						`ALTER TABLE bandwidth_agreements ADD COLUMN total INT(10)`,
 						`ALTER TABLE bandwidth_agreements ADD COLUMN maxsize INT(10)`,
 						`ALTER TABLE bandwidth_agreements ADD COLUMN createdunixsec INT(10)`,
@@ -118,39 +118,51 @@ func (db *DB) Migration() *migrate.Migration {
 						`ALTER TABLE bandwidth_agreements ADD COLUMN action TEXT`,
 						`ALTER TABLE bandwidth_agreements ADD COLUMN daystartdateunixsec INT(10)`,
 					}
-					_ = v1sql.Run(log, db, tx)
+					err := v1sql.Run(log, db, tx)
+					if err != nil {
+						return err
+					}
 
 					// iterate through the table and fill
-					err := func() error {
-						rows, err := tx.Query(`SELECT agreement FROM  bandwidth_agreements ORDER BY satellite`)
+					err = func() error {
+						rows, err := tx.Query(`SELECT agreement, signature FROM bandwidth_agreements ORDER BY satellite`)
 						if err != nil {
 							return err
 						}
 						defer func() { err = errs.Combine(err, rows.Close()) }()
 
 						for rows.Next() {
-							rbaBytes := []byte{}
-							agreement := &Agreement{}
-							err := rows.Scan(&rbaBytes)
+							var rbaBytes, signature []byte
+							rba := &pb.RenterBandwidthAllocation{}
+							err := rows.Scan(&rbaBytes, &signature)
 							if err != nil {
 								return err
 							}
 							// unmarshal the rbaBytes
-							err = proto.Unmarshal(rbaBytes, &agreement.Agreement)
+							err = proto.Unmarshal(rbaBytes, rba)
 							if err != nil {
 								return err
 							}
 							// update the new columns data
-							rba := &agreement.Agreement
 							t := time.Unix(rba.PayerAllocation.CreatedUnixSec, 0)
-							daystartdateUnixSec := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
+							daystartdateUnixSec := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC).Unix()
 
 							// update the row by signature as it is unique
-							_, err = tx.Exec(`UPDATE bandwidth_agreements SET uplink, serialnum, total, maxsize, createdunixsec, expirationunixsec, action, daystartdateunixsec) VALUES (?, ?, ?, ?, ?, ?, ?, ?) WHERE signature = ?`,
+							_, err = tx.Exec(`UPDATE bandwidth_agreements SET 
+									uplink = ?,
+									serialnum = ?,
+									total = ?,
+									maxsize = ?,
+									createdunixsec = ?,
+									expirationunixsec = ?,
+									action = ?,
+									daystartdateunixsec = ?
+									WHERE signature = ?
+								`,
 								rba.PayerAllocation.UplinkId.Bytes(), rba.PayerAllocation.SerialNumber,
 								rba.Total, rba.PayerAllocation.MaxSize, rba.PayerAllocation.CreatedUnixSec,
 								rba.PayerAllocation.ExpirationUnixSec, rba.PayerAllocation.GetAction().String(),
-								daystartdateUnixSec, rba.GetSignature())
+								daystartdateUnixSec, signature)
 							if err != nil {
 								return err
 							}
