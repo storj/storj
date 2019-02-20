@@ -81,7 +81,9 @@ func TestTee_CloseWithError(t *testing.T) {
 }
 
 func testTees(t *testing.T, test func(t *testing.T, readers []sync2.PipeReader, writer sync2.PipeWriter)) {
+	t.Parallel()
 	t.Run("File", func(t *testing.T) {
+		t.Parallel()
 		readers, writer, err := sync2.NewTeeFile(2, "")
 		if err != nil {
 			t.Fatal(err)
