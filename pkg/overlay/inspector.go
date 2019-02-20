@@ -5,7 +5,6 @@ package overlay
 
 import (
 	"context"
-	"errors"
 
 	"storj.io/storj/pkg/pb"
 )
@@ -30,9 +29,4 @@ func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest)
 	return &pb.CountNodesResponse{
 		Count: int64(len(overlayKeys)),
 	}, nil
-}
-
-func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (*pb.DumpNodesResponse, error) {
-	// TODO (dylan) add a dump nodes response
-	return &pb.DumpNodesResponse{}, errors.New("Not Implemented")
 }
