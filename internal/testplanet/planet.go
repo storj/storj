@@ -345,8 +345,8 @@ func (planet *Planet) Shutdown() error {
 
 // Ping sends a kad ping request to/from all kad nodes to each other
 // NB: kad nodes include bootstrap, satellite, and storagenode type nodes
-func (planet *Planet) Ping(ctx *testcontext.Context) error {
-	peer, err := planet.newKad("pinger", planet.Bootstrap.Addr())
+func (planet *Planet) Ping(ctx *testcontext.Context, reconfigure Reconfigure) error {
+	peer, err := planet.newKad("pinger", planet.Bootstrap.Addr(), tlsCfg)
 	if err != nil {
 		return nil
 	}
@@ -772,7 +772,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 }
 
 // newKad initializes the a peer with a kademlia service
-func (planet *Planet) newKad(prefix, bootstrapAddr string) (peer *KadPeer, err error) {
+func (planet *Planet) newKad(prefix, bootstrapAddr string, tlsCfg *tlsopts.Config) (peer *KadPeer, err error) {
 	// TODO: move into separate file
 	log := planet.log.Named(prefix)
 	dbDir := filepath.Join(planet.directory, prefix)
@@ -815,13 +815,19 @@ func (planet *Planet) newKad(prefix, bootstrapAddr string) (peer *KadPeer, err e
 		},
 		Kademlia: kademlia.Config{
 			BootstrapAddr: bootstrapAddr,
-			Alpha:  5,
-			DBPath: dbDir, // TODO: replace with master db
+			Alpha:         5,
+			DBPath:        dbDir, // TODO: replace with master db
 			Operator: kademlia.OperatorConfig{
 				Email:  prefix + "@example.com",
 				Wallet: "0x" + strings.Repeat("00", 20),
 			},
 		},
+	}
+	if tlsCfg != nil {
+		config.Server.UsePeerCAWhitelist = tlsCfg.UsePeerCAWhitelist
+		if tlsCfg.PeerCAWhitelistPath != "" {
+			config.Server.PeerCAWhitelistPath = tlsCfg.PeerCAWhitelistPath
+		}
 	}
 
 	peer, err = NewKadPeer(log, identity, db, config)
