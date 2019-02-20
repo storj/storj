@@ -37,7 +37,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from "@/utils/constants/actionNames";
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component(
     {
@@ -57,7 +57,7 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from "@/utils/constants/actio
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
             },
             onCopyClick: function (): void {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, "Key saved to clipboard");
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Key saved to clipboard');
             }
         },
         components: {

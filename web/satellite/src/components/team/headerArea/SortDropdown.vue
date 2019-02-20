@@ -28,7 +28,7 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/con
     {
         data: function () {
             return {
-            	sortByEnum: ProjectMemberSortByEnum,
+                sortByEnum: ProjectMemberSortByEnum,
             };
         },
         props: {
@@ -38,16 +38,16 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/con
         },
         methods: {
             onCloseClick: function (): void {
-				this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
             },
             onSortUsersClick: async function (sortBy: ProjectMemberSortByEnum) {
-				this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
-				this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
+                this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
 
-				const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
-				if (response.isSuccess) return;
+                const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
+                if (response.isSuccess) return;
 
-				this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
 
             }
         },

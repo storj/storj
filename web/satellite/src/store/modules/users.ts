@@ -3,32 +3,32 @@
 
 import { USER_MUTATIONS } from '../mutationConstants';
 import {
-	deleteAccountRequest,
-	updateAccountRequest,
-	changePasswordRequest,
-	getUserRequest,
-	activateAccountRequest
+    deleteAccountRequest,
+    updateAccountRequest,
+    changePasswordRequest,
+    getUserRequest,
+    activateAccountRequest
 } from '@/api/users';
 
 export const usersModule = {
-	state: {
-		user: {
-			firstName: '',
-			lastName: '',
-			email: ''
-		}
-	},
+    state: {
+        user: {
+            firstName: '',
+            lastName: '',
+            email: ''
+        }
+    },
 
-	mutations: {
-		[USER_MUTATIONS.SET_USER_INFO](state: any, user: User): void {
-			state.user = user;
-		},
+    mutations: {
+        [USER_MUTATIONS.SET_USER_INFO](state: any, user: User): void {
+            state.user = user;
+        },
 
-		[USER_MUTATIONS.REVERT_TO_DEFAULT_USER_INFO](state: any): void {
-			state.user.firstName = '';
-			state.user.lastName = '';
-			state.user.email = '';
-		},
+        [USER_MUTATIONS.REVERT_TO_DEFAULT_USER_INFO](state: any): void {
+            state.user.firstName = '';
+            state.user.lastName = '';
+            state.user.email = '';
+        },
 
         [USER_MUTATIONS.UPDATE_USER_INFO](state: any, user: User): void {
             state.user = user;
@@ -41,45 +41,45 @@ export const usersModule = {
                 email: ''
             };
         },
-	},
+    },
 
-	actions: {
+    actions: {
         updateAccount: async function ({commit}: any, userInfo: User): Promise<RequestResponse<User>> {
-			let response = await updateAccountRequest(userInfo);
+            let response = await updateAccountRequest(userInfo);
             
-			if (response.isSuccess) {
+            if (response.isSuccess) {
                 commit(USER_MUTATIONS.UPDATE_USER_INFO, response.data);
-			}
+            }
 
-			return response;
-		},
+            return response;
+        },
         changePassword: async function ({state}: any, updateModel: UpdatePasswordModel): Promise<RequestResponse<null>> {
-			return await changePasswordRequest(updateModel.oldPassword, updateModel.newPassword);
-		},
-		deleteAccount: async function ({commit, state}: any, password: string): Promise<RequestResponse<null>> {
+            return await changePasswordRequest(updateModel.oldPassword, updateModel.newPassword);
+        },
+        deleteAccount: async function ({commit, state}: any, password: string): Promise<RequestResponse<null>> {
             return await deleteAccountRequest(password);
-		},
-		getUser: async function ({commit}: any): Promise<RequestResponse<User>> {
-			let response = await getUserRequest();
+        },
+        getUser: async function ({commit}: any): Promise<RequestResponse<User>> {
+            let response = await getUserRequest();
 
-			if (response.isSuccess) {
+            if (response.isSuccess) {
                 commit(USER_MUTATIONS.SET_USER_INFO, response.data);
-			}
+            }
 
-			return response;
-		},
+            return response;
+        },
         clearUser: function({commit}: any) {
             commit(USER_MUTATIONS.CLEAR);
         },
-		activateAccount: async function ({commit}, temporaryToken: string): Promise<RequestResponse<string>> {
-			return await activateAccountRequest(temporaryToken);
-		}
-	},
+        activateAccount: async function ({commit}, temporaryToken: string): Promise<RequestResponse<string>> {
+            return await activateAccountRequest(temporaryToken);
+        }
+    },
 
-	getters: {
-		user: (state: any) => {
-			return state.user;
-		},
-		userName: (state: any) => `${state.user.firstName} ${state.user.lastName}`
-	},
+    getters: {
+        user: (state: any) => {
+            return state.user;
+        },
+        userName: (state: any) => `${state.user.firstName} ${state.user.lastName}`
+    },
 };
