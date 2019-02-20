@@ -106,7 +106,7 @@ func (m *MockPointerDBClient) PayerBandwidthAllocation(arg0 context.Context, arg
 	return ret0, ret1
 }
 
-// FundsOrder indicates an expected call of FundsOrder
+// OrderLimit indicates an expected call of OrderLimit
 func (mr *MockPointerDBClientMockRecorder) PayerBandwidthAllocation(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PayerBandwidthAllocation", reflect.TypeOf((*MockPointerDBClient)(nil).PayerBandwidthAllocation), varargs...)

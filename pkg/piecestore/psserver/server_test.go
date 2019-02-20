@@ -234,7 +234,7 @@ func TestRetrieve(t *testing.T) {
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, PieceSize: tt.reqSize, Offset: tt.offset}})
 			require.NoError(t, err)
 
-			pba, err := testbwagreement.GenerateFundsOrder(pb.BandwidthAction_GET, snID, upID, time.Hour)
+			pba, err := testbwagreement.GenerateOrderLimit(pb.BandwidthAction_GET, snID, upID, time.Hour)
 			require.NoError(t, err)
 
 			totalAllocated := int64(0)
@@ -325,7 +325,7 @@ func TestStore(t *testing.T) {
 			require.NoError(t, err)
 
 			// Create Bandwidth Allocation Data
-			pba, err := testbwagreement.GenerateFundsOrder(pb.BandwidthAction_PUT, snID, upID, time.Hour)
+			pba, err := testbwagreement.GenerateOrderLimit(pb.BandwidthAction_PUT, snID, upID, time.Hour)
 			require.NoError(t, err)
 			rba, err := testbwagreement.GenerateFileOrder(pba, snID.ID, upID, tt.totalReceived)
 			require.NoError(t, err)
@@ -437,7 +437,7 @@ func TestPbaValidation(t *testing.T) {
 
 			// Create Bandwidth Allocation Data
 			content := []byte("content")
-			pba, err := testbwagreement.GenerateFundsOrder(tt.action, satID1, upID, time.Hour)
+			pba, err := testbwagreement.GenerateOrderLimit(tt.action, satID1, upID, time.Hour)
 			require.NoError(t, err)
 			rba, err := testbwagreement.GenerateFileOrder(pba, snID.ID, upID, int64(len(content)))
 			require.NoError(t, err)

@@ -23,11 +23,11 @@ type pieceRanger struct {
 	id     PieceID
 	size   int64
 	stream pb.PieceStoreRoutes_RetrieveClient
-	pba    *pb.FundsOrder
+	pba    *pb.OrderLimit
 }
 
 // PieceRanger PieceRanger returns a Ranger from a PieceID.
-func PieceRanger(ctx context.Context, c *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, pba *pb.FundsOrder) (ranger.Ranger, error) {
+func PieceRanger(ctx context.Context, c *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, pba *pb.OrderLimit) (ranger.Ranger, error) {
 	piece, err := c.Meta(ctx, id)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func PieceRanger(ctx context.Context, c *PieceStore, stream pb.PieceStoreRoutes_
 // PieceRangerSize creates a PieceRanger with known size.
 // Use it if you know the piece size. This will safe the extra request for
 // retrieving the piece size from the piece storage.
-func PieceRangerSize(c *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, size int64, pba *pb.FundsOrder) ranger.Ranger {
+func PieceRangerSize(c *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, size int64, pba *pb.OrderLimit) ranger.Ranger {
 	return &pieceRanger{c: c, id: id, size: size, stream: stream, pba: pba}
 }
 

@@ -68,7 +68,7 @@ func (mr *MockPSClientMockRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock
 }
 
 // Get mocks base method
-func (m *MockPSClient) Get(arg0 context.Context, arg1 psclient.PieceID, arg2 int64, arg3 *pb.FundsOrder) (ranger.Ranger, error) {
+func (m *MockPSClient) Get(arg0 context.Context, arg1 psclient.PieceID, arg2 int64, arg3 *pb.OrderLimit) (ranger.Ranger, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(ranger.Ranger)
@@ -98,7 +98,7 @@ func (mr *MockPSClientMockRecorder) Meta(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Put mocks base method
-func (m *MockPSClient) Put(arg0 context.Context, arg1 psclient.PieceID, arg2 io.Reader, arg3 time.Time, arg4 *pb.FundsOrder) error {
+func (m *MockPSClient) Put(arg0 context.Context, arg1 psclient.PieceID, arg2 io.Reader, arg3 time.Time, arg4 *pb.OrderLimit) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)

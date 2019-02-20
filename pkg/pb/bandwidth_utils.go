@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 )
 
-//FundsOrder aliases PayerBandwidthAllocation
-type FundsOrder = PayerBandwidthAllocation
+//OrderLimit aliases PayerBandwidthAllocation
+type OrderLimit = PayerBandwidthAllocation
 
 //FileOrder aliases RenterBandwidthAllocation
 type FileOrder = RenterBandwidthAllocation
@@ -46,12 +46,12 @@ func Equal(msg1, msg2 proto.Message) bool {
 }
 
 //SetCerts updates the certs field, completing the auth.SignedMsg interface
-func (m *FundsOrder) SetCerts(certs [][]byte) {
+func (m *OrderLimit) SetCerts(certs [][]byte) {
 	m.Certs = certs
 }
 
 //SetSignature updates the signature field, completing the auth.SignedMsg interface
-func (m *FundsOrder) SetSignature(signature []byte) {
+func (m *OrderLimit) SetSignature(signature []byte) {
 	m.Signature = signature
 }
 
@@ -66,8 +66,8 @@ func (m *FileOrder) SetSignature(signature []byte) {
 }
 
 // Clone creates a deep copy of PayerBandwidthAllocation
-func (m *FundsOrder) Clone() (pba FundsOrder) {
-	pba = FundsOrder{
+func (m *OrderLimit) Clone() (pba OrderLimit) {
+	pba = OrderLimit{
 		SatelliteId:       m.SatelliteId,
 		UplinkId:          m.UplinkId,
 		MaxSize:           m.MaxSize,

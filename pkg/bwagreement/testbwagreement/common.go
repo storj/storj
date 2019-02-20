@@ -14,13 +14,13 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-//GenerateFundsOrder creates a signed FundsOrder from a BandwidthAction
-func GenerateFundsOrder(action pb.BandwidthAction, satID *identity.FullIdentity, upID *identity.FullIdentity, expiration time.Duration) (*pb.FundsOrder, error) {
+//GenerateOrderLimit creates a signed OrderLimit from a BandwidthAction
+func GenerateOrderLimit(action pb.BandwidthAction, satID *identity.FullIdentity, upID *identity.FullIdentity, expiration time.Duration) (*pb.OrderLimit, error) {
 	serialNum, err := uuid.New()
 	if err != nil {
 		return nil, err
 	}
-	pba := &pb.FundsOrder{
+	pba := &pb.OrderLimit{
 		SatelliteId:       satID.ID,
 		UplinkId:          upID.ID,
 		ExpirationUnixSec: time.Now().Add(expiration).Unix(),
@@ -32,8 +32,8 @@ func GenerateFundsOrder(action pb.BandwidthAction, satID *identity.FullIdentity,
 	return pba, auth.SignMessage(pba, *satID)
 }
 
-//GenerateFileOrder creates a signed FileOrder from a FundsOrder
-func GenerateFileOrder(pba *pb.FundsOrder, storageNodeID storj.NodeID, upID *identity.FullIdentity, total int64) (*pb.FileOrder, error) {
+//GenerateFileOrder creates a signed FileOrder from a OrderLimit
+func GenerateFileOrder(pba *pb.OrderLimit, storageNodeID storj.NodeID, upID *identity.FullIdentity, total int64) (*pb.FileOrder, error) {
 	rba := &pb.FileOrder{
 		PayerAllocation: *pba,
 		StorageNodeId:   storageNodeID,

@@ -391,7 +391,7 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 				ExpirationDate: someTime,
 				SegmentSize:    tt.size,
 				Metadata:       tt.metadata,
-			}, nil, &pb.FundsOrder{}, nil),
+			}, nil, &pb.OrderLimit{}, nil),
 			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
 			mockEC.EXPECT().Delete(
 				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),

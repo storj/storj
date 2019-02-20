@@ -35,7 +35,7 @@ type Verifier struct {
 }
 
 type downloader interface {
-	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, pba *pb.FundsOrder) (shares map[int]Share, nodes map[int]storj.NodeID, err error)
+	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, pba *pb.OrderLimit) (shares map[int]Share, nodes map[int]storj.NodeID, err error)
 }
 
 // defaultDownloader downloads shares from networked storage nodes
@@ -58,7 +58,7 @@ func NewVerifier(transport transport.Client, overlay *overlay.Cache, id *identit
 
 // getShare use piece store clients to download shares from a given node
 func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize, pieceNumber int,
-	id psclient.PieceID, pieceSize int64, fromNode *pb.Node, pba *pb.FundsOrder) (s Share, err error) {
+	id psclient.PieceID, pieceSize int64, fromNode *pb.Node, pba *pb.OrderLimit) (s Share, err error) {
 	// TODO: too many arguments use a struct
 	defer mon.Task()(&ctx)(&err)
 
@@ -106,7 +106,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 
 // Download Shares downloads shares from the nodes where remote pieces are located
 func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
-	stripeIndex int, pba *pb.FundsOrder) (shares map[int]Share, nodes map[int]storj.NodeID, err error) {
+	stripeIndex int, pba *pb.OrderLimit) (shares map[int]Share, nodes map[int]storj.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var nodeIds storj.NodeIDList

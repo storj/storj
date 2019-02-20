@@ -52,12 +52,12 @@ func (mr *MockClientMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Get mocks base method
-func (m *MockClient) Get(arg0 context.Context, arg1 string) (*pb.Pointer, []*pb.Node, *pb.FundsOrder, error) {
+func (m *MockClient) Get(arg0 context.Context, arg1 string) (*pb.Pointer, []*pb.Node, *pb.OrderLimit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1)
 	ret0, _ := ret[0].(*pb.Pointer)
 	ret1, _ := ret[1].([]*pb.Node)
-	ret2, _ := ret[2].(*pb.FundsOrder)
+	ret2, _ := ret[2].(*pb.OrderLimit)
 	ret3, _ := ret[3].(error)
 	return ret0, ret1, ret2, ret3
 }
@@ -85,15 +85,15 @@ func (mr *MockClientMockRecorder) List(arg0, arg1, arg2, arg3, arg4, arg5, arg6 
 }
 
 // PayerBandwidthAllocation mocks base method
-func (m *MockClient) PayerBandwidthAllocation(arg0 context.Context, arg1 pb.BandwidthAction) (*pb.FundsOrder, error) {
+func (m *MockClient) PayerBandwidthAllocation(arg0 context.Context, arg1 pb.BandwidthAction) (*pb.OrderLimit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PayerBandwidthAllocation", arg0, arg1)
-	ret0, _ := ret[0].(*pb.FundsOrder)
+	ret0, _ := ret[0].(*pb.OrderLimit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// FundsOrder indicates an expected call of FundsOrder
+// OrderLimit indicates an expected call of OrderLimit
 func (mr *MockClientMockRecorder) PayerBandwidthAllocation(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PayerBandwidthAllocation", reflect.TypeOf((*MockClient)(nil).PayerBandwidthAllocation), arg0, arg1)

@@ -233,7 +233,7 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 	return s.service.Iterate(prefix, req.First, req.Recurse, req.Reverse, f)
 }
 
-// PayerBandwidthAllocation returns FundsOrder struct, signed and with given action type
+// PayerBandwidthAllocation returns OrderLimit struct, signed and with given action type
 func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBandwidthAllocationRequest) (res *pb.PayerBandwidthAllocationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
