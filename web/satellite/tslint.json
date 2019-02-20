@@ -20,6 +20,7 @@
     "quotemark": [true, "single", "avoid-escape"],
     // Ensures the file ends with a newline.
     "eofline": true,
+    "indent": [true, "spaces", 4],
     // Ensures proper spacing between import statement keywords.
     "import-spacing": true,
     "interface-name": false,
