@@ -147,12 +147,12 @@ func TestHappyPath(t *testing.T) {
 		bandwidthAllocation("signed by test", nodeIDAB, 3),
 	}
 
-	type BWUSAGE struct {
+	type bwUsage struct {
 		size    int64
 		timenow time.Time
 	}
 
-	bwtests := []BWUSAGE{
+	bwtests := []bwUsage{
 		// size is total size stored
 		{size: 1110, timenow: time.Now()},
 	}
