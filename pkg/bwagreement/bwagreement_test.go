@@ -39,7 +39,7 @@ func TestBandwidthDBAgreement(t *testing.T) {
 
 func testCreateAgreement(ctx context.Context, t *testing.T, b bwagreement.DB, action pb.BandwidthAction,
 	serialNum string, upID, snID *identity.FullIdentity) error {
-	rba := &pb.FileOrder{
+	rba := &pb.Order{
 		PayerAllocation: pb.OrderLimit{
 			Action:       action,
 			SerialNumber: serialNum,

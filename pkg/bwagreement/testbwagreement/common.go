@@ -32,13 +32,13 @@ func GenerateOrderLimit(action pb.BandwidthAction, satID *identity.FullIdentity,
 	return pba, auth.SignMessage(pba, *satID)
 }
 
-//GenerateFileOrder creates a signed FileOrder from a OrderLimit
-func GenerateFileOrder(pba *pb.OrderLimit, storageNodeID storj.NodeID, upID *identity.FullIdentity, total int64) (*pb.FileOrder, error) {
-	rba := &pb.FileOrder{
+//GenerateOrder creates a signed Order from a OrderLimit
+func GenerateOrder(pba *pb.OrderLimit, storageNodeID storj.NodeID, upID *identity.FullIdentity, total int64) (*pb.Order, error) {
+	rba := &pb.Order{
 		PayerAllocation: *pba,
 		StorageNodeId:   storageNodeID,
 		Total:           total,
 	}
-	// Combine Signature and Data for FileOrder
+	// Combine Signature and Data for Order
 	return rba, auth.SignMessage(rba, *upID)
 }

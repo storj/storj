@@ -45,7 +45,7 @@ type UplinkStat struct {
 // DB stores bandwidth agreements.
 type DB interface {
 	// CreateAgreement adds a new bandwidth agreement.
-	CreateAgreement(context.Context, *pb.FileOrder) error
+	CreateAgreement(context.Context, *pb.Order) error
 	// GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
 	GetTotals(context.Context, time.Time, time.Time) (map[storj.NodeID][]int64, error)
 	//GetTotals returns stats about an uplink
@@ -71,7 +71,7 @@ func NewServer(db DB, upldb certdb.DB, pkey crypto.PublicKey, logger *zap.Logger
 func (s *Server) Close() error { return nil }
 
 // BandwidthAgreements receives and stores bandwidth agreements from storage nodes
-func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.FileOrder) (reply *pb.AgreementsSummary, err error) {
+func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.Order) (reply *pb.AgreementsSummary, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("Received Agreement...")
 	reply = &pb.AgreementsSummary{
@@ -110,7 +110,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.FileOrder) (re
 	return reply, nil
 }
 
-func (s *Server) verifySignature(ctx context.Context, rba *pb.FileOrder) error {
+func (s *Server) verifySignature(ctx context.Context, rba *pb.Order) error {
 	pba := rba.GetPayerAllocation()
 
 	// Get renter's public key from uplink agreement db

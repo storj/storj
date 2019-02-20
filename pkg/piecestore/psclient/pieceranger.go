@@ -67,7 +67,7 @@ func (r *pieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadC
 	// of this instance at the same time.
 	pbaClone := r.pba.Clone()
 
-	rba := &pb.FileOrder{
+	rba := &pb.Order{
 		PayerAllocation: pbaClone,
 		StorageNodeId:   r.c.remoteID,
 	}

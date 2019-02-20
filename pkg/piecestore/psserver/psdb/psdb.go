@@ -38,7 +38,7 @@ type DB struct {
 
 // Agreement is a struct that contains a bandwidth agreement and the associated signature
 type Agreement struct {
-	Agreement pb.FileOrder
+	Agreement pb.Order
 	Signature []byte
 }
 
@@ -158,7 +158,7 @@ func (db *DB) DeleteExpired(ctx context.Context) (expired []string, err error) {
 }
 
 // WriteBandwidthAllocToDB inserts bandwidth agreement into DB
-func (db *DB) WriteBandwidthAllocToDB(rba *pb.FileOrder) error {
+func (db *DB) WriteBandwidthAllocToDB(rba *pb.Order) error {
 	rbaBytes, err := proto.Marshal(rba)
 	if err != nil {
 		return err
@@ -184,7 +184,7 @@ func (db *DB) DeleteBandwidthAllocationBySignature(signature []byte) error {
 }
 
 // GetBandwidthAllocationBySignature finds allocation info by signature
-func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([]*pb.FileOrder, error) {
+func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([]*pb.Order, error) {
 	defer db.locked()()
 
 	rows, err := db.DB.Query(`SELECT agreement FROM bandwidth_agreements WHERE signature = ?`, signature)
@@ -197,14 +197,14 @@ func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([]*pb.FileOrd
 		}
 	}()
 
-	agreements := []*pb.FileOrder{}
+	agreements := []*pb.Order{}
 	for rows.Next() {
 		var rbaBytes []byte
 		err := rows.Scan(&rbaBytes)
 		if err != nil {
 			return agreements, err
 		}
-		rba := &pb.FileOrder{}
+		rba := &pb.Order{}
 		err = proto.Unmarshal(rbaBytes, rba)
 		if err != nil {
 			return agreements, err

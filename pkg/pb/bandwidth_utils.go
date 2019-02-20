@@ -14,8 +14,8 @@ import (
 //OrderLimit aliases PayerBandwidthAllocation
 type OrderLimit = PayerBandwidthAllocation
 
-//FileOrder aliases RenterBandwidthAllocation
-type FileOrder = RenterBandwidthAllocation
+//Order aliases RenterBandwidthAllocation
+type Order = RenterBandwidthAllocation
 
 var (
 	//ErrRenter wraps errors related to renter bandwidth allocations
@@ -56,12 +56,12 @@ func (m *OrderLimit) SetSignature(signature []byte) {
 }
 
 //SetCerts updates the certs field, completing the auth.SignedMsg interface
-func (m *FileOrder) SetCerts(certs [][]byte) {
+func (m *Order) SetCerts(certs [][]byte) {
 	m.Certs = certs
 }
 
 //SetSignature updates the signature field, completing the auth.SignedMsg interface
-func (m *FileOrder) SetSignature(signature []byte) {
+func (m *Order) SetSignature(signature []byte) {
 	m.Signature = signature
 }
 

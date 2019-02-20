@@ -128,7 +128,7 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	// of this instance at the same time.
 	pbaClone := pba.Clone()
 
-	rba := &pb.FileOrder{
+	rba := &pb.Order{
 		PayerAllocation: pbaClone,
 		StorageNodeId:   ps.remoteID,
 	}
@@ -184,6 +184,6 @@ func (ps *PieceStore) Delete(ctx context.Context, id PieceID, satelliteID storj.
 }
 
 // sign a message using the clients private key
-func (ps *PieceStore) sign(rba *pb.FileOrder) (err error) {
+func (ps *PieceStore) sign(rba *pb.Order) (err error) {
 	return auth.SignMessage(rba, *ps.selfID)
 }
