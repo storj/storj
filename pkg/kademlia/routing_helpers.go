@@ -101,6 +101,8 @@ func (rt *RoutingTable) updateNode(node *pb.Node) error {
 
 // removeNode will remove churned nodes and replace those entries with nodes from the replacement cache.
 func (rt *RoutingTable) removeNode(node *pb.Node) error {
+	rt.mutex.Lock()
+	defer rt.mutex.Unlock()
 	kadBucketID, err := rt.getKBucketID(node.Id)
 
 	if err != nil {
