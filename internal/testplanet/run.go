@@ -23,6 +23,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 	schemaSuffix := pgutil.RandomString(8)
 	t.Log("schema-suffix ", schemaSuffix)
 
+	// TODO: delete `[:1]`
 	for _, satelliteDB := range satellitedbtest.Databases()[:1] {
 		satelliteDB := satelliteDB
 		t.Run(satelliteDB.Name, func(t *testing.T) {

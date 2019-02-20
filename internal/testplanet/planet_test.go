@@ -5,6 +5,7 @@ package testplanet_test
 
 import (
 	"context"
+	"crypto/x509"
 	"strconv"
 	"testing"
 	"time"
@@ -14,6 +15,8 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 )
 
 func TestBasic(t *testing.T) {
@@ -71,6 +74,19 @@ func TestPlanet_Ping(t *testing.T) {
 		err := planet.Ping(ctx)
 		assert.NoError(t, err)
 	})
+}
+
+func TestNewPregeneratedSignedIdentities(t *testing.T) {
+	identities := testplanet.NewPregeneratedSignedIdentities()
+	signer := testplanet.NewPregeneratedSigner()
+
+	ident, err := identities.NewIdentity()
+	require.NoError(t, err)
+
+	chain := [][]*x509.Certificate{append([]*x509.Certificate{ident.Leaf, ident.CA}, ident.RestChain...)}
+	assert.NoError(t, peertls.VerifyPeerCertChains(nil, chain))
+
+	assert.NoError(t, pkcrypto.HashAndVerifySignature(signer.Cert.PublicKey, ident.CA.RawTBSCertificate, ident.CA.Signature))
 }
 
 func BenchmarkCreate(b *testing.B) {

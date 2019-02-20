@@ -6,7 +6,6 @@ package tlsopts
 import (
 	"crypto/tls"
 	"crypto/x509"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 

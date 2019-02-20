@@ -99,13 +99,9 @@ func main() {
 			panic(err)
 		}
 
-		if *signed {
-			ident.CA = ca.Cert
-			ident.RestChain = restChain
-		}
-
 		var chain bytes.Buffer
-		err = pkcrypto.WriteCertPEM(&chain, ident.Leaf, ca.Cert)
+		certs := append([]*x509.Certificate{ident.Leaf, ca.Cert}, ca.RestChain...)
+		err = pkcrypto.WriteCertPEM(&chain, certs...)
 		if err != nil {
 			panic(err)
 		}

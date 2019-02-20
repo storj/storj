@@ -117,10 +117,7 @@ func TestPeerCAWhitelist(t *testing.T) {
 			UsePeerCAWhitelist: true,
 			//UsePeerCAWhitelist: false,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			err := planet.Ping(ctx, &tlsopts.Config{
-				UsePeerCAWhitelist: true,
-				PeerCAWhitelistPath: planet.
-			})
+			err := planet.Ping(ctx)
 			assert.NoError(t, err)
 		})
 	})

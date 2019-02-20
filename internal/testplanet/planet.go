@@ -86,6 +86,8 @@ type Reconfigure struct {
 
 	NewStorageNodeDB func(index int) (storagenode.DB, error)
 	StorageNode      func(index int, config *storagenode.Config)
+
+	KadPeer func(config *KadPeerConfig)
 }
 
 // Planet is a full storj system setup.
@@ -345,8 +347,8 @@ func (planet *Planet) Shutdown() error {
 
 // Ping sends a kad ping request to/from all kad nodes to each other
 // NB: kad nodes include bootstrap, satellite, and storagenode type nodes
-func (planet *Planet) Ping(ctx *testcontext.Context, reconfigure Reconfigure) error {
-	peer, err := planet.newKad("pinger", planet.Bootstrap.Addr(), tlsCfg)
+func (planet *Planet) Ping(ctx *testcontext.Context) error {
+	peer, err := planet.newKad("pinger", planet.Bootstrap.Addr())
 	if err != nil {
 		return nil
 	}
@@ -438,37 +440,33 @@ func writeWhitelist(dir string) (string, error) {
 	return whitelistPath, err
 }
 
-// usePeerCAWhitelist reconfigures the planet to use peer ca whitelisting on all kad node types
+// usePeerCAWhitelist reconfigures the planet to use peer ca whitelisting on node types running kad.
 func (planet *Planet) usePeerCAWhitelist() (Reconfigure, error) {
 	whitelistPath, err := writeWhitelist(planet.directory)
 	if err != nil {
 		return Reconfigure{}, err
 	}
 
-	// TODO: delete me
-	zapPath := zap.String("path", whitelistPath)
-	pem, err := ioutil.ReadFile(whitelistPath)
-	if err != nil {
-		planet.log.Error("ERROR reading whitelist", zapPath)
-	} else {
-		planet.log.Debug("WHITELIST", zapPath, zap.String("pem", string(pem[:25])))
-	}
-
 	return Reconfigure{
 		Bootstrap: func(_ int, c *bootstrap.Config) {
 			c.Server.PeerCAWhitelistPath = whitelistPath
-			//c.Server.UsePeerCAWhitelist = true
-			c.Server.UsePeerCAWhitelist = false
+			c.Server.UsePeerCAWhitelist = true
+			//c.Server.UsePeerCAWhitelist = false
 		},
 		Satellite: func(_ int, c *satellite.Config) {
 			c.Server.PeerCAWhitelistPath = whitelistPath
-			//c.Server.UsePeerCAWhitelist = true
-			c.Server.UsePeerCAWhitelist = false
+			c.Server.UsePeerCAWhitelist = true
+			//c.Server.UsePeerCAWhitelist = false
 		},
 		StorageNode: func(_ int, c *storagenode.Config) {
 			c.Server.PeerCAWhitelistPath = whitelistPath
-			//c.Server.UsePeerCAWhitelist = true
-			c.Server.UsePeerCAWhitelist = false
+			c.Server.UsePeerCAWhitelist = true
+			//c.Server.UsePeerCAWhitelist = false
+		},
+		KadPeer: func(c *KadPeerConfig) {
+			c.Server.PeerCAWhitelistPath = whitelistPath
+			c.Server.UsePeerCAWhitelist = true
+			//c.Server.UsePeerCAWhitelist = false
 		},
 	}, nil
 }
@@ -772,7 +770,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 }
 
 // newKad initializes the a peer with a kademlia service
-func (planet *Planet) newKad(prefix, bootstrapAddr string, tlsCfg *tlsopts.Config) (peer *KadPeer, err error) {
+func (planet *Planet) newKad(prefix, bootstrapAddr string) (peer *KadPeer, err error) {
 	// TODO: move into separate file
 	log := planet.log.Named(prefix)
 	dbDir := filepath.Join(planet.directory, prefix)
@@ -823,11 +821,8 @@ func (planet *Planet) newKad(prefix, bootstrapAddr string, tlsCfg *tlsopts.Confi
 			},
 		},
 	}
-	if tlsCfg != nil {
-		config.Server.UsePeerCAWhitelist = tlsCfg.UsePeerCAWhitelist
-		if tlsCfg.PeerCAWhitelistPath != "" {
-			config.Server.PeerCAWhitelistPath = tlsCfg.PeerCAWhitelistPath
-		}
+	if planet.config.Reconfigure.KadPeer != nil {
+		planet.config.Reconfigure.KadPeer(&config)
 	}
 
 	peer, err = NewKadPeer(log, identity, db, config)
