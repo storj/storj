@@ -107,5 +107,12 @@ func (srv *Inspector) LookupNode(ctx context.Context, req *pb.LookupNodeRequest)
 
 // DumpNodes returns all of the nodes in the routing table database.
 func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (*pb.DumpNodesResponse, error) {
-	return &pb.DumpNodesResponse{}, nil
+	nodes, err := srv.dht.DumpNodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.DumpNodesResponse{
+		Nodes: nodes,
+	}, nil
 }

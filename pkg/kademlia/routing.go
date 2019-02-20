@@ -162,18 +162,17 @@ func (rt *RoutingTable) DumpNodes() ([]*pb.Node, error) {
 
 		val, err := rt.nodeBucketDB.Get(key)
 		if err != nil {
-			continue
+			return nil, err
 		}
 
 		err = id.Unmarshal(key)
 		if err != nil {
-			fmt.Printf("error unmarshaling node id in DumpNodes %+v\n", err)
 			return nil, err
 		}
 
 		err = proto.Unmarshal(val, node)
 		if err != nil {
-			fmt.Printf("error unmarshaling node value in DumpNodes %+v\n", err)
+			return nil, err
 		}
 		nodes = append(nodes, node)
 	}
