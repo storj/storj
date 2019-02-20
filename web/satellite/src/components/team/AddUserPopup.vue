@@ -180,9 +180,11 @@ import { validateEmail } from '@/utils/validation';
                 this.$data.inputs.some((element: EmailInput) => {
                     if (element.error) {
                         hasError = true;
+
                         return true;
                     }
                 });
+
                 return hasError;
             }
          },

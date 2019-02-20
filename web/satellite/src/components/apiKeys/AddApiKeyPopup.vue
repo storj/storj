@@ -65,6 +65,7 @@ Vue.use(VueClipboards);
 
                 if (!result.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, result.errorMessage);
+
                     return;
                 }
 
