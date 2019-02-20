@@ -36,23 +36,23 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Button from '@/components/common/Button.vue';
-	import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-	import ROUTES from '@/utils/constants/routerConstants';
+import { Component, Vue } from 'vue-property-decorator';
+import Button from '@/components/common/Button.vue';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import ROUTES from '@/utils/constants/routerConstants';
 
-    @Component(
+@Component(
         {
             computed:{
-            	isPopupShown: function () {
+                isPopupShown: function () {
                     return this.$store.state.appStateModule.appState.isSuccessfulRegistrationPopupShown;
-				}
+                }
             },
             methods: {
-            	onCloseClick: function () {
-            		this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-            		this.$router.push(ROUTES.LOGIN.path);
-				}
+                onCloseClick: function () {
+                    this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+                    this.$router.push(ROUTES.LOGIN.path);
+                }
             },
             components: {
                 Button,
