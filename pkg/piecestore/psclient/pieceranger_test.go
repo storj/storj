@@ -80,7 +80,7 @@ func TestPieceRanger(t *testing.T) {
 		target.Type.DPanicOnInvalid("pr test")
 		c, err := NewCustomRoute(route, target, 32*1024, id)
 		assert.NoError(t, err)
-		rr, err := PieceRanger(ctx, c, stream, pid, &pb.PayerBandwidthAllocation{})
+		rr, err := PieceRanger(ctx, c, stream, pid, &pb.FundsOrder{})
 		if assert.NoError(t, err, errTag) {
 			assert.Equal(t, tt.size, rr.Size(), errTag)
 		}
@@ -156,7 +156,7 @@ func TestPieceRangerSize(t *testing.T) {
 		target.Type.DPanicOnInvalid("pr test 2")
 		c, err := NewCustomRoute(route, target, 32*1024, id)
 		assert.NoError(t, err)
-		rr := PieceRangerSize(c, stream, pid, tt.size, &pb.PayerBandwidthAllocation{})
+		rr := PieceRangerSize(c, stream, pid, tt.size, &pb.FundsOrder{})
 		assert.Equal(t, tt.size, rr.Size(), errTag)
 		r, err := rr.Range(ctx, tt.offset, tt.length)
 		if tt.errString != "" {

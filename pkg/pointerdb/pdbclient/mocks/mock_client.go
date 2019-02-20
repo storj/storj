@@ -6,8 +6,10 @@ package mock_pointerdb
 
 import (
 	context "context"
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
+
 	pb "storj.io/storj/pkg/pb"
 	pdbclient "storj.io/storj/pkg/pointerdb/pdbclient"
 )
@@ -50,12 +52,12 @@ func (mr *MockClientMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Get mocks base method
-func (m *MockClient) Get(arg0 context.Context, arg1 string) (*pb.Pointer, []*pb.Node, *pb.PayerBandwidthAllocation, error) {
+func (m *MockClient) Get(arg0 context.Context, arg1 string) (*pb.Pointer, []*pb.Node, *pb.FundsOrder, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1)
 	ret0, _ := ret[0].(*pb.Pointer)
 	ret1, _ := ret[1].([]*pb.Node)
-	ret2, _ := ret[2].(*pb.PayerBandwidthAllocation)
+	ret2, _ := ret[2].(*pb.FundsOrder)
 	ret3, _ := ret[3].(error)
 	return ret0, ret1, ret2, ret3
 }
@@ -83,15 +85,15 @@ func (mr *MockClientMockRecorder) List(arg0, arg1, arg2, arg3, arg4, arg5, arg6 
 }
 
 // PayerBandwidthAllocation mocks base method
-func (m *MockClient) PayerBandwidthAllocation(arg0 context.Context, arg1 pb.BandwidthAction) (*pb.PayerBandwidthAllocation, error) {
+func (m *MockClient) PayerBandwidthAllocation(arg0 context.Context, arg1 pb.BandwidthAction) (*pb.FundsOrder, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PayerBandwidthAllocation", arg0, arg1)
-	ret0, _ := ret[0].(*pb.PayerBandwidthAllocation)
+	ret0, _ := ret[0].(*pb.FundsOrder)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// PayerBandwidthAllocation indicates an expected call of PayerBandwidthAllocation
+// FundsOrder indicates an expected call of FundsOrder
 func (mr *MockClientMockRecorder) PayerBandwidthAllocation(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PayerBandwidthAllocation", reflect.TypeOf((*MockClient)(nil).PayerBandwidthAllocation), arg0, arg1)

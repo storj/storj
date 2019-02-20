@@ -55,7 +55,7 @@ func (mr *MockClientMockRecorder) Delete(arg0, arg1, arg2, arg3 interface{}) *go
 }
 
 // Get mocks base method
-func (m *MockClient) Get(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.ErasureScheme, arg3 psclient.PieceID, arg4 int64, arg5 *pb.PayerBandwidthAllocation) (ranger.Ranger, error) {
+func (m *MockClient) Get(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.ErasureScheme, arg3 psclient.PieceID, arg4 int64, arg5 *pb.FundsOrder) (ranger.Ranger, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(ranger.Ranger)
@@ -70,7 +70,7 @@ func (mr *MockClientMockRecorder) Get(arg0, arg1, arg2, arg3, arg4, arg5 interfa
 }
 
 // Put mocks base method
-func (m *MockClient) Put(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.RedundancyStrategy, arg3 psclient.PieceID, arg4 io.Reader, arg5 time.Time, arg6 *pb.PayerBandwidthAllocation) ([]*pb.Node, error) {
+func (m *MockClient) Put(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.RedundancyStrategy, arg3 psclient.PieceID, arg4 io.Reader, arg5 time.Time, arg6 *pb.FundsOrder) ([]*pb.Node, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].([]*pb.Node)

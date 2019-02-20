@@ -67,7 +67,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 	satellite := bwagreement.NewServer(db.BandwidthAgreement(), db.CertDB(), satID.Leaf.PublicKey, zap.NewNop(), satID.ID)
 
 	{ // TestSameSerialNumberBandwidthAgreements
-		pbaFile1, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, time.Hour)
+		pbaFile1, err := testbwagreement.GenerateFundsOrder(pb.BandwidthAction_GET, satID, upID, time.Hour)
 		assert.NoError(t, err)
 		err = db.CertDB().SavePublicKey(ctx, pbaFile1.UplinkId, upID.Leaf.PublicKey)
 		assert.NoError(t, err)
@@ -82,7 +82,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 
 		/* More than one storage node can submit bwagreements with the same serial number.
 		   Uplink would like to download a file from 2 storage nodes.
-		   Uplink requests a PayerBandwidthAllocation from the satellite. One serial number for all storage nodes.
+		   Uplink requests a FundsOrder from the satellite. One serial number for all storage nodes.
 		   Uplink signes 2 RenterBandwidthAllocation for both storage node. */
 		{
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rbaNode1)
@@ -95,9 +95,9 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 		}
 
 		/* Storage node can submit a second bwagreement with a different sequence value.
-		   Uplink downloads another file. New PayerBandwidthAllocation with a new sequence. */
+		   Uplink downloads another file. New FundsOrder with a new sequence. */
 		{
-			pbaFile2, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, time.Hour)
+			pbaFile2, err := testbwagreement.GenerateFundsOrder(pb.BandwidthAction_GET, satID, upID, time.Hour)
 			assert.NoError(t, err)
 			err = db.CertDB().SavePublicKey(ctx, pbaFile2.UplinkId, upID.Leaf.PublicKey)
 			assert.NoError(t, err)
@@ -132,7 +132,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 
 	{ // TestExpiredBandwidthAgreements
 		{ // storage nodes can submit a bwagreement that will expire in 30 seconds
-			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, 30*time.Second)
+			pba, err := testbwagreement.GenerateFundsOrder(pb.BandwidthAction_GET, satID, upID, 30*time.Second)
 			assert.NoError(t, err)
 			err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey)
 			assert.NoError(t, err)
@@ -147,7 +147,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 		}
 
 		{ // storage nodes can't submit a bwagreement that expires right now
-			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, 0*time.Second)
+			pba, err := testbwagreement.GenerateFundsOrder(pb.BandwidthAction_GET, satID, upID, 0*time.Second)
 			assert.NoError(t, err)
 			err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey)
 			assert.NoError(t, err)
@@ -162,7 +162,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 		}
 
 		{ // storage nodes can't submit a bwagreement that expires yesterday
-			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, -23*time.Hour-55*time.Second)
+			pba, err := testbwagreement.GenerateFundsOrder(pb.BandwidthAction_GET, satID, upID, -23*time.Hour-55*time.Second)
 			assert.NoError(t, err)
 			err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey)
 			assert.NoError(t, err)
@@ -178,7 +178,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 	}
 
 	{ // TestManipulatedBandwidthAgreements
-		pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, time.Hour)
+		pba, err := testbwagreement.GenerateFundsOrder(pb.BandwidthAction_GET, satID, upID, time.Hour)
 		if !assert.NoError(t, err) {
 			t.Fatal(err)
 		}
@@ -244,7 +244,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
-		/* Storage node can't self sign the PayerBandwidthAllocation.
+		/* Storage node can't self sign the FundsOrder.
 		   Satellite will verify the Payer's Signature. */
 		{
 			manipRBA := *rba
@@ -296,7 +296,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 	{ //TestInvalidBandwidthAgreements
 		ctxSN1, storageNode1 := getPeerContext(ctx, t)
 		ctxSN2, storageNode2 := getPeerContext(ctx, t)
-		pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, satID, upID, time.Hour)
+		pba, err := testbwagreement.GenerateFundsOrder(pb.BandwidthAction_GET, satID, upID, time.Hour)
 		assert.NoError(t, err)
 		err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey)
 		assert.NoError(t, err)

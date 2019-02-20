@@ -146,7 +146,7 @@ func TestGet(t *testing.T) {
 		err = proto.Unmarshal(byteData, ptr)
 		assert.NoError(t, err)
 
-		getResponse := pb.GetResponse{Pointer: ptr, Nodes: []*pb.Node{}, Pba: &pb.PayerBandwidthAllocation{}}
+		getResponse := pb.GetResponse{Pointer: ptr, Nodes: []*pb.Node{}, Pba: &pb.FundsOrder{}}
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 

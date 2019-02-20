@@ -11,6 +11,12 @@ import (
 	"github.com/zeebo/errs"
 )
 
+//FundsOrder aliases PayerBandwidthAllocation
+type FundsOrder = PayerBandwidthAllocation
+
+//FileOrder aliases RenterBandwidthAllocation
+type FileOrder = RenterBandwidthAllocation
+
 var (
 	//ErrRenter wraps errors related to renter bandwidth allocations
 	ErrRenter = errs.Class("Renter agreement")
@@ -40,28 +46,28 @@ func Equal(msg1, msg2 proto.Message) bool {
 }
 
 //SetCerts updates the certs field, completing the auth.SignedMsg interface
-func (m *PayerBandwidthAllocation) SetCerts(certs [][]byte) {
+func (m *FundsOrder) SetCerts(certs [][]byte) {
 	m.Certs = certs
 }
 
 //SetSignature updates the signature field, completing the auth.SignedMsg interface
-func (m *PayerBandwidthAllocation) SetSignature(signature []byte) {
+func (m *FundsOrder) SetSignature(signature []byte) {
 	m.Signature = signature
 }
 
 //SetCerts updates the certs field, completing the auth.SignedMsg interface
-func (m *RenterBandwidthAllocation) SetCerts(certs [][]byte) {
+func (m *FileOrder) SetCerts(certs [][]byte) {
 	m.Certs = certs
 }
 
 //SetSignature updates the signature field, completing the auth.SignedMsg interface
-func (m *RenterBandwidthAllocation) SetSignature(signature []byte) {
+func (m *FileOrder) SetSignature(signature []byte) {
 	m.Signature = signature
 }
 
 // Clone creates a deep copy of PayerBandwidthAllocation
-func (m *PayerBandwidthAllocation) Clone() (pba PayerBandwidthAllocation) {
-	pba = PayerBandwidthAllocation{
+func (m *FundsOrder) Clone() (pba FundsOrder) {
+	pba = FundsOrder{
 		SatelliteId:       m.SatelliteId,
 		UplinkId:          m.UplinkId,
 		MaxSize:           m.MaxSize,

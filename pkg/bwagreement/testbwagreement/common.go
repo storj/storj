@@ -14,13 +14,13 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-//GeneratePayerBandwidthAllocation creates a signed PayerBandwidthAllocation from a BandwidthAction
-func GeneratePayerBandwidthAllocation(action pb.BandwidthAction, satID *identity.FullIdentity, upID *identity.FullIdentity, expiration time.Duration) (*pb.PayerBandwidthAllocation, error) {
+//GenerateFundsOrder creates a signed FundsOrder from a BandwidthAction
+func GenerateFundsOrder(action pb.BandwidthAction, satID *identity.FullIdentity, upID *identity.FullIdentity, expiration time.Duration) (*pb.FundsOrder, error) {
 	serialNum, err := uuid.New()
 	if err != nil {
 		return nil, err
 	}
-	pba := &pb.PayerBandwidthAllocation{
+	pba := &pb.FundsOrder{
 		SatelliteId:       satID.ID,
 		UplinkId:          upID.ID,
 		ExpirationUnixSec: time.Now().Add(expiration).Unix(),
@@ -32,8 +32,8 @@ func GeneratePayerBandwidthAllocation(action pb.BandwidthAction, satID *identity
 	return pba, auth.SignMessage(pba, *satID)
 }
 
-//GenerateRenterBandwidthAllocation creates a signed RenterBandwidthAllocation from a PayerBandwidthAllocation
-func GenerateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, storageNodeID storj.NodeID, upID *identity.FullIdentity, total int64) (*pb.RenterBandwidthAllocation, error) {
+//GenerateRenterBandwidthAllocation creates a signed RenterBandwidthAllocation from a FundsOrder
+func GenerateRenterBandwidthAllocation(pba *pb.FundsOrder, storageNodeID storj.NodeID, upID *identity.FullIdentity, total int64) (*pb.RenterBandwidthAllocation, error) {
 	rba := &pb.RenterBandwidthAllocation{
 		PayerAllocation: *pba,
 		StorageNodeId:   storageNodeID,

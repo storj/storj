@@ -69,7 +69,7 @@ func sendGeneratedAgreements(ctx context.Context, t *testing.T, db satellite.DB,
 
 	agreements := make([]*psdb.Agreement, len(actions))
 	for i, action := range actions {
-		pba, err := testbwagreement.GeneratePayerBandwidthAllocation(action, satID, upID, time.Hour)
+		pba, err := testbwagreement.GenerateFundsOrder(action, satID, upID, time.Hour)
 		require.NoError(t, err)
 		err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey)
 		assert.NoError(t, err)

@@ -46,8 +46,8 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 	}
 
 	pba := rba.PayerAllocation
-	if pb.Equal(&pba, &pb.PayerBandwidthAllocation{}) {
-		return RetrieveError.New("PayerBandwidthAllocation message is empty")
+	if pb.Equal(&pba, &pb.FundsOrder{}) {
+		return RetrieveError.New("FundsOrder message is empty")
 	}
 
 	id, err := getNamespacedPieceID([]byte(pd.GetId()), pba.SatelliteId.Bytes())

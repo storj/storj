@@ -34,7 +34,7 @@ func NewAllocationSigner(satelliteIdentity *identity.FullIdentity, bwExpiration 
 }
 
 // PayerBandwidthAllocation returns generated payer bandwidth allocation
-func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context, peerIdentity *identity.PeerIdentity, action pb.BandwidthAction) (pba *pb.PayerBandwidthAllocation, err error) {
+func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context, peerIdentity *identity.PeerIdentity, action pb.BandwidthAction) (pba *pb.FundsOrder, err error) {
 	if peerIdentity == nil {
 		return nil, Error.New("missing peer identity")
 	}
@@ -57,7 +57,7 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 		return nil, err
 	}
 
-	pba = &pb.PayerBandwidthAllocation{
+	pba = &pb.FundsOrder{
 		SatelliteId:       allocation.satelliteIdentity.ID,
 		UplinkId:          peerIdentity.ID,
 		CreatedUnixSec:    created,
