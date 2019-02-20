@@ -34,7 +34,7 @@ func NewAllocationSigner(satelliteIdentity *identity.FullIdentity, bwExpiration 
 }
 
 // PayerBandwidthAllocation returns generated payer bandwidth allocation
-func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context, peerIdentity *identity.PeerIdentity, action pb.BandwidthAction) (pba *pb.OrderLimit, err error) {
+func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context, peerIdentity *identity.PeerIdentity, action pb.BandwidthAction, storageNodeIds []storj.NodeID) (pba *pb.OrderLimit, err error) {
 	if peerIdentity == nil {
 		return nil, Error.New("missing peer identity")
 	}
@@ -64,6 +64,7 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 		ExpirationUnixSec: created + int64(ttl),
 		Action:            action,
 		SerialNumber:      serialNum.String(),
+		StorageNodeIds:    storageNodeIds,
 	}
 	err = auth.SignMessage(pba, *allocation.satelliteIdentity)
 	return pba, err
@@ -75,7 +76,6 @@ func (allocation *AllocationSigner) restrictActions(peerID storj.NodeID, action 
 		if peerID != allocation.satelliteIdentity.ID {
 			return errors.New("action restricted to signing satellite")
 		}
-
 		return nil
 	case pb.BandwidthAction_GET, pb.BandwidthAction_PUT:
 		return nil

@@ -35,6 +35,8 @@ message PayerBandwidthAllocation { // Payer refers to satellite
   
   repeated bytes certs = 8; // Satellite certificate chain 
   bytes signature = 9;      // Proof that the data was signed by the Satellite
+
+  repeated bytes storage_node_ids = 10 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Storage Nodes
 }
 
 message RenterBandwidthAllocation { // Renter refers to uplink

@@ -49,7 +49,7 @@ type Client interface {
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 	Delete(ctx context.Context, path storj.Path) error
 
-	PayerBandwidthAllocation(context.Context, pb.BandwidthAction) (*pb.OrderLimit, error)
+	PayerBandwidthAllocation(context.Context, pb.BandwidthAction, []storj.NodeID) (*pb.OrderLimit, error)
 
 	// Disconnect() error // TODO: implement
 }
@@ -99,7 +99,7 @@ func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Poi
 	}
 
 	if res.GetPointer().GetType() == pb.Pointer_INLINE {
-		return res.GetPointer(), nodes, res.GetPba(), nil
+		return res.GetPointer(), nodes, nil, nil
 	}
 
 	pieces := res.GetPointer().GetRemote().GetRemotePieces()
@@ -159,10 +159,11 @@ func (pdb *PointerDB) Delete(ctx context.Context, path storj.Path) (err error) {
 }
 
 // PayerBandwidthAllocation gets payer bandwidth allocation message
-func (pdb *PointerDB) PayerBandwidthAllocation(ctx context.Context, action pb.BandwidthAction) (resp *pb.OrderLimit, err error) {
+func (pdb *PointerDB) PayerBandwidthAllocation(ctx context.Context, action pb.BandwidthAction, storageNodeIds []storj.NodeID) (resp *pb.OrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	response, err := pdb.client.PayerBandwidthAllocation(ctx, &pb.PayerBandwidthAllocationRequest{Action: action})
+	request := &pb.PayerBandwidthAllocationRequest{Action: action, StorageNodeIds: storageNodeIds}
+	response, err := pdb.client.PayerBandwidthAllocation(ctx, request)
 	if err != nil {
 		return nil, err
 	}

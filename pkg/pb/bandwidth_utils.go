@@ -85,6 +85,7 @@ func (m *OrderLimit) Clone() (pba OrderLimit) {
 		SerialNumber:      m.SerialNumber,
 		Action:            m.Action,
 		CreatedUnixSec:    m.CreatedUnixSec,
+		StorageNodeIds:    m.StorageNodeIds,
 	}
 	pba.Certs = make([][]byte, len(m.Certs))
 	copy(pba.Certs, m.Certs)

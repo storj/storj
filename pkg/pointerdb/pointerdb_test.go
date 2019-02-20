@@ -215,7 +215,7 @@ func TestServiceGet(t *testing.T) {
 			assert.NoError(t, err, errTag)
 			assert.True(t, pb.Equal(pr, resp.Pointer), errTag)
 
-			assert.NotNil(t, resp.GetPba())
+			assert.Nil(t, resp.GetPba()) //inline
 		}
 	}
 }

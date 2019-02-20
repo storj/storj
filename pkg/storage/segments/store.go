@@ -129,15 +129,17 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
+		nodeIds := []storj.NodeID{}
 		for _, v := range nodes {
 			if v != nil {
+				nodeIds = append(nodeIds, v.Id)
 				v.Type.DPanicOnInvalid("ss put")
 			}
 		}
 
 		pieceID := psclient.NewPieceID()
 
-		pba, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT)
+		pba, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT, nodeIds)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}

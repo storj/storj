@@ -104,8 +104,10 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 			repairNodes[i] = newNodes[totalRepairCount]
 		}
 	}
+	repairNodeIds := []storj.NodeID{}
 	for _, v := range repairNodes {
 		if v != nil {
+			repairNodeIds = append(repairNodeIds, v.Id)
 			v.Type.DPanicOnInvalid("repair 2")
 		}
 	}
@@ -120,7 +122,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 		return Error.Wrap(err)
 	}
 
-	pbaGet, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_GET_REPAIR)
+	pbaGet, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_GET_REPAIR, repairNodeIds)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -136,7 +138,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	}
 	defer func() { err = errs.Combine(err, r.Close()) }()
 
-	pbaPut, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT_REPAIR)
+	pbaPut, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT_REPAIR, repairNodeIds)
 	if err != nil {
 		return Error.Wrap(err)
 	}

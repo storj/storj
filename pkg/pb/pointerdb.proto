@@ -135,6 +135,7 @@ message IterateRequest {
 
 message PayerBandwidthAllocationRequest {
   piecestoreroutes.BandwidthAction action = 1;
+  repeated bytes storage_node_ids = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Storage Nodes
 }
 
 message PayerBandwidthAllocationResponse {

@@ -77,14 +77,21 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	if err != nil {
 		return nil, err
 	}
-	peerIdentity := &identity.PeerIdentity{ID: cursor.identity.ID, Leaf: cursor.identity.Leaf}
-	pba, err := cursor.allocation.PayerBandwidthAllocation(ctx, peerIdentity, pb.BandwidthAction_GET_AUDIT)
-	if err != nil {
-		return nil, err
-	}
 
 	if pointer.GetType() != pb.Pointer_REMOTE {
 		return nil, nil
+	}
+
+	nodeIds := []storj.NodeID{}
+	pieces := pointer.Remote.GetRemotePieces()
+	for _, p := range pieces {
+		nodeIds = append(nodeIds, p.NodeId)
+	}
+
+	selfIdentity := &identity.PeerIdentity{ID: cursor.identity.ID, Leaf: cursor.identity.Leaf}
+	pba, err := cursor.allocation.PayerBandwidthAllocation(ctx, selfIdentity, pb.BandwidthAction_GET_AUDIT, nodeIds)
+	if err != nil {
+		return nil, err
 	}
 
 	// create the erasure scheme so we can get the stripe size
