@@ -32,13 +32,13 @@ func GenerateFundsOrder(action pb.BandwidthAction, satID *identity.FullIdentity,
 	return pba, auth.SignMessage(pba, *satID)
 }
 
-//GenerateRenterBandwidthAllocation creates a signed RenterBandwidthAllocation from a FundsOrder
-func GenerateRenterBandwidthAllocation(pba *pb.FundsOrder, storageNodeID storj.NodeID, upID *identity.FullIdentity, total int64) (*pb.RenterBandwidthAllocation, error) {
-	rba := &pb.RenterBandwidthAllocation{
+//GenerateFileOrder creates a signed FileOrder from a FundsOrder
+func GenerateFileOrder(pba *pb.FundsOrder, storageNodeID storj.NodeID, upID *identity.FullIdentity, total int64) (*pb.FileOrder, error) {
+	rba := &pb.FileOrder{
 		PayerAllocation: *pba,
 		StorageNodeId:   storageNodeID,
 		Total:           total,
 	}
-	// Combine Signature and Data for RenterBandwidthAllocation
+	// Combine Signature and Data for FileOrder
 	return rba, auth.SignMessage(rba, *upID)
 }

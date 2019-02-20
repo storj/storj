@@ -268,7 +268,7 @@ func (s *Server) deleteByID(id string) error {
 	return nil
 }
 
-func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAllocation) error {
+func (s *Server) verifySignature(ctx context.Context, rba *pb.FileOrder) error {
 	// TODO(security): detect replay attacks
 	pba := rba.PayerAllocation
 	//verify message content

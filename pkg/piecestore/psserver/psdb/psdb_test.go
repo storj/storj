@@ -130,8 +130,8 @@ func TestHappyPath(t *testing.T) {
 		}
 	})
 
-	bandwidthAllocation := func(signature string, satelliteID storj.NodeID, total int64) *pb.RenterBandwidthAllocation {
-		return &pb.RenterBandwidthAllocation{
+	bandwidthAllocation := func(signature string, satelliteID storj.NodeID, total int64) *pb.FileOrder {
+		return &pb.FileOrder{
 			PayerAllocation: pb.FundsOrder{SatelliteId: satelliteID},
 			Total:           total,
 			Signature:       []byte(signature),
@@ -140,7 +140,7 @@ func TestHappyPath(t *testing.T) {
 
 	//TODO: use better data
 	nodeIDAB := teststorj.NodeIDFromString("AB")
-	allocationTests := []*pb.RenterBandwidthAllocation{
+	allocationTests := []*pb.FileOrder{
 		bandwidthAllocation("signed by test", nodeIDAB, 0),
 		bandwidthAllocation("signed by sigma", nodeIDAB, 10),
 		bandwidthAllocation("signed by sigma", nodeIDAB, 98),
@@ -279,7 +279,7 @@ func BenchmarkWriteBandwidthAllocation(b *testing.B) {
 	b.RunParallel(func(b *testing.PB) {
 		for b.Next() {
 			for i := 0; i < WritesPerLoop; i++ {
-				_ = db.WriteBandwidthAllocToDB(&pb.RenterBandwidthAllocation{
+				_ = db.WriteBandwidthAllocToDB(&pb.FileOrder{
 					PayerAllocation: pb.FundsOrder{},
 					Total:           156,
 					Signature:       []byte("signed by test"),

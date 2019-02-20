@@ -245,7 +245,7 @@ func TestRetrieve(t *testing.T) {
 				// Send bandwidth bandwidthAllocation
 				totalAllocated += tt.allocSize
 
-				rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, totalAllocated)
+				rba, err := testbwagreement.GenerateFileOrder(pba, snID.ID, upID, totalAllocated)
 				require.NoError(t, err)
 
 				err = stream.Send(&pb.PieceRetrieval{BandwidthAllocation: rba})
@@ -327,7 +327,7 @@ func TestStore(t *testing.T) {
 			// Create Bandwidth Allocation Data
 			pba, err := testbwagreement.GenerateFundsOrder(pb.BandwidthAction_PUT, snID, upID, time.Hour)
 			require.NoError(t, err)
-			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, tt.totalReceived)
+			rba, err := testbwagreement.GenerateFileOrder(pba, snID.ID, upID, tt.totalReceived)
 			require.NoError(t, err)
 
 			// Write the buffer to the stream we opened earlier
@@ -368,7 +368,7 @@ func TestStore(t *testing.T) {
 				var agreement, signature []byte
 				err = rows.Scan(&agreement, &signature)
 				require.NoError(t, err)
-				rba := &pb.RenterBandwidthAllocation{}
+				rba := &pb.FileOrder{}
 				require.NoError(t, proto.Unmarshal(agreement, rba))
 				require.Equal(t, msg.BandwidthAllocation.GetSignature(), signature)
 				require.True(t, pb.Equal(pba, &rba.PayerAllocation))
@@ -439,7 +439,7 @@ func TestPbaValidation(t *testing.T) {
 			content := []byte("content")
 			pba, err := testbwagreement.GenerateFundsOrder(tt.action, satID1, upID, time.Hour)
 			require.NoError(t, err)
-			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, int64(len(content)))
+			rba, err := testbwagreement.GenerateFileOrder(pba, snID.ID, upID, int64(len(content)))
 			require.NoError(t, err)
 			msg := &pb.PieceStore{
 				PieceData:           &pb.PieceStore_PieceData{Content: content},

@@ -48,7 +48,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 
 	rba := recv.GetBandwidthAllocation()
 	if rba == nil {
-		return StoreError.New("RenterBandwidthAllocation message is nil")
+		return StoreError.New("FileOrder message is nil")
 	}
 
 	pba := rba.PayerAllocation

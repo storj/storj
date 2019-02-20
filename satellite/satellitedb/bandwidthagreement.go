@@ -20,7 +20,7 @@ type bandwidthagreement struct {
 	db *dbx.DB
 }
 
-func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.RenterBandwidthAllocation) (err error) {
+func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.FileOrder) (err error) {
 	expiration := time.Unix(rba.PayerAllocation.ExpirationUnixSec, 0)
 	_, err = b.db.Create_Bwagreement(
 		ctx,

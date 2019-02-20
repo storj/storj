@@ -42,7 +42,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 
 	rba := recv.GetBandwidthAllocation()
 	if rba == nil {
-		return RetrieveError.New("RenterBandwidthAllocation message is nil")
+		return RetrieveError.New("FileOrder message is nil")
 	}
 
 	pba := rba.PayerAllocation
@@ -114,7 +114,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 	// Bandwidth Allocation recv loop
 	go func() {
 		var lastTotal int64
-		var lastAllocation *pb.RenterBandwidthAllocation
+		var lastAllocation *pb.FileOrder
 		defer func() {
 			if lastAllocation == nil {
 				return

@@ -73,7 +73,7 @@ func sendGeneratedAgreements(ctx context.Context, t *testing.T, db satellite.DB,
 		require.NoError(t, err)
 		err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey)
 		assert.NoError(t, err)
-		rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, 1000)
+		rba, err := testbwagreement.GenerateFileOrder(pba, snID.ID, upID, 1000)
 		require.NoError(t, err)
 		agreements[i] = &psdb.Agreement{Agreement: *rba}
 	}
