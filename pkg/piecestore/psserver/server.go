@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -64,7 +63,6 @@ type Server struct {
 	totalAllocated   int64 // TODO: use memory.Size
 	totalBwAllocated int64 // TODO: use memory.Size
 	whitelist        map[storj.NodeID]crypto.PublicKey
-	verifier         auth.SignedMessageVerifier
 	kad              *kademlia.Kademlia
 }
 
@@ -143,7 +141,6 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 		totalAllocated:   allocatedDiskSpace,
 		totalBwAllocated: allocatedBandwidth,
 		whitelist:        whitelist,
-		verifier:         auth.NewSignedMessageVerifier(),
 		kad:              k,
 	}, nil
 }
@@ -163,12 +160,7 @@ func (s *Server) Stop(ctx context.Context) error {
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
 	s.log.Debug("Getting Meta", zap.String("Piece ID", in.GetId()))
 
-	authorization := in.GetAuthorization()
-	if err := s.verifier(authorization); err != nil {
-		return nil, ServerError.Wrap(err)
-	}
-
-	id, err := getNamespacedPieceID([]byte(in.GetId()), getNamespace(authorization))
+	id, err := getNamespacedPieceID([]byte(in.GetId()), in.SatelliteId.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -176,15 +168,6 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 	path, err := s.storage.PiecePath(id)
 	if err != nil {
 		return nil, err
-	}
-
-	match, err := regexp.MatchString("^[A-Za-z0-9]{20,64}$", id)
-	if err != nil {
-		return nil, err
-	}
-
-	if !match {
-		return nil, ServerError.New("invalid ID")
 	}
 
 	fileInfo, err := os.Stat(path)
@@ -261,11 +244,8 @@ func (s *Server) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_Dashb
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
 	s.log.Debug("Deleting", zap.String("Piece ID", fmt.Sprint(in.GetId())))
-	authorization := in.GetAuthorization()
-	if err := s.verifier(authorization); err != nil {
-		return nil, ServerError.Wrap(err)
-	}
-	id, err := getNamespacedPieceID([]byte(in.GetId()), getNamespace(authorization))
+
+	id, err := getNamespacedPieceID([]byte(in.GetId()), in.SatelliteId.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -371,10 +351,6 @@ func getNamespacedPieceID(pieceID, namespace []byte) (string, error) {
 	}
 	h := mac.Sum(nil)
 	return base58.Encode(h), nil
-}
-
-func getNamespace(signedMessage *pb.SignedMessage) []byte {
-	return signedMessage.GetData()
 }
 
 func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, error) {

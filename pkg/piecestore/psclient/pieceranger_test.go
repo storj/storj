@@ -59,13 +59,7 @@ func TestPieceRanger(t *testing.T) {
 		pid := NewPieceID()
 
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
-			msg1 := &pb.PieceRetrieval{
-				PieceData: &pb.PieceRetrieval_PieceData{
-					Id: pid.String(), PieceSize: tt.length, Offset: tt.offset,
-				},
-			}
-
-			stream.EXPECT().Send(msg1).Return(nil)
+			stream.EXPECT().Send(gomock.Any()).Return(nil)
 			stream.EXPECT().Send(gomock.Any()).Return(nil).MinTimes(0).MaxTimes(1)
 			stream.EXPECT().Recv().Return(
 				&pb.PieceRetrievalStream{
@@ -86,7 +80,7 @@ func TestPieceRanger(t *testing.T) {
 		target.Type.DPanicOnInvalid("pr test")
 		c, err := NewCustomRoute(route, target, 32*1024, id)
 		assert.NoError(t, err)
-		rr, err := PieceRanger(ctx, c, stream, pid, &pb.PayerBandwidthAllocation{}, nil)
+		rr, err := PieceRanger(ctx, c, stream, pid, &pb.PayerBandwidthAllocation{})
 		if assert.NoError(t, err, errTag) {
 			assert.Equal(t, tt.size, rr.Size(), errTag)
 		}
@@ -139,13 +133,7 @@ func TestPieceRangerSize(t *testing.T) {
 		stream := pb.NewMockPieceStoreRoutes_RetrieveClient(ctrl)
 
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
-			msg1 := &pb.PieceRetrieval{
-				PieceData: &pb.PieceRetrieval_PieceData{
-					Id: pid.String(), PieceSize: tt.length, Offset: tt.offset,
-				},
-			}
-
-			stream.EXPECT().Send(msg1).Return(nil)
+			stream.EXPECT().Send(gomock.Any()).Return(nil)
 			stream.EXPECT().Send(gomock.Any()).Return(nil).MinTimes(0).MaxTimes(1)
 			stream.EXPECT().Recv().Return(
 				&pb.PieceRetrievalStream{
@@ -168,7 +156,7 @@ func TestPieceRangerSize(t *testing.T) {
 		target.Type.DPanicOnInvalid("pr test 2")
 		c, err := NewCustomRoute(route, target, 32*1024, id)
 		assert.NoError(t, err)
-		rr := PieceRangerSize(c, stream, pid, tt.size, &pb.PayerBandwidthAllocation{}, nil)
+		rr := PieceRangerSize(c, stream, pid, tt.size, &pb.PayerBandwidthAllocation{})
 		assert.Equal(t, tt.size, rr.Size(), errTag)
 		r, err := rr.Range(ctx, tt.offset, tt.length)
 		if tt.errString != "" {

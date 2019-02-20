@@ -19,24 +19,22 @@ type StreamWriter struct {
 	stream       pb.PieceStoreRoutes_StoreClient
 	signer       *PieceStore // We need this for signing
 	totalWritten int64
-	pba          *pb.PayerBandwidthAllocation
+	rba          *pb.RenterBandwidthAllocation
 }
 
 // Write Piece data to a piece store server upload stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
 	updatedAllocation := s.totalWritten + int64(len(b))
-	rba := &pb.RenterBandwidthAllocation{
-		PayerAllocation: *s.pba,
-		Total:           updatedAllocation,
-		StorageNodeId:   s.signer.remoteID,
-	}
-	err := auth.SignMessage(rba, *s.signer.selfID)
+
+	s.rba.Total = updatedAllocation
+	err := auth.SignMessage(s.rba, *s.signer.selfID)
 	if err != nil {
 		return 0, err
 	}
+
 	msg := &pb.PieceStore{
 		PieceData:           &pb.PieceStore_PieceData{Content: b},
-		BandwidthAllocation: rba,
+		BandwidthAllocation: s.rba,
 	}
 	s.totalWritten = updatedAllocation
 	// Second we send the actual content
@@ -70,7 +68,7 @@ type StreamReader struct {
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
-func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation, size int64) *StreamReader {
+func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, rba *pb.RenterBandwidthAllocation, size int64) *StreamReader {
 	sr := &StreamReader{
 		pendingAllocs: sync2.NewThrottle(),
 		client:        client,
@@ -92,11 +90,9 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 			if sr.allocated+trustedSize > size {
 				allocate = size - sr.allocated
 			}
-			rba := &pb.RenterBandwidthAllocation{
-				PayerAllocation: *pba,
-				Total:           sr.allocated + allocate,
-				StorageNodeId:   sr.client.remoteID,
-			}
+
+			rba.Total = sr.allocated + allocate
+
 			err := auth.SignMessage(rba, *client.selfID)
 			if err != nil {
 				sr.pendingAllocs.Fail(err)
