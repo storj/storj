@@ -143,11 +143,11 @@ import { validateEmail } from '@/utils/validation';
                 }
 
                 this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members successfully added to project!');
-				this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+                this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-				const fetchMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
-				if (!fetchMembersResponse.isSuccess) {
-					this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                const fetchMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
+                if (!fetchMembersResponse.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
                 }
 
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
@@ -168,23 +168,18 @@ import { validateEmail } from '@/utils/validation';
             },
             resetFormErrors: function(index): void {
                 this.$data.inputs[index].setError(false);
-                if(!(this as any).hasInputError()) {
-					this.$data.formError = '';
+                if (!(this as any).hasInputError()) {
+                    this.$data.formError = '';
                 }
             },
             onClose: function(): void {
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
             },
             hasInputError: function (): boolean {
-                let hasError = false;
-				this.$data.inputs.some((element: EmailInput)=>{
-				    if(element.error) {
-				    	hasError = true;
-				    	return true;
-                    }
+                return this.$data.inputs.some((element: EmailInput) => {
+                    return element.error;
                 });
-                return hasError;
-			}
+            }
          },
         computed: {
             isMaxInputsCount: function(): boolean {
