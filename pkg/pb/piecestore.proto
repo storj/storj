@@ -66,6 +66,7 @@ message PieceId {
   string id = 1;
 
   SignedMessage authorization = 2;
+  bytes satellite_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 message PieceSummary {
@@ -96,6 +97,7 @@ message PieceDelete {
   // TODO: may want to use customtype and fixed-length byte slice
   string id = 1;
   SignedMessage authorization = 3;
+  bytes satellite_id = 4 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 message PieceDeleteSummary {
