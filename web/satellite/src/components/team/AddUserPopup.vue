@@ -176,16 +176,9 @@ import { validateEmail } from '@/utils/validation';
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
             },
             hasInputError: function (): boolean {
-                let hasError = false;
-                this.$data.inputs.some((element: EmailInput) => {
-                    if (element.error) {
-                        hasError = true;
-
-                        return true;
-                    }
+                return this.$data.inputs.some((element: EmailInput) => {
+                    return element.error;
                 });
-
-                return hasError;
             }
          },
         computed: {
