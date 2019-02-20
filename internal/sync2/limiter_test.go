@@ -13,6 +13,8 @@ import (
 )
 
 func TestLimiterLimiting(t *testing.T) {
+	t.Parallel()
+
 	const N, Limit = 1000, 10
 	ctx := context.Background()
 	limiter := sync2.NewLimiter(Limit)
@@ -30,6 +32,8 @@ func TestLimiterLimiting(t *testing.T) {
 }
 
 func TestLimiterCancelling(t *testing.T) {
+	t.Parallel()
+
 	const N, Limit = 1000, 10
 	limiter := sync2.NewLimiter(Limit)
 
