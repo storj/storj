@@ -109,28 +109,20 @@ func (db *DB) Migration() *migrate.Migration {
 				Version:     1,
 				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
 					v1sql := migrate.SQL{
-						`ALTER TABLE bandwidth_agreements RENAME TO bandwidth_agreements_old`,
-						`CREATE TABLE IF NOT EXISTS bandwidth_agreements (
-									satellite BLOB,
-									agreement BLOB,
-									signature BLOB,
-									uplink BLOB,
-									serialnum TEXT NOT NULL,
-									total INT(10),
-									maxsize INT(10),
-									createdunixsec INT(10),
-									expirationunixsec INT(10),
-									action TEXT,
-									daystartdateunixsec INT(10)
-								)`,
-						`INSERT INTO bandwidth_agreements (satellite, agreement, signature)
-								 SELECT satellite, agreement, signature FROM bandwidth_agreements_old`,
+						`ALTER TABLE bandwidth_agreements ADD COLUMN uplink BLOB`,
+						`ALTER TABLE bandwidth_agreements ADD COLUMN serialnum TEXT`,
+						`ALTER TABLE bandwidth_agreements ADD COLUMN total INT(10)`,
+						`ALTER TABLE bandwidth_agreements ADD COLUMN maxsize INT(10)`,
+						`ALTER TABLE bandwidth_agreements ADD COLUMN createdunixsec INT(10)`,
+						`ALTER TABLE bandwidth_agreements ADD COLUMN expirationunixsec INT(10)`,
+						`ALTER TABLE bandwidth_agreements ADD COLUMN action TEXT`,
+						`ALTER TABLE bandwidth_agreements ADD COLUMN daystartdateunixsec INT(10)`,
 					}
 					_ = v1sql.Run(log, db, tx)
 
 					// iterate through the table and fill
 					err := func() error {
-						rows, err := tx.Query(`SELECT * FROM  bandwidth_agreements ORDER BY satellite`)
+						rows, err := tx.Query(`SELECT agreement FROM  bandwidth_agreements ORDER BY satellite`)
 						if err != nil {
 							return err
 						}
@@ -139,12 +131,7 @@ func (db *DB) Migration() *migrate.Migration {
 						for rows.Next() {
 							rbaBytes := []byte{}
 							agreement := &Agreement{}
-							var satellite []byte
-							var uplink []byte
-							var serialnum string
-							var total, maxsize, createdUnixSec, expirationUnixSec, daystartdateUnixSec int64
-							var action string
-							err := rows.Scan(&satellite, &rbaBytes, &agreement.Signature, &uplink, &serialnum, &total, &maxsize, &createdUnixSec, &expirationUnixSec, &action, &daystartdateUnixSec)
+							err := rows.Scan(&rbaBytes)
 							if err != nil {
 								return err
 							}
@@ -155,15 +142,8 @@ func (db *DB) Migration() *migrate.Migration {
 							}
 							// update the new columns data
 							rba := &agreement.Agreement
-							uplink = rba.PayerAllocation.UplinkId.Bytes()
-							serialnum = rba.PayerAllocation.SerialNumber
-							total = rba.Total
-							maxsize = rba.PayerAllocation.MaxSize
-							createdUnixSec = rba.PayerAllocation.CreatedUnixSec
-							expirationUnixSec = rba.PayerAllocation.ExpirationUnixSec
-							action = rba.PayerAllocation.GetAction().String()
-							t := time.Unix(createdUnixSec, 0)
-							daystartdateUnixSec = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
+							t := time.Unix(rba.PayerAllocation.CreatedUnixSec, 0)
+							daystartdateUnixSec := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
 
 							// update the row by signature as it is unique
 							_, err = tx.Exec(`UPDATE bandwidth_agreements SET uplink, serialnum, total, maxsize, createdunixsec, expirationunixsec, action, daystartdateunixsec) VALUES (?, ?, ?, ?, ?, ?, ?, ?) WHERE signature = ?`,
@@ -181,7 +161,6 @@ func (db *DB) Migration() *migrate.Migration {
 						return err
 					}
 					_, err = tx.Exec(`
-							DROP TABLE bandwidth_agreements_old;
 							DROP TABLE bwusagetbl;
 						`)
 					if err != nil {
