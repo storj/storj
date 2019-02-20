@@ -173,7 +173,9 @@ describe('actions', () => {
         jest.resetAllMocks();
     });
     it('success fetch project', async () => {
-        jest.spyOn(api, 'fetchProjectsRequest').mockReturnValue({isSuccess: true, data: [{id: '1'}, {id: '2'}]});
+        jest.spyOn(api, 'fetchProjectsRequest').mockReturnValue(
+            Promise.resolve(<RequestResponse<Project[]>>{isSuccess: true, data: [{id: '1'}, {id: '2'}]})
+        );
 
         const commit = jest.fn();
 
@@ -184,7 +186,9 @@ describe('actions', () => {
     });
 
     it('error fetch project', async () => {
-        jest.spyOn(api, 'fetchProjectsRequest').mockReturnValue({isSuccess: false});
+        jest.spyOn(api, 'fetchProjectsRequest').mockReturnValue(
+            Promise.resolve(<RequestResponse<Project[]>>{isSuccess: false})
+        );
         const commit = jest.fn();
         const dispatchResponse = await projectsModule.actions.fetchProjects({commit});
 
@@ -193,7 +197,9 @@ describe('actions', () => {
     });
 
     it('success create project', async () => {
-        jest.spyOn(api, 'createProjectRequest').mockReturnValue({isSuccess: true, data: {id: '1'}});
+        jest.spyOn(api, 'createProjectRequest').mockReturnValue(
+            Promise.resolve(<RequestResponse<Project>>{isSuccess: true, data: {id: '1'}})
+        );
         const commit = jest.fn();
         const project: Project = {
             name: '',
@@ -210,7 +216,9 @@ describe('actions', () => {
     });
 
     it('error create project', async () => {
-        jest.spyOn(api, 'createProjectRequest').mockReturnValue({isSuccess: false});
+        jest.spyOn(api, 'createProjectRequest').mockReturnValue(
+            Promise.resolve(<RequestResponse<Project>>{isSuccess: false})
+        );
 
         const commit = jest.fn();
 
@@ -237,7 +245,7 @@ describe('actions', () => {
     });
 
     it('success update project description', async () => {
-        jest.spyOn(api, 'updateProjectRequest').mockReturnValue({isSuccess: true});
+        jest.spyOn(api, 'updateProjectRequest').mockReturnValue(Promise.resolve(<RequestResponse<null>>{isSuccess: true}));
         const commit = jest.fn();
         const project: Project = {
             name: '',
@@ -254,7 +262,7 @@ describe('actions', () => {
     });
 
     it('error update project description', async () => {
-        jest.spyOn(api, 'updateProjectRequest').mockReturnValue({isSuccess: false});
+        jest.spyOn(api, 'updateProjectRequest').mockReturnValue(Promise.resolve(<RequestResponse<null>>{isSuccess: false}));
         const commit = jest.fn();
         const project: Project = {
             name: '',
@@ -271,7 +279,7 @@ describe('actions', () => {
     });
 
     it('success delete project', async () => {
-        jest.spyOn(api, 'deleteProjectRequest').mockReturnValue({isSuccess: true});
+        jest.spyOn(api, 'deleteProjectRequest').mockReturnValue(Promise.resolve(<RequestResponse<null>>{isSuccess: true}));
         const commit = jest.fn();
         const project = 'id';
 
@@ -282,7 +290,7 @@ describe('actions', () => {
     });
 
     it('error delete project', async () => {
-        jest.spyOn(api, 'deleteProjectRequest').mockReturnValue({isSuccess: false});
+        jest.spyOn(api, 'deleteProjectRequest').mockReturnValue(Promise.resolve(<RequestResponse<null>>{isSuccess: false}));
         const commit = jest.fn();
 
         const dispatchResponse = await projectsModule.actions.deleteProject({commit}, 'id');
