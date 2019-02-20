@@ -18,11 +18,15 @@ service KadInspector {
   rpc LookupNode(LookupNodeRequest) returns (LookupNodeResponse);
   // FindNear returns limit number of IDs "near" the Start ID
   rpc FindNear(FindNearRequest) returns (FindNearResponse);
+  // DumpNodes returns all the nodes in the node database
+  rpc DumpNodes(DumpNodesRequest) returns (DumpNodesResponse);
 }
 
 service OverlayInspector {
   // CountNodes returns the number of nodes in the cache
   rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
+  // DumpNodes returns all the nodes in the cache
+  rpc DumpNodes(DumpNodesRequest) returns (DumpNodesResponse);
 }
 
 service StatDBInspector {
@@ -118,4 +122,10 @@ message FindNearRequest {
 
 message FindNearResponse {
   repeated node.Node nodes = 2;
+}
+
+message DumpNodesRequest {}
+
+message DumpNodesResponse {
+  repeated node.Node nodes = 1;
 }

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -144,6 +145,40 @@ func (rt *RoutingTable) GetBucketIds() (storage.Keys, error) {
 		return nil, err
 	}
 	return kbuckets, nil
+}
+
+// DumpNodes loops returns all nodes in the nodeBucketDB and marshals them to &pb.Nodes
+func (rt *RoutingTable) DumpNodes() ([]*pb.Node, error) {
+	var nodes []*pb.Node
+
+	nodeKeys, err := rt.nodeBucketDB.List(nil, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, key := range nodeKeys {
+		var id storj.NodeID
+		var node = &pb.Node{}
+
+		val, err := rt.nodeBucketDB.Get(key)
+		if err != nil {
+			continue
+		}
+
+		err = id.Unmarshal(key)
+		if err != nil {
+			fmt.Printf("error unmarshaling node id in DumpNodes %+v\n", err)
+			return nil, err
+		}
+
+		err = proto.Unmarshal(val, node)
+		if err != nil {
+			fmt.Printf("error unmarshaling node value in DumpNodes %+v\n", err)
+		}
+		nodes = append(nodes, node)
+	}
+
+	return nodes, nil
 }
 
 // FindNear returns the node corresponding to the provided nodeID
