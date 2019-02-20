@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/satellite"
@@ -60,9 +61,11 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 				t.Skipf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
 			}
 
+			log := zaptest.NewLogger(t)
+
 			schema := strings.ToLower(t.Name() + "-satellite/x-" + schemaSuffix)
 			connstr := pgutil.ConnstrWithSchema(dbInfo.URL, schema)
-			db, err := satellitedb.New(connstr)
+			db, err := satellitedb.New(log, connstr)
 			if err != nil {
 				t.Fatal(err)
 			}

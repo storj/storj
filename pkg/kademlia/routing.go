@@ -30,7 +30,7 @@ const (
 var RoutingErr = errs.Class("routing table error")
 
 // Bucket IDs exist in the same address space as node IDs
-type bucketID [len(storj.NodeID{})]byte
+type bucketID storj.NodeID
 
 var firstBucketID = bucketID{
 	0xFF, 0xFF, 0xFF, 0xFF,
@@ -183,28 +183,32 @@ func (rt *RoutingTable) DumpNodes() ([]*pb.Node, error) {
 
 // FindNear returns the node corresponding to the provided nodeID
 // returns all Nodes closest via XOR to the provided nodeID up to the provided limit
-// always returns limit + self
-func (rt *RoutingTable) FindNear(id storj.NodeID, limit int) (nodes []*pb.Node, err error) {
-	// if id is not in the routing table
-	nodeIDsKeys, err := rt.nodeBucketDB.List(nil, 0)
-	if err != nil {
-		return nodes, RoutingErr.New("could not get node ids %s", err)
-	}
-	nodeIDs, err := storj.NodeIDsFromBytes(nodeIDsKeys.ByteSlices())
-	if err != nil {
-		return nodes, RoutingErr.Wrap(err)
-	}
-	sortByXOR(nodeIDs, id)
-	if len(nodeIDs) >= limit {
-		nodeIDs = nodeIDs[:limit]
-	}
-
-	nodes, err = rt.getNodesFromIDsBytes(nodeIDs)
-	if err != nil {
-		return nodes, RoutingErr.New("could not get nodes %s", err)
-	}
-
-	return nodes, nil
+func (rt *RoutingTable) FindNear(target storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
+	closestNodes := make([]*pb.Node, 0, limit+1)
+	err := rt.iterate(storj.NodeID{}, func(newID storj.NodeID, protoNode []byte) error {
+		newPos := len(closestNodes)
+		for ; newPos > 0 && compareByXor(closestNodes[newPos-1].Id, newID, target) > 0; newPos-- {
+		}
+		if newPos != limit {
+			newNode := pb.Node{}
+			err := proto.Unmarshal(protoNode, &newNode)
+			if err != nil {
+				return err
+			}
+			if meetsRestrictions(restrictions, newNode) {
+				closestNodes = append(closestNodes, &newNode)
+				if newPos != len(closestNodes) { //reorder
+					copy(closestNodes[newPos+1:], closestNodes[newPos:])
+					closestNodes[newPos] = &newNode
+					if len(closestNodes) > limit {
+						closestNodes = closestNodes[:limit]
+					}
+				}
+			}
+		}
+		return nil
+	})
+	return closestNodes, Error.Wrap(err)
 }
 
 // UpdateSelf updates a node on the routing table
@@ -289,8 +293,26 @@ func (rt *RoutingTable) GetBucketTimestamp(bIDBytes []byte) (time.Time, error) {
 	return time.Unix(0, timestamp).UTC(), nil
 }
 
-func (rt *RoutingTable) iterate(opts storage.IterateOptions, f func(it storage.Iterator) error) error {
-	return rt.nodeBucketDB.Iterate(opts, f)
+func (rt *RoutingTable) iterate(start storj.NodeID, f func(storj.NodeID, []byte) error) error {
+	return rt.nodeBucketDB.Iterate(storage.IterateOptions{First: storage.Key(start.Bytes()), Recurse: true},
+		func(it storage.Iterator) error {
+			var item storage.ListItem
+			for it.Next(&item) {
+				nodeID, err := storj.NodeIDFromBytes(item.Key)
+				if err != nil {
+					return err
+				}
+				if nodeID == rt.self.Id {
+					continue //todo:  revisit if self ID should be in routing table
+				}
+				err = f(nodeID, item.Value)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	)
 }
 
 // ConnFailure implements the Transport failure function

@@ -57,6 +57,18 @@ type Action interface {
 	Run(log *zap.Logger, db DB, tx *sql.Tx) error
 }
 
+// TargetVersion returns migration with steps upto specified version
+func (migration *Migration) TargetVersion(version int) *Migration {
+	m := *migration
+	m.Steps = nil
+	for _, step := range migration.Steps {
+		if step.Version <= version {
+			m.Steps = append(m.Steps, step)
+		}
+	}
+	return &m
+}
+
 // ValidTableName checks whether the specified table name is valid
 func (migration *Migration) ValidTableName() error {
 	matched, err := regexp.MatchString(`^[a-z_]+$`, migration.Table)

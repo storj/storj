@@ -215,8 +215,10 @@ func cleanup(cmd *cobra.Command) {
 		defer zap.RedirectStdLog(logger)()
 
 		// okay now that logging is working, inform about the broken keys
-		for _, key := range brokenKeys {
-			logger.Sugar().Infof("Invalid configuration file key: %s", key)
+		if cmd.Annotations["type"] != "helper" {
+			for _, key := range brokenKeys {
+				logger.Sugar().Infof("Invalid configuration file key: %s", key)
+			}
 		}
 		for _, key := range brokenVals {
 			logger.Sugar().Infof("Invalid configuration file value for key: %s", key)

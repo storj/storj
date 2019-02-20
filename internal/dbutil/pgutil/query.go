@@ -4,7 +4,6 @@
 package pgutil
 
 import (
-	"database/sql"
 	"fmt"
 	"regexp"
 
@@ -14,19 +13,13 @@ import (
 	"storj.io/storj/internal/dbutil/dbschema"
 )
 
-// Queryer is a representation for something that can query.
-type Queryer interface {
-	// Query executes a query that returns rows, typically a SELECT.
-	Query(query string, args ...interface{}) (*sql.Rows, error)
-}
-
 // QuerySchema loads the schema from postgres database.
-func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
+func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 	schema := &dbschema.Schema{}
 
 	// find tables
 	err := func() error {
-		rows, err := tx.Query(`
+		rows, err := db.Query(`
 			SELECT table_name, column_name, is_nullable, data_type
 			FROM  information_schema.columns
 			WHERE table_schema = CURRENT_SCHEMA
@@ -54,12 +47,12 @@ func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 		return rows.Err()
 	}()
 	if err != nil {
-		return schema, err
+		return nil, err
 	}
 
 	// find constraints
 	err = func() error {
-		rows, err := tx.Query(`
+		rows, err := db.Query(`
 			SELECT  pg_class.relname      AS table_name,
 			        pg_constraint.conname AS constraint_name,
 					pg_constraint.contype AS constraint_type,
@@ -132,7 +125,7 @@ func QuerySchema(tx Queryer) (*dbschema.Schema, error) {
 	}
 
 	// TODO: find indexes
-
+	schema.Sort()
 	return schema, nil
 }
 
