@@ -390,11 +390,7 @@ func (db *DB) DeleteTTLByID(id string) error {
 
 // GetBandwidthUsedByDay finds the so far bw used by day and return it
 func (db *DB) GetBandwidthUsedByDay(t time.Time) (size int64, err error) {
-	defer db.locked()()
-
-	daystarttime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
-	err = db.DB.QueryRow(`SELECT SUM(total) FROM bandwidth_agreements WHERE daystartdateunixsec=?`, daystarttime).Scan(&size)
-	return size, err
+	return db.GetTotalBandwidthBetween(t, t)
 }
 
 // GetTotalBandwidthBetween each row in the bwusagetbl contains the total bw used per day
@@ -402,7 +398,7 @@ func (db *DB) GetTotalBandwidthBetween(startdate time.Time, enddate time.Time) (
 	defer db.locked()()
 
 	startTimeUnix := time.Date(startdate.Year(), startdate.Month(), startdate.Day(), 0, 0, 0, 0, startdate.Location()).Unix()
-	endTimeUnix := time.Date(enddate.Year(), enddate.Month(), enddate.Day(), 0, 0, 0, 0, enddate.Location()).Unix()
+	endTimeUnix := time.Date(enddate.Year(), enddate.Month(), enddate.Day(), 24, 0, 0, 0, enddate.Location()).Unix()
 	defaultunixtime := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Now().Location()).Unix()
 
 	if (endTimeUnix < startTimeUnix) && (startTimeUnix > defaultunixtime || endTimeUnix > defaultunixtime) {
