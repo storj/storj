@@ -112,26 +112,45 @@ func TestPeerCAWhitelist(t *testing.T) {
 	t.Run("all nodes signed", func(t *testing.T) {
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount:   1,
-			StorageNodeCount: 1,
+			StorageNodeCount: 10,
 			UplinkCount:      0,
 			UsePeerCAWhitelist: true,
-			//UsePeerCAWhitelist: false,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			err := planet.Ping(ctx)
 			assert.NoError(t, err)
 		})
 	})
 
-	t.Run("unsigned satellite", func(t *testing.T) {
-		testIdentities, err := testplanet.MixedIdentities([]int{1}, testplanet.MixedIndexesUnsigned)
-		require.NoError(t, err)
-
+	t.Run("all nodes unsigned", func(t *testing.T) {
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount:   1,
 			StorageNodeCount: 0,
 			UplinkCount:      0,
 			UsePeerCAWhitelist: true,
+			Identities: testplanet.NewPregeneratedIdentities(),
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			//_ = planet.Ping(ctx)
+			//fmt.Println(err)
+			//assert.Error(t, err)
+			//assert.True(t, true)
+		})
+	})
+
+	t.Run("unsigned satellite", func(t *testing.T) {
+		testIdentities, err := testplanet.MixedIdentities([]int{1,2,3}, testplanet.MixedIndexesUnsigned)
+		require.NoError(t, err)
+
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount:   1,
+			StorageNodeCount: 1,
+			UplinkCount:      0,
+			UsePeerCAWhitelist: true,
 			Identities:       testIdentities,
+			//Reconfigure: testplanet.Reconfigure{
+			//	Satellite: func(_ int, cfg *satellite.Config) {
+			//		cfg.Server.UsePeerCAWhitelist = false
+			//	},
+			//},
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			err := planet.Ping(ctx)
 			assert.NoError(t, err)

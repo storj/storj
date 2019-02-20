@@ -133,7 +133,6 @@ func (peer *closablePeer) Close() error {
 	return peer.err
 }
 
-type permutePeersFunc func(a, b Peer, labels [2]string) error
 type iteratePeersFunc func(p Peer, label string) error
 
 // New creates a new full system with the given number of nodes.
@@ -180,8 +179,7 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	}
 
 	if config.UsePeerCAWhitelist {
-		config.Reconfigure, err = planet.usePeerCAWhitelist()
-		if err != nil {
+		if err := planet.usePeerCAWhitelist(); err != nil {
 			return nil, err
 		}
 	}
@@ -441,34 +439,29 @@ func writeWhitelist(dir string) (string, error) {
 }
 
 // usePeerCAWhitelist reconfigures the planet to use peer ca whitelisting on node types running kad.
-func (planet *Planet) usePeerCAWhitelist() (Reconfigure, error) {
+func (planet *Planet) usePeerCAWhitelist() error {
 	whitelistPath, err := writeWhitelist(planet.directory)
 	if err != nil {
-		return Reconfigure{}, err
+		return err
 	}
 
-	return Reconfigure{
-		Bootstrap: func(_ int, c *bootstrap.Config) {
-			c.Server.PeerCAWhitelistPath = whitelistPath
-			c.Server.UsePeerCAWhitelist = true
-			//c.Server.UsePeerCAWhitelist = false
-		},
-		Satellite: func(_ int, c *satellite.Config) {
-			c.Server.PeerCAWhitelistPath = whitelistPath
-			c.Server.UsePeerCAWhitelist = true
-			//c.Server.UsePeerCAWhitelist = false
-		},
-		StorageNode: func(_ int, c *storagenode.Config) {
-			c.Server.PeerCAWhitelistPath = whitelistPath
-			c.Server.UsePeerCAWhitelist = true
-			//c.Server.UsePeerCAWhitelist = false
-		},
-		KadPeer: func(c *KadPeerConfig) {
-			c.Server.PeerCAWhitelistPath = whitelistPath
-			c.Server.UsePeerCAWhitelist = true
-			//c.Server.UsePeerCAWhitelist = false
-		},
-	}, nil
+	planet.config.Reconfigure.Bootstrap = func(_ int, c *bootstrap.Config) {
+		c.Server.PeerCAWhitelistPath = whitelistPath
+		c.Server.UsePeerCAWhitelist = true
+	}
+	planet.config.Reconfigure.Satellite = func(_ int, c *satellite.Config) {
+		c.Server.PeerCAWhitelistPath = whitelistPath
+		c.Server.UsePeerCAWhitelist = true
+	}
+	planet.config.Reconfigure.StorageNode = func(_ int, c *storagenode.Config) {
+		c.Server.PeerCAWhitelistPath = whitelistPath
+		c.Server.UsePeerCAWhitelist = true
+	}
+	planet.config.Reconfigure.KadPeer = func(c *KadPeerConfig) {
+		c.Server.PeerCAWhitelistPath = whitelistPath
+		c.Server.UsePeerCAWhitelist = true
+	}
+	return nil
 }
 
 // newUplinks creates initializes uplinks, requires peer to have at least one satellite
@@ -804,7 +797,6 @@ func (planet *Planet) newKad(prefix, bootstrapAddr string) (peer *KadPeer, err e
 			Config: tlsopts.Config{
 				RevocationDBURL:    "bolt://" + filepath.Join(dbDir, "revocation.db"),
 				UsePeerCAWhitelist: false, // TODO: enable
-				//UsePeerCAWhitelist: true, // TODO: enable
 				Extensions: peertls.TLSExtConfig{
 					Revocation:          false,
 					WhitelistSignedLeaf: false,
