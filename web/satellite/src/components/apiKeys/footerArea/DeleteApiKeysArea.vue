@@ -56,7 +56,7 @@ import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/action
             return this.$store.getters.selectedAPIKeys.length;
         },
         allAPIKeysCount: function (): number {
-            return this.$store.getters.APIKeys.length;
+            return this.$store.state.apiKeysModule.apiKeys.length;
         }
     },
     components: {
