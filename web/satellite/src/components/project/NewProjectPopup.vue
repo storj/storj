@@ -97,8 +97,19 @@ import { validateProjectName } from '@/utils/validation';
                     return;
                 }
 
+                // Select newly created project
+                this.$store.dispatch(PROJETS_ACTIONS.SELECT, response.data.id);
+
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
+
+                if (this.$store.state.projectsModule.projects.length == 1) {
+                    // Start successful project creation sequence
+                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
+
+                    return;
+                }
+
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project created successfully!');
             }
         },
         components: {
