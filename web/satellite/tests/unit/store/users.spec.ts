@@ -85,15 +85,15 @@ describe('actions', () => {
         jest.resetAllMocks();
     });
     it('success update account', async () => {
-		jest.spyOn(api, 'updateAccountRequest').mockReturnValue(
-			Promise.resolve(<RequestResponse<User>>{
-				isSuccess: true, data: {
-					firstName: 'firstName',
-					lastName: 'lastName',
-					email: 'email',
-				}
-			})
-		);
+        jest.spyOn(api, 'updateAccountRequest').mockReturnValue(
+            Promise.resolve(<RequestResponse<User>>{
+                isSuccess: true, data: {
+                    firstName: 'firstName',
+                    lastName: 'lastName',
+                    email: 'email',
+                }
+            })
+        );
         const commit = jest.fn();
         const user = {
             firstName: '',
@@ -113,10 +113,10 @@ describe('actions', () => {
 
     it('error update account', async () => {
         jest.spyOn(api, 'updateAccountRequest').mockReturnValue(
-			Promise.resolve(<RequestResponse<User>>{
-				isSuccess: false
-			})
-		);
+            Promise.resolve(<RequestResponse<User>>{
+                isSuccess: false
+            })
+        );
         const commit = jest.fn();
         const user = {
             firstName: '',
@@ -132,10 +132,10 @@ describe('actions', () => {
 
     it('password change', async () => {
         jest.spyOn(api, 'changePasswordRequest').mockReturnValue(
-			Promise.resolve(<RequestResponse<null>>{
-				isSuccess: true
-			})
-		);
+            Promise.resolve(<RequestResponse<null>>{
+                isSuccess: true
+            })
+        );
         const commit = jest.fn();
         const updatePasswordModel = {oldPassword: 'o', newPassword: 'n'};
 
@@ -145,11 +145,11 @@ describe('actions', () => {
     });
 
     it('delete account', async () => {
-		jest.spyOn(api, 'deleteAccountRequest').mockReturnValue(
-			Promise.resolve(<RequestResponse<null>>{
-				isSuccess: true
-			})
-		);
+        jest.spyOn(api, 'deleteAccountRequest').mockReturnValue(
+            Promise.resolve(<RequestResponse<null>>{
+                isSuccess: true
+            })
+        );
 
         const commit = jest.fn();
         const password = '';
@@ -160,16 +160,16 @@ describe('actions', () => {
     });
 
     it('success get user', async () => {
-		jest.spyOn(api, 'getUserRequest').mockReturnValue(
-			Promise.resolve(<RequestResponse<User>>{
-				isSuccess: true,
-				data: {
-					firstName: '',
-					lastName: '',
-					email: ''
-				}
-			})
-		);
+        jest.spyOn(api, 'getUserRequest').mockReturnValue(
+            Promise.resolve(<RequestResponse<User>>{
+                isSuccess: true,
+                data: {
+                    firstName: '',
+                    lastName: '',
+                    email: ''
+                }
+            })
+        );
         const commit = jest.fn();
 
         const requestResponse = await usersModule.actions.getUser({commit});
@@ -178,11 +178,11 @@ describe('actions', () => {
     });
 
     it('error get user', async () => {
-		jest.spyOn(api, 'getUserRequest').mockReturnValue(
-			Promise.resolve(<RequestResponse<User>>{
-				isSuccess: false
-			})
-		);
+        jest.spyOn(api, 'getUserRequest').mockReturnValue(
+            Promise.resolve(<RequestResponse<User>>{
+                isSuccess: false
+            })
+        );
         const commit = jest.fn();
 
         const requestResponse = await usersModule.actions.getUser({commit});

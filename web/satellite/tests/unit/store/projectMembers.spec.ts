@@ -208,11 +208,11 @@ describe('actions', () => {
             },
             joinedAt: '1'
         };
-		jest.spyOn(api, 'fetchProjectMembersRequest').mockReturnValue(
-			Promise.resolve(<RequestResponse<TeamMemberModel[]>>{
-				isSuccess: true,
-				data: [projectMemberMockModel]
-			}));
+        jest.spyOn(api, 'fetchProjectMembersRequest').mockReturnValue(
+            Promise.resolve(<RequestResponse<TeamMemberModel[]>>{
+                isSuccess: true,
+                data: [projectMemberMockModel]
+            }));
 
         const dispatchResponse = await projectMembersModule.actions.fetchProjectMembers({
             state,
@@ -240,11 +240,11 @@ describe('actions', () => {
             }
         };
         const commit = jest.fn();
-		jest.spyOn(api, 'fetchProjectMembersRequest').mockReturnValue(
-			Promise.resolve(<RequestResponse<TeamMemberModel[]>>{
-				isSuccess: false,
-			})
-		);
+        jest.spyOn(api, 'fetchProjectMembersRequest').mockReturnValue(
+            Promise.resolve(<RequestResponse<TeamMemberModel[]>>{
+                isSuccess: false,
+            })
+        );
 
         const dispatchResponse = await projectMembersModule.actions.fetchProjectMembers({
             state,
