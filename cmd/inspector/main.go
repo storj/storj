@@ -58,6 +58,15 @@ var (
 		Use:   "statdb",
 		Short: "commands for statdb",
 	}
+	overlayCmd = &cobra.Command{
+		Use:   "overlay",
+		Short: "commands for overlay cache",
+	}
+	overlayCountNodeCmd = &cobra.Command{
+		Use:   "count",
+		Short: "return count of nodes in overlay cache",
+		RunE:  OverlayCountNodes,
+	}
 	countNodeCmd = &cobra.Command{
 		Use:   "count",
 		Short: "count nodes in kademlia and overlay",
@@ -74,6 +83,11 @@ var (
 		Short: "lookup a node by ID only",
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  LookupNode,
+	}
+	overlayDumpNodesCmd = &cobra.Command{
+		Use:   "dump-nodes",
+		Short: "dump all the nodes in the cache",
+		RunE:  OverlayDumpNodes,
 	}
 	dumpNodesCmd = &cobra.Command{
 		Use:   "dump-nodes",
@@ -160,7 +174,23 @@ func CountNodes(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	fmt.Printf("Kademlia node count: %+v\n", kadcount.Count)
+	fmt.Printf("Kademlia Node Count: %+v\n", kadcount.Count)
+	return nil
+}
+
+// OverlayCountNodes returns a count of the nodes in the overlay cache
+func OverlayCountNodes(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	res, err := i.overlayclient.CountNodes(context.Background(), &pb.CountNodesRequest{})
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	fmt.Printf("Overlay Cache Node Count: %+v\n", res.Count)
 	return nil
 }
 
@@ -180,6 +210,23 @@ func LookupNode(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	fmt.Println(prettyPrint(n))
+
+	return nil
+}
+
+// OverlayDumpNodes returns all the nodes in the overlay cache
+func OverlayDumpNodes(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return err
+	}
+
+	nodes, err := i.overlayclient.DumpNodes(context.Background(), &pb.DumpNodesRequest{})
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(prettyPrint(nodes))
 
 	return nil
 }
@@ -410,6 +457,7 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 func init() {
 	rootCmd.AddCommand(kadCmd)
 	rootCmd.AddCommand(statsCmd)
+	rootCmd.AddCommand(overlayCmd)
 
 	kadCmd.AddCommand(countNodeCmd)
 	kadCmd.AddCommand(pingNodeCmd)
@@ -420,6 +468,9 @@ func init() {
 	statsCmd.AddCommand(getCSVStatsCmd)
 	statsCmd.AddCommand(createStatsCmd)
 	statsCmd.AddCommand(createCSVStatsCmd)
+
+	overlayCmd.AddCommand(overlayDumpNodesCmd)
+	overlayCmd.AddCommand(overlayCountNodeCmd)
 
 	flag.Parse()
 }

@@ -5,7 +5,6 @@ package overlay
 
 import (
 	"context"
-	"errors"
 
 	"storj.io/storj/pkg/pb"
 )
@@ -22,7 +21,7 @@ func NewInspector(cache *Cache) *Inspector {
 
 // CountNodes returns the number of nodes in the cache
 func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*pb.CountNodesResponse, error) {
-	overlayKeys, err := srv.cache.Inspect(ctx)
+	overlayKeys, err := srv.cache.DumpNodes(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +31,14 @@ func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest)
 	}, nil
 }
 
+// DumpNodes is a GRPC method that returns all the nodes in the overlay cache
 func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (*pb.DumpNodesResponse, error) {
-	// TODO (dylan) add a dump nodes response
-	return &pb.DumpNodesResponse{}, errors.New("Not Implemented")
+	nodes, err := srv.cache.DumpNodes(ctx)
+	if err != nil {
+		return &pb.DumpNodesResponse{}, err
+	}
+
+	return &pb.DumpNodesResponse{
+		Nodes: nodes,
+	}, nil
 }

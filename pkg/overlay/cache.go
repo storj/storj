@@ -79,6 +79,16 @@ func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
 	return nil, errors.New("not implemented")
 }
 
+// DumpNodes returns all of the nodes in the overlay cache for inspector use
+func (cache *Cache) DumpNodes(ctx context.Context) ([]*pb.Node, error) {
+	n, err := cache.db.List(ctx, storj.NodeID{}, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return n, nil
+}
+
 // List returns a list of nodes from the cache DB
 func (cache *Cache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
 	return cache.db.List(ctx, cursor, limit)
