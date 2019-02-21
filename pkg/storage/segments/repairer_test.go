@@ -101,11 +101,11 @@ func TestSegmentStoreRepairRemote(t *testing.T) {
 			}, nil, nil, nil),
 			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
 			mockOC.EXPECT().Choose(gomock.Any(), gomock.Any()).Return(tt.newNodes, nil),
-			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any()),
+			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any(), gomock.Any()),
 			mockEC.EXPECT().Get(
 				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return(ranger.ByteRanger([]byte(tt.data)), nil),
-			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any()),
+			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any(), gomock.Any()),
 			mockEC.EXPECT().Put(
 				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return(tt.newNodes, make([]*pb.SignedHash, len(tt.newNodes)), nil),

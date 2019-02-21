@@ -118,7 +118,7 @@ func TestSegmentStorePutRemote(t *testing.T) {
 					Type: pb.NodeType_STORAGE,
 				},
 			}, nil),
-			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any()),
+			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any(), gomock.Any()),
 			mockEC.EXPECT().Put(
 				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			),
