@@ -66,7 +66,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 		// TODO(moby) perhaps we should not penalize this node's reputation if it is not returned by the overlay
 		return s, Error.New("no node returned from overlay for piece %s", id.String())
 	}
-	fromNode.Type.DPanicOnInvalid("audit getShare")
+
 	ps, err := psclient.NewPSClient(ctx, d.transport, fromNode, 0)
 	if err != nil {
 		return s, err

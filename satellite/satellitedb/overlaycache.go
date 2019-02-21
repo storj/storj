@@ -208,30 +208,30 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 		address = &pb.NodeAddress{}
 	}
 
-	metadata := info.Metadata
-	if metadata == nil {
-		metadata = &pb.NodeMetadata{}
-	}
+	// metadata := info.Metadata
+	// if metadata == nil {
+	metadata := &pb.NodeMetadata{}
+	// }
 
-	restrictions := info.Restrictions
-	if restrictions == nil {
-		restrictions = &pb.NodeRestrictions{
-			FreeBandwidth: -1,
-			FreeDisk:      -1,
-		}
+	// restrictions := info.Restrictions
+	// if restrictions == nil {
+	restrictions := &pb.NodeRestrictions{
+		FreeBandwidth: -1,
+		FreeDisk:      -1,
 	}
+	// }
 
-	reputation := info.Reputation
-	if reputation == nil {
-		reputation = &pb.NodeStats{}
-	}
+	// reputation := info.Reputation
+	// if reputation == nil {
+	reputation := &pb.NodeStats{}
+	// }
 
 	if err != nil {
 		_, err = tx.Create_OverlayCacheNode(
 			ctx,
 			dbx.OverlayCacheNode_NodeId(info.Id.Bytes()),
 
-			dbx.OverlayCacheNode_NodeType(int(info.Type)),
+			dbx.OverlayCacheNode_NodeType(int(pb.NodeType_STORAGE /*info.Type*/)),
 			dbx.OverlayCacheNode_Address(address.Address),
 			dbx.OverlayCacheNode_Protocol(int(address.Transport)),
 
@@ -259,24 +259,24 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			Address:  dbx.OverlayCacheNode_Address(address.Address),
 			Protocol: dbx.OverlayCacheNode_Protocol(int(address.Transport)),
 
-			Latency90:          dbx.OverlayCacheNode_Latency90(info.Reputation.Latency_90),
-			AuditSuccessRatio:  dbx.OverlayCacheNode_AuditSuccessRatio(info.Reputation.AuditSuccessRatio),
-			AuditUptimeRatio:   dbx.OverlayCacheNode_AuditUptimeRatio(info.Reputation.UptimeRatio),
-			AuditCount:         dbx.OverlayCacheNode_AuditCount(info.Reputation.AuditCount),
-			AuditSuccessCount:  dbx.OverlayCacheNode_AuditSuccessCount(info.Reputation.AuditSuccessCount),
-			UptimeCount:        dbx.OverlayCacheNode_UptimeCount(info.Reputation.UptimeCount),
-			UptimeSuccessCount: dbx.OverlayCacheNode_UptimeSuccessCount(info.Reputation.UptimeSuccessCount),
+			// Latency90:          dbx.OverlayCacheNode_Latency90(info.Reputation.Latency_90),
+			// AuditSuccessRatio:  dbx.OverlayCacheNode_AuditSuccessRatio(info.Reputation.AuditSuccessRatio),
+			// AuditUptimeRatio:   dbx.OverlayCacheNode_AuditUptimeRatio(info.Reputation.UptimeRatio),
+			// AuditCount:         dbx.OverlayCacheNode_AuditCount(info.Reputation.AuditCount),
+			// AuditSuccessCount:  dbx.OverlayCacheNode_AuditSuccessCount(info.Reputation.AuditSuccessCount),
+			// UptimeCount:        dbx.OverlayCacheNode_UptimeCount(info.Reputation.UptimeCount),
+			// UptimeSuccessCount: dbx.OverlayCacheNode_UptimeSuccessCount(info.Reputation.UptimeSuccessCount),
 		}
 
-		if info.Metadata != nil {
-			update.OperatorEmail = dbx.OverlayCacheNode_OperatorEmail(info.Metadata.Email)
-			update.OperatorWallet = dbx.OverlayCacheNode_OperatorWallet(info.Metadata.Wallet)
-		}
+		// if info.Metadata != nil {
+		// 	update.OperatorEmail = dbx.OverlayCacheNode_OperatorEmail(info.Metadata.Email)
+		// 	update.OperatorWallet = dbx.OverlayCacheNode_OperatorWallet(info.Metadata.Wallet)
+		// }
 
-		if info.Restrictions != nil {
-			update.FreeBandwidth = dbx.OverlayCacheNode_FreeBandwidth(restrictions.FreeBandwidth)
-			update.FreeDisk = dbx.OverlayCacheNode_FreeDisk(restrictions.FreeDisk)
-		}
+		// if info.Restrictions != nil {
+		// 	update.FreeBandwidth = dbx.OverlayCacheNode_FreeBandwidth(restrictions.FreeBandwidth)
+		// 	update.FreeDisk = dbx.OverlayCacheNode_FreeDisk(restrictions.FreeDisk)
+		// }
 
 		_, err := tx.Update_OverlayCacheNode_By_NodeId(ctx,
 			dbx.OverlayCacheNode_NodeId(info.Id.Bytes()),
@@ -309,44 +309,44 @@ func convertOverlayNode(info *dbx.OverlayCacheNode) (*pb.Node, error) {
 	}
 
 	node := &pb.Node{
-		Id:   id,
-		Type: pb.NodeType(info.NodeType),
+		Id: id,
+		// Type: pb.NodeType(info.NodeType),
 		Address: &pb.NodeAddress{
 			Address:   info.Address,
 			Transport: pb.NodeTransport(info.Protocol),
 		},
-		Metadata: &pb.NodeMetadata{
-			Email:  info.OperatorEmail,
-			Wallet: info.OperatorWallet,
-		},
-		Restrictions: &pb.NodeRestrictions{
-			FreeBandwidth: info.FreeBandwidth,
-			FreeDisk:      info.FreeDisk,
-		},
-		Reputation: &pb.NodeStats{
-			NodeId:             id,
-			Latency_90:         info.Latency90,
-			AuditSuccessRatio:  info.AuditSuccessRatio,
-			UptimeRatio:        info.AuditUptimeRatio,
-			AuditCount:         info.AuditCount,
-			AuditSuccessCount:  info.AuditSuccessCount,
-			UptimeCount:        info.UptimeCount,
-			UptimeSuccessCount: info.UptimeSuccessCount,
-		},
+		// Metadata: &pb.NodeMetadata{
+		// 	Email:  info.OperatorEmail,
+		// 	Wallet: info.OperatorWallet,
+		// },
+		// Restrictions: &pb.NodeRestrictions{
+		// 	FreeBandwidth: info.FreeBandwidth,
+		// 	FreeDisk:      info.FreeDisk,
+		// },
+		// Reputation: &pb.NodeStats{
+		// 	NodeId:             id,
+		// 	Latency_90:         info.Latency90,
+		// 	AuditSuccessRatio:  info.AuditSuccessRatio,
+		// 	UptimeRatio:        info.AuditUptimeRatio,
+		// 	AuditCount:         info.AuditCount,
+		// 	AuditSuccessCount:  info.AuditSuccessCount,
+		// 	UptimeCount:        info.UptimeCount,
+		// 	UptimeSuccessCount: info.UptimeSuccessCount,
+		// },
 	}
 
 	if node.Address.Address == "" {
 		node.Address = nil
 	}
-	if node.Metadata.Email == "" && node.Metadata.Wallet == "" {
-		node.Metadata = nil
-	}
-	if node.Restrictions.FreeBandwidth < 0 && node.Restrictions.FreeDisk < 0 {
-		node.Restrictions = nil
-	}
-	if node.Reputation.Latency_90 < 0 {
-		node.Reputation = nil
-	}
+	// if node.Metadata.Email == "" && node.Metadata.Wallet == "" {
+	// 	node.Metadata = nil
+	// }
+	// if node.Restrictions.FreeBandwidth < 0 && node.Restrictions.FreeDisk < 0 {
+	// 	node.Restrictions = nil
+	// }
+	// if node.Reputation.Latency_90 < 0 {
+	// 	node.Reputation = nil
+	// }
 
 	return node, nil
 }

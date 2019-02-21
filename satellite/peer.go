@@ -231,14 +231,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		}
 
 		self := pb.Node{
-			Id:   peer.ID(),
-			Type: pb.NodeType_SATELLITE,
+			Id: peer.ID(),
 			Address: &pb.NodeAddress{
 				Address: config.ExternalAddress,
-			},
-			Metadata: &pb.NodeMetadata{
-				Email:  config.Operator.Email,
-				Wallet: config.Operator.Wallet,
 			},
 		}
 

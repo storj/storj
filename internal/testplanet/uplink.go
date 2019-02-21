@@ -63,8 +63,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 	uplink.Transport = transport.NewClient(tlsOpts)
 
 	uplink.Info = pb.Node{
-		Id:   uplink.Identity.ID,
-		Type: pb.NodeType_UPLINK,
+		Id: uplink.Identity.ID,
 		Address: &pb.NodeAddress{
 			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 			Address:   "",

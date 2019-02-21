@@ -49,7 +49,6 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 			Address:   dashboardCfg.Address,
 			Transport: 0,
 		},
-		Type: pb.NodeType_STORAGE,
 	}
 
 	lc, err := psclient.NewLiteClient(ctx, tc, n)
@@ -163,7 +162,6 @@ func getConnectionStatus(ctx context.Context, tc transport.Client, id *identity.
 			Address:   dashboardCfg.BootstrapAddr,
 			Transport: 0,
 		},
-		Type: pb.NodeType_BOOTSTRAP,
 	}
 
 	inspector, err := newInspectorClient(ctx, tc, bn)

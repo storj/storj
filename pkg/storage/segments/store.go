@@ -129,11 +129,6 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
-		for _, v := range nodes {
-			if v != nil {
-				v.Type.DPanicOnInvalid("ss put")
-			}
-		}
 
 		pieceID := psclient.NewPieceID()
 
@@ -214,7 +209,6 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 			if needed <= 0 {
 				break
 			}
-			node.Type.DPanicOnInvalid("ss get")
 		}
 
 		rr, err = s.ec.Get(ctx, selected, rs, pid, pr.GetSegmentSize(), pba)
@@ -235,7 +229,6 @@ func makeRemotePointer(nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID
 		if nodes[i] == nil {
 			continue
 		}
-		nodes[i].Type.DPanicOnInvalid("makeremotepointer")
 		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   nodes[i].Id,
@@ -279,11 +272,6 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 		nodes, err = lookupAndAlignNodes(ctx, s.oc, nodes, seg)
 		if err != nil {
 			return Error.Wrap(err)
-		}
-		for _, v := range nodes {
-			if v != nil {
-				v.Type.DPanicOnInvalid("ss delete")
-			}
 		}
 
 		// ecclient sends delete request
@@ -365,11 +353,6 @@ func lookupAndAlignNodes(ctx context.Context, oc overlay.Client, nodes []*pb.Nod
 		nodes, err = oc.BulkLookup(ctx, nodeIds)
 		if err != nil {
 			return nil, Error.Wrap(err)
-		}
-	}
-	for _, v := range nodes {
-		if v != nil {
-			v.Type.DPanicOnInvalid("lookup and align nodes")
 		}
 	}
 

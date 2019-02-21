@@ -71,11 +71,8 @@ func (srv *Inspector) FindNear(ctx context.Context, req *pb.FindNearRequest) (*p
 
 // PingNode sends a PING RPC to the provided node ID in the Kad network.
 func (srv *Inspector) PingNode(ctx context.Context, req *pb.PingNodeRequest) (*pb.PingNodeResponse, error) {
-	self := srv.dht.Local()
-
 	_, err := srv.dht.Ping(ctx, pb.Node{
-		Id:   req.Id,
-		Type: self.Type,
+		Id: req.Id,
 		Address: &pb.NodeAddress{
 			Address: req.Address,
 		},

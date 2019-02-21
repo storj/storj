@@ -65,7 +65,7 @@ func TestNewKademlia(t *testing.T) {
 	}
 
 	for i, v := range cases {
-		kad, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, v.bn, v.addr, nil, v.id, ctx.Dir(strconv.Itoa(i)), defaultAlpha)
+		kad, err := newKademlia(zaptest.NewLogger(t), v.bn, v.addr, v.id, ctx.Dir(strconv.Itoa(i)), defaultAlpha)
 		require.NoError(t, err)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
@@ -88,16 +88,9 @@ func TestPeerDiscovery(t *testing.T) {
 	targetServer, _, targetID, targetAddress := startTestNodeServer(ctx)
 	defer targetServer.Stop()
 
-	bootstrapNodes := []pb.Node{{Id: bootID.ID, Address: &pb.NodeAddress{Address: bootAddress}, Type: pb.NodeType_STORAGE}}
-	metadata := &pb.NodeMetadata{
-		Email:  "foo@bar.com",
-		Wallet: "OperatorWallet",
-	}
-	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, ctx.Dir("test"), defaultAlpha)
+	bootstrapNodes := []pb.Node{{Id: bootID.ID, Address: &pb.NodeAddress{Address: bootAddress}}}
+	k, err := newKademlia(zaptest.NewLogger(t), bootstrapNodes, testAddress, testID, ctx.Dir("test"), defaultAlpha)
 	assert.NoError(t, err)
-	rt := k.routingTable
-	assert.Equal(t, rt.Local().Metadata.Email, "foo@bar.com")
-	assert.Equal(t, rt.Local().Metadata.Wallet, "OperatorWallet")
 
 	defer ctx.Check(k.Close)
 
@@ -107,7 +100,7 @@ func TestPeerDiscovery(t *testing.T) {
 		expectedErr error
 	}{
 		{target: func() storj.NodeID {
-			mockBootServer.returnValue = []*pb.Node{{Id: targetID.ID, Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: targetAddress}}}
+			mockBootServer.returnValue = []*pb.Node{{Id: targetID.ID, Address: &pb.NodeAddress{Address: targetAddress}}}
 			return targetID.ID
 		}(),
 			expected:    &pb.Node{},
@@ -162,7 +155,7 @@ func testNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.Node)
 	// new kademlia
 
 	logger := zaptest.NewLogger(t)
-	k, err := newKademlia(logger, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, ctx.Dir(name), defaultAlpha)
+	k, err := newKademlia(logger, bn, lis.Addr().String(), fid, ctx.Dir(name), defaultAlpha)
 	assert.NoError(t, err)
 	s := NewEndpoint(logger, k, k.routingTable)
 	// new ident opts
@@ -241,26 +234,24 @@ func TestFindNear(t *testing.T) {
 	})
 
 	bootstrap := []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}
-	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrap,
-		lis.Addr().String(), nil, fid, ctx.Dir("kademlia"), defaultAlpha)
+	k, err := newKademlia(zaptest.NewLogger(t), bootstrap, lis.Addr().String(), fid, ctx.Dir("kademlia"), defaultAlpha)
 	assert.NoError(t, err)
 	defer ctx.Check(k.Close)
 
 	// add nodes
 	nodes := []*pb.Node{}
-	newNode := func(id string, bw, disk int64) pb.Node {
+	newNode := func(id string) pb.Node {
 		nodeID := teststorj.NodeIDFromString(id)
-		restriction := &pb.NodeRestrictions{FreeBandwidth: bw, FreeDisk: disk}
-		n := &pb.Node{Id: nodeID, Restrictions: restriction, Type: pb.NodeType_STORAGE}
+		n := &pb.Node{Id: nodeID}
 		nodes = append(nodes, n)
 		err = k.routingTable.ConnectionSuccess(n)
 		require.NoError(t, err)
 		return *n
 	}
-	nodeIDA := newNode("AAAAA", 1, 4)
-	nodeIDB := newNode("BBBBB", 2, 3)
-	newNode("CCCCC", 3, 2)
-	newNode("DDDDD", 4, 1)
+	nodeIDA := newNode("AAAAA")
+	nodeIDB := newNode("BBBBB")
+	newNode("CCCCC")
+	newNode("DDDDD")
 	require.Len(t, nodes, 4)
 
 	cases := []struct {
@@ -298,100 +289,6 @@ func TestFindNear(t *testing.T) {
 				}
 				assert.True(t, found, e.String())
 			}
-		})
-	}
-}
-
-func TestMeetsRestrictions(t *testing.T) {
-	cases := []struct {
-		testID string
-		r      []pb.Restriction
-		n      pb.Node
-		expect bool
-	}{
-		{testID: "pass one",
-			r: []pb.Restriction{
-				{
-					Operator: pb.Restriction_EQ,
-					Operand:  pb.Restriction_FREE_BANDWIDTH,
-					Value:    int64(1),
-				},
-			},
-			n: pb.Node{
-				Restrictions: &pb.NodeRestrictions{
-					FreeBandwidth: int64(1),
-				},
-			},
-			expect: true,
-		},
-		{testID: "pass multiple",
-			r: []pb.Restriction{
-				{
-					Operator: pb.Restriction_LTE,
-					Operand:  pb.Restriction_FREE_BANDWIDTH,
-					Value:    int64(2),
-				},
-				{
-					Operator: pb.Restriction_GTE,
-					Operand:  pb.Restriction_FREE_DISK,
-					Value:    int64(2),
-				},
-			},
-			n: pb.Node{
-				Restrictions: &pb.NodeRestrictions{
-					FreeBandwidth: int64(1),
-					FreeDisk:      int64(3),
-				},
-			},
-			expect: true,
-		},
-		{testID: "fail one",
-			r: []pb.Restriction{
-				{
-					Operator: pb.Restriction_LT,
-					Operand:  pb.Restriction_FREE_BANDWIDTH,
-					Value:    int64(2),
-				},
-				{
-					Operator: pb.Restriction_GT,
-					Operand:  pb.Restriction_FREE_DISK,
-					Value:    int64(2),
-				},
-			},
-			n: pb.Node{
-				Restrictions: &pb.NodeRestrictions{
-					FreeBandwidth: int64(2),
-					FreeDisk:      int64(3),
-				},
-			},
-			expect: false,
-		},
-		{testID: "fail multiple",
-			r: []pb.Restriction{
-				{
-					Operator: pb.Restriction_LT,
-					Operand:  pb.Restriction_FREE_BANDWIDTH,
-					Value:    int64(2),
-				},
-				{
-					Operator: pb.Restriction_GT,
-					Operand:  pb.Restriction_FREE_DISK,
-					Value:    int64(2),
-				},
-			},
-			n: pb.Node{
-				Restrictions: &pb.NodeRestrictions{
-					FreeBandwidth: int64(2),
-					FreeDisk:      int64(2),
-				},
-			},
-			expect: false,
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			result := meetsRestrictions(c.r, c.n)
-			assert.Equal(t, c.expect, result)
 		})
 	}
 }
@@ -505,12 +402,10 @@ func (mn *mockNodesServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.P
 }
 
 // newKademlia returns a newly configured Kademlia instance
-func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *identity.FullIdentity, path string, alpha int) (*Kademlia, error) {
+func newKademlia(log *zap.Logger, bootstrapNodes []pb.Node, address string, identity *identity.FullIdentity, path string, alpha int) (*Kademlia, error) {
 	self := pb.Node{
-		Id:       identity.ID,
-		Type:     nodeType,
-		Address:  &pb.NodeAddress{Address: address},
-		Metadata: metadata,
+		Id:      identity.ID,
+		Address: &pb.NodeAddress{Address: address},
 	}
 
 	rt, err := NewRoutingTable(log, self, teststore.New(), teststore.New(), nil)

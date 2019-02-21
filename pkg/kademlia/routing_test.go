@@ -130,8 +130,8 @@ func TestConnectionSuccess(t *testing.T) {
 	id2 := teststorj.NodeIDFromString("BB")
 	address1 := &pb.NodeAddress{Address: "a"}
 	address2 := &pb.NodeAddress{Address: "b"}
-	node1 := &pb.Node{Id: id, Address: address1, Type: pb.NodeType_STORAGE}
-	node2 := &pb.Node{Id: id2, Address: address2, Type: pb.NodeType_STORAGE}
+	node1 := &pb.Node{Id: id, Address: address1}
+	node2 := &pb.Node{Id: id2, Address: address2}
 	cases := []struct {
 		testID  string
 		node    *pb.Node
@@ -167,7 +167,7 @@ func TestUpdateSelf(t *testing.T) {
 	rt, cleanup := createRoutingTable(t, id)
 	defer cleanup()
 	address := &pb.NodeAddress{Address: "a"}
-	node := &pb.Node{Id: id, Address: address, Type: pb.NodeType_STORAGE}
+	node := &pb.Node{Id: id, Address: address}
 	cases := []struct {
 		testID  string
 		node    *pb.Node
@@ -183,10 +183,6 @@ func TestUpdateSelf(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
 			newNode := c.node
-			restrictions := &pb.NodeRestrictions{
-				FreeBandwidth: 10,
-			}
-			newNode.Restrictions = restrictions
 			err := rt.UpdateSelf(newNode)
 			assert.NoError(t, err)
 			v, err := rt.nodeBucketDB.Get(c.id.Bytes())
@@ -194,14 +190,13 @@ func TestUpdateSelf(t *testing.T) {
 			n, err := unmarshalNodes([]storage.Value{v})
 			assert.NoError(t, err)
 			assert.Equal(t, c.address.Address, n[0].Address.Address)
-			assert.Equal(t, newNode.Restrictions.GetFreeBandwidth(), n[0].Restrictions.GetFreeBandwidth())
 		})
 	}
 }
 
 func TestConnectionFailed(t *testing.T) {
 	id := teststorj.NodeIDFromString("AA")
-	node := &pb.Node{Id: id, Type: pb.NodeType_STORAGE}
+	node := &pb.Node{Id: id}
 	rt, cleanup := createRoutingTable(t, id)
 	defer cleanup()
 	err := rt.ConnectionFailed(node)

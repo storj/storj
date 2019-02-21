@@ -45,10 +45,6 @@ func TestChoose(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.Len(t, newNodes, v.limit)
-			for _, n := range newNodes {
-				assert.True(t, n.GetRestrictions().GetFreeDisk() >= v.space)
-				assert.True(t, n.GetRestrictions().GetFreeBandwidth() >= v.bandwidth)
-			}
 		}
 	})
 }

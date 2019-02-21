@@ -57,9 +57,7 @@ func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
 // DialNode returns a grpc connection with tls to a node
 func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if node != nil {
-		node.Type.DPanicOnInvalid("transport dial node")
-	}
+
 	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")
 	}

@@ -115,11 +115,6 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 				Transport: 0,
 				Address:   a,
 			},
-			Restrictions: &pb.NodeRestrictions{
-				FreeBandwidth: 2000000000,
-				FreeDisk:      2000000000,
-			},
-			Type: pb.NodeType_STORAGE,
 		})
 		if err != nil {
 			return err

@@ -52,7 +52,6 @@ func NewClient(tc transport.Client, memoryLimit int) Client {
 }
 
 func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (psclient.Client, error) {
-	n.Type.DPanicOnInvalid("new ps client")
 	return ec.newPSClientFunc(ctx, ec.transport, n, 0)
 }
 
@@ -88,10 +87,6 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	start := time.Now()
 
 	for i, node := range nodes {
-		if node != nil {
-			node.Type.DPanicOnInvalid("ec client Put")
-		}
-
 		go func(i int, node *pb.Node) {
 			err := ec.putPiece(psCtx, ctx, node, pieceID, readers[i], expiration, pba)
 			infos <- info{i: i, err: err}
@@ -212,11 +207,6 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 	ch := make(chan rangerInfo, len(nodes))
 
 	for i, n := range nodes {
-
-		if n != nil {
-			n.Type.DPanicOnInvalid("ec client Get")
-		}
-
 		if n == nil {
 			ch <- rangerInfo{i: i, rr: nil, err: nil}
 			continue
@@ -261,11 +251,6 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclie
 	defer mon.Task()(&ctx)(&err)
 
 	errch := make(chan error, len(nodes))
-	for _, v := range nodes {
-		if v != nil {
-			v.Type.DPanicOnInvalid("ec client delete")
-		}
-	}
 	for _, n := range nodes {
 		if n == nil {
 			errch <- nil
@@ -299,11 +284,6 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclie
 	}
 
 	allerrs := collectErrors(errch, len(nodes))
-	for _, v := range nodes {
-		if v != nil {
-			v.Type.DPanicOnInvalid("ec client delete 2")
-		}
-	}
 	if len(allerrs) > 0 && len(allerrs) == len(nodes) {
 		return allerrs[0]
 	}
@@ -330,9 +310,7 @@ func unique(nodes []*pb.Node) bool {
 	for i, n := range nodes {
 		if n != nil {
 			ids[i] = n.Id
-			n.Type.DPanicOnInvalid("ec client unique")
 		}
-
 	}
 
 	// sort the ids and check for identical neighbors
@@ -371,7 +349,6 @@ func (lr *lazyPieceRanger) Size() int64 {
 
 // Range implements Ranger.Range to be lazily connected
 func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
-	lr.node.Type.DPanicOnInvalid("Range")
 	if lr.ranger == nil {
 		ps, err := lr.newPSClientHelper(ctx, lr.node)
 		if err != nil {
@@ -391,7 +368,6 @@ func nonNilCount(nodes []*pb.Node) int {
 	for _, node := range nodes {
 		if node != nil {
 			total++
-			node.Type.DPanicOnInvalid("nonNilCount")
 		}
 	}
 	return total

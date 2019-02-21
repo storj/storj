@@ -183,19 +183,19 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	}
 
 	// get existing node rep, or create a new statdb node with 0 rep
-	stats, err := cache.statDB.CreateEntryIfNotExists(ctx, nodeID)
-	if err != nil {
-		return err
-	}
+	// stats, err := cache.statDB.CreateEntryIfNotExists(ctx, nodeID)
+	// if err != nil {
+	// 	return err
+	// }
 
-	value.Reputation = &pb.NodeStats{
-		AuditSuccessRatio:  stats.AuditSuccessRatio,
-		AuditSuccessCount:  stats.AuditSuccessCount,
-		AuditCount:         stats.AuditCount,
-		UptimeRatio:        stats.UptimeRatio,
-		UptimeSuccessCount: stats.UptimeSuccessCount,
-		UptimeCount:        stats.UptimeCount,
-	}
+	// value.Reputation = &pb.NodeStats{
+	// 	AuditSuccessRatio:  stats.AuditSuccessRatio,
+	// 	AuditSuccessCount:  stats.AuditSuccessCount,
+	// 	AuditCount:         stats.AuditCount,
+	// 	UptimeRatio:        stats.UptimeRatio,
+	// 	UptimeSuccessCount: stats.UptimeSuccessCount,
+	// 	UptimeCount:        stats.UptimeCount,
+	// }
 
 	return cache.db.Update(ctx, &value)
 }

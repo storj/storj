@@ -74,10 +74,9 @@ func TestPieceRanger(t *testing.T) {
 				Address:   "",
 				Transport: 0,
 			},
-			Id:   teststorj.NodeIDFromString("test-node-id-1234567"),
-			Type: pb.NodeType_STORAGE,
+			Id: teststorj.NodeIDFromString("test-node-id-1234567"),
 		}
-		target.Type.DPanicOnInvalid("pr test")
+
 		c, err := NewCustomRoute(route, target, 32*1024, id)
 		assert.NoError(t, err)
 		rr, err := PieceRanger(ctx, c, stream, pid, &pb.PayerBandwidthAllocation{})
@@ -150,10 +149,9 @@ func TestPieceRangerSize(t *testing.T) {
 				Address:   "",
 				Transport: 0,
 			},
-			Id:   teststorj.NodeIDFromString("test-node-id-1234567"),
-			Type: pb.NodeType_STORAGE,
+			Id: teststorj.NodeIDFromString("test-node-id-1234567"),
 		}
-		target.Type.DPanicOnInvalid("pr test 2")
+
 		c, err := NewCustomRoute(route, target, 32*1024, id)
 		assert.NoError(t, err)
 		rr := PieceRangerSize(c, stream, pid, tt.size, &pb.PayerBandwidthAllocation{})

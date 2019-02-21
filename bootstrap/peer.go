@@ -109,15 +109,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		}
 
 		self := pb.Node{
-			Id:   peer.ID(),
-			Type: pb.NodeType_BOOTSTRAP,
+			Id: peer.ID(),
 			Address: &pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   config.ExternalAddress,
-			},
-			Metadata: &pb.NodeMetadata{
-				Email:  config.Operator.Email,
-				Wallet: config.Operator.Wallet,
 			},
 		}
 

@@ -68,8 +68,6 @@ type RoutingTable struct {
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
 func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.KeyValueStore, config *RoutingTableConfig) (*RoutingTable, error) {
-	localNode.Type.DPanicOnInvalid("new routing table")
-
 	if config == nil || config.BucketSize == 0 || config.ReplacementCacheSize == 0 {
 		// TODO: handle this more nicely
 		config = &RoutingTableConfig{
@@ -161,14 +159,12 @@ func (rt *RoutingTable) FindNear(target storj.NodeID, limit int, restrictions ..
 			if err != nil {
 				return err
 			}
-			if meetsRestrictions(restrictions, newNode) {
-				closestNodes = append(closestNodes, &newNode)
-				if newPos != len(closestNodes) { //reorder
-					copy(closestNodes[newPos+1:], closestNodes[newPos:])
-					closestNodes[newPos] = &newNode
-					if len(closestNodes) > limit {
-						closestNodes = closestNodes[:limit]
-					}
+			closestNodes = append(closestNodes, &newNode)
+			if newPos != len(closestNodes) { //reorder
+				copy(closestNodes[newPos+1:], closestNodes[newPos:])
+				closestNodes[newPos] = &newNode
+				if len(closestNodes) > limit {
+					closestNodes = closestNodes[:limit]
 				}
 			}
 		}
@@ -204,8 +200,6 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 		return nil
 	}
 
-	node.Type.DPanicOnInvalid("connection success")
-
 	rt.mutex.Lock()
 	rt.seen[node.Id] = node
 	rt.mutex.Unlock()
@@ -230,7 +224,6 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 // ConnectionFailed removes a node from the routing table when
 // a connection fails for the node on the network
 func (rt *RoutingTable) ConnectionFailed(node *pb.Node) error {
-	node.Type.DPanicOnInvalid("connection failed")
 	err := rt.removeNode(node.Id)
 	if err != nil {
 		return RoutingErr.New("could not remove node %s", err)

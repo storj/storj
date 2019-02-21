@@ -65,7 +65,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 			totalNilNodes++
 			continue
 		}
-		v.Type.DPanicOnInvalid("repair")
+
 		excludeNodeIDs = append(excludeNodeIDs, v.Id)
 
 		// If node index exists in lostPieces, skip adding it to healthyNodes
@@ -102,11 +102,6 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 			// Assign the item in repairNodes list with an item from the newNode list
 			totalRepairCount--
 			repairNodes[i] = newNodes[totalRepairCount]
-		}
-	}
-	for _, v := range repairNodes {
-		if v != nil {
-			v.Type.DPanicOnInvalid("repair 2")
 		}
 	}
 
