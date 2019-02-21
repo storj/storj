@@ -17,6 +17,7 @@ export const appStateModule = {
             isNewAPIKeyPopupShown: false,
             isSortProjectMembersByPopupShown: false,
             isSuccessfulRegistrationPopupShown: false,
+            isSuccessfulProjectCreationPopupShown: false,
         },
     },
     mutations: {
@@ -60,7 +61,10 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP](state: any): void {
             state.appState.isSuccessfulRegistrationPopupShown = !state.appState.isSuccessfulRegistrationPopupShown;
         },
-
+        // Mutation changing 'successful project creation' popup visibility
+        [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP](state: any): void {
+            state.appState.isSuccessfulProjectCreationPopupShown = !state.appState.isSuccessfulProjectCreationPopupShown;
+        },
         // Mutation that closes each popup/dropdown
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: any): void {
             state.appState.isAddTeamMembersPopupShown = false;
@@ -72,6 +76,7 @@ export const appStateModule = {
             state.appState.isSortProjectMembersByPopupShown = false;
             state.appState.isNewAPIKeyPopupShown = false;
             state.appState.isSuccessfulRegistrationPopupShown = false;
+            state.appState.isSuccessfulProjectCreationPopupShown = false;
         },
     },
     actions: {
@@ -138,6 +143,13 @@ export const appStateModule = {
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
+        },
+        [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP]: function ({commit, state}: any): void {
+            if (!state.appState.isSuccessfulProjectCreationPopupShown) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
+
+            commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
         },
         closePopups: function ({commit}: any): void {
             commit(APP_STATE_MUTATIONS.CLOSE_ALL);

@@ -10,6 +10,7 @@
                 <router-view />
             </div>
         </div>
+        <ProjectCreationSuccessPopup/>
     </div>
 </template>
 
@@ -20,6 +21,7 @@ import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import { removeToken, setToken } from '@/utils/tokenManager';
 import { NOTIFICATION_ACTIONS, PROJETS_ACTIONS, PM_ACTIONS, USER_ACTIONS } from '@/utils/constants/actionNames';
 import ROUTES from '@/utils/constants/routerConstants';
+import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
 
 @Component({
     beforeMount: async function() {
@@ -67,6 +69,7 @@ import ROUTES from '@/utils/constants/routerConstants';
         this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
     },
     components: {
+        ProjectCreationSuccessPopup,
         NavigationArea,
         DashboardHeader
     }
