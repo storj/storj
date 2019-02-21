@@ -40,6 +40,11 @@ func (db *ConsoleDB) APIKeys() console.APIKeys {
 	return &apikeys{db.methods}
 }
 
+// BucketUsages is a getter for APIKeys repository
+func (db *ConsoleDB) BucketUsages() console.BucketUsages {
+	return &bucketusages{db.methods}
+}
+
 // BeginTx is a method for opening transaction
 func (db *ConsoleDB) BeginTx(ctx context.Context) (console.DBTx, error) {
 	if db.db == nil {

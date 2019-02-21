@@ -235,6 +235,43 @@ func (m *lockedAPIKeys) Update(ctx context.Context, key console.APIKeyInfo) erro
 	return m.db.Update(ctx, key)
 }
 
+// BucketUsages is a getter for BucketUsages repository
+func (m *lockedConsole) BucketUsages() console.BucketUsages {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedBucketUsages{m.Locker, m.db.BucketUsages()}
+}
+
+// lockedBucketUsages implements locking wrapper for console.BucketUsages
+type lockedBucketUsages struct {
+	sync.Locker
+	db console.BucketUsages
+}
+
+func (m *lockedBucketUsages) Create(ctx context.Context, a1 console.BucketUsage) (*console.BucketUsage, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, a1)
+}
+
+func (m *lockedBucketUsages) Delete(ctx context.Context, a1 uuid.UUID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Delete(ctx, a1)
+}
+
+func (m *lockedBucketUsages) Get(ctx context.Context, a1 uuid.UUID) (*console.BucketUsage, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, a1)
+}
+
+func (m *lockedBucketUsages) GetByBucketID(ctx context.Context, a1 *console.UsageIterator) ([]console.BucketUsage, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByBucketID(ctx, a1)
+}
+
 // ProjectMembers is a getter for ProjectMembers repository
 func (m *lockedConsole) ProjectMembers() console.ProjectMembers {
 	m.Lock()

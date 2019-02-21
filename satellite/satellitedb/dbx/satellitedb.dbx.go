@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -298,6 +299,19 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE bucket_usages (
+	id bytea NOT NULL,
+	bucket_id bytea NOT NULL,
+	rollup_end_time timestamp with time zone NOT NULL,
+	remote_stored_data bigint NOT NULL,
+	inline_stored_data bigint NOT NULL,
+	segments integer NOT NULL,
+	metadata_size bigint NOT NULL,
+	repair_egress bigint NOT NULL,
+	get_egress bigint NOT NULL,
+	audit_egress bigint NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE bwagreements (
 	serialnum text NOT NULL,
 	storage_node_id bytea NOT NULL,
@@ -481,6 +495,19 @@ CREATE TABLE accounting_timestamps (
 	name TEXT NOT NULL,
 	value TIMESTAMP NOT NULL,
 	PRIMARY KEY ( name )
+);
+CREATE TABLE bucket_usages (
+	id BLOB NOT NULL,
+	bucket_id BLOB NOT NULL,
+	rollup_end_time TIMESTAMP NOT NULL,
+	remote_stored_data INTEGER NOT NULL,
+	inline_stored_data INTEGER NOT NULL,
+	segments INTEGER NOT NULL,
+	metadata_size INTEGER NOT NULL,
+	repair_egress INTEGER NOT NULL,
+	get_egress INTEGER NOT NULL,
+	audit_egress INTEGER NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE bwagreements (
 	serialnum TEXT NOT NULL,
@@ -1003,6 +1030,214 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 }
 
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
+
+type BucketUsage struct {
+	Id               []byte
+	BucketId         []byte
+	RollupEndTime    time.Time
+	RemoteStoredData uint64
+	InlineStoredData uint64
+	Segments         uint
+	MetadataSize     uint64
+	RepairEgress     uint64
+	GetEgress        uint64
+	AuditEgress      uint64
+}
+
+func (BucketUsage) _Table() string { return "bucket_usages" }
+
+type BucketUsage_Update_Fields struct {
+}
+
+type BucketUsage_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketUsage_Id(v []byte) BucketUsage_Id_Field {
+	return BucketUsage_Id_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_Id_Field) _Column() string { return "id" }
+
+type BucketUsage_BucketId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketUsage_BucketId(v []byte) BucketUsage_BucketId_Field {
+	return BucketUsage_BucketId_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_BucketId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_BucketId_Field) _Column() string { return "bucket_id" }
+
+type BucketUsage_RollupEndTime_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BucketUsage_RollupEndTime(v time.Time) BucketUsage_RollupEndTime_Field {
+	return BucketUsage_RollupEndTime_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_RollupEndTime_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_RollupEndTime_Field) _Column() string { return "rollup_end_time" }
+
+type BucketUsage_RemoteStoredData_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketUsage_RemoteStoredData(v uint64) BucketUsage_RemoteStoredData_Field {
+	return BucketUsage_RemoteStoredData_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_RemoteStoredData_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_RemoteStoredData_Field) _Column() string { return "remote_stored_data" }
+
+type BucketUsage_InlineStoredData_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketUsage_InlineStoredData(v uint64) BucketUsage_InlineStoredData_Field {
+	return BucketUsage_InlineStoredData_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_InlineStoredData_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_InlineStoredData_Field) _Column() string { return "inline_stored_data" }
+
+type BucketUsage_Segments_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketUsage_Segments(v uint) BucketUsage_Segments_Field {
+	return BucketUsage_Segments_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_Segments_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_Segments_Field) _Column() string { return "segments" }
+
+type BucketUsage_MetadataSize_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketUsage_MetadataSize(v uint64) BucketUsage_MetadataSize_Field {
+	return BucketUsage_MetadataSize_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_MetadataSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_MetadataSize_Field) _Column() string { return "metadata_size" }
+
+type BucketUsage_RepairEgress_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketUsage_RepairEgress(v uint64) BucketUsage_RepairEgress_Field {
+	return BucketUsage_RepairEgress_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_RepairEgress_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_RepairEgress_Field) _Column() string { return "repair_egress" }
+
+type BucketUsage_GetEgress_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketUsage_GetEgress(v uint64) BucketUsage_GetEgress_Field {
+	return BucketUsage_GetEgress_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_GetEgress_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_GetEgress_Field) _Column() string { return "get_egress" }
+
+type BucketUsage_AuditEgress_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketUsage_AuditEgress(v uint64) BucketUsage_AuditEgress_Field {
+	return BucketUsage_AuditEgress_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_AuditEgress_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_AuditEgress_Field) _Column() string { return "audit_egress" }
 
 type Bwagreement struct {
 	Serialnum     string
@@ -2411,54 +2646,10 @@ func __sqlbundle_Render(dialect __sqlbundle_Dialect, sql __sqlbundle_SQL, ops ..
 	return dialect.Rebind(out)
 }
 
-func __sqlbundle_flattenSQL(x string) string {
-	// trim whitespace from beginning and end
-	s, e := 0, len(x)-1
-	for s < len(x) && (x[s] == ' ' || x[s] == '\t' || x[s] == '\n') {
-		s++
-	}
-	for s <= e && (x[e] == ' ' || x[e] == '\t' || x[e] == '\n') {
-		e--
-	}
-	if s > e {
-		return ""
-	}
-	x = x[s : e+1]
+var __sqlbundle_reSpace = regexp.MustCompile(`\s+`)
 
-	// check for whitespace that needs fixing
-	wasSpace := false
-	for i := 0; i < len(x); i++ {
-		r := x[i]
-		justSpace := r == ' '
-		if (wasSpace && justSpace) || r == '\t' || r == '\n' {
-			// whitespace detected, start writing a new string
-			var result strings.Builder
-			result.Grow(len(x))
-			if wasSpace {
-				result.WriteString(x[:i-1])
-			} else {
-				result.WriteString(x[:i])
-			}
-			for p := i; p < len(x); p++ {
-				for p < len(x) && (x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
-					p++
-				}
-				result.WriteByte(' ')
-
-				start := p
-				for p < len(x) && !(x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
-					p++
-				}
-				result.WriteString(x[start:p])
-			}
-
-			return result.String()
-		}
-		wasSpace = justSpace
-	}
-
-	// no problematic whitespace found
-	return x
+func __sqlbundle_flattenSQL(s string) string {
+	return strings.TrimSpace(__sqlbundle_reSpace.ReplaceAllString(s, " "))
 }
 
 // this type is specially named to match up with the name returned by the
@@ -2537,8 +2728,6 @@ type __sqlbundle_Condition struct {
 func (*__sqlbundle_Condition) private() {}
 
 func (c *__sqlbundle_Condition) Render() string {
-	// TODO(jeff): maybe check if we can use placeholders instead of the
-	// literal null: this would make the templates easier.
 
 	switch {
 	case c.Equal && c.Null:
@@ -2929,6 +3118,43 @@ func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+
+}
+
+func (obj *postgresImpl) Create_BucketUsage(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
+	bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
+	bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
+	bucket_usage_segments BucketUsage_Segments_Field,
+	bucket_usage_metadata_size BucketUsage_MetadataSize_Field,
+	bucket_usage_repair_egress BucketUsage_RepairEgress_Field,
+	bucket_usage_get_egress BucketUsage_GetEgress_Field,
+	bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
+	bucket_usage *BucketUsage, err error) {
+	__id_val := bucket_usage_id.value()
+	__bucket_id_val := bucket_usage_bucket_id.value()
+	__rollup_end_time_val := bucket_usage_rollup_end_time.value()
+	__remote_stored_data_val := bucket_usage_remote_stored_data.value()
+	__inline_stored_data_val := bucket_usage_inline_stored_data.value()
+	__segments_val := bucket_usage_segments.value()
+	__metadata_size_val := bucket_usage_metadata_size.value()
+	__repair_egress_val := bucket_usage_repair_egress.value()
+	__get_egress_val := bucket_usage_get_egress.value()
+	__audit_egress_val := bucket_usage_audit_egress.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_usages ( id, bucket_id, rollup_end_time, remote_stored_data, inline_stored_data, segments, metadata_size, repair_egress, get_egress, audit_egress ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.segments, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __segments_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
+
+	bucket_usage = &BucketUsage{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __segments_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.Segments, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_usage, nil
 
 }
 
@@ -3714,6 +3940,103 @@ func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Co
 
 }
 
+func (obj *postgresImpl) Get_BucketUsage_By_Id(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field) (
+	bucket_usage *BucketUsage, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.segments, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_usage_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_usage = &BucketUsage{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.Segments, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_usage, nil
+
+}
+
+func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Id_Greater_OrderBy_Asc_Id(ctx context.Context,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_id_greater BucketUsage_Id_Field,
+	limit int, offset int64) (
+	rows []*BucketUsage, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.segments, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.id > ? ORDER BY bucket_usages.id LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_id_greater.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket_usage := &BucketUsage{}
+		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.Segments, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket_usage)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Id_Less_OrderBy_Desc_Id(ctx context.Context,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_id_less BucketUsage_Id_Field,
+	limit int, offset int64) (
+	rows []*BucketUsage, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.segments, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.id < ? ORDER BY bucket_usages.id DESC LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_id_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket_usage := &BucketUsage{}
+		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.Segments, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket_usage)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Get_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	certRecord *CertRecord, err error) {
@@ -4443,6 +4766,32 @@ func (obj *postgresImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Delete_BucketUsage_By_Id(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_usages WHERE bucket_usages.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_usage_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *postgresImpl) Delete_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	deleted bool, err error) {
@@ -4573,6 +4922,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bwagreements;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM bucket_usages;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -5004,6 +5363,46 @@ func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastApiKey(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_BucketUsage(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
+	bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
+	bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
+	bucket_usage_segments BucketUsage_Segments_Field,
+	bucket_usage_metadata_size BucketUsage_MetadataSize_Field,
+	bucket_usage_repair_egress BucketUsage_RepairEgress_Field,
+	bucket_usage_get_egress BucketUsage_GetEgress_Field,
+	bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
+	bucket_usage *BucketUsage, err error) {
+	__id_val := bucket_usage_id.value()
+	__bucket_id_val := bucket_usage_bucket_id.value()
+	__rollup_end_time_val := bucket_usage_rollup_end_time.value()
+	__remote_stored_data_val := bucket_usage_remote_stored_data.value()
+	__inline_stored_data_val := bucket_usage_inline_stored_data.value()
+	__segments_val := bucket_usage_segments.value()
+	__metadata_size_val := bucket_usage_metadata_size.value()
+	__repair_egress_val := bucket_usage_repair_egress.value()
+	__get_egress_val := bucket_usage_get_egress.value()
+	__audit_egress_val := bucket_usage_audit_egress.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_usages ( id, bucket_id, rollup_end_time, remote_stored_data, inline_stored_data, segments, metadata_size, repair_egress, get_egress, audit_egress ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __segments_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
+
+	__res, err := obj.driver.Exec(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __segments_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastBucketUsage(ctx, __pk)
 
 }
 
@@ -5784,6 +6183,103 @@ func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Con
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, api_key)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Get_BucketUsage_By_Id(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field) (
+	bucket_usage *BucketUsage, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.segments, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_usage_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_usage = &BucketUsage{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.Segments, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_usage, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Id_Greater_OrderBy_Asc_Id(ctx context.Context,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_id_greater BucketUsage_Id_Field,
+	limit int, offset int64) (
+	rows []*BucketUsage, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.segments, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.id > ? ORDER BY bucket_usages.id LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_id_greater.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket_usage := &BucketUsage{}
+		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.Segments, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket_usage)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Id_Less_OrderBy_Desc_Id(ctx context.Context,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_id_less BucketUsage_Id_Field,
+	limit int, offset int64) (
+	rows []*BucketUsage, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.segments, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.id < ? ORDER BY bucket_usages.id DESC LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_id_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket_usage := &BucketUsage{}
+		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.Segments, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket_usage)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -6601,6 +7097,32 @@ func (obj *sqlite3Impl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_BucketUsage_By_Id(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_usages WHERE bucket_usages.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_usage_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) Delete_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	deleted bool, err error) {
@@ -6843,6 +7365,24 @@ func (obj *sqlite3Impl) getLastApiKey(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastBucketUsage(ctx context.Context,
+	pk int64) (
+	bucket_usage *BucketUsage, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.segments, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	bucket_usage = &BucketUsage{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.Segments, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_usage, nil
+
+}
+
 func (obj *sqlite3Impl) getLastCertRecord(ctx context.Context,
 	pk int64) (
 	certRecord *CertRecord, err error) {
@@ -6970,6 +7510,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bwagreements;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM bucket_usages;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -7211,6 +7761,26 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_BucketUsage(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
+	bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
+	bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
+	bucket_usage_segments BucketUsage_Segments_Field,
+	bucket_usage_metadata_size BucketUsage_MetadataSize_Field,
+	bucket_usage_repair_egress BucketUsage_RepairEgress_Field,
+	bucket_usage_get_egress BucketUsage_GetEgress_Field,
+	bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
+	bucket_usage *BucketUsage, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_BucketUsage(ctx, bucket_usage_id, bucket_usage_bucket_id, bucket_usage_rollup_end_time, bucket_usage_remote_stored_data, bucket_usage_inline_stored_data, bucket_usage_segments, bucket_usage_metadata_size, bucket_usage_repair_egress, bucket_usage_get_egress, bucket_usage_audit_egress)
+
+}
+
 func (rx *Rx) Create_Bwagreement(ctx context.Context,
 	bwagreement_serialnum Bwagreement_Serialnum_Field,
 	bwagreement_storage_node_id Bwagreement_StorageNodeId_Field,
@@ -7379,6 +7949,16 @@ func (rx *Rx) Delete_ApiKey_By_Id(ctx context.Context,
 	return tx.Delete_ApiKey_By_Id(ctx, api_key_id)
 }
 
+func (rx *Rx) Delete_BucketUsage_By_Id(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_BucketUsage_By_Id(ctx, bucket_usage_id)
+}
+
 func (rx *Rx) Delete_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	deleted bool, err error) {
@@ -7519,6 +8099,16 @@ func (rx *Rx) Get_ApiKey_By_Key(ctx context.Context,
 	return tx.Get_ApiKey_By_Key(ctx, api_key_key)
 }
 
+func (rx *Rx) Get_BucketUsage_By_Id(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field) (
+	bucket_usage *BucketUsage, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_BucketUsage_By_Id(ctx, bucket_usage_id)
+}
+
 func (rx *Rx) Get_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	certRecord *CertRecord, err error) {
@@ -7587,6 +8177,32 @@ func (rx *Rx) Get_User_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_User_By_Id(ctx, user_id)
+}
+
+func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Id_Greater_OrderBy_Asc_Id(ctx context.Context,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_id_greater BucketUsage_Id_Field,
+	limit int, offset int64) (
+	rows []*BucketUsage, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Id_Greater_OrderBy_Asc_Id(ctx, bucket_usage_bucket_id, bucket_usage_rollup_end_time_greater, bucket_usage_id_greater, limit, offset)
+}
+
+func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Id_Less_OrderBy_Desc_Id(ctx context.Context,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_id_less BucketUsage_Id_Field,
+	limit int, offset int64) (
+	rows []*BucketUsage, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Id_Less_OrderBy_Desc_Id(ctx, bucket_usage_bucket_id, bucket_usage_rollup_end_time_greater, bucket_usage_id_less, limit, offset)
 }
 
 func (rx *Rx) Limited_Bwagreement(ctx context.Context,
@@ -7787,6 +8403,19 @@ type Methods interface {
 		api_key_name ApiKey_Name_Field) (
 		api_key *ApiKey, err error)
 
+	Create_BucketUsage(ctx context.Context,
+		bucket_usage_id BucketUsage_Id_Field,
+		bucket_usage_bucket_id BucketUsage_BucketId_Field,
+		bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
+		bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
+		bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
+		bucket_usage_segments BucketUsage_Segments_Field,
+		bucket_usage_metadata_size BucketUsage_MetadataSize_Field,
+		bucket_usage_repair_egress BucketUsage_RepairEgress_Field,
+		bucket_usage_get_egress BucketUsage_GetEgress_Field,
+		bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
+		bucket_usage *BucketUsage, err error)
+
 	Create_Bwagreement(ctx context.Context,
 		bwagreement_serialnum Bwagreement_Serialnum_Field,
 		bwagreement_storage_node_id Bwagreement_StorageNodeId_Field,
@@ -7874,6 +8503,10 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field) (
 		deleted bool, err error)
 
+	Delete_BucketUsage_By_Id(ctx context.Context,
+		bucket_usage_id BucketUsage_Id_Field) (
+		deleted bool, err error)
+
 	Delete_CertRecord_By_Id(ctx context.Context,
 		certRecord_id CertRecord_Id_Field) (
 		deleted bool, err error)
@@ -7930,6 +8563,10 @@ type Methods interface {
 		api_key_key ApiKey_Key_Field) (
 		api_key *ApiKey, err error)
 
+	Get_BucketUsage_By_Id(ctx context.Context,
+		bucket_usage_id BucketUsage_Id_Field) (
+		bucket_usage *BucketUsage, err error)
+
 	Get_CertRecord_By_Id(ctx context.Context,
 		certRecord_id CertRecord_Id_Field) (
 		certRecord *CertRecord, err error)
@@ -7957,6 +8594,20 @@ type Methods interface {
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		user *User, err error)
+
+	Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Id_Greater_OrderBy_Asc_Id(ctx context.Context,
+		bucket_usage_bucket_id BucketUsage_BucketId_Field,
+		bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+		bucket_usage_id_greater BucketUsage_Id_Field,
+		limit int, offset int64) (
+		rows []*BucketUsage, err error)
+
+	Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Id_Less_OrderBy_Desc_Id(ctx context.Context,
+		bucket_usage_bucket_id BucketUsage_BucketId_Field,
+		bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+		bucket_usage_id_less BucketUsage_Id_Field,
+		limit int, offset int64) (
+		rows []*BucketUsage, err error)
 
 	Limited_Bwagreement(ctx context.Context,
 		limit int, offset int64) (

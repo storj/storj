@@ -15,6 +15,8 @@ type DB interface {
 	ProjectMembers() ProjectMembers
 	// APIKeys is a getter for APIKeys repository
 	APIKeys() APIKeys
+	// BucketUsages is a getter for BucketUsages repository
+	BucketUsages() BucketUsages
 
 	// BeginTransaction is a method for opening transaction
 	BeginTx(ctx context.Context) (DBTx, error)

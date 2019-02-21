@@ -26,6 +26,19 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE bucket_usages (
+	id bytea NOT NULL,
+	bucket_id bytea NOT NULL,
+	rollup_end_time timestamp with time zone NOT NULL,
+	remote_stored_data bigint NOT NULL,
+	inline_stored_data bigint NOT NULL,
+	segments integer NOT NULL,
+	metadata_size bigint NOT NULL,
+	repair_egress bigint NOT NULL,
+	get_egress bigint NOT NULL,
+	audit_egress bigint NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE bwagreements (
 	serialnum text NOT NULL,
 	storage_node_id bytea NOT NULL,
