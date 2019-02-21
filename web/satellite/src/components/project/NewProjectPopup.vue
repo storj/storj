@@ -102,7 +102,7 @@ import { validateProjectName } from '@/utils/validation';
 
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
 
-                if (this.$store.state.projectsModule.projects.length == 1) {
+                if (this.$store.state.projectsModule.projects.length === 1) {
                     // Start successful project creation sequence
                     this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
 
