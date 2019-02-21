@@ -8,11 +8,27 @@ import (
 	"sync"
 	"time"
 
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
+
+// RoutingTable contains information on nodes we have locally
+type RoutingTable interface {
+	// local params
+	Local() pb.Node
+	K() int
+	CacheSize() int
+	GetBucketIds() (storage.Keys, error)
+	FindNear(id storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error)
+	ConnectionSuccess(node *pb.Node) error
+	ConnectionFailed(node *pb.Node) error
+	// these are for refreshing
+	SetBucketTimestamp(id []byte, now time.Time) error
+	GetBucketTimestamp(id []byte) (time.Time, error)
+
+	Close() error
+}
 
 type nodeData struct {
 	node        *pb.Node
@@ -52,7 +68,7 @@ func New(self storj.NodeID, bucketSize, cacheSize, allowedFailures int) *Table {
 }
 
 // make sure the Table implements the right interface
-var _ dht.RoutingTable = (*Table)(nil)
+var _ RoutingTable = (*Table)(nil)
 
 // K returns the Table's routing depth, or Kademlia k value
 func (t *Table) K() int { return t.bucketSize }
@@ -147,7 +163,7 @@ func (t *Table) FindNear(id storj.NodeID, limit int, restrictions ...pb.Restrict
 	return rv, nil
 }
 
-// Local implements the dht.RoutingTable interface
+// Local implements the testrouting.RoutingTable interface
 func (t *Table) Local() pb.Node {
 	// the routing table has no idea what the right address of ourself is,
 	// so this is the wrong place to get this information. we could return
@@ -173,22 +189,22 @@ func (t *Table) MaxBucketDepth() (int, error) {
 	return maxDepth, nil
 }
 
-// GetNodes implements the dht.RoutingTable interface
+// GetNodes implements the testrouting.RoutingTable interface
 func (t *Table) GetNodes(id storj.NodeID) (nodes []*pb.Node, ok bool) {
 	panic("TODO")
 }
 
-// GetBucketIds implements the dht.RoutingTable interface
+// GetBucketIds implements the testrouting.RoutingTable interface
 func (t *Table) GetBucketIds() (storage.Keys, error) {
 	panic("TODO")
 }
 
-// SetBucketTimestamp implements the dht.RoutingTable interface
+// SetBucketTimestamp implements the testrouting.RoutingTable interface
 func (t *Table) SetBucketTimestamp(id []byte, now time.Time) error {
 	panic("TODO")
 }
 
-// GetBucketTimestamp implements the dht.RoutingTable interface
+// GetBucketTimestamp implements the testrouting.RoutingTable interface
 func (t *Table) GetBucketTimestamp(id []byte) (time.Time, error) {
 	panic("TODO")
 }
@@ -304,5 +320,5 @@ func (t *Table) add(b *bucket, node *nodeData, dissimilar bool, nearest []*nodeD
 	t.add(b, node, dissimilar, nearest)
 }
 
-// Close implements the dht.RoutingTable interface
+// Close implements the testrouting.RoutingTable interface
 func (t *Table) Close() error { return nil }
