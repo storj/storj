@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 declare type Answer = {
-	isSuccess: boolean;
-	error: {
-		code: any;
-		message: any;
-	};
-}
+    isSuccess: boolean;
+    error: {
+        code: any;
+        message: any;
+    };
+};

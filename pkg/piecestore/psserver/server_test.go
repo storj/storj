@@ -47,12 +47,15 @@ func TestPiece(t *testing.T) {
 	s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
 	defer cleanup()
 
-	if err := writeFile(s, "11111111111111111111"); err != nil {
+	namespacedID, err := getNamespacedPieceID([]byte("11111111111111111111"), snID.ID.Bytes())
+	require.NoError(t, err)
+
+	if err := writeFile(s, namespacedID); err != nil {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
 
-	defer func() { _ = s.storage.Delete("11111111111111111111") }()
+	defer func() { _ = s.storage.Delete(namespacedID) }()
 
 	// set up test cases
 	tests := []struct {
@@ -67,41 +70,35 @@ func TestPiece(t *testing.T) {
 			expiration: 9999999999,
 			err:        "",
 		},
-		{ // server should err with invalid id
-			id:         "123",
-			size:       5,
-			expiration: 9999999999,
-			err:        "rpc error: code = Unknown desc = piecestore error: invalid id length",
-		},
 		{ // server should err with nonexistent file
 			id:         "22222222222222222222",
 			size:       5,
 			expiration: 9999999999,
 			err: fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", func() string {
-				path, _ := s.storage.PiecePath("22222222222222222222")
+				namespacedID, err := getNamespacedPieceID([]byte("22222222222222222222"), snID.ID.Bytes())
+				require.NoError(t, err)
+				path, _ := s.storage.PiecePath(namespacedID)
 				return path
 			}()),
-		},
-		{ // server should err with invalid TTL
-			id:         "22222222222222222222;DELETE*FROM TTL;;;;",
-			size:       5,
-			expiration: 9999999999,
-			err:        "rpc error: code = Unknown desc = PSServer error: invalid ID",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
+
+			namespacedID, err := getNamespacedPieceID([]byte(tt.id), snID.ID.Bytes())
+			require.NoError(t, err)
+
 			// simulate piece TTL entry
-			_, err := s.DB.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, tt.expiration))
+			_, err = s.DB.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, namespacedID, 1234567890, tt.expiration))
 			require.NoError(t, err)
 
 			defer func() {
-				_, err := s.DB.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
+				_, err := s.DB.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, namespacedID))
 				require.NoError(t, err)
 			}()
 
-			req := &pb.PieceId{Id: tt.id}
+			req := &pb.PieceId{Id: tt.id, SatelliteId: snID.ID}
 			resp, err := c.Piece(ctx, req)
 
 			if tt.err != "" {
@@ -305,16 +302,6 @@ func TestStore(t *testing.T) {
 			totalReceived: 5,
 			err:           "",
 		},
-		{ // should err with invalid id length
-			id:            "butts",
-			satelliteID:   satID.ID,
-			whitelist:     []storj.NodeID{satID.ID},
-			ttl:           9999999999,
-			content:       []byte("xyzwq"),
-			message:       "",
-			totalReceived: 0,
-			err:           "rpc error: code = Unknown desc = piecestore error: invalid id length",
-		},
 		{ // should err with piece ID not specified
 			id:            "",
 			satelliteID:   satID.ID,
@@ -337,14 +324,19 @@ func TestStore(t *testing.T) {
 			stream, err := c.Store(ctx)
 			require.NoError(t, err)
 
-			// Write the buffer to the stream we opened earlier
-			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
-			require.NoError(t, err)
-			// Send Bandwidth Allocation Data
+			// Create Bandwidth Allocation Data
 			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_PUT, snID, upID, time.Hour)
 			require.NoError(t, err)
 			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, tt.totalReceived)
 			require.NoError(t, err)
+
+			// Write the buffer to the stream we opened earlier
+			err = stream.Send(&pb.PieceStore{
+				PieceData:           &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl},
+				BandwidthAllocation: rba,
+			})
+			require.NoError(t, err)
+
 			msg := &pb.PieceStore{
 				PieceData:           &pb.PieceStore_PieceData{Content: tt.content},
 				BandwidthAllocation: rba,
@@ -443,12 +435,7 @@ func TestPbaValidation(t *testing.T) {
 			stream, err := c.Store(ctx)
 			require.NoError(t, err)
 
-			//cleanup incase tests previously paniced
-			_ = s.storage.Delete("99999999999999999999")
-			// Write the buffer to the stream we opened earlier
-			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: "99999999999999999999", ExpirationUnixSec: 9999999999}})
-			require.NoError(t, err)
-			// Send Bandwidth Allocation Data
+			// Create Bandwidth Allocation Data
 			content := []byte("content")
 			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(tt.action, satID1, upID, time.Hour)
 			require.NoError(t, err)
@@ -458,6 +445,15 @@ func TestPbaValidation(t *testing.T) {
 				PieceData:           &pb.PieceStore_PieceData{Content: content},
 				BandwidthAllocation: rba,
 			}
+
+			//cleanup incase tests previously paniced
+			_ = s.storage.Delete("99999999999999999999")
+			// Write the buffer to the stream we opened earlier
+			err = stream.Send(&pb.PieceStore{
+				PieceData:           &pb.PieceStore_PieceData{Id: "99999999999999999999", ExpirationUnixSec: 9999999999},
+				BandwidthAllocation: rba,
+			})
+			require.NoError(t, err)
 
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(msg)
@@ -497,11 +493,6 @@ func TestDelete(t *testing.T) {
 			id:      "11111111111111111111",
 			message: "OK",
 			err:     "",
-		},
-		{ // should err with invalid id length
-			id:      "123",
-			message: "rpc error: code = Unknown desc = piecestore error: invalid id length",
-			err:     "rpc error: code = Unknown desc = piecestore error: invalid id length",
 		},
 		{ // should return OK with nonexistent file
 			id:      "22222222222222222223",
@@ -565,9 +556,6 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	require.NoError(t, err)
 	err = psDB.Migration().Run(zap.NewNop(), psDB)
 	require.NoError(t, err)
-	verifier := func(authorization *pb.SignedMessage) error {
-		return nil
-	}
 	whitelist := make(map[storj.NodeID]crypto.PublicKey)
 	for _, id := range ids {
 		whitelist[id] = nil
@@ -576,7 +564,6 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 		log:              zaptest.NewLogger(t),
 		storage:          storage,
 		DB:               psDB,
-		verifier:         verifier,
 		totalAllocated:   math.MaxInt64,
 		totalBwAllocated: math.MaxInt64,
 		whitelist:        whitelist,

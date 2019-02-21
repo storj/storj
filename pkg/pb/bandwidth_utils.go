@@ -58,3 +58,22 @@ func (m *RenterBandwidthAllocation) SetCerts(certs [][]byte) {
 func (m *RenterBandwidthAllocation) SetSignature(signature []byte) {
 	m.Signature = signature
 }
+
+// Clone creates a deep copy of PayerBandwidthAllocation
+func (m *PayerBandwidthAllocation) Clone() (pba PayerBandwidthAllocation) {
+	pba = PayerBandwidthAllocation{
+		SatelliteId:       m.SatelliteId,
+		UplinkId:          m.UplinkId,
+		MaxSize:           m.MaxSize,
+		ExpirationUnixSec: m.ExpirationUnixSec,
+		SerialNumber:      m.SerialNumber,
+		Action:            m.Action,
+		CreatedUnixSec:    m.CreatedUnixSec,
+	}
+	pba.Certs = make([][]byte, len(m.Certs))
+	copy(pba.Certs, m.Certs)
+	pba.Signature = make([]byte, len(m.Signature))
+	copy(pba.Signature, m.Signature)
+
+	return pba
+}

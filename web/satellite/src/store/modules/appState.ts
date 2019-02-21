@@ -5,11 +5,11 @@ import { APP_STATE_MUTATIONS } from '../mutationConstants';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 export const appStateModule = {
-	state: {
-		// Object that contains all states of views
-		appState: {
+    state: {
+        // Object that contains all states of views
+        appState: {
             isAddTeamMembersPopupShown: false,
-			isNewProjectPopupShown: false,
+            isNewProjectPopupShown: false,
             isProjectsDropdownShown: false,
             isAccountDropdownShown: false,
             isDeleteProjectPopupShown: false,
@@ -17,10 +17,11 @@ export const appStateModule = {
             isNewAPIKeyPopupShown: false,
             isSortProjectMembersByPopupShown: false,
             isSuccessfulRegistrationPopupShown: false,
+            isSuccessfulProjectCreationPopupShown: false,
         },
-	},
-	mutations: {
-		// Mutation changing add team members popup visibility
+    },
+    mutations: {
+        // Mutation changing add team members popup visibility
         [APP_STATE_MUTATIONS.TOGGLE_ADD_TEAMMEMBER_POPUP](state: any): void {
             state.appState.isAddTeamMembersPopupShown = !state.appState.isAddTeamMembersPopupShown;
         },
@@ -48,19 +49,22 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_DELETE_ACCOUNT_DROPDOWN](state: any): void {
             state.appState.isDeleteAccountPopupShown = !state.appState.isDeleteAccountPopupShown;
         },
-		// Mutation changing 'sort project members by' popup visibility
-		[APP_STATE_MUTATIONS.TOGGLE_SORT_PM_BY_DROPDOWN](state: any): void {
-			state.appState.isSortProjectMembersByPopupShown = !state.appState.isSortProjectMembersByPopupShown;
-		},
+        // Mutation changing 'sort project members by' popup visibility
+        [APP_STATE_MUTATIONS.TOGGLE_SORT_PM_BY_DROPDOWN](state: any): void {
+            state.appState.isSortProjectMembersByPopupShown = !state.appState.isSortProjectMembersByPopupShown;
+        },
         // Mutation changing new api key popup visibility
         [APP_STATE_MUTATIONS.TOGGLE_NEW_API_KEY_POPUP](state: any): void {
             state.appState.isNewAPIKeyPopupShown = !state.appState.isNewAPIKeyPopupShown;
         },
-		// Mutation changing 'successful registration' popup visibility
-		[APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP](state: any): void {
-			state.appState.isSuccessfulRegistrationPopupShown = !state.appState.isSuccessfulRegistrationPopupShown;
-		},
-
+        // Mutation changing 'successful registration' popup visibility
+        [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP](state: any): void {
+            state.appState.isSuccessfulRegistrationPopupShown = !state.appState.isSuccessfulRegistrationPopupShown;
+        },
+        // Mutation changing 'successful project creation' popup visibility
+        [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP](state: any): void {
+            state.appState.isSuccessfulProjectCreationPopupShown = !state.appState.isSuccessfulProjectCreationPopupShown;
+        },
         // Mutation that closes each popup/dropdown
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: any): void {
             state.appState.isAddTeamMembersPopupShown = false;
@@ -71,11 +75,12 @@ export const appStateModule = {
             state.appState.isDeleteAccountPopupShown = false;
             state.appState.isSortProjectMembersByPopupShown = false;
             state.appState.isNewAPIKeyPopupShown = false;
-			state.appState.isSuccessfulRegistrationPopupShown = false;
+            state.appState.isSuccessfulRegistrationPopupShown = false;
+            state.appState.isSuccessfulProjectCreationPopupShown = false;
         },
-	},
-	actions: {
-		// Commits mutation for changing app popups and dropdowns visibility state
+    },
+    actions: {
+        // Commits mutation for changing app popups and dropdowns visibility state
         toggleAddTeamMembersPopup: function ({commit, state}: any): void {
             if (!state.appState.isAddTeamMembersPopupShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
@@ -118,13 +123,13 @@ export const appStateModule = {
 
             commit(APP_STATE_MUTATIONS.TOGGLE_DELETE_ACCOUNT_DROPDOWN);
         },
-		toggleSortProjectMembersByPopup: function ({commit, state}: any): void {
-			if (!state.appState.isSortProjectMembersByPopupShown) {
-				commit(APP_STATE_MUTATIONS.CLOSE_ALL);
-			}
+        toggleSortProjectMembersByPopup: function ({commit, state}: any): void {
+            if (!state.appState.isSortProjectMembersByPopupShown) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
 
-			commit(APP_STATE_MUTATIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
-		},
+            commit(APP_STATE_MUTATIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
+        },
         [APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY]: function ({commit, state}: any): void {
             if (!state.appState.isNewAPIKeyPopupShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
@@ -132,15 +137,22 @@ export const appStateModule = {
 
             commit(APP_STATE_MUTATIONS.TOGGLE_NEW_API_KEY_POPUP);
         },
-		[APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP]: function ({commit, state}: any): void {
-			if (!state.appState.isSuccessfullRegistrationPopupShown) {
-				commit(APP_STATE_MUTATIONS.CLOSE_ALL);
-			}
+        [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP]: function ({commit, state}: any): void {
+            if (!state.appState.isSuccessfullRegistrationPopupShown) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
 
-			commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
-		},
+            commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
+        },
+        [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP]: function ({commit, state}: any): void {
+            if (!state.appState.isSuccessfulProjectCreationPopupShown) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
+
+            commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
+        },
         closePopups: function ({commit}: any): void {
             commit(APP_STATE_MUTATIONS.CLOSE_ALL);
         },
-	},
+    },
 };

@@ -45,26 +45,26 @@ import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames'
     methods: {
         onMemberClick: function (member: any) {
             this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
-		},
-		handleScroll: async function () {
-			const documentElement = document.getElementById('scrollable_team_container');
-			if (!documentElement) {
-				return;
-			}
+        },
+        handleScroll: async function () {
+            const documentElement = document.getElementById('scrollable_team_container');
+            if (!documentElement) {
+                return;
+            }
 
-			const isAtBottom = documentElement.scrollTop + documentElement.clientHeight === documentElement.scrollHeight;
+            const isAtBottom = documentElement.scrollTop + documentElement.clientHeight === documentElement.scrollHeight;
 
-			if (!isAtBottom || this.$data.isFetchInProgress) return;
+            if (!isAtBottom || this.$data.isFetchInProgress) return;
 
-			this.$data.isFetchInProgress = true;
+            this.$data.isFetchInProgress = true;
 
-			const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
+            const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
 
-			this.$data.isFetchInProgress = false;
+            this.$data.isFetchInProgress = false;
 
-			if (response.isSuccess) return;
+            if (response.isSuccess) return;
 
-			this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
         },
     },
     computed: {

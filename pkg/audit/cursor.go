@@ -11,7 +11,6 @@ import (
 
 	"github.com/vivint/infectious"
 
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -22,10 +21,9 @@ import (
 
 // Stripe keeps track of a stripe's index and its parent segment
 type Stripe struct {
-	Index         int
-	Segment       *pb.Pointer
-	PBA           *pb.PayerBandwidthAllocation
-	Authorization *pb.SignedMessage
+	Index   int
+	Segment *pb.Pointer
+	PBA     *pb.PayerBandwidthAllocation
 }
 
 // Cursor keeps track of audit location in pointer db
@@ -85,16 +83,6 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
-	signature, err := auth.GenerateSignature(cursor.identity.ID.Bytes(), cursor.identity)
-	if err != nil {
-		return nil, err
-	}
-
-	authorization, err := auth.NewSignedMessage(signature, cursor.identity)
-	if err != nil {
-		return nil, err
-	}
-
 	if pointer.GetType() != pb.Pointer_REMOTE {
 		return nil, nil
 	}
@@ -115,10 +103,9 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	}
 
 	return &Stripe{
-		Index:         index,
-		Segment:       pointer,
-		PBA:           pba,
-		Authorization: authorization,
+		Index:   index,
+		Segment: pointer,
+		PBA:     pba,
 	}, nil
 }
 

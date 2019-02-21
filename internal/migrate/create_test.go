@@ -11,7 +11,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/migrate"
 
 	_ "github.com/lib/pq"
@@ -52,11 +54,16 @@ func TestCreate_Postgres(t *testing.T) {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
 	}
 
-	db, err := sql.Open("postgres", *testPostgres)
+	schema := "create-" + pgutil.RandomString(8)
+
+	db, err := sql.Open("postgres", pgutil.ConnstrWithSchema(*testPostgres, schema))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { assert.NoError(t, db.Close()) }()
+
+	require.NoError(t, pgutil.CreateSchema(db, schema))
+	defer func() { assert.NoError(t, pgutil.DropSchema(db, schema)) }()
 
 	// should create table
 	err = migrate.Create("example", &postgresDB{db, "CREATE TABLE example_table (id text)"})

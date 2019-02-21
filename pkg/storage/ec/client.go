@@ -28,9 +28,9 @@ var mon = monkit.Package()
 
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
-	Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error)
-	Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme, pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error)
-	Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, authorization *pb.SignedMessage) error
+	Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation) (successfulNodes []*pb.Node, err error)
+	Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme, pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation) (ranger.Ranger, error)
+	Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, satelliteID storj.NodeID) error
 }
 
 type psClientFunc func(context.Context, transport.Client, *pb.Node, int) (psclient.Client, error)
@@ -56,7 +56,7 @@ func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (psclient.Clien
 	return ec.newPSClientFunc(ctx, ec.transport, n, 0)
 }
 
-func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error) {
+func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation) (successfulNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodes) != rs.TotalCount() {
 		return nil, Error.New("size of nodes slice (%d) does not match total count (%d) of erasure scheme", len(nodes), rs.TotalCount())
@@ -93,7 +93,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 		}
 
 		go func(i int, node *pb.Node) {
-			err := ec.putPiece(psCtx, ctx, node, pieceID, readers[i], expiration, pba, authorization)
+			err := ec.putPiece(psCtx, ctx, node, pieceID, readers[i], expiration, pba)
 			infos <- info{i: i, err: err}
 		}(i, node)
 	}
@@ -133,7 +133,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 		case <-ctx.Done():
 			err = utils.CombineErrors(
 				Error.New("upload cancelled by user"),
-				ec.Delete(context.Background(), nodes, pieceID, authorization),
+				ec.Delete(context.Background(), nodes, pieceID, pba.SatelliteId),
 			)
 		default:
 		}
@@ -146,7 +146,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	return successfulNodes, nil
 }
 
-func (ec *ecClient) putPiece(ctx, parent context.Context, node *pb.Node, pieceID psclient.PieceID, data io.ReadCloser, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (err error) {
+func (ec *ecClient) putPiece(ctx, parent context.Context, node *pb.Node, pieceID psclient.PieceID, data io.ReadCloser, expiration time.Time, pba *pb.PayerBandwidthAllocation) (err error) {
 	defer func() { err = errs.Combine(err, data.Close()) }()
 
 	if node == nil {
@@ -165,7 +165,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, node *pb.Node, pieceID
 			pieceID, derivedPieceID, node.Id, err)
 		return err
 	}
-	err = ps.Put(ctx, derivedPieceID, data, expiration, pba, authorization)
+	err = ps.Put(ctx, derivedPieceID, data, expiration, pba)
 	defer func() { err = errs.Combine(err, ps.Close()) }()
 	// Canceled context means the piece upload was interrupted by user or due
 	// to slow connection. No error logging for this case.
@@ -189,7 +189,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, node *pb.Node, pieceID
 }
 
 func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
-	pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (rr ranger.Ranger, err error) {
+	pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodes) != es.TotalCount() {
@@ -236,7 +236,6 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 				id:                derivedPieceID,
 				size:              pieceSize,
 				pba:               pba,
-				authorization:     authorization,
 			}
 
 			ch <- rangerInfo{i: i, rr: rr, err: nil}
@@ -258,7 +257,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 	return eestream.Unpad(rr, int(paddedSize-size))
 }
 
-func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, authorization *pb.SignedMessage) (err error) {
+func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, satelliteID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	errch := make(chan error, len(nodes))
@@ -287,7 +286,7 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclie
 				errch <- err
 				return
 			}
-			err = ps.Delete(ctx, derivedPieceID, authorization)
+			err = ps.Delete(ctx, derivedPieceID, satelliteID)
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
 			err = errs.Combine(err, ps.Close())
@@ -363,7 +362,6 @@ type lazyPieceRanger struct {
 	id                psclient.PieceID
 	size              int64
 	pba               *pb.PayerBandwidthAllocation
-	authorization     *pb.SignedMessage
 }
 
 // Size implements Ranger.Size
@@ -379,7 +377,7 @@ func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.
 		if err != nil {
 			return nil, err
 		}
-		ranger, err := ps.Get(ctx, lr.id, lr.size, lr.pba, lr.authorization)
+		ranger, err := ps.Get(ctx, lr.id, lr.size, lr.pba)
 		if err != nil {
 			return nil, err
 		}

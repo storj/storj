@@ -3,7 +3,7 @@
 
 import { API_KEYS_MUTATIONS } from '../mutationConstants';
 import { createAPIKey, deleteAPIKeys, fetchAPIKeys } from '@/api/apiKeys';
-import { API_KEYS_ACTIONS } from "@/utils/constants/actionNames";
+import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 
 export const apiKeysModule = {
     state: {
@@ -17,13 +17,13 @@ export const apiKeysModule = {
             state.apiKeys.push(apiKey);
         },
         [API_KEYS_MUTATIONS.DELETE](state: any, ids: string[]) {
-        	const keysCount = ids.length;
+            const keysCount = ids.length;
 
-			for (let j = 0; j < keysCount; j++) {
-				state.apiKeys = state.apiKeys.filter((element: any) => {
-					return element.id !== ids[j];
-				});
-			}
+            for (let j = 0; j < keysCount; j++) {
+                state.apiKeys = state.apiKeys.filter((element: any) => {
+                    return element.id !== ids[j];
+                });
+            }
         },
         [API_KEYS_MUTATIONS.TOGGLE_SELECTION](state: any, apiKeyID: string) {
             state.apiKeys = state.apiKeys.map((apiKey: any) => {

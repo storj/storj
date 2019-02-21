@@ -36,7 +36,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
 import AddAPIKeyPopup from '@/components/apiKeys/AddApiKeyPopup.vue';
 import Footer from '@/components/apiKeys/footerArea/Footer.vue';
-import { API_KEYS_ACTIONS, APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import { API_KEYS_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     data: function () {

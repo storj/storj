@@ -4,7 +4,7 @@
 const tokenKey: string = 'tokenKey';
 
 export function getToken(): string {
-	return getCookie(tokenKey);
+    return getCookie(tokenKey);
 }
 
 export function setToken(tokenValue: string): void {

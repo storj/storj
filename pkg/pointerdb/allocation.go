@@ -65,10 +65,8 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 		Action:            action,
 		SerialNumber:      serialNum.String(),
 	}
-	if err := auth.SignMessage(pba, *allocation.satelliteIdentity); err != nil {
-		return nil, err
-	}
-	return pba, nil
+	err = auth.SignMessage(pba, *allocation.satelliteIdentity)
+	return pba, err
 }
 
 func (allocation *AllocationSigner) restrictActions(peerID storj.NodeID, action pb.BandwidthAction) error {

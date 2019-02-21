@@ -76,7 +76,7 @@ export async function createAPIKey(projectID: string, name: string) {
             result.data = {
                 key: response.data.createAPIKey.key,
                 keyInfo: response.data.createAPIKey.keyInfo
-            }
+            };
         }
     } catch (e) {
         result.errorMessage = e.message;
@@ -118,11 +118,11 @@ export async function deleteAPIKeys(ids: string[]) {
 }
 
 function prepareIdList(ids: string[]): string {
-	let idString: string = '';
+    let idString: string = '';
 
-	ids.forEach(id => {
-		idString += `"${id}", `;
-	});
+    ids.forEach(id => {
+        idString += `"${id}", `;
+    });
 
-	return idString;
+    return idString;
 }

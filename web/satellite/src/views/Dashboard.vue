@@ -10,6 +10,7 @@
                 <router-view />
             </div>
         </div>
+        <ProjectCreationSuccessPopup/>
     </div>
 </template>
 
@@ -20,23 +21,24 @@ import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import { removeToken, setToken } from '@/utils/tokenManager';
 import { NOTIFICATION_ACTIONS, PROJETS_ACTIONS, PM_ACTIONS, USER_ACTIONS } from '@/utils/constants/actionNames';
 import ROUTES from '@/utils/constants/routerConstants';
+import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
 
 @Component({
     beforeMount: async function() {
-    	const activationTokenParam = this.$route.query['activationToken'];
+        const activationTokenParam = this.$route.query['activationToken'];
 
-    	if(activationTokenParam) {
-			const response = await this.$store.dispatch(USER_ACTIONS.ACTIVATE, activationTokenParam);
-			if(!response.isSuccess) {
-				this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to activate account');
-				this.$router.push(ROUTES.LOGIN);
+        if (activationTokenParam) {
+            const response = await this.$store.dispatch(USER_ACTIONS.ACTIVATE, activationTokenParam);
+            if (!response.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to activate account');
+                this.$router.push(ROUTES.LOGIN);
 
-				removeToken();
+                removeToken();
 
-				return;
+                return;
             }
 
-			setToken(response.data);
+            setToken(response.data);
         }
         // TODO: should place here some animation while all needed data is fetching
         let response: RequestResponse<User> = await this.$store.dispatch(USER_ACTIONS.GET);
@@ -67,6 +69,7 @@ import ROUTES from '@/utils/constants/routerConstants';
         this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
     },
     components: {
+        ProjectCreationSuccessPopup,
         NavigationArea,
         DashboardHeader
     }

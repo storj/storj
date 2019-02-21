@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 export enum ProjectMemberSortByEnum {
-	NAME = 1,
-	EMAIL,
-	CREATED_AT,
+    NAME = 1,
+    EMAIL,
+    CREATED_AT,
 }
