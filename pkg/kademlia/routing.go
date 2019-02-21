@@ -147,37 +147,17 @@ func (rt *RoutingTable) GetBucketIds() (storage.Keys, error) {
 	return kbuckets, nil
 }
 
-// DumpNodes loops returns all nodes in the nodeBucketDB and marshals them to &pb.Nodes
+// DumpNodes iterates through all nodes in the nodeBucketDB and marshals them to &pb.Nodes, then returns them
 func (rt *RoutingTable) DumpNodes() ([]*pb.Node, error) {
 	var nodes []*pb.Node
+	err := rt.iterate(storj.NodeID{}, func(newID storj.NodeID, protoNode []byte) error {
+		newNode := pb.Node{}
+		err := proto.Unmarshal(protoNode, &newNode)
+		nodes = append(nodes, &newNode)
+		return err
+	})
 
-	nodeKeys, err := rt.nodeBucketDB.List(nil, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, key := range nodeKeys {
-		var id storj.NodeID
-		var node = &pb.Node{}
-
-		val, err := rt.nodeBucketDB.Get(key)
-		if err != nil {
-			return nil, err
-		}
-
-		err = id.Unmarshal(key)
-		if err != nil {
-			return nil, err
-		}
-
-		err = proto.Unmarshal(val, node)
-		if err != nil {
-			return nil, err
-		}
-		nodes = append(nodes, node)
-	}
-
-	return nodes, nil
+	return nodes, Error.Wrap(err)
 }
 
 // FindNear returns the node corresponding to the provided nodeID
