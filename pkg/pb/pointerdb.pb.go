@@ -837,6 +837,7 @@ func (m *IterateRequest) GetReverse() bool {
 
 type PayerBandwidthAllocationRequest struct {
 	Action               BandwidthAction `protobuf:"varint,1,opt,name=action,proto3,enum=piecestoreroutes.BandwidthAction" json:"action,omitempty"`
+	MaxSize              int64           `protobuf:"varint,2,opt,name=max_size,json=maxSize,proto3" json:"max_size,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -871,6 +872,13 @@ func (m *PayerBandwidthAllocationRequest) GetAction() BandwidthAction {
 		return m.Action
 	}
 	return BandwidthAction_PUT
+}
+
+func (m *PayerBandwidthAllocationRequest) GetMaxSize() int64 {
+	if m != nil {
+		return m.MaxSize
+	}
+	return 0
 }
 
 type PayerBandwidthAllocationResponse struct {

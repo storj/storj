@@ -283,7 +283,7 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 		return nil, err
 	}
 
-	pba, err := s.allocation.PayerBandwidthAllocation(ctx, pi, req.GetAction())
+	pba, err := s.allocation.PayerBandwidthAllocation(ctx, pi, req.GetAction(), req.GetMaxSize())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
