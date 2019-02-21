@@ -36,9 +36,10 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
                 'addApiKeysPopupEmptyButton',
                 'addTeamMemberPopupButtonSVG',
                 'sortTeamMemberByDropdown',
-				'sortTeamMemberByDropdownButton',
+                'sortTeamMemberByDropdownButton',
                 'createAccountButton',
                 'successfulRegistrationPopup',
+                'successfulProjectCreationPopup'
             ]
         };
     },
@@ -64,7 +65,6 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 export default class App extends Vue {
 }
-
 </script>
 
 <style lang="scss">

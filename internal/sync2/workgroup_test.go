@@ -13,6 +13,8 @@ import (
 )
 
 func TestWaitGroup(t *testing.T) {
+	t.Parallel()
+
 	const Wait = 2 * time.Second
 	const TimeError = time.Second / 2
 
@@ -38,6 +40,8 @@ func TestWaitGroup(t *testing.T) {
 }
 
 func TestWaitGroupClose(t *testing.T) {
+	t.Parallel()
+
 	const Wait = 2 * time.Second
 	const LongWait = 10 * time.Second
 	const TimeError = time.Second / 2

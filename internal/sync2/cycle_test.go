@@ -16,6 +16,8 @@ import (
 )
 
 func TestCycle_Basic(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	var inplace sync2.Cycle

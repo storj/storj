@@ -36,11 +36,8 @@ func TestBasic(t *testing.T) {
 	}
 
 	// Example of using pointer db
-	client, err := planet.Uplinks[0].DialPointerDB(planet.Satellites[0], "apikey")
+	_, err = planet.Uplinks[0].DialPointerDB(planet.Satellites[0], "apikey")
 	require.NoError(t, err)
-
-	message := client.SignedMessage()
-	t.Log(message)
 
 	// ping a satellite
 	_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.Satellites[0].Local())

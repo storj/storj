@@ -4,13 +4,13 @@
 import { getId } from '@/utils/idGenerator';
 
 export class DelayedNotification {
-	public type: string;
-	public message: string;
-	public id: string;
-	private timerId: any = null;
-	private startTime: any;
-	private remainingTime: any;
-	private callback: Function;
+    public type: string;
+    public message: string;
+    public id: string;
+    private timerId: any = null;
+    private startTime: any;
+    private remainingTime: any;
+    private callback: Function;
 
     constructor(callback: Function, type: string, message: string) {
         this.callback = callback;
@@ -21,13 +21,13 @@ export class DelayedNotification {
         this.start();
     }
 
-	public pause(): void {
-		clearTimeout(this.timerId);
-		this.remainingTime -= new Date().getMilliseconds() - this.startTime;
-	}
+    public pause(): void {
+        clearTimeout(this.timerId);
+        this.remainingTime -= new Date().getMilliseconds() - this.startTime;
+    }
 
-	public start(): void {
-		this.startTime = new Date().getMilliseconds();
-		this.timerId = setTimeout(this.callback, this.remainingTime);
-	}
+    public start(): void {
+        this.startTime = new Date().getMilliseconds();
+        this.timerId = setTimeout(this.callback, this.remainingTime);
+    }
 }

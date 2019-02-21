@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/internal/testcontext"
 )
@@ -33,9 +34,16 @@ func TestBasicMigrationPostgres(t *testing.T) {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
 	}
 
-	db, err := sql.Open("postgres", *testPostgres)
-	require.NoError(t, err)
+	schema := "create-" + pgutil.RandomString(8)
+
+	db, err := sql.Open("postgres", pgutil.ConnstrWithSchema(*testPostgres, schema))
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { assert.NoError(t, db.Close()) }()
+
+	require.NoError(t, pgutil.CreateSchema(db, schema))
+	defer func() { assert.NoError(t, pgutil.DropSchema(db, schema)) }()
 
 	basicMigration(t, db, &postgresDB{DB: db})
 }
