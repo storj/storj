@@ -13,13 +13,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/kademlia/testrouting"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
-func ID(hexID string) (rv storj.NodeID) {
+func id(hexID string) (rv storj.NodeID) {
 	bytes, err := hex.DecodeString(hexID)
 	if err != nil {
 		panic(err)
@@ -36,7 +36,7 @@ func ID(hexID string) (rv storj.NodeID) {
 
 func PadID(hexPrefix, hexPad string) storj.NodeID {
 	repeats := (len(storj.NodeID{})*2 - len(hexPrefix)) / len(hexPad)
-	return ID(hexPrefix + strings.Repeat(hexPad, repeats))
+	return id(hexPrefix + strings.Repeat(hexPad, repeats))
 }
 
 func Node(id storj.NodeID, address string) *pb.Node {
