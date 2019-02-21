@@ -96,6 +96,9 @@ export const apiKeysModule = {
             }
 
             return selectedKeys;
+        },
+        APIKeys: function (state: any): any[] {
+            return state.apiKeys;
         }
     },
 };
