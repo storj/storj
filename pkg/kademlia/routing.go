@@ -99,7 +99,7 @@ func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.Key
 	return rt, nil
 }
 
-// Close close without closing dependencies
+// Close closes without closing dependencies
 func (rt *RoutingTable) Close() error {
 	return nil
 }

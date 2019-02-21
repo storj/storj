@@ -73,7 +73,7 @@ var _ RoutingTable = (*Table)(nil)
 // K returns the Table's routing depth, or Kademlia k value
 func (t *Table) K() int { return t.bucketSize }
 
-// CacheSize returns the size of
+// CacheSize returns the size of replacement cache
 func (t *Table) CacheSize() int { return t.cacheSize }
 
 // ConnectionSuccess should be called whenever a node is successfully connected
@@ -163,7 +163,7 @@ func (t *Table) FindNear(id storj.NodeID, limit int, restrictions ...pb.Restrict
 	return rv, nil
 }
 
-// Local implements the testrouting.RoutingTable interface
+// Local returns the local nodes ID
 func (t *Table) Local() pb.Node {
 	// the routing table has no idea what the right address of ourself is,
 	// so this is the wrong place to get this information. we could return
@@ -189,22 +189,22 @@ func (t *Table) MaxBucketDepth() (int, error) {
 	return maxDepth, nil
 }
 
-// GetNodes implements the testrouting.RoutingTable interface
+// GetNodes retrieves nodes within the same kbucket as the given node id
 func (t *Table) GetNodes(id storj.NodeID) (nodes []*pb.Node, ok bool) {
 	panic("TODO")
 }
 
-// GetBucketIds implements the testrouting.RoutingTable interface
+// GetBucketIds returns a storage.Keys type of bucket ID's in the Kademlia instance
 func (t *Table) GetBucketIds() (storage.Keys, error) {
 	panic("TODO")
 }
 
-// SetBucketTimestamp implements the testrouting.RoutingTable interface
+// SetBucketTimestamp records the time of the last node lookup for a bucket
 func (t *Table) SetBucketTimestamp(id []byte, now time.Time) error {
 	panic("TODO")
 }
 
-// GetBucketTimestamp implements the testrouting.RoutingTable interface
+// GetBucketTimestamp retrieves time of the last node lookup for a bucket
 func (t *Table) GetBucketTimestamp(id []byte) (time.Time, error) {
 	panic("TODO")
 }
@@ -320,5 +320,5 @@ func (t *Table) add(b *bucket, node *nodeData, dissimilar bool, nearest []*nodeD
 	t.add(b, node, dissimilar, nearest)
 }
 
-// Close implements the testrouting.RoutingTable interface
+// Close closes without closing dependencies
 func (t *Table) Close() error { return nil }
