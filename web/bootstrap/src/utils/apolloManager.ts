@@ -7,7 +7,7 @@ import { InMemoryCache } from 'apollo-cache-inmemory';
 
 // Bootstrap server url
 const bootstrapUrl = new HttpLink({
-	uri: 'http://localhost:8081/api/graphql/v0',
+	uri: 'http://localhost:8083/api/graphql/v0',
 
 });
 

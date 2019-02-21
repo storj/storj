@@ -13,6 +13,10 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
+const (
+	findNearLimit = 1
+)
+
 // Service is handling bootstrap related logic
 type Service struct {
 	log      *zap.Logger
@@ -34,10 +38,16 @@ func NewService(log *zap.Logger, kademlia *kademlia.Kademlia) (*Service, error) 
 
 // IsNodeUp is a method for checking if node is up
 func (s *Service) IsNodeUp(ctx context.Context, nodeID pb.NodeID) (bool, error) {
-	node, err := s.kademlia.FindNode(ctx, nodeID)
+	nodes, err := s.kademlia.FindNear(ctx, nodeID, findNearLimit)
 	if err != nil {
 		return false, err
 	}
 
-	return node.IsUp, nil
+	if len(nodes) == 0 {
+		return false, errs.New("node not found")
+	}
+
+	isNodeFound := nodes[0].Id == nodeID
+
+	return isNodeFound, nil
 }
