@@ -97,8 +97,8 @@ import { validateProjectName } from '@/utils/validation';
                     return;
                 }
 
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project created successfully!');
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
             }
         },
         components: {

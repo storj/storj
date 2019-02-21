@@ -39,6 +39,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
                 'sortTeamMemberByDropdownButton',
                 'createAccountButton',
                 'successfulRegistrationPopup',
+                'successfulProjectCreationPopup'
             ]
         };
     },
