@@ -28,6 +28,22 @@ matrix:
     ### tests ###
     - env:
         - MODE=tests
+      install:
+        - pushd ~
+        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mattn/goveralls
+        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mfridman/tparse
+        - popd
+        - go install -race ./...
+      script:
+        - go run scripts/use-ports.go -from 1024 -to 10000 &
+        - go test -run "(?^(|/)Postgres" -race -cover -coverprofile=.coverprofile -json -timeout 9m ./... | tparse -all -top
+        - goveralls -coverprofile=.coverprofile -service=travis-ci
+        - rm .coverprofile
+        - go run scripts/check-clean-directory.go
+    
+    ### test postgres ###
+    - env:
+        - MODE=postgres-tests
         - STORJ_POSTGRES_TEST=postgres://postgres@localhost/teststorj?sslmode=disable
       services:
         - redis
@@ -40,7 +56,7 @@ matrix:
         - go install -race ./...
       script:
         - go run scripts/use-ports.go -from 1024 -to 10000 &
-        - go test -race -cover -coverprofile=.coverprofile -json -timeout 9m ./... | tparse -all -top
+        - go test -run "(|/|//|///)Postgres" -race -cover -coverprofile=.coverprofile -json -timeout 9m ./... | tparse -all -top
         - goveralls -coverprofile=.coverprofile -service=travis-ci
         - rm .coverprofile
         - go run scripts/check-clean-directory.go
