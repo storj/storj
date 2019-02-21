@@ -104,18 +104,17 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				// some databases may have already this done, although the version may not match
-				Description: "Optimize storagenode tables",
+				Description: "Extending bandwidth_agreements table and drop bwusagetbl",
 				Version:     1,
 				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
 					v1sql := migrate.SQL{
 						`ALTER TABLE bandwidth_agreements ADD COLUMN uplink BLOB`,
-						`ALTER TABLE bandwidth_agreements ADD COLUMN serial_num TEXT NOT NULL DEFAULT ""`,
+						`ALTER TABLE bandwidth_agreements ADD COLUMN serial_num BLOB`,
 						`ALTER TABLE bandwidth_agreements ADD COLUMN total INT(10)`,
 						`ALTER TABLE bandwidth_agreements ADD COLUMN max_size INT(10)`,
 						`ALTER TABLE bandwidth_agreements ADD COLUMN created_utc_sec INT(10)`,
 						`ALTER TABLE bandwidth_agreements ADD COLUMN expiration_utc_sec INT(10)`,
-						`ALTER TABLE bandwidth_agreements ADD COLUMN action TEXT`,
+						`ALTER TABLE bandwidth_agreements ADD COLUMN action INT(10)`,
 						`ALTER TABLE bandwidth_agreements ADD COLUMN daystart_utc_sec INT(10)`,
 					}
 					err := v1sql.Run(log, db, tx)
@@ -125,7 +124,7 @@ func (db *DB) Migration() *migrate.Migration {
 
 					// iterate through the table and fill
 					err = func() error {
-						rows, err := tx.Query(`SELECT agreement, signature FROM bandwidth_agreements ORDER BY satellite`)
+						rows, err := tx.Query(`SELECT agreement, signature FROM bandwidth_agreements`)
 						if err != nil {
 							return err
 						}
@@ -161,7 +160,7 @@ func (db *DB) Migration() *migrate.Migration {
 								`,
 								rba.PayerAllocation.UplinkId.Bytes(), rba.PayerAllocation.SerialNumber,
 								rba.Total, rba.PayerAllocation.MaxSize, rba.PayerAllocation.CreatedUnixSec,
-								rba.PayerAllocation.ExpirationUnixSec, rba.PayerAllocation.GetAction().String(),
+								rba.PayerAllocation.ExpirationUnixSec, rba.PayerAllocation.GetAction(),
 								startofthedayUnixSec, signature)
 							if err != nil {
 								return err
@@ -172,9 +171,7 @@ func (db *DB) Migration() *migrate.Migration {
 					if err != nil {
 						return err
 					}
-					_, err = tx.Exec(`
-							DROP TABLE bwusagetbl;
-						`)
+					_, err = tx.Exec(`DROP TABLE bwusagetbl;`)
 					if err != nil {
 						return err
 					}
@@ -302,7 +299,7 @@ func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([]*pb.RenterB
 func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
 	defer db.locked()()
 
-	rows, err := db.DB.Query(`SELECT * FROM bandwidth_agreements ORDER BY satellite`)
+	rows, err := db.DB.Query(`SELECT satellite, agreement FROM bandwidth_agreements`)
 	if err != nil {
 		return nil, err
 	}
@@ -317,11 +314,7 @@ func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
 		rbaBytes := []byte{}
 		agreement := &Agreement{}
 		var satellite []byte
-		var uplink []byte
-		var serialnum string
-		var total, max_size, createdUnixSec, expirationUnixSec, startofthedayUnixSec int64
-		var action string
-		err := rows.Scan(&satellite, &rbaBytes, &agreement.Signature, &uplink, &serialnum, &total, &max_size, &createdUnixSec, &expirationUnixSec, &action, &startofthedayUnixSec)
+		err := rows.Scan(&satellite, &rbaBytes)
 		if err != nil {
 			return agreements, err
 		}
@@ -329,9 +322,6 @@ func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
 		if err != nil {
 			return agreements, err
 		}
-		// if !satellite.Valid {
-		// 	return agreements, nil
-		// }
 		satelliteID, err := storj.NodeIDFromBytes(satellite)
 		if err != nil {
 			return nil, err
