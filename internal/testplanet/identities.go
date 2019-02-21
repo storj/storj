@@ -10,6 +10,7 @@ import (
 )
 
 //go:generate go run gen_identities.go -count 150 -out identities_table.go
+//go:generate go run gen_identities.go -signed -count 150 -out signed_identities_table.go
 
 // Identities is a pregenerated full identity table.
 type Identities struct {
@@ -38,6 +39,16 @@ func NewPregeneratedIdentities() *Identities {
 	return pregeneratedIdentities.Clone()
 }
 
+// NewPregeneratedSignedIdentities retruns a new table from provided signed identities.
+func NewPregeneratedSignedIdentities() *Identities {
+	return pregeneratedSignedIdentities.Clone()
+}
+
+// NewPregeneratedSigner returns the signer for all pregenerated, signed identities
+func NewPregeneratedSigner() *identity.FullCertificateAuthority {
+	return pregeneratedSigner
+}
+
 // Clone creates a shallow clone of the table.
 func (identities *Identities) Clone() *Identities {
 	return NewIdentities(identities.list...)
@@ -54,10 +65,20 @@ func (identities *Identities) NewIdentity() (*identity.FullIdentity, error) {
 	return id, nil
 }
 
-// mustParsePEM parses pem encoded chain and key strings.
-func mustParsePEM(chain, key string) *identity.FullIdentity {
+// mustParseIdentityPEM parses pem encoded identity chain and key strings.
+func mustParseIdentityPEM(chain, key string) *identity.FullIdentity {
 	// TODO: add whitelist handling somehow
 	fi, err := identity.FullIdentityFromPEM([]byte(chain), []byte(key))
+	if err != nil {
+		panic(err)
+	}
+	return fi
+}
+
+// mustParseCertificateAuthorityPEM parses pem encoded certificate authority chain and key strings.
+func mustParseCertificateAuthorityPEM(chain, key string) *identity.FullCertificateAuthority {
+	// TODO: add whitelist handling somehow
+	fi, err := identity.FullCertificateAuthorityFromPEM([]byte(chain), []byte(key))
 	if err != nil {
 		panic(err)
 	}
