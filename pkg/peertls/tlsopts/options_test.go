@@ -23,7 +23,7 @@ func TestNewOptions(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	fi, err := pregeneratedIdentities.NewIdentity()
+	fi, err := testplanet.PregeneratedIdentity(0)
 	require.NoError(t, err)
 
 	whitelistPath := ctx.File("whitelist.pem")

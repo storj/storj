@@ -34,6 +34,14 @@ func PregeneratedIdentity(index int) (*identity.FullIdentity, error) {
 	return pregeneratedIdentities.list[index], nil
 }
 
+// PregeneratedSignedIdentity returns a signed pregenerated identity from a list
+func PregeneratedSignedIdentity(index int) (*identity.FullIdentity, error) {
+	if pregeneratedIdentities.next >= len(pregeneratedSignedIdentities.list) {
+		return nil, errors.New("out of signed pregenerated identities")
+	}
+	return pregeneratedSignedIdentities.list[index], nil
+}
+
 // NewPregeneratedIdentities retruns a new table from provided identities.
 func NewPregeneratedIdentities() *Identities {
 	return pregeneratedIdentities.Clone()
