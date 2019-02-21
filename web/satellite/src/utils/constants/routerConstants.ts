@@ -13,6 +13,22 @@ const ROUTES = {
     DASHBOARD: {
         path: '/',
         name: 'Dashboard'
+    },
+    ACCOUNT_SETTINGS: {
+        path: '/account-settings',
+        name: 'AccountSettings'
+    },
+    PROJECT_DETAILS: {
+        path: '/project-details',
+        name: 'ProjectDetails'
+    },
+    TEAM: {
+        path: '/team',
+        name: 'Team'
+    },
+    API_KEYS: {
+        path: '/api-keys',
+        name: 'ApiKeys'
     }
 };
 
