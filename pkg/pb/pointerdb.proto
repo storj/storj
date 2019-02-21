@@ -81,6 +81,7 @@ message PutRequest {
 // GetRequest is a request message for the Get rpc call
 message GetRequest {
   string path = 1;
+  int64 max_size = 2;
 }
 
 // ListRequest is a request message for the List rpc call

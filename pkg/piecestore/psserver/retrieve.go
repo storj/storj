@@ -136,7 +136,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			}
 			//todo: figure out why this fails tests
 			if rba.Total > pba.MaxSize {
-				allocationTracking.Fail(fmt.Errorf("attempt to send more data than allocation %v got %v", rba.Total, pba.MaxSize))
+				allocationTracking.Fail(fmt.Errorf("attempted to send more data than allocation %v got %v", rba.Total, pba.MaxSize))
 				return
 			}
 			if lastTotal > rba.Total {

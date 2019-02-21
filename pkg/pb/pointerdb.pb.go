@@ -393,6 +393,7 @@ func (m *PutRequest) GetPointer() *Pointer {
 // GetRequest is a request message for the Get rpc call
 type GetRequest struct {
 	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	MaxSize              int64    `protobuf:"varint,2,opt,name=max_size,json=maxSize,proto3" json:"max_size,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -427,6 +428,13 @@ func (m *GetRequest) GetPath() string {
 		return m.Path
 	}
 	return ""
+}
+
+func (m *GetRequest) GetMaxSize() int64 {
+	if m != nil {
+		return m.MaxSize
+	}
+	return 0
 }
 
 // ListRequest is a request message for the List rpc call

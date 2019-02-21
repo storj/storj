@@ -137,7 +137,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 
 		pieceID := psclient.NewPieceID()
 
-		pba, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT)
+		pba, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT, sizedReader.Size())
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
