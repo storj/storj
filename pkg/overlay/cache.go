@@ -182,20 +182,12 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 		return errors.New("invalid request")
 	}
 
-	// get existing node rep, or create a new statdb node with 0 rep
-	// stats, err := cache.statDB.CreateEntryIfNotExists(ctx, nodeID)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// value.Reputation = &pb.NodeStats{
-	// 	AuditSuccessRatio:  stats.AuditSuccessRatio,
-	// 	AuditSuccessCount:  stats.AuditSuccessCount,
-	// 	AuditCount:         stats.AuditCount,
-	// 	UptimeRatio:        stats.UptimeRatio,
-	// 	UptimeSuccessCount: stats.UptimeSuccessCount,
-	// 	UptimeCount:        stats.UptimeCount,
-	// }
+	// TODO: Do we really need this here?
+	// Create a new statdb node with 0 rep, if new node
+	_, err := cache.statDB.CreateEntryIfNotExists(ctx, nodeID)
+	if err != nil {
+		return err
+	}
 
 	return cache.db.Update(ctx, &value)
 }
