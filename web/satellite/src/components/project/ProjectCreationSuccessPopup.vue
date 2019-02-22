@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-	<div class="project-creation-success-popup-container">
-		<div v-if="true" class="project-creation-success-popup">
+	<div v-if="isPopupShown" class="project-creation-success-popup-container">
+		<div  class="project-creation-success-popup" id='successfulProjectCreationPopup'>
 			<div class="project-creation-success-popup__info-panel-container">
 				<svg width="300" height="233" viewBox="0 0 300 233" fill="none" xmlns="http://www.w3.org/2000/svg">
 					<path d="M175.712 232.904C239.885 232.904 291.878 180.748 291.878 116.411C291.878 52.0744 239.885 0 175.712 0C111.539 0 59.5459 52.1561 59.5459 116.493C59.5459 180.83 111.539 232.904 175.712 232.904Z" fill="#2683FF"/>
@@ -34,11 +34,11 @@
 				<p>You just created your project. Next, we recommend you create your first API Key for this project. API Keys allow developers to manage their projects and build applications on top of the Storj network through our <a>Uplink CLI.</a></p>
 				<div class="project-creation-success-popup__form-container__button-container">
 					<Button label="I will do it later" width="214px" height="50px" :onPress="onCloseClick" isWhite />
-					<Button label="Resend Email" width="214px" height="50px" :onPress="onCloseClick" />
+					<Button label="Create first API Key" width="214px" height="50px" :onPress="onCreateAPIKeyClick" />
 				</div>
 			</div>
-			<div class="project-creation-success-popup__close-cross-container">
-				<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" v-on:click="onCloseClick">
+			<div class="project-creation-success-popup__close-cross-container" v-on:click="onCloseClick">
+				<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" >
 					<path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
 				</svg>
 			</div>
@@ -49,9 +49,25 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import ROUTES from '@/utils/constants/routerConstants';
 
     @Component(
         {
+            computed: {
+                isPopupShown: function () {
+                    return this.$store.state.appStateModule.appState.isSuccessfulProjectCreationPopupShown;
+                }
+            },
+            methods: {
+                onCloseClick: function (): void {
+                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
+                },
+                onCreateAPIKeyClick: function (): void {
+                    this.$router.push(ROUTES.API_KEYS.path);
+                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
+                }
+            },
             components: {
                 Button,
             }

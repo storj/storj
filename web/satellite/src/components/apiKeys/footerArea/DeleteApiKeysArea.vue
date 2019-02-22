@@ -6,8 +6,8 @@
         <div class="delete-api-key-container__wrap">
             <div class="delete-api-key-container__selected-api-keys-count">
                 <span class="delete-api-key-container__selected-api-keys-count__button"></span>
-                <p class="delete-api-key-container__selected-api-keys-count__count">{{ count }}</p>
-                <p class="delete-api-key-container__selected-api-keys-count__total-count"> of <span>X</span> API Keys Selected</p>
+                <p class="delete-api-key-container__selected-api-keys-count__count">{{ selectedAPIKeysCount }}</p>
+                <p class="delete-api-key-container__selected-api-keys-count__total-count"> of <span>{{ allAPIKeysCount }}</span> API Keys Selected</p>
             </div>
             <div class="delete-api-key-container__buttons-group">
                 <Button 
@@ -52,8 +52,11 @@ import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/action
         },
     },
     computed: {
-        count: function (): number {
+        selectedAPIKeysCount: function (): number {
             return this.$store.getters.selectedAPIKeys.length;
+        },
+        allAPIKeysCount: function (): number {
+            return this.$store.state.apiKeysModule.apiKeys.length;
         }
     },
     components: {

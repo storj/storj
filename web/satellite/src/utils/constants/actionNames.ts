@@ -11,6 +11,7 @@ export const APP_STATE_ACTIONS = {
     TOGGLE_NEW_API_KEY: 'toggleNewAPIKeyPopup',
     TOGGLE_SORT_PM_BY_DROPDOWN: 'toggleSortProjectMembersByPopup',
     TOGGLE_SUCCESSFUL_REGISTRATION_POPUP: 'toggleSuccessfulRegistrationPopup',
+    TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP: 'toggleSuccessfulProjectCreationPopup',
     CLOSE_POPUPS: 'closePopups',
 };
 
