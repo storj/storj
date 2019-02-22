@@ -100,11 +100,8 @@ func (s *StreamReader) Read(b []byte) (int, error) {
 
 	n, err := s.src.Read(b)
 	s.sofar += int64(n)
-	if err != nil {
-		_, errHash := s.hash.Write(b[:n])
-		return n, errs.Combine(err, errHash)
-	}
-	_, err = s.hash.Write(b[:n])
+	_, errHash := s.hash.Write(b[:n])
+	err = errs.Combine(err, errHash)
 	if err != nil {
 		return n, err
 	}
