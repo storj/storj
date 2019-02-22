@@ -8,14 +8,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia/testrouting"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
-type routingCtor func(storj.NodeID, int, int, int) testrouting.RoutingTable
+type routingCtor func(storj.NodeID, int, int, int) dht.RoutingTable
 
-func newRouting(self storj.NodeID, bucketSize, cacheSize, allowedFailures int) testrouting.RoutingTable {
+func newRouting(self storj.NodeID, bucketSize, cacheSize, allowedFailures int) dht.RoutingTable {
 	if allowedFailures != 0 {
 		panic("failure counting currently unsupported")
 	}
@@ -25,7 +26,7 @@ func newRouting(self storj.NodeID, bucketSize, cacheSize, allowedFailures int) t
 	})
 }
 
-func newTestRouting(self storj.NodeID, bucketSize, cacheSize, allowedFailures int) testrouting.RoutingTable {
+func newTestRouting(self storj.NodeID, bucketSize, cacheSize, allowedFailures int) dht.RoutingTable {
 	return testrouting.New(self, bucketSize, cacheSize, allowedFailures)
 }
 

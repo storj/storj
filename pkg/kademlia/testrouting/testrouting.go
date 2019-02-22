@@ -8,27 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
-
-// RoutingTable contains information on nodes we have locally
-type RoutingTable interface {
-	// local params
-	Local() pb.Node
-	K() int
-	CacheSize() int
-	GetBucketIds() (storage.Keys, error)
-	FindNear(id storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error)
-	ConnectionSuccess(node *pb.Node) error
-	ConnectionFailed(node *pb.Node) error
-	// these are for refreshing
-	SetBucketTimestamp(id []byte, now time.Time) error
-	GetBucketTimestamp(id []byte) (time.Time, error)
-
-	Close() error
-}
 
 type nodeData struct {
 	node        *pb.Node
@@ -68,7 +52,7 @@ func New(self storj.NodeID, bucketSize, cacheSize, allowedFailures int) *Table {
 }
 
 // make sure the Table implements the right interface
-var _ RoutingTable = (*Table)(nil)
+var _ dht.RoutingTable = (*Table)(nil)
 
 // K returns the Table's routing depth, or Kademlia k value
 func (t *Table) K() int { return t.bucketSize }

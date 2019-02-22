@@ -42,6 +42,7 @@ func newTestRoutingTable(localNode pb.Node, opts routingTableOpts) (*RoutingTabl
 		transport:    &defaultTransport,
 
 		mutex:            &sync.Mutex{},
+		rcMutex:          &sync.Mutex{},
 		seen:             make(map[storj.NodeID]*pb.Node),
 		replacementCache: make(map[bucketID][]*pb.Node),
 

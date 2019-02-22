@@ -13,8 +13,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/kademlia/testrouting"
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
@@ -54,7 +53,7 @@ type Grapher interface {
 	Graph(io.Writer) error
 }
 
-func SaveGraph(table testrouting.RoutingTable) {
+func SaveGraph(table dht.RoutingTable) {
 	if table, ok := table.(Grapher); ok {
 		fh, err := os.Create(fmt.Sprintf("routing-graph-%003d.dot", atomic.AddInt64(graphCounter, 1)))
 		if err != nil {

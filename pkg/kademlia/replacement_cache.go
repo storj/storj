@@ -8,8 +8,8 @@ import (
 )
 
 func (rt *RoutingTable) addToReplacementCache(kadBucketID bucketID, node *pb.Node) {
-	rt.mutex.Lock()
-	defer rt.mutex.Unlock()
+	rt.rcMutex.Lock()
+	defer rt.rcMutex.Unlock()
 	nodes := rt.replacementCache[kadBucketID]
 	nodes = append(nodes, node)
 
@@ -21,8 +21,8 @@ func (rt *RoutingTable) addToReplacementCache(kadBucketID bucketID, node *pb.Nod
 }
 
 func (rt *RoutingTable) removeFromReplacementCache(kadBucketID bucketID, node *pb.Node) {
-	rt.mutex.Lock()
-	defer rt.mutex.Unlock()
+	rt.rcMutex.Lock()
+	defer rt.rcMutex.Unlock()
 	nodes := rt.replacementCache[kadBucketID]
 	for i, n := range nodes {
 		if n.Id == node.Id && n.Address.GetAddress() == node.Address.GetAddress() {

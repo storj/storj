@@ -60,6 +60,7 @@ type RoutingTable struct {
 	nodeBucketDB     storage.KeyValueStore
 	transport        *pb.NodeTransport
 	mutex            *sync.Mutex
+	rcMutex          *sync.Mutex
 	seen             map[storj.NodeID]*pb.Node
 	replacementCache map[bucketID][]*pb.Node
 	bucketSize       int // max number of nodes stored in a kbucket = 20 (k)
@@ -86,6 +87,7 @@ func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.Key
 		transport:    &defaultTransport,
 
 		mutex:            &sync.Mutex{},
+		rcMutex:          &sync.Mutex{},
 		seen:             make(map[storj.NodeID]*pb.Node),
 		replacementCache: make(map[bucketID][]*pb.Node),
 
