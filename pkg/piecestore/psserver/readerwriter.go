@@ -4,6 +4,9 @@
 package psserver
 
 import (
+	"crypto/sha256"
+	"hash"
+
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
@@ -42,6 +45,7 @@ type StreamReader struct {
 	bandwidthRemaining  int64
 	spaceRemaining      int64
 	sofar               int64
+	hash                hash.Hash
 }
 
 // NewStreamReader returns a new StreamReader for Server.Store
@@ -49,6 +53,7 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, bandwidt
 	sr := &StreamReader{
 		bandwidthRemaining: bandwidthRemaining,
 		spaceRemaining:     spaceRemaining,
+		hash:               sha256.New(),
 	}
 	sr.src = utils.NewReaderSource(func() ([]byte, error) {
 
@@ -94,6 +99,7 @@ func (s *StreamReader) Read(b []byte) (int, error) {
 	}
 
 	n, err := s.src.Read(b)
+	s.hash.Write(b[:n])
 	s.sofar += int64(n)
 	if err != nil {
 		return n, err

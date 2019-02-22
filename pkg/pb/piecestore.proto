@@ -58,14 +58,15 @@ message PieceStore {
 
   RenterBandwidthAllocation bandwidth_allocation = 1;
   PieceData piece_data = 2;
-  SignedMessage authorization = 3;
+  SignedMessage authorization = 3 [deprecated=true]; 
+  SignedHash signed_hash = 4;
 }
 
 message PieceId {
   // TODO: may want to use customtype and fixed-length byte slice
   string id = 1;
 
-  SignedMessage authorization = 2;
+  SignedMessage authorization = 2 [deprecated=true];
   bytes satellite_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
@@ -85,7 +86,7 @@ message PieceRetrieval {
 
   RenterBandwidthAllocation bandwidth_allocation = 1;
   PieceData piece_data = 2;
-  SignedMessage authorization = 3;
+  SignedMessage authorization = 3 [deprecated=true];
 }
 
 message PieceRetrievalStream {
@@ -96,7 +97,7 @@ message PieceRetrievalStream {
 message PieceDelete {
   // TODO: may want to use customtype and fixed-length byte slice
   string id = 1;
-  SignedMessage authorization = 3;
+  SignedMessage authorization = 3 [deprecated=true];
   bytes satellite_id = 4 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
@@ -107,6 +108,7 @@ message PieceDeleteSummary {
 message PieceStoreSummary {
   string message = 1;
   int64 total_received = 2;
+  SignedHash signed_hash = 3;
 }
 
 message StatsReq {}
@@ -135,4 +137,11 @@ message DashboardStats {
   StatSummary stats = 6;
   bool connection = 7;
   google.protobuf.Duration uptime = 8;
+}
+
+message SignedHash {
+  bytes hash = 1;
+  
+  repeated bytes certs = 2;
+  bytes signature = 3;
 }
