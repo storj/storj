@@ -77,7 +77,6 @@ func TestDialer(t *testing.T) {
 						if len(results) != expectedKademliaEntries {
 							return errs.Combine(errTag, fmt.Errorf("expected %d got %d: %s", expectedKademliaEntries, len(results), pb.NodesToIDs(results)))
 						}
-
 						return nil
 					}
 					return nil
@@ -115,7 +114,6 @@ func TestDialer(t *testing.T) {
 						if len(results) != expectedKademliaEntries {
 							return errs.Combine(errTag, fmt.Errorf("expected %d got %d: %s", expectedKademliaEntries, len(results), pb.NodesToIDs(results)))
 						}
-
 						return nil
 					})
 				}
