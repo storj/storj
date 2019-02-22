@@ -6,6 +6,8 @@ package satellitedb
 import (
 	"context"
 
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -17,6 +19,7 @@ type irreparableDB struct {
 
 // IncrementRepairAttempts a db entry for to increment the repair attempts field
 func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInfo *irreparable.RemoteSegmentInfo) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	tx, err := db.db.Open(ctx)
 	if err != nil {
 		return Error.Wrap(err)
@@ -36,6 +39,11 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 		if err != nil {
 			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 		}
+
+		// pass the lost pieces info to data science
+		monkit.Collect(monkit.StatSourceFunc(func(cb func(name string, val float64)) {
+			cb(string(segmentInfo.EncryptedSegmentPath), float64(segmentInfo.LostPiecesCount))
+		}))
 	} else {
 		// row exits increment the attempt counter
 		dbxInfo.RepairAttemptCount++
