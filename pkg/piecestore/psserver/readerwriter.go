@@ -99,11 +99,19 @@ func (s *StreamReader) Read(b []byte) (int, error) {
 	}
 
 	n, err := s.src.Read(b)
-	s.hash.Write(b[:n])
 	s.sofar += int64(n)
+	if err != nil {
+		_, errHash := s.hash.Write(b[:n])
+		if errHash != nil {
+			return n, errs.Combine(err, errHash)
+		}
+		return n, err
+	}
+	_, err = s.hash.Write(b[:n])
 	if err != nil {
 		return n, err
 	}
+
 	if s.sofar >= s.spaceRemaining {
 		return n, StreamWriterError.New("out of space")
 	}
