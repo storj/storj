@@ -194,11 +194,6 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 		}
 	}
 
-	// write to bandwidth usage table
-	if err = s.DB.AddBandwidthUsed(used); err != nil {
-		return retrieved, allocated, RetrieveError.New("failed to write bandwidth info to database: %v", err)
-	}
-
 	// TODO: handle errors
 	// _ = stream.Close()
 
