@@ -103,11 +103,12 @@ func TestBucketUsageRepo(t *testing.T) {
 
 			var usagesAsc []console.BucketUsage
 			t.Run("get all asc", func(t *testing.T) {
-				// empty pointerID and after fields should get us all of the entries
+				// empty cursor field should get us all of the entries
 				iterator := &console.UsageIterator{
-					BucketID: *bucketID,
-					Order:    console.Asc,
-					Limit:    limit,
+					BucketID:  *bucketID,
+					Cursor:    now.Add(time.Minute * -1),
+					Direction: console.Fwd,
+					Limit:     limit,
 				}
 
 				opcount := 0
@@ -132,10 +133,10 @@ func TestBucketUsageRepo(t *testing.T) {
 			var usagesDesc []console.BucketUsage
 			t.Run("get all desc", func(t *testing.T) {
 				iterator := &console.UsageIterator{
-					BucketID: *bucketID,
-					Cursor:   usagesAsc[count-1].ID,
-					Order:    console.Desc,
-					Limit:    limit,
+					BucketID:  *bucketID,
+					Cursor:    usagesAsc[count-1].RollupEndTime.Add(time.Minute * 1),
+					Direction: console.Bkwd,
+					Limit:     limit,
 				}
 
 				opcount := 0
@@ -153,16 +154,27 @@ func TestBucketUsageRepo(t *testing.T) {
 					iterator = iterator.Next
 				}
 
-				assert.Equal(t, count-1, len(usagesDesc))
-				assert.Equal(t, count/limit, opcount)
+				assert.Equal(t, count, len(usagesDesc))
+				assert.Equal(t, count/limit+1, opcount)
+			})
+
+			t.Run("check order", func(t *testing.T) {
+				for i := range usagesAsc {
+					descIndex := count - 1 - i
+					if descIndex < 0 {
+						continue
+					}
+
+					assert.Equal(t, usagesAsc[i].ID, usagesDesc[descIndex].ID)
+				}
 			})
 
 			t.Run("get after asc", func(t *testing.T) {
 				iterator := &console.UsageIterator{
-					BucketID: *bucketID,
-					Cursor:   usagesAsc[limit-1].ID,
-					Order:    console.Asc,
-					Limit:    limit,
+					BucketID:  *bucketID,
+					Cursor:    usagesAsc[limit-1].RollupEndTime,
+					Direction: console.Fwd,
+					Limit:     limit,
 				}
 
 				opcount := 0

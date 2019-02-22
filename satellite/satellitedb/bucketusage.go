@@ -28,20 +28,19 @@ func (bucketusages *bucketusages) GetByBucketID(ctx context.Context, iterator *c
 	var getUsage func(context.Context,
 		dbx.BucketUsage_BucketId_Field,
 		dbx.BucketUsage_RollupEndTime_Field,
-		dbx.BucketUsage_Id_Field, int, int64) ([]*dbx.BucketUsage, error)
+		int, int64) ([]*dbx.BucketUsage, error)
 
-	switch iterator.Order {
-	case console.Desc:
-		getUsage = bucketusages.db.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Id_Less_OrderBy_Desc_Id
+	switch iterator.Direction {
+	case console.Bkwd:
+		getUsage = bucketusages.db.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Less_OrderBy_Desc_RollupEndTime
 	default:
-		getUsage = bucketusages.db.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Id_Greater_OrderBy_Asc_Id
+		getUsage = bucketusages.db.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_OrderBy_Asc_RollupEndTime
 	}
 
 	dbxUsages, err := getUsage(
 		ctx,
 		dbx.BucketUsage_BucketId(iterator.BucketID[:]),
-		dbx.BucketUsage_RollupEndTime(iterator.After),
-		dbx.BucketUsage_Id(iterator.Cursor[:]),
+		dbx.BucketUsage_RollupEndTime(iterator.Cursor),
 		iterator.Limit,
 		0,
 	)
@@ -63,11 +62,10 @@ func (bucketusages *bucketusages) GetByBucketID(ctx context.Context, iterator *c
 	size := len(usages)
 	if size == iterator.Limit {
 		iterator.Next = &console.UsageIterator{
-			BucketID: iterator.BucketID,
-			Cursor:   usages[size-1].ID,
-			Order:    iterator.Order,
-			After:    iterator.After,
-			Limit:    iterator.Limit,
+			BucketID:  iterator.BucketID,
+			Cursor:    usages[size-1].RollupEndTime,
+			Direction: iterator.Direction,
+			Limit:     iterator.Limit,
 		}
 	}
 	return usages, nil

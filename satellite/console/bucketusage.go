@@ -18,23 +18,22 @@ type BucketUsages interface {
 // UsageIterator help iterate over bucket usage
 type UsageIterator struct {
 	BucketID uuid.UUID
-	Cursor   uuid.UUID
+	Cursor   time.Time
 
-	Order Order
-	After time.Time
+	Direction Direction
 
 	Limit int
 	Next  *UsageIterator
 }
 
-// Order is sort order can only be asc or desc
-type Order string
+// Direction is sort order can only be asc or desc
+type Direction string
 
 const (
-	// Asc ascending sort order
-	Asc Order = "asc"
-	// Desc descending sort order
-	Desc Order = "desc"
+	// Fwd ascending sort order
+	Fwd Direction = "fwd"
+	// Bkwd descending sort order
+	Bkwd Direction = "bkwd"
 )
 
 // BucketUsage is a rollup information for particular timestamp

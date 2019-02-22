@@ -330,6 +330,7 @@ read all (
 
 model bucket_usage (
     key    id
+    unique rollup_end_time bucket_id
 
     field  id                 blob
     field  bucket_id          blob      //--TODO: add foreign key constraint--//
@@ -357,16 +358,14 @@ read limitoffset (
     select bucket_usage
     where bucket_usage.bucket_id = ?
     where bucket_usage.rollup_end_time > ?
-    where bucket_usage.id > ?
-    orderby asc bucket_usage.id
+    orderby asc bucket_usage.rollup_end_time
 )
 
 read limitoffset (
     select bucket_usage
     where bucket_usage.bucket_id = ?
-    where bucket_usage.rollup_end_time > ?
-    where bucket_usage.id < ?
-    orderby desc bucket_usage.id
+    where bucket_usage.rollup_end_time < ?
+    orderby desc bucket_usage.rollup_end_time
 )
 
 //--- certRecord ---//

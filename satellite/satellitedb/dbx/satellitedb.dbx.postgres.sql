@@ -37,7 +37,8 @@ CREATE TABLE bucket_usages (
 	repair_egress bigint NOT NULL,
 	get_egress bigint NOT NULL,
 	audit_egress bigint NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( id ),
+	UNIQUE ( rollup_end_time, bucket_id )
 );
 CREATE TABLE bwagreements (
 	serialnum text NOT NULL,
