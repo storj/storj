@@ -132,7 +132,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	bootstrap.Arguments = withCommon(Arguments{
 		"setup": {
 			"--identity-dir", bootstrap.Directory,
-			"--bootstrapweb.address", net.JoinHostPort(host, strconv.Itoa(bootstrapWebPort)),
+			"--bootstrap-web.address", net.JoinHostPort(host, strconv.Itoa(bootstrapWebPort)),
+			"--bootstrap-web.static-dir", "storj/web/bootstrap/",
 			"--server.address", bootstrap.Address,
 
 			"--kademlia.bootstrap-addr", bootstrap.Address,
@@ -142,7 +143,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"--server.extensions.revocation=false",
 			"--server.use-peer-ca-whitelist=false",
 		},
-		"run": {},
+		"run": {
+
+		},
 	})
 	bootstrap.ExecBefore["run"] = func(process *Process) error {
 		return readConfigString(&bootstrap.Address, bootstrap.Directory, "server.address")
@@ -175,6 +178,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--console.address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
 				"--server.address", process.Address,
+				"--console.static-dir", "./web/satellite/",
 
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--repairer.overlay-addr", process.Address,
@@ -187,7 +191,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--mail.from", "Storj <yaroslav-satellite-test@storj.io>",
 				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
 			},
-			"run": {},
+			"run": {
+
+			},
 		})
 
 		process.ExecBefore["run"] = func(process *Process) error {
