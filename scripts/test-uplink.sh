@@ -61,7 +61,7 @@ fi
 
 # check if all data files were removed
 FILES=$(find "$STORAGENODE_0_DIR/../" -type f -path "*/storage/*" ! -name "piecestore.*")
-if [ -z $FILES ];
+if [ -z "$FILES" ];
 then
     echo "all data files removed from storage nodes"
 else
