@@ -131,6 +131,9 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	}
 
 	err = s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
+	if err != nil {
+		return 0, nil, err
+	}
 	hash = reader.hash.Sum(nil)
-	return total, hash, err
+	return total, hash, nil
 }
