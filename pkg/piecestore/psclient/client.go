@@ -43,8 +43,8 @@ func init() {
 // Client is an interface describing the functions for interacting with piecestore nodes
 type Client interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
-	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation) error
-	Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.Ranger, error)
+	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.OrderLimit) error
+	Get(ctx context.Context, id PieceID, size int64, ba *pb.OrderLimit) (ranger.Ranger, error)
 	Delete(ctx context.Context, pieceID PieceID, satelliteID storj.NodeID) error
 	io.Closer
 }
@@ -117,7 +117,7 @@ func (ps *PieceStore) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, e
 }
 
 // Put uploads a Piece to a piece store Server
-func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, pba *pb.PayerBandwidthAllocation) error {
+func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, pba *pb.OrderLimit) error {
 	stream, err := ps.client.Store(ctx)
 	if err != nil {
 		return err
@@ -128,7 +128,7 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	// of this instance at the same time.
 	pbaClone := pba.Clone()
 
-	rba := &pb.RenterBandwidthAllocation{
+	rba := &pb.Order{
 		PayerAllocation: pbaClone,
 		StorageNodeId:   ps.remoteID,
 	}
@@ -164,7 +164,7 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 }
 
 // Get begins downloading a Piece from a piece store Server
-func (ps *PieceStore) Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.Ranger, error) {
+func (ps *PieceStore) Get(ctx context.Context, id PieceID, size int64, ba *pb.OrderLimit) (ranger.Ranger, error) {
 	stream, err := ps.client.Retrieve(ctx)
 	if err != nil {
 		return nil, err
@@ -184,6 +184,6 @@ func (ps *PieceStore) Delete(ctx context.Context, id PieceID, satelliteID storj.
 }
 
 // sign a message using the clients private key
-func (ps *PieceStore) sign(rba *pb.RenterBandwidthAllocation) (err error) {
+func (ps *PieceStore) sign(rba *pb.Order) (err error) {
 	return auth.SignMessage(rba, *ps.selfID)
 }

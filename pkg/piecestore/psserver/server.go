@@ -268,7 +268,7 @@ func (s *Server) deleteByID(id string) error {
 	return nil
 }
 
-func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAllocation) error {
+func (s *Server) verifySignature(ctx context.Context, rba *pb.Order) error {
 	// TODO(security): detect replay attacks
 	pba := rba.PayerAllocation
 	//verify message content
@@ -304,7 +304,7 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAll
 	return nil
 }
 
-func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation, actionPrefix string) (err error) {
+func (s *Server) verifyPayerAllocation(pba *pb.OrderLimit, actionPrefix string) (err error) {
 	switch {
 	case pba.SatelliteId.IsZero():
 		return StoreError.New("payer bandwidth allocation: missing satellite id")

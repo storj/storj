@@ -23,7 +23,7 @@ import (
 type Stripe struct {
 	Index   int
 	Segment *pb.Pointer
-	PBA     *pb.PayerBandwidthAllocation
+	PBA     *pb.OrderLimit
 }
 
 // Cursor keeps track of audit location in pointer db

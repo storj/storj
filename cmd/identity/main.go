@@ -59,15 +59,15 @@ var (
 
 	identityDir, configDir string
 	defaultIdentityDir     = fpath.ApplicationDir("storj", "identity")
-	defaultConfigDir       = fpath.ApplicationDir("storj")
+	defaultConfigDir       = fpath.ApplicationDir("storj", "identity")
 )
 
 func init() {
 	rootCmd.AddCommand(newServiceCmd)
 	rootCmd.AddCommand(authorizeCmd)
 
-	cfgstruct.Bind(newServiceCmd.Flags(), &config, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(authorizeCmd.Flags(), &config, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(newServiceCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(authorizeCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func main() {

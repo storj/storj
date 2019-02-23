@@ -49,12 +49,12 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 
 	rba := recv.GetBandwidthAllocation()
 	if rba == nil {
-		return StoreError.New("RenterBandwidthAllocation message is nil")
+		return StoreError.New("Order message is nil")
 	}
 
 	pba := rba.PayerAllocation
-	if pb.Equal(&pba, &pb.PayerBandwidthAllocation{}) {
-		return StoreError.New("PayerBandwidthAllocation message is empty")
+	if pb.Equal(&pba, &pb.OrderLimit{}) {
+		return StoreError.New("OrderLimit message is empty")
 	}
 
 	id, err := getNamespacedPieceID([]byte(pd.GetId()), pba.SatelliteId.Bytes())
@@ -69,10 +69,6 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	if err = s.DB.AddTTL(id, pd.GetExpirationUnixSec(), total); err != nil {
 		deleteErr := s.deleteByID(id)
 		return StoreError.New("failed to write piece meta data to database: %v", utils.CombineErrors(err, deleteErr))
-	}
-
-	if err = s.DB.AddBandwidthUsed(total); err != nil {
-		return StoreError.New("failed to write bandwidth info to database: %v", err)
 	}
 
 	signedHash := &pb.SignedHash{Hash: hash}

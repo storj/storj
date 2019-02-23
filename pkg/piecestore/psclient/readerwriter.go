@@ -19,7 +19,7 @@ type StreamWriter struct {
 	stream       pb.PieceStoreRoutes_StoreClient
 	signer       *PieceStore // We need this for signing
 	totalWritten int64
-	rba          *pb.RenterBandwidthAllocation
+	rba          *pb.Order
 }
 
 // Write Piece data to a piece store server upload stream
@@ -68,7 +68,7 @@ type StreamReader struct {
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
-func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, rba *pb.RenterBandwidthAllocation, size int64) *StreamReader {
+func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, rba *pb.Order, size int64) *StreamReader {
 	sr := &StreamReader{
 		pendingAllocs: sync2.NewThrottle(),
 		client:        client,

@@ -28,8 +28,8 @@ var mon = monkit.Package()
 
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
-	Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation) (successfulNodes []*pb.Node, err error)
-	Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme, pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation) (ranger.Ranger, error)
+	Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.OrderLimit) (successfulNodes []*pb.Node, err error)
+	Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme, pieceID psclient.PieceID, size int64, pba *pb.OrderLimit) (ranger.Ranger, error)
 	Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, satelliteID storj.NodeID) error
 }
 
@@ -56,7 +56,7 @@ func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (psclient.Clien
 	return ec.newPSClientFunc(ctx, ec.transport, n, 0)
 }
 
-func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation) (successfulNodes []*pb.Node, err error) {
+func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.OrderLimit) (successfulNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodes) != rs.TotalCount() {
 		return nil, Error.New("size of nodes slice (%d) does not match total count (%d) of erasure scheme", len(nodes), rs.TotalCount())
@@ -146,7 +146,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	return successfulNodes, nil
 }
 
-func (ec *ecClient) putPiece(ctx, parent context.Context, node *pb.Node, pieceID psclient.PieceID, data io.ReadCloser, expiration time.Time, pba *pb.PayerBandwidthAllocation) (err error) {
+func (ec *ecClient) putPiece(ctx, parent context.Context, node *pb.Node, pieceID psclient.PieceID, data io.ReadCloser, expiration time.Time, pba *pb.OrderLimit) (err error) {
 	defer func() { err = errs.Combine(err, data.Close()) }()
 
 	if node == nil {
@@ -189,7 +189,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, node *pb.Node, pieceID
 }
 
 func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
-	pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation) (rr ranger.Ranger, err error) {
+	pieceID psclient.PieceID, size int64, pba *pb.OrderLimit) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodes) != es.TotalCount() {
@@ -361,7 +361,7 @@ type lazyPieceRanger struct {
 	node              *pb.Node
 	id                psclient.PieceID
 	size              int64
-	pba               *pb.PayerBandwidthAllocation
+	pba               *pb.OrderLimit
 }
 
 // Size implements Ranger.Size
