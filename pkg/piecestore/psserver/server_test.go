@@ -5,6 +5,7 @@ package psserver
 
 import (
 	"crypto"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -321,6 +322,9 @@ func TestStore(t *testing.T) {
 			defer cleanup()
 			db := s.DB.DB
 
+			sum := sha256.Sum256(tt.content)
+			expectedHash := sum[:]
+
 			stream, err := c.Store(ctx)
 			require.NoError(t, err)
 
@@ -380,6 +384,8 @@ func TestStore(t *testing.T) {
 			require.NotNil(t, resp)
 			require.Equal(t, tt.message, resp.Message)
 			require.Equal(t, tt.totalReceived, resp.TotalReceived)
+			require.Equal(t, expectedHash, resp.SignedHash.Hash)
+			require.NotNil(t, resp.SignedHash.Signature)
 		})
 	}
 }
@@ -564,6 +570,7 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 		log:              zaptest.NewLogger(t),
 		storage:          storage,
 		DB:               psDB,
+		identity:         snID,
 		totalAllocated:   math.MaxInt64,
 		totalBwAllocated: math.MaxInt64,
 		whitelist:        whitelist,

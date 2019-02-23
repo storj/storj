@@ -18,13 +18,13 @@ type OrderLimit = PayerBandwidthAllocation
 type Order = RenterBandwidthAllocation
 
 var (
-	//ErrRenter wraps errors related to renter bandwidth allocations
+	// ErrRenter wraps errors related to renter bandwidth allocations
 	ErrRenter = errs.Class("Renter agreement")
-	//ErrPayer wraps errors related to payer bandwidth allocations
+	// ErrPayer wraps errors related to payer bandwidth allocations
 	ErrPayer = errs.Class("Payer agreement")
 )
 
-//Equal compares two Protobuf messages via serialization
+// Equal compares two Protobuf messages via serialization
 func Equal(msg1, msg2 proto.Message) bool {
 	//reflect.DeepEqual and proto.Equal don't seem work in all cases
 	//todo:  see how slow this is compared to custom equality checks
@@ -45,23 +45,33 @@ func Equal(msg1, msg2 proto.Message) bool {
 	return bytes.Compare(msg1Bytes, msg2Bytes) == 0
 }
 
-//SetCerts updates the certs field, completing the auth.SignedMsg interface
+// SetCerts updates the certs field, completing the auth.SignedMsg interface
 func (m *OrderLimit) SetCerts(certs [][]byte) {
 	m.Certs = certs
 }
 
-//SetSignature updates the signature field, completing the auth.SignedMsg interface
+// SetSignature updates the signature field, completing the auth.SignedMsg interface
 func (m *OrderLimit) SetSignature(signature []byte) {
 	m.Signature = signature
 }
 
-//SetCerts updates the certs field, completing the auth.SignedMsg interface
+// SetCerts updates the certs field, completing the auth.SignedMsg interface
 func (m *Order) SetCerts(certs [][]byte) {
 	m.Certs = certs
 }
 
-//SetSignature updates the signature field, completing the auth.SignedMsg interface
+// SetSignature updates the signature field, completing the auth.SignedMsg interface
 func (m *Order) SetSignature(signature []byte) {
+	m.Signature = signature
+}
+
+// SetCerts updates the certs field, completing the auth.SignedMsg interface
+func (m *SignedHash) SetCerts(certs [][]byte) {
+	m.Certs = certs
+}
+
+// SetSignature updates the signature field, completing the auth.SignedMsg interface
+func (m *SignedHash) SetSignature(signature []byte) {
 	m.Signature = signature
 }
 
