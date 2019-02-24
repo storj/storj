@@ -8,7 +8,7 @@
 <img src="https://github.com/storj/storj/raw/master/resources/logo.png" width="100">
 
 Storj is building a decentralized cloud storage network. 
-[Check out our white paper for more info!](https://storj.io/white-paper)
+[Check out our white paper for more info!](https://storj.io/whitepaper)
 
 ----
 
@@ -35,7 +35,7 @@ Have comments, bug reports, or suggestions? Want to propose a PR before hand-cra
 
 See the breakdown of what we're building by checking out the following resources:
 
- * [White paper](https://storj.io/white-paper)
+ * [White paper](https://storj.io/whitepaper)
  * [Aha! Roadmap](https://storjlabs.aha.io/published/01ee405b4bd8d14208c5256d70d73a38)
  * [Jira Issues](https://storjlabs.atlassian.net/projects/V3)
 
