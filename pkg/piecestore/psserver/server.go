@@ -59,7 +59,7 @@ type Server struct {
 	log              *zap.Logger
 	storage          *pstore.Storage
 	DB               *psdb.DB
-	pkey             crypto.PrivateKey
+	identity         *identity.FullIdentity
 	totalAllocated   int64 // TODO: use memory.Size
 	totalBwAllocated int64 // TODO: use memory.Size
 	whitelist        map[storj.NodeID]crypto.PublicKey
@@ -67,7 +67,7 @@ type Server struct {
 }
 
 // NewEndpoint creates a new endpoint
-func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *psdb.DB, pkey crypto.PrivateKey, k *kademlia.Kademlia) (*Server, error) {
+func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *psdb.DB, identity *identity.FullIdentity, k *kademlia.Kademlia) (*Server, error) {
 	// read the allocated disk space from the config file
 	allocatedDiskSpace := config.AllocatedDiskSpace.Int64()
 	allocatedBandwidth := config.AllocatedBandwidth.Int64()
@@ -137,7 +137,7 @@ func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *ps
 		log:              log,
 		storage:          storage,
 		DB:               db,
-		pkey:             pkey,
+		identity:         identity,
 		totalAllocated:   allocatedDiskSpace,
 		totalBwAllocated: allocatedBandwidth,
 		whitelist:        whitelist,
@@ -268,7 +268,7 @@ func (s *Server) deleteByID(id string) error {
 	return nil
 }
 
-func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAllocation) error {
+func (s *Server) verifySignature(ctx context.Context, rba *pb.Order) error {
 	// TODO(security): detect replay attacks
 	pba := rba.PayerAllocation
 	//verify message content
@@ -304,7 +304,7 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.RenterBandwidthAll
 	return nil
 }
 
-func (s *Server) verifyPayerAllocation(pba *pb.PayerBandwidthAllocation, actionPrefix string) (err error) {
+func (s *Server) verifyPayerAllocation(pba *pb.OrderLimit, actionPrefix string) (err error) {
 	switch {
 	case pba.SatelliteId.IsZero():
 		return StoreError.New("payer bandwidth allocation: missing satellite id")

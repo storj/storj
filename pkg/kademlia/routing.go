@@ -60,6 +60,7 @@ type RoutingTable struct {
 	nodeBucketDB     storage.KeyValueStore
 	transport        *pb.NodeTransport
 	mutex            *sync.Mutex
+	rcMutex          *sync.Mutex
 	seen             map[storj.NodeID]*pb.Node
 	replacementCache map[bucketID][]*pb.Node
 	bucketSize       int // max number of nodes stored in a kbucket = 20 (k)
@@ -86,6 +87,7 @@ func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.Key
 		transport:    &defaultTransport,
 
 		mutex:            &sync.Mutex{},
+		rcMutex:          &sync.Mutex{},
 		seen:             make(map[storj.NodeID]*pb.Node),
 		replacementCache: make(map[bucketID][]*pb.Node),
 
@@ -99,7 +101,7 @@ func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.Key
 	return rt, nil
 }
 
-// Close close without closing dependencies
+// Close closes without closing dependencies
 func (rt *RoutingTable) Close() error {
 	return nil
 }
@@ -224,6 +226,7 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 	if err != nil {
 		return RoutingErr.New("could not add node %s", err)
 	}
+
 	return nil
 }
 
@@ -231,7 +234,7 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 // a connection fails for the node on the network
 func (rt *RoutingTable) ConnectionFailed(node *pb.Node) error {
 	node.Type.DPanicOnInvalid("connection failed")
-	err := rt.removeNode(node.Id)
+	err := rt.removeNode(node)
 	if err != nil {
 		return RoutingErr.New("could not remove node %s", err)
 	}

@@ -156,8 +156,8 @@ TestLoop:
 			}
 			ps := NewMockPSClient(ctrl)
 			gomock.InOrder(
-				ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl, &pb.PayerBandwidthAllocation{}).Return(errs[n]).
-					Do(func(ctx context.Context, id psclient.PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation) {
+				ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl, &pb.OrderLimit{}).Return(errs[n]).
+					Do(func(ctx context.Context, id psclient.PieceID, data io.Reader, ttl time.Time, ba *pb.OrderLimit) {
 						// simulate that the mocked piece store client is reading the data
 						_, err := io.Copy(ioutil.Discard, data)
 						assert.NoError(t, err, errTag)
@@ -173,7 +173,7 @@ TestLoop:
 		r := io.LimitReader(rand.Reader, int64(size))
 		ec := ecClient{newPSClientFunc: mockNewPSClient(clients)}
 
-		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, &pb.PayerBandwidthAllocation{})
+		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, &pb.OrderLimit{})
 
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)

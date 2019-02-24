@@ -205,7 +205,7 @@ func TestCalcPadded(t *testing.T) {
 }
 
 func (m *mockDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int,
-	pba *pb.PayerBandwidthAllocation) (shares map[int]share, nodes map[int]storj.NodeID, err error) {
+	pba *pb.OrderLimit) (shares map[int]share, nodes map[int]storj.NodeID, err error) {
 
 	nodes = make(map[int]*pb.Node, 30)
 
