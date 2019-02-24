@@ -646,6 +646,7 @@ func (planet *Planet) NewListener() (net.Listener, error) {
 	return net.Listen("tcp", "127.0.0.1:0")
 }
 
+// WriteWhitelist writes the pregenerated signer's CA cert to a "CA whitelist", PEM-encoded.
 func (planet *Planet) WriteWhitelist() (string, error) {
 	whitelistPath := filepath.Join(planet.directory, "whitelist.pem")
 	signer := NewPregeneratedSigner()
