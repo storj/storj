@@ -17,8 +17,6 @@ import (
 	"storj.io/storj/pkg/peertls/tlsopts"
 )
 
-var pregeneratedIdentities = testplanet.NewPregeneratedIdentities()
-
 func TestNewOptions(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
