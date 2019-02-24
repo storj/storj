@@ -38,9 +38,9 @@ func main() {
 		panic(err)
 	}
 
-	dialOption := clientOptions.DialOption(storj.NodeID{})
+	withDialer := clientOptions.WithDialer(ctx, storj.NodeID{})
 
-	conn, err := grpc.Dial(*targetAddr, dialOption)
+	conn, err := grpc.Dial(*targetAddr, withDialer, grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}

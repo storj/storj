@@ -4,8 +4,11 @@
 package tlsopts
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"net"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -36,10 +39,27 @@ func (opts *Options) ServerOption() grpc.ServerOption {
 	return grpc.Creds(credentials.NewTLS(tlsConfig))
 }
 
-// DialOption returns a grpc `DialOption` for making outgoing connections
+// WithDialer returns a grpc `DialOption` for making outgoing connections
 // to the node with this peer identity
 // id is an optional id of the node we are dialing
-func (opts *Options) DialOption(id storj.NodeID) grpc.DialOption {
+func (opts *Options) WithDialer(ctx context.Context, id storj.NodeID) grpc.DialOption {
+	return grpc.WithDialer(func(addr string, deadline time.Duration) (net.Conn, error) {
+		conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+		if err != nil {
+			return nil, peertls.NewNonTemporaryError(err)
+		}
+
+		tlsConfig := opts.TLSConfig(id)
+		authConn, _, err := credentials.NewTLS(tlsConfig).ClientHandshake(ctx, "", conn)
+		if err != nil {
+			return nil, peertls.NewNonTemporaryError(err)
+		}
+		return authConn, nil
+	})
+}
+
+// TLSConfig returns a TSLConfig for use in handshaking with a peer.
+func (opts *Options) TLSConfig(id storj.NodeID) *tls.Config {
 	pcvFuncs := append(
 		[]peertls.PeerCertVerificationFunc{
 			peertls.VerifyPeerCertChains,
@@ -47,15 +67,13 @@ func (opts *Options) DialOption(id storj.NodeID) grpc.DialOption {
 		},
 		opts.PCVFuncs...,
 	)
-	tlsConfig := &tls.Config{
+	return &tls.Config{
 		Certificates:       []tls.Certificate{*opts.Cert},
 		InsecureSkipVerify: true,
 		VerifyPeerCertificate: peertls.VerifyPeerFunc(
 			pcvFuncs...,
 		),
 	}
-
-	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
 }
 
 func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
