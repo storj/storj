@@ -43,7 +43,7 @@ func init() {
 // Client is an interface describing the functions for interacting with piecestore nodes
 type Client interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
-	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.OrderLimit) error
+	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.OrderLimit) (*pb.SignedHash, error)
 	Get(ctx context.Context, id PieceID, size int64, ba *pb.OrderLimit) (ranger.Ranger, error)
 	Delete(ctx context.Context, pieceID PieceID, satelliteID storj.NodeID) error
 	io.Closer
@@ -117,10 +117,10 @@ func (ps *PieceStore) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, e
 }
 
 // Put uploads a Piece to a piece store Server
-func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, pba *pb.OrderLimit) error {
+func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, pba *pb.OrderLimit) (*pb.SignedHash, error) {
 	stream, err := ps.client.Store(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Making a clone, otherwise there will be a data race
@@ -142,25 +142,28 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 			zap.S().Errorf("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
 		}
 
-		return fmt.Errorf("%v.Send() = %v", stream, err)
+		return nil, fmt.Errorf("%v.Send() = %v", stream, err)
 	}
 
-	writer := &StreamWriter{signer: ps, stream: stream, rba: rba}
-
-	defer func() {
-		if err := writer.Close(); err != nil && err != io.EOF {
-			zap.S().Debugf("failed to close writer: %s\n", err)
-		}
-	}()
+	writer := NewStreamWriter(stream, ps, rba)
 
 	bufw := bufio.NewWriterSize(writer, 32*1024)
 
 	_, err = io.Copy(bufw, data)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return bufw.Flush()
+	err = bufw.Flush()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := writer.Close(); err != nil && err != io.EOF {
+		return nil, ClientError.New("failure during closing writer: %v", err)
+	}
+
+	return writer.storagenodeHash, nil
 }
 
 // Get begins downloading a Piece from a piece store Server
