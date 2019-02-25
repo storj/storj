@@ -119,8 +119,8 @@ message NodeInfoRequest {
 
 message NodeInfoResponse {
   node.NodeType type = 1;
-  node.NodeMetadata metadata = 2;
-  node.NodeRestrictions restrictions = 3;
+  node.NodeOperator operator = 2;
+  node.NodeCapacity capacity = 3;
 }
 
 message FindNearRequest {

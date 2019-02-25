@@ -121,8 +121,8 @@ func (srv *Inspector) NodeInfo(ctx context.Context, req *pb.NodeInfoRequest) (*p
 	}
 
 	return &pb.NodeInfoResponse{
-		Type:         info.GetType(),
-		Metadata:     info.GetMetadata(),
-		Restrictions: info.GetRestrictions(),
+		Type:     info.GetType(),
+		Operator: info.GetOperator(),
+		Capacity: info.GetCapacity(),
 	}, nil
 }

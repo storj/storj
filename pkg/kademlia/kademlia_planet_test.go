@@ -33,9 +33,9 @@ func TestRequestInfo(t *testing.T) {
 		info, err := planet.Satellites[0].Kademlia.Service.FetchInfo(ctx, node.Local())
 		require.NoError(t, err)
 		require.Equal(t, node.Local().Type, info.GetType())
-		require.Equal(t, node.Local().Metadata.GetEmail(), info.GetMetadata().GetEmail())
-		require.Equal(t, node.Local().Metadata.GetWallet(), info.GetMetadata().GetWallet())
-		require.Equal(t, node.Local().Restrictions.GetFreeDisk(), info.GetRestrictions().GetFreeDisk())
-		require.Equal(t, node.Local().Restrictions.GetFreeBandwidth(), info.GetRestrictions().GetFreeBandwidth())
+		require.Equal(t, node.Local().Metadata.GetEmail(), info.GetOperator().GetEmail())
+		require.Equal(t, node.Local().Metadata.GetWallet(), info.GetOperator().GetWallet())
+		require.Equal(t, node.Local().Restrictions.GetFreeDisk(), info.GetCapacity().GetFreeDisk())
+		require.Equal(t, node.Local().Restrictions.GetFreeBandwidth(), info.GetCapacity().GetFreeBandwidth())
 	})
 }
