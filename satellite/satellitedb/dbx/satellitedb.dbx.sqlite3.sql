@@ -69,20 +69,8 @@ CREATE TABLE nodes (
 );
 CREATE TABLE overlay_cache_nodes (
 	node_id BLOB NOT NULL,
-	node_type INTEGER NOT NULL,
 	address TEXT NOT NULL,
 	protocol INTEGER NOT NULL,
-	operator_email TEXT NOT NULL,
-	operator_wallet TEXT NOT NULL,
-	free_bandwidth INTEGER NOT NULL,
-	free_disk INTEGER NOT NULL,
-	latency_90 INTEGER NOT NULL,
-	audit_success_ratio REAL NOT NULL,
-	audit_uptime_ratio REAL NOT NULL,
-	audit_count INTEGER NOT NULL,
-	audit_success_count INTEGER NOT NULL,
-	uptime_count INTEGER NOT NULL,
-	uptime_success_count INTEGER NOT NULL,
 	PRIMARY KEY ( node_id ),
 	UNIQUE ( node_id )
 );

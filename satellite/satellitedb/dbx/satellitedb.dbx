@@ -154,26 +154,9 @@ model overlay_cache_node (
 	unique node_id
 
 	field node_id   blob
-	field node_type int
 
 	field address   text (updatable) // TODO: use compressed format
 	field protocol  int  (updatable)
-	
-	field operator_email  text (updatable)
-	field operator_wallet text (updatable) //TODO: use compressed format
-	
-	field free_bandwidth int64 (updatable)
-	field free_disk      int64 (updatable)
-
-	field latency_90           int64  (updatable)
-	
-	field audit_success_ratio  float64 (updatable)
-	field audit_uptime_ratio   float64 (updatable)
-	field audit_count          int64   (updatable)
-	field audit_success_count  int64   (updatable)
-
-	field uptime_count         int64 (updatable)
-	field uptime_success_count int64 (updatable)
 )
 
 create overlay_cache_node ( )
@@ -181,11 +164,6 @@ create overlay_cache_node ( )
 read one (
 	select overlay_cache_node
 	where  overlay_cache_node.node_id = ?
-)
-
-read one (
-	select overlay_cache_node.operator_wallet
-	where overlay_cache_node.node_id = ?
 )
 
 read limitoffset (
