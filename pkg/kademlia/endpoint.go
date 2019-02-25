@@ -77,8 +77,8 @@ func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.PingRequest) (*pb.Pi
 	return &pb.PingResponse{}, nil
 }
 
-// Info returns the node info
-func (endpoint *Endpoint) Info(ctx context.Context, req *pb.InfoRequest) (*pb.InfoResponse, error) {
+// RequestInfo returns the node info
+func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) (*pb.InfoResponse, error) {
 	self := endpoint.service.Local()
 
 	return &pb.InfoResponse{

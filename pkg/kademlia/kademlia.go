@@ -186,14 +186,14 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 	return node, nil
 }
 
-// Info connects to a node address and returns the node info
-func (k *Kademlia) Info(ctx context.Context, address *pb.NodeAddress) (*pb.InfoResponse, error) {
+// FetchInfo connects to a node address and returns the node info
+func (k *Kademlia) FetchInfo(ctx context.Context, address *pb.NodeAddress) (*pb.InfoResponse, error) {
 	if !k.lookups.Start() {
 		return nil, context.Canceled
 	}
 	defer k.lookups.Done()
 
-	info, err := k.dialer.Info(ctx, address)
+	info, err := k.dialer.FetchInfo(ctx, address)
 	if err != nil {
 		return nil, NodeErr.Wrap(err)
 	}

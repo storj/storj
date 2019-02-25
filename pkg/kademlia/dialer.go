@@ -109,8 +109,8 @@ func (dialer *Dialer) FetchPeerIdentity(ctx context.Context, target pb.Node) (pI
 	return identity.PeerIdentityFromPeer(p)
 }
 
-// Info connects to a node address and returns its node info.
-func (dialer *Dialer) Info(ctx context.Context, address *pb.NodeAddress) (*pb.InfoResponse, error) {
+// FetchInfo connects to a node address and returns its node info.
+func (dialer *Dialer) FetchInfo(ctx context.Context, address *pb.NodeAddress) (*pb.InfoResponse, error) {
 	if !dialer.limit.Lock() {
 		return nil, context.Canceled
 	}
@@ -121,7 +121,7 @@ func (dialer *Dialer) Info(ctx context.Context, address *pb.NodeAddress) (*pb.In
 		return nil, err
 	}
 
-	resp, err := conn.client.Info(ctx, &pb.InfoRequest{})
+	resp, err := conn.client.RequestInfo(ctx, &pb.InfoRequest{})
 
 	return resp, errs.Combine(err, conn.disconnect())
 }

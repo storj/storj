@@ -25,12 +25,12 @@ func TestFetchPeerIdentity(t *testing.T) {
 	})
 }
 
-func TestInfo(t *testing.T) {
+func TestRequestInfo(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		node := planet.StorageNodes[0]
-		info, err := planet.Satellites[0].Kademlia.Service.Info(ctx, node.Local().Address)
+		info, err := planet.Satellites[0].Kademlia.Service.FetchInfo(ctx, node.Local().Address)
 		require.NoError(t, err)
 		require.Equal(t, node.ID(), info.Id)
 		require.Equal(t, node.Local().Type, info.GetType())

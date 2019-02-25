@@ -23,7 +23,7 @@ service Overlay {
 service Nodes {
     rpc Query(QueryRequest) returns (QueryResponse);
     rpc Ping(PingRequest) returns (PingResponse);
-    rpc Info(InfoRequest) returns (InfoResponse);
+    rpc RequestInfo(InfoRequest) returns (InfoResponse);
 }
 
 // LookupRequest is is request message for the lookup rpc call

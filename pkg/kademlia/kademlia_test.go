@@ -506,7 +506,7 @@ func (mn *mockNodesServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.P
 	return &pb.PingResponse{}, nil
 }
 
-func (mn *mockNodesServer) Info(ctx context.Context, req *pb.InfoRequest) (*pb.InfoResponse, error) {
+func (mn *mockNodesServer) RequestInfo(ctx context.Context, req *pb.InfoRequest) (*pb.InfoResponse, error) {
 	atomic.AddInt32(&mn.infoCalled, 1)
 	return &pb.InfoResponse{}, nil
 }
