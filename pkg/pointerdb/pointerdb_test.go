@@ -68,7 +68,9 @@ func TestServicePut(t *testing.T) {
 		s := pointerdb.NewServer(zap.NewNop(), service, nil, nil, pointerdb.Config{}, nil, apiKeys)
 
 		path := "a/b/c"
-		pr := pb.Pointer{}
+		pr := pb.Pointer{
+			Remote: &pb.RemoteSegment{},
+		}
 
 		if tt.err != nil {
 			db.ForceError++

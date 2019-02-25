@@ -100,6 +100,28 @@ func (s *Server) validateSegment(req *pb.PutRequest) error {
 	return nil
 }
 
+func (s *Server) filterValidPieces(pointer *pb.Pointer) {
+	if pointer.Type == pb.Pointer_REMOTE {
+		var remotePieces []*pb.RemotePiece
+		var remotePiecesHashes []*pb.SignedHash
+		remote := pointer.Remote
+		for i, piece := range remote.RemotePieces {
+			err := auth.VerifyMsg(remote.RemotePiecesHashes[i], piece.NodeId)
+			if err == nil {
+				remotePieces = append(remotePieces, piece)
+				// TODO maybe nil everything except hash after verification to save DB space
+				remotePiecesHashes = append(remotePiecesHashes, remote.RemotePiecesHashes[i])
+			} else {
+				s.logger.Warn("unable to verify piece hash: %v", zap.Error(err))
+			}
+		}
+
+		// TODO what if number of left pieces is lower than repair threshold
+		remote.RemotePieces = remotePieces
+		remote.RemotePiecesHashes = remotePiecesHashes
+	}
+}
+
 // Put formats and hands off a key/value (path/pointer) to be saved to boltdb
 func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -113,6 +135,8 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 	if err != nil {
 		return nil, err
 	}
+
+	s.filterValidPieces(req.Pointer)
 
 	path := storj.JoinPaths(keyInfo.ProjectID.String(), req.GetPath())
 	if err = s.service.Put(path, req.GetPointer()); err != nil {

@@ -50,8 +50,10 @@ message RemoteSegment {
   // TODO: may want to use customtype and fixed-length byte slice
   string piece_id = 2;
   repeated RemotePiece remote_pieces = 3;
-
+  
   bytes merkle_root = 4; // root hash of the hashes of all of these pieces
+  
+  repeated piecestoreroutes.SignedHash remote_pieces_hashes = 5;
 }
 
 message Pointer {
