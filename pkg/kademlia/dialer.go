@@ -123,10 +123,15 @@ func (dialer *Dialer) FetchInfo(ctx context.Context, address *pb.NodeAddress) (*
 
 	p := &peer.Peer{}
 	pCall := grpc.Peer(p)
-	resp, err := conn.client.RequestInfo(ctx, &pb.InfoRequest{}, pCall)
-	id, idErr := identity.PeerIdentityFromPeer(p)
 
-	return id, resp, errs.Combine(err, idErr, conn.disconnect())
+	resp, err := conn.client.RequestInfo(ctx, &pb.InfoRequest{}, pCall)
+	if err != nil {
+		return nil, nil, errs.Combine(err, conn.disconnect())
+	}
+
+	id, err := identity.PeerIdentityFromPeer(p)
+
+	return id, resp, errs.Combine(err, conn.disconnect())
 }
 
 // dial dials the specified node.
