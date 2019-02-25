@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -299,6 +300,7 @@ CREATE TABLE accounting_timestamps (
 	PRIMARY KEY ( name )
 );
 CREATE TABLE bwagreements (
+	id bigserial NOT NULL,
 	serialnum text NOT NULL,
 	storage_node_id bytea NOT NULL,
 	uplink_id bytea NOT NULL,
@@ -306,7 +308,7 @@ CREATE TABLE bwagreements (
 	total bigint NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( serialnum )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE certRecords (
 	publickey bytea NOT NULL,
@@ -481,6 +483,7 @@ CREATE TABLE accounting_timestamps (
 	PRIMARY KEY ( name )
 );
 CREATE TABLE bwagreements (
+	id INTEGER NOT NULL,
 	serialnum TEXT NOT NULL,
 	storage_node_id BLOB NOT NULL,
 	uplink_id BLOB NOT NULL,
@@ -488,7 +491,7 @@ CREATE TABLE bwagreements (
 	total INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	expires_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( serialnum )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE certRecords (
 	publickey BLOB NOT NULL,
@@ -1001,6 +1004,7 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
 
 type Bwagreement struct {
+	Id            int64
 	Serialnum     string
 	StorageNodeId []byte
 	UplinkId      []byte
@@ -1014,6 +1018,25 @@ func (Bwagreement) _Table() string { return "bwagreements" }
 
 type Bwagreement_Update_Fields struct {
 }
+
+type Bwagreement_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Bwagreement_Id(v int64) Bwagreement_Id_Field {
+	return Bwagreement_Id_Field{_set: true, _value: v}
+}
+
+func (f Bwagreement_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bwagreement_Id_Field) _Column() string { return "id" }
 
 type Bwagreement_Serialnum_Field struct {
 	_set   bool
@@ -2365,54 +2388,10 @@ func __sqlbundle_Render(dialect __sqlbundle_Dialect, sql __sqlbundle_SQL, ops ..
 	return dialect.Rebind(out)
 }
 
-func __sqlbundle_flattenSQL(x string) string {
-	// trim whitespace from beginning and end
-	s, e := 0, len(x)-1
-	for s < len(x) && (x[s] == ' ' || x[s] == '\t' || x[s] == '\n') {
-		s++
-	}
-	for s <= e && (x[e] == ' ' || x[e] == '\t' || x[e] == '\n') {
-		e--
-	}
-	if s > e {
-		return ""
-	}
-	x = x[s : e+1]
+var __sqlbundle_reSpace = regexp.MustCompile(`\s+`)
 
-	// check for whitespace that needs fixing
-	wasSpace := false
-	for i := 0; i < len(x); i++ {
-		r := x[i]
-		justSpace := r == ' '
-		if (wasSpace && justSpace) || r == '\t' || r == '\n' {
-			// whitespace detected, start writing a new string
-			var result strings.Builder
-			result.Grow(len(x))
-			if wasSpace {
-				result.WriteString(x[:i-1])
-			} else {
-				result.WriteString(x[:i])
-			}
-			for p := i; p < len(x); p++ {
-				for p < len(x) && (x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
-					p++
-				}
-				result.WriteByte(' ')
-
-				start := p
-				for p < len(x) && !(x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
-					p++
-				}
-				result.WriteString(x[start:p])
-			}
-
-			return result.String()
-		}
-		wasSpace = justSpace
-	}
-
-	// no problematic whitespace found
-	return x
+func __sqlbundle_flattenSQL(s string) string {
+	return strings.TrimSpace(__sqlbundle_reSpace.ReplaceAllString(s, " "))
 }
 
 // this type is specially named to match up with the name returned by the
@@ -2491,8 +2470,6 @@ type __sqlbundle_Condition struct {
 func (*__sqlbundle_Condition) private() {}
 
 func (c *__sqlbundle_Condition) Render() string {
-	// TODO(jeff): maybe check if we can use placeholders instead of the
-	// literal null: this would make the templates easier.
 
 	switch {
 	case c.Equal && c.Null:
@@ -2554,13 +2531,13 @@ func (obj *postgresImpl) Create_Bwagreement(ctx context.Context,
 	__created_at_val := __now
 	__expires_at_val := bwagreement_expires_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( serialnum, storage_node_id, uplink_id, action, total, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( serialnum, storage_node_id, uplink_id, action, total, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING bwagreements.id, bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __serialnum_val, __storage_node_id_val, __uplink_id_val, __action_val, __total_val, __created_at_val, __expires_at_val)
 
 	bwagreement = &Bwagreement{}
-	err = obj.driver.QueryRow(__stmt, __serialnum_val, __storage_node_id_val, __uplink_id_val, __action_val, __total_val, __created_at_val, __expires_at_val).Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+	err = obj.driver.QueryRow(__stmt, __serialnum_val, __storage_node_id_val, __uplink_id_val, __action_val, __total_val, __created_at_val, __expires_at_val).Scan(&bwagreement.Id, &bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2914,7 +2891,7 @@ func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.id, bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -2932,7 +2909,7 @@ func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		err = __rows.Scan(&bwagreement.Id, &bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -2948,7 +2925,7 @@ func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
 func (obj *postgresImpl) All_Bwagreement(ctx context.Context) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.id, bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -2964,7 +2941,7 @@ func (obj *postgresImpl) All_Bwagreement(ctx context.Context) (
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		err = __rows.Scan(&bwagreement.Id, &bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -2981,7 +2958,7 @@ func (obj *postgresImpl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Contex
 	bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.created_at > ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.id, bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.created_at > ?")
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_created_at_greater.value())
@@ -2997,7 +2974,7 @@ func (obj *postgresImpl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Contex
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		err = __rows.Scan(&bwagreement.Id, &bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -4999,7 +4976,7 @@ func (obj *sqlite3Impl) Limited_Bwagreement(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.id, bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -5017,7 +4994,7 @@ func (obj *sqlite3Impl) Limited_Bwagreement(ctx context.Context,
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		err = __rows.Scan(&bwagreement.Id, &bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -5033,7 +5010,7 @@ func (obj *sqlite3Impl) Limited_Bwagreement(ctx context.Context,
 func (obj *sqlite3Impl) All_Bwagreement(ctx context.Context) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.id, bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -5049,7 +5026,7 @@ func (obj *sqlite3Impl) All_Bwagreement(ctx context.Context) (
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		err = __rows.Scan(&bwagreement.Id, &bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -5066,7 +5043,7 @@ func (obj *sqlite3Impl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context
 	bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
 	rows []*Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.created_at > ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.id, bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.created_at > ?")
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_created_at_greater.value())
@@ -5082,7 +5059,7 @@ func (obj *sqlite3Impl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context
 
 	for __rows.Next() {
 		bwagreement := &Bwagreement{}
-		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		err = __rows.Scan(&bwagreement.Id, &bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -6603,13 +6580,13 @@ func (obj *sqlite3Impl) getLastBwagreement(ctx context.Context,
 	pk int64) (
 	bwagreement *Bwagreement, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.id, bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	bwagreement = &Bwagreement{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bwagreement.Id, &bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}

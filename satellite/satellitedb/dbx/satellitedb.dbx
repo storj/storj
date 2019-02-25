@@ -3,8 +3,9 @@
 //--- bwagreement ---//
 
 model bwagreement (
-	key serialnum
+	key id
 
+	field id              serial64
 	field serialnum       text
 	field storage_node_id blob
 	field uplink_id       blob
