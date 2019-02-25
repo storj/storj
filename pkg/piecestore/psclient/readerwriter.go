@@ -17,7 +17,7 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
-// StreamWriter is astruct for writing data to the piece store server
+// StreamWriter handles uplink or satellite writing data to the piece store server
 type StreamWriter struct {
 	stream          pb.PieceStoreRoutes_StoreClient
 	signer          *PieceStore // We need this for signing
