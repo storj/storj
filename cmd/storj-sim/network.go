@@ -144,8 +144,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"--server.extensions.revocation=false",
 			"--server.use-peer-ca-whitelist=false",
 		},
-		"run": {
-		},
+		"run": {},
 	})
 	bootstrap.ExecBefore["run"] = func(process *Process) error {
 		return readConfigString(&bootstrap.Address, bootstrap.Directory, "server.address")
@@ -191,9 +190,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--mail.from", "Storj <yaroslav-satellite-test@storj.io>",
 				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
 			},
-			"run": {
-
-			},
+			"run": {},
 		})
 
 		process.ExecBefore["run"] = func(process *Process) error {
