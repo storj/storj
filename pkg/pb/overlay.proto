@@ -90,9 +90,9 @@ message PingResponse {};
 message InfoRequest {}
 
 message InfoResponse {
-    node.NodeType type = 1;
-    node.NodeOperator operator = 2;
-    node.NodeCapacity capacity = 3;
+    node.NodeType type = 2;
+    node.NodeOperator operator = 3;
+    node.NodeCapacity capacity = 4;
 }
 
 message Restriction {
