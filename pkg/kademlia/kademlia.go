@@ -186,6 +186,20 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 	return node, nil
 }
 
+// Info connects to a node address and returns the node info
+func (k *Kademlia) Info(ctx context.Context, address *pb.NodeAddress) (*pb.InfoResponse, error) {
+	if !k.lookups.Start() {
+		return nil, context.Canceled
+	}
+	defer k.lookups.Done()
+
+	info, err := k.dialer.Info(ctx, address)
+	if err != nil {
+		return nil, NodeErr.Wrap(err)
+	}
+	return info, nil
+}
+
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error) {

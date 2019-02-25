@@ -104,3 +104,18 @@ func (srv *Inspector) LookupNode(ctx context.Context, req *pb.LookupNodeRequest)
 		Node: &node,
 	}, nil
 }
+
+// NodeInfo sends a PING RPC to a node and returns its local info.
+func (srv *Inspector) NodeInfo(ctx context.Context, req *pb.NodeInfoRequest) (*pb.NodeInfoResponse, error) {
+	info, err := srv.dht.Info(ctx, req.Address)
+	if err != nil {
+		return &pb.NodeInfoResponse{}, err
+	}
+
+	return &pb.NodeInfoResponse{
+		Id:           info.Id,
+		Type:         info.GetType(),
+		Metadata:     info.GetMetadata(),
+		Restrictions: info.GetRestrictions(),
+	}, nil
+}

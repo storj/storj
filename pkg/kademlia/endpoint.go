@@ -76,3 +76,15 @@ func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.PingRequest) (*pb.Pi
 	//TODO
 	return &pb.PingResponse{}, nil
 }
+
+// Info returns the node info
+func (endpoint *Endpoint) Info(ctx context.Context, req *pb.InfoRequest) (*pb.InfoResponse, error) {
+	self := endpoint.service.Local()
+
+	return &pb.InfoResponse{
+		Id:           self.Id,
+		Type:         self.GetType(),
+		Metadata:     self.GetMetadata(),
+		Restrictions: self.GetRestrictions(),
+	}, nil
+}

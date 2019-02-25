@@ -24,3 +24,19 @@ func TestFetchPeerIdentity(t *testing.T) {
 		require.True(t, sat.Identity.CA.Equal(peerID.CA))
 	})
 }
+
+func TestInfo(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		node := planet.StorageNodes[0]
+		info, err := planet.Satellites[0].Kademlia.Service.Info(ctx, node.Local().Address)
+		require.NoError(t, err)
+		require.Equal(t, node.ID(), info.Id)
+		require.Equal(t, node.Local().Type, info.GetType())
+		require.Equal(t, node.Local().Metadata.GetEmail(), info.GetMetadata().GetEmail())
+		require.Equal(t, node.Local().Metadata.GetWallet(), info.GetMetadata().GetWallet())
+		require.Equal(t, node.Local().Restrictions.GetFreeDisk(), info.GetRestrictions().GetFreeDisk())
+		require.Equal(t, node.Local().Restrictions.GetFreeBandwidth(), info.GetRestrictions().GetFreeBandwidth())
+	})
+}

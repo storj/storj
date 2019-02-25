@@ -23,6 +23,7 @@ service Overlay {
 service Nodes {
     rpc Query(QueryRequest) returns (QueryResponse);
     rpc Ping(PingRequest) returns (PingResponse);
+    rpc Info(InfoRequest) returns (InfoResponse);
 }
 
 // LookupRequest is is request message for the lookup rpc call
@@ -84,6 +85,16 @@ message QueryResponse {
 
 message PingRequest {};
 message PingResponse {};
+
+// TODO: add fields that validate who is requesting the info
+message InfoRequest {}
+
+message InfoResponse {
+    bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    node.NodeType type = 2;
+    node.NodeMetadata metadata = 3;
+    node.NodeRestrictions restrictions = 4;
+}
 
 message Restriction {
     enum Operator {
