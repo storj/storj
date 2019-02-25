@@ -39,7 +39,7 @@ var (
 		Raw bool `default:"false" help:"if true, the raw data structures will be printed"`
 	}
 
-	claimDeleteCfg certificates.CertServerConfig
+	claimsDeleteCfg certificates.CertServerConfig
 )
 
 func init() {
@@ -48,7 +48,7 @@ func init() {
 	claimsCmd.AddCommand(claimDeleteCmd)
 
 	cfgstruct.Bind(claimsExportCmd.Flags(), &claimsExportCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.Bind(claimDeleteCmd.Flags(), &claimDeleteCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(claimDeleteCmd.Flags(), &claimsDeleteCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
 func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
@@ -93,7 +93,7 @@ func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdDeleteClaim(cmd *cobra.Command, args []string) (err error) {
-	authDB, err := claimsExportCfg.NewAuthDB()
+	authDB, err := claimsDeleteCfg.NewAuthDB()
 	if err != nil {
 		return err
 	}
