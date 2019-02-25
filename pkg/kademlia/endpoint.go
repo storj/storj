@@ -82,7 +82,6 @@ func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) 
 	self := endpoint.service.Local()
 
 	return &pb.InfoResponse{
-		Id:           self.Id,
 		Type:         self.GetType(),
 		Metadata:     self.GetMetadata(),
 		Restrictions: self.GetRestrictions(),

@@ -113,14 +113,14 @@ message LookupNodeResponse {
 }
 
 message NodeInfoRequest {
-  node.NodeAddress address = 1;
+  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  string address = 2;
 }
 
 message NodeInfoResponse {
-  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  node.NodeType type = 2;
-  node.NodeMetadata metadata = 3;
-  node.NodeRestrictions restrictions = 4;
+  node.NodeType type = 1;
+  node.NodeMetadata metadata = 2;
+  node.NodeRestrictions restrictions = 3;
 }
 
 message FindNearRequest {
