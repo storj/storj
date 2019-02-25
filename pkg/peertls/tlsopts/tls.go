@@ -8,7 +8,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -39,23 +38,31 @@ func (opts *Options) ServerOption() grpc.ServerOption {
 	return grpc.Creds(credentials.NewTLS(tlsConfig))
 }
 
-// WithDialer returns a grpc `DialOption` for making outgoing connections
+// DialOption returns a grpc `DialOption` for making outgoing connections
 // to the node with this peer identity
 // id is an optional id of the node we are dialing
-func (opts *Options) WithDialer(ctx context.Context, id storj.NodeID) grpc.DialOption {
-	return grpc.WithDialer(func(addr string, deadline time.Duration) (net.Conn, error) {
-		conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
-		if err != nil {
-			return nil, peertls.NewNonTemporaryError(err)
-		}
+func (opts *Options) DialOption(ctx context.Context, id storj.NodeID) grpc.DialOption {
+	return grpc.WithTransportCredentials(opts.TransportCredentials(id))
+}
 
-		tlsConfig := opts.TLSConfig(id)
-		authConn, _, err := credentials.NewTLS(tlsConfig).ClientHandshake(ctx, "", conn)
-		if err != nil {
-			return nil, peertls.NewNonTemporaryError(err)
-		}
-		return authConn, nil
-	})
+type TransportCredentials struct {
+	//config *tls.Config
+	credentials.TransportCredentials
+}
+
+func (tc *TransportCredentials) ClientHandshake(ctx context.Context, authority string, conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
+	tlsConn, authInfo, err := tc.TransportCredentials.ClientHandshake(ctx, authority, conn)
+	if err != nil {
+		return tlsConn, authInfo, peertls.NewNonTemporaryError(err)
+	}
+	return tlsConn, authInfo, err
+}
+
+func (opts *Options) TransportCredentials(id storj.NodeID) credentials.TransportCredentials {
+	return &TransportCredentials{
+		TransportCredentials: credentials.NewTLS(opts.TLSConfig(id)),
+		//config: opts.TLSConfig(id),
+	}
 }
 
 // TLSConfig returns a TSLConfig for use in handshaking with a peer.

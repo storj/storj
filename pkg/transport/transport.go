@@ -64,10 +64,8 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		return nil, Error.New("no address")
 	}
 
-	withDialer := transport.tlsOpts.WithDialer(ctx, node.Id)
 	options := append([]grpc.DialOption{
-		withDialer,
-		grpc.WithInsecure(),
+		transport.tlsOpts.DialOption(ctx, node.Id),
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
 	}, opts...)
@@ -93,10 +91,8 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 func (transport *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	withDialer := transport.tlsOpts.WithDialer(ctx, storj.NodeID{})
 	options := append([]grpc.DialOption{
-		withDialer,
-		grpc.WithInsecure(),
+		transport.tlsOpts.DialOption(ctx, storj.NodeID{}),
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
 	}, opts...)

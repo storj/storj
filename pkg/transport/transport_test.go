@@ -89,16 +89,18 @@ func TestDialNode(t *testing.T) {
 	})
 
 	t.Run("DialNode with valid target", func(t *testing.T) {
-		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-		withDialer := opts.WithDialer(ctx, storj.NodeID{})
-		conn, err := client.DialNode(timedCtx, &pb.Node{
+		target := &pb.Node{
 			Id: planet.StorageNodes[1].ID(),
 			Address: &pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   planet.StorageNodes[1].Addr(),
 			},
 			Type: pb.NodeType_STORAGE,
-		}, withDialer)
+		}
+
+		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
+		dialOption := opts.DialOption(ctx, storj.NodeID{})
+		conn, err := client.DialNode(timedCtx, target, dialOption)
 		cancel()
 
 		assert.NoError(t, err)
@@ -118,9 +120,9 @@ func TestDialNode(t *testing.T) {
 		}
 
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-		withDialer := unsignedClientOpts.WithDialer(ctx, storj.NodeID{})
+		dialOption := unsignedClientOpts.DialOption(ctx, storj.NodeID{})
 		conn, err := client.DialNode(
-			timedCtx, target, withDialer,
+			timedCtx, target, dialOption,
 		)
 		cancel()
 
@@ -132,9 +134,9 @@ func TestDialNode(t *testing.T) {
 
 	t.Run("DialAddress with bad client certificate", func(t *testing.T) {
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-		withDialer := unsignedClientOpts.WithDialer(ctx, storj.NodeID{})
+		dialOption := unsignedClientOpts.DialOption(ctx, storj.NodeID{})
 		conn, err := client.DialAddress(
-			timedCtx, planet.StorageNodes[1].Addr(), withDialer,
+			timedCtx, planet.StorageNodes[1].Addr(), dialOption,
 		)
 		cancel()
 
@@ -144,7 +146,7 @@ func TestDialNode(t *testing.T) {
 	})
 
 	t.Run("DialAddress with valid address", func(t *testing.T) {
-		timedCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
 		conn, err := client.DialAddress(timedCtx, planet.StorageNodes[1].Addr())
 		cancel()
 
@@ -200,9 +202,8 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 		}
 
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-		withDialer := opts.WithDialer(ctx, storj.NodeID{})
-
-		conn, err := client.DialNode(timedCtx, target, withDialer)
+		dialOption := opts.DialOption(ctx, storj.NodeID{})
+		conn, err := client.DialNode(timedCtx, target, dialOption)
 		cancel()
 
 		tag := fmt.Sprintf("%+v", target)
@@ -213,9 +214,8 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 
 	t.Run("DialAddress with bad server certificate", func(t *testing.T) {
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-		withDialer := opts.WithDialer(ctx, storj.NodeID{})
-
-		conn, err := client.DialAddress(timedCtx, planet.StorageNodes[1].Addr(), withDialer)
+		dialOption := opts.DialOption(ctx, storj.NodeID{})
+		conn, err := client.DialAddress(timedCtx, planet.StorageNodes[1].Addr(), dialOption)
 		cancel()
 
 		assert.Nil(t, conn)
