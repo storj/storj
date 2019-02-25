@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package testplanet
 
 import (
@@ -20,6 +23,8 @@ type Reconfigure struct {
 	StorageNode      func(index int, config *storagenode.Config)
 }
 
+// DisablePeerCAWhitelist returns a `Reconfigure` that sets `UsePeerCAWhitelist` for
+// all node types that use kademlia.
 var DisablePeerCAWhitelist = Reconfigure{
 	Bootstrap: func(index int, config *bootstrap.Config) {
 		config.Server.UsePeerCAWhitelist = false

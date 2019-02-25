@@ -17,8 +17,14 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// TransportCredentials wraps an embedded credentials.TransportCredentials.
+// It decorates the `ClientHandshake` method.
+type TransportCredentials struct {
+	credentials.TransportCredentials
+}
+
 // ServerOption returns a grpc `ServerOption` for incoming connections
-// to the node with this full identity
+// to the node with this full identity.
 func (opts *Options) ServerOption() grpc.ServerOption {
 	pcvFuncs := append(
 		[]peertls.PeerCertVerificationFunc{
@@ -39,29 +45,17 @@ func (opts *Options) ServerOption() grpc.ServerOption {
 }
 
 // DialOption returns a grpc `DialOption` for making outgoing connections
-// to the node with this peer identity
-// id is an optional id of the node we are dialing
+// to the node with this peer identity.
+// id is an optional id of the node we are dialing.
 func (opts *Options) DialOption(ctx context.Context, id storj.NodeID) grpc.DialOption {
 	return grpc.WithTransportCredentials(opts.TransportCredentials(id))
 }
 
-type TransportCredentials struct {
-	//config *tls.Config
-	credentials.TransportCredentials
-}
-
-func (tc *TransportCredentials) ClientHandshake(ctx context.Context, authority string, conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
-	tlsConn, authInfo, err := tc.TransportCredentials.ClientHandshake(ctx, authority, conn)
-	if err != nil {
-		return tlsConn, authInfo, peertls.NewNonTemporaryError(err)
-	}
-	return tlsConn, authInfo, err
-}
-
+// TransportCredentials returns a grpc `credentials.TransportCredentials`
+// implementation for use within peertls.
 func (opts *Options) TransportCredentials(id storj.NodeID) credentials.TransportCredentials {
 	return &TransportCredentials{
 		TransportCredentials: credentials.NewTLS(opts.TLSConfig(id)),
-		//config: opts.TLSConfig(id),
 	}
 }
 
@@ -81,6 +75,16 @@ func (opts *Options) TLSConfig(id storj.NodeID) *tls.Config {
 			pcvFuncs...,
 		),
 	}
+}
+
+// ClientHandshake returns a non-temporary error if an error is returned from
+// the underlying `ClientHandshake` call.
+func (tc *TransportCredentials) ClientHandshake(ctx context.Context, authority string, conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
+	tlsConn, authInfo, err := tc.TransportCredentials.ClientHandshake(ctx, authority, conn)
+	if err != nil {
+		return tlsConn, authInfo, peertls.NewNonTemporaryError(err)
+	}
+	return tlsConn, authInfo, err
 }
 
 func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {

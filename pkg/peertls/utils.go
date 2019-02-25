@@ -22,8 +22,30 @@ import (
 	"storj.io/storj/pkg/pkcrypto"
 )
 
+// NonTemporaryError is an error with a `Temporary` method which always returns false.
+// It is intended for use with grpc.
+//
+// (see https://godoc.org/google.golang.org/grpc#WithDialer
+// and https://godoc.org/google.golang.org/grpc#FailOnNonTempDialError).
 type NonTemporaryError struct {
 	Err error
+}
+
+// NewNonTemporaryError returns a new temporary error for use with grpc.
+func NewNonTemporaryError(err error) NonTemporaryError {
+	return NonTemporaryError{
+		Err: errs.Wrap(err),
+	}
+}
+
+// Error implements the error interface
+func (nte NonTemporaryError) Error() string {
+	return nte.Err.Error()
+}
+
+// Temporary returns false to indicate that is is a non-temporary error
+func (nte NonTemporaryError) Temporary() bool {
+	return false
 }
 
 func verifyChainSignatures(certs []*x509.Certificate) error {
@@ -72,25 +94,4 @@ func uniqueExts(exts []pkix.Extension) bool {
 		seen[s] = struct{}{}
 	}
 	return true
-}
-
-// NewNonTemporaryError returns a new temporary error for use with grpc.
-// (see https://godoc.org/google.golang.org/grpc#WithDialer and
-// https://godoc.org/google.golang.org/grpc#FailOnNonTempDialError)
-func NewNonTemporaryError(err error) NonTemporaryError {
-	return NonTemporaryError{
-		Err: errs.Wrap(err),
-	}
-}
-
-// Error implements the error interface
-func (nte NonTemporaryError) Error() string {
-	return nte.Err.Error()
-}
-
-// Temporary returns false to indicate that is is a non-temporary error
-// (see https://godoc.org/google.golang.org/grpc#WithDialer and
-// https://godoc.org/google.golang.org/grpc#FailOnNonTempDialError)
-func (nte NonTemporaryError) Temporary() bool {
-	return false
 }
