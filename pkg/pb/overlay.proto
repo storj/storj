@@ -23,6 +23,7 @@ service Overlay {
 service Nodes {
     rpc Query(QueryRequest) returns (QueryResponse);
     rpc Ping(PingRequest) returns (PingResponse);
+    rpc RequestInfo(InfoRequest) returns (InfoResponse);
 }
 
 // LookupRequest is is request message for the lookup rpc call
@@ -84,6 +85,15 @@ message QueryResponse {
 
 message PingRequest {};
 message PingResponse {};
+
+// TODO: add fields that validate who is requesting the info
+message InfoRequest {}
+
+message InfoResponse {
+    node.NodeType type = 2;
+    node.NodeOperator operator = 3;
+    node.NodeCapacity capacity = 4;
+}
 
 message Restriction {
     enum Operator {
