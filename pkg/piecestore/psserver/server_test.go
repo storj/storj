@@ -5,6 +5,7 @@ package psserver
 
 import (
 	"crypto"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -234,7 +235,7 @@ func TestRetrieve(t *testing.T) {
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, PieceSize: tt.reqSize, Offset: tt.offset}})
 			require.NoError(t, err)
 
-			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_GET, snID, upID, time.Hour)
+			pba, err := testbwagreement.GenerateOrderLimit(pb.BandwidthAction_GET, snID, upID, time.Hour)
 			require.NoError(t, err)
 
 			totalAllocated := int64(0)
@@ -245,7 +246,7 @@ func TestRetrieve(t *testing.T) {
 				// Send bandwidth bandwidthAllocation
 				totalAllocated += tt.allocSize
 
-				rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, totalAllocated)
+				rba, err := testbwagreement.GenerateOrder(pba, snID.ID, upID, totalAllocated)
 				require.NoError(t, err)
 
 				err = stream.Send(&pb.PieceRetrieval{BandwidthAllocation: rba})
@@ -321,13 +322,16 @@ func TestStore(t *testing.T) {
 			defer cleanup()
 			db := s.DB.DB
 
+			sum := sha256.Sum256(tt.content)
+			expectedHash := sum[:]
+
 			stream, err := c.Store(ctx)
 			require.NoError(t, err)
 
 			// Create Bandwidth Allocation Data
-			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(pb.BandwidthAction_PUT, snID, upID, time.Hour)
+			pba, err := testbwagreement.GenerateOrderLimit(pb.BandwidthAction_PUT, snID, upID, time.Hour)
 			require.NoError(t, err)
-			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, tt.totalReceived)
+			rba, err := testbwagreement.GenerateOrder(pba, snID.ID, upID, tt.totalReceived)
 			require.NoError(t, err)
 
 			// Write the buffer to the stream we opened earlier
@@ -368,7 +372,7 @@ func TestStore(t *testing.T) {
 				var agreement, signature []byte
 				err = rows.Scan(&agreement, &signature)
 				require.NoError(t, err)
-				rba := &pb.RenterBandwidthAllocation{}
+				rba := &pb.Order{}
 				require.NoError(t, proto.Unmarshal(agreement, rba))
 				require.Equal(t, msg.BandwidthAllocation.GetSignature(), signature)
 				require.True(t, pb.Equal(pba, &rba.PayerAllocation))
@@ -380,6 +384,8 @@ func TestStore(t *testing.T) {
 			require.NotNil(t, resp)
 			require.Equal(t, tt.message, resp.Message)
 			require.Equal(t, tt.totalReceived, resp.TotalReceived)
+			require.Equal(t, expectedHash, resp.SignedHash.Hash)
+			require.NotNil(t, resp.SignedHash.Signature)
 		})
 	}
 }
@@ -437,9 +443,9 @@ func TestPbaValidation(t *testing.T) {
 
 			// Create Bandwidth Allocation Data
 			content := []byte("content")
-			pba, err := testbwagreement.GeneratePayerBandwidthAllocation(tt.action, satID1, upID, time.Hour)
+			pba, err := testbwagreement.GenerateOrderLimit(tt.action, satID1, upID, time.Hour)
 			require.NoError(t, err)
-			rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, int64(len(content)))
+			rba, err := testbwagreement.GenerateOrder(pba, snID.ID, upID, int64(len(content)))
 			require.NoError(t, err)
 			msg := &pb.PieceStore{
 				PieceData:           &pb.PieceStore_PieceData{Content: content},
@@ -564,6 +570,7 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 		log:              zaptest.NewLogger(t),
 		storage:          storage,
 		DB:               psDB,
+		identity:         snID,
 		totalAllocated:   math.MaxInt64,
 		totalBwAllocated: math.MaxInt64,
 		whitelist:        whitelist,

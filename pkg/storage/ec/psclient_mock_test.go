@@ -98,11 +98,12 @@ func (mr *MockPSClientMockRecorder) Meta(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Put mocks base method
-func (m *MockPSClient) Put(arg0 context.Context, arg1 psclient.PieceID, arg2 io.Reader, arg3 time.Time, arg4 *pb.PayerBandwidthAllocation) error {
+func (m *MockPSClient) Put(arg0 context.Context, arg1 psclient.PieceID, arg2 io.Reader, arg3 time.Time, arg4 *pb.PayerBandwidthAllocation) (*pb.SignedHash, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*pb.SignedHash)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Put indicates an expected call of Put

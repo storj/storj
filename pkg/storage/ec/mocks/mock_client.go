@@ -70,12 +70,13 @@ func (mr *MockClientMockRecorder) Get(arg0, arg1, arg2, arg3, arg4, arg5 interfa
 }
 
 // Put mocks base method
-func (m *MockClient) Put(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.RedundancyStrategy, arg3 psclient.PieceID, arg4 io.Reader, arg5 time.Time, arg6 *pb.PayerBandwidthAllocation) ([]*pb.Node, error) {
+func (m *MockClient) Put(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.RedundancyStrategy, arg3 psclient.PieceID, arg4 io.Reader, arg5 time.Time, arg6 *pb.PayerBandwidthAllocation) ([]*pb.Node, []*pb.SignedHash, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].([]*pb.Node)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].([]*pb.SignedHash)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // Put indicates an expected call of Put

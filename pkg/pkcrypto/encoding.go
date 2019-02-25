@@ -112,9 +112,15 @@ func PrivateKeyFromPEM(keyBytes []byte) (crypto.PrivateKey, error) {
 
 // WriteCertPEM writes the certificate to the writer, in a PEM-enveloped DER
 // encoding.
-func WriteCertPEM(w io.Writer, cert *x509.Certificate) error {
-	err := pem.Encode(w, &pem.Block{Type: BlockLabelCertificate, Bytes: cert.Raw})
-	return errs.Wrap(err)
+func WriteCertPEM(w io.Writer, certs ...*x509.Certificate) error {
+	if len(certs) == 0 {
+		return errs.New("no certs to encode")
+	}
+	encodeErrs := new(errs.Group)
+	for _, cert := range certs {
+		encodeErrs.Add(pem.Encode(w, &pem.Block{Type: BlockLabelCertificate, Bytes: cert.Raw}))
+	}
+	return encodeErrs.Err()
 }
 
 // CertToPEM returns the bytes of the certificate, in a PEM-enveloped DER

@@ -80,3 +80,15 @@ func (nt NodeType) DPanicOnInvalid(from string) {
 		zap.L().DPanic("INVALID NODE TYPE: " + from)
 	}
 }
+
+// AddressEqual compares two node addresses
+func AddressEqual(a1, a2 *NodeAddress) bool {
+	if a1 == nil && a2 == nil {
+		return true
+	}
+	if a1 == nil || a2 == nil {
+		return false
+	}
+	return a1.Transport == a2.Transport &&
+		a1.Address == a2.Address
+}
