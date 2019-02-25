@@ -12,7 +12,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/certificates"
-	"storj.io/storj/pkg/cfgstruct"
 )
 
 var (
@@ -35,21 +34,14 @@ var (
 	}
 
 	claimsExportCfg struct {
-		certificates.CertServerConfig
+		Signer certificates.CertServerConfig
 		Raw bool `default:"false" help:"if true, the raw data structures will be printed"`
 	}
 
-	claimsDeleteCfg certificates.CertServerConfig
+	claimsDeleteCfg struct {
+		Signer certificates.CertServerConfig
+	}
 )
-
-func init() {
-	rootCmd.AddCommand(claimsCmd)
-	claimsCmd.AddCommand(claimsExportCmd)
-	claimsCmd.AddCommand(claimDeleteCmd)
-
-	cfgstruct.Bind(claimsExportCmd.Flags(), &claimsExportCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.Bind(claimDeleteCmd.Flags(), &claimsDeleteCfg, cfgstruct.ConfDir(defaultConfDir))
-}
 
 func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 	authDB, err := claimsExportCfg.NewAuthDB()
