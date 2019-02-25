@@ -23,10 +23,13 @@ import (
 	"storj.io/storj/pkg/transport"
 )
 
-// ClientError is any error returned by the client
-var ClientError = errs.Class("piecestore client error")
-
 var (
+	// ClientError is any error returned by the client
+	ClientError = errs.Class("piecestore client error")
+
+	// ErrHashDoesNotMatch indicates hash comparison failed
+	ErrHashDoesNotMatch = ClientError.New("hash does not match")
+
 	defaultBandwidthMsgSize = 32 * memory.KB
 	maxBandwidthMsgSize     = 64 * memory.KB
 )
@@ -159,7 +162,11 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 		return nil, err
 	}
 
-	if err := writer.Close(); err != nil && err != io.EOF {
+	err = writer.Close()
+	if err == ErrHashDoesNotMatch {
+		return nil, errs.Combine(err, ps.Delete(ctx, id, rba.PayerAllocation.SatelliteId))
+	}
+	if err != nil && err != io.EOF {
 		return nil, ClientError.New("failure during closing writer: %v", err)
 	}
 

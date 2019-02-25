@@ -77,7 +77,7 @@ func (s *StreamWriter) Close() error {
 
 	clientHash := s.hash.Sum(nil)
 	if bytes.Compare(reply.SignedHash.Hash, clientHash) != 0 {
-		return ClientError.New("calclulated hash doesn't match received hash")
+		return ErrHashDoesNotMatch
 	}
 
 	s.storagenodeHash = reply.SignedHash
