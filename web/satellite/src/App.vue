@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -31,8 +31,15 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
                 'addTeamMemberPopupButton',
                 'addTeamMemberPopup',
                 'addTeamMemberPopupButtonSVG',
+                'addApiKeyPopup',
+                'addApiKeyPopupButton',
+                'addApiKeysPopupEmptyButton',
+                'addTeamMemberPopupButtonSVG',
                 'sortTeamMemberByDropdown',
-				'sortTeamMemberByDropdownButton',
+                'sortTeamMemberByDropdownButton',
+                'createAccountButton',
+                'successfulRegistrationPopup',
+                'successfulProjectCreationPopup'
             ]
         };
     },
@@ -58,7 +65,6 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 export default class App extends Vue {
 }
-
 </script>
 
 <style lang="scss">
@@ -87,10 +93,7 @@ export default class App extends Vue {
         font-family: inherit;
         font-weight: 600;
         border: 1px solid rgba(56, 75, 101, 0.4);
-    }
-
-    input:hover,
-    textarea:hover {
-        border-color: #737791 !important;
+        color: #354049;
+        caret-color: #2683FF;
     }
 </style>

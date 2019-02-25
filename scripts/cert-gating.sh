@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source $(dirname $0)/utils.sh
-basepath=$HOME/.storj/capt
+basepath=$HOME/.storj/local-network
 alpha_config=$basepath/config-alpha.yaml
 unauthorized_config=$basepath/config-unauthorized.yaml
 ca_whitelist=$basepath/ca-alpha-whitelist.cert
@@ -21,9 +21,9 @@ case $1 in
 		echo "usage: $(basename $0) [setup|alpha|unauthorized]"
 	;;
 	setup)
-		temp_build captplanet identity
-		echo "setting up captplanet"
-		"$captplanet" setup --overwrite
+		temp_build "storj-sim" identity
+		echo "setting up storj-sim"
+		${storj_sim} network setup
 		echo "clearing whitelist"
 		echo > ${ca_whitelist}
 		echo -n "generating alpha certificate authorities.."
@@ -37,7 +37,7 @@ case $1 in
 		done
 		echo "done"
 		echo -n "generating alpha identities"
-		for dir in ${basepath}/{f*,sat*,up*}; do
+		for dir in ${basepath}/{bootstrap/*,satellite/*,storagenode/*,gateway/*}; do
 			echo -n "."
 			_ca_basepath=$(rand_ca_basepath)
 			_ca_cert=${dir}/ca-alpha.cert
@@ -64,15 +64,15 @@ case $1 in
 		cat ${basepath}/config.yaml | sed -E "s,peer-ca-whitelist-path: \"\",peer-ca-whitelist-path: $ca_whitelist,g" >"$unauthorized_config"
 	;;
 	alpha)
-		build captplanet
-		${captplanet} run --config ${alpha_config}
+		build "storj-sim"
+		${storj_sim} network run --config ${alpha_config}
 	;;
 	unauthorized)
-		build captplanet
-		${captplanet} run --config ${unauthorized_config}
+		build "storj-sim"
+		${storj_sim} network run --config ${unauthorized_config}
 	;;
 	run)
-		${captplanet} run
+		${storj_sim} network run
 	;;
 	*)
 		$@ --help

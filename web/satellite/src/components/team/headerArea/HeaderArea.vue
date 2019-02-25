@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -35,7 +35,7 @@ export default class HeaderArea extends Vue {
 
 <style scoped lang="scss">
     .team-header-container {
-        margin-bottom: 30px;
+        margin-bottom: 4px;
         display: flex;
         align-items: center;
         justify-content: flex-start;

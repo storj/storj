@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package eestream
@@ -15,6 +15,10 @@ type rsScheme struct {
 // NewRSScheme returns a Reed-Solomon-based ErasureScheme.
 func NewRSScheme(fc *infectious.FEC, erasureShareSize int) ErasureScheme {
 	return &rsScheme{fc: fc, erasureShareSize: erasureShareSize}
+}
+
+func (s *rsScheme) EncodeSingle(input, output []byte, num int) (err error) {
+	return s.fc.EncodeSingle(input, output, num)
 }
 
 func (s *rsScheme) Encode(input []byte, output func(num int, data []byte)) (

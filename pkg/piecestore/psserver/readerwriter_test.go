@@ -1,13 +1,15 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package psserver
 
 import (
+	"crypto/sha256"
 	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	"storj.io/storj/pkg/utils"
 )
 
@@ -29,6 +31,9 @@ func TestRead(t *testing.T) {
 		{"Test exceeds space error 2: ", []byte("abcdefghijklmnopqrstuvwxyz"), 26, 40, 0, 0, false, false, true},
 		{"Test no error: ", []byte("abcdefghijklmnopqrstuvwxyz"), 20, 40, 40, 20, false, false, false},
 	} {
+		sum := sha256.Sum256(tt.file[:tt.n])
+		expectedHash := sum[:]
+
 		remaining := tt.file
 		readerSrc := utils.NewReaderSource(func() ([]byte, error) {
 			if len(remaining) == 0 {
@@ -51,6 +56,7 @@ func TestRead(t *testing.T) {
 			src:                readerSrc,
 			bandwidthRemaining: tt.bwLeft,
 			spaceRemaining:     tt.spaceLeft,
+			hash:               sha256.New(),
 		}
 
 		outputBuf := make([]byte, tt.outputBufLen)
@@ -59,6 +65,7 @@ func TestRead(t *testing.T) {
 		if tt.eofErr {
 			assert.Error(t, err)
 			assert.True(t, err == io.ErrUnexpectedEOF)
+			assert.Equal(t, expectedHash, sr.hash.Sum(nil))
 		} else if tt.bwErr {
 			assert.Error(t, err)
 			assert.True(t, StreamWriterError.Has(err))
@@ -69,6 +76,7 @@ func TestRead(t *testing.T) {
 			assert.Contains(t, err.Error(), "out of space")
 		} else {
 			assert.NoError(t, err)
+			assert.Equal(t, expectedHash, sr.hash.Sum(nil))
 		}
 
 		assert.Equal(t, n, tt.n)

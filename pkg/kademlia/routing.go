@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package kademlia
@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -30,7 +30,7 @@ const (
 var RoutingErr = errs.Class("routing table error")
 
 // Bucket IDs exist in the same address space as node IDs
-type bucketID [len(storj.NodeID{})]byte
+type bucketID storj.NodeID
 
 var firstBucketID = bucketID{
 	0xFF, 0xFF, 0xFF, 0xFF,
@@ -46,6 +46,12 @@ var firstBucketID = bucketID{
 
 var emptyBucketID = bucketID{}
 
+// RoutingTableConfig configures the routing table
+type RoutingTableConfig struct {
+	BucketSize           int `help:"size of each Kademlia bucket" default:"20"`
+	ReplacementCacheSize int `help:"size of Kademlia replacement cache" default:"5"`
+}
+
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
 	log              *zap.Logger
@@ -54,16 +60,24 @@ type RoutingTable struct {
 	nodeBucketDB     storage.KeyValueStore
 	transport        *pb.NodeTransport
 	mutex            *sync.Mutex
+	rcMutex          *sync.Mutex
 	seen             map[storj.NodeID]*pb.Node
 	replacementCache map[bucketID][]*pb.Node
 	bucketSize       int // max number of nodes stored in a kbucket = 20 (k)
 	rcBucketSize     int // replacementCache bucket max length
-
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
+func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.KeyValueStore, config *RoutingTableConfig) (*RoutingTable, error) {
 	localNode.Type.DPanicOnInvalid("new routing table")
+
+	if config == nil || config.BucketSize == 0 || config.ReplacementCacheSize == 0 {
+		// TODO: handle this more nicely
+		config = &RoutingTableConfig{
+			BucketSize:           20,
+			ReplacementCacheSize: 5,
+		}
+	}
 
 	rt := &RoutingTable{
 		log:          logger,
@@ -73,11 +87,12 @@ func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.Key
 		transport:    &defaultTransport,
 
 		mutex:            &sync.Mutex{},
+		rcMutex:          &sync.Mutex{},
 		seen:             make(map[storj.NodeID]*pb.Node),
 		replacementCache: make(map[bucketID][]*pb.Node),
 
-		bucketSize:   *flagBucketSize,
-		rcBucketSize: *flagReplacementCacheSize,
+		bucketSize:   config.BucketSize,
+		rcBucketSize: config.ReplacementCacheSize,
 	}
 	ok, err := rt.addNode(&localNode)
 	if !ok || err != nil {
@@ -86,18 +101,9 @@ func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.Key
 	return rt, nil
 }
 
-// SelfClose close without closing dependencies
-// TODO: rename to Close and remove Close
-func (rt *RoutingTable) SelfClose() error {
-	return nil
-}
-
-// Close closes underlying databases
+// Close closes without closing dependencies
 func (rt *RoutingTable) Close() error {
-	return utils.CombineErrors(
-		rt.kadBucketDB.Close(),
-		rt.nodeBucketDB.Close(),
-	)
+	return nil
 }
 
 // Local returns the local nodes ID
@@ -145,28 +151,32 @@ func (rt *RoutingTable) GetBucketIds() (storage.Keys, error) {
 
 // FindNear returns the node corresponding to the provided nodeID
 // returns all Nodes closest via XOR to the provided nodeID up to the provided limit
-// always returns limit + self
-func (rt *RoutingTable) FindNear(id storj.NodeID, limit int) (nodes []*pb.Node, err error) {
-	// if id is not in the routing table
-	nodeIDsKeys, err := rt.nodeBucketDB.List(nil, 0)
-	if err != nil {
-		return nodes, RoutingErr.New("could not get node ids %s", err)
-	}
-	nodeIDs, err := storj.NodeIDsFromBytes(nodeIDsKeys.ByteSlices())
-	if err != nil {
-		return nodes, RoutingErr.Wrap(err)
-	}
-	sortByXOR(nodeIDs, id)
-	if len(nodeIDs) >= limit {
-		nodeIDs = nodeIDs[:limit]
-	}
-
-	nodes, err = rt.getNodesFromIDsBytes(nodeIDs)
-	if err != nil {
-		return nodes, RoutingErr.New("could not get nodes %s", err)
-	}
-
-	return nodes, nil
+func (rt *RoutingTable) FindNear(target storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
+	closestNodes := make([]*pb.Node, 0, limit+1)
+	err := rt.iterate(storj.NodeID{}, func(newID storj.NodeID, protoNode []byte) error {
+		newPos := len(closestNodes)
+		for ; newPos > 0 && compareByXor(closestNodes[newPos-1].Id, newID, target) > 0; newPos-- {
+		}
+		if newPos != limit {
+			newNode := pb.Node{}
+			err := proto.Unmarshal(protoNode, &newNode)
+			if err != nil {
+				return err
+			}
+			if meetsRestrictions(restrictions, newNode) {
+				closestNodes = append(closestNodes, &newNode)
+				if newPos != len(closestNodes) { //reorder
+					copy(closestNodes[newPos+1:], closestNodes[newPos:])
+					closestNodes[newPos] = &newNode
+					if len(closestNodes) > limit {
+						closestNodes = closestNodes[:limit]
+					}
+				}
+			}
+		}
+		return nil
+	})
+	return closestNodes, Error.Wrap(err)
 }
 
 // UpdateSelf updates a node on the routing table
@@ -216,6 +226,7 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 	if err != nil {
 		return RoutingErr.New("could not add node %s", err)
 	}
+
 	return nil
 }
 
@@ -223,7 +234,7 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 // a connection fails for the node on the network
 func (rt *RoutingTable) ConnectionFailed(node *pb.Node) error {
 	node.Type.DPanicOnInvalid("connection failed")
-	err := rt.removeNode(node.Id)
+	err := rt.removeNode(node)
 	if err != nil {
 		return RoutingErr.New("could not remove node %s", err)
 	}
@@ -251,8 +262,26 @@ func (rt *RoutingTable) GetBucketTimestamp(bIDBytes []byte) (time.Time, error) {
 	return time.Unix(0, timestamp).UTC(), nil
 }
 
-func (rt *RoutingTable) iterate(opts storage.IterateOptions, f func(it storage.Iterator) error) error {
-	return rt.nodeBucketDB.Iterate(opts, f)
+func (rt *RoutingTable) iterate(start storj.NodeID, f func(storj.NodeID, []byte) error) error {
+	return rt.nodeBucketDB.Iterate(storage.IterateOptions{First: storage.Key(start.Bytes()), Recurse: true},
+		func(it storage.Iterator) error {
+			var item storage.ListItem
+			for it.Next(&item) {
+				nodeID, err := storj.NodeIDFromBytes(item.Key)
+				if err != nil {
+					return err
+				}
+				if nodeID == rt.self.Id {
+					continue //todo:  revisit if self ID should be in routing table
+				}
+				err = f(nodeID, item.Value)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	)
 }
 
 // ConnFailure implements the Transport failure function

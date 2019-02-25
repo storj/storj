@@ -1,41 +1,45 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 
+	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 )
 
 var (
-	targetAddr = flag.String("target", "satellite.staging.storj.io:7777", "address of target")
+	targetAddr = pflag.String("target", "satellite.staging.storj.io:7777", "address of target")
 
-	identityConfig provider.IdentityConfig
+	identityConfig identity.Config
 )
 
 func init() {
-	cfgstruct.Bind(flag.CommandLine, &identityConfig, cfgstruct.ConfDir("$HOME/.storj/gw"))
+	cfgstruct.Bind(pflag.CommandLine, &identityConfig, cfgstruct.ConfDir("$HOME/.storj/gw"))
 }
 
 func main() {
 	ctx := context.Background()
-	flag.Parse()
+	pflag.Parse()
 	identity, err := identityConfig.Load()
 	if err != nil {
 		panic(err)
 	}
-	dialOption, err := identity.DialOption(storj.NodeID{})
+	clientOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{})
 	if err != nil {
 		panic(err)
 	}
+
+	dialOption := clientOptions.DialOption(storj.NodeID{})
+
 	conn, err := grpc.Dial(*targetAddr, dialOption)
 	if err != nil {
 		panic(err)

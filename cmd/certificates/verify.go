@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 )
 
@@ -38,11 +37,6 @@ type checkOpts struct {
 	ca       *identity.FullCertificateAuthority
 	identity *identity.FullIdentity
 	errGroup *errs.Group
-}
-
-func init() {
-	rootCmd.AddCommand(verifyCmd)
-	cfgstruct.Bind(verifyCmd.Flags(), &verifyCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
 func cmdVerify(cmd *cobra.Command, args []string) error {

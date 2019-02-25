@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package cmd
@@ -18,7 +18,7 @@ func init() {
 		Use:   "rb",
 		Short: "Remove an empty bucket",
 		RunE:  deleteBucket,
-	}, CLICmd)
+	}, RootCmd)
 }
 
 func deleteBucket(cmd *cobra.Command, args []string) error {

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package cmd
@@ -11,41 +11,46 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/miniogw"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink"
 )
 
-// Config is miniogw.Config configuration
-type Config struct {
-	miniogw.Config
+// UplinkFlags configuration flags
+type UplinkFlags struct {
+	Identity      identity.Config
+	APIKey        string `default:"" help:"the api key to use for the satellite" setup:"true"`
+	SatelliteAddr string `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
+
+	uplink.Config
 }
 
-var cfg Config
+var cfg UplinkFlags
 
-// CLICmd represents the base CLI command when called without any subcommands
-var CLICmd = &cobra.Command{
+// RootCmd represents the base CLI command when called without any subcommands
+var RootCmd = &cobra.Command{
 	Use:   "uplink",
 	Short: "The Storj client-side CLI",
-}
-
-// GWCmd represents the base gateway command when called without any subcommands
-var GWCmd = &cobra.Command{
-	Use:   "gateway",
-	Short: "The Storj client-side S3 gateway",
+	Args:  cobra.OnlyValidArgs,
 }
 
 func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 	root.AddCommand(cmd)
 
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
+	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "uplink")
 
-	dirParam := cfgstruct.FindConfigDirParam()
-	if dirParam != "" {
-		defaultConfDir = dirParam
+	confDirParam := cfgstruct.FindConfigDirParam()
+	if confDirParam != "" {
+		defaultConfDir = confDirParam
+	}
+	identityDirParam := cfgstruct.FindIdentityDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
 	}
 
-	cfgstruct.Bind(cmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(cmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	return cmd
 }
 
@@ -53,7 +58,7 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 //
 // Temporarily it also returns an instance of streams.Store until we improve
 // the metainfo and streas implementations.
-func (c *Config) Metainfo(ctx context.Context) (storj.Metainfo, streams.Store, error) {
+func (c *UplinkFlags) Metainfo(ctx context.Context) (storj.Metainfo, streams.Store, error) {
 	identity, err := c.Identity.Load()
 	if err != nil {
 		return nil, nil, err

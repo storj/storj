@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package psserver
@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
 )
@@ -35,11 +36,6 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("error receiving Piece metadata")
 	}
 
-	authorization := recv.GetAuthorization()
-	if err := s.verifier(authorization); err != nil {
-		return ServerError.Wrap(err)
-	}
-
 	pd := recv.GetPieceData()
 	if pd == nil {
 		return StoreError.New("PieceStore message is nil")
@@ -51,11 +47,21 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("piece ID not specified")
 	}
 
-	id, err := getNamespacedPieceID([]byte(pd.GetId()), getNamespace(authorization))
+	rba := recv.GetBandwidthAllocation()
+	if rba == nil {
+		return StoreError.New("Order message is nil")
+	}
+
+	pba := rba.PayerAllocation
+	if pb.Equal(&pba, &pb.OrderLimit{}) {
+		return StoreError.New("OrderLimit message is empty")
+	}
+
+	id, err := getNamespacedPieceID([]byte(pd.GetId()), pba.SatelliteId.Bytes())
 	if err != nil {
 		return err
 	}
-	total, err := s.storeData(ctx, reqStream, id)
+	total, hash, err := s.storeData(ctx, reqStream, id)
 	if err != nil {
 		return err
 	}
@@ -65,15 +71,22 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("failed to write piece meta data to database: %v", utils.CombineErrors(err, deleteErr))
 	}
 
-	if err = s.DB.AddBandwidthUsed(total); err != nil {
-		return StoreError.New("failed to write bandwidth info to database: %v", err)
+	signedHash := &pb.SignedHash{Hash: hash}
+	err = auth.SignMessage(signedHash, *s.identity)
+	if err != nil {
+		return err
 	}
-	s.log.Debug("Successfully stored", zap.String("Piece ID", fmt.Sprint(pd.GetId())))
 
-	return reqStream.SendAndClose(&pb.PieceStoreSummary{Message: OK, TotalReceived: total})
+	s.log.Info("Successfully stored", zap.String("Piece ID", fmt.Sprint(pd.GetId())))
+
+	return reqStream.SendAndClose(&pb.PieceStoreSummary{
+		Message:       OK,
+		TotalReceived: total,
+		SignedHash:    signedHash,
+	})
 }
 
-func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_StoreServer, id string) (total int64, err error) {
+func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_StoreServer, id string) (total int64, hash []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Delete data if we error
@@ -88,18 +101,20 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	// Initialize file for storing data
 	storeFile, err := s.storage.Writer(id)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 
-	defer utils.LogClose(storeFile)
+	defer func() {
+		err = errs.Combine(err, storeFile.Close())
+	}()
 
 	bwUsed, err := s.DB.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	spaceUsed, err := s.DB.SumTTLSizes()
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	bwLeft := s.totalBwAllocated - bwUsed
 	spaceLeft := s.totalAllocated - spaceUsed
@@ -108,10 +123,13 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	total, err = io.Copy(storeFile, reader)
 
 	if err != nil && err != io.EOF {
-		return 0, err
+		return 0, nil, err
 	}
 
 	err = s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
-
-	return total, err
+	if err != nil {
+		return 0, nil, err
+	}
+	hash = reader.hash.Sum(nil)
+	return total, hash, nil
 }

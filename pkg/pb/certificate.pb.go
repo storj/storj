@@ -36,7 +36,7 @@ func (m *SigningRequest) Reset()         { *m = SigningRequest{} }
 func (m *SigningRequest) String() string { return proto.CompactTextString(m) }
 func (*SigningRequest) ProtoMessage()    {}
 func (*SigningRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_certificate_c55bd879e75eb964, []int{0}
+	return fileDescriptor_certificate_2545cbff56dfc715, []int{0}
 }
 func (m *SigningRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SigningRequest.Unmarshal(m, b)
@@ -71,7 +71,7 @@ func (m *SigningRequest) GetTimestamp() int64 {
 }
 
 type SigningResponse struct {
-	Chain                [][]byte `protobuf:"bytes,1,rep,name=chain" json:"chain,omitempty"`
+	Chain                [][]byte `protobuf:"bytes,1,rep,name=chain,proto3" json:"chain,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -81,7 +81,7 @@ func (m *SigningResponse) Reset()         { *m = SigningResponse{} }
 func (m *SigningResponse) String() string { return proto.CompactTextString(m) }
 func (*SigningResponse) ProtoMessage()    {}
 func (*SigningResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_certificate_c55bd879e75eb964, []int{1}
+	return fileDescriptor_certificate_2545cbff56dfc715, []int{1}
 }
 func (m *SigningResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SigningResponse.Unmarshal(m, b)
@@ -185,9 +185,9 @@ var _Certificates_serviceDesc = grpc.ServiceDesc{
 	Metadata: "certificate.proto",
 }
 
-func init() { proto.RegisterFile("certificate.proto", fileDescriptor_certificate_c55bd879e75eb964) }
+func init() { proto.RegisterFile("certificate.proto", fileDescriptor_certificate_2545cbff56dfc715) }
 
-var fileDescriptor_certificate_c55bd879e75eb964 = []byte{
+var fileDescriptor_certificate_2545cbff56dfc715 = []byte{
 	// 192 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x4c, 0x4e, 0x2d, 0x2a,
 	0xc9, 0x4c, 0xcb, 0x4c, 0x4e, 0x2c, 0x49, 0xd5, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0xc9,

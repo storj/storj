@@ -5,27 +5,27 @@ package identity
 
 import (
 	"context"
-	"crypto/ecdsa"
+	"crypto"
 
-	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 )
 
 // GenerateKey generates a private key with a node id with difficulty at least
 // minDifficulty. No parallelism is used.
 func GenerateKey(ctx context.Context, minDifficulty uint16) (
-	k *ecdsa.PrivateKey, id storj.NodeID, err error) {
+	k crypto.PrivateKey, id storj.NodeID, err error) {
 	var d uint16
 	for {
 		err = ctx.Err()
 		if err != nil {
 			break
 		}
-		k, err = peertls.NewKey()
+		k, err = pkcrypto.GeneratePrivateKey()
 		if err != nil {
 			break
 		}
-		id, err = NodeIDFromECDSAKey(&k.PublicKey)
+		id, err = NodeIDFromKey(pkcrypto.PublicKeyFromPrivate(k))
 		if err != nil {
 			break
 		}
@@ -42,7 +42,7 @@ func GenerateKey(ctx context.Context, minDifficulty uint16) (
 
 // GenerateCallback indicates that key generation is done when done is true.
 // if err != nil key generation will stop with that error
-type GenerateCallback func(*ecdsa.PrivateKey, storj.NodeID) (done bool, err error)
+type GenerateCallback func(crypto.PrivateKey, storj.NodeID) (done bool, err error)
 
 // GenerateKeys continues to generate keys until found returns done == false,
 // or the ctx is canceled.
@@ -59,6 +59,7 @@ func GenerateKeys(ctx context.Context, minDifficulty uint16, concurrency int, fo
 					errchan <- err
 					return
 				}
+
 				done, err := found(k, id)
 				if err != nil {
 					errchan <- err

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package cmd
@@ -13,6 +13,7 @@ import (
 
 	progressbar "github.com/cheggaaa/pb"
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/process"
@@ -31,12 +32,12 @@ func init() {
 		Use:   "cp",
 		Short: "Copies a local file or Storj object to another location locally or in Storj",
 		RunE:  copyMain,
-	}, CLICmd)
+	}, RootCmd)
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 }
 
 // upload transfers src from local machine to s3 compatible object dst
-func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) error {
+func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) (err error) {
 	if !src.IsLocal() {
 		return fmt.Errorf("source must be local path: %s", src)
 	}
@@ -51,7 +52,6 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	}
 
 	var file *os.File
-	var err error
 	if src.Base() == "-" {
 		file = os.Stdin
 	} else {
@@ -59,7 +59,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		if err != nil {
 			return err
 		}
-		defer utils.LogClose(file)
+		defer func() { err = errs.Combine(err, file.Close()) }()
 	}
 
 	fileInfo, err := file.Stat()
@@ -121,7 +121,7 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 }
 
 // download transfers s3 compatible object src to dst on local machine
-func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) error {
+func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) (err error) {
 	if src.IsLocal() {
 		return fmt.Errorf("source must be Storj URL: %s", src)
 	}
@@ -141,7 +141,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	}
 
 	download := stream.NewDownload(ctx, readOnlyStream, streams)
-	defer utils.LogClose(download)
+	defer func() { err = errs.Combine(err, download.Close()) }()
 
 	var bar *progressbar.ProgressBar
 	var reader io.Reader
@@ -165,7 +165,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		if err != nil {
 			return err
 		}
-		defer utils.LogClose(file)
+		defer func() { err = errs.Combine(err, file.Close()) }()
 	}
 
 	_, err = io.Copy(file, reader)
@@ -185,7 +185,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 }
 
 // copy copies s3 compatible object src to s3 compatible object dst
-func copy(ctx context.Context, src fpath.FPath, dst fpath.FPath) error {
+func copy(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err error) {
 	if src.IsLocal() {
 		return fmt.Errorf("source must be Storj URL: %s", src)
 	}
@@ -205,7 +205,7 @@ func copy(ctx context.Context, src fpath.FPath, dst fpath.FPath) error {
 	}
 
 	download := stream.NewDownload(ctx, readOnlyStream, streams)
-	defer utils.LogClose(download)
+	defer func() { err = errs.Combine(err, download.Close()) }()
 
 	var bar *progressbar.ProgressBar
 	var reader io.Reader

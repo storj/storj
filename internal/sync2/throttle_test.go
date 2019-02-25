@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
 package sync2_test
@@ -60,6 +60,8 @@ func ExampleThrottle() {
 }
 
 func TestThrottleBasic(t *testing.T) {
+	t.Parallel()
+
 	throttle := sync2.NewThrottle()
 	var stage int64
 	c := make(chan error, 1)

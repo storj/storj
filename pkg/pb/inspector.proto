@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 syntax = "proto3";
@@ -9,20 +9,23 @@ import "node.proto";
 
 package inspector;
 
-service Inspector {
-  // Kad/Overlay commands:
-  // CountNodes returns the number of nodes in the cache and in the routing table
+service KadInspector {
+  // CountNodes returns the number of nodes in the routing table
   rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
-  // GetBuckets returns the k buckets from a Kademlia instance
-  rpc GetBuckets(GetBucketsRequest) returns (GetBucketsResponse);
-  // GetBucket returns the details of a single k bucket from the kademlia instance
-  rpc GetBucket(GetBucketRequest) returns (GetBucketResponse);
   // PingNodes sends a PING RPC to a node and returns it's availability
   rpc PingNode(PingNodeRequest) returns (PingNodeResponse);
   // LookupNode triggers a Kademlia FindNode and returns the response
   rpc LookupNode(LookupNodeRequest) returns (LookupNodeResponse);
+  // FindNear returns limit number of IDs "near" the Start ID
+  rpc FindNear(FindNearRequest) returns (FindNearResponse);
+}
 
-  // StatDB commands:
+service OverlayInspector {
+  // CountNodes returns the number of nodes in the cache
+  rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
+}
+
+service StatDBInspector {
   // GetStats returns the stats for a particular node ID
   rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
   // CreateStats creates a node with specified stats
@@ -55,8 +58,7 @@ message CreateStatsResponse {
 
 // CountNodes
 message CountNodesResponse {
-  int64 kademlia = 1;
-  int64 overlay = 2;
+  int64 count = 1;
 }
 
 message CountNodesRequest {
@@ -88,7 +90,7 @@ message Bucket {
 message BucketList {
   repeated node.Node nodes = 1;
 }
-// PingNode 
+// PingNode
 message PingNodeRequest {
   bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
   string address = 2;
@@ -99,11 +101,21 @@ message PingNodeResponse {
 }
 
 message LookupNodeRequest {
-  string id = 1; 
+  string id = 1;
   string address = 2;
 }
 
 message LookupNodeResponse {
   node.Node node = 1;
   node.NodeMetadata meta = 2;
+}
+
+message FindNearRequest {
+  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes start = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  int64 limit = 3;
+}
+
+message FindNearResponse {
+  repeated node.Node nodes = 2;
 }

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 import apollo from '@/utils/apolloManager';
@@ -21,7 +21,6 @@ export async function createProjectRequest(project: Project): Promise<RequestRes
 							input: {
 								name: "${project.name}",
 								description: "${project.description}",
-								isTermsAccepted: ${project.isTermsAccepted},
 							}
 						) {id}
 					}`
@@ -76,7 +75,7 @@ export async function fetchProjectsRequest(): Promise<RequestResponse<Project[]>
         }
     } catch (e) {
         result.errorMessage = e.message;
-	}
+    }
 
     return result;
 }

@@ -1,12 +1,10 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package pdbclient
 
 import (
 	"context"
-	"sync/atomic"
-	"unsafe"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -15,7 +13,6 @@ import (
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
@@ -27,8 +24,7 @@ var (
 
 // PointerDB creates a grpcClient
 type PointerDB struct {
-	client        pb.PointerDBClient
-	authorization unsafe.Pointer // *pb.SignedMessage
+	client pb.PointerDBClient
 }
 
 // New Used as a public function
@@ -49,22 +45,25 @@ type ListItem struct {
 // Client services offerred for the interface
 type Client interface {
 	Put(ctx context.Context, path storj.Path, pointer *pb.Pointer) error
-	Get(ctx context.Context, path storj.Path) (*pb.Pointer, []*pb.Node, *pb.PayerBandwidthAllocation, error)
+	Get(ctx context.Context, path storj.Path) (*pb.Pointer, []*pb.Node, *pb.OrderLimit, error)
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 	Delete(ctx context.Context, path storj.Path) error
 
-	SignedMessage() *pb.SignedMessage
-	PayerBandwidthAllocation(context.Context, pb.PayerBandwidthAllocation_Action) (*pb.PayerBandwidthAllocation, error)
+	PayerBandwidthAllocation(context.Context, pb.BandwidthAction) (*pb.OrderLimit, error)
 
 	// Disconnect() error // TODO: implement
 }
 
 // NewClient initializes a new pointerdb client
-func NewClient(identity *provider.FullIdentity, address string, APIKey string) (*PointerDB, error) {
+func NewClient(tc transport.Client, address string, APIKey string) (*PointerDB, error) {
+	return NewClientContext(context.TODO(), tc, address, APIKey)
+}
+
+// NewClientContext initializes a new pointerdb client
+func NewClientContext(ctx context.Context, tc transport.Client, address string, APIKey string) (*PointerDB, error) {
 	apiKeyInjector := grpcauth.NewAPIKeyInjector(APIKey)
-	tc := transport.NewClient(identity)
 	conn, err := tc.DialAddress(
-		context.Background(),
+		ctx,
 		address,
 		grpc.WithUnaryInterceptor(apiKeyInjector),
 	)
@@ -88,11 +87,9 @@ func (pdb *PointerDB) Put(ctx context.Context, path storj.Path, pointer *pb.Poin
 }
 
 // Get is the interface to make a GET request, needs PATH and APIKey
-func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Pointer, nodes []*pb.Node, pba *pb.PayerBandwidthAllocation, err error) {
+func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Pointer, nodes []*pb.Node, pba *pb.OrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
-	for _, v := range nodes {
-		v.Type.DPanicOnInvalid("pdb Get")
-	}
+
 	res, err := pdb.client.Get(ctx, &pb.GetRequest{Path: path})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -101,9 +98,26 @@ func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Poi
 		return nil, nil, nil, Error.Wrap(err)
 	}
 
-	atomic.StorePointer(&pdb.authorization, unsafe.Pointer(res.GetAuthorization()))
+	if res.GetPointer().GetType() == pb.Pointer_INLINE {
+		return res.GetPointer(), nodes, res.GetPba(), nil
+	}
 
-	return res.GetPointer(), res.GetNodes(), res.GetPba(), nil
+	pieces := res.GetPointer().GetRemote().GetRemotePieces()
+	nodes = make([]*pb.Node, len(pieces))
+
+	// fill missing nodes with nil values to match the size and order of remote pieces
+	j := 0
+	for i := 0; i < len(pieces); i++ {
+		if j == len(res.GetNodes()) {
+			break
+		}
+		if pieces[i].NodeId == res.GetNodes()[j].Id {
+			nodes[i] = res.GetNodes()[j]
+			j++
+		}
+	}
+
+	return res.GetPointer(), nodes, res.GetPba(), nil
 }
 
 // List is the interface to make a LIST request, needs StartingPathKey, Limit, and APIKey
@@ -145,7 +159,7 @@ func (pdb *PointerDB) Delete(ctx context.Context, path storj.Path) (err error) {
 }
 
 // PayerBandwidthAllocation gets payer bandwidth allocation message
-func (pdb *PointerDB) PayerBandwidthAllocation(ctx context.Context, action pb.PayerBandwidthAllocation_Action) (resp *pb.PayerBandwidthAllocation, err error) {
+func (pdb *PointerDB) PayerBandwidthAllocation(ctx context.Context, action pb.BandwidthAction) (resp *pb.OrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := pdb.client.PayerBandwidthAllocation(ctx, &pb.PayerBandwidthAllocationRequest{Action: action})
@@ -153,9 +167,4 @@ func (pdb *PointerDB) PayerBandwidthAllocation(ctx context.Context, action pb.Pa
 		return nil, err
 	}
 	return response.GetPba(), nil
-}
-
-// SignedMessage gets signed message from last request
-func (pdb *PointerDB) SignedMessage() *pb.SignedMessage {
-	return (*pb.SignedMessage)(atomic.LoadPointer(&pdb.authorization))
 }

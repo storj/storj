@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package overlay_test
@@ -9,20 +9,29 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/teststore"
 )
 
-func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, sdb statdb.DB) {
+func TestCache_Database(t *testing.T) {
+	t.Parallel()
+
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		testCache(ctx, t, db.OverlayCache(), db.StatDB())
+	})
+}
+
+func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.DB) {
 	valid1ID := storj.NodeID{}
 	valid2ID := storj.NodeID{}
 	missingID := storj.NodeID{}
@@ -65,11 +74,7 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, s
 		assert.True(t, err == overlay.ErrNodeNotFound)
 		assert.Nil(t, invalid2)
 
-		if storeClient, ok := store.(*teststore.Client); ok {
-			storeClient.ForceError++
-			_, err := cache.Get(ctx, valid1ID)
-			assert.Error(t, err)
-		}
+		// TODO: add erroring database test
 	}
 
 	{ // GetAll
@@ -92,11 +97,28 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, s
 		_, err = cache.GetAll(ctx, storj.NodeIDList{})
 		assert.True(t, overlay.OverlayError.Has(err))
 
-		if storeClient, ok := store.(*teststore.Client); ok {
-			storeClient.ForceError++
-			_, err := cache.GetAll(ctx, storj.NodeIDList{valid1ID, valid2ID})
-			assert.Error(t, err)
-		}
+		// TODO: add erroring database test
+	}
+
+	{ // List
+		list, err := cache.List(ctx, storj.NodeID{}, 3)
+		assert.NoError(t, err)
+		assert.NotNil(t, list)
+	}
+
+	{ // Paginate
+
+		// should return two nodes
+		nodes, more, err := cache.Paginate(ctx, 0, 2)
+		assert.NotNil(t, more)
+		assert.NoError(t, err)
+		assert.Equal(t, len(nodes), 2)
+
+		// should return no nodes
+		zero, more, err := cache.Paginate(ctx, 0, 0)
+		assert.NoError(t, err)
+		assert.NotNil(t, more)
+		assert.NotEqual(t, len(zero), 0)
 	}
 
 	{ // Delete
@@ -121,18 +143,83 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore, s
 	}
 }
 
-func TestCache_Masterdb(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+func TestRandomizedSelection(t *testing.T) {
+	t.Parallel()
+	testRandomizedSelection(t, true)
+	testRandomizedSelection(t, false)
+}
 
-	planet, err := testplanet.New(t, 1, 4, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(planet.Shutdown)
-	planet.Start(ctx)
+func testRandomizedSelection(t *testing.T, reputable bool) {
+	totalNodes := 1000
+	selectIterations := 100
+	numNodesToSelect := 100
+	minSelectCount := 3 // TODO: compute this limit better
 
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		testCache(ctx, t, db.OverlayCache(), db.StatDB())
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		cache := db.OverlayCache()
+		allIDs := make(storj.NodeIDList, totalNodes)
+		nodeCounts := make(map[storj.NodeID]int)
+
+		// put nodes in cache
+		for i := 0; i < totalNodes; i++ {
+			newID := storj.NodeID{}
+			_, _ = rand.Read(newID[:])
+			err := cache.Update(ctx, &pb.Node{
+				Id:           newID,
+				Type:         pb.NodeType_STORAGE,
+				Restrictions: &pb.NodeRestrictions{},
+				Reputation:   &pb.NodeStats{},
+			})
+			require.NoError(t, err)
+			allIDs[i] = newID
+			nodeCounts[newID] = 0
+		}
+
+		// select numNodesToSelect nodes selectIterations times
+		for i := 0; i < selectIterations; i++ {
+			var nodes []*pb.Node
+			var err error
+
+			if reputable {
+				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{})
+				require.NoError(t, err)
+			} else {
+				nodes, err = cache.SelectNewStorageNodes(ctx, numNodesToSelect, &overlay.NewNodeCriteria{
+					AuditThreshold: 1,
+				})
+				require.NoError(t, err)
+			}
+			require.Len(t, nodes, numNodesToSelect)
+
+			for _, node := range nodes {
+				nodeCounts[node.Id]++
+			}
+		}
+
+		belowThreshold := 0
+
+		table := []int{}
+
+		// expect that each node has been selected at least minSelectCount times
+		for _, id := range allIDs {
+			count := nodeCounts[id]
+			if count < minSelectCount {
+				belowThreshold++
+			}
+			if count >= len(table) {
+				table = append(table, make([]int, count-len(table)+1)...)
+			}
+			table[count]++
+		}
+
+		if belowThreshold > totalNodes*1/100 {
+			t.Errorf("%d out of %d were below threshold %d", belowThreshold, totalNodes, minSelectCount)
+			for count, amount := range table {
+				t.Logf("%3d = %4d", count, amount)
+			}
+		}
 	})
 }

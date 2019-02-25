@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package identity_test
@@ -6,9 +6,6 @@ package identity_test
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
-	"crypto/x509"
-	"encoding/pem"
 	"os"
 	"runtime"
 	"testing"
@@ -18,10 +15,11 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 )
 
 func TestPeerIdentityFromCertChain(t *testing.T) {
-	caKey, err := peertls.NewKey()
+	caKey, err := pkcrypto.GeneratePrivateKey()
 	assert.NoError(t, err)
 
 	caTemplate, err := peertls.CATemplate()
@@ -33,7 +31,7 @@ func TestPeerIdentityFromCertChain(t *testing.T) {
 	leafTemplate, err := peertls.LeafTemplate()
 	assert.NoError(t, err)
 
-	leafKey, err := peertls.NewKey()
+	leafKey, err := pkcrypto.GeneratePrivateKey()
 	assert.NoError(t, err)
 
 	leafCert, err := peertls.NewCert(leafKey, caKey, leafTemplate, caTemplate)
@@ -47,7 +45,7 @@ func TestPeerIdentityFromCertChain(t *testing.T) {
 }
 
 func TestFullIdentityFromPEM(t *testing.T) {
-	caKey, err := peertls.NewKey()
+	caKey, err := pkcrypto.GeneratePrivateKey()
 	assert.NoError(t, err)
 
 	caTemplate, err := peertls.CATemplate()
@@ -61,7 +59,7 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	leafTemplate, err := peertls.LeafTemplate()
 	assert.NoError(t, err)
 
-	leafKey, err := peertls.NewKey()
+	leafKey, err := pkcrypto.GeneratePrivateKey()
 	assert.NoError(t, err)
 
 	leafCert, err := peertls.NewCert(leafKey, caKey, leafTemplate, caTemplate)
@@ -69,15 +67,11 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	assert.NotEmpty(t, leafCert)
 
 	chainPEM := bytes.NewBuffer([]byte{})
-	assert.NoError(t, pem.Encode(chainPEM, peertls.NewCertBlock(leafCert.Raw)))
-	assert.NoError(t, pem.Encode(chainPEM, peertls.NewCertBlock(caCert.Raw)))
-
-	leafKeyBytes, err := x509.MarshalECPrivateKey(leafKey)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, leafKeyBytes)
+	assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, leafCert))
+	assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, caCert))
 
 	keyPEM := bytes.NewBuffer([]byte{})
-	assert.NoError(t, pem.Encode(keyPEM, peertls.NewKeyBlock(leafKeyBytes)))
+	assert.NoError(t, pkcrypto.WritePrivateKeyPEM(keyPEM, leafKey))
 
 	fullIdent, err := identity.FullIdentityFromPEM(chainPEM.Bytes(), keyPEM.Bytes())
 	assert.NoError(t, err)
@@ -97,22 +91,17 @@ func TestConfig_SaveIdentity(t *testing.T) {
 	fi := pregeneratedIdentity(t)
 
 	chainPEM := bytes.NewBuffer([]byte{})
-	assert.NoError(t, pem.Encode(chainPEM, peertls.NewCertBlock(fi.Leaf.Raw)))
-	assert.NoError(t, pem.Encode(chainPEM, peertls.NewCertBlock(fi.CA.Raw)))
+	assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, fi.Leaf))
+	assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, fi.CA))
 
-	privateKey, ok := fi.Key.(*ecdsa.PrivateKey)
-	assert.True(t, ok)
+	privateKey := fi.Key
 	assert.NotEmpty(t, privateKey)
 
-	keyBytes, err := x509.MarshalECPrivateKey(privateKey)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, keyBytes)
-
 	keyPEM := bytes.NewBuffer([]byte{})
-	assert.NoError(t, pem.Encode(keyPEM, peertls.NewKeyBlock(keyBytes)))
+	assert.NoError(t, pkcrypto.WritePrivateKeyPEM(keyPEM, privateKey))
 
 	{ // test saving
-		err = ic.Save(fi)
+		err := ic.Save(fi)
 		assert.NoError(t, err)
 
 		certInfo, err := os.Stat(ic.CertPath)

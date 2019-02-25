@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -20,7 +20,7 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component(
     {
@@ -31,17 +31,20 @@ import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } 
         },
         methods: {
             onProjectSelected: async function (projectID: string): Promise<void> {
-				this.$store.dispatch(PROJETS_ACTIONS.SELECT, projectID);
-				this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
+                this.$store.dispatch(PROJETS_ACTIONS.SELECT, projectID);
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
+                this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-				if (!this.$store.getters.selectedProject.id) return;
+                const pmResponse = await this.$store.dispatch(PM_ACTIONS.FETCH, {limit: 20, offset: 0});
+                const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
 
-				this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+                if (!pmResponse.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                }
 
-				const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
-				if (response.isSuccess) return;
-
-				this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                if (!keysResponse.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
+                }
             }
         },
     }

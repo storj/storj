@@ -1,10 +1,9 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package irreparable_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -21,40 +20,38 @@ func TestIrreparable(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		testDatabase(ctx, t, db.Irreparable())
+		irrdb := db.Irreparable()
+
+		//testing variables
+		segmentInfo := &irreparable.RemoteSegmentInfo{
+			EncryptedSegmentPath:   []byte("IamSegmentkeyinfo"),
+			EncryptedSegmentDetail: []byte("IamSegmentdetailinfo"),
+			LostPiecesCount:        int64(10),
+			RepairUnixSec:          time.Now().Unix(),
+			RepairAttemptCount:     int64(10),
+		}
+
+		{ // New entry
+			err := irrdb.IncrementRepairAttempts(ctx, segmentInfo)
+			assert.NoError(t, err)
+		}
+
+		{ //Create the already existing entry
+			err := irrdb.IncrementRepairAttempts(ctx, segmentInfo)
+			assert.NoError(t, err)
+			segmentInfo.RepairAttemptCount++
+
+			dbxInfo, err := irrdb.Get(ctx, segmentInfo.EncryptedSegmentPath)
+			assert.NoError(t, err)
+			assert.Equal(t, segmentInfo, dbxInfo)
+		}
+
+		{ //Delete existing entry
+			err := irrdb.Delete(ctx, segmentInfo.EncryptedSegmentPath)
+			assert.NoError(t, err)
+
+			_, err = irrdb.Get(ctx, segmentInfo.EncryptedSegmentPath)
+			assert.Error(t, err)
+		}
 	})
-}
-
-func testDatabase(ctx context.Context, t *testing.T, irrdb irreparable.DB) {
-	//testing variables
-	segmentInfo := &irreparable.RemoteSegmentInfo{
-		EncryptedSegmentPath:   []byte("IamSegmentkeyinfo"),
-		EncryptedSegmentDetail: []byte("IamSegmentdetailinfo"),
-		LostPiecesCount:        int64(10),
-		RepairUnixSec:          time.Now().Unix(),
-		RepairAttemptCount:     int64(10),
-	}
-
-	{ // New entry
-		err := irrdb.IncrementRepairAttempts(ctx, segmentInfo)
-		assert.NoError(t, err)
-	}
-
-	{ //Create the already existing entry
-		err := irrdb.IncrementRepairAttempts(ctx, segmentInfo)
-		assert.NoError(t, err)
-		segmentInfo.RepairAttemptCount++
-
-		dbxInfo, err := irrdb.Get(ctx, segmentInfo.EncryptedSegmentPath)
-		assert.NoError(t, err)
-		assert.Equal(t, segmentInfo, dbxInfo)
-	}
-
-	{ //Delete existing entry
-		err := irrdb.Delete(ctx, segmentInfo.EncryptedSegmentPath)
-		assert.NoError(t, err)
-
-		_, err = irrdb.Get(ctx, segmentInfo.EncryptedSegmentPath)
-		assert.Error(t, err)
-	}
 }

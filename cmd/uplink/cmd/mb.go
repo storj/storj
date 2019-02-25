@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package cmd
@@ -18,7 +18,7 @@ func init() {
 		Use:   "mb",
 		Short: "Create a new bucket",
 		RunE:  makeBucket,
-	}, CLICmd)
+	}, RootCmd)
 }
 
 func makeBucket(cmd *cobra.Command, args []string) error {

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 import Vue from 'vue';
@@ -9,7 +9,7 @@ import store from './store';
 Vue.config.productionTip = false;
 
 new Vue({
-	router,
-	store,
-	render: (h) => h(App),
+    router,
+    store,
+    render: (h) => h(App),
 }).$mount('#app');

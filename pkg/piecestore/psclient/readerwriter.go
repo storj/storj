@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package psclient
@@ -6,10 +6,10 @@ package psclient
 import (
 	"fmt"
 
-	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
 )
@@ -19,42 +19,28 @@ type StreamWriter struct {
 	stream       pb.PieceStoreRoutes_StoreClient
 	signer       *PieceStore // We need this for signing
 	totalWritten int64
-	pba          *pb.PayerBandwidthAllocation
+	rba          *pb.Order
 }
 
 // Write Piece data to a piece store server upload stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
 	updatedAllocation := s.totalWritten + int64(len(b))
-	allocationData := &pb.RenterBandwidthAllocation_Data{
-		PayerAllocation: s.pba,
-		Total:           updatedAllocation,
-		StorageNodeId:   s.signer.nodeID,
-	}
 
-	serializedAllocation, err := proto.Marshal(allocationData)
-	if err != nil {
-		return 0, err
-	}
-
-	sig, err := s.signer.sign(serializedAllocation)
+	s.rba.Total = updatedAllocation
+	err := auth.SignMessage(s.rba, *s.signer.selfID)
 	if err != nil {
 		return 0, err
 	}
 
 	msg := &pb.PieceStore{
-		PieceData: &pb.PieceStore_PieceData{Content: b},
-		BandwidthAllocation: &pb.RenterBandwidthAllocation{
-			Data: serializedAllocation, Signature: sig,
-		},
+		PieceData:           &pb.PieceStore_PieceData{Content: b},
+		BandwidthAllocation: s.rba,
 	}
-
 	s.totalWritten = updatedAllocation
-
 	// Second we send the actual content
 	if err := s.stream.Send(msg); err != nil {
 		return 0, fmt.Errorf("%v.Send() = %v", s.stream, err)
 	}
-
 	return len(b), nil
 }
 
@@ -65,7 +51,7 @@ func (s *StreamWriter) Close() error {
 		return err
 	}
 
-	zap.S().Infof("Stream close and recv summary: %v", reply)
+	zap.S().Debugf("Stream close and recv summary: %v", reply)
 
 	return nil
 }
@@ -82,14 +68,13 @@ type StreamReader struct {
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
-func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation, size int64) *StreamReader {
+func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, rba *pb.Order, size int64) *StreamReader {
 	sr := &StreamReader{
 		pendingAllocs: sync2.NewThrottle(),
 		client:        client,
 		stream:        stream,
 		size:          size,
 	}
-
 	// TODO: make these flag/config-file configurable
 	trustLimit := int64(client.bandwidthMsgSize * 64)
 	sendThreshold := int64(client.bandwidthMsgSize * 8)
@@ -106,30 +91,13 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 				allocate = size - sr.allocated
 			}
 
-			allocationData := &pb.RenterBandwidthAllocation_Data{
-				PayerAllocation: pba,
-				Total:           sr.allocated + allocate,
-				StorageNodeId:   sr.client.nodeID,
-			}
+			rba.Total = sr.allocated + allocate
 
-			serializedAllocation, err := proto.Marshal(allocationData)
+			err := auth.SignMessage(rba, *client.selfID)
 			if err != nil {
 				sr.pendingAllocs.Fail(err)
-				return
 			}
-
-			sig, err := client.sign(serializedAllocation)
-			if err != nil {
-				sr.pendingAllocs.Fail(err)
-				return
-			}
-
-			msg := &pb.PieceRetrieval{
-				BandwidthAllocation: &pb.RenterBandwidthAllocation{
-					Signature: sig,
-					Data:      serializedAllocation,
-				},
-			}
+			msg := &pb.PieceRetrieval{BandwidthAllocation: rba}
 
 			if err = stream.Send(msg); err != nil {
 				sr.pendingAllocs.Fail(err)

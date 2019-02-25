@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -9,5 +9,5 @@ import (
 )
 
 func main() {
-	process.Exec(cmd.CLICmd)
+	process.Exec(cmd.RootCmd)
 }

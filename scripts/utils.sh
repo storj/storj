@@ -31,7 +31,7 @@ build() {
 		echo -n "	building $cmd..."
 		dots_on
 		local path=${tmp_dir}/${cmd}
-		declare -g ${cmd}=${path}
+		declare -g $(echo $cmd | sed s,-,_,g)=${path}
 		build_out=$(go build -o ${path} storj.io/storj/cmd/${cmd} 2>&1)
 		dots_off
 		echo "done"

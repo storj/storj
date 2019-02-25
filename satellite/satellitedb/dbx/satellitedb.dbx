@@ -3,33 +3,20 @@
 //--- bwagreement ---//
 
 model bwagreement (
-	key signature
-	unique serialnum
+	key serialnum
 
-	field signature  blob
-	field serialnum  text
-	field data       blob
-	field created_at timestamp ( autoinsert )
-	field expires_at timestamp
+	field serialnum       text
+	field storage_node_id blob
+	field uplink_id       blob
+	field action          int64
+	field total           int64
+	field created_at      timestamp ( autoinsert )
+	field expires_at      timestamp
 )
 
 create bwagreement ( )
-delete bwagreement ( where bwagreement.signature = ? )
-delete bwagreement ( where bwagreement.expires_at <= ?)
-
-read one (
-	select bwagreement
-	where  bwagreement.signature = ?
-)
-
-read limitoffset (
-	select bwagreement
-)
-
-read all (
-	select bwagreement
-)
-
+read limitoffset ( select bwagreement)
+read all ( select bwagreement)
 read all (
 	select bwagreement
 	where  bwagreement.created_at > ?
@@ -77,17 +64,18 @@ read scalar (
 model accounting_rollup (
 	key id
 
-	field id         serial64
-	field node_id    text
-	field start_time timestamp
-	field interval   int64
-	field data_type  int
-	field created_at timestamp ( autoinsert )
-	field updated_at timestamp ( autoinsert, autoupdate )
+	field id               serial64
+	field node_id          blob
+	field start_time       timestamp
+	field put_total        int64
+	field get_total        int64
+	field get_audit_total  int64
+	field get_repair_total int64 
+	field put_repair_total int64
+	field at_rest_total    float64
 )
 
 create accounting_rollup ( )
-update accounting_rollup ( where accounting_rollup.id = ? )
 delete accounting_rollup ( where accounting_rollup.id = ? )
 
 read one (
@@ -97,23 +85,21 @@ read one (
 
 read all (
 	select accounting_rollup
-	where  accounting_rollup.node_id = ?
+	where  accounting_rollup.start_time >= ?
 )
 
 model accounting_raw (
 	key id
 
 	field id                serial64
-	field node_id           text
+	field node_id           blob
 	field interval_end_time timestamp
-	field data_total        int64
+	field data_total        float64
 	field data_type         int
-	field created_at        timestamp ( autoinsert )
-	field updated_at        timestamp ( autoinsert, autoupdate )
+	field created_at        timestamp
 )
 
 create accounting_raw ( )
-update accounting_raw ( where accounting_raw.id = ? )
 delete accounting_raw ( where accounting_raw.id = ? )
 
 read one (
@@ -123,7 +109,11 @@ read one (
 
 read all (
 	select accounting_raw
-	where  accounting_raw.node_id = ?
+)
+
+read all (
+	select accounting_raw
+	where accounting_raw.interval_end_time >= ?
 )
 
 //--- statdb ---//
@@ -153,34 +143,58 @@ read one (
 	where  node.id = ?
 )
 
+read all (
+	select node.id
+)
+
 //--- overlaycache ---//
 
 model overlay_cache_node (
-	key    key
-	unique key
+	key    node_id
+	unique node_id
 
-	field key   blob
-	field value blob ( updatable )
+	field node_id   blob
+	field node_type int
+
+	field address   text (updatable) // TODO: use compressed format
+	field protocol  int  (updatable)
+	
+	field operator_email  text (updatable)
+	field operator_wallet text (updatable) //TODO: use compressed format
+	
+	field free_bandwidth int64 (updatable)
+	field free_disk      int64 (updatable)
+
+	field latency_90           int64  (updatable)
+	
+	field audit_success_ratio  float64 (updatable)
+	field audit_uptime_ratio   float64 (updatable)
+	field audit_count          int64   (updatable)
+	field audit_success_count  int64   (updatable)
+
+	field uptime_count         int64 (updatable)
+	field uptime_success_count int64 (updatable)
 )
 
 create overlay_cache_node ( )
 
 read one (
 	select overlay_cache_node
-	where  overlay_cache_node.key = ?
+	where  overlay_cache_node.node_id = ?
+)
+
+read one (
+	select overlay_cache_node.operator_wallet
+	where overlay_cache_node.node_id = ?
 )
 
 read limitoffset (
 	select overlay_cache_node
+	where  overlay_cache_node.node_id >= ?
 )
 
-read limitoffset (
-	select overlay_cache_node
-	where  overlay_cache_node.key >= ?
-)
-
-update overlay_cache_node ( where overlay_cache_node.key = ? )
-delete overlay_cache_node ( where overlay_cache_node.key = ? )
+update overlay_cache_node ( where overlay_cache_node.node_id = ? )
+delete overlay_cache_node ( where overlay_cache_node.node_id = ? )
 
 //--- repairqueue ---//
 
@@ -201,3 +215,134 @@ read limitoffset (
 	select injuredsegment
 )
 delete injuredsegment ( where injuredsegment.id = ? )
+
+//--- satellite console ---//
+
+model user (
+    key id
+
+    field id               blob
+    field first_name       text      ( updatable )
+    field last_name        text      ( updatable )
+
+    field email            text      ( updatable )
+    field password_hash    blob      ( updatable )
+
+    field status           int       ( updatable, autoinsert )
+
+    field created_at       timestamp ( autoinsert )
+)
+read one (
+    select user
+    where user.email = ?
+    where user.status != 0
+)
+read one (
+    select user
+    where user.id = ?
+)
+create user ( )
+update user ( where user.id = ? )
+delete user ( where user.id = ? )
+
+
+model project (
+    key id
+
+    field id             blob
+
+    field name           text
+    field description    text      ( updatable )
+
+    field created_at     timestamp ( autoinsert )
+)
+read all ( select project)
+read one (
+    select project
+    where project.id = ?
+)
+read all (
+    select project
+    join project.id = project_member.project_id
+    where project_member.member_id = ?
+    orderby asc project.name
+)
+create project ( )
+update project ( where project.id = ? )
+delete project ( where project.id = ? )
+
+
+model project_member (
+    key member_id project_id
+
+    field member_id            user.id      cascade
+    field project_id           project.id   cascade
+
+    field created_at           timestamp ( autoinsert )
+)
+
+read all (
+    select project_member
+    where project_member.member_id = ?
+)
+read limitoffset (
+    select project_member
+    where project_member.project_id = ?
+)
+create project_member ( )
+delete project_member (
+    where project_member.member_id = ?
+    where project_member.project_id = ?
+)
+
+model api_key (
+    key id
+    unique key
+    unique name project_id
+
+    field id blob
+    field project_id project.id cascade
+
+    field key blob
+
+    field name text (updatable)
+
+    field created_at    timestamp ( autoinsert )
+)
+
+create api_key ()
+update api_key ( where api_key.id = ? )
+delete api_key ( where api_key.id = ? )
+
+read one (
+    select api_key
+    where api_key.id = ?
+)
+read one (
+    select api_key
+    where api_key.key = ?
+)
+read all (
+    select api_key
+    where api_key.project_id = ?
+    orderby asc api_key.name
+)
+
+//--- certRecord ---//
+
+model certRecord (
+	key id 
+
+	field publickey  blob		//--uplink public key--//
+	field id         blob		//--uplink node id  --//
+	field update_at timestamp ( autoinsert, autoupdate )
+)
+
+create certRecord ( )
+delete certRecord ( where certRecord.id = ? )
+update certRecord ( where certRecord.id = ? )
+
+read one (
+	select certRecord
+	where  certRecord.id = ?
+)

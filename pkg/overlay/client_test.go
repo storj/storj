@@ -1,276 +1,191 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package overlay_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
-func TestNewClient(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	cases := []struct {
-		address string
-	}{
-		{
-			address: "127.0.0.1:8080",
-		},
-	}
-
-	for _, v := range cases {
-		ca, err := testidentity.NewTestCA(ctx)
-		assert.NoError(t, err)
-		identity, err := ca.NewIdentity()
-		assert.NoError(t, err)
-
-		oc, err := overlay.NewClient(identity, v.address)
-		assert.NoError(t, err)
-
-		assert.NotNil(t, oc)
-	}
-}
-
 func TestChoose(t *testing.T) {
-	n1 := &pb.Node{Id: storj.NodeID{1}, Type: pb.NodeType_STORAGE}
-	n2 := &pb.Node{Id: storj.NodeID{2}, Type: pb.NodeType_STORAGE}
-	n3 := &pb.Node{Id: storj.NodeID{3}, Type: pb.NodeType_STORAGE}
-	n4 := &pb.Node{Id: storj.NodeID{4}, Type: pb.NodeType_STORAGE}
-	n5 := &pb.Node{Id: storj.NodeID{5}, Type: pb.NodeType_STORAGE}
-	n6 := &pb.Node{Id: storj.NodeID{6}, Type: pb.NodeType_STORAGE}
-	n7 := &pb.Node{Id: storj.NodeID{7}, Type: pb.NodeType_STORAGE}
-	n8 := &pb.Node{Id: storj.NodeID{8}, Type: pb.NodeType_STORAGE}
+	t.Parallel()
 
-	id1 := storj.NodeID{1}
-	id2 := storj.NodeID{2}
-	id3 := storj.NodeID{3}
-	id4 := storj.NodeID{4}
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 8, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+		require.NoError(t, err)
 
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet, cleanup := getPlanet(ctx, t)
-	defer cleanup()
-	oc := getOverlayClient(t, planet)
-
-	cases := []struct {
-		limit        int
-		space        int64
-		bandwidth    int64
-		uptime       float64
-		uptimeCount  int64
-		auditSuccess float64
-		auditCount   int64
-		allNodes     []*pb.Node
-		excluded     storj.NodeIDList
-	}{
-		{
-			limit:        4,
-			space:        0,
-			bandwidth:    0,
-			uptime:       0,
-			uptimeCount:  0,
-			auditSuccess: 0,
-			auditCount:   0,
-			allNodes:     []*pb.Node{n1, n2, n3, n4, n5, n6, n7, n8},
-			excluded:     storj.NodeIDList{id1, id2, id3, id4},
-		},
-	}
-
-	for _, v := range cases {
-		newNodes, err := oc.Choose(ctx, overlay.Options{
-			Amount:       v.limit,
-			Space:        v.space,
-			Uptime:       v.uptime,
-			UptimeCount:  v.uptimeCount,
-			AuditSuccess: v.auditSuccess,
-			AuditCount:   v.auditCount,
-			Excluded:     v.excluded,
-		})
-		assert.NoError(t, err)
-
-		excludedNodes := make(map[storj.NodeID]bool)
-		for _, e := range v.excluded {
-			excludedNodes[e] = true
+		cases := []struct {
+			limit     int
+			space     int64
+			bandwidth int64
+		}{
+			{
+				limit:     4,
+				space:     0,
+				bandwidth: 0,
+			},
 		}
-		assert.Len(t, newNodes, v.limit)
-		for _, n := range newNodes {
-			assert.NotContains(t, excludedNodes, n.Id)
-			assert.True(t, n.GetRestrictions().GetFreeDisk() >= v.space)
-			assert.True(t, n.GetRestrictions().GetFreeBandwidth() >= v.bandwidth)
-			assert.True(t, n.GetReputation().GetUptimeRatio() >= v.uptime)
-			assert.True(t, n.GetReputation().GetUptimeCount() >= v.uptimeCount)
-			assert.True(t, n.GetReputation().GetAuditSuccessRatio() >= v.auditSuccess)
-			assert.True(t, n.GetReputation().GetAuditCount() >= v.auditCount)
 
+		for _, v := range cases {
+			newNodes, err := oc.Choose(ctx, overlay.Options{
+				Amount: v.limit,
+				Space:  v.space,
+			})
+			assert.NoError(t, err)
+
+			assert.Len(t, newNodes, v.limit)
+			for _, n := range newNodes {
+				assert.True(t, n.GetRestrictions().GetFreeDisk() >= v.space)
+				assert.True(t, n.GetRestrictions().GetFreeBandwidth() >= v.bandwidth)
+			}
 		}
-	}
+	})
 }
 
 func TestLookup(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	t.Parallel()
 
-	planet, cleanup := getPlanet(ctx, t)
-	defer cleanup()
-	oc := getOverlayClient(t, planet)
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+		require.NoError(t, err)
 
-	nid1 := planet.StorageNodes[0].ID()
+		nid1 := planet.StorageNodes[0].ID()
 
-	cases := []struct {
-		nodeID    storj.NodeID
-		expectErr bool
-	}{
-		{
-			nodeID:    nid1,
-			expectErr: false,
-		},
-		{
-			nodeID:    storj.NodeID{1},
-			expectErr: true,
-		},
-	}
-
-	for _, v := range cases {
-		n, err := oc.Lookup(ctx, v.nodeID)
-		if v.expectErr {
-			assert.Error(t, err)
-		} else {
-			assert.NoError(t, err)
-			assert.Equal(t, n.Id.String(), v.nodeID.String())
+		cases := []struct {
+			nodeID    storj.NodeID
+			expectErr bool
+		}{
+			{
+				nodeID:    nid1,
+				expectErr: false,
+			},
+			{
+				nodeID:    storj.NodeID{1},
+				expectErr: true,
+			},
 		}
-	}
 
+		for _, v := range cases {
+			n, err := oc.Lookup(ctx, v.nodeID)
+			if v.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				if assert.NotNil(t, n) {
+					assert.Equal(t, v.nodeID.String(), n.Id.String())
+				}
+			}
+		}
+	})
 }
 
 func TestBulkLookup(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	t.Parallel()
 
-	planet, cleanup := getPlanet(ctx, t)
-	defer cleanup()
-	oc := getOverlayClient(t, planet)
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+		require.NoError(t, err)
 
-	nid1 := planet.StorageNodes[0].ID()
-	nid2 := planet.StorageNodes[1].ID()
-	nid3 := planet.StorageNodes[2].ID()
+		nid1 := planet.StorageNodes[0].ID()
+		nid2 := planet.StorageNodes[1].ID()
+		nid3 := planet.StorageNodes[2].ID()
 
-	cases := []struct {
-		nodeIDs       storj.NodeIDList
-		expectedCalls int
-	}{
-		{
-			nodeIDs:       storj.NodeIDList{nid1, nid2, nid3},
-			expectedCalls: 1,
-		},
-	}
-	for _, v := range cases {
-		resNodes, err := oc.BulkLookup(ctx, v.nodeIDs)
-		assert.NoError(t, err)
-		for i, n := range resNodes {
-			assert.Equal(t, n.Id, v.nodeIDs[i])
+		cases := []struct {
+			nodeIDs       storj.NodeIDList
+			expectedCalls int
+		}{
+			{
+				nodeIDs:       storj.NodeIDList{nid1, nid2, nid3},
+				expectedCalls: 1,
+			},
 		}
-		assert.Equal(t, len(resNodes), len(v.nodeIDs))
-	}
+		for _, v := range cases {
+			resNodes, err := oc.BulkLookup(ctx, v.nodeIDs)
+			assert.NoError(t, err)
+			for i, n := range resNodes {
+				if assert.NotNil(t, n) {
+					assert.Equal(t, v.nodeIDs[i], n.Id)
+				}
+			}
+			assert.Equal(t, len(v.nodeIDs), len(resNodes))
+		}
+	})
 }
 
 func TestBulkLookupV2(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	t.Parallel()
 
-	planet, cleanup := getPlanet(ctx, t)
-	defer cleanup()
-	oc := getOverlayClient(t, planet)
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+		require.NoError(t, err)
 
-	cache := planet.Satellites[0].Overlay
+		nid1 := planet.StorageNodes[0].ID()
+		nid2 := planet.StorageNodes[1].ID()
+		nid3 := planet.StorageNodes[2].ID()
+		nid4 := storj.NodeID{4}
+		nid5 := storj.NodeID{5}
 
-	nid1 := storj.NodeID{1}
-	nid2 := storj.NodeID{2}
-	nid3 := storj.NodeID{3}
-	nid4 := storj.NodeID{4}
-	nid5 := storj.NodeID{5}
+		n1 := &pb.Node{Id: nid1}
+		n2 := &pb.Node{Id: nid2}
+		n3 := &pb.Node{Id: nid3}
 
-	n1 := &pb.Node{Id: storj.NodeID{1}}
-	n2 := &pb.Node{Id: storj.NodeID{2}}
-	n3 := &pb.Node{Id: storj.NodeID{3}}
-
-	nodes := []*pb.Node{n1, n2, n3}
-	for _, n := range nodes {
-		assert.NoError(t, cache.Put(ctx, n.Id, *n))
-	}
-
-	{ // empty id
-		_, err := oc.BulkLookup(ctx, storj.NodeIDList{})
-		assert.Error(t, err)
-	}
-
-	{ // valid ids
-		idList := storj.NodeIDList{nid1, nid2, nid3}
-		ns, err := oc.BulkLookup(ctx, idList)
-		assert.NoError(t, err)
-
-		for i, n := range ns {
-			assert.Equal(t, n.Id, idList[i])
+		{ // empty id
+			_, err := oc.BulkLookup(ctx, storj.NodeIDList{})
+			assert.Error(t, err)
 		}
-	}
 
-	{ // missing ids
-		idList := storj.NodeIDList{nid4, nid5}
-		ns, err := oc.BulkLookup(ctx, idList)
-		assert.NoError(t, err)
+		{ // valid ids
+			idList := storj.NodeIDList{nid1, nid2, nid3}
+			ns, err := oc.BulkLookup(ctx, idList)
+			assert.NoError(t, err)
 
-		assert.Equal(t, []*pb.Node{nil, nil}, ns)
-	}
-
-	{ // different order and missing
-		idList := storj.NodeIDList{nid3, nid4, nid1, nid2, nid5}
-		ns, err := oc.BulkLookup(ctx, idList)
-		assert.NoError(t, err)
-
-		expectedNodes := []*pb.Node{n3, nil, n1, n2, nil}
-		for i, n := range ns {
-			if n == nil {
-				assert.Nil(t, expectedNodes[i])
-			} else {
-				assert.Equal(t, n.Id, expectedNodes[i].Id)
+			for i, n := range ns {
+				if assert.NotNil(t, n) {
+					assert.Equal(t, idList[i], n.Id)
+				}
 			}
 		}
-	}
-}
 
-func getPlanet(ctx *testcontext.Context, t *testing.T) (planet *testplanet.Planet, f func()) {
-	planet, err := testplanet.New(t, 1, 4, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
+		{ // missing ids
+			idList := storj.NodeIDList{nid4, nid5}
+			ns, err := oc.BulkLookup(ctx, idList)
+			assert.NoError(t, err)
 
-	planet.Start(ctx)
-	// we wait a second for all the nodes to complete bootstrapping off the satellite
-	time.Sleep(2 * time.Second)
+			assert.Equal(t, []*pb.Node{nil, nil}, ns)
+		}
 
-	f = func() {
-		ctx.Check(planet.Shutdown)
-	}
+		{ // different order and missing
+			idList := storj.NodeIDList{nid3, nid4, nid1, nid2, nid5}
+			ns, err := oc.BulkLookup(ctx, idList)
+			assert.NoError(t, err)
 
-	return planet, f
-}
-
-func getOverlayClient(t *testing.T, planet *testplanet.Planet) (oc overlay.Client) {
-	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return oc
+			expectedNodes := []*pb.Node{n3, nil, n1, n2, nil}
+			for i, n := range ns {
+				if n == nil {
+					assert.Nil(t, n)
+				} else {
+					if assert.NotNil(t, n) {
+						assert.Equal(t, expectedNodes[i].Id, n.Id)
+					}
+				}
+			}
+		}
+	})
 }

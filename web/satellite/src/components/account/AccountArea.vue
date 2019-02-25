@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -42,14 +42,14 @@
                     :initValue="user.email"
                     @setData="setEmail" />
                 <div v-if="isAccountSettingsEditing" class="account-area-save-button-area" >
-                    <div class="account-area-save-button-area__btn">
-                        <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="205px"  height="50px" :onPress="cancelAccountSettings" isWhite/>
-                        <Button class="account-area-save-button-area__save-button" label="Save" width="205px"  height="50px" :onPress="onSaveAccountSettingsButtonClick"/>
+                    <div class="account-area-save-button-area__btn-active">
+                        <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="288px"  height="56px" :onPress="cancelAccountSettings" isWhite/>
+                        <Button class="account-area-save-button-area__save-button" label="Save" width="288px"  height="56px" :onPress="onSaveAccountSettingsButtonClick"/>
                     </div>
                 </div>
                 <div v-if="!isAccountSettingsEditing" class="account-area-save-button-area" >
                     <div class="account-area-save-button-area__btn">
-                        <Button class="account-area-save-button-area__save-button" label="Save" width="205px"  height="50px" :onPress="onSaveAccountSettingsButtonClick" isDisabled />
+                        <Button class="account-area-save-button-area__save-button" label="Save" width="288px"  height="56px" :onPress="onSaveAccountSettingsButtonClick" isDisabled />
                     </div>
                 </div>
             </div>
@@ -99,22 +99,22 @@
                     isPassword
                     :error="confirmationPasswordError"
                     @setData="setPasswordConfirmation" />
-                <div v-if="isPasswordEditing" class="account-area-save-button-area" >
-                    <div class="account-area-save-button-area__btn">
-                        <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="205px" height="50px" :onPress="onCancelPasswordEditButtonClick" isWhite/>
-                        <Button label="Save" width="205px" height="50px" :onPress="onSavePasswordButtonClick"/>
+                <div v-if="isPasswordEditing" class="account-area-save-button-area active" >
+                    <div class="account-area-save-button-area__btn-active">
+                        <Button class="account-area-save-button-area__cancel-button" label="Cancel" width="288px" height="56px" :onPress="onCancelPasswordEditButtonClick" isWhite/>
+                        <Button class="account-area-save-button-area__save-button" label="Save" width="288px" height="56px" :onPress="onSavePasswordButtonClick"/>
                     </div>
                 </div>
                 <div v-if="!isPasswordEditing" class="account-area-save-button-area" >
                     <div class="account-area-save-button-area__btn">
-                        <Button label="Save" width="205px" height="50px" isDisabled/>
+                        <Button class="account-area-save-button-area__save-button" label="Save" width="288px" height="56px" isDisabled/>
                     </div>
                 </div>
             </div>
             <!--end of Password area -->
         </div>
         <div class="account-area-button-area" id="deleteAccountPopupButton">
-            <Button label="Delete account" width="205px" height="50px" :onPress="togglePopup" isDeletion/>
+            <Button class="account-area-save-button-area__delete-button" label="Delete account" width="210px" height="56px" :onPress="togglePopup" isDeletion/>
         </div>
         <DeleteAccountPopup v-if="isPopupShown" />
     </div>
@@ -390,7 +390,7 @@ export default class AccountArea extends Vue {
         margin-top: 15px;
     }
     .account-area-settings-container {
-        max-width: 600px;
+        max-width: 680px;
         width: 100%;
         border-radius: 6px;
         display: flex;
@@ -407,7 +407,7 @@ export default class AccountArea extends Vue {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #95D486;
+            background: #E8EAF2;
             margin-right: 20px;
 
             h1 {
@@ -419,7 +419,7 @@ export default class AccountArea extends Vue {
         }
     }
     .account-area-password-container {
-        max-width: 600px;
+        max-width: 680px;
         width: 100%;
         border-radius: 6px;
         display: flex;
@@ -466,20 +466,33 @@ export default class AccountArea extends Vue {
         }
 
         &__btn {
+            width: 100%;
             display: flex;
             align-items: center;
             justify-content: flex-end;
-        }
 
-        &__cancel-button {
-            margin-right: 86px;
+            &-active {
+                width: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
         }
     }
-    @media screen and (max-width: 1740px) {
+
+    @media screen and (max-width: 1831px) {
         .account-area-settings-container,
         .account-area-password-container {
-            max-width: 500px;
-            width: 500px;
+            max-width: 530px;
+            width: 530px;
+        }
+
+        .account-area-save-button-area__cancel-button,
+        .account-area-save-button-area__save-button {
+            width: 240px !important;
+        }
+        .account-area-save-button-area__delete-button {
+            width: 160px !important;
         }
     }
     @media screen and (max-width: 1520px) {
@@ -507,27 +520,62 @@ export default class AccountArea extends Vue {
         }
         .account-area-settings-container,
         .account-area-password-container {
-            max-width: 400px;
-            width: 400px;
+            max-width: 450px;
+            width: 450px;
             margin-bottom: 30px;
             justify-content: flex-start;
         }
     }
+    @media screen and (max-width: 1520px) {
+        .account-area-settings-container,
+        .account-area-password-container {
+            max-width: 450px;
+            width: 450px;
+            margin-bottom: 30px;
+            justify-content: flex-start;
+        }
+        .account-area-save-button-area__cancel-button,
+        .account-area-save-button-area__save-button {
+            width: 205px !important;
+        }
+    }
     @media screen and (max-width: 1330px) {
+        .account-area-save-button-area__cancel-button {
+            margin-right: 0;
+            margin-bottom: 20px;
+        }
+        .account-area-save-button-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .account-area-button-area {
+            margin-bottom: 100px;
+        }
+        .account-area-save-button-area__btn {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+        .account-area-container {
+            overflow-y: scroll;
+            height: 800px;
+        }
         .account-area-settings-container,
         .account-area-password-container {
             max-width: 800px;
             width: 800px;
         }
 
-        .account-area-save-button-area__btn {
-            width: 100%;
-            justify-content: flex-end;
-        }
-
         .account-area-save-button-area__cancel-button {
             margin-bottom: 0px;
             margin-right: 20px;
+        }
+        .account-area-save-button-area__cancel-button,
+        .account-area-save-button-area__save-button {
+            width: 300px !important;
         }
     }
     @media screen and (max-width: 1020px) {

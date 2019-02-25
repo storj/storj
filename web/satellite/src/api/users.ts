@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 import apolloManager from '../utils/apolloManager';
@@ -112,7 +112,7 @@ export async function createUserRequest(user: User, password: string): Promise<R
                                 firstName: "${user.firstName}",
                                 lastName: "${user.lastName}",
                             }
-                        )
+                        ){email}
                     }`
                 ),
                 fetchPolicy: 'no-cache',
@@ -233,6 +233,43 @@ export async function deleteAccountRequest(password: string): Promise<RequestRes
                     }`
                 ),
                 fetchPolicy: 'no-cache'
+            }
+        );
+
+        if (response.errors) {
+            result.errorMessage = response.errors[0].message;
+        } else {
+            result.isSuccess = true;
+        }
+    } catch (e) {
+        result.errorMessage = e.message;
+    }
+
+    return result;
+}
+
+// Performs graphQL request.
+// Returns Token string.
+// Throws an exception if error occurs
+export async function activateAccountRequest(token: string): Promise<RequestResponse<string>> {
+    let result: RequestResponse<string> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: ''
+    };
+
+    try {
+        let response = await apolloManager.mutate(
+            {
+                mutation: gql(`
+				    mutation {
+				        activateAccount(input: "${token}") {
+				            token
+				        }
+				    }
+				`),
+                fetchPolicy: 'no-cache'
+
             }
         );
 

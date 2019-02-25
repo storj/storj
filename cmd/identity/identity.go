@@ -1,52 +1,63 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
 
 import (
+	"path/filepath"
+
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/provider"
 )
 
 var (
+	// ErrSetup is used when an error occurs while setting up
+	ErrSetup = errs.Class("setup error")
+
 	idCmd = &cobra.Command{
-		Use:   "id",
-		Short: "Manage identities",
+		Use:         "id",
+		Short:       "Manage identities",
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	newIDCmd = &cobra.Command{
-		Use:   "new",
-		Short: "Creates a new identity from an existing certificate authority",
-		RunE:  cmdNewID,
+		Use:         "create",
+		Short:       "Creates a new identity from an existing certificate authority",
+		RunE:        cmdNewID,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	leafExtCmd = &cobra.Command{
-		Use:   "extensions",
-		Short: "Prints the extensions attached to the identity leaf certificate",
-		RunE:  cmdLeafExtensions,
+		Use:         "extensions",
+		Short:       "Prints the extensions attached to the identity leaf certificate",
+		Args:        cobra.MaximumNArgs(1),
+		RunE:        cmdLeafExtensions,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	revokeLeafCmd = &cobra.Command{
-		Use:   "revoke",
-		Short: "Revoke the identity's leaf certificate (creates backup)",
-		RunE:  cmdRevokeLeaf,
+		Use:         "revoke",
+		Short:       "Revoke the identity's leaf certificate (creates backup)",
+		RunE:        cmdRevokeLeaf,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	newIDCfg struct {
-		CA       provider.FullCAConfig
-		Identity provider.IdentitySetupConfig
+		CA       identity.FullCAConfig
+		Identity identity.SetupConfig
 	}
 
 	leafExtCfg struct {
-		Identity provider.IdentityConfig
+		Identity identity.PeerConfig
 	}
 
 	revokeLeafCfg struct {
-		CA       provider.FullCAConfig
-		Identity provider.IdentityConfig
+		CA       identity.FullCAConfig
+		Identity identity.PeerConfig
 		// TODO: add "broadcast" option to send revocation to network nodes
 	}
 )
@@ -54,11 +65,12 @@ var (
 func init() {
 	rootCmd.AddCommand(idCmd)
 	idCmd.AddCommand(newIDCmd)
-	cfgstruct.Bind(newIDCmd.Flags(), &newIDCfg, cfgstruct.ConfDir(defaultConfDir))
 	idCmd.AddCommand(leafExtCmd)
-	cfgstruct.Bind(leafExtCmd.Flags(), &leafExtCfg, cfgstruct.ConfDir(defaultConfDir))
 	idCmd.AddCommand(revokeLeafCmd)
-	cfgstruct.Bind(revokeLeafCmd.Flags(), &revokeLeafCfg, cfgstruct.ConfDir(defaultConfDir))
+
+	cfgstruct.Bind(newIDCmd.Flags(), &newIDCfg, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(leafExtCmd.Flags(), &leafExtCfg, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(revokeLeafCmd.Flags(), &revokeLeafCfg, cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdNewID(cmd *cobra.Command, args []string) (err error) {
@@ -68,20 +80,26 @@ func cmdNewID(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	s := newIDCfg.Identity.Status()
-	if s == provider.NoCertNoKey || newIDCfg.Identity.Overwrite {
+	if s == identity.NoCertNoKey || newIDCfg.Identity.Overwrite {
 		_, err := newIDCfg.Identity.Create(ca)
 		return err
 	}
-	return provider.ErrSetup.New("identity file(s) exist: %s", s)
+	return ErrSetup.New("identity file(s) exist: %s", s)
 }
 
 func cmdLeafExtensions(cmd *cobra.Command, args []string) (err error) {
-	fi, err := leafExtCfg.Identity.Load()
+	if len(args) > 0 {
+		leafExtCfg.Identity = identity.PeerConfig{
+			CertPath: filepath.Join(identityDir, args[0], "identity.cert"),
+		}
+	}
+
+	ident, err := leafExtCfg.Identity.Load()
 	if err != nil {
 		return err
 	}
 
-	return printExtensions(fi.Leaf.Raw, fi.Leaf.ExtraExtensions)
+	return printExtensions(ident.Leaf.Raw, ident.Leaf.ExtraExtensions)
 }
 
 func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
@@ -108,7 +126,7 @@ func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	updateCfg := provider.IdentityConfig{
+	updateCfg := identity.Config{
 		CertPath: revokeLeafCfg.Identity.CertPath,
 	}
 	if err := updateCfg.Save(updatedIdent); err != nil {

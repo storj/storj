@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package postgreskv
@@ -113,12 +113,6 @@ func (client *Client) DeletePath(bucket, key storage.Key) error {
 // List returns either a list of known keys, in order, or an error.
 func (client *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	return storage.ListKeys(client, first, limit)
-}
-
-// ReverseList returns either a list of known keys, in reverse order, or an error.
-// Starts from first and iterates backwards
-func (client *Client) ReverseList(first storage.Key, limit int) (storage.Keys, error) {
-	return storage.ReverseListKeys(client, first, limit)
 }
 
 // Close closes the client

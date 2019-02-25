@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -14,13 +14,13 @@
                     class="delete-api-key-container__buttons-group__cancel" 
                     label="Cancel" 
                     width="140px" 
-                    height="58px" 
+                    height="48px"
                     :onPress="onCancelButtonClick" 
                     isWhite />
                 <Button 
                     label="Delete" 
                     width="140px" 
-                    height="58px" 
+                    height="48px"
                     :onPress="onDeleteButtonClick" />
             </div>
         </div>
@@ -52,7 +52,7 @@ export default class ApproveDeleteApiKeysArea extends Vue {
         bottom: 100px;
         align-items: center;
         justify-content: space-between;
-        padding: 0 50px;
+        padding: 0 32px;
         box-shadow: 0px 12px 24px rgba(175, 183, 193, 0.4);
         border-radius: 6px;
         z-index: 1000;
@@ -97,5 +97,29 @@ export default class ApproveDeleteApiKeysArea extends Vue {
         width: 100%;
         filter: blur(4px);
         background-color: rgba(0,0,0,0.5);
+    }
+
+    @media screen and (max-width: 1600px) {
+        .delete-api-key-container {
+            max-width: 72%;
+        }
+    }
+
+    @media screen and (max-width: 1366px) {
+        .delete-api-key-container {
+            max-width: 65%;
+        }
+    }
+
+    @media screen and (max-width: 1120px) {
+        .delete-api-key-container {
+            max-width: 60%;
+        }
+    }
+
+    @media screen and (max-width: 1025px) {
+        .delete-api-key-container {
+            max-width: 73%;
+        }
     }
 </style>

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package cfgstruct
@@ -13,17 +13,27 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+
+	"storj.io/storj/internal/memory"
 )
 
 // BindOpt is an option for the Bind method
 type BindOpt func(vars map[string]confVar)
 
 // ConfDir sets variables for default options called $CONFDIR and $CONFNAME.
-func ConfDir(confdir string) BindOpt {
-	val := filepath.Clean(os.ExpandEnv(confdir))
+func ConfDir(path string) BindOpt {
+	val := filepath.Clean(os.ExpandEnv(path))
 	return BindOpt(func(vars map[string]confVar) {
 		vars["CONFDIR"] = confVar{val: val, nested: false}
 		vars["CONFNAME"] = confVar{val: val, nested: false}
+	})
+}
+
+// IdentityDir sets a variable for the default option called $IDENTITYDIR.
+func IdentityDir(path string) BindOpt {
+	val := filepath.Clean(os.ExpandEnv(path))
+	return BindOpt(func(vars map[string]confVar) {
+		vars["IDENTITYDIR"] = confVar{val: val, nested: false}
 	})
 }
 
@@ -91,6 +101,10 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 		field := typ.Field(i)
 		fieldval := val.Field(i)
 		flagname := prefix + hyphenate(snakeCase(field.Name))
+		if field.Tag.Get("internal") == "true" {
+			continue
+		}
+
 		onlyForSetup := (field.Tag.Get("setup") == "true") || setupStruct
 		// ignore setup params for non setup commands
 		if !setupCommand && onlyForSetup {
@@ -120,6 +134,9 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 				}
 			}
 			switch field.Type {
+			case reflect.TypeOf(memory.Size(0)):
+				check(fieldaddr.(*memory.Size).Set(def))
+				flags.Var(fieldaddr.(*memory.Size), flagname, help)
 			case reflect.TypeOf(int(0)):
 				val, err := strconv.ParseInt(def, 0, strconv.IntSize)
 				check(err)
@@ -155,21 +172,24 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 				panic(fmt.Sprintf("invalid field type: %s", field.Type.String()))
 			}
 			if onlyForSetup {
-				setSetupAnnotation(flags, flagname)
+				setBoolAnnotation(flags, flagname, "setup")
+			}
+			if field.Tag.Get("user") == "true" {
+				setBoolAnnotation(flags, flagname, "user")
 			}
 		}
 	}
 }
 
-func setSetupAnnotation(flagset interface{}, name string) {
+func setBoolAnnotation(flagset interface{}, name, key string) {
 	flags, ok := flagset.(*pflag.FlagSet)
 	if !ok {
 		return
 	}
 
-	err := flags.SetAnnotation(name, "setup", []string{"true"})
+	err := flags.SetAnnotation(name, key, []string{"true"})
 	if err != nil {
-		panic(fmt.Sprintf("unable to set annotation: %v", err))
+		panic(fmt.Sprintf("unable to set %s annotation for %s: %v", key, name, err))
 	}
 }
 
@@ -179,11 +199,21 @@ func expand(vars map[string]string, val string) string {
 
 // FindConfigDirParam returns '--config-dir' param from os.Args (if exists)
 func FindConfigDirParam() string {
+	return FindFlagEarly("config-dir")
+}
+
+// FindIdentityDirParam returns '--identity-dir' param from os.Args (if exists)
+func FindIdentityDirParam() string {
+	return FindFlagEarly("identity-dir")
+}
+
+// FindFlagEarly retrieves the value of a flag before `flag.Parse` has been called
+func FindFlagEarly(flagName string) string {
 	// workaround to have early access to 'dir' param
 	for i, arg := range os.Args {
-		if strings.HasPrefix(arg, "--config-dir=") {
-			return strings.TrimPrefix(arg, "--config-dir=")
-		} else if arg == "--config-dir" && i < len(os.Args)-1 {
+		if strings.HasPrefix(arg, fmt.Sprintf("--%s=", flagName)) {
+			return strings.TrimPrefix(arg, fmt.Sprintf("--%s=", flagName))
+		} else if arg == fmt.Sprintf("--%s", flagName) && i < len(os.Args)-1 {
 			return os.Args[i+1]
 		}
 	}

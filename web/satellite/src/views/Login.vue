@@ -1,10 +1,10 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
-    <div class="login-container">
+    <div class="login-container" v-on:keyup.enter="onLogin">
         <div class="login-container__wrapper">
-            <img class="login-container__logo" src="../../static/images/login/Logo.svg" alt="logo">
+            <img class="login-container__logo" src="../../static/images/login/Logo.svg" alt="logo" v-on:click="onLogoClick">
             <div class="login-area">
                 <div class="login-area__title-container">
                     <h1>Welcome to Storj</h1>
@@ -58,6 +58,9 @@ import { getTokenRequest } from '@/api/users';
         };
     },
     methods: {
+        onLogoClick: function (): void {
+            location.reload();
+        },
         setEmail: function (value: string) {
             this.$data.email = value;
         },

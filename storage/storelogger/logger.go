@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package storelogger
@@ -55,13 +55,6 @@ func (store *Logger) Delete(key storage.Key) error {
 func (store *Logger) List(first storage.Key, limit int) (storage.Keys, error) {
 	keys, err := store.store.List(first, limit)
 	store.log.Debug("List", zap.String("first", string(first)), zap.Int("limit", limit), zap.Any("keys", keys.Strings()))
-	return keys, err
-}
-
-// ReverseList lists all keys in reverse order, starting from first
-func (store *Logger) ReverseList(first storage.Key, limit int) (storage.Keys, error) {
-	keys, err := store.store.ReverseList(first, limit)
-	store.log.Debug("ReverseList", zap.String("first", string(first)), zap.Int("limit", limit), zap.Any("keys", keys.Strings()))
 	return keys, err
 }
 

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package storage
@@ -62,8 +62,6 @@ type KeyValueStore interface {
 	Delete(Key) error
 	// List lists all keys starting from start and upto limit items
 	List(start Key, limit int) (Keys, error)
-	// ReverseList lists all keys in revers order
-	ReverseList(Key, int) (Keys, error)
 	// Iterate iterates over items based on opts
 	Iterate(opts IterateOptions, fn func(Iterator) error) error
 	// Close closes the store

@@ -1,11 +1,9 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package psdb
+package psdb_test
 
 import (
-	"bytes"
-	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -13,52 +11,39 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
-	pstore "storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/storj"
 )
 
-var ctx = context.Background()
-
 const concurrency = 10
 
-func newDB(t testing.TB) (*DB, func()) {
-	tmpdir, err := ioutil.TempDir("", "storj-psdb")
-	if err != nil {
-		t.Fatal(err)
-	}
+func newDB(t testing.TB, id string) (*psdb.DB, func()) {
+	tmpdir, err := ioutil.TempDir("", "storj-psdb-"+id)
+	require.NoError(t, err)
+
 	dbpath := filepath.Join(tmpdir, "psdb.db")
 
-	storage := pstore.NewStorage(tmpdir)
+	db, err := psdb.Open(dbpath)
+	require.NoError(t, err)
 
-	db, err := Open(ctx, storage, dbpath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	err = db.Migration().Run(zap.NewNop(), db)
+	require.NoError(t, err)
 
 	return db, func() {
 		err := db.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = storage.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-
+		require.NoError(t, err)
 		err = os.RemoveAll(tmpdir)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 	}
 }
 
 func TestNewInmemory(t *testing.T) {
-	db, err := OpenInMemory(context.Background(), nil)
+	db, err := psdb.OpenInMemory()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +53,7 @@ func TestNewInmemory(t *testing.T) {
 }
 
 func TestHappyPath(t *testing.T) {
-	db, cleanup := newDB(t)
+	db, cleanup := newDB(t, "1")
 	defer cleanup()
 
 	type TTL struct {
@@ -145,39 +130,35 @@ func TestHappyPath(t *testing.T) {
 		}
 	})
 
-	bandwidthAllocation := func(satelliteID storj.NodeID, total int64) []byte {
-		return serialize(t, &pb.RenterBandwidthAllocation_Data{
-			PayerAllocation: &pb.PayerBandwidthAllocation{
-				Data: serialize(t, &pb.PayerBandwidthAllocation_Data{
-					SatelliteId: satelliteID,
-				}),
-			},
-			Total: total,
-		})
+	bandwidthAllocation := func(signature string, satelliteID storj.NodeID, total int64) *pb.Order {
+		return &pb.Order{
+			PayerAllocation: pb.OrderLimit{SatelliteId: satelliteID},
+			Total:           total,
+			Signature:       []byte(signature),
+		}
 	}
 
 	//TODO: use better data
 	nodeIDAB := teststorj.NodeIDFromString("AB")
-	allocationTests := []*pb.RenterBandwidthAllocation{
-		{
-			Signature: []byte("signed by test"),
-			Data:      bandwidthAllocation(nodeIDAB, 0),
-		},
-		{
-			Signature: []byte("signed by sigma"),
-			Data:      bandwidthAllocation(nodeIDAB, 10),
-		},
-		{
-			Signature: []byte("signed by sigma"),
-			Data:      bandwidthAllocation(nodeIDAB, 98),
-		},
-		{
-			Signature: []byte("signed by test"),
-			Data:      bandwidthAllocation(nodeIDAB, 3),
-		},
+	allocationTests := []*pb.Order{
+		bandwidthAllocation("signed by test", nodeIDAB, 0),
+		bandwidthAllocation("signed by sigma", nodeIDAB, 10),
+		bandwidthAllocation("signed by sigma", nodeIDAB, 98),
+		bandwidthAllocation("signed by test", nodeIDAB, 3),
+	}
+
+	type bwUsage struct {
+		size    int64
+		timenow time.Time
+	}
+
+	bwtests := []bwUsage{
+		// size is total size stored
+		{size: 1110, timenow: time.Now()},
 	}
 
 	t.Run("Bandwidth Allocation", func(t *testing.T) {
+
 		for P := 0; P < concurrency; P++ {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
@@ -194,7 +175,7 @@ func TestHappyPath(t *testing.T) {
 
 					found := false
 					for _, agreement := range agreements {
-						if bytes.Equal(agreement, test.Data) {
+						if pb.Equal(agreement, test) {
 							found = true
 							break
 						}
@@ -222,7 +203,7 @@ func TestHappyPath(t *testing.T) {
 				for _, agreements := range agreementGroups {
 					for _, agreement := range agreements {
 						for _, test := range allocationTests {
-							if bytes.Equal(agreement.Agreement, test.Data) {
+							if pb.Equal(&agreement.Agreement, test) {
 								found = true
 								break
 							}
@@ -236,31 +217,18 @@ func TestHappyPath(t *testing.T) {
 			})
 		}
 	})
-}
 
-func TestBandwidthUsage(t *testing.T) {
-	db, cleanup := newDB(t)
-	defer cleanup()
-
-	type BWUSAGE struct {
-		size    int64
-		timenow time.Time
-	}
-
-	bwtests := []BWUSAGE{
-		{size: 1000, timenow: time.Now()},
-	}
-
-	var bwTotal int64
-	t.Run("AddBandwidthUsed", func(t *testing.T) {
+	t.Run("GetBandwidthUsedByDay", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
-			bwTotal = bwTotal + bwtests[0].size
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
 				for _, bw := range bwtests {
-					err := db.AddBandwidthUsed(bw.size)
+					size, err := db.GetBandwidthUsedByDay(bw.timenow)
 					if err != nil {
 						t.Fatal(err)
+					}
+					if bw.size != size {
+						t.Fatalf("expected %d got %d", bw.size, size)
 					}
 				}
 			})
@@ -276,24 +244,7 @@ func TestBandwidthUsage(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					if bwTotal != size {
-						t.Fatalf("expected %d got %d", bw.size, size)
-					}
-				}
-			})
-		}
-	})
-
-	t.Run("GetBandwidthUsedByDay", func(t *testing.T) {
-		for P := 0; P < concurrency; P++ {
-			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
-				t.Parallel()
-				for _, bw := range bwtests {
-					size, err := db.GetBandwidthUsedByDay(bw.timenow)
-					if err != nil {
-						t.Fatal(err)
-					}
-					if bwTotal != size {
+					if bw.size != size {
 						t.Fatalf("expected %d got %d", bw.size, size)
 					}
 				}
@@ -303,32 +254,18 @@ func TestBandwidthUsage(t *testing.T) {
 }
 
 func BenchmarkWriteBandwidthAllocation(b *testing.B) {
-	db, cleanup := newDB(b)
+	db, cleanup := newDB(b, "3")
 	defer cleanup()
-
 	const WritesPerLoop = 10
-
-	data := serialize(b, &pb.RenterBandwidthAllocation_Data{
-		PayerAllocation: &pb.PayerBandwidthAllocation{},
-		Total:           156,
-	})
-
 	b.RunParallel(func(b *testing.PB) {
 		for b.Next() {
 			for i := 0; i < WritesPerLoop; i++ {
-				_ = db.WriteBandwidthAllocToDB(&pb.RenterBandwidthAllocation{
-					Signature: []byte("signed by test"),
-					Data:      data,
+				_ = db.WriteBandwidthAllocToDB(&pb.Order{
+					PayerAllocation: pb.OrderLimit{},
+					Total:           156,
+					Signature:       []byte("signed by test"),
 				})
 			}
 		}
 	})
-}
-
-func serialize(t testing.TB, v proto.Message) []byte {
-	data, err := proto.Marshal(v)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return data
 }

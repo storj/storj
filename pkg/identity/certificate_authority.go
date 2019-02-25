@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package identity
@@ -7,10 +7,10 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/pem"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"sync"
@@ -19,8 +19,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 )
 
 const minimumLoggableDifficulty = 8
@@ -49,9 +49,9 @@ type FullCertificateAuthority struct {
 type CASetupConfig struct {
 	ParentCertPath string `help:"path to the parent authority's certificate chain"`
 	ParentKeyPath  string `help:"path to the parent authority's private key"`
-	CertPath       string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
-	KeyPath        string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
-	Difficulty     uint64 `help:"minimum difficulty for identity generation" default:"15"`
+	CertPath       string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/ca.cert"`
+	KeyPath        string `help:"path to the private key for this identity" default:"$IDENTITYDIR/ca.key"`
+	Difficulty     uint64 `help:"minimum difficulty for identity generation" default:"30"`
 	Timeout        string `help:"timeout for CA generation; golang duration string (0 no timeout)" default:"5m"`
 	Overwrite      bool   `help:"if true, existing CA certs AND keys will overwritten" default:"false"`
 	Concurrency    uint   `help:"number of concurrent workers for certificate authority generation" default:"4"`
@@ -67,17 +67,19 @@ type NewCAOptions struct {
 	ParentCert *x509.Certificate
 	// ParentKey ()
 	ParentKey crypto.PrivateKey
+	// Logger is used to log generation status updates
+	Logger io.Writer
 }
 
 // PeerCAConfig is for locating a CA certificate without a private key
 type PeerCAConfig struct {
-	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
+	CertPath string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/ca.cert"`
 }
 
 // FullCAConfig is for locating a CA certificate and it's private key
 type FullCAConfig struct {
-	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
-	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
+	CertPath string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/ca.cert"`
+	KeyPath  string `help:"path to the private key for this identity" default:"$IDENTITYDIR/ca.key"`
 }
 
 // NewCA creates a new full identity with the given difficulty
@@ -85,9 +87,10 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 	defer mon.Task()(&ctx)(&err)
 	var (
 		highscore = new(uint32)
+		i         = new(uint32)
 
 		mu          sync.Mutex
-		selectedKey *ecdsa.PrivateKey
+		selectedKey crypto.PrivateKey
 		selectedID  storj.NodeID
 	)
 
@@ -95,9 +98,27 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		opts.Concurrency = 1
 	}
 
-	log.Printf("Generating a certificate matching a difficulty of %d\n", opts.Difficulty)
+	if opts.Logger != nil {
+		fmt.Fprintf(opts.Logger, "Generating key with a minimum a difficulty of %d...\n", opts.Difficulty)
+	}
+	updateStatus := func() {
+		if opts.Logger != nil {
+			count := atomic.LoadUint32(i)
+			hs := atomic.LoadUint32(highscore)
+			_, err := fmt.Fprintf(opts.Logger, "\rGenerated %d keys; best difficulty so far: %d", count, hs)
+			if err != nil {
+				log.Print(errs.Wrap(err))
+			}
+		}
+	}
 	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency),
-		func(k *ecdsa.PrivateKey, id storj.NodeID) (done bool, err error) {
+		func(k crypto.PrivateKey, id storj.NodeID) (done bool, err error) {
+			if opts.Logger != nil {
+				if atomic.AddUint32(i, 1)%100 == 0 {
+					updateStatus()
+				}
+			}
+
 			difficulty, err := id.Difficulty()
 			if err != nil {
 				return false, err
@@ -105,11 +126,19 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 			if difficulty >= opts.Difficulty {
 				mu.Lock()
 				if selectedKey == nil {
-					log.Printf("Found a certificate matching difficulty of %d\n", difficulty)
+					updateStatus()
 					selectedKey = k
 					selectedID = id
 				}
 				mu.Unlock()
+				if opts.Logger != nil {
+					atomic.SwapUint32(highscore, uint32(difficulty))
+					updateStatus()
+					_, err := fmt.Fprintf(opts.Logger, "\nFound a key with difficulty %d!\n", difficulty)
+					if err != nil {
+						log.Print(errs.Wrap(err))
+					}
+				}
 				return true, nil
 			}
 			for {
@@ -118,7 +147,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 					return false, nil
 				}
 				if atomic.CompareAndSwapUint32(highscore, hs, uint32(difficulty)) {
-					log.Printf("Found a certificate matching difficulty of %d\n", difficulty)
+					updateStatus()
 					return false, nil
 				}
 			}
@@ -152,7 +181,7 @@ func (caS CASetupConfig) Status() TLSFilesStatus {
 }
 
 // Create generates and saves a CA using the config
-func (caS CASetupConfig) Create(ctx context.Context) (*FullCertificateAuthority, error) {
+func (caS CASetupConfig) Create(ctx context.Context, logger io.Writer) (*FullCertificateAuthority, error) {
 	var (
 		err    error
 		parent *FullCertificateAuthority
@@ -162,9 +191,9 @@ func (caS CASetupConfig) Create(ctx context.Context) (*FullCertificateAuthority,
 			CertPath: caS.ParentCertPath,
 			KeyPath:  caS.ParentKeyPath,
 		}.Load()
-	}
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if parent == nil {
@@ -176,6 +205,7 @@ func (caS CASetupConfig) Create(ctx context.Context) (*FullCertificateAuthority,
 		Concurrency: caS.Concurrency,
 		ParentCert:  parent.Cert,
 		ParentKey:   parent.Key,
+		Logger:      logger,
 	})
 	if err != nil {
 		return nil, err
@@ -206,10 +236,9 @@ func (fc FullCAConfig) Load() (*FullCertificateAuthority, error) {
 	if err != nil {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
-	kp, _ := pem.Decode(kb)
-	k, err := x509.ParseECPrivateKey(kp.Bytes)
+	k, err := pkcrypto.PrivateKeyFromPEM(kb)
 	if err != nil {
-		return nil, errs.New("unable to parse EC private key: %v", err)
+		return nil, err
 	}
 
 	return &FullCertificateAuthority{
@@ -230,42 +259,33 @@ func (fc FullCAConfig) PeerConfig() PeerCAConfig {
 // Save saves a CA with the given configuration
 func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	var (
-		certData, keyData bytes.Buffer
-		writeErrs         utils.ErrorGroup
+		keyData   bytes.Buffer
+		writeErrs errs.Group
 	)
-
-	chain := []*x509.Certificate{ca.Cert}
-	chain = append(chain, ca.RestChain...)
-
-	if fc.CertPath != "" {
-		if err := peertls.WriteChain(&certData, chain...); err != nil {
-			writeErrs.Add(err)
-			return writeErrs.Finish()
-		}
-		if err := writeChainData(fc.CertPath, certData.Bytes()); err != nil {
-			writeErrs.Add(err)
-			return writeErrs.Finish()
-		}
+	if err := fc.PeerConfig().Save(ca.PeerCA()); err != nil {
+		writeErrs.Add(err)
+		return writeErrs.Err()
 	}
 
 	if fc.KeyPath != "" {
-		if err := peertls.WriteKey(&keyData, ca.Key); err != nil {
+		if err := pkcrypto.WritePrivateKeyPEM(&keyData, ca.Key); err != nil {
 			writeErrs.Add(err)
-			return writeErrs.Finish()
+			return writeErrs.Err()
 		}
 		if err := writeKeyData(fc.KeyPath, keyData.Bytes()); err != nil {
 			writeErrs.Add(err)
-			return writeErrs.Finish()
+			return writeErrs.Err()
 		}
 	}
 
-	return writeErrs.Finish()
+	return writeErrs.Err()
 }
 
 // SaveBackup saves the certificate of the config wth a timestamped filename
 func (fc FullCAConfig) SaveBackup(ca *FullCertificateAuthority) error {
 	return FullCAConfig{
 		CertPath: backupPath(fc.CertPath),
+		KeyPath:  backupPath(fc.KeyPath),
 	}.Save(ca)
 }
 
@@ -276,7 +296,7 @@ func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
 
-	chain, err := DecodeAndParseChainPEM(chainPEM)
+	chain, err := pkcrypto.CertsFromPEM(chainPEM)
 	if err != nil {
 		return nil, errs.New("failed to load identity %#v: %v",
 			pc.CertPath, err)
@@ -296,6 +316,36 @@ func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
 	}, nil
 }
 
+// Save saves a peer CA (cert, no key) with the given configuration
+func (pc PeerCAConfig) Save(ca *PeerCertificateAuthority) error {
+	var (
+		certData  bytes.Buffer
+		writeErrs errs.Group
+	)
+
+	chain := []*x509.Certificate{ca.Cert}
+	chain = append(chain, ca.RestChain...)
+
+	if pc.CertPath != "" {
+		if err := peertls.WriteChain(&certData, chain...); err != nil {
+			writeErrs.Add(err)
+			return writeErrs.Err()
+		}
+		if err := writeChainData(pc.CertPath, certData.Bytes()); err != nil {
+			writeErrs.Add(err)
+			return writeErrs.Err()
+		}
+	}
+	return nil
+}
+
+// SaveBackup saves the certificate of the config wth a timestamped filename
+func (pc PeerCAConfig) SaveBackup(ca *PeerCertificateAuthority) error {
+	return PeerCAConfig{
+		CertPath: backupPath(pc.CertPath),
+	}.Save(ca)
+}
+
 // NewIdentity generates a new `FullIdentity` based on the CA. The CA
 // cert is included in the identity's cert chain and the identity's leaf cert
 // is signed by the CA.
@@ -304,7 +354,7 @@ func (ca *FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 	if err != nil {
 		return nil, err
 	}
-	leafKey, err := peertls.NewKey()
+	leafKey, err := pkcrypto.GeneratePrivateKey()
 	if err != nil {
 		return nil, err
 	}
@@ -339,6 +389,15 @@ func (ca *FullCertificateAuthority) RestChainRaw() [][]byte {
 	return chain
 }
 
+// PeerCA converts a FullCertificateAuthority to a PeerCertificateAuthority
+func (ca *FullCertificateAuthority) PeerCA() *PeerCertificateAuthority {
+	return &PeerCertificateAuthority{
+		Cert:      ca.Cert,
+		ID:        ca.ID,
+		RestChain: ca.RestChain,
+	}
+}
+
 // Sign signs the passed certificate with ca certificate
 func (ca *FullCertificateAuthority) Sign(cert *x509.Certificate) (*x509.Certificate, error) {
 	signedCertBytes, err := x509.CreateCertificate(rand.Reader, cert, ca.Cert, cert.PublicKey, ca.Key)
@@ -346,7 +405,7 @@ func (ca *FullCertificateAuthority) Sign(cert *x509.Certificate) (*x509.Certific
 		return nil, errs.Wrap(err)
 	}
 
-	signedCert, err := x509.ParseCertificate(signedCertBytes)
+	signedCert, err := pkcrypto.CertFromDER(signedCertBytes)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

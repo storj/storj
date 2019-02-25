@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package segments
@@ -101,14 +101,13 @@ func TestSegmentStoreRepairRemote(t *testing.T) {
 			}, nil, nil, nil),
 			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
 			mockOC.EXPECT().Choose(gomock.Any(), gomock.Any()).Return(tt.newNodes, nil),
-			mockPDB.EXPECT().SignedMessage(),
 			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any()),
 			mockEC.EXPECT().Get(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return(ranger.ByteRanger([]byte(tt.data)), nil),
 			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any()),
 			mockEC.EXPECT().Put(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return(tt.newNodes, nil),
 			mockPDB.EXPECT().Put(
 				gomock.Any(), gomock.Any(), gomock.Any(),

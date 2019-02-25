@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package segments
@@ -63,7 +63,13 @@ type segmentStore struct {
 
 // NewSegmentStore creates a new instance of segmentStore
 func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int) Store {
-	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs, thresholdSize: threshold}
+	return &segmentStore{
+		oc:            oc,
+		ec:            ec,
+		pdb:           pdb,
+		rs:            rs,
+		thresholdSize: threshold,
+	}
 }
 
 // Meta retrieves the metadata of the segment
@@ -124,18 +130,19 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			return Meta{}, Error.Wrap(err)
 		}
 		for _, v := range nodes {
-			v.Type.DPanicOnInvalid("ss put")
+			if v != nil {
+				v.Type.DPanicOnInvalid("ss put")
+			}
 		}
 
 		pieceID := psclient.NewPieceID()
 
-		authorization := s.pdb.SignedMessage()
-		pba, err := s.pdb.PayerBandwidthAllocation(ctx, pb.PayerBandwidthAllocation_PUT)
+		pba, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
 
-		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba, authorization)
+		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -210,8 +217,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 			node.Type.DPanicOnInvalid("ss get")
 		}
 
-		authorization := s.pdb.SignedMessage()
-		rr, err = s.ec.Get(ctx, selected, rs, pid, pr.GetSegmentSize(), pba, authorization)
+		rr, err = s.ec.Get(ctx, selected, rs, pid, pr.GetSegmentSize(), pba)
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
@@ -261,7 +267,7 @@ func makeRemotePointer(nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID
 func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, nodes, _, err := s.pdb.Get(ctx, path)
+	pr, nodes, pba, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -280,9 +286,8 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 			}
 		}
 
-		authorization := s.pdb.SignedMessage()
 		// ecclient sends delete request
-		err = s.ec.Delete(ctx, nodes, pid, authorization)
+		err = s.ec.Delete(ctx, nodes, pid, pba.SatelliteId)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -363,7 +368,9 @@ func lookupAndAlignNodes(ctx context.Context, oc overlay.Client, nodes []*pb.Nod
 		}
 	}
 	for _, v := range nodes {
-		v.Type.DPanicOnInvalid("lookup and align nodes")
+		if v != nil {
+			v.Type.DPanicOnInvalid("lookup and align nodes")
+		}
 	}
 
 	// Realign the nodes

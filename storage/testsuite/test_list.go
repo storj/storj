@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package testsuite
@@ -31,7 +31,6 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 
 	type Test struct {
 		Name     string
-		Reverse  bool
 		First    storage.Key
 		Limit    int
 		Expected storage.Keys
@@ -46,37 +45,24 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 	}
 
 	tests := []Test{
-		{"without key", false,
+		{"without key",
 			nil, 3,
 			newKeys("path/0", "path/1", "path/2")},
-		{"without key, limit 0", false,
+		{"without key, limit 0",
 			nil, 0,
 			newKeys("path/0", "path/1", "path/2", "path/3", "path/4", "path/5")},
-		{"with key", false,
+		{"with key",
 			storage.Key("path/2"), 3,
 			newKeys("path/2", "path/3", "path/4")},
-		{"without key 100", false,
+		{"without key 100",
 			nil, 100,
 			newKeys("path/0", "path/1", "path/2", "path/3", "path/4", "path/5")},
-		{"reverse without key", true,
-			nil, 3,
-			newKeys("path/5", "path/4", "path/3")},
-		{"reverse with key", true,
-			storage.Key("path/2"), 3,
-			newKeys("path/2", "path/1", "path/0")},
-		{"reverse without key 100", true,
-			nil, 100,
-			newKeys("path/5", "path/4", "path/3", "path/2", "path/1", "path/0")},
 	}
 
 	for _, test := range tests {
 		var keys storage.Keys
 		var err error
-		if !test.Reverse {
-			keys, err = store.List(test.First, test.Limit)
-		} else {
-			keys, err = store.ReverseList(test.First, test.Limit)
-		}
+		keys, err = store.List(test.First, test.Limit)
 		if err != nil {
 			t.Errorf("%s: %s", test.Name, err)
 			continue

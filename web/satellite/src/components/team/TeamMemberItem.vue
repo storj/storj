@@ -1,24 +1,54 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
     <div class="user-container">
-        <div class="user-container__avatar">
-            <h1>{{projectMember.user.firstName.slice(0,1)}}</h1>
+        <div class="user-container__avatar" :style="avatarData.style">
+            <h1>{{avatarData.letter}}</h1>
         </div>
-        <p class="user-container__user-name">{{`${projectMember.user.firstName} ${projectMember.user.lastName}`}}</p>
-        <p class="user-container__user-email">{{projectMember.user.email}}</p>
+        <p class="user-container__user-name">{{userInfo.fullName}}</p>
+        <p class="user-container__user-email">{{userInfo.email}}</p>
         <p class="user-container__date">{{new Date(projectMember.joinedAt).toLocaleDateString()}}</p>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import { getColor } from '@/utils/avatarColorManager';
 
 @Component({
     props: {
         projectMember: Object,
     },
+    computed: {
+        userInfo: function (): object { 
+            let fullName: string = this.$props.projectMember.user.firstName + ' ' + this.$props.projectMember.user.lastName;
+            let email: string = this.$props.projectMember.user.email;
+
+            if (fullName.length > 16) {
+                fullName = this.$props.projectMember.user.firstName.slice(0, 1).toUpperCase() + 
+                            '. ' + this.$props.projectMember.user.lastName.slice(0, 1).toUpperCase() + '.';
+            }
+
+            if (email.length > 16) {
+                email = this.$props.projectMember.user.email.slice(0, 13) + '...';
+            }
+
+            return { fullName, email };
+        },
+        avatarData: function (): object {
+            const letter = this.$props.projectMember.user.firstName.slice(0, 1).toLocaleUpperCase();
+
+            const style = {
+                background: getColor(letter)
+            };
+
+            return {
+                letter,
+                style
+            };
+        }
+    }
 })
 
 export default class TeamMemberItem extends Vue {
@@ -34,7 +64,6 @@ export default class TeamMemberItem extends Vue {
         border-radius: 6px;
         height: 180px;
         background-color: #fff;
-        margin-bottom: 24px;
         padding: 30px 0;
         cursor: pointer;
         transition: box-shadow .2s ease-out;
@@ -65,20 +94,12 @@ export default class TeamMemberItem extends Vue {
             margin-bottom: 15px;
         }
 
-        &__company-name {
-            font-family: 'montserrat_bold';
-            font-size: 16px;
-            color: #354049;
-            margin-top: 20px;
-            margin-bottom: 10px;
-        }
-
         &__user-name {
-            font-family: 'montserrat_regular';
+            font-family: 'montserrat_bold';
             font-size: 14px;
             line-height: 19px;
-            color: #AFB7C1;
-            margin: 0;
+            color: #354049;
+            margin-top: 20px;
         }
 
         &__avatar {

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package eestream
@@ -17,6 +17,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/vivint/infectious"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/pkg/encryption"
@@ -45,13 +46,13 @@ func TestRS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
 	if err != nil {
 		t.Fatal(err)
 	}
 	readerMap := make(map[int]io.ReadCloser, len(readers))
 	for i, reader := range readers {
-		readerMap[i] = ioutil.NopCloser(reader)
+		readerMap[i] = reader
 	}
 	decoder := DecodeReaders(ctx, readerMap, rs, 32*1024, 0)
 	defer func() { assert.NoError(t, decoder.Close()) }()
@@ -76,13 +77,13 @@ func TestRSUnexpectedEOF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
 	if err != nil {
 		t.Fatal(err)
 	}
 	readerMap := make(map[int]io.ReadCloser, len(readers))
 	for i, reader := range readers {
-		readerMap[i] = ioutil.NopCloser(reader)
+		readerMap[i] = reader
 	}
 	decoder := DecodeReaders(ctx, readerMap, rs, 32*1024, 0)
 	defer func() { assert.NoError(t, decoder.Close()) }()
@@ -111,7 +112,7 @@ func TestRSRanger(t *testing.T) {
 		t.Fatal(err)
 	}
 	readers, err := EncodeReader(ctx, encryption.TransformReader(PadReader(ioutil.NopCloser(
-		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0), rs, 0)
+		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0), rs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,66 +187,6 @@ func TestNewRedundancyStrategy(t *testing.T) {
 		assert.NoError(t, err, errTag)
 		assert.Equal(t, tt.expRep, rs.RepairThreshold(), errTag)
 		assert.Equal(t, tt.expOpt, rs.OptimalThreshold(), errTag)
-	}
-}
-
-func TestRSEncoderInputParams(t *testing.T) {
-	for i, tt := range []struct {
-		mbm       int
-		errString string
-	}{
-		{0, ""},
-		{-1, "eestream error: negative max buffer memory"},
-		{1024, ""},
-	} {
-		errTag := fmt.Sprintf("Test case #%d", i)
-		ctx := context.Background()
-		data := randData(32 * 1024)
-		fc, err := infectious.NewFEC(2, 4)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		es := NewRSScheme(fc, 8*1024)
-		rs, err := NewRedundancyStrategy(es, 0, 0)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.mbm)
-		if tt.errString == "" {
-			assert.NoError(t, err, errTag)
-		} else {
-			assert.EqualError(t, err, tt.errString, errTag)
-		}
-	}
-}
-
-func TestRSRangerInputParams(t *testing.T) {
-	for i, tt := range []struct {
-		mbm       int
-		errString string
-	}{
-		{0, ""},
-		{-1, "eestream error: negative max buffer memory"},
-		{1024, ""},
-	} {
-		errTag := fmt.Sprintf("Test case #%d", i)
-		ctx := context.Background()
-		data := randData(32 * 1024)
-		fc, err := infectious.NewFEC(2, 4)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		es := NewRSScheme(fc, 8*1024)
-		rs, err := NewRedundancyStrategy(es, 0, 0)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.mbm)
-		if tt.errString == "" {
-			assert.NoError(t, err, errTag)
-		} else {
-			assert.EqualError(t, err, tt.errString, errTag)
-		}
 	}
 }
 
@@ -448,7 +389,7 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 	if !assert.NoError(t, err, errTag) {
 		return
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 3*1024)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
 	if !assert.NoError(t, err, errTag) {
 		return
 	}
@@ -479,18 +420,18 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 	}
 }
 
-func readAll(readers []io.Reader) ([][]byte, error) {
+func readAll(readers []io.ReadCloser) ([][]byte, error) {
 	pieces := make([][]byte, len(readers))
-	errs := make(chan error, len(readers))
+	errors := make(chan error, len(readers))
 	for i := range readers {
 		go func(i int) {
 			var err error
 			pieces[i], err = ioutil.ReadAll(readers[i])
-			errs <- err
+			errors <- errs.Combine(err, readers[i].Close())
 		}(i)
 	}
 	for range readers {
-		err := <-errs
+		err := <-errors
 		if err != nil {
 			return nil, err
 		}
@@ -524,7 +465,7 @@ func TestEncoderStalledReaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -534,9 +475,12 @@ func TestEncoderStalledReaders(t *testing.T) {
 	if time.Since(start) > 1*time.Second {
 		t.Fatalf("waited for slow reader")
 	}
+	for _, reader := range readers {
+		assert.NoError(t, reader.Close())
+	}
 }
 
-func readAllStalled(readers []io.Reader, stalled int) ([][]byte, error) {
+func readAllStalled(readers []io.ReadCloser, stalled int) ([][]byte, error) {
 	pieces := make([][]byte, len(readers))
 	errs := make(chan error, len(readers))
 	for i := stalled; i < len(readers); i++ {
@@ -567,7 +511,7 @@ func TestDecoderErrorWithStalledReaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
 	if err != nil {
 		t.Fatal(err)
 	}

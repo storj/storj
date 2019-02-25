@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package process
@@ -12,7 +12,6 @@ import (
 )
 
 func init() {
-
 	cobra.MousetrapHelpText = "This is a command line tool.\n\n" +
 		"This needs to be run from a Command Prompt.\n"
 

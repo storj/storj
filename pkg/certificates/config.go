@@ -6,128 +6,54 @@ package certificates
 import (
 	"context"
 	"os"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/utils"
+	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
 )
 
 // CertClientConfig is a config struct for use with a certificate signing service client
 type CertClientConfig struct {
-	AuthToken string `help:"authorization token to use to claim a certificate signing request (only applicable for the alpha network)"`
-	Address   string `help:"address of the certificate signing rpc service"`
+	Address string `help:"address of the certificate signing rpc service"`
+	TLS     tlsopts.Config
 }
 
 // CertServerConfig is a config struct for use with a certificate signing service server
 type CertServerConfig struct {
 	Overwrite          bool   `default:"false" help:"if true, overwrites config AND authorization db is truncated"`
 	AuthorizationDBURL string `default:"bolt://$CONFDIR/authorizations.db" help:"url to the certificate signing authorization database"`
-	MinDifficulty      uint   `default:"16" help:"minimum difficulty of the requester's identity required to claim an authorization"`
+	MinDifficulty      uint   `default:"30" help:"minimum difficulty of the requester's identity required to claim an authorization"`
 	CA                 identity.FullCAConfig
 }
 
-// SetupIdentity loads or creates a CA and identity and submits a certificate
-// signing request request for the CA; if successful, updated chains are saved.
-func (c CertClientConfig) SetupIdentity(
-	ctx context.Context,
-	caConfig identity.CASetupConfig,
-	identConfig identity.SetupConfig,
-) error {
-	caStatus := caConfig.Status()
-	var (
-		ca    *identity.FullCertificateAuthority
-		ident *identity.FullIdentity
-		err   error
-	)
-	switch {
-	case caStatus == identity.CertKey && !caConfig.Overwrite:
-		ca, err = caConfig.FullConfig().Load()
-		if err != nil {
-			return err
-		}
-	case caStatus != identity.NoCertNoKey && !caConfig.Overwrite:
-		return identity.ErrSetup.New("certificate authority file(s) exist: %s", caStatus)
-	default:
-		t, err := time.ParseDuration(caConfig.Timeout)
-		if err != nil {
-			return errs.Wrap(err)
-		}
-		ctx, cancel := context.WithTimeout(ctx, t)
-		defer cancel()
-
-		ca, err = caConfig.Create(ctx)
-		if err != nil {
-			return err
-		}
-	}
-
-	identStatus := identConfig.Status()
-	switch {
-	case identStatus == identity.CertKey && !identConfig.Overwrite:
-		ident, err = identConfig.FullConfig().Load()
-		if err != nil {
-			return err
-		}
-	case identStatus != identity.NoCertNoKey && !identConfig.Overwrite:
-		return identity.ErrSetup.New("identity file(s) exist: %s", identStatus)
-	default:
-		ident, err = identConfig.Create(ca)
-		if err != nil {
-			return err
-		}
-	}
-
-	signedChainBytes, err := c.Sign(ctx, ident)
-	if err != nil {
-		return errs.New("error occured while signing certificate: %s\n(identity files were still generated and saved, if you try again existnig files will be loaded)", err)
-	}
-
-	signedChain, err := identity.ParseCertChain(signedChainBytes)
-	if err != nil {
-		return nil
-	}
-
-	ca.Cert = signedChain[0]
-	ca.RestChain = signedChain[1:]
-	err = identity.FullCAConfig{
-		CertPath: caConfig.FullConfig().CertPath,
-	}.Save(ca)
-	if err != nil {
-		return err
-	}
-
-	ident.RestChain = signedChain[1:]
-	err = identity.Config{
-		CertPath: identConfig.FullConfig().CertPath,
-	}.Save(ident)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // Sign submits a certificate signing request given the config
-func (c CertClientConfig) Sign(ctx context.Context, ident *identity.FullIdentity) ([][]byte, error) {
-	client, err := NewClient(ctx, ident, c.Address)
+func (c CertClientConfig) Sign(ctx context.Context, ident *identity.FullIdentity, authToken string) ([][]byte, error) {
+	tlsOpts, err := tlsopts.NewOptions(ident, c.TLS)
+	if err != nil {
+		return nil, err
+	}
+	client, err := NewClient(ctx, transport.NewClient(tlsOpts), c.Address)
 	if err != nil {
 		return nil, err
 	}
 
-	return client.Sign(ctx, c.AuthToken)
+	return client.Sign(ctx, authToken)
 }
 
 // NewAuthDB creates or opens the authorization database specified by the config
 func (c CertServerConfig) NewAuthDB() (*AuthorizationDB, error) {
 	// TODO: refactor db selection logic?
-	driver, source, err := utils.SplitDBURL(c.AuthorizationDBURL)
+	driver, source, err := dbutil.SplitConnstr(c.AuthorizationDBURL)
 	if err != nil {
 		return nil, peertls.ErrRevocationDB.Wrap(err)
 	}
@@ -167,7 +93,7 @@ func (c CertServerConfig) NewAuthDB() (*AuthorizationDB, error) {
 }
 
 // Run implements the responsibility interface, starting a certificate signing server.
-func (c CertServerConfig) Run(ctx context.Context, server *provider.Provider) (err error) {
+func (c CertServerConfig) Run(ctx context.Context, srv *server.Server) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	authDB, err := c.NewAuthDB()
@@ -183,26 +109,30 @@ func (c CertServerConfig) Run(ctx context.Context, server *provider.Provider) (e
 		return err
 	}
 
-	srv := NewServer(
+	certSrv := NewServer(
 		zap.L(),
 		signer,
 		authDB,
 		uint16(c.MinDifficulty),
 	)
-	pb.RegisterCertificatesServer(server.GRPC(), srv)
+	pb.RegisterCertificatesServer(srv.GRPC(), certSrv)
 
-	srv.log.Info(
+	certSrv.log.Info(
 		"Certificate signing server running",
-		zap.String("address", server.Addr().String()),
+		zap.String("address", srv.Addr().String()),
 	)
 
-	go func() {
-		done := ctx.Done()
-		<-done
-		if err := server.Close(); err != nil {
-			srv.log.Error("closing server", zap.Error(err))
-		}
-	}()
+	ctx, cancel := context.WithCancel(ctx)
+	var group errgroup.Group
+	group.Go(func() error {
+		defer cancel()
+		<-ctx.Done()
+		return srv.Close()
+	})
+	group.Go(func() error {
+		defer cancel()
+		return srv.Run(ctx)
+	})
 
-	return server.Run(ctx)
+	return group.Wait()
 }

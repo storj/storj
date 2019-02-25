@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package teststore
@@ -176,18 +176,6 @@ func (store *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	}
 	store.mu.Unlock()
 	return storage.ListKeys(store, first, limit)
-}
-
-// ReverseList lists all keys in revers order
-func (store *Client) ReverseList(first storage.Key, limit int) (storage.Keys, error) {
-	store.mu.Lock()
-	store.CallCount.ReverseList++
-	if store.forcedError() {
-		store.mu.Unlock()
-		return nil, errors.New("internal error")
-	}
-	store.mu.Unlock()
-	return storage.ReverseListKeys(store, first, limit)
 }
 
 // Close closes the store

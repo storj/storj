@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -9,23 +9,15 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
+	"storj.io/storj/bootstrap"
+	"storj.io/storj/bootstrap/bootstrapdb"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/server"
 )
-
-// Bootstrap defines a bootstrap node configuration
-type Bootstrap struct {
-	CA       identity.CASetupConfig `setup:"true"`
-	Identity identity.SetupConfig   `setup:"true"`
-
-	Server   server.Config
-	Kademlia kademlia.BootstrapConfig
-}
 
 var (
 	rootCmd = &cobra.Command{
@@ -44,10 +36,13 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 
-	cfg Bootstrap
+	runCfg   bootstrap.Config
+	setupCfg bootstrap.Config
 
-	defaultConfDir string
-	confDir        *string
+	defaultConfDir     = fpath.ApplicationDir("storj", "bootstrap")
+	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "bootstrap")
+	confDir            string
+	identityDir        string
 )
 
 const (
@@ -55,37 +50,86 @@ const (
 )
 
 func init() {
-	defaultConfDir = fpath.ApplicationDir("storj", "bootstrap")
-
-	dirParam := cfgstruct.FindConfigDirParam()
-	if dirParam != "" {
-		defaultConfDir = dirParam
+	confDirParam := cfgstruct.FindConfigDirParam()
+	if confDirParam != "" {
+		defaultConfDir = confDirParam
+	}
+	identityDirParam := cfgstruct.FindIdentityDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
 	}
 
-	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for bootstrap configuration")
+	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for bootstrap configuration")
+	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
+	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for bootstrap identity credentials")
+	err = rootCmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(runCmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	return cfg.Server.Run(process.Ctx(cmd), nil, cfg.Kademlia)
+	log := zap.L()
+
+	identity, err := runCfg.Identity.Load()
+	if err != nil {
+		zap.S().Fatal(err)
+	}
+
+	if err := runCfg.Verify(log); err != nil {
+		log.Sugar().Error("Invalid configuration: ", err)
+		return err
+	}
+
+	ctx := process.Ctx(cmd)
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Error("Failed to initialize telemetry batcher: ", err)
+	}
+
+	db, err := bootstrapdb.New(bootstrapdb.Config{
+		Kademlia: runCfg.Kademlia.DBPath,
+	})
+	if err != nil {
+		return errs.New("Error starting master database on bootstrap: %+v", err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
+	err = db.CreateTables()
+	if err != nil {
+		return errs.New("Error creating tables for master database on bootstrap: %+v", err)
+	}
+
+	peer, err := bootstrap.New(log, identity, db, runCfg)
+	if err != nil {
+		return err
+	}
+
+	runError := peer.Run(ctx)
+	closeError := peer.Close()
+
+	return errs.Combine(runError, closeError)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*confDir)
+	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
 
-	valid, err := fpath.IsValidSetupDir(setupDir)
-	if err != nil {
-		return err
-	}
+	valid, _ := fpath.IsValidSetupDir(setupDir)
 	if !valid {
-		return fmt.Errorf("bootstrap configuration already exists (%v). Rerun with --overwrite", setupDir)
+		return fmt.Errorf("bootstrap configuration already exists (%v)", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
@@ -93,25 +137,19 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if setupDir != defaultConfDir {
-		cfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
-		cfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
-		cfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
-		cfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
-	}
-	err = identity.SetupIdentity(process.Ctx(cmd), cfg.CA, cfg.Identity)
-	if err != nil {
-		return err
+	overrides := map[string]interface{}{}
+
+	serverAddress := cmd.Flag("server.address")
+	if !serverAddress.Changed {
+		overrides[serverAddress.Name] = defaultServerAddr
 	}
 
-	overrides := map[string]interface{}{
-		"identity.cert-path":      cfg.Identity.CertPath,
-		"identity.key-path":       cfg.Identity.KeyPath,
-		"identity.server.address": defaultServerAddr,
-		"kademlia.bootstrap-addr": "localhost" + defaultServerAddr,
+	kademliaBootstrapAddr := cmd.Flag("kademlia.bootstrap-addr")
+	if !kademliaBootstrapAddr.Changed {
+		overrides[kademliaBootstrapAddr.Name] = "localhost" + defaultServerAddr
 	}
 
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 }
 
 func main() {

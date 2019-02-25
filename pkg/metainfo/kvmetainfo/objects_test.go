@@ -1,7 +1,7 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package kvmetainfo
+package kvmetainfo_test
 
 import (
 	"context"
@@ -9,11 +9,14 @@ import (
 	"fmt"
 	"io"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/metainfo/kvmetainfo"
+	"storj.io/storj/pkg/storage/buckets"
+	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
 )
@@ -35,7 +38,7 @@ func TestCreateObject(t *testing.T) {
 		BlockSize: 1 * memory.KB.Int32(),
 	}
 
-	runTest(t, func(ctx context.Context, db *DB) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if !assert.NoError(t, err) {
 			return
@@ -48,8 +51,8 @@ func TestCreateObject(t *testing.T) {
 		}{
 			{
 				create:     nil,
-				expectedRS: defaultRS,
-				expectedES: defaultES,
+				expectedRS: kvmetainfo.DefaultRS,
+				expectedES: kvmetainfo.DefaultES,
 			}, {
 				create:     &storj.CreateObject{RedundancyScheme: customRS, EncryptionScheme: customES},
 				expectedRS: customRS,
@@ -57,10 +60,10 @@ func TestCreateObject(t *testing.T) {
 			}, {
 				create:     &storj.CreateObject{RedundancyScheme: customRS},
 				expectedRS: customRS,
-				expectedES: storj.EncryptionScheme{Cipher: defaultES.Cipher, BlockSize: customRS.ShareSize},
+				expectedES: storj.EncryptionScheme{Cipher: kvmetainfo.DefaultES.Cipher, BlockSize: customRS.ShareSize},
 			}, {
 				create:     &storj.CreateObject{EncryptionScheme: customES},
-				expectedRS: defaultRS,
+				expectedRS: kvmetainfo.DefaultRS,
 				expectedES: customES,
 			},
 		} {
@@ -84,13 +87,13 @@ func TestCreateObject(t *testing.T) {
 }
 
 func TestGetObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, db *DB) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if !assert.NoError(t, err) {
 			return
 		}
 
-		upload(ctx, t, db, bucket, TestFile, nil)
+		upload(ctx, t, db, streams, bucket, TestFile, nil)
 
 		_, err = db.GetObject(ctx, "", "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
@@ -114,10 +117,7 @@ func TestGetObject(t *testing.T) {
 }
 
 func TestGetObjectStream(t *testing.T) {
-	runTest(t, func(ctx context.Context, db *DB) {
-		// we wait a second for all the nodes to complete bootstrapping off the satellite
-		time.Sleep(2 * time.Second)
-
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		data := make([]byte, 32*memory.KB)
 		_, err := rand.Read(data)
 		if !assert.NoError(t, err) {
@@ -129,9 +129,9 @@ func TestGetObjectStream(t *testing.T) {
 			return
 		}
 
-		upload(ctx, t, db, bucket, "empty-file", nil)
-		upload(ctx, t, db, bucket, "small-file", []byte("test"))
-		upload(ctx, t, db, bucket, "large-file", data)
+		upload(ctx, t, db, streams, bucket, "empty-file", nil)
+		upload(ctx, t, db, streams, bucket, "small-file", []byte("test"))
+		upload(ctx, t, db, streams, bucket, "large-file", data)
 
 		_, err = db.GetObjectStream(ctx, "", "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
@@ -145,13 +145,25 @@ func TestGetObjectStream(t *testing.T) {
 		_, err = db.GetObjectStream(ctx, bucket.Name, "non-existing-file")
 		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
-		assertStream(ctx, t, db, bucket, "empty-file", 0, []byte{})
-		assertStream(ctx, t, db, bucket, "small-file", 4, []byte("test"))
-		assertStream(ctx, t, db, bucket, "large-file", int64(32*memory.KB), data)
+		assertStream(ctx, t, db, streams, bucket, "empty-file", 0, []byte{})
+		assertStream(ctx, t, db, streams, bucket, "small-file", 4, []byte("test"))
+		assertStream(ctx, t, db, streams, bucket, "large-file", 32*memory.KB.Int64(), data)
+
+		/* TODO: Disable stopping due to flakiness.
+		// Stop randomly half of the storage nodes and remove them from satellite's overlay cache
+		perm := mathrand.Perm(len(planet.StorageNodes))
+		for _, i := range perm[:(len(perm) / 2)] {
+			assert.NoError(t, planet.StopPeer(planet.StorageNodes[i]))
+			assert.NoError(t, planet.Satellites[0].Overlay.Service.Delete(ctx, planet.StorageNodes[i].ID()))
+		}
+
+		// try downloading the large file again
+		assertStream(ctx, t, db, streams, bucket, "large-file", 32*memory.KB.Int64(), data)
+		*/
 	})
 }
 
-func upload(ctx context.Context, t *testing.T, db *DB, bucket storj.Bucket, path storj.Path, data []byte) {
+func upload(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams streams.Store, bucket storj.Bucket, path storj.Path, data []byte) {
 	obj, err := db.CreateObject(ctx, bucket.Name, path, nil)
 	if !assert.NoError(t, err) {
 		return
@@ -162,7 +174,7 @@ func upload(ctx context.Context, t *testing.T, db *DB, bucket storj.Bucket, path
 		return
 	}
 
-	upload := stream.NewUpload(ctx, str, db.streams)
+	upload := stream.NewUpload(ctx, str, streams)
 
 	_, err = upload.Write(data)
 	if !assert.NoError(t, err) {
@@ -180,7 +192,7 @@ func upload(ctx context.Context, t *testing.T, db *DB, bucket storj.Bucket, path
 	}
 }
 
-func assertStream(ctx context.Context, t *testing.T, db *DB, bucket storj.Bucket, path storj.Path, size int64, content []byte) {
+func assertStream(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams streams.Store, bucket storj.Bucket, path storj.Path, size int64, content []byte) {
 	readOnly, err := db.GetObjectStream(ctx, bucket.Name, path)
 	if !assert.NoError(t, err) {
 		return
@@ -202,13 +214,13 @@ func assertStream(ctx context.Context, t *testing.T, db *DB, bucket storj.Bucket
 
 	assert.EqualValues(t, 0, segments[0].Index)
 	assert.EqualValues(t, len(content), segments[0].Size)
-	if segments[0].Size > int64(4*memory.KB) {
+	if segments[0].Size > 4*memory.KB.Int64() {
 		assertRemoteSegment(t, segments[0])
 	} else {
 		assertInlineSegment(t, segments[0], content)
 	}
 
-	download := stream.NewDownload(ctx, readOnly, db.streams)
+	download := stream.NewDownload(ctx, readOnly, streams)
 	defer func() {
 		err = download.Close()
 		assert.NoError(t, err)
@@ -253,13 +265,13 @@ func assertRemoteSegment(t *testing.T, segment storj.Segment) {
 }
 
 func TestDeleteObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, db *DB) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if !assert.NoError(t, err) {
 			return
 		}
 
-		upload(ctx, t, db, bucket, TestFile, nil)
+		upload(ctx, t, db, streams, bucket, TestFile, nil)
 
 		err = db.DeleteObject(ctx, "", "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
@@ -279,7 +291,7 @@ func TestDeleteObject(t *testing.T) {
 }
 
 func TestListObjectsEmpty(t *testing.T) {
-	runTest(t, func(ctx context.Context, db *DB) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if !assert.NoError(t, err) {
 			return
@@ -307,7 +319,7 @@ func TestListObjectsEmpty(t *testing.T) {
 }
 
 func TestListObjects(t *testing.T) {
-	runTest(t, func(ctx context.Context, db *DB) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.Unencrypted})
 		if !assert.NoError(t, err) {
 			return
@@ -320,7 +332,7 @@ func TestListObjects(t *testing.T) {
 		}
 
 		for _, path := range filePaths {
-			upload(ctx, t, db, bucket, path, nil)
+			upload(ctx, t, db, streams, bucket, path, nil)
 		}
 
 		otherBucket, err := db.CreateBucket(ctx, "otherbucket", nil)
@@ -328,7 +340,7 @@ func TestListObjects(t *testing.T) {
 			return
 		}
 
-		upload(ctx, t, db, otherBucket, "file-in-other-bucket", nil)
+		upload(ctx, t, db, streams, otherBucket, "file-in-other-bucket", nil)
 
 		for i, tt := range []struct {
 			options storj.ListOptions

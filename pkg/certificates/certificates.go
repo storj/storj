@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package certificates
@@ -9,6 +9,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"encoding/gob"
 	"fmt"
 	"strconv"
@@ -18,6 +19,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -102,11 +104,13 @@ type Claim struct {
 
 // Client implements pb.CertificateClient
 type Client struct {
+	conn   *grpc.ClientConn
 	client pb.CertificatesClient
 }
 
 func init() {
 	gob.Register(&ecdsa.PublicKey{})
+	gob.Register(&rsa.PublicKey{})
 	gob.Register(elliptic.P256())
 }
 
@@ -121,14 +125,14 @@ func NewServer(log *zap.Logger, signer *identity.FullCertificateAuthority, authD
 }
 
 // NewClient creates a new certificate signing grpc client
-func NewClient(ctx context.Context, ident *identity.FullIdentity, address string) (*Client, error) {
-	tc := transport.NewClient(ident)
+func NewClient(ctx context.Context, tc transport.Client, address string) (*Client, error) {
 	conn, err := tc.DialAddress(ctx, address)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
+		conn:   conn,
 		client: pb.NewCertificatesClient(conn),
 	}, nil
 }
@@ -182,9 +186,17 @@ func ParseToken(tokenString string) (*Token, error) {
 	return t, nil
 }
 
+// Close closes the client
+func (c *Client) Close() error {
+	if c.conn != nil {
+		return c.conn.Close()
+	}
+	return nil
+}
+
 // Sign claims an authorization using the token string and returns a signed
 // copy of the client's CA certificate
-func (c Client) Sign(ctx context.Context, tokenStr string) ([][]byte, error) {
+func (c *Client) Sign(ctx context.Context, tokenStr string) ([][]byte, error) {
 	res, err := c.client.Sign(ctx, &pb.SigningRequest{
 		AuthToken: tokenStr,
 		Timestamp: time.Now().Unix(),
@@ -214,13 +226,8 @@ func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (*p
 		return nil, err
 	}
 
-	signedChainBytes := append(
-		[][]byte{
-			signedPeerCA.Raw,
-			c.signer.Cert.Raw,
-		},
-		c.signer.RestChainRaw()...,
-	)
+	signedChainBytes := [][]byte{signedPeerCA.Raw, c.signer.Cert.Raw}
+	signedChainBytes = append(signedChainBytes, c.signer.RestChainRaw()...)
 	err = c.authDB.Claim(&ClaimOpts{
 		Req:           req,
 		Peer:          grpcPeer,
@@ -237,12 +244,12 @@ func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (*p
 }
 
 // Close closes the authorization database's underlying store.
-func (a *AuthorizationDB) Close() error {
-	return ErrAuthorizationDB.Wrap(a.DB.Close())
+func (authDB *AuthorizationDB) Close() error {
+	return ErrAuthorizationDB.Wrap(authDB.DB.Close())
 }
 
 // Create creates a new authorization and adds it to the authorization database.
-func (a *AuthorizationDB) Create(userID string, count int) (Authorizations, error) {
+func (authDB *AuthorizationDB) Create(userID string, count int) (Authorizations, error) {
 	if len(userID) == 0 {
 		return nil, ErrAuthorizationDB.New("userID cannot be empty")
 	}
@@ -266,7 +273,7 @@ func (a *AuthorizationDB) Create(userID string, count int) (Authorizations, erro
 		return nil, ErrAuthorizationDB.Wrap(err)
 	}
 
-	if err := a.add(userID, newAuths); err != nil {
+	if err := authDB.add(userID, newAuths); err != nil {
 		return nil, err
 	}
 
@@ -274,8 +281,8 @@ func (a *AuthorizationDB) Create(userID string, count int) (Authorizations, erro
 }
 
 // Get retrieves authorizations by user ID.
-func (a *AuthorizationDB) Get(userID string) (Authorizations, error) {
-	authsBytes, err := a.DB.Get(storage.Key(userID))
+func (authDB *AuthorizationDB) Get(userID string) (Authorizations, error) {
+	authsBytes, err := authDB.DB.Get(storage.Key(userID))
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return nil, ErrAuthorizationDB.Wrap(err)
 	}
@@ -291,16 +298,33 @@ func (a *AuthorizationDB) Get(userID string) (Authorizations, error) {
 }
 
 // UserIDs returns a list of all userIDs present in the authorization database.
-func (a *AuthorizationDB) UserIDs() ([]string, error) {
-	keys, err := a.DB.List([]byte{}, 0)
+func (authDB *AuthorizationDB) UserIDs() ([]string, error) {
+	keys, err := authDB.DB.List([]byte{}, 0)
 	if err != nil {
 		return nil, ErrAuthorizationDB.Wrap(err)
 	}
 	return keys.Strings(), nil
 }
 
-// Claim marks an authorization as claimed and records claim information
-func (a *AuthorizationDB) Claim(opts *ClaimOpts) error {
+// List returns all authorizations in the database.
+func (authDB *AuthorizationDB) List() (auths Authorizations, _ error) {
+	uids, err := authDB.UserIDs()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, uid := range uids {
+		idAuths, err := authDB.Get(uid)
+		if err != nil {
+			return nil, err
+		}
+		auths = append(auths, idAuths...)
+	}
+	return auths, nil
+}
+
+// Claim marks an authorization as claimed and records claim information.
+func (authDB *AuthorizationDB) Claim(opts *ClaimOpts) error {
 	now := time.Now().Unix()
 	if !(now-MaxClaimDelaySeconds < opts.Req.Timestamp) ||
 		!(opts.Req.Timestamp < now+MaxClaimDelaySeconds) {
@@ -326,7 +350,7 @@ func (a *AuthorizationDB) Claim(opts *ClaimOpts) error {
 		return err
 	}
 
-	auths, err := a.Get(token.UserID)
+	auths, err := authDB.Get(token.UserID)
 	if err != nil {
 		return err
 	}
@@ -346,7 +370,7 @@ func (a *AuthorizationDB) Claim(opts *ClaimOpts) error {
 					SignedChainBytes: opts.ChainBytes,
 				},
 			}
-			if err := a.put(token.UserID, auths); err != nil {
+			if err := authDB.put(token.UserID, auths); err != nil {
 				return err
 			}
 			break
@@ -355,23 +379,44 @@ func (a *AuthorizationDB) Claim(opts *ClaimOpts) error {
 	return nil
 }
 
-func (a *AuthorizationDB) add(userID string, newAuths Authorizations) error {
-	auths, err := a.Get(userID)
+// Unclaim removes a claim from an authorization.
+func (authDB *AuthorizationDB) Unclaim(authToken string) error {
+	token, err := ParseToken(authToken)
+	if err != nil {
+		return err
+	}
+
+	auths, err := authDB.Get(token.UserID)
+	if err != nil {
+		return err
+	}
+
+	for i, auth := range auths {
+		if auth.Token.Equal(token) {
+			auths[i].Claim = nil
+			return authDB.put(token.UserID, auths)
+		}
+	}
+	return errs.New("token not found in authorizations DB")
+}
+
+func (authDB *AuthorizationDB) add(userID string, newAuths Authorizations) error {
+	auths, err := authDB.Get(userID)
 	if err != nil {
 		return err
 	}
 
 	auths = append(auths, newAuths...)
-	return a.put(userID, auths)
+	return authDB.put(userID, auths)
 }
 
-func (a *AuthorizationDB) put(userID string, auths Authorizations) error {
+func (authDB *AuthorizationDB) put(userID string, auths Authorizations) error {
 	authsBytes, err := auths.Marshal()
 	if err != nil {
 		return ErrAuthorizationDB.Wrap(err)
 	}
 
-	if err := a.DB.Put(storage.Key(userID), authsBytes); err != nil {
+	if err := authDB.DB.Put(storage.Key(userID), authsBytes); err != nil {
 		return ErrAuthorizationDB.Wrap(err)
 	}
 	return nil

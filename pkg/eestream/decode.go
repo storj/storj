@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package eestream
@@ -36,8 +36,7 @@ type decodedReader struct {
 // expectedSize is the number of bytes expected to be returned by the Reader.
 // mbm is the maximum memory (in bytes) to be allocated for read buffers. If
 // set to 0, the minimum possible memory will be used.
-func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser,
-	es ErasureScheme, expectedSize int64, mbm int) io.ReadCloser {
+func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser, es ErasureScheme, expectedSize int64, mbm int) io.ReadCloser {
 	if expectedSize < 0 {
 		return readcloser.FatalReadCloser(Error.New("negative expected size"))
 	}
@@ -209,4 +208,11 @@ func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (io.Re
 	}
 	// length might not have included all of the blocks, limit what we return
 	return readcloser.LimitReadCloser(r, length), nil
+}
+
+func checkMBM(mbm int) error {
+	if mbm < 0 {
+		return Error.New("negative max buffer memory")
+	}
+	return nil
 }

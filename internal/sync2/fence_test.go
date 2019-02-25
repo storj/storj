@@ -15,6 +15,8 @@ import (
 )
 
 func TestFence(t *testing.T) {
+	t.Parallel()
+
 	var group errgroup.Group
 	var fence sync2.Fence
 	var done int32

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package cmd
@@ -17,7 +17,7 @@ func init() {
 		Use:   "cat",
 		Short: "Copies a Storj object to standard out",
 		RunE:  catMain,
-	}, CLICmd)
+	}, RootCmd)
 }
 
 // catMain is the function executed when catCmd is called

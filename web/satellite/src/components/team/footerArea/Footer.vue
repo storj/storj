@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -6,7 +6,7 @@
         <!-- if selection mode -->
         <DeleteUserArea />
         <!-- approval after delete click -->
-        <!-- <ApproveDeleteUserArea /> -->
+         <!--<ApproveDeleteUserArea />-->
     </div>
 </template>
 

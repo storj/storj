@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -16,13 +16,13 @@
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
-	import SortDropdown from './SortDropdown.vue';
-	import { mapState } from 'vuex';
-	import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
-	import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { Component, Vue } from 'vue-property-decorator';
+import SortDropdown from './SortDropdown.vue';
+import { mapState } from 'vuex';
+import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-	@Component(
+@Component(
     {
         data: function () {
             return {
@@ -31,23 +31,23 @@
         },
         methods: {
             toggleSelection: function (): void {
-            	this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
             }
         },
-		computed: mapState({
-			sortOption: (state: any) => {
-				switch (state.projectMembersModule.searchParameters.sortBy) {
-					case ProjectMemberSortByEnum.EMAIL:
-						return 'email';
+        computed: mapState({
+            sortOption: (state: any) => {
+                switch (state.projectMembersModule.searchParameters.sortBy) {
+                    case ProjectMemberSortByEnum.EMAIL:
+                        return 'email';
 
-					case ProjectMemberSortByEnum.CREATED_AT:
-						return 'date';
+                    case ProjectMemberSortByEnum.CREATED_AT:
+                        return 'date';
                     default: // ProjectMemberSortByEnum.NAME
-                    	return 'name';
-				}
+                        return 'name';
+                }
             },
-			isChoiceShown: (state: any) => state.appStateModule.appState.isSortProjectMembersByPopupShown
-		}),
+            isChoiceShown: (state: any) => state.appStateModule.appState.isSortProjectMembersByPopupShown
+        }),
         components: {
             SortDropdown
         }

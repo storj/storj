@@ -1,80 +1,120 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
 
 import (
+	"crypto/x509"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/provider"
 )
 
 var (
 	caCmd = &cobra.Command{
-		Use:   "ca",
-		Short: "Manage certificate authorities",
+		Use:         "certificate-authority",
+		Short:       "Manage certificate authorities",
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	newCACmd = &cobra.Command{
-		Use:   "new",
-		Short: "Create a new certificate authority",
-		RunE:  cmdNewCA,
+		Use:         "create",
+		Short:       "Create a new certificate authority",
+		RunE:        cmdNewCA,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	getIDCmd = &cobra.Command{
-		Use:   "id",
-		Short: "Get the id of a CA",
-		RunE:  cmdGetID,
+		Use:         "id",
+		Short:       "Get the id of a CA",
+		RunE:        cmdGetID,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	caExtCmd = &cobra.Command{
-		Use:   "extensions",
-		Short: "Prints the extensions attached to the identity CA certificate",
-		RunE:  cmdCAExtensions,
+		Use:         "extensions [service]",
+		Short:       "Prints the extensions attached to the identity CA certificate",
+		RunE:        cmdCAExtensions,
+		Args:        cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"type": "setup"},
 	}
 	revokeCACmd = &cobra.Command{
-		Use:   "revoke",
-		Short: "Revoke the identity's CA certificate (creates backup)",
-		RunE:  cmdRevokeCA,
+		Use:         "revoke",
+		Short:       "Revoke the identity's CA certificate (creates backup)",
+		RunE:        cmdRevokeCA,
+		Annotations: map[string]string{"type": "setup"},
+	}
+	revokePeerCACmd = &cobra.Command{
+		Use:         "revoke-peer [service] [revoked cert path]",
+		Short:       "Revoke a peer identity's CA certificate and add to local revocation database",
+		Args:        cobra.MaximumNArgs(2),
+		RunE:        cmdRevokePeerCA,
+		Annotations: map[string]string{"type": "setup"},
 	}
 
 	newCACfg struct {
-		CA provider.CASetupConfig
+		CA identity.CASetupConfig
 	}
 
 	getIDCfg struct {
-		CA provider.PeerCAConfig
+		CA identity.PeerCAConfig
 	}
 
 	caExtCfg struct {
-		CA provider.FullCAConfig
+		CA identity.FullCAConfig
 	}
 
 	revokeCACfg struct {
-		CA provider.FullCAConfig
+		CA identity.FullCAConfig
 		// TODO: add "broadcast" option to send revocation to network nodes
+	}
+
+	revokePeerCACfg struct {
+		CA              identity.FullCAConfig
+		PeerCA          identity.PeerCAConfig
+		RevocationDBURL string
 	}
 )
 
 func init() {
+	// NB: init functions are executed in lexicographical order of filename
+	identityDirParam := cfgstruct.FindIdentityDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
+	}
+
+	confDirParam := cfgstruct.FindConfigDirParam()
+	if confDirParam != "" {
+		defaultConfigDir = confDirParam
+	}
+
+	rootCmd.PersistentFlags().StringVar(&configDir, "config-dir", defaultConfigDir, "service config directory")
+	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "root directory for identity output")
+
 	rootCmd.AddCommand(caCmd)
+
 	caCmd.AddCommand(newCACmd)
-	cfgstruct.Bind(newCACmd.Flags(), &newCACfg, cfgstruct.ConfDir(defaultConfDir))
 	caCmd.AddCommand(getIDCmd)
-	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, cfgstruct.ConfDir(defaultConfDir))
 	caCmd.AddCommand(caExtCmd)
-	cfgstruct.Bind(caExtCmd.Flags(), &caExtCfg, cfgstruct.ConfDir(defaultConfDir))
 	caCmd.AddCommand(revokeCACmd)
-	cfgstruct.Bind(revokeCACmd.Flags(), &revokeCACfg, cfgstruct.ConfDir(defaultConfDir))
+	caCmd.AddCommand(revokePeerCACmd)
+
+	cfgstruct.Bind(newCACmd.Flags(), &newCACfg, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(caExtCmd.Flags(), &caExtCfg, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(revokeCACmd.Flags(), &revokeCACfg, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(revokePeerCACmd.Flags(), &revokePeerCACfg, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdNewCA(cmd *cobra.Command, args []string) error {
-	_, err := newCACfg.CA.Create(process.Ctx(cmd))
+	_, err := newCACfg.CA.Create(process.Ctx(cmd), os.Stdout)
 	return err
 }
 
@@ -103,7 +143,7 @@ func cmdRevokeCA(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	updateCfg := provider.FullCAConfig{
+	updateCfg := identity.FullCAConfig{
 		CertPath: revokeCACfg.CA.CertPath,
 	}
 	if err := updateCfg.Save(ca); err != nil {
@@ -112,7 +152,60 @@ func cmdRevokeCA(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+func cmdRevokePeerCA(cmd *cobra.Command, args []string) (err error) {
+	argLen := len(args)
+	switch {
+	case argLen > 0:
+		revokePeerCACfg.CA = identity.FullCAConfig{
+			CertPath: filepath.Join(identityDir, args[0], "ca.cert"),
+			KeyPath:  filepath.Join(identityDir, args[0], "ca.key"),
+		}
+
+		revokePeerCACfg.RevocationDBURL = "bolt://" + filepath.Join(configDir, args[0], "revocations.db")
+		fallthrough
+	case argLen > 1:
+		revokePeerCACfg.PeerCA = identity.PeerCAConfig{
+			CertPath: args[1],
+		}
+	}
+
+	if len(args) > 0 {
+	}
+
+	ca, err := revokePeerCACfg.CA.Load()
+	if err != nil {
+		return err
+	}
+
+	peerCA, err := revokePeerCACfg.PeerCA.Load()
+	if err != nil {
+		return err
+	}
+
+	ext, err := peertls.NewRevocationExt(ca.Key, peerCA.Cert)
+	if err != nil {
+		return err
+	}
+
+	revDB, err := identity.NewRevDB(revokePeerCACfg.RevocationDBURL)
+	if err != nil {
+		return err
+	}
+
+	if err = revDB.Put([]*x509.Certificate{ca.Cert, peerCA.Cert}, ext); err != nil {
+		return err
+	}
+	return nil
+}
+
 func cmdCAExtensions(cmd *cobra.Command, args []string) (err error) {
+	if len(args) > 0 {
+		caExtCfg.CA = identity.FullCAConfig{
+			CertPath: filepath.Join(identityDir, args[0], "ca.cert"),
+			KeyPath:  filepath.Join(identityDir, args[0], "ca.key"),
+		}
+	}
+
 	ca, err := caExtCfg.CA.Load()
 	if err != nil {
 		return err

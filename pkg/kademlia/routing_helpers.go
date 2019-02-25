@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package kademlia
@@ -100,18 +100,35 @@ func (rt *RoutingTable) updateNode(node *pb.Node) error {
 }
 
 // removeNode will remove churned nodes and replace those entries with nodes from the replacement cache.
-func (rt *RoutingTable) removeNode(nodeID storj.NodeID) error {
-	kadBucketID, err := rt.getKBucketID(nodeID)
+func (rt *RoutingTable) removeNode(node *pb.Node) error {
+	rt.mutex.Lock()
+	defer rt.mutex.Unlock()
+	kadBucketID, err := rt.getKBucketID(node.Id)
+
 	if err != nil {
 		return RoutingErr.New("could not get k bucket %s", err)
 	}
-	_, err = rt.nodeBucketDB.Get(nodeID.Bytes())
+
+	existingMarshalled, err := rt.nodeBucketDB.Get(node.Id.Bytes())
 	if storage.ErrKeyNotFound.Has(err) {
+		//check replacement cache
+		rt.removeFromReplacementCache(kadBucketID, node)
 		return nil
 	} else if err != nil {
 		return RoutingErr.New("could not get node %s", err)
 	}
-	err = rt.nodeBucketDB.Delete(nodeID.Bytes())
+
+	var existing pb.Node
+	err = proto.Unmarshal(existingMarshalled, &existing)
+	if err != nil {
+		return RoutingErr.New("could not unmarshal node %s", err)
+	}
+
+	if !pb.AddressEqual(existing.Address, node.Address) {
+		// don't remove a node if the address is different
+		return nil
+	}
+	err = rt.nodeBucketDB.Delete(node.Id.Bytes())
 	if err != nil {
 		return RoutingErr.New("could not delete node %s", err)
 	}
@@ -125,6 +142,7 @@ func (rt *RoutingTable) removeNode(nodeID storj.NodeID) error {
 	}
 	rt.replacementCache[kadBucketID] = nodes[:len(nodes)-1]
 	return nil
+
 }
 
 // putNode: helper, adds or updates Node and ID to nodeBucketDB
@@ -299,18 +317,20 @@ func (rt *RoutingTable) getUnmarshaledNodesFromBucket(bID bucketID) ([]*pb.Node,
 
 // getKBucketRange: helper, returns the left and right endpoints of the range of node ids contained within the bucket
 func (rt *RoutingTable) getKBucketRange(bID bucketID) ([]bucketID, error) {
-	kadIDs, err := rt.kadBucketDB.ReverseList(bID[:], 2)
+	kadBucketIDs, err := rt.kadBucketDB.List(nil, 0)
 	if err != nil {
-		return nil, RoutingErr.New("could not reverse list k bucket ids %s", err)
+		return nil, RoutingErr.New("could not list all k bucket ids: %s", err)
 	}
-	coords := make([]bucketID, 2)
-	if len(kadIDs) < 2 {
-		coords[0] = bucketID{}
-	} else {
-		copy(coords[0][:], kadIDs[1])
+	previousBucket := bucketID{}
+	for _, k := range kadBucketIDs {
+		thisBucket := keyToBucketID(k)
+		if thisBucket == bID {
+			return []bucketID{previousBucket, bID}, nil
+		}
+		previousBucket = thisBucket
 	}
-	copy(coords[1][:], kadIDs[0])
-	return coords, nil
+	// shouldn't happen BUT return error if no matching kbucket...
+	return nil, RoutingErr.New("could not find k bucket")
 }
 
 // determineLeafDepth determines the level of the bucket id in question.

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package transport
@@ -11,8 +11,9 @@ import (
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -35,19 +36,20 @@ type Observer interface {
 type Client interface {
 	DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
-	Identity() *provider.FullIdentity
+	Identity() *identity.FullIdentity
+	WithObservers(obs ...Observer) *Transport
 }
 
 // Transport interface structure
 type Transport struct {
-	identity  *provider.FullIdentity
+	tlsOpts   *tlsopts.Options
 	observers []Observer
 }
 
 // NewClient returns a newly instantiated Transport Client
-func NewClient(identity *provider.FullIdentity, obs ...Observer) Client {
+func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
 	return &Transport{
-		identity:  identity,
+		tlsOpts:   tlsOpts,
 		observers: obs,
 	}
 }
@@ -63,18 +65,17 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 	}
 
 	// add ID of node we are wanting to connect to
-	dialOpt, err := transport.identity.DialOption(node.Id)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	options := append([]grpc.DialOption{dialOpt}, opts...)
+	dialOpt := transport.tlsOpts.DialOption(node.Id)
+	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock(), grpc.FailOnNonTempDialError(true)}, opts...)
 
 	ctx, cf := context.WithTimeout(ctx, timeout)
 	defer cf()
 
 	conn, err = grpc.DialContext(ctx, node.GetAddress().Address, options...)
 	if err != nil {
+		if err == context.Canceled {
+			return nil, err
+		}
 		alertFail(ctx, transport.observers, node, err)
 		return nil, Error.Wrap(err)
 	}
@@ -88,19 +89,27 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 func (transport *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dialOpt, err := transport.identity.DialOption(storj.NodeID{})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+	dialOpt := transport.tlsOpts.DialOption(storj.NodeID{})
+	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock(), grpc.FailOnNonTempDialError(true)}, opts...)
 
-	options := append([]grpc.DialOption{dialOpt}, opts...)
-	conn, err = grpc.Dial(address, options...)
+	conn, err = grpc.DialContext(ctx, address, options...)
+	if err == context.Canceled {
+		return nil, err
+	}
 	return conn, Error.Wrap(err)
 }
 
 // Identity is a getter for the transport's identity
-func (transport *Transport) Identity() *provider.FullIdentity {
-	return transport.identity
+func (transport *Transport) Identity() *identity.FullIdentity {
+	return transport.tlsOpts.Ident
+}
+
+// WithObservers returns a new transport including the listed observers.
+func (transport *Transport) WithObservers(obs ...Observer) *Transport {
+	tr := &Transport{tlsOpts: transport.tlsOpts}
+	tr.observers = append(tr.observers, transport.observers...)
+	tr.observers = append(tr.observers, obs...)
+	return tr
 }
 
 func alertFail(ctx context.Context, obs []Observer, node *pb.Node, err error) {

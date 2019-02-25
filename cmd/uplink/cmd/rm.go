@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package cmd
@@ -17,7 +17,7 @@ func init() {
 		Use:   "rm",
 		Short: "Delete an object",
 		RunE:  deleteObject,
-	}, CLICmd)
+	}, RootCmd)
 }
 
 func deleteObject(cmd *cobra.Command, args []string) error {

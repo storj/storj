@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package dht
@@ -14,12 +14,10 @@ import (
 
 // DHT is the interface for the DHT in the Storj network
 type DHT interface {
-	GetNodes(ctx context.Context, start storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error)
-	GetRoutingTable(ctx context.Context) (RoutingTable, error)
+	FindNear(ctx context.Context, start storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error)
 	Bootstrap(ctx context.Context) error
 	Ping(ctx context.Context, node pb.Node) (pb.Node, error)
 	FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error)
-	Disconnect() error
 	Seen() []*pb.Node
 }
 
@@ -29,14 +27,15 @@ type RoutingTable interface {
 	Local() pb.Node
 	K() int
 	CacheSize() int
-	GetNodes(id storj.NodeID) (nodes []*pb.Node, ok bool)
 	GetBucketIds() (storage.Keys, error)
-	FindNear(id storj.NodeID, limit int) ([]*pb.Node, error)
+	FindNear(id storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error)
 	ConnectionSuccess(node *pb.Node) error
 	ConnectionFailed(node *pb.Node) error
 	// these are for refreshing
 	SetBucketTimestamp(id []byte, now time.Time) error
 	GetBucketTimestamp(id []byte) (time.Time, error)
+
+	Close() error
 }
 
 // Bucket is a set of methods to act on kademlia k buckets

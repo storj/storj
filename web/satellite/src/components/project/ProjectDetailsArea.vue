@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -36,28 +36,30 @@
                     </div>
                 </div>
             </div>
-            <div class="project-details-info-container">
-                <div class="project-details-info-container__portability-container">
-                    <div class="project-details-info-container__portability-container__info">
-                        <img src="../../../static/images/projectDetails/Portability.png" alt="">
-                        <div class="project-details-info-container__portability-container__info__text">
-                            <h4>Data Portability</h4>
-                            <h2>Backup project data to recover or move between Satellites</h2>
-                        </div>
-                    </div>
-                    <div class="project-details-info-container__portability-container__buttons-area">
-                        <Button label="Export" width="170px" height="48px" :onPress="onExportClick" isWhite/>
-                        <Button label="Import" width="170px" height="48px" :onPress="onImportClick"/>
-                    </div>
-                </div>
-            </div>
+            <!--Commented out section for future purpose-->
+            <!--<div class="project-details-info-container" >-->
+                <!--<div class="project-details-info-container__portability-container">-->
+                    <!--<div class="project-details-info-container__portability-container__info">-->
+                        <!--<img src="../../../static/images/projectDetails/Portability.png" alt="">-->
+                        <!--<div class="project-details-info-container__portability-container__info__text">-->
+                            <!--<h4>Data Portability</h4>-->
+                            <!--<h2>Backup project data to recover or move between Satellites</h2>-->
+                        <!--</div>-->
+                    <!--</div>-->
+                    <!--<div class="project-details-info-container__portability-container__buttons-area">-->
+                        <!--<Button label="Export" width="170px" height="48px" :onPress="onExportClick" isWhite/>-->
+                        <!--<Button label="Import" width="170px" height="48px" :onPress="onImportClick"/>-->
+                    <!--</div>-->
+                <!--</div>-->
+            <!--</div>-->
             <div class="project-details__button-area" id="deleteProjectPopupButton">
                 <Button class="delete-project" label="Delete project" width="180px" height="48px" :onPress="toggleDeleteDialog" isDeletion/>
             </div>
         </div>
-        <EmptyState 
+        <EmptyState
             v-if="!isProjectSelected"
-            mainTitle="Choose or Create new project"
+            mainTitle="Create your first project"
+            additional-text='<p>Please click the button <span style="font-family: montserrat_bold">"New Project"</span> in the right corner</p>'
             :imageSource="emptyImage" />
         <DeleteProjectPopup v-if="isPopupShown" />
     </div>
@@ -80,6 +82,7 @@ import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
                 isEditing: false,
                 newDescription: '',
                 emptyImage: EMPTY_STATE_IMAGES.PROJECT,
+                additionalEmptyText:'Please click the button {{<b>New Project</b>}} in the right corner'
             };
         },
         methods: {
@@ -119,7 +122,7 @@ import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
             },
             description: function (): string {
 
-                return this.$store.getters.selectedProject.description ? 
+                return this.$store.getters.selectedProject.description ?
                     this.$store.getters.selectedProject.description :
                     'No description yet. Please enter some information about the project if any.';
             },
@@ -150,7 +153,7 @@ export default class ProjectDetailsArea extends Vue {
 
 <style scoped lang="scss">
     .project-details {
-        padding: 55px 55px 55px 55px;
+        padding: 44px 55px 55px 55px;
         position: relative;
         overflow-y: auto;
         overflow-x: hidden;
@@ -195,7 +198,7 @@ export default class ProjectDetailsArea extends Vue {
             &__checkbox {
                 align-self: center;
             }
-            
+
             h2 {
                 font-family: 'montserrat_regular';
                 font-size: 14px;
@@ -207,28 +210,28 @@ export default class ProjectDetailsArea extends Vue {
 
         &__button-area {
             margin-top: 3vh;
-            margin-bottom: 5vh;
+            margin-bottom: 100px;
         }
     }
     .project-details-info-container {
         height: auto;
-        margin-top: 4vh;
+        margin-top: 24px;
         display: flex;
         flex-direction: row;
         justify-content: space-between;
         align-items: flex-start;
 
         &__name-container {
-            height: 10vh;
-            width: 72vw;
+            min-height: 67px;
+            width: 100%;
             border-radius: 6px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: flex-start;
-            padding: 3vh 3vh 3vh 3vh;
+            padding: 28px;
             background-color: #fff;
-            
+
             &:hover {
                 box-shadow: 0px 12px 24px rgba(175, 183, 193, 0.4);
             }
@@ -236,8 +239,8 @@ export default class ProjectDetailsArea extends Vue {
 
         &__description-container {
             @extend .project-details-info-container__name-container;
+            min-height: 67px;
             height: auto;
-            width: 72vw;
             flex-direction: row;
             justify-content: space-between;
             align-items: center;

@@ -21,7 +21,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // SerializableMeta is the object metadata that will be stored serialized
 type SerializableMeta struct {
 	ContentType          string            `protobuf:"bytes,1,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
-	UserDefined          map[string]string `protobuf:"bytes,2,rep,name=user_defined,json=userDefined" json:"user_defined,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	UserDefined          map[string]string `protobuf:"bytes,2,rep,name=user_defined,json=userDefined,proto3" json:"user_defined,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -31,7 +31,7 @@ func (m *SerializableMeta) Reset()         { *m = SerializableMeta{} }
 func (m *SerializableMeta) String() string { return proto.CompactTextString(m) }
 func (*SerializableMeta) ProtoMessage()    {}
 func (*SerializableMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_meta_12afffbb4ed1a0bb, []int{0}
+	return fileDescriptor_meta_d3a626c05679ee13, []int{0}
 }
 func (m *SerializableMeta) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SerializableMeta.Unmarshal(m, b)
@@ -70,9 +70,9 @@ func init() {
 	proto.RegisterMapType((map[string]string)(nil), "objects.SerializableMeta.UserDefinedEntry")
 }
 
-func init() { proto.RegisterFile("meta.proto", fileDescriptor_meta_12afffbb4ed1a0bb) }
+func init() { proto.RegisterFile("meta.proto", fileDescriptor_meta_d3a626c05679ee13) }
 
-var fileDescriptor_meta_12afffbb4ed1a0bb = []byte{
+var fileDescriptor_meta_d3a626c05679ee13 = []byte{
 	// 191 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xca, 0x4d, 0x2d, 0x49,
 	0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0xcf, 0x4f, 0xca, 0x4a, 0x4d, 0x2e, 0x29, 0x56,

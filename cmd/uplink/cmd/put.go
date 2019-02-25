@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package cmd
@@ -17,7 +17,7 @@ func init() {
 		Use:   "put",
 		Short: "Copies data from standard in to a Storj object",
 		RunE:  putMain,
-	}, CLICmd)
+	}, RootCmd)
 }
 
 // putMain is the function executed when putCmd is called

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package cmd
@@ -24,7 +24,7 @@ func init() {
 		Use:   "ls",
 		Short: "List objects and prefixes or all buckets",
 		RunE:  list,
-	}, CLICmd)
+	}, RootCmd)
 	recursiveFlag = lsCmd.Flags().Bool("recursive", false, "if true, list recursively")
 }
 

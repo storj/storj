@@ -1,44 +1,39 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"text/tabwriter"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/psserver"
-	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/storagenodedb"
 )
 
-// StorageNode defines storage node configuration
-type StorageNode struct {
-	CA        identity.CASetupConfig `setup:"true"`
-	Identity  identity.SetupConfig   `setup:"true"`
-	Overwrite bool                   `default:"false" help:"whether to overwrite pre-existing configuration files" setup:"true"`
+// StorageNodeFlags defines storage node configuration
+type StorageNodeFlags struct {
+	EditConf        bool `default:"false" help:"open config in default editor"`
+	SaveAllDefaults bool `default:"false" help:"save all default values to config.yaml file" setup:"true"`
 
-	Server   server.Config
-	Kademlia kademlia.StorageNodeConfig
-	Storage  psserver.Config
-	Signer   certificates.CertClientConfig
+	storagenode.Config
+}
+
+// Inspector holds the kad client for node inspection
+type Inspector struct {
+	kad pb.KadInspectorClient
 }
 
 var (
@@ -64,78 +59,136 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 	diagCmd = &cobra.Command{
-		Use:   "diag",
-		Short: "Diagnostic Tool support",
-		RunE:  cmdDiag,
+		Use:         "diag",
+		Short:       "Diagnostic Tool support",
+		RunE:        cmdDiag,
+		Annotations: map[string]string{"type": "helper"},
+	}
+	dashboardCmd = &cobra.Command{
+		Use:         "dashboard",
+		Short:       "Display a dashbaord",
+		RunE:        dashCmd,
+		Annotations: map[string]string{"type": "helper"},
+	}
+	runCfg   StorageNodeFlags
+	setupCfg StorageNodeFlags
+
+	diagCfg      storagenode.Config
+	dashboardCfg struct {
+		Address         string `default:":28967" help:"address for dashboard service"`
+		ExternalAddress string `default:":28967" help:"address that your node is listening on if using a tunneling service"`
+		BootstrapAddr   string `default:"bootstrap.storj.io:8888" help:"address of server the storage node was bootstrapped against"`
 	}
 
-	runCfg   StorageNode
-	setupCfg StorageNode
-
-	diagCfg struct {
-	}
-
-	defaultConfDir string
-	defaultDiagDir string
-	confDir        *string
+	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
+	// TODO: this path should be defined somewhere else
+	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "storagenode")
+	defaultDiagDir     string
+	confDir            string
+	identityDir        string
+	useColor           bool
 )
 
 const (
-	defaultServerAddr    = ":28967"
-	defaultSatteliteAddr = "127.0.0.1:7778"
+	defaultServerAddr = ":28967"
 )
 
 func init() {
-	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
-
-	dirParam := cfgstruct.FindConfigDirParam()
-	if dirParam != "" {
-		defaultConfDir = dirParam
+	confDirParam := cfgstruct.FindConfigDirParam()
+	if confDirParam != "" {
+		defaultConfDir = confDirParam
+	}
+	identityDirParam := cfgstruct.FindIdentityDirParam()
+	if identityDirParam != "" {
+		defaultIdentityDir = identityDirParam
 	}
 
-	confDir = rootCmd.PersistentFlags().String("config-dir", defaultConfDir, "main directory for storagenode configuration")
+	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
+	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
+	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
+	err = rootCmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
+	if err != nil {
+		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
+	}
+	rootCmd.PersistentFlags().BoolVar(&useColor, "color", false, "use color in user interface")
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir))
+	rootCmd.AddCommand(dashboardCmd)
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, cfgstruct.ConfDir(defaultDiagDir))
+}
+
+func databaseConfig(config storagenode.Config) storagenodedb.Config {
+	return storagenodedb.Config{
+		Storage:  config.Storage.Path,
+		Info:     filepath.Join(config.Storage.Path, "piecestore.db"),
+		Kademlia: config.Kademlia.DBPath,
+	}
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	operatorConfig := runCfg.Kademlia.Operator
-	if err := isOperatorEmailValid(operatorConfig.Email); err != nil {
-		zap.S().Warn(err)
-	} else {
-		zap.S().Info("Operator email: ", operatorConfig.Email)
-	}
-	if err := isOperatorWalletValid(operatorConfig.Wallet); err != nil {
+	log := zap.L()
+
+	identity, err := runCfg.Identity.Load()
+	if err != nil {
 		zap.S().Fatal(err)
-	} else {
-		zap.S().Info("Operator wallet: ", operatorConfig.Wallet)
 	}
 
-	return runCfg.Server.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
-}
+	if err := runCfg.Verify(log); err != nil {
+		log.Sugar().Error("Invalid configuration: ", err)
+		return err
+	}
 
-func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*confDir)
+	ctx := process.Ctx(cmd)
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Error("Failed to initialize telemetry batcher: ", err)
+	}
+
+	db, err := storagenodedb.New(log.Named("db"), databaseConfig(runCfg.Config))
+
+	if err != nil {
+		return errs.New("Error starting master database on storagenode: %+v", err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
+	err = db.CreateTables()
+	if err != nil {
+		return errs.New("Error creating tables for master database on storagenode: %+v", err)
+	}
+
+	peer, err := storagenode.New(log, identity, db, runCfg.Config)
 	if err != nil {
 		return err
 	}
 
-	valid, err := fpath.IsValidSetupDir(setupDir)
-	if !setupCfg.Overwrite && !valid {
-		return fmt.Errorf("storagenode configuration already exists (%v). Rerun with --overwrite", setupDir)
-	} else if setupCfg.Overwrite && err == nil {
-		fmt.Println("overwriting existing storagenode config")
-		err = os.RemoveAll(setupDir)
-		if err != nil {
-			return err
-		}
+	runError := peer.Run(ctx)
+	closeError := peer.Close()
+
+	return errs.Combine(runError, closeError)
+}
+
+func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	setupDir, err := filepath.Abs(confDir)
+	if err != nil {
+		return err
+	}
+
+	valid, _ := fpath.IsValidSetupDir(setupDir)
+	if !valid {
+		return fmt.Errorf("storagenode configuration already exists (%v)", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
@@ -143,58 +196,47 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// TODO: this is only applicable once we stop deleting the entire config dir on overwrite
-	// (see https://storjlabs.atlassian.net/browse/V3-1013)
-	// (see https://storjlabs.atlassian.net/browse/V3-949)
-	if setupCfg.Overwrite {
-		setupCfg.CA.Overwrite = true
-		setupCfg.Identity.Overwrite = true
-	}
-	setupCfg.CA.CertPath = filepath.Join(setupDir, "ca.cert")
-	setupCfg.CA.KeyPath = filepath.Join(setupDir, "ca.key")
-	setupCfg.Identity.CertPath = filepath.Join(setupDir, "identity.cert")
-	setupCfg.Identity.KeyPath = filepath.Join(setupDir, "identity.key")
-
-	if setupCfg.Signer.AuthToken != "" && setupCfg.Signer.Address != "" {
-		err = setupCfg.Signer.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
-		if err != nil {
-			zap.S().Warn(err)
-		}
-	} else {
-		err = identity.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
-		if err != nil {
-			return err
-		}
-	}
-
 	overrides := map[string]interface{}{
-		"identity.cert-path":      setupCfg.Identity.CertPath,
-		"identity.key-path":       setupCfg.Identity.KeyPath,
-		"identity.server.address": defaultServerAddr,
-		"storage.path":            filepath.Join(setupDir, "storage"),
-		"kademlia.bootstrap-addr": defaultSatteliteAddr,
+		"log.level": "info",
+	}
+	serverAddress := cmd.Flag("server.address")
+	if !serverAddress.Changed {
+		overrides[serverAddress.Name] = defaultServerAddr
 	}
 
-	return process.SaveConfig(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	configFile := filepath.Join(setupDir, "config.yaml")
+	if setupCfg.SaveAllDefaults {
+		err = process.SaveConfigWithAllDefaults(cmd.Flags(), configFile, overrides)
+	} else {
+		err = process.SaveConfig(cmd.Flags(), configFile, overrides)
+	}
+	if err != nil {
+		return err
+	}
+
+	if setupCfg.EditConf {
+		return fpath.EditFile(configFile)
+	}
+
+	return err
 }
 
 func cmdConfig(cmd *cobra.Command, args []string) (err error) {
-	setupDir, err := filepath.Abs(*confDir)
+	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
 	//run setup if we can't access the config file
 	conf := filepath.Join(setupDir, "config.yaml")
 	if _, err := os.Stat(conf); err != nil {
-		if err = cmdSetup(cmd, args); err != nil {
-			return err
-		}
+		return cmdSetup(cmd, args)
 	}
+
 	return fpath.EditFile(conf)
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
-	diagDir, err := filepath.Abs(*confDir)
+	diagDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
@@ -206,18 +248,18 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// open the sql db
-	dbpath := filepath.Join(diagDir, "storage", "piecestore.db")
-	db, err := psdb.Open(context.Background(), nil, dbpath)
+	db, err := storagenodedb.New(zap.L().Named("db"), databaseConfig(diagCfg))
 	if err != nil {
-		fmt.Println("Storagenode database couldnt open:", dbpath)
-		return err
+		return errs.New("Error starting master database on storagenode: %v", err)
 	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
 
 	//get all bandwidth aggrements entries already ordered
-	bwAgreements, err := db.GetBandwidthAllocations()
+	bwAgreements, err := db.PSDB().GetBandwidthAllocations()
 	if err != nil {
-		fmt.Println("storage node 'bandwidth_agreements' table read error:", dbpath)
+		fmt.Printf("storage node 'bandwidth_agreements' table read error: %v\n", err)
 		return err
 	}
 
@@ -239,38 +281,29 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 
 	for _, rbaVal := range bwAgreements {
 		for _, rbaDataVal := range rbaVal {
-			// deserializing rbad you get payerbwallocation, total & storage node id
-			rbad := &pb.RenterBandwidthAllocation_Data{}
-			if err := proto.Unmarshal(rbaDataVal.Agreement, rbad); err != nil {
-				return err
-			}
+			rba := rbaDataVal.Agreement
+			pba := rba.PayerAllocation
 
-			// deserializing pbad you get satelliteID, uplinkID, max size, exp, serial# & action
-			pbad := &pb.PayerBandwidthAllocation_Data{}
-			if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
-				return err
-			}
-
-			summary, ok := summaries[pbad.SatelliteId]
+			summary, ok := summaries[pba.SatelliteId]
 			if !ok {
-				summaries[pbad.SatelliteId] = &SatelliteSummary{}
-				satelliteIDs = append(satelliteIDs, pbad.SatelliteId)
-				summary = summaries[pbad.SatelliteId]
+				summaries[pba.SatelliteId] = &SatelliteSummary{}
+				satelliteIDs = append(satelliteIDs, pba.SatelliteId)
+				summary = summaries[pba.SatelliteId]
 			}
 
 			// fill the summary info
-			summary.TotalBytes += rbad.GetTotal()
+			summary.TotalBytes += rba.Total
 			summary.TotalTransactions++
-			switch pbad.GetAction() {
-			case pb.PayerBandwidthAllocation_PUT:
+			switch pba.Action {
+			case pb.BandwidthAction_PUT:
 				summary.PutActionCount++
-			case pb.PayerBandwidthAllocation_GET:
+			case pb.BandwidthAction_GET:
 				summary.GetActionCount++
-			case pb.PayerBandwidthAllocation_GET_AUDIT:
+			case pb.BandwidthAction_GET_AUDIT:
 				summary.GetAuditActionCount++
-			case pb.PayerBandwidthAllocation_GET_REPAIR:
+			case pb.BandwidthAction_GET_REPAIR:
 				summary.GetRepairActionCount++
-			case pb.PayerBandwidthAllocation_PUT_REPAIR:
+			case pb.BandwidthAction_PUT_REPAIR:
 				summary.PutRepairActionCount++
 			}
 		}
@@ -293,24 +326,6 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	// display the data
 	err = w.Flush()
 	return err
-}
-
-func isOperatorEmailValid(email string) error {
-	if email == "" {
-		return fmt.Errorf("Operator mail address isn't specified")
-	}
-	return nil
-}
-
-func isOperatorWalletValid(wallet string) error {
-	if wallet == "" {
-		return fmt.Errorf("Operator wallet address isn't specified")
-	}
-	r := regexp.MustCompile("^0x[a-fA-F0-9]{40}$")
-	if match := r.MatchString(wallet); !match {
-		return fmt.Errorf("Operator wallet address isn't valid")
-	}
-	return nil
 }
 
 func main() {

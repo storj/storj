@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package boltdb
@@ -13,6 +13,9 @@ import (
 
 	"storj.io/storj/storage"
 )
+
+// Error is the default boltdb errs class
+var Error = errs.Class("boltdb error")
 
 // Client is the entrypoint into a bolt data store
 type Client struct {
@@ -152,13 +155,6 @@ func (client *Client) Delete(key storage.Key) error {
 // List returns either a list of keys for which boltdb has values or an error.
 func (client *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	rv, err := storage.ListKeys(client, first, limit)
-	return rv, Error.Wrap(err)
-}
-
-// ReverseList returns either a list of keys for which boltdb has values or an error.
-// Starts from first and iterates backwards
-func (client *Client) ReverseList(first storage.Key, limit int) (storage.Keys, error) {
-	rv, err := storage.ReverseListKeys(client, first, limit)
 	return rv, Error.Wrap(err)
 }
 

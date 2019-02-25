@@ -1,15 +1,14 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package psserver
 
 import (
 	"crypto"
-	"crypto/ecdsa"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"math"
 	"net"
 	"os"
@@ -17,49 +16,47 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/gtank/cryptopasta"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/bwagreement/testbwagreement"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 )
-
-func (TS *TestServer) writeFile(pieceID string) error {
-	file, err := TS.s.storage.Writer(pieceID)
-	if err != nil {
-		return err
-	}
-
-	_, err = file.Write([]byte("xyzwq"))
-	return errs.Combine(err, file.Close())
-
-}
 
 func TestPiece(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	TS := NewTestServer(t)
-	defer TS.Stop()
+	snID, upID := newTestID(ctx, t), newTestID(ctx, t)
+	s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
+	defer cleanup()
 
-	if err := TS.writeFile("11111111111111111111"); err != nil {
+	namespacedID, err := getNamespacedPieceID([]byte("11111111111111111111"), snID.ID.Bytes())
+	require.NoError(t, err)
+
+	if err := writeFile(s, namespacedID); err != nil {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
 
-	defer func() { _ = TS.s.storage.Delete("11111111111111111111") }()
+	defer func() { _ = s.storage.Delete(namespacedID) }()
 
 	// set up test cases
 	tests := []struct {
@@ -74,79 +71,73 @@ func TestPiece(t *testing.T) {
 			expiration: 9999999999,
 			err:        "",
 		},
-		{ // server should err with invalid id
-			id:         "123",
-			size:       5,
-			expiration: 9999999999,
-			err:        "rpc error: code = Unknown desc = piecestore error: invalid id length",
-		},
 		{ // server should err with nonexistent file
 			id:         "22222222222222222222",
 			size:       5,
 			expiration: 9999999999,
 			err: fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", func() string {
-				path, _ := TS.s.storage.PiecePath("22222222222222222222")
+				namespacedID, err := getNamespacedPieceID([]byte("22222222222222222222"), snID.ID.Bytes())
+				require.NoError(t, err)
+				path, _ := s.storage.PiecePath(namespacedID)
 				return path
 			}()),
-		},
-		{ // server should err with invalid TTL
-			id:         "22222222222222222222;DELETE*FROM TTL;;;;",
-			size:       5,
-			expiration: 9999999999,
-			err:        "rpc error: code = Unknown desc = PSServer error: invalid ID",
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run("should return expected PieceSummary values", func(t *testing.T) {
-			assert := assert.New(t)
+		t.Run("", func(t *testing.T) {
+
+			namespacedID, err := getNamespacedPieceID([]byte(tt.id), snID.ID.Bytes())
+			require.NoError(t, err)
 
 			// simulate piece TTL entry
-			_, err := TS.s.DB.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, tt.expiration))
-			assert.NoError(err)
+			_, err = s.DB.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, namespacedID, 1234567890, tt.expiration))
+			require.NoError(t, err)
 
 			defer func() {
-				_, err := TS.s.DB.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
-				assert.NoError(err)
+				_, err := s.DB.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, namespacedID))
+				require.NoError(t, err)
 			}()
 
-			req := &pb.PieceId{Id: tt.id}
-			resp, err := TS.c.Piece(ctx, req)
+			req := &pb.PieceId{Id: tt.id, SatelliteId: snID.ID}
+			resp, err := c.Piece(ctx, req)
 
 			if tt.err != "" {
-				assert.NotNil(err)
+				require.NotNil(t, err)
 				if runtime.GOOS == "windows" && strings.Contains(tt.err, "no such file or directory") {
 					//TODO (windows): ignoring for windows due to different underlying error
 					return
 				}
-				assert.Equal(tt.err, err.Error())
+				require.Equal(t, tt.err, err.Error())
 				return
 			}
 
-			assert.NoError(err)
+			assert.NoError(t, err)
+			require.NotNil(t, resp)
 
-			assert.Equal(tt.id, resp.GetId())
-			assert.Equal(tt.size, resp.GetPieceSize())
-			assert.Equal(tt.expiration, resp.GetExpirationUnixSec())
+			assert.Equal(t, tt.id, resp.GetId())
+			assert.Equal(t, tt.size, resp.GetPieceSize())
+			assert.Equal(t, tt.expiration, resp.GetExpirationUnixSec())
 		})
 	}
 }
 
 func TestRetrieve(t *testing.T) {
-	t.Skip("broken test")
+	t.Skip("still flaky")
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	TS := NewTestServer(t)
-	defer TS.Stop()
+	snID, upID := newTestID(ctx, t), newTestID(ctx, t)
+	s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
+	defer cleanup()
 
-	if err := TS.writeFile("11111111111111111111"); err != nil {
+	if err := writeFile(s, "11111111111111111111"); err != nil {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
 
-	defer func() { _ = TS.s.storage.Delete("11111111111111111111") }()
+	defer func() { _ = s.storage.Delete("11111111111111111111") }()
 
 	// set up test cases
 	tests := []struct {
@@ -182,7 +173,7 @@ func TestRetrieve(t *testing.T) {
 			respSize:  3,
 			allocSize: 3,
 			offset:    0,
-			content:   []byte("but"),
+			content:   []byte("xyz"),
 			err:       "",
 		},
 		{ // should successfully retrieve data
@@ -211,7 +202,7 @@ func TestRetrieve(t *testing.T) {
 			offset:    0,
 			content:   []byte("xyzwq"),
 			err: fmt.Sprintf("rpc error: code = Unknown desc = retrieve error: stat %s: no such file or directory", func() string {
-				path, _ := TS.s.storage.PiecePath("22222222222222222222")
+				path, _ := s.storage.PiecePath("22222222222222222222")
 				return path
 			}()),
 		},
@@ -221,7 +212,7 @@ func TestRetrieve(t *testing.T) {
 			respSize:  4,
 			allocSize: 5,
 			offset:    1,
-			content:   []byte("utts"),
+			content:   []byte("yzwq"),
 			err:       "",
 		},
 		{ // server should return expected content with reduced reqSize
@@ -230,20 +221,22 @@ func TestRetrieve(t *testing.T) {
 			respSize:  4,
 			allocSize: 5,
 			offset:    0,
-			content:   []byte("butt"),
+			content:   []byte("xyzw"),
 			err:       "",
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
-			assert := assert.New(t)
-			stream, err := TS.c.Retrieve(ctx)
-			assert.NoError(err)
+		t.Run("", func(t *testing.T) {
+			stream, err := c.Retrieve(ctx)
+			require.NoError(t, err)
 
 			// send piece database
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, PieceSize: tt.reqSize, Offset: tt.offset}})
-			assert.NoError(err)
+			require.NoError(t, err)
+
+			pba, err := testbwagreement.GenerateOrderLimit(pb.BandwidthAction_GET, snID, upID, time.Hour)
+			require.NoError(t, err)
 
 			totalAllocated := int64(0)
 			var data string
@@ -253,45 +246,33 @@ func TestRetrieve(t *testing.T) {
 				// Send bandwidth bandwidthAllocation
 				totalAllocated += tt.allocSize
 
-				ba := pb.RenterBandwidthAllocation{
-					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-						PayerAllocation: &pb.PayerBandwidthAllocation{},
-						Total:           totalAllocated,
-					}),
-				}
+				rba, err := testbwagreement.GenerateOrder(pba, snID.ID, upID, totalAllocated)
+				require.NoError(t, err)
 
-				s, err := cryptopasta.Sign(ba.Data, TS.k.(*ecdsa.PrivateKey))
-				assert.NoError(err)
-				ba.Signature = s
-
-				err = stream.Send(
-					&pb.PieceRetrieval{
-						BandwidthAllocation: &ba,
-					},
-				)
-				assert.NoError(err)
+				err = stream.Send(&pb.PieceRetrieval{BandwidthAllocation: rba})
+				require.NoError(t, err)
 
 				resp, err = stream.Recv()
 				if tt.err != "" {
-					assert.NotNil(err)
+					require.NotNil(t, err)
 					if runtime.GOOS == "windows" && strings.Contains(tt.err, "no such file or directory") {
 						//TODO (windows): ignoring for windows due to different underlying error
 						return
 					}
-					assert.Equal(tt.err, err.Error())
+					require.Equal(t, tt.err, err.Error())
 					return
 				}
+				assert.NoError(t, err)
 
 				data = fmt.Sprintf("%s%s", data, string(resp.GetContent()))
 				totalRetrieved += resp.GetPieceSize()
 			}
 
-			assert.NoError(err)
-			assert.NotNil(resp)
-			if resp != nil {
-				assert.Equal(tt.respSize, totalRetrieved)
-				assert.Equal(string(tt.content), data)
-			}
+			assert.NoError(t, err)
+			require.NotNil(t, resp)
+
+			assert.Equal(t, tt.respSize, totalRetrieved)
+			assert.Equal(t, string(tt.content), data)
 		})
 	}
 }
@@ -300,37 +281,32 @@ func TestStore(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	TS := NewTestServer(t)
-	defer TS.Stop()
-
-	db := TS.s.DB.DB
+	satID := newTestID(ctx, t)
 
 	tests := []struct {
 		id            string
+		satelliteID   storj.NodeID
+		whitelist     []storj.NodeID
 		ttl           int64
 		content       []byte
 		message       string
 		totalReceived int64
 		err           string
 	}{
-		{ // should successfully store data
+		{ // should successfully store data with no approved satellites
 			id:            "99999999999999999999",
+			satelliteID:   satID.ID,
+			whitelist:     []storj.NodeID{},
 			ttl:           9999999999,
 			content:       []byte("xyzwq"),
 			message:       "OK",
 			totalReceived: 5,
 			err:           "",
 		},
-		{ // should err with invalid id length
-			id:            "butts",
-			ttl:           9999999999,
-			content:       []byte("xyzwq"),
-			message:       "",
-			totalReceived: 0,
-			err:           "rpc error: code = Unknown desc = piecestore error: invalid id length",
-		},
 		{ // should err with piece ID not specified
 			id:            "",
+			satelliteID:   satID.ID,
+			whitelist:     []storj.NodeID{satID.ID},
 			ttl:           9999999999,
 			content:       []byte("xyzwq"),
 			message:       "",
@@ -340,167 +316,163 @@ func TestStore(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
-			assert := assert.New(t)
-			stream, err := TS.c.Store(ctx)
-			assert.NoError(err)
+		t.Run("", func(t *testing.T) {
+			snID, upID := newTestID(ctx, t), newTestID(ctx, t)
+			s, c, cleanup := NewTest(ctx, t, snID, upID, tt.whitelist)
+			defer cleanup()
+			db := s.DB.DB
+
+			sum := sha256.Sum256(tt.content)
+			expectedHash := sum[:]
+
+			stream, err := c.Store(ctx)
+			require.NoError(t, err)
+
+			// Create Bandwidth Allocation Data
+			pba, err := testbwagreement.GenerateOrderLimit(pb.BandwidthAction_PUT, snID, upID, time.Hour)
+			require.NoError(t, err)
+			rba, err := testbwagreement.GenerateOrder(pba, snID.ID, upID, tt.totalReceived)
+			require.NoError(t, err)
 
 			// Write the buffer to the stream we opened earlier
-			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
-			assert.NoError(err)
+			err = stream.Send(&pb.PieceStore{
+				PieceData:           &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl},
+				BandwidthAllocation: rba,
+			})
+			require.NoError(t, err)
 
-			pbad := &pb.PayerBandwidthAllocation_Data{
-				SatelliteId: teststorj.NodeIDFromString("satelliteid"),
-				UplinkId:    teststorj.NodeIDFromString("uplinkid"),
-				Action:      pb.PayerBandwidthAllocation_PUT,
-			}
-			pbaData, err := proto.Marshal(pbad)
-			assert.NoError(err)
-			pba := &pb.PayerBandwidthAllocation{Data: pbaData}
-			// Send Bandwidth Allocation Data
 			msg := &pb.PieceStore{
-				PieceData: &pb.PieceStore_PieceData{Content: tt.content},
-				BandwidthAllocation: &pb.RenterBandwidthAllocation{
-					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-						PayerAllocation: pba,
-						Total:           int64(len(tt.content)),
-					}),
-				},
+				PieceData:           &pb.PieceStore_PieceData{Content: tt.content},
+				BandwidthAllocation: rba,
 			}
-
-			s, err := cryptopasta.Sign(msg.BandwidthAllocation.Data, TS.k.(*ecdsa.PrivateKey))
-			assert.NoError(err)
-			msg.BandwidthAllocation.Signature = s
-
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(msg)
 			if err != io.EOF && err != nil {
-				assert.NoError(err)
+				require.NoError(t, err)
 			}
 
 			resp, err := stream.CloseAndRecv()
 			if tt.err != "" {
-				assert.NotNil(err)
-				assert.Equal(tt.err, err.Error())
+				require.Error(t, err)
+				require.True(t, strings.HasPrefix(err.Error(), tt.err))
 				return
 			}
 
-			assert.NoError(err)
-
 			defer func() {
 				_, err := db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
-				assert.NoError(err)
+				require.NoError(t, err)
 			}()
 
 			// check db to make sure agreement and signature were stored correctly
 			rows, err := db.Query(`SELECT agreement, signature FROM bandwidth_agreements`)
-			assert.NoError(err)
+			require.NoError(t, err)
 
-			defer func() { assert.NoError(rows.Close()) }()
+			defer func() { require.NoError(t, rows.Close()) }()
 			for rows.Next() {
-				var (
-					agreement []byte
-					signature []byte
-				)
-
+				var agreement, signature []byte
 				err = rows.Scan(&agreement, &signature)
-				assert.NoError(err)
-
-				decoded := &pb.RenterBandwidthAllocation_Data{}
-
-				err = proto.Unmarshal(agreement, decoded)
-				assert.NoError(err)
-				assert.Equal(msg.BandwidthAllocation.GetSignature(), signature)
-				assert.True(proto.Equal(pba, decoded.GetPayerAllocation()))
-				assert.Equal(int64(len(tt.content)), decoded.GetTotal())
+				require.NoError(t, err)
+				rba := &pb.Order{}
+				require.NoError(t, proto.Unmarshal(agreement, rba))
+				require.Equal(t, msg.BandwidthAllocation.GetSignature(), signature)
+				require.True(t, pb.Equal(pba, &rba.PayerAllocation))
+				require.Equal(t, int64(len(tt.content)), rba.Total)
 
 			}
 			err = rows.Err()
-			assert.NoError(err)
-
-			assert.Equal(tt.message, resp.Message)
-			assert.Equal(tt.totalReceived, resp.TotalReceived)
+			require.NoError(t, err)
+			require.NotNil(t, resp)
+			require.Equal(t, tt.message, resp.Message)
+			require.Equal(t, tt.totalReceived, resp.TotalReceived)
+			require.Equal(t, expectedHash, resp.SignedHash.Hash)
+			require.NotNil(t, resp.SignedHash.Signature)
 		})
 	}
 }
 
 func TestPbaValidation(t *testing.T) {
 	ctx := testcontext.New(t)
+	snID, upID := newTestID(ctx, t), newTestID(ctx, t)
+	satID1, satID2, satID3 := newTestID(ctx, t), newTestID(ctx, t), newTestID(ctx, t)
 	defer ctx.Cleanup()
-
-	TS := NewTestServer(t)
-	defer TS.Stop()
 
 	tests := []struct {
 		satelliteID storj.NodeID
 		uplinkID    storj.NodeID
-		action      pb.PayerBandwidthAllocation_Action
+		whitelist   []storj.NodeID
+		action      pb.BandwidthAction
 		err         string
 	}{
+		{ // unapproved satellite id
+			satelliteID: satID1.ID,
+			uplinkID:    upID.ID,
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID, satID3.ID},
+			action:      pb.BandwidthAction_PUT,
+			err:         "rpc error: code = Unknown desc = store error: Satellite ID not approved",
+		},
 		{ // missing satellite id
 			satelliteID: storj.NodeID{},
-			uplinkID:    teststorj.NodeIDFromString("uplinkid"),
-			action:      pb.PayerBandwidthAllocation_PUT,
+			uplinkID:    upID.ID,
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID, satID3.ID},
+			action:      pb.BandwidthAction_PUT,
 			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: missing satellite id",
 		},
 		{ // missing uplink id
-			satelliteID: teststorj.NodeIDFromString("satelliteid"),
+			satelliteID: satID1.ID,
 			uplinkID:    storj.NodeID{},
-			action:      pb.PayerBandwidthAllocation_PUT,
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID, satID3.ID},
+			action:      pb.BandwidthAction_PUT,
 			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: missing uplink id",
 		},
 		{ // wrong action type
-			satelliteID: teststorj.NodeIDFromString("satelliteid"),
-			uplinkID:    teststorj.NodeIDFromString("uplinkid"),
-			action:      pb.PayerBandwidthAllocation_GET,
+			satelliteID: satID1.ID,
+			uplinkID:    upID.ID,
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID, satID3.ID},
+			action:      pb.BandwidthAction_GET,
 			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: invalid action GET",
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run("should validate payer bandwidth allocation struct", func(t *testing.T) {
-			assert := assert.New(t)
-			stream, err := TS.c.Store(ctx)
-			assert.NoError(err)
+		t.Run("", func(t *testing.T) {
+			s, c, cleanup := NewTest(ctx, t, snID, upID, tt.whitelist)
+			defer cleanup()
 
-			// Write the buffer to the stream we opened earlier
-			err = stream.Send(&pb.PieceStore{PieceData: &pb.PieceStore_PieceData{Id: "99999999999999999999", ExpirationUnixSec: 9999999999}})
-			assert.NoError(err)
+			stream, err := c.Store(ctx)
+			require.NoError(t, err)
 
-			pbad := &pb.PayerBandwidthAllocation_Data{
-				SatelliteId: tt.satelliteID,
-				UplinkId:    tt.uplinkID,
-				Action:      tt.action,
-			}
-			pbaData, err := proto.Marshal(pbad)
-			assert.NoError(err)
-			pba := &pb.PayerBandwidthAllocation{Data: pbaData}
-			// Send Bandwidth Allocation Data
+			// Create Bandwidth Allocation Data
 			content := []byte("content")
+			pba, err := testbwagreement.GenerateOrderLimit(tt.action, satID1, upID, time.Hour)
+			require.NoError(t, err)
+			rba, err := testbwagreement.GenerateOrder(pba, snID.ID, upID, int64(len(content)))
+			require.NoError(t, err)
 			msg := &pb.PieceStore{
-				PieceData: &pb.PieceStore_PieceData{Content: content},
-				BandwidthAllocation: &pb.RenterBandwidthAllocation{
-					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-						PayerAllocation: pba,
-						Total:           int64(len(content)),
-					}),
-				},
+				PieceData:           &pb.PieceStore_PieceData{Content: content},
+				BandwidthAllocation: rba,
 			}
 
-			s, err := cryptopasta.Sign(msg.BandwidthAllocation.Data, TS.k.(*ecdsa.PrivateKey))
-			assert.NoError(err)
-			msg.BandwidthAllocation.Signature = s
+			//cleanup incase tests previously paniced
+			_ = s.storage.Delete("99999999999999999999")
+			// Write the buffer to the stream we opened earlier
+			err = stream.Send(&pb.PieceStore{
+				PieceData:           &pb.PieceStore_PieceData{Id: "99999999999999999999", ExpirationUnixSec: 9999999999},
+				BandwidthAllocation: rba,
+			})
+			require.NoError(t, err)
 
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(msg)
 			if err != io.EOF && err != nil {
-				assert.NoError(err)
+				require.NoError(t, err)
 			}
 
 			_, err = stream.CloseAndRecv()
 			if err != nil {
-				//assert.NotNil(err)
-				assert.Equal(tt.err, err.Error())
+				//require.NotNil(t, err)
+				t.Log("Expected err string", tt.err)
+				t.Log("Actual err.Error:", err.Error())
+				require.Equal(t, tt.err, err.Error())
 				return
 			}
 		})
@@ -511,10 +483,11 @@ func TestDelete(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	TS := NewTestServer(t)
-	defer TS.Stop()
+	snID, upID := newTestID(ctx, t), newTestID(ctx, t)
+	s, c, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
+	defer cleanup()
 
-	db := TS.s.DB.DB
+	db := s.DB.DB
 
 	// set up test cases
 	tests := []struct {
@@ -527,11 +500,6 @@ func TestDelete(t *testing.T) {
 			message: "OK",
 			err:     "",
 		},
-		{ // should err with invalid id length
-			id:      "123",
-			message: "rpc error: code = Unknown desc = piecestore error: invalid id length",
-			err:     "rpc error: code = Unknown desc = piecestore error: invalid id length",
-		},
 		{ // should return OK with nonexistent file
 			id:      "22222222222222222223",
 			message: "OK",
@@ -540,42 +508,40 @@ func TestDelete(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run("should return expected PieceDeleteSummary values", func(t *testing.T) {
-			assert := assert.New(t)
-
+		t.Run("", func(t *testing.T) {
 			// simulate piece stored with storagenode
-			if err := TS.writeFile("11111111111111111111"); err != nil {
+			if err := writeFile(s, "11111111111111111111"); err != nil {
 				t.Errorf("Error: %v\nCould not create test piece", err)
 				return
 			}
 
 			// simulate piece TTL entry
 			_, err := db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, 1234567890))
-			assert.NoError(err)
+			require.NoError(t, err)
 
 			defer func() {
 				_, err := db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
-				assert.NoError(err)
+				require.NoError(t, err)
 			}()
 
 			defer func() {
-				assert.NoError(TS.s.storage.Delete("11111111111111111111"))
+				require.NoError(t, s.storage.Delete("11111111111111111111"))
 			}()
 
 			req := &pb.PieceDelete{Id: tt.id}
-			resp, err := TS.c.Delete(ctx, req)
+			resp, err := c.Delete(ctx, req)
 
 			if tt.err != "" {
-				assert.Equal(tt.err, err.Error())
+				require.Equal(t, tt.err, err.Error())
 				return
 			}
 
-			assert.NoError(err)
-			assert.Equal(tt.message, resp.GetMessage())
+			require.NoError(t, err)
+			require.Equal(t, tt.message, resp.GetMessage())
 
 			// if test passes, check if file was indeed deleted
-			filePath, err := TS.s.storage.PiecePath(tt.id)
-			assert.NoError(err)
+			filePath, err := s.storage.PiecePath(tt.id)
+			require.NoError(t, err)
 			if _, err = os.Stat(filePath); os.IsExist(err) {
 				t.Errorf("File not deleted")
 				return
@@ -584,121 +550,72 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-func newTestServerStruct(t *testing.T) (*Server, func()) {
+func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentity,
+	ids []storj.NodeID) (*Server, pb.PieceStoreRoutesClient, func()) {
+	//init ps server backend
 	tmp, err := ioutil.TempDir("", "storj-piecestore")
-	if err != nil {
-		log.Fatalf("failed temp-dir: %v", err)
-	}
-
+	require.NoError(t, err)
 	tempDBPath := filepath.Join(tmp, "test.db")
 	tempDir := filepath.Join(tmp, "test-data", "3000")
 	storage := pstore.NewStorage(tempDir)
-
-	psDB, err := psdb.Open(context.TODO(), storage, tempDBPath)
-	if err != nil {
-		t.Fatalf("failed open psdb: %v", err)
+	psDB, err := psdb.Open(tempDBPath)
+	require.NoError(t, err)
+	err = psDB.Migration().Run(zap.NewNop(), psDB)
+	require.NoError(t, err)
+	whitelist := make(map[storj.NodeID]crypto.PublicKey)
+	for _, id := range ids {
+		whitelist[id] = nil
 	}
-
-	verifier := func(authorization *pb.SignedMessage) error {
-		return nil
-	}
-	server := &Server{
+	psServer := &Server{
 		log:              zaptest.NewLogger(t),
 		storage:          storage,
 		DB:               psDB,
-		verifier:         verifier,
+		identity:         snID,
 		totalAllocated:   math.MaxInt64,
 		totalBwAllocated: math.MaxInt64,
+		whitelist:        whitelist,
 	}
-	return server, func() {
-		if serr := server.Stop(context.TODO()); serr != nil {
-			t.Fatal(serr)
-		}
-		// TODO:fix this error check
-		_ = os.RemoveAll(tmp)
-		// if err := os.RemoveAll(tmp); err != nil {
-		// 	t.Fatal(err)
-		// }
+	//init ps server grpc
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	publicConfig := server.Config{Address: "127.0.0.1:0"}
+	publicOptions, err := tlsopts.NewOptions(snID, publicConfig.Config)
+	require.NoError(t, err)
+	grpcServer, err := server.New(publicOptions, listener, nil)
+	require.NoError(t, err)
+	pb.RegisterPieceStoreRoutesServer(grpcServer.GRPC(), psServer)
+	go func() { require.NoError(t, grpcServer.Run(ctx)) }()
+	//init client
+
+	tlsOptions, err := tlsopts.NewOptions(upID, tlsopts.Config{})
+	require.NoError(t, err)
+
+	conn, err := grpc.Dial(listener.Addr().String(), tlsOptions.DialOption(storj.NodeID{}))
+	require.NoError(t, err)
+	psClient := pb.NewPieceStoreRoutesClient(conn)
+	//cleanup callback
+	cleanup := func() {
+		require.NoError(t, conn.Close())
+		require.NoError(t, psServer.Close())
+		require.NoError(t, psServer.Stop(ctx))
+		require.NoError(t, os.RemoveAll(tmp))
 	}
+	return psServer, psClient, cleanup
 }
 
-func connect(addr string, o ...grpc.DialOption) (pb.PieceStoreRoutesClient, *grpc.ClientConn) {
-	conn, err := grpc.Dial(addr, o...)
+func newTestID(ctx context.Context, t *testing.T) *identity.FullIdentity {
+	id, err := testidentity.NewTestIdentity(ctx)
 	if err != nil {
-		log.Fatalf("did not connect: %v", err)
+		t.Fatal(err)
 	}
-
-	c := pb.NewPieceStoreRoutesClient(conn)
-
-	return c, conn
+	return id
 }
 
-type TestServer struct {
-	s        *Server
-	scleanup func()
-	grpcs    *grpc.Server
-	conn     *grpc.ClientConn
-	c        pb.PieceStoreRoutesClient
-	k        crypto.PrivateKey
-}
-
-func NewTestServer(t *testing.T) *TestServer {
-	check := func(e error) {
-		if !assert.NoError(t, e) {
-			t.Fail()
-		}
-	}
-
-	caS, err := testidentity.NewTestCA(context.Background())
-	check(err)
-	fiS, err := caS.NewIdentity()
-	check(err)
-	so, err := fiS.ServerOption()
-	check(err)
-
-	caC, err := testidentity.NewTestCA(context.Background())
-	check(err)
-	fiC, err := caC.NewIdentity()
-	check(err)
-	co, err := fiC.DialOption(storj.NodeID{})
-	check(err)
-
-	s, cleanup := newTestServerStruct(t)
-	grpcs := grpc.NewServer(so)
-
-	k, ok := fiC.Key.(*ecdsa.PrivateKey)
-	assert.True(t, ok)
-	ts := &TestServer{s: s, scleanup: cleanup, grpcs: grpcs, k: k}
-	addr := ts.start()
-	ts.c, ts.conn = connect(addr, co)
-
-	return ts
-}
-
-func (TS *TestServer) start() (addr string) {
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
+func writeFile(s *Server, pieceID string) error {
+	file, err := s.storage.Writer(pieceID)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		return err
 	}
-	pb.RegisterPieceStoreRoutesServer(TS.grpcs, TS.s)
-
-	go func() {
-		if err := TS.grpcs.Serve(lis); err != nil {
-			log.Fatalf("failed to serve: %v", err)
-		}
-	}()
-	return lis.Addr().String()
-}
-
-func (TS *TestServer) Stop() {
-	if err := TS.conn.Close(); err != nil {
-		panic(err)
-	}
-	TS.grpcs.Stop()
-	TS.scleanup()
-}
-
-func serializeData(ba *pb.RenterBandwidthAllocation_Data) []byte {
-	data, _ := proto.Marshal(ba)
-	return data
+	_, err = file.Write([]byte("xyzwq"))
+	return errs.Combine(err, file.Close())
 }

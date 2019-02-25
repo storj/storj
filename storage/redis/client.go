@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package redis
@@ -102,12 +102,6 @@ func (client *Client) Put(key storage.Key, value storage.Value) error {
 // List returns either a list of keys for which boltdb has values or an error.
 func (client *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	return storage.ListKeys(client, first, limit)
-}
-
-// ReverseList returns either a list of keys for which redis has values or an error.
-// Starts from first and iterates backwards
-func (client *Client) ReverseList(first storage.Key, limit int) (storage.Keys, error) {
-	return storage.ReverseListKeys(client, first, limit)
 }
 
 // Delete deletes a key/value pair from redis, for a given the key

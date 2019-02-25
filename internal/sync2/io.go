@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
 package sync2
@@ -78,7 +78,7 @@ func (file offsetFile) WriteAt(data []byte, at int64) (amount int, err error) {
 func (file offsetFile) Close() error {
 	if atomic.AddInt64(file.open, -1) == 0 {
 		return errs.Combine(
-			file.Close(),
+			file.file.Close(),
 			os.Remove(file.file.Name()),
 		)
 	}

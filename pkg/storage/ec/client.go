@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package ecclient
@@ -8,15 +8,16 @@ import (
 	"io"
 	"io/ioutil"
 	"sort"
+	"sync/atomic"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -27,11 +28,9 @@ var mon = monkit.Package()
 
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
-	Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
-		pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error)
-	Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
-		pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error)
-	Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, authorization *pb.SignedMessage) error
+	Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.OrderLimit) (successfulNodes []*pb.Node, err error)
+	Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme, pieceID psclient.PieceID, size int64, pba *pb.OrderLimit) (ranger.Ranger, error)
+	Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, satelliteID storj.NodeID) error
 }
 
 type psClientFunc func(context.Context, transport.Client, *pb.Node, int) (psclient.Client, error)
@@ -44,8 +43,7 @@ type ecClient struct {
 }
 
 // NewClient from the given identity and max buffer memory
-func NewClient(identity *provider.FullIdentity, memoryLimit int) Client {
-	tc := transport.NewClient(identity)
+func NewClient(tc transport.Client, memoryLimit int) Client {
 	return &ecClient{
 		transport:       tc,
 		memoryLimit:     memoryLimit,
@@ -58,8 +56,7 @@ func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (psclient.Clien
 	return ec.newPSClientFunc(ctx, ec.transport, n, 0)
 }
 
-func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
-	pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error) {
+func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.OrderLimit) (successfulNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodes) != rs.TotalCount() {
 		return nil, Error.New("size of nodes slice (%d) does not match total count (%d) of erasure scheme", len(nodes), rs.TotalCount())
@@ -74,7 +71,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	}
 
 	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
-	readers, err := eestream.EncodeReader(ctx, padded, rs, ec.memoryLimit)
+	readers, err := eestream.EncodeReader(ctx, padded, rs)
 	if err != nil {
 		return nil, err
 	}
@@ -85,57 +82,48 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	}
 	infos := make(chan info, len(nodes))
 
-	for i, n := range nodes {
+	psCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-		if n != nil {
-			n.Type.DPanicOnInvalid("ec client Put")
+	start := time.Now()
+
+	for i, node := range nodes {
+		if node != nil {
+			node.Type.DPanicOnInvalid("ec client Put")
 		}
 
-		go func(i int, n *pb.Node) {
-			if n == nil {
-				_, err := io.Copy(ioutil.Discard, readers[i])
-				infos <- info{i: i, err: err}
-				return
-			}
-			derivedPieceID, err := pieceID.Derive(n.Id.Bytes())
-
-			if err != nil {
-				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
-				infos <- info{i: i, err: err}
-				return
-			}
-			ps, err := ec.newPSClient(ctx, n)
-			if err != nil {
-				zap.S().Errorf("Failed dialing for putting piece %s -> %s to node %s: %v",
-					pieceID, derivedPieceID, n.Id, err)
-				infos <- info{i: i, err: err}
-				return
-			}
-			err = ps.Put(ctx, derivedPieceID, readers[i], expiration, pba, authorization)
-			// normally the bellow call should be deferred, but doing so fails
-			// randomly the unit tests
-			utils.LogClose(ps)
-			// io.ErrUnexpectedEOF means the piece upload was interrupted due to slow connection.
-			// No error logging for this case.
-			if err != nil && err != io.ErrUnexpectedEOF {
-				nodeAddress := "nil"
-				if n.Address != nil {
-					nodeAddress = n.Address.Address
-				}
-				zap.S().Errorf("Failed putting piece %s -> %s to node %s (%+v): %v",
-					pieceID, derivedPieceID, n.Id, nodeAddress, err)
-			}
+		go func(i int, node *pb.Node) {
+			err := ec.putPiece(psCtx, ctx, node, pieceID, readers[i], expiration, pba)
 			infos <- info{i: i, err: err}
-		}(i, n)
+		}(i, node)
 	}
 
 	successfulNodes = make([]*pb.Node, len(nodes))
-	var successfulCount int
+	var successfulCount int32
+	var timer *time.Timer
+
 	for range nodes {
 		info := <-infos
 		if info.err == nil {
 			successfulNodes[info.i] = nodes[info.i]
-			successfulCount++
+
+			switch int(atomic.AddInt32(&successfulCount, 1)) {
+			case rs.RepairThreshold():
+				elapsed := time.Since(start)
+				more := elapsed * 3 / 2
+
+				zap.S().Infof("Repair threshold (%d nodes) reached in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
+					rs.RepairThreshold(), elapsed.Seconds(), more.Seconds(), rs.OptimalThreshold())
+
+				timer = time.AfterFunc(more, func() {
+					zap.S().Infof("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
+					cancel()
+				})
+			case rs.OptimalThreshold():
+				zap.S().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
+				timer.Stop()
+				cancel()
+			}
 		}
 	}
 
@@ -145,21 +133,63 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 		case <-ctx.Done():
 			err = utils.CombineErrors(
 				Error.New("upload cancelled by user"),
-				ec.Delete(context.Background(), nodes, pieceID, authorization),
+				ec.Delete(context.Background(), nodes, pieceID, pba.SatelliteId),
 			)
 		default:
 		}
 	}()
 
-	if successfulCount < rs.RepairThreshold() {
+	if int(atomic.LoadInt32(&successfulCount)) < rs.RepairThreshold() {
 		return nil, Error.New("successful puts (%d) less than repair threshold (%d)", successfulCount, rs.RepairThreshold())
 	}
 
 	return successfulNodes, nil
 }
 
+func (ec *ecClient) putPiece(ctx, parent context.Context, node *pb.Node, pieceID psclient.PieceID, data io.ReadCloser, expiration time.Time, pba *pb.OrderLimit) (err error) {
+	defer func() { err = errs.Combine(err, data.Close()) }()
+
+	if node == nil {
+		_, err = io.Copy(ioutil.Discard, data)
+		return err
+	}
+	derivedPieceID, err := pieceID.Derive(node.Id.Bytes())
+
+	if err != nil {
+		zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
+		return err
+	}
+	ps, err := ec.newPSClient(ctx, node)
+	if err != nil {
+		zap.S().Errorf("Failed dialing for putting piece %s -> %s to node %s: %v",
+			pieceID, derivedPieceID, node.Id, err)
+		return err
+	}
+	err = ps.Put(ctx, derivedPieceID, data, expiration, pba)
+	defer func() { err = errs.Combine(err, ps.Close()) }()
+	// Canceled context means the piece upload was interrupted by user or due
+	// to slow connection. No error logging for this case.
+	if ctx.Err() == context.Canceled {
+		if parent.Err() == context.Canceled {
+			zap.S().Infof("Upload to node %s canceled by user.", node.Id)
+		} else {
+			zap.S().Infof("Node %s cut from upload due to slow connection.", node.Id)
+		}
+		err = context.Canceled
+	} else if err != nil {
+		nodeAddress := "nil"
+		if node.Address != nil {
+			nodeAddress = node.Address.Address
+		}
+		zap.S().Errorf("Failed putting piece %s -> %s to node %s (%+v): %v",
+			pieceID, derivedPieceID, node.Id, nodeAddress, err)
+	}
+
+	return err
+}
+
 func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
-	pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (rr ranger.Ranger, err error) {
+	pieceID psclient.PieceID, size int64, pba *pb.OrderLimit) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodes) != es.TotalCount() {
@@ -206,7 +236,6 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 				id:                derivedPieceID,
 				size:              pieceSize,
 				pba:               pba,
-				authorization:     authorization,
 			}
 
 			ch <- rangerInfo{i: i, rr: rr, err: nil}
@@ -228,10 +257,10 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 	return eestream.Unpad(rr, int(paddedSize-size))
 }
 
-func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, authorization *pb.SignedMessage) (err error) {
+func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, satelliteID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	errs := make(chan error, len(nodes))
+	errch := make(chan error, len(nodes))
 	for _, v := range nodes {
 		if v != nil {
 			v.Type.DPanicOnInvalid("ec client delete")
@@ -239,7 +268,7 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclie
 	}
 	for _, n := range nodes {
 		if n == nil {
-			errs <- nil
+			errch <- nil
 			continue
 		}
 
@@ -247,29 +276,29 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclie
 			derivedPieceID, err := pieceID.Derive(n.Id.Bytes())
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
-				errs <- err
+				errch <- err
 				return
 			}
 			ps, err := ec.newPSClient(ctx, n)
 			if err != nil {
 				zap.S().Errorf("Failed dialing for deleting piece %s -> %s from node %s: %v",
 					pieceID, derivedPieceID, n.Id, err)
-				errs <- err
+				errch <- err
 				return
 			}
-			err = ps.Delete(ctx, derivedPieceID, authorization)
+			err = ps.Delete(ctx, derivedPieceID, satelliteID)
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
-			utils.LogClose(ps)
+			err = errs.Combine(err, ps.Close())
 			if err != nil {
 				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v",
 					pieceID, derivedPieceID, n.Id, err)
 			}
-			errs <- err
+			errch <- err
 		}(n)
 	}
 
-	allerrs := collectErrors(errs, len(nodes))
+	allerrs := collectErrors(errch, len(nodes))
 	for _, v := range nodes {
 		if v != nil {
 			v.Type.DPanicOnInvalid("ec client delete 2")
@@ -332,8 +361,7 @@ type lazyPieceRanger struct {
 	node              *pb.Node
 	id                psclient.PieceID
 	size              int64
-	pba               *pb.PayerBandwidthAllocation
-	authorization     *pb.SignedMessage
+	pba               *pb.OrderLimit
 }
 
 // Size implements Ranger.Size
@@ -349,7 +377,7 @@ func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.
 		if err != nil {
 			return nil, err
 		}
-		ranger, err := ps.Get(ctx, lr.id, lr.size, lr.pba, lr.authorization)
+		ranger, err := ps.Get(ctx, lr.id, lr.size, lr.pba)
 		if err != nil {
 			return nil, err
 		}

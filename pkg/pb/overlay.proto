@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 syntax = "proto3";
@@ -57,7 +57,7 @@ message FindStorageNodesRequest {
     google.protobuf.Duration contract_length = 2;
     OverlayOptions opts = 3;
     bytes start = 4 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-    int64 max_nodes = 5;
+    int64 min_nodes = 5;
 }
 
 // OverlayOptions is a set of criteria that a node must meet to be considered for a storage opportunity

@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -62,7 +62,7 @@ func Main() error {
 	}
 	readers, err := eestream.EncodeReader(context.Background(),
 		encryption.TransformReader(eestream.PadReader(os.Stdin,
-			encrypter.InBlockSize()), encrypter, 0), rs, 4*1024*1024)
+			encrypter.InBlockSize()), encrypter, 0), rs)
 	if err != nil {
 		return err
 	}
@@ -77,6 +77,7 @@ func Main() error {
 			}
 
 			defer printError(fh.Close)
+			defer printError(readers[i].Close)
 
 			_, err = io.Copy(fh, readers[i])
 			errs <- err

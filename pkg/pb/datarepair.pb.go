@@ -21,7 +21,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // InjuredSegment is the queue item used for the data repair queue
 type InjuredSegment struct {
 	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	LostPieces           []int32  `protobuf:"varint,2,rep,packed,name=lost_pieces,json=lostPieces" json:"lost_pieces,omitempty"`
+	LostPieces           []int32  `protobuf:"varint,2,rep,packed,name=lost_pieces,json=lostPieces,proto3" json:"lost_pieces,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -31,7 +31,7 @@ func (m *InjuredSegment) Reset()         { *m = InjuredSegment{} }
 func (m *InjuredSegment) String() string { return proto.CompactTextString(m) }
 func (*InjuredSegment) ProtoMessage()    {}
 func (*InjuredSegment) Descriptor() ([]byte, []int) {
-	return fileDescriptor_datarepair_13e4beab54f194bd, []int{0}
+	return fileDescriptor_datarepair_45267f47333c8119, []int{0}
 }
 func (m *InjuredSegment) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_InjuredSegment.Unmarshal(m, b)
@@ -69,9 +69,9 @@ func init() {
 	proto.RegisterType((*InjuredSegment)(nil), "repair.InjuredSegment")
 }
 
-func init() { proto.RegisterFile("datarepair.proto", fileDescriptor_datarepair_13e4beab54f194bd) }
+func init() { proto.RegisterFile("datarepair.proto", fileDescriptor_datarepair_45267f47333c8119) }
 
-var fileDescriptor_datarepair_13e4beab54f194bd = []byte{
+var fileDescriptor_datarepair_45267f47333c8119 = []byte{
 	// 119 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x48, 0x49, 0x2c, 0x49,
 	0x2c, 0x4a, 0x2d, 0x48, 0xcc, 0x2c, 0xd2, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x83, 0xf0,

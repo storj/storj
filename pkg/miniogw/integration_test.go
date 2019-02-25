@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package miniogw_test
@@ -13,6 +13,7 @@ import (
 
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -22,9 +23,17 @@ import (
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/miniogw"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/console"
+	"storj.io/storj/uplink"
 )
+
+type config struct {
+	Server miniogw.ServerConfig
+	Minio  miniogw.MinioConfig
+}
 
 func TestUploadDownload(t *testing.T) {
 	t.Skip("disable because, keeps stalling Travis intermittently")
@@ -37,34 +46,51 @@ func TestUploadDownload(t *testing.T) {
 
 	defer ctx.Check(planet.Shutdown)
 
-	err = flag.Set("pointer-db.auth.api-key", "apiKey")
+	// add project to satisfy constraint
+	project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
+		Name: "testProject",
+	})
+
+	assert.NoError(t, err)
+
+	apiKey := console.APIKey{}
+	apiKeyInfo := console.APIKeyInfo{
+		ProjectID: project.ID,
+		Name:      "testKey",
+	}
+
+	// add api key to db
+	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey, apiKeyInfo)
+	assert.NoError(t, err)
+
+	err = flag.Set("pointer-db.auth.api-key", apiKey.String())
 	assert.NoError(t, err)
 
 	// bind default values to config
-	var gwCfg miniogw.Config
-	cfgstruct.Bind(&flag.FlagSet{}, &gwCfg)
+	var gwCfg config
+	cfgstruct.Bind(&pflag.FlagSet{}, &gwCfg)
+	var uplinkCfg uplink.Config
+	cfgstruct.Bind(&pflag.FlagSet{}, &uplinkCfg)
 
 	// minio config directory
 	gwCfg.Minio.Dir = ctx.Dir("minio")
 
 	// addresses
 	gwCfg.Server.Address = "127.0.0.1:7777"
-	gwCfg.Client.OverlayAddr = planet.Satellites[0].Addr()
-	gwCfg.Client.PointerDBAddr = planet.Satellites[0].Addr()
+	uplinkCfg.Client.OverlayAddr = planet.Satellites[0].Addr()
+	uplinkCfg.Client.PointerDBAddr = planet.Satellites[0].Addr()
 
 	// keys
-	gwCfg.Client.APIKey = "apiKey"
-	gwCfg.Enc.Key = "encKey"
+	uplinkCfg.Client.APIKey = "apiKey"
+	uplinkCfg.Enc.Key = "encKey"
 
 	// redundancy
-	gwCfg.RS.MinThreshold = 7
-	gwCfg.RS.RepairThreshold = 8
-	gwCfg.RS.SuccessThreshold = 9
-	gwCfg.RS.MaxThreshold = 10
+	uplinkCfg.RS.MinThreshold = 7
+	uplinkCfg.RS.RepairThreshold = 8
+	uplinkCfg.RS.SuccessThreshold = 9
+	uplinkCfg.RS.MaxThreshold = 10
 
 	planet.Start(ctx)
-
-	time.Sleep(2 * time.Second)
 
 	// create identity for gateway
 	ca, err := testidentity.NewTestCA(ctx)
@@ -75,7 +101,7 @@ func TestUploadDownload(t *testing.T) {
 	// setup and start gateway
 	go func() {
 		// TODO: this leaks the gateway server, however it shouldn't
-		err := runGateway(ctx, gwCfg, zaptest.NewLogger(t), identity)
+		err := runGateway(ctx, gwCfg, uplinkCfg, zaptest.NewLogger(t), identity)
 		if err != nil {
 			t.Log(err)
 		}
@@ -88,8 +114,8 @@ func TestUploadDownload(t *testing.T) {
 		Satellite:     planet.Satellites[0].Addr(),
 		AccessKey:     gwCfg.Minio.AccessKey,
 		SecretKey:     gwCfg.Minio.SecretKey,
-		APIKey:        gwCfg.Client.APIKey,
-		EncryptionKey: gwCfg.Enc.Key,
+		APIKey:        uplinkCfg.Client.APIKey,
+		EncryptionKey: uplinkCfg.Enc.Key,
 		NoSSL:         true,
 	})
 	assert.NoError(t, err)
@@ -119,12 +145,12 @@ func TestUploadDownload(t *testing.T) {
 }
 
 // runGateway creates and starts a gateway
-func runGateway(ctx context.Context, c miniogw.Config, log *zap.Logger, identity *provider.FullIdentity) (err error) {
+func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log *zap.Logger, identity *identity.FullIdentity) (err error) {
 
 	// set gateway flags
 	flags := flag.NewFlagSet("gateway", flag.ExitOnError)
-	flags.String("address", c.Server.Address, "")
-	flags.String("config-dir", c.Minio.Dir, "")
+	flags.String("address", gwCfg.Server.Address, "")
+	flags.String("config-dir", gwCfg.Minio.Dir, "")
 	flags.Bool("quiet", true, "")
 
 	// create *cli.Context with gateway flags
@@ -136,20 +162,28 @@ func runGateway(ctx context.Context, c miniogw.Config, log *zap.Logger, identity
 		return err
 	}
 
-	err = os.Setenv("MINIO_ACCESS_KEY", c.Minio.AccessKey)
+	err = os.Setenv("MINIO_ACCESS_KEY", gwCfg.Minio.AccessKey)
 	if err != nil {
 		return err
 	}
 
-	err = os.Setenv("MINIO_SECRET_KEY", c.Minio.SecretKey)
+	err = os.Setenv("MINIO_SECRET_KEY", gwCfg.Minio.SecretKey)
 	if err != nil {
 		return err
 	}
 
-	gw, err := c.NewGateway(ctx, identity)
+	metainfo, streams, err := uplinkCfg.GetMetainfo(ctx, identity)
 	if err != nil {
 		return err
 	}
+
+	gw := miniogw.NewStorjGateway(
+		metainfo,
+		streams,
+		storj.Cipher(uplinkCfg.Enc.PathType),
+		uplinkCfg.GetEncryptionScheme(),
+		uplinkCfg.GetRedundancyScheme(),
+	)
 
 	minio.StartGateway(cliCtx, miniogw.Logging(gw, log))
 	return errors.New("unexpected minio exit")

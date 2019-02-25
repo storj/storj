@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 // +build ignore
@@ -51,6 +51,8 @@ func main() {
 	code.Config = &packages.Config{
 		Mode: packages.LoadAllSyntax,
 	}
+	code.Wrapped = map[string]bool{}
+	code.AdditionalNesting = map[string]int{"Console": 1}
 
 	// e.g. storj.io/storj/satellite.DB
 	p := strings.LastIndexByte(typeFullyQualifedName, '.')
@@ -103,9 +105,11 @@ type Code struct {
 
 	OutputPackage string
 
-	Imports       map[string]bool
-	Ignore        map[string]bool
-	IgnoreMethods map[string]bool
+	Imports           map[string]bool
+	Ignore            map[string]bool
+	IgnoreMethods     map[string]bool
+	Wrapped           map[string]bool
+	AdditionalNesting map[string]int
 
 	Preamble bytes.Buffer
 	Source   bytes.Buffer
@@ -160,14 +164,7 @@ func (code *Code) PrintLocked() {
 	methods := dbObject.Type().Underlying().(Methods)
 
 	for i := 0; i < methods.NumMethods(); i++ {
-		code.PrintLockedFunc("locked", methods.Method(i), true)
-	}
-
-	for i := 0; i < methods.NumMethods(); i++ {
-		if !code.NeedsWrapper(methods.Method(i)) {
-			continue
-		}
-		code.PrintWrapper(methods.Method(i))
+		code.PrintLockedFunc("locked", methods.Method(i), code.AdditionalNesting[methods.Method(i).Name()]+1)
 	}
 }
 
@@ -262,13 +259,13 @@ func (code *Code) NeedsWrapper(method *types.Func) bool {
 	return sig.Results().Len() == 1 && !code.Ignore[sig.Results().At(0).Type().String()]
 }
 
-// WrapperTypeName returns an appropariate name for the wrapper type.
+// WrapperTypeName returns an appropriate name for the wrapper type.
 func (code *Code) WrapperTypeName(method *types.Func) string {
 	return "locked" + method.Name()
 }
 
 // PrintLockedFunc prints a method with locking and defers the actual logic to method.
-func (code *Code) PrintLockedFunc(receiverType string, method *types.Func, allowNesting bool) {
+func (code *Code) PrintLockedFunc(receiverType string, method *types.Func, nestingDepth int) {
 	if code.IgnoreMethods[method.Name()] {
 		return
 	}
@@ -283,28 +280,40 @@ func (code *Code) PrintLockedFunc(receiverType string, method *types.Func, allow
 	code.Printf("func (m *%s) %s", receiverType, method.Name())
 	code.PrintSignature(sig)
 	code.Printf(" {\n")
-	defer code.Printf("}\n\n")
 
 	code.Printf("	m.Lock(); defer m.Unlock()\n")
-	if code.NeedsWrapper(method) {
-		code.Printf("	return &%s{m.Locker, ", code.WrapperTypeName(method))
-		code.Printf("m.db.%s", method.Name())
-		code.PrintCall(sig)
-		code.Printf("}\n")
-	} else {
+	if !code.NeedsWrapper(method) {
 		code.Printf("	return m.db.%s", method.Name())
 		code.PrintCall(sig)
 		code.Printf("\n")
+		code.Printf("}\n\n")
+		return
+	}
+
+	code.Printf("	return &%s{m.Locker, ", code.WrapperTypeName(method))
+	code.Printf("m.db.%s", method.Name())
+	code.PrintCall(sig)
+	code.Printf("}\n")
+	code.Printf("}\n\n")
+
+	if nestingDepth > 0 {
+		code.PrintWrapper(method, nestingDepth-1)
 	}
 }
 
 // PrintWrapper prints wrapper for the result type of method.
-func (code *Code) PrintWrapper(method *types.Func) {
+func (code *Code) PrintWrapper(method *types.Func, nestingDepth int) {
 	sig := method.Type().Underlying().(*types.Signature)
 	results := sig.Results()
 	result := results.At(0).Type()
 
 	receiverType := code.WrapperTypeName(method)
+
+	if code.Wrapped[receiverType] {
+		return
+	}
+	code.Wrapped[receiverType] = true
+
 	code.Printf("// %s implements locking wrapper for %s\n", receiverType, typeName(result))
 	code.Printf("type %s struct {\n", receiverType)
 	code.Printf("	sync.Locker\n")
@@ -313,7 +322,7 @@ func (code *Code) PrintWrapper(method *types.Func) {
 
 	methods := result.Underlying().(Methods)
 	for i := 0; i < methods.NumMethods(); i++ {
-		code.PrintLockedFunc(receiverType, methods.Method(i), false)
+		code.PrintLockedFunc(receiverType, methods.Method(i), nestingDepth)
 	}
 }
 

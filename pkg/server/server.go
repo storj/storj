@@ -7,9 +7,11 @@ import (
 	"context"
 	"net"
 
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/peertls/tlsopts"
 )
 
 // Service represents a specific gRPC method collection to be registered
@@ -28,16 +30,9 @@ type Server struct {
 	identity *identity.FullIdentity
 }
 
-// NewServer creates a Server out of an Identity, a net.Listener,
+// New creates a Server out of an Identity, a net.Listener,
 // a UnaryServerInterceptor, and a set of services.
-func NewServer(opts *Options, lis net.Listener,
-	interceptor grpc.UnaryServerInterceptor, services ...Service) (
-	*Server, error) {
-	grpcOpts, err := opts.grpcOpts()
-	if err != nil {
-		return nil, err
-	}
-
+func New(opts *tlsopts.Options, lis net.Listener, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
 	unaryInterceptor := unaryInterceptor
 	if interceptor != nil {
 		unaryInterceptor = combineInterceptors(unaryInterceptor, interceptor)
@@ -48,7 +43,7 @@ func NewServer(opts *Options, lis net.Listener,
 		grpc: grpc.NewServer(
 			grpc.StreamInterceptor(streamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
-			grpcOpts,
+			opts.ServerOption(),
 		),
 		next:     services,
 		identity: opts.Ident,
@@ -82,5 +77,16 @@ func (p *Server) Run(ctx context.Context) (err error) {
 		return next.Run(ctx, p)
 	}
 
-	return p.grpc.Serve(p.lis)
+	ctx, cancel := context.WithCancel(ctx)
+	var group errgroup.Group
+	group.Go(func() error {
+		<-ctx.Done()
+		return p.Close()
+	})
+	group.Go(func() error {
+		defer cancel()
+		return p.grpc.Serve(p.lis)
+	})
+
+	return group.Wait()
 }

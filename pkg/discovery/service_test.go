@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package discovery_test
@@ -13,17 +13,39 @@ import (
 )
 
 func TestCache_Refresh(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		for _, storageNode := range planet.StorageNodes {
+			node, err := satellite.Overlay.Service.Get(ctx, storageNode.ID())
+			if assert.NoError(t, err) {
+				assert.Equal(t, storageNode.Addr(), node.Address.Address)
+			}
+		}
+	})
+}
 
-	planet, err := testplanet.New(t, 1, 30, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(planet.Shutdown)
+func TestCache_Graveyard(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		testnode := planet.StorageNodes[0]
+		offlineID := testnode.ID()
 
-	planet.Start(ctx)
+		satellite.Discovery.Service.Graveyard.Pause()
 
-	err = planet.Satellites[0].Discovery.Refresh(ctx)
-	assert.NoError(t, err)
+		err := satellite.Overlay.Service.Delete(ctx, offlineID)
+		assert.NoError(t, err)
+		_, err = satellite.Overlay.Service.Get(ctx, offlineID)
+		assert.NotNil(t, err)
+
+		satellite.Discovery.Service.Graveyard.TriggerWait()
+
+		found, err := satellite.Overlay.Service.Get(ctx, offlineID)
+		assert.NoError(t, err)
+		assert.NotNil(t, found)
+		assert.Equal(t, offlineID, found.Id)
+	})
 }

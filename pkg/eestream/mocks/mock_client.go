@@ -58,6 +58,18 @@ func (mr *MockErasureSchemeMockRecorder) Encode(arg0, arg1 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encode", reflect.TypeOf((*MockErasureScheme)(nil).Encode), arg0, arg1)
 }
 
+// EncodeSingle mocks base method
+func (m *MockErasureScheme) EncodeSingle(arg0, arg1 []byte, arg2 int) error {
+	ret := m.ctrl.Call(m, "EncodeSingle", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EncodeSingle indicates an expected call of EncodeSingle
+func (mr *MockErasureSchemeMockRecorder) EncodeSingle(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EncodeSingle", reflect.TypeOf((*MockErasureScheme)(nil).EncodeSingle), arg0, arg1, arg2)
+}
+
 // ErasureShareSize mocks base method
 func (m *MockErasureScheme) ErasureShareSize() int {
 	ret := m.ctrl.Call(m, "ErasureShareSize")
