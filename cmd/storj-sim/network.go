@@ -132,8 +132,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	bootstrap.Arguments = withCommon(Arguments{
 		"setup": {
 			"--identity-dir", bootstrap.Directory,
+
 			"--bootstrap-web.address", net.JoinHostPort(host, strconv.Itoa(bootstrapWebPort)),
-			"--bootstrap-web.static-dir", "storj/web/bootstrap/",
+
 			"--server.address", bootstrap.Address,
 
 			"--kademlia.bootstrap-addr", bootstrap.Address,
@@ -144,7 +145,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"--server.use-peer-ca-whitelist=false",
 		},
 		"run": {
-
 		},
 	})
 	bootstrap.ExecBefore["run"] = func(process *Process) error {

@@ -29,7 +29,7 @@ var Error = errs.Class("bootstrap web error")
 // Config contains configuration for bootstrap web server
 type Config struct {
 	Address   string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8082"`
-	StaticDir string `help:"path to static resources" default:"./web/bootstrap"`
+	StaticDir string `help:"path to static resources" default:""`
 }
 
 // Server represents bootstrap web server

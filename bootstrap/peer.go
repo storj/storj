@@ -6,6 +6,7 @@ package bootstrap
 import (
 	"context"
 	"net"
+	"net/http"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -203,7 +204,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 }
 
 func ignoreCancel(err error) error {
-	if err == context.Canceled || err == grpc.ErrServerStopped {
+	if err == context.Canceled || err == grpc.ErrServerStopped || err == http.ErrServerClosed {
 		return nil
 	}
 	return err
