@@ -576,7 +576,7 @@ func TestDetermineLeafDepth(t *testing.T) {
 	defer ctx.Cleanup()
 	rt := createRoutingTable(teststorj.NodeIDFromString("AA"))
 	defer ctx.Check(rt.Close)
-	idA, idB, idC := storj.NodeID(firstBucketID), storj.NodeID(firstBucketID), storj.NodeID(firstBucketID)
+	idA, idB, idC := firstBucketID, firstBucketID, firstBucketID
 	idA[0] = 255
 	idB[0] = 127
 	idC[0] = 63
@@ -625,7 +625,7 @@ func TestDetermineLeafDepth(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
 			c.addNode()
-			d, err := rt.determineLeafDepth(bucketID(c.id))
+			d, err := rt.determineLeafDepth(c.id)
 			assert.NoError(t, err)
 			assert.Equal(t, c.depth, d)
 		})

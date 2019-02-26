@@ -249,7 +249,9 @@ func (rt *RoutingTable) getNodeIDsWithinKBucket(bID bucketID) (storj.NodeIDList,
 		}
 		return nil
 	}, false)
-
+	if err != nil {
+		return nil, err
+	}
 	return ids, nil
 }
 
