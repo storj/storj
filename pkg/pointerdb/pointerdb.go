@@ -100,7 +100,7 @@ func (s *Server) validateSegment(req *pb.PutRequest) error {
 	return nil
 }
 
-func (s *Server) filterValidPieces(pointer *pb.Pointer) {
+func (s *Server) filterValidPieces(pointer *pb.Pointer) error {
 	if pointer.Type == pb.Pointer_REMOTE {
 		var remotePieces []*pb.RemotePiece
 		var remotePiecesHashes []*pb.SignedHash
@@ -109,17 +109,27 @@ func (s *Server) filterValidPieces(pointer *pb.Pointer) {
 			err := auth.VerifyMsg(remote.RemotePiecesHashes[i], piece.NodeId)
 			if err == nil {
 				remotePieces = append(remotePieces, piece)
-				// TODO maybe nil everything except hash after verification to save DB space
+
+				// Clear after verification to avoid storing in DB
+				remote.RemotePiecesHashes[i].SetCerts(nil)
+				remote.RemotePiecesHashes[i].SetSignature(nil)
 				remotePiecesHashes = append(remotePiecesHashes, remote.RemotePiecesHashes[i])
 			} else {
 				s.logger.Warn("unable to verify piece hash: %v", zap.Error(err))
 			}
 		}
 
-		// TODO what if number of left pieces is lower than repair threshold
+		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
+			return Error.New("Number of valid pieces is lower then success threshold: %v < %v",
+				len(remotePieces),
+				remote.Redundancy.SuccessThreshold,
+			)
+		}
+
 		remote.RemotePieces = remotePieces
 		remote.RemotePiecesHashes = remotePiecesHashes
 	}
+	return nil
 }
 
 // Put formats and hands off a key/value (path/pointer) to be saved to boltdb
@@ -136,7 +146,10 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 		return nil, err
 	}
 
-	s.filterValidPieces(req.Pointer)
+	err = s.filterValidPieces(req.Pointer)
+	if err != nil {
+		return nil, err
+	}
 
 	path := storj.JoinPaths(keyInfo.ProjectID.String(), req.GetPath())
 	if err = s.service.Put(path, req.GetPointer()); err != nil {
