@@ -7,8 +7,8 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
-// Stats all stats fields
-type Stats struct {
+// stats all stats fields
+type stats struct {
 	Segments        int64
 	InlineSegments  int64
 	RemoteSegments  int64
@@ -24,7 +24,7 @@ type Stats struct {
 }
 
 // Combine aggregates all the stats
-func (s *Stats) Combine(o *Stats) {
+func (s *stats) Combine(o *stats) {
 	s.Segments += o.Segments
 	s.InlineSegments += o.InlineSegments
 	s.RemoteSegments += o.RemoteSegments
@@ -40,7 +40,7 @@ func (s *Stats) Combine(o *Stats) {
 }
 
 // AddSegment groups all the data based the passed pointer
-func (s *Stats) AddSegment(pointer *pb.Pointer, last bool) {
+func (s *stats) AddSegment(pointer *pb.Pointer, last bool) {
 	s.Segments++
 	switch pointer.GetType() {
 	case pb.Pointer_INLINE:
@@ -68,17 +68,17 @@ func (s *Stats) AddSegment(pointer *pb.Pointer, last bool) {
 }
 
 // Report reports the stats thru monkit
-func (s *Stats) Report(prefix string) {
-	mon.IntVal(prefix + "segments").Observe(s.Segments)
-	mon.IntVal(prefix + "inline_segments").Observe(s.InlineSegments)
-	mon.IntVal(prefix + "remote_segments").Observe(s.RemoteSegments)
-	mon.IntVal(prefix + "unknown_segments").Observe(s.UnknownSegments)
+func (s *stats) Report(prefix string) {
+	mon.IntVal(prefix + ".segments").Observe(s.Segments)
+	mon.IntVal(prefix + ".inline_segments").Observe(s.InlineSegments)
+	mon.IntVal(prefix + ".remote_segments").Observe(s.RemoteSegments)
+	mon.IntVal(prefix + ".unknown_segments").Observe(s.UnknownSegments)
 
-	mon.IntVal(prefix + "files").Observe(s.Files)
-	mon.IntVal(prefix + "inline_files").Observe(s.InlineFiles)
-	mon.IntVal(prefix + "remote_files").Observe(s.RemoteFiles)
+	mon.IntVal(prefix + ".files").Observe(s.Files)
+	mon.IntVal(prefix + ".inline_files").Observe(s.InlineFiles)
+	mon.IntVal(prefix + ".remote_files").Observe(s.RemoteFiles)
 
-	mon.IntVal(prefix + "bytes").Observe(s.Bytes)
-	mon.IntVal(prefix + "inline_bytes").Observe(s.InlineBytes)
-	mon.IntVal(prefix + "remote_bytes").Observe(s.RemoteBytes)
+	mon.IntVal(prefix + ".bytes").Observe(s.Bytes)
+	mon.IntVal(prefix + ".inline_bytes").Observe(s.InlineBytes)
+	mon.IntVal(prefix + ".remote_bytes").Observe(s.RemoteBytes)
 }

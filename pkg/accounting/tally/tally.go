@@ -103,7 +103,7 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 
 	var currentBucket string
 	var bucketCount int64
-	var totalStats, currentBucketStats Stats
+	var totalStats, currentBucketStats stats
 
 	err = t.pointerdb.Iterate("", "", true, false,
 		func(it storage.Iterator) error {
@@ -131,9 +131,9 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 						bucketCount++
 						if currentBucket != "" {
 							// report the previous bucket and add to the totals
-							currentBucketStats.Report("bucket.")
+							currentBucketStats.Report("bucket")
 							totalStats.Combine(&currentBucketStats)
-							currentBucketStats = Stats{}
+							currentBucketStats = stats{}
 						}
 						currentBucket = bucketID
 					}
@@ -179,10 +179,10 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 
 	if currentBucket != "" {
 		// wrap up the last bucket
-		currentBucketStats.Report("bucket.")
+		currentBucketStats.Report("bucket")
 		totalStats.Combine(&currentBucketStats)
 	}
-	totalStats.Report("total.")
+	totalStats.Report("total")
 	mon.IntVal("bucket_count").Observe(bucketCount)
 
 	//store byte hours, not just bytes
