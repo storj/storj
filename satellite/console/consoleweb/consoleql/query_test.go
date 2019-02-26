@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"storj.io/storj/satellite/mailservice"
+
 	"github.com/graphql-go/graphql"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zaptest"
@@ -39,8 +41,13 @@ func TestGraphqlQuery(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		mailService, err := mailservice.New(log, &discardSender{}, "testdata")
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		creator := consoleql.TypeCreator{}
-		if err = creator.Create(service); err != nil {
+		if err = creator.Create(service, mailService); err != nil {
 			t.Fatal(err)
 		}
 

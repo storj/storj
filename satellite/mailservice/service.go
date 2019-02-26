@@ -8,10 +8,9 @@ import (
 	"context"
 	htmltemplate "html/template"
 	"path/filepath"
-	texttemplate "text/template"
 
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/post"
 )
@@ -72,7 +71,8 @@ type Service struct {
 	sender Sender
 
 	html *htmltemplate.Template
-	text *texttemplate.Template
+	// TODO(yar): prepare plain text version
+	//text *texttemplate.Template
 }
 
 // New creates new service

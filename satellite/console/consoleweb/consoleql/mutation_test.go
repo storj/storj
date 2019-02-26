@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"storj.io/storj/internal/post"
+	"storj.io/storj/satellite/mailservice"
+
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
@@ -22,6 +25,19 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
+
+// discardSender discard sending of an actual email
+type discardSender struct{}
+
+// SendEmail immediately returns with nil error
+func (*discardSender) SendEmail(msg *post.Message) error {
+	return nil
+}
+
+// FromAddress returns empty post.Address
+func (*discardSender) FromAddress() post.Address {
+	return post.Address{}
+}
 
 func TestGrapqhlMutation(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
@@ -41,7 +57,12 @@ func TestGrapqhlMutation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		schema, err := consoleql.CreateSchema(service)
+		mailService, err := mailservice.New(log, &discardSender{}, "testdata")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		schema, err := consoleql.CreateSchema(service, mailService)
 		if err != nil {
 			t.Fatal(err)
 		}
