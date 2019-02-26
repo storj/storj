@@ -156,7 +156,7 @@ TestLoop:
 			}
 			ps := NewMockPSClient(ctrl)
 			gomock.InOrder(
-				ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl, &pb.OrderLimit{}).Return(errs[n]).
+				ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl, &pb.OrderLimit{}).Return(&pb.SignedHash{}, errs[n]).
 					Do(func(ctx context.Context, id psclient.PieceID, data io.Reader, ttl time.Time, ba *pb.OrderLimit) {
 						// simulate that the mocked piece store client is reading the data
 						_, err := io.Copy(ioutil.Discard, data)
@@ -173,7 +173,7 @@ TestLoop:
 		r := io.LimitReader(rand.Reader, int64(size))
 		ec := ecClient{newPSClientFunc: mockNewPSClient(clients)}
 
-		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, &pb.OrderLimit{})
+		successfulNodes, successfulHashes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, &pb.OrderLimit{})
 
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
@@ -187,10 +187,14 @@ TestLoop:
 		for i := range tt.nodes {
 			if tt.errs[i] != nil {
 				assert.Nil(t, successfulNodes[i], errTag)
+				assert.Nil(t, successfulHashes[i], errTag)
 			} else if successfulNodes[i] == nil && tt.nodes[i] != nil {
 				slowNodes++
 			} else {
 				assert.Equal(t, tt.nodes[i], successfulNodes[i], errTag)
+				if successfulNodes[i] != nil {
+					assert.NotNil(t, successfulHashes[i], errTag)
+				}
 			}
 		}
 

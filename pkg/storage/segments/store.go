@@ -142,7 +142,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			return Meta{}, Error.Wrap(err)
 		}
 
-		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba)
+		successfulNodes, _, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
