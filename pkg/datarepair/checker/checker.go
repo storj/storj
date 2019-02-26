@@ -82,6 +82,11 @@ func (checker *Checker) Close() error {
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var remoteSegmentsChecked int64
+	var remoteSegmentsNeedingRepair int64
+	var remoteSegmentsLost int64
+	var remoteSegmentInfo []string
+
 	err = checker.pointerdb.Iterate("", "", true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
@@ -122,8 +127,10 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 
 				missingPieces := combineOfflineWithInvalid(offlineNodes, invalidNodes)
 
+				remoteSegmentsChecked++
 				numHealthy := len(nodeIDs) - len(missingPieces)
 				if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) < pointer.Remote.Redundancy.RepairThreshold) {
+					remoteSegmentsNeedingRepair++
 					err = checker.repairQueue.Enqueue(ctx, &pb.InjuredSegment{
 						Path:       string(item.Key),
 						LostPieces: missingPieces,
@@ -132,6 +139,19 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 						return Error.New("error adding injured segment to queue %s", err)
 					}
 				} else if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
+					pathElements := storj.SplitPath(storj.Path(item.Key))
+					// check to make sure there are at least *4* path elements. the first three
+					// are project, segment, and bucket name, but we want to make sure we're talking
+					// about an actual object, and that there's an object name specified
+					if len(pathElements) >= 4 {
+						project, bucketName, segmentpath := pathElements[0], pathElements[2], pathElements[3]
+						lostSegInfo := storj.JoinPaths(project, bucketName, segmentpath)
+						if contains(remoteSegmentInfo, lostSegInfo) == false {
+							remoteSegmentInfo = append(remoteSegmentInfo, lostSegInfo)
+						}
+					}
+
+					remoteSegmentsLost++
 					// make an entry in to the irreparable table
 					segmentInfo := &irreparable.RemoteSegmentInfo{
 						EncryptedSegmentPath:   item.Key,
@@ -151,7 +171,15 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 			return nil
 		},
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	mon.IntVal("remote_segments_checked").Observe(remoteSegmentsChecked)
+	mon.IntVal("remote_segments_needing_repair").Observe(remoteSegmentsNeedingRepair)
+	mon.IntVal("remote_segments_lost").Observe(remoteSegmentsLost)
+	mon.IntVal("remote_files_lost").Observe(int64(len(remoteSegmentInfo)))
+
+	return nil
 }
 
 // OfflineNodes returns the indices of offline nodes
@@ -211,4 +239,14 @@ func combineOfflineWithInvalid(offlineNodes []int32, invalidNodes []int32) (miss
 	}
 
 	return missingPieces
+}
+
+// checks for a string in slice
+func contains(a []string, x string) bool {
+	for _, n := range a {
+		if x == n {
+			return true
+		}
+	}
+	return false
 }

@@ -4,7 +4,6 @@
 package kademlia
 
 import (
-	"bytes"
 	"encoding/binary"
 	"time"
 
@@ -46,7 +45,7 @@ func (rt *RoutingTable) addNode(node *pb.Node) (bool, error) {
 		return false, err
 	}
 
-	withinK, err := rt.nodeIsWithinNearestK(node.Id)
+	withinK, err := rt.wouldBeInNearestK(node.Id)
 	if err != nil {
 		return false, RoutingErr.New("could not determine if node is within k: %s", err)
 	}
@@ -173,51 +172,41 @@ func (rt *RoutingTable) createOrUpdateKBucket(bID bucketID, now time.Time) error
 // getKBucketID: helper, returns the id of the corresponding k bucket given a node id.
 // The node doesn't have to be in the routing table at time of search
 func (rt *RoutingTable) getKBucketID(nodeID storj.NodeID) (bucketID, error) {
-	kadBucketIDs, err := rt.kadBucketDB.List(nil, 0)
+	match := bucketID{}
+	err := rt.kadBucketDB.Iterate(storage.IterateOptions{First: storage.Key{}, Recurse: true},
+		func(it storage.Iterator) error {
+			var item storage.ListItem
+			for it.Next(&item) {
+				match = keyToBucketID(item.Key)
+				if nodeID.Less(match) {
+					break
+				}
+			}
+			return nil
+		},
+	)
 	if err != nil {
-		return bucketID{}, RoutingErr.New("could not list all k bucket ids: %s", err)
+		return bucketID{}, RoutingErr.Wrap(err)
 	}
-	var keys []bucketID
-	keys = append(keys, bucketID{})
-	for _, k := range kadBucketIDs {
-		keys = append(keys, keyToBucketID(k))
-	}
-
-	for i := 0; i < len(keys)-1; i++ {
-		if bytes.Compare(nodeID.Bytes(), keys[i][:]) > 0 && bytes.Compare(nodeID.Bytes(), keys[i+1][:]) <= 0 {
-			return keys[i+1], nil
-		}
-	}
-	// shouldn't happen BUT return error if no matching kbucket...
-	return bucketID{}, RoutingErr.New("could not find k bucket")
+	return match, nil
 }
 
-// determineFurthestIDWithinK: helper, determines the furthest node within the k closest to local node
-func (rt *RoutingTable) determineFurthestIDWithinK(nodeIDs storj.NodeIDList) storj.NodeID {
-	nodeIDs = cloneNodeIDs(nodeIDs)
-	sortByXOR(nodeIDs, rt.self.Id)
-	if len(nodeIDs) < rt.bucketSize+1 { //adding 1 since we're not including local node in closest k
-		return nodeIDs[len(nodeIDs)-1]
-	}
-	return nodeIDs[rt.bucketSize]
-}
-
-// nodeIsWithinNearestK: helper, returns true if the node in question is within the nearest k from local node
-func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storj.NodeID) (bool, error) {
-	nodeKeys, err := rt.nodeBucketDB.List(nil, 0)
-	if err != nil {
-		return false, RoutingErr.New("could not get nodes: %s", err)
-	}
-	nodeCount := len(nodeKeys)
-	if nodeCount < rt.bucketSize+1 { //adding 1 since we're not including local node in closest k
-		return true, nil
-	}
-	nodeIDs, err := keysToNodeIDs(nodeKeys)
+// wouldBeInNearestK: helper, returns true if the node in question is within the nearest k from local node
+func (rt *RoutingTable) wouldBeInNearestK(nodeID storj.NodeID) (bool, error) {
+	closestNodes, err := rt.FindNear(rt.self.Id, rt.bucketSize)
 	if err != nil {
 		return false, RoutingErr.Wrap(err)
 	}
+	if len(closestNodes) < rt.bucketSize {
+		return true, nil
+	}
+	var furthestIDWithinK storj.NodeID
+	if len(closestNodes) <= rt.bucketSize {
+		furthestIDWithinK = closestNodes[len(closestNodes)-1].Id
+	} else {
+		furthestIDWithinK = closestNodes[rt.bucketSize].Id
+	}
 
-	furthestIDWithinK := rt.determineFurthestIDWithinK(nodeIDs)
 	existingXor := xorNodeID(furthestIDWithinK, rt.self.Id)
 	newXor := xorNodeID(nodeID, rt.self.Id)
 	return newXor.Less(existingXor), nil
@@ -252,27 +241,18 @@ func (rt *RoutingTable) getNodeIDsWithinKBucket(bID bucketID) (storj.NodeIDList,
 	}
 	left := endpoints[0]
 	right := endpoints[1]
-	var nodeIDsBytes [][]byte
-	allNodeIDsBytes, err := rt.nodeBucketDB.List(nil, 0)
-	if err != nil {
-		return nil, RoutingErr.New("could not list nodes %s", err)
-	}
-	for _, v := range allNodeIDsBytes {
-		if (bytes.Compare(v, left[:]) > 0) && (bytes.Compare(v, right[:]) <= 0) {
-			nodeIDsBytes = append(nodeIDsBytes, v)
-			if len(nodeIDsBytes) == rt.bucketSize {
-				break
-			}
+	var ids []storj.NodeID
+
+	err = rt.iterateNodes(left, func(nodeID storj.NodeID, protoNode []byte) error {
+		if left.Less(nodeID) && (nodeID.Less(right) || nodeID == right) {
+			ids = append(ids, nodeID)
 		}
-	}
-	nodeIDs, err := storj.NodeIDsFromBytes(nodeIDsBytes)
+		return nil
+	}, false)
 	if err != nil {
 		return nil, err
 	}
-	if len(nodeIDsBytes) > 0 {
-		return nodeIDs, nil
-	}
-	return nil, nil
+	return ids, nil
 }
 
 // getNodesFromIDsBytes: helper, returns array of encoded nodes from node ids
@@ -317,20 +297,26 @@ func (rt *RoutingTable) getUnmarshaledNodesFromBucket(bID bucketID) ([]*pb.Node,
 
 // getKBucketRange: helper, returns the left and right endpoints of the range of node ids contained within the bucket
 func (rt *RoutingTable) getKBucketRange(bID bucketID) ([]bucketID, error) {
-	kadBucketIDs, err := rt.kadBucketDB.List(nil, 0)
-	if err != nil {
-		return nil, RoutingErr.New("could not list all k bucket ids: %s", err)
-	}
 	previousBucket := bucketID{}
-	for _, k := range kadBucketIDs {
-		thisBucket := keyToBucketID(k)
-		if thisBucket == bID {
-			return []bucketID{previousBucket, bID}, nil
-		}
-		previousBucket = thisBucket
+	endpoints := []bucketID{}
+	err := rt.kadBucketDB.Iterate(storage.IterateOptions{First: storage.Key{}, Recurse: true},
+		func(it storage.Iterator) error {
+			var item storage.ListItem
+			for it.Next(&item) {
+				thisBucket := keyToBucketID(item.Key)
+				if thisBucket == bID {
+					endpoints = []bucketID{previousBucket, bID}
+					break
+				}
+				previousBucket = thisBucket
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		return endpoints, RoutingErr.Wrap(err)
 	}
-	// shouldn't happen BUT return error if no matching kbucket...
-	return nil, RoutingErr.New("could not find k bucket")
+	return endpoints, nil
 }
 
 // determineLeafDepth determines the level of the bucket id in question.
