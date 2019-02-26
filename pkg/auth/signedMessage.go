@@ -45,6 +45,8 @@ type SignableMessage interface {
 	GetSignature() []byte
 	SetCerts([][]byte)
 	SetSignature([]byte)
+	GetSignedMessage() []byte
+	SetSignedMessage([]byte)
 }
 
 //SignMessage adds the crypto-related aspects of signed message
@@ -54,6 +56,7 @@ func SignMessage(msg SignableMessage, ID identity.FullIdentity) error {
 	}
 	msg.SetSignature(nil)
 	msg.SetCerts(nil)
+	msg.SetSignedMessage(nil)
 	msgBytes, err := proto.Marshal(msg)
 	if err != nil {
 		return ErrMarshal.Wrap(err)
@@ -64,6 +67,7 @@ func SignMessage(msg SignableMessage, ID identity.FullIdentity) error {
 	}
 	msg.SetSignature(signature)
 	msg.SetCerts(ID.ChainRaw())
+	msg.SetSignedMessage(msgBytes)
 	return nil
 }
 
@@ -76,20 +80,18 @@ func VerifyMsg(msg SignableMessage, signer storj.NodeID) error {
 		return ErrMissing.New("message signature")
 	} else if msg.GetCerts() == nil {
 		return ErrMissing.New("message certificates")
+	} else if msg.GetSignedMessage() == nil {
+		return ErrMissing.New("message certificates")
 	}
 	signature := msg.GetSignature()
 	certs := msg.GetCerts()
-	msg.SetSignature(nil)
-	msg.SetCerts(nil)
-	msgBytes, err := proto.Marshal(msg)
-	if err != nil {
-		return ErrMarshal.Wrap(err)
-	}
+	signedMessage := msg.GetSignedMessage()
+
 	//check certs
 	if len(certs) < 2 {
 		return ErrVerify.New("Expected at least leaf and CA public keys")
 	}
-	err = peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)(certs, nil)
+	err := peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)(certs, nil)
 	if err != nil {
 		return ErrVerify.Wrap(err)
 	}
@@ -105,11 +107,20 @@ func VerifyMsg(msg SignableMessage, signer storj.NodeID) error {
 	if id, err := identity.NodeIDFromKey(ca.PublicKey); err != nil || id != signer {
 		return ErrSigner.New("%+v vs %+v", id, signer)
 	}
-	if err := pkcrypto.HashAndVerifySignature(leaf.PublicKey, msgBytes, signature); err != nil {
+	if err := pkcrypto.HashAndVerifySignature(leaf.PublicKey, signedMessage, signature); err != nil {
 		return ErrVerify.New("%+v", err)
 	}
 	//cleanup
-	msg.SetSignature(signature)
-	msg.SetCerts(certs)
+	msg.SetSignature(nil)
+	msg.SetCerts(nil)
+	msg.SetSignedMessage(nil)
+	defer msg.SetSignature(signature)
+	defer msg.SetCerts(certs)
+	defer msg.SetSignedMessage(signedMessage)
+	//replace the existing message with the known valid one
+	//todo:  don't have an existing message!
+	if err = proto.Unmarshal(signedMessage, msg); err != nil {
+		return ErrMarshal.Wrap(err)
+	}
 	return nil
 }

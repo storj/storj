@@ -11,11 +11,14 @@ import (
 	"github.com/zeebo/errs"
 )
 
-//OrderLimit aliases PayerBandwidthAllocation
-type OrderLimit = PayerBandwidthAllocation
+//OrderLimit redefines PayerBandwidthAllocation (to allow fancy serialization)
+type OrderLimit PayerBandwidthAllocation
 
-//Order aliases RenterBandwidthAllocation
-type Order = RenterBandwidthAllocation
+//Order redefines RenterBandwidthAllocation (to allow fancy serialization)
+type Order RenterBandwidthAllocation
+
+// SignedHash2 redefines SignedHash (to allow fancy serialization)
+type SignedHash2 SignedHash
 
 var (
 	// ErrRenter wraps errors related to renter bandwidth allocations
@@ -45,6 +48,11 @@ func Equal(msg1, msg2 proto.Message) bool {
 	return bytes.Compare(msg1Bytes, msg2Bytes) == 0
 }
 
+// GetCerts updates the certs field, completing the auth.SignedMsg interface
+func (m *OrderLimit) GetCerts() [][]byte {
+	return m.Certs
+}
+
 // SetCerts updates the certs field, completing the auth.SignedMsg interface
 func (m *OrderLimit) SetCerts(certs [][]byte) {
 	m.Certs = certs
@@ -53,6 +61,16 @@ func (m *OrderLimit) SetCerts(certs [][]byte) {
 // SetSignature updates the signature field, completing the auth.SignedMsg interface
 func (m *OrderLimit) SetSignature(signature []byte) {
 	m.Signature = signature
+}
+
+// SetSignedMessage updates the signed message field, completing the auth.SignedMsg interface
+func (m *OrderLimit) SetSignedMessage(signedMessage []byte) {
+	m.SignedMessage = signedMessage
+}
+
+// GetCerts updates the certs field, completing the auth.SignedMsg interface
+func (m *Order) GetCerts() [][]byte {
+	return m.Certs
 }
 
 // SetCerts updates the certs field, completing the auth.SignedMsg interface
@@ -65,6 +83,16 @@ func (m *Order) SetSignature(signature []byte) {
 	m.Signature = signature
 }
 
+// SetSignedMessage updates the signed message field, completing the auth.SignedMsg interface
+func (m *Order) SetSignedMessage(signedMessage []byte) {
+	m.SignedMessage = signedMessage
+}
+
+// GetCerts updates the certs field, completing the auth.SignedMsg interface
+func (m *SignedHash) GetCerts() [][]byte {
+	return m.Certs
+}
+
 // SetCerts updates the certs field, completing the auth.SignedMsg interface
 func (m *SignedHash) SetCerts(certs [][]byte) {
 	m.Certs = certs
@@ -73,6 +101,11 @@ func (m *SignedHash) SetCerts(certs [][]byte) {
 // SetSignature updates the signature field, completing the auth.SignedMsg interface
 func (m *SignedHash) SetSignature(signature []byte) {
 	m.Signature = signature
+}
+
+// SetSignedMessage updates the signed message field, completing the auth.SignedMsg interface
+func (m *SignedHash) SetSignedMessage(signedMessage []byte) {
+	m.Hash = signedMessage
 }
 
 // Clone creates a deep copy of PayerBandwidthAllocation

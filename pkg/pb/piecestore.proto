@@ -35,17 +35,20 @@ message PayerBandwidthAllocation { // Payer refers to satellite
   BandwidthAction action = 6;    // GET or PUT
   int64 created_unix_sec = 7;    // Unix timestamp for when PayerbandwidthAllocation was created
   
-  repeated bytes certs = 8; // Satellite certificate chain 
-  bytes signature = 9;      // Proof that the data was signed by the Satellite
+  repeated bytes certs = 8;  // Satellite certificate chain 
+  bytes signature = 9;       // Proof that the data was signed by the Satellite
+  bytes signed_message = 10; // A serialized version of this very message
 }
 
 message RenterBandwidthAllocation { // Renter refers to uplink
-  PayerBandwidthAllocation payer_allocation = 1 [(gogoproto.nullable) = false]; // Bandwidth Allocation from Satellite
+  //TODO:  change PayerBandwidthAllocation to OrderLimit/SignedMessage at some point when we're not avoiding breaking gRPC
+  PayerBandwidthAllocation payer_allocation = 1 [(gogoproto.customtype) = "OrderLimit", (gogoproto.nullable) = false]; // Bandwidth Allocation from Satellite
   int64 total = 2;                               // Total Bytes Stored
   bytes storage_node_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Storage Node Identity
-
+  
   repeated bytes certs = 4;   // Uplink certificate chain
   bytes signature = 5;        // Proof that the data was signed by the Uplink
+  bytes signed_message = 6;   // A serialized version of this very message
 }
 
 message PieceStore {
@@ -56,7 +59,8 @@ message PieceStore {
     bytes content = 3;
   }
 
-  RenterBandwidthAllocation bandwidth_allocation = 1;
+  //TODO:  change RenterBandwidthAllocation to Order/SignedMessage at some point when we're not avoiding breaking gRPC
+  RenterBandwidthAllocation bandwidth_allocation = 1 [(gogoproto.customtype) = "Order", (gogoproto.nullable) = false]; 
   PieceData piece_data = 2;
   SignedMessage authorization = 3 [deprecated=true]; 
   SignedHash signed_hash = 4;
@@ -83,8 +87,8 @@ message PieceRetrieval {
     int64 piece_size = 2;
     int64 offset = 3;
   }
-
-  RenterBandwidthAllocation bandwidth_allocation = 1;
+  //TODO:  change RenterBandwidthAllocation to Order/SignedMessage at some point when we're not avoiding breaking gRPC
+  RenterBandwidthAllocation bandwidth_allocation = 1 [(gogoproto.customtype) = "Order", (gogoproto.nullable) = false]; 
   PieceData piece_data = 2;
   SignedMessage authorization = 3 [deprecated=true];
 }
@@ -123,7 +127,7 @@ message StatSummary {
 message SignedMessage {
   bytes data = 1;
   bytes signature = 2;
-  bytes public_key = 3;
+  bytes public_key = 3; //todo:  remove at some point
 }
 
 message DashboardReq { }
@@ -141,7 +145,6 @@ message DashboardStats {
 
 message SignedHash {
   bytes hash = 1;
-  
-  repeated bytes certs = 2;
+  repeated bytes certs = 2; //todo:  remove at some point
   bytes signature = 3;
 }

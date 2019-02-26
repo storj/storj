@@ -101,7 +101,8 @@ message PutResponse {
 message GetResponse {
   Pointer pointer = 1;
   repeated node.Node nodes = 2;
-  piecestoreroutes.PayerBandwidthAllocation pba = 3;
+  //TODO:  change PayerBandwidthAllocation to OrderLimit/SignedMessage at some point when we're not avoiding breaking gRPC
+  piecestoreroutes.PayerBandwidthAllocation pba = 3 [(gogoproto.customtype) = "OrderLimit", (gogoproto.nullable) = false];
   piecestoreroutes.SignedMessage authorization = 4;
 }
 
@@ -138,5 +139,6 @@ message PayerBandwidthAllocationRequest {
 }
 
 message PayerBandwidthAllocationResponse {
-  piecestoreroutes.PayerBandwidthAllocation pba = 1;
+  //TODO:  change PayerBandwidthAllocation to OrderLimit/SignedMessage at some point when we're not avoiding breaking gRPC
+  piecestoreroutes.PayerBandwidthAllocation pba = 1 [(gogoproto.customtype) = "OrderLimit", (gogoproto.nullable) = false];
 }
