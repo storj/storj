@@ -75,6 +75,12 @@ var (
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  LookupNode,
 	}
+	nodeInfoCmd = &cobra.Command{
+		Use:   "node-info <node_id>",
+		Short: "get node info directly from node",
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  NodeInfo,
+	}
 	dumpNodesCmd = &cobra.Command{
 		Use:   "dump-nodes",
 		Short: "dump all nodes in the routing table",
@@ -180,6 +186,34 @@ func LookupNode(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	fmt.Println(prettyPrint(n))
+
+	return nil
+}
+
+// NodeInfo get node info directly from the node with provided Node ID
+func NodeInfo(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	// first lookup the node to get its address
+	n, err := i.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
+		Id: args[0],
+	})
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	// now ask the node directly for its node info
+	info, err := i.kadclient.NodeInfo(context.Background(), &pb.NodeInfoRequest{
+		Address: n.GetNode().GetAddress(),
+	})
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	fmt.Println(prettyPrint(info))
 
 	return nil
 }
@@ -414,6 +448,7 @@ func init() {
 	kadCmd.AddCommand(countNodeCmd)
 	kadCmd.AddCommand(pingNodeCmd)
 	kadCmd.AddCommand(lookupNodeCmd)
+	kadCmd.AddCommand(nodeInfoCmd)
 	kadCmd.AddCommand(dumpNodesCmd)
 
 	statsCmd.AddCommand(getStatsCmd)

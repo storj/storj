@@ -12,10 +12,12 @@ package inspector;
 service KadInspector {
   // CountNodes returns the number of nodes in the routing table
   rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
-  // PingNodes sends a PING RPC to a node and returns it's availability
+  // PingNode sends a PING RPC to a node and returns its availability
   rpc PingNode(PingNodeRequest) returns (PingNodeResponse);
   // LookupNode triggers a Kademlia FindNode and returns the response
   rpc LookupNode(LookupNodeRequest) returns (LookupNodeResponse);
+  // NodeInfo sends a PING RPC to a node and returns its local info
+  rpc NodeInfo(NodeInfoRequest) returns (NodeInfoResponse);
   // FindNear returns limit number of IDs "near" the Start ID
   rpc FindNear(FindNearRequest) returns (FindNearResponse);
 }
@@ -108,6 +110,17 @@ message LookupNodeRequest {
 message LookupNodeResponse {
   node.Node node = 1;
   node.NodeMetadata meta = 2;
+}
+
+message NodeInfoRequest {
+  node.NodeAddress address = 1;
+}
+
+message NodeInfoResponse {
+  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  node.NodeType type = 2;
+  node.NodeOperator operator = 3;
+  node.NodeCapacity capacity = 4;
 }
 
 message FindNearRequest {

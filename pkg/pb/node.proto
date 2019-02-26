@@ -8,12 +8,6 @@ package node;
 
 import "gogo.proto";
 
-//  NodeRestrictions contains all relevant data about a nodes ability to store data
-message NodeRestrictions {
-    int64 free_bandwidth = 1;
-    int64 free_disk = 2;
-}
-
 // TODO move statdb.Update() stuff out of here
 // Node represents a node in the overlay network
 // Node is info for a updating a single storagenode, used in the Update rpc calls
@@ -63,9 +57,26 @@ message NodeStats {
     int64 uptime_success_count = 8;
 }
 
+// NodeOperator contains info about the storage node operator
+message NodeOperator {
+    string email = 1;
+    string wallet = 2;
+}
+
+// NodeCapacity contains all relevant data about a nodes ability to store data
+message NodeCapacity {
+    int64 free_bandwidth = 1;
+    int64 free_disk = 2;
+}
+
+// Deprecated: use NodeOperator instead
 message NodeMetadata {
     string email = 1;
     string wallet = 2;
 }
 
-
+// Deprecated: use NodeCapacity instead
+message NodeRestrictions {
+    int64 free_bandwidth = 1;
+    int64 free_disk = 2;
+}
