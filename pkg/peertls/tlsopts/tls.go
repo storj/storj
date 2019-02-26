@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -82,7 +83,10 @@ func (opts *Options) TLSConfig(id storj.NodeID) *tls.Config {
 func (tc *TransportCredentials) ClientHandshake(ctx context.Context, authority string, conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	tlsConn, authInfo, err := tc.TransportCredentials.ClientHandshake(ctx, authority, conn)
 	if err != nil {
-		return tlsConn, authInfo, peertls.NewNonTemporaryError(err)
+		isCertError := peertls.ErrVerifyPeerCert.Has(err) || strings.Contains(err.Error(), "bad certificate")
+		if isCertError {
+			return tlsConn, authInfo, peertls.NewNonTemporaryError(err)
+		}
 	}
 	return tlsConn, authInfo, err
 }
