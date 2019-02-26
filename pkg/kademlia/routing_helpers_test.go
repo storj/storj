@@ -79,9 +79,7 @@ func TestAddNode(t *testing.T) {
 	defer ctx.Cleanup()
 	rt := createRoutingTable(teststorj.NodeIDFromString("OO"))
 	defer ctx.Check(rt.Close)
-	// bucket, err := rt.kadBucketDB.Get(storage.Key([]byte{255, 255}))
-	// assert.NoError(t, err)
-	// assert.NotNil(t, bucket)
+	
 	cases := []struct {
 		testID  string
 		node    *pb.Node
@@ -317,8 +315,10 @@ func TestGetKBucketID(t *testing.T) {
 }
 
 func TestWouldBeInNearestK(t *testing.T) {
-	rt, cleanup := createRoutingTable(t, storj.NodeID{127, 255})
-	defer cleanup()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	rt := createRoutingTable(storj.NodeID{127, 255})
+	defer ctx.Check(rt.Close)
 	rt.bucketSize = 2
 
 	cases := []struct {
