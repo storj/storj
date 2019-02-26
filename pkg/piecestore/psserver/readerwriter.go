@@ -4,6 +4,9 @@
 package psserver
 
 import (
+	"crypto/sha256"
+	"hash"
+
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
@@ -37,11 +40,12 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 // StreamReader is a struct for Retrieving data from server
 type StreamReader struct {
 	src                 *utils.ReaderSource
-	bandwidthAllocation *pb.RenterBandwidthAllocation
+	bandwidthAllocation *pb.Order
 	currentTotal        int64
 	bandwidthRemaining  int64
 	spaceRemaining      int64
 	sofar               int64
+	hash                hash.Hash
 }
 
 // NewStreamReader returns a new StreamReader for Server.Store
@@ -49,6 +53,7 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, bandwidt
 	sr := &StreamReader{
 		bandwidthRemaining: bandwidthRemaining,
 		spaceRemaining:     spaceRemaining,
+		hash:               sha256.New(),
 	}
 	sr.src = utils.NewReaderSource(func() ([]byte, error) {
 
@@ -95,9 +100,12 @@ func (s *StreamReader) Read(b []byte) (int, error) {
 
 	n, err := s.src.Read(b)
 	s.sofar += int64(n)
+	_, errHash := s.hash.Write(b[:n])
+	err = errs.Combine(err, errHash)
 	if err != nil {
 		return n, err
 	}
+
 	if s.sofar >= s.spaceRemaining {
 		return n, StreamWriterError.New("out of space")
 	}

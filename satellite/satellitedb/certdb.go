@@ -56,7 +56,7 @@ func (b *certDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (crypto.
 	}
 	pubkey, err := pkcrypto.PublicKeyFromPKIX(dbxInfo.Publickey)
 	if err != nil {
-		return nil, Error.New("Failed to extract Public Key from RenterBandwidthAllocation: %+v", err)
+		return nil, Error.New("Failed to extract Public Key from Order: %+v", err)
 	}
 	return pubkey, nil
 }

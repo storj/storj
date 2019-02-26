@@ -130,18 +130,18 @@ func TestBootstrap(t *testing.T) {
 
 	bn, s, clean := testNode(ctx, "1", t, []pb.Node{})
 	defer clean()
-	defer s.Stop()
+	defer s.GracefulStop()
 
 	n1, s1, clean1 := testNode(ctx, "2", t, []pb.Node{bn.routingTable.self})
 	defer clean1()
-	defer s1.Stop()
+	defer s1.GracefulStop()
 
 	err := n1.Bootstrap(ctx)
 	assert.NoError(t, err)
 
 	n2, s2, clean2 := testNode(ctx, "3", t, []pb.Node{bn.routingTable.self})
 	defer clean2()
-	defer s2.Stop()
+	defer s2.GracefulStop()
 
 	err = n2.Bootstrap(ctx)
 	assert.NoError(t, err)
@@ -213,6 +213,7 @@ func TestRefresh(t *testing.T) {
 	ts2, err := rt.GetBucketTimestamp(bID[:])
 	assert.NoError(t, err)
 	assert.True(t, ts1.Equal(ts2))
+	s.GracefulStop()
 }
 
 func TestFindNear(t *testing.T) {
@@ -491,6 +492,7 @@ func TestRandomIds(t *testing.T) {
 type mockNodesServer struct {
 	queryCalled int32
 	pingCalled  int32
+	infoCalled  int32
 	returnValue []*pb.Node
 }
 
@@ -502,6 +504,11 @@ func (mn *mockNodesServer) Query(ctx context.Context, req *pb.QueryRequest) (*pb
 func (mn *mockNodesServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
 	atomic.AddInt32(&mn.pingCalled, 1)
 	return &pb.PingResponse{}, nil
+}
+
+func (mn *mockNodesServer) RequestInfo(ctx context.Context, req *pb.InfoRequest) (*pb.InfoResponse, error) {
+	atomic.AddInt32(&mn.infoCalled, 1)
+	return &pb.InfoResponse{}, nil
 }
 
 // newKademlia returns a newly configured Kademlia instance

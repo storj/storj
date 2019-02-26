@@ -12,7 +12,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/certificates"
-	"storj.io/storj/pkg/cfgstruct"
 )
 
 var (
@@ -35,24 +34,17 @@ var (
 	}
 
 	claimsExportCfg struct {
-		certificates.CertServerConfig
-		Raw bool `default:"false" help:"if true, the raw data structures will be printed"`
+		Signer certificates.CertServerConfig
+		Raw    bool `default:"false" help:"if true, the raw data structures will be printed"`
 	}
 
-	claimDeleteCfg certificates.CertServerConfig
+	claimsDeleteCfg struct {
+		Signer certificates.CertServerConfig
+	}
 )
 
-func init() {
-	rootCmd.AddCommand(claimsCmd)
-	claimsCmd.AddCommand(claimsExportCmd)
-	claimsCmd.AddCommand(claimDeleteCmd)
-
-	cfgstruct.Bind(claimsExportCmd.Flags(), &claimsExportCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.Bind(claimDeleteCmd.Flags(), &claimDeleteCfg, cfgstruct.ConfDir(defaultConfDir))
-}
-
 func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
-	authDB, err := claimsExportCfg.NewAuthDB()
+	authDB, err := claimsExportCfg.Signer.NewAuthDB()
 	if err != nil {
 		return err
 	}
@@ -79,7 +71,7 @@ func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if len(toPrint) == 0 {
-		fmt.Printf("no claims in database: %s\n", claimsExportCfg.AuthorizationDBURL)
+		fmt.Printf("no claims in database: %s\n", claimsExportCfg.Signer.AuthorizationDBURL)
 		return nil
 	}
 
@@ -93,7 +85,7 @@ func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdDeleteClaim(cmd *cobra.Command, args []string) (err error) {
-	authDB, err := claimsExportCfg.NewAuthDB()
+	authDB, err := claimsDeleteCfg.Signer.NewAuthDB()
 	if err != nil {
 		return err
 	}

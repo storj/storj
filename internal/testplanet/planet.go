@@ -100,7 +100,8 @@ type Planet struct {
 	StorageNodes []*storagenode.Peer
 	Uplinks      []*Uplink
 
-	identities *Identities
+	identities    *Identities
+	whitelistPath string // TODO: in-memory
 
 	run    errgroup.Group
 	cancel func()
@@ -149,7 +150,7 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 // NewCustom creates a new full system with the specified configuration.
 func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	if config.Identities == nil {
-		config.Identities = pregeneratedIdentities.Clone()
+		config.Identities = pregeneratedSignedIdentities.Clone()
 	}
 
 	planet := &Planet{
@@ -163,6 +164,12 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	whitelistPath, err := planet.WriteWhitelist()
+	if err != nil {
+		return nil, err
+	}
+	planet.whitelistPath = whitelistPath
 
 	planet.Bootstrap, err = planet.newBootstrap()
 	if err != nil {
@@ -382,8 +389,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Server: server.Config{
 				Address: "127.0.0.1:0",
 				Config: tlsopts.Config{
-					RevocationDBURL:    "bolt://" + filepath.Join(storageDir, "revocation.db"),
-					UsePeerCAWhitelist: false, // TODO: enable
+					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
+					UsePeerCAWhitelist:  true,
+					PeerCAWhitelistPath: planet.whitelistPath,
 					Extensions: peertls.TLSExtConfig{
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
@@ -511,8 +519,9 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 			Server: server.Config{
 				Address: "127.0.0.1:0",
 				Config: tlsopts.Config{
-					RevocationDBURL:    "bolt://" + filepath.Join(storageDir, "revocation.db"),
-					UsePeerCAWhitelist: false, // TODO: enable
+					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
+					UsePeerCAWhitelist:  true,
+					PeerCAWhitelistPath: planet.whitelistPath,
 					Extensions: peertls.TLSExtConfig{
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
@@ -590,8 +599,9 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 		Server: server.Config{
 			Address: "127.0.0.1:0",
 			Config: tlsopts.Config{
-				RevocationDBURL:    "bolt://" + filepath.Join(dbDir, "revocation.db"),
-				UsePeerCAWhitelist: false, // TODO: enable
+				RevocationDBURL:     "bolt://" + filepath.Join(dbDir, "revocation.db"),
+				UsePeerCAWhitelist:  true,
+				PeerCAWhitelistPath: planet.whitelistPath,
 				Extensions: peertls.TLSExtConfig{
 					Revocation:          false,
 					WhitelistSignedLeaf: false,
@@ -634,4 +644,15 @@ func (planet *Planet) NewIdentity() (*identity.FullIdentity, error) {
 // NewListener creates a new listener
 func (planet *Planet) NewListener() (net.Listener, error) {
 	return net.Listen("tcp", "127.0.0.1:0")
+}
+
+// WriteWhitelist writes the pregenerated signer's CA cert to a "CA whitelist", PEM-encoded.
+func (planet *Planet) WriteWhitelist() (string, error) {
+	whitelistPath := filepath.Join(planet.directory, "whitelist.pem")
+	signer := NewPregeneratedSigner()
+	err := identity.PeerCAConfig{
+		CertPath: whitelistPath,
+	}.Save(signer.PeerCA())
+
+	return whitelistPath, err
 }
