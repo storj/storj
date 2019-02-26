@@ -349,13 +349,11 @@ func TestNodeIsWithinNearestK(t *testing.T) {
 			closest: false,
 		},
 	}
-	xors := []storj.NodeID{}
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
 			result, err := rt.nodeIsWithinNearestK(c.nodeID)
 			assert.NoError(t, err)
 			assert.Equal(t, c.closest, result)
-			xors = append(xors, xorNodeID(c.nodeID, rt.self.Id))
 			assert.NoError(t, rt.nodeBucketDB.Put(c.nodeID.Bytes(), []byte("")))
 		})
 	}
