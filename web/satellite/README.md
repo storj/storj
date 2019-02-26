@@ -33,7 +33,7 @@ npm run test:unit
 ### Build docker container
 From within the storj/web/satellite folder run...
 ```
-docker build -t storjlabs/satellite-ui:latest .
+docker build -t storjlabs/satellite-ui:latest -f web/satellite/Dockerfile .
 ```
 
 ### Run docker container

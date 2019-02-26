@@ -109,7 +109,7 @@ test-all-in-one: ## Test docker images locally
 ##@ Build
 
 .PHONY: images
-images: satellite-image storagenode-image uplink-image gateway-image ## Build gateway, satellite, storagenode, and uplink Docker images
+images: satellite-image satellite-ui-image storagenode-image uplink-image gateway-image ## Build gateway, satellite, storagenode, and uplink Docker images
 	echo Built version: ${TAG}
 
 .PHONY: gateway-image
@@ -118,6 +118,9 @@ gateway-image: ## Build gateway Docker image
 .PHONY: satellite-image
 satellite-image: ## Build satellite Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG} -f cmd/satellite/Dockerfile .
+.PHONY: satellite-ui-image
+satellite-ui-image: ## Build satellite Docker image
+	${DOCKER_BUILD} --pull=true -t storjlabs/satellite-ui:${TAG}${CUSTOMTAG} -f web/satellite/Dockerfile .
 .PHONY: storagenode-image
 storagenode-image: ## Build storagenode Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG} -f cmd/storagenode/Dockerfile .
