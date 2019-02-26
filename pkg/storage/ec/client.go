@@ -178,7 +178,9 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, node *pb.Node, pieceID
 		} else {
 			zap.S().Infof("Node %s cut from upload due to slow connection.", node.Id)
 		}
-		err = context.Canceled
+
+		errDelete := ec.Delete(context.Background(), []*pb.Node{node}, pieceID, pba.SatelliteId)
+		err = errs.Combine(context.Canceled, errDelete)
 	} else if err != nil {
 		nodeAddress := "nil"
 		if node.Address != nil {
