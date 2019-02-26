@@ -26,7 +26,7 @@ import (
 
 var (
 	progress *bool
-	ttl      *time.Duration
+	ttl      *int
 )
 
 func init() {
@@ -36,7 +36,7 @@ func init() {
 		RunE:  copyMain,
 	}, RootCmd)
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
-	ttl = cpCmd.Flags().Duration("ttl", 0, "number of days before file deletion. Default (0) is indefinite")
+	ttl = cpCmd.Flags().Int("ttl", 0, "number of days before file deletion. Default (0) is indefinite")
 }
 
 // upload transfers src from local machine to s3 compatible object dst
@@ -85,7 +85,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 
 	var expires time.Time
 	if *ttl != 0 {
-		expires = time.Now().UTC().Add(*ttl)
+		expires = time.Now().UTC().AddDate(0, 0, *ttl)
 	}
 
 	createInfo := storj.CreateObject{
