@@ -49,36 +49,4 @@ func (sender *MailSender) SendEmail(msg *post.Message) error {
 	link := content[linkStartOffset:linkEndOffset]
 	_, err := http.Get(link)
 	return err
-	//token := content[linkStartOffset+len("activationToken=") - 2:linkEndOffset]
-	//tokenParts := strings.Split(token, ".")
-	//
-	//jsonb, err := base64.StdEncoding.DecodeString(tokenParts[0])
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//var claims struct {
-	//	ID string
-	//}
-	//
-	//err = json.NewDecoder(bytes.NewReader(jsonb)).Decode(&claims)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//id, err := uuid.Parse(claims.ID)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//ctx := context.Background()
-	//userStore := sender.DB.Users()
-	//
-	//user, err := userStore.Get(ctx, *id)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//user.Status = console.Active
-	//return userStore.Update(ctx, user)
 }
