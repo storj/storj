@@ -316,11 +316,9 @@ func TestGetKBucketID(t *testing.T) {
 	assert.Equal(t, kadIDA[:2], keyA[:2])
 }
 
-func TestNodeIsWithinNearestK(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-	rt := createRoutingTable(storj.NodeID{127, 255})
-	defer ctx.Check(rt.Close)
+func TestWouldBeInNearestK(t *testing.T) {
+	rt, cleanup := createRoutingTable(t, storj.NodeID{127, 255})
+	defer cleanup()
 	rt.bucketSize = 2
 
 	cases := []struct {
@@ -329,29 +327,29 @@ func TestNodeIsWithinNearestK(t *testing.T) {
 		closest bool
 	}{
 		{testID: "A",
-			nodeID:  storj.NodeID{127, 255},
+			nodeID:  storj.NodeID{127, 255}, //XOR from [127, 255] is 0
 			closest: true,
 		},
 		{testID: "B",
-			nodeID:  storj.NodeID{143, 255},
+			nodeID:  storj.NodeID{143, 255}, //XOR from [127, 255] is 240
 			closest: true,
 		},
 		{testID: "C",
-			nodeID:  storj.NodeID{255, 255}, //closest to self
+			nodeID:  storj.NodeID{255, 255}, //XOR from [127, 255] is 128
 			closest: true,
 		},
 		{testID: "D",
-			nodeID:  storj.NodeID{191, 255},
+			nodeID:  storj.NodeID{191, 255}, //XOR from [127, 255] is 192 
 			closest: false,
 		},
 		{testID: "E",
-			nodeID:  storj.NodeID{133, 255},
+			nodeID:  storj.NodeID{133, 255}, //XOR from [127, 255] is 250
 			closest: false,
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
-			result, err := rt.nodeIsWithinNearestK(c.nodeID)
+			result, err := rt.wouldBeInNearestK(c.nodeID)
 			assert.NoError(t, err)
 			assert.Equal(t, c.closest, result)
 			assert.NoError(t, rt.nodeBucketDB.Put(c.nodeID.Bytes(), []byte("")))

@@ -45,7 +45,7 @@ func (rt *RoutingTable) addNode(node *pb.Node) (bool, error) {
 		return false, err
 	}
 
-	withinK, err := rt.nodeIsWithinNearestK(node.Id)
+	withinK, err := rt.wouldBeInNearestK(node.Id)
 	if err != nil {
 		return false, RoutingErr.New("could not determine if node is within k: %s", err)
 	}
@@ -191,8 +191,8 @@ func (rt *RoutingTable) getKBucketID(nodeID storj.NodeID) (bucketID, error) {
 	return match, nil
 }
 
-// nodeIsWithinNearestK: helper, returns true if the node in question is within the nearest k from local node
-func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storj.NodeID) (bool, error) {
+// wouldBeInNearestK: helper, returns true if the node in question is within the nearest k from local node
+func (rt *RoutingTable) wouldBeInNearestK(nodeID storj.NodeID) (bool, error) {
 	closestNodes, err := rt.FindNear(rt.self.Id, rt.bucketSize)
 	if err != nil {
 		return false, RoutingErr.Wrap(err)
@@ -243,7 +243,7 @@ func (rt *RoutingTable) getNodeIDsWithinKBucket(bID bucketID) (storj.NodeIDList,
 	right := endpoints[1]
 	var ids []storj.NodeID
 
-	err = rt.iterateNodes(storj.NodeID{}, func(nodeID storj.NodeID, protoNode []byte) error {
+	err = rt.iterateNodes(left, func(nodeID storj.NodeID, protoNode []byte) error {
 		if left.Less(nodeID) && (nodeID.Less(right) || nodeID == right) {
 			ids = append(ids, nodeID)
 		}
