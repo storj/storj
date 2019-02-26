@@ -35,7 +35,7 @@ var (
 
 	claimsExportCfg struct {
 		Signer certificates.CertServerConfig
-		Raw bool `default:"false" help:"if true, the raw data structures will be printed"`
+		Raw    bool `default:"false" help:"if true, the raw data structures will be printed"`
 	}
 
 	claimsDeleteCfg struct {
