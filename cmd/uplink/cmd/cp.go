@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	progressbar "github.com/cheggaaa/pb"
 	"github.com/spf13/cobra"
@@ -25,6 +26,7 @@ import (
 
 var (
 	progress *bool
+	ttl      *time.Duration
 )
 
 func init() {
@@ -34,6 +36,7 @@ func init() {
 		RunE:  copyMain,
 	}, RootCmd)
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
+	ttl = cpCmd.Flags().Duration("ttl", 0, "number of days before file deletion. Default (0) is indefinite")
 }
 
 // upload transfers src from local machine to s3 compatible object dst
@@ -44,6 +47,10 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 
 	if dst.IsLocal() {
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
+	}
+
+	if *ttl < 0 {
+		return fmt.Errorf("ttl must not be negative: %d", *ttl)
 	}
 
 	// if object name not specified, default to filename
@@ -76,9 +83,15 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return err
 	}
 
+	var expires time.Time
+	if *ttl != 0 {
+		expires = time.Now().UTC().Add(*ttl)
+	}
+
 	createInfo := storj.CreateObject{
 		RedundancyScheme: cfg.GetRedundancyScheme(),
 		EncryptionScheme: cfg.GetEncryptionScheme(),
+		Expires:          expires,
 	}
 	obj, err := metainfo.CreateObject(ctx, dst.Bucket(), dst.Path(), &createInfo)
 	if err != nil {
