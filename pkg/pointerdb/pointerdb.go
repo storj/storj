@@ -119,10 +119,10 @@ func (s *Server) filterValidPieces(pointer *pb.Pointer) error {
 			}
 		}
 
-		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
-			return Error.New("Number of valid pieces is lower then success threshold: %v < %v",
+		if int32(len(remotePieces)) < remote.Redundancy.RepairThreshold {
+			return Error.New("Number of valid pieces is lower then repair threshold: %v < %v",
 				len(remotePieces),
-				remote.Redundancy.SuccessThreshold,
+				remote.Redundancy.RepairThreshold,
 			)
 		}
 
