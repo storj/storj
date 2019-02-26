@@ -27,7 +27,7 @@ import (
 //
 // (see https://godoc.org/google.golang.org/grpc#WithDialer
 // and https://godoc.org/google.golang.org/grpc#FailOnNonTempDialError).
-type NonTemporaryError struct { error }
+type NonTemporaryError struct{ error }
 
 // NewNonTemporaryError returns a new temporary error for use with grpc.
 func NewNonTemporaryError(err error) NonTemporaryError {
