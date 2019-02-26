@@ -7,17 +7,9 @@ import (
 	"math/bits"
 	"sort"
 
-	"github.com/zeebo/errs"
-
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
-
-func cloneNodeIDs(ids storj.NodeIDList) storj.NodeIDList {
-	clone := make(storj.NodeIDList, len(ids))
-	copy(clone, ids)
-	return clone
-}
 
 // compareByXor compares left, right xorred by reference
 func compareByXor(left, right, reference storj.NodeID) int {
@@ -37,22 +29,6 @@ func sortByXOR(nodeIDs storj.NodeIDList, ref storj.NodeID) {
 	sort.Slice(nodeIDs, func(i, k int) bool {
 		return compareByXor(nodeIDs[i], nodeIDs[k], ref) < 0
 	})
-}
-
-func keysToNodeIDs(keys storage.Keys) (ids storj.NodeIDList, err error) {
-	var idErrs []error
-	for _, k := range keys {
-		id, err := storj.NodeIDFromBytes(k[:])
-		if err != nil {
-			idErrs = append(idErrs, err)
-		}
-		ids = append(ids, id)
-	}
-	if err := errs.Combine(idErrs...); err != nil {
-		return nil, err
-	}
-
-	return ids, nil
 }
 
 func keyToBucketID(key storage.Key) (bID bucketID) {
