@@ -80,7 +80,7 @@ func TestServicePut(t *testing.T) {
 		s := pointerdb.NewServer(log, service, nil, nil, pointerdb.Config{}, nil, apiKeys)
 
 		path := "a/b/c"
-		pointer := makePointer(t, ctx, tt.numOfValidPieces, tt.numOfInvalidPieces)
+		pointer := makePointer(ctx, t, tt.numOfValidPieces, tt.numOfInvalidPieces)
 
 		if tt.err != nil {
 			db.ForceError++
@@ -97,7 +97,7 @@ func TestServicePut(t *testing.T) {
 	}
 }
 
-func makePointer(t *testing.T, ctx context.Context, numOfValidPieces, numOfInvalidPieces int) *pb.Pointer {
+func makePointer(ctx context.Context, t *testing.T, numOfValidPieces, numOfInvalidPieces int) *pb.Pointer {
 	pieces := make([]*pb.RemotePiece, numOfValidPieces+numOfInvalidPieces)
 	hashes := make([]*pb.SignedHash, len(pieces))
 	for i := 0; i < numOfValidPieces; i++ {
@@ -106,7 +106,8 @@ func makePointer(t *testing.T, ctx context.Context, numOfValidPieces, numOfInval
 		pieces[i] = &pb.RemotePiece{PieceNum: int32(i), NodeId: identity.ID}
 
 		hashes[i] = &pb.SignedHash{Hash: make([]byte, 32)}
-		rand.Read(hashes[i].Hash)
+		_, err = rand.Read(hashes[i].Hash)
+		assert.NoError(t, err)
 		err = auth.SignMessage(hashes[i], *identity)
 		assert.NoError(t, err)
 	}
@@ -118,7 +119,8 @@ func makePointer(t *testing.T, ctx context.Context, numOfValidPieces, numOfInval
 		pieces[i] = &pb.RemotePiece{PieceNum: int32(i), NodeId: teststorj.NodeIDFromString(strconv.Itoa(i))}
 
 		hashes[i] = &pb.SignedHash{Hash: make([]byte, 32)}
-		rand.Read(hashes[i].Hash)
+		_, err = rand.Read(hashes[i].Hash)
+		assert.NoError(t, err)
 		err = auth.SignMessage(hashes[i], *identity)
 		assert.NoError(t, err)
 	}
