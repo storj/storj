@@ -79,7 +79,7 @@ func TestAddNode(t *testing.T) {
 	defer ctx.Cleanup()
 	rt := createRoutingTable(teststorj.NodeIDFromString("OO"))
 	defer ctx.Check(rt.Close)
-	
+
 	cases := []struct {
 		testID  string
 		node    *pb.Node
@@ -317,9 +317,8 @@ func TestGetKBucketID(t *testing.T) {
 func TestWouldBeInNearestK(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
-	rt := createRoutingTable(storj.NodeID{127, 255})
+	rt := createRoutingTableWith(storj.NodeID{127, 255}, routingTableOpts{bucketSize: 2})
 	defer ctx.Check(rt.Close)
-	rt.bucketSize = 2
 
 	cases := []struct {
 		testID  string
