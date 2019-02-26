@@ -37,8 +37,7 @@ func TestDialNode(t *testing.T) {
 
 	client := planet.StorageNodes[0].Transport
 
-	unsignedIdentities := testplanet.NewPregeneratedIdentities()
-	unsignedIdent, err := unsignedIdentities.NewIdentity()
+	unsignedIdent, err := testplanet.PregeneratedIdentity(0)
 	require.NoError(t, err)
 
 	signedIdent, err := testplanet.PregeneratedSignedIdentity(0)
@@ -181,8 +180,7 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 	planet.Start(ctx)
 
 	client := planet.StorageNodes[0].Transport
-	signedIdentities := testplanet.NewPregeneratedSignedIdentities()
-	ident, err := signedIdentities.NewIdentity()
+	ident, err := testplanet.PregeneratedSignedIdentity(0)
 	require.NoError(t, err)
 
 	opts, err := tlsopts.NewOptions(ident, tlsopts.Config{
