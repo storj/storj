@@ -36,6 +36,10 @@ func (srv *Inspector) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*p
 
 // CreateStats creates a node with specified stats
 func (srv *Inspector) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) (*pb.CreateStatsResponse, error) {
+	meta := &Meta{
+		Email:  "",
+		Wallet: "",
+	}
 	stats := &NodeStats{
 		AuditCount:         req.AuditCount,
 		AuditSuccessCount:  req.AuditSuccessCount,
@@ -43,7 +47,7 @@ func (srv *Inspector) CreateStats(ctx context.Context, req *pb.CreateStatsReques
 		UptimeSuccessCount: req.UptimeSuccessCount,
 	}
 
-	_, err := srv.statdb.Create(ctx, req.NodeId, stats)
+	_, err := srv.statdb.Create(ctx, req.NodeId, stats, meta)
 	if err != nil {
 		return nil, err
 	}

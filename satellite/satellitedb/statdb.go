@@ -38,12 +38,13 @@ func getNodeStats(nodeID storj.NodeID, dbNode *dbx.Node) *statdb.NodeStats {
 		UptimeSuccessCount: dbNode.UptimeSuccessCount,
 		UptimeCount:        dbNode.TotalUptimeCount,
 		Wallet:             dbNode.Wallet,
+		Email:              dbNode.Email,
 	}
 	return nodeStats
 }
 
 // Create a db entry for the provided storagenode
-func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats *statdb.NodeStats) (stats *statdb.NodeStats, err error) {
+func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats *statdb.NodeStats, meta *statdb.Meta) (stats *statdb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var (
@@ -53,6 +54,8 @@ func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats 
 		totalUptimeCount   int64
 		uptimeSuccessCount int64
 		uptimeRatio        float64
+		wallet             string
+		email              string
 	)
 
 	if startingStats != nil {
@@ -80,6 +83,8 @@ func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats 
 		dbx.Node_UptimeSuccessCount(uptimeSuccessCount),
 		dbx.Node_TotalUptimeCount(totalUptimeCount),
 		dbx.Node_UptimeRatio(uptimeRatio),
+		dbx.Node_Wallet(meta.Wallet),
+		dbx.Node_Email(meta.Email),
 	)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -316,13 +321,13 @@ func (s *statDB) UpdateBatch(ctx context.Context, updateReqList []*statdb.Update
 }
 
 // CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist
-func (s *statDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID) (stats *statdb.NodeStats, err error) {
+func (s *statDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID, meta *statdb.Meta) (stats *statdb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	getStats, err := s.Get(ctx, nodeID)
 	// TODO: figure out better way to confirm error is type dbx.ErrorCode_NoRows
 	if err != nil && strings.Contains(err.Error(), "no rows in result set") {
-		createStats, err := s.Create(ctx, nodeID, nil)
+		createStats, err := s.Create(ctx, nodeID, nil, meta)
 		if err != nil {
 			return nil, err
 		}

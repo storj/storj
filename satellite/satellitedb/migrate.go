@@ -307,6 +307,20 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				Description: "Add wallet column",
+				Version:     5,
+				Action: migrate.SQL{
+					// TODO (dylan): This is a workaround for now, statDB will rely on
+					// wallet addresses, so the constraint should be harder.S
+					`ALTER TABLE nodes ADD COLUMN wallet text;
+					ALTER TABLE nodes ADD COLUMN email text;
+					UPDATE nodes SET wallet = '';
+					UPDATE nodes SET email = '';
+					ALTER TABLE nodes ADD COLUMN wallet SET NOT NULL;
+					ALTER TABLE nodes ADD COLUMN email SET NOT NULL;`,
+				},
+			},
 		},
 	}
 }

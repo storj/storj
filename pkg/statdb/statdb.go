@@ -19,7 +19,7 @@ var (
 // DB stores node statistics
 type DB interface {
 	// Create adds a new stats entry for node.
-	Create(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
+	Create(ctx context.Context, nodeID storj.NodeID, initial *NodeStats, meta *Meta) (stats *NodeStats, err error)
 	// Get returns node stats.
 	Get(ctx context.Context, nodeID storj.NodeID) (stats *NodeStats, err error)
 	// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
@@ -53,4 +53,11 @@ type NodeStats struct {
 	UptimeSuccessCount int64
 	UptimeCount        int64
 	Wallet             string
+	Email              string
+}
+
+// Meta is a struct for organizing the meta data for a node operator
+type Meta struct {
+	Wallet string
+	Email  string
 }

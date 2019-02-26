@@ -558,10 +558,10 @@ type lockedStatDB struct {
 }
 
 // Create adds a new stats entry for node.
-func (m *lockedStatDB) Create(ctx context.Context, nodeID storj.NodeID, initial *statdb.NodeStats) (stats *statdb.NodeStats, err error) {
+func (m *lockedStatDB) Create(ctx context.Context, nodeID storj.NodeID, initial *statdb.NodeStats, meta *statdb.Meta) (stats *statdb.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Create(ctx, nodeID, initial)
+	return m.db.Create(ctx, nodeID, initial, meta)
 }
 
 // CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
