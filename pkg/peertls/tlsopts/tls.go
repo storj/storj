@@ -4,12 +4,8 @@
 package tlsopts
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"net"
-	"strings"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -17,12 +13,6 @@ import (
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/storj"
 )
-
-// TransportCredentials wraps an embedded credentials.TransportCredentials.
-// It decorates the `ClientHandshake` method.
-type TransportCredentials struct {
-	credentials.TransportCredentials
-}
 
 // ServerOption returns a grpc `ServerOption` for incoming connections
 // to the node with this full identity.
@@ -55,9 +45,7 @@ func (opts *Options) DialOption(id storj.NodeID) grpc.DialOption {
 // TransportCredentials returns a grpc `credentials.TransportCredentials`
 // implementation for use within peertls.
 func (opts *Options) TransportCredentials(id storj.NodeID) credentials.TransportCredentials {
-	return &TransportCredentials{
-		TransportCredentials: credentials.NewTLS(opts.TLSConfig(id)),
-	}
+	return credentials.NewTLS(opts.TLSConfig(id))
 }
 
 // TLSConfig returns a TSLConfig for use in handshaking with a peer.
@@ -76,19 +64,6 @@ func (opts *Options) TLSConfig(id storj.NodeID) *tls.Config {
 			pcvFuncs...,
 		),
 	}
-}
-
-// ClientHandshake returns a non-temporary error if an error is returned from
-// the underlying `ClientHandshake` call.
-func (tc *TransportCredentials) ClientHandshake(ctx context.Context, authority string, conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
-	tlsConn, authInfo, err := tc.TransportCredentials.ClientHandshake(ctx, authority, conn)
-	if err != nil {
-		isCertError := peertls.ErrVerifyPeerCert.Has(err) || strings.Contains(err.Error(), "bad certificate")
-		if isCertError {
-			return tlsConn, authInfo, peertls.NewNonTemporaryError(err)
-		}
-	}
-	return tlsConn, authInfo, err
 }
 
 func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
