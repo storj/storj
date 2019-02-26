@@ -36,7 +36,7 @@ func init() {
 		RunE:  copyMain,
 	}, RootCmd)
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
-	expires = cpCmd.Flags().Int("expires", 0, "number of days before file deletion. Default (0) is indefinite")
+	expires = cpCmd.Flags().String("expires", "", "Expiration date of a file. Default is indefinite")
 }
 
 // upload transfers src from local machine to s3 compatible object dst
@@ -49,8 +49,15 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
 
-	if *expires < 0 {
-		return fmt.Errorf("ttl must not be negative: %d", *expires)
+	var expiration time.Time
+	if *expires != "" {
+		expiration, err = time.Parse(time.RFC3339, *expires)
+		if err != nil {
+			return err
+		}
+		if expiration.Before(time.Now()) {
+			return fmt.Errorf("expiration date (%s) has already passed", *expires)
+		}
 	}
 
 	// if object name not specified, default to filename
@@ -83,15 +90,10 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return err
 	}
 
-	var expDate time.Time
-	if *expires != 0 {
-		expDate = time.Now().UTC().AddDate(0, 0, *expires)
-	}
-
 	createInfo := storj.CreateObject{
 		RedundancyScheme: cfg.GetRedundancyScheme(),
 		EncryptionScheme: cfg.GetEncryptionScheme(),
-		Expires:          expDate,
+		Expires:          expiration,
 	}
 	obj, err := metainfo.CreateObject(ctx, dst.Bucket(), dst.Path(), &createInfo)
 	if err != nil {
