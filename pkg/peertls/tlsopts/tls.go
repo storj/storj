@@ -47,7 +47,7 @@ func (opts *Options) ServerOption() grpc.ServerOption {
 // DialOption returns a grpc `DialOption` for making outgoing connections
 // to the node with this peer identity.
 // id is an optional id of the node we are dialing.
-func (opts *Options) DialOption(ctx context.Context, id storj.NodeID) grpc.DialOption {
+func (opts *Options) DialOption(id storj.NodeID) grpc.DialOption {
 	return grpc.WithTransportCredentials(opts.TransportCredentials(id))
 }
 

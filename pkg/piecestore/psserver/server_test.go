@@ -590,7 +590,7 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	tlsOptions, err := tlsopts.NewOptions(upID, tlsopts.Config{})
 	require.NoError(t, err)
 
-	conn, err := grpc.Dial(listener.Addr().String(), tlsOptions.DialOption(ctx, storj.NodeID{}))
+	conn, err := grpc.Dial(listener.Addr().String(), tlsOptions.DialOption(storj.NodeID{}))
 	require.NoError(t, err)
 	psClient := pb.NewPieceStoreRoutesClient(conn)
 	//cleanup callback

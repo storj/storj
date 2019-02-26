@@ -99,7 +99,7 @@ func TestDialNode(t *testing.T) {
 		}
 
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-		dialOption := opts.DialOption(ctx, storj.NodeID{})
+		dialOption := opts.DialOption(storj.NodeID{})
 		conn, err := client.DialNode(timedCtx, target, dialOption)
 		cancel()
 
@@ -120,7 +120,7 @@ func TestDialNode(t *testing.T) {
 		}
 
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-		dialOption := unsignedClientOpts.DialOption(ctx, storj.NodeID{})
+		dialOption := unsignedClientOpts.DialOption(storj.NodeID{})
 		conn, err := client.DialNode(
 			timedCtx, target, dialOption,
 		)
@@ -134,7 +134,7 @@ func TestDialNode(t *testing.T) {
 
 	t.Run("DialAddress with bad client certificate", func(t *testing.T) {
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-		dialOption := unsignedClientOpts.DialOption(ctx, storj.NodeID{})
+		dialOption := unsignedClientOpts.DialOption(storj.NodeID{})
 		conn, err := client.DialAddress(
 			timedCtx, planet.StorageNodes[1].Addr(), dialOption,
 		)
@@ -202,7 +202,7 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 		}
 
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-		dialOption := opts.DialOption(ctx, storj.NodeID{})
+		dialOption := opts.DialOption(storj.NodeID{})
 		conn, err := client.DialNode(timedCtx, target, dialOption)
 		cancel()
 
@@ -214,7 +214,7 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 
 	t.Run("DialAddress with bad server certificate", func(t *testing.T) {
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-		dialOption := opts.DialOption(ctx, storj.NodeID{})
+		dialOption := opts.DialOption(storj.NodeID{})
 		conn, err := client.DialAddress(timedCtx, planet.StorageNodes[1].Addr(), dialOption)
 		cancel()
 

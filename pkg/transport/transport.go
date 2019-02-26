@@ -65,7 +65,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 	}
 
 	options := append([]grpc.DialOption{
-		transport.tlsOpts.DialOption(ctx, node.Id),
+		transport.tlsOpts.DialOption(node.Id),
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
 	}, opts...)
@@ -92,7 +92,7 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 	defer mon.Task()(&ctx)(&err)
 
 	options := append([]grpc.DialOption{
-		transport.tlsOpts.DialOption(ctx, storj.NodeID{}),
+		transport.tlsOpts.DialOption(storj.NodeID{}),
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
 	}, opts...)
