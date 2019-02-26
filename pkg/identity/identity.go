@@ -58,7 +58,7 @@ type FullIdentity struct {
 type SetupConfig struct {
 	CertPath  string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/identity.cert"`
 	KeyPath   string `help:"path to the private key for this identity" default:"$IDENTITYDIR/identity.key"`
-	Overwrite bool   `help:"if true, existing identity certs AND keys will overwritten for" default:"false"`
+	Overwrite bool   `help:"if true, existing identity certs AND keys will overwritten for" default:"false" setup:"true"`
 	Version   string `help:"semantic version of identity storage format" default:"0"`
 }
 

@@ -86,6 +86,10 @@ func main() {
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(signCmd)
 	rootCmd.AddCommand(verifyCmd)
+	rootCmd.AddCommand(claimsCmd)
+
+	claimsCmd.AddCommand(claimsExportCmd)
+	claimsCmd.AddCommand(claimDeleteCmd)
 
 	authCmd.AddCommand(authCreateCmd)
 	authCmd.AddCommand(authInfoCmd)
@@ -98,6 +102,8 @@ func main() {
 	cfgstruct.BindSetup(setupCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.Bind(signCmd.Flags(), &signCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.Bind(verifyCmd.Flags(), &verifyCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(claimsExportCmd.Flags(), &claimsExportCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(claimDeleteCmd.Flags(), &claimsDeleteCfg, cfgstruct.ConfDir(defaultConfDir))
 
 	process.Exec(rootCmd)
 }
