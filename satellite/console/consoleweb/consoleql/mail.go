@@ -1,13 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package console
-
-import (
-	"net/mail"
-)
+package consoleql
 
 const (
+	// ActivationPath is key for pass which handles account activation
+	ActivationPath = "activationPath"
+
 	// ActivationSubject activation email subject
 	ActivationSubject = "Activate your email"
 	// InvitationSubject invitation email subject
@@ -18,40 +17,26 @@ const (
 
 // MailTemplate is implementation of satellite/mailservice.Template interface
 type MailTemplate struct {
-	to            mail.Address
-	subject       string
-	htmlPath      string
-	plainTextPath string
+	subject  string
+	template string
 }
 
 // NewMailTemplate creates new instance of MailTemplate
-func NewMailTemplate(to mail.Address, subject, prefix string) MailTemplate {
+func NewMailTemplate(subject, prefix string) MailTemplate {
 	return MailTemplate{
-		to:            to,
-		subject:       subject,
-		htmlPath:      prefix + ".html",
-		plainTextPath: prefix + ".txt",
+		subject:  subject,
+		template: prefix,
 	}
 }
 
-// To gets recipients mailservice addresses
-func (tmpl *MailTemplate) To() []mail.Address {
-	return []mail.Address{tmpl.to}
+// Template returns email template name
+func (tmpl *MailTemplate) Template() string {
+	return tmpl.template
 }
 
 // Subject gets email subject
 func (tmpl *MailTemplate) Subject() string {
 	return tmpl.subject
-}
-
-// HTMLPath gets path to html template
-func (tmpl *MailTemplate) HTMLPath() string {
-	return tmpl.htmlPath
-}
-
-// PainTextPath gets path to text template
-func (tmpl *MailTemplate) PainTextPath() string {
-	return tmpl.plainTextPath
 }
 
 // AccountActivationEmail is mailservice template with activation data

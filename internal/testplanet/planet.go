@@ -456,7 +456,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				},
 			},
 			Console: consoleweb.Config{
-				Address:            "127.0.0.1:8081",
+				Address:            "127.0.0.1:10100",
 				PasswordCost:       console.TestPasswordCost,
 				SimulateActivation: true,
 			},
@@ -467,7 +467,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 
 		// TODO: for development only
 		config.Console.StaticDir = "./web/satellite"
-		config.Console.TemplatePath = "./web/satellite/static/emails"
+		config.Mail.TemplatePath = "./web/satellite/static/emails"
 
 		peer, err := satellite.New(log, identity, db, &config)
 		if err != nil {

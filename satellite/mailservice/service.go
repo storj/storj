@@ -7,11 +7,11 @@ import (
 	"bytes"
 	"context"
 	htmltemplate "html/template"
-	"io"
+	"path/filepath"
 	texttemplate "text/template"
 
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/post"
 )
@@ -19,6 +19,7 @@ import (
 // Config defines values needed by mailservice service
 type Config struct {
 	SMTPServerAddress string `help:"smtp server address" default:""`
+	TemplatePath      string `help:"path to email templates source" default:""`
 	From              string `help:"sender email address" default:""`
 	Auth              AuthConfig
 }
@@ -53,29 +54,44 @@ var (
 	mon = monkit.Package()
 )
 
-// SMTPSender is
-type SMTPSender interface {
+// Sender is
+type Sender interface {
 	SendEmail(msg *post.Message) error
 	FromAddress() post.Address
 }
 
-// Template defines mailservice template for SendRendered method
-type Template interface {
-	To() []post.Address
+// Message defines mailservice template-backed message for SendRendered method
+type Message interface {
+	Template() string
 	Subject() string
-	HTMLPath() string
-	PainTextPath() string
 }
 
-// Service sends predefined email messages through SMTP
+// Service sends template-backed email messages through SMTP
 type Service struct {
 	log    *zap.Logger
-	sender SMTPSender
+	sender Sender
+
+	html *htmltemplate.Template
+	text *texttemplate.Template
 }
 
 // New creates new service
-func New(log *zap.Logger, sender SMTPSender) *Service {
-	return &Service{log: log, sender: sender}
+func New(log *zap.Logger, sender Sender, templatePath string) (*Service, error) {
+	var err error
+	service := &Service{log: log, sender: sender}
+
+	// TODO(yar): prepare plain text version
+	//service.text, err = texttemplate.ParseGlob(filepath.Join(templatePath, "*.txt"))
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	service.html, err = htmltemplate.ParseGlob(filepath.Join(templatePath, "*.html"))
+	if err != nil {
+		return nil, err
+	}
+
+	return service, nil
 }
 
 // Send is generalized method for sending custom email message
@@ -85,27 +101,25 @@ func (service *Service) Send(ctx context.Context, msg *post.Message) (err error)
 }
 
 // SendRendered renders content from htmltemplate and texttemplate templates then sends it
-func (service *Service) SendRendered(ctx context.Context, tmpl Template) (err error) {
+func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var htmlBuffer bytes.Buffer
 	var textBuffer bytes.Buffer
 
 	// TODO(yar): prepare plain text version
-	// render texttemplate template
-	//if err = RenderPlainText(&textBuffer, tmpl); err != nil {
+	//if err = service.text.ExecuteTemplate(&textBuffer, msg.Template() + ".txt", msg); err != nil {
 	//	return
 	//}
 
-	// render htmltemplate template
-	if err = RenderHTML(&htmlBuffer, tmpl); err != nil {
+	if err = service.html.ExecuteTemplate(&htmlBuffer, msg.Template()+".html", msg); err != nil {
 		return
 	}
 
-	msg := &post.Message{
+	m := &post.Message{
 		From:      service.sender.FromAddress(),
-		To:        tmpl.To(),
-		Subject:   tmpl.Subject(),
+		To:        to,
+		Subject:   msg.Subject(),
 		PlainText: textBuffer.String(),
 		Parts: []post.Part{
 			{
@@ -115,7 +129,7 @@ func (service *Service) SendRendered(ctx context.Context, tmpl Template) (err er
 		},
 	}
 
-	err = service.sender.SendEmail(msg)
+	err = service.sender.SendEmail(m)
 	// log error
 	if err != nil {
 		service.log.Info("error from mail sender", zap.String("error", err.Error()))
@@ -124,32 +138,4 @@ func (service *Service) SendRendered(ctx context.Context, tmpl Template) (err er
 	}
 
 	return err
-}
-
-// RenderHTML renders htmltemplate content of given Template and writes it to writer
-func RenderHTML(w io.Writer, tmpl Template) error {
-	template, err := htmltemplate.ParseFiles(tmpl.HTMLPath())
-	if err != nil {
-		return err
-	}
-
-	if err = template.Execute(w, tmpl); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// RenderPlainText renders texttemplate content of given Template and writes it to writer
-func RenderPlainText(w io.Writer, tmpl Template) error {
-	template, err := texttemplate.ParseFiles(tmpl.PainTextPath())
-	if err != nil {
-		return err
-	}
-
-	if err = template.Execute(w, tmpl); err != nil {
-		return err
-	}
-
-	return nil
 }

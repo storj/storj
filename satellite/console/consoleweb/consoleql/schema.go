@@ -6,6 +6,8 @@ package consoleql
 import (
 	"sync"
 
+	"storj.io/storj/satellite/mailservice"
+
 	"github.com/graphql-go/graphql"
 
 	"storj.io/storj/satellite/console"
@@ -15,12 +17,12 @@ import (
 var creatingSchemaMutex sync.Mutex
 
 // CreateSchema creates both type
-func CreateSchema(service *console.Service) (graphql.Schema, error) {
+func CreateSchema(service *console.Service, mailService *mailservice.Service) (graphql.Schema, error) {
 	creatingSchemaMutex.Lock()
 	defer creatingSchemaMutex.Unlock()
 
 	creator := TypeCreator{}
-	err := creator.Create(service)
+	err := creator.Create(service, mailService)
 	if err != nil {
 		return graphql.Schema{}, err
 	}

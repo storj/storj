@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"path/filepath"
 
+	"storj.io/storj/satellite/mailservice"
+
 	"github.com/graphql-go/graphql"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -35,9 +37,8 @@ var Error = errs.Class("satellite console error")
 
 // Config contains configuration for console web server
 type Config struct {
-	Address      string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
-	StaticDir    string `help:"path to static resources" default:""`
-	TemplatePath string `help:"path to email templates source" default:""`
+	Address   string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
+	StaticDir string `help:"path to static resources" default:""`
 
 	SimulateActivation bool `internal:"true" help:"activate accounts automatically for simulation" default:"false"`
 	PasswordCost       int  `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
@@ -47,21 +48,24 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config   Config
-	service  *console.Service
+	config      Config
+	service     *console.Service
+	mailService *mailservice.Service
+
 	listener net.Listener
+	server   http.Server
 
 	schema graphql.Schema
-	server http.Server
 }
 
 // NewServer creates new instance of console server
-func NewServer(logger *zap.Logger, config Config, service *console.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) *Server {
 	server := Server{
-		log:      logger,
-		service:  service,
-		config:   config,
-		listener: listener,
+		log:         logger,
+		config:      config,
+		listener:    listener,
+		service:     service,
+		mailService: mailService,
 	}
 
 	logger.Debug("Starting Satellite UI...")
@@ -107,13 +111,17 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 		ctx = console.WithAuth(ctx, auth)
 	}
 
+	rootObject := make(map[string]interface{})
+	rootObject["origin"] = "http://" + s.config.Address + "/"
+	rootObject[consoleql.ActivationPath] = "?activationToken="
+
 	result := graphql.Do(graphql.Params{
 		Schema:         s.schema,
 		Context:        ctx,
 		RequestString:  query.Query,
 		VariableValues: query.Variables,
 		OperationName:  query.OperationName,
-		RootObject:     make(map[string]interface{}),
+		RootObject:     rootObject,
 	})
 
 	err = json.NewEncoder(w).Encode(result)
@@ -129,7 +137,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 // Run starts the server that host webapp and api endpoint
 func (s *Server) Run(ctx context.Context) error {
 	var err error
-	s.schema, err = consoleql.CreateSchema(s.service)
+	s.schema, err = consoleql.CreateSchema(s.service, s.mailService)
 	if err != nil {
 		return Error.Wrap(err)
 	}

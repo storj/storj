@@ -7,19 +7,16 @@ import (
 	"context"
 	"crypto/subtle"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/post"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/mailservice"
 )
 
 var (
@@ -44,14 +41,11 @@ type Service struct {
 	store DB
 	log   *zap.Logger
 
-	mail *mailservice.Service
-
-	templatePath string
 	passwordCost int
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, signer Signer, store DB, mail *mailservice.Service, templatePath string, passwordCost int) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -72,8 +66,6 @@ func NewService(log *zap.Logger, signer Signer, store DB, mail *mailservice.Serv
 		Signer:       signer,
 		store:        store,
 		log:          log,
-		mail:         mail,
-		templatePath: templatePath,
 		passwordCost: passwordCost,
 	}, nil
 }
@@ -106,38 +98,18 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 		PasswordHash: hash,
 	})
 
-	activationToken, err := s.GenerateActivationToken(ctx, u.ID, email, u.CreatedAt.Add(tokenExpirationTime))
-	if err != nil {
-		return u, err
-	}
-
-	tmpl := NewMailTemplate(
-		post.Address{
-			Name:    u.FirstName,
-			Address: u.Email,
-		},
-		ActivationSubject,
-		filepath.Join(s.templatePath, "Welcome"),
-	)
-
-	err = s.mail.SendRendered(
-		ctx,
-		&AccountActivationEmail{
-			MailTemplate:   tmpl,
-			ActivationLink: activationToken,
-		},
-	)
 	return u, err
 }
 
 // GenerateActivationToken - is a method for generating activation token
-func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string, expirationDate time.Time) (activationToken string, err error) {
+func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string) (activationToken string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	//TODO: activation token should differ from auth token
 	claims := &consoleauth.Claims{
 		ID:         id,
 		Email:      email,
-		Expiration: expirationDate,
+		Expiration: time.Now().Add(time.Hour * 24),
 	}
 
 	return s.createToken(claims)
