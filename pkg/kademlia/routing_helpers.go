@@ -199,7 +199,7 @@ func (rt *RoutingTable) wouldBeInNearestK(nodeID storj.NodeID) (bool, error) {
 	}
 	if len(closestNodes) < rt.bucketSize {
 		return true, nil
-	}		
+	}
 	var furthestIDWithinK storj.NodeID
 	if len(closestNodes) <= rt.bucketSize {
 		furthestIDWithinK = closestNodes[len(closestNodes)-1].Id

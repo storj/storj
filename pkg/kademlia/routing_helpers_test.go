@@ -338,7 +338,7 @@ func TestWouldBeInNearestK(t *testing.T) {
 			closest: true,
 		},
 		{testID: "D",
-			nodeID:  storj.NodeID{191, 255}, //XOR from [127, 255] is 192 
+			nodeID:  storj.NodeID{191, 255}, //XOR from [127, 255] is 192
 			closest: false,
 		},
 		{testID: "E",
