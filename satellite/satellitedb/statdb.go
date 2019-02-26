@@ -37,6 +37,7 @@ func getNodeStats(nodeID storj.NodeID, dbNode *dbx.Node) *statdb.NodeStats {
 		UptimeRatio:        dbNode.UptimeRatio,
 		UptimeSuccessCount: dbNode.UptimeSuccessCount,
 		UptimeCount:        dbNode.TotalUptimeCount,
+		Wallet:             dbNode.Wallet,
 	}
 	return nodeStats
 }

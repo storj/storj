@@ -54,11 +54,14 @@ func generateCSV(ctx context.Context, start time.Time, end time.Time, output io.
 
 	for _, row := range rows {
 		nid := row.NodeID
-		wallet, err := db.OverlayCache().GetWalletAddress(ctx, nid)
+
+		// TODO: Get wallet address here from StatDB instead
+		stats, err := db.StatDB().Get(ctx, nid)
 		if err != nil {
 			return err
 		}
-		row.Wallet = wallet
+
+		row.Wallet = stats.wallet
 		record := structToStringSlice(row)
 		if err := w.Write(record); err != nil {
 			return err

@@ -52,4 +52,5 @@ type NodeStats struct {
 	UptimeRatio        float64
 	UptimeSuccessCount int64
 	UptimeCount        int64
+	Wallet             string
 }
