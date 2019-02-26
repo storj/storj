@@ -27,25 +27,23 @@ import (
 //
 // (see https://godoc.org/google.golang.org/grpc#WithDialer
 // and https://godoc.org/google.golang.org/grpc#FailOnNonTempDialError).
-type NonTemporaryError struct {
-	Err error
-}
+type NonTemporaryError struct { error }
 
 // NewNonTemporaryError returns a new temporary error for use with grpc.
 func NewNonTemporaryError(err error) NonTemporaryError {
 	return NonTemporaryError{
-		Err: errs.Wrap(err),
+		error: errs.Wrap(err),
 	}
-}
-
-// Error implements the error interface
-func (nte NonTemporaryError) Error() string {
-	return nte.Err.Error()
 }
 
 // Temporary returns false to indicate that is is a non-temporary error
 func (nte NonTemporaryError) Temporary() bool {
 	return false
+}
+
+// Err returns the underlying error
+func (nte NonTemporaryError) Err() error {
+	return nte.error
 }
 
 func verifyChainSignatures(certs []*x509.Certificate) error {

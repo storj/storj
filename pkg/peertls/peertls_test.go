@@ -10,11 +10,11 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/gob"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/testpeertls"
@@ -115,8 +115,8 @@ func TestVerifyPeerCertChains(t *testing.T) {
 	err = peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)([][]byte{leafCert.Raw, caCert.Raw}, nil)
 	nonTempErr, ok := err.(peertls.NonTemporaryError)
 	require.True(t, ok)
-	assert.True(t, peertls.ErrVerifyPeerCert.Has(nonTempErr.Err))
-	assert.True(t, peertls.ErrVerifyCertificateChain.Has(nonTempErr.Err))
+	assert.True(t, peertls.ErrVerifyPeerCert.Has(nonTempErr.Err()))
+	assert.True(t, peertls.ErrVerifyCertificateChain.Has(nonTempErr.Err()))
 }
 
 func TestVerifyCAWhitelist(t *testing.T) {
@@ -146,7 +146,7 @@ func TestVerifyCAWhitelist(t *testing.T) {
 		err = peertls.VerifyPeerFunc(peertls.VerifyCAWhitelist([]*x509.Certificate{unrelatedCert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
 		nonTempErr, ok := err.(peertls.NonTemporaryError)
 		require.True(t, ok)
-		assert.True(t, peertls.ErrVerifyCAWhitelist.Has(nonTempErr.Err))
+		assert.True(t, peertls.ErrVerifyCAWhitelist.Has(nonTempErr.Err()))
 	})
 
 	t.Run("last cert in whitelist is signer", func(t *testing.T) {
