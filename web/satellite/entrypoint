@@ -1,2 +1,2 @@
 #!/bin/sh
-npm run serve
+echo "Assets generated..."
