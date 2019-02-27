@@ -311,8 +311,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Add wallet column",
 				Version:     5,
 				Action: migrate.SQL{
-					// TODO (dylan): This is a workaround for now, statDB will rely on
-					// wallet addresses, so the constraint should be harder.S
+					// TODO (dylan): This is a workaround for NOT NULL constraints. We could clean this up.
 					`ALTER TABLE nodes ADD COLUMN wallet text;
 					ALTER TABLE nodes ADD COLUMN email text;
 					UPDATE nodes SET wallet = '';

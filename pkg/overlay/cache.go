@@ -182,8 +182,13 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 		return errors.New("invalid request")
 	}
 
+	meta := &statdb.Meta{
+		Wallet: "",
+		Email:  "",
+	}
+
 	// get existing node rep, or create a new statdb node with 0 rep
-	stats, err := cache.statDB.CreateEntryIfNotExists(ctx, nodeID)
+	stats, err := cache.statDB.CreateEntryIfNotExists(ctx, nodeID, meta)
 	if err != nil {
 		return err
 	}

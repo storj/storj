@@ -50,7 +50,12 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 			UptimeSuccessCount: currUptimeSuccess,
 		}
 
-		stats, err := sdb.Create(ctx, nodeID, nodeStats)
+		meta := &statdb.Meta{
+			Wallet: "",
+			Email:  "",
+		}
+
+		stats, err := sdb.Create(ctx, nodeID, nodeStats, meta)
 		assert.NoError(t, err)
 		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
 		assert.EqualValues(t, uptimeRatio, stats.UptimeRatio)
@@ -79,7 +84,13 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 			UptimeCount:        currUptimeCount,
 			UptimeSuccessCount: currUptimeSuccess,
 		}
-		_, err := sdb.Create(ctx, nodeID, nodeStats)
+
+		meta := &statdb.Meta{
+			Wallet: "",
+			Email:  "",
+		}
+
+		_, err := sdb.Create(ctx, nodeID, nodeStats, meta)
 		assert.Error(t, err)
 	}
 
@@ -116,8 +127,12 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 				UptimeCount:        tt.uptimeCount,
 				UptimeSuccessCount: tt.uptimeSuccessCount,
 			}
+			meta := &statdb.Meta{
+				Wallet: "",
+				Email:  "",
+			}
 
-			_, err := sdb.Create(ctx, tt.nodeID, nodeStats)
+			_, err := sdb.Create(ctx, tt.nodeID, nodeStats, meta)
 			assert.NoError(t, err)
 		}
 
@@ -243,8 +258,12 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 			UptimeCount:        uptimeCount1,
 			UptimeRatio:        uptimeRatio1,
 		}
+		meta := &statdb.Meta{
+			Wallet: "",
+			Email:  "",
+		}
 
-		stats, err := sdb.Create(ctx, nodeID1, nodeStats)
+		stats, err := sdb.Create(ctx, nodeID1, nodeStats, meta)
 		assert.NoError(t, err)
 		assert.EqualValues(t, auditRatio1, stats.AuditSuccessRatio)
 		assert.EqualValues(t, uptimeRatio1, stats.UptimeRatio)
@@ -266,7 +285,12 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 			UptimeRatio:        uptimeRatio2,
 		}
 
-		stats, err = sdb.Create(ctx, nodeID2, nodeStats)
+		meta2 := &statdb.Meta{
+			Wallet: "",
+			Email:  "",
+		}
+
+		stats, err = sdb.Create(ctx, nodeID2, nodeStats, meta2)
 		assert.NoError(t, err)
 		assert.EqualValues(t, auditRatio2, stats.AuditSuccessRatio)
 		assert.EqualValues(t, uptimeRatio2, stats.UptimeRatio)

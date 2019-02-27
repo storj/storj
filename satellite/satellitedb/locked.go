@@ -113,7 +113,7 @@ type lockedBandwidthAgreement struct {
 }
 
 // CreateAgreement adds a new bandwidth agreement.
-func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.Order) error {
+func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.RenterBandwidthAllocation) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateAgreement(ctx, a1)
@@ -565,10 +565,10 @@ func (m *lockedStatDB) Create(ctx context.Context, nodeID storj.NodeID, initial 
 }
 
 // CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
-func (m *lockedStatDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID) (stats *statdb.NodeStats, err error) {
+func (m *lockedStatDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID, meta *statdb.Meta) (stats *statdb.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.CreateEntryIfNotExists(ctx, nodeID)
+	return m.db.CreateEntryIfNotExists(ctx, nodeID, meta)
 }
 
 // FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.

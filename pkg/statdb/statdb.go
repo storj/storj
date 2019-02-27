@@ -33,7 +33,7 @@ type DB interface {
 	// UpdateBatch for updating multiple storage nodes' stats.
 	UpdateBatch(ctx context.Context, requests []*UpdateRequest) (statslist []*NodeStats, failed []*UpdateRequest, err error)
 	// CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
-	CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID) (stats *NodeStats, err error)
+	CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID, meta *Meta) (stats *NodeStats, err error)
 }
 
 // UpdateRequest is used to update a node status.

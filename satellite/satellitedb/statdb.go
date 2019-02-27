@@ -54,8 +54,6 @@ func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats 
 		totalUptimeCount   int64
 		uptimeSuccessCount int64
 		uptimeRatio        float64
-		wallet             string
-		email              string
 	)
 
 	if startingStats != nil {
