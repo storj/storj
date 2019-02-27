@@ -26,7 +26,7 @@ import (
 
 var (
 	progress *bool
-	expires  *int
+	expires  *string
 )
 
 func init() {
@@ -36,7 +36,7 @@ func init() {
 		RunE:  copyMain,
 	}, RootCmd)
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
-	expires = cpCmd.Flags().String("expires", "", "Expiration date of a file. Default is indefinite")
+	expires = cpCmd.Flags().String("expires", "", "optional expiration date of an object")
 }
 
 // upload transfers src from local machine to s3 compatible object dst
@@ -56,7 +56,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 			return err
 		}
 		if expiration.Before(time.Now()) {
-			return fmt.Errorf("expiration date (%s) has already passed", *expires)
+			return fmt.Errorf("Invalid expiration date: (%s) has already passed", *expires)
 		}
 	}
 
@@ -93,7 +93,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	createInfo := storj.CreateObject{
 		RedundancyScheme: cfg.GetRedundancyScheme(),
 		EncryptionScheme: cfg.GetEncryptionScheme(),
-		Expires:          expiration,
+		Expires:          expiration.UTC(),
 	}
 	obj, err := metainfo.CreateObject(ctx, dst.Bucket(), dst.Path(), &createInfo)
 	if err != nil {
