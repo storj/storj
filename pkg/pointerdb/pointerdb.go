@@ -103,13 +103,13 @@ func (s *Server) validateSegment(req *pb.PutRequest) error {
 func (s *Server) filterValidPieces(pointer *pb.Pointer) error {
 	if pointer.Type == pb.Pointer_REMOTE {
 		var remotePieces []*pb.RemotePiece
-		var remotePiecesHashes []*pb.SignedHash
 		remote := pointer.Remote
-		for i, piece := range remote.RemotePieces {
-			err := auth.VerifyMsg(remote.RemotePiecesHashes[i], piece.NodeId)
+		for _, piece := range remote.RemotePieces {
+			err := auth.VerifyMsg(piece.Hash, piece.NodeId)
 			if err == nil {
+				piece.Hash.SetCerts(nil)
+				piece.Hash.SetSignature(nil)
 				remotePieces = append(remotePieces, piece)
-				// TODO decide it we want to store full list of hashes or merkle tree
 			} else {
 				s.logger.Warn("unable to verify piece hash: %v", zap.Error(err))
 			}
@@ -123,7 +123,6 @@ func (s *Server) filterValidPieces(pointer *pb.Pointer) error {
 		}
 
 		remote.RemotePieces = remotePieces
-		remote.RemotePiecesHashes = remotePiecesHashes
 	}
 	return nil
 }

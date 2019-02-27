@@ -61,10 +61,10 @@ func TestServicePut(t *testing.T) {
 	}{
 		{[]byte(validAPIKey.String()), 8, 0, nil, ""},
 		{[]byte(validAPIKey.String()), 6, 0, nil, ""},
-		{[]byte(validAPIKey.String()), 3, 0, nil, "pointerdb error: Number of valid pieces is lower then repair threshold: 3 < 4"},
+		{[]byte(validAPIKey.String()), 3, 0, nil, "pointerdb error: Number of valid pieces is lower then success threshold: 3 < 6"},
 
-		{[]byte(validAPIKey.String()), 4, 4, nil, ""},
-		{[]byte(validAPIKey.String()), 3, 5, nil, "pointerdb error: Number of valid pieces is lower then repair threshold: 3 < 4"},
+		{[]byte(validAPIKey.String()), 6, 2, nil, ""},
+		{[]byte(validAPIKey.String()), 3, 5, nil, "pointerdb error: Number of valid pieces is lower then success threshold: 3 < 6"},
 
 		{[]byte("wrong key"), 1, 0, nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
 		{nil, 8, 0, errors.New("put error"), status.Errorf(codes.Internal, "internal error").Error()},
@@ -99,29 +99,34 @@ func TestServicePut(t *testing.T) {
 
 func makePointer(ctx context.Context, t *testing.T, numOfValidPieces, numOfInvalidPieces int) *pb.Pointer {
 	pieces := make([]*pb.RemotePiece, numOfValidPieces+numOfInvalidPieces)
-	hashes := make([]*pb.SignedHash, len(pieces))
 	for i := 0; i < numOfValidPieces; i++ {
 		identity, err := testidentity.NewTestIdentity(ctx)
 		assert.NoError(t, err)
-		pieces[i] = &pb.RemotePiece{PieceNum: int32(i), NodeId: identity.ID}
+		pieces[i] = &pb.RemotePiece{
+			PieceNum: int32(i),
+			NodeId:   identity.ID,
+			Hash:     &pb.SignedHash{Hash: make([]byte, 32)},
+		}
 
-		hashes[i] = &pb.SignedHash{Hash: make([]byte, 32)}
-		_, err = rand.Read(hashes[i].Hash)
+		_, err = rand.Read(pieces[i].Hash.Hash)
 		assert.NoError(t, err)
-		err = auth.SignMessage(hashes[i], *identity)
+		err = auth.SignMessage(pieces[i].Hash, *identity)
 		assert.NoError(t, err)
 	}
 
 	// public key did not match expected signer
-	for i := numOfValidPieces; i < len(hashes); i++ {
+	for i := numOfValidPieces; i < len(pieces); i++ {
 		identity, err := testidentity.NewTestIdentity(ctx)
 		assert.NoError(t, err)
-		pieces[i] = &pb.RemotePiece{PieceNum: int32(i), NodeId: teststorj.NodeIDFromString(strconv.Itoa(i))}
+		pieces[i] = &pb.RemotePiece{
+			PieceNum: int32(i),
+			NodeId:   teststorj.NodeIDFromString(strconv.Itoa(i)),
+			Hash:     &pb.SignedHash{Hash: make([]byte, 32)},
+		}
 
-		hashes[i] = &pb.SignedHash{Hash: make([]byte, 32)}
-		_, err = rand.Read(hashes[i].Hash)
+		_, err = rand.Read(pieces[i].Hash.Hash)
 		assert.NoError(t, err)
-		err = auth.SignMessage(hashes[i], *identity)
+		err = auth.SignMessage(pieces[i].Hash, *identity)
 		assert.NoError(t, err)
 	}
 
@@ -134,8 +139,7 @@ func makePointer(ctx context.Context, t *testing.T, numOfValidPieces, numOfInval
 				SuccessThreshold: 6,
 				Total:            8,
 			},
-			RemotePieces:       pieces,
-			RemotePiecesHashes: hashes,
+			RemotePieces: pieces,
 		},
 	}
 

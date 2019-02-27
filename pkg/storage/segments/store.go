@@ -235,7 +235,6 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.SignedHash, rs eestream.Re
 	}
 
 	var remotePieces []*pb.RemotePiece
-	var remotePieceHashes []*pb.SignedHash
 	for i := range nodes {
 		if nodes[i] == nil {
 			continue
@@ -244,8 +243,8 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.SignedHash, rs eestream.Re
 		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   nodes[i].Id,
+			Hash:     hashes[i],
 		})
-		remotePieceHashes = append(remotePieceHashes, hashes[i])
 	}
 
 	pointer = &pb.Pointer{
@@ -259,9 +258,8 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.SignedHash, rs eestream.Re
 				SuccessThreshold: int32(rs.OptimalThreshold()),
 				ErasureShareSize: int32(rs.ErasureShareSize()),
 			},
-			PieceId:            string(pieceID),
-			RemotePieces:       remotePieces,
-			RemotePiecesHashes: remotePieceHashes,
+			PieceId:      string(pieceID),
+			RemotePieces: remotePieces,
 		},
 		SegmentSize:    readerSize,
 		ExpirationDate: exp,
