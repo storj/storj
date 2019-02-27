@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/satellite/mailservice"
-
 	"github.com/graphql-go/graphql"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zaptest"
@@ -20,6 +18,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
