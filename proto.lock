@@ -23,6 +23,26 @@
         ],
         "messages": [
           {
+            "name": "BandWidthRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "order",
+                "type": "piecestoreroutes.SignedMessage",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "Order"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
             "name": "AgreementsSummary",
             "fields": [
               {
@@ -39,7 +59,7 @@
             "rpcs": [
               {
                 "name": "BandwidthAgreements",
-                "in_type": "piecestoreroutes.RenterBandwidthAllocation",
+                "in_type": "BandWidthRequest",
                 "out_type": "AgreementsSummary"
               }
             ]
@@ -48,6 +68,9 @@
         "imports": [
           {
             "path": "piecestore.proto"
+          },
+          {
+            "path": "gogo.proto"
           }
         ],
         "package": {
@@ -818,6 +841,51 @@
             ]
           },
           {
+            "name": "NodeInfoRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "address",
+                "type": "node.NodeAddress"
+              }
+            ]
+          },
+          {
+            "name": "NodeInfoResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "type",
+                "type": "node.NodeType"
+              },
+              {
+                "id": 3,
+                "name": "operator",
+                "type": "node.NodeOperator"
+              },
+              {
+                "id": 4,
+                "name": "capacity",
+                "type": "node.NodeCapacity"
+              }
+            ]
+          },
+          {
             "name": "FindNearRequest",
             "fields": [
               {
@@ -887,6 +955,11 @@
                 "name": "LookupNode",
                 "in_type": "LookupNodeRequest",
                 "out_type": "LookupNodeResponse"
+              },
+              {
+                "name": "NodeInfo",
+                "in_type": "NodeInfoRequest",
+                "out_type": "NodeInfoResponse"
               },
               {
                 "name": "FindNear",
@@ -1002,21 +1075,6 @@
           }
         ],
         "messages": [
-          {
-            "name": "NodeRestrictions",
-            "fields": [
-              {
-                "id": 1,
-                "name": "free_bandwidth",
-                "type": "int64"
-              },
-              {
-                "id": 2,
-                "name": "free_disk",
-                "type": "int64"
-              }
-            ]
-          },
           {
             "name": "Node",
             "fields": [
@@ -1164,6 +1222,36 @@
             ]
           },
           {
+            "name": "NodeOperator",
+            "fields": [
+              {
+                "id": 1,
+                "name": "email",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "wallet",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "NodeCapacity",
+            "fields": [
+              {
+                "id": 1,
+                "name": "free_bandwidth",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "free_disk",
+                "type": "int64"
+              }
+            ]
+          },
+          {
             "name": "NodeMetadata",
             "fields": [
               {
@@ -1175,6 +1263,21 @@
                 "id": 2,
                 "name": "wallet",
                 "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "NodeRestrictions",
+            "fields": [
+              {
+                "id": 1,
+                "name": "free_bandwidth",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "free_disk",
+                "type": "int64"
               }
             ]
           }
@@ -1424,6 +1527,29 @@
             "name": "PingResponse"
           },
           {
+            "name": "InfoRequest"
+          },
+          {
+            "name": "InfoResponse",
+            "fields": [
+              {
+                "id": 2,
+                "name": "type",
+                "type": "node.NodeType"
+              },
+              {
+                "id": 3,
+                "name": "operator",
+                "type": "node.NodeOperator"
+              },
+              {
+                "id": 4,
+                "name": "capacity",
+                "type": "node.NodeCapacity"
+              }
+            ]
+          },
+          {
             "name": "Restriction",
             "fields": [
               {
@@ -1477,6 +1603,11 @@
                 "name": "Ping",
                 "in_type": "PingRequest",
                 "out_type": "PingResponse"
+              },
+              {
+                "name": "RequestInfo",
+                "in_type": "InfoRequest",
+                "out_type": "InfoResponse"
               }
             ]
           }
@@ -1584,17 +1715,6 @@
                 "id": 7,
                 "name": "created_unix_sec",
                 "type": "int64"
-              },
-              {
-                "id": 8,
-                "name": "certs",
-                "type": "bytes",
-                "is_repeated": true
-              },
-              {
-                "id": 9,
-                "name": "signature",
-                "type": "bytes"
               }
             ]
           },
@@ -1603,9 +1723,13 @@
             "fields": [
               {
                 "id": 1,
-                "name": "payer_allocation",
-                "type": "PayerBandwidthAllocation",
+                "name": "order_limit",
+                "type": "SignedMessage",
                 "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "OrderLimit"
+                  },
                   {
                     "name": "(gogoproto.nullable)",
                     "value": "false"
@@ -1631,17 +1755,6 @@
                     "value": "false"
                   }
                 ]
-              },
-              {
-                "id": 4,
-                "name": "certs",
-                "type": "bytes",
-                "is_repeated": true
-              },
-              {
-                "id": 5,
-                "name": "signature",
-                "type": "bytes"
               }
             ]
           },
@@ -1650,8 +1763,18 @@
             "fields": [
               {
                 "id": 1,
-                "name": "bandwidth_allocation",
-                "type": "RenterBandwidthAllocation"
+                "name": "order",
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "Order"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
@@ -1659,9 +1782,19 @@
                 "type": "PieceData"
               },
               {
-                "id": 3,
-                "name": "authorization",
-                "type": "SignedMessage"
+                "id": 4,
+                "name": "signed_hash",
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SignedHash"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ],
             "messages": [
@@ -1697,8 +1830,18 @@
               },
               {
                 "id": 2,
-                "name": "authorization",
-                "type": "SignedMessage"
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -1727,18 +1870,23 @@
             "fields": [
               {
                 "id": 1,
-                "name": "bandwidth_allocation",
-                "type": "RenterBandwidthAllocation"
+                "name": "order",
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "Order"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
                 "name": "piece_data",
                 "type": "PieceData"
-              },
-              {
-                "id": 3,
-                "name": "authorization",
-                "type": "SignedMessage"
               }
             ],
             "messages": [
@@ -1788,9 +1936,19 @@
                 "type": "string"
               },
               {
-                "id": 3,
-                "name": "authorization",
-                "type": "SignedMessage"
+                "id": 2,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -1816,6 +1974,21 @@
                 "id": 2,
                 "name": "total_received",
                 "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "signed_hash",
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SignedHash"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -1862,8 +2035,9 @@
               },
               {
                 "id": 3,
-                "name": "public_key",
-                "type": "bytes"
+                "name": "certs",
+                "type": "bytes",
+                "is_repeated": true
               }
             ]
           },
@@ -1912,6 +2086,16 @@
                 "id": 8,
                 "name": "uptime",
                 "type": "google.protobuf.Duration"
+              }
+            ]
+          },
+          {
+            "name": "SignedHash",
+            "fields": [
+              {
+                "id": 1,
+                "name": "hash",
+                "type": "bytes"
               }
             ]
           }
@@ -2202,12 +2386,17 @@
               {
                 "id": 3,
                 "name": "pba",
-                "type": "piecestoreroutes.PayerBandwidthAllocation"
-              },
-              {
-                "id": 4,
-                "name": "authorization",
-                "type": "piecestoreroutes.SignedMessage"
+                "type": "piecestoreroutes.SignedMessage",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "OrderLimit"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -2288,7 +2477,7 @@
             ]
           },
           {
-            "name": "PayerBandwidthAllocationRequest",
+            "name": "OrderLimitRequest",
             "fields": [
               {
                 "id": 1,
@@ -2298,12 +2487,22 @@
             ]
           },
           {
-            "name": "PayerBandwidthAllocationResponse",
+            "name": "OrderLimitResponse",
             "fields": [
               {
                 "id": 1,
                 "name": "pba",
-                "type": "piecestoreroutes.PayerBandwidthAllocation"
+                "type": "piecestoreroutes.SignedMessage",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "OrderLimit"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           }
@@ -2333,9 +2532,9 @@
                 "out_type": "DeleteResponse"
               },
               {
-                "name": "PayerBandwidthAllocation",
-                "in_type": "PayerBandwidthAllocationRequest",
-                "out_type": "PayerBandwidthAllocationResponse"
+                "name": "OrderLimit",
+                "in_type": "OrderLimitRequest",
+                "out_type": "OrderLimitResponse"
               }
             ]
           }

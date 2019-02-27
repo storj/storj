@@ -99,7 +99,7 @@ func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Poi
 	}
 
 	if res.GetPointer().GetType() == pb.Pointer_INLINE {
-		return res.GetPointer(), nodes, res.GetPba(), nil
+		return res.GetPointer(), nodes, res.Pba, nil
 	}
 
 	pieces := res.GetPointer().GetRemote().GetRemotePieces()
@@ -117,7 +117,7 @@ func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Poi
 		}
 	}
 
-	return res.GetPointer(), nodes, res.GetPba(), nil
+	return res.GetPointer(), nodes, res.Pba, nil
 }
 
 // List is the interface to make a LIST request, needs StartingPathKey, Limit, and APIKey
@@ -166,5 +166,5 @@ func (pdb *PointerDB) PayerBandwidthAllocation(ctx context.Context, action pb.Ba
 	if err != nil {
 		return nil, err
 	}
-	return response.GetPba(), nil
+	return response.Pba, nil
 }

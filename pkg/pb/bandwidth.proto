@@ -7,19 +7,15 @@ option go_package = "pb";
 package bandwidth;
 
 import "piecestore.proto";
+import "gogo.proto";
 
 service Bandwidth {
-  rpc BandwidthAgreements(piecestoreroutes.RenterBandwidthAllocation) returns (AgreementsSummary) {}
+  rpc BandwidthAgreements(BandWidthRequest) returns (AgreementsSummary) {}
 }
 
-//TODO:  change the above to this at some point when we're not avoiding breaking gRPC
-// service Bandwidth {
-//   rpc BandwidthAgreements(BandWidthRequest) returns (AgreementsSummary) {}
-// }
-
-// message BandWidthRequest
-//   piecestoreroutes.RenterBandwidthAllocation Order = 1 [(gogoproto.customtype) = "Order", (gogoproto.nullable) = false];
-// }
+message BandWidthRequest {
+  piecestoreroutes.SignedMessage order = 1 [(gogoproto.customtype) = "Order", (gogoproto.nullable) = false];
+}
 
 message AgreementsSummary {
   enum Status {

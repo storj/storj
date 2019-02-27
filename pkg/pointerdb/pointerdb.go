@@ -153,7 +153,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 	var r = &pb.GetResponse{
 		Pointer: pointer,
 		Nodes:   nil,
-		Pba:     pba.GetPba(),
+		Pba:     pba.Pba,
 	}
 
 	if !s.config.Overlay || pointer.Remote == nil {
@@ -177,7 +177,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 	r = &pb.GetResponse{
 		Pointer: pointer,
 		Nodes:   nodes,
-		Pba:     pba.GetPba(),
+		Pba:     pba.Pba,
 	}
 
 	return r, nil

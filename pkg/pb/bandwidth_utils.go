@@ -12,13 +12,13 @@ import (
 )
 
 //OrderLimit redefines PayerBandwidthAllocation (to allow fancy serialization)
-type OrderLimit PayerBandwidthAllocation
+type OrderLimit = PayerBandwidthAllocation
 
 //Order redefines RenterBandwidthAllocation (to allow fancy serialization)
-type Order RenterBandwidthAllocation
+type Order = RenterBandwidthAllocation
 
-// SignedHash2 redefines SignedHash (to allow fancy serialization)
-type SignedHash2 SignedHash
+//SignedHash redefines RenterBandwidthAllocation (to allow fancy serialization)
+type SignedHash = []byte
 
 var (
 	// ErrRenter wraps errors related to renter bandwidth allocations
@@ -48,66 +48,6 @@ func Equal(msg1, msg2 proto.Message) bool {
 	return bytes.Compare(msg1Bytes, msg2Bytes) == 0
 }
 
-// GetCerts updates the certs field, completing the auth.SignedMsg interface
-func (m *OrderLimit) GetCerts() [][]byte {
-	return m.Certs
-}
-
-// SetCerts updates the certs field, completing the auth.SignedMsg interface
-func (m *OrderLimit) SetCerts(certs [][]byte) {
-	m.Certs = certs
-}
-
-// SetSignature updates the signature field, completing the auth.SignedMsg interface
-func (m *OrderLimit) SetSignature(signature []byte) {
-	m.Signature = signature
-}
-
-// SetSignedMessage updates the signed message field, completing the auth.SignedMsg interface
-func (m *OrderLimit) SetSignedMessage(signedMessage []byte) {
-	m.SignedMessage = signedMessage
-}
-
-// GetCerts updates the certs field, completing the auth.SignedMsg interface
-func (m *Order) GetCerts() [][]byte {
-	return m.Certs
-}
-
-// SetCerts updates the certs field, completing the auth.SignedMsg interface
-func (m *Order) SetCerts(certs [][]byte) {
-	m.Certs = certs
-}
-
-// SetSignature updates the signature field, completing the auth.SignedMsg interface
-func (m *Order) SetSignature(signature []byte) {
-	m.Signature = signature
-}
-
-// SetSignedMessage updates the signed message field, completing the auth.SignedMsg interface
-func (m *Order) SetSignedMessage(signedMessage []byte) {
-	m.SignedMessage = signedMessage
-}
-
-// GetCerts updates the certs field, completing the auth.SignedMsg interface
-func (m *SignedHash) GetCerts() [][]byte {
-	return m.Certs
-}
-
-// SetCerts updates the certs field, completing the auth.SignedMsg interface
-func (m *SignedHash) SetCerts(certs [][]byte) {
-	m.Certs = certs
-}
-
-// SetSignature updates the signature field, completing the auth.SignedMsg interface
-func (m *SignedHash) SetSignature(signature []byte) {
-	m.Signature = signature
-}
-
-// SetSignedMessage updates the signed message field, completing the auth.SignedMsg interface
-func (m *SignedHash) SetSignedMessage(signedMessage []byte) {
-	m.Hash = signedMessage
-}
-
 // Clone creates a deep copy of PayerBandwidthAllocation
 func (m *OrderLimit) Clone() (pba OrderLimit) {
 	pba = OrderLimit{
@@ -125,4 +65,45 @@ func (m *OrderLimit) Clone() (pba OrderLimit) {
 	copy(pba.Signature, m.Signature)
 
 	return pba
+}
+
+//SignedMessageBase allows composition of signed messages
+type SignedMessageBase func()
+
+// Marshal serializes a node id
+func (m SignedMessageBase) Marshal() ([]byte, error) {
+	return id.Bytes(), nil
+}
+
+// MarshalTo serializes a node ID into the passed byte slice
+func (m SignedMessageBase) MarshalTo(data []byte) (n int, err error) {
+	n = copy(data, id.Bytes())
+	return n, nil
+}
+
+// Unmarshal deserializes a node ID
+func (m SignedMessageBase) Unmarshal(data []byte) error {
+	var err error
+	*id, err = NodeIDFromBytes(data)
+	return err
+}
+
+// Size returns the length of a node ID (implements gogo's custom type interface)
+func (m SignedMessageBase) Size() int {
+	return len(id)
+}
+
+// MarshalJSON serializes a node ID to a json string as bytes
+func (m SignedMessageBase) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + id.String() + `"`), nil
+}
+
+// UnmarshalJSON deserializes a json string (as bytes) to a node ID
+func (m SignedMessageBase) UnmarshalJSON(data []byte) error {
+	var err error
+	*id, err = NodeIDFromString(string(data))
+	if err != nil {
+		return err
+	}
+	return nil
 }
