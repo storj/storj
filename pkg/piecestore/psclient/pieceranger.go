@@ -67,18 +67,18 @@ func (r *pieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadC
 	// of this instance at the same time.
 	pbaClone := r.pba.Clone()
 
-	rba := &pb.Order{
-		PayerAllocation: pbaClone,
-		StorageNodeId:   r.c.remoteID,
-	}
+	rba := pb.Order{RenterBandwidthAllocation: pb.RenterBandwidthAllocation{
+		OrderLimit:    pbaClone,
+		StorageNodeId: r.c.remoteID,
+	}}
 
 	// send piece data
 	if err := r.stream.Send(&pb.PieceRetrieval{
-		PieceData:           &pb.PieceRetrieval_PieceData{Id: r.id.String(), PieceSize: length, Offset: offset},
-		BandwidthAllocation: rba,
+		PieceData: &pb.PieceRetrieval_PieceData{Id: r.id.String(), PieceSize: length, Offset: offset},
+		Order:     rba,
 	}); err != nil {
 		return nil, err
 	}
 
-	return NewStreamReader(r.c, r.stream, rba, r.size), nil
+	return NewStreamReader(r.c, r.stream, &rba, r.size), nil
 }

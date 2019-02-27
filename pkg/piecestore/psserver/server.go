@@ -270,7 +270,7 @@ func (s *Server) deleteByID(id string) error {
 
 func (s *Server) verifySignature(ctx context.Context, rba *pb.Order) error {
 	// TODO(security): detect replay attacks
-	pba := rba.PayerAllocation
+	pba := rba.OrderLimit
 	//verify message content
 	pi, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil || pba.UplinkId != pi.ID {
@@ -291,14 +291,14 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.Order) error {
 		return pb.ErrPayer.Wrap(auth.ErrExpired.New("%v vs %v", exp, time.Now().UTC()))
 	}
 	//verify message crypto
-	if err := auth.VerifyMsg(rba, pba.UplinkId); err != nil {
+	if err := rba.Verify(pba.UplinkId); err != nil {
 		return pb.ErrRenter.Wrap(err)
 	}
 	if !s.isWhitelisted(pba.SatelliteId) {
 		return pb.ErrPayer.Wrap(peertls.ErrVerifyCAWhitelist.New(""))
 	}
 	//todo: once the certs are removed from the PBA, use s.whitelist to check satellite signatures
-	if err := auth.VerifyMsg(&pba, pba.SatelliteId); err != nil {
+	if err := pba.Verify(pba.SatelliteId); err != nil {
 		return pb.ErrPayer.Wrap(err)
 	}
 	return nil

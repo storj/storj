@@ -95,21 +95,21 @@ func (mr *MockPointerDBClientMockRecorder) List(arg0, arg1 interface{}, arg2 ...
 }
 
 // PayerBandwidthAllocation mocks base method
-func (m *MockPointerDBClient) PayerBandwidthAllocation(arg0 context.Context, arg1 *pb.PayerBandwidthAllocationRequest, arg2 ...grpc.CallOption) (*pb.PayerBandwidthAllocationResponse, error) {
+func (m *MockPointerDBClient) OrderLimitRequest(arg0 context.Context, arg1 *pb.OrderLimitRequest, arg2 ...grpc.CallOption) (*pb.OrderLimitResponse, error) {
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "PayerBandwidthAllocation", varargs...)
-	ret0, _ := ret[0].(*pb.PayerBandwidthAllocationResponse)
+	ret := m.ctrl.Call(m, "OrderLimit", varargs...)
+	ret0, _ := ret[0].(*pb.OrderLimitResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // OrderLimit indicates an expected call of OrderLimit
-func (mr *MockPointerDBClientMockRecorder) PayerBandwidthAllocation(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockPointerDBClientMockRecorder) OrderLimit(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PayerBandwidthAllocation", reflect.TypeOf((*MockPointerDBClient)(nil).PayerBandwidthAllocation), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OrderLimit", reflect.TypeOf((*MockPointerDBClient)(nil).OrderLimitRequest), varargs...)
 }
 
 // Put mocks base method

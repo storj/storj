@@ -45,7 +45,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return RetrieveError.New("Order message is nil")
 	}
 
-	pba := rba.PayerAllocation
+	pba := rba.OrderLimit
 	if pb.Equal(&pba, &pb.OrderLimit{}) {
 		return RetrieveError.New("OrderLimit message is empty")
 	}
@@ -137,7 +137,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 				allocationTracking.Fail(RetrieveError.Wrap(err))
 				return
 			}
-			pba := rba.PayerAllocation
+			pba := rba.OrderLimit
 			if err = s.verifyPayerAllocation(&pba, "GET"); err != nil {
 				allocationTracking.Fail(RetrieveError.Wrap(err))
 				return

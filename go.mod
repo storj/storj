@@ -29,6 +29,7 @@ require (
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da // indirect
 	github.com/boltdb/bolt v1.3.1
 	github.com/cheggaaa/pb v1.0.5-0.20160713104425-73ae1d68fe0b
+	github.com/dc0d/goreuse v0.0.0-20171218064641-72bc40487de9 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/djherbis/atime v1.0.0 // indirect
 	github.com/dustin/go-humanize v0.0.0-20180713052910-9f541cc9db5d // indirect
@@ -43,7 +44,7 @@ require (
 	github.com/gogo/protobuf v1.2.0
 	github.com/golang-migrate/migrate/v3 v3.5.2
 	github.com/golang/mock v1.2.0
-	github.com/golang/protobuf v1.2.0
+	github.com/golang/protobuf v1.3.0
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
 	github.com/google/go-cmp v0.2.0
 	github.com/gorilla/handlers v1.4.0 // indirect

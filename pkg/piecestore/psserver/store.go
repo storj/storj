@@ -12,7 +12,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
 )
@@ -52,7 +51,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("Order message is nil")
 	}
 
-	pba := rba.PayerAllocation
+	pba := rba.OrderLimit
 	if pb.Equal(&pba, &pb.OrderLimit{}) {
 		return StoreError.New("OrderLimit message is empty")
 	}
@@ -72,7 +71,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	}
 
 	signedHash := &pb.SignedHash{Hash: hash}
-	err = auth.SignMessage(signedHash, *s.identity)
+	err = signedHash.Sign(*s.identity.key)
 	if err != nil {
 		return err
 	}

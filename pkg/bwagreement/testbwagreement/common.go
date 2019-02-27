@@ -8,7 +8,6 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -20,25 +19,25 @@ func GenerateOrderLimit(action pb.BandwidthAction, satID *identity.FullIdentity,
 	if err != nil {
 		return nil, err
 	}
-	pba := &pb.OrderLimit{
+	pba := &pb.OrderLimit{PayerBandwidthAllocation: pb.PayerBandwidthAllocation{
 		SatelliteId:       satID.ID,
 		UplinkId:          upID.ID,
 		ExpirationUnixSec: time.Now().Add(expiration).Unix(),
 		SerialNumber:      serialNum.String(),
 		Action:            action,
 		CreatedUnixSec:    time.Now().Unix(),
-	}
+	}}
 
-	return pba, auth.SignMessage(pba, *satID)
+	return pba, pba.Sign(satID.Key)
 }
 
 //GenerateOrder creates a signed Order from a OrderLimit
 func GenerateOrder(pba *pb.OrderLimit, storageNodeID storj.NodeID, upID *identity.FullIdentity, total int64) (*pb.Order, error) {
-	rba := &pb.Order{
-		PayerAllocation: *pba,
-		StorageNodeId:   storageNodeID,
-		Total:           total,
-	}
+	rba := &pb.Order{RenterBandwidthAllocation: pb.RenterBandwidthAllocation{
+		OrderLimit:    *pba,
+		StorageNodeId: storageNodeID,
+		Total:         total,
+	}}
 	// Combine Signature and Data for Order
-	return rba, auth.SignMessage(rba, *upID)
+	return rba, rba.Sign(upID.Key)
 }

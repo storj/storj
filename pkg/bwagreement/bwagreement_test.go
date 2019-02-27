@@ -39,15 +39,15 @@ func TestBandwidthDBAgreement(t *testing.T) {
 
 func testCreateAgreement(ctx context.Context, t *testing.T, b bwagreement.DB, action pb.BandwidthAction,
 	serialNum string, upID, snID *identity.FullIdentity) error {
-	rba := &pb.Order{
-		PayerAllocation: pb.OrderLimit{
+	rba := &pb.Order{RenterBandwidthAllocation: pb.RenterBandwidthAllocation{
+		OrderLimit: pb.OrderLimit{PayerBandwidthAllocation: PayerBandwidthAllocation{
 			Action:       action,
 			SerialNumber: serialNum,
 			UplinkId:     upID.ID,
-		},
+		}},
 		Total:         1000,
 		StorageNodeId: snID.ID,
-	}
+	}}
 	return b.CreateAgreement(ctx, rba)
 }
 

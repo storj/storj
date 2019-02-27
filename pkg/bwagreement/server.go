@@ -77,7 +77,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.Order) (reply 
 	reply = &pb.AgreementsSummary{
 		Status: pb.AgreementsSummary_REJECTED,
 	}
-	pba := rba.PayerAllocation
+	pba := rba.OrderLimit
 	//verify message content
 	pi, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil || rba.StorageNodeId != pi.ID {
@@ -111,7 +111,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.Order) (reply 
 }
 
 func (s *Server) verifySignature(ctx context.Context, rba *pb.Order) error {
-	pba := rba.GetPayerAllocation()
+	pba := rba.OrderLimit
 
 	// Get renter's public key from uplink agreement db
 	uplinkInfo, err := s.certdb.GetPublicKey(ctx, pba.UplinkId)

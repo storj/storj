@@ -143,7 +143,7 @@ func (db *DB) Migration() *migrate.Migration {
 								return err
 							}
 							// update the new columns data
-							t := time.Unix(rba.PayerAllocation.CreatedUnixSec, 0)
+							t := time.Unix(rba.OrderLimit.CreatedUnixSec, 0)
 							startofthedayUnixSec := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC).Unix()
 
 							// update the row by signature as it is unique
@@ -158,9 +158,9 @@ func (db *DB) Migration() *migrate.Migration {
 									daystart_utc_sec = ?
 									WHERE signature = ?
 								`,
-								rba.PayerAllocation.UplinkId.Bytes(), rba.PayerAllocation.SerialNumber,
-								rba.Total, rba.PayerAllocation.MaxSize, rba.PayerAllocation.CreatedUnixSec,
-								rba.PayerAllocation.ExpirationUnixSec, rba.PayerAllocation.GetAction(),
+								rba.OrderLimit.UplinkId.Bytes(), rba.OrderLimit.SerialNumber,
+								rba.Total, rba.OrderLimit.MaxSize, rba.OrderLimit.CreatedUnixSec,
+								rba.OrderLimit.ExpirationUnixSec, rba.OrderLimit.GetAction(),
 								startofthedayUnixSec, signature)
 							if err != nil {
 								return err
@@ -246,10 +246,10 @@ func (db *DB) WriteBandwidthAllocToDB(rba *pb.Order) error {
 	t := time.Now()
 	startofthedayunixsec := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
 	_, err = db.DB.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature, uplink, serial_num, total, max_size, created_utc_sec, expiration_utc_sec, action, daystart_utc_sec) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		rba.PayerAllocation.SatelliteId.Bytes(), rbaBytes, rba.GetSignature(),
-		rba.PayerAllocation.UplinkId.Bytes(), rba.PayerAllocation.SerialNumber,
-		rba.Total, rba.PayerAllocation.MaxSize, rba.PayerAllocation.CreatedUnixSec,
-		rba.PayerAllocation.ExpirationUnixSec, rba.PayerAllocation.GetAction().String(),
+		rba.OrderLimit.SatelliteId.Bytes(), rbaBytes, rba.GetSignature(),
+		rba.OrderLimit.UplinkId.Bytes(), rba.OrderLimit.SerialNumber,
+		rba.Total, rba.OrderLimit.MaxSize, rba.OrderLimit.CreatedUnixSec,
+		rba.OrderLimit.ExpirationUnixSec, rba.OrderLimit.GetAction().String(),
 		startofthedayunixsec)
 	return err
 }

@@ -68,7 +68,7 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, bandwidt
 		if err = s.verifySignature(stream.Context(), rba); err != nil {
 			return nil, err
 		}
-		pba := rba.PayerAllocation
+		pba := rba.OrderLimit
 		if err = s.verifyPayerAllocation(&pba, "PUT"); err != nil {
 			return nil, err
 		}

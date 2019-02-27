@@ -375,7 +375,7 @@ func TestStore(t *testing.T) {
 				rba := &pb.Order{}
 				require.NoError(t, proto.Unmarshal(agreement, rba))
 				require.Equal(t, msg.BandwidthAllocation.GetSignature(), signature)
-				require.True(t, pb.Equal(pba, &rba.PayerAllocation))
+				require.True(t, pb.Equal(pba, &rba.OrderLimit))
 				require.Equal(t, int64(len(tt.content)), rba.Total)
 
 			}

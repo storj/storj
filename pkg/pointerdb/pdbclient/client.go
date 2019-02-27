@@ -99,7 +99,7 @@ func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Poi
 	}
 
 	if res.GetPointer().GetType() == pb.Pointer_INLINE {
-		return res.GetPointer(), nodes, res.Pba, nil
+		return res.GetPointer(), nodes, &res.Pba, nil
 	}
 
 	pieces := res.GetPointer().GetRemote().GetRemotePieces()
@@ -117,7 +117,7 @@ func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Poi
 		}
 	}
 
-	return res.GetPointer(), nodes, res.Pba, nil
+	return res.GetPointer(), nodes, &res.Pba, nil
 }
 
 // List is the interface to make a LIST request, needs StartingPathKey, Limit, and APIKey
@@ -162,9 +162,9 @@ func (pdb *PointerDB) Delete(ctx context.Context, path storj.Path) (err error) {
 func (pdb *PointerDB) PayerBandwidthAllocation(ctx context.Context, action pb.BandwidthAction) (resp *pb.OrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	response, err := pdb.client.PayerBandwidthAllocation(ctx, &pb.PayerBandwidthAllocationRequest{Action: action})
+	response, err := pdb.client.OrderLimit(ctx, &pb.OrderLimitRequest{Action: action})
 	if err != nil {
 		return nil, err
 	}
-	return response.Pba, nil
+	return &response.Pba, nil
 }

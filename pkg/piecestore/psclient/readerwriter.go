@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
 )
@@ -42,14 +41,14 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 	updatedAllocation := s.totalWritten + int64(len(b))
 
 	s.rba.Total = updatedAllocation
-	err := auth.SignMessage(s.rba, *s.signer.selfID)
+	err := s.rba.Sign(s.signer.selfID.Key)
 	if err != nil {
 		return 0, err
 	}
 
 	msg := &pb.PieceStore{
-		PieceData:           &pb.PieceStore_PieceData{Content: b},
-		BandwidthAllocation: s.rba,
+		PieceData: &pb.PieceStore_PieceData{Content: b},
+		Order:     *s.rba,
 	}
 	s.totalWritten = updatedAllocation
 	// Second we send the actual content
@@ -71,16 +70,16 @@ func (s *StreamWriter) Close() error {
 		return err
 	}
 
-	if err := auth.VerifyMsg(reply.SignedHash, s.signer.remoteID); err != nil {
+	if err := reply.SignedHash.Verify(s.signer.remoteID); err != nil {
 		return ClientError.Wrap(err)
 	}
 
 	clientHash := s.hash.Sum(nil)
-	if bytes.Compare(reply.SignedHash.Hash, clientHash) != 0 {
+	if bytes.Compare(reply.SignedHash.Hash.Hash, clientHash) != 0 {
 		return ErrHashDoesNotMatch
 	}
 
-	s.storagenodeHash = reply.SignedHash
+	s.storagenodeHash = &reply.SignedHash
 
 	zap.S().Debugf("Stream close and recv summary: %v", reply)
 
@@ -124,11 +123,11 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 
 			rba.Total = sr.allocated + allocate
 
-			err := auth.SignMessage(rba, *client.selfID)
+			err := rba.Sign(client.selfID.Key)
 			if err != nil {
 				sr.pendingAllocs.Fail(err)
 			}
-			msg := &pb.PieceRetrieval{BandwidthAllocation: rba}
+			msg := &pb.PieceRetrieval{Order: *rba}
 
 			if err = stream.Send(msg); err != nil {
 				sr.pendingAllocs.Fail(err)

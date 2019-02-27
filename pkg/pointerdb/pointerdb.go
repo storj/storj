@@ -142,7 +142,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	pba, err := s.PayerBandwidthAllocation(ctx, &pb.PayerBandwidthAllocationRequest{Action: pb.BandwidthAction_GET})
+	pba, err := s.OrderLimit(ctx, &pb.OrderLimitRequest{Action: pb.BandwidthAction_GET})
 	if err != nil {
 		s.logger.Error("err getting payer bandwidth allocation", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -233,8 +233,8 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 	return s.service.Iterate(prefix, req.First, req.Recurse, req.Reverse, f)
 }
 
-// PayerBandwidthAllocation returns OrderLimit struct, signed and with given action type
-func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBandwidthAllocationRequest) (res *pb.PayerBandwidthAllocationResponse, err error) {
+// OrderLimit returns OrderLimit struct, signed and with given action type
+func (s *Server) OrderLimit(ctx context.Context, req *pb.OrderLimitRequest) (res *pb.OrderLimitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = s.validateAuth(ctx)
@@ -254,5 +254,5 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	return &pb.PayerBandwidthAllocationResponse{Pba: pba}, nil
+	return &pb.OrderLimitResponse{Pba: *pba}, nil
 }

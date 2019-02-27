@@ -282,7 +282,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	for _, rbaVal := range bwAgreements {
 		for _, rbaDataVal := range rbaVal {
 			rba := rbaDataVal.Agreement
-			pba := rba.PayerAllocation
+			pba := rba.OrderLimit
 
 			summary, ok := summaries[pba.SatelliteId]
 			if !ok {

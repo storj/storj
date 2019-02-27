@@ -15,7 +15,6 @@ import (
 	"golang.org/x/net/context"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
@@ -131,14 +130,14 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	// of this instance at the same time.
 	pbaClone := pba.Clone()
 
-	rba := &pb.Order{
-		PayerAllocation: pbaClone,
-		StorageNodeId:   ps.remoteID,
-	}
+	rba := pb.Order{RenterBandwidthAllocation: pb.RenterBandwidthAllocation{
+		OrderLimit:    pbaClone,
+		StorageNodeId: ps.remoteID,
+	}}
 
 	msg := &pb.PieceStore{
-		PieceData:           &pb.PieceStore_PieceData{Id: id.String(), ExpirationUnixSec: ttl.Unix()},
-		BandwidthAllocation: rba,
+		PieceData: &pb.PieceStore_PieceData{Id: id.String(), ExpirationUnixSec: ttl.Unix()},
+		Order:     rba,
 	}
 	if err = stream.Send(msg); err != nil {
 		if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
@@ -148,7 +147,7 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 		return nil, fmt.Errorf("%v.Send() = %v", stream, err)
 	}
 
-	writer := NewStreamWriter(stream, ps, rba)
+	writer := NewStreamWriter(stream, ps, &rba)
 
 	bufw := bufio.NewWriterSize(writer, 32*1024)
 
@@ -164,7 +163,7 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 
 	err = writer.Close()
 	if err == ErrHashDoesNotMatch {
-		return nil, errs.Combine(err, ps.Delete(ctx, id, rba.PayerAllocation.SatelliteId))
+		return nil, errs.Combine(err, ps.Delete(ctx, id, rba.OrderLimit.SatelliteId))
 	}
 	if err != nil && err != io.EOF {
 		return nil, ClientError.New("failure during closing writer: %v", err)
@@ -195,5 +194,5 @@ func (ps *PieceStore) Delete(ctx context.Context, id PieceID, satelliteID storj.
 
 // sign a message using the clients private key
 func (ps *PieceStore) sign(rba *pb.Order) (err error) {
-	return auth.SignMessage(rba, *ps.selfID)
+	return rba.Sign(ps.selfID.Key)
 }

@@ -21,13 +21,13 @@ type bandwidthagreement struct {
 }
 
 func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.Order) (err error) {
-	expiration := time.Unix(rba.PayerAllocation.ExpirationUnixSec, 0)
+	expiration := time.Unix(rba.OrderLimit.ExpirationUnixSec, 0)
 	_, err = b.db.Create_Bwagreement(
 		ctx,
-		dbx.Bwagreement_Serialnum(rba.PayerAllocation.SerialNumber+rba.StorageNodeId.String()),
+		dbx.Bwagreement_Serialnum(rba.OrderLimit.SerialNumber+rba.StorageNodeId.String()),
 		dbx.Bwagreement_StorageNodeId(rba.StorageNodeId.Bytes()),
-		dbx.Bwagreement_UplinkId(rba.PayerAllocation.UplinkId.Bytes()),
-		dbx.Bwagreement_Action(int64(rba.PayerAllocation.Action)),
+		dbx.Bwagreement_UplinkId(rba.OrderLimit.UplinkId.Bytes()),
+		dbx.Bwagreement_Action(int64(rba.OrderLimit.Action)),
 		dbx.Bwagreement_Total(rba.Total),
 		dbx.Bwagreement_ExpiresAt(expiration),
 	)

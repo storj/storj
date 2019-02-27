@@ -9,6 +9,7 @@ package piecestoreroutes;
 import "gogo.proto";
 import "google/protobuf/duration.proto";
 
+
 service PieceStoreRoutes {
   rpc Piece(PieceId) returns (PieceSummary) {}
   rpc Retrieve(stream PieceRetrieval) returns (stream PieceRetrievalStream) {}
@@ -128,7 +129,7 @@ message DashboardStats {
   google.protobuf.Duration uptime = 8;
 }
 
-//SignedHash is always serialized as SignedMessage
-message SignedHash {
+//Hash is always serialized as SignedMessage
+message Hash {
   bytes hash = 1;
 }
