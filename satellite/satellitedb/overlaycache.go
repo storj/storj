@@ -76,11 +76,11 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 	var nodes []*pb.Node
 	for rows.Next() {
 		overlayNode := &dbx.OverlayCacheNode{}
-		err = rows.Scan(&overlayNode.NodeId, &overlayNode.NodeType,
-			&overlayNode.Address, &overlayNode.FreeBandwidth, &overlayNode.FreeDisk,
-			&overlayNode.AuditSuccessRatio, &overlayNode.AuditUptimeRatio,
-			&overlayNode.AuditCount, &overlayNode.AuditSuccessCount,
-			&overlayNode.UptimeCount, &overlayNode.UptimeSuccessCount)
+		// err = rows.Scan(&overlayNode.NodeId, &overlayNode.NodeType,
+		// 	&overlayNode.Address, &overlayNode.FreeBandwidth, &overlayNode.FreeDisk,
+		// 	&overlayNode.AuditSuccessRatio, &overlayNode.AuditUptimeRatio,
+		// 	&overlayNode.AuditCount, &overlayNode.AuditSuccessCount,
+		// 	&overlayNode.UptimeCount, &overlayNode.UptimeSuccessCount)
 		if err != nil {
 			return nil, err
 		}
@@ -299,9 +299,10 @@ func convertOverlayNode(info *dbx.OverlayCacheNode) (*pb.Node, error) {
 
 //GetWalletAddress gets the node's wallet address
 func (cache *overlaycache) GetWalletAddress(ctx context.Context, id storj.NodeID) (string, error) {
-	w, err := cache.db.Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx, dbx.OverlayCacheNode_NodeId(id.Bytes()))
-	if err != nil {
-		return "", err
-	}
-	return w.OperatorWallet, nil
+	// w, err := cache.db.Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx, dbx.OverlayCacheNode_NodeId(id.Bytes()))
+	// if err != nil {
+	// 	return "", err
+	// }
+	// return w.OperatorWallet, nil
+	return "", nil
 }

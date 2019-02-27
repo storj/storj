@@ -160,7 +160,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		config := config.Storage
 
 		// TODO: psserver shouldn't need the private key
-		peer.Storage.Endpoint, err = psserver.NewEndpoint(peer.Log.Named("piecestore"), config, peer.DB.Storage(), peer.DB.PSDB(), peer.Identity.Key, peer.Kademlia.Service)
+		peer.Storage.Endpoint, err = psserver.NewEndpoint(peer.Log.Named("piecestore"), config, peer.DB.Storage(), peer.DB.PSDB(), peer.Identity, peer.Kademlia.Service)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

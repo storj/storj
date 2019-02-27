@@ -21,7 +21,7 @@ import (
 // RetrieveError is a type of error for failures in Server.Retrieve()
 var RetrieveError = errs.Class("retrieve error")
 
-// Retrieve -- Retrieve data from piecestore and send to client
+// Retrieve servers data from piecestore and sends to client
 func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
@@ -42,12 +42,12 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 
 	rba := recv.GetBandwidthAllocation()
 	if rba == nil {
-		return RetrieveError.New("RenterBandwidthAllocation message is nil")
+		return RetrieveError.New("Order message is nil")
 	}
 
 	pba := rba.PayerAllocation
-	if pb.Equal(&pba, &pb.PayerBandwidthAllocation{}) {
-		return RetrieveError.New("PayerBandwidthAllocation message is empty")
+	if pb.Equal(&pba, &pb.OrderLimit{}) {
+		return RetrieveError.New("OrderLimit message is empty")
 	}
 
 	id, err := getNamespacedPieceID([]byte(pd.GetId()), pba.SatelliteId.Bytes())
@@ -114,7 +114,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 	// Bandwidth Allocation recv loop
 	go func() {
 		var lastTotal int64
-		var lastAllocation *pb.RenterBandwidthAllocation
+		var lastAllocation *pb.Order
 		defer func() {
 			if lastAllocation == nil {
 				return
@@ -192,11 +192,6 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			}
 			used -= nextMessageSize - n
 		}
-	}
-
-	// write to bandwidth usage table
-	if err = s.DB.AddBandwidthUsed(used); err != nil {
-		return retrieved, allocated, RetrieveError.New("failed to write bandwidth info to database: %v", err)
 	}
 
 	// TODO: handle errors

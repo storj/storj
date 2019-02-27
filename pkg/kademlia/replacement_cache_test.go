@@ -8,14 +8,17 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
 func TestAddToReplacementCache(t *testing.T) {
-	rt, cleanup := createRoutingTable(t, storj.NodeID{244, 255})
-	defer cleanup()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	rt := createRoutingTable(storj.NodeID{244, 255})
+	defer ctx.Check(rt.Close)
 
 	kadBucketID := bucketID{255, 255}
 	node1 := teststorj.MockNode(string([]byte{233, 255}))
@@ -32,4 +35,26 @@ func TestAddToReplacementCache(t *testing.T) {
 	assert.Equal(t, []*pb.Node{node2, node3}, rt.replacementCache[kadBucketID2])
 	rt.addToReplacementCache(kadBucketID2, node4)
 	assert.Equal(t, []*pb.Node{node3, node4}, rt.replacementCache[kadBucketID2])
+}
+
+func TestRemoveFromReplacementCache(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	rt := createRoutingTableWith(storj.NodeID{244, 255}, routingTableOpts{cacheSize: 3})
+	defer ctx.Check(rt.Close)
+
+	kadBucketID2 := bucketID{127, 255}
+	node2 := teststorj.MockNode(string([]byte{100, 255}))
+	node3 := teststorj.MockNode(string([]byte{90, 255}))
+	node4 := teststorj.MockNode(string([]byte{80, 255}))
+	rt.addToReplacementCache(kadBucketID2, node2)
+	rt.addToReplacementCache(kadBucketID2, node3)
+	rt.addToReplacementCache(kadBucketID2, node4)
+	assert.Equal(t, []*pb.Node{node2, node3, node4}, rt.replacementCache[kadBucketID2])
+	rt.removeFromReplacementCache(kadBucketID2, node3)
+	assert.Equal(t, []*pb.Node{node2, node4}, rt.replacementCache[kadBucketID2])
+	rt.removeFromReplacementCache(kadBucketID2, node2)
+	assert.Equal(t, []*pb.Node{node4}, rt.replacementCache[kadBucketID2])
+	rt.removeFromReplacementCache(kadBucketID2, node4)
+	assert.Equal(t, []*pb.Node{}, rt.replacementCache[kadBucketID2])
 }

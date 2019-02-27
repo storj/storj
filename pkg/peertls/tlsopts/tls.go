@@ -16,7 +16,7 @@ import (
 )
 
 // ServerOption returns a grpc `ServerOption` for incoming connections
-// to the node with this full identity
+// to the node with this full identity.
 func (opts *Options) ServerOption() grpc.ServerOption {
 	pcvFuncs := append(
 		[]peertls.PeerCertVerificationFunc{
@@ -37,9 +37,20 @@ func (opts *Options) ServerOption() grpc.ServerOption {
 }
 
 // DialOption returns a grpc `DialOption` for making outgoing connections
-// to the node with this peer identity
-// id is an optional id of the node we are dialing
+// to the node with this peer identity.
+// id is an optional id of the node we are dialing.
 func (opts *Options) DialOption(id storj.NodeID) grpc.DialOption {
+	return grpc.WithTransportCredentials(opts.TransportCredentials(id))
+}
+
+// TransportCredentials returns a grpc `credentials.TransportCredentials`
+// implementation for use within peertls.
+func (opts *Options) TransportCredentials(id storj.NodeID) credentials.TransportCredentials {
+	return credentials.NewTLS(opts.TLSConfig(id))
+}
+
+// TLSConfig returns a TSLConfig for use in handshaking with a peer.
+func (opts *Options) TLSConfig(id storj.NodeID) *tls.Config {
 	pcvFuncs := append(
 		[]peertls.PeerCertVerificationFunc{
 			peertls.VerifyPeerCertChains,
@@ -47,15 +58,13 @@ func (opts *Options) DialOption(id storj.NodeID) grpc.DialOption {
 		},
 		opts.PCVFuncs...,
 	)
-	tlsConfig := &tls.Config{
+	return &tls.Config{
 		Certificates:       []tls.Certificate{*opts.Cert},
 		InsecureSkipVerify: true,
 		VerifyPeerCertificate: peertls.VerifyPeerFunc(
 			pcvFuncs...,
 		),
 	}
-
-	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
 }
 
 func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {

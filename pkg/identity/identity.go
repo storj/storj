@@ -58,7 +58,7 @@ type FullIdentity struct {
 type SetupConfig struct {
 	CertPath  string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/identity.cert"`
 	KeyPath   string `help:"path to the private key for this identity" default:"$IDENTITYDIR/identity.key"`
-	Overwrite bool   `help:"if true, existing identity certs AND keys will overwritten for" default:"false"`
+	Overwrite bool   `help:"if true, existing identity certs AND keys will overwritten for" default:"false" setup:"true"`
 	Version   string `help:"semantic version of identity storage format" default:"0"`
 }
 
@@ -72,6 +72,49 @@ type Config struct {
 // PeerConfig allows you to interact with a peer identity (cert, no key) on disk.
 type PeerConfig struct {
 	CertPath string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/identity.cert" user:"true"`
+}
+
+// FullCertificateAuthorityFromPEM loads a FullIdentity from a certificate chain and
+// private key PEM-encoded bytes
+func FullCertificateAuthorityFromPEM(chainPEM, keyPEM []byte) (*FullCertificateAuthority, error) {
+	peerCA, err := PeerCertificateAuthorityFromPEM(chainPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	// NB: there shouldn't be multiple keys in the key file but if there
+	// are, this uses the first one
+	key, err := pkcrypto.PrivateKeyFromPEM(keyPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	return &FullCertificateAuthority{
+		RestChain: peerCA.RestChain,
+		Cert:      peerCA.Cert,
+		Key:       key,
+		ID:        peerCA.ID,
+	}, nil
+}
+
+// PeerCertificateAuthorityFromPEM loads a FullIdentity from a certificate chain and
+// private key PEM-encoded bytes
+func PeerCertificateAuthorityFromPEM(chainPEM []byte) (*PeerCertificateAuthority, error) {
+	chain, err := pkcrypto.CertsFromPEM(chainPEM)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	// NB: the "leaf" cert in a CA chain is the "CA" cert in an identity chain
+	nodeID, err := NodeIDFromKey(chain[peertls.LeafIndex].PublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PeerCertificateAuthority{
+		RestChain: chain[peertls.CAIndex:],
+		Cert:      chain[peertls.LeafIndex],
+		ID:        nodeID,
+	}, nil
 }
 
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and

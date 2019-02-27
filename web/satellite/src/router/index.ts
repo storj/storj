@@ -12,7 +12,6 @@ import ProjectDetails from '@/components/project/ProjectDetailsArea.vue';
 import TeamArea from '@/components/team/TeamArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
-import DashboardArea from '@/components/dashboard/DashboardArea.vue';
 import { getToken } from '@/utils/tokenManager';
 
 Vue.use(Router);
@@ -39,23 +38,23 @@ let router = new Router({
             component: Dashboard,
             children: [
                 {
-                    path: '/account-settings',
-                    name: 'AccountSettings',
+                    path: ROUTES.ACCOUNT_SETTINGS.path,
+                    name: ROUTES.ACCOUNT_SETTINGS.name,
                     component: AccountArea
                 },
                 {
-                    path: '/project-details',
-                    name: 'ProjectDetails',
+                    path: ROUTES.PROJECT_DETAILS.path,
+                    name: ROUTES.PROJECT_DETAILS.name,
                     component: ProjectDetails
                 },
                 {
-                    path: '/team',
-                    name: 'Team',
+                    path: ROUTES.TEAM.path,
+                    name: ROUTES.TEAM.name,
                     component: TeamArea
                 },
                 {
-                    path: '/api-keys',
-                    name: 'ApiKeys',
+                    path: ROUTES.API_KEYS.path,
+                    name: ROUTES.API_KEYS.name,
                     component: ApiKeysArea
                 },
                 // {
