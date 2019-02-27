@@ -6,11 +6,13 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
@@ -37,14 +39,16 @@ func getNodeStats(nodeID storj.NodeID, dbNode *dbx.Node) *statdb.NodeStats {
 		UptimeRatio:        dbNode.UptimeRatio,
 		UptimeSuccessCount: dbNode.UptimeSuccessCount,
 		UptimeCount:        dbNode.TotalUptimeCount,
-		Wallet:             dbNode.Wallet,
-		Email:              dbNode.Email,
+		Meta: pb.NodeOperator{
+			Wallet: dbNode.Wallet,
+			Email:  dbNode.Email,
+		},
 	}
 	return nodeStats
 }
 
 // Create a db entry for the provided storagenode
-func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats *statdb.NodeStats, meta *statdb.Meta) (stats *statdb.NodeStats, err error) {
+func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats *statdb.NodeStats) (stats *statdb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var (
@@ -54,7 +58,11 @@ func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats 
 		totalUptimeCount   int64
 		uptimeSuccessCount int64
 		uptimeRatio        float64
+		wallet             string
+		email              string
 	)
+
+	fmt.Printf("starting stats: %+v\n", startingStats)
 
 	if startingStats != nil {
 		totalAuditCount = startingStats.AuditCount
@@ -70,6 +78,8 @@ func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats 
 		if err != nil {
 			return nil, errUptime.Wrap(err)
 		}
+		wallet = startingStats.Meta.Wallet
+		email = startingStats.Meta.Email
 	}
 
 	dbNode, err := s.db.Create_Node(
@@ -81,8 +91,8 @@ func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats 
 		dbx.Node_UptimeSuccessCount(uptimeSuccessCount),
 		dbx.Node_TotalUptimeCount(totalUptimeCount),
 		dbx.Node_UptimeRatio(uptimeRatio),
-		dbx.Node_Wallet(meta.Wallet),
-		dbx.Node_Email(meta.Email),
+		dbx.Node_Wallet(wallet),
+		dbx.Node_Email(email),
 	)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -319,13 +329,13 @@ func (s *statDB) UpdateBatch(ctx context.Context, updateReqList []*statdb.Update
 }
 
 // CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist
-func (s *statDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID, meta *statdb.Meta) (stats *statdb.NodeStats, err error) {
+func (s *statDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID) (stats *statdb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	getStats, err := s.Get(ctx, nodeID)
 	// TODO: figure out better way to confirm error is type dbx.ErrorCode_NoRows
 	if err != nil && strings.Contains(err.Error(), "no rows in result set") {
-		createStats, err := s.Create(ctx, nodeID, nil, meta)
+		createStats, err := s.Create(ctx, nodeID, nil)
 		if err != nil {
 			return nil, err
 		}

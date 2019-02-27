@@ -316,8 +316,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					ALTER TABLE nodes ADD COLUMN email text;
 					UPDATE nodes SET wallet = '';
 					UPDATE nodes SET email = '';
-					ALTER TABLE nodes ADD COLUMN wallet SET NOT NULL;
-					ALTER TABLE nodes ADD COLUMN email SET NOT NULL;`,
+					ALTER TABLE nodes ADD COLUMN wallet NOT NULL;
+					ALTER TABLE nodes ADD COLUMN email NOT NULL;`,
 				},
 			},
 		},

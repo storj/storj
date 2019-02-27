@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
@@ -50,12 +51,7 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 			UptimeSuccessCount: currUptimeSuccess,
 		}
 
-		meta := &statdb.Meta{
-			Wallet: "",
-			Email:  "",
-		}
-
-		stats, err := sdb.Create(ctx, nodeID, nodeStats, meta)
+		stats, err := sdb.Create(ctx, nodeID, nodeStats)
 		assert.NoError(t, err)
 		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
 		assert.EqualValues(t, uptimeRatio, stats.UptimeRatio)
@@ -85,12 +81,7 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 			UptimeSuccessCount: currUptimeSuccess,
 		}
 
-		meta := &statdb.Meta{
-			Wallet: "",
-			Email:  "",
-		}
-
-		_, err := sdb.Create(ctx, nodeID, nodeStats, meta)
+		_, err := sdb.Create(ctx, nodeID, nodeStats)
 		assert.Error(t, err)
 	}
 
@@ -126,13 +117,10 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 				AuditSuccessCount:  tt.auditSuccessCount,
 				UptimeCount:        tt.uptimeCount,
 				UptimeSuccessCount: tt.uptimeSuccessCount,
-			}
-			meta := &statdb.Meta{
-				Wallet: "",
-				Email:  "",
+				Meta:               pb.NodeOperator{},
 			}
 
-			_, err := sdb.Create(ctx, tt.nodeID, nodeStats, meta)
+			_, err := sdb.Create(ctx, tt.nodeID, nodeStats)
 			assert.NoError(t, err)
 		}
 
@@ -258,12 +246,8 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 			UptimeCount:        uptimeCount1,
 			UptimeRatio:        uptimeRatio1,
 		}
-		meta := &statdb.Meta{
-			Wallet: "",
-			Email:  "",
-		}
 
-		stats, err := sdb.Create(ctx, nodeID1, nodeStats, meta)
+		stats, err := sdb.Create(ctx, nodeID1, nodeStats)
 		assert.NoError(t, err)
 		assert.EqualValues(t, auditRatio1, stats.AuditSuccessRatio)
 		assert.EqualValues(t, uptimeRatio1, stats.UptimeRatio)
@@ -285,12 +269,7 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 			UptimeRatio:        uptimeRatio2,
 		}
 
-		meta2 := &statdb.Meta{
-			Wallet: "",
-			Email:  "",
-		}
-
-		stats, err = sdb.Create(ctx, nodeID2, nodeStats, meta2)
+		stats, err = sdb.Create(ctx, nodeID2, nodeStats)
 		assert.NoError(t, err)
 		assert.EqualValues(t, auditRatio2, stats.AuditSuccessRatio)
 		assert.EqualValues(t, uptimeRatio2, stats.UptimeRatio)

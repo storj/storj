@@ -8,6 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -19,7 +20,7 @@ var (
 // DB stores node statistics
 type DB interface {
 	// Create adds a new stats entry for node.
-	Create(ctx context.Context, nodeID storj.NodeID, initial *NodeStats, meta *Meta) (stats *NodeStats, err error)
+	Create(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
 	// Get returns node stats.
 	Get(ctx context.Context, nodeID storj.NodeID) (stats *NodeStats, err error)
 	// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
@@ -33,7 +34,7 @@ type DB interface {
 	// UpdateBatch for updating multiple storage nodes' stats.
 	UpdateBatch(ctx context.Context, requests []*UpdateRequest) (statslist []*NodeStats, failed []*UpdateRequest, err error)
 	// CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
-	CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID, meta *Meta) (stats *NodeStats, err error)
+	CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID) (stats *NodeStats, err error)
 }
 
 // UpdateRequest is used to update a node status.
@@ -52,12 +53,5 @@ type NodeStats struct {
 	UptimeRatio        float64
 	UptimeSuccessCount int64
 	UptimeCount        int64
-	Wallet             string
-	Email              string
-}
-
-// Meta is a struct for organizing the meta data for a node operator
-type Meta struct {
-	Wallet string
-	Email  string
+	Meta               pb.NodeOperator
 }

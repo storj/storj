@@ -558,17 +558,17 @@ type lockedStatDB struct {
 }
 
 // Create adds a new stats entry for node.
-func (m *lockedStatDB) Create(ctx context.Context, nodeID storj.NodeID, initial *statdb.NodeStats, meta *statdb.Meta) (stats *statdb.NodeStats, err error) {
+func (m *lockedStatDB) Create(ctx context.Context, nodeID storj.NodeID, initial *statdb.NodeStats) (stats *statdb.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Create(ctx, nodeID, initial, meta)
+	return m.db.Create(ctx, nodeID, initial)
 }
 
 // CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
-func (m *lockedStatDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID, meta *statdb.Meta) (stats *statdb.NodeStats, err error) {
+func (m *lockedStatDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID) (stats *statdb.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.CreateEntryIfNotExists(ctx, nodeID, meta)
+	return m.db.CreateEntryIfNotExists(ctx, nodeID)
 }
 
 // FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
