@@ -14,14 +14,10 @@ type AccountActivationEmail struct {
 }
 
 // Template returns email template name
-func (tmpl *AccountActivationEmail) Template() string {
-	return "Welcome"
-}
+func (tmpl *AccountActivationEmail) Template() string { return "Welcome" }
 
 // Subject gets email subject
-func (tmpl *AccountActivationEmail) Subject() string {
-	return "Activate your email"
-}
+func (tmpl *AccountActivationEmail) Subject() string { return "Activate your email" }
 
 // ForgotPasswordEmail is mailservice template with reset password data
 type ForgotPasswordEmail struct {
@@ -30,14 +26,10 @@ type ForgotPasswordEmail struct {
 }
 
 // Template returns email template name
-func (tmpl *ForgotPasswordEmail) Template() string {
-	return "Forgot"
-}
+func (tmpl *ForgotPasswordEmail) Template() string { return "Forgot" }
 
 // Subject gets email subject
-func (tmpl *ForgotPasswordEmail) Subject() string {
-	return ""
-}
+func (tmpl *ForgotPasswordEmail) Subject() string { return "" }
 
 // ProjectInvitationEmail is mailservice template for project invitation email
 type ProjectInvitationEmail struct {
@@ -46,11 +38,7 @@ type ProjectInvitationEmail struct {
 }
 
 // Template returns email template name
-func (tmpl *ProjectInvitationEmail) Template() string {
-	return "Invite"
-}
+func (tmpl *ProjectInvitationEmail) Template() string { return "Invite" }
 
 // Subject gets email subject
-func (tmpl *ProjectInvitationEmail) Subject() string {
-	return ""
-}
+func (tmpl *ProjectInvitationEmail) Subject() string { return "" }
