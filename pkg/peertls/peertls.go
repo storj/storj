@@ -43,13 +43,13 @@ func VerifyPeerFunc(next ...PeerCertVerificationFunc) PeerCertVerificationFunc {
 	return func(chain [][]byte, _ [][]*x509.Certificate) error {
 		c, err := pkcrypto.CertsFromDER(chain)
 		if err != nil {
-			return ErrVerifyPeerCert.Wrap(err)
+			return NewNonTemporaryError(ErrVerifyPeerCert.Wrap(err))
 		}
 
 		for _, n := range next {
 			if n != nil {
 				if err := n(chain, [][]*x509.Certificate{c}); err != nil {
-					return ErrVerifyPeerCert.Wrap(err)
+					return NewNonTemporaryError(ErrVerifyPeerCert.Wrap(err))
 				}
 			}
 		}

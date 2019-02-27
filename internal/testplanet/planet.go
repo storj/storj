@@ -70,18 +70,6 @@ type Config struct {
 	Reconfigure Reconfigure
 }
 
-// Reconfigure allows to change node configurations
-type Reconfigure struct {
-	NewBootstrapDB func(index int) (bootstrap.DB, error)
-	Bootstrap      func(index int, config *bootstrap.Config)
-
-	NewSatelliteDB func(log *zap.Logger, index int) (satellite.DB, error)
-	Satellite      func(log *zap.Logger, index int, config *satellite.Config)
-
-	NewStorageNodeDB func(index int) (storagenode.DB, error)
-	StorageNode      func(index int, config *storagenode.Config)
-}
-
 // Planet is a full storj system setup.
 type Planet struct {
 	log       *zap.Logger
