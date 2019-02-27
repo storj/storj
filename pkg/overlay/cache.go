@@ -103,8 +103,8 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNod
 	// TODO: use a nicer struct for input
 
 	minimumRequiredNodes := int(req.GetMinNodes())
-	freeBandwidth := req.GetOpts().GetRestrictions().FreeBandwidth
-	freeDisk := req.GetOpts().GetRestrictions().FreeDisk
+	freeBandwidth := req.GetOpts().GetCapacity().GetFreeBandwidth()
+	freeDisk := req.GetOpts().GetCapacity().GetFreeDisk()
 	excludedNodes := req.GetOpts().ExcludedNodes
 	requestedCount := int(req.GetOpts().GetAmount())
 

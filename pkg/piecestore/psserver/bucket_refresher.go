@@ -54,17 +54,7 @@ func (service *Monitor) Run(ctx context.Context) error {
 
 // process will attempt to update the kademlia bucket with the latest information about the storage node
 func (service *Monitor) process(ctx context.Context) error {
-	// stats, err := service.server.Stats(ctx, nil)
-	// if err != nil {
-	// 	return Error.Wrap(err)
-	// }
-
 	self := service.rt.Local()
-
-	// self.Restrictions = &pb.NodeRestrictions{
-	// 	FreeBandwidth: stats.AvailableBandwidth,
-	// 	FreeDisk:      stats.AvailableSpace,
-	// }
 
 	// Update the routing table with latest restrictions
 	if err := service.rt.UpdateSelf(&self); err != nil {

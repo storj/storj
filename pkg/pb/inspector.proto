@@ -109,7 +109,6 @@ message LookupNodeRequest {
 
 message LookupNodeResponse {
   node.Node node = 1;
-  node.NodeMetadata meta = 2;
 }
 
 message NodeInfoRequest {

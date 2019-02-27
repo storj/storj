@@ -190,7 +190,7 @@ func TestNodeSelection(t *testing.T) {
 			response, err := endpoint.FindStorageNodesWithPreferences(ctx,
 				&pb.FindStorageNodesRequest{
 					Opts: &pb.OverlayOptions{
-						Restrictions: &pb.NodeRestrictions{
+						Capacity: &pb.NodeCapacity{
 							FreeBandwidth: 0,
 							FreeDisk:      0,
 						},

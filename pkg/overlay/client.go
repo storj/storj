@@ -79,7 +79,7 @@ func (client *client) Choose(ctx context.Context, op Options) ([]*pb.Node, error
 	resp, err := client.conn.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{
 		Opts: &pb.OverlayOptions{
 			Amount:        int64(op.Amount),
-			Restrictions:  &pb.NodeRestrictions{FreeDisk: op.Space, FreeBandwidth: op.Bandwidth},
+			Capacity:      &pb.NodeCapacity{FreeDisk: op.Space, FreeBandwidth: op.Bandwidth},
 			ExcludedNodes: exIDs,
 		},
 	})

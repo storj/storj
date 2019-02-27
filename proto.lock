@@ -809,11 +809,51 @@
                 "id": 1,
                 "name": "node",
                 "type": "node.Node"
+              }
+            ]
+          },
+          {
+            "name": "NodeInfoRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "address",
+                "type": "node.NodeAddress"
+              }
+            ]
+          },
+          {
+            "name": "NodeInfoResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
-                "name": "meta",
-                "type": "node.NodeMetadata"
+                "name": "type",
+                "type": "node.NodeType"
+              },
+              {
+                "id": 3,
+                "name": "operator",
+                "type": "node.NodeOperator"
+              },
+              {
+                "id": 4,
+                "name": "capacity",
+                "type": "node.NodeCapacity"
               }
             ]
           },
@@ -887,6 +927,11 @@
                 "name": "LookupNode",
                 "in_type": "LookupNodeRequest",
                 "out_type": "LookupNodeResponse"
+              },
+              {
+                "name": "NodeInfo",
+                "in_type": "NodeInfoRequest",
+                "out_type": "NodeInfoResponse"
               },
               {
                 "name": "FindNear",
@@ -1003,21 +1048,6 @@
         ],
         "messages": [
           {
-            "name": "NodeRestrictions",
-            "fields": [
-              {
-                "id": 1,
-                "name": "free_bandwidth",
-                "type": "int64"
-              },
-              {
-                "id": 2,
-                "name": "free_disk",
-                "type": "int64"
-              }
-            ]
-          },
-          {
             "name": "Node",
             "fields": [
               {
@@ -1039,57 +1069,6 @@
                 "id": 2,
                 "name": "address",
                 "type": "NodeAddress"
-              },
-              {
-                "id": 3,
-                "name": "type",
-                "type": "NodeType"
-              },
-              {
-                "id": 4,
-                "name": "restrictions",
-                "type": "NodeRestrictions"
-              },
-              {
-                "id": 5,
-                "name": "reputation",
-                "type": "NodeStats"
-              },
-              {
-                "id": 6,
-                "name": "metadata",
-                "type": "NodeMetadata"
-              },
-              {
-                "id": 7,
-                "name": "latency_list",
-                "type": "int64",
-                "is_repeated": true
-              },
-              {
-                "id": 8,
-                "name": "audit_success",
-                "type": "bool"
-              },
-              {
-                "id": 9,
-                "name": "is_up",
-                "type": "bool"
-              },
-              {
-                "id": 10,
-                "name": "update_latency",
-                "type": "bool"
-              },
-              {
-                "id": 11,
-                "name": "update_audit_success",
-                "type": "bool"
-              },
-              {
-                "id": 12,
-                "name": "update_uptime",
-                "type": "bool"
               }
             ]
           },
@@ -1164,7 +1143,7 @@
             ]
           },
           {
-            "name": "NodeMetadata",
+            "name": "NodeOperator",
             "fields": [
               {
                 "id": 1,
@@ -1175,6 +1154,21 @@
                 "id": 2,
                 "name": "wallet",
                 "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "NodeCapacity",
+            "fields": [
+              {
+                "id": 1,
+                "name": "free_bandwidth",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "free_disk",
+                "type": "int64"
               }
             ]
           }
@@ -1359,8 +1353,8 @@
               },
               {
                 "id": 5,
-                "name": "restrictions",
-                "type": "node.NodeRestrictions"
+                "name": "capacity",
+                "type": "node.NodeCapacity"
               },
               {
                 "id": 6,
@@ -1424,6 +1418,29 @@
             "name": "PingResponse"
           },
           {
+            "name": "InfoRequest"
+          },
+          {
+            "name": "InfoResponse",
+            "fields": [
+              {
+                "id": 2,
+                "name": "type",
+                "type": "node.NodeType"
+              },
+              {
+                "id": 3,
+                "name": "operator",
+                "type": "node.NodeOperator"
+              },
+              {
+                "id": 4,
+                "name": "capacity",
+                "type": "node.NodeCapacity"
+              }
+            ]
+          },
+          {
             "name": "Restriction",
             "fields": [
               {
@@ -1477,6 +1494,11 @@
                 "name": "Ping",
                 "in_type": "PingRequest",
                 "out_type": "PingResponse"
+              },
+              {
+                "name": "RequestInfo",
+                "in_type": "InfoRequest",
+                "out_type": "InfoResponse"
               }
             ]
           }
@@ -1661,7 +1683,18 @@
               {
                 "id": 3,
                 "name": "authorization",
-                "type": "SignedMessage"
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 4,
+                "name": "signed_hash",
+                "type": "SignedHash"
               }
             ],
             "messages": [
@@ -1698,7 +1731,28 @@
               {
                 "id": 2,
                 "name": "authorization",
-                "type": "SignedMessage"
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -1738,7 +1792,13 @@
               {
                 "id": 3,
                 "name": "authorization",
-                "type": "SignedMessage"
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               }
             ],
             "messages": [
@@ -1790,7 +1850,28 @@
               {
                 "id": 3,
                 "name": "authorization",
-                "type": "SignedMessage"
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 4,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -1816,6 +1897,11 @@
                 "id": 2,
                 "name": "total_received",
                 "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "signed_hash",
+                "type": "SignedHash"
               }
             ]
           },
@@ -1912,6 +1998,27 @@
                 "id": 8,
                 "name": "uptime",
                 "type": "google.protobuf.Duration"
+              }
+            ]
+          },
+          {
+            "name": "SignedHash",
+            "fields": [
+              {
+                "id": 1,
+                "name": "hash",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "certs",
+                "type": "bytes",
+                "is_repeated": true
+              },
+              {
+                "id": 3,
+                "name": "signature",
+                "type": "bytes"
               }
             ]
           }

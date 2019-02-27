@@ -67,7 +67,7 @@ message OverlayOptions {
     node.NodeStats min_stats = 2;
     int64 min_speed_kbps = 3;
     int64 amount = 4;
-    node.NodeRestrictions restrictions = 5;
+    node.NodeCapacity capacity = 5;
     repeated bytes excluded_nodes = 6 [(gogoproto.customtype) = "NodeID"];
 }
 
