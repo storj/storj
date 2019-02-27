@@ -109,20 +109,16 @@ func (s *Server) filterValidPieces(pointer *pb.Pointer) error {
 			err := auth.VerifyMsg(remote.RemotePiecesHashes[i], piece.NodeId)
 			if err == nil {
 				remotePieces = append(remotePieces, piece)
-
-				// Clear after verification to avoid storing in DB
-				remote.RemotePiecesHashes[i].SetCerts(nil)
-				remote.RemotePiecesHashes[i].SetSignature(nil)
-				remotePiecesHashes = append(remotePiecesHashes, remote.RemotePiecesHashes[i])
+				// TODO decide it we want to store full list of hashes or merkle tree
 			} else {
 				s.logger.Warn("unable to verify piece hash: %v", zap.Error(err))
 			}
 		}
 
-		if int32(len(remotePieces)) < remote.Redundancy.RepairThreshold {
-			return Error.New("Number of valid pieces is lower then repair threshold: %v < %v",
+		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
+			return Error.New("Number of valid pieces is lower then success threshold: %v < %v",
 				len(remotePieces),
-				remote.Redundancy.RepairThreshold,
+				remote.Redundancy.SuccessThreshold,
 			)
 		}
 
