@@ -23,7 +23,7 @@ const OK = "OK"
 // StoreError is a type of error for failures in Server.Store()
 var StoreError = errs.Class("store error")
 
-// Store incoming data using piecestore
+// Store stores incoming data using piecestore
 func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	ctx := reqStream.Context()
 	defer mon.Task()(&ctx)(&err)
