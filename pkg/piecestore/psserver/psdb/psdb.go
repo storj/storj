@@ -254,10 +254,10 @@ func (db *DB) WriteBandwidthAllocToDB(rba *pb.Order) error {
 	return err
 }
 
-// DeleteBandwidthAllocationBySignature finds an allocation by signature and deletes it
-func (db *DB) DeleteBandwidthAllocationBySignature(signature []byte) error {
+// DeleteBandwidthAllocationBySerialnum finds an allocation by signature and deletes it
+func (db *DB) DeleteBandwidthAllocationBySerialnum(serialnum string) error {
 	defer db.locked()()
-	_, err := db.DB.Exec(`DELETE FROM bandwidth_agreements WHERE signature=?`, signature)
+	_, err := db.DB.Exec(`DELETE FROM bandwidth_agreements WHERE serial_num=?`, serialnum)
 	if err == sql.ErrNoRows {
 		err = nil
 	}
