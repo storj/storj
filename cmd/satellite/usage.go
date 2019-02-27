@@ -55,7 +55,6 @@ func generateCSV(ctx context.Context, start time.Time, end time.Time, output io.
 	for _, row := range rows {
 		nid := row.NodeID
 
-		// TODO: Get wallet address here from StatDB instead
 		stats, err := db.StatDB().Get(ctx, nid)
 		if err != nil {
 			return err
