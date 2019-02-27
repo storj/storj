@@ -6,55 +6,51 @@ package consoleql
 const (
 	// ActivationPath is key for pass which handles account activation
 	ActivationPath = "activationPath"
-
-	// ActivationSubject activation email subject
-	ActivationSubject = "Activate your email"
-	// InvitationSubject invitation email subject
-	InvitationSubject = ""
-	// ForgotPasswordSubject forgot password email subject
-	ForgotPasswordSubject = ""
 )
-
-// MailTemplate is implementation of satellite/mailservice.Template interface
-type MailTemplate struct {
-	subject  string
-	template string
-}
-
-// NewMailTemplate creates new instance of MailTemplate
-func NewMailTemplate(subject, prefix string) MailTemplate {
-	return MailTemplate{
-		subject:  subject,
-		template: prefix,
-	}
-}
-
-// Template returns email template name
-func (tmpl *MailTemplate) Template() string {
-	return tmpl.template
-}
-
-// Subject gets email subject
-func (tmpl *MailTemplate) Subject() string {
-	return tmpl.subject
-}
 
 // AccountActivationEmail is mailservice template with activation data
 type AccountActivationEmail struct {
-	MailTemplate
 	ActivationLink string
+}
+
+// Template returns email template name
+func (tmpl *AccountActivationEmail) Template() string {
+	return "Welcome"
+}
+
+// Subject gets email subject
+func (tmpl *AccountActivationEmail) Subject() string {
+	return "Activate your email"
 }
 
 // ForgotPasswordEmail is mailservice template with reset password data
 type ForgotPasswordEmail struct {
-	MailTemplate
 	UserName  string
 	ResetLink string
 }
 
+// Template returns email template name
+func (tmpl *ForgotPasswordEmail) Template() string {
+	return "Forgot"
+}
+
+// Subject gets email subject
+func (tmpl *ForgotPasswordEmail) Subject() string {
+	return ""
+}
+
 // ProjectInvitationEmail is mailservice template for project invitation email
 type ProjectInvitationEmail struct {
-	MailTemplate
 	UserName    string
 	ProjectName string
+}
+
+// Template returns email template name
+func (tmpl *ProjectInvitationEmail) Template() string {
+	return "Invite"
+}
+
+// Subject gets email subject
+func (tmpl *ProjectInvitationEmail) Subject() string {
+	return ""
 }

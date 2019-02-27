@@ -20,33 +20,13 @@ type Config struct {
 	SMTPServerAddress string `help:"smtp server address" default:""`
 	TemplatePath      string `help:"path to email templates source" default:""`
 	From              string `help:"sender email address" default:""`
-	Auth              AuthConfig
-}
-
-// AuthConfig SMTP auth configuration
-type AuthConfig struct {
-	Type   string `help:"smtp authentication type" default:"OAuth2"`
-	Plain  PlainAuth
-	OAuth2 OAuth2
-}
-
-// PlainAuth SMTP configuration
-type PlainAuth struct {
-	Login    string `help:"plain auth user login" default:""`
-	Password string `help:"plain auth user password" default:""`
-}
-
-// OAuth2 SMTP configuration
-type OAuth2 struct {
-	RefreshToken string `help:"refresh token used to retrieve new access token" default:""`
-	Credentials  OAuth2Credentials
-}
-
-// OAuth2Credentials is OAuth2 app credentials
-type OAuth2Credentials struct {
-	ClientID     string `help:"oauth2 app's client id" default:""`
-	ClientSecret string `help:"oauth2 app's client secret" default:""`
-	TokenURI     string `help:"uri which is used when retrieving new access token" default:""`
+	AuthType          string `help:"smtp authentication type" default:"simulate"`
+	PlainLogin        string `help:"plain auth user login" default:""`
+	PlainPassword     string `help:"plain auth user password" default:""`
+	RefreshToken      string `help:"refresh token used to retrieve new access token" default:""`
+	ClientID          string `help:"oauth2 app's client id" default:""`
+	ClientSecret      string `help:"oauth2 app's client secret" default:""`
+	TokenURI          string `help:"uri which is used when retrieving new access token" default:""`
 }
 
 var (

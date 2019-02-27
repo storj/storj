@@ -443,22 +443,15 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Mail: mailservice.Config{
 				SMTPServerAddress: "smtp.gmail.com:587",
 				From:              "Labs <yaroslav-satellite-test@storj.io>",
-				Auth: mailservice.AuthConfig{
-					Type: "oauth2",
-					OAuth2: mailservice.OAuth2{
-						RefreshToken: "1/EztXS-biwVfwGnhq0eZ0PHsjVNyWGApmoIfVqARKALg",
-						Credentials: mailservice.OAuth2Credentials{
-							ClientID:     "39350227628-vk0ek67d385scmgbvre8ijk1jsdui5kd.apps.googleusercontent.com",
-							ClientSecret: "lOS7nLAwR14OjOt6HnpXfRnF",
-							TokenURI:     "https://oauth2.googleapis.com/token",
-						},
-					},
-				},
+				AuthType:          "oauth2",
+				RefreshToken:      "1/EztXS-biwVfwGnhq0eZ0PHsjVNyWGApmoIfVqARKALg",
+				ClientID:          "39350227628-vk0ek67d385scmgbvre8ijk1jsdui5kd.apps.googleusercontent.com",
+				ClientSecret:      "lOS7nLAwR14OjOt6HnpXfRnF",
+				TokenURI:          "https://oauth2.googleapis.com/token",
 			},
 			Console: consoleweb.Config{
-				Address:            "127.0.0.1:10100",
-				PasswordCost:       console.TestPasswordCost,
-				SimulateActivation: true,
+				Address:      "127.0.0.1:10100",
+				PasswordCost: console.TestPasswordCost,
 			},
 		}
 		if planet.config.Reconfigure.Satellite != nil {

@@ -13,6 +13,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"storj.io/storj/satellite/mailservice/simulate"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -44,7 +46,6 @@ import (
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/console/consolesim"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/storage"
@@ -390,33 +391,40 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		var auth smtp.Auth
-		switch mailConfig.Auth.Type {
+		var sender mailservice.Sender
+		switch mailConfig.AuthType {
 		case "oauth2":
-			oauth2Config := mailConfig.Auth.OAuth2
-
-			token, err := oauth2.RefreshToken(oauth2.Credentials(oauth2Config.Credentials), oauth2Config.RefreshToken)
+			creds := oauth2.Credentials{
+				ClientID:     mailConfig.ClientID,
+				ClientSecret: mailConfig.ClientSecret,
+				TokenURI:     mailConfig.TokenURI,
+			}
+			token, err := oauth2.RefreshToken(creds, mailConfig.RefreshToken)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
 
-			auth = &oauth2.Auth{
-				UserEmail: from.Address,
-				Storage:   oauth2.NewTokenStore(oauth2.Credentials(oauth2Config.Credentials), *token),
+			sender = &post.SMTPSender{
+				From: *from,
+				Auth: &oauth2.Auth{
+					UserEmail: from.Address,
+					Storage:   oauth2.NewTokenStore(creds, *token),
+				},
+				ServerAddress: mailConfig.SMTPServerAddress,
 			}
 		case "plain":
-			auth = smtp.PlainAuth("", mailConfig.Auth.Plain.Login, mailConfig.Auth.Plain.Password, host)
+			sender = &post.SMTPSender{
+				From:          *from,
+				Auth:          smtp.PlainAuth("", mailConfig.PlainLogin, mailConfig.PlainPassword, host),
+				ServerAddress: mailConfig.SMTPServerAddress,
+			}
 		default:
-			return nil, errs.Combine(errs.New("unsupported auth type"), peer.Close())
+			sender = &simulate.LinkClicker{}
 		}
 
 		peer.Mail.Service, err = mailservice.New(
 			peer.Log.Named("mailservice:service"),
-			&post.SMTPSender{
-				From:          *from,
-				Auth:          auth,
-				ServerAddress: mailConfig.SMTPServerAddress,
-			},
+			sender,
 			mailConfig.TemplatePath,
 		)
 
@@ -432,23 +440,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
-		}
-
-		mailService := peer.Mail.Service
-		// fallback to use account activation mail sender
-		// when using storj-sim
-		if consoleConfig.SimulateActivation {
-			mailService, err = mailservice.New(
-				peer.Log.Named("mailservice:simservice"),
-				&consolesim.MailSender{
-					DB: peer.DB.Console(),
-				},
-				config.Mail.TemplatePath,
-			)
-
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
 		}
 
 		peer.Console.Service, err = console.NewService(
@@ -467,7 +458,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
 			peer.Console.Service,
-			mailService,
+			peer.Mail.Service,
 			peer.Console.Listener,
 		)
 	}

@@ -86,7 +86,6 @@ func rootMutation(service *console.Service, mailService *mailservice.Service, ty
 						p.Context,
 						[]post.Address{{Address: user.Email, Name: user.FirstName}},
 						&AccountActivationEmail{
-							MailTemplate:   NewMailTemplate(ActivationSubject, "Welcome"),
 							ActivationLink: link,
 						},
 					)
