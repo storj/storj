@@ -136,8 +136,8 @@ binary:
 	[ "${GOARCH}" = "amd64" ] && goversioninfo $$sixtyfour -o cmd/${COMPONENT}/resource.syso \
 	-original-name ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT} \
 	-description "${COMPONENT} program for Storj" \
-	-product-ver-build 2 -ver-build 2 \
-	-product-version "alpha2" \
+	-product-ver-build 4 -ver-build 4 \
+	-product-version "alpha4" \
 	resources/versioninfo.json || echo "goversioninfo is not installed, metadata will not be created"
 	tar -c . | docker run --rm -i -e TAR=1 -e GO111MODULE=on \
 	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e GOARM=6 -e CGO_ENABLED=1 \
