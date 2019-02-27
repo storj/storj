@@ -60,9 +60,9 @@ var (
 		Short: "Generate a report",
 	}
 	paymentsCmd = &cobra.Command{
-		Use:   "payments [start] [end]",
-		Short: "Generate a payment report for a given period",
-		Long:  "Generate a payment report for a given period. Format dates using YYYY-MM-DD",
+		Use:   "storagenode-usage [start] [end]",
+		Short: "Generate a node usage report for a given period to use for payments",
+		Long:  "Generate a node usage report for a given period to use for payments. Format dates using YYYY-MM-DD",
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdPayments,
 	}
