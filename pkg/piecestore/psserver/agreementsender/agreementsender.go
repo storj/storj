@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
@@ -24,41 +25,41 @@ var (
 
 // AgreementSender maintains variables required for reading bandwidth agreements from a DB and sending them to a Payers
 type AgreementSender struct { // TODO: rename to service
-	DB            *psdb.DB
-	log           *zap.Logger
-	transport     transport.Client
-	kad           *kademlia.Kademlia
-	checkInterval time.Duration
+	DB        *psdb.DB
+	log       *zap.Logger
+	transport transport.Client
+	kad       *kademlia.Kademlia
+	Loop      sync2.Cycle
 }
 
 // TODO: take transport instead of identity as argument
 
 // New creates an Agreement Sender
 func New(log *zap.Logger, DB *psdb.DB, tc transport.Client, kad *kademlia.Kademlia, checkInterval time.Duration) *AgreementSender {
-	return &AgreementSender{DB: DB, log: log, transport: tc, kad: kad, checkInterval: checkInterval}
+	return &AgreementSender{DB: DB, log: log, transport: tc, kad: kad, Loop: *sync2.NewCycle(checkInterval)}
+}
+
+// Close halts the agreement sender loop
+func (as *AgreementSender) Close() error {
+	as.Loop.Close()
+	return nil
 }
 
 // Run the agreement sender with a context to check for cancel
 func (as *AgreementSender) Run(ctx context.Context) error {
-	//todo:  we likely don't want to stop on err, but consider returning errors via a channel
-	ticker := time.NewTicker(as.checkInterval)
-	defer ticker.Stop()
-	for {
-		as.log.Debug("AgreementSender is running", zap.Duration("duration", as.checkInterval))
+	as.log.Debug("AgreementSender is running")
+
+	return as.Loop.Run(ctx, func(ctx context.Context) error {
 		agreementGroups, err := as.DB.GetBandwidthAllocations()
 		if err != nil {
 			as.log.Error("Agreementsender could not retrieve bandwidth allocations", zap.Error(err))
-			continue
+			return nil
 		}
 		for satellite, agreements := range agreementGroups {
 			as.SendAgreementsToSatellite(ctx, satellite, agreements)
 		}
-		select {
-		case <-ticker.C:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+		return err
+	})
 }
 
 //SendAgreementsToSatellite uploads agreements to the satellite

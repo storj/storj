@@ -243,6 +243,9 @@ func (peer *Peer) Close() error {
 	if peer.Storage.Endpoint != nil {
 		errlist.Add(peer.Storage.Endpoint.Close())
 	}
+	if peer.Agreements.Sender != nil {
+		errlist.Add(peer.Agreements.Sender.Close())
+	}
 	if peer.Kademlia.Service != nil {
 		errlist.Add(peer.Kademlia.Service.Close())
 	}
