@@ -75,7 +75,7 @@ func (s *StreamWriter) Close() error {
 	}
 
 	clientHash := s.hash.Sum(nil)
-	if bytes.Compare(reply.SignedHash.Hash.Hash, clientHash) != 0 {
+	if bytes.Compare(reply.SignedHash.Hash, clientHash) != 0 {
 		return ErrHashDoesNotMatch
 	}
 

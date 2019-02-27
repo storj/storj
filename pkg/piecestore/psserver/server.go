@@ -286,7 +286,7 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.Order) error {
 	case pba.UplinkId.IsZero():
 		return pb.ErrPayer.Wrap(auth.ErrMissing.New("uplink id"))
 	}
-	exp := time.Unix(pba.GetExpirationUnixSec(), 0).UTC()
+	exp := time.Unix(pba.ExpirationUnixSec, 0).UTC()
 	if exp.Before(time.Now().UTC()) {
 		return pb.ErrPayer.Wrap(auth.ErrExpired.New("%v vs %v", exp, time.Now().UTC()))
 	}

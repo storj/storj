@@ -160,7 +160,7 @@ func (db *DB) Migration() *migrate.Migration {
 								`,
 								rba.OrderLimit.UplinkId.Bytes(), rba.OrderLimit.SerialNumber,
 								rba.Total, rba.OrderLimit.MaxSize, rba.OrderLimit.CreatedUnixSec,
-								rba.OrderLimit.ExpirationUnixSec, rba.OrderLimit.GetAction(),
+								rba.OrderLimit.ExpirationUnixSec, rba.OrderLimit.Action,
 								startofthedayUnixSec, signature)
 							if err != nil {
 								return err
@@ -249,7 +249,7 @@ func (db *DB) WriteBandwidthAllocToDB(rba *pb.Order) error {
 		rba.OrderLimit.SatelliteId.Bytes(), rbaBytes, rba.GetSignature(),
 		rba.OrderLimit.UplinkId.Bytes(), rba.OrderLimit.SerialNumber,
 		rba.Total, rba.OrderLimit.MaxSize, rba.OrderLimit.CreatedUnixSec,
-		rba.OrderLimit.ExpirationUnixSec, rba.OrderLimit.GetAction().String(),
+		rba.OrderLimit.ExpirationUnixSec, rba.OrderLimit.Action.String(),
 		startofthedayunixsec)
 	return err
 }

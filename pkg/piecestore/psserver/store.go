@@ -46,11 +46,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("piece ID not specified")
 	}
 
-	rba := recv.GetBandwidthAllocation()
-	if rba == nil {
-		return StoreError.New("Order message is nil")
-	}
-
+	rba := recv.Order
 	pba := rba.OrderLimit
 	if pb.Equal(&pba, &pb.OrderLimit{}) {
 		return StoreError.New("OrderLimit message is empty")
@@ -70,8 +66,8 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("failed to write piece meta data to database: %v", utils.CombineErrors(err, deleteErr))
 	}
 
-	signedHash := &pb.SignedHash{Hash: hash}
-	err = signedHash.Sign(*s.identity.key)
+	signedHash := pb.SignedHash{NonProtoHash: &pb.NonProtoHash{Hash: hash}}
+	err = signedHash.Sign(s.identity.Key)
 	if err != nil {
 		return err
 	}
@@ -125,7 +121,7 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 		return 0, nil, err
 	}
 
-	err = s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
+	err = s.DB.WriteBandwidthAllocToDB(reader.order)
 	if err != nil {
 		return 0, nil, err
 	}

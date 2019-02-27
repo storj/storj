@@ -131,11 +131,10 @@ func TestHappyPath(t *testing.T) {
 	})
 
 	order := func(signature string, satelliteID storj.NodeID, total int64) *pb.Order {
-		return &pb.Order{RenterBandwidthAllocation: pb.RenterBandwidthAllocation{
-			OrderLimit: pb.OrderLimit{PayerBandwidthAllocation: pb.PayerBandwidthAllocation{SatelliteId: satelliteID}},
+		return &pb.Order{RBA: &pb.RBA{
+			OrderLimit: pb.OrderLimit{PBA: &pb.PBA{SatelliteId: satelliteID}},
 			Total:      total,
-			Signature:  []byte(signature),
-		}}
+		}, SignedMessage: pb.SignedMessage{Signature: []byte(signature)}}
 	}
 
 	//TODO: use better data
@@ -260,11 +259,11 @@ func BenchmarkWriteBandwidthAllocation(b *testing.B) {
 	b.RunParallel(func(b *testing.PB) {
 		for b.Next() {
 			for i := 0; i < WritesPerLoop; i++ {
-				_ = db.WriteBandwidthAllocToDB(&pb.Order{RenterBandwidthAllocation: pb.RenterBandwidthAllocation{
+				_ = db.WriteBandwidthAllocToDB(&pb.Order{RBA: &pb.RBA{
 					OrderLimit: pb.OrderLimit{},
 					Total:      156,
-					Signature:  []byte("signed by test"),
-				}})
+				}, SignedMessage: pb.SignedMessage{Signature: []byte("signed by test")},
+				})
 			}
 		}
 	})

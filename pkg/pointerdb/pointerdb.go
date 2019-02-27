@@ -249,7 +249,7 @@ func (s *Server) OrderLimit(ctx context.Context, req *pb.OrderLimitRequest) (res
 		return nil, err
 	}
 
-	pba, err := s.allocation.PayerBandwidthAllocation(ctx, pi, req.GetAction())
+	pba, err := s.allocation.PayerBandwidthAllocation(ctx, pi, req.Action)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}

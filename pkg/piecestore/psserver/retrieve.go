@@ -40,11 +40,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return RetrieveError.New("PieceStore message is nil")
 	}
 
-	rba := recv.GetBandwidthAllocation()
-	if rba == nil {
-		return RetrieveError.New("Order message is nil")
-	}
-
+	rba := recv.Order
 	pba := rba.OrderLimit
 	if pb.Equal(&pba, &pb.OrderLimit{}) {
 		return RetrieveError.New("OrderLimit message is empty")
@@ -132,7 +128,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 				allocationTracking.Fail(RetrieveError.Wrap(err))
 				return
 			}
-			rba := recv.BandwidthAllocation
+			rba := &recv.Order
 			if err = s.verifySignature(stream.Context(), rba); err != nil {
 				allocationTracking.Fail(RetrieveError.Wrap(err))
 				return

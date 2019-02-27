@@ -8,28 +8,18 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+//PBA hides the protocol buffer nature of PayerBandwidthAllocation
+type PBA PayerBandwidthAllocation
+
 //OrderLimit implements signing and custom protobuf serialization
 type OrderLimit struct {
-	PayerBandwidthAllocation
+	*PBA
 	SignedMessage
-}
-
-// NewOrderLimit returns a new order limit
-func NewOrderLimit(satelliteID, uplinkID NodeID, maxSize, expirationUnixSec int64, serialNumber string, action BandwidthAction, createdUnixSec int64) *OrderLimit {
-	return &OrderLimit{PayerBandwidthAllocation: PayerBandwidthAllocation{
-		SatelliteId:       satelliteID,
-		UplinkId:          uplinkID,
-		MaxSize:           maxSize,
-		ExpirationUnixSec: expirationUnixSec,
-		SerialNumber:      serialNumber,
-		Action:            action,
-		CreatedUnixSec:    createdUnixSec,
-	}}
 }
 
 //Message returns the base message of this signed type
 func (m *OrderLimit) Message() proto.Message {
-	return &m.PayerBandwidthAllocation
+	return (*PayerBandwidthAllocation)(m.PBA)
 }
 
 //Signed returns the signing data for this signed type

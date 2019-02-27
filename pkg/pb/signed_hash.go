@@ -8,15 +8,18 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+//NonProtoHash hides the protocol buffer nature of Hash
+type NonProtoHash Hash
+
 //SignedHash implements signing and custom protobuf serialization
 type SignedHash struct {
-	Hash
+	*NonProtoHash
 	SignedMessage
 }
 
 //Message returns the base message of this signed type
 func (m *SignedHash) Message() proto.Message {
-	return &m.Hash
+	return (*Hash)(m.NonProtoHash)
 }
 
 //Signed returns the signing data for this signed type

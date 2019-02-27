@@ -249,7 +249,7 @@ func TestRetrieve(t *testing.T) {
 				rba, err := testbwagreement.GenerateOrder(pba, snID.ID, upID, totalAllocated)
 				require.NoError(t, err)
 
-				err = stream.Send(&pb.PieceRetrieval{BandwidthAllocation: rba})
+				err = stream.Send(&pb.PieceRetrieval{Order: *rba})
 				require.NoError(t, err)
 
 				resp, err = stream.Recv()
@@ -336,14 +336,14 @@ func TestStore(t *testing.T) {
 
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(&pb.PieceStore{
-				PieceData:           &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl},
-				BandwidthAllocation: rba,
+				PieceData: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl},
+				Order:     *rba,
 			})
 			require.NoError(t, err)
 
 			msg := &pb.PieceStore{
-				PieceData:           &pb.PieceStore_PieceData{Content: tt.content},
-				BandwidthAllocation: rba,
+				PieceData: &pb.PieceStore_PieceData{Content: tt.content},
+				Order:     *rba,
 			}
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(msg)
@@ -374,7 +374,7 @@ func TestStore(t *testing.T) {
 				require.NoError(t, err)
 				rba := &pb.Order{}
 				require.NoError(t, proto.Unmarshal(agreement, rba))
-				require.Equal(t, msg.BandwidthAllocation.GetSignature(), signature)
+				require.Equal(t, msg.Order.Signature, signature)
 				require.True(t, pb.Equal(pba, &rba.OrderLimit))
 				require.Equal(t, int64(len(tt.content)), rba.Total)
 
@@ -448,16 +448,16 @@ func TestPbaValidation(t *testing.T) {
 			rba, err := testbwagreement.GenerateOrder(pba, snID.ID, upID, int64(len(content)))
 			require.NoError(t, err)
 			msg := &pb.PieceStore{
-				PieceData:           &pb.PieceStore_PieceData{Content: content},
-				BandwidthAllocation: rba,
+				PieceData: &pb.PieceStore_PieceData{Content: content},
+				Order:     *rba,
 			}
 
 			//cleanup incase tests previously paniced
 			_ = s.storage.Delete("99999999999999999999")
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(&pb.PieceStore{
-				PieceData:           &pb.PieceStore_PieceData{Id: "99999999999999999999", ExpirationUnixSec: 9999999999},
-				BandwidthAllocation: rba,
+				PieceData: &pb.PieceStore_PieceData{Id: "99999999999999999999", ExpirationUnixSec: 9999999999},
+				Order:     *rba,
 			})
 			require.NoError(t, err)
 

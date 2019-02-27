@@ -39,13 +39,13 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 
 // StreamReader is a struct for Retrieving data from server
 type StreamReader struct {
-	src                 *utils.ReaderSource
-	bandwidthAllocation *pb.Order
-	currentTotal        int64
-	bandwidthRemaining  int64
-	spaceRemaining      int64
-	sofar               int64
-	hash                hash.Hash
+	src                *utils.ReaderSource
+	order              *pb.Order
+	currentTotal       int64
+	bandwidthRemaining int64
+	spaceRemaining     int64
+	sofar              int64
+	hash               hash.Hash
 }
 
 // NewStreamReader returns a new StreamReader for Server.Store
@@ -63,7 +63,7 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, bandwidt
 		}
 
 		pd := recv.GetPieceData()
-		rba := recv.BandwidthAllocation
+		rba := &recv.Order
 
 		if err = s.verifySignature(stream.Context(), rba); err != nil {
 			return nil, err
@@ -80,7 +80,7 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, bandwidt
 		}
 		// Update bandwidthallocation to be stored
 		if rba.Total > sr.currentTotal {
-			sr.bandwidthAllocation = rba
+			sr.order = rba
 			sr.currentTotal = rba.Total
 		}
 		return pd.GetContent(), nil
