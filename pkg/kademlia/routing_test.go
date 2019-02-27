@@ -200,8 +200,7 @@ func TestUpdateSelf(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
-			newNode := c.node
-			err := rt.UpdateSelf(newNode)
+			err := rt.UpdateSelf()
 			assert.NoError(t, err)
 			v, err := rt.nodeBucketDB.Get(c.id.Bytes())
 			assert.NoError(t, err)

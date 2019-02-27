@@ -111,7 +111,6 @@ func TestDialNode(t *testing.T) {
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   planet.StorageNodes[1].Addr(),
 			},
-			Type: pb.NodeType_STORAGE,
 		}
 
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
@@ -192,7 +191,6 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   planet.StorageNodes[1].Addr(),
 			},
-			Type: pb.NodeType_STORAGE,
 		}
 
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)

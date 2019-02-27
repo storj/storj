@@ -24,7 +24,7 @@ type DHT interface {
 // RoutingTable contains information on nodes we have locally
 type RoutingTable interface {
 	// local params
-	Local() pb.Node
+	Local() LocalNode
 	K() int
 	CacheSize() int
 	GetBucketIds() (storage.Keys, error)
@@ -36,6 +36,14 @@ type RoutingTable interface {
 	GetBucketTimestamp(id []byte) (time.Time, error)
 
 	Close() error
+}
+
+// LocalNode is the set of properties for the local node
+type LocalNode struct {
+	pb.Node
+	Type     pb.NodeType
+	Operator pb.NodeOperator
+	Capacity pb.NodeCapacity
 }
 
 // Bucket is a set of methods to act on kademlia k buckets

@@ -38,7 +38,7 @@ func TestDialer(t *testing.T) {
 			for _, peer := range peers {
 				peer := peer
 				group.Go(func() error {
-					pinged, err := dialer.Ping(ctx, peer.Local())
+					pinged, err := dialer.Ping(ctx, peer.Local().Node)
 					var pingErr error
 					if !pinged {
 						pingErr = fmt.Errorf("ping to %s should have succeeded", peer.ID())
@@ -62,7 +62,7 @@ func TestDialer(t *testing.T) {
 					for _, target := range peers {
 						errTag := fmt.Errorf("lookup peer:%s target:%s", peer.ID(), target.ID())
 
-						results, err := dialer.Lookup(ctx, self.Local(), peer.Local(), target.Local())
+						results, err := dialer.Lookup(ctx, self.Local().Node, peer.Local().Node, target.Local().Node)
 						if err != nil {
 							return errs.Combine(errTag, err)
 						}
@@ -103,7 +103,7 @@ func TestDialer(t *testing.T) {
 					group.Go(func() error {
 						errTag := fmt.Errorf("invalid lookup peer:%s target:%s", peer.ID(), target)
 
-						results, err := dialer.Lookup(ctx, self.Local(), peer.Local(), pb.Node{Id: target})
+						results, err := dialer.Lookup(ctx, self.Local().Node, peer.Local().Node, pb.Node{Id: target})
 						if err != nil {
 							return errs.Combine(errTag, err)
 						}

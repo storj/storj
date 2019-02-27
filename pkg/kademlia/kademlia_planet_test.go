@@ -34,9 +34,9 @@ func TestRequestInfo(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, node.ID(), id.ID)
 		require.Equal(t, node.Local().Type, info.GetType())
-		require.Equal(t, node.Local().Metadata.GetEmail(), info.GetOperator().GetEmail())
-		require.Equal(t, node.Local().Metadata.GetWallet(), info.GetOperator().GetWallet())
-		require.Equal(t, node.Local().Restrictions.GetFreeDisk(), info.GetCapacity().GetFreeDisk())
-		require.Equal(t, node.Local().Restrictions.GetFreeBandwidth(), info.GetCapacity().GetFreeBandwidth())
+		require.Equal(t, node.Local().Operator.Email, info.GetOperator().GetEmail())
+		require.Equal(t, node.Local().Operator.Wallet, info.GetOperator().GetWallet())
+		require.Equal(t, node.Local().Capacity.FreeBandwidth, info.GetCapacity().GetFreeBandwidth())
+		require.Equal(t, node.Local().Capacity.FreeDisk, info.GetCapacity().GetFreeDisk())
 	})
 }

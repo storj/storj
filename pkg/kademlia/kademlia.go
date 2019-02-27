@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -55,7 +56,7 @@ type Kademlia struct {
 }
 
 // NewService returns a newly configured Kademlia instance
-func NewService(log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, transport transport.Client, alpha int, rt *RoutingTable) (*Kademlia, error) {
+func NewService(log *zap.Logger, self dht.LocalNode, bootstrapNodes []pb.Node, transport transport.Client, alpha int, rt *RoutingTable) (*Kademlia, error) {
 	k := &Kademlia{
 		log:              log,
 		alpha:            alpha,
@@ -88,7 +89,7 @@ func (k *Kademlia) GetBucketIds() (storage.Keys, error) {
 }
 
 // Local returns the local nodes ID
-func (k *Kademlia) Local() pb.Node {
+func (k *Kademlia) Local() dht.LocalNode {
 	return k.routingTable.Local()
 }
 
@@ -231,7 +232,7 @@ func (k *Kademlia) lookup(ctx context.Context, ID storj.NodeID, isBootstrap bool
 			return pb.Node{}, err
 		}
 	}
-	lookup := newPeerDiscovery(k.log, k.routingTable.Local(), nodes, k.dialer, ID, discoveryOptions{
+	lookup := newPeerDiscovery(k.log, k.routingTable.Local().Node, nodes, k.dialer, ID, discoveryOptions{
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: isBootstrap, bootstrapNodes: k.bootstrapNodes,
 	})
 	target, err := lookup.Run(ctx)

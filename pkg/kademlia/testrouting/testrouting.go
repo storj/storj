@@ -147,8 +147,8 @@ func (t *Table) FindNear(id storj.NodeID, limit int, restrictions ...pb.Restrict
 	return rv, nil
 }
 
-// Local returns the local nodes ID
-func (t *Table) Local() pb.Node {
+// Local returns the local node info
+func (t *Table) Local() dht.LocalNode {
 	// the routing table has no idea what the right address of ourself is,
 	// so this is the wrong place to get this information. we could return
 	// our own id only?

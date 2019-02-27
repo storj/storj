@@ -16,6 +16,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -29,7 +30,7 @@ type routingTableOpts struct {
 }
 
 // newTestRoutingTable returns a newly configured instance of a RoutingTable
-func newTestRoutingTable(localNode pb.Node, opts routingTableOpts) (*RoutingTable, error) {
+func newTestRoutingTable(localNode dht.LocalNode, opts routingTableOpts) (*RoutingTable, error) {
 	if opts.bucketSize == 0 {
 		opts.bucketSize = 6
 	}
@@ -50,7 +51,7 @@ func newTestRoutingTable(localNode pb.Node, opts routingTableOpts) (*RoutingTabl
 		bucketSize:   opts.bucketSize,
 		rcBucketSize: opts.cacheSize,
 	}
-	ok, err := rt.addNode(&localNode)
+	ok, err := rt.addNode(&localNode.Node)
 	if !ok || err != nil {
 		return nil, RoutingErr.New("could not add localNode to routing table: %s", err)
 	}
@@ -61,7 +62,7 @@ func createRoutingTableWith(localNodeID storj.NodeID, opts routingTableOpts) *Ro
 	if localNodeID == (storj.NodeID{}) {
 		panic("empty local node id")
 	}
-	localNode := pb.Node{Id: localNodeID}
+	localNode := dht.LocalNode{Node: pb.Node{Id: localNodeID}}
 
 	rt, err := newTestRoutingTable(localNode, opts)
 	if err != nil {

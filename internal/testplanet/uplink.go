@@ -132,7 +132,7 @@ func (uplink *Uplink) DialPointerDB(destination Peer, apikey string) (pdbclient.
 // DialOverlay dials destination and returns an overlay.Client
 func (uplink *Uplink) DialOverlay(destination Peer) (overlay.Client, error) {
 	info := destination.Local()
-	conn, err := uplink.Transport.DialNode(context.Background(), &info, grpc.WithBlock())
+	conn, err := uplink.Transport.DialNode(context.Background(), &info.Node, grpc.WithBlock())
 	if err != nil {
 		return nil, err
 	}

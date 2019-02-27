@@ -79,17 +79,11 @@ func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.PingRequest) (*pb.Pi
 
 // RequestInfo returns the node info
 func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) (*pb.InfoResponse, error) {
-	// self := endpoint.service.Local()
+	self := endpoint.service.Local()
 
 	return &pb.InfoResponse{
-		// Type: self.GetType(),
-		// Operator: &pb.NodeOperator{
-		// 	Email:  self.GetMetadata().GetEmail(),
-		// 	Wallet: self.GetMetadata().GetWallet(),
-		// },
-		// Capacity: &pb.NodeCapacity{
-		// 	FreeBandwidth: self.GetRestrictions().GetFreeBandwidth(),
-		// 	FreeDisk:      self.GetRestrictions().GetFreeDisk(),
-		// },
+		Type:     self.Type,
+		Operator: &self.Operator,
+		Capacity: &self.Capacity,
 	}, nil
 }

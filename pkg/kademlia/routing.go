@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -55,7 +56,7 @@ type RoutingTableConfig struct {
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
 	log              *zap.Logger
-	self             pb.Node
+	self             dht.LocalNode
 	kadBucketDB      storage.KeyValueStore
 	nodeBucketDB     storage.KeyValueStore
 	transport        *pb.NodeTransport
@@ -68,7 +69,7 @@ type RoutingTable struct {
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.KeyValueStore, config *RoutingTableConfig) (*RoutingTable, error) {
+func NewRoutingTable(logger *zap.Logger, localNode dht.LocalNode, kdb, ndb storage.KeyValueStore, config *RoutingTableConfig) (*RoutingTable, error) {
 	if config == nil || config.BucketSize == 0 || config.ReplacementCacheSize == 0 {
 		// TODO: handle this more nicely
 		config = &RoutingTableConfig{
@@ -92,7 +93,7 @@ func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.Key
 		bucketSize:   config.BucketSize,
 		rcBucketSize: config.ReplacementCacheSize,
 	}
-	ok, err := rt.addNode(&localNode)
+	ok, err := rt.addNode(&localNode.Node)
 	if !ok || err != nil {
 		return nil, RoutingErr.New("could not add localNode to routing table: %s", err)
 	}
@@ -104,8 +105,8 @@ func (rt *RoutingTable) Close() error {
 	return nil
 }
 
-// Local returns the local nodes ID
-func (rt *RoutingTable) Local() pb.Node {
+// Local returns the local node info
+func (rt *RoutingTable) Local() dht.LocalNode {
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
 	return rt.self
@@ -176,18 +177,15 @@ func (rt *RoutingTable) FindNear(target storj.NodeID, limit int, restrictions ..
 }
 
 // UpdateSelf updates a node on the routing table
-func (rt *RoutingTable) UpdateSelf(node *pb.Node) error {
-	// TODO: replace UpdateSelf with UpdateRestrictions and UpdateAddress
+func (rt *RoutingTable) UpdateSelf() error {
+	// TODO: replace UpdateSelf with UpdateAddress
+	node := rt.Local().Node
+
 	rt.mutex.Lock()
-	if node.Id != rt.self.Id {
-		rt.mutex.Unlock()
-		return RoutingErr.New("self does not have a matching node id")
-	}
-	rt.self = *node
-	rt.seen[node.Id] = node
+	rt.seen[node.Id] = &node
 	rt.mutex.Unlock()
 
-	if err := rt.updateNode(node); err != nil {
+	if err := rt.updateNode(&node); err != nil {
 		return RoutingErr.New("could not update node %s", err)
 	}
 

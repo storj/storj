@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -120,22 +121,32 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 	}
 
 	{ // setup kademlia
-		config := config.Kademlia
 		// TODO: move this setup logic into kademlia package
-		if config.ExternalAddress == "" {
-			config.ExternalAddress = peer.Public.Server.Addr().String()
+		if config.Kademlia.ExternalAddress == "" {
+			config.Kademlia.ExternalAddress = peer.Public.Server.Addr().String()
 		}
 
-		self := pb.Node{
-			Id: peer.ID(),
-			Address: &pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   config.ExternalAddress,
+		self := dht.LocalNode{
+			Node: pb.Node{
+				Id: peer.ID(),
+				Address: &pb.NodeAddress{
+					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+					Address:   config.Kademlia.ExternalAddress,
+				},
+			},
+			Type: pb.NodeType_STORAGE,
+			Operator: pb.NodeOperator{
+				Email:  config.Kademlia.Operator.Email,
+				Wallet: config.Kademlia.Operator.Wallet,
+			},
+			Capacity: pb.NodeCapacity{
+				FreeBandwidth: config.Storage.AllocatedBandwidth.Int64(),
+				FreeDisk:      config.Storage.AllocatedDiskSpace.Int64(),
 			},
 		}
 
 		kdb, ndb := peer.DB.RoutingTable()
-		peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb, &config.RoutingTableConfig)
+		peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb, &config.Kademlia.RoutingTableConfig)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -143,7 +154,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		peer.Transport = peer.Transport.WithObservers(peer.Kademlia.RoutingTable)
 
 		// TODO: reduce number of arguments
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, config.BootstrapNodes(), peer.Transport, config.Alpha, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, config.Kademlia.BootstrapNodes(), peer.Transport, config.Kademlia.Alpha, peer.Kademlia.RoutingTable)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -252,7 +263,7 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() pb.Node { return peer.Kademlia.RoutingTable.Local() }
+func (peer *Peer) Local() dht.LocalNode { return peer.Kademlia.RoutingTable.Local() }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Public.Server.Addr().String() }

@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -108,12 +109,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			config.ExternalAddress = peer.Public.Server.Addr().String()
 		}
 
-		self := pb.Node{
-			Id: peer.ID(),
-			Address: &pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   config.ExternalAddress,
+		self := dht.LocalNode{
+			Node: pb.Node{
+				Id: peer.ID(),
+				Address: &pb.NodeAddress{
+					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+					Address:   config.ExternalAddress,
+				},
 			},
+			Type: pb.NodeType_BOOTSTRAP,
 		}
 
 		kdb, ndb := peer.DB.RoutingTable()
@@ -197,7 +201,7 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() pb.Node { return peer.Kademlia.RoutingTable.Local() }
+func (peer *Peer) Local() dht.LocalNode { return peer.Kademlia.RoutingTable.Local() }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Public.Server.Addr().String() }

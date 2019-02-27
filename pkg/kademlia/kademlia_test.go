@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -125,14 +126,14 @@ func TestBootstrap(t *testing.T) {
 	defer clean()
 	defer s.GracefulStop()
 
-	n1, s1, clean1 := testNode(ctx, "2", t, []pb.Node{bn.routingTable.self})
+	n1, s1, clean1 := testNode(ctx, "2", t, []pb.Node{bn.routingTable.self.Node})
 	defer clean1()
 	defer s1.GracefulStop()
 
 	err := n1.Bootstrap(ctx)
 	assert.NoError(t, err)
 
-	n2, s2, clean2 := testNode(ctx, "3", t, []pb.Node{bn.routingTable.self})
+	n2, s2, clean2 := testNode(ctx, "3", t, []pb.Node{bn.routingTable.self.Node})
 	defer clean2()
 	defer s2.GracefulStop()
 
@@ -409,9 +410,11 @@ func (mn *mockNodesServer) RequestInfo(ctx context.Context, req *pb.InfoRequest)
 
 // newKademlia returns a newly configured Kademlia instance
 func newKademlia(log *zap.Logger, bootstrapNodes []pb.Node, address string, identity *identity.FullIdentity, path string, alpha int) (*Kademlia, error) {
-	self := pb.Node{
-		Id:      identity.ID,
-		Address: &pb.NodeAddress{Address: address},
+	self := dht.LocalNode{
+		Node: pb.Node{
+			Id:      identity.ID,
+			Address: &pb.NodeAddress{Address: address},
+		},
 	}
 
 	rt, err := NewRoutingTable(log, self, teststore.New(), teststore.New(), nil)

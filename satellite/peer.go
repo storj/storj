@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/datarepair/repairer"
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
@@ -230,11 +231,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			config.ExternalAddress = peer.Public.Server.Addr().String()
 		}
 
-		self := pb.Node{
-			Id: peer.ID(),
-			Address: &pb.NodeAddress{
-				Address: config.ExternalAddress,
+		self := dht.LocalNode{
+			Node: pb.Node{
+				Id: peer.ID(),
+				Address: &pb.NodeAddress{
+					Address: config.ExternalAddress,
+				},
 			},
+			Type: pb.NodeType_SATELLITE,
 		}
 
 		{ // setup routing table
@@ -496,7 +500,7 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() pb.Node { return peer.Kademlia.RoutingTable.Local() }
+func (peer *Peer) Local() dht.LocalNode { return peer.Kademlia.RoutingTable.Local() }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Public.Server.Addr().String() }
