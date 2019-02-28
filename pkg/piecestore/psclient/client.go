@@ -163,11 +163,13 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	}
 
 	err = writer.Close()
-	if err == ErrHashDoesNotMatch {
-		return nil, errs.Combine(err, ps.Delete(ctx, id, rba.PayerAllocation.SatelliteId))
-	}
 	if err != nil && err != io.EOF {
 		return nil, ClientError.New("failure during closing writer: %v", err)
+	}
+
+	err = writer.Verify()
+	if err != nil {
+		return nil, errs.Combine(err, ps.Delete(ctx, id, rba.PayerAllocation.SatelliteId))
 	}
 
 	return writer.storagenodeHash, nil

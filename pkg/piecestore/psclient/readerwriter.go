@@ -71,19 +71,23 @@ func (s *StreamWriter) Close() error {
 		return err
 	}
 
-	if err := auth.VerifyMsg(reply.SignedHash, s.signer.remoteID); err != nil {
-		return ClientError.Wrap(err)
-	}
-
-	clientHash := s.hash.Sum(nil)
-	if bytes.Compare(reply.SignedHash.Hash, clientHash) != 0 {
-		return ErrHashDoesNotMatch
-	}
-
 	s.storagenodeHash = reply.SignedHash
 
 	zap.S().Debugf("Stream close and recv summary: %v", reply)
 
+	return nil
+}
+
+// Verify storage node signed hash
+func (s *StreamWriter) Verify() error {
+	if err := auth.VerifyMsg(s.storagenodeHash, s.signer.remoteID); err != nil {
+		return ClientError.Wrap(err)
+	}
+
+	clientHash := s.hash.Sum(nil)
+	if bytes.Compare(s.storagenodeHash.Hash, clientHash) != 0 {
+		return ErrHashDoesNotMatch
+	}
 	return nil
 }
 
