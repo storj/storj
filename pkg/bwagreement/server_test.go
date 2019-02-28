@@ -85,11 +85,11 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 		   Uplink requests a OrderLimit from the satellite. One serial number for all storage nodes.
 		   Uplink signes 2 Order for both storage node. */
 		{
-			reply, err := satellite.BandwidthAgreements(ctxSN1, rbaNode1)
+			reply, err := satellite.BandwidthAgreements(ctxSN1, &pb.BandWidthRequest{Order: *rbaNode1})
 			assert.NoError(t, err)
 			assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
 
-			reply, err = satellite.BandwidthAgreements(ctxSN2, rbaNode2)
+			reply, err = satellite.BandwidthAgreements(ctxSN2, &pb.BandWidthRequest{Order: *rbaNode2})
 			assert.NoError(t, err)
 			assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
 		}
@@ -105,7 +105,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 			rbaNode1, err := testbwagreement.GenerateOrder(pbaFile2, storageNode1, upID, 666)
 			assert.NoError(t, err)
 
-			reply, err := satellite.BandwidthAgreements(ctxSN1, rbaNode1)
+			reply, err := satellite.BandwidthAgreements(ctxSN1, &pb.BandWidthRequest{Order: *rbaNode1})
 			assert.NoError(t, err)
 			assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
 		}
@@ -115,7 +115,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 			rbaNode1, err := testbwagreement.GenerateOrder(pbaFile1, storageNode1, upID, 666)
 			assert.NoError(t, err)
 
-			reply, err := satellite.BandwidthAgreements(ctxSN1, rbaNode1)
+			reply, err := satellite.BandwidthAgreements(ctxSN1, &pb.BandWidthRequest{Order: *rbaNode1})
 			assert.True(t, auth.ErrSerial.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
@@ -124,7 +124,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 		   This test is kind of duplicate cause it will most likely trigger the same sequence error.
 		   For safety we will try it anyway to make sure nothing strange will happen */
 		{
-			reply, err := satellite.BandwidthAgreements(ctxSN2, rbaNode2)
+			reply, err := satellite.BandwidthAgreements(ctxSN2, &pb.BandWidthRequest{Order: *rbaNode2})
 			assert.True(t, auth.ErrSerial.Has(err))
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
@@ -141,7 +141,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 			rba, err := testbwagreement.GenerateOrder(pba, storageNode1, upID, 666)
 			assert.NoError(t, err)
 
-			reply, err := satellite.BandwidthAgreements(ctxSN1, rba)
+			reply, err := satellite.BandwidthAgreements(ctxSN1, &pb.BandWidthRequest{Order: *rba})
 			assert.NoError(t, err)
 			assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
 		}
@@ -156,7 +156,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 			rba, err := testbwagreement.GenerateOrder(pba, storageNode1, upID, 666)
 			assert.NoError(t, err)
 
-			reply, err := satellite.BandwidthAgreements(ctxSN1, rba)
+			reply, err := satellite.BandwidthAgreements(ctxSN1, &pb.BandWidthRequest{Order: *rba})
 			assert.Error(t, err)
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
@@ -171,7 +171,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 			rba, err := testbwagreement.GenerateOrder(pba, storageNode1, upID, 666)
 			assert.NoError(t, err)
 
-			reply, err := satellite.BandwidthAgreements(ctxSN1, rba)
+			reply, err := satellite.BandwidthAgreements(ctxSN1, &pb.BandWidthRequest{Order: *rba})
 			assert.Error(t, err)
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
@@ -305,41 +305,36 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 			rba, err := testbwagreement.GenerateOrder(pba, storageNode1, upID, 666)
 			assert.NoError(t, err)
 			rba.Signature = []byte("invalid")
-			reply, err := satellite.BandwidthAgreements(ctxSN1, rba)
+			reply, err := satellite.BandwidthAgreements(ctxSN1, &pb.BandWidthRequest{Order: *rba})
 			assert.Error(t, err)
 			assert.True(t, pb.ErrRenter.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
-		{ // Storage node sends an corrupted uplink Certs to force a crash
+		{ // Storage node sends nil Certs used to force a crash
+			// but BWAgreement Server now uses a cache instead of Order / OrderLimit certs
 			rba, err := testbwagreement.GenerateOrder(pba, storageNode2, upID, 666)
 			assert.NoError(t, err)
 			rba.OrderLimit.Certs = nil
-			reply, err := callBWA(ctxSN2, t, satellite, rba.GetSignature(), rba, rba.GetCerts())
-			assert.True(t, auth.ErrVerify.Has(err) && pb.ErrRenter.Has(err), err.Error())
-			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
+			reply, err := callBWA(ctxSN2, t, satellite, rba.Signature, rba, rba.Certs)
+			require.NoError(t, err)
+			assert.Equal(t, pb.AgreementsSummary_OK, reply.Status)
 		}
 	}
 }
 
 func callBWA(ctx context.Context, t *testing.T, sat *bwagreement.Server, signature []byte, rba *pb.Order, certs [][]byte) (*pb.AgreementsSummary, error) {
-	rba.SetCerts(certs)
-	rba.SetSignature(signature)
-	return sat.BandwidthAgreements(ctx, rba)
+	rba.Certs = certs
+	rba.Signature = signature
+	return sat.BandwidthAgreements(ctx, &pb.BandWidthRequest{Order: *rba})
 }
 
 //GetSignature returns the signature of the signed message
-func GetSignature(t *testing.T, msg auth.SignableMessage, privKey crypto.PrivateKey) []byte {
+func GetSignature(t *testing.T, msg pb.Signed, key crypto.PrivateKey) []byte {
 	require.NotNil(t, msg)
-	oldSignature := msg.GetSignature()
-	certs := msg.GetCerts()
-	msg.SetSignature(nil)
-	msg.SetCerts(nil)
-	msgBytes, err := proto.Marshal(msg)
+	bytes, err := proto.Marshal(msg.Message())
 	require.NoError(t, err)
-	signature, err := pkcrypto.HashAndSign(privKey, msgBytes)
+	signature, err := pkcrypto.HashAndSign(key, bytes)
 	require.NoError(t, err)
-	msg.SetSignature(oldSignature)
-	msg.SetCerts(certs)
 	return signature
 }

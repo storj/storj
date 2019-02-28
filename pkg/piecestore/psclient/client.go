@@ -130,7 +130,7 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	// of this instance at the same time.
 	pbaClone := pba.Clone()
 
-	rba := pb.Order{RBA: &pb.RBA{
+	rba := pb.Order{RBA: pb.RBA{
 		OrderLimit:    pbaClone,
 		StorageNodeId: ps.remoteID,
 	}}

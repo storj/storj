@@ -39,7 +39,6 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 
 // DialAddress mocks base method
 func (m *MockClient) DialAddress(arg0 context.Context, arg1 string, arg2 ...grpc.DialOption) (*grpc.ClientConn, error) {
-	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
@@ -52,14 +51,12 @@ func (m *MockClient) DialAddress(arg0 context.Context, arg1 string, arg2 ...grpc
 
 // DialAddress indicates an expected call of DialAddress
 func (mr *MockClientMockRecorder) DialAddress(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DialAddress", reflect.TypeOf((*MockClient)(nil).DialAddress), varargs...)
 }
 
 // DialNode mocks base method
 func (m *MockClient) DialNode(arg0 context.Context, arg1 *pb.Node, arg2 ...grpc.DialOption) (*grpc.ClientConn, error) {
-	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
@@ -72,14 +69,12 @@ func (m *MockClient) DialNode(arg0 context.Context, arg1 *pb.Node, arg2 ...grpc.
 
 // DialNode indicates an expected call of DialNode
 func (mr *MockClientMockRecorder) DialNode(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DialNode", reflect.TypeOf((*MockClient)(nil).DialNode), varargs...)
 }
 
 // Identity mocks base method
 func (m *MockClient) Identity() *identity.FullIdentity {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Identity")
 	ret0, _ := ret[0].(*identity.FullIdentity)
 	return ret0
@@ -87,13 +82,11 @@ func (m *MockClient) Identity() *identity.FullIdentity {
 
 // Identity indicates an expected call of Identity
 func (mr *MockClientMockRecorder) Identity() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Identity", reflect.TypeOf((*MockClient)(nil).Identity))
 }
 
 // WithObservers mocks base method
 func (m *MockClient) WithObservers(arg0 ...transport.Observer) *transport.Transport {
-	m.ctrl.T.Helper()
 	varargs := []interface{}{}
 	for _, a := range arg0 {
 		varargs = append(varargs, a)
@@ -105,6 +98,5 @@ func (m *MockClient) WithObservers(arg0 ...transport.Observer) *transport.Transp
 
 // WithObservers indicates an expected call of WithObservers
 func (mr *MockClientMockRecorder) WithObservers(arg0 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithObservers", reflect.TypeOf((*MockClient)(nil).WithObservers), arg0...)
 }

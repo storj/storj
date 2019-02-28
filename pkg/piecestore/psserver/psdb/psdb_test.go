@@ -131,8 +131,8 @@ func TestHappyPath(t *testing.T) {
 	})
 
 	order := func(signature string, satelliteID storj.NodeID, total int64) *pb.Order {
-		return &pb.Order{RBA: &pb.RBA{
-			OrderLimit: pb.OrderLimit{PBA: &pb.PBA{SatelliteId: satelliteID}},
+		return &pb.Order{RBA: pb.RBA{
+			OrderLimit: pb.OrderLimit{PBA: pb.PBA{SatelliteId: satelliteID}},
 			Total:      total,
 		}, SignedMessage: pb.SignedMessage{Signature: []byte(signature)}}
 	}
@@ -193,7 +193,7 @@ func TestHappyPath(t *testing.T) {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
 
-				agreementGroups, err := db.GetBandwidthAllocations()
+				agreementGroups, err := db.GetOrders()
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -259,7 +259,7 @@ func BenchmarkWriteBandwidthAllocation(b *testing.B) {
 	b.RunParallel(func(b *testing.PB) {
 		for b.Next() {
 			for i := 0; i < WritesPerLoop; i++ {
-				_ = db.WriteBandwidthAllocToDB(&pb.Order{RBA: &pb.RBA{
+				_ = db.WriteBandwidthAllocToDB(&pb.Order{RBA: pb.RBA{
 					OrderLimit: pb.OrderLimit{},
 					Total:      156,
 				}, SignedMessage: pb.SignedMessage{Signature: []byte("signed by test")},

@@ -295,8 +295,8 @@ func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([]*pb.Order, 
 	return agreements, nil
 }
 
-// GetBandwidthAllocations all bandwidth agreements and sorts by satellite
-func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
+// GetOrders all bandwidth agreements and sorts by satellite
+func (db *DB) GetOrders() (map[storj.NodeID][]*Agreement, error) {
 	defer db.locked()()
 
 	rows, err := db.DB.Query(`SELECT satellite, agreement FROM bandwidth_agreements`)

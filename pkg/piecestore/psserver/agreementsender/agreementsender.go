@@ -45,7 +45,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 	defer ticker.Stop()
 	for {
 		as.log.Debug("AgreementSender is running", zap.Duration("duration", as.checkInterval))
-		agreementGroups, err := as.DB.GetBandwidthAllocations()
+		agreementGroups, err := as.DB.GetOrders()
 		if err != nil {
 			as.log.Error("Agreementsender could not retrieve bandwidth allocations", zap.Error(err))
 			continue
@@ -92,7 +92,7 @@ func (as *AgreementSender) SendAgreementsToSatellite(ctx context.Context, satID 
 			as.log.Warn("Agreementsender failed to deserialize agreement : will delete", zap.Error(err))
 		} else {
 			// Send agreement to satellite
-			r, err := client.BandwidthAgreements(ctx, &rba)
+			r, err := client.BandwidthAgreements(ctx, &pb.BandWidthRequest{Order: rba})
 			if err != nil || r.GetStatus() == pb.AgreementsSummary_FAIL {
 				as.log.Warn("Agreementsender failed to send agreement to satellite : will retry", zap.Error(err))
 				continue

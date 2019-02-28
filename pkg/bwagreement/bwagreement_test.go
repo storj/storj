@@ -39,8 +39,8 @@ func TestBandwidthDBAgreement(t *testing.T) {
 
 func testCreateAgreement(ctx context.Context, t *testing.T, b bwagreement.DB, action pb.BandwidthAction,
 	serialNum string, upID, snID *identity.FullIdentity) error {
-	rba := &pb.Order{RBA: &pb.RBA{
-		OrderLimit: pb.OrderLimit{PBA: &PBA{
+	rba := &pb.Order{RBA: pb.RBA{
+		OrderLimit: pb.OrderLimit{PBA: pb.PBA{
 			Action:       action,
 			SerialNumber: serialNum,
 			UplinkId:     upID.ID,

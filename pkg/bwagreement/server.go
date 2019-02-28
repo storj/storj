@@ -71,12 +71,13 @@ func NewServer(db DB, upldb certdb.DB, pkey crypto.PublicKey, logger *zap.Logger
 func (s *Server) Close() error { return nil }
 
 // BandwidthAgreements receives and stores bandwidth agreements from storage nodes
-func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.Order) (reply *pb.AgreementsSummary, err error) {
+func (s *Server) BandwidthAgreements(ctx context.Context, bwr *pb.BandWidthRequest) (reply *pb.AgreementsSummary, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("Received Agreement...")
 	reply = &pb.AgreementsSummary{
 		Status: pb.AgreementsSummary_REJECTED,
 	}
+	rba := bwr.Order
 	pba := rba.OrderLimit
 	//verify message content
 	pi, err := identity.PeerIdentityFromContext(ctx)
@@ -87,17 +88,17 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.Order) (reply 
 	if pba.SatelliteId != s.NodeID {
 		return reply, pb.ErrPayer.New("Satellite ID: %v vs %v", pba.SatelliteId, s.NodeID)
 	}
-	exp := time.Unix(pba.GetExpirationUnixSec(), 0).UTC()
+	exp := time.Unix(pba.ExpirationUnixSec, 0).UTC()
 	if exp.Before(time.Now().UTC()) {
 		return reply, pb.ErrPayer.Wrap(auth.ErrExpired.New("%v vs %v", exp, time.Now().UTC()))
 	}
 
-	if err = s.verifySignature(ctx, rba); err != nil {
+	if err = s.verifySignature(ctx, &rba); err != nil {
 		return reply, err
 	}
 
 	//save and return rersults
-	if err = s.bwdb.CreateAgreement(ctx, rba); err != nil {
+	if err = s.bwdb.CreateAgreement(ctx, &rba); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") ||
 			strings.Contains(err.Error(), "violates unique constraint") {
 			return reply, pb.ErrPayer.Wrap(auth.ErrSerial.Wrap(err))
@@ -120,28 +121,23 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.Order) error {
 	}
 
 	// verify Renter's (uplink) signature
-	rbad := *rba
-	rbad.SetSignature(nil)
-	rbad.SetCerts(nil)
-	rbadBytes, err := proto.Marshal(&rbad)
+	rbadBytes, err := proto.Marshal(rba.Message())
 	if err != nil {
 		return Error.New("marshalling error: %+v", err)
 	}
 
-	if err := pkcrypto.HashAndVerifySignature(uplinkInfo, rbadBytes, rba.GetSignature()); err != nil {
+	if err := pkcrypto.HashAndVerifySignature(uplinkInfo, rbadBytes, rba.Signature); err != nil {
 		return pb.ErrRenter.Wrap(auth.ErrVerify.Wrap(err))
 	}
 
 	// verify Payer's (satellite) signature
 	pbad := pba
-	pbad.SetSignature(nil)
-	pbad.SetCerts(nil)
-	pbadBytes, err := proto.Marshal(&pbad)
+	pbadBytes, err := proto.Marshal(pbad.Message())
 	if err != nil {
 		return Error.New("marshalling error: %+v", err)
 	}
 
-	if err := pkcrypto.HashAndVerifySignature(s.pkey, pbadBytes, pba.GetSignature()); err != nil {
+	if err := pkcrypto.HashAndVerifySignature(s.pkey, pbadBytes, pba.Signature); err != nil {
 		return pb.ErrPayer.Wrap(auth.ErrVerify.Wrap(err))
 	}
 	return nil

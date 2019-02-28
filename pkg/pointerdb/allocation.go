@@ -56,7 +56,7 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 		return nil, err
 	}
 
-	pba = &pb.OrderLimit{PBA: &pb.PBA{
+	pba = &pb.OrderLimit{PBA: pb.PBA{
 		SatelliteId:       allocation.satelliteIdentity.ID,
 		UplinkId:          peerIdentity.ID,
 		CreatedUnixSec:    created,

@@ -257,7 +257,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	//get all bandwidth aggrements entries already ordered
-	bwAgreements, err := db.PSDB().OrderLimit
+	bwAgreements, err := db.PSDB().GetOrders()
 	if err != nil {
 		fmt.Printf("storage node 'bandwidth_agreements' table read error: %v\n", err)
 		return err

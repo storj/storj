@@ -13,13 +13,13 @@ type NonProtoHash Hash
 
 //SignedHash implements signing and custom protobuf serialization
 type SignedHash struct {
-	*NonProtoHash
+	NonProtoHash
 	SignedMessage
 }
 
 //Message returns the base message of this signed type
 func (m *SignedHash) Message() proto.Message {
-	return (*Hash)(m.NonProtoHash)
+	return (*Hash)(&m.NonProtoHash)
 }
 
 //Signed returns the signing data for this signed type

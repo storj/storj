@@ -41,7 +41,7 @@ func Equal(msg1, msg2 proto.Message) bool {
 
 // Clone creates a deep copy of PayerBandwidthAllocation
 func (m *OrderLimit) Clone() (pba OrderLimit) {
-	pba = OrderLimit{PBA: &PBA{
+	pba = OrderLimit{PBA: PBA{
 		SatelliteId:       m.SatelliteId,
 		UplinkId:          m.UplinkId,
 		MaxSize:           m.MaxSize,

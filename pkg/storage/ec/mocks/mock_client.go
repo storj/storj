@@ -42,7 +42,6 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 
 // Delete mocks base method
 func (m *MockClient) Delete(arg0 context.Context, arg1 []*pb.Node, arg2 psclient.PieceID, arg3 storj.NodeID) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -50,13 +49,11 @@ func (m *MockClient) Delete(arg0 context.Context, arg1 []*pb.Node, arg2 psclient
 
 // Delete indicates an expected call of Delete
 func (mr *MockClientMockRecorder) Delete(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockClient)(nil).Delete), arg0, arg1, arg2, arg3)
 }
 
 // Get mocks base method
-func (m *MockClient) Get(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.ErasureScheme, arg3 psclient.PieceID, arg4 int64, arg5 *pb.PayerBandwidthAllocation) (ranger.Ranger, error) {
-	m.ctrl.T.Helper()
+func (m *MockClient) Get(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.ErasureScheme, arg3 psclient.PieceID, arg4 int64, arg5 *pb.OrderLimit) (ranger.Ranger, error) {
 	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(ranger.Ranger)
 	ret1, _ := ret[1].(error)
@@ -65,13 +62,11 @@ func (m *MockClient) Get(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.Er
 
 // Get indicates an expected call of Get
 func (mr *MockClientMockRecorder) Get(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockClient)(nil).Get), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // Put mocks base method
-func (m *MockClient) Put(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.RedundancyStrategy, arg3 psclient.PieceID, arg4 io.Reader, arg5 time.Time, arg6 *pb.PayerBandwidthAllocation) ([]*pb.Node, []*pb.SignedHash, error) {
-	m.ctrl.T.Helper()
+func (m *MockClient) Put(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.RedundancyStrategy, arg3 psclient.PieceID, arg4 io.Reader, arg5 time.Time, arg6 *pb.OrderLimit) ([]*pb.Node, []*pb.SignedHash, error) {
 	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].([]*pb.Node)
 	ret1, _ := ret[1].([]*pb.SignedHash)
@@ -81,6 +76,5 @@ func (m *MockClient) Put(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.Re
 
 // Put indicates an expected call of Put
 func (mr *MockClientMockRecorder) Put(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockClient)(nil).Put), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }

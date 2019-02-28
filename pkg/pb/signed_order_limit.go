@@ -13,13 +13,13 @@ type PBA PayerBandwidthAllocation
 
 //OrderLimit implements signing and custom protobuf serialization
 type OrderLimit struct {
-	*PBA
+	PBA
 	SignedMessage
 }
 
 //Message returns the base message of this signed type
 func (m *OrderLimit) Message() proto.Message {
-	return (*PayerBandwidthAllocation)(m.PBA)
+	return (*PayerBandwidthAllocation)(&m.PBA)
 }
 
 //Signed returns the signing data for this signed type
