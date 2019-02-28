@@ -108,7 +108,7 @@ func TestSegmentStoreRepairRemote(t *testing.T) {
 			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any()),
 			mockEC.EXPECT().Put(
 				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			).Return(tt.newNodes, nil, nil),
+			).Return(tt.newNodes, make([]*pb.SignedHash, len(tt.newNodes)), nil),
 			mockPDB.EXPECT().Put(
 				gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return(nil),
