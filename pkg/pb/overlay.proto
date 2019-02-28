@@ -8,7 +8,7 @@ import "google/protobuf/duration.proto";
 import "gogo.proto";
 import "node.proto";
 
-package overlay;
+package storjv3_0_0;
 
 // Overlay defines the interface for communication with the overlay network
 service Overlay {
@@ -33,7 +33,7 @@ message LookupRequest {
 
 // LookupResponse is is response message for the lookup rpc call
 message LookupResponse {
-    node.Node node = 1;
+    storjv3_0_0.Node node = 1;
 }
 
 //LookupRequests is a list of LookupRequest
@@ -49,7 +49,7 @@ message LookupResponses {
 
 // FindStorageNodesResponse is is response message for the FindStorageNodes rpc call
 message FindStorageNodesResponse {
-    repeated node.Node nodes = 1;
+    repeated storjv3_0_0.Node nodes = 1;
 }
 
 // FindStorageNodesRequest is is request message for the FindStorageNodes rpc call
@@ -64,23 +64,23 @@ message FindStorageNodesRequest {
 // OverlayOptions is a set of criteria that a node must meet to be considered for a storage opportunity
 message OverlayOptions {
     google.protobuf.Duration max_latency = 1;
-    node.NodeStats min_stats = 2;
+    storjv3_0_0.NodeStats min_stats = 2;
     int64 min_speed_kbps = 3;
     int64 amount = 4;
-    node.NodeRestrictions restrictions = 5;
+    storjv3_0_0.NodeRestrictions restrictions = 5;
     repeated bytes excluded_nodes = 6 [(gogoproto.customtype) = "NodeID"];
 }
 
 message QueryRequest {
-    node.Node sender = 1;
-    node.Node target = 2;
+    storjv3_0_0.Node sender = 1;
+    storjv3_0_0.Node target = 2;
     int64 limit = 3;
     bool pingback = 4;
 }
 
 message QueryResponse {
-    node.Node sender = 1;
-    repeated node.Node response = 2;
+    storjv3_0_0.Node sender = 1;
+    repeated storjv3_0_0.Node response = 2;
 }
 
 message PingRequest {};
@@ -90,9 +90,9 @@ message PingResponse {};
 message InfoRequest {}
 
 message InfoResponse {
-    node.NodeType type = 2;
-    node.NodeOperator operator = 3;
-    node.NodeCapacity capacity = 4;
+    storjv3_0_0.NodeType type = 2;
+    storjv3_0_0.NodeOperator operator = 3;
+    storjv3_0_0.NodeCapacity capacity = 4;
 }
 
 message Restriction {

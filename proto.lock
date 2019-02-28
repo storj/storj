@@ -39,7 +39,7 @@
             "rpcs": [
               {
                 "name": "BandwidthAgreements",
-                "in_type": "piecestoreroutes.RenterBandwidthAllocation",
+                "in_type": "storjv3_0_0.RenterBandwidthAllocation",
                 "out_type": "AgreementsSummary"
               }
             ]
@@ -51,7 +51,7 @@
           }
         ],
         "package": {
-          "name": "bandwidth"
+          "name": "storjv3_0_0"
         }
       }
     },
@@ -104,7 +104,7 @@
           }
         ],
         "package": {
-          "name": "node"
+          "name": "storjv3_0_0"
         }
       }
     },
@@ -130,7 +130,7 @@
           }
         ],
         "package": {
-          "name": "repair"
+          "name": "storjv3_0_0"
         }
       }
     },
@@ -725,7 +725,7 @@
               {
                 "id": 2,
                 "name": "nodes",
-                "type": "node.Node",
+                "type": "storjv3_0_0.Node",
                 "is_repeated": true
               }
             ]
@@ -736,7 +736,7 @@
               {
                 "id": 2,
                 "name": "nodes",
-                "type": "node.Node",
+                "type": "storjv3_0_0.Node",
                 "is_repeated": true
               }
             ]
@@ -747,7 +747,7 @@
               {
                 "id": 1,
                 "name": "nodes",
-                "type": "node.Node",
+                "type": "storjv3_0_0.Node",
                 "is_repeated": true
               }
             ]
@@ -808,12 +808,57 @@
               {
                 "id": 1,
                 "name": "node",
-                "type": "node.Node"
+                "type": "storjv3_0_0.Node"
               },
               {
                 "id": 2,
                 "name": "meta",
-                "type": "node.NodeMetadata"
+                "type": "storjv3_0_0.NodeMetadata"
+              }
+            ]
+          },
+          {
+            "name": "NodeInfoRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "address",
+                "type": "storjv3_0_0.NodeAddress"
+              }
+            ]
+          },
+          {
+            "name": "NodeInfoResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "type",
+                "type": "storjv3_0_0.NodeType"
+              },
+              {
+                "id": 3,
+                "name": "operator",
+                "type": "storjv3_0_0.NodeOperator"
+              },
+              {
+                "id": 4,
+                "name": "capacity",
+                "type": "storjv3_0_0.NodeCapacity"
               }
             ]
           },
@@ -863,7 +908,21 @@
               {
                 "id": 2,
                 "name": "nodes",
-                "type": "node.Node",
+                "type": "storjv3_0_0.Node",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "DumpNodesRequest"
+          },
+          {
+            "name": "DumpNodesResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "nodes",
+                "type": "storjv3_0_0.Node",
                 "is_repeated": true
               }
             ]
@@ -889,9 +948,19 @@
                 "out_type": "LookupNodeResponse"
               },
               {
+                "name": "NodeInfo",
+                "in_type": "NodeInfoRequest",
+                "out_type": "NodeInfoResponse"
+              },
+              {
                 "name": "FindNear",
                 "in_type": "FindNearRequest",
                 "out_type": "FindNearResponse"
+              },
+              {
+                "name": "DumpNodes",
+                "in_type": "DumpNodesRequest",
+                "out_type": "DumpNodesResponse"
               }
             ]
           },
@@ -902,6 +971,11 @@
                 "name": "CountNodes",
                 "in_type": "CountNodesRequest",
                 "out_type": "CountNodesResponse"
+              },
+              {
+                "name": "DumpNodes",
+                "in_type": "DumpNodesRequest",
+                "out_type": "DumpNodesResponse"
               }
             ]
           },
@@ -930,7 +1004,7 @@
           }
         ],
         "package": {
-          "name": "inspector"
+          "name": "storjv3_0_0"
         }
       }
     },
@@ -960,7 +1034,7 @@
           }
         ],
         "package": {
-          "name": "objects"
+          "name": "storjv3_0_0"
         }
       }
     },
@@ -1002,21 +1076,6 @@
           }
         ],
         "messages": [
-          {
-            "name": "NodeRestrictions",
-            "fields": [
-              {
-                "id": 1,
-                "name": "free_bandwidth",
-                "type": "int64"
-              },
-              {
-                "id": 2,
-                "name": "free_disk",
-                "type": "int64"
-              }
-            ]
-          },
           {
             "name": "Node",
             "fields": [
@@ -1164,6 +1223,36 @@
             ]
           },
           {
+            "name": "NodeOperator",
+            "fields": [
+              {
+                "id": 1,
+                "name": "email",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "wallet",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "NodeCapacity",
+            "fields": [
+              {
+                "id": 1,
+                "name": "free_bandwidth",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "free_disk",
+                "type": "int64"
+              }
+            ]
+          },
+          {
             "name": "NodeMetadata",
             "fields": [
               {
@@ -1177,6 +1266,21 @@
                 "type": "string"
               }
             ]
+          },
+          {
+            "name": "NodeRestrictions",
+            "fields": [
+              {
+                "id": 1,
+                "name": "free_bandwidth",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "free_disk",
+                "type": "int64"
+              }
+            ]
           }
         ],
         "imports": [
@@ -1185,7 +1289,7 @@
           }
         ],
         "package": {
-          "name": "node"
+          "name": "storjv3_0_0"
         }
       }
     },
@@ -1257,7 +1361,7 @@
               {
                 "id": 1,
                 "name": "node",
-                "type": "node.Node"
+                "type": "storjv3_0_0.Node"
               }
             ]
           },
@@ -1289,7 +1393,7 @@
               {
                 "id": 1,
                 "name": "nodes",
-                "type": "node.Node",
+                "type": "storjv3_0_0.Node",
                 "is_repeated": true
               }
             ]
@@ -1345,7 +1449,7 @@
               {
                 "id": 2,
                 "name": "min_stats",
-                "type": "node.NodeStats"
+                "type": "storjv3_0_0.NodeStats"
               },
               {
                 "id": 3,
@@ -1360,7 +1464,7 @@
               {
                 "id": 5,
                 "name": "restrictions",
-                "type": "node.NodeRestrictions"
+                "type": "storjv3_0_0.NodeRestrictions"
               },
               {
                 "id": 6,
@@ -1382,12 +1486,12 @@
               {
                 "id": 1,
                 "name": "sender",
-                "type": "node.Node"
+                "type": "storjv3_0_0.Node"
               },
               {
                 "id": 2,
                 "name": "target",
-                "type": "node.Node"
+                "type": "storjv3_0_0.Node"
               },
               {
                 "id": 3,
@@ -1407,12 +1511,12 @@
               {
                 "id": 1,
                 "name": "sender",
-                "type": "node.Node"
+                "type": "storjv3_0_0.Node"
               },
               {
                 "id": 2,
                 "name": "response",
-                "type": "node.Node",
+                "type": "storjv3_0_0.Node",
                 "is_repeated": true
               }
             ]
@@ -1422,6 +1526,29 @@
           },
           {
             "name": "PingResponse"
+          },
+          {
+            "name": "InfoRequest"
+          },
+          {
+            "name": "InfoResponse",
+            "fields": [
+              {
+                "id": 2,
+                "name": "type",
+                "type": "storjv3_0_0.NodeType"
+              },
+              {
+                "id": 3,
+                "name": "operator",
+                "type": "storjv3_0_0.NodeOperator"
+              },
+              {
+                "id": 4,
+                "name": "capacity",
+                "type": "storjv3_0_0.NodeCapacity"
+              }
+            ]
           },
           {
             "name": "Restriction",
@@ -1477,6 +1604,11 @@
                 "name": "Ping",
                 "in_type": "PingRequest",
                 "out_type": "PingResponse"
+              },
+              {
+                "name": "RequestInfo",
+                "in_type": "InfoRequest",
+                "out_type": "InfoResponse"
               }
             ]
           }
@@ -1493,7 +1625,7 @@
           }
         ],
         "package": {
-          "name": "overlay"
+          "name": "storjv3_0_0"
         }
       }
     },
@@ -1661,7 +1793,18 @@
               {
                 "id": 3,
                 "name": "authorization",
-                "type": "SignedMessage"
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 4,
+                "name": "signed_hash",
+                "type": "SignedHash"
               }
             ],
             "messages": [
@@ -1698,7 +1841,28 @@
               {
                 "id": 2,
                 "name": "authorization",
-                "type": "SignedMessage"
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -1738,7 +1902,13 @@
               {
                 "id": 3,
                 "name": "authorization",
-                "type": "SignedMessage"
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               }
             ],
             "messages": [
@@ -1790,7 +1960,28 @@
               {
                 "id": 3,
                 "name": "authorization",
-                "type": "SignedMessage"
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 4,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -1816,6 +2007,11 @@
                 "id": 2,
                 "name": "total_received",
                 "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "signed_hash",
+                "type": "SignedHash"
               }
             ]
           },
@@ -1914,6 +2110,27 @@
                 "type": "google.protobuf.Duration"
               }
             ]
+          },
+          {
+            "name": "SignedHash",
+            "fields": [
+              {
+                "id": 1,
+                "name": "hash",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "certs",
+                "type": "bytes",
+                "is_repeated": true
+              },
+              {
+                "id": 3,
+                "name": "signature",
+                "type": "bytes"
+              }
+            ]
           }
         ],
         "services": [
@@ -1966,7 +2183,7 @@
           }
         ],
         "package": {
-          "name": "piecestoreroutes"
+          "name": "storjv3_0_0"
         }
       }
     },
@@ -2053,6 +2270,11 @@
                     "value": "false"
                   }
                 ]
+              },
+              {
+                "id": 3,
+                "name": "hash",
+                "type": "storjv3_0_0.SignedHash"
               }
             ]
           },
@@ -2196,18 +2418,18 @@
               {
                 "id": 2,
                 "name": "nodes",
-                "type": "node.Node",
+                "type": "storjv3_0_0.Node",
                 "is_repeated": true
               },
               {
                 "id": 3,
                 "name": "pba",
-                "type": "piecestoreroutes.PayerBandwidthAllocation"
+                "type": "storjv3_0_0.PayerBandwidthAllocation"
               },
               {
                 "id": 4,
                 "name": "authorization",
-                "type": "piecestoreroutes.SignedMessage"
+                "type": "storjv3_0_0.SignedMessage"
               }
             ]
           },
@@ -2293,7 +2515,7 @@
               {
                 "id": 1,
                 "name": "action",
-                "type": "piecestoreroutes.BandwidthAction"
+                "type": "storjv3_0_0.BandwidthAction"
               }
             ]
           },
@@ -2303,7 +2525,7 @@
               {
                 "id": 1,
                 "name": "pba",
-                "type": "piecestoreroutes.PayerBandwidthAllocation"
+                "type": "storjv3_0_0.PayerBandwidthAllocation"
               }
             ]
           }
@@ -2355,7 +2577,7 @@
           }
         ],
         "package": {
-          "name": "pointerdb"
+          "name": "storjv3_0_0"
         }
       }
     },
@@ -2430,7 +2652,7 @@
           }
         ],
         "package": {
-          "name": "streams"
+          "name": "storjv3_0_0"
         }
       }
     }

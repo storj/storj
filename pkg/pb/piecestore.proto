@@ -4,7 +4,7 @@
 syntax = "proto3";
 option go_package = "pb";
 
-package piecestoreroutes;
+package storjv3_0_0;
 
 import "gogo.proto";
 import "google/protobuf/duration.proto";
@@ -34,8 +34,8 @@ message PayerBandwidthAllocation { // Payer refers to satellite
   string serial_number = 5;      // Unique serial number
   BandwidthAction action = 6;    // GET or PUT
   int64 created_unix_sec = 7;    // Unix timestamp for when PayerbandwidthAllocation was created
-  
-  repeated bytes certs = 8; // Satellite certificate chain 
+
+  repeated bytes certs = 8; // Satellite certificate chain
   bytes signature = 9;      // Proof that the data was signed by the Satellite
 }
 
@@ -58,7 +58,7 @@ message PieceStore {
 
   RenterBandwidthAllocation bandwidth_allocation = 1;
   PieceData piece_data = 2;
-  SignedMessage authorization = 3 [deprecated=true]; 
+  SignedMessage authorization = 3 [deprecated=true];
   SignedHash signed_hash = 4;
 }
 
@@ -141,7 +141,7 @@ message DashboardStats {
 
 message SignedHash {
   bytes hash = 1;
-  
+
   repeated bytes certs = 2;
   bytes signature = 3;
 }

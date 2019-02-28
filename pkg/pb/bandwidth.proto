@@ -4,12 +4,12 @@
 syntax = "proto3";
 option go_package = "pb";
 
-package bandwidth;
+package storjv3_0_0;
 
 import "piecestore.proto";
 
 service Bandwidth {
-  rpc BandwidthAgreements(piecestoreroutes.RenterBandwidthAllocation) returns (AgreementsSummary) {}
+  rpc BandwidthAgreements(storjv3_0_0.RenterBandwidthAllocation) returns (AgreementsSummary) {}
 }
 
 message AgreementsSummary {

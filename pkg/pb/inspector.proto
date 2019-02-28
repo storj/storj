@@ -7,7 +7,7 @@ option go_package = "pb";
 import "gogo.proto";
 import "node.proto";
 
-package inspector;
+package storjv3_0_0;
 
 service KadInspector {
   // CountNodes returns the number of nodes in the routing table
@@ -86,15 +86,15 @@ message GetBucketRequest {
 
 message GetBucketResponse {
   bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  repeated node.Node nodes = 2;
+  repeated storjv3_0_0.Node nodes = 2;
 }
 
 message Bucket {
-  repeated node.Node nodes = 2;
+  repeated storjv3_0_0.Node nodes = 2;
 }
 
 message BucketList {
-  repeated node.Node nodes = 1;
+  repeated storjv3_0_0.Node nodes = 1;
 }
 // PingNode
 message PingNodeRequest {
@@ -112,19 +112,19 @@ message LookupNodeRequest {
 }
 
 message LookupNodeResponse {
-  node.Node node = 1;
-  node.NodeMetadata meta = 2;
+  storjv3_0_0.Node node = 1;
+  storjv3_0_0.NodeMetadata meta = 2;
 }
 
 message NodeInfoRequest {
-  node.NodeAddress address = 1;
+  storjv3_0_0.NodeAddress address = 1;
 }
 
 message NodeInfoResponse {
   bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  node.NodeType type = 2;
-  node.NodeOperator operator = 3;
-  node.NodeCapacity capacity = 4;
+  storjv3_0_0.NodeType type = 2;
+  storjv3_0_0.NodeOperator operator = 3;
+  storjv3_0_0.NodeCapacity capacity = 4;
 }
 
 message FindNearRequest {
@@ -134,11 +134,11 @@ message FindNearRequest {
 }
 
 message FindNearResponse {
-  repeated node.Node nodes = 2;
+  repeated storjv3_0_0.Node nodes = 2;
 }
 
 message DumpNodesRequest {}
 
 message DumpNodesResponse {
-  repeated node.Node nodes = 1;
+  repeated storjv3_0_0.Node nodes = 1;
 }
