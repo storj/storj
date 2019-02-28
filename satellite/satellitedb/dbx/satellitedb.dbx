@@ -183,11 +183,6 @@ read one (
 	where  overlay_cache_node.node_id = ?
 )
 
-read one (
-	select overlay_cache_node.operator_wallet
-	where overlay_cache_node.node_id = ?
-)
-
 read limitoffset (
 	select overlay_cache_node
 	where  overlay_cache_node.node_id >= ?
