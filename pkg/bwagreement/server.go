@@ -117,7 +117,7 @@ func (s *Server) verifySignature(ctx context.Context, rba *pb.Order) error {
 	// Get renter's public key from uplink agreement db
 	uplinkInfo, err := s.certdb.GetPublicKey(ctx, pba.UplinkId)
 	if err != nil {
-		return pb.ErrRenter.Wrap(auth.ErrVerify.New("Failed to unmarshal OrderLimit: %+v", err))
+		return pb.ErrRenter.Wrap(auth.ErrVerify.New("Certdb was missing the key: %+v", err))
 	}
 
 	// verify Renter's (uplink) signature
