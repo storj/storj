@@ -100,6 +100,35 @@ func (s *Server) validateSegment(req *pb.PutRequest) error {
 	return nil
 }
 
+func (s *Server) filterValidPieces(pointer *pb.Pointer) error {
+	if pointer.Type == pb.Pointer_REMOTE {
+		var remotePieces []*pb.RemotePiece
+		remote := pointer.Remote
+		for _, piece := range remote.RemotePieces {
+			err := auth.VerifyMsg(piece.Hash, piece.NodeId)
+			if err == nil {
+				// set to nil after verification to avoid storing in DB
+				piece.Hash.SetCerts(nil)
+				piece.Hash.SetSignature(nil)
+				remotePieces = append(remotePieces, piece)
+			} else {
+				// TODO satellite should send Delete request for piece that failed
+				s.logger.Warn("unable to verify piece hash: %v", zap.Error(err))
+			}
+		}
+
+		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
+			return Error.New("Number of valid pieces is lower then success threshold: %v < %v",
+				len(remotePieces),
+				remote.Redundancy.SuccessThreshold,
+			)
+		}
+
+		remote.RemotePieces = remotePieces
+	}
+	return nil
+}
+
 // Put formats and hands off a key/value (path/pointer) to be saved to boltdb
 func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -110,6 +139,11 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 	}
 
 	keyInfo, err := s.validateAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.filterValidPieces(req.Pointer)
 	if err != nil {
 		return nil, err
 	}

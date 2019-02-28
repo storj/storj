@@ -2528,10 +2528,6 @@ type Id_Row struct {
 	Id []byte
 }
 
-type OperatorWallet_Row struct {
-	OperatorWallet string
-}
-
 type Value_Row struct {
 	Value time.Time
 }
@@ -3266,27 +3262,6 @@ func (obj *postgresImpl) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return overlay_cache_node, nil
-
-}
-
-func (obj *postgresImpl) Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
-	row *OperatorWallet_Row, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.operator_wallet FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, overlay_cache_node_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &OperatorWallet_Row{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.OperatorWallet)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return row, nil
 
 }
 
@@ -5351,27 +5326,6 @@ func (obj *sqlite3Impl) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return overlay_cache_node, nil
-
-}
-
-func (obj *sqlite3Impl) Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
-	row *OperatorWallet_Row, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.operator_wallet FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, overlay_cache_node_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &OperatorWallet_Row{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.OperatorWallet)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return row, nil
 
 }
 
@@ -7529,16 +7483,6 @@ func (rx *Rx) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 	return tx.Get_OverlayCacheNode_By_NodeId(ctx, overlay_cache_node_node_id)
 }
 
-func (rx *Rx) Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
-	row *OperatorWallet_Row, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx, overlay_cache_node_node_id)
-}
-
 func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
@@ -7923,10 +7867,6 @@ type Methods interface {
 	Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 		overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
 		overlay_cache_node *OverlayCacheNode, err error)
-
-	Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx context.Context,
-		overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
-		row *OperatorWallet_Row, err error)
 
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
