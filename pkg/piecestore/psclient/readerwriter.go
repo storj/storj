@@ -41,7 +41,7 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 	updatedAllocation := s.totalWritten + int64(len(b))
 
 	s.rba.Total = updatedAllocation
-	err := s.rba.Sign(s.signer.selfID.Key)
+	err := s.rba.Sign(*s.signer.selfID)
 	if err != nil {
 		return 0, err
 	}
@@ -123,7 +123,7 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 
 			rba.Total = sr.allocated + allocate
 
-			err := rba.Sign(client.selfID.Key)
+			err := rba.Sign(*client.selfID)
 			if err != nil {
 				sr.pendingAllocs.Fail(err)
 			}

@@ -64,7 +64,7 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 		Action:            action,
 		SerialNumber:      serialNum.String(),
 	}
-	err = pba.Sign(allocation.satelliteIdentity.Key)
+	err = pba.Sign(*allocation.satelliteIdentity)
 	return pba, err
 }
 

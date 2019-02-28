@@ -1,7 +1,6 @@
 package pb
 
 import (
-	"crypto"
 	"encoding/json"
 
 	"github.com/gogo/protobuf/proto"
@@ -61,13 +60,14 @@ func UnmarshalJSON(m Signed, b []byte) error {
 }
 
 //Sign adds the crypto-related aspects of signed message
-func Sign(m Signed, key crypto.PrivateKey) (err error) {
+func Sign(m Signed, id identity.FullIdentity) (err error) {
 	signed := m.Signed()
 	signed.Data, err = proto.Marshal(m.Message())
 	if err != nil {
 		return auth.ErrMarshal.Wrap(err)
 	}
-	signed.Signature, err = pkcrypto.HashAndSign(key, signed.Data)
+	signed.Certs = id.ChainRaw()
+	signed.Signature, err = pkcrypto.HashAndSign(id.Key, signed.Data)
 	if err != nil {
 		return auth.ErrSign.Wrap(err)
 	}

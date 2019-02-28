@@ -67,7 +67,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	}
 
 	signedHash := pb.SignedHash{Hash: hash}
-	err = signedHash.Sign(s.identity.Key)
+	err = signedHash.Sign(*s.identity)
 	if err != nil {
 		return err
 	}

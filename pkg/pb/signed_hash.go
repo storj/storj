@@ -1,7 +1,7 @@
 package pb
 
 import (
-	"crypto"
+	"storj.io/storj/pkg/identity"
 
 	proto "github.com/gogo/protobuf/proto"
 
@@ -52,8 +52,8 @@ func (m *SignedHash) UnmarshalJSON(b []byte) error {
 }
 
 //Sign adds the crypto-related aspects of signed message
-func (m *SignedHash) Sign(key crypto.PrivateKey) (err error) {
-	return Sign(m, key)
+func (m *SignedHash) Sign(id identity.FullIdentity) (err error) {
+	return Sign(m, id)
 }
 
 //Verify checks the crypto-related aspects of signed message

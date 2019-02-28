@@ -194,5 +194,5 @@ func (ps *PieceStore) Delete(ctx context.Context, id PieceID, satelliteID storj.
 
 // sign a message using the clients private key
 func (ps *PieceStore) sign(rba *pb.Order) (err error) {
-	return rba.Sign(ps.selfID.Key)
+	return rba.Sign(*ps.selfID)
 }

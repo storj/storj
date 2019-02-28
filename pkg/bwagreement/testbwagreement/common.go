@@ -28,7 +28,7 @@ func GenerateOrderLimit(action pb.BandwidthAction, satID *identity.FullIdentity,
 		CreatedUnixSec:    time.Now().Unix(),
 	}
 
-	return pba, pba.Sign(satID.Key)
+	return pba, pba.Sign(*satID)
 }
 
 //GenerateOrder creates a signed Order from a OrderLimit
@@ -39,5 +39,5 @@ func GenerateOrder(pba *pb.OrderLimit, storageNodeID storj.NodeID, upID *identit
 		Total:         total,
 	}
 	// Combine Signature and Data for Order
-	return rba, rba.Sign(upID.Key)
+	return rba, rba.Sign(*upID)
 }
