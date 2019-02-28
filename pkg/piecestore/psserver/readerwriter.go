@@ -89,7 +89,7 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, bandwidt
 	return sr
 }
 
-// Read -- Read method for piece download from stream
+// Read reads piece from stream
 func (s *StreamReader) Read(b []byte) (int, error) {
 	if s.sofar >= s.bandwidthRemaining {
 		return 0, StreamWriterError.New("out of bandwidth")

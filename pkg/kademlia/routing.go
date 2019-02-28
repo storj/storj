@@ -30,7 +30,7 @@ const (
 var RoutingErr = errs.Class("routing table error")
 
 // Bucket IDs exist in the same address space as node IDs
-type bucketID storj.NodeID
+type bucketID = storj.NodeID
 
 var firstBucketID = bucketID{
 	0xFF, 0xFF, 0xFF, 0xFF,
@@ -150,10 +150,10 @@ func (rt *RoutingTable) GetBucketIds() (storage.Keys, error) {
 }
 
 // FindNear returns the node corresponding to the provided nodeID
-// returns all Nodes closest via XOR to the provided nodeID up to the provided limit
+// returns all Nodes (excluding self) closest via XOR to the provided nodeID up to the provided limit
 func (rt *RoutingTable) FindNear(target storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
 	closestNodes := make([]*pb.Node, 0, limit+1)
-	err := rt.iterate(storj.NodeID{}, func(newID storj.NodeID, protoNode []byte) error {
+	err := rt.iterateNodes(storj.NodeID{}, func(newID storj.NodeID, protoNode []byte) error {
 		newPos := len(closestNodes)
 		for ; newPos > 0 && compareByXor(closestNodes[newPos-1].Id, newID, target) > 0; newPos-- {
 		}
@@ -175,7 +175,7 @@ func (rt *RoutingTable) FindNear(target storj.NodeID, limit int, restrictions ..
 			}
 		}
 		return nil
-	})
+	}, true)
 	return closestNodes, Error.Wrap(err)
 }
 
@@ -262,7 +262,7 @@ func (rt *RoutingTable) GetBucketTimestamp(bIDBytes []byte) (time.Time, error) {
 	return time.Unix(0, timestamp).UTC(), nil
 }
 
-func (rt *RoutingTable) iterate(start storj.NodeID, f func(storj.NodeID, []byte) error) error {
+func (rt *RoutingTable) iterateNodes(start storj.NodeID, f func(storj.NodeID, []byte) error, skipSelf bool) error {
 	return rt.nodeBucketDB.Iterate(storage.IterateOptions{First: storage.Key(start.Bytes()), Recurse: true},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
@@ -271,8 +271,8 @@ func (rt *RoutingTable) iterate(start storj.NodeID, f func(storj.NodeID, []byte)
 				if err != nil {
 					return err
 				}
-				if nodeID == rt.self.Id {
-					continue //todo:  revisit if self ID should be in routing table
+				if skipSelf && nodeID == rt.self.Id {
+					continue
 				}
 				err = f(nodeID, item.Value)
 				if err != nil {
