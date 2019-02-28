@@ -35,6 +35,7 @@ func TestSendAgreementsToSatellite(t *testing.T) {
 		node.Agreements.Sender.Loop.Pause()
 	}
 
+	// upload a file
 	data := make([]byte, 500*memory.KiB)
 	_, err = rand.Read(data)
 	assert.NoError(t, err)
@@ -42,6 +43,7 @@ func TestSendAgreementsToSatellite(t *testing.T) {
 	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test/bucket", "test/path/first", data)
 	assert.NoError(t, err)
 
+	// collect all Total's for uploaded pieces to compare when sent to satellite
 	putAllocation := make(map[storj.NodeID]int64)
 	for _, node := range planet.StorageNodes {
 		allocations, err := node.DB.PSDB().GetBandwidthAllocations()
@@ -55,10 +57,8 @@ func TestSendAgreementsToSatellite(t *testing.T) {
 	}
 
 	for _, node := range planet.StorageNodes {
-		node.Agreements.Sender.Loop.Trigger()
+		node.Agreements.Sender.Loop.TriggerWait()
 	}
-
-	time.Sleep(1 * time.Second)
 
 	// check if agreements were deleted from storage node
 	for _, node := range planet.StorageNodes {
@@ -95,10 +95,8 @@ func TestSendAgreementsToSatellite(t *testing.T) {
 	}
 
 	for _, node := range planet.StorageNodes {
-		node.Agreements.Sender.Loop.Trigger()
+		node.Agreements.Sender.Loop.TriggerWait()
 	}
-
-	time.Sleep(1 * time.Second)
 
 	// check if agreements were deleted from storage node
 	for _, node := range planet.StorageNodes {
