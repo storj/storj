@@ -30,6 +30,8 @@ func TestSendAgreementsToSatellite(t *testing.T) {
 
 	planet.Start(ctx)
 
+	successTreshold := 3 * len(planet.StorageNodes) / 5
+
 	before := time.Now()
 	for _, node := range planet.StorageNodes {
 		node.Agreements.Sender.Loop.Pause()
@@ -82,6 +84,7 @@ func TestSendAgreementsToSatellite(t *testing.T) {
 	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test/bucket", "test/path/second", data)
 	assert.NoError(t, err)
 
+	usedNodes := 0
 	for _, node := range planet.StorageNodes {
 		allocations, err := node.DB.PSDB().GetBandwidthAllocations()
 		assert.NoError(t, err)
@@ -91,8 +94,10 @@ func TestSendAgreementsToSatellite(t *testing.T) {
 			assert.Equal(t, 1, len(allocPerSat))
 			// sum with previous upload PUTs
 			putAllocation[node.ID()] += allocPerSat[0].Agreement.Total
+			usedNodes++
 		}
 	}
+	assert.True(t, usedNodes >= successTreshold)
 
 	for _, node := range planet.StorageNodes {
 		node.Agreements.Sender.Loop.TriggerWait()
@@ -113,4 +118,51 @@ func TestSendAgreementsToSatellite(t *testing.T) {
 		// 0 in array is PUT
 		assert.Equal(t, nodeTotal, satTotal[0])
 	}
+}
+
+func TestRejectedAgreements(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.NewCustom(zaptest.NewLogger(t), testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+	})
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	successTreshold := 3 * len(planet.StorageNodes) / 5
+
+	for _, node := range planet.StorageNodes {
+		node.Agreements.Sender.Loop.Pause()
+	}
+
+	// upload a file
+	data := make([]byte, 500*memory.KiB)
+	_, err = rand.Read(data)
+	assert.NoError(t, err)
+
+	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test/bucket", "test/path/first", data)
+	assert.NoError(t, err)
+
+	// satellite is unreachable
+	err = planet.StopPeer(planet.Satellites[0])
+	assert.NoError(t, err)
+
+	for _, node := range planet.StorageNodes {
+		node.Agreements.Sender.Loop.TriggerWait()
+	}
+
+	// check if agreements were NOT deleted from storage node
+	usedNodes := 0
+	for _, node := range planet.StorageNodes {
+		allocations, err := node.DB.PSDB().GetBandwidthAllocations()
+		assert.NoError(t, err)
+		if len(allocations[planet.Satellites[0].ID()]) > 0 {
+			assert.Equal(t, 1, len(allocations[planet.Satellites[0].ID()]))
+			usedNodes++
+		}
+	}
+	assert.True(t, usedNodes >= successTreshold)
 }
