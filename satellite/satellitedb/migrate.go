@@ -311,13 +311,12 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Add wallet column",
 				Version:     5,
 				Action: migrate.SQL{
-					// TODO (dylan): This is a workaround for NOT NULL constraints. We could clean this up.
-					`ALTER TABLE nodes ADD COLUMN wallet text;
-					ALTER TABLE nodes ADD COLUMN email text;
+					`ALTER TABLE nodes ADD wallet TEXT;
+					ALTER TABLE nodes ADD email TEXT;
 					UPDATE nodes SET wallet = '';
 					UPDATE nodes SET email = '';
-					ALTER TABLE nodes ADD COLUMN wallet NOT NULL;
-					ALTER TABLE nodes ADD COLUMN email NOT NULL;`,
+					ALTER TABLE nodes ALTER COLUMN wallet SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN email SET NOT NULL;`,
 				},
 			},
 		},
