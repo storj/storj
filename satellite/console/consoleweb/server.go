@@ -111,7 +111,8 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	rootObject := make(map[string]interface{})
-	rootObject["origin"] = "http://" + s.config.Address + "/"
+	//TODO: add public address to config for production
+	rootObject["origin"] = "http://" + s.listener.Addr().String() + "/"
 	rootObject[consoleql.ActivationPath] = "?activationToken="
 
 	result := graphql.Do(graphql.Params{

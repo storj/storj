@@ -172,7 +172,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
 
-				// TODO(yar): add mailservice configuration
+				"--mail.smtp-server-address", "smtp.gmail.com:587",
+				"--mail.from", "Storj <yaroslav-satellite-test@storj.io>",
+				// TODO: add mailservice templatepath
+				"--mail.template-path", "/home/riko/Workspace/storj/storj/web/satellite/static/emails",
 			},
 			"run": {},
 		})
