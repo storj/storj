@@ -14,7 +14,7 @@ service Bandwidth {
 }
 
 message BandWidthRequest {
-  piecestoreroutes.SignedMessage order = 1 [(gogoproto.customtype) = "Order", (gogoproto.nullable) = false];
+  piecestoreroutes.SignedMessage order = 1 [(gogoproto.casttype) = "Order", (gogoproto.nullable) = false];
 }
 
 message AgreementsSummary {

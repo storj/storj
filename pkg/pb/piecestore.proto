@@ -36,15 +36,15 @@ message PayerBandwidthAllocation { // Payer refers to satellite
   string serial_number = 5;      // Unique serial number
   BandwidthAction action = 6;    // GET or PUT
   int64 created_unix_sec = 7;    // Unix timestamp for when PayerbandwidthAllocation was create
-  SignedMessage signed_data = 8 [(gogoproto.nullable) = false, (gogoproto.embed) = true];
+  SignedMessage signed_data = 8 [(gogoproto.embed) = true, (gogoproto.nullable) = false];
 }
 
 //RenterBandwidthAllocation is always serialized as SignedMessage
 message RenterBandwidthAllocation { // Renter refers to uplink
-  SignedMessage order_limit = 1 [(gogoproto.customtype) = "OrderLimit", (gogoproto.nullable) = false]; // Order limit from Satellite
+  SignedMessage order_limit = 1 [(gogoproto.casttype) = "OrderLimit", (gogoproto.nullable) = false]; // Order limit from Satellite
   int64 total = 2;                               // Total Bytes Stored
   bytes storage_node_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Storage Node Identity
-  SignedMessage signed_data = 4 [(gogoproto.nullable) = false, (gogoproto.embed) = true];
+  SignedMessage signed_data = 4 [(gogoproto.embed) = true, (gogoproto.nullable) = false];
 }
 
 message PieceStore {
@@ -54,7 +54,7 @@ message PieceStore {
     int64 expiration_unix_sec = 2;
     bytes content = 3;
   }
-  SignedMessage order = 1 [(gogoproto.customtype) = "Order", (gogoproto.nullable) = false]; 
+  SignedMessage order = 1 [(gogoproto.casttype) = "Order", (gogoproto.nullable) = false]; 
   PieceData piece_data = 2;
   SignedMessage signed_hash = 4 [(gogoproto.customtype) = "SignedHash", (gogoproto.nullable) = false]; 
 }
@@ -78,7 +78,7 @@ message PieceRetrieval {
     int64 piece_size = 2;
     int64 offset = 3;
   }
-  SignedMessage order = 1 [(gogoproto.customtype) = "Order", (gogoproto.nullable) = false]; 
+  SignedMessage order = 1 [(gogoproto.casttype) = "Order", (gogoproto.nullable) = false]; 
   PieceData piece_data = 2;
 }
 
@@ -134,5 +134,5 @@ message DashboardStats {
 //Hash is always serialized as SignedMessage
 message Hash {
   bytes hash = 1;
-  SignedMessage signed_data = 2 [(gogoproto.nullable) = false, (gogoproto.embed) = true];
+  SignedMessage signed_data = 2 [(gogoproto.embed) = true, (gogoproto.nullable) = false];
 }

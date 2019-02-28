@@ -15,9 +15,16 @@ func (m *Order) Message() proto.Message {
 	return (*RenterBandwidthAllocation)(m)
 }
 
-//Signed returns the signing data for this signed type
-func (m *Order) Signed() *SignedMessage {
-	return &m.SignedMessage
+//GetSigned returns the signing data for this signed type
+func (m *Order) GetSigned() SignedMessage {
+	return m.SignedMessage
+}
+
+//SetSigned sets the signing data for this signed type
+func (m *Order) SetSigned(sm SignedMessage) {
+	m.Data = sm.Data
+	m.Certs = sm.Certs
+	m.Signature = sm.Signature
 }
 
 // Marshal serializes a Signed
@@ -35,23 +42,8 @@ func (m *Order) Unmarshal(b []byte) error {
 	return Unmarshal(m, b)
 }
 
-// Size returns the length of a Signed (implements gogo's custom type interface)
-func (m *Order) Size() int {
-	return Size(m)
-}
-
-// MarshalJSON serializes a Signed to a json string as bytes
-func (m *Order) MarshalJSON() ([]byte, error) {
-	return MarshalJSON(m)
-}
-
-// UnmarshalJSON deserializes a json string (as bytes) to a Signed
-func (m *Order) UnmarshalJSON(b []byte) error {
-	return UnmarshalJSON(m, b)
-}
-
 //Sign adds the crypto-related aspects of signed message
-func (m *Order) Sign(id identity.FullIdentity) (err error) {
+func (m *Order) Sign(id *identity.FullIdentity) (err error) {
 	return Sign(m, id)
 }
 

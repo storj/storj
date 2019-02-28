@@ -15,7 +15,56 @@ import (
 //Signed allows simple signing and custom protobuf serialization
 type Signed interface {
 	Message() proto.Message
-	Signed() *SignedMessage
+	GetSigned() SignedMessage
+	SetSigned(SignedMessage)
+}
+
+// //GetSigned returns the signing data for this signed type
+// func (sm *SignedMessage) GetSigned() SignedMessage {
+// 	return *sm
+// }
+
+// //SetSigned sets the signing data for this signed type
+// func (sm *SignedMessage) SetSigned(m SignedMessage) {
+// 	sm.Data = m.Data
+// 	sm.Certs = m.Certs
+// 	sm.Signature = m.Signature
+// }
+
+// // Marshal serializes a Signed
+// func (sm *SignedMessage) Marshal() (b []byte, err error) {
+// 	return proto.Marshal(sm)
+// }
+
+// // MarshalTo serializes a Signed into the passed byte slice
+// func (sm *SignedMessage) MarshalTo(b []byte) (n int, err error) {
+// 	out, err := proto.Marshal(sm)
+// 	n = copy(b, out)
+// 	return n, err
+// }
+
+// // Unmarshal deserializes a Signed
+// func (sm *SignedMessage) Unmarshal(b []byte) error {
+// 	err := proto.Unmarshal(b, sm)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return proto.Unmarshal(sm.Data, sm)
+// }
+
+// Size returns the length of a Signed (implements gogo's custom type interface)
+func (sm *SignedMessage) Size() int {
+	return sm.XXX_Size()
+}
+
+// MarshalJSON serializes a Signed to a json string as bytes
+func (sm *SignedMessage) MarshalJSON() ([]byte, error) {
+	return json.Marshal(sm)
+}
+
+// UnmarshalJSON deserializes a json string (as bytes) to a Signed
+func (sm *SignedMessage) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, sm)
 }
 
 // Marshal serializes a Signed
@@ -36,12 +85,12 @@ func Unmarshal(m Signed, b []byte) error {
 	if err != nil {
 		return err
 	}
-	return proto.Unmarshal(m.Signed().Data, m.Message())
+	return proto.Unmarshal(m.GetSigned().Data, m.Message())
 }
 
 // Size returns the length of a Signed (implements gogo's custom type interface)
 func Size(m Signed) int {
-	signed := m.Signed()
+	signed := m.GetSigned()
 	return signed.XXX_Size()
 }
 
@@ -56,39 +105,50 @@ func UnmarshalJSON(m Signed, b []byte) error {
 	if err != nil {
 		return err
 	}
-	return proto.Unmarshal(m.Signed().Data, m.Message())
+	return proto.Unmarshal(m.GetSigned().Data, m.Message())
 }
 
 //Sign adds the crypto-related aspects of signed message
-func Sign(m Signed, id identity.FullIdentity) (err error) {
-	signed := m.Signed()
+func Sign(m Signed, id *identity.FullIdentity) (err error) {
+	signed := m.GetSigned()
+	m.SetSigned(SignedMessage{})
+
 	signed.Data, err = proto.Marshal(m.Message())
 	if err != nil {
-		return auth.ErrMarshal.Wrap(err)
+		panic("proto marshal error")
+		//return auth.ErrMarshal.Wrap(err)
+	}
+	if signed.Data == nil {
+		panic("signed data nil")
+	}
+	if len(signed.Data) == 0 {
+		panic("signed data empty")
 	}
 	signed.Certs = id.ChainRaw()
 	signed.Signature, err = pkcrypto.HashAndSign(id.Key, signed.Data)
 	if err != nil {
 		return auth.ErrSign.Wrap(err)
 	}
+	m.SetSigned(signed)
 	return nil
 }
 
 //Verify checks the crypto-related aspects of signed message
 func Verify(m Signed, signer storj.NodeID) error {
+	signed := m.GetSigned()
 	//check certs
-	if len(m.Signed().Certs) < 2 {
+	if len(signed.Certs) < 2 {
 		return auth.ErrVerify.New("Expected at least leaf and CA public keys")
 	}
-	err := peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)(m.Signed().Certs, nil)
+	err := peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)(signed.Certs, nil)
 	if err != nil {
 		return auth.ErrVerify.Wrap(err)
 	}
-	leaf, err := pkcrypto.CertFromDER(m.Signed().Certs[0])
+	leaf, err := pkcrypto.CertFromDER(signed.Certs[0])
 	if err != nil {
 		return err
 	}
-	ca, err := pkcrypto.CertFromDER(m.Signed().Certs[1])
+	ca, err := pkcrypto.CertFromDER(signed.Certs[1])
 	if err != nil {
 		return err
 	}
@@ -96,12 +156,14 @@ func Verify(m Signed, signer storj.NodeID) error {
 	if id, err := identity.NodeIDFromKey(ca.PublicKey); err != nil || id != signer {
 		return auth.ErrSigner.New("%+v vs %+v", id, signer)
 	}
-	if err := pkcrypto.HashAndVerifySignature(leaf.PublicKey, m.Signed().Data, m.Signed().Signature); err != nil {
+	if err := pkcrypto.HashAndVerifySignature(leaf.PublicKey, signed.Data, signed.Signature); err != nil {
 		return auth.ErrVerify.New("%+v", err)
 	}
 	//cleanup
-	if err = proto.Unmarshal(m.Signed().Data, m.Message()); err != nil {
+	if err = proto.Unmarshal(signed.Data, m.Message()); err != nil {
 		return auth.ErrMarshal.Wrap(err)
 	}
+	//restore signedData
+	m.SetSigned(signed)
 	return nil
 }

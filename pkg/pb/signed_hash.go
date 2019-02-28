@@ -16,9 +16,16 @@ func (m *SignedHash) Message() proto.Message {
 	return (*Hash)(m)
 }
 
-//Signed returns the signing data for this signed type
-func (m *SignedHash) Signed() *SignedMessage {
-	return &m.SignedMessage
+//GetSigned returns the signing data for this signed type
+func (m *SignedHash) GetSigned() SignedMessage {
+	return m.SignedMessage
+}
+
+//SetSigned sets the signing data for this signed type
+func (m *SignedHash) SetSigned(sm SignedMessage) {
+	m.Data = sm.Data
+	m.Certs = sm.Certs
+	m.Signature = sm.Signature
 }
 
 // Marshal serializes a Signed
@@ -36,23 +43,8 @@ func (m *SignedHash) Unmarshal(b []byte) error {
 	return Unmarshal(m, b)
 }
 
-// Size returns the length of a Signed (implements gogo's custom type interface)
-func (m *SignedHash) Size() int {
-	return Size(m)
-}
-
-// MarshalJSON serializes a Signed to a json string as bytes
-func (m *SignedHash) MarshalJSON() ([]byte, error) {
-	return MarshalJSON(m)
-}
-
-// UnmarshalJSON deserializes a json string (as bytes) to a Signed
-func (m *SignedHash) UnmarshalJSON(b []byte) error {
-	return UnmarshalJSON(m, b)
-}
-
 //Sign adds the crypto-related aspects of signed message
-func (m *SignedHash) Sign(id identity.FullIdentity) (err error) {
+func (m *SignedHash) Sign(id *identity.FullIdentity) (err error) {
 	return Sign(m, id)
 }
 
