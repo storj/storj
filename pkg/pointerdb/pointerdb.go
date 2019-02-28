@@ -107,10 +107,12 @@ func (s *Server) filterValidPieces(pointer *pb.Pointer) error {
 		for _, piece := range remote.RemotePieces {
 			err := auth.VerifyMsg(piece.Hash, piece.NodeId)
 			if err == nil {
+				// set to nil after verification to avoid storing in DB
 				piece.Hash.SetCerts(nil)
 				piece.Hash.SetSignature(nil)
 				remotePieces = append(remotePieces, piece)
 			} else {
+				// TODO satellite should send Delete request for piece that failed
 				s.logger.Warn("unable to verify piece hash: %v", zap.Error(err))
 			}
 		}
