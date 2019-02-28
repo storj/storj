@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
 	<div class="overlay">
 		<div class="overlay__main-container">
