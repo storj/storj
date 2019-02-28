@@ -6,7 +6,6 @@ package consoleweb
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net"
 	"net/http"
 	"path/filepath"
