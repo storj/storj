@@ -77,7 +77,7 @@ func NewClientContext(ctx context.Context, tc transport.Client, address string, 
 // a compiler trick to make sure *PointerDB implements Client
 var _ Client = (*PointerDB)(nil)
 
-// Put is the interface to make a PUT request, needs Pointer and APIKey
+// Put is the interface to make a PUT request, needs Pointer
 func (pdb *PointerDB) Put(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -86,7 +86,7 @@ func (pdb *PointerDB) Put(ctx context.Context, path storj.Path, pointer *pb.Poin
 	return err
 }
 
-// Get is the interface to make a GET request, needs PATH and APIKey
+// Get is the interface to make a GET request, needs PATH
 func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Pointer, nodes []*pb.Node, pba *pb.OrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -120,7 +120,7 @@ func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Poi
 	return res.GetPointer(), nodes, res.GetPba(), nil
 }
 
-// List is the interface to make a LIST request, needs StartingPathKey, Limit, and APIKey
+// List is the interface to make a LIST request, needs StartingPathKey, Limit
 func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -149,7 +149,7 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore st
 	return items, res.GetMore(), nil
 }
 
-// Delete is the interface to make a Delete request, needs Path and APIKey
+// Delete is the interface to make a Delete request, needs Path
 func (pdb *PointerDB) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
