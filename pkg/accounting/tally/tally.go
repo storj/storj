@@ -120,25 +120,30 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 				// check to make sure there are at least *4* path elements. the first three
 				// are project, segment, and bucket name, but we want to make sure we're talking
 				// about an actual object, and that there's an object name specified
-				if len(pathElements) >= 4 {
-					project, segment, bucketName := pathElements[0], pathElements[1], pathElements[2]
-					bucketID := storj.JoinPaths(project, bucketName)
 
-					// paths are iterated in order, so everything in a bucket is
-					// iterated together. When a project or bucket changes,
-					// the previous bucket is completely finished.
-					if currentBucket != bucketID {
-						bucketCount++
-						if currentBucket != "" {
-							// report the previous bucket and add to the totals
-							currentBucketStats.Report("bucket")
-							totalStats.Combine(&currentBucketStats)
-							currentBucketStats = stats{}
+				// handle conditions with buckets with no files
+				if len(pathElements) == 3 {
+					bucketCount++
+				} else {
+					if len(pathElements) >= 4 {
+						project, segment, bucketName := pathElements[0], pathElements[1], pathElements[2]
+						bucketID := storj.JoinPaths(project, bucketName)
+
+						// paths are iterated in order, so everything in a bucket is
+						// iterated together. When a project or bucket changes,
+						// the previous bucket is completely finished.
+						if currentBucket != bucketID {
+							if currentBucket != "" {
+								// report the previous bucket and add to the totals
+								currentBucketStats.Report("bucket")
+								totalStats.Combine(&currentBucketStats)
+								currentBucketStats = stats{}
+							}
+							currentBucket = bucketID
 						}
-						currentBucket = bucketID
-					}
 
-					currentBucketStats.AddSegment(pointer, segment == "l")
+						currentBucketStats.AddSegment(pointer, segment == "l")
+					}
 				}
 
 				remote := pointer.GetRemote()
@@ -173,17 +178,17 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 	if err != nil {
 		return latestTally, nodeData, Error.Wrap(err)
 	}
-	if len(nodeData) == 0 {
-		return latestTally, nodeData, nil
-	}
 
 	if currentBucket != "" {
 		// wrap up the last bucket
-		currentBucketStats.Report("bucket")
 		totalStats.Combine(&currentBucketStats)
 	}
 	totalStats.Report("total")
 	mon.IntVal("bucket_count").Observe(bucketCount)
+
+	if len(nodeData) == 0 {
+		return latestTally, nodeData, nil
+	}
 
 	//store byte hours, not just bytes
 	numHours := time.Now().Sub(latestTally).Hours()
