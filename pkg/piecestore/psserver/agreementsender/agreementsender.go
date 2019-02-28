@@ -102,7 +102,7 @@ func (as *AgreementSender) SendAgreementsToSatellite(ctx context.Context, satID 
 			}
 		}
 		// Delete from PSDB by signature
-		if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {
+		if err = as.DB.DeleteBandwidthAllocationBySerialnum(rba.PayerAllocation.SerialNumber); err != nil {
 			as.log.Error("Agreementsender failed to delete bandwidth allocation", zap.Error(err))
 		}
 	}

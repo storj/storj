@@ -19,9 +19,9 @@ import (
 	"storj.io/storj/satellite/satellitedb"
 )
 
-// generateCSV generates a payment report for all nodes for a given period
+// generateCSV creates a report with node usage data for all nodes in a given period which can be used for payments
 func generateCSV(ctx context.Context, start time.Time, end time.Time, output io.Writer) error {
-	db, err := satellitedb.New(zap.L().Named("db"), paymentsCfg.Database)
+	db, err := satellitedb.New(zap.L().Named("db"), nodeUsageCfg.Database)
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
@@ -69,7 +69,7 @@ func generateCSV(ctx context.Context, start time.Time, end time.Time, output io.
 	}
 	w.Flush()
 	if output != os.Stdout {
-		fmt.Println("Generated payment report")
+		fmt.Println("Generated node usage report for payments")
 	}
 	return err
 }

@@ -21,7 +21,7 @@ import (
 // RetrieveError is a type of error for failures in Server.Retrieve()
 var RetrieveError = errs.Class("retrieve error")
 
-// Retrieve -- Retrieve data from piecestore and send to client
+// Retrieve servers data from piecestore and sends to client
 func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)

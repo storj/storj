@@ -10,6 +10,7 @@ import (
 	"crypto/sha512"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,7 +36,7 @@ var (
 	ServerError = errs.Class("PSServer error")
 )
 
-//DirSize returns the total size of the files in that directory
+// DirSize returns the total size of the files in that directory
 func DirSize(path string) (int64, error) {
 	var size int64
 	_, err := os.Stat(path)
@@ -53,11 +54,29 @@ func DirSize(path string) (int64, error) {
 	return size, err
 }
 
-// Server -- GRPC server meta data used in route calls
+// Storage describes storing blobs on disk
+type Storage interface {
+	// Writer returns a writer for the specified pieceID
+	Writer(pieceID string) (io.WriteCloser, error)
+	// Reader returns a reader for the specified pieceID
+	Reader(ctx context.Context, pieceID string, offset int64, length int64) (io.ReadCloser, error)
+	// Delete deletes the specified pieceID
+	Delete(pieceID string) error
+
+	// Close closes the underlying database.
+	Close() error
+
+	// PiecePath returns path of the specified piece on disk.
+	PiecePath(pieceID string) (string, error)
+	// Info returns the current status of the disk.
+	Info() (pstore.DiskInfo, error)
+}
+
+// Server implements serving and storing pieces
 type Server struct {
 	startTime        time.Time
 	log              *zap.Logger
-	storage          *pstore.Storage
+	storage          Storage
 	DB               *psdb.DB
 	identity         *identity.FullIdentity
 	totalAllocated   int64 // TODO: use memory.Size
@@ -67,7 +86,7 @@ type Server struct {
 }
 
 // NewEndpoint creates a new endpoint
-func NewEndpoint(log *zap.Logger, config Config, storage *pstore.Storage, db *psdb.DB, identity *identity.FullIdentity, k *kademlia.Kademlia) (*Server, error) {
+func NewEndpoint(log *zap.Logger, config Config, storage Storage, db *psdb.DB, identity *identity.FullIdentity, k *kademlia.Kademlia) (*Server, error) {
 	// read the allocated disk space from the config file
 	allocatedDiskSpace := config.AllocatedDiskSpace.Int64()
 	allocatedBandwidth := config.AllocatedBandwidth.Int64()
@@ -156,7 +175,7 @@ func (s *Server) Stop(ctx context.Context) error {
 	)
 }
 
-// Piece -- Send meta data about a piece stored by Id
+// Piece servers meta information about a piece.
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
 	s.log.Debug("Getting Meta", zap.String("Piece ID", in.GetId()))
 
@@ -185,7 +204,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 	return &pb.PieceSummary{Id: in.GetId(), PieceSize: fileInfo.Size(), ExpirationUnixSec: ttl}, nil
 }
 
-// Stats will return statistics about the Server
+// Stats returns current statistics about the server.
 func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, error) {
 	s.log.Debug("Getting Stats...")
 
@@ -241,7 +260,7 @@ func (s *Server) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_Dashb
 	}
 }
 
-// Delete -- Delete data by Id from piecestore
+// Delete deletes data based on the specified ID.
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
 	s.log.Debug("Deleting", zap.String("Piece ID", fmt.Sprint(in.GetId())))
 
