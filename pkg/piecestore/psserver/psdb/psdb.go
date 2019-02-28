@@ -208,7 +208,7 @@ func (db *DB) DeleteExpired(ctx context.Context) (expired []string, err error) {
 
 	now := time.Now().Unix()
 
-	rows, err := tx.Query("SELECT id FROM ttl WHERE 0 < expires AND ? < expires", now)
+	rows, err := tx.Query("SELECT id FROM ttl WHERE expires > 0 AND expires < ?", now)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func (db *DB) DeleteExpired(ctx context.Context) (expired []string, err error) {
 		return nil, err
 	}
 
-	_, err = tx.Exec(`DELETE FROM ttl WHERE 0 < expires AND ? < expires`, now)
+	_, err = tx.Exec(`DELETE FROM ttl WHERE expires > 0 AND expires < ?`, now)
 	if err != nil {
 		return nil, err
 	}
