@@ -8,18 +8,12 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-//RBA hides the protocol buffer nature of RenterBandwidthAllocation
-type RBA RenterBandwidthAllocation
-
-//Order implements signing and custom protobuf serialization
-type Order struct {
-	RBA
-	SignedMessage
-}
+//Order hides the protocol buffer nature of RenterBandwidthAllocation
+type Order RenterBandwidthAllocation
 
 //Message returns the base message of this signed type
 func (m *Order) Message() proto.Message {
-	return (*RenterBandwidthAllocation)(&m.RBA)
+	return (*RenterBandwidthAllocation)(m)
 }
 
 //Signed returns the signing data for this signed type

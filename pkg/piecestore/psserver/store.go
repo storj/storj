@@ -66,7 +66,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("failed to write piece meta data to database: %v", utils.CombineErrors(err, deleteErr))
 	}
 
-	signedHash := pb.SignedHash{NonProtoHash: pb.NonProtoHash{Hash: hash}}
+	signedHash := pb.SignedHash{Hash: hash}
 	err = signedHash.Sign(s.identity.Key)
 	if err != nil {
 		return err

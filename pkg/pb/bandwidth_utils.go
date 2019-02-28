@@ -41,7 +41,7 @@ func Equal(msg1, msg2 proto.Message) bool {
 
 // Clone creates a deep copy of PayerBandwidthAllocation
 func (m *OrderLimit) Clone() (pba OrderLimit) {
-	pba = OrderLimit{PBA: PBA{
+	pba = OrderLimit{
 		SatelliteId:       m.SatelliteId,
 		UplinkId:          m.UplinkId,
 		MaxSize:           m.MaxSize,
@@ -49,15 +49,12 @@ func (m *OrderLimit) Clone() (pba OrderLimit) {
 		SerialNumber:      m.SerialNumber,
 		Action:            m.Action,
 		CreatedUnixSec:    m.CreatedUnixSec,
-	}, SignedMessage: SignedMessage{
-		Data:      m.Data,
-		Signature: m.Signature,
-		Certs:     m.Certs,
-	}}
-	pba.Certs = make([][]byte, len(m.Certs))
-	copy(pba.Certs, m.Certs)
-	pba.Signature = make([]byte, len(m.Signature))
-	copy(pba.Signature, m.Signature)
-
+	}
+	pba.SignedMessage.Data = make([]byte, len(m.SignedMessage.Data))
+	copy(pba.SignedMessage.Data, m.SignedMessage.Data)
+	pba.SignedMessage.Certs = make([][]byte, len(m.SignedMessage.Certs))
+	copy(pba.SignedMessage.Certs, m.SignedMessage.Certs)
+	pba.SignedMessage.Signature = make([]byte, len(m.SignedMessage.Signature))
+	copy(pba.SignedMessage.Signature, m.SignedMessage.Signature)
 	return pba
 }

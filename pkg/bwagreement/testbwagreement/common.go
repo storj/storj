@@ -19,25 +19,25 @@ func GenerateOrderLimit(action pb.BandwidthAction, satID *identity.FullIdentity,
 	if err != nil {
 		return nil, err
 	}
-	pba := &pb.OrderLimit{PBA: pb.PBA{
+	pba := &pb.OrderLimit{
 		SatelliteId:       satID.ID,
 		UplinkId:          upID.ID,
 		ExpirationUnixSec: time.Now().Add(expiration).Unix(),
 		SerialNumber:      serialNum.String(),
 		Action:            action,
 		CreatedUnixSec:    time.Now().Unix(),
-	}}
+	}
 
 	return pba, pba.Sign(satID.Key)
 }
 
 //GenerateOrder creates a signed Order from a OrderLimit
 func GenerateOrder(pba *pb.OrderLimit, storageNodeID storj.NodeID, upID *identity.FullIdentity, total int64) (*pb.Order, error) {
-	rba := &pb.Order{RBA: pb.RBA{
+	rba := &pb.Order{
 		OrderLimit:    *pba,
 		StorageNodeId: storageNodeID,
 		Total:         total,
-	}}
+	}
 	// Combine Signature and Data for Order
 	return rba, rba.Sign(upID.Key)
 }

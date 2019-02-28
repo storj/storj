@@ -8,18 +8,12 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-//PBA hides the protocol buffer nature of PayerBandwidthAllocation
-type PBA PayerBandwidthAllocation
-
-//OrderLimit implements signing and custom protobuf serialization
-type OrderLimit struct {
-	PBA
-	SignedMessage
-}
+//OrderLimit hides the protocol buffer nature of PayerBandwidthAllocation
+type OrderLimit PayerBandwidthAllocation
 
 //Message returns the base message of this signed type
 func (m *OrderLimit) Message() proto.Message {
-	return (*PayerBandwidthAllocation)(&m.PBA)
+	return (*PayerBandwidthAllocation)(m)
 }
 
 //Signed returns the signing data for this signed type

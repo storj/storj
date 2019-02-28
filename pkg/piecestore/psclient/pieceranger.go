@@ -67,10 +67,10 @@ func (r *pieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadC
 	// of this instance at the same time.
 	pbaClone := r.pba.Clone()
 
-	rba := pb.Order{RBA: pb.RBA{
+	rba := pb.Order{
 		OrderLimit:    pbaClone,
 		StorageNodeId: r.c.remoteID,
-	}}
+	}
 
 	// send piece data
 	if err := r.stream.Send(&pb.PieceRetrieval{

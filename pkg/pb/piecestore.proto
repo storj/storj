@@ -36,6 +36,7 @@ message PayerBandwidthAllocation { // Payer refers to satellite
   string serial_number = 5;      // Unique serial number
   BandwidthAction action = 6;    // GET or PUT
   int64 created_unix_sec = 7;    // Unix timestamp for when PayerbandwidthAllocation was create
+  SignedMessage signed_data = 8 [(gogoproto.nullable) = false, (gogoproto.embed) = true];
 }
 
 //RenterBandwidthAllocation is always serialized as SignedMessage
@@ -43,6 +44,7 @@ message RenterBandwidthAllocation { // Renter refers to uplink
   SignedMessage order_limit = 1 [(gogoproto.customtype) = "OrderLimit", (gogoproto.nullable) = false]; // Order limit from Satellite
   int64 total = 2;                               // Total Bytes Stored
   bytes storage_node_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Storage Node Identity
+  SignedMessage signed_data = 4 [(gogoproto.nullable) = false, (gogoproto.embed) = true];
 }
 
 message PieceStore {
@@ -132,4 +134,5 @@ message DashboardStats {
 //Hash is always serialized as SignedMessage
 message Hash {
   bytes hash = 1;
+  SignedMessage signed_data = 2 [(gogoproto.nullable) = false, (gogoproto.embed) = true];
 }
