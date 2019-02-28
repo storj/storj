@@ -176,11 +176,11 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, node *pb.Node, pieceID
 		if parent.Err() == context.Canceled {
 			zap.S().Infof("Upload to node %s canceled by user.", node.Id)
 		} else {
+			err = ec.Delete(context.Background(), []*pb.Node{node}, pieceID, pba.SatelliteId)
 			zap.S().Infof("Node %s cut from upload due to slow connection.", node.Id)
 		}
 
-		errDelete := ec.Delete(context.Background(), []*pb.Node{node}, pieceID, pba.SatelliteId)
-		err = errs.Combine(context.Canceled, errDelete)
+		err = errs.Combine(context.Canceled, err)
 	} else if err != nil {
 		nodeAddress := "nil"
 		if node.Address != nil {
