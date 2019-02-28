@@ -12,6 +12,7 @@ FROM storjlabs/golang as identity-build-env
 FROM alpine
 ENV CONF_PATH=/root/.local/share/storj/storagenode \
     IDENT_PATH=/root/.local/share/storj/identity/storagenode \
+    CERT_DIFFICULTY=30 \
     SATELLITE_ADDR=
 EXPOSE 28967
 WORKDIR /app

@@ -23,9 +23,7 @@ EXPOSE 7777
 EXPOSE 10100
 WORKDIR /app
 VOLUME /root/.local/share/storj/satellite
-COPY /web/satellite /app
+COPY --from=satellite-ui /app/ /app
 COPY --from=build-env /app /app/satellite
 COPY /cmd/satellite/entrypoint /entrypoint
-COPY --from=satellite-ui /app/dist /app/dist
-COPY --from=satellite-ui /app/static /app/static
 ENTRYPOINT ["/entrypoint"]
