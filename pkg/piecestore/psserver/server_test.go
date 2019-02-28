@@ -17,12 +17,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -83,13 +80,8 @@ func TestPiece(t *testing.T) {
 			require.NoError(t, err)
 
 			// simulate piece TTL entry
-			_, err = server.DB.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, namespacedID, 1234567890, tt.expiration))
-			require.NoError(t, err)
-
-			defer func() {
-				_, err := server.DB.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, namespacedID))
-				require.NoError(t, err)
-			}()
+			require.NoError(t, server.DB.AddTTL(namespacedID, tt.expiration, tt.size))
+			defer func() { require.NoError(t, server.DB.DeleteTTLByID(namespacedID)) }()
 
 			req := &pb.PieceId{Id: tt.id, SatelliteId: snID.ID}
 			resp, err := client.Piece(ctx, req)
@@ -294,7 +286,6 @@ func TestStore(t *testing.T) {
 			snID, upID := newTestIdentity(ctx, t), newTestIdentity(ctx, t)
 			server, client, cleanup := NewTest(ctx, t, snID, upID, tt.whitelist)
 			defer cleanup()
-			db := server.DB.DB
 
 			sum := sha256.Sum256(tt.content)
 			expectedHash := sum[:]
@@ -332,34 +323,21 @@ func TestStore(t *testing.T) {
 				return
 			}
 
-			defer func() {
-				_, err := db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
-				require.NoError(t, err)
-			}()
-
-			// check db to make sure agreement and signature were stored correctly
-			rows, err := db.Query(`SELECT agreement, signature FROM bandwidth_agreements`)
 			require.NoError(t, err)
-
-			defer func() { require.NoError(t, rows.Close()) }()
-			for rows.Next() {
-				var agreement, signature []byte
-				err = rows.Scan(&agreement, &signature)
-				require.NoError(t, err)
-				rba := &pb.Order{}
-				require.NoError(t, proto.Unmarshal(agreement, rba))
-				require.Equal(t, msg.BandwidthAllocation.GetSignature(), signature)
-				require.True(t, pb.Equal(pba, &rba.PayerAllocation))
-				require.Equal(t, int64(len(tt.content)), rba.Total)
-
+			if assert.NotNil(t, resp) {
+				assert.Equal(t, tt.message, resp.Message)
+				assert.Equal(t, tt.totalReceived, resp.TotalReceived)
+				assert.Equal(t, expectedHash, resp.SignedHash.Hash)
+				assert.NotNil(t, resp.SignedHash.Signature)
 			}
-			err = rows.Err()
+
+			allocations, err := server.DB.GetBandwidthAllocationBySignature(rba.Signature)
 			require.NoError(t, err)
-			require.NotNil(t, resp)
-			require.Equal(t, tt.message, resp.Message)
-			require.Equal(t, tt.totalReceived, resp.TotalReceived)
-			require.Equal(t, expectedHash, resp.SignedHash.Hash)
-			require.NotNil(t, resp.SignedHash.Signature)
+			require.NotNil(t, allocations)
+			for _, allocation := range allocations {
+				require.Equal(t, msg.BandwidthAllocation.GetSignature(), allocation.Signature)
+				require.Equal(t, int64(len(tt.content)), rba.Total)
+			}
 		})
 	}
 }
@@ -461,8 +439,6 @@ func TestDelete(t *testing.T) {
 	server, client, cleanup := NewTest(ctx, t, snID, upID, []storj.NodeID{})
 	defer cleanup()
 
-	db := server.DB.DB
-
 	pieceID := "11111111111111111111"
 	namespacedID, err := getNamespacedPieceID([]byte(pieceID), snID.ID.Bytes())
 	require.NoError(t, err)
@@ -472,15 +448,8 @@ func TestDelete(t *testing.T) {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
-
-	// simulate piece TTL entry
-	_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, namespacedID, 1234567890, 1234567890))
-	require.NoError(t, err)
-
-	defer func() {
-		_, err := db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, namespacedID))
-		require.NoError(t, err)
-	}()
+	require.NoError(t, server.DB.AddTTL(namespacedID, 1234567890, 1234567890))
+	defer func() { require.NoError(t, server.DB.DeleteTTLByID(namespacedID)) }()
 
 	resp, err := client.Delete(ctx, &pb.PieceDelete{
 		Id:          pieceID,
@@ -515,7 +484,7 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	psDB, err := psdb.Open(tempDBPath)
 	require.NoError(t, err)
 
-	err = psDB.Migration().Run(zap.NewNop(), psDB)
+	err = psDB.Migration().Run(zaptest.NewLogger(t), psDB)
 	require.NoError(t, err)
 
 	whitelist := make(map[storj.NodeID]crypto.PublicKey)

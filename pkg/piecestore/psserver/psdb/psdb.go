@@ -349,22 +349,15 @@ func (db *DB) GetTTLByID(id string) (expiration int64, err error) {
 }
 
 // SumTTLSizes sums the size column on the ttl table
-func (db *DB) SumTTLSizes() (sum int64, err error) {
+func (db *DB) SumTTLSizes() (int64, error) {
 	defer db.locked()()
 
-	var count int
-	rows := db.DB.QueryRow("SELECT COUNT(*) as count FROM ttl")
-	err = rows.Scan(&count)
-	if err != nil {
-		return 0, err
-	}
-
-	if count == 0 {
+	var sum *int64
+	err := db.DB.QueryRow(`SELECT SUM(size) FROM ttl;`).Scan(&sum)
+	if err == sql.ErrNoRows || sum == nil {
 		return 0, nil
 	}
-
-	err = db.DB.QueryRow(`SELECT SUM(size) FROM ttl;`).Scan(&sum)
-	return sum, err
+	return *sum, err
 }
 
 // DeleteTTLByID finds the TTL in the database by id and delete it
@@ -384,7 +377,7 @@ func (db *DB) GetBandwidthUsedByDay(t time.Time) (size int64, err error) {
 }
 
 // GetTotalBandwidthBetween each row in the bwusagetbl contains the total bw used per day
-func (db *DB) GetTotalBandwidthBetween(startdate time.Time, enddate time.Time) (totalbwusage int64, err error) {
+func (db *DB) GetTotalBandwidthBetween(startdate time.Time, enddate time.Time) (int64, error) {
 	defer db.locked()()
 
 	startTimeUnix := time.Date(startdate.Year(), startdate.Month(), startdate.Day(), 0, 0, 0, 0, startdate.Location()).Unix()
@@ -392,22 +385,15 @@ func (db *DB) GetTotalBandwidthBetween(startdate time.Time, enddate time.Time) (
 	defaultunixtime := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Now().Location()).Unix()
 
 	if (endTimeUnix < startTimeUnix) && (startTimeUnix > defaultunixtime || endTimeUnix > defaultunixtime) {
-		return totalbwusage, errors.New("Invalid date range")
+		return 0, errors.New("Invalid date range")
 	}
 
-	var count int
-	rows := db.DB.QueryRow("SELECT COUNT(*) as count FROM bandwidth_agreements")
-	err = rows.Scan(&count)
-	if err != nil {
-		return 0, err
-	}
-
-	if count == 0 {
+	var totalUsage *int64
+	err := db.DB.QueryRow(`SELECT SUM(COALESCE(total, 0)) FROM bandwidth_agreements WHERE daystart_utc_sec BETWEEN ? AND ?`, startTimeUnix, endTimeUnix).Scan(&totalUsage)
+	if err == sql.ErrNoRows || totalUsage == nil {
 		return 0, nil
 	}
-
-	err = db.DB.QueryRow(`SELECT SUM(total) FROM bandwidth_agreements WHERE daystart_utc_sec BETWEEN ? AND ?`, startTimeUnix, endTimeUnix).Scan(&totalbwusage)
-	return totalbwusage, err
+	return *totalUsage, err
 }
 
 // Begin begins transaction
