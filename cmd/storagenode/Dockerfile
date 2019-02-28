@@ -1,7 +1,12 @@
 ARG CGO_ENABLED=1
 ARG REPOSITORY=../storj.io/storj
 ARG PACKAGE=storj.io/storj/cmd/storagenode
-FROM storjlabs/golang as build-env
+FROM storjlabs/golang as storagenode-build-env
+
+ARG CGO_ENABLED=1
+ARG REPOSITORY=../storj.io/storj
+ARG PACKAGE=storj.io/storj/cmd/identity
+FROM storjlabs/golang as identity-build-env
 
 # final stage
 FROM alpine
@@ -10,6 +15,7 @@ ENV CONF_PATH=/root/.local/share/storj/storagenode \
 EXPOSE 28967
 WORKDIR /app
 VOLUME /root/.local/share/storj/storagenode
-COPY --from=build-env /app /app/storagenode
+COPY --from=storagenode-build-env /app /app/storagenode
+COPY --from=identity-build-env /app /app/identity
 COPY cmd/storagenode/entrypoint /entrypoint
 ENTRYPOINT ["/entrypoint"]

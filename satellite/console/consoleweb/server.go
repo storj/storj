@@ -6,6 +6,7 @@ package consoleweb
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -61,6 +62,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, list
 		config:   config,
 		listener: listener,
 	}
+
+	log.Printf("Starting Satellite UI...")
 
 	mux := http.NewServeMux()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
