@@ -468,13 +468,6 @@ func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDLis
 	return m.db.GetAll(ctx, nodeIDs)
 }
 
-// GetWalletAddress gets the node's wallet address
-func (m *lockedOverlayCache) GetWalletAddress(ctx context.Context, id storj.NodeID) (string, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetWalletAddress(ctx, id)
-}
-
 // List lists nodes starting from cursor
 func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
 	m.Lock()
