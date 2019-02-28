@@ -58,7 +58,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 		for satellite, agreements := range agreementGroups {
 			as.SendAgreementsToSatellite(ctx, satellite, agreements)
 		}
-		return err
+		return nil
 	})
 }
 
