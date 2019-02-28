@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/storj"
 )
 
 func TestSendAgreementsToSatellite(t *testing.T) {
@@ -41,46 +42,77 @@ func TestSendAgreementsToSatellite(t *testing.T) {
 	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test/bucket", "test/path/first", data)
 	assert.NoError(t, err)
 
-	numOfAllocations := 0
+	putAllocation := make(map[storj.NodeID]int64)
 	for _, node := range planet.StorageNodes {
 		allocations, err := node.DB.PSDB().GetBandwidthAllocations()
 		assert.NoError(t, err)
-		numOfAllocations += len(allocations)
+
+		allocPerSat := allocations[planet.Satellites[0].ID()]
+		if len(allocPerSat) > 0 {
+			assert.Equal(t, 1, len(allocPerSat))
+			putAllocation[node.ID()] = allocPerSat[0].Agreement.Total
+		}
 	}
 
 	for _, node := range planet.StorageNodes {
 		node.Agreements.Sender.Loop.Trigger()
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
+
+	// check if agreements were deleted from storage node
+	for _, node := range planet.StorageNodes {
+		allocations, err := node.DB.PSDB().GetBandwidthAllocations()
+		assert.NoError(t, err)
+		assert.Equal(t, 0, len(allocations))
+	}
 
 	satAgreements := planet.Satellites[0].DB.BandwidthAgreement()
-	firstSatAllocs, err := satAgreements.GetTotals(ctx, before, time.Now())
+
+	satAllocs, err := satAgreements.GetTotals(ctx, before, time.Now())
 	assert.NoError(t, err)
-	assert.Equal(t, numOfAllocations, len(firstSatAllocs))
+	for node, nodeTotal := range putAllocation {
+		satTotal := satAllocs[node]
+		assert.NotNil(t, satTotal)
+		// 0 in array is PUT
+		assert.Equal(t, nodeTotal, satTotal[0])
+	}
 
 	// sending second file
 	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test/bucket", "test/path/second", data)
 	assert.NoError(t, err)
 
-	numOfAllocations = 0
 	for _, node := range planet.StorageNodes {
 		allocations, err := node.DB.PSDB().GetBandwidthAllocations()
 		assert.NoError(t, err)
-		numOfAllocations += len(allocations)
+
+		allocPerSat := allocations[planet.Satellites[0].ID()]
+		if len(allocPerSat) > 0 {
+			assert.Equal(t, 1, len(allocPerSat))
+			// sum with previous upload PUTs
+			putAllocation[node.ID()] += allocPerSat[0].Agreement.Total
+		}
 	}
 
 	for _, node := range planet.StorageNodes {
 		node.Agreements.Sender.Loop.Trigger()
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
-	satAgreements = planet.Satellites[0].DB.BandwidthAgreement()
-	secondSatAllocs, err := satAgreements.GetTotals(ctx, before, time.Now())
+	// check if agreements were deleted from storage node
+	for _, node := range planet.StorageNodes {
+		allocations, err := node.DB.PSDB().GetBandwidthAllocations()
+		assert.NoError(t, err)
+		assert.Equal(t, 0, len(allocations))
+	}
+
+	satAllocs, err = satAgreements.GetTotals(ctx, before, time.Now())
 	assert.NoError(t, err)
-	aa := len(secondSatAllocs)
-	aaa := len(firstSatAllocs)
-	assert.True(t, aa > aaa)
-	assert.Equal(t, numOfAllocations, len(secondSatAllocs))
+	for node, nodeTotal := range putAllocation {
+		satTotal := satAllocs[node]
+		assert.NotNil(t, satTotal)
+		// 0 in array is PUT
+		assert.Equal(t, nodeTotal, satTotal[0])
+	}
 }
