@@ -17,6 +17,6 @@ RUN_PARAMS="${RUN_PARAMS:-} --kademlia.operator.email=${EMAIL}"
 RUN_PARAMS="${RUN_PARAMS:-} --kademlia.operator.wallet=${WALLET}"
 RUN_PARAMS="${RUN_PARAMS:-} --storage.allocated-bandwidth=${BANDWIDTH}"
 RUN_PARAMS="${RUN_PARAMS:-} --storage.allocated-disk-space=${STORAGE}"
-RUN_PARAMS="${RUN_PARAMS:-} --storage.whitelisted-satellite-i-ds=12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S,1Vrf9xmmHw6KaVFMcfR2YPt8YpVVoQZGTUJyjYc6CajeYrAqrB"
+RUN_PARAMS="${RUN_PARAMS:-} --storage.whitelisted-satellite-i-ds=12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S,1Vrf9xmmHw6KaVFMcfR2YPt8YpVVoQZGTUJyjYc6CajeYrAqrB,118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW"
 
 exec ./storagenode run $RUN_PARAMS "$@"
