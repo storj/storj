@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
@@ -38,7 +37,6 @@ func getNodeStats(nodeID storj.NodeID, dbNode *dbx.Node) *statdb.NodeStats {
 		UptimeRatio:        dbNode.UptimeRatio,
 		UptimeSuccessCount: dbNode.UptimeSuccessCount,
 		UptimeCount:        dbNode.TotalUptimeCount,
-		Operator:           pb.NodeOperator{},
 	}
 	return nodeStats
 }
@@ -219,6 +217,40 @@ func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (s
 
 	nodeStats := getNodeStats(nodeID, dbNode)
 	return nodeStats, Error.Wrap(tx.Commit())
+}
+
+// UpdateStats takes a NodeStats struct and updates the appropriate node with that information
+func (s *statDB) UpdateOperator(ctx context.Context, updateStats *statdb.NodeStats) (stats *statdb.NodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if updateStats.NodeID.String() == "" {
+		return nil, Error.Wrap(err)
+	}
+
+	tx, err := s.db.Open(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(updateStats.NodeID.Bytes()))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	updateFields := dbx.Node_Update_Fields{
+		Wallet: dbx.Node_Wallet(updateStats.Operator.GetWallet()),
+		Email:  dbx.Node_Email(updateStats.Operator.GetEmail()),
+	}
+
+	updatedDBNode, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(updateStats.NodeID.Bytes()), updateFields)
+
+	if err != nil {
+		return nil, Error.Wrap(tx.Rollback())
+	}
+
+	updatedStats := getNodeStats(updateStats.NodeID, updatedDBNode)
+
+	return stats, utils.CombineErrors(err, tx.Commit())
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db

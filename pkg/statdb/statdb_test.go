@@ -143,6 +143,27 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 		assert.Len(t, invalid, 3)
 	}
 
+	{ // TestUpdateOperator
+
+		nodeID := storj.NodeID{5555555}
+		stats, err := sdb.CreateEntryIfNotExists(ctx, nodeID)
+		assert.NoError(t, err)
+
+		assert.Equal(t, stats.Operator.Wallet, "")
+		assert.Equal(t, stats.Operator.Email, "")
+
+		updatedStats := &statdb.NodeStats{
+			Operator: pb.NodeOperator{
+				Wallet: "0x1111111111111111111111111111111111111111",
+				Email:  "abc123@gmail.com",
+			},
+		}
+
+		updated, err := sdb.UpdateOperator(ctx, updatedStats)
+		assert.NoError(t, err)
+		assert.Equal(t, updated.Operator.Wallet, updatedStats.Operator.Wallet)
+	}
+
 	{ // TestUpdateExists
 		auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
 		uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
